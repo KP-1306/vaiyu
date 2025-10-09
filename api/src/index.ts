@@ -6,7 +6,7 @@ const app = Fastify({ logger: true })
 const PORT = Number(process.env.PORT || 4000)
 const ORIGIN = (process.env.CORS_ORIGIN || '*').split(',')
 
-// Demo data
+// Demo data.
 const hotel = { slug: 'sunrise', name: 'Sunrise Resort', description: 'Hill-view stay powered by VAiyu' }
 const services = [
   { key: 'towel', label_en: 'Towel', sla_minutes: 25 },

@@ -6,17 +6,30 @@ export default function Menu() {
   const [services, setServices] = useState<any[]>([]);
   const [menu, setMenu] = useState<any[]>([]);
 
+  // NEW: room picker + toast
+  const [room, setRoom] = useState<string>(() => localStorage.getItem("room") || "201");
+  const [toast, setToast] = useState<string>("");
+
   useEffect(() => {
     api.services("TENANT1").then((r: any) => setServices(r.items || []));
     api.menu("TENANT1").then((r: any) => setMenu(r.items || []));
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem("room", room);
+  }, [room]);
+
+  function showToast(msg: string) {
+    setToast(msg);
+    window.setTimeout(() => setToast(""), 1500);
+  }
 
   // Create a service ticket and navigate to the tracker
   async function requestService(service_key: string) {
     try {
       const payload = {
         service_key,
-        room: "201", // TODO: make selectable later
+        room,               // <-- uses selected room
         booking: "DEMO",
         tenant: "guest",
       };
@@ -47,11 +60,11 @@ export default function Menu() {
     }
   }
 
-  // (unchanged) create a food order
+  // create a food order
   async function addFood(item_key: string) {
     try {
       await api.createOrder({ item_key, qty: 1, booking: "DEMO" });
-      // optional: alert("Added to order");
+      showToast("Added to order");
     } catch (e: any) {
       alert(`Could not add item: ${e?.message || e}`);
     }
@@ -59,23 +72,41 @@ export default function Menu() {
 
   return (
     <main className="max-w-xl mx-auto p-4">
-      <div className="flex gap-2 mb-4">
-        <button
-          onClick={() => setTab("services")}
-          className={`px-3 py-2 rounded ${
-            tab === "services" ? "bg-sky-500 text-white" : "bg-white shadow"
-          }`}
-        >
-          Services
-        </button>
-        <button
-          onClick={() => setTab("food")}
-          className={`px-3 py-2 rounded ${
-            tab === "food" ? "bg-sky-500 text-white" : "bg-white shadow"
-          }`}
-        >
-          Food
-        </button>
+      {/* Tabs + Room selector */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setTab("services")}
+            className={`px-3 py-2 rounded ${
+              tab === "services" ? "bg-sky-500 text-white" : "bg-white shadow"
+            }`}
+          >
+            Services
+          </button>
+          <button
+            onClick={() => setTab("food")}
+            className={`px-3 py-2 rounded ${
+              tab === "food" ? "bg-sky-500 text-white" : "bg-white shadow"
+            }`}
+          >
+            Food
+          </button>
+        </div>
+
+        <label className="text-sm text-gray-600">
+          Room:{" "}
+          <select
+            value={room}
+            onChange={(e) => setRoom(e.target.value)}
+            className="border rounded px-2 py-1"
+          >
+            {["201", "202", "203", "204", "205"].map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {tab === "services" && (
@@ -120,6 +151,13 @@ export default function Menu() {
             </li>
           ))}
         </ul>
+      )}
+
+      {/* Tiny toast */}
+      {toast && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-black/80 text-white px-3 py-1 rounded">
+          {toast}
+        </div>
       )}
     </main>
   );

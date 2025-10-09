@@ -2,14 +2,13 @@
   "compilerOptions": {
     "target": "ES2020",
     "module": "ES2020",
-    "moduleResolution": "Bundler",
+    "moduleResolution": "Node",   // ← change from Bundler to Node
     "outDir": "dist",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "types": ["node"]             // ← let TS load node typings
   },
-  "include": [
-    "src"
-  ]
+  "include": ["src"]
 }

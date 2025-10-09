@@ -1,0 +1,1 @@
+export default function Maint(){return <main className='max-w-xl mx-auto p-6'>Maint placeholder</main>}

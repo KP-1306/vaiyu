@@ -1,0 +1,1 @@
+export default function RequestTracker(){return <main className='max-w-xl mx-auto p-6'>Request timeline placeholder</main>}

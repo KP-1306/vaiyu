@@ -1,0 +1,1 @@
+export default function Checkout(){return <main className='max-w-xl mx-auto p-6'>Checkout placeholder</main>}

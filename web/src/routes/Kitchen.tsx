@@ -1,0 +1,1 @@
+export default function Kitchen(){return <main className='max-w-xl mx-auto p-6'>Kitchen placeholder</main>}

@@ -1,0 +1,1 @@
+export default function Desk(){return <main className='max-w-xl mx-auto p-6'>Desk placeholder</main>}

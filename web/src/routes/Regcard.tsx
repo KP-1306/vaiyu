@@ -1,0 +1,1 @@
+export default function Regcard(){return <main className='max-w-xl mx-auto p-6'>Regcard placeholder</main>}

@@ -104,7 +104,15 @@ app.post('/payments/webhook', async () => {
 })
 
 async function start () {
-  await app.register(cors, { origin: ORIGIN })
+  // before:
+// await app.register(cors, { origin: ORIGIN })
+
+// after:
+await app.register(cors, {
+  origin: ORIGIN,
+  methods: ['GET', 'POST', 'PATCH', 'OPTIONS']
+})
+
   app.listen({ port: PORT, host: '0.0.0.0' }, (err, addr) => {
     if (err) { app.log.error(err); process.exit(1) }
     app.log.info(`API listening on ${addr}`)

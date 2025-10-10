@@ -44,8 +44,8 @@ type Review = {
   verified: boolean
   created_at: string
   guest_name?: string
-  source: 'guest' | 'auto'           // who authored it
-  anchors?: {                        // why we chose the rating/text
+  source: 'guest' | 'auto'
+  anchors?: {
     tickets: number
     orders: number
     onTime: number
@@ -53,6 +53,18 @@ type Review = {
     avgMins: number
     details?: string[]
   }
+}
+
+// NEW: richer, owner-facing summary object
+type ExperienceSummary = {
+  bookingCode: string
+  guest_name?: string
+  hotel_slug: string
+  kpis: { onTime: number; late: number; avgMins: number; tickets: number; orders: number }
+  perService?: Array<{ service_key: string; count: number; late: number; avgMins: number }>
+  narrative: { title: string; body: string }
+  anchors: NonNullable<Review['anchors']>
+  policyHints?: string[]
 }
 
 const hotel: Hotel = {
@@ -113,49 +125,47 @@ let tickets: Ticket[] = []
 let orders: any[] = []
 let folio: any = { lines: [{ description: 'Room (EP)', amount: 2800 }], total: 2800 }
 
+// -------------------------------
 // Helpers
+// -------------------------------
 const nowISO = () => new Date().toISOString()
 const addMinutes = (iso: string, mins: number) => new Date(new Date(iso).getTime() + mins * 60000).toISOString()
-
-// NEW: helper to compute minutes between two ISO timestamps
 function minutesBetween(a: string, b: string) {
-  return Math.round((new Date(b).getTime() - new Date(a).getTime()) / 60000);
+  return Math.round((new Date(b).getTime() - new Date(a).getTime()) / 60000)
 }
 
-// NEW: build a truth-anchored review draft from activity (tickets/orders)
 function buildReviewDraftFromActivity(bookingCode: string) {
-  const b = bookings.find(x => x.code === bookingCode);
-  if (!b) return { error: 'Booking not found' };
+  const b = bookings.find(x => x.code === bookingCode)
+  if (!b) return { error: 'Booking not found' }
 
-  const tix = tickets.filter(t => t.booking === bookingCode);
-  let onTime = 0, late = 0, avgMins = 0;
-  const details: string[] = [];
+  const tix = tickets.filter(t => t.booking === bookingCode)
+  let onTime = 0, late = 0, avgMins = 0
+  const details: string[] = []
 
   tix.forEach(t => {
-    const end = t.done_at || t.started_at || t.accepted_at || t.created_at;
-    const mins = minutesBetween(t.created_at, end!);
-    avgMins += mins;
-    const breached = new Date(end!) > new Date(t.sla_deadline);
-    breached ? late++ : onTime++;
-    details.push(`• ${t.service_key} for room ${t.room} — ${mins} min, ${breached ? 'late vs SLA' : 'on time'}`);
-  });
-  if (tix.length) avgMins = Math.round(avgMins / tix.length);
+    const end = t.done_at || t.started_at || t.accepted_at || t.created_at
+    const mins = minutesBetween(t.created_at, end!)
+    avgMins += mins
+    const breached = new Date(end!) > new Date(t.sla_deadline)
+    breached ? late++ : onTime++
+    details.push(`• ${t.service_key} for room ${t.room} — ${mins} min, ${breached ? 'late vs SLA' : 'on time'}`)
+  })
+  if (tix.length) avgMins = Math.round(avgMins / tix.length)
 
-  const ords = orders.filter(o => o.booking === bookingCode || o.stay_code === bookingCode);
+  const ords = orders.filter(o => o.booking === bookingCode || o.stay_code === bookingCode)
 
-  // simple heuristic
-  let rating = 5 - late;
-  if (late === 0 && tix.length > 0) rating = 5;
-  rating = Math.min(5, Math.max(1, rating));
+  let rating = 5 - late
+  if (late === 0 && tix.length > 0) rating = 5
+  rating = Math.min(5, Math.max(1, rating))
 
-  const title = late ? 'Mixed experience' : (tix.length ? 'Smooth & timely service' : 'Pleasant stay');
+  const title = late ? 'Mixed experience' : (tix.length ? 'Smooth & timely service' : 'Pleasant stay')
   const body = [
     `Stay code ${bookingCode}.`,
     tix.length ? `Housekeeping requests handled in ~${avgMins || 0} min on average.` : `No service requests recorded.`,
     late ? `${late} request(s) missed SLA.` : (tix.length ? `All requests were within SLA.` : ``),
     ords.length ? `${ords.length} kitchen order(s) recorded.` : ``,
     details.length ? `\nDetails:\n${details.join('\n')}` : ``
-  ].filter(Boolean).join(' ');
+  ].filter(Boolean).join(' ')
 
   return {
     draft: {
@@ -166,7 +176,61 @@ function buildReviewDraftFromActivity(bookingCode: string) {
       anchors: { tickets: tix.length, orders: ords.length, onTime, late, avgMins, details }
     },
     booking: b
-  };
+  }
+}
+
+// ---- Experience Summary helpers (owner-facing) ----
+function summarizeByService(bookingCode: string) {
+  const tix = tickets.filter(t => t.booking === bookingCode)
+  const by: Record<string, { count: number; late: number; totalMins: number }> = {}
+  tix.forEach(t => {
+    const end = t.done_at || t.started_at || t.accepted_at || t.created_at
+    const mins = minutesBetween(t.created_at, end!)
+    const breached = new Date(end!) > new Date(t.sla_deadline)
+    by[t.service_key] ??= { count: 0, late: 0, totalMins: 0 }
+    by[t.service_key].count++
+    by[t.service_key].totalMins += mins
+    if (breached) by[t.service_key].late++
+  })
+  return Object.entries(by).map(([service_key, v]) => ({
+    service_key,
+    count: v.count,
+    late: v.late,
+    avgMins: Math.round(v.totalMins / v.count)
+  }))
+}
+
+function policyHintsFromAnchors(a: NonNullable<Review['anchors']>): string[] {
+  const hints: string[] = []
+  if (a.late > 0) hints.push(`Investigate ${a.late} SLA breach(es); consider buffer or staffing in peak hours.`)
+  if (a.avgMins > 30) hints.push(`Average resolution ${a.avgMins} min — review SLA targets or workflow.`)
+  return hints.length ? hints : ['No obvious issues. Keep current policies.']
+}
+
+function buildExperienceSummary(bookingCode: string): ExperienceSummary | { error: string } {
+  const res = buildReviewDraftFromActivity(bookingCode)
+  if ((res as any).error) return res as any
+  const { booking, draft } = res as any
+
+  const perService = summarizeByService(bookingCode)
+  const kpis = {
+    onTime: draft.anchors.onTime,
+    late: draft.anchors.late,
+    avgMins: draft.anchors.avgMins,
+    tickets: draft.anchors.tickets,
+    orders: draft.anchors.orders
+  }
+
+  return {
+    bookingCode,
+    guest_name: booking.guest_name,
+    hotel_slug: booking.hotel_slug,
+    kpis,
+    perService,
+    narrative: { title: draft.titleSuggested, body: draft.bodySuggested },
+    anchors: draft.anchors,
+    policyHints: policyHintsFromAnchors(draft.anchors)
+  }
 }
 
 // -------------------------------
@@ -177,10 +241,10 @@ function buildReviewDraftFromActivity(bookingCode: string) {
 app.get('/', async () => ({
   ok: true,
   name: 'VAiyu API',
-  try: ['/health', '/hotel/sunrise', 'POST /checkin', '/reviews/:slug', 'GET /reviews/draft/:code', 'POST /reviews/auto']
+  try: ['/health', '/hotel/sunrise', 'POST /checkin', '/reviews/:slug', 'GET /reviews/draft/:code', 'POST /reviews/auto', '/experience/summary/:code', '/experience/report/:slug']
 }))
 
-// Catalog (existing)
+// Catalog
 app.get('/hotels', async () => hotel)
 app.get('/catalog/services', async () => ({ items: services }))
 app.get('/menu/items', async () => ({ items: menu }))
@@ -195,7 +259,6 @@ app.get('/hotel/:slug', async (req, reply) => {
 app.post('/hotel/upsert', async (req, reply) => {
   const body = (req.body || {}) as Partial<Hotel>
   if (!body.slug || !body.name) return reply.status(400).send({ error: 'slug & name required' })
-  // For single-property demo we simply overwrite current in-memory hotel when slug matches or replace it otherwise.
   Object.assign(hotel, body)
   // If slug changed, cascade in-memory arrays
   rooms = rooms.map(r => r.hotel_slug === hotel.slug ? r : { ...r, hotel_slug: hotel.slug })
@@ -293,6 +356,57 @@ app.post('/reviews/auto', async (req, reply) => {
   return item
 })
 
+// ---------- Experience (owner-facing) ----------
+
+// Per-stay Guest Experience Summary
+app.get('/experience/summary/:code', async (req, reply) => {
+  const { code } = req.params as any
+  const sum = buildExperienceSummary(code)
+  if ((sum as any).error) return reply.status(404).send(sum)
+  return sum
+})
+
+// Simple property report (demo roll-up)
+app.get('/experience/report/:slug', async (req, reply) => {
+  const { slug } = req.params as any
+  if (slug !== hotel.slug) return reply.status(404).send({ error: 'Hotel not found' })
+
+  // tickets belonging to this hotel's rooms OR bookings
+  const hotelRoomNos = new Set(rooms.filter(r => r.hotel_slug === slug).map(r => r.room_no))
+  const tix = tickets.filter(t => hotelRoomNos.has(t.room) ||
+    !!bookings.find(b => b.code === t.booking && b.hotel_slug === slug)
+  )
+
+  let onTime = 0, late = 0, totalMins = 0
+  tix.forEach(t => {
+    const end = t.done_at || t.started_at || t.accepted_at || t.created_at
+    const mins = minutesBetween(t.created_at, end!)
+    totalMins += mins
+    if (new Date(end!) > new Date(t.sla_deadline)) late++; else onTime++
+  })
+  const avgMins = tix.length ? Math.round(totalMins / tix.length) : 0
+
+  // orders mapped to bookings of this hotel
+  const hotelBookingCodes = new Set(bookings.filter(b => b.hotel_slug === slug).map(b => b.code))
+  const ords = orders.filter(o => hotelBookingCodes.has(o.booking) || hotelBookingCodes.has(o.stay_code))
+
+  const hints = policyHintsFromAnchors({
+    tickets: tix.length,
+    orders: ords.length,
+    onTime,
+    late,
+    avgMins,
+    details: []
+  })
+
+  return {
+    hotel: { slug: hotel.slug, name: hotel.name },
+    period: 'all-time (demo)',
+    kpis: { tickets: tix.length, orders: ords.length, onTime, late, avgMins },
+    hints
+  }
+})
+
 // ---------- Service tickets ----------
 app.post('/tickets', async (req, reply) => {
   const body: any = req.body || {}
@@ -353,7 +467,53 @@ app.patch('/orders/:id', async (req, reply) => {
 app.get('/folio', async () => folio)
 app.post('/precheck', async () => ({ ok: true }))
 app.post('/regcard', async () => ({ ok: true, pdf: '/fake.pdf' }))
-app.post('/checkout', async () => ({ ok: true, invoice: '/invoice.pdf', review_link: 'https://example.com/review' }))
+
+// UPDATED: checkout can optionally auto-post a review using the draft
+app.post('/checkout', async (req, reply) => {
+  const { bookingCode, autopost } = (req.body || {}) as { bookingCode?: string; autopost?: boolean }
+
+  // pick booking
+  let b = bookingCode
+    ? bookings.find(x => x.code === bookingCode)
+    : bookings.slice().reverse().find(x => x.status === 'checked_in' || x.status === 'booked')
+
+  if (!b) {
+    return { ok: true, invoice: '/invoice.pdf', review_link: 'https://example.com/review', note: 'No booking matched to complete' }
+  }
+
+  // mark completed
+  b.status = 'completed'
+  b.checkout_at = nowISO()
+
+  let autoReview: Review | undefined
+  if (autopost) {
+    const res = buildReviewDraftFromActivity(b.code)
+    if (!(res as any).error) {
+      const { draft } = res as any
+      autoReview = {
+        id: String(Date.now()),
+        hotel_slug: b.hotel_slug,
+        rating: draft.ratingSuggested,
+        title: draft.titleSuggested,
+        body: draft.bodySuggested,
+        verified: true, // completed stay
+        created_at: nowISO(),
+        guest_name: b.guest_name,
+        source: 'auto',
+        anchors: draft.anchors
+      }
+      reviews.unshift(autoReview)
+    }
+  }
+
+  return {
+    ok: true,
+    invoice: '/invoice.pdf',
+    review_link: 'https://example.com/review',
+    ...(autoReview ? { review: autoReview } : {})
+  }
+})
+
 app.post('/payments/checkout', async () => ({ link: 'https://pay.example.com/abc123' }))
 app.post('/payments/webhook', async () => {
   folio.lines.push({ description: 'UPI Payment', amount: -2800 })
@@ -365,7 +525,6 @@ app.post('/payments/webhook', async () => {
 // Boot
 // -------------------------------
 async function start () {
-  // CORS
   await app.register(cors, {
     origin: ORIGIN,
     methods: ['GET', 'POST', 'PATCH', 'OPTIONS']

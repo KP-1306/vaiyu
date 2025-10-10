@@ -1,3 +1,4 @@
+// web/src/main.tsx
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
@@ -8,7 +9,7 @@ import { ThemeProvider } from './components/ThemeProvider';
 import './theme.css';
 import './index.css';
 
-// Screens
+// Screens (guest / ops)
 import App from './App';
 import Hotel from './routes/Hotel';
 import Menu from './routes/Menu';
@@ -21,31 +22,18 @@ import Desk from './routes/Desk';
 import HK from './routes/HK';
 import Kitchen from './routes/Kitchen';
 import Maint from './routes/Maint';
+
+// Owner + moderation + dashboard
+import Owner from './routes/Owner';                  // if your file is OwnerSettings.tsx, rename import accordingly
 import OwnerReviews from './routes/OwnerReviews';
+import OwnerDashboard from './routes/OwnerDashboard';
 
-const router = createBrowserRouter([
-  { path: '/', element: <App /> },
-  { path: '/owner', element: <Owner /> },
-  { path: '/owner/reviews', element: <OwnerReviews /> }, // <— add this
-  // ...rest
-]);
-
+// Light front-end guard for owner routes
 import OwnerGate from './components/OwnerGate';
 
-{ path: '/owner', element: <OwnerGate><Owner /></OwnerGate> },
-{ path: '/owner/reviews', element: <OwnerGate><OwnerReviews /></OwnerGate> },
-
-
-// Owner settings page (you created this)
-import Owner from './routes/Owner'; // if you only have OwnerSettings.tsx, change to: './routes/OwnerSettings'
-
 const router = createBrowserRouter([
+  // Public / guest
   { path: '/', element: <App /> },
-
-  // Owner configuration UI
-  { path: '/owner', element: <Owner /> },
-
-  // Guest / Ops routes
   { path: '/hotel/:slug', element: <Hotel /> },
   { path: '/stay/:code/menu', element: <Menu /> },
   { path: '/stay/:code/requests/:id', element: <RequestTracker /> },
@@ -53,10 +41,18 @@ const router = createBrowserRouter([
   { path: '/precheck/:code', element: <Precheck /> },
   { path: '/regcard/:code', element: <Regcard /> },
   { path: '/checkout/:code', element: <Checkout /> },
+
+  // Ops
   { path: '/desk', element: <Desk /> },
   { path: '/hk', element: <HK /> },
   { path: '/kitchen', element: <Kitchen /> },
   { path: '/maint', element: <Maint /> },
+
+  // Owner (guarded)
+  { path: '/owner', element: <OwnerGate><Owner /></OwnerGate> },
+  { path: '/owner/reviews', element: <OwnerGate><OwnerReviews /></OwnerGate> },
+  { path: '/owner/dashboard/:slug', element: <OwnerGate><OwnerDashboard /></OwnerGate> },
+  { path: '/owner/dashboard', element: <OwnerGate><OwnerDashboard /></OwnerGate> },
 ]);
 
 const qc = new QueryClient();

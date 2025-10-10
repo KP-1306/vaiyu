@@ -1,205 +1,160 @@
 // web/src/routes/Checkout.tsx
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import {
-  checkout as apiCheckout,
-  setBookingConsent,
-} from '../lib/api';
+import { checkout, setBookingConsent } from '../lib/api';
 
-type ReviewAnchors = {
-  tickets: number;
-  orders: number;
-  onTime: number;
-  late: number;
-  avgMins: number;
-  details?: string[];
-};
-
-type ReviewLike = {
+type ApiReview = {
   id: string;
-  hotel_slug: string;
   rating: number;
   title?: string;
   body?: string;
-  verified: boolean;
   created_at: string;
-  guest_name?: string;
   source: 'guest' | 'auto';
   status: 'pending' | 'published' | 'rejected' | 'draft';
   visibility: 'public' | 'private';
-  booking_code?: string;
-  anchors?: ReviewAnchors;
 };
 
 type CheckoutResponse = {
   ok: boolean;
-  invoice: string;
-  review_link: string;
+  invoice?: string;
+  review_link?: string;
   note?: string;
-  review?: ReviewLike;         // if auto-published
-  pending_review?: ReviewLike; // if created as pending
+  review?: ApiReview;         // auto-published
+  pending_review?: ApiReview; // created but needs approval
 };
 
 export default function Checkout() {
   const { code = '' } = useParams();
-  const [consent, setConsent] = useState(true); // default to true (guest can opt-out)
-  const [autoPost, setAutoPost] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+  const [consent, setConsent] = useState<boolean>(true);
+  const [autopost, setAutopost] = useState<boolean>(true);
+  const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [result, setResult] = useState<CheckoutResponse | null>(null);
+  const [res, setRes] = useState<CheckoutResponse | null>(null);
 
-  const hasOutcome = useMemo(
-    () => !!(result?.review || result?.pending_review || result?.note),
-    [result]
-  );
-
-  const onSubmit = useCallback(async (e: React.FormEvent) => {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setErr(null);
-    setSubmitting(true);
-    setResult(null);
-    try {
-      // 1) Record/overwrite consent for this booking
-      if (code) {
-        await setBookingConsent(code, consent);
-      }
+    if (!code) {
+      setErr('Missing booking code in the URL.');
+      return;
+    }
 
-      // 2) Trigger checkout, optionally autopost the AI summary
-      const r = await apiCheckout({ bookingCode: code, autopost: autoPost });
-      setResult(r as CheckoutResponse);
+    setBusy(true);
+    setErr(null);
+    setRes(null);
+
+    try {
+      // 1) Record consent preference (safe to call anytime)
+      await setBookingConsent(code, consent);
+
+      // 2) Checkout (and optionally request auto publication)
+      const out = await checkout({ bookingCode: code, autopost });
+      setRes(out as CheckoutResponse);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e: any) {
       setErr(e?.message || 'Checkout failed');
     } finally {
-      setSubmitting(false);
+      setBusy(false);
     }
-  }, [code, consent, autoPost]);
+  }
+
+  const Published = res?.review;
+  const Pending = res?.pending_review;
 
   return (
-    <main className="max-w-2xl mx-auto p-4 space-y-4">
-      <header className="flex items-center justify-between">
+    <main className="max-w-xl mx-auto p-4 space-y-4">
+      <header>
         <h1 className="text-xl font-semibold">Checkout</h1>
-        <span className="text-sm text-gray-600">Stay code: <b>{code || '—'}</b></span>
+        <div className="text-sm text-gray-600">Booking code: <b>{code || '—'}</b></div>
       </header>
 
-      {err && <div className="card" style={{ borderColor: '#f59e0b' }}>⚠️ {err}</div>}
-
-      <form onSubmit={onSubmit} className="card space-y-3">
-        <div className="text-sm text-gray-700">
-          Finalize the stay and (optionally) create a truth-anchored experience summary.
+      {err && (
+        <div className="p-2 bg-amber-50 border border-amber-200 rounded text-amber-800">
+          ⚠️ {err}
         </div>
+      )}
 
-        <label className="flex items-start gap-2">
+      {res && (
+        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded text-emerald-800 space-y-2">
+          <div>Checkout completed.</div>
+          {res.invoice && (
+            <div>
+              Invoice: <a className="link" href={res.invoice} target="_blank" rel="noreferrer">Download</a>
+            </div>
+          )}
+          {res.review_link && (
+            <div>
+              Review link: <a className="link" href={res.review_link} target="_blank" rel="noreferrer">Open</a>
+            </div>
+          )}
+          {res.note && <div className="text-sm opacity-90">{res.note}</div>}
+        </div>
+      )}
+
+      {/* Auto-published result */}
+      {Published && (
+        <section className="card">
+          <div className="font-semibold">Published review</div>
+          <div className="text-sm text-gray-600">Source: {Published.source.toUpperCase()}</div>
+          <div className="mt-2">{'⭐'.repeat(Published.rating)}</div>
+          {Published.title && <div className="mt-1 font-semibold">{Published.title}</div>}
+          {Published.body && <div className="mt-1 whitespace-pre-wrap">{Published.body}</div>}
+          <div className="mt-2 text-xs text-gray-500">
+            {new Date(Published.created_at).toLocaleString()} • {Published.status}/{Published.visibility}
+          </div>
+        </section>
+      )}
+
+      {/* Pending result (needs approval) */}
+      {Pending && (
+        <section className="card">
+          <div className="font-semibold">AI review created — pending approval</div>
+          <div className="text-sm text-gray-600">Source: {Pending.source.toUpperCase()}</div>
+          <div className="mt-2">{'⭐'.repeat(Pending.rating)}</div>
+          {Pending.title && <div className="mt-1 font-semibold">{Pending.title}</div>}
+          {Pending.body && <div className="mt-1 whitespace-pre-wrap">{Pending.body}</div>}
+          <div className="mt-2 text-xs text-gray-500">
+            {new Date(Pending.created_at).toLocaleString()} • {Pending.status}/{Pending.visibility}
+          </div>
+        </section>
+      )}
+
+      {/* Form */}
+      <form onSubmit={onSubmit} className="bg-white p-4 rounded shadow space-y-3">
+        <label className="flex items-center gap-2">
           <input
             type="checkbox"
-            className="mt-1"
             checked={consent}
             onChange={(e) => setConsent(e.target.checked)}
           />
-          <span>
-            I consent to sharing a factual summary of my stay (requests, SLAs, orders) as a public review/experience.
-            <div className="text-xs text-gray-500">
-              You can change this choice now; it only affects this checkout.
-            </div>
+          <span className="text-sm">
+            I consent to publishing a truthful, activity-anchored review for this stay.
           </span>
         </label>
 
-        <label className="flex items-start gap-2">
+        <label className="flex items-center gap-2">
           <input
             type="checkbox"
-            className="mt-1"
-            checked={autoPost}
-            onChange={(e) => setAutoPost(e.target.checked)}
+            checked={autopost}
+            onChange={(e) => setAutopost(e.target.checked)}
           />
-          <span>
-            Auto-create an AI summary at checkout
-            <div className="text-xs text-gray-500">
-              If property policy blocks auto-post (e.g., too many late SLAs), a <b>pending</b> draft will be created instead.
-            </div>
+          <span className="text-sm">
+            Auto-publish the AI-generated review if policy allows (else create a pending draft).
           </span>
         </label>
 
-        <div className="flex gap-2">
-          <button className="btn" type="submit" disabled={submitting}>
-            {submitting ? 'Processing…' : 'Complete Checkout'}
+        <div className="pt-1">
+          <button
+            disabled={busy}
+            className="px-4 py-2 rounded bg-sky-600 text-white disabled:opacity-60"
+          >
+            {busy ? 'Finishing…' : 'Finish checkout'}
           </button>
-          {result?.invoice && (
-            <a className="btn btn-light" href={result.invoice} target="_blank" rel="noreferrer">
-              View Invoice
-            </a>
-          )}
         </div>
       </form>
 
-      {/* Outcome section */}
-      {hasOutcome && (
-        <section className="card space-y-3">
-          <div className="font-semibold">Outcome</div>
-
-          {result?.note && (
-            <div className="text-sm text-gray-700">{result.note}</div>
-          )}
-
-          {result?.review && <ReviewCard title="Published review" r={result.review} />}
-          {result?.pending_review && <ReviewCard title="Pending review (awaiting approval)" r={result.pending_review} />}
-
-          {result?.review_link && (
-            <div className="text-xs text-gray-500">
-              Review link: <a className="link" href={result.review_link} target="_blank" rel="noreferrer">{result.review_link}</a>
-            </div>
-          )}
-        </section>
-      )}
-
-      {!hasOutcome && (
-        <section className="card">
-          <div className="text-sm text-gray-600">
-            Once you complete checkout, any applicable review will appear here (published or pending).
-          </div>
-        </section>
-      )}
+      <p className="text-xs text-gray-500">
+        Note: Auto-publish respects your hotel’s policy (activity threshold, late SLA blocks, consent requirement).
+      </p>
     </main>
-  );
-}
-
-function ReviewCard({ title, r }: { title: string; r: ReviewLike }) {
-  return (
-    <div className="border rounded p-3">
-      <div className="flex items-center justify-between">
-        <div className="font-semibold">{title}</div>
-        <div className="flex items-center gap-2">
-          <span className="badge">{r.source === 'auto' ? 'AI' : 'Guest'}</span>
-          <span className={`badge ${r.status === 'published' ? 'badge-success' : 'badge-muted'}`}>
-            {r.status}
-          </span>
-          <span className={`badge ${r.visibility === 'public' ? '' : 'badge-muted'}`}>
-            {r.visibility}
-          </span>
-        </div>
-      </div>
-
-      <div className="mt-1">{'⭐'.repeat(r.rating)}</div>
-      {r.title && <div className="mt-1 font-medium">{r.title}</div>}
-      {r.body && <div className="mt-1 whitespace-pre-wrap">{r.body}</div>}
-
-      {r.anchors && (
-        <details className="mt-2">
-          <summary className="cursor-pointer">Why this rating?</summary>
-          <div className="text-sm mt-2 text-gray-700">
-            Requests: {r.anchors.tickets} · Orders: {r.anchors.orders} · On-time: {r.anchors.onTime} · Late: {r.anchors.late} · Avg mins: {r.anchors.avgMins}
-            {r.anchors.details?.length ? (
-              <div className="mt-2">
-                {r.anchors.details.map((d, i) => (
-                  <div key={i} style={{ opacity: 0.9 }}>{d}</div>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        </details>
-      )}
-
-      <div className="text-xs text-gray-500 mt-2">
-        {r.guest_name ? `by ${r.guest_name} • ` : ''}{new Date(r.created_at).toLocaleString()}
-      </div>
-    </div>
   );
 }

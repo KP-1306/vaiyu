@@ -1,20 +1,26 @@
 import { useEffect, useState } from "react";
-import { api, API_URL } from "../lib/api";
-import { getServices, getMenu, createTicket, createOrder } from '../lib/api';
-
+import {
+  getServices,
+  getMenu,
+  createTicket,
+  createOrder,
+} from "../lib/api";
 
 export default function Menu() {
   const [tab, setTab] = useState<"food" | "services">("services");
   const [services, setServices] = useState<any[]>([]);
   const [menu, setMenu] = useState<any[]>([]);
 
-  // NEW: room picker + toast
+  // Room picker + tiny toast
   const [room, setRoom] = useState<string>(() => localStorage.getItem("room") || "201");
   const [toast, setToast] = useState<string>("");
 
   useEffect(() => {
-    api.services("TENANT1").then((r: any) => setServices(r.items || []));
-    api.menu("TENANT1").then((r: any) => setMenu(r.items || []));
+    (async () => {
+      const [svc, food] = await Promise.all([getServices(), getMenu()]);
+      setServices(svc.items || []);
+      setMenu(food.items || []);
+    })();
   }, []);
 
   useEffect(() => {
@@ -26,49 +32,28 @@ export default function Menu() {
     window.setTimeout(() => setToast(""), 1500);
   }
 
-  // Create a service ticket and navigate to the tracker
   async function requestService(service_key: string) {
     try {
-      const payload = {
+      const { ticket } = await createTicket({
         service_key,
-        room,               // <-- uses selected room
+        room,
         booking: "DEMO",
         tenant: "guest",
-      };
-
-      const res = await fetch(`${API_URL}/tickets`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const txt = await res.text();
-        alert(`Could not create request (${res.status}). ${txt}`);
-        return;
-      }
-
-      const data = await res.json();
-      const id = data?.ticket?.id;
-      if (!id) {
-        alert("No ticket id returned from server.");
-        return;
-      }
-
-      // go to the live tracker page
+      } as any);
+      const id = ticket?.id;
+      if (!id) return alert("No ticket id returned from server.");
       window.location.href = `/stay/DEMO/requests/${id}`;
     } catch (e: any) {
-      alert(`Network error: ${e?.message || e}`);
+      alert(e?.message || "Could not create request");
     }
   }
 
-  // create a food order
   async function addFood(item_key: string) {
     try {
-      await api.createOrder({ item_key, qty: 1, booking: "DEMO" });
+      await createOrder({ item_key, qty: 1, booking: "DEMO" });
       showToast("Added to order");
     } catch (e: any) {
-      alert(`Could not add item: ${e?.message || e}`);
+      alert(e?.message || "Could not add item");
     }
   }
 

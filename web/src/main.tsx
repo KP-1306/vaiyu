@@ -4,13 +4,14 @@ import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-// Global theme + styles
+// Theme + global styles
 import { ThemeProvider } from './components/ThemeProvider';
 import './theme.css';
 import './index.css';
 
-// Screens (guest / ops)
+// Public / guest screens
 import App from './App';
+import Demo from './routes/Demo';
 import Hotel from './routes/Hotel';
 import Menu from './routes/Menu';
 import RequestTracker from './routes/RequestTracker';
@@ -18,28 +19,27 @@ import Bill from './routes/Bill';
 import Precheck from './routes/Precheck';
 import Regcard from './routes/Regcard';
 import Checkout from './routes/Checkout';
+
+// Ops screens
 import Desk from './routes/Desk';
 import HK from './routes/HK';
 import Kitchen from './routes/Kitchen';
 import Maint from './routes/Maint';
-// add at top
-import Demo from './routes/Demo';
 
-// inside createBrowserRouter([...])
-{ path: '/demo', element: <Demo /> },
-
-
-// Owner + moderation + dashboard
-import Owner from './routes/Owner';           // (or './routes/OwnerSettings' if that's your file)
+// Owner screens
+import Owner from './routes/Owner';                 // if your file is OwnerSettings.tsx, change this import
 import OwnerReviews from './routes/OwnerReviews';
 import OwnerDashboard from './routes/OwnerDashboard';
 
-// Light front-end guard for owner routes
+// Light guard for owner routes
 import OwnerGate from './components/OwnerGate';
 
 const router = createBrowserRouter([
-  // Public / guest
+  // Website / landing
   { path: '/', element: <App /> },
+  { path: '/demo', element: <Demo /> },
+
+  // Guest
   { path: '/hotel/:slug', element: <Hotel /> },
   { path: '/stay/:code/menu', element: <Menu /> },
   { path: '/stay/:code/requests/:id', element: <RequestTracker /> },
@@ -57,8 +57,8 @@ const router = createBrowserRouter([
   // Owner (guarded)
   { path: '/owner', element: <OwnerGate><Owner /></OwnerGate> },
   { path: '/owner/reviews', element: <OwnerGate><OwnerReviews /></OwnerGate> },
-  { path: '/owner/dashboard/:slug', element: <OwnerGate><OwnerDashboard /></OwnerGate> },
   { path: '/owner/dashboard', element: <OwnerGate><OwnerDashboard /></OwnerGate> },
+  { path: '/owner/dashboard/:slug', element: <OwnerGate><OwnerDashboard /></OwnerGate> },
 ]);
 
 const qc = new QueryClient();

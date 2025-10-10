@@ -1,6 +1,7 @@
+// web/src/routes/HK.tsx
 import { useEffect, useMemo, useState } from "react";
 import { listTickets, updateTicket } from "../lib/api";
-import { connectEvents } from '../lib/events';
+import { connectEvents } from "../lib/sse";
 
 type Ticket = {
   id: string;
@@ -13,7 +14,7 @@ type Ticket = {
 
 export default function HK() {
   const [items, setItems] = useState<Ticket[]>([]);
-  const [status, setStatus] = useState<"all" | Ticket["status"]>("all");
+  const [status, setFilter] = useState<"all" | Ticket["status"]>("all");
 
   async function load() {
     const r = await listTickets();
@@ -49,7 +50,7 @@ export default function HK() {
     return <span className={`px-2 py-0.5 rounded text-xs ${map[s]}`}>{s}</span>;
   }
 
-  async function setStatus(id: string, next: Ticket["status"]) {
+  async function updateTicketStatus(id: string, next: Ticket["status"]) {
     // optional: optimistic UI
     setItems((prev) => prev.map((t) => (t.id === id ? { ...t, status: next } : t)));
     try {
@@ -66,7 +67,7 @@ export default function HK() {
         <h1 className="text-xl font-semibold">Housekeeping</h1>
         <select
           value={status}
-          onChange={(e) => setStatus(e.target.value as any)}
+          onChange={(e) => setFilter(e.target.value as any)}
           className="border rounded px-2 py-1 text-sm"
           title="Filter by status"
         >
@@ -96,7 +97,7 @@ export default function HK() {
               {badge(t.status)}
               {t.status === "Requested" && (
                 <button
-                  onClick={() => setStatus(t.id, "Accepted")}
+                  onClick={() => updateTicketStatus(t.id, "Accepted")}
                   className="px-2 py-1 rounded bg-amber-600 text-white text-sm"
                 >
                   Accept
@@ -104,7 +105,7 @@ export default function HK() {
               )}
               {t.status === "Accepted" && (
                 <button
-                  onClick={() => setStatus(t.id, "InProgress")}
+                  onClick={() => updateTicketStatus(t.id, "InProgress")}
                   className="px-2 py-1 rounded bg-sky-600 text-white text-sm"
                 >
                   Start
@@ -112,7 +113,7 @@ export default function HK() {
               )}
               {t.status === "InProgress" && (
                 <button
-                  onClick={() => setStatus(t.id, "Done")}
+                  onClick={() => updateTicketStatus(t.id, "Done")}
                   className="px-2 py-1 rounded bg-emerald-600 text-white text-sm"
                 >
                   Done

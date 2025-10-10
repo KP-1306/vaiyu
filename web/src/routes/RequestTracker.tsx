@@ -1,11 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { API_URL } from "../lib/api";
-import { getTicket, updateTicket } from '../lib/api';
+import { getTicket } from "../lib/api";
 
-
-/**
- * Ticket type coming from the API.
- */
 type Ticket = {
   id: string;
   service_key: string;
@@ -21,11 +16,7 @@ type Ticket = {
 };
 
 function usePathTicketId(): string | null {
-  // route: /stay/DEMO/requests/:id
-  const parts = (typeof window !== "undefined"
-    ? window.location.pathname
-    : ""
-  )
+  const parts = (typeof window !== "undefined" ? window.location.pathname : "")
     .split("/")
     .filter(Boolean);
   return parts[parts.length - 1] || null;
@@ -65,20 +56,13 @@ export default function RequestTracker() {
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const { ms: remainingMs, text: remainingText } = useCountdown(
-    ticket?.sla_deadline
-  );
+  const { ms: remainingMs, text: remainingText } = useCountdown(ticket?.sla_deadline);
 
   async function load() {
     if (!id) return;
     try {
       setLoading(true);
-      const r = await fetch(`${API_URL}/tickets/${id}`);
-      if (!r.ok) {
-        const t = await r.text();
-        throw new Error(`Server ${r.status}: ${t}`);
-      }
-      const j = (await r.json()) as Ticket;
+      const j = (await getTicket(id)) as Ticket;
       setTicket(j);
       setErr(null);
     } catch (e: any) {
@@ -91,7 +75,6 @@ export default function RequestTracker() {
   useEffect(() => {
     load();
     const iv = setInterval(() => {
-      // stop polling once done
       if (ticket?.status === "Done") return;
       load();
     }, 3000);
@@ -117,13 +100,9 @@ export default function RequestTracker() {
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div>
-          <div className="text-xs text-gray-500">
-            Request tracker • #{id ?? "--"}
-          </div>
+          <div className="text-xs text-gray-500">Request tracker • #{id ?? "--"}</div>
           <h1 className="text-xl font-semibold">
-            {ticket
-              ? `${ticket.service_key.replaceAll("_", " ")} — Room ${ticket.room}`
-              : "Loading…"}
+            {ticket ? `${ticket.service_key.replaceAll("_", " ")} — Room ${ticket.room}` : "Loading…"}
           </h1>
         </div>
 
@@ -151,9 +130,7 @@ export default function RequestTracker() {
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm text-gray-500">SLA</div>
-              <div className="text-base font-medium">
-                {ticket.sla_minutes} minutes
-              </div>
+              <div className="text-base font-medium">{ticket.sla_minutes} minutes</div>
             </div>
             {ticket.status !== "Done" ? (
               <div className={`text-right ${remainingMs === 0 ? "text-red-600" : ""}`}>

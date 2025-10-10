@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { API_URL } from "../lib/api";
+import { precheck } from "../lib/api";
 
 type Form = {
   guestName: string;
@@ -39,6 +39,7 @@ export default function Precheck() {
     setBusy(true);
     setMsg("");
 
+    // Same payload as before, now using the api helper
     const payload = {
       hotel: "DEMO",
       booking: "DEMO",
@@ -60,27 +61,14 @@ export default function Precheck() {
     };
 
     try {
-      const r = await fetch(`${API_URL}/precheck`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!r.ok) {
-        // Fallback: store locally so front desk can read it later
-        const key = `precheck:DEMO:${Date.now()}`;
-        localStorage.setItem(key, JSON.stringify(payload));
-        setMsg(
-          "Saved locally (API offline). Front desk can read this from the device."
-        );
-      } else {
-        setMsg("Pre-check-in submitted. We’ll be ready when you arrive!");
-      }
-    } catch {
+      await precheck(payload);
+      setMsg("Pre-check-in submitted. We’ll be ready when you arrive!");
+    } catch (e) {
+      // fallback like your original: store locally so the desk can read it
       const key = `precheck:DEMO:${Date.now()}`;
       localStorage.setItem(key, JSON.stringify(payload));
       setMsg(
-        "Saved locally (network error). Front desk can read this from the device."
+        "Saved locally (offline). Front desk can read this from the device."
       );
     } finally {
       setBusy(false);
@@ -192,7 +180,7 @@ export default function Precheck() {
             className="mt-1 border rounded w-full px-2 py-1"
             rows={3}
             value={f.notes}
-            onChange={(e) => up("notes", e.target.value)}
+            onChange={(e) => up("notes", e.target.value))}
           />
         </label>
 

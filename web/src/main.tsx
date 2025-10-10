@@ -20,14 +20,11 @@ import Regcard from './routes/Regcard';
 import Checkout from './routes/Checkout';
 import Desk from './routes/Desk';
 import HK from './routes/HK';
-import OwnerServices from './routes/OwnerServices';
-import OwnerGate from './components/OwnerGate';
-
 import Kitchen from './routes/Kitchen';
 import Maint from './routes/Maint';
 
 // Owner + moderation + dashboard
-import Owner from './routes/Owner';                  // if your file is OwnerSettings.tsx, rename import accordingly
+import Owner from './routes/Owner';           // (or './routes/OwnerSettings' if that's your file)
 import OwnerReviews from './routes/OwnerReviews';
 import OwnerDashboard from './routes/OwnerDashboard';
 

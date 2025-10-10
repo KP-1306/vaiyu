@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { getHotel, upsertHotel } from '../lib/api';
+
 
 type HotelForm = {
   hotelName: string;

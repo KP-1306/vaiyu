@@ -21,6 +21,15 @@ import Desk from './routes/Desk';
 import HK from './routes/HK';
 import Kitchen from './routes/Kitchen';
 import Maint from './routes/Maint';
+import OwnerReviews from './routes/OwnerReviews';
+
+const router = createBrowserRouter([
+  { path: '/', element: <App /> },
+  { path: '/owner', element: <Owner /> },
+  { path: '/owner/reviews', element: <OwnerReviews /> }, // <— add this
+  // ...rest
+]);
+
 
 // Owner settings page (you created this)
 import Owner from './routes/Owner'; // if you only have OwnerSettings.tsx, change to: './routes/OwnerSettings'

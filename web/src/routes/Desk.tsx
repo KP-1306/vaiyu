@@ -6,7 +6,7 @@ import {
   listOrders,
   updateOrder,
 } from "../lib/api";
-import { connectEvents } from "../lib/sse";
+import { connectEvents } from '../lib/events';
 
 type Ticket = {
   id: string;

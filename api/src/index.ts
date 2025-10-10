@@ -279,6 +279,22 @@ function shouldAutoPublish(policy: ReviewsPolicy | undefined, draftAnchors: NonN
 }
 
 // -------------------------------
+// 🔌 SSE: live event stream to clients
+// -------------------------------
+type SseClient = { id: string; write: (chunk: string) => void; close: () => void }
+const sseClients = new Map<string, SseClient>()
+
+function sseFormat(event: string, data: any) {
+  return `event: ${event}\n` + `data: ${JSON.stringify(data)}\n\n`
+}
+function broadcast(event: string, data: any) {
+  const payload = sseFormat(event, data)
+  for (const [id, c] of sseClients) {
+    try { c.write(payload) } catch { sseClients.delete(id) }
+  }
+}
+
+// -------------------------------
 // Routes (existing + new)
 // -------------------------------
 
@@ -290,9 +306,43 @@ app.get('/', async () => ({
     '/health', '/hotel/sunrise', 'POST /checkin',
     '/reviews/:slug', 'GET /reviews/draft/:code', 'POST /reviews/auto',
     '/experience/summary/:code', '/experience/report/:slug',
-    'POST /booking/:code/consent', 'POST /reviews/:id/approve', 'POST /reviews/:id/reject'
+    'POST /booking/:code/consent', 'POST /reviews/:id/approve', 'POST /reviews/:id/reject',
+    '/events'
   ]
 }))
+
+// 🔊 Event stream
+app.get('/events', async (req, reply) => {
+  reply.raw.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache, no-transform',
+    'Connection': 'keep-alive'
+  })
+
+  const id = String(Date.now()) + Math.random().toString(16).slice(2)
+  const client: SseClient = {
+    id,
+    write: (chunk: string) => reply.raw.write(chunk),
+    close: () => reply.raw.end()
+  }
+  sseClients.set(id, client)
+
+  // initial hello
+  client.write(sseFormat('hello', { ok: true, ts: nowISO() }))
+
+  // keepalive
+  const iv = setInterval(() => {
+    try { client.write(sseFormat('ping', { ts: nowISO() })) } catch {}
+  }, 25000)
+
+  req.raw.on('close', () => {
+    clearInterval(iv)
+    sseClients.delete(id)
+    try { client.close() } catch {}
+  })
+
+  return reply
+})
 
 // Catalog
 app.get('/hotels', async () => hotel)
@@ -433,7 +483,6 @@ app.post('/reviews/auto', async (req, reply) => {
 })
 
 // Approve/reject a pending review (guest action)
-// Simple demo rule: must provide bookingCode to act on the review
 app.post('/reviews/:id/approve', async (req, reply) => {
   const { id } = req.params as any
   const { bookingCode } = (req.body || {}) as { bookingCode?: string }
@@ -460,61 +509,6 @@ app.post('/reviews/:id/reject', async (req, reply) => {
 })
 
 // ---------- Experience (owner-facing) ----------
-
-function summarizeByService(bookingCode: string) {
-  const tix = tickets.filter(t => t.booking === bookingCode)
-  const by: Record<string, { count: number; late: number; totalMins: number }> = {}
-  tix.forEach(t => {
-    const end = t.done_at || t.started_at || t.accepted_at || t.created_at
-    const mins = minutesBetween(t.created_at, end!)
-    const breached = new Date(end!) > new Date(t.sla_deadline)
-    by[t.service_key] ??= { count: 0, late: 0, totalMins: 0 }
-    by[t.service_key].count++
-    by[t.service_key].totalMins += mins
-    if (breached) by[t.service_key].late++
-  })
-  return Object.entries(by).map(([service_key, v]) => ({
-    service_key,
-    count: v.count,
-    late: v.late,
-    avgMins: Math.round(v.totalMins / v.count)
-  }))
-}
-
-function policyHintsFromAnchors(a: NonNullable<Review['anchors']>): string[] {
-  const hints: string[] = []
-  if (a.late > 0) hints.push(`Investigate ${a.late} SLA breach(es); consider buffer or staffing in peak hours.`)
-  if (a.avgMins > 30) hints.push(`Average resolution ${a.avgMins} min — review SLA targets or workflow.`)
-  return hints.length ? hints : ['No obvious issues. Keep current policies.']
-}
-
-function buildExperienceSummary(bookingCode: string): ExperienceSummary | { error: string } {
-  const res = buildReviewDraftFromActivity(bookingCode)
-  if ((res as any).error) return res as any
-  const { booking, draft } = res as any
-
-  const perService = summarizeByService(bookingCode)
-  const kpis = {
-    onTime: draft.anchors.onTime,
-    late: draft.anchors.late,
-    avgMins: draft.anchors.avgMins,
-    tickets: draft.anchors.tickets,
-    orders: draft.anchors.orders
-  }
-
-  return {
-    bookingCode,
-    guest_name: booking.guest_name,
-    hotel_slug: booking.hotel_slug,
-    kpis,
-    perService,
-    narrative: { title: draft.titleSuggested, body: draft.bodySuggested },
-    anchors: draft.anchors,
-    policyHints: policyHintsFromAnchors(draft.anchors)
-  }
-}
-
-// Per-stay Guest Experience Summary
 app.get('/experience/summary/:code', async (req, reply) => {
   const { code } = req.params as any
   const sum = buildExperienceSummary(code)
@@ -522,7 +516,6 @@ app.get('/experience/summary/:code', async (req, reply) => {
   return sum
 })
 
-// Property roll-up (demo)
 app.get('/experience/report/:slug', async (req, reply) => {
   const { slug } = req.params as any
   if (slug !== hotel.slug) return reply.status(404).send({ error: 'Hotel not found' })
@@ -576,6 +569,8 @@ app.post('/tickets', async (req, reply) => {
     ...body
   }
   tickets.unshift(t)
+  // 🔔 broadcast create
+  broadcast('ticket_created', { ticket: t })
   return { ok: true, ticket: t }
 })
 app.get('/tickets', async () => ({ items: tickets }))
@@ -597,6 +592,8 @@ app.patch('/tickets/:id', async (req, reply) => {
     if (body.status === 'InProgress') t.started_at = ts
     if (body.status === 'Done') t.done_at = ts
   }
+  // 🔔 broadcast update
+  broadcast('ticket_updated', { ticket: t })
   return { ok: true, ticket: t }
 })
 
@@ -605,6 +602,8 @@ app.post('/orders', async (req, reply) => {
   const body: any = req.body || {}
   const o = { id: String(Date.now()), status: 'Placed', created_at: nowISO(), ...body }
   orders.unshift(o)
+  // 🔔 broadcast create
+  broadcast('order_created', { order: o })
   return { ok: true, order: o }
 })
 app.get('/orders', async () => ({ items: orders }))
@@ -614,6 +613,8 @@ app.patch('/orders/:id', async (req, reply) => {
   const o = orders.find(x => x.id === id)
   if (!o) return reply.status(404).send({ error: 'Not found' })
   if (body.status) o.status = body.status
+  // 🔔 broadcast update
+  broadcast('order_updated', { order: o })
   return { ok: true, order: o }
 })
 

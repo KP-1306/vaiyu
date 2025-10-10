@@ -22,6 +22,12 @@ import Desk from './routes/Desk';
 import HK from './routes/HK';
 import Kitchen from './routes/Kitchen';
 import Maint from './routes/Maint';
+// add at top
+import Demo from './routes/Demo';
+
+// inside createBrowserRouter([...])
+{ path: '/demo', element: <Demo /> },
+
 
 // Owner + moderation + dashboard
 import Owner from './routes/Owner';           // (or './routes/OwnerSettings' if that's your file)

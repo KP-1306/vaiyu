@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { listTickets, updateTicket } from "../lib/api";
+import { connectEvents } from "../lib/sse";
 
 type Ticket = {
   id: string;
@@ -16,13 +17,21 @@ export default function HK() {
 
   async function load() {
     const r = await listTickets();
-    setItems((r.items || []) as Ticket[]);
+    setItems(((r as any).items || []) as Ticket[]);
   }
 
   useEffect(() => {
+    // initial fetch
     load();
-    const iv = setInterval(load, 2000);
-    return () => clearInterval(iv);
+
+    // live updates via SSE (no polling)
+    const off = connectEvents({
+      ticket_created: () => load(),
+      ticket_updated: () => load(),
+    });
+
+    return () => off();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filtered = useMemo(
@@ -41,8 +50,14 @@ export default function HK() {
   }
 
   async function setStatus(id: string, next: Ticket["status"]) {
-    await updateTicket(id, { status: next });
-    load();
+    // optional: optimistic UI
+    setItems((prev) => prev.map((t) => (t.id === id ? { ...t, status: next } : t)));
+    try {
+      await updateTicket(id, { status: next });
+    } catch {
+      // revert on error
+      load();
+    }
   }
 
   return (

@@ -95,9 +95,12 @@ export async function checkout(data: { bookingCode?: string; autopost?: boolean 
 export async function listReviews(slug: string) {
   return req(`/reviews/${encodeURIComponent(slug)}`);
 }
+
+// NEW: pending endpoint (aligned with API)
 export async function listPendingReviews() {
-  return req(`/reviews-pending`);
+  return req(`/reviews/pending`);
 }
+
 export async function postManualReview(data: {
   bookingCode: string; rating: number; title?: string; body?: string;
 }) {
@@ -112,14 +115,18 @@ export async function postAutoReviewPreview(bookingCode: string) {
 export async function postAutoReviewCommit(bookingCode: string) {
   return req(`/reviews/auto`, { method: 'POST', body: JSON.stringify({ bookingCode, commit: true }) });
 }
-export async function approveReview(id: string, bookingCode: string) {
-  return req(`/reviews/${encodeURIComponent(id)}/approve`, {
-    method: 'POST', body: JSON.stringify({ bookingCode }),
+
+// NEW: approve/reject endpoints (aligned with API)
+export async function approveReview(id: string, bookingCode?: string) {
+  return req(`/reviews/approve`, {
+    method: 'POST',
+    body: JSON.stringify({ id, bookingCode }),
   });
 }
-export async function rejectReview(id: string, bookingCode: string) {
-  return req(`/reviews/${encodeURIComponent(id)}/reject`, {
-    method: 'POST', body: JSON.stringify({ bookingCode }),
+export async function rejectReview(id: string, bookingCode?: string) {
+  return req(`/reviews/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ id, bookingCode }),
   });
 }
 

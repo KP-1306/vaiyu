@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { API_URL } from "../lib/api";
-import { listTickets, updateTicket } from '../lib/api';
-
+import { listTickets, updateTicket } from "../lib/api";
 
 type Ticket = {
   id: string;
@@ -17,9 +15,8 @@ export default function HK() {
   const [status, setStatus] = useState<"all" | Ticket["status"]>("all");
 
   async function load() {
-    const r = await fetch(`${API_URL}/tickets`);
-    const j = await r.json();
-    setItems(j.items || []);
+    const r = await listTickets();
+    setItems((r.items || []) as Ticket[]);
   }
 
   useEffect(() => {
@@ -28,9 +25,10 @@ export default function HK() {
     return () => clearInterval(iv);
   }, []);
 
-  const filtered = useMemo(() => {
-    return status === "all" ? items : items.filter((t) => t.status === status);
-  }, [items, status]);
+  const filtered = useMemo(
+    () => (status === "all" ? items : items.filter((t) => t.status === status)),
+    [items, status]
+  );
 
   function badge(s: Ticket["status"]) {
     const map: Record<Ticket["status"], string> = {
@@ -42,12 +40,8 @@ export default function HK() {
     return <span className={`px-2 py-0.5 rounded text-xs ${map[s]}`}>{s}</span>;
   }
 
-  async function update(id: string, next: Ticket["status"]) {
-    await fetch(`${API_URL}/tickets/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: next }),
-    });
+  async function setStatus(id: string, next: Ticket["status"]) {
+    await updateTicket(id, { status: next });
     load();
   }
 
@@ -87,7 +81,7 @@ export default function HK() {
               {badge(t.status)}
               {t.status === "Requested" && (
                 <button
-                  onClick={() => update(t.id, "Accepted")}
+                  onClick={() => setStatus(t.id, "Accepted")}
                   className="px-2 py-1 rounded bg-amber-600 text-white text-sm"
                 >
                   Accept
@@ -95,7 +89,7 @@ export default function HK() {
               )}
               {t.status === "Accepted" && (
                 <button
-                  onClick={() => update(t.id, "InProgress")}
+                  onClick={() => setStatus(t.id, "InProgress")}
                   className="px-2 py-1 rounded bg-sky-600 text-white text-sm"
                 >
                   Start
@@ -103,7 +97,7 @@ export default function HK() {
               )}
               {t.status === "InProgress" && (
                 <button
-                  onClick={() => update(t.id, "Done")}
+                  onClick={() => setStatus(t.id, "Done")}
                   className="px-2 py-1 rounded bg-emerald-600 text-white text-sm"
                 >
                   Done

@@ -46,6 +46,20 @@ export async function getMenu() {
   return req(`/menu/items`);
 }
 
+/* ---- Services management (owner) ---- */
+export async function saveServices(items: Array<{ key: string; label_en: string; sla_minutes: number }>) {
+  return req(`/catalog/services`, { method: 'POST', body: JSON.stringify({ items }) });
+}
+export async function upsertService(svc: { key: string; label_en: string; sla_minutes: number }) {
+  return req(`/catalog/services/${encodeURIComponent(svc.key)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(svc),
+  });
+}
+export async function deleteService(key: string) {
+  return req(`/catalog/services/${encodeURIComponent(key)}`, { method: 'DELETE' });
+}
+
 /* ---------------- Tickets ---------------- */
 export async function createTicket(data: any) {
   return req(`/tickets`, { method: 'POST', body: JSON.stringify(data) });
@@ -96,9 +110,9 @@ export async function listReviews(slug: string) {
   return req(`/reviews/${encodeURIComponent(slug)}`);
 }
 
-// NEW: pending endpoint (aligned with API)
+// ✅ Correct pending endpoint per server: GET /reviews-pending
 export async function listPendingReviews() {
-  return req(`/reviews/pending`);
+  return req(`/reviews-pending`);
 }
 
 export async function postManualReview(data: {
@@ -116,17 +130,18 @@ export async function postAutoReviewCommit(bookingCode: string) {
   return req(`/reviews/auto`, { method: 'POST', body: JSON.stringify({ bookingCode, commit: true }) });
 }
 
-// NEW: approve/reject endpoints (aligned with API)
+// ✅ Correct approve/reject endpoints per server:
+// POST /reviews/:id/approve and POST /reviews/:id/reject
 export async function approveReview(id: string, bookingCode?: string) {
-  return req(`/reviews/approve`, {
+  return req(`/reviews/${encodeURIComponent(id)}/approve`, {
     method: 'POST',
-    body: JSON.stringify({ id, bookingCode }),
+    body: JSON.stringify({ bookingCode }),
   });
 }
 export async function rejectReview(id: string, bookingCode?: string) {
-  return req(`/reviews/reject`, {
+  return req(`/reviews/${encodeURIComponent(id)}/reject`, {
     method: 'POST',
-    body: JSON.stringify({ id, bookingCode }),
+    body: JSON.stringify({ bookingCode }),
   });
 }
 
@@ -159,6 +174,11 @@ export const api = {
   // catalog
   getServices,
   getMenu,
+
+  // owner services management
+  saveServices,
+  upsertService,
+  deleteService,
 
   // back-compat aliases so legacy code like Menu.tsx keeps working:
   services: (..._args: any[]) => getServices(),

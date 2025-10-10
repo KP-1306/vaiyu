@@ -1,22 +1,18 @@
 // web/src/lib/api.ts
 
+// Base URL
 export const API = import.meta.env.VITE_API_URL || 'http://localhost:4000';
-// Back-compat alias for older files (e.g. Menu.tsx):
+// Back-compat for older imports
 export const API_URL = API;
 
 async function req<T = any>(path: string, opts: RequestInit = {}): Promise<T> {
   const r = await fetch(`${API}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(opts.headers || {}),
-    },
+    headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
     ...opts,
   });
-
   const ct = r.headers.get('content-type') || '';
   const isJson = ct.includes('application/json');
   const payload = isJson ? await r.json() : await r.text();
-
   if (!r.ok) {
     const msg =
       (isJson && (payload as any)?.error) ||
@@ -26,23 +22,15 @@ async function req<T = any>(path: string, opts: RequestInit = {}): Promise<T> {
   return payload as T;
 }
 
-// -----------------------------
-// Hotel (OwnerSettings / Theming)
-// -----------------------------
+/* ---------------- Hotel ---------------- */
 export async function getHotel(slug: string) {
   return req(`/hotel/${encodeURIComponent(slug)}`);
 }
-
 export async function upsertHotel(payload: any) {
-  return req(`/hotel/upsert`, {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
+  return req(`/hotel/upsert`, { method: 'POST', body: JSON.stringify(payload) });
 }
 
-// -----------------------------
-// Consent
-// -----------------------------
+/* ---------------- Consent ---------------- */
 export async function setBookingConsent(code: string, reviews: boolean) {
   return req(`/booking/${encodeURIComponent(code)}/consent`, {
     method: 'POST',
@@ -50,32 +38,24 @@ export async function setBookingConsent(code: string, reviews: boolean) {
   });
 }
 
-// -----------------------------
-// Catalog
-// -----------------------------
+/* ---------------- Catalog ---------------- */
 export async function getServices() {
   return req(`/catalog/services`);
 }
-
 export async function getMenu() {
   return req(`/menu/items`);
 }
 
-// -----------------------------
-// Tickets
-// -----------------------------
+/* ---------------- Tickets ---------------- */
 export async function createTicket(data: any) {
   return req(`/tickets`, { method: 'POST', body: JSON.stringify(data) });
 }
-
 export async function listTickets() {
   return req(`/tickets`);
 }
-
 export async function getTicket(id: string) {
   return req(`/tickets/${encodeURIComponent(id)}`);
 }
-
 export async function updateTicket(id: string, patch: any) {
   return req(`/tickets/${encodeURIComponent(id)}`, {
     method: 'PATCH',
@@ -83,17 +63,13 @@ export async function updateTicket(id: string, patch: any) {
   });
 }
 
-// -----------------------------
-// Orders
-// -----------------------------
+/* ---------------- Orders ---------------- */
 export async function createOrder(data: any) {
   return req(`/orders`, { method: 'POST', body: JSON.stringify(data) });
 }
-
 export async function listOrders() {
   return req(`/orders`);
 }
-
 export async function updateOrder(id: string, patch: any) {
   return req(`/orders/${encodeURIComponent(id)}`, {
     method: 'PATCH',
@@ -101,106 +77,69 @@ export async function updateOrder(id: string, patch: any) {
   });
 }
 
-// -----------------------------
-// Folio / Flows
-// -----------------------------
+/* ---------------- Folio / Flows ---------------- */
 export async function getFolio() {
   return req(`/folio`);
 }
-
 export async function precheck(data: any) {
   return req(`/precheck`, { method: 'POST', body: JSON.stringify(data) });
 }
-
 export async function regcard(data: any) {
   return req(`/regcard`, { method: 'POST', body: JSON.stringify(data) });
 }
-
-/**
- * Checkout
- * Pass `{ bookingCode, autopost }`.
- * - If `autopost: true`, server may publish or create a pending review based on policy/consent.
- */
 export async function checkout(data: { bookingCode?: string; autopost?: boolean }) {
   return req(`/checkout`, { method: 'POST', body: JSON.stringify(data) });
 }
 
-// -----------------------------
-// Reviews (manual + AI + approvals)
-// -----------------------------
+/* ---------------- Reviews ---------------- */
 export async function listReviews(slug: string) {
   return req(`/reviews/${encodeURIComponent(slug)}`);
 }
-
 export async function listPendingReviews() {
   return req(`/reviews-pending`);
 }
-
 export async function postManualReview(data: {
-  bookingCode: string;
-  rating: number;
-  title?: string;
-  body?: string;
+  bookingCode: string; rating: number; title?: string; body?: string;
 }) {
   return req(`/reviews`, { method: 'POST', body: JSON.stringify(data) });
 }
-
 export async function reviewDraft(bookingCode: string) {
   return req(`/reviews/draft/${encodeURIComponent(bookingCode)}`);
 }
-
 export async function postAutoReviewPreview(bookingCode: string) {
-  return req(`/reviews/auto`, {
-    method: 'POST',
-    body: JSON.stringify({ bookingCode }),
-  });
+  return req(`/reviews/auto`, { method: 'POST', body: JSON.stringify({ bookingCode }) });
 }
-
 export async function postAutoReviewCommit(bookingCode: string) {
-  return req(`/reviews/auto`, {
-    method: 'POST',
-    body: JSON.stringify({ bookingCode, commit: true }),
-  });
+  return req(`/reviews/auto`, { method: 'POST', body: JSON.stringify({ bookingCode, commit: true }) });
 }
-
 export async function approveReview(id: string, bookingCode: string) {
   return req(`/reviews/${encodeURIComponent(id)}/approve`, {
-    method: 'POST',
-    body: JSON.stringify({ bookingCode }),
+    method: 'POST', body: JSON.stringify({ bookingCode }),
   });
 }
-
 export async function rejectReview(id: string, bookingCode: string) {
   return req(`/reviews/${encodeURIComponent(id)}/reject`, {
-    method: 'POST',
-    body: JSON.stringify({ bookingCode }),
+    method: 'POST', body: JSON.stringify({ bookingCode }),
   });
 }
 
-// -----------------------------
-// Experience (reports)
-// -----------------------------
+/* ---------------- Experience (reports) ---------------- */
 export async function getExperienceSummary(bookingCode: string) {
   return req(`/experience/summary/${encodeURIComponent(bookingCode)}`);
 }
-
 export async function getExperienceReport(slug: string) {
   return req(`/experience/report/${encodeURIComponent(slug)}`);
 }
 
-// -----------------------------
-// Quick Check-in
-// -----------------------------
+/* ---------------- Quick Check-in ---------------- */
 export async function quickCheckin(data: { code: string; phone: string }) {
   return req(`/checkin`, { method: 'POST', body: JSON.stringify(data) });
 }
 
-// -----------------------------
-// Export as a grouped API (optional)
-// -----------------------------
+/* ---------------- Grouped export + Back-compat ---------------- */
 export const api = {
   API,
-  API_URL, // back-compat
+  API_URL,          // back-compat for old imports
   req,
 
   // hotel
@@ -213,6 +152,10 @@ export const api = {
   // catalog
   getServices,
   getMenu,
+
+  // back-compat aliases so legacy code like Menu.tsx keeps working:
+  services: (..._args: any[]) => getServices(),
+  menu:     (..._args: any[]) => getMenu(),
 
   // tickets
   createTicket,

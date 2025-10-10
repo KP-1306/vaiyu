@@ -1,3 +1,4 @@
+// api/src/index.ts
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import 'dotenv/config'
@@ -305,8 +306,9 @@ app.get('/', async () => ({
   try: [
     '/health', '/hotel/sunrise', 'POST /checkin',
     '/reviews/:slug', 'GET /reviews/draft/:code', 'POST /reviews/auto',
+    '/reviews/pending', 'POST /reviews/approve', 'POST /reviews/reject',
     '/experience/summary/:code', '/experience/report/:slug',
-    'POST /booking/:code/consent', 'POST /reviews/:id/approve', 'POST /reviews/:id/reject',
+    'POST /booking/:code/consent',
     '/events'
   ]
 }))
@@ -408,11 +410,13 @@ app.get('/reviews/:slug', async (req, reply) => {
   return rows.slice(0, 50)
 })
 
-// Owner/staff can view pending (demo: no auth; add auth in prod)
-app.get('/reviews-pending', async () => {
-  return reviews
-    .filter(r => r.status === 'pending')
-    .sort((a,b) => b.created_at.localeCompare(a.created_at))
+// Owner/staff pending list (matches web client path)
+app.get('/reviews/pending', async () => {
+  return {
+    items: reviews
+      .filter(r => r.status === 'pending')
+      .sort((a,b) => b.created_at.localeCompare(a.created_at))
+  }
 })
 
 // Manual review by guest → publish immediately
@@ -439,6 +443,7 @@ app.post('/reviews', async (req, reply) => {
     approval: { required: false, approved: true, approved_at: nowISO() }
   }
   reviews.unshift(item)
+  broadcast('review_created', { review: item })
   return item
 })
 
@@ -450,7 +455,7 @@ app.get('/reviews/draft/:code', async (req, reply) => {
   return (res as any).draft
 })
 
-// Auto (AI) – preview or create pending/published based on consent/policy
+// Auto (AI) – preview or create published based on explicit commit from UI
 app.post('/reviews/auto', async (req, reply) => {
   const { bookingCode, commit } = (req.body || {}) as { bookingCode?: string; commit?: boolean }
   if (!bookingCode) return reply.status(400).send({ error: 'bookingCode required' })
@@ -479,32 +484,40 @@ app.post('/reviews/auto', async (req, reply) => {
     anchors: draft.anchors
   }
   reviews.unshift(item)
+  broadcast('review_created', { review: item })
   return item
 })
 
-// Approve/reject a pending review (guest action)
-app.post('/reviews/:id/approve', async (req, reply) => {
-  const { id } = req.params as any
-  const { bookingCode } = (req.body || {}) as { bookingCode?: string }
+// Approve a pending review (Owner moderation) — matches web client helper
+app.post('/reviews/approve', async (req, reply) => {
+  const { id, bookingCode } = (req.body || {}) as { id?: string; bookingCode?: string }
+  if (!id) return reply.status(400).send({ error: 'id required' })
   const r = reviews.find(x => x.id === id)
   if (!r) return reply.status(404).send({ error: 'Review not found' })
-  if (r.booking_code !== bookingCode) return reply.status(403).send({ error: 'Booking code mismatch' })
+  if (bookingCode && r.booking_code && r.booking_code !== bookingCode) {
+    return reply.status(403).send({ error: 'Booking code mismatch' })
+  }
   r.status = 'published'
   r.visibility = 'public'
   r.approval = { required: false, approved: true, approved_at: nowISO() }
   r.updated_at = nowISO()
+  broadcast('review_updated', { id: r.id, action: 'approved' })
   return { ok: true, review: r }
 })
 
-app.post('/reviews/:id/reject', async (req, reply) => {
-  const { id } = req.params as any
-  const { bookingCode } = (req.body || {}) as { bookingCode?: string }
+// Reject a pending review (Owner moderation) — matches web client helper
+app.post('/reviews/reject', async (req, reply) => {
+  const { id, bookingCode } = (req.body || {}) as { id?: string; bookingCode?: string }
+  if (!id) return reply.status(400).send({ error: 'id required' })
   const r = reviews.find(x => x.id === id)
   if (!r) return reply.status(404).send({ error: 'Review not found' })
-  if (r.booking_code !== bookingCode) return reply.status(403).send({ error: 'Booking code mismatch' })
+  if (bookingCode && r.booking_code && r.booking_code !== bookingCode) {
+    return reply.status(403).send({ error: 'Booking code mismatch' })
+  }
   r.status = 'rejected'
   r.visibility = 'private'
   r.updated_at = nowISO()
+  broadcast('review_updated', { id: r.id, action: 'rejected' })
   return { ok: true, review: r }
 })
 
@@ -667,9 +680,10 @@ app.post('/checkout', async (req, reply) => {
           anchors: draft.anchors
         }
         reviews.unshift(r)
+        broadcast('review_created', { review: r })
         out.review = r
       } else {
-        // create a pending/private item (🟡 pending guest approval)
+        // create a pending/private item (🟡 pending guest/owner approval)
         const r: Review = {
           id: String(Date.now()),
           hotel_slug: b.hotel_slug,
@@ -687,6 +701,7 @@ app.post('/checkout', async (req, reply) => {
           anchors: draft.anchors
         }
         reviews.unshift(r)
+        broadcast('review_created', { review: r })
         out.pending_review = r
         out.note = `Pending approval (${publishCheck.reason})`
       }

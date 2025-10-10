@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { getExperienceReport } from '../lib/api';
+import { API, getExperienceReport } from '../lib/api';
 import OwnerGate from '../components/OwnerGate';
 
 type Report = {
@@ -9,25 +9,66 @@ type Report = {
   hints: string[];
 };
 
+type Range = 'today' | '7d' | '30d' | 'all';
+
+const LS_KEY = 'owner:dashboard';
+const DEFAULT_SLUG = new URLSearchParams(location.search).get('slug') || 'sunrise';
+const DEFAULT_RANGE = (new URLSearchParams(location.search).get('range') as Range) || 'all';
+
 export default function OwnerDashboard() {
-  // You can also read slug from search (?slug=xyz) or persist last-used slug in localStorage
-  const [slug, setSlug] = useState<string>(() => new URLSearchParams(location.search).get('slug') || 'sunrise');
-  const [data, setData] = useState<Report | null>(null);
+  // restore from localStorage (if any)
+  const initial = (() => {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (raw) {
+        const j = JSON.parse(raw);
+        return {
+          slug: (new URLSearchParams(location.search).get('slug') || j.slug || DEFAULT_SLUG) as string,
+          range: ((new URLSearchParams(location.search).get('range') as Range) || j.range || DEFAULT_RANGE) as Range,
+        };
+      }
+    } catch {}
+    return { slug: DEFAULT_SLUG, range: DEFAULT_RANGE as Range };
+  })();
+
+  const [slug, setSlug]   = useState<string>(initial.slug);
+  const [range, setRange] = useState<Range>(initial.range);
+  const [data, setData]   = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+
+  // persist state → URL + localStorage (nice UX)
+  useEffect(() => {
+    const sp = new URLSearchParams(location.search);
+    sp.set('slug', slug);
+    sp.set('range', range);
+    const url = `${location.pathname}?${sp.toString()}`;
+    history.replaceState(null, '', url);
+    localStorage.setItem(LS_KEY, JSON.stringify({ slug, range }));
+  }, [slug, range]);
 
   const load = useCallback(async () => {
     setErr(null);
     setLoading(true);
     try {
-      const r = await getExperienceReport(slug);
-      setData(r as Report);
+      // If the API supports ?range, use it. If not, the call still succeeds (server ignores the query).
+      const url = `${API}/experience/report/${encodeURIComponent(slug)}${range === 'all' ? '' : `?range=${range}`}`;
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(await r.text());
+      const json = (await r.json()) as Report;
+      setData(json);
     } catch (e: any) {
-      setErr(e?.message || 'Failed to load report');
+      // fallback to helper (no query param) in case a custom proxy stripped it
+      try {
+        const fallback = await getExperienceReport(slug);
+        setData(fallback as unknown as Report);
+      } catch {
+        setErr(e?.message || 'Failed to load report');
+      }
     } finally {
       setLoading(false);
     }
-  }, [slug]);
+  }, [slug, range]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -36,12 +77,37 @@ export default function OwnerDashboard() {
     const { tickets, orders, onTime, late, avgMins } = data.kpis;
     return [
       { label: 'Tickets', value: tickets },
-      { label: 'Orders', value: orders },
-      { label: 'On-time', value: onTime },
-      { label: 'Late', value: late },
-      { label: 'Avg mins', value: avgMins },
+      { label: 'Orders',  value: orders  },
+      { label: 'On-time', value: onTime  },
+      { label: 'Late',    value: late    },
+      { label: 'Avg mins',value: avgMins },
     ];
   }, [data]);
+
+  function exportCsv() {
+    if (!data) return;
+    const rows = [
+      ['Hotel', data.hotel.name],
+      ['Period', data.period],
+      [],
+      ['Metric','Value'],
+      ['Tickets',  String(data.kpis.tickets)],
+      ['Orders',   String(data.kpis.orders)],
+      ['On-time',  String(data.kpis.onTime)],
+      ['Late',     String(data.kpis.late)],
+      ['Avg mins', String(data.kpis.avgMins)],
+      [],
+      ['Suggestions'],
+      ...((data.hints || []).map(h => [h])),
+    ];
+    const csv = rows.map(r => r.map(cell => `"${String(cell).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `report-${data.hotel.slug}-${range}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
 
   return (
     <OwnerGate>
@@ -63,7 +129,19 @@ export default function OwnerDashboard() {
               onChange={(e) => setSlug(e.target.value)}
               style={{ width: 160 }}
             />
+            <select
+              className="select"
+              value={range}
+              onChange={(e) => setRange(e.target.value as Range)}
+              title="Date range"
+            >
+              <option value="today">Today</option>
+              <option value="7d">Last 7 days</option>
+              <option value="30d">Last 30 days</option>
+              <option value="all">All time</option>
+            </select>
             <button className="btn btn-light" onClick={load}>Refresh</button>
+            <button className="btn" onClick={exportCsv}>Export CSV</button>
           </div>
         </header>
 

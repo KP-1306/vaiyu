@@ -111,7 +111,8 @@ const hotel: Hotel = {
   }
 }
 
-const services = [
+type Service = { key: string; label_en: string; sla_minutes: number }
+let services: Service[] = [
   { key: 'towel', label_en: 'Towel', sla_minutes: 25 },
   { key: 'room_cleaning', label_en: 'Room Cleaning', sla_minutes: 30 },
   { key: 'water_bottle', label_en: 'Water Bottles', sla_minutes: 20 },
@@ -290,8 +291,8 @@ function sseFormat(event: string, data: any) {
 }
 function broadcast(event: string, data: any) {
   const payload = sseFormat(event, data)
-  for (const [id, c] of sseClients) {
-    try { c.write(payload) } catch { sseClients.delete(id) }
+  for (const [, c] of sseClients) {
+    try { c.write(payload) } catch {}
   }
 }
 
@@ -306,7 +307,7 @@ app.get('/', async () => ({
   try: [
     '/health', '/hotel/sunrise', 'POST /checkin',
     '/reviews/:slug', 'GET /reviews/draft/:code', 'POST /reviews/auto',
-    '/reviews/pending', 'POST /reviews/approve', 'POST /reviews/reject',
+    '/reviews-pending', 'POST /reviews/:id/approve', 'POST /reviews/:id/reject',
     '/experience/summary/:code', '/experience/report/:slug',
     'POST /booking/:code/consent',
     '/events'
@@ -349,6 +350,36 @@ app.get('/events', async (req, reply) => {
 // Catalog
 app.get('/hotels', async () => hotel)
 app.get('/catalog/services', async () => ({ items: services }))
+// NEW: bulk save all services
+app.post('/catalog/services', async (req, reply) => {
+  const body = (req.body || {}) as { items?: Service[] }
+  if (!Array.isArray(body.items)) return reply.status(400).send({ error: 'items array required' })
+  // shallow validate
+  services = body.items.map(s => ({
+    key: String(s.key),
+    label_en: String(s.label_en || ''),
+    sla_minutes: Number(s.sla_minutes ?? 30)
+  }))
+  return { ok: true, items: services }
+})
+// NEW: update one service
+app.patch('/catalog/services/:key', async (req, reply) => {
+  const { key } = req.params as any
+  const patch = (req.body || {}) as Partial<Service>
+  const i = services.findIndex(s => s.key === key)
+  if (i === -1) return reply.status(404).send({ error: 'Service not found' })
+  services[i] = { ...services[i], ...patch, key: services[i].key }
+  return { ok: true, item: services[i] }
+})
+// NEW: delete service
+app.delete('/catalog/services/:key', async (req, reply) => {
+  const { key } = req.params as any
+  const before = services.length
+  services = services.filter(s => s.key !== key)
+  if (services.length === before) return reply.status(404).send({ error: 'Service not found' })
+  return { ok: true }
+})
+
 app.get('/menu/items', async () => ({ items: menu }))
 
 // ---------- OwnerSettings → /hotel ----------
@@ -411,7 +442,7 @@ app.get('/reviews/:slug', async (req, reply) => {
 })
 
 // Owner/staff pending list (matches web client path)
-app.get('/reviews/pending', async () => {
+app.get('/reviews-pending', async () => {
   return {
     items: reviews
       .filter(r => r.status === 'pending')
@@ -488,10 +519,10 @@ app.post('/reviews/auto', async (req, reply) => {
   return item
 })
 
-// Approve a pending review (Owner moderation) — matches web client helper
-app.post('/reviews/approve', async (req, reply) => {
-  const { id, bookingCode } = (req.body || {}) as { id?: string; bookingCode?: string }
-  if (!id) return reply.status(400).send({ error: 'id required' })
+// Approve a pending review (Owner moderation) — matches web client helper (/:id)
+app.post('/reviews/:id/approve', async (req, reply) => {
+  const { id } = req.params as any
+  const { bookingCode } = (req.body || {}) as { bookingCode?: string }
   const r = reviews.find(x => x.id === id)
   if (!r) return reply.status(404).send({ error: 'Review not found' })
   if (bookingCode && r.booking_code && r.booking_code !== bookingCode) {
@@ -505,10 +536,10 @@ app.post('/reviews/approve', async (req, reply) => {
   return { ok: true, review: r }
 })
 
-// Reject a pending review (Owner moderation) — matches web client helper
-app.post('/reviews/reject', async (req, reply) => {
-  const { id, bookingCode } = (req.body || {}) as { id?: string; bookingCode?: string }
-  if (!id) return reply.status(400).send({ error: 'id required' })
+// Reject a pending review (Owner moderation) — matches web client helper (/:id)
+app.post('/reviews/:id/reject', async (req, reply) => {
+  const { id } = req.params as any
+  const { bookingCode } = (req.body || {}) as { bookingCode?: string }
   const r = reviews.find(x => x.id === id)
   if (!r) return reply.status(404).send({ error: 'Review not found' })
   if (bookingCode && r.booking_code && r.booking_code !== bookingCode) {
@@ -724,7 +755,7 @@ app.post('/payments/webhook', async () => {
 async function start () {
   await app.register(cors, {
     origin: ORIGIN,
-    methods: ['GET', 'POST', 'PATCH', 'OPTIONS']
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'] // ← add DELETE for services
   })
 
   app.get('/health', async () => ({ ok: true }))

@@ -1,20 +1,25 @@
 {
-  "name": "VAiyu",
+  "name": "VAiyu Guest & Ops",
   "short_name": "VAiyu",
-  "display": "standalone",
+  "description": "Guest requests, housekeeping, kitchen, and owner dashboards — fast and friendly.",
   "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#0ea5e9",
+  "theme_color": "#145AF2",
   "icons": [
-    {
-      "src": "/pwa-192.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "/pwa-512.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
-  ]
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "screenshots": [
+    { "src": "/screenshots/guest.png", "sizes": "1280x720", "type": "image/png", "form_factor": "wide" }
+  ],
+  "shortcuts": [
+    { "name": "Housekeeping", "url": "/hk" },
+    { "name": "Kitchen", "url": "/kitchen" },
+    { "name": "Owner", "url": "/owner" }
+  ],
+  "categories": ["productivity", "business"]
 }

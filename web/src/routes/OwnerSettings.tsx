@@ -1,368 +1,345 @@
-// web/src/routes/OwnerSettings.tsx
-import { useEffect, useState } from "react";
-import { getHotel, upsertHotel } from "../lib/api";
-import { useTheme } from "../components/ThemeProvider";
+import { useEffect, useMemo, useState, useCallback } from 'react';
+import { getHotel, upsertHotel } from '../lib/api';
+import OwnerGate from '../components/OwnerGate';
 
-type HotelForm = {
-  hotelName: string;
-  slug: string;
-  city: string;
-  address: string;
-  phone: string;
-  email: string;
-  brandColor: string;
-  logoUrl: string;
-  roomsCsv: string;      // local only (no API yet)
-  amenitiesCsv: string;  // maps to API amenities[]
-  dark: boolean;         // UI-only checkbox (maps to theme.mode)
-  description?: string;
+type Theme = { brand?: string; mode?: 'light' | 'dark' };
+
+type ReviewsPolicy = {
+  mode?: 'off' | 'preview' | 'auto';
+  min_activity?: number;
+  block_if_late_exceeds?: number;
+  require_consent?: boolean;
 };
 
-const KEY = "owner:settings:hotel";
+type HotelPayload = {
+  slug: string;
+  name: string;
+  description?: string;
+  address?: string;
+  amenities?: string[];
+  phone?: string;
+  email?: string;
+  logo_url?: string;
+  theme?: Theme;
+  reviews_policy?: ReviewsPolicy;
+  // not persisted here, but we allow editing a CSV to seed rooms in future
+  roomsCsv?: string;
+};
 
-function csvToArray(csv: string) {
-  return csv
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+function toCsv(arr?: string[]) {
+  return (arr || []).join(', ');
 }
-function arrayToCsv(arr?: string[]) {
-  return (arr || []).join(", ");
+function fromCsv(s: string) {
+  return s
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean);
 }
 
 export default function OwnerSettings() {
-  const { setTheme } = useTheme();
+  // which hotel to edit
+  const [slug, setSlug] = useState<string>(() => new URLSearchParams(location.search).get('slug') || 'sunrise');
 
-  const [f, setF] = useState<HotelForm>({
-    hotelName: "",
-    slug: "sunrise",
-    city: "",
-    address: "",
-    phone: "",
-    email: "",
-    brandColor: "#0ea5e9",
-    logoUrl: "",
-    roomsCsv: "201,202,203,204,205",
-    amenitiesCsv: "Free Wi-Fi, 24x7 Front Desk, Room Service",
-    dark: false,
-    description: "",
+  // form state
+  const [form, setForm] = useState<HotelPayload>({
+    slug: 'sunrise',
+    name: '',
+    description: '',
+    address: '',
+    amenities: [],
+    phone: '',
+    email: '',
+    logo_url: '',
+    theme: { brand: '#145AF2', mode: 'light' },
+    reviews_policy: {
+      mode: 'preview',
+      min_activity: 1,
+      block_if_late_exceeds: 0,
+      require_consent: true,
+    },
+    roomsCsv: '201,202,203,204',
   });
-  const [savedAt, setSavedAt] = useState<string>("");
-  const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState<string>("");
 
-  // hydrate from local backup once
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(KEY);
-      if (raw) {
-        const obj = JSON.parse(raw);
-        setF((p) => ({ ...p, ...obj, dark: !!obj.dark }));
-        if (obj.__savedAt) setSavedAt(obj.__savedAt);
-        // apply theme preview from saved
-        setTheme({ brand: obj.brandColor || p.brandColor, mode: obj.dark ? "dark" : "light" });
-      }
-    } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const [amenitiesCsv, setAmenitiesCsv] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
 
-  // live theme preview when brand/dark change
-  useEffect(() => {
-    setTheme({ brand: f.brandColor, mode: f.dark ? "dark" : "light" });
-  }, [f.brandColor, f.dark, setTheme]);
-
-  function up<K extends keyof HotelForm>(k: K, v: HotelForm[K]) {
-    setF((p) => ({ ...p, [k]: v }));
-  }
-
-  function saveLocal() {
-    const payload = { ...f, __savedAt: new Date().toISOString() };
-    localStorage.setItem(KEY, JSON.stringify(payload));
-    setSavedAt(payload.__savedAt);
-    setMsg("Saved locally.");
-    setTimeout(() => setMsg(""), 1500);
-  }
-
-  async function loadFromServer() {
+  // load hotel
+  const load = useCallback(async () => {
+    setErr(null);
+    setOk(null);
     setLoading(true);
-    setMsg("");
     try {
-      const h = await getHotel(f.slug);
-      // map API → form
-      setF((p) => ({
+      const h = await getHotel(slug);
+      const amenities = (h as any).amenities || [];
+      setForm((p) => ({
         ...p,
-        hotelName: h.name || p.hotelName,
-        slug: h.slug || p.slug,
-        city: p.city, // not in API yet
-        address: h.address || "",
-        phone: h.phone || "",
-        email: h.email || "",
-        logoUrl: h.logo_url || "",
-        brandColor: h?.theme?.brand || p.brandColor,
-        dark: (h?.theme?.mode || "light") === "dark",
-        amenitiesCsv: arrayToCsv(h?.amenities),
-        description: h?.description || "",
+        slug: (h as any).slug || slug,
+        name: (h as any).name || '',
+        description: (h as any).description || '',
+        address: (h as any).address || '',
+        amenities,
+        phone: (h as any).phone || '',
+        email: (h as any).email || '',
+        logo_url: (h as any).logo_url || '',
+        theme: (h as any).theme || { brand: '#145AF2', mode: 'light' },
+        reviews_policy:
+          (h as any).reviews_policy || { mode: 'preview', min_activity: 1, block_if_late_exceeds: 0, require_consent: true },
       }));
-      setMsg("Loaded from server.");
+      setAmenitiesCsv(toCsv(amenities));
     } catch (e: any) {
-      setMsg(e?.message || "Failed to load from server");
+      setErr(e?.message || 'Failed to load hotel');
     } finally {
       setLoading(false);
-      setTimeout(() => setMsg(""), 1500);
     }
+  }, [slug]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  function set<K extends keyof HotelPayload>(key: K, val: HotelPayload[K]) {
+    setForm((p) => ({ ...p, [key]: val }));
+  }
+  function setTheme<K extends keyof Theme>(key: K, val: Theme[K]) {
+    setForm((p) => ({ ...p, theme: { ...(p.theme || {}), [key]: val } }));
+  }
+  function setPolicy<K extends keyof ReviewsPolicy>(key: K, val: ReviewsPolicy[K]) {
+    setForm((p) => ({ ...p, reviews_policy: { ...(p.reviews_policy || {}), [key]: val } }));
   }
 
-  async function saveToServer() {
-    setLoading(true);
-    setMsg("");
+  async function save() {
+    setErr(null);
+    setOk(null);
+    setSaving(true);
     try {
-      const payload = {
-        slug: f.slug.trim(),
-        name: f.hotelName.trim() || "Hotel",
-        description: f.description?.trim(),
-        address: [f.address, f.city].filter(Boolean).join(", "),
-        phone: f.phone.trim(),
-        email: f.email.trim(),
-        logo_url: f.logoUrl.trim(),
-        amenities: csvToArray(f.amenitiesCsv),
-        theme: { brand: f.brandColor, mode: f.dark ? "dark" : "light" as const },
+      const payload: HotelPayload = {
+        slug: form.slug.trim(),
+        name: form.name.trim(),
+        description: form.description?.trim(),
+        address: form.address?.trim(),
+        amenities: fromCsv(amenitiesCsv),
+        phone: form.phone?.trim(),
+        email: form.email?.trim(),
+        logo_url: form.logo_url?.trim(),
+        theme: form.theme,
+        reviews_policy: {
+          mode: form.reviews_policy?.mode || 'preview',
+          min_activity: Number(form.reviews_policy?.min_activity ?? 1),
+          block_if_late_exceeds: Number(form.reviews_policy?.block_if_late_exceeds ?? 0),
+          require_consent: !!form.reviews_policy?.require_consent,
+        },
       };
-      const res = await upsertHotel(payload);
-      // reflect any normalized values from server back in form (slug/name/theme, etc.)
-      setF((p) => ({
-        ...p,
-        slug: res.slug || p.slug,
-        hotelName: res.name || p.hotelName,
-        address: res.address || p.address,
-        phone: res.phone || p.phone,
-        email: res.email || p.email,
-        logoUrl: res.logo_url || p.logoUrl,
-        amenitiesCsv: arrayToCsv(res.amenities),
-        brandColor: res?.theme?.brand || p.brandColor,
-        dark: (res?.theme?.mode || "light") === "dark",
-        description: res?.description || p.description,
-      }));
-      setMsg("Saved to server.");
+      await upsertHotel(payload);
+      setOk('Saved.');
+      // if slug changed, reflect in query string
+      if (slug !== payload.slug) {
+        const usp = new URLSearchParams(location.search);
+        usp.set('slug', payload.slug);
+        history.replaceState({}, '', `${location.pathname}?${usp.toString()}`);
+        setSlug(payload.slug);
+      }
     } catch (e: any) {
-      setMsg(e?.message || "Failed to save to server");
+      setErr(e?.message || 'Failed to save');
     } finally {
-      setLoading(false);
-      setTimeout(() => setMsg(""), 1500);
+      setSaving(false);
     }
   }
 
-  function clearAll() {
-    if (!confirm("Clear all saved settings locally?")) return;
-    localStorage.removeItem(KEY);
-    window.location.reload();
-  }
-
-  function exportJson() {
-    const data = { ...f, __savedAt: savedAt || new Date().toISOString() };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${f.slug || "hotel"}-settings.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
+  const themePreviewStyle = useMemo(
+    () => ({
+      background: form.theme?.brand || '#145AF2',
+      color: '#fff',
+      borderRadius: 12,
+      padding: 12,
+    }),
+    [form.theme?.brand]
+  );
 
   return (
-    <main className="max-w-3xl mx-auto p-4">
-      <div className="flex items-start justify-between">
-        <h1 className="text-xl font-semibold mb-3">Owner Settings / Onboarding</h1>
-        <div className="text-right">
-          {!!savedAt && (
-            <div className="mb-1 text-xs text-gray-600">
-              Local backup: {new Date(savedAt).toLocaleString()}
-            </div>
-          )}
-          {msg && <div className="text-xs text-emerald-700">{msg}</div>}
-        </div>
-      </div>
-
-      <div className="bg-white rounded shadow p-4 space-y-3">
-        <div className="grid md:grid-cols-2 gap-3">
-          <label className="text-sm">
-            Slug (no spaces)
+    <OwnerGate>
+      <main className="max-w-3xl mx-auto p-4 space-y-4">
+        <header className="flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-semibold">Owner Settings</h1>
+            <div className="text-sm text-gray-600">Branding, contact, and **Reviews policy**</div>
+          </div>
+          <div className="flex gap-2">
             <input
-              className="mt-1 border rounded w-full px-2 py-1"
-              value={f.slug}
-              onChange={(e) => up("slug", e.target.value)}
-              placeholder="sunrise"
+              className="input"
+              style={{ width: 160 }}
+              value={slug}
+              onChange={(e) => setSlug(e.target.value)}
+              placeholder="hotel slug"
+              title="Hotel slug to load"
             />
-          </label>
-          <div className="flex items-end gap-2">
-            <button
-              onClick={loadFromServer}
-              className="px-3 py-2 bg-white rounded border"
-              disabled={loading || !f.slug.trim()}
-              title="Fetch current configuration from API"
-            >
-              {loading ? "Loading…" : "Load from server"}
-            </button>
-            <button
-              onClick={saveToServer}
-              className="px-3 py-2 bg-sky-600 text-white rounded"
-              disabled={loading || !f.slug.trim()}
-              title="Save configuration to API"
-            >
-              {loading ? "Saving…" : "Save to server"}
+            <button className="btn btn-light" onClick={load} disabled={loading}>
+              Reload
             </button>
           </div>
+        </header>
 
-          <label className="text-sm md:col-span-2">
-            Hotel name
-            <input
-              className="mt-1 border rounded w-full px-2 py-1"
-              value={f.hotelName}
-              onChange={(e) => up("hotelName", e.target.value)}
-              placeholder="Sunrise Resort"
-            />
-          </label>
+        {err && <div className="card" style={{ borderColor: '#f59e0b' }}>⚠️ {err}</div>}
+        {ok && <div className="card" style={{ borderColor: '#10b981' }}>✅ {ok}</div>}
+        {loading && <div>Loading…</div>}
 
-          <label className="text-sm md:col-span-2">
-            Short description
-            <input
-              className="mt-1 border rounded w-full px-2 py-1"
-              value={f.description}
-              onChange={(e) => up("description", e.target.value)}
-              placeholder="Hill-view stay powered by VAiyu"
-            />
-          </label>
+        {!loading && (
+          <>
+            {/* Identity */}
+            <section className="bg-white rounded shadow p-4 space-y-3">
+              <div className="grid md:grid-cols-2 gap-3">
+                <label className="text-sm">
+                  Name
+                  <input className="mt-1 input w-full" value={form.name} onChange={(e) => set('name', e.target.value)} />
+                </label>
+                <label className="text-sm">
+                  Slug
+                  <input className="mt-1 input w-full" value={form.slug} onChange={(e) => set('slug', e.target.value)} />
+                </label>
+                <label className="text-sm md:col-span-2">
+                  Description
+                  <input className="mt-1 input w-full" value={form.description} onChange={(e) => set('description', e.target.value)} />
+                </label>
+                <label className="text-sm md:col-span-2">
+                  Address
+                  <input className="mt-1 input w-full" value={form.address} onChange={(e) => set('address', e.target.value)} />
+                </label>
+                <label className="text-sm">
+                  Phone
+                  <input className="mt-1 input w-full" value={form.phone} onChange={(e) => set('phone', e.target.value)} />
+                </label>
+                <label className="text-sm">
+                  Email
+                  <input className="mt-1 input w-full" value={form.email} onChange={(e) => set('email', e.target.value)} />
+                </label>
+                <label className="text-sm md:col-span-2">
+                  Logo URL
+                  <input className="mt-1 input w-full" value={form.logo_url} onChange={(e) => set('logo_url', e.target.value)} />
+                </label>
+              </div>
 
-          <label className="text-sm">
-            City
-            <input
-              className="mt-1 border rounded w-full px-2 py-1"
-              value={f.city}
-              onChange={(e) => up("city", e.target.value)}
-              placeholder="Manali"
-            />
-          </label>
-          <label className="text-sm">
-            Phone
-            <input
-              className="mt-1 border rounded w-full px-2 py-1"
-              value={f.phone}
-              onChange={(e) => up("phone", e.target.value)}
-              placeholder="+91 98xxxxxxx"
-            />
-          </label>
-          <label className="text-sm md:col-span-2">
-            Address
-            <input
-              className="mt-1 border rounded w-full px-2 py-1"
-              value={f.address}
-              onChange={(e) => up("address", e.target.value)}
-              placeholder="Street, Area, City, PIN"
-            />
-          </label>
-          <label className="text-sm md:col-span-2">
-            Email
-            <input
-              type="email"
-              className="mt-1 border rounded w-full px-2 py-1"
-              value={f.email}
-              onChange={(e) => up("email", e.target.value)}
-              placeholder="reservations@hotel.com"
-            />
-          </label>
-        </div>
+              <div className="grid md:grid-cols-2 gap-3 pt-2">
+                <label className="text-sm">
+                  Brand color
+                  <input
+                    type="color"
+                    className="mt-1 border rounded w-28 h-10"
+                    value={form.theme?.brand || '#145AF2'}
+                    onChange={(e) => setTheme('brand', e.target.value)}
+                  />
+                </label>
+                <label className="text-sm">
+                  Theme mode
+                  <select
+                    className="mt-1 select w-full"
+                    value={form.theme?.mode || 'light'}
+                    onChange={(e) => setTheme('mode', e.target.value as Theme['mode'])}
+                  >
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                  </select>
+                </label>
+              </div>
 
-        <div className="grid md:grid-cols-2 gap-3 pt-2">
-          <label className="text-sm">
-            Brand color
-            <input
-              type="color"
-              className="mt-1 border rounded w-32 h-9"
-              value={f.brandColor}
-              onChange={(e) => up("brandColor", e.target.value)}
-            />
-          </label>
-          <label className="text-sm">
-            Theme mode
-            <div className="mt-1 flex items-center gap-2">
-              <label className="text-sm flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={f.dark}
-                  onChange={(e) => up("dark", e.target.checked)}
-                />
-                Use dark mode
-              </label>
+              <div className="grid gap-3 pt-2">
+                <label className="text-sm">
+                  Amenities (CSV)
+                  <input
+                    className="mt-1 input w-full"
+                    value={amenitiesCsv}
+                    onChange={(e) => setAmenitiesCsv(e.target.value)}
+                    placeholder="WiFi, Parking, Breakfast"
+                  />
+                </label>
+                <label className="text-sm">
+                  Rooms (CSV) <span className="text-gray-500 text-xs">(preview only)</span>
+                  <input
+                    className="mt-1 input w-full"
+                    value={form.roomsCsv}
+                    onChange={(e) => set('roomsCsv', e.target.value)}
+                    placeholder="101,102,201…"
+                  />
+                </label>
+              </div>
+            </section>
+
+            {/* Reviews Policy */}
+            <section className="bg-white rounded shadow p-4 space-y-3">
+              <div className="font-semibold">Reviews / Experience Policy</div>
+              <div className="grid md:grid-cols-2 gap-3">
+                <label className="text-sm">
+                  Mode
+                  <select
+                    className="mt-1 select w-full"
+                    value={form.reviews_policy?.mode || 'preview'}
+                    onChange={(e) => setPolicy('mode', e.target.value as ReviewsPolicy['mode'])}
+                  >
+                    <option value="off">Off — never generate</option>
+                    <option value="preview">Preview — draft for guest</option>
+                    <option value="auto">Auto — publish at checkout (respect rules)</option>
+                  </select>
+                </label>
+                <label className="text-sm">
+                  Require consent
+                  <select
+                    className="mt-1 select w-full"
+                    value={String(!!form.reviews_policy?.require_consent)}
+                    onChange={(e) => setPolicy('require_consent', e.target.value === 'true')}
+                  >
+                    <option value="true">Yes (recommended)</option>
+                    <option value="false">No</option>
+                  </select>
+                </label>
+                <label className="text-sm">
+                  Min. activity (tickets + orders)
+                  <input
+                    type="number"
+                    min={0}
+                    className="mt-1 input w-full"
+                    value={Number(form.reviews_policy?.min_activity ?? 1)}
+                    onChange={(e) => setPolicy('min_activity', Number(e.target.value))}
+                  />
+                </label>
+                <label className="text-sm">
+                  Block if late requests &gt;
+                  <input
+                    type="number"
+                    min={0}
+                    className="mt-1 input w-full"
+                    value={Number(form.reviews_policy?.block_if_late_exceeds ?? 0)}
+                    onChange={(e) => setPolicy('block_if_late_exceeds', Number(e.target.value))}
+                  />
+                </label>
+              </div>
+              <p className="text-xs text-gray-600">
+                <b>Preview</b> shows an AI draft the guest can edit/approve. <b>Auto</b> can publish at checkout, but will be blocked if consent is
+                required or thresholds aren’t met.
+              </p>
+            </section>
+
+            {/* Preview card */}
+            <section className="bg-white rounded shadow p-4 space-y-2">
+              <div className="text-sm text-gray-600">Microsite preview</div>
+              <div style={themePreviewStyle}>
+                <div className="text-xs opacity-90">Property microsite</div>
+                <div className="text-xl font-semibold">{form.name || 'Hotel'}</div>
+                <div className="text-sm opacity-90">{form.address || 'Address'} • {form.phone || 'Phone'}</div>
+              </div>
+            </section>
+
+            <div className="flex gap-2">
+              <button className="btn" onClick={save} disabled={saving}>
+                {saving ? 'Saving…' : 'Save settings'}
+              </button>
+              <button className="btn btn-light" onClick={load} disabled={loading}>
+                Revert
+              </button>
             </div>
-          </label>
-          <label className="text-sm md:col-span-2">
-            Logo URL (optional)
-            <input
-              className="mt-1 border rounded w-full px-2 py-1"
-              value={f.logoUrl}
-              onChange={(e) => up("logoUrl", e.target.value)}
-              placeholder="https://..."
-            />
-          </label>
-          <label className="text-sm md:col-span-2">
-            Amenities (CSV)
-            <input
-              className="mt-1 border rounded w-full px-2 py-1"
-              value={f.amenitiesCsv}
-              onChange={(e) => up("amenitiesCsv", e.target.value)}
-              placeholder="WiFi, Parking, Breakfast"
-            />
-          </label>
-          <label className="text-sm md:col-span-2">
-            Rooms (CSV) <span className="text-xs text-gray-500">(stored locally for now)</span>
-            <input
-              className="mt-1 border rounded w-full px-2 py-1"
-              value={f.roomsCsv}
-              onChange={(e) => up("roomsCsv", e.target.value)}
-              placeholder="101,102,201,202"
-            />
-          </label>
-        </div>
-
-        <div className="pt-2 flex flex-wrap gap-2">
-          <button onClick={saveLocal} className="px-4 py-2 bg-white rounded border">
-            Save locally
-          </button>
-          <button onClick={exportJson} className="px-4 py-2 bg-white rounded border">
-            Export JSON
-          </button>
-          <button onClick={clearAll} className="px-4 py-2 bg-white rounded border">
-            Clear
-          </button>
-        </div>
-      </div>
-
-      {/* Live preview card */}
-      <section className="mt-4 bg-white rounded shadow p-4">
-        <div className="text-sm text-gray-600 mb-2">Live Preview (uses ThemeProvider)</div>
-        <div
-          className="rounded p-3 text-white"
-          style={{ background: f.brandColor || "#0ea5e9" }}
-        >
-          <div className="text-xs opacity-90">Property microsite</div>
-          <div className="text-xl font-semibold">{f.hotelName || "Hotel"}</div>
-          <div className="text-sm opacity-90">
-            {(f.city || "").trim() || "City"} • {(f.phone || "").trim() || "Phone"}
-          </div>
-        </div>
-      </section>
-
-      {/* Logo preview */}
-      {f.logoUrl && (
-        <section className="mt-3">
-          <div className="text-sm text-gray-600 mb-1">Logo preview</div>
-          <img
-            src={f.logoUrl}
-            alt="Hotel logo"
-            style={{ width: 80, height: 80, borderRadius: 12, objectFit: "cover", border: "1px solid var(--border)" }}
-            onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")}
-          />
-        </section>
-      )}
-    </main>
+          </>
+        )}
+      </main>
+    </OwnerGate>
   );
 }

@@ -44,6 +44,15 @@ type Review = {
   verified: boolean
   created_at: string
   guest_name?: string
+  source: 'guest' | 'auto'           // NEW
+  anchors?: {                        // NEW (explain why we chose the rating)
+    tickets: number
+    orders: number
+    onTime: number
+    late: number
+    avgMins: number
+    details?: string[]
+  }
 }
 
 const hotel: Hotel = {

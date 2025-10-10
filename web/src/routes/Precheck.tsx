@@ -1,3 +1,4 @@
+// web/src/routes/Precheck.tsx
 import { useState } from "react";
 import { precheck } from "../lib/api";
 
@@ -39,7 +40,7 @@ export default function Precheck() {
     setBusy(true);
     setMsg("");
 
-    // Same payload as before, now using the api helper
+    // Payload (same structure as before), now via api helper
     const payload = {
       hotel: "DEMO",
       booking: "DEMO",
@@ -63,13 +64,11 @@ export default function Precheck() {
     try {
       await precheck(payload);
       setMsg("Pre-check-in submitted. We’ll be ready when you arrive!");
-    } catch (e) {
-      // fallback like your original: store locally so the desk can read it
+    } catch {
+      // Fallback: store locally so the desk can read it later
       const key = `precheck:DEMO:${Date.now()}`;
       localStorage.setItem(key, JSON.stringify(payload));
-      setMsg(
-        "Saved locally (offline). Front desk can read this from the device."
-      );
+      setMsg("Saved locally (offline). Front desk can read this from the device.");
     } finally {
       setBusy(false);
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -79,11 +78,16 @@ export default function Precheck() {
   return (
     <main className="max-w-xl mx-auto p-4">
       <h1 className="text-xl font-semibold mb-3">Pre-check-in</h1>
+
       {msg && (
-        <div className="mb-3 p-2 bg-emerald-50 border border-emerald-200 rounded text-emerald-700">
+        <div
+          className="mb-3 p-2 bg-emerald-50 border border-emerald-200 rounded text-emerald-700"
+          role="status"
+        >
           {msg}
         </div>
       )}
+
       <form onSubmit={submit} className="space-y-3 bg-white p-3 rounded shadow">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <label className="text-sm">
@@ -95,6 +99,7 @@ export default function Precheck() {
               onChange={(e) => up("guestName", e.target.value)}
             />
           </label>
+
           <label className="text-sm">
             Phone
             <input
@@ -104,6 +109,7 @@ export default function Precheck() {
               onChange={(e) => up("phone", e.target.value)}
             />
           </label>
+
           <label className="text-sm">
             Email
             <input
@@ -113,6 +119,7 @@ export default function Precheck() {
               onChange={(e) => up("email", e.target.value)}
             />
           </label>
+
           <label className="text-sm">
             ID type
             <select
@@ -126,6 +133,7 @@ export default function Precheck() {
               <option>Driving License</option>
             </select>
           </label>
+
           <label className="text-sm md:col-span-2">
             ID number
             <input
@@ -134,6 +142,7 @@ export default function Precheck() {
               onChange={(e) => up("idNumber", e.target.value)}
             />
           </label>
+
           <label className="text-sm">
             Arrival date
             <input
@@ -143,6 +152,7 @@ export default function Precheck() {
               onChange={(e) => up("arrivalDate", e.target.value)}
             />
           </label>
+
           <label className="text-sm">
             Arrival time
             <input
@@ -152,6 +162,7 @@ export default function Precheck() {
               onChange={(e) => up("arrivalTime", e.target.value)}
             />
           </label>
+
           <label className="text-sm">
             Adults
             <input
@@ -162,6 +173,7 @@ export default function Precheck() {
               onChange={(e) => up("paxAdults", Number(e.target.value))}
             />
           </label>
+
           <label className="text-sm">
             Kids
             <input
@@ -180,7 +192,8 @@ export default function Precheck() {
             className="mt-1 border rounded w-full px-2 py-1"
             rows={3}
             value={f.notes}
-            onChange={(e) => up("notes", e.target.value))}
+            onChange={(e) => up("notes", e.target.value)}
+            placeholder="Anything we should know? (Late arrival, accessibility, etc.)"
           />
         </label>
 

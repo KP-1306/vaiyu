@@ -13,10 +13,10 @@ type Theme = { brand?: string; mode?: 'light' | 'dark' }
 
 // Owner flags for truth-anchored reviews/experience
 type ReviewsPolicy = {
-  mode?: 'off' | 'preview' | 'auto'      // preview shows draft to guest; auto posts at checkout
-  min_activity?: number                  // min (tickets + orders) to consider auto/preview
-  block_if_late_exceeds?: number         // if late > this, skip auto-post
-  require_consent?: boolean              // if true, only auto-post if booking has consent
+  mode?: 'off' | 'preview' | 'auto'      // preview shows draft to guest; auto attempts at checkout (never publishes without consent)
+  min_activity?: number                  // min (tickets + orders) to consider
+  block_if_late_exceeds?: number         // if late > this, skip auto
+  require_consent?: boolean              // if true, only publish when booking has consent (we still can create pending drafts)
 }
 
 type Hotel = {
@@ -44,8 +44,13 @@ type Booking = {
   room_no?: string
   checkin_at?: string
   checkout_at?: string
-  consent_reviews?: boolean            // guest consent captured via /booking/:code/consent
+  consent_reviews?: boolean            // guest consent (for publishing) captured via /booking/:code/consent
 }
+
+// Review lifecycle + visibility
+type ReviewStatus = 'draft' | 'pending' | 'published' | 'rejected'
+type ReviewVisibility = 'private' | 'public'
+
 type Review = {
   id: string
   hotel_slug: string
@@ -54,8 +59,17 @@ type Review = {
   body?: string
   verified: boolean
   created_at: string
+  updated_at?: string
   guest_name?: string
   source: 'guest' | 'auto'
+  status: ReviewStatus
+  visibility: ReviewVisibility
+  booking_code?: string
+  approval: {
+    required: boolean
+    approved: boolean
+    approved_at?: string
+  }
   anchors?: {
     tickets: number
     orders: number
@@ -251,8 +265,8 @@ function buildExperienceSummary(bookingCode: string): ExperienceSummary | { erro
   }
 }
 
-// Policy evaluation for auto-post at checkout
-function shouldAutoPost(policy: ReviewsPolicy | undefined, draftAnchors: NonNullable<Review['anchors']>, consent: boolean | undefined) {
+// Policy evaluation for auto-post at checkout (publish decision only)
+function shouldAutoPublish(policy: ReviewsPolicy | undefined, draftAnchors: NonNullable<Review['anchors']>, consent: boolean | undefined) {
   const mode = policy?.mode ?? 'preview'
   if (mode !== 'auto') return { allow: false, reason: 'mode_not_auto' }
   const minAct = policy?.min_activity ?? 1
@@ -276,7 +290,7 @@ app.get('/', async () => ({
     '/health', '/hotel/sunrise', 'POST /checkin',
     '/reviews/:slug', 'GET /reviews/draft/:code', 'POST /reviews/auto',
     '/experience/summary/:code', '/experience/report/:slug',
-    'POST /booking/:code/consent'
+    'POST /booking/:code/consent', 'POST /reviews/:id/approve', 'POST /reviews/:id/reject'
   ]
 }))
 
@@ -295,9 +309,8 @@ app.get('/hotel/:slug', async (req, reply) => {
 app.post('/hotel/upsert', async (req, reply) => {
   const body = (req.body || {}) as Partial<Hotel>
   if (!body.slug || !body.name) return reply.status(400).send({ error: 'slug & name required' })
-  // merge shallowly (simple demo)
   Object.assign(hotel, body)
-  // If slug changed, cascade in-memory arrays
+  // cascade slug in demo arrays
   rooms = rooms.map(r => r.hotel_slug === hotel.slug ? r : { ...r, hotel_slug: hotel.slug })
   bookings = bookings.map(b => b.hotel_slug === hotel.slug ? b : { ...b, hotel_slug: hotel.slug })
   return hotel
@@ -313,7 +326,7 @@ app.post('/booking/:code/consent', async (req, reply) => {
   return { ok: true, booking: b }
 })
 
-// ---------- Quick Check-In with room pre-assignment ----------
+// ---------- Quick Check-In ----------
 app.post('/checkin', async (req, reply) => {
   const { code, phone } = (req.body || {}) as { code?: string; phone?: string }
   if (!code || !phone) return reply.status(400).send({ error: 'code & phone are required' })
@@ -321,9 +334,7 @@ app.post('/checkin', async (req, reply) => {
   const b = bookings.find(x => x.code === code && x.guest_phone === phone && x.status === 'booked')
   if (!b) return reply.status(404).send({ error: 'Booking not found or not eligible' })
 
-  // Pass 1: match requested type
   let r = rooms.find(x => x.hotel_slug === b.hotel_slug && x.room_type === b.room_type && x.is_clean && !x.is_occupied)
-  // Pass 2: any clean & free
   if (!r) r = rooms.find(x => x.hotel_slug === b.hotel_slug && x.is_clean && !x.is_occupied)
   if (!r) return reply.status(409).send({ error: 'No rooms available right now' })
 
@@ -336,16 +347,25 @@ app.post('/checkin', async (req, reply) => {
 })
 
 // ---------- Reviews (manual + AI) ----------
+
+// Public list shows only published reviews
 app.get('/reviews/:slug', async (req, reply) => {
   const { slug } = req.params as any
   if (slug !== hotel.slug) return reply.status(404).send({ error: 'Hotel not found' })
   const rows = reviews
-    .filter(r => r.hotel_slug === slug)
+    .filter(r => r.hotel_slug === slug && r.visibility === 'public' && r.status === 'published')
     .sort((a,b) => b.created_at.localeCompare(a.created_at))
   return rows.slice(0, 50)
 })
 
-// Manual review by guest
+// Owner/staff can view pending (demo: no auth; add auth in prod)
+app.get('/reviews-pending', async () => {
+  return reviews
+    .filter(r => r.status === 'pending')
+    .sort((a,b) => b.created_at.localeCompare(a.created_at))
+})
+
+// Manual review by guest → publish immediately
 app.post('/reviews', async (req, reply) => {
   const { bookingCode, rating, title, body } = (req.body || {}) as { bookingCode?: string; rating?: number; title?: string; body?: string }
   if (!bookingCode || !rating) return reply.status(400).send({ error: 'bookingCode & rating required' })
@@ -362,7 +382,11 @@ app.post('/reviews', async (req, reply) => {
     verified: b.status === 'completed',
     created_at: nowISO(),
     guest_name: b.guest_name,
-    source: 'guest'
+    source: 'guest',
+    status: 'published',
+    visibility: 'public',
+    booking_code: bookingCode,
+    approval: { required: false, approved: true, approved_at: nowISO() }
   }
   reviews.unshift(item)
   return item
@@ -376,17 +400,18 @@ app.get('/reviews/draft/:code', async (req, reply) => {
   return (res as any).draft
 })
 
-// Auto-post an AI-authored review (truth-anchored)
+// Auto (AI) – preview or create pending/published based on consent/policy
 app.post('/reviews/auto', async (req, reply) => {
   const { bookingCode, commit } = (req.body || {}) as { bookingCode?: string; commit?: boolean }
   if (!bookingCode) return reply.status(400).send({ error: 'bookingCode required' })
 
   const res = buildReviewDraftFromActivity(bookingCode)
   if ((res as any).error) return reply.status(404).send(res)
-
   const { draft, booking } = res as any
-  if (!commit) return draft // preview only
 
+  if (!commit) return draft // preview only (side-by-side)
+
+  // If committing from UI, treat as approved (guest explicitly confirmed)
   const item: Review = {
     id: String(Date.now()),
     hotel_slug: booking.hotel_slug,
@@ -397,13 +422,97 @@ app.post('/reviews/auto', async (req, reply) => {
     created_at: nowISO(),
     guest_name: booking.guest_name,
     source: 'auto',
+    status: 'published',
+    visibility: 'public',
+    booking_code: bookingCode,
+    approval: { required: false, approved: true, approved_at: nowISO() },
     anchors: draft.anchors
   }
   reviews.unshift(item)
   return item
 })
 
+// Approve/reject a pending review (guest action)
+// Simple demo rule: must provide bookingCode to act on the review
+app.post('/reviews/:id/approve', async (req, reply) => {
+  const { id } = req.params as any
+  const { bookingCode } = (req.body || {}) as { bookingCode?: string }
+  const r = reviews.find(x => x.id === id)
+  if (!r) return reply.status(404).send({ error: 'Review not found' })
+  if (r.booking_code !== bookingCode) return reply.status(403).send({ error: 'Booking code mismatch' })
+  r.status = 'published'
+  r.visibility = 'public'
+  r.approval = { required: false, approved: true, approved_at: nowISO() }
+  r.updated_at = nowISO()
+  return { ok: true, review: r }
+})
+
+app.post('/reviews/:id/reject', async (req, reply) => {
+  const { id } = req.params as any
+  const { bookingCode } = (req.body || {}) as { bookingCode?: string }
+  const r = reviews.find(x => x.id === id)
+  if (!r) return reply.status(404).send({ error: 'Review not found' })
+  if (r.booking_code !== bookingCode) return reply.status(403).send({ error: 'Booking code mismatch' })
+  r.status = 'rejected'
+  r.visibility = 'private'
+  r.updated_at = nowISO()
+  return { ok: true, review: r }
+})
+
 // ---------- Experience (owner-facing) ----------
+
+function summarizeByService(bookingCode: string) {
+  const tix = tickets.filter(t => t.booking === bookingCode)
+  const by: Record<string, { count: number; late: number; totalMins: number }> = {}
+  tix.forEach(t => {
+    const end = t.done_at || t.started_at || t.accepted_at || t.created_at
+    const mins = minutesBetween(t.created_at, end!)
+    const breached = new Date(end!) > new Date(t.sla_deadline)
+    by[t.service_key] ??= { count: 0, late: 0, totalMins: 0 }
+    by[t.service_key].count++
+    by[t.service_key].totalMins += mins
+    if (breached) by[t.service_key].late++
+  })
+  return Object.entries(by).map(([service_key, v]) => ({
+    service_key,
+    count: v.count,
+    late: v.late,
+    avgMins: Math.round(v.totalMins / v.count)
+  }))
+}
+
+function policyHintsFromAnchors(a: NonNullable<Review['anchors']>): string[] {
+  const hints: string[] = []
+  if (a.late > 0) hints.push(`Investigate ${a.late} SLA breach(es); consider buffer or staffing in peak hours.`)
+  if (a.avgMins > 30) hints.push(`Average resolution ${a.avgMins} min — review SLA targets or workflow.`)
+  return hints.length ? hints : ['No obvious issues. Keep current policies.']
+}
+
+function buildExperienceSummary(bookingCode: string): ExperienceSummary | { error: string } {
+  const res = buildReviewDraftFromActivity(bookingCode)
+  if ((res as any).error) return res as any
+  const { booking, draft } = res as any
+
+  const perService = summarizeByService(bookingCode)
+  const kpis = {
+    onTime: draft.anchors.onTime,
+    late: draft.anchors.late,
+    avgMins: draft.anchors.avgMins,
+    tickets: draft.anchors.tickets,
+    orders: draft.anchors.orders
+  }
+
+  return {
+    bookingCode,
+    guest_name: booking.guest_name,
+    hotel_slug: booking.hotel_slug,
+    kpis,
+    perService,
+    narrative: { title: draft.titleSuggested, body: draft.bodySuggested },
+    anchors: draft.anchors,
+    policyHints: policyHintsFromAnchors(draft.anchors)
+  }
+}
 
 // Per-stay Guest Experience Summary
 app.get('/experience/summary/:code', async (req, reply) => {
@@ -413,7 +522,7 @@ app.get('/experience/summary/:code', async (req, reply) => {
   return sum
 })
 
-// Simple property report (demo roll-up)
+// Property roll-up (demo)
 app.get('/experience/report/:slug', async (req, reply) => {
   const { slug } = req.params as any
   if (slug !== hotel.slug) return reply.status(404).send({ error: 'Hotel not found' })
@@ -513,7 +622,7 @@ app.get('/folio', async () => folio)
 app.post('/precheck', async () => ({ ok: true }))
 app.post('/regcard', async () => ({ ok: true, pdf: '/fake.pdf' }))
 
-// UPDATED: checkout enforces owner policy and can auto-post
+// Checkout: mark completed; if policy is auto, create published OR pending
 app.post('/checkout', async (req, reply) => {
   const { bookingCode, autopost } = (req.body || {}) as { bookingCode?: string; autopost?: boolean }
 
@@ -530,36 +639,60 @@ app.post('/checkout', async (req, reply) => {
   b.status = 'completed'
   b.checkout_at = nowISO()
 
-  let autoReview: Review | undefined
+  let out: any = { ok: true, invoice: '/invoice.pdf', review_link: 'https://example.com/review' }
+
   if (autopost) {
     const res = buildReviewDraftFromActivity(b.code)
     if (!(res as any).error) {
       const { draft } = res as any
-      const evalRes = shouldAutoPost(hotel.reviews_policy, draft.anchors, b.consent_reviews)
-      if (evalRes.allow) {
-        autoReview = {
+      const publishCheck = shouldAutoPublish(hotel.reviews_policy, draft.anchors, b.consent_reviews)
+
+      if (publishCheck.allow) {
+        // publish now (guest consent present or not required)
+        const r: Review = {
           id: String(Date.now()),
           hotel_slug: b.hotel_slug,
           rating: draft.ratingSuggested,
           title: draft.titleSuggested,
           body: draft.bodySuggested,
-          verified: true, // completed stay
+          verified: true,
           created_at: nowISO(),
           guest_name: b.guest_name,
           source: 'auto',
+          status: 'published',
+          visibility: 'public',
+          booking_code: b.code,
+          approval: { required: false, approved: true, approved_at: nowISO() },
           anchors: draft.anchors
         }
-        reviews.unshift(autoReview)
+        reviews.unshift(r)
+        out.review = r
+      } else {
+        // create a pending/private item (🟡 pending guest approval)
+        const r: Review = {
+          id: String(Date.now()),
+          hotel_slug: b.hotel_slug,
+          rating: draft.ratingSuggested,
+          title: draft.titleSuggested,
+          body: draft.bodySuggested,
+          verified: true,
+          created_at: nowISO(),
+          guest_name: b.guest_name,
+          source: 'auto',
+          status: 'pending',
+          visibility: 'private',
+          booking_code: b.code,
+          approval: { required: true, approved: false },
+          anchors: draft.anchors
+        }
+        reviews.unshift(r)
+        out.pending_review = r
+        out.note = `Pending approval (${publishCheck.reason})`
       }
     }
   }
 
-  return {
-    ok: true,
-    invoice: '/invoice.pdf',
-    review_link: 'https://example.com/review',
-    ...(autoReview ? { review: autoReview } : {})
-  }
+  return out
 })
 
 app.post('/payments/checkout', async () => ({ link: 'https://pay.example.com/abc123' }))

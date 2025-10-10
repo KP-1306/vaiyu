@@ -1,6 +1,8 @@
 // web/src/lib/api.ts
 
 export const API = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+// Back-compat alias for older files (e.g. Menu.tsx):
+export const API_URL = API;
 
 async function req<T = any>(path: string, opts: RequestInit = {}): Promise<T> {
   const r = await fetch(`${API}${path}`, {
@@ -103,7 +105,6 @@ export async function updateOrder(id: string, patch: any) {
 // Folio / Flows
 // -----------------------------
 export async function getFolio() {
-  // API returns demo folio (no query needed)
   return req(`/folio`);
 }
 
@@ -127,17 +128,14 @@ export async function checkout(data: { bookingCode?: string; autopost?: boolean 
 // -----------------------------
 // Reviews (manual + AI + approvals)
 // -----------------------------
-/** Public list: only published reviews for a hotel slug */
 export async function listReviews(slug: string) {
   return req(`/reviews/${encodeURIComponent(slug)}`);
 }
 
-/** Staff list of pending (private) reviews - demo endpoint */
 export async function listPendingReviews() {
   return req(`/reviews-pending`);
 }
 
-/** Manual review by guest (publishes immediately) */
 export async function postManualReview(data: {
   bookingCode: string;
   rating: number;
@@ -147,12 +145,10 @@ export async function postManualReview(data: {
   return req(`/reviews`, { method: 'POST', body: JSON.stringify(data) });
 }
 
-/** Build an AI draft from activity (no commit) */
 export async function reviewDraft(bookingCode: string) {
   return req(`/reviews/draft/${encodeURIComponent(bookingCode)}`);
 }
 
-/** AI review preview (no commit) */
 export async function postAutoReviewPreview(bookingCode: string) {
   return req(`/reviews/auto`, {
     method: 'POST',
@@ -160,7 +156,6 @@ export async function postAutoReviewPreview(bookingCode: string) {
   });
 }
 
-/** AI review commit (publishes as approved) */
 export async function postAutoReviewCommit(bookingCode: string) {
   return req(`/reviews/auto`, {
     method: 'POST',
@@ -168,7 +163,6 @@ export async function postAutoReviewCommit(bookingCode: string) {
   });
 }
 
-/** Approve a pending review (guest action) */
 export async function approveReview(id: string, bookingCode: string) {
   return req(`/reviews/${encodeURIComponent(id)}/approve`, {
     method: 'POST',
@@ -176,7 +170,6 @@ export async function approveReview(id: string, bookingCode: string) {
   });
 }
 
-/** Reject a pending review (guest action) */
 export async function rejectReview(id: string, bookingCode: string) {
   return req(`/reviews/${encodeURIComponent(id)}/reject`, {
     method: 'POST',
@@ -206,8 +199,8 @@ export async function quickCheckin(data: { code: string; phone: string }) {
 // Export as a grouped API (optional)
 // -----------------------------
 export const api = {
-  // base
   API,
+  API_URL, // back-compat
   req,
 
   // hotel

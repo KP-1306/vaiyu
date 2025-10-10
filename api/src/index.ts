@@ -44,8 +44,8 @@ type Review = {
   verified: boolean
   created_at: string
   guest_name?: string
-  source: 'guest' | 'auto'           // NEW
-  anchors?: {                        // NEW (explain why we chose the rating)
+  source: 'guest' | 'auto'           // who authored it
+  anchors?: {                        // why we chose the rating/text
     tickets: number
     orders: number
     onTime: number
@@ -117,16 +117,75 @@ let folio: any = { lines: [{ description: 'Room (EP)', amount: 2800 }], total: 2
 const nowISO = () => new Date().toISOString()
 const addMinutes = (iso: string, mins: number) => new Date(new Date(iso).getTime() + mins * 60000).toISOString()
 
+// NEW: helper to compute minutes between two ISO timestamps
+function minutesBetween(a: string, b: string) {
+  return Math.round((new Date(b).getTime() - new Date(a).getTime()) / 60000);
+}
+
+// NEW: build a truth-anchored review draft from activity (tickets/orders)
+function buildReviewDraftFromActivity(bookingCode: string) {
+  const b = bookings.find(x => x.code === bookingCode);
+  if (!b) return { error: 'Booking not found' };
+
+  const tix = tickets.filter(t => t.booking === bookingCode);
+  let onTime = 0, late = 0, avgMins = 0;
+  const details: string[] = [];
+
+  tix.forEach(t => {
+    const end = t.done_at || t.started_at || t.accepted_at || t.created_at;
+    const mins = minutesBetween(t.created_at, end!);
+    avgMins += mins;
+    const breached = new Date(end!) > new Date(t.sla_deadline);
+    breached ? late++ : onTime++;
+    details.push(`• ${t.service_key} for room ${t.room} — ${mins} min, ${breached ? 'late vs SLA' : 'on time'}`);
+  });
+  if (tix.length) avgMins = Math.round(avgMins / tix.length);
+
+  const ords = orders.filter(o => o.booking === bookingCode || o.stay_code === bookingCode);
+
+  // simple heuristic
+  let rating = 5 - late;
+  if (late === 0 && tix.length > 0) rating = 5;
+  rating = Math.min(5, Math.max(1, rating));
+
+  const title = late ? 'Mixed experience' : (tix.length ? 'Smooth & timely service' : 'Pleasant stay');
+  const body = [
+    `Stay code ${bookingCode}.`,
+    tix.length ? `Housekeeping requests handled in ~${avgMins || 0} min on average.` : `No service requests recorded.`,
+    late ? `${late} request(s) missed SLA.` : (tix.length ? `All requests were within SLA.` : ``),
+    ords.length ? `${ords.length} kitchen order(s) recorded.` : ``,
+    details.length ? `\nDetails:\n${details.join('\n')}` : ``
+  ].filter(Boolean).join(' ');
+
+  return {
+    draft: {
+      bookingCode,
+      ratingSuggested: rating,
+      titleSuggested: title,
+      bodySuggested: body,
+      anchors: { tickets: tix.length, orders: ords.length, onTime, late, avgMins, details }
+    },
+    booking: b
+  };
+}
+
 // -------------------------------
 // Routes (existing + new)
 // -------------------------------
+
+// Friendly root
+app.get('/', async () => ({
+  ok: true,
+  name: 'VAiyu API',
+  try: ['/health', '/hotel/sunrise', 'POST /checkin', '/reviews/:slug', 'GET /reviews/draft/:code', 'POST /reviews/auto']
+}))
 
 // Catalog (existing)
 app.get('/hotels', async () => hotel)
 app.get('/catalog/services', async () => ({ items: services }))
 app.get('/menu/items', async () => ({ items: menu }))
 
-// ---------- NEW: OwnerSettings → /hotel ----------
+// ---------- OwnerSettings → /hotel ----------
 app.get('/hotel/:slug', async (req, reply) => {
   const { slug } = req.params as any
   if (slug !== hotel.slug) return reply.status(404).send({ error: 'Not found' })
@@ -144,7 +203,7 @@ app.post('/hotel/upsert', async (req, reply) => {
   return hotel
 })
 
-// ---------- NEW: Quick Check-In with room pre-assignment ----------
+// ---------- Quick Check-In with room pre-assignment ----------
 app.post('/checkin', async (req, reply) => {
   const { code, phone } = (req.body || {}) as { code?: string; phone?: string }
   if (!code || !phone) return reply.status(400).send({ error: 'code & phone are required' })
@@ -166,17 +225,17 @@ app.post('/checkin', async (req, reply) => {
   return { message: 'Checked in', booking: b, room: { room_no: r.room_no, room_type: r.room_type } }
 })
 
-// ---------- NEW: Truth-anchored Reviews (stub) ----------
+// ---------- Reviews (manual + AI) ----------
 app.get('/reviews/:slug', async (req, reply) => {
   const { slug } = req.params as any
   if (slug !== hotel.slug) return reply.status(404).send({ error: 'Hotel not found' })
   const rows = reviews
     .filter(r => r.hotel_slug === slug)
     .sort((a,b) => b.created_at.localeCompare(a.created_at))
-    .slice(0, 50)
-  return rows
+  return rows.slice(0, 50)
 })
 
+// Manual review by guest
 app.post('/reviews', async (req, reply) => {
   const { bookingCode, rating, title, body } = (req.body || {}) as { bookingCode?: string; rating?: number; title?: string; body?: string }
   if (!bookingCode || !rating) return reply.status(400).send({ error: 'bookingCode & rating required' })
@@ -192,13 +251,49 @@ app.post('/reviews', async (req, reply) => {
     body,
     verified: b.status === 'completed',
     created_at: nowISO(),
-    guest_name: b.guest_name
+    guest_name: b.guest_name,
+    source: 'guest'
   }
   reviews.unshift(item)
   return item
 })
 
-// ---------- Existing: Service tickets ----------
+// Build a draft from activity (for guests or agents to preview)
+app.get('/reviews/draft/:code', async (req, reply) => {
+  const { code } = req.params as any
+  const res = buildReviewDraftFromActivity(code)
+  if ((res as any).error) return reply.status(404).send(res)
+  return (res as any).draft
+})
+
+// Auto-post an AI-authored review (truth-anchored)
+app.post('/reviews/auto', async (req, reply) => {
+  const { bookingCode, commit } = (req.body || {}) as { bookingCode?: string; commit?: boolean }
+  if (!bookingCode) return reply.status(400).send({ error: 'bookingCode required' })
+
+  const res = buildReviewDraftFromActivity(bookingCode)
+  if ((res as any).error) return reply.status(404).send(res)
+
+  const { draft, booking } = res as any
+  if (!commit) return draft // preview only
+
+  const item: Review = {
+    id: String(Date.now()),
+    hotel_slug: booking.hotel_slug,
+    rating: draft.ratingSuggested,
+    title: draft.titleSuggested,
+    body: draft.bodySuggested,
+    verified: booking.status === 'completed',
+    created_at: nowISO(),
+    guest_name: booking.guest_name,
+    source: 'auto',
+    anchors: draft.anchors
+  }
+  reviews.unshift(item)
+  return item
+})
+
+// ---------- Service tickets ----------
 app.post('/tickets', async (req, reply) => {
   const body: any = req.body || {}
   const svc = services.find(s => s.key === body.service_key)
@@ -237,7 +332,7 @@ app.patch('/tickets/:id', async (req, reply) => {
   return { ok: true, ticket: t }
 })
 
-// ---------- Existing: Orders ----------
+// ---------- Orders ----------
 app.post('/orders', async (req, reply) => {
   const body: any = req.body || {}
   const o = { id: String(Date.now()), status: 'Placed', created_at: nowISO(), ...body }
@@ -254,7 +349,7 @@ app.patch('/orders/:id', async (req, reply) => {
   return { ok: true, order: o }
 })
 
-// ---------- Existing: Folio/Flows ----------
+// ---------- Folio/Flows ----------
 app.get('/folio', async () => folio)
 app.post('/precheck', async () => ({ ok: true }))
 app.post('/regcard', async () => ({ ok: true, pdf: '/fake.pdf' }))

@@ -10,6 +10,15 @@ const ORIGIN = (process.env.CORS_ORIGIN || '*').split(',')
 // In-memory demo data (no DB yet)
 // -------------------------------
 type Theme = { brand?: string; mode?: 'light' | 'dark' }
+
+// Owner flags for truth-anchored reviews/experience
+type ReviewsPolicy = {
+  mode?: 'off' | 'preview' | 'auto'      // preview shows draft to guest; auto posts at checkout
+  min_activity?: number                  // min (tickets + orders) to consider auto/preview
+  block_if_late_exceeds?: number         // if late > this, skip auto-post
+  require_consent?: boolean              // if true, only auto-post if booking has consent
+}
+
 type Hotel = {
   slug: string
   name: string
@@ -20,6 +29,7 @@ type Hotel = {
   email?: string
   logo_url?: string
   theme?: Theme
+  reviews_policy?: ReviewsPolicy
 }
 type Room = { hotel_slug: string; room_no: string; room_type: string; is_clean: boolean; is_occupied: boolean }
 type BookingStatus = 'booked' | 'checked_in' | 'completed' | 'cancelled'
@@ -34,6 +44,7 @@ type Booking = {
   room_no?: string
   checkin_at?: string
   checkout_at?: string
+  consent_reviews?: boolean            // guest consent captured via /booking/:code/consent
 }
 type Review = {
   id: string
@@ -55,7 +66,6 @@ type Review = {
   }
 }
 
-// NEW: richer, owner-facing summary object
 type ExperienceSummary = {
   bookingCode: string
   guest_name?: string
@@ -67,6 +77,7 @@ type ExperienceSummary = {
   policyHints?: string[]
 }
 
+// ---- Demo seed ----
 const hotel: Hotel = {
   slug: 'sunrise',
   name: 'Sunrise Resort',
@@ -76,7 +87,13 @@ const hotel: Hotel = {
   phone: '+91-99999-99999',
   email: 'hello@sunrise.example',
   logo_url: '',
-  theme: { brand: '#145AF2', mode: 'light' }
+  theme: { brand: '#145AF2', mode: 'light' },
+  reviews_policy: {
+    mode: 'preview',
+    min_activity: 1,
+    block_if_late_exceeds: 0,
+    require_consent: true
+  }
 }
 
 const services = [
@@ -108,7 +125,8 @@ let bookings: Booking[] = [
     guest_phone: '9999999999',
     code: 'ABC123',
     room_type: 'standard',
-    status: 'booked'
+    status: 'booked',
+    consent_reviews: true // demo: consent already granted
   }
 ]
 
@@ -233,6 +251,19 @@ function buildExperienceSummary(bookingCode: string): ExperienceSummary | { erro
   }
 }
 
+// Policy evaluation for auto-post at checkout
+function shouldAutoPost(policy: ReviewsPolicy | undefined, draftAnchors: NonNullable<Review['anchors']>, consent: boolean | undefined) {
+  const mode = policy?.mode ?? 'preview'
+  if (mode !== 'auto') return { allow: false, reason: 'mode_not_auto' }
+  const minAct = policy?.min_activity ?? 1
+  const totalAct = (draftAnchors.tickets || 0) + (draftAnchors.orders || 0)
+  if (totalAct < minAct) return { allow: false, reason: 'low_activity' }
+  const blockLate = policy?.block_if_late_exceeds ?? 0
+  if ((draftAnchors.late || 0) > blockLate) return { allow: false, reason: 'too_many_late' }
+  if (policy?.require_consent && !consent) return { allow: false, reason: 'no_consent' }
+  return { allow: true as const, reason: 'ok' }
+}
+
 // -------------------------------
 // Routes (existing + new)
 // -------------------------------
@@ -241,7 +272,12 @@ function buildExperienceSummary(bookingCode: string): ExperienceSummary | { erro
 app.get('/', async () => ({
   ok: true,
   name: 'VAiyu API',
-  try: ['/health', '/hotel/sunrise', 'POST /checkin', '/reviews/:slug', 'GET /reviews/draft/:code', 'POST /reviews/auto', '/experience/summary/:code', '/experience/report/:slug']
+  try: [
+    '/health', '/hotel/sunrise', 'POST /checkin',
+    '/reviews/:slug', 'GET /reviews/draft/:code', 'POST /reviews/auto',
+    '/experience/summary/:code', '/experience/report/:slug',
+    'POST /booking/:code/consent'
+  ]
 }))
 
 // Catalog
@@ -259,11 +295,22 @@ app.get('/hotel/:slug', async (req, reply) => {
 app.post('/hotel/upsert', async (req, reply) => {
   const body = (req.body || {}) as Partial<Hotel>
   if (!body.slug || !body.name) return reply.status(400).send({ error: 'slug & name required' })
+  // merge shallowly (simple demo)
   Object.assign(hotel, body)
   // If slug changed, cascade in-memory arrays
   rooms = rooms.map(r => r.hotel_slug === hotel.slug ? r : { ...r, hotel_slug: hotel.slug })
   bookings = bookings.map(b => b.hotel_slug === hotel.slug ? b : { ...b, hotel_slug: hotel.slug })
   return hotel
+})
+
+// ---------- Consent capture ----------
+app.post('/booking/:code/consent', async (req, reply) => {
+  const { code } = req.params as any
+  const { reviews } = (req.body || {}) as { reviews?: boolean }
+  const b = bookings.find(x => x.code === code)
+  if (!b) return reply.status(404).send({ error: 'Booking not found' })
+  b.consent_reviews = !!reviews
+  return { ok: true, booking: b }
 })
 
 // ---------- Quick Check-In with room pre-assignment ----------
@@ -371,7 +418,6 @@ app.get('/experience/report/:slug', async (req, reply) => {
   const { slug } = req.params as any
   if (slug !== hotel.slug) return reply.status(404).send({ error: 'Hotel not found' })
 
-  // tickets belonging to this hotel's rooms OR bookings
   const hotelRoomNos = new Set(rooms.filter(r => r.hotel_slug === slug).map(r => r.room_no))
   const tix = tickets.filter(t => hotelRoomNos.has(t.room) ||
     !!bookings.find(b => b.code === t.booking && b.hotel_slug === slug)
@@ -386,7 +432,6 @@ app.get('/experience/report/:slug', async (req, reply) => {
   })
   const avgMins = tix.length ? Math.round(totalMins / tix.length) : 0
 
-  // orders mapped to bookings of this hotel
   const hotelBookingCodes = new Set(bookings.filter(b => b.hotel_slug === slug).map(b => b.code))
   const ords = orders.filter(o => hotelBookingCodes.has(o.booking) || hotelBookingCodes.has(o.stay_code))
 
@@ -468,7 +513,7 @@ app.get('/folio', async () => folio)
 app.post('/precheck', async () => ({ ok: true }))
 app.post('/regcard', async () => ({ ok: true, pdf: '/fake.pdf' }))
 
-// UPDATED: checkout can optionally auto-post a review using the draft
+// UPDATED: checkout enforces owner policy and can auto-post
 app.post('/checkout', async (req, reply) => {
   const { bookingCode, autopost } = (req.body || {}) as { bookingCode?: string; autopost?: boolean }
 
@@ -490,19 +535,22 @@ app.post('/checkout', async (req, reply) => {
     const res = buildReviewDraftFromActivity(b.code)
     if (!(res as any).error) {
       const { draft } = res as any
-      autoReview = {
-        id: String(Date.now()),
-        hotel_slug: b.hotel_slug,
-        rating: draft.ratingSuggested,
-        title: draft.titleSuggested,
-        body: draft.bodySuggested,
-        verified: true, // completed stay
-        created_at: nowISO(),
-        guest_name: b.guest_name,
-        source: 'auto',
-        anchors: draft.anchors
+      const evalRes = shouldAutoPost(hotel.reviews_policy, draft.anchors, b.consent_reviews)
+      if (evalRes.allow) {
+        autoReview = {
+          id: String(Date.now()),
+          hotel_slug: b.hotel_slug,
+          rating: draft.ratingSuggested,
+          title: draft.titleSuggested,
+          body: draft.bodySuggested,
+          verified: true, // completed stay
+          created_at: nowISO(),
+          guest_name: b.guest_name,
+          source: 'auto',
+          anchors: draft.anchors
+        }
+        reviews.unshift(autoReview)
       }
-      reviews.unshift(autoReview)
     }
   }
 

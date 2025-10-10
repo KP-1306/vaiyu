@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { API_URL } from "../lib/api";
+import { listTickets, updateTicket } from '../lib/api';
+
 
 type Ticket = {
   id: string;

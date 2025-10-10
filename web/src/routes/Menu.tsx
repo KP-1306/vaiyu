@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, API_URL } from "../lib/api";
+import { getServices, getMenu, createTicket, createOrder } from '../lib/api';
+
 
 export default function Menu() {
   const [tab, setTab] = useState<"food" | "services">("services");

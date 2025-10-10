@@ -48,11 +48,12 @@ export default function HotelPage() {
   useEffect(() => {
     setLoading(true);
     fetch(`${API}/hotel/${slug}`)
-      .then((r) => {
-        if (!r.ok) throw new Error('Hotel not found');
-        return r.json();
+      .then(async (r) => {
+        const data = await r.json().catch(() => null);
+        if (!r.ok || !data) throw new Error('Hotel not found');
+        return data as Hotel;
       })
-      .then((data: Hotel) => {
+      .then((data) => {
         setHotel(data);
         // Apply theme globally via ThemeProvider
         setTheme({
@@ -89,10 +90,11 @@ export default function HotelPage() {
           </div>
         </div>
 
-        {/* quick link for owners */}
-        <Link className="link" to="/owner">
-          Owner Settings
-        </Link>
+        {/* quick links for owners */}
+        <nav style={{ display: 'flex', gap: 12 }}>
+          <Link className="link" to="/owner">Owner Settings</Link>
+          <Link className="link" to={`/owner/dashboard/${hotel.slug}`}>Dashboard</Link>
+        </nav>
       </header>
 
       <section className="card" style={{ marginTop: 16 }}>
@@ -148,9 +150,9 @@ function QuickCheckin() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code, phone }),
     });
-    const data = await r.json();
-    if (!r.ok) return setMsg(data?.error || 'Failed');
-    setAssigned(data?.room);
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) return setMsg((data as any)?.error || 'Failed');
+    setAssigned((data as any)?.room);
     setMsg('Checked in successfully.');
   };
 
@@ -184,6 +186,7 @@ function Reviews({ slug }: { slug: string }) {
   // AI suggestion state
   const [aiLoading, setAiLoading] = useState(false);
   const [aiDraft, setAiDraft] = useState<{
+    bookingCode?: string;
     ratingSuggested: number;
     titleSuggested?: string;
     bodySuggested?: string;
@@ -212,8 +215,8 @@ function Reviews({ slug }: { slug: string }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ bookingCode, rating, title, body }),
     });
-    const data = await r.json();
-    if (!r.ok) return alert(data?.error || 'Failed');
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) return alert((data as any)?.error || 'Failed');
     setOpen(false);
     setTitle('');
     setBody('');
@@ -228,11 +231,8 @@ function Reviews({ slug }: { slug: string }) {
     setAiDraft(null);
     try {
       const r = await fetch(`${API}/reviews/draft/${encodeURIComponent(bookingCode)}`);
-      if (!r.ok) {
-        const t = await r.json().catch(() => ({}));
-        throw new Error((t as any).error || 'No draft available');
-      }
-      const draft = await r.json();
+      const draft = await r.json().catch(() => null);
+      if (!r.ok || !draft) throw new Error((draft as any)?.error || 'No draft available');
       setAiDraft(draft);
     } catch (err: any) {
       alert(err?.message || 'Failed to build draft');
@@ -249,8 +249,8 @@ function Reviews({ slug }: { slug: string }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ bookingCode, commit: true }),
     });
-    const data = await r.json();
-    if (!r.ok) return alert(data?.error || 'Failed');
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) return alert((data as any)?.error || 'Failed');
     setItems([data as Review, ...items]);
     setAiDraft(null);
     alert('AI review published.');

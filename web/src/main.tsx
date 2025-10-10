@@ -30,6 +30,11 @@ const router = createBrowserRouter([
   // ...rest
 ]);
 
+import OwnerGate from './components/OwnerGate';
+
+{ path: '/owner', element: <OwnerGate><Owner /></OwnerGate> },
+{ path: '/owner/reviews', element: <OwnerGate><OwnerReviews /></OwnerGate> },
+
 
 // Owner settings page (you created this)
 import Owner from './routes/Owner'; // if you only have OwnerSettings.tsx, change to: './routes/OwnerSettings'

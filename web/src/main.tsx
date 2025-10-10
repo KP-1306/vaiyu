@@ -20,6 +20,9 @@ import Regcard from './routes/Regcard';
 import Checkout from './routes/Checkout';
 import Desk from './routes/Desk';
 import HK from './routes/HK';
+import OwnerServices from './routes/OwnerServices';
+import OwnerGate from './components/OwnerGate';
+
 import Kitchen from './routes/Kitchen';
 import Maint from './routes/Maint';
 

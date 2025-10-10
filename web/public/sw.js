@@ -1,133 +1,140 @@
 // web/public/sw.js
 // VAiyu PWA Service Worker
 // - Precache app shell
-// - Stale-while-revalidate for same-origin assets
+// - Stale-while-revalidate for same-origin static assets
 // - Network-first for cross-origin (API) with cache fallback
 // - SPA navigation fallback to /index.html
+// - Never cache SSE (/events) or non-GET
 
-const PRECACHE = 'vaiyu-precache-v2';
-const RUNTIME = 'vaiyu-runtime-v2';
+const PRECACHE = 'vaiyu-precache-v3';
+const RUNTIME  = 'vaiyu-runtime-v3';
 
-// Core shell to precache (Vite will serve hashed assets separately)
-const PRECACHE_URLS = ['/', '/index.html'];
+// Core shell to precache (Vite serves hashed assets separately)
+const PRECACHE_URLS = ['/', '/index.html', '/manifest.webmanifest'];
 
-// ----- Install: seed the precache -----
+/* ---------------- Install ---------------- */
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    (async () => {
-      const cache = await caches.open(PRECACHE);
-      await cache.addAll(PRECACHE_URLS);
-      await self.skipWaiting();
-    })()
-  );
+  event.waitUntil((async () => {
+    const cache = await caches.open(PRECACHE);
+    await cache.addAll(PRECACHE_URLS);
+    await self.skipWaiting();
+  })());
 });
 
-// ----- Activate: clean up old caches -----
+/* ---------------- Activate ---------------- */
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    (async () => {
-      const keys = await caches.keys();
-      await Promise.all(
-        keys
-          .filter((k) => k !== PRECACHE && k !== RUNTIME)
-          .map((k) => caches.delete(k))
-      );
-      await self.clients.claim();
-    })()
-  );
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(
+      keys
+        .filter((k) => k !== PRECACHE && k !== RUNTIME)
+        .map((k) => caches.delete(k))
+    );
+    // Enable navigation preload (faster SPA nav on slow networks)
+    if ('navigationPreload' in self.registration) {
+      try { await self.registration.navigationPreload.enable(); } catch {}
+    }
+    await self.clients.claim();
+  })());
 });
 
-// Utility: put response in cache (clone-safe)
+/* ---------------- Utilities ---------------- */
 async function putRuntimeCache(request, response) {
   try {
     const cache = await caches.open(RUNTIME);
     await cache.put(request, response.clone());
   } catch {
-    // ignore cache put errors (opaque/CORS, quota, etc.)
+    // ignore cache put errors (opaque/CORS/quota)
   }
 }
 
-// Utility: match from either cache
-async function matchAnyCache(request) {
-  return (await caches.match(request)) || (await caches.match(new Request('/index.html')));
+function isSSE(request) {
+  const url = new URL(request.url);
+  // Our server streams at /events (text/event-stream)
+  return url.pathname === '/events' ||
+         request.headers.get('accept')?.includes('text/event-stream');
 }
 
-// ----- Fetch: runtime caching strategies -----
+function isApiLike(request) {
+  const url = new URL(request.url);
+  // Treat cross-origin as API; also treat same-origin /api/* if you add that later
+  const sameOrigin = url.origin === self.location.origin;
+  return !sameOrigin || url.pathname.startsWith('/api/');
+}
+
+/* ---------------- Fetch ---------------- */
 self.addEventListener('fetch', (event) => {
   const req = event.request;
 
-  // Only handle GET requests
-  if (req.method !== 'GET') return;
+  // Only handle GET, skip SSE & non-GET
+  if (req.method !== 'GET' || isSSE(req)) return;
 
   const url = new URL(req.url);
-  const isSameOrigin = url.origin === self.location.origin;
+  const sameOrigin = url.origin === self.location.origin;
   const isNavigate = req.mode === 'navigate';
 
-  // 1) SPA navigation fallback: serve cached index.html (cache-first, revalidate in bg)
+  // 1) SPA navigations: serve cached index.html (cache-first; revalidate in bg)
   if (isNavigate) {
-    event.respondWith(
-      (async () => {
-        const cache = await caches.open(PRECACHE);
-        const cached = await cache.match('/index.html');
-        const fetchAndUpdate = fetch('/index.html')
-          .then((res) => {
-            if (res && res.ok) cache.put('/index.html', res.clone());
-            return res;
-          })
-          .catch(() => cached); // offline fallback
+    event.respondWith((async () => {
+      const preload = 'preloadResponse' in event ? await event.preloadResponse : null;
+      if (preload) return preload;
 
-        // If we have a cached shell, return it immediately, else wait for network
-        return cached ? Promise.race([fetchAndUpdate, Promise.resolve(cached)]) : fetchAndUpdate;
-      })()
-    );
+      const cache = await caches.open(PRECACHE);
+      const cached = await cache.match('/index.html');
+      const fetchAndUpdate = fetch('/index.html')
+        .then((res) => {
+          if (res && res.ok) cache.put('/index.html', res.clone());
+          return res;
+        })
+        .catch(() => cached); // offline fallback
+
+      return cached ? Promise.race([fetchAndUpdate, Promise.resolve(cached)]) : fetchAndUpdate;
+    })());
     return;
   }
 
-  // 2) Same-origin assets: stale-while-revalidate
-  if (isSameOrigin) {
-    event.respondWith(
-      (async () => {
-        const cache = await caches.open(RUNTIME);
-        const cached = await cache.match(req);
-        const fetchAndPut = fetch(req)
-          .then((res) => {
-            if (res && res.ok) cache.put(req, res.clone());
-            return res;
-          })
-          .catch(() => cached); // offline fallback to cache if network fails
+  // 2) Same-origin static assets: stale-while-revalidate
+  if (sameOrigin && !isApiLike(req)) {
+    event.respondWith((async () => {
+      const cache = await caches.open(RUNTIME);
+      const cached = await cache.match(req);
+      const fetchAndPut = fetch(req)
+        .then((res) => {
+          if (res && res.ok) cache.put(req, res.clone());
+          return res;
+        })
+        .catch(() => cached); // offline fallback
 
-        // Return cached fast if present, while updating in background
-        return cached ? Promise.race([fetchAndPut, Promise.resolve(cached)]) : fetchAndPut;
-      })()
-    );
+      return cached ? Promise.race([fetchAndPut, Promise.resolve(cached)]) : fetchAndPut;
+    })());
     return;
   }
 
-  // 3) Cross-origin (likely API): network-first with cache fallback
-  event.respondWith(
-    (async () => {
-      try {
-        const net = await fetch(req);
-        // Cache only successful CORS-allowed responses
-        if (net && net.ok) putRuntimeCache(req, net);
-        return net;
-      } catch {
-        // offline or network error → try cache
-        const cached = await caches.match(req);
-        if (cached) return cached;
-        // last resort: if HTML requested cross-origin (rare), give app shell
-        if (req.headers.get('accept')?.includes('text/html')) {
-          const shell = await caches.match('/index.html');
-          if (shell) return shell;
-        }
-        // else propagate error
-        throw new Error('Network error and no cache.');
+  // 3) API / cross-origin: network-first with cache fallback
+  event.respondWith((async () => {
+    try {
+      const net = await fetch(req);
+      if (net && net.ok) putRuntimeCache(req, net);
+      return net;
+    } catch {
+      const cached = await caches.match(req);
+      if (cached) return cached;
+
+      // If HTML requested cross-origin (rare), give SPA shell
+      if (req.headers.get('accept')?.includes('text/html')) {
+        const shell = await caches.match('/index.html');
+        if (shell) return shell;
       }
-    })()
-  );
+      // Propagate error if nothing cached
+      return new Response('Offline and no cache available.', {
+        status: 503,
+        headers: { 'Content-Type': 'text/plain' }
+      });
+    }
+  })());
 });
 
-// Optional: allow immediate activation from the page
+/* ---------------- Messages ---------------- */
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();

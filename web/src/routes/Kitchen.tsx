@@ -1,119 +1,106 @@
-import { useEffect, useMemo, useState } from "react";
-import { API_URL } from "../lib/api";
+import { useEffect, useState, useCallback } from 'react';
 import { listOrders, updateOrder } from '../lib/api';
-
 
 type Order = {
   id: string;
-  item_key: string;
-  qty: number;
-  status: "Placed" | "InProgress" | "Out" | "Delivered";
+  status: string; // 'Placed' | 'Preparing' | 'Ready' | 'Delivered'
   created_at: string;
+  items?: { item_key: string; qty?: number; name?: string }[];
+  room?: string;
+  booking?: string;
 };
 
 export default function Kitchen() {
-  const [items, setItems] = useState<Order[]>([]);
-  const [status, setStatus] = useState<"all" | Order["status"]>("all");
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
 
-  async function load() {
-    const r = await fetch(`${API_URL}/orders`);
-    const j = await r.json();
-    setItems(j.items || []);
-  }
-
-  useEffect(() => {
-    load();
-    const iv = setInterval(load, 2000);
-    return () => clearInterval(iv);
+  const refresh = useCallback(async () => {
+    setErr(null);
+    try {
+      const r = await listOrders();
+      setOrders((r?.items || []) as Order[]);
+    } catch (e: any) {
+      setErr(e?.message || 'Failed to load orders');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const filtered = useMemo(
-    () => (status === "all" ? items : items.filter((o) => o.status === status)),
-    [items, status]
-  );
+  useEffect(() => { refresh(); }, [refresh]);
 
-  function badge(s: Order["status"]) {
-    const map: Record<Order["status"], string> = {
-      Placed: "bg-gray-100 text-gray-800",
-      InProgress: "bg-sky-100 text-sky-800",
-      Out: "bg-amber-100 text-amber-800",
-      Delivered: "bg-emerald-100 text-emerald-800",
-    };
-    return <span className={`px-2 py-0.5 rounded text-xs ${map[s]}`}>{s}</span>;
-  }
-
-  async function update(id: string, next: Order["status"]) {
-    await fetch(`${API_URL}/orders/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: next }),
-    });
-    load();
+  async function setStatus(id: string, status: string) {
+    await updateOrder(id, { status });
+    refresh();
   }
 
   return (
-    <main className="max-w-3xl mx-auto p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h1 className="text-xl font-semibold">Kitchen</h1>
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value as any)}
-          className="border rounded px-2 py-1 text-sm"
-          title="Filter by status"
-        >
-          <option value="all">All</option>
-          <option value="Placed">Placed</option>
-          <option value="InProgress">In progress</option>
-          <option value="Out">Out</option>
-          <option value="Delivered">Delivered</option>
-        </select>
+    <div style={{ maxWidth: 900, margin: '0 auto', padding: 24, display: 'grid', gap: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1 style={{ margin: 0 }}>Kitchen</h1>
+        <button className="btn btn-light" onClick={refresh}>Refresh</button>
       </div>
 
-      <ul className="space-y-3">
-        {filtered.map((o) => (
-          <li
-            key={o.id}
-            className="p-3 bg-white rounded shadow flex items-center justify-between"
-          >
-            <div>
-              <div className="font-medium capitalize">
-                {o.item_key.replaceAll("_", " ")} × {o.qty}
+      {err && <div className="card" style={{ borderColor: '#f59e0b' }}>⚠️ {err}</div>}
+      {loading && <div>Loading…</div>}
+      {!orders.length && !loading && <div className="card">No active orders.</div>}
+
+      <div style={{ display: 'grid', gap: 10 }}>
+        {orders.map((o) => (
+          <div key={o.id} className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+              <div>
+                <div style={{ fontWeight: 700 }}>
+                  Order #{o.id} • Room {o.room || '—'}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                  {new Date(o.created_at).toLocaleTimeString()}
+                </div>
               </div>
-              <div className="text-xs text-gray-500">#{o.id}</div>
+              <span className="badge">{o.status}</span>
             </div>
-            <div className="flex items-center gap-2">
-              {badge(o.status)}
-              {o.status === "Placed" && (
-                <button
-                  onClick={() => update(o.id, "InProgress")}
-                  className="px-2 py-1 rounded bg-sky-600 text-white text-sm"
-                >
-                  Start
+
+            {!!o.items?.length && (
+              <div style={{ marginTop: 8 }}>
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th style={{ width: 100 }}>Qty</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {o.items.map((it, idx) => (
+                      <tr key={idx}>
+                        <td>{it.name || it.item_key}</td>
+                        <td>{(it as any).qty ?? 1}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+              {o.status === 'Placed' && (
+                <button className="btn btn-light" onClick={() => setStatus(o.id, 'Preparing')}>
+                  Preparing
                 </button>
               )}
-              {o.status === "InProgress" && (
-                <button
-                  onClick={() => update(o.id, "Out")}
-                  className="px-2 py-1 rounded bg-amber-600 text-white text-sm"
-                >
-                  Out
+              {o.status === 'Preparing' && (
+                <button className="btn btn-light" onClick={() => setStatus(o.id, 'Ready')}>
+                  Ready
                 </button>
               )}
-              {o.status === "Out" && (
-                <button
-                  onClick={() => update(o.id, "Delivered")}
-                  className="px-2 py-1 rounded bg-emerald-600 text-white text-sm"
-                >
+              {o.status !== 'Delivered' && (
+                <button className="btn" onClick={() => setStatus(o.id, 'Delivered')}>
                   Delivered
                 </button>
               )}
             </div>
-          </li>
+          </div>
         ))}
-        {filtered.length === 0 && (
-          <li className="text-gray-500">No orders in this view.</li>
-        )}
-      </ul>
-    </main>
+      </div>
+    </div>
   );
 }

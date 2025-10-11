@@ -8,6 +8,18 @@ export const API_URL = API; // back-compat
 export let DEMO_MODE = false;
 export const isDemo = () => DEMO_MODE;
 
+/* ---------------- Self-claim (guest attaches an existing booking) --------- */
+export async function claimInit(data: { code: string; phone: string }) {
+  // Starts a claim by sending/creating an OTP for the booking code + phone
+  return req(`/claim/init`, { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function claimVerify(data: { code: string; otp: string }) {
+  // Verifies the OTP and returns a short-lived token you can store in localStorage
+  return req(`/claim/verify`, { method: 'POST', body: JSON.stringify(data) });
+}
+
+
 // ---------- small helper: timeout + safe fetch ----------
 function withTimeout<T>(p: Promise<T>, ms = 8000): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -94,6 +106,16 @@ function demoFallback<T>(path: string, _opts: RequestInit): T | undefined {
   if (p === '/tickets') return { items: [] } as unknown as T;
 
   if (p === '/orders') return { items: [] } as unknown as T;
+
+    if (p === '/claim/init') return { ok: true, method: 'otp', sent: true, demo: true } as unknown as T;
+  if (p === '/claim/verify') {
+    return {
+      ok: true,
+      token: 'demo-stay-token',
+      booking: { code: 'ABC123', guest_name: 'Test Guest', hotel_slug: 'sunrise' }
+    } as unknown as T;
+  }
+
 
   return undefined;
 }

@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom';
+import Pill from "../components/Pill"; // adjust the path if you're inside /routes
+
 
 export default function AboutAI() {
   return (

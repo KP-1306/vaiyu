@@ -1,14 +1,8 @@
 // web/src/App.tsx
 import { Link } from 'react-router-dom';
 
-const bg =
+const heroBg =
   'https://images.unsplash.com/photo-1500375592092-40eb2168fd21?q=80&w=1600&auto=format&fit=crop'; // beach hero
-const card1 =
-  'https://images.unsplash.com/photo-1519822471289-0eef0a80a0dc?q=80&w=1200&auto=format&fit=crop';
-const card2 =
-  'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?q=80&w=1200&auto=format&fit=crop';
-const card3 =
-  'https://images.unsplash.com/photo-1488646953014-85cb44e25828?q=80&w=1200&auto=format&fit=crop';
 
 export default function App() {
   return (
@@ -17,8 +11,17 @@ export default function App() {
       <header className="sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-gray-100">
         <div className="mx-auto max-w-7xl px-4 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
+            {/* Logo in nav (falls back to brand square if image missing) */}
+            <img
+              src="/brand/vaiyu-logo.png"
+              alt="VAiyu"
+              className="h-8 w-auto hidden sm:block"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = 'none';
+              }}
+            />
             <span
-              className="inline-block h-8 w-8 rounded-xl"
+              className="sm:hidden inline-block h-8 w-8 rounded-xl"
               style={{ background: 'var(--brand, #145AF2)' }}
               aria-hidden
             />
@@ -42,22 +45,35 @@ export default function App() {
       <section
         className="relative isolate"
         style={{
-          backgroundImage: `linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.35)), url(${bg})`,
+          backgroundImage: `linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.35)), url(${heroBg})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
         }}
       >
         <div className="mx-auto max-w-7xl px-4 py-24 sm:py-28 lg:py-32 text-white">
-          <div className="max-w-2xl">
+          <div className="max-w-3xl">
             <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs backdrop-blur">
               <span className="animate-pulse">🤖</span> AI-powered hospitality OS
             </div>
-            <h1 className="mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl leading-tight">
-              Your stay, made<span className="text-sky-300"> effortless</span>
-            </h1>
+
+            {/* Brand lockup with logo + tagline */}
+            <div className="mt-4 flex items-center gap-4">
+              <img
+                src="/brand/vaiyu-logo.png"
+                alt="VAiyu"
+                className="h-12 w-auto drop-shadow"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = 'none';
+                }}
+              />
+              <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl leading-tight">
+                Where <span className="text-sky-300">Intelligence</span> Meets Comfort
+              </h1>
+            </div>
+
             <p className="mt-3 text-white/90 text-lg">
-              VAiyu uses AI to turn guest activity into truth-anchored reviews, smarter ops,
-              and delightful mobile experiences — perfect for weekend escapes and long holidays.
+              We turn real stay activity into truth-anchored reviews, faster service, and
+              delightful mobile journeys — perfect for holidays and long escapes.
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <Link to="/hotel/sunrise" className="btn !bg-white !text-gray-900 hover:!bg-gray-50">
@@ -74,11 +90,7 @@ export default function App() {
         </div>
 
         {/* wave divider */}
-        <svg
-          viewBox="0 0 1440 140"
-          className="absolute bottom-[-1px] left-0 w-full"
-          aria-hidden
-        >
+        <svg viewBox="0 0 1440 140" className="absolute bottom-[-1px] left-0 w-full" aria-hidden>
           <path
             fill="#f9fafb"
             d="M0,80 C240,160 480,0 720,60 C960,120 1200,40 1440,100 L1440,140 L0,140 Z"
@@ -116,9 +128,8 @@ export default function App() {
                 </div>
                 <h3 className="mt-3 text-2xl font-bold">Let AI do the busywork, not the guesswork</h3>
                 <p className="mt-2 text-gray-600">
-                  VAiyu builds **truth-anchored** suggestions from actual stay activity —
-                  tickets, orders and SLA timings — then drafts reviews, nudges teams,
-                  and highlights what to fix.
+                  VAiyu builds truth-anchored suggestions from actual stay activity — tickets, orders & SLA timings —
+                  then drafts reviews, nudges teams, and highlights what to fix.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
                   <Pill>Truth-anchored reviews</Pill>
@@ -133,33 +144,17 @@ export default function App() {
               </div>
 
               <ul className="grid sm:grid-cols-2 gap-3 w-full lg:max-w-md">
-                <AICard
-                  title="AI review drafts"
-                  text="Auto-summaries with on-time vs late and avg minutes — ready to approve."
-                  emoji="📝"
-                />
-                <AICard
-                  title="Policy hints"
-                  text="If SLAs slip, owners see a one-line fix to act on right away."
-                  emoji="🧭"
-                />
-                <AICard
-                  title="Ops automation"
-                  text="Tickets/orders stream live via SSE; agents act without refresh."
-                  emoji="🔔"
-                />
-                <AICard
-                  title="Brand-safe"
-                  text="No hallucinations: content is built from verifiable stay data."
-                  emoji="🛡️"
-                />
+                <AICard title="AI review drafts" text="Auto-summaries with on-time vs late and avg minutes — ready to approve." emoji="📝" />
+                <AICard title="Policy hints" text="If SLAs slip, owners see a one-line fix to act on right away." emoji="🧭" />
+                <AICard title="Ops automation" text="Tickets/orders stream live via SSE; agents act without refresh." emoji="🔔" />
+                <AICard title="Brand-safe" text="No hallucinations: content is built from verifiable stay data." emoji="🛡️" />
               </ul>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Explore cards */}
+      {/* Explore */}
       <section id="explore" className="mx-auto max-w-7xl px-4 pb-16">
         <div className="flex items-end justify-between">
           <div>
@@ -170,9 +165,21 @@ export default function App() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-4 mt-6">
-          <Card img={card1} title="Seaside Suites" subtitle="Walk-to-beach • Private balconies" />
-          <Card img={card2} title="Hilltop Hideout" subtitle="Valley views • Cozy fireplaces" />
-          <Card img={card3} title="City Light Lofts" subtitle="Rooftop bar • Nightlife steps away" />
+          <ImageCard
+            img="https://images.unsplash.com/photo-1519822471289-0eef0a80a0dc?q=80&w=1200&auto=format&fit=crop"
+            title="Seaside Suites"
+            subtitle="Walk-to-beach • Private balconies"
+          />
+          <ImageCard
+            img="https://images.unsplash.com/photo-1512453979798-5ea266f8880c?q=80&w=1200&auto=format&fit=crop"
+            title="Hilltop Hideout"
+            subtitle="Valley views • Cozy fireplaces"
+          />
+          <ImageCard
+            img="https://images.unsplash.com/photo-1488646953014-85cb44e25828?q=80&w=1200&auto=format&fit=crop"
+            title="City Light Lofts"
+            subtitle="Rooftop bar • Nightlife steps away"
+          />
         </div>
       </section>
 
@@ -189,7 +196,7 @@ export default function App() {
       {/* Footer */}
       <footer className="border-t border-gray-200">
         <div className="mx-auto max-w-7xl px-4 py-8 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-3">
-          <div>© {new Date().getFullYear()} VAiyu</div>
+          <div>© {new Date().getFullYear()} VAiyu — Where Intelligence Meets Comfort.</div>
           <div className="flex items-center gap-4">
             <a className="hover:text-gray-800" href="#ai">AI</a>
             <a className="hover:text-gray-800" href="#why">Why VAiyu</a>
@@ -222,29 +229,15 @@ function AICard({ title, text, emoji }: { title: string; text: string; emoji: st
   );
 }
 
-function Pill({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="inline-flex items-center gap-2 text-xs px-2.5 py-1 rounded-full bg-gray-900/5">
-      {children}
-    </span>
-  );
-}
-
-function Card({ img, title, subtitle }: { img: string; title: string; subtitle: string }) {
+function ImageCard({ img, title, subtitle }: { img: string; title: string; subtitle: string }) {
   return (
     <div className="overflow-hidden rounded-2xl bg-white shadow-sm hover:shadow-lg transition-shadow">
-      <div
-        className="h-44 bg-cover bg-center"
-        style={{ backgroundImage: `url(${img})` }}
-        aria-hidden
-      />
+      <div className="h-44 bg-cover bg-center" style={{ backgroundImage: `url(${img})` }} aria-hidden />
       <div className="p-4">
         <div className="font-semibold">{title}</div>
         <div className="text-sm text-gray-600">{subtitle}</div>
         <div className="mt-3">
-          <Link to="/hotel/sunrise" className="btn btn-light !py-1.5 !px-3 text-sm">
-            View details
-          </Link>
+          <Link to="/hotel/sunrise" className="btn btn-light !py-1.5 !px-3 text-sm">View details</Link>
         </div>
       </div>
     </div>

@@ -1,3 +1,6 @@
+import Pill from "../components/Pill";   // ✅ correct from /routes
+
+
 export default function Careers() {
   const roles: Role[] = [
     {

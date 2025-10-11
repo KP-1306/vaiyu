@@ -1,7 +1,15 @@
 // web/src/sections/UseCases.tsx
 import { Link } from "react-router-dom";
 
-const cases = [
+type Case = {
+  title: string;
+  body: string;
+  cta: { label: string; to: string };
+  badge?: string;
+  extra?: JSX.Element;
+};
+
+const cases: Case[] = [
   {
     title: "Pre-check-in",
     body: "Guests share ID & ETA ahead of arrival; faster front-desk flow.",
@@ -22,7 +30,7 @@ const cases = [
     title: "Refer & Earn + Credits",
     badge: "New",
     body:
-      "Guests refer friends using Account ID / phone / email. Credits are issued after the friend’s checkout and are property-scoped—redeem on F&B and services.",
+      "Guests refer friends using VAiyu Account ID / registered phone / email. Credits are issued after the friend’s checkout and are property-scoped—redeem on F&B and services.",
     cta: { label: "See my credits", to: "/guest" },
     extra: (
       <p className="text-[11px] text-gray-500 mt-1">
@@ -34,7 +42,7 @@ const cases = [
 
 export default function UseCases() {
   return (
-    <section className="max-w-6xl mx-auto px-4 py-12">
+    <section className="max-w-6xl mx-auto px-6 py-12 bg-white">
       <h2 className="text-2xl font-semibold">Use-cases</h2>
       <p className="text-gray-600 text-sm mt-1">
         Ship faster with opinionated guest & operations workflows.

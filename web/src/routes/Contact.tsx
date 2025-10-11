@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Pill from "../components/Pill";   // ✅ correct from /routes
+import SEO from '../components/SEO';          // if the page is in /routes
 
 
 export default function Contact() {

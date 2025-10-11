@@ -51,6 +51,14 @@ import OwnerDashboard from './routes/OwnerDashboard';
 import OwnerSettings from './routes/OwnerSettings';
 import OwnerServices from './routes/OwnerServices';
 import OwnerReviews from './routes/OwnerReviews';
+import * as Sentry from '@sentry/react';
+
+Sentry.init({
+  dsn: import.meta.env.VITE_SENTRY_DSN,
+  integrations: [Sentry.browserTracingIntegration()],
+  tracesSampleRate: 0.15,
+});
+
 
 /* ======== Root layout that adds global helpers + footer ======== */
 function RootLayout() {

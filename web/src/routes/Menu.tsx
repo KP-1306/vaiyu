@@ -1,79 +1,126 @@
-import { useEffect, useState } from "react";
+// web/src/routes/Menu.tsx
+import { useEffect, useMemo, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import {
   getServices,
   getMenu,
   createTicket,
   createOrder,
-} from "../lib/api";
+  isDemo,
+} from '../lib/api';
+
+type Service = { key: string; label_en: string; sla_minutes: number };
+type FoodItem = { item_key: string; name: string; base_price: number };
 
 export default function Menu() {
-  const [tab, setTab] = useState<"food" | "services">("services");
-  const [services, setServices] = useState<any[]>([]);
-  const [menu, setMenu] = useState<any[]>([]);
+  // booking code from route: /stay/:code/menu
+  const { code = 'DEMO' } = useParams();
+
+  const [tab, setTab] = useState<'food' | 'services'>('services');
+  const [services, setServices] = useState<Service[]>([]);
+  const [food, setFood] = useState<FoodItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
 
   // Room picker + tiny toast
-  const [room, setRoom] = useState<string>(() => localStorage.getItem("room") || "201");
-  const [toast, setToast] = useState<string>("");
+  const roomKey = useMemo(() => `room:${code}`, [code]);
+  const [room, setRoom] = useState<string>(() => localStorage.getItem(roomKey) || '201');
+  const [toast, setToast] = useState<string>('');
+  const [busy, setBusy] = useState<string>(''); // keeps the id of item being actioned
 
   useEffect(() => {
+    let mounted = true;
+    setLoading(true);
+    setErr(null);
     (async () => {
-      const [svc, food] = await Promise.all([getServices(), getMenu()]);
-      setServices(svc.items || []);
-      setMenu(food.items || []);
+      try {
+        const [svc, menu] = await Promise.all([getServices(), getMenu()]);
+        if (!mounted) return;
+        setServices((svc as any)?.items || []);
+        setFood((menu as any)?.items || []);
+      } catch (e: any) {
+        if (!mounted) return;
+        setErr(e?.message || 'Failed to load menu');
+      } finally {
+        if (mounted) setLoading(false);
+      }
     })();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("room", room);
-  }, [room]);
+    localStorage.setItem(roomKey, room);
+  }, [room, roomKey]);
 
   function showToast(msg: string) {
     setToast(msg);
-    window.setTimeout(() => setToast(""), 1500);
+    window.setTimeout(() => setToast(''), 1500);
   }
 
   async function requestService(service_key: string) {
+    setBusy(`svc:${service_key}`);
     try {
-      const { ticket } = await createTicket({
+      const { ticket } = (await createTicket({
         service_key,
         room,
-        booking: "DEMO",
-        tenant: "guest",
-      } as any);
+        booking: code,
+        tenant: 'guest',
+      } as any)) as any;
       const id = ticket?.id;
-      if (!id) return alert("No ticket id returned from server.");
-      window.location.href = `/stay/DEMO/requests/${id}`;
+      if (!id) throw new Error('No ticket id returned');
+      // go track this ticket
+      window.location.href = `/stay/${encodeURIComponent(code!)}/requests/${id}`;
     } catch (e: any) {
-      alert(e?.message || "Could not create request");
+      alert(e?.message || 'Could not create request');
+    } finally {
+      setBusy('');
     }
   }
 
   async function addFood(item_key: string) {
+    setBusy(`food:${item_key}`);
     try {
-      await createOrder({ item_key, qty: 1, booking: "DEMO" });
-      showToast("Added to order");
+      await createOrder({ item_key, qty: 1, booking: code });
+      showToast('Added to order');
     } catch (e: any) {
-      alert(e?.message || "Could not add item");
+      alert(e?.message || 'Could not add item');
+    } finally {
+      setBusy('');
     }
   }
 
   return (
     <main className="max-w-xl mx-auto p-4">
+      {/* Heading + context */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <h1 className="text-lg font-semibold">Guest menu</h1>
+          {isDemo() && (
+            <span className="px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-800">
+              Demo data
+            </span>
+          )}
+        </div>
+        <div className="text-xs text-gray-500">Booking: <b>{code}</b></div>
+      </div>
+
       {/* Tabs + Room selector */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex gap-2">
           <button
-            onClick={() => setTab("services")}
+            onClick={() => setTab('services')}
             className={`px-3 py-2 rounded ${
-              tab === "services" ? "bg-sky-500 text-white" : "bg-white shadow"
+              tab === 'services' ? 'bg-sky-500 text-white' : 'bg-white shadow'
             }`}
           >
             Services
           </button>
-          <button
-            onClick={() => setTab("food")}
+        <button
+            onClick={() => setTab('food')}
             className={`px-3 py-2 rounded ${
-              tab === "food" ? "bg-sky-500 text-white" : "bg-white shadow"
+              tab === 'food' ? 'bg-sky-500 text-white' : 'bg-white shadow'
             }`}
           >
             Food
@@ -81,63 +128,83 @@ export default function Menu() {
         </div>
 
         <label className="text-sm text-gray-600">
-          Room:{" "}
+          Room:{' '}
           <select
             value={room}
             onChange={(e) => setRoom(e.target.value)}
             className="border rounded px-2 py-1"
           >
-            {["201", "202", "203", "204", "205"].map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
+            {['201', '202', '203', '204', '205'].map((r) => (
+              <option key={r} value={r}>{r}</option>
             ))}
           </select>
         </label>
       </div>
 
-      {tab === "services" && (
-        <ul className="space-y-3">
-          {services.map((it: any) => (
-            <li
-              key={it.key}
-              className="p-3 bg-white rounded shadow flex justify-between items-center"
-            >
-              <div>
-                <div className="font-medium">{it.label_en}</div>
-                <div className="text-xs text-gray-500">{it.sla_minutes} min SLA</div>
-              </div>
-              <button
-                onClick={() => requestService(it.key)}
-                className="px-3 py-2 bg-sky-600 text-white rounded"
-              >
-                Request
-              </button>
-            </li>
-          ))}
-        </ul>
+      {/* Loading / error / empty states */}
+      {loading && <div className="text-gray-500">Loading…</div>}
+      {err && !loading && (
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded text-amber-800 mb-3">
+          {err}
+        </div>
       )}
 
-      {tab === "food" && (
-        <ul className="space-y-3">
-          {menu.map((it: any) => (
-            <li
-              key={it.item_key}
-              className="p-3 bg-white rounded shadow flex justify-between items-center"
-            >
-              <div>
-                <div className="font-medium">{it.name}</div>
-                <div className="text-xs text-gray-500">₹{it.base_price}</div>
-              </div>
-              <button
-                onClick={() => addFood(it.item_key)}
-                className="px-3 py-2 bg-sky-600 text-white rounded"
+      {!loading && !err && tab === 'services' && (
+        services.length ? (
+          <ul className="space-y-3">
+            {services.map((it) => (
+              <li
+                key={it.key}
+                className="p-3 bg-white rounded shadow flex justify-between items-center"
               >
-                Add
-              </button>
-            </li>
-          ))}
-        </ul>
+                <div>
+                  <div className="font-medium">{it.label_en}</div>
+                  <div className="text-xs text-gray-500">{it.sla_minutes} min SLA</div>
+                </div>
+                <button
+                  onClick={() => requestService(it.key)}
+                  disabled={busy === `svc:${it.key}`}
+                  className={`px-3 py-2 rounded text-white ${
+                    busy === `svc:${it.key}` ? 'bg-sky-300' : 'bg-sky-600 hover:bg-sky-700'
+                  }`}
+                >
+                  {busy === `svc:${it.key}` ? 'Requesting…' : 'Request'}
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="text-gray-500">No services available right now.</div>
+        )
+      )}
+
+      {!loading && !err && tab === 'food' && (
+        food.length ? (
+          <ul className="space-y-3">
+            {food.map((it) => (
+              <li
+                key={it.item_key}
+                className="p-3 bg-white rounded shadow flex justify-between items-center"
+              >
+                <div>
+                  <div className="font-medium">{it.name}</div>
+                  <div className="text-xs text-gray-500">₹{it.base_price}</div>
+                </div>
+                <button
+                  onClick={() => addFood(it.item_key)}
+                  disabled={busy === `food:${it.item_key}`}
+                  className={`px-3 py-2 rounded text-white ${
+                    busy === `food:${it.item_key}` ? 'bg-sky-300' : 'bg-sky-600 hover:bg-sky-700'
+                  }`}
+                >
+                  {busy === `food:${it.item_key}` ? 'Adding…' : 'Add'}
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="text-gray-500">Food menu is unavailable at the moment.</div>
+        )
       )}
 
       {/* Tiny toast */}

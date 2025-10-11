@@ -1,6 +1,6 @@
-// web/src/routes/Precheck.tsx
 import { useState } from "react";
-import { precheck } from "../lib/api";
+import { useParams } from "react-router-dom";
+import { precheck, referralApply } from "../lib/api";
 
 type Form = {
   guestName: string;
@@ -13,9 +13,13 @@ type Form = {
   paxAdults: number;
   paxKids: number;
   notes: string;
+
+  referral: string;         // NEW: Account ID or registered phone/email of referrer
+  referralType: "auto";     // we auto-detect: email/phone/else accountId
 };
 
 export default function Precheck() {
+  const { code: bookingCodeParam = "" } = useParams();
   const [f, setF] = useState<Form>({
     guestName: "",
     phone: "",
@@ -27,23 +31,38 @@ export default function Precheck() {
     paxAdults: 2,
     paxKids: 0,
     notes: "",
+    referral: "",
+    referralType: "auto",
   });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string>("");
+  const [err, setErr] = useState<string>("");
 
   function up<K extends keyof Form>(k: K, v: Form[K]) {
     setF((p) => ({ ...p, [k]: v }));
+  }
+
+  function buildReferralPayload(input: string) {
+    const v = input.trim();
+    if (!v) return null;
+    // rudimentary detection
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return { email: v };
+    if (/^\+?\d{10,15}$/.test(v)) return { phone: v };
+    return { accountId: v };
   }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setMsg("");
+    setErr("");
 
-    // Payload (same structure as before), now via api helper
+    const bookingCode = bookingCodeParam || "DEMO";
+
+    // Payload mirrors your previous structure
     const payload = {
       hotel: "DEMO",
-      booking: "DEMO",
+      booking: bookingCode,
       room_pref: "",
       guest: {
         name: f.guestName,
@@ -62,13 +81,22 @@ export default function Precheck() {
     };
 
     try {
+      // 1) If referral present, apply it against this booking
+      const refPayload = buildReferralPayload(f.referral);
+      if (refPayload) {
+        await referralApply(bookingCode, refPayload);
+      }
+
+      // 2) Continue normal precheck
       await precheck(payload);
+
       setMsg("Pre-check-in submitted. We’ll be ready when you arrive!");
-    } catch {
+    } catch (e: any) {
       // Fallback: store locally so the desk can read it later
-      const key = `precheck:DEMO:${Date.now()}`;
+      const key = `precheck:${bookingCode}:${Date.now()}`;
       localStorage.setItem(key, JSON.stringify(payload));
       setMsg("Saved locally (offline). Front desk can read this from the device.");
+      setErr(e?.message || "");
     } finally {
       setBusy(false);
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -77,7 +105,8 @@ export default function Precheck() {
 
   return (
     <main className="max-w-xl mx-auto p-4">
-      <h1 className="text-xl font-semibold mb-3">Pre-check-in</h1>
+      <h1 className="text-xl font-semibold mb-1">Pre-check-in</h1>
+      <div className="text-sm text-gray-600 mb-3">Booking code: <b>{bookingCodeParam || 'DEMO'}</b></div>
 
       {msg && (
         <div
@@ -85,6 +114,14 @@ export default function Precheck() {
           role="status"
         >
           {msg}
+        </div>
+      )}
+      {err && (
+        <div
+          className="mb-3 p-2 bg-amber-50 border border-amber-200 rounded text-amber-800"
+          role="alert"
+        >
+          {err}
         </div>
       )}
 
@@ -196,6 +233,23 @@ export default function Precheck() {
             placeholder="Anything we should know? (Late arrival, accessibility, etc.)"
           />
         </label>
+
+        {/* NEW: Referral (optional) */}
+        <div className="border rounded p-3 bg-gray-50">
+          <div className="text-[11px] text-gray-500">Referral (optional)</div>
+          <label className="text-sm block">
+            VAiyu Account ID / Registered Phone / Email
+            <input
+              className="mt-1 border rounded w-full px-2 py-1"
+              value={f.referral}
+              onChange={(e) => up("referral", e.target.value)}
+              placeholder="e.g. +9198xxxxxxx or name@domain.com or VAID1234"
+            />
+          </label>
+          <div className="text-[11px] text-gray-500 mt-1">
+            Credits are property-scoped; they’re issued to your referrer after your checkout.
+          </div>
+        </div>
 
         <div className="pt-1">
           <button

@@ -1,89 +1,39 @@
 // web/src/App.tsx
 import { Link } from 'react-router-dom';
-import { useEffect, useState } from 'react';
 import Pill from './components/Pill';
-
-type CardHotel = { slug: string; name: string; blurb: string; image: string };
 
 const heroBg =
   'https://images.unsplash.com/photo-1500375592092-40eb2168fd21?q=80&w=1600&auto=format&fit=crop';
 
-const EXPLORE_CARDS: CardHotel[] = [
-  {
-    slug: 'seaside',
-    name: 'Seaside Suites',
-    blurb: 'Walk-to-beach • Private balconies',
-    image:
-      'https://images.unsplash.com/photo-1519822471289-0eef0a80a0dc?q=80&w=1600&auto=format&fit=crop',
-  },
-  {
-    slug: 'sunrise',
-    name: 'Hilltop Hideout',
-    blurb: 'Valley views • Cozy fireplaces',
-    image:
-      'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?q=80&w=1600&auto=format&fit=crop',
-  },
-  {
-    slug: 'citylight',
-    name: 'City Light Lofts',
-    blurb: 'Rooftop bar • Nightlife steps away',
-    image:
-      'https://images.unsplash.com/photo-1488646953014-85cb44e25828?q=80&w=1600&auto=format&fit=crop',
-  },
-];
-
 export default function App() {
-  // (Optional) could be used later to hydrate from API; harmless to keep now
-  const [cards, setCards] = useState<CardHotel[]>(EXPLORE_CARDS);
-  useEffect(() => setCards(EXPLORE_CARDS), []);
-
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
       {/* Top nav */}
       <header className="sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-gray-100">
         <div className="mx-auto max-w-7xl px-4 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
+            {/* Small brand mark (nav only) */}
             <img
               src="/brand/vaiyu-logo.png"
               alt="VAiyu"
               className="h-8 w-auto hidden sm:block"
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).style.display = 'none';
-              }}
+              onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = 'none')}
             />
-            <span
-              className="sm:hidden inline-block h-8 w-8 rounded-xl"
-              style={{ background: 'var(--brand, #145AF2)' }}
-              aria-hidden
-            />
+            <span className="sm:hidden inline-block h-8 w-8 rounded-xl" style={{ background: 'var(--brand, #145AF2)' }} />
             <span className="font-semibold text-lg tracking-tight">VAiyu</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-6 text-sm">
-            <a href="#why" className="hover:text-gray-700">
-              Why VAiyu
-            </a>
-            <a href="#ai" className="hover:text-gray-700">
-              AI
-            </a>
-            <a href="#explore" className="hover:text-gray-700">
-              Explore
-            </a>
-            <Link to="/owner" className="hover:text-gray-700">
-              For Hotels
-            </Link>
-            <a href="#demo" className="hover:text-gray-700">
-              Live Demo
-            </a>
+            <a href="#why" className="hover:text-gray-700">Why VAiyu</a>
+            <a href="#ai" className="hover:text-gray-700">AI</a>
+            <a href="#explore" className="hover:text-gray-700">Explore</a>
+            <Link to="/about" className="hover:text-gray-700">About</Link>
+            <a href="#demo" className="hover:text-gray-700">Live Demo</a>
           </nav>
 
           <div className="flex items-center gap-2">
-            <Link to="/precheck/DEMO" className="btn btn-light !py-2 !px-3 text-sm">
-              Pre-check-in
-            </Link>
-            <Link to="/owner" className="btn !py-2 !px-3 text-sm">
-              Try VAiyu
-            </Link>
+            <Link to="/precheck/DEMO" className="btn btn-light !py-2 !px-3 text-sm">Pre-check-in</Link>
+            <Link to="/demo" className="btn !py-2 !px-3 text-sm">Try VAiyu</Link>
           </div>
         </div>
       </header>
@@ -103,22 +53,30 @@ export default function App() {
               <span className="animate-pulse">🤖</span> AI-powered hospitality OS
             </div>
 
-            {/* Clean headline (logo removed here) */}
+            {/* Clean headline (logo removed per request) */}
             <h1 className="mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl leading-tight">
               Where <span className="text-sky-300">Intelligence</span> Meets Comfort
             </h1>
 
             <p className="mt-3 text-white/90 text-lg">
-              We turn real stay activity into truth-anchored reviews, faster service, and delightful mobile journeys —
-              perfect for holidays and long escapes.
+              We turn real stay activity into truth-anchored reviews, faster service SLAs, and
+              delightful mobile journeys — perfect for holidays and long escapes.
             </p>
+
             <div className="mt-6 flex flex-wrap items-center gap-3">
+              {/* Scroll to explore (no API dependency) */}
               <a href="#explore" className="btn !bg-white !text-gray-900 hover:!bg-gray-50">
-                Explore a property
+                Explore properties
               </a>
-              {/* No “Open guest menu” here since no property is selected yet */}
-              <Link to="/owner/reviews" className="btn btn-light">
-                Try AI review demo →
+
+              {/* Public demo instead of guest-menu-without-context */}
+              <Link to="/demo" className="btn btn-light">
+                Live demo
+              </Link>
+
+              {/* Educational AI link (not owner moderation) */}
+              <Link to="/about-ai" className="link text-white/90 underline-offset-4">
+                See how our AI works →
               </Link>
             </div>
           </div>
@@ -163,57 +121,62 @@ export default function App() {
                   VAiyu builds truth-anchored suggestions from actual stay activity — tickets, orders & SLA timings —
                   then drafts reviews, nudges teams, and highlights what to fix.
                 </p>
+
                 <div className="mt-4 flex flex-wrap gap-2">
                   <Pill>Truth-anchored reviews</Pill>
                   <Pill>Auto-draft at checkout</Pill>
-                  <Pill>Owner moderation</Pill>
+                  <Pill>Guest approval</Pill>
                   <Pill>Live SSE updates</Pill>
                 </div>
+
                 <div className="mt-6 flex gap-3">
-                  <Link to="/owner/reviews" className="btn">
-                    Try AI review demo
-                  </Link>
-                  <Link to="/owner/dashboard" className="btn btn-light">
-                    See KPIs
-                  </Link>
+                  <Link to="/demo" className="btn">Watch a quick demo</Link>
+                  <Link to="/about-ai" className="btn btn-light">How it works</Link>
                 </div>
               </div>
 
               <ul className="grid sm:grid-cols-2 gap-3 w-full lg:max-w-md">
-                <AICard
-                  title="AI review drafts"
-                  text="Auto-summaries with on-time vs late and avg minutes — ready to approve."
-                  emoji="📝"
-                />
-                <AICard title="Policy hints" text="If SLAs slip, owners see a one-line fix to act on right away." emoji="🧭" />
-                <AICard title="Ops automation" text="Tickets/orders stream live via SSE; agents act without refresh." emoji="🔔" />
-                <AICard title="Brand-safe" text="No hallucinations — content is built from verifiable stay data." emoji="🛡️" />
+                <AICard title="AI review drafts" text="Summaries with on-time vs late and avg minutes — ready to approve." emoji="📝" />
+                <AICard title="Policy hints" text="When SLAs slip, owners get one-line fixes to act fast." emoji="🧭" />
+                <AICard title="Ops automation" text="Tickets/orders stream live via SSE; no refresh required." emoji="🔔" />
+                <AICard title="Brand-safe" text="No hallucinations — built from verifiable stay data." emoji="🛡️" />
               </ul>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Explore */}
+      {/* Explore (static cards; no API dependency) */}
       <section id="explore" className="mx-auto max-w-7xl px-4 pb-16">
         <div className="flex items-end justify-between">
           <div>
             <h3 className="text-xl font-semibold">Explore stays</h3>
             <p className="text-gray-600">Handpicked destinations for sunny moods</p>
           </div>
-          <Link to="/hotel/sunrise" className="link">
-            View property →
-          </Link>
+          {/* keeps the link, but the cards below also have “View details” */}
+          <Link to="/hotel/sunrise" className="link">View property →</Link>
         </div>
 
         <div className="grid md:grid-cols-3 gap-4 mt-6">
-          {cards.map((c) => (
-            <ImageCard key={c.slug} img={c.image} title={c.name} subtitle={c.blurb} slug={c.slug} />
-          ))}
+          <ImageCard
+            img="https://images.unsplash.com/photo-1519822471289-0eef0a80a0dc?q=80&w=1200&auto=format&fit=crop"
+            title="Seaside Suites"
+            subtitle="Walk-to-beach • Private balconies"
+          />
+          <ImageCard
+            img="https://images.unsplash.com/photo-1512453979798-5ea266f8880c?q=80&w=1200&auto=format&fit=crop"
+            title="Hilltop Hideout"
+            subtitle="Valley views • Cozy fireplaces"
+          />
+          <ImageCard
+            img="https://images.unsplash.com/photo-1488646953014-85cb44e25828?q=80&w=1200&auto=format&fit=crop"
+            title="City Light Lofts"
+            subtitle="Rooftop bar • Nightlife steps away"
+          />
         </div>
       </section>
 
-      {/* Quick demo entry points */}
+      {/* Demo entry points (safe public flows) */}
       <section id="demo" className="mx-auto max-w-7xl px-4 pb-20">
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <DemoLink to="/hotel/sunrise" label="Property microsite" />
@@ -223,37 +186,26 @@ export default function App() {
         </div>
       </section>
 
-      {/* Footer */}
+      {/* Footer (legal + company) */}
       <footer className="border-t border-gray-200">
         <div className="mx-auto max-w-7xl px-4 py-8 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-3">
           <div>© {new Date().getFullYear()} VAiyu — Where Intelligence Meets Comfort.</div>
-          <nav className="flex items-center gap-4">
-            <Link className="hover:text-gray-800" to="/about">
-              About
-            </Link>
-            <Link className="hover:text-gray-800" to="/press">
-              Press
-            </Link>
-            <Link className="hover:text-gray-800" to="/privacy">
-              Privacy
-            </Link>
-            <Link className="hover:text-gray-800" to="/terms">
-              Terms
-            </Link>
-            <Link className="hover:text-gray-800" to="/contact">
-              Contact
-            </Link>
-            <Link className="hover:text-gray-800" to="/careers">
-              Careers
-            </Link>
-          </nav>
+          <div className="flex items-center gap-4">
+            <Link className="hover:text-gray-800" to="/about">About</Link>
+            <Link className="hover:text-gray-800" to="/press">Press</Link>
+            <Link className="hover:text-gray-800" to="/privacy">Privacy</Link>
+            <Link className="hover:text-gray-800" to="/terms">Terms</Link>
+            <Link className="hover:text-gray-800" to="/contact">Contact</Link>
+          </div>
         </div>
       </footer>
     </div>
   );
 }
 
-/* ---------- Local UI helpers ---------- */
+/* ------------------------------------------------------------------ */
+/* Small components                                                    */
+/* ------------------------------------------------------------------ */
 
 function Feature({ title, text, emoji }: { title: string; text: string; emoji: string }) {
   return (
@@ -275,17 +227,7 @@ function AICard({ title, text, emoji }: { title: string; text: string; emoji: st
   );
 }
 
-function ImageCard({
-  img,
-  title,
-  subtitle,
-  slug,
-}: {
-  img: string;
-  title: string;
-  subtitle: string;
-  slug: string;
-}) {
+function ImageCard({ img, title, subtitle }: { img: string; title: string; subtitle: string }) {
   return (
     <div className="overflow-hidden rounded-2xl bg-white shadow-sm hover:shadow-lg transition-shadow">
       <div className="h-44 bg-cover bg-center" style={{ backgroundImage: `url(${img})` }} aria-hidden />
@@ -293,9 +235,7 @@ function ImageCard({
         <div className="font-semibold">{title}</div>
         <div className="text-sm text-gray-600">{subtitle}</div>
         <div className="mt-3">
-          <Link to={`/hotel/${slug}`} className="btn btn-light !py-1.5 !px-3 text-sm">
-            View details
-          </Link>
+          <Link to="/hotel/sunrise" className="btn btn-light !py-1.5 !px-3 text-sm">View details</Link>
         </div>
       </div>
     </div>
@@ -304,10 +244,7 @@ function ImageCard({
 
 function DemoLink({ to, label }: { to: string; label: string }) {
   return (
-    <Link
-      to={to}
-      className="flex items-center justify-between rounded-xl border bg-white px-4 py-3 hover:shadow transition-shadow"
-    >
+    <Link to={to} className="flex items-center justify-between rounded-xl border bg-white px-4 py-3 hover:shadow transition-shadow">
       <span className="font-medium">{label}</span>
       <span aria-hidden>→</span>
     </Link>

@@ -30,6 +30,8 @@ export default function Website() {
                 <Link to="/hotel/sunrise" className="btn">View demo microsite</Link>
                 <Link to="/owner" className="btn btn-light">Owner console</Link>
                 <Link to="/demo" className="btn btn-outline">All demos</Link>
+                {/* NEW: direct CTA for the referral feature */}
+                <Link to="/guest" className="btn btn-light">See my credits</Link>
               </div>
               <p className="mt-3 text-xs text-gray-500">
                 No login needed • Mobile-first • Works offline
@@ -47,10 +49,15 @@ export default function Website() {
                   />
                 </div>
               </div>
-              <div className="mt-4 grid grid-cols-3 gap-3 text-center text-xs text-gray-600">
+              {/* NEW: add a 4th mini-card for referrals */}
+              <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-center text-xs text-gray-600">
                 <div className="card">Housekeeping SLAs</div>
                 <div className="card">Kitchen Orders</div>
                 <div className="card">Owner KPIs</div>
+                <div className="card relative">
+                  <span className="absolute -top-2 -right-2 text-[10px] px-2 py-0.5 rounded-full border bg-green-50 text-green-700">New</span>
+                  Refer &amp; Earn credits
+                </div>
               </div>
             </div>
           </div>
@@ -100,6 +107,11 @@ export default function Website() {
               title="Fast setup"
               body="Start with in-memory demo. Swap to DB later (Postgres/Supabase)."
             />
+            {/* NEW: feature tile for referrals */}
+            <Feat
+              title="Refer & Earn credits"
+              body="Guests refer via VAiyu Account ID, registered phone or email; credits are property-scoped and redeemable on F&B & services."
+            />
           </div>
         </div>
       </section>
@@ -145,7 +157,7 @@ export default function Website() {
       <section className="py-14 bg-white">
         <div className="mx-auto max-w-6xl px-6">
           <h2 className="text-2xl font-semibold">FAQ</h2>
-          <div className="mt-6 grid md:grid-cols-2 gap-4">
+        <div className="mt-6 grid md:grid-cols-2 gap-4">
             <Faq q="Can we publish reviews without guest consent?"
                  a="No. Even in auto mode, consent is required before publishing. We only create drafts/pending items otherwise." />
             <Faq q="Does this need an app store install?"

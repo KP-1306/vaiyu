@@ -4,11 +4,6 @@
 export const API = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 export const API_URL = API; // back-compat
 
-/** Back-compat alias expected by OwnerServices.tsx */
-export const upsertService = apiUpsert;   // <-- ADD THIS
-export const deleteService = apiDelete;   // (you likely already added this)
-
-
 /** When API is unreachable and demo fallbacks are used, we flip this on. */
 export let DEMO_MODE = false;
 export const isDemo = () => DEMO_MODE;
@@ -40,12 +35,18 @@ export type ReferralIdentifier = {
 
 export type CreditBalance = {
   property: string;        // property slug (e.g., "sunrise")
-  balance: number;         // in currency minor units if your API does that, or just number
+  balance: number;         // currency minor units or plain number
   currency?: string;       // e.g., "INR"
   expiresAt?: string | null;
 };
 
-type Json = Record<string, unknown> | Array<unknown> | string | number | boolean | null;
+type Json =
+  | Record<string, unknown>
+  | Array<unknown>
+  | string
+  | number
+  | boolean
+  | null;
 
 /* ============================================================================
    HTTP helpers
@@ -62,7 +63,6 @@ function withTimeout<T>(p: Promise<T>, ms = 10_000): Promise<T> {
 
 function buildHeaders(opts: RequestInit): HeadersInit {
   const h: Record<string, string> = { ...(opts.headers as Record<string, string> | undefined) };
-  // Only set Content-Type if we’re sending a body and caller didn’t set it
   const hasBody = typeof opts.body !== 'undefined';
   if (hasBody && !Object.keys(h).some(k => k.toLowerCase() === 'content-type')) {
     h['Content-Type'] = 'application/json';
@@ -80,7 +80,6 @@ async function req<T = any>(path: string, opts: RequestInit = {}): Promise<T> {
       12_000
     );
 
-    // Try to parse as JSON if possible, else text
     const ct = r.headers.get('content-type') || '';
     const isJson = ct.includes('application/json');
     const payload = isJson ? await r.json() : await r.text();
@@ -138,12 +137,13 @@ const demoReport = {
 
 function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
   const p = path.replace(/\/+$/, '');
+  const method = String(opts.method || 'GET').toUpperCase();
 
   if (p.startsWith('/hotel/')) return demoHotel as unknown as T;
-  if (p === '/catalog/services' && (!opts.method || opts.method === 'GET')) {
+  if (p === '/catalog/services' && method === 'GET') {
     return { items: demoServices } as unknown as T;
   }
-  if (p === '/catalog/services' && opts.method === 'POST') {
+  if (p === '/catalog/services' && ['POST', 'PUT', 'PATCH'].includes(method)) {
     return { ok: true } as unknown as T;
   }
   if (p === '/menu/items') return { items: demoMenu } as unknown as T;
@@ -155,7 +155,7 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
   if (p === '/tickets') return { items: [] } as unknown as T;
   if (p === '/orders') return { items: [] } as unknown as T;
 
-  // Self-claim fallbacks
+  // Self-claim
   if (p === '/claim/init')
     return {
       ok: true,
@@ -204,7 +204,7 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
     return { stays, items: stays } as unknown as T;
   }
 
-  // Referrals & Credits (demo)
+  // Referrals & Credits
   if (p === '/referrals/init') {
     const body = safeJson(opts.body);
     const property = body?.property ?? 'sunrise';
@@ -212,7 +212,7 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
       ok: true,
       code: 'SUN-9X7Q',
       shareUrl: `https://www.vaiyu.co.in/hotel/${property}?ref=SUN-9X7Q`,
-      demo: true
+      demo: true,
     } as unknown as T;
   }
   if (p === '/referrals/apply') {
@@ -220,7 +220,12 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
   }
   if (p === '/credits/mine') {
     const items: CreditBalance[] = [
-      { property: 'sunrise', balance: 750, currency: 'INR', expiresAt: new Date(Date.now() + 15552000000).toISOString() }
+      {
+        property: 'sunrise',
+        balance: 750,
+        currency: 'INR',
+        expiresAt: new Date(Date.now() + 15552000000).toISOString(),
+      },
     ];
     return { items, total: 750 } as unknown as T;
   }
@@ -246,17 +251,13 @@ function safeJson(body: any): any {
 /* ============================================================================
    Self-claim (guest attaches an existing booking)
 ============================================================================ */
-
-/** Starts a claim by sending/creating an OTP for the booking code + contact. */
 export async function claimInit(code: string, contact: string) {
-  // Keep a back-compat object form for server expectations
   return req(`/claim/init`, {
     method: 'POST',
     body: JSON.stringify({ code, phone: contact }),
   });
 }
 
-/** Verifies the OTP and returns a short-lived token (store in localStorage). */
 export async function claimVerify(code: string, otp: string) {
   return req(`/claim/verify`, {
     method: 'POST',
@@ -264,7 +265,6 @@ export async function claimVerify(code: string, otp: string) {
   });
 }
 
-/** Fetch current guest’s stays (Bearer token required). Returns both {stays} and {items} for compatibility. */
 export async function myStays(token: string): Promise<{ stays: Stay[]; items: Stay[] }> {
   const res = await req<any>('/me/stays', {
     headers: { Authorization: `Bearer ${token}` },
@@ -273,7 +273,9 @@ export async function myStays(token: string): Promise<{ stays: Stay[]; items: St
   return { stays, items: stays };
 }
 
-/** Owner: Upsert/replace the full services catalog. */
+/* ============================================================================
+   Owner: Services admin helpers
+============================================================================ */
 export async function saveServices(items: Service[]) {
   return req(`/catalog/services`, {
     method: 'POST',
@@ -281,28 +283,23 @@ export async function saveServices(items: Service[]) {
   });
 }
 
-/** Generic POST upsert helper some owner pages use. */
+/** Generic helpers some owner pages use. */
 export async function apiUpsert(path: string, payload: unknown) {
   return req(path, { method: 'POST', body: JSON.stringify(payload) });
 }
 
-/** Generic DELETE helper some owner pages use. */
 export async function apiDelete(path: string) {
   return req(path, { method: 'DELETE' });
 }
 
-/** Back-compat aliases used by some pages (e.g., OwnerServices.tsx). */
+/** Back-compat aliases used by OwnerServices.tsx and others. */
 export const upsert = apiUpsert;
+export const upsertService = apiUpsert;
 export const deleteService = apiDelete;
 
 /* ============================================================================
    Referrals & Credits (property-scoped)
 ============================================================================ */
-
-/**
- * Start a referral for a property. Returns a shareable code+URL.
- * Token is optional here if public; include if your API requires auth.
- */
 export async function referralInit(property: string, token?: string, channel = 'guest_dashboard') {
   return req(`/referrals/init`, {
     method: 'POST',
@@ -311,36 +308,24 @@ export async function referralInit(property: string, token?: string, channel = '
   });
 }
 
-/**
- * Apply a referral to a referee booking using ONE of: referrer VAiyu Account ID, phone, or email.
- * Example calls:
- *   referralApply('ABC123', { phone: '+9199...' })
- *   referralApply('ABC123', { email: 'user@example.com' })
- *   referralApply('ABC123', { accountId: 'acc_123' })
- */
 export async function referralApply(bookingCode: string, referrer: ReferralIdentifier) {
   const body: any = { bookingCode };
   const keys = ['accountId', 'phone', 'email'] as const;
-
-  // copy exactly one identifier if present
   for (const k of keys) {
     if ((referrer as any)[k]) body.referrer = { [k]: (referrer as any)[k] };
   }
-
   return req(`/referrals/apply`, {
     method: 'POST',
     body: JSON.stringify(body),
   });
 }
 
-/** Get my credit balances (per property) */
 export async function myCredits(token: string): Promise<{ items: CreditBalance[]; total?: number }> {
   return req(`/credits/mine`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
 
-/** Redeem credits for a property context (e.g., F&B order). */
 export async function redeemCredits(token: string, property: string, amount: number, context?: any) {
   return req(`/credits/redeem`, {
     method: 'POST',
@@ -448,10 +433,16 @@ export async function reviewDraft(bookingCode: string) {
   return req(`/reviews/draft/${encodeURIComponent(bookingCode)}`);
 }
 export async function postAutoReviewPreview(bookingCode: string) {
-  return req(`/reviews/auto`, { method: 'POST', body: JSON.stringify({ bookingCode }) });
+  return req(`/reviews/auto`, {
+    method: 'POST',
+    body: JSON.stringify({ bookingCode }),
+  });
 }
 export async function postAutoReviewCommit(bookingCode: string) {
-  return req(`/reviews/auto`, { method: 'POST', body: JSON.stringify({ bookingCode, commit: true }) });
+  return req(`/reviews/auto`, {
+    method: 'POST',
+    body: JSON.stringify({ bookingCode, commit: true }),
+  });
 }
 export async function approveReview(id: string, bookingCode?: string) {
   return req(`/reviews/approve`, {
@@ -497,15 +488,6 @@ export const api = {
   claimVerify,
   myStays,
 
-     // ...
-  saveServices,
-  apiUpsert,
-  apiDelete,
-  upsert,           // if you kept this alias
-  upsertService,    // <-- ADD THIS
-  deleteService,    // ensure this is here too
-  // ...
-   
   // referrals & credits
   referralInit,
   referralApply,
@@ -527,8 +509,9 @@ export const api = {
   saveServices,
   apiUpsert,
   apiDelete,
-  upsert,          // back-compat alias
-  deleteService,   // back-compat alias
+  upsert,
+  upsertService,
+  deleteService,
 
   // tickets
   createTicket,

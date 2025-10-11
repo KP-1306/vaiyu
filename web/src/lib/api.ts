@@ -20,6 +20,20 @@ export type Stay = {
   check_out?: string;
 };
 
+export type ReferralIdentifier = {
+  /** exactly one of these should be provided */
+  accountId?: string;
+  phone?: string;
+  email?: string;
+};
+
+export type CreditBalance = {
+  property: string;        // property slug (e.g., "sunrise")
+  balance: number;         // in currency minor units if your API does that, or just number
+  currency?: string;       // e.g., "INR"
+  expiresAt?: string | null;
+};
+
 type Json = Record<string, unknown> | Array<unknown> | string | number | boolean | null;
 
 /* ============================================================================
@@ -111,7 +125,7 @@ const demoReport = {
   hints: ['Investigate 2 SLA breach(es); consider buffer or staffing in peak hours.'],
 };
 
-function demoFallback<T>(path: string, _opts: RequestInit): T | undefined {
+function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
   const p = path.replace(/\/+$/, '');
 
   if (p.startsWith('/hotel/')) return demoHotel as unknown as T;
@@ -174,7 +188,43 @@ function demoFallback<T>(path: string, _opts: RequestInit): T | undefined {
     return { stays, items: stays } as unknown as T;
   }
 
+  // Referrals & Credits (demo)
+  if (p === '/referrals/init') {
+    const body = safeJson(opts.body);
+    const property = body?.property ?? 'sunrise';
+    return {
+      ok: true,
+      code: 'SUN-9X7Q',
+      shareUrl: `https://www.vaiyu.co.in/hotel/${property}?ref=SUN-9X7Q`,
+      demo: true
+    } as unknown as T;
+  }
+  if (p === '/referrals/apply') {
+    return { ok: true, status: 'pending' } as unknown as T;
+  }
+  if (p === '/credits/mine') {
+    const items: CreditBalance[] = [
+      { property: 'sunrise', balance: 750, currency: 'INR', expiresAt: new Date(Date.now() + 15552000000).toISOString() }
+    ];
+    return { items, total: 750 } as unknown as T;
+  }
+  if (p === '/credits/redeem') {
+    const body = safeJson(opts.body);
+    const newBalance = Math.max(0, 750 - (Number(body?.amount) || 0));
+    return { ok: true, newBalance } as unknown as T;
+  }
+
   return undefined;
+}
+
+/* small util for demoFallback */
+function safeJson(body: any): any {
+  try {
+    if (!body) return undefined;
+    return typeof body === 'string' ? JSON.parse(body) : body;
+  } catch {
+    return undefined;
+  }
 }
 
 /* ============================================================================
@@ -205,6 +255,60 @@ export async function myStays(token: string): Promise<{ stays: Stay[]; items: St
   });
   const stays: Stay[] = res?.stays ?? res?.items ?? [];
   return { stays, items: stays };
+}
+
+/* ============================================================================
+   Referrals & Credits (property-scoped)
+============================================================================ */
+
+/**
+ * Start a referral for a property. Returns a shareable code+URL.
+ * Token is optional here if public; include if your API requires auth.
+ */
+export async function referralInit(property: string, token?: string, channel = 'guest_dashboard') {
+  return req(`/referrals/init`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: JSON.stringify({ property, channel }),
+  });
+}
+
+/**
+ * Apply a referral to a referee booking using ONE of: referrer VAiyu Account ID, phone, or email.
+ * Example calls:
+ *   referralApply('ABC123', { phone: '+9199...' })
+ *   referralApply('ABC123', { email: 'user@example.com' })
+ *   referralApply('ABC123', { accountId: 'acc_123' })
+ */
+export async function referralApply(bookingCode: string, referrer: ReferralIdentifier) {
+  const body: any = { bookingCode };
+  const keys = ['accountId', 'phone', 'email'] as const;
+
+  // copy exactly one identifier if present
+  for (const k of keys) {
+    if ((referrer as any)[k]) body.referrer = { [k]: (referrer as any)[k] };
+  }
+
+  return req(`/referrals/apply`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+/** Get my credit balances (per property) */
+export async function myCredits(token: string): Promise<{ items: CreditBalance[]; total?: number }> {
+  return req(`/credits/mine`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+/** Redeem credits for a property context (e.g., F&B order). */
+export async function redeemCredits(token: string, property: string, amount: number, context?: any) {
+  return req(`/credits/redeem`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ property, amount, context }),
+  });
 }
 
 /* ============================================================================
@@ -354,6 +458,12 @@ export const api = {
   claimInit,
   claimVerify,
   myStays,
+
+  // referrals & credits
+  referralInit,
+  referralApply,
+  myCredits,
+  redeemCredits,
 
   // hotel
   getHotel,

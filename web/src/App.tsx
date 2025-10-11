@@ -209,6 +209,14 @@ export default function App() {
   );
 }
 
+<footer className="mt-10 py-8 text-center text-sm text-gray-500">
+  <a className="link mx-2" href="/about">About</a>
+  <a className="link mx-2" href="/press">Press</a>
+  <a className="link mx-2" href="/privacy">Privacy</a>
+  <a className="link mx-2" href="/terms">Terms</a>
+</footer>
+
+
 function Feature({ title, text, emoji }: { title: string; text: string; emoji: string }) {
   return (
     <div className="card group hover:shadow-lg transition-shadow">

@@ -20,6 +20,14 @@ export type Stay = {
   check_out?: string;
 };
 
+// after the Stay type
+export type Service = {
+  key: string;
+  label_en: string;
+  sla_minutes: number;
+};
+
+
 export type ReferralIdentifier = {
   /** exactly one of these should be provided */
   accountId?: string;
@@ -257,6 +265,26 @@ export async function myStays(token: string): Promise<{ stays: Stay[]; items: St
   return { stays, items: stays };
 }
 
+/** Upsert/replace the full services catalog (owner side). */
+export async function saveServices(items: Service[]) {
+  // server expects { items: Service[] }
+  return req(`/catalog/services`, {
+    method: 'POST',
+    body: JSON.stringify({ items }),
+  });
+}
+
+/** Generic POST upsert helper some owner pages use. */
+export async function apiUpsert(path: string, payload: unknown) {
+  return req(path, { method: 'POST', body: JSON.stringify(payload) });
+}
+
+/** Generic DELETE helper some owner pages use. */
+export async function apiDelete(path: string) {
+  return req(path, { method: 'DELETE' });
+}
+
+
 /* ============================================================================
    Referrals & Credits (property-scoped)
 ============================================================================ */
@@ -477,6 +505,9 @@ export const api = {
   getMenu,
   services: (..._args: any[]) => getServices(), // back-compat alias
   menu: (..._args: any[]) => getMenu(),         // back-compat alias
+  saveServices,
+  apiUpsert,
+  apiDelete,
 
   // tickets
   createTicket,

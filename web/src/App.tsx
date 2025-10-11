@@ -36,6 +36,8 @@ export default function App() {
 
           <div className="flex items-center gap-2">
             <Link to="/precheck/DEMO" className="btn btn-light !py-2 !px-3 text-sm">Pre-check-in</Link>
+            {/* NEW: quick access to credits */}
+            <Link to="/guest" className="btn btn-light !py-2 !px-3 text-sm">My credits</Link>
             <Link to="/hk" className="btn !py-2 !px-3 text-sm">Try VAiyu</Link>
           </div>
         </div>
@@ -75,6 +77,10 @@ export default function App() {
               <Link to="/about-ai" className="link text-white/90 underline-offset-4">
                 See how our AI works →
               </Link>
+              {/* NEW: hero CTA to spotlight referrals */}
+              <Link to="/guest" className="btn btn-light">
+                See my credits
+              </Link>
             </div>
           </div>
 
@@ -91,6 +97,8 @@ export default function App() {
                 <Bullet>🧽 Housekeeping / maintenance workflows</Bullet>
                 <Bullet>🧠 AI drafts reviews from actual stay data</Bullet>
                 <Bullet>🛡️ Owner moderation & brand safety</Bullet>
+                {/* NEW: referral callout */}
+                <Bullet>🎁 Refer &amp; Earn credits (property-scoped)</Bullet>
               </ul>
             </div>
           </aside>
@@ -112,7 +120,9 @@ export default function App() {
             'Express pre-check-in',
             'In-app requests & tracking',
             'Room service that just works',
-            'Crystal-clear bills'
+            'Crystal-clear bills',
+            // NEW:
+            'Refer friends, earn credits on your next stay',
           ]} emoji="🧳" />
 
           <ValueCard title="For Staff" points={[
@@ -205,6 +215,8 @@ export default function App() {
           <DemoLink to="/hk" label="Housekeeping" />
           <DemoLink to="/owner/reviews" label="AI review moderation" />
           <DemoLink to="/owner/dashboard" label="Owner KPIs & hints" />
+          {/* NEW: referral use-case */}
+          <DemoLink to="/guest" label="Refer & Earn + Credits" />
         </div>
       </section>
 

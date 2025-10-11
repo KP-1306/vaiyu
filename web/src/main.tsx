@@ -9,9 +9,18 @@ import { ThemeProvider } from './components/ThemeProvider';
 import './theme.css';
 import './index.css';
 
-// Public / guest screens
-import App from './App';
+/* ========= Public / Website ========= */
+import App from './App';                 // Landing page
 import Demo from './routes/Demo';
+import AboutUs from './routes/AboutUs';
+import AboutAI from './routes/AboutAI';
+import Press from './routes/Press';
+import Privacy from './routes/Privacy';
+import Terms from './routes/Terms';
+import Contact from './routes/Contact';
+import Careers from './routes/Careers';
+
+/* ========= Guest / Journey ========= */
 import Hotel from './routes/Hotel';
 import Menu from './routes/Menu';
 import RequestTracker from './routes/RequestTracker';
@@ -19,34 +28,33 @@ import Bill from './routes/Bill';
 import Precheck from './routes/Precheck';
 import Regcard from './routes/Regcard';
 import Checkout from './routes/Checkout';
-import AboutAI from './routes/AboutAI';
 
-
-// Ops screens
+/* ========= Ops Screens ========= */
 import Desk from './routes/Desk';
 import HK from './routes/HK';
 import Kitchen from './routes/Kitchen';
 import Maint from './routes/Maint';
-import AboutUs from './routes/AboutUs';
 
-// inside createBrowserRouter([...])
-{ path: '/about', element: <AboutUs /> },
-
-
-// Owner screens
-import Owner from './routes/Owner';                 // if your file is OwnerSettings.tsx, change this import
+/* ========= Owner (guarded) ========= */
+import Owner from './routes/Owner';                 // or OwnerSettings if that’s your filename
 import OwnerReviews from './routes/OwnerReviews';
 import OwnerDashboard from './routes/OwnerDashboard';
-
-// Light guard for owner routes
 import OwnerGate from './components/OwnerGate';
 
+/* ========= Router ========= */
 const router = createBrowserRouter([
-  // Website / landing
+  // Website / marketing
   { path: '/', element: <App /> },
   { path: '/demo', element: <Demo /> },
+  { path: '/about', element: <AboutUs /> },
+  { path: '/about/ai', element: <AboutAI /> },
+  { path: '/press', element: <Press /> },
+  { path: '/privacy', element: <Privacy /> },
+  { path: '/terms', element: <Terms /> },
+  { path: '/contact', element: <Contact /> },
+  { path: '/careers', element: <Careers /> },
 
-  // Guest
+  // Guest flow
   { path: '/hotel/:slug', element: <Hotel /> },
   { path: '/stay/:code/menu', element: <Menu /> },
   { path: '/stay/:code/requests/:id', element: <RequestTracker /> },
@@ -61,16 +69,17 @@ const router = createBrowserRouter([
   { path: '/kitchen', element: <Kitchen /> },
   { path: '/maint', element: <Maint /> },
 
-  // Owner (guarded)
+  // Owner (PIN-guarded)
   { path: '/owner', element: <OwnerGate><Owner /></OwnerGate> },
   { path: '/owner/reviews', element: <OwnerGate><OwnerReviews /></OwnerGate> },
   { path: '/owner/dashboard', element: <OwnerGate><OwnerDashboard /></OwnerGate> },
   { path: '/owner/dashboard/:slug', element: <OwnerGate><OwnerDashboard /></OwnerGate> },
 ]);
 
+/* ========= App bootstrap ========= */
 const qc = new QueryClient();
 
-// PWA service worker
+// PWA service worker (optional)
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(console.error);
 }

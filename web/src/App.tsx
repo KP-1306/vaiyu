@@ -2,7 +2,7 @@
 import { Link } from 'react-router-dom';
 
 const bg =
-  'https://images.unsplash.com/photo-1500375592092-40eb2168fd21?q=80&w=1600&auto=format&fit=crop'; // beachy hero
+  'https://images.unsplash.com/photo-1500375592092-40eb2168fd21?q=80&w=1600&auto=format&fit=crop'; // beach hero
 const card1 =
   'https://images.unsplash.com/photo-1519822471289-0eef0a80a0dc?q=80&w=1200&auto=format&fit=crop';
 const card2 =
@@ -26,9 +26,10 @@ export default function App() {
           </Link>
           <nav className="hidden md:flex items-center gap-6 text-sm">
             <a href="#why" className="hover:text-gray-700">Why VAiyu</a>
+            <a href="#ai" className="hover:text-gray-700">AI</a>
             <a href="#explore" className="hover:text-gray-700">Explore</a>
             <Link to="/owner" className="hover:text-gray-700">For Hotels</Link>
-            <Link to="/demo" className="hover:text-gray-700">Live Demo</Link>
+            <a href="#demo" className="hover:text-gray-700">Live Demo</a>
           </nav>
           <div className="flex items-center gap-2">
             <Link to="/precheck/DEMO" className="btn btn-light !py-2 !px-3 text-sm">Pre-check-in</Link>
@@ -41,7 +42,7 @@ export default function App() {
       <section
         className="relative isolate"
         style={{
-          backgroundImage: `linear-gradient(180deg, rgba(0,0,0,.45), rgba(0,0,0,.35)), url(${bg})`,
+          backgroundImage: `linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.35)), url(${bg})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
         }}
@@ -49,14 +50,14 @@ export default function App() {
         <div className="mx-auto max-w-7xl px-4 py-24 sm:py-28 lg:py-32 text-white">
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs backdrop-blur">
-              New • Truth-anchored reviews
+              <span className="animate-pulse">🤖</span> AI-powered hospitality OS
             </div>
             <h1 className="mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl leading-tight">
               Your stay, made<span className="text-sky-300"> effortless</span>
             </h1>
             <p className="mt-3 text-white/90 text-lg">
-              Breeze through check-in, order from your phone, and track housekeeping —
-              all in one delightful PWA. Perfect for weekend escapes and long holidays.
+              VAiyu uses AI to turn guest activity into truth-anchored reviews, smarter ops,
+              and delightful mobile experiences — perfect for weekend escapes and long holidays.
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <Link to="/hotel/sunrise" className="btn !bg-white !text-gray-900 hover:!bg-gray-50">
@@ -65,8 +66,8 @@ export default function App() {
               <Link to="/stay/DEMO/menu" className="btn btn-light">
                 Open guest menu
               </Link>
-              <Link to="/owner/dashboard" className="link text-white/90 underline-offset-4">
-                See owner dashboard →
+              <Link to="/owner/reviews" className="link text-white/90 underline-offset-4">
+                Try AI review demo →
               </Link>
             </div>
           </div>
@@ -91,26 +92,70 @@ export default function App() {
         <p className="text-gray-600 mt-1">…and a little magical ✨</p>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
-          <Feature
-            title="Express check-in"
-            text="Your room ready as you arrive. No long queues."
-            emoji="⚡"
-          />
-          <Feature
-            title="Room service, reimagined"
-            text="Order food & amenities right from your phone."
-            emoji="🍽️"
-          />
-          <Feature
-            title="Live housekeeping"
-            text="Request towels or cleaning and track progress."
-            emoji="🧼"
-          />
-          <Feature
-            title="Crystal-clear bills"
-            text="See charges in real time. No surprises."
-            emoji="💳"
-          />
+          <Feature title="Express check-in" text="Skip queues. Your room, ready as you arrive." emoji="⚡" />
+          <Feature title="Room service, reimagined" text="Order food & amenities from your phone." emoji="🍽️" />
+          <Feature title="Live housekeeping" text="Request towels, cleaning & track progress." emoji="🧼" />
+          <Feature title="Crystal-clear bills" text="See charges in real time. No surprises." emoji="💳" />
+        </div>
+      </section>
+
+      {/* AI Showcase */}
+      <section id="ai" className="mx-auto max-w-7xl px-4 pb-14">
+        <div className="relative overflow-hidden rounded-3xl p-1">
+          <div
+            className="rounded-[20px] p-6 sm:p-8"
+            style={{
+              background:
+                'radial-gradient(1200px 400px at -10% -40%, rgba(20,90,242,.25), transparent 60%), radial-gradient(1000px 400px at 110% -30%, rgba(14,165,233,.25), transparent 60%), linear-gradient(180deg, #ffffff, #f8fafc)',
+            }}
+          >
+            <div className="flex flex-col lg:flex-row items-start gap-8">
+              <div className="max-w-2xl">
+                <div className="inline-flex items-center gap-2 rounded-full bg-sky-100 text-sky-800 px-3 py-1 text-xs">
+                  New • AI that’s grounded in real ops
+                </div>
+                <h3 className="mt-3 text-2xl font-bold">Let AI do the busywork, not the guesswork</h3>
+                <p className="mt-2 text-gray-600">
+                  VAiyu builds **truth-anchored** suggestions from actual stay activity —
+                  tickets, orders and SLA timings — then drafts reviews, nudges teams,
+                  and highlights what to fix.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Pill>Truth-anchored reviews</Pill>
+                  <Pill>Auto-draft at checkout</Pill>
+                  <Pill>Owner moderation</Pill>
+                  <Pill>Live SSE updates</Pill>
+                </div>
+                <div className="mt-6 flex gap-3">
+                  <Link to="/owner/reviews" className="btn">Try AI review demo</Link>
+                  <Link to="/owner/dashboard" className="btn btn-light">See KPIs</Link>
+                </div>
+              </div>
+
+              <ul className="grid sm:grid-cols-2 gap-3 w-full lg:max-w-md">
+                <AICard
+                  title="AI review drafts"
+                  text="Auto-summaries with on-time vs late and avg minutes — ready to approve."
+                  emoji="📝"
+                />
+                <AICard
+                  title="Policy hints"
+                  text="If SLAs slip, owners see a one-line fix to act on right away."
+                  emoji="🧭"
+                />
+                <AICard
+                  title="Ops automation"
+                  text="Tickets/orders stream live via SSE; agents act without refresh."
+                  emoji="🔔"
+                />
+                <AICard
+                  title="Brand-safe"
+                  text="No hallucinations: content is built from verifiable stay data."
+                  emoji="🛡️"
+                />
+              </ul>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -132,7 +177,7 @@ export default function App() {
       </section>
 
       {/* Quick demo entry points */}
-      <section className="mx-auto max-w-7xl px-4 pb-20">
+      <section id="demo" className="mx-auto max-w-7xl px-4 pb-20">
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <DemoLink to="/hotel/sunrise" label="Property microsite" />
           <DemoLink to="/stay/DEMO/menu" label="Guest menu" />
@@ -146,9 +191,10 @@ export default function App() {
         <div className="mx-auto max-w-7xl px-4 py-8 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-3">
           <div>© {new Date().getFullYear()} VAiyu</div>
           <div className="flex items-center gap-4">
+            <a className="hover:text-gray-800" href="#ai">AI</a>
             <a className="hover:text-gray-800" href="#why">Why VAiyu</a>
             <Link className="hover:text-gray-800" to="/owner">For Hotels</Link>
-            <Link className="hover:text-gray-800" to="/demo">Live Demo</Link>
+            <a className="hover:text-gray-800" href="#demo">Live Demo</a>
           </div>
         </div>
       </footer>
@@ -163,6 +209,24 @@ function Feature({ title, text, emoji }: { title: string; text: string; emoji: s
       <div className="font-semibold mt-1">{title}</div>
       <div className="text-sm text-gray-600 mt-1">{text}</div>
     </div>
+  );
+}
+
+function AICard({ title, text, emoji }: { title: string; text: string; emoji: string }) {
+  return (
+    <li className="card bg-white/80 backdrop-blur">
+      <div className="text-xl">{emoji}</div>
+      <div className="font-semibold mt-1">{title}</div>
+      <div className="text-sm text-gray-600 mt-1">{text}</div>
+    </li>
+  );
+}
+
+function Pill({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-2 text-xs px-2.5 py-1 rounded-full bg-gray-900/5">
+      {children}
+    </span>
   );
 }
 

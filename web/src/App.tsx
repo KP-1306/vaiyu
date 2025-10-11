@@ -1,6 +1,7 @@
 // web/src/App.tsx
 import { Link } from 'react-router-dom';
-import Pill from "../components/Pill"; // adjust the path if you're inside /routes
+import Pill from "./components/Pill";   // ✅ correct
+
 
 <Link to="/about" className="hover:text-gray-700">About</Link>
 const heroBg =

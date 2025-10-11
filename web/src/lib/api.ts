@@ -4,6 +4,10 @@
 export const API = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 export const API_URL = API; // back-compat
 
+/** When API is unreachable and demo fallbacks are used, we flip this on. */
+export let DEMO_MODE = false;
+export const isDemo = () => DEMO_MODE;
+
 // ---------- small helper: timeout + safe fetch ----------
 function withTimeout<T>(p: Promise<T>, ms = 8000): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -29,9 +33,11 @@ async function req<T = any>(path: string, opts: RequestInit = {}): Promise<T> {
     }
     return payload as T;
   } catch (e) {
-    // When API is unreachable in production, fall back to demo data
     const fallback = demoFallback<T>(path, opts);
-    if (fallback !== undefined) return fallback;
+    if (fallback !== undefined) {
+      DEMO_MODE = true;            // ✅ flip on once we use a fallback
+      return fallback;
+    }
     throw e;
   }
 }
@@ -72,7 +78,6 @@ const demoReport = {
 };
 
 function demoFallback<T>(path: string, _opts: RequestInit): T | undefined {
-  // Normalise simple forms
   const p = path.replace(/\/+$/, '');
 
   if (p.startsWith('/hotel/')) return demoHotel as unknown as T;
@@ -90,7 +95,6 @@ function demoFallback<T>(path: string, _opts: RequestInit): T | undefined {
 
   if (p === '/orders') return { items: [] } as unknown as T;
 
-  // No safe fallback: let caller handle the error
   return undefined;
 }
 
@@ -168,7 +172,6 @@ export async function listReviews(slug: string) {
   return req(`/reviews/${encodeURIComponent(slug)}`);
 }
 export async function listPendingReviews() {
-  // ✅ fixed path to match API; with demo fallback it returns {items: []}
   return req(`/reviews/pending`);
 }
 export async function postManualReview(data: {
@@ -216,6 +219,7 @@ export const api = {
   API,
   API_URL,
   req,
+  isDemo,
 
   // hotel
   getHotel,

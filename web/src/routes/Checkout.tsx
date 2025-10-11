@@ -1,7 +1,6 @@
-// web/src/routes/Checkout.tsx
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { checkout, setBookingConsent } from '../lib/api';
+import { checkout, setBookingConsent, redeemCredits } from '../lib/api';
 
 type ApiReview = {
   id: string;
@@ -23,6 +22,8 @@ type CheckoutResponse = {
   pending_review?: ApiReview; // created but needs approval
 };
 
+const TOKEN_KEY = 'stay:token';
+
 export default function Checkout() {
   const { code = '' } = useParams();
   const [consent, setConsent] = useState<boolean>(true);
@@ -30,6 +31,39 @@ export default function Checkout() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [res, setRes] = useState<CheckoutResponse | null>(null);
+
+  // Credits UI
+  const [creditsProperty, setCreditsProperty] = useState<string>(''); // property slug; if you can infer this, prefill it
+  const [creditsAmount, setCreditsAmount] = useState<number>(0);
+  const [creditsMsg, setCreditsMsg] = useState<string>('');
+  const [creditsBusy, setCreditsBusy] = useState<boolean>(false);
+  const token = typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) || '' : '';
+
+  async function onApplyCredits(e: React.FormEvent) {
+    e.preventDefault();
+    setCreditsMsg('');
+    setErr(null);
+    if (!creditsProperty) {
+      setErr('Please enter the property slug to apply credits.');
+      return;
+    }
+    if (creditsAmount <= 0) {
+      setErr('Enter a positive amount to redeem.');
+      return;
+    }
+    try {
+      setCreditsBusy(true);
+      const r = await redeemCredits(token, creditsProperty.trim(), Math.floor(creditsAmount), {
+        reason: 'checkout',
+        bookingCode: code || undefined,
+      });
+      setCreditsMsg(`Applied ₹${creditsAmount}. New balance: ₹${r?.newBalance ?? '—'}`);
+    } catch (e: any) {
+      setErr(e?.message || 'Failed to apply credits');
+    } finally {
+      setCreditsBusy(false);
+    }
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,7 +77,7 @@ export default function Checkout() {
     setRes(null);
 
     try {
-      // 1) Record consent preference (safe to call anytime)
+      // 1) Record consent preference
       await setBookingConsent(code, consent);
 
       // 2) Checkout (and optionally request auto publication)
@@ -118,7 +152,49 @@ export default function Checkout() {
         </section>
       )}
 
-      {/* Form */}
+      {/* NEW: Apply credits */}
+      <section className="bg-gray-50 p-4 rounded border space-y-2">
+        <div className="font-medium">Use credits</div>
+        <div className="text-xs text-gray-600">
+          Credits are property-scoped and reduce your F&amp;B/services bill.
+        </div>
+
+        <form onSubmit={onApplyCredits} className="mt-2 grid gap-2">
+          <label className="text-sm">
+            Property slug
+            <input
+              className="mt-1 border rounded w-full px-2 py-1"
+              placeholder="e.g. sunrise"
+              value={creditsProperty}
+              onChange={(e) => setCreditsProperty(e.target.value)}
+            />
+          </label>
+
+          <label className="text-sm">
+            Amount (₹)
+            <input
+              type="number"
+              min={0}
+              className="mt-1 border rounded w-full px-2 py-1"
+              value={creditsAmount}
+              onChange={(e) => setCreditsAmount(Number(e.target.value))}
+            />
+          </label>
+
+          <div>
+            <button
+              disabled={creditsBusy || creditsAmount <= 0}
+              className="px-4 py-2 rounded border bg-white hover:bg-gray-50 disabled:opacity-60"
+            >
+              {creditsBusy ? 'Applying…' : 'Apply credits'}
+            </button>
+          </div>
+        </form>
+
+        {creditsMsg && <div className="text-sm text-emerald-700">{creditsMsg}</div>}
+      </section>
+
+      {/* Finish checkout */}
       <form onSubmit={onSubmit} className="bg-white p-4 rounded shadow space-y-3">
         <label className="flex items-center gap-2">
           <input

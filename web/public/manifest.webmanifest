@@ -11,11 +11,15 @@
   "theme_color": "#145AF2",
 
   "icons": [
-    { "src": "/icons/favicon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/icons/favicon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/favicon-light-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/favicon-light-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+
+    /* maskable icons for Android adaptive icons */
     { "src": "/icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
     { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
-    { "src": "/icons/apple-touch-180.png", "sizes": "180x180", "type": "image/png", "purpose": "any" }
+
+    /* apple touch icon is also referenced directly in index.html */
+    { "src": "/icons/apple-touch-180-alt.png", "sizes": "180x180", "type": "image/png", "purpose": "any" }
   ],
 
   "screenshots": [

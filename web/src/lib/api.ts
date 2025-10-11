@@ -4,6 +4,11 @@
 export const API = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 export const API_URL = API; // back-compat
 
+/** Back-compat alias expected by OwnerServices.tsx */
+export const upsertService = apiUpsert;   // <-- ADD THIS
+export const deleteService = apiDelete;   // (you likely already added this)
+
+
 /** When API is unreachable and demo fallbacks are used, we flip this on. */
 export let DEMO_MODE = false;
 export const isDemo = () => DEMO_MODE;
@@ -492,6 +497,15 @@ export const api = {
   claimVerify,
   myStays,
 
+     // ...
+  saveServices,
+  apiUpsert,
+  apiDelete,
+  upsert,           // if you kept this alias
+  upsertService,    // <-- ADD THIS
+  deleteService,    // ensure this is here too
+  // ...
+   
   // referrals & credits
   referralInit,
   referralApply,

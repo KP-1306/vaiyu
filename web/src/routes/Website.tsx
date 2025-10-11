@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import UseCases from "../sections/UseCases";
 
 export default function Website() {
   return (

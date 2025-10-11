@@ -29,7 +29,7 @@ export default function App() {
           <nav className="hidden md:flex items-center gap-6 text-sm">
             <a href="#why" className="hover:text-gray-700">Why VAiyu</a>
             <a href="#ai" className="hover:text-gray-700">AI</a>
-            <a href="#explore" className="hover:text-gray-700">Explore</a>
+            <a href="#use-cases" className="hover:text-gray-700">Use-cases</a>
             <Link to="/about" className="hover:text-gray-700">About</Link>
             <a href="#demo" className="hover:text-gray-700">Live Demo</a>
           </nav>
@@ -67,10 +67,10 @@ export default function App() {
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <Link to="/hotel/sunrise" className="btn !bg-white !text-gray-900 hover:!bg-gray-50">
-                Explore properties
+                See a sample property
               </Link>
               <Link to="/demo" className="btn btn-light">
-                Live demo
+                Watch a quick demo
               </Link>
               <Link to="/about-ai" className="link text-white/90 underline-offset-4">
                 See how our AI works →
@@ -155,7 +155,7 @@ export default function App() {
                 </div>
                 <h3 className="mt-3 text-2xl font-bold">Let AI do the busywork, not the guesswork</h3>
                 <p className="mt-2 text-gray-600">
-                  VAiyu builds **truth-anchored** suggestions from stay activity — tickets, orders & timings — then drafts
+                  VAiyu builds truth-anchored suggestions from stay activity — tickets, orders & timings — then drafts
                   reviews, nudges teams, and surfaces what to fix.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -189,32 +189,22 @@ export default function App() {
         </div>
       </section>
 
-      {/* Explore */}
-      <section id="explore" className="mx-auto max-w-7xl px-4 pb-16">
+      {/* Use-cases (replaces Explore) */}
+      <section id="use-cases" className="mx-auto max-w-7xl px-4 pb-16">
         <div className="flex items-end justify-between">
           <div>
-            <h3 className="text-xl font-semibold">Explore stays</h3>
-            <p className="text-gray-600">Handpicked destinations for sunny moods</p>
+            <h3 className="text-xl font-semibold">See it in action</h3>
+            <p className="text-gray-600">Try the most loved workflows in under a minute.</p>
           </div>
-          <Link to="/hotel/sunrise" className="link">View property →</Link>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-4 mt-6">
-          <ImageCard
-            img="https://images.unsplash.com/photo-1519822471289-0eef0a80a0dc?q=80&w=1200&auto=format&fit=crop"
-            title="Seaside Suites"
-            subtitle="Walk-to-beach • Private balconies"
-          />
-          <ImageCard
-            img="https://images.unsplash.com/photo-1512453979798-5ea266f8880c?q=80&w=1200&auto=format&fit=crop"
-            title="Hilltop Hideout"
-            subtitle="Valley views • Cozy fireplaces"
-          />
-          <ImageCard
-            img="https://images.unsplash.com/photo-1488646953014-85cb44e25828?q=80&w=1200&auto=format&fit=crop"
-            title="City Light Lofts"
-            subtitle="Rooftop bar • Nightlife steps away"
-          />
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+          <DemoLink to="/precheck/DEMO" label="Express pre-check-in" />
+          <DemoLink to="/stay/DEMO/menu" label="Guest menu & requests" />
+          <DemoLink to="/desk" label="Front Desk (live SSE)" />
+          <DemoLink to="/hk" label="Housekeeping" />
+          <DemoLink to="/owner/reviews" label="AI review moderation" />
+          <DemoLink to="/owner/dashboard" label="Owner KPIs & hints" />
         </div>
       </section>
 
@@ -318,21 +308,6 @@ function Step({ n, title, text }: { n: number; title: string; text: string }) {
       <div className="text-xs text-gray-500">Step {n}</div>
       <div className="font-semibold mt-1">{title}</div>
       <div className="text-sm text-gray-600 mt-1">{text}</div>
-    </div>
-  );
-}
-
-function ImageCard({ img, title, subtitle }: { img: string; title: string; subtitle: string }) {
-  return (
-    <div className="overflow-hidden rounded-2xl bg-white shadow-sm hover:shadow-lg transition-shadow">
-      <div className="h-44 bg-cover bg-center" style={{ backgroundImage: `url(${img})` }} aria-hidden />
-      <div className="p-4">
-        <div className="font-semibold">{title}</div>
-        <div className="text-sm text-gray-600">{subtitle}</div>
-        <div className="mt-3">
-          <Link to="/hotel/sunrise" className="btn btn-light !py-1.5 !px-3 text-sm">View details</Link>
-        </div>
-      </div>
     </div>
   );
 }

@@ -1,3 +1,6 @@
+import Pill from "../components/Pill";   // ✅ correct from /routes
+
+
 export default function Privacy() {
   const year = new Date().getFullYear();
   const effective = '2025-01-01';

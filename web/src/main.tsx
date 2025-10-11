@@ -1,21 +1,30 @@
 // web/src/main.tsx
 import React, { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { createBrowserRouter, RouterProvider, Outlet } from 'react-router-dom';
+import {
+  createBrowserRouter,
+  RouterProvider,
+  Outlet,
+} from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
+// Theme + global styles
 import { ThemeProvider } from './components/ThemeProvider';
 import './theme.css';
 import './index.css';
 
+// Global chrome helpers
 import ScrollToTop from './components/ScrollToTop';
 import BackHome from './components/BackHome';
 
+// (optional) global crash guard — see tiny file at bottom
+import GlobalErrorBoundary from './components/GlobalErrorBoundary';
+
 /* ======== Public / Website ======== */
-import App from './App';
+import App from './App';                       // Landing page
 import Demo from './routes/Demo';
 import AboutUs from './routes/AboutUs';
-import AboutAI from './routes/AboutAI';
+import AboutAI from './routes/AboutAI';       // HOW IT WORKS (AI) PAGE
 import Press from './routes/Press';
 import Privacy from './routes/Privacy';
 import Terms from './routes/Terms';
@@ -45,6 +54,7 @@ import OwnerSettings from './routes/OwnerSettings';
 import OwnerServices from './routes/OwnerServices';
 import OwnerReviews from './routes/OwnerReviews';
 
+/* ======== Root layout that adds global helpers ======== */
 function RootLayout() {
   return (
     <>
@@ -61,6 +71,8 @@ const router = createBrowserRouter([
     element: <RootLayout />,
     children: [
       { index: true, element: <App /> },
+
+      // Website
       { path: 'demo', element: <Demo /> },
       { path: 'about', element: <AboutUs /> },
       { path: 'about-ai', element: <AboutAI /> },
@@ -70,6 +82,7 @@ const router = createBrowserRouter([
       { path: 'contact', element: <Contact /> },
       { path: 'careers', element: <Careers /> },
 
+      // Guest / Journey
       { path: 'hotel/:slug', element: <Hotel /> },
       { path: 'menu', element: <Menu /> },
       { path: 'requestTracker', element: <RequestTracker /> },
@@ -78,12 +91,14 @@ const router = createBrowserRouter([
       { path: 'regcard', element: <Regcard /> },
       { path: 'claim', element: <ClaimStay /> },
       { path: 'checkout', element: <Checkout /> },
-      { path: 'guest', element: <GuestDashboard /> },
+      { path: 'guest', element: <GuestDashboard /> }, // My credits / refer & earn
 
+      // Staff
       { path: 'desk', element: <Desk /> },
       { path: 'hk', element: <HK /> },
       { path: 'maint', element: <Maint /> },
 
+      // Owner
       { path: 'owner', element: <Owner /> },
       { path: 'owner/dashboard', element: <OwnerDashboard /> },
       { path: 'owner/settings', element: <OwnerSettings /> },
@@ -93,14 +108,29 @@ const router = createBrowserRouter([
   },
 ]);
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // helps avoid noisy refetches on visibility changes
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
-createRoot(document.getElementById('root')!).render(
+const rootEl = document.getElementById('root');
+if (!rootEl) {
+  throw new Error('Root element #root not found in index.html');
+}
+
+createRoot(rootEl).render(
   <StrictMode>
-    <ThemeProvider>
-      <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>
-    </ThemeProvider>
+    {/* remove GlobalErrorBoundary below if you don’t add the tiny file */}
+    <GlobalErrorBoundary>
+      <ThemeProvider>
+        <QueryClientProvider client={queryClient}>
+          <RouterProvider router={router} />
+        </QueryClientProvider>
+      </ThemeProvider>
+    </GlobalErrorBoundary>
   </StrictMode>
 );

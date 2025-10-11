@@ -8,35 +8,37 @@ export const API_URL = API; // back-compat
 export let DEMO_MODE = false;
 export const isDemo = () => DEMO_MODE;
 
-/* ---------------- Self-claim (guest attaches an existing booking) --------- */
-export async function claimInit(data: { code: string; phone: string }) {
-  // Starts a claim by sending/creating an OTP for the booking code + phone
-  return req(`/claim/init`, { method: 'POST', body: JSON.stringify(data) });
-}
-
-export async function claimVerify(data: { code: string; otp: string }) {
-  // Verifies the OTP and returns a short-lived token you can store in localStorage
-  return req(`/claim/verify`, { method: 'POST', body: JSON.stringify(data) });
-}
-
-
-// ---------- small helper: timeout + safe fetch ----------
+/* ============================================================================
+   HTTP helpers
+============================================================================ */
 function withTimeout<T>(p: Promise<T>, ms = 8000): Promise<T> {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error('Network timeout')), ms);
-    p.then(v => { clearTimeout(t); resolve(v); }, e => { clearTimeout(t); reject(e); });
+    p.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      }
+    );
   });
 }
 
 async function req<T = any>(path: string, opts: RequestInit = {}): Promise<T> {
   try {
-    const r = await withTimeout(fetch(`${API}${path}`, {
-      headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
-      ...opts,
-    }));
+    const r = await withTimeout(
+      fetch(`${API}${path}`, {
+        headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
+        ...opts,
+      })
+    );
     const ct = r.headers.get('content-type') || '';
     const isJson = ct.includes('application/json');
     const payload = isJson ? await r.json() : await r.text();
+
     if (!r.ok) {
       const msg =
         (isJson && (payload as any)?.error) ||
@@ -47,16 +49,16 @@ async function req<T = any>(path: string, opts: RequestInit = {}): Promise<T> {
   } catch (e) {
     const fallback = demoFallback<T>(path, opts);
     if (fallback !== undefined) {
-      DEMO_MODE = true;            // ✅ flip on once we use a fallback
+      DEMO_MODE = true;
       return fallback;
     }
     throw e;
   }
 }
 
-/* ------------------------------------------------------------------
-   DEMO FALLBACKS: return realistic data shapes when API is offline
--------------------------------------------------------------------*/
+/* ============================================================================
+   DEMO DATA + FALLBACKS (used when API is offline)
+============================================================================ */
 const demoHotel = {
   slug: 'sunrise',
   name: 'Sunrise Resort',
@@ -65,7 +67,7 @@ const demoHotel = {
   amenities: ['WiFi', 'Parking', 'Breakfast', 'Pet Friendly'],
   phone: '+91-99999-99999',
   email: 'hello@sunrise.example',
-  theme: { brand: '#145AF2', mode: 'light' },
+  theme: { brand: '#145AF2', mode: 'light' as const },
 };
 
 const demoServices = [
@@ -84,43 +86,114 @@ const demoReport = {
   hotel: { slug: 'sunrise', name: 'Sunrise Resort' },
   period: 'all-time (demo)',
   kpis: { tickets: 7, orders: 4, onTime: 9, late: 2, avgMins: 18 },
-  hints: [
-    'Investigate 2 SLA breach(es); consider buffer or staffing in peak hours.',
-  ],
+  hints: ['Investigate 2 SLA breach(es); consider buffer or staffing in peak hours.'],
 };
 
 function demoFallback<T>(path: string, _opts: RequestInit): T | undefined {
   const p = path.replace(/\/+$/, '');
 
   if (p.startsWith('/hotel/')) return demoHotel as unknown as T;
-
   if (p === '/catalog/services') return { items: demoServices } as unknown as T;
-
   if (p === '/menu/items') return { items: demoMenu } as unknown as T;
-
   if (p.startsWith('/experience/report')) return demoReport as unknown as T;
 
   if (p === '/reviews/pending' || p === '/reviews-pending')
     return { items: [] } as unknown as T;
 
   if (p === '/tickets') return { items: [] } as unknown as T;
-
   if (p === '/orders') return { items: [] } as unknown as T;
 
-    if (p === '/claim/init') return { ok: true, method: 'otp', sent: true, demo: true } as unknown as T;
+  // Self-claim fallbacks
+  if (p === '/claim/init')
+    return {
+      ok: true,
+      method: 'otp',
+      sent: true,
+      demo: true,
+      otp_hint: '123456',
+    } as unknown as T;
+
   if (p === '/claim/verify') {
     return {
       ok: true,
       token: 'demo-stay-token',
-      booking: { code: 'ABC123', guest_name: 'Test Guest', hotel_slug: 'sunrise' }
+      booking: { code: 'ABC123', guest_name: 'Test Guest', hotel_slug: 'sunrise' },
     } as unknown as T;
   }
 
+  // Guest "my stays"
+  if (p === '/me/stays') {
+    return {
+      stays: [
+        {
+          code: 'ABC123',
+          status: 'upcoming',
+          hotel_slug: 'sunrise',
+          hotel_name: 'Sunrise Resort',
+          check_in: new Date(Date.now() + 2 * 86400000).toISOString(),
+          check_out: new Date(Date.now() + 5 * 86400000).toISOString(),
+        },
+        {
+          code: 'LIVE001',
+          status: 'active',
+          hotel_slug: 'sunrise',
+          hotel_name: 'Sunrise Resort',
+          check_in: new Date(Date.now() - 1 * 86400000).toISOString(),
+          check_out: new Date(Date.now() + 1 * 86400000).toISOString(),
+        },
+        {
+          code: 'DONE789',
+          status: 'completed',
+          hotel_slug: 'sunrise',
+          hotel_name: 'Sunrise Resort',
+          check_in: new Date(Date.now() - 14 * 86400000).toISOString(),
+          check_out: new Date(Date.now() - 10 * 86400000).toISOString(),
+        },
+      ],
+    } as unknown as T;
+  }
 
   return undefined;
 }
 
-/* ---------------- Hotel ---------------- */
+/* ============================================================================
+   Self-claim (guest attaches an existing booking)
+============================================================================ */
+
+/** Starts a claim by sending/creating an OTP for the booking code + contact. */
+export async function claimInit(code: string, contact: string) {
+  // Keep a back-compat object form for server expectations
+  return req(`/claim/init`, {
+    method: 'POST',
+    body: JSON.stringify({ code, phone: contact }),
+  });
+}
+
+/** Verifies the OTP and returns a short-lived token (store in localStorage). */
+export async function claimVerify(code: string, otp: string) {
+  return req(`/claim/verify`, {
+    method: 'POST',
+    body: JSON.stringify({ code, otp }),
+  });
+}
+
+/** Fetch current guest’s stays (Bearer token required). */
+export async function myStays(token: string) {
+  return req<{ stays: Array<{
+    code: string;
+    status: 'upcoming' | 'active' | 'completed';
+    hotel_slug?: string;
+    hotel_name?: string;
+    check_in?: string;
+    check_out?: string;
+  }> }>('/me/stays', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+/* ============================================================================
+   Hotel
+============================================================================ */
 export async function getHotel(slug: string) {
   return req(`/hotel/${encodeURIComponent(slug)}`);
 }
@@ -128,7 +201,9 @@ export async function upsertHotel(payload: any) {
   return req(`/hotel/upsert`, { method: 'POST', body: JSON.stringify(payload) });
 }
 
-/* ---------------- Consent ---------------- */
+/* ============================================================================
+   Consent
+============================================================================ */
 export async function setBookingConsent(code: string, reviews: boolean) {
   return req(`/booking/${encodeURIComponent(code)}/consent`, {
     method: 'POST',
@@ -136,7 +211,9 @@ export async function setBookingConsent(code: string, reviews: boolean) {
   });
 }
 
-/* ---------------- Catalog ---------------- */
+/* ============================================================================
+   Catalog
+============================================================================ */
 export async function getServices() {
   return req(`/catalog/services`);
 }
@@ -144,7 +221,9 @@ export async function getMenu() {
   return req(`/menu/items`);
 }
 
-/* ---------------- Tickets ---------------- */
+/* ============================================================================
+   Tickets
+============================================================================ */
 export async function createTicket(data: any) {
   return req(`/tickets`, { method: 'POST', body: JSON.stringify(data) });
 }
@@ -161,7 +240,9 @@ export async function updateTicket(id: string, patch: any) {
   });
 }
 
-/* ---------------- Orders ---------------- */
+/* ============================================================================
+   Orders
+============================================================================ */
 export async function createOrder(data: any) {
   return req(`/orders`, { method: 'POST', body: JSON.stringify(data) });
 }
@@ -175,7 +256,9 @@ export async function updateOrder(id: string, patch: any) {
   });
 }
 
-/* ---------------- Folio / Flows ---------------- */
+/* ============================================================================
+   Folio / Flows
+============================================================================ */
 export async function getFolio() {
   return req(`/folio`);
 }
@@ -189,7 +272,9 @@ export async function checkout(data: { bookingCode?: string; autopost?: boolean 
   return req(`/checkout`, { method: 'POST', body: JSON.stringify(data) });
 }
 
-/* ---------------- Reviews ---------------- */
+/* ============================================================================
+   Reviews
+============================================================================ */
 export async function listReviews(slug: string) {
   return req(`/reviews/${encodeURIComponent(slug)}`);
 }
@@ -223,7 +308,9 @@ export async function rejectReview(id: string, bookingCode?: string) {
   });
 }
 
-/* ---------------- Experience (reports) ---------------- */
+/* ============================================================================
+   Experience (reports)
+============================================================================ */
 export async function getExperienceSummary(bookingCode: string) {
   return req(`/experience/summary/${encodeURIComponent(bookingCode)}`);
 }
@@ -231,17 +318,26 @@ export async function getExperienceReport(slug: string) {
   return req(`/experience/report/${encodeURIComponent(slug)}`);
 }
 
-/* ---------------- Quick Check-in ---------------- */
+/* ============================================================================
+   Quick Check-in
+============================================================================ */
 export async function quickCheckin(data: { code: string; phone: string }) {
   return req(`/checkin`, { method: 'POST', body: JSON.stringify(data) });
 }
 
-/* ---------------- Grouped export + Back-compat ---------------- */
+/* ============================================================================
+   Grouped export + Back-compat
+============================================================================ */
 export const api = {
   API,
   API_URL,
   req,
   isDemo,
+
+  // self-claim + session
+  claimInit,
+  claimVerify,
+  myStays,
 
   // hotel
   getHotel,
@@ -254,7 +350,7 @@ export const api = {
   getServices,
   getMenu,
   services: (..._args: any[]) => getServices(),
-  menu:     (..._args: any[]) => getMenu(),
+  menu: (..._args: any[]) => getMenu(),
 
   // tickets
   createTicket,

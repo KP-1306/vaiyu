@@ -35,18 +35,21 @@
     <meta name="twitter:image" content="/og-card.png" />
 
     <!-- App icons / PWA -->
-    <link rel="icon" href="/icons/favicon-32.png" sizes="32x32" />
-    <link rel="icon" href="/icons/favicon-192.png" sizes="192x192" />
-    <link rel="apple-touch-icon" href="/icons/apple-touch-180.png" />
+    <!-- Default light favicon set -->
+    <link rel="icon" type="image/png" sizes="32x32"  href="/icons/favicon-light-32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/favicon-light-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icons/favicon-light-512.png" />
+
+    <!-- Apple Touch Icon -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-180-alt.png" />
+
+    <!-- Manifest (includes maskable icons) -->
     <link rel="manifest" href="/manifest.webmanifest" />
 
-    <!-- Splash background color for iOS PWA -->
+    <!-- iOS PWA tweaks -->
     <meta name="apple-mobile-web-app-title" content="VAiyu" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-
-    <!-- Preload brand font if you add one later -->
-    <!-- <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin> -->
   </head>
 
   <body class="min-h-screen bg-gray-50 text-gray-900">

@@ -77,10 +77,7 @@ export default function App() {
               <Link to="/about-ai" className="link text-white/90 underline-offset-4">
                 See how our AI works →
               </Link>
-              {/* NEW: hero CTA to spotlight referrals */}
-              <Link to="/guest" className="btn btn-light">
-                See my credits
-              </Link>
+             
             </div>
           </div>
 

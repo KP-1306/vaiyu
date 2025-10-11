@@ -28,6 +28,8 @@ import Bill from './routes/Bill';
 import Precheck from './routes/Precheck';
 import Regcard from './routes/Regcard';
 import Checkout from './routes/Checkout';
+import ClaimStay from './routes/ClaimStay';
+import GuestDashboard from './routes/GuestDashboard';
 
 /* ======== Ops ======== */
 import Desk from './routes/Desk';
@@ -63,6 +65,8 @@ const router = createBrowserRouter([
   { path: '/precheck/:code', element: <Precheck /> },
   { path: '/regcard/:code', element: <Regcard /> },
   { path: '/checkout/:code', element: <Checkout /> },
+  { path: '/claim', element: <ClaimStay /> },
+  { path: '/dashboard', element: <GuestDashboard /> },
 
   // Ops
   { path: '/desk', element: <Desk /> },

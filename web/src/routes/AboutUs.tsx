@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import Pill from "../components/Pill";   // ✅ correct from /routes
+import SEO from '../components/SEO';          // if the page is in /routes
 
 <SEO title="About" />
 

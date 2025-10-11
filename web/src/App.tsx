@@ -1,5 +1,7 @@
 // web/src/App.tsx
 import { Link } from 'react-router-dom';
+import Pill from "../components/Pill"; // adjust the path if you're inside /routes
+
 <Link to="/about" className="hover:text-gray-700">About</Link>
 const heroBg =
   'https://images.unsplash.com/photo-1500375592092-40eb2168fd21?q=80&w=1600&auto=format&fit=crop'; // beach hero

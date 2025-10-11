@@ -2,6 +2,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useTheme } from '../components/ThemeProvider';
+import {
+  API,                 // base URL for direct fetches (check-in)
+  getHotel,            // hotel details (has demo fallback)
+  isDemo,              // tells us if we're showing demo data
+  listReviews,         // GET /reviews/:slug
+  postManualReview,    // POST /reviews
+  reviewDraft,         // GET /reviews/draft/:code
+  postAutoReviewCommit // POST /reviews/auto (commit)
+} from '../lib/api';
+
 import '../theme.css';
 
 type Theme = { brand?: string; mode?: 'light' | 'dark' };
@@ -37,35 +47,42 @@ type Review = {
   };
 };
 
-const API = import.meta.env.VITE_API_URL || '';
-
 export default function HotelPage() {
   const { slug = 'sunrise' } = useParams();
   const [hotel, setHotel] = useState<Hotel | null>(null);
   const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
   const { setTheme } = useTheme();
 
   useEffect(() => {
+    let mounted = true;
     setLoading(true);
-    fetch(`${API}/hotel/${slug}`)
-      .then(async (r) => {
-        const data = await r.json().catch(() => null);
-        if (!r.ok || !data) throw new Error('Hotel not found');
-        return data as Hotel;
-      })
-      .then((data) => {
+    setErr(null);
+    (async () => {
+      try {
+        const data = (await getHotel(slug)) as Hotel;
+        if (!mounted) return;
         setHotel(data);
         // Apply theme globally via ThemeProvider
         setTheme({
           brand: data?.theme?.brand,
           mode: data?.theme?.mode || 'light',
         });
-      })
-      .catch(() => setHotel(null))
-      .finally(() => setLoading(false));
+      } catch (e: any) {
+        if (!mounted) return;
+        setErr(e?.message || 'Hotel not found');
+        setHotel(null);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
   }, [slug, setTheme]);
 
   if (loading) return <div style={{ padding: 24 }}>Loading…</div>;
+  if (err) return <div style={{ padding: 24 }}>⚠ {err}</div>;
   if (!hotel) return <div style={{ padding: 24 }}>Hotel not found.</div>;
 
   return (
@@ -90,11 +107,18 @@ export default function HotelPage() {
           </div>
         </div>
 
-        {/* quick links for owners */}
-        <nav style={{ display: 'flex', gap: 12 }}>
-          <Link className="link" to="/owner">Owner Settings</Link>
-          <Link className="link" to={`/owner/dashboard/${hotel.slug}`}>Dashboard</Link>
-        </nav>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {isDemo() && (
+            <span className="badge" style={{ background: '#FEF3C7', color: '#92400E' }}>
+              Demo data
+            </span>
+          )}
+          {/* quick links for owners (keep or remove as you prefer) */}
+          <nav style={{ display: 'flex', gap: 12 }}>
+            <Link className="link" to="/owner">Owner Settings</Link>
+            <Link className="link" to={`/owner/dashboard/${hotel.slug}`}>Dashboard</Link>
+          </nav>
+        </div>
       </header>
 
       <section className="card" style={{ marginTop: 16 }}>
@@ -145,24 +169,26 @@ function QuickCheckin() {
     e.preventDefault();
     setMsg(null);
     setAssigned(null);
-    const r = await fetch(`${API}/checkin`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, phone }),
-    });
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) return setMsg((data as any)?.error || 'Failed');
-    setAssigned((data as any)?.room);
-    setMsg('Checked in successfully.');
+    try {
+      const r = await fetch(`${API}/checkin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, phone }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error((data as any)?.error || 'Failed');
+      setAssigned((data as any)?.room);
+      setMsg('Checked in successfully.');
+    } catch (err: any) {
+      setMsg(err?.message || 'Failed');
+    }
   };
 
   return (
     <form onSubmit={onSubmit} style={{ display: 'grid', gap: 12 }}>
       <input className="input" placeholder="Booking Code" value={code} onChange={(e) => setCode(e.target.value)} />
       <input className="input" placeholder="Phone (registered)" value={phone} onChange={(e) => setPhone(e.target.value)} />
-      <button className="btn" type="submit">
-        Check In
-      </button>
+      <button className="btn" type="submit">Check In</button>
       {msg && <div>{msg}</div>}
       {assigned && (
         <div className="card" style={{ background: 'transparent' }}>
@@ -194,11 +220,13 @@ function Reviews({ slug }: { slug: string }) {
   } | null>(null);
 
   const fetchReviews = useMemo(
-    () => () => {
-      fetch(`${API}/reviews/${slug}`)
-        .then((r) => r.json())
-        .then((rows: Review[]) => setItems(rows))
-        .catch(() => setItems([]));
+    () => async () => {
+      try {
+        const rows = (await listReviews(slug)) as unknown as Review[];
+        setItems(rows || []);
+      } catch {
+        setItems([]);
+      }
     },
     [slug]
   );
@@ -210,18 +238,16 @@ function Reviews({ slug }: { slug: string }) {
   // Manual submit
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const r = await fetch(`${API}/reviews`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bookingCode, rating, title, body }),
-    });
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) return alert((data as any)?.error || 'Failed');
-    setOpen(false);
-    setTitle('');
-    setBody('');
-    setRating(5);
-    setItems([data as Review, ...items]);
+    try {
+      const created = (await postManualReview({ bookingCode, rating, title, body })) as unknown as Review;
+      setOpen(false);
+      setTitle('');
+      setBody('');
+      setRating(5);
+      setItems([created, ...items]);
+    } catch (err: any) {
+      alert(err?.message || 'Failed');
+    }
   };
 
   // Load AI suggestion from activity
@@ -230,9 +256,7 @@ function Reviews({ slug }: { slug: string }) {
     setAiLoading(true);
     setAiDraft(null);
     try {
-      const r = await fetch(`${API}/reviews/draft/${encodeURIComponent(bookingCode)}`);
-      const draft = await r.json().catch(() => null);
-      if (!r.ok || !draft) throw new Error((draft as any)?.error || 'No draft available');
+      const draft = (await reviewDraft(bookingCode)) as any;
       setAiDraft(draft);
     } catch (err: any) {
       alert(err?.message || 'Failed to build draft');
@@ -244,16 +268,14 @@ function Reviews({ slug }: { slug: string }) {
   // Commit/publish AI review directly
   const publishAI = async () => {
     if (!bookingCode) return alert('Enter your booking code first.');
-    const r = await fetch(`${API}/reviews/auto`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bookingCode, commit: true }),
-    });
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) return alert((data as any)?.error || 'Failed');
-    setItems([data as Review, ...items]);
-    setAiDraft(null);
-    alert('AI review published.');
+    try {
+      const published = (await postAutoReviewCommit(bookingCode)) as unknown as Review;
+      setItems([published, ...items]);
+      setAiDraft(null);
+      alert('AI review published.');
+    } catch (err: any) {
+      alert(err?.message || 'Failed');
+    }
   };
 
   // Apply AI suggestion into manual form
@@ -324,9 +346,7 @@ function Reviews({ slug }: { slug: string }) {
           </select>
           <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title (optional)" />
           <textarea className="input" value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write your review…" />
-          <button className="btn" type="submit">
-            Submit
-          </button>
+          <button className="btn" type="submit">Submit</button>
           <div style={{ fontSize: 12, color: 'var(--muted)' }}>
             Reviews are marked “Verified” only if your booking is completed.
           </div>

@@ -1,11 +1,29 @@
 // web/src/App.tsx
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Pill from './components/Pill';
+
+const TOKEN_KEY = 'stay:token';
 
 const heroBg =
   'https://images.unsplash.com/photo-1500375592092-40eb2168fd21?q=80&w=1600&auto=format&fit=crop';
 
 export default function App() {
+  // Show "My credits" only when a guest token exists
+  const [hasToken, setHasToken] = useState<boolean>(() => !!localStorage.getItem(TOKEN_KEY));
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === TOKEN_KEY) setHasToken(!!e.newValue);
+    };
+    const onVis = () => setHasToken(!!localStorage.getItem(TOKEN_KEY));
+    window.addEventListener('storage', onStorage);
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
       {/* Top nav */}
@@ -35,9 +53,17 @@ export default function App() {
           </nav>
 
           <div className="flex items-center gap-2">
-            <Link to="/precheck/DEMO" className="btn btn-light !py-2 !px-3 text-sm">Pre-check-in</Link>
-            {/* NEW: quick access to credits */}
-            <Link to="/guest" className="btn btn-light !py-2 !px-3 text-sm">My credits</Link>
+            <Link to="/precheck/DEMO" className="btn btn-light !py-2 !px-3 text-sm">
+              Pre-check-in
+            </Link>
+
+            {/* Only show when guest is logged in (has stay token) */}
+            {hasToken && (
+              <Link to="/guest" className="btn btn-light !py-2 !px-3 text-sm">
+                My credits
+              </Link>
+            )}
+
             <Link to="/hk" className="btn !py-2 !px-3 text-sm">Try VAiyu</Link>
           </div>
         </div>
@@ -77,7 +103,6 @@ export default function App() {
               <Link to="/about-ai" className="link text-white/90 underline-offset-4">
                 See how our AI works →
               </Link>
-             
             </div>
           </div>
 
@@ -94,7 +119,7 @@ export default function App() {
                 <Bullet>🧽 Housekeeping / maintenance workflows</Bullet>
                 <Bullet>🧠 AI drafts reviews from actual stay data</Bullet>
                 <Bullet>🛡️ Owner moderation & brand safety</Bullet>
-                {/* NEW: referral callout */}
+                {/* Referral callout */}
                 <Bullet>🎁 Refer &amp; Earn credits (property-scoped)</Bullet>
               </ul>
             </div>
@@ -113,35 +138,50 @@ export default function App() {
         <p className="text-gray-600 mt-1">Clear wins for guests, staff, owners, and your brand.</p>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
-          <ValueCard title="For Guests" points={[
-            'Express pre-check-in',
-            'In-app requests & tracking',
-            'Room service that just works',
-            'Crystal-clear bills',
-            // NEW:
-            'Refer friends, earn credits on your next stay',
-          ]} emoji="🧳" />
+          <ValueCard
+            title="For Guests"
+            points={[
+              'Express pre-check-in',
+              'In-app requests & tracking',
+              'Room service that just works',
+              'Crystal-clear bills',
+              'Refer friends, earn credits on your next stay', // NEW
+            ]}
+            emoji="🧳"
+          />
 
-          <ValueCard title="For Staff" points={[
-            'Clean tickets & SLAs',
-            'Live SSE updates (no refresh)',
-            'Auto-routing to teams',
-            'Fewer calls, more action'
-          ]} emoji="🧑‍🔧" />
+          <ValueCard
+            title="For Staff"
+            points={[
+              'Clean tickets & SLAs',
+              'Live SSE updates (no refresh)',
+              'Auto-routing to teams',
+              'Fewer calls, more action',
+            ]}
+            emoji="🧑‍🔧"
+          />
 
-          <ValueCard title="For Owners" points={[
-            'SLA KPIs & policy hints',
-            'Bottleneck alerts',
-            'Property-wide trends',
-            'CSV export for ops review'
-          ]} emoji="📈" />
+          <ValueCard
+            title="For Owners"
+            points={[
+              'SLA KPIs & policy hints',
+              'Bottleneck alerts',
+              'Property-wide trends',
+              'CSV export for ops review',
+            ]}
+            emoji="📈"
+          />
 
-          <ValueCard title="For Your Brand" points={[
-            'Truth-anchored reviews',
-            'Owner approval before publish',
-            'Fewer disputes, more trust',
-            'Clear impact on rankings'
-          ]} emoji="🏆" />
+          <ValueCard
+            title="For Your Brand"
+            points={[
+              'Truth-anchored reviews',
+              'Owner approval before publish',
+              'Fewer disputes, more trust',
+              'Clear impact on rankings',
+            ]}
+            emoji="🏆"
+          />
         </div>
       </section>
 
@@ -162,8 +202,8 @@ export default function App() {
                 </div>
                 <h3 className="mt-3 text-2xl font-bold">Let AI do the busywork, not the guesswork</h3>
                 <p className="mt-2 text-gray-600">
-                  VAiyu builds truth-anchored suggestions from stay activity — tickets, orders & timings — then drafts
-                  reviews, nudges teams, and surfaces what to fix.
+                  VAiyu builds truth-anchored suggestions from stay activity — tickets, orders &
+                  timings — then drafts reviews, nudges teams, and surfaces what to fix.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
                   <Pill>Truth-anchored reviews</Pill>
@@ -179,10 +219,26 @@ export default function App() {
               </div>
 
               <ul className="grid sm:grid-cols-2 gap-3 w-full lg:max-w-md">
-                <AICard title="AI review drafts" text="Auto-summaries with on-time vs late and avg minutes — ready to approve." emoji="📝" />
-                <AICard title="Policy hints" text="If SLAs slip, owners see a one-line fix to act on right away." emoji="🧭" />
-                <AICard title="Ops automation" text="Tickets/orders stream live via SSE; agents act without refresh." emoji="🔔" />
-                <AICard title="Brand-safe" text="No hallucinations: content is built from verifiable stay data." emoji="🛡️" />
+                <AICard
+                  title="AI review drafts"
+                  text="Auto-summaries with on-time vs late and avg minutes — ready to approve."
+                  emoji="📝"
+                />
+                <AICard
+                  title="Policy hints"
+                  text="If SLAs slip, owners see a one-line fix to act on right away."
+                  emoji="🧭"
+                />
+                <AICard
+                  title="Ops automation"
+                  text="Tickets/orders stream live via SSE; agents act without refresh."
+                  emoji="🔔"
+                />
+                <AICard
+                  title="Brand-safe"
+                  text="No hallucinations: content is built from verifiable stay data."
+                  emoji="🛡️"
+                />
               </ul>
             </div>
 
@@ -212,7 +268,7 @@ export default function App() {
           <DemoLink to="/hk" label="Housekeeping" />
           <DemoLink to="/owner/reviews" label="AI review moderation" />
           <DemoLink to="/owner/dashboard" label="Owner KPIs & hints" />
-          {/* NEW: referral use-case */}
+          {/* Referral & credits entry point */}
           <DemoLink to="/guest" label="Refer & Earn + Credits" />
         </div>
       </section>

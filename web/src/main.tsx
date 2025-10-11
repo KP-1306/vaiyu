@@ -1,5 +1,5 @@
 // web/src/main.tsx
-import React, { StrictMode } from 'react';
+import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   createBrowserRouter,
@@ -16,6 +16,7 @@ import './index.css';
 // Global chrome helpers
 import ScrollToTop from './components/ScrollToTop';
 import BackHome from './components/BackHome';
+import SiteFooter from './components/SiteFooter';
 
 /* ======== Public / Website ======== */
 import App from './App';                       // Landing page
@@ -51,14 +52,17 @@ import OwnerSettings from './routes/OwnerSettings';
 import OwnerServices from './routes/OwnerServices';
 import OwnerReviews from './routes/OwnerReviews';
 
-/* ======== Root layout that adds global helpers ======== */
+/* ======== Root layout that adds global helpers + footer ======== */
 function RootLayout() {
   return (
-    <>
+    <div className="min-h-screen flex flex-col bg-gray-50 text-gray-900">
       <ScrollToTop />
       <BackHome />
-      <Outlet />
-    </>
+      <div className="flex-1">
+        <Outlet />
+      </div>
+      <SiteFooter />
+    </div>
   );
 }
 
@@ -81,11 +85,20 @@ const router = createBrowserRouter([
 
       // Guest / Journey
       { path: 'hotel/:slug', element: <Hotel /> },
+
+      // Back-compat demo routes
       { path: 'menu', element: <Menu /> },
-      { path: 'requestTracker', element: <RequestTracker /> },
       { path: 'bill', element: <Bill /> },
-      { path: 'precheck/:code', element: <Precheck /> },
       { path: 'regcard', element: <Regcard /> },
+      { path: 'requestTracker', element: <RequestTracker /> },
+
+      // Param routes used by dashboard/links
+      { path: 'stay/:code/menu', element: <Menu /> },
+      { path: 'stay/:code/bill', element: <Bill /> },
+      { path: 'regcard/:code', element: <Regcard /> },
+      { path: 'tracker/:code', element: <RequestTracker /> },
+
+      { path: 'precheck/:code', element: <Precheck /> },
       { path: 'claim', element: <ClaimStay /> },
       { path: 'checkout', element: <Checkout /> },
       { path: 'guest', element: <GuestDashboard /> }, // My credits / refer & earn

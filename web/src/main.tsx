@@ -19,6 +19,8 @@ import Bill from './routes/Bill';
 import Precheck from './routes/Precheck';
 import Regcard from './routes/Regcard';
 import Checkout from './routes/Checkout';
+import AboutAI from './routes/AboutAI';
+
 
 // Ops screens
 import Desk from './routes/Desk';

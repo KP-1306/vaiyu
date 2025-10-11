@@ -27,6 +27,11 @@ import Desk from './routes/Desk';
 import HK from './routes/HK';
 import Kitchen from './routes/Kitchen';
 import Maint from './routes/Maint';
+import AboutUs from './routes/AboutUs';
+
+// inside createBrowserRouter([...])
+{ path: '/about', element: <AboutUs /> },
+
 
 // Owner screens
 import Owner from './routes/Owner';                 // if your file is OwnerSettings.tsx, change this import

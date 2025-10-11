@@ -1,20 +1,48 @@
 // web/src/App.tsx
 import { Link } from 'react-router-dom';
-import Pill from "./components/Pill";   // ✅ correct
+import { useEffect, useState } from 'react';
+import Pill from './components/Pill';
 
+type CardHotel = { slug: string; name: string; blurb: string; image: string };
 
-<Link to="/about" className="hover:text-gray-700">About</Link>
 const heroBg =
-  'https://images.unsplash.com/photo-1500375592092-40eb2168fd21?q=80&w=1600&auto=format&fit=crop'; // beach hero
+  'https://images.unsplash.com/photo-1500375592092-40eb2168fd21?q=80&w=1600&auto=format&fit=crop';
+
+const EXPLORE_CARDS: CardHotel[] = [
+  {
+    slug: 'seaside',
+    name: 'Seaside Suites',
+    blurb: 'Walk-to-beach • Private balconies',
+    image:
+      'https://images.unsplash.com/photo-1519822471289-0eef0a80a0dc?q=80&w=1600&auto=format&fit=crop',
+  },
+  {
+    slug: 'sunrise',
+    name: 'Hilltop Hideout',
+    blurb: 'Valley views • Cozy fireplaces',
+    image:
+      'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?q=80&w=1600&auto=format&fit=crop',
+  },
+  {
+    slug: 'citylight',
+    name: 'City Light Lofts',
+    blurb: 'Rooftop bar • Nightlife steps away',
+    image:
+      'https://images.unsplash.com/photo-1488646953014-85cb44e25828?q=80&w=1600&auto=format&fit=crop',
+  },
+];
 
 export default function App() {
+  // (Optional) could be used later to hydrate from API; harmless to keep now
+  const [cards, setCards] = useState<CardHotel[]>(EXPLORE_CARDS);
+  useEffect(() => setCards(EXPLORE_CARDS), []);
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
       {/* Top nav */}
       <header className="sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-gray-100">
         <div className="mx-auto max-w-7xl px-4 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            {/* Logo in nav (falls back to brand square if image missing) */}
             <img
               src="/brand/vaiyu-logo.png"
               alt="VAiyu"
@@ -30,16 +58,32 @@ export default function App() {
             />
             <span className="font-semibold text-lg tracking-tight">VAiyu</span>
           </Link>
+
           <nav className="hidden md:flex items-center gap-6 text-sm">
-            <a href="#why" className="hover:text-gray-700">Why VAiyu</a>
-            <a href="#ai" className="hover:text-gray-700">AI</a>
-            <a href="#explore" className="hover:text-gray-700">Explore</a>
-            <Link to="/owner" className="hover:text-gray-700">For Hotels</Link>
-            <a href="#demo" className="hover:text-gray-700">Live Demo</a>
+            <a href="#why" className="hover:text-gray-700">
+              Why VAiyu
+            </a>
+            <a href="#ai" className="hover:text-gray-700">
+              AI
+            </a>
+            <a href="#explore" className="hover:text-gray-700">
+              Explore
+            </a>
+            <Link to="/owner" className="hover:text-gray-700">
+              For Hotels
+            </Link>
+            <a href="#demo" className="hover:text-gray-700">
+              Live Demo
+            </a>
           </nav>
+
           <div className="flex items-center gap-2">
-            <Link to="/precheck/DEMO" className="btn btn-light !py-2 !px-3 text-sm">Pre-check-in</Link>
-            <Link to="/hk" className="btn !py-2 !px-3 text-sm">Try VAiyu</Link>
+            <Link to="/precheck/DEMO" className="btn btn-light !py-2 !px-3 text-sm">
+              Pre-check-in
+            </Link>
+            <Link to="/owner" className="btn !py-2 !px-3 text-sm">
+              Try VAiyu
+            </Link>
           </div>
         </div>
       </header>
@@ -59,33 +103,21 @@ export default function App() {
               <span className="animate-pulse">🤖</span> AI-powered hospitality OS
             </div>
 
-            {/* Brand lockup with logo + tagline */}
-            <div className="mt-4 flex items-center gap-4">
-              <img
-                src="/brand/vaiyu-logo.png"
-                alt="VAiyu"
-                className="h-12 w-auto drop-shadow"
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.display = 'none';
-                }}
-              />
-              <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl leading-tight">
-                Where <span className="text-sky-300">Intelligence</span> Meets Comfort
-              </h1>
-            </div>
+            {/* Clean headline (logo removed here) */}
+            <h1 className="mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl leading-tight">
+              Where <span className="text-sky-300">Intelligence</span> Meets Comfort
+            </h1>
 
             <p className="mt-3 text-white/90 text-lg">
-              We turn real stay activity into truth-anchored reviews, faster service, and
-              delightful mobile journeys — perfect for holidays and long escapes.
+              We turn real stay activity into truth-anchored reviews, faster service, and delightful mobile journeys —
+              perfect for holidays and long escapes.
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              <Link to="/hotel/sunrise" className="btn !bg-white !text-gray-900 hover:!bg-gray-50">
+              <a href="#explore" className="btn !bg-white !text-gray-900 hover:!bg-gray-50">
                 Explore a property
-              </Link>
-              <Link to="/stay/DEMO/menu" className="btn btn-light">
-                Open guest menu
-              </Link>
-              <Link to="/owner/reviews" className="link text-white/90 underline-offset-4">
+              </a>
+              {/* No “Open guest menu” here since no property is selected yet */}
+              <Link to="/owner/reviews" className="btn btn-light">
                 Try AI review demo →
               </Link>
             </div>
@@ -94,10 +126,7 @@ export default function App() {
 
         {/* wave divider */}
         <svg viewBox="0 0 1440 140" className="absolute bottom-[-1px] left-0 w-full" aria-hidden>
-          <path
-            fill="#f9fafb"
-            d="M0,80 C240,160 480,0 720,60 C960,120 1200,40 1440,100 L1440,140 L0,140 Z"
-          />
+          <path fill="#f9fafb" d="M0,80 C240,160 480,0 720,60 C960,120 1200,40 1440,100 L1440,140 L0,140 Z" />
         </svg>
       </section>
 
@@ -141,16 +170,24 @@ export default function App() {
                   <Pill>Live SSE updates</Pill>
                 </div>
                 <div className="mt-6 flex gap-3">
-                  <Link to="/owner/reviews" className="btn">Try AI review demo</Link>
-                  <Link to="/owner/dashboard" className="btn btn-light">See KPIs</Link>
+                  <Link to="/owner/reviews" className="btn">
+                    Try AI review demo
+                  </Link>
+                  <Link to="/owner/dashboard" className="btn btn-light">
+                    See KPIs
+                  </Link>
                 </div>
               </div>
 
               <ul className="grid sm:grid-cols-2 gap-3 w-full lg:max-w-md">
-                <AICard title="AI review drafts" text="Auto-summaries with on-time vs late and avg minutes — ready to approve." emoji="📝" />
+                <AICard
+                  title="AI review drafts"
+                  text="Auto-summaries with on-time vs late and avg minutes — ready to approve."
+                  emoji="📝"
+                />
                 <AICard title="Policy hints" text="If SLAs slip, owners see a one-line fix to act on right away." emoji="🧭" />
                 <AICard title="Ops automation" text="Tickets/orders stream live via SSE; agents act without refresh." emoji="🔔" />
-                <AICard title="Brand-safe" text="No hallucinations: content is built from verifiable stay data." emoji="🛡️" />
+                <AICard title="Brand-safe" text="No hallucinations — content is built from verifiable stay data." emoji="🛡️" />
               </ul>
             </div>
           </div>
@@ -164,25 +201,15 @@ export default function App() {
             <h3 className="text-xl font-semibold">Explore stays</h3>
             <p className="text-gray-600">Handpicked destinations for sunny moods</p>
           </div>
-          <Link to="/hotel/sunrise" className="link">View property →</Link>
+          <Link to="/hotel/sunrise" className="link">
+            View property →
+          </Link>
         </div>
 
         <div className="grid md:grid-cols-3 gap-4 mt-6">
-          <ImageCard
-            img="https://images.unsplash.com/photo-1519822471289-0eef0a80a0dc?q=80&w=1200&auto=format&fit=crop"
-            title="Seaside Suites"
-            subtitle="Walk-to-beach • Private balconies"
-          />
-          <ImageCard
-            img="https://images.unsplash.com/photo-1512453979798-5ea266f8880c?q=80&w=1200&auto=format&fit=crop"
-            title="Hilltop Hideout"
-            subtitle="Valley views • Cozy fireplaces"
-          />
-          <ImageCard
-            img="https://images.unsplash.com/photo-1488646953014-85cb44e25828?q=80&w=1200&auto=format&fit=crop"
-            title="City Light Lofts"
-            subtitle="Rooftop bar • Nightlife steps away"
-          />
+          {cards.map((c) => (
+            <ImageCard key={c.slug} img={c.image} title={c.name} subtitle={c.blurb} slug={c.slug} />
+          ))}
         </div>
       </section>
 
@@ -200,25 +227,33 @@ export default function App() {
       <footer className="border-t border-gray-200">
         <div className="mx-auto max-w-7xl px-4 py-8 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-3">
           <div>© {new Date().getFullYear()} VAiyu — Where Intelligence Meets Comfort.</div>
-          <div className="flex items-center gap-4">
-            <a className="hover:text-gray-800" href="#ai">AI</a>
-            <a className="hover:text-gray-800" href="#why">Why VAiyu</a>
-            <Link className="hover:text-gray-800" to="/owner">For Hotels</Link>
-            <a className="hover:text-gray-800" href="#demo">Live Demo</a>
-          </div>
+          <nav className="flex items-center gap-4">
+            <Link className="hover:text-gray-800" to="/about">
+              About
+            </Link>
+            <Link className="hover:text-gray-800" to="/press">
+              Press
+            </Link>
+            <Link className="hover:text-gray-800" to="/privacy">
+              Privacy
+            </Link>
+            <Link className="hover:text-gray-800" to="/terms">
+              Terms
+            </Link>
+            <Link className="hover:text-gray-800" to="/contact">
+              Contact
+            </Link>
+            <Link className="hover:text-gray-800" to="/careers">
+              Careers
+            </Link>
+          </nav>
         </div>
       </footer>
     </div>
   );
 }
 
-<footer className="mt-10 py-8 text-center text-sm text-gray-500">
-  <a className="link mx-2" href="/about">About</a>
-  <a className="link mx-2" href="/press">Press</a>
-  <a className="link mx-2" href="/privacy">Privacy</a>
-  <a className="link mx-2" href="/terms">Terms</a>
-</footer>
-
+/* ---------- Local UI helpers ---------- */
 
 function Feature({ title, text, emoji }: { title: string; text: string; emoji: string }) {
   return (
@@ -240,7 +275,17 @@ function AICard({ title, text, emoji }: { title: string; text: string; emoji: st
   );
 }
 
-function ImageCard({ img, title, subtitle }: { img: string; title: string; subtitle: string }) {
+function ImageCard({
+  img,
+  title,
+  subtitle,
+  slug,
+}: {
+  img: string;
+  title: string;
+  subtitle: string;
+  slug: string;
+}) {
   return (
     <div className="overflow-hidden rounded-2xl bg-white shadow-sm hover:shadow-lg transition-shadow">
       <div className="h-44 bg-cover bg-center" style={{ backgroundImage: `url(${img})` }} aria-hidden />
@@ -248,7 +293,9 @@ function ImageCard({ img, title, subtitle }: { img: string; title: string; subti
         <div className="font-semibold">{title}</div>
         <div className="text-sm text-gray-600">{subtitle}</div>
         <div className="mt-3">
-          <Link to="/hotel/sunrise" className="btn btn-light !py-1.5 !px-3 text-sm">View details</Link>
+          <Link to={`/hotel/${slug}`} className="btn btn-light !py-1.5 !px-3 text-sm">
+            View details
+          </Link>
         </div>
       </div>
     </div>

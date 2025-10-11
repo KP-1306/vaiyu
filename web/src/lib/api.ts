@@ -20,13 +20,11 @@ export type Stay = {
   check_out?: string;
 };
 
-// after the Stay type
 export type Service = {
   key: string;
   label_en: string;
   sla_minutes: number;
 };
-
 
 export type ReferralIdentifier = {
   /** exactly one of these should be provided */
@@ -137,7 +135,12 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
   const p = path.replace(/\/+$/, '');
 
   if (p.startsWith('/hotel/')) return demoHotel as unknown as T;
-  if (p === '/catalog/services') return { items: demoServices } as unknown as T;
+  if (p === '/catalog/services' && (!opts.method || opts.method === 'GET')) {
+    return { items: demoServices } as unknown as T;
+  }
+  if (p === '/catalog/services' && opts.method === 'POST') {
+    return { ok: true } as unknown as T;
+  }
   if (p === '/menu/items') return { items: demoMenu } as unknown as T;
   if (p.startsWith('/experience/report')) return demoReport as unknown as T;
 
@@ -265,9 +268,8 @@ export async function myStays(token: string): Promise<{ stays: Stay[]; items: St
   return { stays, items: stays };
 }
 
-/** Upsert/replace the full services catalog (owner side). */
+/** Owner: Upsert/replace the full services catalog. */
 export async function saveServices(items: Service[]) {
-  // server expects { items: Service[] }
   return req(`/catalog/services`, {
     method: 'POST',
     body: JSON.stringify({ items }),
@@ -284,6 +286,9 @@ export async function apiDelete(path: string) {
   return req(path, { method: 'DELETE' });
 }
 
+/** Back-compat aliases used by some pages (e.g., OwnerServices.tsx). */
+export const upsert = apiUpsert;
+export const deleteService = apiDelete;
 
 /* ============================================================================
    Referrals & Credits (property-scoped)
@@ -508,6 +513,8 @@ export const api = {
   saveServices,
   apiUpsert,
   apiDelete,
+  upsert,          // back-compat alias
+  deleteService,   // back-compat alias
 
   // tickets
   createTicket,

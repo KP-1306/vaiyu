@@ -296,6 +296,12 @@ function broadcast(event: string, data: any) {
   }
 }
 
+// ---- Self-claim state (OTP + tokens) ----
+const claimOtps = new Map<string, { otp: string; expires: number }>(); // key: `${code}|${phone}`
+const claimTokens = new Map<string, { token: string; bookingCode: string; expires: number }>();
+function rand4() { return String(Math.floor(1000 + Math.random() * 9000)); }
+
+
 // -------------------------------
 // Routes (existing + new)
 // -------------------------------

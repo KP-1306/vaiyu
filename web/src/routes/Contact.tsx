@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import Pill from "../components/Pill";   // ✅ correct from /routes
+
 
 export default function Contact() {
   const [sending, setSending] = useState(false);

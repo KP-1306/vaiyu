@@ -9,32 +9,53 @@ export let DEMO_MODE = false;
 export const isDemo = () => DEMO_MODE;
 
 /* ============================================================================
+   Types (lightweight)
+============================================================================ */
+export type Stay = {
+  code: string;
+  status: 'upcoming' | 'active' | 'completed';
+  hotel_slug?: string;
+  hotel_name?: string;
+  check_in?: string;
+  check_out?: string;
+};
+
+type Json = Record<string, unknown> | Array<unknown> | string | number | boolean | null;
+
+/* ============================================================================
    HTTP helpers
 ============================================================================ */
-function withTimeout<T>(p: Promise<T>, ms = 8000): Promise<T> {
+function withTimeout<T>(p: Promise<T>, ms = 10_000): Promise<T> {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error('Network timeout')), ms);
     p.then(
-      (v) => {
-        clearTimeout(t);
-        resolve(v);
-      },
-      (e) => {
-        clearTimeout(t);
-        reject(e);
-      }
+      (v) => { clearTimeout(t); resolve(v); },
+      (e) => { clearTimeout(t); reject(e); }
     );
   });
+}
+
+function buildHeaders(opts: RequestInit): HeadersInit {
+  const h: Record<string, string> = { ...(opts.headers as Record<string, string> | undefined) };
+  // Only set Content-Type if we’re sending a body and caller didn’t set it
+  const hasBody = typeof opts.body !== 'undefined';
+  if (hasBody && !Object.keys(h).some(k => k.toLowerCase() === 'content-type')) {
+    h['Content-Type'] = 'application/json';
+  }
+  return h;
 }
 
 async function req<T = any>(path: string, opts: RequestInit = {}): Promise<T> {
   try {
     const r = await withTimeout(
       fetch(`${API}${path}`, {
-        headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
         ...opts,
-      })
+        headers: buildHeaders(opts),
+      }),
+      12_000
     );
+
+    // Try to parse as JSON if possible, else text
     const ct = r.headers.get('content-type') || '';
     const isJson = ct.includes('application/json');
     const payload = isJson ? await r.json() : await r.text();
@@ -42,7 +63,8 @@ async function req<T = any>(path: string, opts: RequestInit = {}): Promise<T> {
     if (!r.ok) {
       const msg =
         (isJson && (payload as any)?.error) ||
-        (typeof payload === 'string' ? payload : 'Request failed');
+        (typeof payload === 'string' && payload.trim()) ||
+        `Request failed (${r.status})`;
       throw new Error(msg);
     }
     return payload as T;
@@ -123,34 +145,33 @@ function demoFallback<T>(path: string, _opts: RequestInit): T | undefined {
 
   // Guest "my stays"
   if (p === '/me/stays') {
-    return {
-      stays: [
-        {
-          code: 'ABC123',
-          status: 'upcoming',
-          hotel_slug: 'sunrise',
-          hotel_name: 'Sunrise Resort',
-          check_in: new Date(Date.now() + 2 * 86400000).toISOString(),
-          check_out: new Date(Date.now() + 5 * 86400000).toISOString(),
-        },
-        {
-          code: 'LIVE001',
-          status: 'active',
-          hotel_slug: 'sunrise',
-          hotel_name: 'Sunrise Resort',
-          check_in: new Date(Date.now() - 1 * 86400000).toISOString(),
-          check_out: new Date(Date.now() + 1 * 86400000).toISOString(),
-        },
-        {
-          code: 'DONE789',
-          status: 'completed',
-          hotel_slug: 'sunrise',
-          hotel_name: 'Sunrise Resort',
-          check_in: new Date(Date.now() - 14 * 86400000).toISOString(),
-          check_out: new Date(Date.now() - 10 * 86400000).toISOString(),
-        },
-      ],
-    } as unknown as T;
+    const stays: Stay[] = [
+      {
+        code: 'ABC123',
+        status: 'upcoming',
+        hotel_slug: 'sunrise',
+        hotel_name: 'Sunrise Resort',
+        check_in: new Date(Date.now() + 2 * 86400000).toISOString(),
+        check_out: new Date(Date.now() + 5 * 86400000).toISOString(),
+      },
+      {
+        code: 'LIVE001',
+        status: 'active',
+        hotel_slug: 'sunrise',
+        hotel_name: 'Sunrise Resort',
+        check_in: new Date(Date.now() - 1 * 86400000).toISOString(),
+        check_out: new Date(Date.now() + 1 * 86400000).toISOString(),
+      },
+      {
+        code: 'DONE789',
+        status: 'completed',
+        hotel_slug: 'sunrise',
+        hotel_name: 'Sunrise Resort',
+        check_in: new Date(Date.now() - 14 * 86400000).toISOString(),
+        check_out: new Date(Date.now() - 10 * 86400000).toISOString(),
+      },
+    ];
+    return { stays, items: stays } as unknown as T;
   }
 
   return undefined;
@@ -177,18 +198,13 @@ export async function claimVerify(code: string, otp: string) {
   });
 }
 
-/** Fetch current guest’s stays (Bearer token required). */
-export async function myStays(token: string) {
-  return req<{ stays: Array<{
-    code: string;
-    status: 'upcoming' | 'active' | 'completed';
-    hotel_slug?: string;
-    hotel_name?: string;
-    check_in?: string;
-    check_out?: string;
-  }> }>('/me/stays', {
+/** Fetch current guest’s stays (Bearer token required). Returns both {stays} and {items} for compatibility. */
+export async function myStays(token: string): Promise<{ stays: Stay[]; items: Stay[] }> {
+  const res = await req<any>('/me/stays', {
     headers: { Authorization: `Bearer ${token}` },
   });
+  const stays: Stay[] = res?.stays ?? res?.items ?? [];
+  return { stays, items: stays };
 }
 
 /* ============================================================================
@@ -197,7 +213,7 @@ export async function myStays(token: string) {
 export async function getHotel(slug: string) {
   return req(`/hotel/${encodeURIComponent(slug)}`);
 }
-export async function upsertHotel(payload: any) {
+export async function upsertHotel(payload: Json) {
   return req(`/hotel/upsert`, { method: 'POST', body: JSON.stringify(payload) });
 }
 
@@ -224,7 +240,7 @@ export async function getMenu() {
 /* ============================================================================
    Tickets
 ============================================================================ */
-export async function createTicket(data: any) {
+export async function createTicket(data: Json) {
   return req(`/tickets`, { method: 'POST', body: JSON.stringify(data) });
 }
 export async function listTickets() {
@@ -233,7 +249,7 @@ export async function listTickets() {
 export async function getTicket(id: string) {
   return req(`/tickets/${encodeURIComponent(id)}`);
 }
-export async function updateTicket(id: string, patch: any) {
+export async function updateTicket(id: string, patch: Json) {
   return req(`/tickets/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     body: JSON.stringify(patch),
@@ -243,13 +259,13 @@ export async function updateTicket(id: string, patch: any) {
 /* ============================================================================
    Orders
 ============================================================================ */
-export async function createOrder(data: any) {
+export async function createOrder(data: Json) {
   return req(`/orders`, { method: 'POST', body: JSON.stringify(data) });
 }
 export async function listOrders() {
   return req(`/orders`);
 }
-export async function updateOrder(id: string, patch: any) {
+export async function updateOrder(id: string, patch: Json) {
   return req(`/orders/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     body: JSON.stringify(patch),
@@ -262,10 +278,10 @@ export async function updateOrder(id: string, patch: any) {
 export async function getFolio() {
   return req(`/folio`);
 }
-export async function precheck(data: any) {
+export async function precheck(data: Json) {
   return req(`/precheck`, { method: 'POST', body: JSON.stringify(data) });
 }
-export async function regcard(data: any) {
+export async function regcard(data: Json) {
   return req(`/regcard`, { method: 'POST', body: JSON.stringify(data) });
 }
 export async function checkout(data: { bookingCode?: string; autopost?: boolean }) {
@@ -349,8 +365,8 @@ export const api = {
   // catalog
   getServices,
   getMenu,
-  services: (..._args: any[]) => getServices(),
-  menu: (..._args: any[]) => getMenu(),
+  services: (..._args: any[]) => getServices(), // back-compat alias
+  menu: (..._args: any[]) => getMenu(),         // back-compat alias
 
   // tickets
   createTicket,

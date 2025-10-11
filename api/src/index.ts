@@ -307,7 +307,7 @@ app.get('/', async () => ({
   try: [
     '/health', '/hotel/sunrise', 'POST /checkin',
     '/reviews/:slug', 'GET /reviews/draft/:code', 'POST /reviews/auto',
-    '/reviews-pending', 'POST /reviews/:id/approve', 'POST /reviews/:id/reject',
+    '/reviews/pending', '/reviews/approve', '/reviews/reject',
     '/experience/summary/:code', '/experience/report/:slug',
     'POST /booking/:code/consent',
     '/events'
@@ -441,7 +441,14 @@ app.get('/reviews/:slug', async (req, reply) => {
   return rows.slice(0, 50)
 })
 
-// Owner/staff pending list (matches web client path)
+// Owner/staff pending list (two routes for compatibility)
+app.get('/reviews/pending', async () => {
+  return {
+    items: reviews
+      .filter(r => r.status === 'pending')
+      .sort((a,b) => b.created_at.localeCompare(a.created_at))
+  }
+})
 app.get('/reviews-pending', async () => {
   return {
     items: reviews
@@ -519,7 +526,41 @@ app.post('/reviews/auto', async (req, reply) => {
   return item
 })
 
-// Approve a pending review (Owner moderation) — matches web client helper (/:id)
+// Approve / Reject (provide both styles for compatibility)
+
+// Body-based (matches web client helper)
+app.post('/reviews/approve', async (req, reply) => {
+  const { id, bookingCode } = (req.body || {}) as { id?: string; bookingCode?: string }
+  if (!id) return reply.status(400).send({ error: 'id required' })
+  const r = reviews.find(x => x.id === id)
+  if (!r) return reply.status(404).send({ error: 'Review not found' })
+  if (bookingCode && r.booking_code && r.booking_code !== bookingCode) {
+    return reply.status(403).send({ error: 'Booking code mismatch' })
+  }
+  r.status = 'published'
+  r.visibility = 'public'
+  r.approval = { required: false, approved: true, approved_at: nowISO() }
+  r.updated_at = nowISO()
+  broadcast('review_updated', { id: r.id, action: 'approved' })
+  return { ok: true, review: r }
+})
+
+app.post('/reviews/reject', async (req, reply) => {
+  const { id, bookingCode } = (req.body || {}) as { id?: string; bookingCode?: string }
+  if (!id) return reply.status(400).send({ error: 'id required' })
+  const r = reviews.find(x => x.id === id)
+  if (!r) return reply.status(404).send({ error: 'Review not found' })
+  if (bookingCode && r.booking_code && r.booking_code !== bookingCode) {
+    return reply.status(403).send({ error: 'Booking code mismatch' })
+  }
+  r.status = 'rejected'
+  r.visibility = 'private'
+  r.updated_at = nowISO()
+  broadcast('review_updated', { id: r.id, action: 'rejected' })
+  return { ok: true, review: r }
+})
+
+// Param-style (kept too, just in case)
 app.post('/reviews/:id/approve', async (req, reply) => {
   const { id } = req.params as any
   const { bookingCode } = (req.body || {}) as { bookingCode?: string }
@@ -536,7 +577,6 @@ app.post('/reviews/:id/approve', async (req, reply) => {
   return { ok: true, review: r }
 })
 
-// Reject a pending review (Owner moderation) — matches web client helper (/:id)
 app.post('/reviews/:id/reject', async (req, reply) => {
   const { id } = req.params as any
   const { bookingCode } = (req.body || {}) as { bookingCode?: string }
@@ -755,7 +795,7 @@ app.post('/payments/webhook', async () => {
 async function start () {
   await app.register(cors, {
     origin: ORIGIN,
-    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'] // ← add DELETE for services
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'] // ← include DELETE for services
   })
 
   app.get('/health', async () => ({ ok: true }))

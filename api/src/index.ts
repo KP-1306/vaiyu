@@ -415,6 +415,47 @@ app.post('/booking/:code/consent', async (req, reply) => {
   return { ok: true, booking: b }
 })
 
+// Start a claim: guest provides booking code + phone, we generate & "send" an OTP
+app.post('/claim/init', async (req, reply) => {
+  const { code, phone } = (req.body || {}) as { code?: string; phone?: string };
+  if (!code || !phone) return reply.status(400).send({ error: 'code & phone required' });
+
+  const b = bookings.find(x => x.code === code && x.guest_phone === phone);
+  if (!b) return reply.status(404).send({ error: 'Booking not found' });
+
+  const otp = process.env.DEMO_STATIC_OTP || rand4(); // in demo you can show it on screen/logs
+  const key = `${code}|${phone}`;
+  claimOtps.set(key, { otp, expires: Date.now() + 5 * 60_000 }); // 5 min
+
+  // In production you'd send OTP via SMS. We just log it for demo.
+  req.server.log.info({ code, phone, otp }, 'claim.init demo OTP');
+
+  return { ok: true, method: 'otp', sent: true };
+});
+
+// Verify the claim: guest posts the OTP, we mint a short-lived token
+app.post('/claim/verify', async (req, reply) => {
+  const { code, otp } = (req.body || {}) as { code?: string; otp?: string };
+  if (!code || !otp) return reply.status(400).send({ error: 'code & otp required' });
+
+  const b = bookings.find(x => x.code === code);
+  if (!b) return reply.status(404).send({ error: 'Booking not found' });
+
+  const key = `${code}|${b.guest_phone}`;
+  const rec = claimOtps.get(key);
+  if (!rec || rec.expires < Date.now()) return reply.status(400).send({ error: 'OTP expired' });
+  if (rec.otp !== otp) return reply.status(401).send({ error: 'Invalid OTP' });
+
+  claimOtps.delete(key);
+
+  // Create a simple opaque token (you can replace with JWT later)
+  const token = 'st_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+  claimTokens.set(token, { token, bookingCode: code, expires: Date.now() + 24 * 60 * 60_000 }); // 24h
+
+  return { ok: true, token, booking: { code: b.code, guest_name: b.guest_name, hotel_slug: b.hotel_slug } };
+});
+
+
 // ---------- Quick Check-In ----------
 app.post('/checkin', async (req, reply) => {
   const { code, phone } = (req.body || {}) as { code?: string; phone?: string }

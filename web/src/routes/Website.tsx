@@ -1,3 +1,4 @@
+// web/src/routes/Website.tsx
 import { Link } from "react-router-dom";
 import UseCases from "../sections/UseCases";
 
@@ -12,7 +13,7 @@ export default function Website() {
           <div className="grid lg:grid-cols-12 gap-10 items-center">
             <div className="lg:col-span-6">
               <div className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1 text-xs text-sky-700">
-                New • Truth-anchored guest reviews
+                New • Guest referrals + property-scoped credits
               </div>
               <h1 className="mt-4 text-4xl md:text-5xl font-bold leading-tight">
                 Run a better stay with{" "}
@@ -22,7 +23,8 @@ export default function Website() {
               <p className="mt-4 text-gray-600">
                 VAiyu connects housekeeping, kitchen, and front desk into a fast
                 PWA. Guests get a beautiful microsite; owners get KPIs and
-                auto-drafted reviews backed by real activity.
+                auto-drafted reviews backed by real activity. Now with{" "}
+                <b>Refer &amp; Earn credits</b> redeemable on F&amp;B and services.
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link to="/hotel/sunrise" className="btn">View demo microsite</Link>
@@ -101,6 +103,9 @@ export default function Website() {
           </div>
         </div>
       </section>
+
+      {/* NEW: Use-cases (includes Refer & Earn card) */}
+      <UseCases />
 
       {/* Pricing (placeholder) */}
       <section className="py-14">

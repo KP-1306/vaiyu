@@ -1,13 +1,8 @@
 <!doctype html>
 <html lang="en">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-
   <head>
     <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#145AF2" />
 
     <!-- Primary SEO -->
@@ -25,7 +20,6 @@
       content="AI that actually runs your hotel: automate ops, delight guests, and prove impact."
     />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://vaiyu.co.in/" />
     <meta property="og:image" content="/og-card.png" />
 
     <!-- Twitter -->
@@ -37,19 +31,20 @@
     />
     <meta name="twitter:image" content="/og-card.png" />
 
-    <!-- PWA / icons (put these files in /public) -->
-    <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- App icons / PWA -->
+    <link rel="icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-    <meta name="apple-mobile-web-app-title" content="VAiyu" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <link rel="manifest" href="/manifest.webmanifest" />
 
-    <!-- (Optional) iOS status bar style -->
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <!-- Fonts: PRECONNECT must be inside <head> -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Optional: actual font stylesheet if you use one -->
+    <!-- <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"> -->
   </head>
+
   <body class="min-h-screen bg-gray-50">
     <div id="root"></div>
-
-    <!-- Vite app entry -->
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

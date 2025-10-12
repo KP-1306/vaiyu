@@ -248,6 +248,38 @@ function safeJson(body: any): any {
   }
 }
 
+
+// --- Grid (VPP) ---
+export type GridMode = 'manual'|'assist'|'auto';
+export type GridSettings = { mode: GridMode; peak_hours?: string[]; safety: { min_off_minutes?: number; max_off_minutes?: number; temperature_floor?: number } };
+export type Device = { id: string; name: string; group?: string; priority: 1|2|3; control: string; on?: boolean; power_kw?: number; min_off?: number; max_off?: number };
+export type Playbook = { id: string; name: string; steps: Array<{ device_id: string; do: 'shed'|'nudge'; duration_min?: number; restore_after?: boolean }> };
+export type GridEvent = { id: string; start_at: string; end_at?: string; mode: GridMode; target_kw: number; reduced_kw?: number; actions: Array<{ ts: string; device_id: string; action: 'shed'|'restore'|'nudge'; by: 'system'|'staff'|'owner'; note?: string }> };
+
+export async function gridGetDevices() { return req<Device[]>('/grid/devices'); }
+export async function gridSaveDevices(items: Device[]|Device) {
+  return req<{ ok: boolean; items: Device[] }>('/grid/devices', { method: 'POST', body: JSON.stringify(items) });
+}
+export async function gridGetPlaybooks() { return req<Playbook[]>('/grid/playbooks'); }
+export async function gridSavePlaybooks(pb: Playbook[]|Playbook) {
+  return req<{ ok: boolean; items: Playbook[] }>('/grid/playbooks', { method: 'POST', body: JSON.stringify(pb) });
+}
+export async function gridStartEvent(target_kw: number, playbook_id?: string) {
+  return req<{ event: GridEvent }>('/grid/events/start', { method: 'POST', body: JSON.stringify({ target_kw, playbook_id }) });
+}
+export async function gridStepEvent(id: string, device_id: string, action: 'shed'|'restore'|'nudge', note?: string) {
+  return req<{ event: GridEvent }>(`/grid/events/${encodeURIComponent(id)}/step`, { method: 'POST', body: JSON.stringify({ device_id, action, note }) });
+}
+export async function gridStopEvent(id: string) {
+  return req<{ event: GridEvent }>(`/grid/events/${encodeURIComponent(id)}/stop`, { method: 'POST' });
+}
+export async function gridListEvents() { return req<{ items: GridEvent[] }>('/grid/events'); }
+export async function gridDeviceShed(id: string) { return req(`/grid/device/${encodeURIComponent(id)}/shed`, { method: 'POST' }); }
+export async function gridDeviceRestore(id: string) { return req(`/grid/device/${encodeURIComponent(id)}/restore`, { method: 'POST' }); }
+export async function gridDeviceNudge(id: string) { return req(`/grid/device/${encodeURIComponent(id)}/nudge`, { method: 'POST' }); }
+
+
+
 /* ============================================================================
    Self-claim (guest attaches an existing booking)
 ============================================================================ */

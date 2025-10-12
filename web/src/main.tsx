@@ -111,6 +111,11 @@ const router = createBrowserRouter([
       { path: 'grid/devices', element: <GridDevices /> },
       { path: 'grid/playbooks', element: <GridPlaybooks /> },
       { path: 'grid/events',   element: <GridEvents /> },
+
+      // in web/src/main.tsx router config
+      { path: 'stay/:code/menu', element: <Menu /> },               // alias for /menu
+      { path: 'owner/dashboard/:slug', element: <OwnerDashboard /> } // renders same dashboard
+
     ],
   },
 ]);

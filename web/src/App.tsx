@@ -98,9 +98,9 @@ export default function App() {
               <Link to="/demo" className="btn btn-light">
                 Watch a quick demo
               </Link>
-              <Link to="#moonshots" className="link text-white/90 underline-offset-4">
+              <a href="#why" className="link text-white/90 underline-offset-4">
                 Explore moonshots →
-              </Link>
+              </a>
             </div>
           </div>
 
@@ -261,11 +261,11 @@ export default function App() {
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
           <DemoLink to="/precheck/DEMO" label="Express pre-check-in" />
-          <DemoLink to="/stay/DEMO/menu" label="Guest menu & requests" />
+          <DemoLink to="/menu" label="Guest menu & requests" />
           <DemoLink to="/desk" label="Front Desk (live SSE)" />
           <DemoLink to="/hk" label="Housekeeping" />
           <DemoLink to="/owner/reviews" label="AI review moderation" />
-          <DemoLink to="/owner/dashboard" label="Owner KPIs & hints" />
+          <DemoLink to="/owner/dashboard?slug=sunrise" label="Owner KPIs & hints" />
           <DemoLink to="/guest" label="Refer & Earn + Credits" />
           <DemoLink to="/grid/devices" label="Grid: Devices" />
           <DemoLink to="/grid/events" label="Grid: Events" />

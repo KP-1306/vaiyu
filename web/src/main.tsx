@@ -53,6 +53,10 @@ import OwnerDashboard from './routes/OwnerDashboard';
 import OwnerSettings from './routes/OwnerSettings';
 import OwnerServices from './routes/OwnerServices';
 import OwnerReviews from './routes/OwnerReviews';
+// web/src/main.tsx (routes array — add under "Owner / Admin" or its own section)
+import GridDevices from './routes/GridDevices';
+import GridPlaybooks from './routes/GridPlaybooks';
+import GridEvents from './routes/GridEvents';
 
 /* ======== Root layout that adds global helpers ======== */
 function RootLayout() {
@@ -104,6 +108,9 @@ const router = createBrowserRouter([
       { path: 'owner/settings', element: <OwnerSettings /> },
       { path: 'owner/services', element: <OwnerServices /> },
       { path: 'owner/reviews', element: <OwnerReviews /> },
+      { path: 'grid/devices', element: <GridDevices /> },
+      { path: 'grid/playbooks', element: <GridPlaybooks /> },
+      { path: 'grid/events',   element: <GridEvents /> },
     ],
   },
 ]);

@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Pill from './components/Pill';
+import HeroStats from './components/HeroStats';
+import { HERO_METRICS } from './lib/metrics';
+
 
 const TOKEN_KEY = 'stay:token';
 const heroBg =
@@ -74,7 +77,9 @@ export default function App() {
               <Link to="/about-ai" className="link text-white/90 underline-offset-4">Explore moonshots →</Link>
             </div>
           </div>
-
+          
+<HeroStats items={HERO_METRICS} />
+          
           {/* slim metrics ribbon so the image still “reads” */}
           <div className="mt-8 grid gap-3 sm:grid-cols-2">
             <MetricCard title="Avg. request time" value="−28%" sub="vs. baseline properties" />

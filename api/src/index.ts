@@ -3,6 +3,33 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import 'dotenv/config';
 
+import Fastify from 'fastify';
+import postgres from '@fastify/postgres';
+import cors from '@fastify/cors';
+import referralsPlugin from './plugins/referrals';
+
+const fastify = Fastify({ logger: true });
+
+await fastify.register(cors, {
+  origin: process.env.CORS_ORIGIN?.split(',').map(s => s.trim()) || true,
+  methods: ['GET','POST','PATCH','DELETE','OPTIONS'],
+});
+await fastify.register(postgres, {
+  connectionString: process.env.DATABASE_URL!,
+     // ssl: { rejectUnauthorized: false }, // if your provider needs it
+});
+
+// ... your other plugins/routes here ...
+
+await fastify.register(referralsPlugin); // <<---- add this
+
+fastify.get('/health', async () => ({ ok: true, t: Date.now() }));
+
+const port = Number(process.env.PORT || 4000);
+fastify.listen({ port, host: '0.0.0.0' })
+  .then(() => fastify.log.info(`API on :${port}`))
+  .catch((e) => { fastify.log.error(e); process.exit(1); });
+
 const app = Fastify({ logger: true });
 const PORT = Number(process.env.PORT || 4000);
 const ORIGIN = (process.env.CORS_ORIGIN || '*').split(',');

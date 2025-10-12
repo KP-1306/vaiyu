@@ -2,6 +2,9 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import 'dotenv/config';
+import gridPlugin from './plugins/grid';
+
+await fastify.register(gridPlugin);
 
 import Fastify from 'fastify';
 import postgres from '@fastify/postgres';

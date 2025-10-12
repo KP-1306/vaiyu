@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom';
 import Pill from './components/Pill';
 
 const TOKEN_KEY = 'stay:token';
-
 const heroBg =
   'https://images.unsplash.com/photo-1500375592092-40eb2168fd21?q=80&w=1600&auto=format&fit=crop';
 
@@ -45,6 +44,7 @@ export default function App() {
           </Link>
 
           <nav className="hidden md:flex items-center gap-6 text-sm">
+            <a href="#moonshots" className="hover:text-gray-700">Moonshots</a>
             <a href="#why" className="hover:text-gray-700">Why VAiyu</a>
             <a href="#ai" className="hover:text-gray-700">AI</a>
             <a href="#use-cases" className="hover:text-gray-700">Use-cases</a>
@@ -56,14 +56,11 @@ export default function App() {
             <Link to="/precheck/DEMO" className="btn btn-light !py-2 !px-3 text-sm">
               Pre-check-in
             </Link>
-
-            {/* Only show when guest is logged in (has stay token) */}
             {hasToken && (
               <Link to="/guest" className="btn btn-light !py-2 !px-3 text-sm">
                 My credits
               </Link>
             )}
-
             <Link to="/hk" className="btn !py-2 !px-3 text-sm">Try VAiyu</Link>
           </div>
         </div>
@@ -81,7 +78,7 @@ export default function App() {
         <div className="mx-auto max-w-7xl px-4 py-24 sm:py-28 lg:py-32 text-white relative">
           <div className="max-w-3xl">
             <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs backdrop-blur">
-              <span className="animate-pulse">🤖</span> AI-powered hospitality OS
+              <span className="animate-pulse">⚡</span> New • Grid-interactive hotels (VPP)
             </div>
 
             <h1 className="mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl leading-tight">
@@ -89,8 +86,8 @@ export default function App() {
             </h1>
 
             <p className="mt-3 text-white/90 text-lg">
-              We turn real stay activity into truth-anchored reviews, faster service SLAs, and
-              delightful mobile journeys — perfect for holidays and long escapes.
+              A hospitality OS that turns real stay activity into faster service, verified reviews, and
+              even lower energy costs during peak hours — without compromising comfort.
             </p>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -100,13 +97,13 @@ export default function App() {
               <Link to="/demo" className="btn btn-light">
                 Watch a quick demo
               </Link>
-              <Link to="/about-ai" className="link text-white/90 underline-offset-4">
-                See how our AI works →
-              </Link>
+              <a href="#moonshots" className="link text-white/90 underline-offset-4">
+                Explore moonshots →
+              </a>
             </div>
           </div>
 
-          {/* Right-side value card on desktop; stacks below on mobile */}
+          {/* Right-side value card */}
           <aside className="mt-8 lg:mt-0 lg:absolute lg:right-4 lg:top-1/2 lg:-translate-y-1/2">
             <div className="w-full lg:w-[420px] rounded-2xl bg-white/85 text-gray-900 shadow-lg backdrop-blur p-5">
               <div className="text-xs font-medium text-sky-800 bg-sky-100 inline-flex px-2 py-1 rounded-full">
@@ -119,17 +116,67 @@ export default function App() {
                 <Bullet>🧽 Housekeeping / maintenance workflows</Bullet>
                 <Bullet>🧠 AI drafts reviews from actual stay data</Bullet>
                 <Bullet>🛡️ Owner moderation & brand safety</Bullet>
-                {/* Referral callout */}
                 <Bullet>🎁 Refer &amp; Earn credits (property-scoped)</Bullet>
+                <Bullet>⚡ Grid-aware operations (manual → assist → auto)</Bullet>
               </ul>
             </div>
           </aside>
+        </div>
+
+        {/* KPI ribbon (guest-first copy, investor-relevant stats) */}
+        <div className="bg-white/90 text-gray-900">
+          <div className="mx-auto max-w-7xl px-4 py-3 grid sm:grid-cols-3 gap-3 text-sm">
+            <KPI label="Avg. request time" value="−28%" hint="last 30d vs baseline" />
+            <KPI label="Reviews published" value="+41%" hint="grounded, brand-safe" />
+            <KPI label="Peak-hour energy" value="−1.8 kW" hint="per event (demo)" />
+          </div>
         </div>
 
         {/* wave divider */}
         <svg viewBox="0 0 1440 140" className="absolute bottom-[-1px] left-0 w-full" aria-hidden>
           <path fill="#f9fafb" d="M0,80 C240,160 480,0 720,60 C960,120 1200,40 1440,100 L1440,140 L0,140 Z" />
         </svg>
+      </section>
+
+      {/* MOONSHOTS — guest-first framing */}
+      <section id="moonshots" className="mx-auto max-w-7xl px-4 py-12">
+        <h2 className="text-2xl font-bold">Moonshots for Guests</h2>
+        <p className="text-gray-600 mt-1">Feels magical for travelers; makes financial sense for owners.</p>
+
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+          <Moonshot
+            emoji="⏱️"
+            title="Instant help, visibly faster"
+            pitch="Tap once, see progress live. No calls, no chaos."
+            footnote="Backed by SLAs + server-sent events (no refresh)."
+            to="/stay/DEMO/menu"
+            cta="Try requests"
+          />
+          <Moonshot
+            emoji="🛡️"
+            title="Reviews you can trust"
+            pitch="Drafts reference what really happened in your stay."
+            footnote="Truth-anchored AI; owner/guest approve before publish."
+            to="/owner/reviews"
+            cta="See AI drafts"
+          />
+          <Moonshot
+            emoji="🎁"
+            title="Refer & earn at this hotel"
+            pitch="Share with friends; earn credits you can spend on F&B."
+            footnote="Property-scoped credits via VAiyu account/phone/email."
+            to="/guest"
+            cta="View credits"
+          />
+          <Moonshot
+            emoji="⚡"
+            title="Grid-savvy comfort"
+            pitch="Same comfort, smarter timing during peak hours."
+            footnote="Manual → assist → auto; device timelines & savings."
+            to="/grid/events"
+            cta="See grid events"
+          />
+        </div>
       </section>
 
       {/* Why VAiyu / value props */}
@@ -145,11 +192,10 @@ export default function App() {
               'In-app requests & tracking',
               'Room service that just works',
               'Crystal-clear bills',
-              'Refer friends, earn credits on your next stay', // NEW
+              'Refer friends, earn credits on your next stay',
             ]}
             emoji="🧳"
           />
-
           <ValueCard
             title="For Staff"
             points={[
@@ -160,7 +206,6 @@ export default function App() {
             ]}
             emoji="🧑‍🔧"
           />
-
           <ValueCard
             title="For Owners"
             points={[
@@ -171,7 +216,6 @@ export default function App() {
             ]}
             emoji="📈"
           />
-
           <ValueCard
             title="For Your Brand"
             points={[
@@ -202,8 +246,8 @@ export default function App() {
                 </div>
                 <h3 className="mt-3 text-2xl font-bold">Let AI do the busywork, not the guesswork</h3>
                 <p className="mt-2 text-gray-600">
-                  VAiyu builds truth-anchored suggestions from stay activity — tickets, orders &
-                  timings — then drafts reviews, nudges teams, and surfaces what to fix.
+                  VAiyu builds truth-anchored suggestions from stay activity — tickets, orders & timings — then drafts
+                  reviews, nudges teams, and surfaces what to fix.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
                   <Pill>Truth-anchored reviews</Pill>
@@ -252,7 +296,7 @@ export default function App() {
         </div>
       </section>
 
-      {/* Use-cases (replaces Explore) */}
+      {/* Use-cases */}
       <section id="use-cases" className="mx-auto max-w-7xl px-4 pb-16">
         <div className="flex items-end justify-between">
           <div>
@@ -268,31 +312,9 @@ export default function App() {
           <DemoLink to="/hk" label="Housekeeping" />
           <DemoLink to="/owner/reviews" label="AI review moderation" />
           <DemoLink to="/owner/dashboard" label="Owner KPIs & hints" />
-          {/* Referral & credits entry point */}
           <DemoLink to="/guest" label="Refer & Earn + Credits" />
-        </div>
-      </section>
-
-      {/* Why different / proof bullets */}
-      <section className="mx-auto max-w-7xl px-4 pb-16">
-        <h3 className="text-xl font-semibold">Why VAiyu is different</h3>
-        <ul className="mt-4 grid md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
-          <Proof>Grounded in real events — not vibes or scraped text</Proof>
-          <Proof>Owner approval gate by default (brand-safe)</Proof>
-          <Proof>Live SSE infra — staff never needs to refresh</Proof>
-          <Proof>SLA analytics with “one-line” policy hints</Proof>
-          <Proof>Modular: start with housekeeping or reviews only</Proof>
-          <Proof>Fast to pilot — works with a single property</Proof>
-        </ul>
-      </section>
-
-      {/* Quick demo entry points */}
-      <section id="demo" className="mx-auto max-w-7xl px-4 pb-20">
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <DemoLink to="/hotel/sunrise" label="Property microsite" />
-          <DemoLink to="/stay/DEMO/menu" label="Guest menu" />
-          <DemoLink to="/precheck/DEMO" label="Pre-check-in" />
-          <DemoLink to="/desk" label="Front Desk" />
+          <DemoLink to="/grid/devices" label="Grid: Devices" />
+          <DemoLink to="/grid/events" label="Grid: Events" />
         </div>
       </section>
 
@@ -302,6 +324,7 @@ export default function App() {
           <div>© {new Date().getFullYear()} VAiyu — Where Intelligence Meets Comfort.</div>
           <div className="flex items-center gap-4">
             <Link className="hover:text-gray-800" to="/about-ai">AI</Link>
+            <a className="hover:text-gray-800" href="#moonshots">Moonshots</a>
             <a className="hover:text-gray-800" href="#why">Why VAiyu</a>
             <Link className="hover:text-gray-800" to="/owner">For Hotels</Link>
             <a className="hover:text-gray-800" href="#demo">Live Demo</a>
@@ -320,27 +343,43 @@ export default function App() {
 
 /* ---------- tiny building blocks ---------- */
 
+function KPI({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="rounded-xl border bg-white px-4 py-3 flex items-center justify-between">
+      <div>
+        <div className="text-xs text-gray-500">{label}</div>
+        <div className="text-lg font-semibold">{value}</div>
+      </div>
+      {hint && <div className="text-[11px] text-gray-500">{hint}</div>}
+    </div>
+  );
+}
+
+function Moonshot({
+  emoji, title, pitch, footnote, to, cta,
+}: { emoji: string; title: string; pitch: string; footnote: string; to: string; cta: string }) {
+  return (
+    <div className="card flex flex-col">
+      <div className="text-2xl">{emoji}</div>
+      <div className="font-semibold mt-1">{title}</div>
+      <p className="text-sm text-gray-600 mt-1">{pitch}</p>
+      <div className="text-[11px] text-gray-500 mt-2">{footnote}</div>
+      <Link to={to} className="btn btn-light mt-3 self-start">{cta}</Link>
+    </div>
+  );
+}
+
 function Bullet({ children }: { children: React.ReactNode }) {
   return <li className="flex items-start gap-2"><span className="mt-0.5">•</span><span>{children}</span></li>;
 }
 
 function Proof({ children }: { children: React.ReactNode }) {
-  return (
-    <li className="rounded-xl border bg-white p-3">
-      {children}
-    </li>
-  );
+  return <li className="rounded-xl border bg-white p-3">{children}</li>;
 }
 
 function ValueCard({
-  title,
-  points,
-  emoji,
-}: {
-  title: string;
-  points: string[];
-  emoji: string;
-}) {
+  title, points, emoji,
+}: { title: string; points: string[]; emoji: string }) {
   return (
     <div className="card group hover:shadow-lg transition-shadow">
       <div className="text-2xl">{emoji}</div>

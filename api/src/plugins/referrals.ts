@@ -1,197 +1,260 @@
-import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
+// api/src/plugins/referrals.ts
+import type { FastifyPluginAsync } from 'fastify';
 import { randomBytes } from 'crypto';
-import { Pool } from 'pg';
 
-type Ctx = {
-  db: Pool;
-  appOrigin: string;
-  referralBonusAmount: number; // integer (minor units / points)
+type RefInitBody = { property: string; channel?: string };
+type RefApplyBody = {
+  bookingCode: string;
+  property?: string; // if omitted, try to infer from booking (optional for MVP)
+  referrer: { accountId?: string; phone?: string; email?: string };
 };
+type RedeemBody = { property: string; amount: number; context?: any };
 
-declare module 'fastify' {
-  interface FastifyRequest {
-    user?: { id: string }; // set by your auth hook/JWT
-  }
-}
+const SITE_ORIGIN = process.env.PUBLIC_SITE_ORIGIN || 'https://vaiyu.co.in';
+const CURRENCY = process.env.CREDITS_CURRENCY || 'INR';
+const REFERRAL_BONUS_CREDITS = Number(process.env.REFERRAL_BONUS_CREDITS || 500);
 
-function genCode(property: string) {
-  const r = randomBytes(3).toString('hex').toUpperCase(); // 6 chars
-  return `${property.slice(0,3).toUpperCase()}-${r}`;
-}
-
-export const referralsPlugin: FastifyPluginAsync<Ctx> = async (app, opts) => {
-  const { db, appOrigin, referralBonusAmount } = opts;
-
-  // Helpers
-  async function ensureProperty(slug: string) {
-    await db.query('INSERT INTO properties(slug) VALUES ($1) ON CONFLICT (slug) DO NOTHING', [slug]);
+const referralsPlugin: FastifyPluginAsync = async (fastify) => {
+  // ---- Helpers -------------------------------------------------------------
+  function genCode(property: string) {
+    const pad = randomBytes(3).toString('hex').slice(0, 6).toUpperCase(); // e.g. "A1B2C3"
+    return `${(property || 'PROP').slice(0, 3).toUpperCase()}-${pad}`;
   }
 
-  async function getOrCreateUserIdByIdentity(identity: { accountId?: string; phone?: string; email?: string; }) {
-    if (identity.accountId) return identity.accountId;
+  async function getUserIdFromToken(authHeader?: string): Promise<string | null> {
+    if (!authHeader) return null;
+    const m = authHeader.match(/^Bearer\s+(.+)$/i);
+    if (!m) return null;
+    const token = m[1];
 
-    if (identity.phone) {
-      const q = await db.query('SELECT user_id FROM guest_identities WHERE phone = $1', [identity.phone]);
-      if (q.rowCount) return q.rows[0].user_id;
-      // create a synthetic user id for phone-only referrals (or map to your auth)
-      const newId = `phone_${identity.phone}`;
-      await db.query(
-        'INSERT INTO guest_identities(user_id, phone) VALUES ($1,$2) ON CONFLICT (phone) DO NOTHING',
-        [newId, identity.phone]
+    // MVP: accept demo token; plug in your real auth/JWT here
+    if (token === 'demo-stay-token') return 'user_demo';
+
+    // Example for JWT (uncomment and add @fastify/jwt if you have it)
+    // try {
+    //   const payload = fastify.jwt.verify(token) as any;
+    //   return payload?.sub || payload?.user_id || null;
+    // } catch { return null; }
+
+    // If you have a sessions table, resolve here.
+    return null;
+  }
+
+  async function resolveReferrerUserId(ref: RefApplyBody['referrer'], client: any): Promise<string | null> {
+    if (!ref) return null;
+    if (ref.accountId) return ref.accountId;
+
+    if (ref.phone) {
+      const { rows } = await client.query(
+        `SELECT user_id FROM guest_identities WHERE phone = $1 LIMIT 1`, [ref.phone]
       );
-      return newId;
+      return rows[0]?.user_id ?? null;
     }
-
-    if (identity.email) {
-      const q = await db.query('SELECT user_id FROM guest_identities WHERE email = $1', [identity.email]);
-      if (q.rowCount) return q.rows[0].user_id;
-      const newId = `email_${identity.email}`;
-      await db.query(
-        'INSERT INTO guest_identities(user_id, email) VALUES ($1,$2) ON CONFLICT (email) DO NOTHING',
-        [newId, identity.email]
+    if (ref.email) {
+      const { rows } = await client.query(
+        `SELECT user_id FROM guest_identities WHERE email = $1 LIMIT 1`, [ref.email]
       );
-      return newId;
+      return rows[0]?.user_id ?? null;
     }
-
-    throw new Error('No valid identity provided');
+    return null;
   }
 
-  // POST /referrals/init { property }
-  app.post<{
-    Body: { property: string; channel?: string };
-  }>('/referrals/init', async (req, reply) => {
+  // ---- Routes --------------------------------------------------------------
+
+  /**
+   * POST /referrals/init
+   * body: { property, channel? }
+   * auth: optional (if present, we store created_by_user_id)
+   * returns: { ok, code, shareUrl }
+   */
+  fastify.post<{ Body: RefInitBody }>('/referrals/init', async (req, reply) => {
     const { property, channel } = req.body || {};
-    if (!property) return reply.code(400).send({ error: 'property required' });
+    if (!property) return reply.code(400).send({ error: 'property is required' });
 
-    await ensureProperty(property);
-
+    const userId = await getUserIdFromToken(req.headers.authorization);
     const code = genCode(property);
-    await db.query(
-      `INSERT INTO referrals(property, code, created_by_user_id)
-       VALUES ($1,$2,$3)`,
-      [property, code, req.user?.id || null]
-    );
 
-    const shareUrl = `${appOrigin.replace(/\/+$/,'')}/hotel/${encodeURIComponent(property)}?ref=${encodeURIComponent(code)}`;
-
-    return reply.send({
-      ok: true,
-      code,
-      shareUrl,
-      channel: channel || 'guest_dashboard'
-    });
-  });
-
-  // POST /referrals/apply
-  // { bookingCode, property?, referrer: { accountId|phone|email } }
-  app.post<{
-    Body: {
-      bookingCode: string;
-      property?: string; // optional; if omitted you can derive from booking in your system
-      referrer: { accountId?: string; phone?: string; email?: string };
-      meta?: Record<string, any>;
-    };
-  }>('/referrals/apply', async (req, reply) => {
-    const { bookingCode, property, referrer, meta } = req.body || {};
-    if (!bookingCode || !referrer) return reply.code(400).send({ error: 'bookingCode and referrer required' });
-
-    const prop = property || 'sunrise'; // TODO: derive from booking if you have that API
-    await ensureProperty(prop);
-
-    const refUserId = await getOrCreateUserIdByIdentity(referrer);
-
-    // Idempotency: one reward per (property, bookingCode)
-    const client = await db.connect();
+    const client = await fastify.pg.connect();
     try {
       await client.query('BEGIN');
 
-      const exists = await client.query(
-        'SELECT 1 FROM referral_rewards WHERE property=$1 AND booking_code=$2',
-        [prop, bookingCode]
+      // Ensure property exists (optional; remove if you already guarantee this)
+      await client.query(
+        `INSERT INTO properties(slug, name) VALUES ($1, $1)
+         ON CONFLICT (slug) DO NOTHING`,
+        [property]
       );
-      if (!exists.rowCount) {
-        // Insert reward record
-        await client.query(
-          `INSERT INTO referral_rewards(property, booking_code, referrer_user_id, amount, meta)
-           VALUES ($1,$2,$3,$4,$5)`,
-          [prop, bookingCode, refUserId, referralBonusAmount, meta || {}]
-        );
 
-        // Credit the referrer in ledger
-        await client.query(
-          `INSERT INTO credits_ledger(property, user_id, booking_code, delta, reason, meta)
-           VALUES ($1,$2,$3,$4,'referral_bonus',$5)`,
-          [prop, refUserId, bookingCode, referralBonusAmount, meta || {}]
-        );
-      }
+      await client.query(
+        `INSERT INTO referrals(property, code, created_by_user_id)
+         VALUES ($1, $2, $3)`,
+        [property, code, userId]
+      );
 
       await client.query('COMMIT');
-    } catch (e) {
+    } catch (e: any) {
       await client.query('ROLLBACK');
-      throw e;
+      req.log.error({ err: e }, 'referrals/init failed');
+      // If the code collided (rare), just return 409; client can retry
+      if (String(e?.message || '').includes('duplicate key')) {
+        return reply.code(409).send({ error: 'Duplicate referral code. Retry.' });
+      }
+      return reply.code(500).send({ error: 'Failed to create referral' });
     } finally {
       client.release();
     }
 
-    return reply.send({ ok: true, status: 'pending_or_awarded' });
+    const shareUrl = `${SITE_ORIGIN}/hotel/${encodeURIComponent(property)}?ref=${encodeURIComponent(code)}`;
+    return { ok: true, code, shareUrl, channel: channel || null };
   });
 
-  // GET /credits/mine  (Bearer)
-  app.get('/credits/mine', async (req, reply) => {
-    if (!req.user?.id) return reply.code(401).send({ error: 'unauthorized' });
+  /**
+   * POST /referrals/apply
+   * body: { bookingCode, property?, referrer: { accountId|phone|email } }
+   * idempotent on (property, bookingCode)
+   * returns: { ok, award: { delta, property } }
+   */
+  fastify.post<{ Body: RefApplyBody }>('/referrals/apply', async (req, reply) => {
+    const { bookingCode, property, referrer } = req.body || {};
+    if (!bookingCode) return reply.code(400).send({ error: 'bookingCode is required' });
+    if (!referrer || !(referrer.accountId || referrer.phone || referrer.email)) {
+      return reply.code(400).send({ error: 'referrer identifier required' });
+    }
 
-    const q = await db.query(
-      `SELECT property, COALESCE(balance,0)::int AS balance
-         FROM credit_balances
-        WHERE user_id = $1
-      UNION
-       SELECT slug AS property, 0 AS balance FROM properties
-        WHERE slug NOT IN (SELECT property FROM credit_balances WHERE user_id=$1)`,
-      [req.user.id]
+    // In a richer system, you'd infer property from bookingCode here if not provided.
+    const prop = property || 'sunrise';
+
+    const client = await fastify.pg.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Resolve referrer user_id
+      const refUserId = await resolveReferrerUserId(referrer, client);
+      if (!refUserId) {
+        await client.query('ROLLBACK');
+        return reply.code(404).send({ error: 'Referrer not found' });
+      }
+
+      // Ensure property exists
+      await client.query(
+        `INSERT INTO properties(slug, name) VALUES ($1, $1)
+         ON CONFLICT (slug) DO NOTHING`,
+        [prop]
+      );
+
+      // Idempotency: unique (property, booking_code)
+      await client.query(
+        `INSERT INTO referral_rewards(property, booking_code, referrer_user_id, amount, meta)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [prop, bookingCode, refUserId, REFERRAL_BONUS_CREDITS, { via: 'api', at: new Date().toISOString() }]
+      );
+
+      // Credit the referrer
+      await client.query(
+        `INSERT INTO credits_ledger(property, user_id, booking_code, delta, reason, meta)
+         VALUES ($1, $2, $3, $4, 'referral_bonus', $5)`,
+        [prop, refUserId, bookingCode, REFERRAL_BONUS_CREDITS, { source: 'referral_rewards' }]
+      );
+
+      await client.query('COMMIT');
+      return reply.send({ ok: true, award: { delta: REFERRAL_BONUS_CREDITS, property: prop, currency: CURRENCY } });
+    } catch (e: any) {
+      await client.query('ROLLBACK');
+      req.log.error({ err: e }, 'referrals/apply failed');
+      if (String(e?.message || '').includes('duplicate key value violates unique constraint')) {
+        // Booking already rewarded for this property
+        return reply.code(409).send({ error: 'Referral already applied for this booking/property' });
+      }
+      return reply.code(500).send({ error: 'Failed to apply referral' });
+    } finally {
+      client.release();
+    }
+  });
+
+  /**
+   * GET /credits/mine
+   * auth: Bearer token → user_id
+   * returns: { items: [{ property, balance, currency, expiresAt }], total }
+   */
+  fastify.get('/credits/mine', async (req, reply) => {
+    const userId = await getUserIdFromToken(req.headers.authorization);
+    if (!userId) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const { rows } = await fastify.pg.query(
+      `SELECT property, balance::int AS balance
+       FROM credit_balances
+       WHERE user_id = $1
+       ORDER BY property ASC`,
+      [userId]
     );
 
-    // You can add currency/expiresAt via a settings table; hard-code for now
-    const items = q.rows.map(r => ({
+    const items = rows.map((r: any) => ({
       property: r.property,
-      balance: Number(r.balance),
-      currency: 'INR',
-      expiresAt: null as string | null
+      balance: r.balance,
+      currency: CURRENCY,
+      expiresAt: null as string | null, // add real expiry logic later if needed
     }));
 
-    const total = items.reduce((a,b) => a + b.balance, 0);
-    return reply.send({ items, total });
+    const total = items.reduce((a, b) => a + (b.balance || 0), 0);
+    return { items, total };
   });
 
-  // POST /credits/redeem { property, amount, context }
-  app.post<{
-    Body: { property: string; amount: number; context?: any };
-  }>('/credits/redeem', async (req, reply) => {
-    if (!req.user?.id) return reply.code(401).send({ error: 'unauthorized' });
+  /**
+   * POST /credits/redeem
+   * body: { property, amount, context? }
+   * auth: Bearer token
+   * returns: { ok, newBalance }
+   */
+  fastify.post<{ Body: RedeemBody }>('/credits/redeem', async (req, reply) => {
+    const userId = await getUserIdFromToken(req.headers.authorization);
+    if (!userId) return reply.code(401).send({ error: 'Unauthorized' });
 
     const { property, amount, context } = req.body || {};
-    if (!property || !Number.isFinite(amount) || amount <= 0) {
+    const amt = Number(amount);
+    if (!property || !Number.isFinite(amt) || amt <= 0) {
       return reply.code(400).send({ error: 'property and positive amount required' });
     }
 
-    // Check balance ≥ amount
-    const q = await db.query(
-      `SELECT COALESCE(SUM(delta),0)::int AS balance
+    const client = await fastify.pg.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Check balance
+      const { rows } = await client.query(
+        `SELECT COALESCE(SUM(delta), 0)::int AS balance
          FROM credits_ledger
-        WHERE user_id=$1 AND property=$2`,
-      [req.user.id, property]
-    );
-    const balance = Number(q.rows[0]?.balance ?? 0);
-    if (balance < amount) return reply.code(400).send({ error: 'insufficient_credits', balance });
+         WHERE property = $1 AND user_id = $2`,
+        [property, userId]
+      );
+      const balance = rows[0]?.balance ?? 0;
+      if (balance < amt) {
+        await client.query('ROLLBACK');
+        return reply.code(400).send({ error: 'Insufficient credits', balance });
+      }
 
-    // Write redemption (negative delta)
-    await db.query(
-      `INSERT INTO credits_ledger(property, user_id, delta, reason, meta)
-       VALUES ($1,$2,$3,'redemption',$4)`,
-      [property, req.user.id, -Math.floor(amount), context || {}]
-    );
+      // Deduct
+      await client.query(
+        `INSERT INTO credits_ledger(property, user_id, delta, reason, meta)
+         VALUES ($1, $2, $3, 'redemption', $4)`,
+        [property, userId, -amt, { context: context ?? null }]
+      );
 
-    const after = balance - Math.floor(amount);
-    return reply.send({ ok: true, newBalance: after });
+      // New balance
+      const { rows: post } = await client.query(
+        `SELECT COALESCE(SUM(delta), 0)::int AS balance
+         FROM credits_ledger
+         WHERE property = $1 AND user_id = $2`,
+        [property, userId]
+      );
+      await client.query('COMMIT');
+      return { ok: true, newBalance: post[0]?.balance ?? 0, currency: CURRENCY };
+    } catch (e: any) {
+      await client.query('ROLLBACK');
+      req.log.error({ err: e }, 'credits/redeem failed');
+      return reply.code(500).send({ error: 'Failed to redeem credits' });
+    } finally {
+      client.release();
+    }
   });
 };
 

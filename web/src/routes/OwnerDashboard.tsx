@@ -1,6 +1,8 @@
+// web/src/routes/OwnerDashboard.tsx
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { API, getExperienceReport } from '../lib/api';
 import OwnerGate from '../components/OwnerGate';
+import OwnerGridSummary from '../components/OwnerGridSummary';
 
 type Report = {
   hotel: { slug: string; name: string };
@@ -16,7 +18,7 @@ const DEFAULT_SLUG = new URLSearchParams(location.search).get('slug') || 'sunris
 const DEFAULT_RANGE = (new URLSearchParams(location.search).get('range') as Range) || 'all';
 
 export default function OwnerDashboard() {
-  // restore from localStorage (if any)
+  // restore persisted state
   const initial = (() => {
     try {
       const raw = localStorage.getItem(LS_KEY);
@@ -37,13 +39,12 @@ export default function OwnerDashboard() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  // persist state → URL + localStorage (nice UX)
+  // persist to URL + localStorage
   useEffect(() => {
     const sp = new URLSearchParams(location.search);
     sp.set('slug', slug);
     sp.set('range', range);
-    const url = `${location.pathname}?${sp.toString()}`;
-    history.replaceState(null, '', url);
+    history.replaceState(null, '', `${location.pathname}?${sp.toString()}`);
     localStorage.setItem(LS_KEY, JSON.stringify({ slug, range }));
   }, [slug, range]);
 
@@ -51,14 +52,12 @@ export default function OwnerDashboard() {
     setErr(null);
     setLoading(true);
     try {
-      // If the API supports ?range, use it. If not, the call still succeeds (server ignores the query).
       const url = `${API}/experience/report/${encodeURIComponent(slug)}${range === 'all' ? '' : `?range=${range}`}`;
       const r = await fetch(url);
       if (!r.ok) throw new Error(await r.text());
       const json = (await r.json()) as Report;
       setData(json);
     } catch (e: any) {
-      // fallback to helper (no query param) in case a custom proxy stripped it
       try {
         const fallback = await getExperienceReport(slug);
         setData(fallback as unknown as Report);
@@ -111,10 +110,10 @@ export default function OwnerDashboard() {
 
   return (
     <OwnerGate>
-      <main className="max-w-4xl mx-auto p-4 space-y-4">
+      <main className="max-w-6xl mx-auto p-4 space-y-4">
         <header className="flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-semibold">Owner Dashboard</h1>
+            <h1 className="text-xl font-semibold">Owner · Dashboard</h1>
             {data && (
               <div className="text-sm text-gray-600">
                 {data.hotel.name} • {data.period}
@@ -128,12 +127,14 @@ export default function OwnerDashboard() {
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
               style={{ width: 160 }}
+              aria-label="Hotel slug"
             />
             <select
               className="select"
               value={range}
               onChange={(e) => setRange(e.target.value as Range)}
               title="Date range"
+              aria-label="Date range"
             >
               <option value="today">Today</option>
               <option value="7d">Last 7 days</option>
@@ -159,13 +160,13 @@ export default function OwnerDashboard() {
               <Kpi title="Avg mins" value={data.kpis.avgMins} />
             </section>
 
-            {/* Tiny bar chart (SVG) */}
+            {/* Performance snapshot */}
             <section className="card">
               <div className="font-semibold mb-2">Performance snapshot</div>
               <BarChart bars={bars} height={160} />
             </section>
 
-            {/* Policy hints */}
+            {/* Suggestions */}
             <section className="card">
               <div className="font-semibold mb-2">Suggestions</div>
               {data.hints.length ? (
@@ -175,6 +176,20 @@ export default function OwnerDashboard() {
               ) : (
                 <div className="text-gray-600">No obvious issues detected.</div>
               )}
+            </section>
+
+            {/* ---- Energy / Grid block ---- */}
+            <section className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+              <OwnerGridSummary />
+              <div className="card">
+                <div className="text-xs text-gray-500">Grid</div>
+                <div className="font-semibold">Quick actions</div>
+                <div className="mt-3 grid gap-2">
+                  <a className="btn btn-light" href="/grid/devices">Devices</a>
+                  <a className="btn btn-light" href="/grid/playbooks">Playbooks</a>
+                  <a className="btn btn-light" href="/grid/events">Events timeline</a>
+                </div>
+              </div>
             </section>
           </>
         )}

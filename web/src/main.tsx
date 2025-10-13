@@ -17,14 +17,14 @@ import './index.css';
 import ScrollToTop from './components/ScrollToTop';
 import BackHome from './components/BackHome';
 
-// (optional) global crash guard — see tiny file at bottom
+// (optional) global crash guard
 import GlobalErrorBoundary from './components/GlobalErrorBoundary';
 
 /* ======== Public / Website ======== */
-import App from './App';                       // Landing page
+import App from './App';
 import Demo from './routes/Demo';
 import AboutUs from './routes/AboutUs';
-import AboutAI from './routes/AboutAI';       // HOW IT WORKS (AI) PAGE
+import AboutAI from './routes/AboutAI';
 import Press from './routes/Press';
 import Privacy from './routes/Privacy';
 import Terms from './routes/Terms';
@@ -48,16 +48,16 @@ import HK from './routes/HK';
 import Maint from './routes/Maint';
 
 /* ======== Owner / Admin ======== */
-import Owner from './routes/Owner';
+import OwnerHome from './routes/OwnerHome';           // hub page at /owner
 import OwnerDashboard from './routes/OwnerDashboard';
 import OwnerSettings from './routes/OwnerSettings';
 import OwnerServices from './routes/OwnerServices';
 import OwnerReviews from './routes/OwnerReviews';
-// web/src/main.tsx (routes array — add under "Owner / Admin" or its own section)
+
+/* ======== Grid (VPP) ======== */
 import GridDevices from './routes/GridDevices';
 import GridPlaybooks from './routes/GridPlaybooks';
 import GridEvents from './routes/GridEvents';
-import OwnerHome from './routes/OwnerHome'; // add import
 
 /* ======== Root layout that adds global helpers ======== */
 function RootLayout() {
@@ -90,34 +90,32 @@ const router = createBrowserRouter([
       // Guest / Journey
       { path: 'hotel/:slug', element: <Hotel /> },
       { path: 'menu', element: <Menu /> },
+      { path: 'stay/:code/menu', element: <Menu /> }, // alias for guest menu deep-link
       { path: 'requestTracker', element: <RequestTracker /> },
       { path: 'bill', element: <Bill /> },
       { path: 'precheck/:code', element: <Precheck /> },
       { path: 'regcard', element: <Regcard /> },
       { path: 'claim', element: <ClaimStay /> },
       { path: 'checkout', element: <Checkout /> },
-      { path: 'guest', element: <GuestDashboard /> }, // My credits / refer & earn
+      { path: 'guest', element: <GuestDashboard /> },
 
       // Staff
       { path: 'desk', element: <Desk /> },
       { path: 'hk', element: <HK /> },
       { path: 'maint', element: <Maint /> },
 
-      // Owner
-      { path: 'owner', element: <Owner /> },
+      // Owner / Admin
+      { path: 'owner', element: <OwnerHome /> },            // hub
       { path: 'owner/dashboard', element: <OwnerDashboard /> },
+      { path: 'owner/dashboard/:slug', element: <OwnerDashboard /> }, // slug deep-link
       { path: 'owner/settings', element: <OwnerSettings /> },
       { path: 'owner/services', element: <OwnerServices /> },
       { path: 'owner/reviews', element: <OwnerReviews /> },
+
+      // Grid (VPP)
       { path: 'grid/devices', element: <GridDevices /> },
       { path: 'grid/playbooks', element: <GridPlaybooks /> },
-      { path: 'grid/events',   element: <GridEvents /> },
-      { path: 'owner', element: <OwnerHome /> },  // replace the old <Owner />
-
-      // in web/src/main.tsx router config
-      { path: 'stay/:code/menu', element: <Menu /> },               // alias for /menu
-      { path: 'owner/dashboard/:slug', element: <OwnerDashboard /> } // renders same dashboard
-
+      { path: 'grid/events', element: <GridEvents /> },
     ],
   },
 ]);
@@ -125,20 +123,16 @@ const router = createBrowserRouter([
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // helps avoid noisy refetches on visibility changes
       refetchOnWindowFocus: false,
     },
   },
 });
 
 const rootEl = document.getElementById('root');
-if (!rootEl) {
-  throw new Error('Root element #root not found in index.html');
-}
+if (!rootEl) throw new Error('Root element #root not found in index.html');
 
 createRoot(rootEl).render(
   <StrictMode>
-    {/* remove GlobalErrorBoundary below if you don’t add the tiny file */}
     <GlobalErrorBoundary>
       <ThemeProvider>
         <QueryClientProvider client={queryClient}>

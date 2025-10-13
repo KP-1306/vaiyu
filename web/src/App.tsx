@@ -46,6 +46,7 @@ export default function App() {
             <a href="#why" className="hover:text-gray-700">Why VAiyu</a>
             <a href="#ai" className="hover:text-gray-700">AI</a>
             <a href="#use-cases" className="hover:text-gray-700">Use-cases</a>
+            <Link to="/owner" className="hover:text-gray-700">For Hotels</Link> {/* added */}
             <Link to="/about" className="hover:text-gray-700">About</Link>
             <a href="#demo" className="hover:text-gray-700">Live Demo</a>
           </nav>
@@ -104,7 +105,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* Right-side moonshot bullets (restored) */}
+          {/* Right-side moonshot bullets */}
           <aside className="mt-8 lg:mt-0 lg:absolute lg:right-4 lg:top-1/2 lg:-translate-y-1/2">
             <div className="w-full lg:w-[420px] rounded-2xl bg-white/85 text-gray-900 shadow-lg backdrop-blur p-5">
               <div className="text-xs font-medium text-sky-800 bg-sky-100 inline-flex px-2 py-1 rounded-full">
@@ -187,7 +188,7 @@ export default function App() {
       <section id="ai" className="mx-auto max-w-7xl px-4 pb-14">
         <div className="relative overflow-hidden rounded-3xl p-1">
           <div
-            className="rounded-[20px] p-6 sm:p-8"
+            className="rounded-[20px] p-6 sm:px-8 sm:py-8"
             style={{
               background:
                 'radial-gradient(1200px 400px at -10% -40%, rgba(20,90,242,.25), transparent 60%), radial-gradient(1000px 400px at 110% -30%, rgba(14,165,233,.25), transparent 60%), linear-gradient(180deg, #ffffff, #f8fafc)',

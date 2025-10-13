@@ -57,6 +57,7 @@ import OwnerReviews from './routes/OwnerReviews';
 import GridDevices from './routes/GridDevices';
 import GridPlaybooks from './routes/GridPlaybooks';
 import GridEvents from './routes/GridEvents';
+import OwnerHome from './routes/OwnerHome'; // add import
 
 /* ======== Root layout that adds global helpers ======== */
 function RootLayout() {
@@ -111,6 +112,7 @@ const router = createBrowserRouter([
       { path: 'grid/devices', element: <GridDevices /> },
       { path: 'grid/playbooks', element: <GridPlaybooks /> },
       { path: 'grid/events',   element: <GridEvents /> },
+      { path: 'owner', element: <OwnerHome /> },  // replace the old <Owner />
 
       // in web/src/main.tsx router config
       { path: 'stay/:code/menu', element: <Menu /> },               // alias for /menu

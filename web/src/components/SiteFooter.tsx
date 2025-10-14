@@ -44,6 +44,8 @@ export default function SiteFooter() {
             <NavLink to="/careers" className="hover:underline">Careers</NavLink>
             <NavLink to="/contact" className="hover:underline">Contact</NavLink>
             <NavLink to="/website" className="hover:underline">Website Kit</NavLink>
+            <NavLink to="/status" className="hover:underline">Status</NavLink>
+
           </nav>
 
           {/* Socials placeholder (add real URLs when ready) */}

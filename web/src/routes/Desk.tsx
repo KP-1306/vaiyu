@@ -6,6 +6,7 @@ import {
   updateOrder,
 } from '../lib/api';
 import { connectEvents } from '../lib/sse';
+import SEO from "../components/SEO";
 
 type Ticket = {
   id: string;
@@ -20,6 +21,8 @@ type Ticket = {
   sla_minutes: number;
   sla_deadline: string;
 };
+
+<SEO title="Owner Home" noIndex />
 
 type Order = {
   id: string;

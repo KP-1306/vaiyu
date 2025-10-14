@@ -1,5 +1,4 @@
 // web/src/main.tsx
-import SkipToContent from './components/SkipToContent';
 import React, { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
@@ -22,11 +21,13 @@ import './index.css';
 import ScrollToTop from './components/ScrollToTop';
 import BackHome from './components/BackHome';
 
-// (optional) global crash guard
+// Crash guard
 import GlobalErrorBoundary from './components/GlobalErrorBoundary';
 
-// NEW: page-view tracker + route error boundary
+// A11y + analytics helpers
+import SkipToContent from './components/SkipToContent';
 import PageViewTracker from './components/PageViewTracker';
+import RouteAnnouncer from './components/RouteAnnouncer';
 import RouteErrorBoundary from './routes/RouteErrorBoundary';
 
 /* ======== Public / Website ======== */
@@ -68,28 +69,18 @@ import GridDevices from './routes/GridDevices';
 import GridPlaybooks from './routes/GridPlaybooks';
 import GridEvents from './routes/GridEvents';
 
-/* ======== 404 (new) ======== */
+/* ======== 404 ======== */
 import NotFound from './routes/NotFound';
 
+/* ======== Root layout that adds global helpers ======== */
 function RootLayout() {
   return (
     <>
+      <SkipToContent />       {/* first tabbable item for keyboard users */}
       <ScrollToTop />
       <BackHome />
-      {/* NEW: fire analytics on client-side navigation */}
-      <PageViewTracker />
-      <Outlet />
-    </>
-  );
-}
-
-function RootLayout() {
-  return (
-    <>
-      <SkipToContent /> {/* NEW */}
-      <ScrollToTop />
-      <BackHome />
-      <PageViewTracker />
+      <PageViewTracker />     {/* fires page_view on client-side navigation */}
+      <RouteAnnouncer />      {/* screen reader-friendly route change announcements */}
       <Outlet />
     </>
   );
@@ -99,7 +90,7 @@ const router = createBrowserRouter([
   {
     path: '/',
     element: <RootLayout />,
-    errorElement: <RouteErrorBoundary />, // NEW: per-route error fallback
+    errorElement: <RouteErrorBoundary />,
     children: [
       { index: true, element: <App /> },
 

@@ -4,6 +4,8 @@ import { createRoot } from 'react-dom/client';
 import Status from './routes/Status';
 import OnlineStatusBar from './components/OnlineStatusBar';
 import TopProgressBar from './components/TopProgressBar';
+import Thanks from './routes/Thanks';
+
 
 
 
@@ -123,6 +125,8 @@ const router = createBrowserRouter([
       { path: 'contact', element: <Contact /> },
       { path: 'careers', element: <Careers /> },
       { path: 'status', element: <Status /> },
+      { path: 'thanks', element: <Thanks /> },
+
 
 
       // Guest / Journey

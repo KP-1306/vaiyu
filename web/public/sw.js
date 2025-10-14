@@ -110,6 +110,15 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  const PRECACHE_URLS = [
+  '/', '/index.html', '/manifest.webmanifest',
+  '/icons/favicon-light-192.png',
+  '/icons/favicon-light-512.png',
+  '/icons/maskable-192.png',
+  '/icons/maskable-512.png',
+  '/icons/apple-touch-180-alt.png',
+];
+
   // 3) API / cross-origin: network-first with cache fallback
   event.respondWith((async () => {
     try {

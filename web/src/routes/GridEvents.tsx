@@ -10,6 +10,7 @@ import {
 
 import GridEventsTable from "../components/GridEventsTable";
 import type { GridEventRow } from "../lib/energy";
+import SEO from "../components/SEO";
 
 /* --------------------------- local demo helpers --------------------------- */
 
@@ -56,6 +57,8 @@ function estimateReducedKw(ev: GridEvent, devs: Device[]): number {
   const hours = Math.max(0.25, (end - start) / 3_600_000); // floor to 15 min
   return Math.round(kW * hours * 10) / 10; // 1 decimal
 }
+
+<SEO title="Owner Home" noIndex />
 
 /* --------------------------------- page ---------------------------------- */
 

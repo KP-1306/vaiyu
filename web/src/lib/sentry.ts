@@ -1,25 +1,8 @@
+// web/src/lib/sentry.ts
+// Temporary no-op so deploys aren't blocked. Wire real Sentry later.
 export function initSentry() {
-  const dsn = import.meta.env.VITE_SENTRY_DSN;
-  if (!dsn || typeof window === "undefined") return;
-
-  import("@sentry/browser")
-    .then(({ init }) => {
-      init({
-        dsn,
-        tracesSampleRate: Number(import.meta.env.VITE_SENTRY_TRACES_SAMPLE_RATE ?? 0.15),
-      });
-    })
-    .catch(() => {/* no-op */});
+  /* no-op */
 }
-
-export function captureError(error: unknown, context?: Record<string, any>) {
-  const dsn = import.meta.env.VITE_SENTRY_DSN;
-  if (!dsn || typeof window === "undefined") return;
-
-  import("@sentry/browser")
-    .then((Sentry) => {
-      if (context) Sentry.setContext("extra", context);
-      Sentry.captureException(error);
-    })
-    .catch(() => {/* no-op */});
+export function captureError(_error: unknown, _context?: Record<string, any>) {
+  /* no-op */
 }

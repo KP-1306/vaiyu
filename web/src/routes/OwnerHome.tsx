@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import OwnerGate from '../components/OwnerGate';
 import { API } from '../lib/api';
+import OwnerDigestCard from '../components/OwnerDigestCard'; // ← NEW
 
 // Tiny types to keep this file self-contained
 type Kpis = { tickets: number; orders: number; onTime: number; late: number; avgMins: number };
@@ -79,7 +80,10 @@ export default function OwnerHome() {
           </div>
         </header>
 
-        {/* KPI glance */}
+        {/* NEW: What changed today (server → fallback to demo; with CSV export) */}
+        <OwnerDigestCard slug={slug} apiBase={API} className="mb-2" />
+
+        {/* KPI glance (keep existing quick numbers) */}
         <section className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <Kpi title="Tickets" value={peek?.kpis?.tickets ?? '—'} />
           <Kpi title="Orders" value={peek?.kpis?.orders ?? '—'} />

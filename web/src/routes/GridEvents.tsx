@@ -8,6 +8,9 @@ import {
   Device,
 } from '../lib/api';
 
+import GridEventsTable from "../components/GridEventsTable";
+import type { GridEventRow } from "../lib/energy";
+
 /* --------------------------- local demo helpers --------------------------- */
 
 function demoDevices(): Device[] {
@@ -110,6 +113,18 @@ export default function GridEvents() {
     }
   }
 
+  const rows: GridEventRow[] = events.map((e: any) => ({
+  id: e.id,
+  deviceId: e.deviceId,
+  deviceName: e.deviceName,
+  startedAt: e.startedAt,
+  endedAt: e.endedAt ?? null,
+  action: e.action,            // "shed" | "restore"
+  watts: e.watts ?? null,
+}));
+
+<GridEventsTable events={rows} currency="₹" />
+  
   async function restore(ev: GridEvent, device_id: string) {
     if (!demoMode) {
       await gridStepEvent(ev.id, device_id, 'restore', 'manual restore');

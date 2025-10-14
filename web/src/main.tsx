@@ -2,6 +2,8 @@
 import React, { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import Status from './routes/Status';
+import OnlineStatusBar from './components/OnlineStatusBar';
+
 
 import {
   createBrowserRouter,
@@ -89,6 +91,7 @@ function RootLayout() {
   return (
     <>
       <SkipToContent />       {/* first tabbable item for keyboard users */}
+      <OnlineStatusBar />   {/* NEW */}
       <ScrollToTop />
       <BackHome />
       <PageViewTracker />     {/* fires page_view on client-side navigation */}

@@ -1,128 +1,92 @@
-import { Link } from 'react-router-dom';
-import Pill from "../components/Pill";   // ✅ correct from /routes
-
+import SEO from "../components/SEO";
 
 export default function Press() {
-  const year = new Date().getFullYear();
-
+  const site = typeof window !== "undefined" ? window.location.origin : "https://vaiyu.co.in";
   return (
-    <main className="min-h-screen bg-gray-50 text-gray-900">
-      {/* Hero */}
-      <section
-        className="relative isolate text-white"
-        style={{
-          background:
-            'radial-gradient(900px 320px at -10% -40%, rgba(20,90,242,.25), transparent 60%), radial-gradient(800px 300px at 110% -30%, rgba(14,165,233,.25), transparent 60%), linear-gradient(180deg, #0b1220, #101827)',
-        }}
-      >
-        <div className="mx-auto max-w-6xl px-4 py-16 sm:py-20">
-          <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs backdrop-blur">
-            🗞️ Press Kit
-          </span>
-          <h1 className="mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl">VAiyu Press & Media</h1>
-          <p className="mt-3 max-w-2xl text-white/85">
-            Logos, product shots, boilerplate and media contacts. Everything you need to cover VAiyu.
-          </p>
-          <div className="mt-6 flex gap-3">
-            <a href="/brand/VAiyu-PressKit.zip" className="btn !bg-white !text-gray-900" download>
-              Download full press kit
-            </a>
-            <Link to="/about" className="btn btn-light">About VAiyu</Link>
+    <main id="main" className="mx-auto max-w-6xl px-4 py-10 space-y-8">
+      <SEO
+        title="Press & Media Kit"
+        canonical={`${site}/press`}
+        description="Logos, brand colors, and boilerplate for VAiyu."
+        ogImage="/brand/vaiyu-logo-light.svg"
+      />
+
+      <header className="space-y-2">
+        <h1 className="text-3xl font-semibold">Press & Media Kit</h1>
+        <p className="text-gray-600">Download logos, brand colors, and boilerplate. For inquiries, email <a className="link" href="mailto:press@vaiyu.app">press@vaiyu.app</a>.</p>
+      </header>
+
+      {/* Logos */}
+      <section className="card bg-white">
+        <h2 className="text-lg font-semibold">Logos</h2>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="p-4 rounded-xl border border-black/10 bg-gray-50">
+            <div className="text-sm text-gray-600 mb-2">Dark on light</div>
+            <img src="/brand/vaiyu-logo-dark.svg" alt="VAiyu logo dark" className="w-full h-auto" />
+            <div className="mt-3 flex gap-2">
+              <a className="btn btn-light" href="/brand/vaiyu-logo-dark.svg" download>Download SVG</a>
+            </div>
+          </div>
+          <div className="p-4 rounded-xl border border-black/10 bg-[#0b1220]">
+            <div className="text-sm text-white/70 mb-2">Light on dark</div>
+            <img src="/brand/vaiyu-logo-light.svg" alt="VAiyu logo light" className="w-full h-auto" />
+            <div className="mt-3 flex gap-2">
+              <a className="btn btn-light" href="/brand/vaiyu-logo-light.svg" download>Download SVG</a>
+            </div>
           </div>
         </div>
-        <svg viewBox="0 0 1440 140" className="absolute bottom-[-1px] left-0 w-full" aria-hidden>
-          <path fill="#f9fafb" d="M0,80 C240,160 480,0 720,60 C960,120 1200,40 1440,100 L1440,140 L0,140 Z" />
-        </svg>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-10 space-y-8">
-        {/* Logos */}
-        <div className="card bg-white">
-          <h2 className="text-xl font-semibold">Logos</h2>
-          <p className="mt-1 text-sm text-gray-600">
-            Use the colored logo on dark backgrounds and the mono logo on light backgrounds. Do not alter colors,
-            stretch, or add shadows.
-          </p>
-          <div className="mt-4 grid sm:grid-cols-2 gap-4">
-            <Asset
-              title="Full-color logo (PNG)"
-              src="/brand/logo-color.png"
-              alt="VAiyu full-color logo"
-              href="/brand/logo-color.png"
-            />
-            <Asset
-              title="Mono logo (SVG)"
-              src="/brand/logo-mono.svg"
-              alt="VAiyu mono logo"
-              href="/brand/logo-mono.svg"
-            />
-          </div>
-          <div className="mt-4">
-            <a className="btn btn-light" href="/brand/VAiyu-Logos.zip" download>
-              Download all logos (.zip)
-            </a>
-          </div>
+      {/* Brand colors */}
+      <section className="card bg-white">
+        <h2 className="text-lg font-semibold">Brand colors</h2>
+        <div className="mt-4 grid grid-cols-2 sm:grid-cols-5 gap-3">
+          {[
+            { name: "Primary", var: "brand.primary", hex: "#0F62FE" },
+            { name: "Air",     var: "brand.air",     hex: "#00C853" },
+            { name: "Spark",   var: "brand.spark",   hex: "#FF3B30" },
+            { name: "Earth",   var: "brand.earth",   hex: "#FFD60A" },
+            { name: "Space",   var: "brand.space",   hex: "#8E8E93" },
+          ].map((c) => (
+            <ColorSwatch key={c.name} name={c.name} token={c.var} hex={c.hex} />
+          ))}
         </div>
+        <div className="text-xs text-gray-500 mt-3">
+          Download all tokens: <a className="link" href="/brand/brand-colors.json" download>brand-colors.json</a>
+        </div>
+      </section>
 
-        {/* Product shots */}
-        <div className="card bg-white">
-          <h2 className="text-xl font-semibold">Product shots</h2>
-          <p className="mt-1 text-sm text-gray-600">
-            Screens of the guest microsite, live request tracking, and the owner dashboard.
-          </p>
-          <div className="mt-4 grid sm:grid-cols-3 gap-4">
-            <Shot title="Guest Microsite" src="/brand/shot-guest.png" />
-            <Shot title="Front Desk / HK" src="/brand/shot-ops.png" />
-            <Shot title="Owner Dashboard" src="/brand/shot-owner.png" />
-          </div>
-          <div className="mt-4">
-            <a className="btn btn-light" href="/brand/VAiyu-ProductShots.zip" download>
-              Download all shots (.zip)
-            </a>
-          </div>
-        </div>
+      {/* Boilerplate */}
+      <section className="card bg-white">
+        <h2 className="text-lg font-semibold">Boilerplate</h2>
+        <p className="text-sm text-gray-700 mt-2">
+          VAiyu is an AI OS for hospitality. We help hotels deliver faster service with truth-anchored reviews,
+          refer-and-earn growth, and grid-smart operations. Learn more at <a className="link" href="/">vaiyu.co.in</a>.
+        </p>
+      </section>
 
-        {/* Boilerplate */}
-        <div className="card bg-white">
-          <h2 className="text-xl font-semibold">Company boilerplate</h2>
-          <p className="mt-2 text-gray-700">
-            <b>VAiyu</b> is the operating system for modern hospitality. We connect guest experience, hotel
-            operations and <b>truth-anchored AI</b> on one platform—so service is faster, SLAs are clearer and reviews
-            reflect the reality of every stay. From contactless check-in to live housekeeping requests and an owner
-            dashboard with policy hints, VAiyu helps hotels deliver five-star service at scale.
-          </p>
-        </div>
-
-        {/* Contact */}
-        <div className="card bg-white">
-          <h2 className="text-xl font-semibold">Media contact</h2>
-          <div className="mt-2 text-gray-700">
-            Press & partnerships: <a className="link" href="mailto:press@vaiyu.app">press@vaiyu.app</a>
-            <div className="text-sm text-gray-500 mt-1">© {year} VAiyu</div>
-          </div>
-        </div>
+      {/* Usage guidelines (short) */}
+      <section className="card bg-white">
+        <h2 className="text-lg font-semibold">Usage</h2>
+        <ul className="mt-2 text-sm text-gray-700 list-disc pl-5 space-y-1">
+          <li>Use dark logo on light backgrounds; light logo on dark.</li>
+          <li>Maintain clearspace roughly equal to the height of the colored tiles.</li>
+          <li>Don’t skew, recolor the tiles, or modify the wordmark.</li>
+        </ul>
       </section>
     </main>
   );
 }
 
-function Asset({ title, src, alt, href }: { title: string; src: string; alt: string; href: string }) {
+function ColorSwatch({ name, token, hex }: { name: string; token: string; hex: string }) {
   return (
-    <div className="rounded border p-3 flex items-center gap-3">
-      <img src={src} alt={alt} className="h-12 w-12 object-contain" />
-      <div className="flex-1">
-        <div className="font-medium">{title}</div>
-        <a href={href} download className="text-sm link">Download</a>
+    <div className="rounded-xl border border-black/10 overflow-hidden">
+      <div className="h-14" style={{ background: hex }} />
+      <div className="p-2 text-xs">
+        <div className="font-medium">{name}</div>
+        <div className="text-gray-600">{hex}</div>
+        <div className="mt-1 text-[10px] text-gray-500">token: {token}</div>
       </div>
     </div>
-  );
-}
-
-function Shot({ title, src }: { title: string; src: string }) {
-  return (
-    <figure className="rounded border bg-white overflow-hidden">
-      <img src={src} alt={title} className="w-full h-40 object-cover" />
-      <figcaption className="px-3 py-2 text-sm text-gray-700">{title}</figcaption>
-    </figure>
   );
 }

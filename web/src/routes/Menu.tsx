@@ -13,7 +13,7 @@ type Service = { key: string; label_en: string; sla_minutes: number };
 type FoodItem = { item_key: string; name: string; base_price: number };
 
 export default function Menu() {
-  // booking code from route: /stay/:code/menu
+  // booking code from route: /stay/:code/menu  (fallback to DEMO)
   const { code = 'DEMO' } = useParams();
 
   const [tab, setTab] = useState<'food' | 'services'>('services');
@@ -59,19 +59,46 @@ export default function Menu() {
     window.setTimeout(() => setToast(''), 1500);
   }
 
+  // ---- Helpers that accept multiple API response shapes ----
+  function extractTicketId(res: any): string | undefined {
+    return (
+      res?.ticket?.id ??
+      res?.id ??
+      res?.data?.id ??
+      res?.ticket_id ??
+      undefined
+    );
+  }
+
   async function requestService(service_key: string) {
     setBusy(`svc:${service_key}`);
     try {
-      const { ticket } = (await createTicket({
+      // Send both keys for compatibility (backend/demo may expect either)
+      const payload: any = {
         service_key,
+        service: service_key,
         room,
         booking: code,
+        source: 'guest_menu',
         tenant: 'guest',
-      } as any)) as any;
-      const id = ticket?.id;
-      if (!id) throw new Error('No ticket id returned');
-      // go track this ticket
-      window.location.href = `/stay/${encodeURIComponent(code!)}/requests/${id}`;
+      };
+
+      const res: any = await createTicket(payload);
+      const id = extractTicketId(res);
+
+      if (id) {
+        // deep-link to tracker if you have that route
+        window.location.href = `/stay/${encodeURIComponent(code!)}/requests/${id}`;
+        return;
+      }
+
+      // If no ID but OK flag, just confirm
+      if (res?.ok) {
+        showToast('Request placed');
+        return;
+      }
+
+      throw new Error('Could not create request');
     } catch (e: any) {
       alert(e?.message || 'Could not create request');
     } finally {
@@ -82,8 +109,9 @@ export default function Menu() {
   async function addFood(item_key: string) {
     setBusy(`food:${item_key}`);
     try {
-      await createOrder({ item_key, qty: 1, booking: code });
-      showToast('Added to order');
+      const res: any = await createOrder({ item_key, qty: 1, booking: code, source: 'guest_menu' });
+      if (res?.ok !== false) showToast('Added to order');
+      else throw new Error('Could not add item');
     } catch (e: any) {
       alert(e?.message || 'Could not add item');
     } finally {
@@ -117,7 +145,7 @@ export default function Menu() {
           >
             Services
           </button>
-        <button
+          <button
             onClick={() => setTab('food')}
             className={`px-3 py-2 rounded ${
               tab === 'food' ? 'bg-sky-500 text-white' : 'bg-white shadow'

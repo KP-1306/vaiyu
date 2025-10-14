@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { gridGetPlaybooks, gridStartEvent, Playbook } from '../lib/api';
+import SEO from "../components/SEO";
 
 export default function GridPlaybooks() {
   const [items, setItems] = useState<Playbook[]>([]);
@@ -12,6 +13,8 @@ export default function GridPlaybooks() {
     })();
   }, []);
 
+  <SEO title="Owner Home" noIndex />
+  
   async function run(pb: Playbook) {
     const target = Number(prompt('Target kW to shed (estimate)', '3')) || 0;
     try {

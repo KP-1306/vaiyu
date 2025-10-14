@@ -1,36 +1,53 @@
 // web/src/App.tsx
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import Pill from './components/Pill';
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import SEO from "./components/SEO";
+import Pill from "./components/Pill";
 
-import { usePageViews } from "./hooks/usePageViews";
-export default function App() {
-  usePageViews();
-  return (/* ... your routes ... */);
-}
-
-
-const TOKEN_KEY = 'stay:token';
+const TOKEN_KEY = "stay:token";
 
 const heroBg =
-  'https://images.unsplash.com/photo-1500375592092-40eb2168fd21?q=80&w=1600&auto=format&fit=crop';
+  "https://images.unsplash.com/photo-1500375592092-40eb2168fd21?q=80&w=1600&auto=format&fit=crop";
 
 export default function App() {
   // Show "My credits" only when a guest token exists
   const [hasToken, setHasToken] = useState<boolean>(() => !!localStorage.getItem(TOKEN_KEY));
+
   useEffect(() => {
-    const onStorage = (e: StorageEvent) => { if (e.key === TOKEN_KEY) setHasToken(!!e.newValue); };
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === TOKEN_KEY) setHasToken(!!e.newValue);
+    };
     const onVis = () => setHasToken(!!localStorage.getItem(TOKEN_KEY));
-    window.addEventListener('storage', onStorage);
-    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener("storage", onStorage);
+    document.addEventListener("visibilitychange", onVis);
     return () => {
-      window.removeEventListener('storage', onStorage);
-      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener("storage", onStorage);
+      document.removeEventListener("visibilitychange", onVis);
     };
   }, []);
 
+  const site = typeof window !== "undefined" ? window.location.origin : "https://vaiyu.co.in";
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
+      {/* SEO */}
+      <SEO
+        title="VAiyu — AI OS for Hotels"
+        description="Where Intelligence Meets Comfort — verified reviews, refer-and-earn growth, and grid-smart operations."
+        canonical={`${site}/`}
+        // Add /og/home.png later when ready; safe to keep commented:
+        // ogImage="/og/home.png"
+        twitter={{ site: "@vaiyu", card: "summary_large_image" }}
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: "VAiyu",
+          url: site,
+          logo: `${site}/icons/favicon-light-512.png`,
+          sameAs: [site],
+        }}
+      />
+
       {/* Top nav */}
       <header className="sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-gray-100">
         <div className="mx-auto max-w-7xl px-4 h-16 flex items-center justify-between">
@@ -39,23 +56,35 @@ export default function App() {
               src="/brand/vaiyu-logo.png"
               alt="VAiyu"
               className="h-8 w-auto hidden sm:block"
-              onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = 'none')}
+              onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")}
             />
             <span
               className="sm:hidden inline-block h-8 w-8 rounded-xl"
-              style={{ background: 'var(--brand, #145AF2)' }}
+              style={{ background: "var(--brand, #145AF2)" }}
               aria-hidden
             />
             <span className="font-semibold text-lg tracking-tight">VAiyu</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-6 text-sm">
-            <a href="#why" className="hover:text-gray-700">Why VAiyu</a>
-            <a href="#ai" className="hover:text-gray-700">AI</a>
-            <a href="#use-cases" className="hover:text-gray-700">Use-cases</a>
-            <Link to="/owner" className="hover:text-gray-700">For Hotels</Link> {/* added */}
-            <Link to="/about" className="hover:text-gray-700">About</Link>
-            <a href="#demo" className="hover:text-gray-700">Live Demo</a>
+            <a href="#why" className="hover:text-gray-700">
+              Why VAiyu
+            </a>
+            <a href="#ai" className="hover:text-gray-700">
+              AI
+            </a>
+            <a href="#use-cases" className="hover:text-gray-700">
+              Use-cases
+            </a>
+            <Link to="/owner" className="hover:text-gray-700">
+              For Hotels
+            </Link>
+            <Link to="/about" className="hover:text-gray-700">
+              About
+            </Link>
+            <a href="#demo" className="hover:text-gray-700">
+              Live Demo
+            </a>
           </nav>
 
           <div className="flex items-center gap-2">
@@ -70,7 +99,9 @@ export default function App() {
               </Link>
             )}
 
-            <Link to="/hk" className="btn !py-2 !px-3 text-sm">Try VAiyu</Link>
+            <Link to="/hk" className="btn !py-2 !px-3 text-sm">
+              Try VAiyu
+            </Link>
           </div>
         </div>
       </header>
@@ -80,11 +111,11 @@ export default function App() {
         className="relative isolate"
         style={{
           backgroundImage: `linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.35)), url(${heroBg})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
+          backgroundSize: "cover",
+          backgroundPosition: "center",
         }}
       >
-        <div className="mx-auto max-w-7xl px-4 py-24 sm:py-28 lg:py-32 text-white relative">
+        <div id="main" className="mx-auto max-w-7xl px-4 py-24 sm:py-28 lg:py-32 text-white relative">
           <div className="max-w-3xl">
             <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs backdrop-blur">
               <span className="animate-pulse">🤖</span> AI-powered hospitality OS
@@ -95,8 +126,8 @@ export default function App() {
             </h1>
 
             <p className="mt-3 text-white/90 text-lg">
-              We turn real stay activity into faster service, verified reviews, and delightful mobile
-              journeys — while helping properties run smarter during peak hours.
+              We turn real stay activity into faster service, verified reviews, and delightful mobile journeys — while
+              helping properties run smarter during peak hours.
             </p>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -119,12 +150,12 @@ export default function App() {
                 What VAiyu enables
               </div>
               <ul className="mt-3 space-y-2 text-sm">
-                <Bullet>📲 Mobile pre-check-in & guest menu</Bullet>
+                <Bullet>📲 Mobile pre-check-in &amp; guest menu</Bullet>
                 <Bullet>⚡ One-tap requests with live SLA tracking</Bullet>
-                <Bullet>🍽️ Room service & F&amp;B ordering</Bullet>
+                <Bullet>🍽️ Room service &amp; F&amp;B ordering</Bullet>
                 <Bullet>🧽 Housekeeping / maintenance workflows</Bullet>
                 <Bullet>🧠 AI review drafts grounded in real stay data</Bullet>
-                <Bullet>🛡️ Owner moderation & brand safety</Bullet>
+                <Bullet>🛡️ Owner moderation &amp; brand safety</Bullet>
                 <Bullet>🎁 Refer &amp; Earn credits (property-scoped)</Bullet>
                 <Bullet>🌐 Grid-aware operations (manual → assist → auto)</Bullet>
               </ul>
@@ -147,11 +178,11 @@ export default function App() {
           <ValueCard
             title="For Guests"
             points={[
-              'Express pre-check-in',
-              'In-app requests & tracking',
-              'Room service that just works',
-              'Crystal-clear bills',
-              'Refer friends, earn credits on your next stay',
+              "Express pre-check-in",
+              "In-app requests & tracking",
+              "Room service that just works",
+              "Crystal-clear bills",
+              "Refer friends, earn credits on your next stay",
             ]}
             emoji="🧳"
           />
@@ -159,10 +190,10 @@ export default function App() {
           <ValueCard
             title="For Staff"
             points={[
-              'Clean tickets & SLAs',
-              'Live SSE updates (no refresh)',
-              'Auto-routing to teams',
-              'Fewer calls, more action',
+              "Clean tickets & SLAs",
+              "Live SSE updates (no refresh)",
+              "Auto-routing to teams",
+              "Fewer calls, more action",
             ]}
             emoji="🧑‍🔧"
           />
@@ -170,10 +201,10 @@ export default function App() {
           <ValueCard
             title="For Owners"
             points={[
-              'SLA KPIs & policy hints',
-              'Bottleneck alerts',
-              'Property-wide trends',
-              'Energy-smart peak-hour playbooks',
+              "SLA KPIs & policy hints",
+              "Bottleneck alerts",
+              "Property-wide trends",
+              "Energy-smart peak-hour playbooks",
             ]}
             emoji="📈"
           />
@@ -181,10 +212,10 @@ export default function App() {
           <ValueCard
             title="For Your Brand"
             points={[
-              'Truth-anchored reviews',
-              'Owner approval before publish',
-              'Fewer disputes, more trust',
-              'Clear impact on rankings',
+              "Truth-anchored reviews",
+              "Owner approval before publish",
+              "Fewer disputes, more trust",
+              "Clear impact on rankings",
             ]}
             emoji="🏆"
           />
@@ -198,7 +229,7 @@ export default function App() {
             className="rounded-[20px] p-6 sm:px-8 sm:py-8"
             style={{
               background:
-                'radial-gradient(1200px 400px at -10% -40%, rgba(20,90,242,.25), transparent 60%), radial-gradient(1000px 400px at 110% -30%, rgba(14,165,233,.25), transparent 60%), linear-gradient(180deg, #ffffff, #f8fafc)',
+                "radial-gradient(1200px 400px at -10% -40%, rgba(20,90,242,.25), transparent 60%), radial-gradient(1000px 400px at 110% -30%, rgba(14,165,233,.25), transparent 60%), linear-gradient(180deg, #ffffff, #f8fafc)",
             }}
           >
             <div className="flex flex-col lg:flex-row items-start gap-8">
@@ -208,8 +239,8 @@ export default function App() {
                 </div>
                 <h3 className="mt-3 text-2xl font-bold">AI that does the work, so people can shine</h3>
                 <p className="mt-2 text-gray-600">
-                  VAiyu builds truth-anchored suggestions from stay activity — tickets, orders &
-                  timings — then drafts reviews, nudges teams, and surfaces what to fix.
+                  VAiyu builds truth-anchored suggestions from stay activity — tickets, orders & timings — then drafts
+                  reviews, nudges teams, and surfaces what to fix.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
                   <Pill>Truth-anchored reviews</Pill>
@@ -219,8 +250,12 @@ export default function App() {
                 </div>
 
                 <div className="mt-6 flex gap-3">
-                  <Link to="/owner/reviews" className="btn">Try AI review demo</Link>
-                  <Link to="/about-ai" className="btn btn-light">How it works</Link>
+                  <Link to="/owner/reviews" className="btn">
+                    Try AI review demo
+                  </Link>
+                  <Link to="/about-ai" className="btn btn-light">
+                    How it works
+                  </Link>
                 </div>
               </div>
 
@@ -285,16 +320,36 @@ export default function App() {
         <div className="mx-auto max-w-7xl px-4 py-8 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-3">
           <div>© {new Date().getFullYear()} VAiyu — Where Intelligence Meets Comfort.</div>
           <div className="flex items-center gap-4">
-            <Link className="hover:text-gray-800" to="/about-ai">AI</Link>
-            <a className="hover:text-gray-800" href="#why">Why VAiyu</a>
-            <Link className="hover:text-gray-800" to="/owner">For Hotels</Link>
-            <a className="hover:text-gray-800" href="#demo">Live Demo</a>
-            <Link className="hover:text-gray-800" to="/about">About</Link>
-            <Link className="hover:text-gray-800" to="/press">Press</Link>
-            <Link className="hover:text-gray-800" to="/privacy">Privacy</Link>
-            <Link className="hover:text-gray-800" to="/terms">Terms</Link>
-            <Link className="hover:text-gray-800" to="/contact">Contact</Link>
-            <Link className="hover:text-gray-800" to="/careers">Careers</Link>
+            <Link className="hover:text-gray-800" to="/about-ai">
+              AI
+            </Link>
+            <a className="hover:text-gray-800" href="#why">
+              Why VAiyu
+            </a>
+            <Link className="hover:text-gray-800" to="/owner">
+              For Hotels
+            </Link>
+            <a className="hover:text-gray-800" href="#demo">
+              Live Demo
+            </a>
+            <Link className="hover:text-gray-800" to="/about">
+              About
+            </Link>
+            <Link className="hover:text-gray-800" to="/press">
+              Press
+            </Link>
+            <Link className="hover:text-gray-800" to="/privacy">
+              Privacy
+            </Link>
+            <Link className="hover:text-gray-800" to="/terms">
+              Terms
+            </Link>
+            <Link className="hover:text-gray-800" to="/contact">
+              Contact
+            </Link>
+            <Link className="hover:text-gray-800" to="/careers">
+              Careers
+            </Link>
           </div>
         </div>
       </footer>
@@ -305,7 +360,12 @@ export default function App() {
 /* ---------- tiny building blocks ---------- */
 
 function Bullet({ children }: { children: React.ReactNode }) {
-  return <li className="flex items-start gap-2"><span className="mt-0.5">•</span><span>{children}</span></li>;
+  return (
+    <li className="flex items-start gap-2">
+      <span className="mt-0.5">•</span>
+      <span>{children}</span>
+    </li>
+  );
 }
 
 function ValueCard({

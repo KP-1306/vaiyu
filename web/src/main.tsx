@@ -12,7 +12,6 @@ import { initAnalytics, track } from "./lib/analytics";
 initAnalytics();
 track("page_view", { path: location.pathname });
 
-
 // Theme + global styles
 import { ThemeProvider } from './components/ThemeProvider';
 import './theme.css';
@@ -24,6 +23,10 @@ import BackHome from './components/BackHome';
 
 // (optional) global crash guard
 import GlobalErrorBoundary from './components/GlobalErrorBoundary';
+
+// NEW: page-view tracker + route error boundary
+import PageViewTracker from './components/PageViewTracker';
+import RouteErrorBoundary from './routes/RouteErrorBoundary';
 
 /* ======== Public / Website ======== */
 import App from './App';
@@ -53,7 +56,7 @@ import HK from './routes/HK';
 import Maint from './routes/Maint';
 
 /* ======== Owner / Admin ======== */
-import OwnerHome from './routes/OwnerHome';           // hub page at /owner
+import OwnerHome from './routes/OwnerHome';
 import OwnerDashboard from './routes/OwnerDashboard';
 import OwnerSettings from './routes/OwnerSettings';
 import OwnerServices from './routes/OwnerServices';
@@ -64,12 +67,16 @@ import GridDevices from './routes/GridDevices';
 import GridPlaybooks from './routes/GridPlaybooks';
 import GridEvents from './routes/GridEvents';
 
-/* ======== Root layout that adds global helpers ======== */
+/* ======== 404 (new) ======== */
+import NotFound from './routes/NotFound';
+
 function RootLayout() {
   return (
     <>
       <ScrollToTop />
       <BackHome />
+      {/* NEW: fire analytics on client-side navigation */}
+      <PageViewTracker />
       <Outlet />
     </>
   );
@@ -79,6 +86,7 @@ const router = createBrowserRouter([
   {
     path: '/',
     element: <RootLayout />,
+    errorElement: <RouteErrorBoundary />, // NEW: per-route error fallback
     children: [
       { index: true, element: <App /> },
 
@@ -121,15 +129,16 @@ const router = createBrowserRouter([
       { path: 'grid/devices', element: <GridDevices /> },
       { path: 'grid/playbooks', element: <GridPlaybooks /> },
       { path: 'grid/events', element: <GridEvents /> },
+
+      // 404 (catch-all) — keep last
+      { path: '*', element: <NotFound /> },
     ],
   },
 ]);
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-    },
+    queries: { refetchOnWindowFocus: false },
   },
 });
 

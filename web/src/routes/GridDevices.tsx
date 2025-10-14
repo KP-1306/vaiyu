@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { gridGetDevices, gridDeviceShed, gridDeviceRestore, Device } from '../lib/api';
+import SEO from "../components/SEO";
 
 /* --------------------------- local demo helpers --------------------------- */
 
@@ -44,6 +45,8 @@ export default function GridDevices() {
     [items]
   );
 
+  <SEO title="Owner Home" noIndex />
+  
   async function doAction(d: Device, action: 'shed' | 'restore') {
     // Manual-mode UX: checklist message before confirming
     const msg =

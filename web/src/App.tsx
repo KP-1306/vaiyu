@@ -3,6 +3,13 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Pill from './components/Pill';
 
+import { usePageViews } from "./hooks/usePageViews";
+export default function App() {
+  usePageViews();
+  return (/* ... your routes ... */);
+}
+
+
 const TOKEN_KEY = 'stay:token';
 
 const heroBg =

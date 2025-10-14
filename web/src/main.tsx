@@ -8,6 +8,11 @@ import {
 } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
+import { initAnalytics, track } from "./lib/analytics";
+initAnalytics();
+track("page_view", { path: location.pathname });
+
+
 // Theme + global styles
 import { ThemeProvider } from './components/ThemeProvider';
 import './theme.css';

@@ -1,12 +1,15 @@
+// web/src/routes/AboutUs.tsx
 import { Link } from 'react-router-dom';
-import Pill from "../components/Pill";   // ✅ correct from /routes
-import SEO from '../components/SEO';          // if the page is in /routes
-
-<SEO title="About" />
+import SEO from '../components/SEO';
 
 export default function AboutUs() {
   return (
     <main className="min-h-screen bg-gray-50 text-gray-900">
+      <SEO
+        title="About VAiyu"
+        description="Building the operating system for modern hospitality — uniting guest experience, hotel ops, and truth-anchored AI."
+      />
+
       {/* Hero */}
       <section
         className="relative isolate text-white"
@@ -27,11 +30,19 @@ export default function AboutUs() {
             hotel operations and <b>truth-anchored AI</b> on a single platform.
           </p>
           <div className="mt-6 flex gap-3">
-            <Link to="/ai" className="btn !bg-white !text-gray-900 hover:!bg-gray-50">How our AI works</Link>
-            <Link to="/owner/dashboard" className="btn btn-light">See Owner Dashboard</Link>
+            <Link to="/about-ai" className="btn !bg-white !text-gray-900 hover:!bg-gray-50">
+              How our AI works
+            </Link>
+            <Link to="/owner/dashboard?slug=sunrise" className="btn btn-light">
+              See Owner Dashboard
+            </Link>
           </div>
         </div>
-        <svg viewBox="0 0 1440 140" className="absolute bottom-[-1px] left-0 w-full" aria-hidden>
+        <svg
+          viewBox="0 0 1440 140"
+          className="absolute bottom-[-1px] left-0 w-full pointer-events-none"
+          aria-hidden
+        >
           <path fill="#f9fafb" d="M0,80 C240,160 480,0 720,60 C960,120 1200,40 1440,100 L1440,140 L0,140 Z" />
         </svg>
       </section>
@@ -55,7 +66,9 @@ export default function AboutUs() {
           </div>
 
           <div className="card bg-white">
-            <h3 className="text-sm font-semibold text-gray-600">In numbers <span className="text-xs text-gray-400">(demo)</span></h3>
+            <h3 className="text-sm font-semibold text-gray-600">
+              In numbers <span className="text-xs text-gray-400">(demo)</span>
+            </h3>
             <div className="mt-3 grid grid-cols-2 gap-3">
               <Stat label="Avg. resolution" value="⟲ 23m" />
               <Stat label="On-time rate" value="92%" />
@@ -106,7 +119,7 @@ export default function AboutUs() {
       <section className="mx-auto max-w-6xl px-4 py-6">
         <div className="card bg-white">
           <h2 className="text-xl font-semibold">What we value</h2>
-          <div className="mt-3 grid md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm text-gray-700">
+        <div className="mt-3 grid md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm text-gray-700">
             <Value>Start with the guest</Value>
             <Value>Earn trust with truth</Value>
             <Value>Design for calm</Value>

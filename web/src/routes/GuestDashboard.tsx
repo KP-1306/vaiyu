@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { myStays, myCredits, referralInit } from "../lib/api";
+import SEO from "../components/SEO";
 
 const TOKEN_KEY = "stay:token";
 
@@ -20,6 +21,8 @@ type Credit = {
   currency?: string;
   expiresAt?: string | null;
 };
+
+<SEO title="Owner Home" noIndex />
 
 export default function GuestDashboard() {
   const navigate = useNavigate();

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import OwnerGate from "../components/OwnerGate";
 import { getServices } from "../lib/api";
+import SEO from "../components/SEO";
 
 // Optional enhanced endpoints (if you add API routes below):
 import { saveServices as apiSave, upsertService as apiUpsert, deleteService as apiDelete } from "../lib/api";
@@ -8,6 +9,8 @@ import { saveServices as apiSave, upsertService as apiUpsert, deleteService as a
 type Service = { key: string; label_en: string; sla_minutes: number };
 
 const LKEY = "owner:services:local";
+
+<SEO title="Owner Home" noIndex />
 
 export default function OwnerServices() {
   const [rows, setRows] = useState<Service[]>([]);

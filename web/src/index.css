@@ -220,3 +220,21 @@ textarea:focus {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* Top progress bar */
+.top-progress {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 3px;
+  z-index: 1000;
+  pointer-events: none;
+}
+.top-progress__bar {
+  transform-origin: left center;
+  transform: scaleX(0);
+  transition: transform 600ms ease, opacity 200ms ease;
+  width: 100%;
+  height: 100%;
+  background: var(--brand);
+  opacity: 0;
+}

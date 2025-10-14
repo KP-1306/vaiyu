@@ -137,9 +137,7 @@ export default function App() {
               <Link to="/demo" className="btn btn-light">
                 Watch a quick demo
               </Link>
-              <a href="#why" className="link text-white/90 underline-offset-4">
-                Explore moonshots →
-              </a>
+
             </div>
           </div>
 

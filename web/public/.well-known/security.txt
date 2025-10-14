@@ -1,0 +1,3 @@
+Contact: mailto:security@vaiyu.co.in
+Policy: https://vaiyu.co.in/security
+Preferred-Languages: en

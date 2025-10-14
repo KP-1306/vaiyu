@@ -30,11 +30,4 @@
     "vite": "^5.4.8"
   }
 
-  {
-  "dependencies": {
-    "@sentry/react": "^7.120.0",
-    "@sentry/tracing": "^7.120.0"
   }
-}
-
-}

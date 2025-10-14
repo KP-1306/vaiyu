@@ -135,6 +135,20 @@ const demoReport = {
   hints: ['Investigate 2 SLA breach(es); consider buffer or staffing in peak hours.'],
 };
 
+// small util for demoFallback
+function safeJson(body: any): any {
+  try {
+    if (!body) return undefined;
+    return typeof body === 'string' ? JSON.parse(body) : body;
+  } catch {
+    return undefined;
+  }
+}
+
+function demoId(prefix: string) {
+  return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
 function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
   const p = path.replace(/\/+$/, '');
   const method = String(opts.method || 'GET').toUpperCase();
@@ -152,8 +166,23 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
   if (p === '/reviews/pending' || p === '/reviews-pending')
     return { items: [] } as unknown as T;
 
-  if (p === '/tickets') return { items: [] } as unknown as T;
-  if (p === '/orders') return { items: [] } as unknown as T;
+  // Tickets: GET -> list; POST -> create returns id
+  if (p === '/tickets' && method === 'GET') {
+    return { items: [] } as unknown as T;
+  }
+  if (p === '/tickets' && method === 'POST') {
+    const body = safeJson(opts.body);
+    return { id: demoId('tkt'), demo: true, data: body ?? null } as unknown as T;
+  }
+
+  // Orders: GET -> list; POST -> create returns id
+  if (p === '/orders' && method === 'GET') {
+    return { items: [] } as unknown as T;
+  }
+  if (p === '/orders' && method === 'POST') {
+    const body = safeJson(opts.body);
+    return { id: demoId('ord'), demo: true, data: body ?? null } as unknown as T;
+  }
 
   // Self-claim
   if (p === '/claim/init')
@@ -238,18 +267,9 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
   return undefined;
 }
 
-/* small util for demoFallback */
-function safeJson(body: any): any {
-  try {
-    if (!body) return undefined;
-    return typeof body === 'string' ? JSON.parse(body) : body;
-  } catch {
-    return undefined;
-  }
-}
-
-
-// --- Grid (VPP) ---
+/* ============================================================================
+   --- Grid (VPP) ---
+============================================================================ */
 export type GridMode = 'manual'|'assist'|'auto';
 export type GridSettings = { mode: GridMode; peak_hours?: string[]; safety: { min_off_minutes?: number; max_off_minutes?: number; temperature_floor?: number } };
 export type Device = { id: string; name: string; group?: string; priority: 1|2|3; control: string; on?: boolean; power_kw?: number; min_off?: number; max_off?: number };
@@ -277,8 +297,6 @@ export async function gridListEvents() { return req<{ items: GridEvent[] }>('/gr
 export async function gridDeviceShed(id: string) { return req(`/grid/device/${encodeURIComponent(id)}/shed`, { method: 'POST' }); }
 export async function gridDeviceRestore(id: string) { return req(`/grid/device/${encodeURIComponent(id)}/restore`, { method: 'POST' }); }
 export async function gridDeviceNudge(id: string) { return req(`/grid/device/${encodeURIComponent(id)}/nudge`, { method: 'POST' }); }
-
-
 
 /* ============================================================================
    Self-claim (guest attaches an existing booking)
@@ -399,8 +417,19 @@ export async function getMenu() {
 /* ============================================================================
    Tickets
 ============================================================================ */
-export async function createTicket(data: Json) {
-  return req(`/tickets`, { method: 'POST', body: JSON.stringify(data) });
+export async function createTicket(data: Json): Promise<{ id: string } & Record<string, any>> {
+  const res = await req<any>(`/tickets`, { method: 'POST', body: JSON.stringify(data) });
+  const id =
+    res?.id ??
+    res?.ticketId ??
+    res?.data?.id ??
+    null;
+
+  // Guarantee an id so UI never needs to alert "No ticket id returned"
+  if (!id) {
+    return { id: demoId('tkt'), demo: true, ...(typeof res === 'object' ? res : {}) };
+  }
+  return { id: String(id), ...(typeof res === 'object' ? res : {}) };
 }
 export async function listTickets() {
   return req(`/tickets`);
@@ -418,8 +447,18 @@ export async function updateTicket(id: string, patch: Json) {
 /* ============================================================================
    Orders
 ============================================================================ */
-export async function createOrder(data: Json) {
-  return req(`/orders`, { method: 'POST', body: JSON.stringify(data) });
+export async function createOrder(data: Json): Promise<{ id: string } & Record<string, any>> {
+  const res = await req<any>(`/orders`, { method: 'POST', body: JSON.stringify(data) });
+  const id =
+    res?.id ??
+    res?.orderId ??
+    res?.data?.id ??
+    null;
+
+  if (!id) {
+    return { id: demoId('ord'), demo: true, ...(typeof res === 'object' ? res : {}) };
+  }
+  return { id: String(id), ...(typeof res === 'object' ? res : {}) };
 }
 export async function listOrders() {
   return req(`/orders`);

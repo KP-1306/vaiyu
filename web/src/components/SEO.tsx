@@ -1,113 +1,124 @@
 import { useEffect } from "react";
 
+type JsonLd = Record<string, any>;
+
 type Props = {
-  title?: string;                 // Page title without brand suffix
-  description?: string;           // Meta description
-  canonical?: string;             // Absolute URL for canonical tag
-  noIndex?: boolean;              // If true -> robots:noindex, nofollow
-  ogImage?: string;               // Absolute URL to OG/Twitter image
-  jsonLd?: Record<string, any>;   // Structured data (JSON-LD)
-  brandSuffix?: string;           // Defaults to " · VAiyu"
+  title?: string;
+  description?: string;
+  canonical?: string;
+  noIndex?: boolean;
+  ogImage?: string;            // absolute or site-relative path
+  twitter?: {
+    site?: string;             // e.g. "@vaiyu"
+    card?: "summary" | "summary_large_image";
+  };
+  jsonLd?: JsonLd | JsonLd[];  // schema.org payload(s)
 };
 
-function upsertMeta(attr: { name?: string; property?: string }, content?: string) {
-  if (!attr.name && !attr.property) return;
-  const selector = attr.name
-    ? `meta[name="${attr.name}"]`
-    : `meta[property="${attr.property}"]`;
-  let el = document.head.querySelector(selector) as HTMLMetaElement | null;
-  if (!content) {
-    el?.parentElement?.removeChild(el);
-    return;
-  }
-  if (!el) {
-    el = document.createElement("meta");
-    if (attr.name) el.name = attr.name;
-    if (attr.property) el.setAttribute("property", attr.property);
-    document.head.appendChild(el);
-  }
-  el.content = content;
-}
-
-function upsertLink(rel: string, href?: string) {
-  const selector = `link[rel="${rel}"]`;
-  let el = document.head.querySelector(selector) as HTMLLinkElement | null;
-  if (!href) {
-    el?.parentElement?.removeChild(el);
-    return;
-  }
-  if (!el) {
-    el = document.createElement("link");
-    el.rel = rel;
-    document.head.appendChild(el);
-  }
-  el.href = href;
-}
-
-function upsertJsonLd(id: string, data?: Record<string, any>) {
-  const selector = `script[type="application/ld+json"][data-id="${id}"]`;
-  let el = document.head.querySelector(selector) as HTMLScriptElement | null;
-  if (!data) {
-    el?.parentElement?.removeChild(el);
-    return;
-  }
-  if (!el) {
-    el = document.createElement("script");
-    el.type = "application/ld+json";
-    el.setAttribute("data-id", id);
-    document.head.appendChild(el);
-  }
-  el.text = JSON.stringify(data);
-}
-
+/**
+ * Production-ready SEO helper:
+ * - <title>, meta description
+ * - canonical link
+ * - robots noindex
+ * - Open Graph + Twitter tags
+ * - JSON-LD (accepts single object or array)
+ */
 export default function SEO({
   title,
-  description = "AI for hotels: truth-anchored reviews, refer-and-earn growth, and grid-interactive operations.",
+  description,
   canonical,
   noIndex,
   ogImage,
+  twitter,
   jsonLd,
-  brandSuffix = " · VAiyu",
 }: Props) {
   useEffect(() => {
-    // Compose title
-    const fullTitle = title ? `${title}${brandSuffix}` : `VAiyu — Where Intelligence Meets Comfort`;
-    document.title = fullTitle;
+    const head = document.head;
+
+    // Title
+    if (title) document.title = title;
 
     // Description
-    upsertMeta({ name: "description" }, description);
+    setMeta("description", description);
 
     // Canonical
-    upsertLink("canonical", canonical);
+    setLink("canonical", canonical || undefined);
 
     // Robots
-    if (noIndex) {
-      upsertMeta({ name: "robots" }, "noindex, nofollow");
-    } else {
-      // Prefer removing robots tag so default indexing applies
-      upsertMeta({ name: "robots" }, undefined);
-    }
+    setMeta("robots", noIndex ? "noindex, nofollow" : undefined);
 
-    // Open Graph (social)
-    const url = canonical || (typeof window !== "undefined" ? window.location.href : undefined);
-    upsertMeta({ property: "og:title" }, fullTitle);
-    upsertMeta({ property: "og:description" }, description);
-    upsertMeta({ property: "og:type" }, "website");
-    if (url) upsertMeta({ property: "og:url" }, url);
-    if (ogImage) upsertMeta({ property: "og:image" }, ogImage);
+    // Open Graph
+    setMeta("og:title", title);
+    setMeta("og:description", description);
+    setMeta("og:type", "website");
+    setMeta("og:url", canonical || location.href);
+    if (ogImage) setMeta("og:image", absoluteUrl(ogImage));
 
     // Twitter
-    upsertMeta({ name: "twitter:card" }, ogImage ? "summary_large_image" : "summary");
-    upsertMeta({ name: "twitter:title" }, fullTitle);
-    upsertMeta({ name: "twitter:description" }, description);
-    if (ogImage) upsertMeta({ name: "twitter:image" }, ogImage);
+    const cardType = twitter?.card || (ogImage ? "summary_large_image" : "summary");
+    setMeta("twitter:card", cardType);
+    if (twitter?.site) setMeta("twitter:site", twitter.site);
+    setMeta("twitter:title", title);
+    setMeta("twitter:description", description);
+    if (ogImage) setMeta("twitter:image", absoluteUrl(ogImage));
 
-    // JSON-LD structured data (optional)
-    upsertJsonLd("page-ld", jsonLd);
+    // JSON-LD (remove any older script we inserted)
+    removeOldLd();
+    if (jsonLd) {
+      const scripts = Array.isArray(jsonLd) ? jsonLd : [jsonLd];
+      scripts.forEach((obj) => {
+        const s = document.createElement("script");
+        s.type = "application/ld+json";
+        s.setAttribute("data-seo-ld", "true");
+        s.text = JSON.stringify(obj);
+        head.appendChild(s);
+      });
+    }
 
-    // Cleanup is intentionally omitted so tags persist during client navigation
-    // (they will be updated/removed by subsequent calls)
-  }, [title, description, canonical, noIndex, ogImage, jsonLd, brandSuffix]);
+    // helpers
+    function setMeta(name: string, content?: string) {
+      const sel = name.startsWith("og:") || name.startsWith("twitter:")
+        ? `meta[property="${name}"], meta[name="${name}"]`
+        : `meta[name="${name}"]`;
+
+      let el = head.querySelector<HTMLMetaElement>(sel);
+      if (content) {
+        if (!el) {
+          el = document.createElement("meta");
+          if (name.startsWith("og:")) el.setAttribute("property", name);
+          else el.setAttribute("name", name);
+          head.appendChild(el);
+        }
+        el.setAttribute("content", content);
+      } else if (el) {
+        head.removeChild(el);
+      }
+    }
+
+    function setLink(rel: string, href?: string) {
+      let el = head.querySelector<HTMLLinkElement>(`link[rel="${rel}"]`);
+      if (href) {
+        if (!el) {
+          el = document.createElement("link");
+          el.rel = rel;
+          head.appendChild(el);
+        }
+        el.href = href;
+      } else if (el) {
+        head.removeChild(el);
+      }
+    }
+
+    function absoluteUrl(path: string) {
+      if (!path) return path;
+      if (/^https?:\/\//i.test(path)) return path;
+      return new URL(path, location.origin).toString();
+    }
+
+    function removeOldLd() {
+      head.querySelectorAll('script[data-seo-ld="true"]').forEach((n) => n.remove());
+    }
+  }, [title, description, canonical, noIndex, ogImage, twitter?.site, twitter?.card, jsonLd]);
 
   return null;
 }

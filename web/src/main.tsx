@@ -1,6 +1,8 @@
 // web/src/main.tsx
 import React, { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import Status from './routes/Status';
+
 import {
   createBrowserRouter,
   RouterProvider,
@@ -49,6 +51,7 @@ import Privacy from './routes/Privacy';
 import Terms from './routes/Terms';
 import Contact from './routes/Contact';
 import Careers from './routes/Careers';
+
 
 /* ======== Guest / Journey ======== */
 import Hotel from './routes/Hotel';
@@ -113,6 +116,8 @@ const router = createBrowserRouter([
       { path: 'terms', element: <Terms /> },
       { path: 'contact', element: <Contact /> },
       { path: 'careers', element: <Careers /> },
+      { path: 'status', element: <Status /> },
+
 
       // Guest / Journey
       { path: 'hotel/:slug', element: <Hotel /> },

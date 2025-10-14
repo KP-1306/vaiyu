@@ -1,14 +1,6 @@
 // web/src/main.tsx
-import React, { StrictMode } from 'react';
+import React, { StrictMode, Suspense, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
-import Status from './routes/Status';
-import OnlineStatusBar from './components/OnlineStatusBar';
-import TopProgressBar from './components/TopProgressBar';
-import Thanks from './routes/Thanks';
-
-
-
-
 import {
   createBrowserRouter,
   RouterProvider,
@@ -16,18 +8,17 @@ import {
 } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-import { initAnalytics, track } from "./lib/analytics";
-initAnalytics();
-track("page_view", { path: location.pathname });
-
+// Service worker registration (kept)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   });
 }
 
-import UpdatePrompt from './components/UpdatePrompt';
-
+// Analytics (kept)
+import { initAnalytics, track } from "./lib/analytics";
+initAnalytics();
+track("page_view", { path: location.pathname });
 
 // Theme + global styles
 import { ThemeProvider } from './components/ThemeProvider';
@@ -47,61 +38,69 @@ import PageViewTracker from './components/PageViewTracker';
 import RouteAnnouncer from './components/RouteAnnouncer';
 import RouteErrorBoundary from './routes/RouteErrorBoundary';
 
-/* ======== Public / Website ======== */
-import App from './App';
-import Demo from './routes/Demo';
-import AboutUs from './routes/AboutUs';
-import AboutAI from './routes/AboutAI';
-import Press from './routes/Press';
-import Privacy from './routes/Privacy';
-import Terms from './routes/Terms';
-import Contact from './routes/Contact';
-import Careers from './routes/Careers';
+// Network/perf helpers
+import OnlineStatusBar from './components/OnlineStatusBar';
+import TopProgressBar from './components/TopProgressBar';
+import UpdatePrompt from './components/UpdatePrompt';
+import Spinner from './components/Spinner';
 
+/* ======== Lazy-loaded routes ======== */
+// Public / Website
+const App            = lazy(() => import('./App'));
+const Demo           = lazy(() => import('./routes/Demo'));
+const AboutUs        = lazy(() => import('./routes/AboutUs'));
+const AboutAI        = lazy(() => import('./routes/AboutAI'));
+const Press          = lazy(() => import('./routes/Press'));
+const Privacy        = lazy(() => import('./routes/Privacy'));
+const Terms          = lazy(() => import('./routes/Terms'));
+const Contact        = lazy(() => import('./routes/Contact'));
+const Careers        = lazy(() => import('./routes/Careers'));
+const Status         = lazy(() => import('./routes/Status'));
+const Thanks         = lazy(() => import('./routes/Thanks'));
 
-/* ======== Guest / Journey ======== */
-import Hotel from './routes/Hotel';
-import Menu from './routes/Menu';
-import RequestTracker from './routes/RequestTracker';
-import Bill from './routes/Bill';
-import Precheck from './routes/Precheck';
-import Regcard from './routes/Regcard';
-import ClaimStay from './routes/ClaimStay';
-import Checkout from './routes/Checkout';
-import GuestDashboard from './routes/GuestDashboard';
+// Guest / Journey
+const Hotel          = lazy(() => import('./routes/Hotel'));
+const Menu           = lazy(() => import('./routes/Menu'));
+const RequestTracker = lazy(() => import('./routes/RequestTracker'));
+const Bill           = lazy(() => import('./routes/Bill'));
+const Precheck       = lazy(() => import('./routes/Precheck'));
+const Regcard        = lazy(() => import('./routes/Regcard'));
+const ClaimStay      = lazy(() => import('./routes/ClaimStay'));
+const Checkout       = lazy(() => import('./routes/Checkout'));
+const GuestDashboard = lazy(() => import('./routes/GuestDashboard'));
 
-/* ======== Staff / Ops ======== */
-import Desk from './routes/Desk';
-import HK from './routes/HK';
-import Maint from './routes/Maint';
+// Staff / Ops
+const Desk           = lazy(() => import('./routes/Desk'));
+const HK             = lazy(() => import('./routes/HK'));
+const Maint          = lazy(() => import('./routes/Maint'));
 
-/* ======== Owner / Admin ======== */
-import OwnerHome from './routes/OwnerHome';
-import OwnerDashboard from './routes/OwnerDashboard';
-import OwnerSettings from './routes/OwnerSettings';
-import OwnerServices from './routes/OwnerServices';
-import OwnerReviews from './routes/OwnerReviews';
+// Owner / Admin
+const OwnerHome      = lazy(() => import('./routes/OwnerHome'));
+const OwnerDashboard = lazy(() => import('./routes/OwnerDashboard'));
+const OwnerSettings  = lazy(() => import('./routes/OwnerSettings'));
+const OwnerServices  = lazy(() => import('./routes/OwnerServices'));
+const OwnerReviews   = lazy(() => import('./routes/OwnerReviews'));
 
-/* ======== Grid (VPP) ======== */
-import GridDevices from './routes/GridDevices';
-import GridPlaybooks from './routes/GridPlaybooks';
-import GridEvents from './routes/GridEvents';
+// Grid (VPP)
+const GridDevices    = lazy(() => import('./routes/GridDevices'));
+const GridPlaybooks  = lazy(() => import('./routes/GridPlaybooks'));
+const GridEvents     = lazy(() => import('./routes/GridEvents'));
 
-/* ======== 404 ======== */
-import NotFound from './routes/NotFound';
+// 404
+const NotFound       = lazy(() => import('./routes/NotFound'));
 
 /* ======== Root layout that adds global helpers ======== */
 function RootLayout() {
   return (
     <>
-      <TopProgressBar /> 
-      <SkipToContent />       {/* first tabbable item for keyboard users */}
-      <OnlineStatusBar />   {/* NEW */}
+      <TopProgressBar />
+      <SkipToContent />
+      <OnlineStatusBar />
       <ScrollToTop />
       <BackHome />
-      <PageViewTracker />     {/* fires page_view on client-side navigation */}
-      <RouteAnnouncer />      {/* screen reader-friendly route change announcements */}
-      <UpdatePrompt />   {/* ← INSERT HERE */}
+      <PageViewTracker />
+      <RouteAnnouncer />
+      <UpdatePrompt />
       <Outlet />
     </>
   );
@@ -127,8 +126,6 @@ const router = createBrowserRouter([
       { path: 'status', element: <Status /> },
       { path: 'thanks', element: <Thanks /> },
 
-
-
       // Guest / Journey
       { path: 'hotel/:slug', element: <Hotel /> },
       { path: 'menu', element: <Menu /> },
@@ -147,7 +144,7 @@ const router = createBrowserRouter([
       { path: 'maint', element: <Maint /> },
 
       // Owner / Admin
-      { path: 'owner', element: <OwnerHome /> },            // hub
+      { path: 'owner', element: <OwnerHome /> }, // hub
       { path: 'owner/dashboard', element: <OwnerDashboard /> },
       { path: 'owner/dashboard/:slug', element: <OwnerDashboard /> }, // slug deep-link
       { path: 'owner/settings', element: <OwnerSettings /> },
@@ -179,7 +176,15 @@ createRoot(rootEl).render(
     <GlobalErrorBoundary>
       <ThemeProvider>
         <QueryClientProvider client={queryClient}>
-          <RouterProvider router={router} />
+          <Suspense
+            fallback={
+              <div className="min-h-[40vh] grid place-items-center">
+                <Spinner label="Loading page…" />
+              </div>
+            }
+          >
+            <RouterProvider router={router} />
+          </Suspense>
         </QueryClientProvider>
       </ThemeProvider>
     </GlobalErrorBoundary>

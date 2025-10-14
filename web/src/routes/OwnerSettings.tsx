@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { getHotel, upsertHotel } from '../lib/api';
 import OwnerGate from '../components/OwnerGate';
+import SEO from "../components/SEO";
 
 type Theme = { brand?: string; mode?: 'light' | 'dark' };
 
@@ -25,6 +26,8 @@ type HotelPayload = {
   // not persisted here, but we allow editing a CSV to seed rooms in future
   roomsCsv?: string;
 };
+
+<SEO title="Owner Home" noIndex />
 
 function toCsv(arr?: string[]) {
   return (arr || []).join(', ');

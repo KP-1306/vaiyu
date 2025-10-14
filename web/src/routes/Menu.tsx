@@ -156,7 +156,7 @@ export default function Menu() {
         </div>
 
         <label className="text-sm text-gray-600">
-          Room:{' '}
+          Room{' '}
           <select
             value={room}
             onChange={(e) => setRoom(e.target.value)}

@@ -2,7 +2,7 @@ name: Deploy Supabase Edge Functions
 
 on:
   push:
-    branches: [ "main" ]   # change if your default branch is different
+    branches: [ "main" ]
 
 jobs:
   deploy:
@@ -13,7 +13,6 @@ jobs:
 
       - name: Install Supabase CLI
         run: |
-          curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
           curl -L https://github.com/supabase/cli/releases/download/v1.187.8/supabase_linux_amd64.tar.gz \
             | sudo tar -xz -C /usr/local/bin supabase
 

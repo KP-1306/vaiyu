@@ -18,6 +18,8 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+import UpdatePrompt from './components/UpdatePrompt';
+
 
 // Theme + global styles
 import { ThemeProvider } from './components/ThemeProvider';
@@ -88,6 +90,7 @@ function RootLayout() {
       <BackHome />
       <PageViewTracker />     {/* fires page_view on client-side navigation */}
       <RouteAnnouncer />      {/* screen reader-friendly route change announcements */}
+      <UpdatePrompt />   {/* ← INSERT HERE */}
       <Outlet />
     </>
   );

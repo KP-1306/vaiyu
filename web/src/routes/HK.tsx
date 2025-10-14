@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { listTickets, updateTicket } from "../lib/api";
 import { connectEvents } from "../lib/sse";
+import SEO from "../components/SEO";
 
 type Ticket = {
   id: string;
@@ -35,6 +36,8 @@ export default function HK() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  <SEO title="Owner Home" noIndex />
+  
   const filtered = useMemo(
     () => (status === "all" ? items : items.filter((t) => t.status === status)),
     [items, status]

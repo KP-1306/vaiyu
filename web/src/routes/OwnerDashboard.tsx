@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { API, getExperienceReport } from '../lib/api';
 import OwnerGate from '../components/OwnerGate';
 import OwnerGridSummary from '../components/OwnerGridSummary';
+import SEO from "../components/SEO";
 
 type Report = {
   hotel: { slug: string; name: string };
@@ -10,6 +11,8 @@ type Report = {
   kpis: { tickets: number; orders: number; onTime: number; late: number; avgMins: number };
   hints: string[];
 };
+
+<SEO title="Owner Home" noIndex />
 
 type Range = 'today' | '7d' | '30d' | 'all';
 

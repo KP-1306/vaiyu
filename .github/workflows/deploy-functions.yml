@@ -1,0 +1,31 @@
+name: Deploy Supabase Edge Functions
+
+on:
+  push:
+    branches: [ "main" ]   # change if your default branch is different
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install Supabase CLI
+        run: |
+          curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+          curl -L https://github.com/supabase/cli/releases/download/v1.187.8/supabase_linux_amd64.tar.gz \
+            | sudo tar -xz -C /usr/local/bin supabase
+
+      - name: Deploy all functions
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          supabase functions deploy auth-otp-send --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt
+          supabase functions deploy auth-otp-verify --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt
+          supabase functions deploy catalog-services --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt
+          supabase functions deploy catalog-menu --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt
+          supabase functions deploy tickets --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt
+          supabase functions deploy orders --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt
+          supabase functions deploy reviews --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt

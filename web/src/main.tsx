@@ -3,6 +3,8 @@ import React, { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import Status from './routes/Status';
 import OnlineStatusBar from './components/OnlineStatusBar';
+import TopProgressBar from './components/TopProgressBar';
+
 
 
 import {
@@ -90,6 +92,7 @@ import NotFound from './routes/NotFound';
 function RootLayout() {
   return (
     <>
+      <TopProgressBar /> 
       <SkipToContent />       {/* first tabbable item for keyboard users */}
       <OnlineStatusBar />   {/* NEW */}
       <ScrollToTop />

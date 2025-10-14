@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import OwnerGate from "../components/OwnerGate";
+import SEO from "../components/SEO";
 import {
   listPendingReviews,
   approveReview,
@@ -36,6 +37,8 @@ export default function OwnerReviews() {
     [rows, selected]
   );
 
+  <SEO title="Owner Home" noIndex />
+  
   async function load() {
     setErr(null);
     setLoading(true);

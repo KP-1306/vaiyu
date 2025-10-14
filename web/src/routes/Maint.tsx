@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { listTickets, updateTicket } from "../lib/api";
+import SEO from "../components/SEO";
 
 type Ticket = {
   id: string;
@@ -19,7 +20,8 @@ export default function Maint() {
     const r = await listTickets();
     setItems(((r as any).items || []) as Ticket[]);
   }
-
+<SEO title="Owner Home" noIndex />
+  
   useEffect(() => {
     load();
     const iv = setInterval(load, 3000);

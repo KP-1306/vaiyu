@@ -12,6 +12,13 @@ import { initAnalytics, track } from "./lib/analytics";
 initAnalytics();
 track("page_view", { path: location.pathname });
 
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+
+
 // Theme + global styles
 import { ThemeProvider } from './components/ThemeProvider';
 import './theme.css';

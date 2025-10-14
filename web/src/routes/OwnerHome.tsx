@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import OwnerGate from '../components/OwnerGate';
 import { API } from '../lib/api';
 import OwnerDigestCard from '../components/OwnerDigestCard'; // ← NEW
+import SEO from "../components/SEO";
 
 // Tiny types to keep this file self-contained
 type Kpis = { tickets: number; orders: number; onTime: number; late: number; avgMins: number };
@@ -91,7 +92,7 @@ export default function OwnerHome() {
           <Kpi title="Late" value={peek?.kpis?.late ?? '—'} />
           <Kpi title="Avg mins" value={peek?.kpis?.avgMins ?? '—'} />
         </section>
-
+<SEO title="Owner Home" noIndex />
         {/* Quick actions / deep links */}
         <section className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
           <Tile

@@ -1,4 +1,5 @@
 // web/src/main.tsx
+import SkipToContent from './components/SkipToContent';
 import React, { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
@@ -76,6 +77,18 @@ function RootLayout() {
       <ScrollToTop />
       <BackHome />
       {/* NEW: fire analytics on client-side navigation */}
+      <PageViewTracker />
+      <Outlet />
+    </>
+  );
+}
+
+function RootLayout() {
+  return (
+    <>
+      <SkipToContent /> {/* NEW */}
+      <ScrollToTop />
+      <BackHome />
       <PageViewTracker />
       <Outlet />
     </>

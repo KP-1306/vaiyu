@@ -1,4 +1,26 @@
 User-agent: *
+Disallow: /owner
+Disallow: /owner/
+Disallow: /owner/dashboard
+Disallow: /owner/settings
+Disallow: /owner/services
+Disallow: /owner/reviews
+Disallow: /desk
+Disallow: /hk
+Disallow: /maint
+Disallow: /grid
+Disallow: /grid/
+Disallow: /grid/devices
+Disallow: /grid/events
+Disallow: /grid/playbooks
+Disallow: /guest
+Disallow: /precheck
+Disallow: /regcard
+Disallow: /claim
+Disallow: /checkout
+Disallow: /bill
+Disallow: /menu
+Disallow: /requestTracker
 Allow: /
 
 Sitemap: https://vaiyu.co.in/sitemap.xml

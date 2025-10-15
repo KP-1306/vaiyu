@@ -1,36 +1,45 @@
 // web/src/components/AuthGate.tsx
-import { useEffect, useState } from "react";
+import { ReactNode } from "react";
+import { Navigate, useLocation } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
-import Spinner from "./Spinner";
 
-type Props = { children: React.ReactNode; redirectTo?: string };
+type Props = { children: ReactNode; allow?: Array<"owner"|"staff"|"viewer"> };
 
-export default function AuthGate({ children, redirectTo = "/signin" }: Props) {
-  const [loading, setLoading] = useState(true);
-  const [authed, setAuthed] = useState(false);
+export default function AuthGate({ children, allow = ["owner","staff","viewer"] }: Props) {
+  const loc = useLocation();
+  const { data: session } = useSessionQuery();
+  const { data: role } = useRoleQuery(session?.user?.id);
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setAuthed(!!data.session);
-      setLoading(false);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) => {
-      setAuthed(!!sess);
-    });
-    return () => sub.subscription.unsubscribe();
-  }, []);
+  if (!session) return <Navigate to={`/signin?redirect=${encodeURIComponent(loc.pathname)}`} replace />;
 
-  if (loading) {
-    return (
-      <div className="min-h-[40vh] grid place-items-center">
-        <Spinner label="Checking session…" />
-      </div>
-    );
+  if (role && !allow.includes(role)) {
+    return <Navigate to="/" replace />;
   }
-  if (!authed) {
-    // soft redirect (preserves SPA feel)
-    if (typeof window !== "undefined") window.location.assign(redirectTo);
-    return null;
-  }
+
   return <>{children}</>;
+}
+
+function useSessionQuery() {
+  return useQuery({
+    queryKey: ["session"],
+    queryFn: async () => {
+      const { data } = await supabase.auth.getSession();
+      return data.session ?? null;
+    },
+    refetchOnWindowFocus: false,
+  });
+}
+
+function useRoleQuery(userId?: string) {
+  return useQuery({
+    queryKey: ["role", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      // a small view or RPC that returns { role }
+      const { data, error } = await supabase.from("v_user_roles").select("role").eq("user_id", userId!).limit(1).maybeSingle();
+      if (error) throw error;
+      return data?.role as "owner"|"staff"|"viewer"|undefined;
+    },
+  });
 }

@@ -30,7 +30,7 @@ function unauthorized() {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return res(200, { ok: true });
-
+  if (ADMIN && req.headers.get("x-admin") !== ADMIN) return unauthorized();
   try {
     const url = new URL(req.url);
     const slug = url.searchParams.get("slug") || Deno.env.get("VA_TENANT_SLUG") || "TENANT1";

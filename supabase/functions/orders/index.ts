@@ -1,33 +1,23 @@
 // supabase/functions/orders/index.ts
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-function J(status: number, body: unknown) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      "content-type": "application/json",
-      "access-control-allow-origin": "*",
-      "access-control-allow-headers": "*",
-      "access-control-allow-methods": "GET,POST,OPTIONS",
-    },
-  });
-}
+import { j } from "../_shared/cors.ts";
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return J(200, { ok: true });
+  if (req.method === "OPTIONS") return j(req, 200, { ok: true });
 
   try {
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
+      // Service role: creates orders even with RLS enabled
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // ---- Read by id (optional, for deep links) -----------------------------
+    // Optional: read single order by id
     if (req.method === "GET") {
       const url = new URL(req.url);
       const id = url.searchParams.get("id");
-      if (!id) return J(400, { ok: false, error: "id required" });
+      if (!id) return j(req, 400, { ok: false, error: "id required" });
 
       const { data, error } = await supabase
         .from("orders")
@@ -35,49 +25,44 @@ serve(async (req) => {
         .eq("id", id)
         .single();
 
-      if (error || !data) return J(404, { ok: false, error: "not found" });
-      return J(200, { ok: true, order: data });
+      if (error || !data) return j(req, 404, { ok: false, error: "not found" });
+      return j(req, 200, { ok: true, order: data });
     }
 
-    // ---- Create order ------------------------------------------------------
-    if (req.method !== "POST") return J(405, { ok: false, error: "Method Not Allowed" });
+    if (req.method !== "POST") return j(req, 405, { ok: false, error: "Method Not Allowed" });
 
     const b = await req.json().catch(() => ({} as any));
-
-    const slug =
-      String(b?.slug ?? Deno.env.get("VA_TENANT_SLUG") ?? "").trim() || "TENANT1";
+    const slug = String(b?.slug ?? Deno.env.get("VA_TENANT_SLUG") ?? "TENANT1").trim();
     const item_key = String(b?.item_key ?? "").trim();
     const qty = Math.max(1, Number(b?.qty ?? 1));
-    const booking_code =
-      b?.booking_code === undefined || b?.booking_code === null
-        ? null
-        : String(b.booking_code).trim();
-    const room =
-      b?.room === undefined || b?.room === null
-        ? null
-        : String(b.room).trim();
+    const booking_code = b?.booking_code == null ? null : String(b.booking_code).trim();
+    const room = b?.room == null ? null : String(b.room).trim();
 
-    if (!slug || !item_key) {
-      return J(400, { ok: false, error: "slug and item_key required" });
-    }
+    if (!slug || !item_key) return j(req, 400, { ok: false, error: "slug and item_key required" });
 
     // resolve hotel
     const { data: hotel } = await supabase
-      .from("hotels")
-      .select("id")
-      .eq("slug", slug)
-      .single();
-    if (!hotel) return J(400, { ok: false, error: "Unknown hotel" });
+      .from("hotels").select("id").eq("slug", slug).single();
+    if (!hotel) return j(req, 400, { ok: false, error: "Unknown hotel" });
 
-    // validate item (active) + get price from catalog
+    // validate item by item_key; support price OR base_price
     const { data: item } = await supabase
       .from("menu_items")
-      .select("key, price, active")
+      .select("item_key, price, base_price, active")
       .eq("hotel_id", hotel.id)
-      .eq("key", item_key)
+      .eq("item_key", item_key)
       .eq("active", true)
       .single();
-    if (!item) return J(400, { ok: false, error: "Item not available" });
+    if (!item) return j(req, 400, { ok: false, error: "Item not available" });
+
+    const unitPrice =
+      typeof item.price === "number"
+        ? item.price
+        : typeof item.base_price === "number"
+        ? item.base_price
+        : null;
+
+    if (unitPrice == null) return j(req, 400, { ok: false, error: "Item price unavailable" });
 
     const payload = {
       hotel_id: hotel.id,
@@ -85,7 +70,7 @@ serve(async (req) => {
       room,
       item_key,
       qty,
-      price: item.price,     // authoritative unit price from catalog
+      price: unitPrice, // authoritative price from catalog
       status: "open" as const,
     };
 
@@ -95,9 +80,9 @@ serve(async (req) => {
       .select("id")
       .single();
 
-    if (error) return J(400, { ok: false, error: error.message });
-    return J(201, { ok: true, id: data.id });
+    if (error) return j(req, 400, { ok: false, error: error.message });
+    return j(req, 201, { ok: true, id: data.id });
   } catch (e) {
-    return J(500, { ok: false, error: String(e) });
+    return j(req, 500, { ok: false, error: String(e) });
   }
 });

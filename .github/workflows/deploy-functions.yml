@@ -40,4 +40,8 @@ jobs:
           supabase functions deploy ops-list --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt
           supabase functions deploy ops-update --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt
           supabase functions deploy ticket-get --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt
+          supabase functions deploy ticket-get --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt
+          supabase functions deploy ops-list --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt
+          supabase functions deploy ops-update --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt
+
 

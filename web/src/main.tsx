@@ -76,6 +76,7 @@ const Regcard        = lazy(() => import('./routes/Regcard'));
 const ClaimStay      = lazy(() => import('./routes/ClaimStay'));
 const Checkout       = lazy(() => import('./routes/Checkout'));
 const GuestDashboard = lazy(() => import('./routes/GuestDashboard'));
+const HotelReviews   = lazy(() => import('./routes/HotelReviews'));
 
 // Staff / Ops
 const Desk           = lazy(() => import('./routes/Desk'));
@@ -151,6 +152,7 @@ const router = createBrowserRouter([
       { path: 'claim', element: <ClaimStay /> },
       { path: 'checkout', element: <Checkout /> },
       { path: 'guest', element: <GuestDashboard /> },
+      { path: 'hotel/:slug/reviews', element: <HotelReviews /> },
 
       // Guest deep link (public)
       { path: 'stay/:slug/requests/:id', element: <RequestStatus /> },

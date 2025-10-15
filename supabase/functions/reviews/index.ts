@@ -1,17 +1,12 @@
 // supabase/functions/reviews/index.ts
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { j } from "../_shared/cors.ts";
 
-function J(status: number, body: unknown) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      "content-type": "application/json",
-      "access-control-allow-origin": "*",
-      "access-control-allow-headers": "*",
-      "access-control-allow-methods": "GET,POST,OPTIONS",
-    },
-  });
+function isAdmin(req: Request) {
+  const need = Deno.env.get("VA_ADMIN_API_KEY") ?? "";
+  const got  = req.headers.get("x-api-key") ?? "";
+  return !!need && got === need;
 }
 
 type Kpis = {
@@ -31,19 +26,13 @@ async function getHotelId(supabase: SupabaseClient, slug: string) {
   return hotel.id as string;
 }
 
-async function computeKpis(
-  supabase: SupabaseClient,
-  hotelId: string,
-  periodDays: number
-): Promise<Kpis> {
+async function computeKpis(supabase: SupabaseClient, hotelId: string, periodDays: number): Promise<Kpis> {
   const since = new Date(Date.now() - periodDays * 86400_000).toISOString();
-
   const { data: tickets = [], error } = await supabase
     .from("tickets")
     .select("status, on_time, minutes_to_close")
     .eq("hotel_id", hotelId)
     .gte("created_at", since);
-
   if (error) throw new Error(error.message);
 
   const total = tickets.length;
@@ -83,7 +72,7 @@ function buildDraft(k: Kpis) {
 
 /* ---------------------- Route handlers ---------------------- */
 
-async function handleSummary(url: URL, supabase: SupabaseClient) {
+async function handleSummary(url: URL, supabase: SupabaseClient, req: Request) {
   const slug = url.searchParams.get("slug") || Deno.env.get("VA_TENANT_SLUG") || "TENANT1";
   const periodDays = Math.max(7, Math.min(90, Number(url.searchParams.get("period_days") || 30)));
 
@@ -91,10 +80,10 @@ async function handleSummary(url: URL, supabase: SupabaseClient) {
   const kpis = await computeKpis(supabase, hotelId, periodDays);
   const draft = buildDraft(kpis);
 
-  return J(200, { ok: true, kpis, draft });
+  return j(req, 200, { ok: true, kpis, draft });
 }
 
-async function handleAuto(body: any, supabase: SupabaseClient) {
+async function handleAuto(body: any, supabase: SupabaseClient, req: Request) {
   const slug = String(body?.slug || Deno.env.get("VA_TENANT_SLUG") || "TENANT1").trim();
   const periodDays = Math.max(7, Math.min(90, Number(body?.period_days || 30)));
 
@@ -113,49 +102,53 @@ async function handleAuto(body: any, supabase: SupabaseClient) {
   };
 
   const { data, error } = await supabase.from("reviews").insert(insert).select("id").single();
-  if (error) return J(400, { ok: false, error: error.message });
+  if (error) return j(req, 400, { ok: false, error: error.message });
 
-  return J(200, { ok: true, id: data.id, draft: insert.body, kpis });
+  return j(req, 200, { ok: true, id: data.id, draft: insert.body, kpis });
 }
 
-async function handleApprove(body: any, supabase: SupabaseClient) {
+async function handleApprove(body: any, supabase: SupabaseClient, req: Request) {
+  if (!isAdmin(req)) return j(req, 401, { ok: false, error: "Unauthorized" });
+
   const id = body?.id;
-  if (!id) return J(400, { ok: false, error: "id required" });
+  if (!id) return j(req, 400, { ok: false, error: "id required" });
 
   const { error } = await supabase
     .from("reviews")
     .update({ status: "approved", published_at: new Date().toISOString() })
     .eq("id", id);
 
-  if (error) return J(400, { ok: false, error: error.message });
-  return J(200, { ok: true });
+  if (error) return j(req, 400, { ok: false, error: error.message });
+  return j(req, 200, { ok: true });
 }
 
 /* ---------------------- Server ---------------------- */
 
+import type { SupabaseClient as SC } from "https://esm.sh/@supabase/supabase-js@2";
 serve(async (req) => {
-  if (req.method === "OPTIONS") return J(200, { ok: true });
+  if (req.method === "OPTIONS") return j(req, 200, { ok: true });
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
+    // service role: writes regardless of RLS
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-  );
+  ) as SC;
 
   const url = new URL(req.url);
   const body = await req.json().catch(() => ({}));
 
   try {
     if (req.method === "GET" && url.pathname.endsWith("/summary")) {
-      return await handleSummary(url, supabase);
+      return await handleSummary(url, supabase, req);
     }
     if (req.method === "POST" && url.pathname.endsWith("/auto")) {
-      return await handleAuto(body, supabase);
+      return await handleAuto(body, supabase, req);
     }
     if (req.method === "POST" && url.pathname.endsWith("/approve")) {
-      return await handleApprove(body, supabase);
+      return await handleApprove(body, supabase, req);
     }
-    return J(404, { ok: false, error: "Unknown route" });
+    return j(req, 404, { ok: false, error: "Unknown route" });
   } catch (e) {
-    return J(500, { ok: false, error: String(e) });
+    return j(req, 500, { ok: false, error: String(e) });
   }
 });

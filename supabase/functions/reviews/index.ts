@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { j } from "../_shared/cors.ts";
+import { alertError } from "../_shared/alert.ts";
 
 /** lightweight admin API key for publish */
 function isAdmin(req: Request) {
@@ -263,6 +264,12 @@ serve(async (req) => {
     if (req.method === "POST" && url.pathname.endsWith("/approve")) return await handleApprove(body, svc, req);
     return j(req, 404, { ok: false, error: "Unknown route" });
   } catch (e) {
+    await alertError(Deno.env.get("WEBHOOK_ALERT_URL"), {
+    fn: "tickets", // change per function
+    message: String(e?.message || e),
+    meta: { url: req.url, method: req.method },
+  });
+
     return j(req, 500, { ok: false, error: String(e) });
   }
 });

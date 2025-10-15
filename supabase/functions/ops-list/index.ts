@@ -1,14 +1,15 @@
+// supabase/functions/ops-list/index.ts
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-function res(status: number, body: unknown) {
+function J(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
       "content-type": "application/json",
       "access-control-allow-origin": "*",
       "access-control-allow-headers": "*",
-      "access-control-allow-methods": "GET,POST,OPTIONS",
+      "access-control-allow-methods": "GET,OPTIONS",
     },
   });
 }
@@ -21,13 +22,14 @@ function unauthorized() {
       "content-type": "application/json",
       "access-control-allow-origin": "*",
       "access-control-allow-headers": "*",
-      "access-control-allow-methods": "GET,POST,OPTIONS",
+      "access-control-allow-methods": "GET,OPTIONS",
     },
   });
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return res(200, { ok: true });
+  if (req.method === "OPTIONS") return J(200, { ok: true });
+  if (req.method !== "GET") return J(405, { ok: false, error: "Method Not Allowed" });
   if (ADMIN && req.headers.get("x-admin") !== ADMIN) return unauthorized();
 
   try {
@@ -39,61 +41,59 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Find hotel
+    // Resolve hotel
     const { data: hotel, error: hErr } = await supabase
       .from("hotels")
       .select("id")
       .eq("slug", slug)
       .single();
-    if (hErr || !hotel) return res(400, { ok: false, error: "Unknown hotel" });
 
-    // Tickets
-    const { data: tickets, error: tErr } = await supabase
-      .from("tickets")
-      .select("id, service_key, room, status, created_at, closed_at, minutes_to_close, on_time, hotel_id")
-      .eq("hotel_id", hotel.id)
-      .order("created_at", { ascending: false })
-      .limit(50);
-    if (tErr) return res(500, { ok: false, error: tErr.message });
+    if (hErr || !hotel) return J(400, { ok: false, error: "Unknown hotel" });
 
-    // Orders
-    const { data: orders, error: oErr } = await supabase
-      .from("orders")
-      .select("id, item_key, qty, price, status, created_at, closed_at, hotel_id")
-      .eq("hotel_id", hotel.id)
-      .order("created_at", { ascending: false })
-      .limit(50);
-    if (oErr) return res(500, { ok: false, error: oErr.message });
-
-    // 🔒 Services — now scoped to this hotel and active only
-    const { data: services, error: sErr } = await supabase
+    // Pull services for label + SLA (one roundtrip)
+    const { data: services = [] } = await supabase
       .from("services")
-      .select("key, label, sla_minutes, active")
-      .eq("hotel_id", hotel.id)
-      .eq("active", true);
-    if (sErr) return res(500, { ok: false, error: sErr.message });
+      .select("key,label,sla_minutes,active")
+      .eq("hotel_id", hotel.id);
 
-    const slaByKey = new Map<string, number>();
-    const labelByKey = new Map<string, string>();
-    for (const s of services ?? []) {
-      if (typeof s.sla_minutes === "number") slaByKey.set(s.key, s.sla_minutes);
-      labelByKey.set(s.key, s.label ?? s.key);
+    const svcMap = new Map<string, { label: string | null; sla_minutes: number | null }>();
+    for (const s of services) {
+      svcMap.set(s.key, { label: s.label ?? s.key, sla_minutes: s.sla_minutes ?? null });
     }
 
-    const items = (tickets ?? []).map((t) => ({
-      id: t.id,
-      service_key: t.service_key,
-      label: labelByKey.get(t.service_key) ?? t.service_key,
-      room: t.room,
-      status: t.status,
-      created_at: t.created_at,
-      minutes_to_close: t.minutes_to_close ?? null,
-      on_time: t.on_time ?? null,
-      sla_minutes: slaByKey.get(t.service_key) ?? null,
-    }));
+    // Tickets
+    const { data: tickets = [] } = await supabase
+      .from("tickets")
+      .select("id,service_key,room,status,created_at,minutes_to_close,on_time")
+      .eq("hotel_id", hotel.id)
+      .order("created_at", { ascending: false })
+      .limit(50);
 
-    return res(200, { ok: true, items, tickets: tickets ?? [], orders: orders ?? [] });
+    const items = tickets.map((t) => {
+      const svc = svcMap.get(t.service_key) || { label: t.service_key, sla_minutes: null };
+      return {
+        id: t.id as string,
+        service_key: t.service_key as string,
+        label: svc.label,
+        room: (t.room ?? null) as string | null,
+        status: t.status as "open" | "closed" | string,
+        created_at: t.created_at as string,
+        minutes_to_close: (t.minutes_to_close ?? null) as number | null,
+        on_time: (t.on_time ?? null) as boolean | null,
+        sla_minutes: svc.sla_minutes,
+      };
+    });
+
+    // Orders (for the lower table)
+    const { data: orders = [] } = await supabase
+      .from("orders")
+      .select("id,item_key,qty,price,status,created_at,closed_at")
+      .eq("hotel_id", hotel.id)
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    return J(200, { ok: true, items, orders });
   } catch (e) {
-    return res(500, { ok: false, error: String(e) });
+    return J(500, { ok: false, error: String(e) });
   }
 });

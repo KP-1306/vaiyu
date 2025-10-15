@@ -1,6 +1,8 @@
+// web/src/pages/AdminOps.tsx
 import { useEffect, useState } from "react";
 
-const API = import.meta.env.VITE_API_URL as string;
+const API   = import.meta.env.VITE_API_URL as string;          // e.g. https://<ref>.supabase.co/functions/v1
+const ADMIN = import.meta.env.VITE_ADMIN_TOKEN as string | undefined; // set in Netlify env
 
 type TicketLegacy = {
   id: string;
@@ -36,9 +38,19 @@ type Order = {
   closed_at: string | null;
 };
 
+function withAuth(init?: RequestInit): RequestInit {
+  return {
+    ...init,
+    headers: {
+      ...(init?.headers || {}),
+      ...(ADMIN ? { "x-admin": ADMIN } : {}), // lightweight guard
+    },
+  };
+}
+
 export default function AdminOps() {
-  const [slug, setSlug] = useState("TENANT1"); // hotel slug for ops-list
-  const [linkCode, setLinkCode] = useState("DEMO"); // code used in /stay/<code>/requests/<id>
+  const [slug, setSlug] = useState("TENANT1");   // hotel slug for ops-list
+  const [linkCode, setLinkCode] = useState("DEMO"); // used in /stay/<code>/requests/<id>
   const [rows, setRows] = useState<Row[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
@@ -48,7 +60,7 @@ export default function AdminOps() {
     setLoading(true);
     setError(null);
     try {
-      const r = await fetch(`${API}/ops-list?slug=${encodeURIComponent(slug)}`);
+      const r = await fetch(`${API}/ops-list?slug=${encodeURIComponent(slug)}`, withAuth());
       const data = await r.json();
 
       // Prefer the new "items" array; fall back to legacy "tickets"
@@ -59,7 +71,7 @@ export default function AdminOps() {
         nextRows = (data.tickets as TicketLegacy[]).map((t) => ({
           id: t.id,
           service_key: t.service_key,
-          label: t.service_key, // no label in legacy, use key
+          label: t.service_key, // legacy: no label -> use key
           room: t.room,
           status: t.status as Row["status"],
           created_at: t.created_at,
@@ -84,25 +96,23 @@ export default function AdminOps() {
 
   async function closeTicket(id: string) {
     try {
-      // First try the new action name
-      let r = await fetch(`${API}/ops-update`, {
+      // Try new action first
+      let r = await fetch(`${API}/ops-update`, withAuth({
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "close", id }),
-      });
+      }));
 
-      // If backend hasn't been updated yet, retry with the legacy action
+      // If backend hasn’t been updated yet, retry legacy action
       if (!r.ok) {
-        r = await fetch(`${API}/ops-update`, {
+        r = await fetch(`${API}/ops-update`, withAuth({
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ action: "closeTicket", id }),
-        });
+        }));
       }
-      if (!r.ok) {
-        const text = await r.text();
-        throw new Error(text || "Failed to close ticket");
-      }
+
+      if (!r.ok) throw new Error(await r.text());
       await refresh();
     } catch (e: any) {
       alert(e?.message || String(e));
@@ -111,15 +121,12 @@ export default function AdminOps() {
 
   async function setOrderStatus(id: string, status: string) {
     try {
-      const r = await fetch(`${API}/ops-update`, {
+      const r = await fetch(`${API}/ops-update`, withAuth({
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "setOrderStatus", id, status }),
-      });
-      if (!r.ok) {
-        const text = await r.text();
-        throw new Error(text || "Failed to set order status");
-      }
+      }));
+      if (!r.ok) throw new Error(await r.text());
       await refresh();
     } catch (e: any) {
       alert(e?.message || String(e));
@@ -135,21 +142,13 @@ export default function AdminOps() {
       <div style={{ display: "flex", gap: 12, alignItems: "center", margin: "12px 0" }}>
         <label>
           Hotel slug:{" "}
-          <input
-            value={slug}
-            onChange={(e) => setSlug(e.target.value)}
-            style={{ padding: 4 }}
-          />
+          <input value={slug} onChange={(e) => setSlug(e.target.value)} style={{ padding: 4 }} />
         </label>
         <label>
           Deep-link code:{" "}
-          <input
-            value={linkCode}
-            onChange={(e) => setLinkCode(e.target.value)}
-            style={{ padding: 4 }}
-          />
+          <input value={linkCode} onChange={(e) => setLinkCode(e.target.value)} style={{ padding: 4 }} />
         </label>
-        <button onClick={refresh}>Refresh</button>
+        <button onClick={refresh} disabled={loading}>Refresh</button>
       </div>
 
       <h3>Tickets</h3>
@@ -180,7 +179,7 @@ export default function AdminOps() {
               </td>
               <td style={{ whiteSpace: "nowrap" }}>
                 {t.status !== "closed" ? (
-                  <button onClick={() => closeTicket(t.id)}>Close</button>
+                  <button onClick={() => closeTicket(t.id)} disabled={loading}>Close</button>
                 ) : (
                   <a
                     href={`/stay/${encodeURIComponent(linkCode)}/requests/${t.id}`}
@@ -226,9 +225,9 @@ export default function AdminOps() {
               <td style={{ whiteSpace: "nowrap" }}>
                 {o.status !== "delivered" && (
                   <>
-                    <button onClick={() => setOrderStatus(o.id, "preparing")}>Preparing</button>{" "}
-                    <button onClick={() => setOrderStatus(o.id, "delivered")}>Delivered</button>{" "}
-                    <button onClick={() => setOrderStatus(o.id, "cancelled")}>Cancel</button>
+                    <button onClick={() => setOrderStatus(o.id, "preparing")} disabled={loading}>Preparing</button>{" "}
+                    <button onClick={() => setOrderStatus(o.id, "delivered")} disabled={loading}>Delivered</button>{" "}
+                    <button onClick={() => setOrderStatus(o.id, "cancelled")} disabled={loading}>Cancel</button>
                   </>
                 )}
               </td>
@@ -245,7 +244,7 @@ export default function AdminOps() {
       </table>
 
       <div style={{ marginTop: 16 }}>
-        <button onClick={refresh}>Refresh</button>
+        <button onClick={refresh} disabled={loading}>Refresh</button>
       </div>
     </div>
   );

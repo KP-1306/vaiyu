@@ -1,6 +1,7 @@
 // web/src/main.tsx
 import React, { StrictMode, Suspense, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
+
 import {
   createBrowserRouter,
   RouterProvider,
@@ -89,6 +90,9 @@ const GridEvents     = lazy(() => import('./routes/GridEvents'));
 // 404
 const NotFound       = lazy(() => import('./routes/NotFound'));
 
+/* >>> ADDED: guest request status page for deep links */
+const RequestStatus  = lazy(() => import('./pages/RequestStatus'));
+
 /* ======== Root layout that adds global helpers ======== */
 function RootLayout() {
   return (
@@ -137,6 +141,9 @@ const router = createBrowserRouter([
       { path: 'claim', element: <ClaimStay /> },
       { path: 'checkout', element: <Checkout /> },
       { path: 'guest', element: <GuestDashboard /> },
+
+      /* >>> ADDED: deep link like /stay/DEMO/requests/<id> */
+      { path: 'stay/:slug/requests/:id', element: <RequestStatus /> },
 
       // Staff
       { path: 'desk', element: <Desk /> },

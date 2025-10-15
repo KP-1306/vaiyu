@@ -10,13 +10,22 @@ function isAdmin(req: Request) {
   return !!need && got === need;
 }
 
-/** anon client for rate-limit db table */
+/** anon client (for rate-limit table only) */
 function supabaseAnon() {
   const url = Deno.env.get("SUPABASE_URL")!;
   const anon = Deno.env.get("SUPABASE_ANON_KEY")!;
   return createClient(url, anon);
 }
-async function rateLimitOrThrow(req: Request, keyHint: string, limit = 60) {
+
+/** service-role client for privileged ops */
+function supabaseService() {
+  const url = Deno.env.get("SUPABASE_URL")!;
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  return createClient(url, key);
+}
+
+/** naive rate limit */
+async function rateLimitOrThrow(req: Request, keyHint: string, limit = 40) {
   const supa = supabaseAnon();
   const ip =
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
@@ -30,6 +39,45 @@ async function rateLimitOrThrow(req: Request, keyHint: string, limit = 60) {
     .eq("key", key)
     .gte("ts", new Date(Date.now() - 60_000).toISOString());
   if ((count ?? 0) > limit) throw new Error("Rate limit exceeded. Try again later.");
+}
+
+/** idempotency helpers */
+async function idemGet(svc: SupabaseClient, route: string, hotel_id: string | null, key: string) {
+  const { data } = await svc
+    .from("va_idempotency_keys")
+    .select("response")
+    .eq("route", route)
+    .eq("hotel_id", hotel_id)
+    .eq("key", key)
+    .maybeSingle();
+  return data?.response ?? null;
+}
+async function idemSet(svc: SupabaseClient, route: string, hotel_id: string | null, key: string, response: unknown) {
+  await svc.from("va_idempotency_keys").insert({ route, hotel_id, key, response }).catch(() => {});
+}
+
+/** audit helper */
+async function audit(svc: SupabaseClient, row: {
+  action: string;
+  actor?: string | null;
+  hotel_id?: string | null;
+  entity?: string | null;
+  entity_id?: string | null;
+  ip?: string | null;
+  ua?: string | null;
+  meta?: unknown;
+}) {
+  await svc.from("va_audit_logs").insert({
+    at: new Date().toISOString(),
+    action: row.action,
+    actor: row.actor ?? null,
+    hotel_id: row.hotel_id ?? null,
+    entity: row.entity ?? null,
+    entity_id: row.entity_id ?? null,
+    ip: row.ip ?? null,
+    ua: row.ua ?? null,
+    meta: row.meta ?? null,
+  }).catch(() => {});
 }
 
 type Kpis = {
@@ -103,15 +151,24 @@ async function handleSummary(url: URL, supabase: SupabaseClient, req: Request) {
   return j(req, 200, { ok: true, kpis, draft });
 }
 
-async function handleAuto(body: any, supabase: SupabaseClient, req: Request) {
-  // public create allowed; rate-limited
+async function handleAuto(body: any, svc: SupabaseClient, req: Request) {
   await rateLimitOrThrow(req, "reviews-auto", 40);
+
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
+  const ua = req.headers.get("user-agent") || null;
+  const idemKey = req.headers.get("Idempotency-Key") || null;
 
   const slug = String(body?.slug || Deno.env.get("VA_TENANT_SLUG") || "TENANT1").trim();
   const periodDays = Math.max(7, Math.min(90, Number(body?.period_days || 30)));
+  const hotelId = await getHotelId(svc, slug);
 
-  const hotelId = await getHotelId(supabase, slug);
-  const kpis = await computeKpis(supabase, hotelId, periodDays);
+  // idempotency short-circuit
+  if (idemKey) {
+    const hit = await idemGet(svc, "reviews:auto", hotelId, idemKey);
+    if (hit) return j(req, 200, hit);
+  }
+
+  const kpis = await computeKpis(svc, hotelId, periodDays);
   const autoDraft = buildDraft(kpis);
 
   const rating = Math.min(Math.max(Number(body?.rating ?? 5), 1), 5);
@@ -124,52 +181,86 @@ async function handleAuto(body: any, supabase: SupabaseClient, req: Request) {
     status: "pending",
   };
 
-  const { data, error } = await supabase.from("reviews").insert(insert).select("id").single();
+  const { data, error } = await svc.from("reviews").insert(insert).select("id").single();
   if (error) return j(req, 400, { ok: false, error: error.message });
 
-  return j(req, 200, { ok: true, id: data.id, draft: insert.body, kpis });
+  const response = { ok: true, id: data.id, draft: insert.body, kpis };
+
+  if (idemKey) await idemSet(svc, "reviews:auto", hotelId, idemKey, response);
+
+  await audit(svc, {
+    action: "review.auto",
+    hotel_id: hotelId,
+    entity: "review",
+    entity_id: data.id,
+    ip, ua,
+    meta: { periodDays, rating },
+  });
+
+  return j(req, 200, response);
 }
 
-async function handleApprove(body: any, supabase: SupabaseClient, req: Request) {
+async function handleApprove(body: any, svc: SupabaseClient, req: Request) {
   if (!isAdmin(req)) return j(req, 401, { ok: false, error: "Unauthorized" });
 
-  const id = body?.id;
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
+  const ua = req.headers.get("user-agent") || null;
+  const idemKey = req.headers.get("Idempotency-Key") || null;
+
+  const id = body?.id as string | undefined;
   if (!id) return j(req, 400, { ok: false, error: "id required" });
 
-  const { error } = await supabase
+  // fetch for hotel_id and current status
+  const { data: r, error: rErr } = await svc
+    .from("reviews")
+    .select("id, hotel_id, status")
+    .eq("id", id)
+    .single();
+  if (rErr || !r) return j(req, 404, { ok: false, error: "review not found" });
+
+  // Idempotency: already approved?
+  if (r.status === "approved") {
+    const response = { ok: true, already_approved: true };
+    if (idemKey) await idemSet(svc, "reviews:approve", r.hotel_id, idemKey, response);
+    return j(req, 200, response);
+  }
+  if (idemKey) {
+    const hit = await idemGet(svc, "reviews:approve", r.hotel_id, idemKey);
+    if (hit) return j(req, 200, hit);
+  }
+
+  const { error } = await svc
     .from("reviews")
     .update({ status: "approved", published_at: new Date().toISOString() })
     .eq("id", id);
   if (error) return j(req, 400, { ok: false, error: error.message });
 
-  return j(req, 200, { ok: true });
+  const response = { ok: true };
+  if (idemKey) await idemSet(svc, "reviews:approve", r.hotel_id, idemKey, response);
+
+  await audit(svc, {
+    action: "review.approve",
+    hotel_id: r.hotel_id,
+    entity: "review",
+    entity_id: id,
+    ip, ua,
+  });
+
+  return j(req, 200, response);
 }
 
 /* ---------------------- Server ---------------------- */
-import type { SupabaseClient as SC } from "https://esm.sh/@supabase/supabase-js@2";
-
 serve(async (req) => {
   if (req.method === "OPTIONS") return j(req, 200, { ok: true });
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    // service role: writes even with RLS
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-  ) as SC;
-
+  const svc = supabaseService();
   const url = new URL(req.url);
   const body = await req.json().catch(() => ({}));
 
   try {
-    if (req.method === "GET" && url.pathname.endsWith("/summary")) {
-      return await handleSummary(url, supabase, req);
-    }
-    if (req.method === "POST" && url.pathname.endsWith("/auto")) {
-      return await handleAuto(body, supabase, req);
-    }
-    if (req.method === "POST" && url.pathname.endsWith("/approve")) {
-      return await handleApprove(body, supabase, req);
-    }
+    if (req.method === "GET"  && url.pathname.endsWith("/summary")) return await handleSummary(url, svc, req);
+    if (req.method === "POST" && url.pathname.endsWith("/auto"))    return await handleAuto(body, svc, req);
+    if (req.method === "POST" && url.pathname.endsWith("/approve")) return await handleApprove(body, svc, req);
     return j(req, 404, { ok: false, error: "Unknown route" });
   } catch (e) {
     return j(req, 500, { ok: false, error: String(e) });

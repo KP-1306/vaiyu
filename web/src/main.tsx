@@ -8,6 +8,9 @@ import {
 } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
+import { initMonitoring } from "./lib/monitoring";
+initMonitoring();
+
 // Guard for protected routes
 import AuthGate from './components/AuthGate';
 

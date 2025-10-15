@@ -35,6 +35,7 @@ export default function App() {
         title="VAiyu — AI OS for Hotels"
         description="Where Intelligence Meets Comfort — verified reviews, refer-and-earn growth, and grid-smart operations."
         canonical={`${site}/`}
+        ogImage="/og/home.png"
         twitter={{ site: "@vaiyu", card: "summary_large_image" }}
         jsonLd={{
           "@context": "https://schema.org",

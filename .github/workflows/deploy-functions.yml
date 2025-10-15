@@ -37,3 +37,5 @@ jobs:
           supabase functions deploy tickets --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt
           supabase functions deploy orders --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt
           supabase functions deploy reviews --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt
+          supabase functions deploy ops-list --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt
+          supabase functions deploy ops-update --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt

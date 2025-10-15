@@ -81,6 +81,7 @@ const OwnerDashboard = lazy(() => import('./routes/OwnerDashboard'));
 const OwnerSettings  = lazy(() => import('./routes/OwnerSettings'));
 const OwnerServices  = lazy(() => import('./routes/OwnerServices'));
 const OwnerReviews   = lazy(() => import('./routes/OwnerReviews'));
+const AdminOps       = lazy(() => import('./pages/AdminOps'));
 
 // Grid (VPP)
 const GridDevices    = lazy(() => import('./routes/GridDevices'));
@@ -157,6 +158,7 @@ const router = createBrowserRouter([
       { path: 'owner/settings', element: <OwnerSettings /> },
       { path: 'owner/services', element: <OwnerServices /> },
       { path: 'owner/reviews', element: <OwnerReviews /> },
+      { path: 'admin', element: <AdminOps /> },
 
       // Grid (VPP)
       { path: 'grid/devices', element: <GridDevices /> },

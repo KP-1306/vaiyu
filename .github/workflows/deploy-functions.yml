@@ -2,7 +2,15 @@ name: Deploy Supabase Edge Functions
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
+    paths:
+      - "supabase/functions/**"
+      - ".github/workflows/deploy-functions.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-functions-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -13,35 +21,56 @@ jobs:
 
       - name: Install Supabase CLI
         run: |
-          curl -L https://github.com/supabase/cli/releases/download/v1.187.8/supabase_linux_amd64.tar.gz \
+          set -euo pipefail
+          curl -L https://github.com/supabase/cli/releases/latest/download/supabase_linux_amd64.tar.gz \
             | sudo tar -xz -C /usr/local/bin supabase
+          supabase --version
 
       - name: Validate secrets & login
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
         run: |
-          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then echo "::error::Missing SUPABASE_ACCESS_TOKEN"; exit 1; fi
+          set -euo pipefail
+          if [ -z "${SUPABASE_ACCESS_TOKEN:-}" ]; then echo "::error::Missing SUPABASE_ACCESS_TOKEN"; exit 1; fi
           if [[ "$SUPABASE_ACCESS_TOKEN" != sbp_* ]]; then echo "::error::Token must start with sbp_"; exit 1; fi
-          if [ -z "$SUPABASE_PROJECT_REF" ]; then echo "::error::Missing SUPABASE_PROJECT_REF"; exit 1; fi
+          if [ -z "${SUPABASE_PROJECT_REF:-}" ]; then echo "::error::Missing SUPABASE_PROJECT_REF"; exit 1; fi
           supabase login --token "$SUPABASE_ACCESS_TOKEN"
 
-      - name: Deploy all functions
+      - name: Deploy Edge Functions
         env:
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
         run: |
-          supabase functions deploy auth-otp-send --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt
-          supabase functions deploy auth-otp-verify --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt
-          supabase functions deploy catalog-services --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt
-          supabase functions deploy catalog-menu --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt
-          supabase functions deploy tickets --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt
-          supabase functions deploy orders --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt
-          supabase functions deploy reviews --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt
-          supabase functions deploy ops-list --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt
-          supabase functions deploy ops-update --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt
-          supabase functions deploy ticket-get --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt
-          supabase functions deploy ticket-get --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt
-          supabase functions deploy ops-list --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt
-          supabase functions deploy ops-update --project-ref $SUPABASE_PROJECT_REF --no-verify-jwt
+          set -euo pipefail
 
+          # Required functions — fail the job if any of these fail to deploy.
+          required=(
+            tickets
+            orders
+            reviews
+            ops-list
+            ops-update
+            ticket-get
+          )
 
+          # Optional legacy/aux functions — won't fail the job if missing.
+          optional=(
+            auth-otp-send
+            auth-otp-verify
+            catalog-services
+            catalog-menu
+          )
+
+          for fn in "${required[@]}"; do
+            echo "→ Deploying $fn"
+            supabase functions deploy "$fn" --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt
+          done
+
+          for fn in "${optional[@]}"; do
+            echo "→ Deploying (optional) $fn"
+            supabase functions deploy "$fn" --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt || echo "   (skipped: not present)"
+          done
+
+      - name: Summary
+        run: |
+          echo "✅ Supabase Edge Functions deployed to ${{ secrets.SUPABASE_PROJECT_REF }}"

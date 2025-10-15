@@ -13,9 +13,23 @@ function J(status: number, body: unknown) {
   });
 }
 
+const ADMIN = Deno.env.get("VA_ADMIN_TOKEN") || "";
+function unauthorized() {
+  return new Response(JSON.stringify({ ok: false, error: "unauthorized" }), {
+    status: 401,
+    headers: {
+      "content-type": "application/json",
+      "access-control-allow-origin": "*",
+      "access-control-allow-headers": "*",
+      "access-control-allow-methods": "POST,OPTIONS",
+    },
+  });
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return J(200, { ok: true });
   if (req.method !== "POST") return J(405, { ok: false, error: "Method Not Allowed" });
+  if (ADMIN && req.headers.get("x-admin") !== ADMIN) return unauthorized();
 
   try {
     const supabase = createClient(
@@ -26,26 +40,22 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action || "");
 
-    /* ============== CLOSE TICKET ============== */
+    // -------- CLOSE TICKET --------
     if (action === "closeTicket" || action === "close") {
       const id = body?.id as string | undefined;
       if (!id) return J(400, { ok: false, error: "id required" });
 
-      // 1) Get ticket (also read status to avoid double work)
       const { data: t, error: tErr } = await supabase
         .from("tickets")
         .select("id, hotel_id, service_key, created_at, status, minutes_to_close, on_time, closed_at")
         .eq("id", id)
         .single();
-
       if (tErr || !t) return J(404, { ok: false, error: "ticket not found" });
 
-      // If already closed, return as-is (idempotent)
       if (t.status === "closed") {
         return J(200, { ok: true, ticket: t, minutes_to_close: t.minutes_to_close, on_time: t.on_time });
       }
 
-      // 2) Fetch SLA for this service (hotel-scoped; fall back to 30 if missing)
       const { data: svc } = await supabase
         .from("services")
         .select("sla_minutes")
@@ -56,10 +66,9 @@ serve(async (req) => {
       const now = new Date();
       const start = new Date(t.created_at);
       const minutes = Math.max(0, Math.round((now.getTime() - start.getTime()) / 60000));
-      const sla = typeof svc?.sla_minutes === "number" ? svc.sla_minutes : 30; // fallback 30
+      const sla = typeof svc?.sla_minutes === "number" ? svc.sla_minutes : 30;
       const onTime = minutes <= sla;
 
-      // 3) Update & return updated row
       const { data: updated, error: uErr } = await supabase
         .from("tickets")
         .update({
@@ -71,13 +80,12 @@ serve(async (req) => {
         .eq("id", id)
         .select()
         .single();
-
       if (uErr) return J(400, { ok: false, error: uErr.message });
 
       return J(200, { ok: true, ticket: updated, minutes_to_close: minutes, on_time: onTime });
     }
 
-    /* ============== SET ORDER STATUS ============== */
+    // -------- SET ORDER STATUS --------
     if (action === "setOrderStatus") {
       const id = body?.id as string | undefined;
       const status = body?.status as "preparing" | "delivered" | "cancelled" | undefined;
@@ -94,8 +102,8 @@ serve(async (req) => {
         .eq("id", id)
         .select()
         .single();
-
       if (error) return J(400, { ok: false, error: error.message });
+
       return J(200, { ok: true, order: updated });
     }
 

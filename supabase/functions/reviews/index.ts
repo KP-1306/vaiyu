@@ -3,10 +3,33 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { j } from "../_shared/cors.ts";
 
+/** lightweight admin API key for publish */
 function isAdmin(req: Request) {
   const need = Deno.env.get("VA_ADMIN_API_KEY") ?? "";
-  const got  = req.headers.get("x-api-key") ?? "";
+  const got = req.headers.get("x-api-key") ?? "";
   return !!need && got === need;
+}
+
+/** anon client for rate-limit db table */
+function supabaseAnon() {
+  const url = Deno.env.get("SUPABASE_URL")!;
+  const anon = Deno.env.get("SUPABASE_ANON_KEY")!;
+  return createClient(url, anon);
+}
+async function rateLimitOrThrow(req: Request, keyHint: string, limit = 60) {
+  const supa = supabaseAnon();
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    (req as any).cf?.connectingIP ||
+    "0.0.0.0";
+  const key = `${keyHint}:${ip}`;
+  await supa.from("api_hits").insert({ key }).select().limit(1);
+  const { count } = await supa
+    .from("api_hits")
+    .select("ts", { count: "exact", head: true })
+    .eq("key", key)
+    .gte("ts", new Date(Date.now() - 60_000).toISOString());
+  if ((count ?? 0) > limit) throw new Error("Rate limit exceeded. Try again later.");
 }
 
 type Kpis = {
@@ -71,19 +94,19 @@ function buildDraft(k: Kpis) {
 }
 
 /* ---------------------- Route handlers ---------------------- */
-
 async function handleSummary(url: URL, supabase: SupabaseClient, req: Request) {
   const slug = url.searchParams.get("slug") || Deno.env.get("VA_TENANT_SLUG") || "TENANT1";
   const periodDays = Math.max(7, Math.min(90, Number(url.searchParams.get("period_days") || 30)));
-
   const hotelId = await getHotelId(supabase, slug);
   const kpis = await computeKpis(supabase, hotelId, periodDays);
   const draft = buildDraft(kpis);
-
   return j(req, 200, { ok: true, kpis, draft });
 }
 
 async function handleAuto(body: any, supabase: SupabaseClient, req: Request) {
+  // public create allowed; rate-limited
+  await rateLimitOrThrow(req, "reviews-auto", 40);
+
   const slug = String(body?.slug || Deno.env.get("VA_TENANT_SLUG") || "TENANT1").trim();
   const periodDays = Math.max(7, Math.min(90, Number(body?.period_days || 30)));
 
@@ -117,20 +140,20 @@ async function handleApprove(body: any, supabase: SupabaseClient, req: Request) 
     .from("reviews")
     .update({ status: "approved", published_at: new Date().toISOString() })
     .eq("id", id);
-
   if (error) return j(req, 400, { ok: false, error: error.message });
+
   return j(req, 200, { ok: true });
 }
 
 /* ---------------------- Server ---------------------- */
-
 import type { SupabaseClient as SC } from "https://esm.sh/@supabase/supabase-js@2";
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return j(req, 200, { ok: true });
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
-    // service role: writes regardless of RLS
+    // service role: writes even with RLS
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   ) as SC;
 

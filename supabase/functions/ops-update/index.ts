@@ -26,19 +26,26 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action || "");
 
-    if (action === "closeTicket") {
-      const id = body?.id;
+    /* ============== CLOSE TICKET ============== */
+    if (action === "closeTicket" || action === "close") {
+      const id = body?.id as string | undefined;
       if (!id) return J(400, { ok: false, error: "id required" });
 
-      // fetch ticket + SLA
-      const { data: t } = await supabase
+      // 1) Get ticket (also read status to avoid double work)
+      const { data: t, error: tErr } = await supabase
         .from("tickets")
-        .select("id, hotel_id, service_key, created_at")
+        .select("id, hotel_id, service_key, created_at, status, minutes_to_close, on_time, closed_at")
         .eq("id", id)
         .single();
 
-      if (!t) return J(404, { ok: false, error: "ticket not found" });
+      if (tErr || !t) return J(404, { ok: false, error: "ticket not found" });
 
+      // If already closed, return as-is (idempotent)
+      if (t.status === "closed") {
+        return J(200, { ok: true, ticket: t, minutes_to_close: t.minutes_to_close, on_time: t.on_time });
+      }
+
+      // 2) Fetch SLA for this service (hotel-scoped; fall back to 30 if missing)
       const { data: svc } = await supabase
         .from("services")
         .select("sla_minutes")
@@ -46,32 +53,50 @@ serve(async (req) => {
         .eq("key", t.service_key)
         .single();
 
-      const closedAt = new Date();
-      const minutes =
-        Math.round((closedAt.getTime() - new Date(t.created_at).getTime()) / 60000);
+      const now = new Date();
+      const start = new Date(t.created_at);
+      const minutes = Math.max(0, Math.round((now.getTime() - start.getTime()) / 60000));
+      const sla = typeof svc?.sla_minutes === "number" ? svc.sla_minutes : 30; // fallback 30
+      const onTime = minutes <= sla;
 
-      const onTime = svc ? minutes <= (svc.sla_minutes ?? 30) : true;
-
-      const { error } = await supabase
+      // 3) Update & return updated row
+      const { data: updated, error: uErr } = await supabase
         .from("tickets")
-        .update({ status: "closed", closed_at: closedAt.toISOString(), minutes_to_close: minutes, on_time: onTime })
-        .eq("id", id);
+        .update({
+          status: "closed",
+          closed_at: now.toISOString(),
+          minutes_to_close: minutes,
+          on_time: onTime,
+        })
+        .eq("id", id)
+        .select()
+        .single();
 
-      if (error) return J(400, { ok: false, error: error.message });
-      return J(200, { ok: true, minutes_to_close: minutes, on_time: onTime });
+      if (uErr) return J(400, { ok: false, error: uErr.message });
+
+      return J(200, { ok: true, ticket: updated, minutes_to_close: minutes, on_time: onTime });
     }
 
+    /* ============== SET ORDER STATUS ============== */
     if (action === "setOrderStatus") {
-      const id = body?.id;
-      const status = body?.status; // 'preparing' | 'delivered' | 'cancelled'
+      const id = body?.id as string | undefined;
+      const status = body?.status as "preparing" | "delivered" | "cancelled" | undefined;
       if (!id || !status) return J(400, { ok: false, error: "id and status required" });
 
-      const patch: any = { status };
-      if (status === "delivered") patch.closed_at = new Date().toISOString();
+      const patch: Record<string, unknown> = { status };
+      if (status === "delivered" || status === "cancelled") {
+        patch.closed_at = new Date().toISOString();
+      }
 
-      const { error } = await supabase.from("orders").update(patch).eq("id", id);
+      const { data: updated, error } = await supabase
+        .from("orders")
+        .update(patch)
+        .eq("id", id)
+        .select()
+        .single();
+
       if (error) return J(400, { ok: false, error: error.message });
-      return J(200, { ok: true });
+      return J(200, { ok: true, order: updated });
     }
 
     return J(400, { ok: false, error: "Unknown action" });

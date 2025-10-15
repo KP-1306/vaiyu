@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>VAiyu System Status</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif; line-height: 1.55; color: #111827; margin: 40px auto; max-width: 900px; padding: 0 16px; }
+  h1, h2, h3 { color: #0f172a; }
+  h1 { font-size: 28px; margin-bottom: 6px; }
+  h2 { font-size: 20px; margin-top: 28px; }
+  .badge { display: inline-flex; align-items: center; gap: 8px; background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; padding: 6px 10px; border-radius: 999px; font-size: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-top: 14px; }
+  .card { background:#ffffff; border:1px solid #e5e7eb; padding:14px 16px; border-radius:12px; }
+  .muted { color: #6b7280; font-size: 14px; }
+  ul { margin: 0.25rem 0 0.75rem 1.2rem; }
+</style>
+</head>
+<body>
+  <h1>VAiyu System Status</h1>
+  <div class="muted">Last updated: 15 Oct 2025, 05:59 PM IST</div>
+
+  <p class="badge">● All systems operational</p>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Web Frontend (Netlify)</h2>
+      <ul>
+        <li>Builds: healthy</li>
+        <li>CDN: healthy</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>APIs & Database (Supabase)</h2>
+      <ul>
+        <li>Edge Functions: healthy</li>
+        <li>Database & Backups: healthy</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>Auth & Email</h2>
+      <ul>
+        <li>Magic link delivery: healthy</li>
+        <li>SMTP sender domain (SPF/DKIM/DMARC): configured</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>Third-Party Processors</h2>
+      <ul>
+        <li>Operational</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <h2>Recent Incidents (last 30 days)</h2>
+    <p>None reported.</p>
+  </div>
+
+  <div class="muted" style="margin-top:16px;">
+    For issues or incident reports, email <a href="mailto:support@vaiyu.co.in">support@vaiyu.co.in</a>.
+  </div>
+</body>
+</html>

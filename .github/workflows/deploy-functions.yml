@@ -8,21 +8,29 @@ on:
       - ".github/workflows/deploy-functions.yml"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: deploy-functions-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  SUPABASE_TELEMETRY_DISABLED: "1"
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Install Supabase CLI
+      # Pin the CLI to a known-good version to avoid surprise breaking changes.
+      - name: Install Supabase CLI (pinned)
         run: |
           set -euo pipefail
-          curl -L https://github.com/supabase/cli/releases/latest/download/supabase_linux_amd64.tar.gz \
+          curl -L https://github.com/supabase/cli/releases/download/v1.187.8/supabase_linux_amd64.tar.gz \
             | sudo tar -xz -C /usr/local/bin supabase
           supabase --version
 
@@ -36,6 +44,15 @@ jobs:
           if [[ "$SUPABASE_ACCESS_TOKEN" != sbp_* ]]; then echo "::error::Token must start with sbp_"; exit 1; fi
           if [ -z "${SUPABASE_PROJECT_REF:-}" ]; then echo "::error::Missing SUPABASE_PROJECT_REF"; exit 1; fi
           supabase login --token "$SUPABASE_ACCESS_TOKEN"
+
+      # Optional: quick sanity to catch syntax errors before deploy
+      - name: Deno format & type check (soft fail)
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          deno --version || (curl -fsSL https://deno.land/x/install/install.sh | sh && echo "$HOME/.deno/bin" >> $GITHUB_PATH)
+          deno fmt --check supabase/functions/**/*.ts
+          deno check supabase/functions/**/*.ts || true
 
       - name: Deploy Edge Functions
         env:
@@ -61,6 +78,7 @@ jobs:
             catalog-menu
           )
 
+          echo "Project: $SUPABASE_PROJECT_REF"
           for fn in "${required[@]}"; do
             echo "→ Deploying $fn"
             supabase functions deploy "$fn" --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt
@@ -72,5 +90,4 @@ jobs:
           done
 
       - name: Summary
-        run: |
-          echo "✅ Supabase Edge Functions deployed to ${{ secrets.SUPABASE_PROJECT_REF }}"
+        run: echo "✅ Supabase Edge Functions deployed to ${{ secrets.SUPABASE_PROJECT_REF }}"

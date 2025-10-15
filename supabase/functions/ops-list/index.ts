@@ -1,6 +1,8 @@
 // supabase/functions/ops-list/index.ts
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { alertError } from "../_shared/alert.ts";
+
 
 /** JSON + CORS */
 function J(status: number, body: unknown) {
@@ -198,6 +200,11 @@ serve(async (req) => {
       totals,
     });
   } catch (e) {
+    await alertError(Deno.env.get("WEBHOOK_ALERT_URL"), {
+    fn: "tickets", // change per function
+    message: String(e?.message || e),
+    meta: { url: req.url, method: req.method },
+  });
     return J(500, { ok: false, error: String(e) });
   }
 });

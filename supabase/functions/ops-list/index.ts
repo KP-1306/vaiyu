@@ -13,6 +13,21 @@ function res(status: number, body: unknown) {
   });
 }
 
+const ADMIN = Deno.env.get("VA_ADMIN_TOKEN") || "";
+
+function unauthorized() {
+  return new Response(JSON.stringify({ ok: false, error: "unauthorized" }), {
+    status: 401,
+    headers: {
+      "content-type": "application/json",
+      "access-control-allow-origin": "*",
+      "access-control-allow-headers": "*",
+      "access-control-allow-methods": "GET,POST,OPTIONS",
+    },
+  });
+}
+
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return res(200, { ok: true });
 

@@ -24,16 +24,21 @@ function supabaseAnon(req: Request) {
   });
 }
 
+/** service-role client for privileged writes/lookups */
+function supabaseService() {
+  const url = Deno.env.get("SUPABASE_URL")!;
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  return createClient(url, key);
+}
+
 /** naive per-IP rate limit (rolling 60s) — requires public.api_hits table */
-async function rateLimitOrThrow(supa: ReturnType<typeof createClient>, req: Request, keyHint: string, limit = 100) {
+async function rateLimitOrThrow(supa: ReturnType<typeof createClient>, req: Request, keyHint: string, limit = 150) {
   const ip =
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     (req as any).cf?.connectingIP ||
     "0.0.0.0";
   const key = `${keyHint}:${ip}`;
-  // record hit
   await supa.from("api_hits").insert({ key }).select().limit(1);
-  // count last minute
   const { count } = await supa
     .from("api_hits")
     .select("ts", { count: "exact", head: true })
@@ -42,26 +47,67 @@ async function rateLimitOrThrow(supa: ReturnType<typeof createClient>, req: Requ
   if ((count ?? 0) > limit) throw new Error("Rate limit exceeded. Try again later.");
 }
 
+/** idempotency helpers (va_idempotency_keys) */
+async function idemGet(svc: ReturnType<typeof createClient>, route: string, hotel_id: string | null, key: string) {
+  const { data } = await svc
+    .from("va_idempotency_keys")
+    .select("response")
+    .eq("route", route)
+    .eq("hotel_id", hotel_id)
+    .eq("key", key)
+    .maybeSingle();
+  return data?.response ?? null;
+}
+async function idemSet(svc: ReturnType<typeof createClient>, route: string, hotel_id: string | null, key: string, response: unknown) {
+  await svc.from("va_idempotency_keys").insert({ route, hotel_id, key, response }).catch(() => {});
+}
+
+/** audit helper (va_audit_logs) */
+async function audit(svc: ReturnType<typeof createClient>, row: {
+  action: string;
+  actor?: string | null;
+  hotel_id?: string | null;
+  entity?: string | null;
+  entity_id?: string | null;
+  ip?: string | null;
+  ua?: string | null;
+  meta?: unknown;
+}) {
+  await svc.from("va_audit_logs").insert({
+    at: new Date().toISOString(),
+    action: row.action,
+    actor: row.actor ?? null,
+    hotel_id: row.hotel_id ?? null,
+    entity: row.entity ?? null,
+    entity_id: row.entity_id ?? null,
+    ip: row.ip ?? null,
+    ua: row.ua ?? null,
+    meta: row.meta ?? null,
+  }).catch(() => {});
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return J(200, { ok: true });
-  if (req.method !== "POST") return J(405, { ok: false, error: "Method Not Allowed" });
+  if (req.method !== "POST")    return J(405, { ok: false, error: "Method Not Allowed" });
+
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
+  const ua = req.headers.get("user-agent") || null;
+  const idemKey = req.headers.get("Idempotency-Key") || null;
 
   try {
-    // 1) Require a signed-in user (staff/owner) — JWT must be in Authorization header
+    // 1) Require a signed-in user (staff/owner)
     const anon = supabaseAnon(req);
     const { data: me, error: meErr } = await anon.auth.getUser();
     if (meErr || !me?.user) return J(401, { ok: false, error: "Unauthorized" });
+    const actor = me.user.email ?? me.user.id ?? null;
 
     // 2) Rate limit the caller
     await rateLimitOrThrow(anon, req, "ops-update", 150);
 
-    // 3) Use service role for cross-table lookups/updates (keep minimal)
-    const svc = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    // 3) Service client for minimal cross-table work
+    const svc = supabaseService();
 
-    const body = await req.json().catch(() => ({}));
+    const body = await req.json().catch(() => ({} as any));
     const action = String(body?.action || "");
 
     /* -------- CLOSE TICKET -------- */
@@ -69,14 +115,26 @@ serve(async (req) => {
       const id = body?.id as string | undefined;
       if (!id) return J(400, { ok: false, error: "id required" });
 
+      // fetch ticket
       const { data: t, error: tErr } = await svc
         .from("tickets")
         .select("id, hotel_id, service_key, created_at, status, minutes_to_close, on_time")
         .eq("id", id)
         .single();
       if (tErr || !t) return J(404, { ok: false, error: "ticket not found" });
-      if (t.status === "closed") return J(200, { ok: true, minutes_to_close: t.minutes_to_close, on_time: t.on_time });
 
+      // idempotency (if already closed, or if key provided & recorded)
+      if (t.status === "closed") {
+        const response = { ok: true, minutes_to_close: t.minutes_to_close, on_time: t.on_time, already_closed: true };
+        if (idemKey) await idemSet(svc, "ops-update:closeTicket", t.hotel_id, idemKey, response);
+        return J(200, response);
+      }
+      if (idemKey) {
+        const hit = await idemGet(svc, "ops-update:closeTicket", t.hotel_id, idemKey);
+        if (hit) return J(200, hit);
+      }
+
+      // SLA lookup
       const { data: svcRow } = await svc
         .from("services")
         .select("sla_minutes")
@@ -100,7 +158,20 @@ serve(async (req) => {
         .eq("id", id);
       if (uErr) return J(400, { ok: false, error: uErr.message });
 
-      return J(200, { ok: true, minutes_to_close: minutes, on_time: onTime });
+      const response = { ok: true, minutes_to_close: minutes, on_time: onTime };
+      if (idemKey) await idemSet(svc, "ops-update:closeTicket", t.hotel_id, idemKey, response);
+
+      await audit(svc, {
+        action: "ticket.close",
+        actor,
+        hotel_id: t.hotel_id,
+        entity: "ticket",
+        entity_id: t.id,
+        ip, ua,
+        meta: { minutes_to_close: minutes, on_time: onTime, sla },
+      });
+
+      return J(200, response);
     }
 
     /* -------- SET ORDER STATUS -------- */
@@ -109,13 +180,45 @@ serve(async (req) => {
       const status = body?.status as "preparing" | "delivered" | "cancelled" | undefined;
       if (!id || !status) return J(400, { ok: false, error: "id and status required" });
 
+      // Pull order for hotel_id (for idempotency/audit)
+      const { data: o, error: oErr } = await svc
+        .from("orders")
+        .select("id, hotel_id, status")
+        .eq("id", id)
+        .single();
+      if (oErr || !o) return J(404, { ok: false, error: "order not found" });
+
+      // Idempotency: same status already? treat as success
+      if (o.status === status) {
+        const response = { ok: true, already_applied: true };
+        if (idemKey) await idemSet(svc, "ops-update:setOrderStatus", o.hotel_id, idemKey, response);
+        return J(200, response);
+      }
+      if (idemKey) {
+        const hit = await idemGet(svc, "ops-update:setOrderStatus", o.hotel_id, idemKey);
+        if (hit) return J(200, hit);
+      }
+
       const patch: Record<string, unknown> = { status };
       if (status === "delivered" || status === "cancelled") patch.closed_at = new Date().toISOString();
 
       const { error } = await svc.from("orders").update(patch).eq("id", id);
       if (error) return J(400, { ok: false, error: error.message });
 
-      return J(200, { ok: true });
+      const response = { ok: true };
+      if (idemKey) await idemSet(svc, "ops-update:setOrderStatus", o.hotel_id, idemKey, response);
+
+      await audit(svc, {
+        action: "order.status",
+        actor,
+        hotel_id: o.hotel_id,
+        entity: "order",
+        entity_id: id,
+        ip, ua,
+        meta: { status },
+      });
+
+      return J(200, response);
     }
 
     return J(400, { ok: false, error: "Unknown action" });

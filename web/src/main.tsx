@@ -47,6 +47,9 @@ import Spinner from './components/Spinner';
 
 /* ======== Lazy-loaded routes ======== */
 // Public / Website
+const SignIn        = lazy(() => import('./routes/SignIn'));
+const AuthCallback  = lazy(() => import('./routes/AuthCallback'));
+const Logout        = lazy(() => import('./routes/Logout'));
 const App            = lazy(() => import('./App'));
 const Demo           = lazy(() => import('./routes/Demo'));
 const AboutUs        = lazy(() => import('./routes/AboutUs'));
@@ -58,6 +61,7 @@ const Contact        = lazy(() => import('./routes/Contact'));
 const Careers        = lazy(() => import('./routes/Careers'));
 const Status         = lazy(() => import('./routes/Status'));
 const Thanks         = lazy(() => import('./routes/Thanks'));
+
 
 // Guest / Journey
 const Hotel          = lazy(() => import('./routes/Hotel'));
@@ -120,6 +124,9 @@ const router = createBrowserRouter([
       { index: true, element: <App /> },
 
       // Website
+      { path: 'signin', element: <SignIn /> },
+      { path: 'auth/callback', element: <AuthCallback /> },
+      { path: 'logout', element: <Logout /> },
       { path: 'demo', element: <Demo /> },
       { path: 'about', element: <AboutUs /> },
       { path: 'about-ai', element: <AboutAI /> },
@@ -170,6 +177,16 @@ const router = createBrowserRouter([
     ],
   },
 ]);
+
+// Protect Admin pages (example: your Admin Ops at /admin or /hk/desk etc.)
+{
+  path: 'admin',
+  element: (
+    <AuthGate>
+      <Desk /> {/* or AdminOps component you use */}
+    </AuthGate>
+  ),
+},
 
 const queryClient = new QueryClient({
   defaultOptions: {

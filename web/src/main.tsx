@@ -1,6 +1,7 @@
 // web/src/main.tsx
 import React, { StrictMode, Suspense, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
+import AuthGate from './components/AuthGate';
 
 import {
   createBrowserRouter,
@@ -123,7 +124,7 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <App /> },
 
-      // Website
+      // Website (public)
       { path: 'signin', element: <SignIn /> },
       { path: 'auth/callback', element: <AuthCallback /> },
       { path: 'logout', element: <Logout /> },
@@ -138,7 +139,7 @@ const router = createBrowserRouter([
       { path: 'status', element: <Status /> },
       { path: 'thanks', element: <Thanks /> },
 
-      // Guest / Journey
+      // Guest / Journey (public)
       { path: 'hotel/:slug', element: <Hotel /> },
       { path: 'menu', element: <Menu /> },
       { path: 'stay/:code/menu', element: <Menu /> }, // alias for guest menu deep-link
@@ -150,27 +151,27 @@ const router = createBrowserRouter([
       { path: 'checkout', element: <Checkout /> },
       { path: 'guest', element: <GuestDashboard /> },
 
-      /* >>> ADDED: deep link like /stay/DEMO/requests/<id> */
+      // Deep link for guest to view a ticket (public)
       { path: 'stay/:slug/requests/:id', element: <RequestStatus /> },
 
-      // Staff
-      { path: 'desk', element: <Desk /> },
-      { path: 'hk', element: <HK /> },
-      { path: 'maint', element: <Maint /> },
+      // Staff (requires login)
+      { path: 'desk',  element: <AuthGate><Desk /></AuthGate> },
+      { path: 'hk',    element: <AuthGate><HK /></AuthGate> },
+      { path: 'maint', element: <AuthGate><Maint /></AuthGate> },
 
-      // Owner / Admin
-      { path: 'owner', element: <OwnerHome /> }, // hub
-      { path: 'owner/dashboard', element: <OwnerDashboard /> },
-      { path: 'owner/dashboard/:slug', element: <OwnerDashboard /> }, // slug deep-link
-      { path: 'owner/settings', element: <OwnerSettings /> },
-      { path: 'owner/services', element: <OwnerServices /> },
-      { path: 'owner/reviews', element: <OwnerReviews /> },
-      { path: 'admin', element: <AdminOps /> },
+      // Owner / Admin (requires login)
+      { path: 'owner',                    element: <AuthGate><OwnerHome /></AuthGate> },
+      { path: 'owner/dashboard',          element: <AuthGate><OwnerDashboard /></AuthGate> },
+      { path: 'owner/dashboard/:slug',    element: <AuthGate><OwnerDashboard /></AuthGate> },
+      { path: 'owner/settings',           element: <AuthGate><OwnerSettings /></AuthGate> },
+      { path: 'owner/services',           element: <AuthGate><OwnerServices /></AuthGate> },
+      { path: 'owner/reviews',            element: <AuthGate><OwnerReviews /></AuthGate> },
+      { path: 'admin',                    element: <AuthGate><AdminOps /></AuthGate> },
 
-      // Grid (VPP)
-      { path: 'grid/devices', element: <GridDevices /> },
-      { path: 'grid/playbooks', element: <GridPlaybooks /> },
-      { path: 'grid/events', element: <GridEvents /> },
+      // Grid (internal tools — usually restricted)
+      { path: 'grid/devices',  element: <AuthGate><GridDevices /></AuthGate> },
+      { path: 'grid/playbooks',element: <AuthGate><GridPlaybooks /></AuthGate> },
+      { path: 'grid/events',   element: <AuthGate><GridEvents /></AuthGate> },
 
       // 404 (catch-all) — keep last
       { path: '*', element: <NotFound /> },

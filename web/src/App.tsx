@@ -9,6 +9,19 @@ const TOKEN_KEY = "stay:token";
 const heroBg =
   "https://images.unsplash.com/photo-1500375592092-40eb2168fd21?q=80&w=1600&auto=format&fit=crop";
 
+// --- ADDED: tiny API helper using your Netlify env var
+const API = import.meta.env.VITE_API_URL as string;
+
+async function post(path: string, body: any) {
+  const r = await fetch(`${API}/${path}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
 export default function App() {
   // Show "My credits" only when a guest token exists
   const [hasToken, setHasToken] = useState<boolean>(() => !!localStorage.getItem(TOKEN_KEY));
@@ -35,7 +48,6 @@ export default function App() {
         title="VAiyu — AI OS for Hotels"
         description="Where Intelligence Meets Comfort — verified reviews, refer-and-earn growth, and grid-smart operations."
         canonical={`${site}/`}
-        // Add /og/home.png later when ready; safe to keep commented:
         // ogImage="/og/home.png"
         twitter={{ site: "@vaiyu", card: "summary_large_image" }}
         jsonLd={{
@@ -137,7 +149,6 @@ export default function App() {
               <Link to="/demo" className="btn btn-light">
                 Watch a quick demo
               </Link>
-
             </div>
           </div>
 
@@ -351,6 +362,9 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* --- ADDED: Dev-only helper (visible with ?dev=1) */}
+      <DevPanel />
     </div>
   );
 }
@@ -420,5 +434,57 @@ function DemoLink({ to, label }: { to: string; label: string }) {
       <span className="font-medium">{label}</span>
       <span aria-hidden>→</span>
     </Link>
+  );
+}
+
+// --- ADDED: minimal dev panel to exercise APIs without touching routes
+function DevPanel() {
+  const show =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("dev") === "1";
+  if (!show) return null;
+
+  async function requestHousekeeping() {
+    try {
+      const res = await post("tickets", { slug: "TENANT1", service_key: "HOUSEKEEPING", room: "101" });
+      alert("Ticket created: " + res.id);
+    } catch (e: any) {
+      alert("Error: " + (e?.message || e));
+    }
+  }
+
+  async function orderTea() {
+    try {
+      const res = await post("orders", { slug: "TENANT1", item_key: "TEA", qty: 1, price: 80 });
+      alert("Order created: " + res.id);
+    } catch (e: any) {
+      alert("Error: " + (e?.message || e));
+    }
+  }
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        right: 12,
+        bottom: 12,
+        zIndex: 50,
+        background: "white",
+        border: "1px solid #e5e7eb",
+        borderRadius: 12,
+        padding: 12,
+        boxShadow: "0 10px 25px rgba(0,0,0,.08)",
+      }}
+    >
+      <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 8 }}>Dev quick actions</div>
+      <div style={{ display: "grid", gap: 8 }}>
+        <button className="btn btn-light !py-2 !px-3 text-sm" onClick={requestHousekeeping}>
+          🧹 Request Housekeeping
+        </button>
+        <button className="btn !py-2 !px-3 text-sm" onClick={orderTea}>
+          ☕ Order Tea
+        </button>
+      </div>
+    </div>
   );
 }

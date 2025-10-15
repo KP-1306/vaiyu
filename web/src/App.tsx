@@ -9,19 +9,6 @@ const TOKEN_KEY = "stay:token";
 const heroBg =
   "https://images.unsplash.com/photo-1500375592092-40eb2168fd21?q=80&w=1600&auto=format&fit=crop";
 
-// --- ADDED: tiny API helper using your Netlify env var
-const API = import.meta.env.VITE_API_URL as string;
-
-async function post(path: string, body: any) {
-  const r = await fetch(`${API}/${path}`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!r.ok) throw new Error(await r.text());
-  return r.json();
-}
-
 export default function App() {
   // Show "My credits" only when a guest token exists
   const [hasToken, setHasToken] = useState<boolean>(() => !!localStorage.getItem(TOKEN_KEY));
@@ -48,7 +35,6 @@ export default function App() {
         title="VAiyu — AI OS for Hotels"
         description="Where Intelligence Meets Comfort — verified reviews, refer-and-earn growth, and grid-smart operations."
         canonical={`${site}/`}
-        // ogImage="/og/home.png"
         twitter={{ site: "@vaiyu", card: "summary_large_image" }}
         jsonLd={{
           "@context": "https://schema.org",
@@ -60,7 +46,7 @@ export default function App() {
         }}
       />
 
-      {/* Top nav */}
+      {/* Top nav (production) */}
       <header className="sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-gray-100">
         <div className="mx-auto max-w-7xl px-4 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
@@ -79,31 +65,16 @@ export default function App() {
           </Link>
 
           <nav className="hidden md:flex items-center gap-6 text-sm">
-            <a href="#why" className="hover:text-gray-700">
-              Why VAiyu
-            </a>
-            <a href="#ai" className="hover:text-gray-700">
-              AI
-            </a>
-            <a href="#use-cases" className="hover:text-gray-700">
-              Use-cases
-            </a>
-            <Link to="/owner" className="hover:text-gray-700">
-              For Hotels
-            </Link>
-            <Link to="/about" className="hover:text-gray-700">
-              About
-            </Link>
-            <a href="#demo" className="hover:text-gray-700">
-              Live Demo
-            </a>
+            <a href="#why" className="hover:text-gray-700">Why VAiyu</a>
+            <a href="#ai" className="hover:text-gray-700">AI</a>
+            <a href="#use-cases" className="hover:text-gray-700">Use-cases</a>
+            <Link to="/owner" className="hover:text-gray-700">For Hotels</Link>
+            <Link to="/about" className="hover:text-gray-700">About</Link>
+            {/* Subtle sign-in for returning users */}
+            <Link to="/signin" className="hover:text-gray-700">Sign in</Link>
           </nav>
 
           <div className="flex items-center gap-2">
-            <Link to="/precheck/DEMO" className="btn btn-light !py-2 !px-3 text-sm">
-              Pre-check-in
-            </Link>
-
             {/* Only show when guest is logged in (has stay token) */}
             {hasToken && (
               <Link to="/guest" className="btn btn-light !py-2 !px-3 text-sm">
@@ -111,8 +82,9 @@ export default function App() {
               </Link>
             )}
 
-            <Link to="/hk" className="btn !py-2 !px-3 text-sm">
-              Try VAiyu
+            {/* Primary production CTA */}
+            <Link to="/signin?intent=signup" className="btn !py-2 !px-3 text-sm">
+              Get started
             </Link>
           </div>
         </div>
@@ -143,11 +115,8 @@ export default function App() {
             </p>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              <Link to="/hotel/sunrise" className="btn !bg-white !text-gray-900 hover:!bg-gray-50">
-                See a sample property
-              </Link>
-              <Link to="/demo" className="btn btn-light">
-                Watch a quick demo
+              <Link to="/signin?intent=signup" className="btn btn-light">
+                Start with your email
               </Link>
             </div>
           </div>
@@ -258,10 +227,8 @@ export default function App() {
                   <Pill>Live SSE updates</Pill>
                 </div>
 
+                {/* Production CTA to learn more, no demo */}
                 <div className="mt-6 flex gap-3">
-                  <Link to="/owner/reviews" className="btn">
-                    Try AI review demo
-                  </Link>
                   <Link to="/about-ai" className="btn btn-light">
                     How it works
                   </Link>
@@ -302,26 +269,22 @@ export default function App() {
         </div>
       </section>
 
-      {/* Use-cases */}
+      {/* Use-cases (production: explanatory only, no demo deep links) */}
       <section id="use-cases" className="mx-auto max-w-7xl px-4 pb-16">
         <div className="flex items-end justify-between">
           <div>
             <h3 className="text-xl font-semibold">See it in action</h3>
-            <p className="text-gray-600">Try the most loved workflows in under a minute.</p>
+            <p className="text-gray-600">
+              From pre-check-in to service requests and owner KPIs — built for real operations.
+            </p>
+          </div>
+          <div>
+            <Link to="/signin?intent=signup" className="btn">
+              Get started
+            </Link>
           </div>
         </div>
-
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-          <DemoLink to="/precheck/DEMO" label="Express pre-check-in" />
-          <DemoLink to="/menu" label="Guest menu & requests" />
-          <DemoLink to="/desk" label="Front Desk (live SSE)" />
-          <DemoLink to="/hk" label="Housekeeping" />
-          <DemoLink to="/owner/reviews" label="AI review moderation" />
-          <DemoLink to="/owner/dashboard?slug=sunrise" label="Owner KPIs & hints" />
-          <DemoLink to="/guest" label="Refer & Earn + Credits" />
-          <DemoLink to="/grid/devices" label="Grid: Devices" />
-          <DemoLink to="/grid/events" label="Grid: Events" />
-        </div>
+        {/* Removed the grid of demo links */}
       </section>
 
       {/* Footer */}
@@ -329,42 +292,18 @@ export default function App() {
         <div className="mx-auto max-w-7xl px-4 py-8 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-3">
           <div>© {new Date().getFullYear()} VAiyu — Where Intelligence Meets Comfort.</div>
           <div className="flex items-center gap-4">
-            <Link className="hover:text-gray-800" to="/about-ai">
-              AI
-            </Link>
-            <a className="hover:text-gray-800" href="#why">
-              Why VAiyu
-            </a>
-            <Link className="hover:text-gray-800" to="/owner">
-              For Hotels
-            </Link>
-            <a className="hover:text-gray-800" href="#demo">
-              Live Demo
-            </a>
-            <Link className="hover:text-gray-800" to="/about">
-              About
-            </Link>
-            <Link className="hover:text-gray-800" to="/press">
-              Press
-            </Link>
-            <Link className="hover:text-gray-800" to="/privacy">
-              Privacy
-            </Link>
-            <Link className="hover:text-gray-800" to="/terms">
-              Terms
-            </Link>
-            <Link className="hover:text-gray-800" to="/contact">
-              Contact
-            </Link>
-            <Link className="hover:text-gray-800" to="/careers">
-              Careers
-            </Link>
+            <Link className="hover:text-gray-800" to="/about-ai">AI</Link>
+            <a className="hover:text-gray-800" href="#why">Why VAiyu</a>
+            <Link className="hover:text-gray-800" to="/owner">For Hotels</Link>
+            <Link className="hover:text-gray-800" to="/about">About</Link>
+            <Link className="hover:text-gray-800" to="/press">Press</Link>
+            <Link className="hover:text-gray-800" to="/privacy">Privacy</Link>
+            <Link className="hover:text-gray-800" to="/terms">Terms</Link>
+            <Link className="hover:text-gray-800" to="/contact">Contact</Link>
+            <Link className="hover:text-gray-800" to="/careers">Careers</Link>
           </div>
         </div>
       </footer>
-
-      {/* --- ADDED: Dev-only helper (visible with ?dev=1) */}
-      <DevPanel />
     </div>
   );
 }
@@ -421,70 +360,6 @@ function Step({ n, title, text }: { n: number; title: string; text: string }) {
       <div className="text-xs text-gray-500">Step {n}</div>
       <div className="font-semibold mt-1">{title}</div>
       <div className="text-sm text-gray-600 mt-1">{text}</div>
-    </div>
-  );
-}
-
-function DemoLink({ to, label }: { to: string; label: string }) {
-  return (
-    <Link
-      to={to}
-      className="flex items-center justify-between rounded-xl border bg-white px-4 py-3 hover:shadow transition-shadow"
-    >
-      <span className="font-medium">{label}</span>
-      <span aria-hidden>→</span>
-    </Link>
-  );
-}
-
-// --- ADDED: minimal dev panel to exercise APIs without touching routes
-function DevPanel() {
-  const show =
-    typeof window !== "undefined" &&
-    new URLSearchParams(window.location.search).get("dev") === "1";
-  if (!show) return null;
-
-  async function requestHousekeeping() {
-    try {
-      const res = await post("tickets", { slug: "TENANT1", service_key: "HOUSEKEEPING", room: "101" });
-      alert("Ticket created: " + res.id);
-    } catch (e: any) {
-      alert("Error: " + (e?.message || e));
-    }
-  }
-
-  async function orderTea() {
-    try {
-      const res = await post("orders", { slug: "TENANT1", item_key: "TEA", qty: 1, price: 80 });
-      alert("Order created: " + res.id);
-    } catch (e: any) {
-      alert("Error: " + (e?.message || e));
-    }
-  }
-
-  return (
-    <div
-      style={{
-        position: "fixed",
-        right: 12,
-        bottom: 12,
-        zIndex: 50,
-        background: "white",
-        border: "1px solid #e5e7eb",
-        borderRadius: 12,
-        padding: 12,
-        boxShadow: "0 10px 25px rgba(0,0,0,.08)",
-      }}
-    >
-      <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 8 }}>Dev quick actions</div>
-      <div style={{ display: "grid", gap: 8 }}>
-        <button className="btn btn-light !py-2 !px-3 text-sm" onClick={requestHousekeeping}>
-          🧹 Request Housekeeping
-        </button>
-        <button className="btn !py-2 !px-3 text-sm" onClick={orderTea}>
-          ☕ Order Tea
-        </button>
-      </div>
     </div>
   );
 }

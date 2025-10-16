@@ -1,19 +1,21 @@
 // web/src/components/BackHome.tsx
 import { useLocation, useNavigate } from "react-router-dom";
 
-const HIDE_PATHS = new Set([
-  "/", "/about", "/about-ai", "/use-cases", "/for-hotels", "/press",
-  "/privacy", "/terms", "/contact", "/careers", "/status", "/thanks",
-  "/signin", "/welcome",
-]);
+/**
+ * Only show the back button on actual in-app surfaces.
+ * Do NOT show on marketing pages, /signin, or /welcome.
+ */
+const SHOW_PREFIXES = [
+  "/owner", "/desk", "/hk", "/maint", "/grid",
+  "/guest", "/stay", "/menu", "/precheck", "/regcard", "/bill", "/admin"
+];
 
 export default function BackHome() {
-  const loc = useLocation();
+  const { pathname } = useLocation();
   const navigate = useNavigate();
 
-  // Hide on marketing/public pages
-  const path = loc.pathname.toLowerCase();
-  if (HIDE_PATHS.has(path) || path.startsWith("/hotel/")) return null;
+  const show = SHOW_PREFIXES.some((p) => pathname.startsWith(p));
+  if (!show) return null;
 
   return (
     <div className="p-2">
@@ -21,7 +23,7 @@ export default function BackHome() {
         className="btn btn-light"
         onClick={() => {
           if (window.history.length > 1) navigate(-1);
-          else navigate("/welcome"); // safe default
+          else navigate("/welcome");     // safe default if no history
         }}
       >
         ← Back to app

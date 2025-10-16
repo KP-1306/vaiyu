@@ -1,301 +1,342 @@
 // web/src/routes/GuestDashboard.tsx
-import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { myStays, myCredits, referralInit } from "../lib/api";
-import SEO from "../components/SEO";
-
-const TOKEN_KEY = "stay:token";
+import { useEffect, useMemo, useState, memo } from "react";
+import { Link } from "react-router-dom";
+import { useAuth } from "@/lib/auth";
+import { API } from "@/lib/api";
 
 type Stay = {
+  id: string;
+  hotel: { name: string; city?: string };
+  check_in: string;
+  check_out: string;
+  bill_total?: number | null;
+};
+type Booking = {
+  id: string;
   code: string;
-  status: "upcoming" | "active" | "completed";
-  hotel_slug?: string;
-  hotel_name?: string;
-  check_in?: string;
-  check_out?: string;
+  hotel: { name: string; city?: string };
+  scheduled_for: string; // ISO date
+  room?: string | null;
 };
-
-type Credit = {
-  property: string;
-  balance: number;
-  currency?: string;
-  expiresAt?: string | null;
+type Review = {
+  id: string;
+  hotel: { name: string };
+  rating: number;
+  title?: string | null;
+  created_at: string; // ISO date
 };
-
-<SEO title="Owner Home" noIndex />
+type Spend = { year: number; total: number };
 
 export default function GuestDashboard() {
-  const navigate = useNavigate();
+  const { user, profile } = useAuth();
+  const [upcoming, setUpcoming] = useState<Booking | null>(null);
+  const [recentStays, setRecentStays] = useState<Stay[]>([]);
+  const [recentReviews, setRecentReviews] = useState<Review[]>([]);
+  const [spend, setSpend] = useState<Spend[]>([]);
   const [loading, setLoading] = useState(true);
-  const [stays, setStays] = useState<Stay[]>([]);
-  const [err, setErr] = useState<string>("");
-  const [credits, setCredits] = useState<Record<string, Credit>>({});
-  const [refLinks, setRefLinks] = useState<Record<string, string>>({});
-  const [busyProp, setBusyProp] = useState<string | null>(null);
-
-  const token = useMemo(() => localStorage.getItem(TOKEN_KEY) ?? "", []);
+  const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!token) {
-      navigate("/claim", { replace: true });
-      return;
-    }
-
+    let cancelled = false;
     (async () => {
       setLoading(true);
-      setErr("");
+      setErr(null);
       try {
-        // 1) Stays
-        const res = await myStays(token);
-        const list = res?.stays ?? [];
-        setStays(list);
+        const [b, s, r, p] = await Promise.all([
+          safeJson(`${API}/me/bookings?status=upcoming&limit=1`),
+          safeJson(`${API}/me/stays?limit=5`),
+          safeJson(`${API}/me/reviews?limit=5`),
+          safeJson(`${API}/me/spend?years=5`),
+        ]);
 
-        // 2) Credits (non-blocking)
-        try {
-          const c = await myCredits(token);
-          const map: Record<string, Credit> = {};
-          (c?.items ?? []).forEach((it: Credit) => (map[it.property] = it));
-          setCredits(map);
-        } catch {
-          /* ignore; credit fetch is optional */
+        if (!cancelled) {
+          setUpcoming(b?.items?.[0] ?? null);
+          setRecentStays(Array.isArray(s?.items) ? s.items : []);
+          setRecentReviews(Array.isArray(r?.items) ? r.items : []);
+          setSpend(Array.isArray(p?.items) ? p.items : []);
         }
       } catch (e: any) {
-        const msg = e?.message || "Failed to load your stays.";
-        setErr(msg);
-        if (/unauth|forbidden|401|403/i.test(String(e))) {
-          localStorage.removeItem(TOKEN_KEY);
-          navigate("/claim", { replace: true });
+        if (!cancelled) {
+          setErr("We couldn’t load your dashboard. Showing a quick preview.");
+          // Friendly demo fallback
+          setUpcoming(null);
+          setRecentStays(demoStays());
+          setRecentReviews(demoReviews());
+          setSpend(demoSpend());
         }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
-  }, [navigate, token]);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  async function onGetReferral(property?: string) {
-    if (!property) return;
-    try {
-      setBusyProp(property);
-      const r = await referralInit(property, token || undefined, "guest_dashboard");
-      const url =
-        r?.shareUrl ||
-        (r?.code
-          ? `${location.origin}/hotel/${property}?ref=${encodeURIComponent(r.code)}`
-          : "");
+  const firstName =
+    (profile?.name || user?.email || "").split(" ")[0] || "Guest";
 
-      if (url) {
-        setRefLinks((p) => ({ ...p, [property]: url }));
-        try {
-          await navigator.clipboard.writeText(url);
-        } catch {
-          /* ignore clipboard errors */
-        }
-      }
-    } finally {
-      setBusyProp(null);
+  const lastStay = recentStays[0];
+  const welcomeText = useMemo(() => {
+    if (lastStay?.hotel) {
+      const city = lastStay.hotel.city ? ` in ${lastStay.hotel.city}` : "";
+      return `Welcome back, ${firstName}! Hope you enjoyed ${lastStay.hotel.name}${city}.`;
     }
-  }
-
-  function signOut() {
-    localStorage.removeItem(TOKEN_KEY);
-    navigate("/claim", { replace: true });
-  }
-
-  if (!token) return null;
+    return `Welcome, ${firstName}!`;
+  }, [firstName, lastStay]);
 
   return (
-    <main className="max-w-3xl mx-auto p-4">
-      <header className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Your stays</h1>
-        <div className="flex gap-2">
-          <Link to="/claim" className="btn btn-light">
-            Claim another booking
-          </Link>
-          <button className="btn btn-outline" onClick={signOut}>
-            Sign out
-          </button>
-        </div>
+    <main className="max-w-6xl mx-auto p-4 space-y-4" aria-labelledby="guest-dash-title">
+      <header className="rounded-2xl p-5 shadow bg-white">
+        <h1 id="guest-dash-title" className="text-xl font-semibold">
+          {welcomeText}
+        </h1>
+        <p className="text-sm text-gray-600">
+          Your trips, bookings, and bills — all in one place.
+        </p>
+        {err && <p className="mt-2 text-sm text-amber-700">{err}</p>}
       </header>
 
-      {err && (
-        <div className="mb-3 p-2 rounded border border-amber-300 bg-amber-50 text-amber-800">
-          {err}
-        </div>
-      )}
+      {/* Top row */}
+      <section className="grid md:grid-cols-3 gap-4">
+        <Card title="Upcoming booking" subtitle="Check-in faster with QR">
+          {loading ? (
+            <Skeleton lines={4} />
+          ) : upcoming ? (
+            <UpcomingBlock booking={upcoming} />
+          ) : (
+            <Empty small text="No upcoming bookings. Plan your next stay!" cta={{ to: "/hotel/sunrise", label: "Explore hotels" }} />
+          )}
+        </Card>
 
-      {loading && <SkeletonList />}
+        <Card title="Recent stays" subtitle="Last 5 hotels">
+          {loading ? (
+            <Skeleton lines={5} />
+          ) : recentStays.length ? (
+            <>
+              <ul className="space-y-2 text-sm">
+                {recentStays.map((s) => (
+                  <li key={s.id} className="flex items-center justify-between">
+                    <span>
+                      {s.hotel.name}
+                      {s.hotel.city ? `, ${s.hotel.city}` : ""}
+                    </span>
+                    <span className="opacity-70">{fmtRange(s.check_in, s.check_out)}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-3 text-right">
+                <Link className="btn btn-light" to="/stays">
+                  View all stays
+                </Link>
+              </div>
+            </>
+          ) : (
+            <Empty small text="No past stays yet." />
+          )}
+        </Card>
 
-      {!loading && !stays.length && !err && (
-        <div className="card">
-          <div className="font-medium">No stays yet</div>
-          <div className="text-sm text-gray-600 mt-1">
-            If you booked on another platform, you can link it here.
+        <Card title="Spend summary" subtitle="By year">
+          {loading ? (
+            <Skeleton lines={4} />
+          ) : spend.length ? (
+            <>
+              <ul className="text-sm space-y-1">
+                {spend.map((s) => (
+                  <li key={s.year} className="flex justify-between">
+                    <span>{s.year}</span>
+                    <span>₹ {Number(s.total || 0).toLocaleString()}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-3 text-right">
+                <Link className="btn btn-light" to="/bills">
+                  Download bills
+                </Link>
+              </div>
+            </>
+          ) : (
+            <Empty small text="No spend yet." />
+          )}
+        </Card>
+      </section>
+
+      {/* Reviews */}
+      <section className="rounded-2xl p-4 shadow bg-white">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm text-gray-600 mb-1">Your latest reviews</div>
+            <div className="text-xs text-gray-500">Edit or add context anytime.</div>
           </div>
-          <div className="mt-3">
-            <Link to="/claim" className="btn">
-              Claim a booking
-            </Link>
-          </div>
+          <Link className="btn btn-light" to="/reviews/mine">
+            Manage reviews
+          </Link>
         </div>
-      )}
 
-      {!loading && !!stays.length && (
-        <ul className="grid gap-3">
-          {stays.map((s) => {
-            const property = s.hotel_slug;
-            const credit = property ? credits[property] : undefined;
-            const refUrl = property ? refLinks[property] : undefined;
-            const currency = credit?.currency || "INR";
-
-            return (
-              <li key={s.code} className="card">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-sm text-gray-500">
-                      {s.hotel_name || s.hotel_slug || "—"}
-                    </div>
-                    <div className="font-semibold mt-0.5">Booking {s.code}</div>
-                    <div className="text-xs text-gray-500 mt-1 capitalize">{s.status}</div>
-                    {(s.check_in || s.check_out) && (
-                      <div className="text-xs text-gray-500 mt-1">
-                        {s.check_in ? `Check-in: ${formatDate(s.check_in)}` : ""}
-                        {s.check_in && s.check_out ? " · " : ""}
-                        {s.check_out ? `Check-out: ${formatDate(s.check_out)}` : ""}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex flex-wrap gap-2 justify-end">
-                    {s.status !== "completed" && (
-                      <Link
-                        to={`/stay/${encodeURIComponent(s.code)}/menu`}
-                        className="btn"
-                      >
-                        Open guest menu
-                      </Link>
-                    )}
-                    {s.status === "upcoming" && (
-                      <Link
-                        to={`/precheck/${encodeURIComponent(s.code)}`}
-                        className="btn btn-light"
-                      >
-                        Pre-check-in
-                      </Link>
-                    )}
-                    {s.status !== "upcoming" && (
-                      <Link
-                        to={`/stay/${encodeURIComponent(s.code)}/bill`}
-                        className="btn btn-light"
-                      >
-                        View bill
-                      </Link>
-                    )}
-                  </div>
-                </div>
-
-                {/* Credits + Refer & earn */}
-                {property && (
-                  <div className="mt-3 grid gap-2 md:grid-cols-2">
-                    <div className="rounded border p-3 bg-gray-50">
-                      <div className="text-[11px] text-gray-500">Credits (property-scoped)</div>
-                      <div className="font-medium">
-                        {formatCurrency(credit?.balance ?? 0, currency)}
-                        {credit?.expiresAt && (
-                          <span className="text-xs text-gray-500">
-                            {" "}
-                            · exp {formatDate(credit.expiresAt)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="rounded border p-3 bg-white">
-                      <div className="text-[11px] text-gray-500">Refer &amp; earn</div>
-
-                      {!refUrl ? (
-                        <button
-                          className="btn btn-light mt-1"
-                          disabled={busyProp === property}
-                          onClick={() => onGetReferral(property)}
-                        >
-                          {busyProp === property ? "Generating…" : "Get referral link"}
-                        </button>
-                      ) : (
-                        <div className="text-xs mt-1">
-                          <div className="break-all">{refUrl}</div>
-                          <div className="mt-1 flex gap-2">
-                            <button
-                              className="btn btn-light"
-                              onClick={() => {
-                                try {
-                                  navigator.clipboard.writeText(refUrl);
-                                } catch {
-                                  /* ignore */
-                                }
-                              }}
-                            >
-                              Copy
-                            </button>
-                            <a
-                              className="btn btn-light"
-                              target="_blank"
-                              rel="noreferrer"
-                              href={`https://wa.me/?text=${encodeURIComponent(refUrl)}`}
-                            >
-                              Share
-                            </a>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
+        <div className="mt-3">
+          {loading ? (
+            <Skeleton lines={3} />
+          ) : recentReviews.length ? (
+            <ul className="space-y-2">
+              {recentReviews.map((rv) => (
+                <li key={rv.id} className="text-sm">
+                  <span className="font-semibold">{rv.hotel.name}</span> · {stars(rv.rating)} · {fmtDate(rv.created_at)}
+                  {rv.title ? (
+                    <>
+                      {" "}
+                      — <span className="opacity-80">{rv.title}</span>
+                    </>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <Empty text="No reviews yet." />
+          )}
+        </div>
+      </section>
     </main>
   );
 }
 
-/* ---------------- helpers ---------------- */
+/* ---------- Reusable pieces ---------- */
 
-function formatDate(iso?: string) {
-  try {
-    return iso ? new Date(iso).toLocaleDateString() : "";
-  } catch {
-    return iso || "";
-  }
-}
-
-function formatCurrency(amount: number, currency = "INR") {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  } catch {
-    // Fallback if Intl doesn't know the currency
-    const symbol = currency === "INR" ? "₹" : "";
-    return `${symbol}${amount.toString()}`;
-  }
-}
-
-function SkeletonList() {
+const Card = memo(function Card({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <ul className="grid gap-3">
-      {Array.from({ length: 3 }).map((_, i) => (
-        <li key={i} className="card">
-          <div className="animate-pulse space-y-2">
-            <div className="h-4 w-40 bg-gray-200 rounded" />
-            <div className="h-5 w-56 bg-gray-200 rounded" />
-            <div className="h-3 w-28 bg-gray-200 rounded" />
-            <div className="h-8 w-40 bg-gray-200 rounded mt-2" />
-          </div>
-        </li>
-      ))}
-    </ul>
+    <div className="rounded-2xl p-4 shadow bg-white">
+      <div className="mb-1 flex items-center justify-between">
+        <div>
+          <div className="text-sm text-gray-600">{subtitle || ""}</div>
+          <div className="font-semibold">{title}</div>
+        </div>
+      </div>
+      <div className="mt-2">{children}</div>
+    </div>
   );
+});
+
+function UpcomingBlock({ booking }: { booking: Booking }) {
+  return (
+    <>
+      <div className="font-semibold">
+        {booking.hotel.name} {booking.hotel.city ? `• ${booking.hotel.city}` : ""}
+      </div>
+      <div className="text-sm text-gray-600 mt-1">
+        Check-in: {fmtDate(booking.scheduled_for)}
+      </div>
+      <div className="mt-3 flex items-center gap-3">
+        {/* Placeholder QR — replace with a real QR later */}
+        <div
+          className="w-24 h-24 grid place-items-center rounded bg-gray-100 text-xs"
+          aria-label="Check-in QR placeholder"
+        >
+          QR
+        </div>
+        <div className="text-xs text-gray-600">
+          Show this QR at the front desk to check-in faster. <br />
+          Booking code: <span className="font-mono">{booking.code}</span>
+        </div>
+      </div>
+      <div className="mt-3 flex gap-2">
+        <Link className="btn btn-light" to={`/stay/${encodeURIComponent(booking.code)}/menu`}>
+          Room menu
+        </Link>
+        <Link className="btn" to={`/precheck/${encodeURIComponent(booking.code)}`}>
+          Pre-check
+        </Link>
+      </div>
+    </>
+  );
+}
+
+function Empty({
+  text,
+  cta,
+  small,
+}: {
+  text: string;
+  small?: boolean;
+  cta?: { to: string; label: string };
+}) {
+  return (
+    <div className={small ? "text-sm text-gray-600" : "p-6 text-center text-gray-600"}>
+      <span>{text}</span>
+      {cta && (
+        <Link className="ml-2 underline" to={cta.to}>
+          {cta.label}
+        </Link>
+      )}
+    </div>
+  );
+}
+
+function Skeleton({ lines = 3 }: { lines?: number }) {
+  return (
+    <div className="space-y-2">
+      {Array.from({ length: lines }).map((_, i) => (
+        <div key={i} className="h-3 rounded bg-gray-100 animate-pulse" />
+      ))}
+    </div>
+  );
+}
+
+/* ---------- Helpers ---------- */
+
+async function safeJson(url: string) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(String(r.status));
+  return r.json();
+}
+function fmtDate(s: string) {
+  // locale-aware but stable
+  try {
+    return new Date(s).toLocaleString();
+  } catch {
+    return s;
+  }
+}
+function fmtRange(a: string, b: string) {
+  try {
+    const A = new Date(a), B = new Date(b);
+    return `${A.toLocaleDateString()} – ${B.toLocaleDateString()}`;
+  } catch {
+    return `${a} – ${b}`;
+  }
+}
+function stars(n: number) {
+  const clamped = Math.max(0, Math.min(5, Math.round(n)));
+  const full = "★★★★★".slice(0, clamped);
+  const empty = "☆☆☆☆☆".slice(clamped);
+  return full + empty;
+}
+
+/* ---------- Demo fallback data (only used if API fails) ---------- */
+function demoStays(): Stay[] {
+  return [
+    { id: "s1", hotel: { name: "Sunrise Suites", city: "Nainital" }, check_in: "2025-08-10T12:00:00Z", check_out: "2025-08-12T08:00:00Z", bill_total: 7420 },
+    { id: "s2", hotel: { name: "Lakeside Inn", city: "Nainital" }, check_in: "2025-06-05T12:00:00Z", check_out: "2025-06-07T08:00:00Z", bill_total: 5810 },
+    { id: "s3", hotel: { name: "Pine View", city: "Almora" }, check_in: "2025-04-01T12:00:00Z", check_out: "2025-04-03T08:00:00Z", bill_total: 3999 },
+  ];
+}
+function demoReviews(): Review[] {
+  return [
+    { id: "r1", hotel: { name: "Sunrise Suites" }, rating: 5, title: "Great staff!", created_at: "2025-08-12T10:00:00Z" },
+    { id: "r2", hotel: { name: "Lakeside Inn" }, rating: 4, title: "Beautiful view", created_at: "2025-06-07T09:00:00Z" },
+  ];
+}
+function demoSpend(): Spend[] {
+  const y = new Date().getFullYear();
+  return [
+    { year: y, total: 13240 },
+    { year: y - 1, total: 19880 },
+    { year: y - 2, total: 0 },
+  ];
 }

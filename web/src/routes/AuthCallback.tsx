@@ -2,6 +2,19 @@ import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
+function safeRedirect(raw: string | null | undefined, fallback = "/welcome") {
+  if (!raw) return fallback;
+  try {
+    // allow only same-origin relative paths like "/owner" or "/welcome?x=1"
+    const u = new URL(raw, window.location.origin);
+    if (u.origin !== window.location.origin) return fallback;
+    if (!u.pathname.startsWith("/")) return fallback;
+    return u.pathname + (u.search || "") + (u.hash || "");
+  } catch {
+    return fallback;
+  }
+}
+
 export default function AuthCallback() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
@@ -11,14 +24,14 @@ export default function AuthCallback() {
 
     (async () => {
       try {
-        // Try hash-style (getSessionFromUrl) first:
+        // 1) Try hash-style tokens (implicit flow)
         const hash = window.location.hash || "";
         if (/access_token=|refresh_token=/.test(hash)) {
           await supabase.auth.getSessionFromUrl({ storeSession: true });
           done = true;
         }
 
-        // Fallback: PKCE "code" flow (query param)
+        // 2) Fallback to PKCE code flow (?code=...)
         if (!done) {
           const code = params.get("code");
           if (code) {
@@ -27,10 +40,18 @@ export default function AuthCallback() {
           }
         }
 
-        // Where to go next (default /welcome)
-        const dest = params.get("redirect") || "/welcome";
+        // 3) If no tokens but session already exists, continue
+        if (!done) {
+          const { data } = await supabase.auth.getSession();
+          if (data?.session) {
+            done = true;
+          }
+        }
 
-        // Clean URL (strip hash + sensitive params) before navigating
+        // Destination (default /welcome), but keep it safe
+        const dest = safeRedirect(params.get("redirect"), "/welcome");
+
+        // Clean the URL (remove hash + sensitive params) before navigating
         const url = new URL(window.location.href);
         url.hash = "";
         ["code", "redirect", "error", "error_description"].forEach((k) =>
@@ -38,9 +59,18 @@ export default function AuthCallback() {
         );
         window.history.replaceState({}, "", url.pathname + url.search);
 
-        navigate(dest, { replace: true });
+        if (done) {
+          navigate(dest, { replace: true });
+        } else {
+          // no tokens and no session → back to sign-in with a friendly msg
+          navigate(
+            `/signin?intent=signin&redirect=${encodeURIComponent(dest)}&error=${encodeURIComponent(
+              "Login link is missing or expired. Please request a new one."
+            )}`,
+            { replace: true }
+          );
+        }
       } catch (e) {
-        // If something failed, push the user to a safe sign-in with a message
         const message =
           (e as any)?.message || "Could not complete login. Please try again.";
         navigate(

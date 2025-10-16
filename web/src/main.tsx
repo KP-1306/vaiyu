@@ -1,32 +1,33 @@
-import React, { StrictMode, Suspense, lazy, useEffect } from "react";
+import React, { StrictMode, Suspense, lazy, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { createBrowserRouter, RouterProvider, Outlet, useNavigate } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import PublicGate from "./components/PublicGate";
+import {
+  createBrowserRouter,
+  RouterProvider,
+  Outlet,
+} from "react-router-dom";
 
+// Monitoring (kept)
 import { initMonitoring } from "./lib/monitoring";
 initMonitoring();
 
-import AuthGate from "./components/AuthGate";
-
-// SW
+// Service worker (kept)
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/sw.js").catch(() => {});
   });
 }
 
-// Analytics
+// Analytics (kept)
 import { initAnalytics, track } from "./lib/analytics";
 initAnalytics();
 track("page_view", { path: location.pathname });
 
-// Theme + CSS
+// Theme + global styles
 import { ThemeProvider } from "./components/ThemeProvider";
 import "./theme.css";
 import "./index.css";
 
-// Global chrome
+// Global chrome helpers
 import ScrollToTop from "./components/ScrollToTop";
 import BackHome from "./components/BackHome";
 import GlobalErrorBoundary from "./components/GlobalErrorBoundary";
@@ -39,90 +40,120 @@ import TopProgressBar from "./components/TopProgressBar";
 import UpdatePrompt from "./components/UpdatePrompt";
 import Spinner from "./components/Spinner";
 
-// Supabase for session claim
+// Auth guard for protected routes
+import AuthGate from "./components/AuthGate";
+
+// Supabase client
 import { supabase } from "./lib/supabase";
 
+// (Optional) React Query – prevents “No QueryClient set” warnings
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { refetchOnWindowFocus: false } },
+});
+
 /* ======== Lazy routes ======== */
-const SignIn          = lazy(() => import("./routes/SignIn"));
-// in main.tsx router config
+// Public
+const SignIn         = lazy(() => import("./routes/SignIn"));
+const AuthCallback   = lazy(() => import("./routes/AuthCallback")); // NEW
+const Logout         = lazy(() => import("./routes/Logout"));
+const App            = lazy(() => import("./App"));
+const AboutUs        = lazy(() => import("./routes/AboutUs"));
+const AboutAI        = lazy(() => import("./routes/AboutAI"));
+const Press          = lazy(() => import("./routes/Press"));
+const Privacy        = lazy(() => import("./routes/Privacy"));
+const Terms          = lazy(() => import("./routes/Terms"));
+const Contact        = lazy(() => import("./routes/Contact"));
+const Careers        = lazy(() => import("./routes/Careers"));
+const Status         = lazy(() => import("./routes/Status"));
+const Thanks         = lazy(() => import("./routes/Thanks"));
+
+// Guest / Journey
+const Hotel          = lazy(() => import("./routes/Hotel"));
+const Menu           = lazy(() => import("./routes/Menu"));
+const RequestTracker = lazy(() => import("./routes/RequestTracker"));
+const Bill           = lazy(() => import("./routes/Bill"));
+const Precheck       = lazy(() => import("./routes/Precheck"));
+const Regcard        = lazy(() => import("./routes/Regcard"));
+const ClaimStay      = lazy(() => import("./routes/ClaimStay"));
+const Checkout       = lazy(() => import("./routes/Checkout"));
+const GuestDashboard = lazy(() => import("./routes/GuestDashboard"));
+const HotelReviews   = lazy(() => import("./routes/HotelReviews"));
+
+// Staff / Ops
+const Desk           = lazy(() => import("./routes/Desk"));
+const HK             = lazy(() => import("./routes/HK"));
+const Maint          = lazy(() => import("./routes/Maint"));
+
+// Owner / Admin
+const OwnerHome      = lazy(() => import("./routes/OwnerHome"));
+const OwnerDashboard = lazy(() => import("./routes/OwnerDashboard"));
+const OwnerSettings  = lazy(() => import("./routes/OwnerSettings"));
+const OwnerServices  = lazy(() => import("./routes/OwnerServices"));
+const OwnerReviews   = lazy(() => import("./routes/OwnerReviews"));
+const AdminOps       = lazy(() => import("./pages/AdminOps"));
+
+// Grid (VPP)
+const GridDevices    = lazy(() => import("./routes/GridDevices"));
+const GridPlaybooks  = lazy(() => import("./routes/GridPlaybooks"));
+const GridEvents     = lazy(() => import("./routes/GridEvents"));
+
+// 404 + deep link
+const NotFound       = lazy(() => import("./routes/NotFound"));
+const RequestStatus  = lazy(() => import("./pages/RequestStatus"));
 const Welcome        = lazy(() => import("./routes/Welcome"));
-const OwnerRegister  = lazy(() => import("./routes/OwnerRegister"));
-const GuestGate      = lazy(() => import("./components/GuestGate")); // if you keep it in components
 
-const AuthCallback    = lazy(() => import("./routes/AuthCallback"));
-const Logout          = lazy(() => import("./routes/Logout"));
-const App             = lazy(() => import("./App"));
-const AboutUs         = lazy(() => import("./routes/AboutUs"));
-const AboutAI         = lazy(() => import("./routes/AboutAI"));
-const Press           = lazy(() => import("./routes/Press"));
-const Privacy         = lazy(() => import("./routes/Privacy"));
-const Terms           = lazy(() => import("./routes/Terms"));
-const Contact         = lazy(() => import("./routes/Contact"));
-const Careers         = lazy(() => import("./routes/Careers"));
-const Status          = lazy(() => import("./routes/Status"));
-const Thanks          = lazy(() => import("./routes/Thanks"));
-
-const Hotel           = lazy(() => import("./routes/Hotel"));
-const Menu            = lazy(() => import("./routes/Menu"));
-const RequestTracker  = lazy(() => import("./routes/RequestTracker"));
-const Bill            = lazy(() => import("./routes/Bill"));
-const Precheck        = lazy(() => import("./routes/Precheck"));
-const Regcard         = lazy(() => import("./routes/Regcard"));
-const ClaimStay       = lazy(() => import("./routes/ClaimStay"));
-const Checkout        = lazy(() => import("./routes/Checkout"));
-const GuestDashboard  = lazy(() => import("./routes/GuestDashboard"));
-const HotelReviews    = lazy(() => import("./routes/HotelReviews"));
-
-const Desk            = lazy(() => import("./routes/Desk"));
-const HK              = lazy(() => import("./routes/HK"));
-const Maint           = lazy(() => import("./routes/Maint"));
-
-const OwnerHome       = lazy(() => import("./routes/OwnerHome"));
-const OwnerDashboard  = lazy(() => import("./routes/OwnerDashboard"));
-const OwnerSettings   = lazy(() => import("./routes/OwnerSettings"));
-const OwnerServices   = lazy(() => import("./routes/OwnerServices"));
-const OwnerReviews    = lazy(() => import("./routes/OwnerReviews"));
-const AdminOps        = lazy(() => import("./pages/AdminOps"));
-
-const GridDevices     = lazy(() => import("./routes/GridDevices"));
-const GridPlaybooks   = lazy(() => import("./routes/GridPlaybooks"));
-const GridEvents      = lazy(() => import("./routes/GridEvents"));
-
-const NotFound        = lazy(() => import("./routes/NotFound"));
-const RequestStatus   = lazy(() => import("./pages/RequestStatus"));
-
-/* ======== Catcher for hash / PKCE links anywhere ======== */
-function AuthSessionCatcher() {
-  const navigate = useNavigate();
+/* ======== Auth bootstrap gate ========
+   Prevents the app from rendering routes until Supabase auth is hydrated.
+   This eliminates the “flash of Sign-in” after magic-link. */
+function AuthBootstrap({ children }: { children: React.ReactNode }) {
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const { hash, search } = window.location;
-    const hasTokens = /access_token=|refresh_token=|type=recovery|provider_token=/.test(hash);
-    const hasCode   = /[?&]code=/.test(search);
-    if (!hasTokens && !hasCode) return;
+    let mounted = true;
 
     (async () => {
-      try {
-        // claim via hash (use-hash redirect) if present
-        await supabase.auth.getSessionFromUrl({ storeSession: true }).catch(async () => {
-          // else claim via PKCE code
-          const code = new URLSearchParams(window.location.search).get("code");
-          if (code) await supabase.auth.exchangeCodeForSession(code);
-        });
-      } finally {
-        // clean url; let AuthCallback (or current page) decide redirect
-        const u = new URL(window.location.href);
-        u.hash = "";
-        u.searchParams.delete("code");
-        window.history.replaceState({}, "", u.pathname + u.search);
-      }
-    })();
-  }, [navigate]);
+      // First read – if a session already exists, we’re instantly ready.
+      await supabase.auth.getSession().catch(() => {});
+      if (!mounted) return;
 
-  return null;
+      // Subscribe: when magic-link completes (or sign-out happens), we’ll be up to date.
+      const { data: sub } = supabase.auth.onAuthStateChange((_evt) => {
+        // We don’t gate on “has session”, only on “auth APIs are ready”.
+        // So we can mark ready on first event after mount.
+        if (!mounted) return;
+        setReady(true);
+      });
+
+      // If no event arrives quickly (cold start), still mark ready.
+      // (Supabase often emits an event quickly; this is just a safety net.)
+      const t = setTimeout(() => {
+        if (!mounted) return;
+        setReady(true);
+      }, 250);
+
+      return () => {
+        clearTimeout(t);
+        sub.subscription.unsubscribe();
+      };
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  if (!ready) {
+    return (
+      <div className="min-h-[40vh] grid place-items-center">
+        <Spinner label="Starting app…" />
+      </div>
+    );
+  }
+  return <>{children}</>;
 }
 
-/* ======== Root layout ======== */
+/* ======== Root layout that adds global helpers ======== */
 function RootLayout() {
   return (
     <>
@@ -134,7 +165,6 @@ function RootLayout() {
       <PageViewTracker />
       <RouteAnnouncer />
       <UpdatePrompt />
-      <AuthSessionCatcher />
       <Outlet />
     </>
   );
@@ -149,45 +179,39 @@ const router = createBrowserRouter([
       { index: true, element: <App /> },
 
       // Public
-      { path: "signin",          element: <SignIn /> },
-      { path: "auth/callback",   element: <AuthCallback /> },
-      { path: "welcome",         element: <AuthGate><Welcome /></AuthGate> },
-      { path: "owner/register",  element: <AuthGate><OwnerRegister /></AuthGate> },
-      { path: "auth/callback",   element: <AuthCallback /> },
-      { path: "logout",          element: <Logout /> },
-      { path: "about",           element: <AboutUs /> },
-      { path: "about-ai",        element: <AboutAI /> },
-      { path: "press",           element: <Press /> },
-      { path: "privacy",         element: <Privacy /> },
-      { path: "terms",           element: <Terms /> },
-      { path: "contact",         element: <Contact /> },
-      { path: "careers",         element: <Careers /> },
-      { path: "status",          element: <Status /> },
-      { path: "thanks",          element: <Thanks /> },
-      { path: "/", element: <PublicGate><App /></PublicGate> },
+      { path: "signin", element: <SignIn /> },
+      { path: "auth/callback", element: <AuthCallback /> }, // ← NEW
+      { path: "logout", element: <Logout /> },
+      { path: "about", element: <AboutUs /> },
+      { path: "about-ai", element: <AboutAI /> },
+      { path: "press", element: <Press /> },
+      { path: "privacy", element: <Privacy /> },
+      { path: "terms", element: <Terms /> },
+      { path: "contact", element: <Contact /> },
+      { path: "careers", element: <Careers /> },
+      { path: "status", element: <Status /> },
+      { path: "thanks", element: <Thanks /> },
 
-      // Guest / Journey
-      { path: "hotel/:slug",     element: <Hotel /> },
-      { path: "menu",            element: <Menu /> },
+      // Guest / Journey (public)
+      { path: "hotel/:slug", element: <Hotel /> },
+      { path: "menu", element: <Menu /> },
       { path: "stay/:code/menu", element: <Menu /> },
-      { path: "requestTracker",  element: <RequestTracker /> },
-      { path: "bill",            element: <Bill /> },
-      { path: "precheck/:code",  element: <Precheck /> },
-      { path: "regcard",         element: <Regcard /> },
-      { path: "claim",           element: <ClaimStay /> },
-      { path: "checkout",        element: <Checkout /> },
-      // { path: "guest",           element: <GuestDashboard /> },
+      { path: "requestTracker", element: <RequestTracker /> },
+      { path: "bill", element: <Bill /> },
+      { path: "precheck/:code", element: <Precheck /> },
+      { path: "regcard", element: <Regcard /> },
+      { path: "claim", element: <ClaimStay /> },
+      { path: "checkout", element: <Checkout /> },
+      { path: "guest", element: <GuestDashboard /> },
       { path: "hotel/:slug/reviews", element: <HotelReviews /> },
-      // Guest space
-      { path: "guest",           element: <GuestGate><GuestDashboard /></GuestGate> },
 
-      // Guest deep link
+      // Guest deep link (public)
       { path: "stay/:slug/requests/:id", element: <RequestStatus /> },
 
       // Staff (protected)
-      { path: "desk",            element: <AuthGate><Desk /></AuthGate> },
-      { path: "hk",              element: <AuthGate><HK /></AuthGate> },
-      { path: "maint",           element: <AuthGate><Maint /></AuthGate> },
+      { path: "desk",  element: <AuthGate><Desk /></AuthGate> },
+      { path: "hk",    element: <AuthGate><HK /></AuthGate> },
+      { path: "maint", element: <AuthGate><Maint /></AuthGate> },
 
       // Owner / Admin (protected)
       { path: "owner",                 element: <AuthGate><OwnerHome /></AuthGate> },
@@ -203,16 +227,13 @@ const router = createBrowserRouter([
       { path: "grid/playbooks", element: <AuthGate><GridPlaybooks /></AuthGate> },
       { path: "grid/events",    element: <AuthGate><GridEvents /></AuthGate> },
 
-      // 404
+      { path: "welcome", element: <Welcome /> },
+
+      // 404 (catch-all)
       { path: "*", element: <NotFound /> },
     ],
   },
 ]);
-
-// ✅ FIX the “No QueryClient set” by providing it here
-const queryClient = new QueryClient({
-  defaultOptions: { queries: { refetchOnWindowFocus: false } },
-});
 
 const rootEl = document.getElementById("root");
 if (!rootEl) throw new Error("Root element #root not found in index.html");
@@ -222,15 +243,17 @@ createRoot(rootEl).render(
     <GlobalErrorBoundary>
       <ThemeProvider>
         <QueryClientProvider client={queryClient}>
-          <Suspense
-            fallback={
-              <div className="min-h-[40vh] grid place-items-center">
-                <Spinner label="Loading page…" />
-              </div>
-            }
-          >
-            <RouterProvider router={router} />
-          </Suspense>
+          <AuthBootstrap>
+            <Suspense
+              fallback={
+                <div className="min-h-[40vh] grid place-items-center">
+                  <Spinner label="Loading page…" />
+                </div>
+              }
+            >
+              <RouterProvider router={router} />
+            </Suspense>
+          </AuthBootstrap>
         </QueryClientProvider>
       </ThemeProvider>
     </GlobalErrorBoundary>

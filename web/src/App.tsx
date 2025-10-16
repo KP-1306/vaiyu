@@ -1,8 +1,11 @@
 // web/src/App.tsx
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+
 import SEO from "./components/SEO";
 import Pill from "./components/Pill";
+// NEW: Supabase client
+import { supabase } from "./lib/supabase";
 
 const TOKEN_KEY = "stay:token";
 
@@ -10,9 +13,8 @@ const heroBg =
   "https://images.unsplash.com/photo-1500375592092-40eb2168fd21?q=80&w=1600&auto=format&fit=crop";
 
 export default function App() {
-  // Show "My credits" only when a guest token exists
+  // --- Guest token chip (unchanged) ---
   const [hasToken, setHasToken] = useState<boolean>(() => !!localStorage.getItem(TOKEN_KEY));
-
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
       if (e.key === TOKEN_KEY) setHasToken(!!e.newValue);
@@ -26,7 +28,42 @@ export default function App() {
     };
   }, []);
 
-  const site = typeof window !== "undefined" ? window.location.origin : "https://vaiyu.co.in";
+  // --- NEW: Auth/session awareness for nav ---
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (mounted) setUserEmail(data.session?.user?.email ?? null);
+    })();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
+      setUserEmail(session?.user?.email ?? null);
+    });
+
+    return () => {
+      mounted = false;
+      sub?.subscription?.unsubscribe();
+    };
+  }, []);
+
+  const isAuthed = !!userEmail;
+
+  async function handleSignOut() {
+    try {
+      // Clear app auth + guest token
+      await supabase.auth.signOut();
+      localStorage.removeItem(TOKEN_KEY);
+    } finally {
+      // Hard redirect to avoid stale UI anywhere
+      window.location.assign("/");
+    }
+  }
+
+  const site =
+    typeof window !== "undefined" ? window.location.origin : "https://vaiyu.co.in";
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
@@ -47,7 +84,7 @@ export default function App() {
         }}
       />
 
-      {/* Top nav (production) */}
+      {/* Top nav */}
       <header className="sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-gray-100">
         <div className="mx-auto max-w-7xl px-4 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
@@ -71,8 +108,13 @@ export default function App() {
             <a href="#use-cases" className="hover:text-gray-700">Use-cases</a>
             <Link to="/owner" className="hover:text-gray-700">For Hotels</Link>
             <Link to="/about" className="hover:text-gray-700">About</Link>
-            {/* Subtle sign-in for returning users */}
-            <Link to="/signin?redirect=/welcome" className="hover:text-gray-700">Sign in</Link>
+
+            {/* When NOT signed-in: show Sign in */}
+            {!isAuthed && (
+              <Link to="/signin?redirect=/welcome" className="hover:text-gray-700">
+                Sign in
+              </Link>
+            )}
           </nav>
 
           <div className="flex items-center gap-2">
@@ -83,13 +125,24 @@ export default function App() {
               </Link>
             )}
 
-            {/* Primary production CTA */}
-            <Link
-              to="/signin?intent=signup&redirect=/welcome"
-              className="btn !py-2 !px-3 text-sm"
-            >
-              Get started
-            </Link>
+            {/* Primary CTA changes with auth state */}
+            {isAuthed ? (
+              <>
+                <Link to="/welcome" className="btn !py-2 !px-3 text-sm">
+                  Open app
+                </Link>
+                <button onClick={handleSignOut} className="btn btn-light !py-2 !px-3 text-sm">
+                  Sign out
+                </button>
+              </>
+            ) : (
+              <Link
+                to="/signin?intent=signup&redirect=/welcome"
+                className="btn !py-2 !px-3 text-sm"
+              >
+                Get started
+              </Link>
+            )}
           </div>
         </div>
       </header>
@@ -120,15 +173,15 @@ export default function App() {
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <Link
-                to="/signin?intent=signup&redirect=/welcome"
+                to={isAuthed ? "/welcome" : "/signin?intent=signup&redirect=/welcome"}
                 className="btn btn-light"
               >
-                Start with your email
+                {isAuthed ? "Open app" : "Start with your email"}
               </Link>
             </div>
           </div>
 
-          {/* Right-side moonshot bullets */}
+          {/* Right-side bullets */}
           <aside className="mt-8 lg:mt-0 lg:absolute lg:right-4 lg:top-1/2 lg:-translate-y-1/2">
             <div className="w-full lg:w-[420px] rounded-2xl bg-white/85 text-gray-900 shadow-lg backdrop-blur p-5">
               <div className="text-xs font-medium text-sky-800 bg-sky-100 inline-flex px-2 py-1 rounded-full">
@@ -234,7 +287,6 @@ export default function App() {
                   <Pill>Live SSE updates</Pill>
                 </div>
 
-                {/* Production CTA to learn more, no demo */}
                 <div className="mt-6 flex gap-3">
                   <Link to="/about-ai" className="btn btn-light">
                     How it works
@@ -266,7 +318,6 @@ export default function App() {
               </ul>
             </div>
 
-            {/* How it works (simple 3-step) */}
             <div className="mt-8 grid md:grid-cols-3 gap-3">
               <Step n={1} title="Capture" text="Guest requests, order timestamps, and SLA outcomes flow in live." />
               <Step n={2} title="Summarize" text="AI builds a review draft and owner-side diagnostics from facts." />
@@ -276,7 +327,7 @@ export default function App() {
         </div>
       </section>
 
-      {/* Use-cases (production: explanatory only, no demo deep links) */}
+      {/* Use-cases */}
       <section id="use-cases" className="mx-auto max-w-7xl px-4 pb-16">
         <div className="flex items-end justify-between">
           <div>
@@ -286,12 +337,11 @@ export default function App() {
             </p>
           </div>
           <div>
-            <Link to="/signin?intent=signup&redirect=/welcome" className="btn">
-              Get started
+            <Link to={isAuthed ? "/welcome" : "/signin?intent=signup&redirect=/welcome"} className="btn">
+              {isAuthed ? "Open app" : "Get started"}
             </Link>
           </div>
         </div>
-        {/* Removed the grid of demo links */}
       </section>
 
       {/* Footer */}

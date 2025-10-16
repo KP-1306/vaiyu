@@ -8,6 +8,7 @@ import { Card } from "../components/ui/card";
 import { Progress } from "../components/ui/progress";
 import { useToast } from "../components/ui/use-toast";
 import SEO from "../components/SEO";
+import Empty from "../components/Empty";
 
 import { getServices } from "../lib/api";
 // OPTIONAL: if you already exposed bulk/save endpoints in ../lib/api, these imports will work.

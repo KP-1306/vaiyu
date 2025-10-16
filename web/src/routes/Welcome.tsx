@@ -16,68 +16,90 @@ export default function Welcome() {
   const [email, setEmail] = useState<string | null>(null);
 
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        // Guard: must be signed in to see /welcome
-        const { data: sess } = await supabase.auth.getSession();
-        if (!sess?.session) {
-          navigate(`/signin?redirect=${encodeURIComponent("/welcome")}`, {
-            replace: true,
-          });
-          return;
-        }
+    let mounted = true;
+    let graceTimer: number | undefined;
 
-        // Who am I?
-        const { data: u } = await supabase.auth.getUser();
-        const uid = u?.user?.id || null;
-        setEmail(u?.user?.email ?? null);
+    async function bootstrap(uid: string) {
+      // who am I? (email)
+      const { data: u } = await supabase.auth.getUser();
+      if (mounted) setEmail(u?.user?.email ?? null);
 
-        let role: string | null = null;
+      // profile (name/role)
+      let role: string | null = null;
+      const { data: p } = await supabase
+        .from("user_profiles")
+        .select("full_name, role")
+        .eq("user_id", uid)
+        .maybeSingle();
 
-        // Load profile (name/role) from user_profiles
-        if (uid) {
-          const { data: p } = await supabase
-            .from("user_profiles")
-            .select("full_name, role")
-            .eq("user_id", uid)
-            .maybeSingle();
+      if (mounted) {
+        setProfile({ full_name: p?.full_name ?? null, role: p?.role ?? null });
+        role = p?.role ?? null;
+      }
 
-          setProfile({ full_name: p?.full_name ?? null, role: p?.role ?? null });
-          role = p?.role ?? null;
-        }
-
-        // Determine if user already has a property
-        if (role === "owner" || role === "manager") {
-          setHasProperty(true);
-        } else if (uid) {
-          // Member of any property?
-          const { data: mem } = await supabase
+      // determine if user already has a property
+      if (role === "owner" || role === "manager") {
+        if (mounted) setHasProperty(true);
+      } else {
+        const [{ data: mem }, { data: owns }] = await Promise.all([
+          supabase
             .from("hotel_members")
             .select("hotel_id")
             .eq("user_id", uid)
-            .limit(1);
-
-          // Owner of any property?
-          const { data: owns } = await supabase
+            .limit(1),
+          supabase
             .from("hotels")
             .select("id")
             .eq("owner_id", uid)
-            .limit(1);
-
-          setHasProperty(Boolean(mem?.length) || Boolean(owns?.length));
-        }
-      } finally {
-        setLoading(false);
+            .limit(1),
+        ]);
+        if (mounted) setHasProperty(Boolean(mem?.length) || Boolean(owns?.length));
       }
-    })();
+
+      if (mounted) setLoading(false);
+    }
+
+    async function checkOnce() {
+      // If session already present, bootstrap immediately
+      const { data: sess } = await supabase.auth.getSession();
+      if (sess?.session?.user?.id) {
+        await bootstrap(sess.session.user.id);
+        return;
+      }
+
+      // Otherwise, wait for auth hydration after magic-link exchange
+      const { data: sub } = supabase.auth.onAuthStateChange(async (_evt, s) => {
+        if (!mounted) return;
+        if (s?.user?.id) {
+          sub.subscription.unsubscribe();
+          await bootstrap(s.user.id);
+        }
+      });
+
+      // Safety net: after 2s, if still no session, redirect to Sign in
+      graceTimer = window.setTimeout(async () => {
+        if (!mounted) return;
+        const { data: final } = await supabase.auth.getSession();
+        if (!final?.session) {
+          navigate(`/signin?redirect=${encodeURIComponent("/welcome")}`, {
+            replace: true,
+          });
+        }
+      }, 2000) as unknown as number;
+    }
+
+    checkOnce();
+
+    return () => {
+      mounted = false;
+      if (graceTimer) clearTimeout(graceTimer);
+    };
   }, [navigate]);
 
   const name = profile?.full_name || email || "there";
 
   async function handleSignOut() {
     await signOutEverywhere();
-    // Send them to sign-in (and avoid stale caching with a cache-buster)
     navigate(`/signin?intent=signin&_=${Date.now()}`, { replace: true });
   }
 

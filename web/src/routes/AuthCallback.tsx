@@ -1,26 +1,34 @@
 // web/src/routes/AuthCallback.tsx
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
 export default function AuthCallback() {
-  const [msg, setMsg] = useState("Finalizing sign-in…");
+  const navigate = useNavigate();
+  const [sp] = useSearchParams();
 
   useEffect(() => {
-    // Supabase auto-handles the hash; we just read the session and route.
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        setMsg("Signed in. Redirecting…");
-        const to = sessionStorage.getItem("postLogin") || "/admin";
-        setTimeout(() => (window.location.href = to), 600);
-      } else {
-        setMsg("No active session. Try signing in again.");
+    (async () => {
+      try {
+        // Handles both hash-style tokens (#access_token=...) and ?code=... PKCE links
+        await supabase.auth.getSessionFromUrl({ storeSession: true }).catch(async () => {
+          // If there is a code param (PKCE), exchange it for a session
+          const code = sp.get("code");
+          if (code) await supabase.auth.exchangeCodeForSession(code);
+        });
+      } catch {
+        // ignore – we'll just send the user back to signin if needed
+      } finally {
+        const dest = sp.get("redirect") || "/";
+        navigate(dest, { replace: true });
       }
-    });
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <div className="min-h-[40vh] grid place-items-center">
-      <div className="text-gray-700">{msg}</div>
+    <div className="min-h-screen grid place-items-center">
+      <div className="text-sm text-gray-600">Signing you in…</div>
     </div>
   );
 }

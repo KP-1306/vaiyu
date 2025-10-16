@@ -17,75 +17,49 @@ const ORIGIN =
   (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/$/, "") ||
   (typeof window !== "undefined" ? window.location.origin : "");
 
-/**
- * Choose a sensible home for a logged-in user if no ?redirect= is provided.
- * Tries user_profiles.home_path then role-based defaults; finally /welcome.
- */
-async function chooseDefaultHome(): Promise<string> {
-  try {
-    const { data: u } = await supabase.auth.getUser();
-    if (!u?.user) return "/welcome";
-
-    const { data: profile } = await supabase
-      .from("user_profiles")
-      .select("role, home_path")
-      .eq("user_id", u.user.id)
-      .maybeSingle();
-
-    if (profile?.home_path) return profile.home_path;
-
-    const role = profile?.role as
-      | "owner"
-      | "manager"
-      | "staff"
-      | "guest"
-      | undefined;
-
-    if (role === "owner" || role === "manager") return "/owner";
-    if (role === "staff") return "/desk";
-  } catch {
-    // ignore – fall through
-  }
-  return "/welcome";
-}
-
 export default function SignIn() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
 
-  const intent = params.get("intent"); // "signup" | "signin" | null
-  const redirectParam = params.get("redirect") || "";
+  const intent = params.get("intent");                 // "signup" | "signin" | null
+  const redirect = params.get("redirect") || "";       // where to go after login
 
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // If already signed in, skip this page
+  // NEW: detect existing session but DO NOT auto-redirect
+  const [hasSession, setHasSession] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!data.session) return;
-
-      const dest = redirectParam || (await chooseDefaultHome());
-      navigate(dest, { replace: true });
+      const { data: sess } = await supabase.auth.getSession();
+      if (sess?.session) {
+        setHasSession(true);
+        const { data: u } = await supabase.auth.getUser();
+        setUserEmail(u?.user?.email ?? null);
+      } else {
+        setHasSession(false);
+        setUserEmail(null);
+      }
     })();
-  }, [navigate, redirectParam]);
+  }, []);
 
   const heading =
     intent === "signup" ? "Create your account" : "Sign in to VAiyu";
   const sub =
     "Enter your work email. We’ll email you a secure magic link — if you’re new, we’ll create your account automatically.";
-  const cta =
-    intent === "signup" ? "Email me a sign-up link" : "Send magic link";
+  const cta = intent === "signup" ? "Email me a sign-up link" : "Send magic link";
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
-      // default landing if caller didn’t pass ?redirect=...
-      const desired = redirectParam || "/welcome";
+      // default to /welcome if no redirect was supplied
+      const desired = redirect || "/welcome";
       const redirectTo = `${ORIGIN}/auth/callback?redirect=${encodeURIComponent(
         desired
       )}`;
@@ -103,16 +77,42 @@ export default function SignIn() {
     }
   }
 
+  function continueSignedIn() {
+    const dest = redirect || "/welcome";
+    navigate(dest, { replace: true });
+  }
+
+  async function signOutAndUseAnother() {
+    await supabase.auth.signOut();
+    setHasSession(false);
+    setUserEmail(null);
+  }
+
   return (
     <div className="min-h-screen grid place-items-center bg-gray-50">
       <div className="w-full max-w-md rounded-2xl border bg-white p-6 shadow-sm">
         <h1 className="text-xl font-semibold">{heading}</h1>
         <p className="text-sm text-gray-600 mt-1">{sub}</p>
 
-        {sent ? (
+        {/* If already signed in, show options instead of auto-redirect */}
+        {hasSession && !sent ? (
+          <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm">
+            <div className="font-medium mb-1">
+              You’re already signed in{userEmail ? ` as ${userEmail}` : ""}.
+            </div>
+            <div className="flex items-center gap-2">
+              <button className="btn" onClick={continueSignedIn}>
+                Continue
+              </button>
+              <button className="btn btn-light" onClick={signOutAndUseAnother}>
+                Use a different email
+              </button>
+            </div>
+          </div>
+        ) : sent ? (
           <div className="mt-4 rounded-md bg-sky-50 p-3 text-sky-800 text-sm">
-            We’ve sent a magic link to <strong>{maskEmail(email)}</strong>. Open
-            it on this device to finish{" "}
+            We’ve sent a magic link to <strong>{maskEmail(email)}</strong>. Open it
+            on this device to finish{" "}
             {intent === "signup" ? "signing up" : "signing in"}.
           </div>
         ) : (
@@ -144,10 +144,10 @@ export default function SignIn() {
 
         <div className="mt-6 text-sm text-gray-600 flex items-center justify-between">
           <Link to="/" className="hover:underline">
-            ← Back to home
+            ← Back to website
           </Link>
-          {!sent &&
-            (intent === "signup" ? (
+          {!sent && !hasSession && (
+            intent === "signup" ? (
               <Link to="/signin" className="hover:underline">
                 Already have an account? Sign in
               </Link>
@@ -155,12 +155,13 @@ export default function SignIn() {
               <Link to="/signin?intent=signup" className="hover:underline">
                 New here? Create an account
               </Link>
-            ))}
+            )
+          )}
         </div>
 
         <div className="mt-3 text-xs text-gray-500">
-          No passwords needed. The link expires in ~10 minutes. If you didn’t
-          receive it, check spam or try again.
+          No passwords needed. The link expires in ~10 minutes. If you didn’t receive
+          it, check spam or try again.
         </div>
       </div>
     </div>

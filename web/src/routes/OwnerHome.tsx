@@ -3,8 +3,9 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import OwnerGate from '../components/OwnerGate';
 import { API } from '../lib/api';
-import OwnerDigestCard from '../components/OwnerDigestCard'; // ← NEW
+import OwnerDigestCard from '../components/OwnerDigestCard';
 import SEO from "../components/SEO";
+import UsageMeter from "../components/UsageMeter"; // NEW
 
 // Tiny types to keep this file self-contained
 type Kpis = { tickets: number; orders: number; onTime: number; late: number; avgMins: number };
@@ -26,15 +27,9 @@ export default function OwnerHome() {
     const next = new URLSearchParams(sp);
     next.set('slug', slug);
     setSp(next, { replace: true });
-  }, [slug]); // eslint-disable-line
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug]);
 
-  // example snippet wherever you render nav links
-const role = profile?.role; // from your existing OwnerGate/profile
-{ (role === "owner" || role === "manager") && (
-  <NavLink to="/owner/services">Services (SLA)</NavLink>
-)}
-
-  
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -66,6 +61,8 @@ const role = profile?.role; // from your existing OwnerGate/profile
   return (
     <OwnerGate>
       <main className="max-w-6xl mx-auto p-4 space-y-4">
+        <SEO title="Owner Home" noIndex />
+
         {/* Header */}
         <header className="flex items-center justify-between gap-3">
           <div>
@@ -88,8 +85,11 @@ const role = profile?.role; // from your existing OwnerGate/profile
           </div>
         </header>
 
-        {/* NEW: What changed today (server → fallback to demo; with CSV export) */}
-        <OwnerDigestCard slug={slug} apiBase={API} className="mb-2" />
+        {/* NEW: Usage (AI tokens) — shows latest month; if you want per-hotel, pass hotelId here */}
+        <section className="grid md:grid-cols-2 gap-3">
+          <OwnerDigestCard slug={slug} apiBase={API} className="mb-2" />
+          <UsageMeter /* hotelId={profile?.hotel_id} */ />
+        </section>
 
         {/* KPI glance (keep existing quick numbers) */}
         <section className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
@@ -99,7 +99,7 @@ const role = profile?.role; // from your existing OwnerGate/profile
           <Kpi title="Late" value={peek?.kpis?.late ?? '—'} />
           <Kpi title="Avg mins" value={peek?.kpis?.avgMins ?? '—'} />
         </section>
-<SEO title="Owner Home" noIndex />
+
         {/* Quick actions / deep links */}
         <section className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
           <Tile
@@ -143,6 +143,14 @@ const role = profile?.role; // from your existing OwnerGate/profile
             to={`/desk?slug=${encodeURIComponent(slug)}`}
             emoji="🛎️"
             cta="Open desk"
+          />
+          {/* Optional: expose Services (SLA) editor link here */}
+          <Tile
+            title="Services (SLA)"
+            text="Edit labels, SLA minutes, active."
+            to={`/owner/services?slug=${encodeURIComponent(slug)}`}
+            emoji="🧩"
+            cta="Open services"
           />
         </section>
 

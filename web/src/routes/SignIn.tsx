@@ -39,27 +39,43 @@ export default function SignIn() {
     (async () => {
       const { data: sess } = await supabase.auth.getSession();
 
-      if (!sess.session) {
+      if (sess.session) {
+        if (!cancelled) setHasSession(true);
+        const { data: u } = await supabase.auth.getUser();
+        if (!cancelled) setUserEmail(u?.user?.email ?? null);
+
+        // Only auto-redirect when an explicit ?redirect= is present.
+        const p = new URLSearchParams(window.location.search);
+        const dest = p.get("redirect");
+        if (dest) navigate(dest, { replace: true });
+      } else {
         if (!cancelled) {
           setHasSession(false);
           setUserEmail(null);
         }
-        return;
       }
-
-      if (!cancelled) setHasSession(true);
-
-      const { data: u } = await supabase.auth.getUser();
-      if (!cancelled) setUserEmail(u?.user?.email ?? null);
-
-      // Optional: ONLY auto-redirect when an explicit ?redirect= is present.
-      const p = new URLSearchParams(window.location.search);
-      const dest = p.get("redirect");
-      if (dest) navigate(dest, { replace: true });
     })();
+
+    // Also listen for changes (e.g., magic-link opened in this tab)
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_evt, s) => {
+      if (cancelled) return;
+      if (s?.user) {
+        setHasSession(true);
+        setUserEmail(s.user.email ?? null);
+
+        // Again, only jump automatically if ?redirect= exists
+        const p = new URLSearchParams(window.location.search);
+        const dest = p.get("redirect");
+        if (dest) navigate(dest, { replace: true });
+      } else {
+        setHasSession(false);
+        setUserEmail(null);
+      }
+    });
 
     return () => {
       cancelled = true;
+      sub.subscription.unsubscribe();
     };
   }, [navigate]);
 
@@ -71,6 +87,8 @@ export default function SignIn() {
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
+    if (loading) return;
+
     setError(null);
     setLoading(true);
     try {
@@ -80,8 +98,9 @@ export default function SignIn() {
         desired
       )}`;
 
+      const emailTrimmed = email.trim();
       const { error } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
+        email: emailTrimmed,
         options: { emailRedirectTo: redirectTo },
       });
       if (error) throw error;

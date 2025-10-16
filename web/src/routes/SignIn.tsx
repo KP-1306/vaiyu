@@ -21,31 +21,47 @@ export default function SignIn() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
 
-  const intent = params.get("intent");                 // "signup" | "signin" | null
-  const redirect = params.get("redirect") || "";       // where to go after login
+  const intent = params.get("intent");           // "signup" | "signin" | null
+  const redirect = params.get("redirect") || ""; // where to go after login
 
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // NEW: detect existing session but DO NOT auto-redirect
+  // Detect existing session (no auto-redirect unless ?redirect= is present).
   const [hasSession, setHasSession] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     (async () => {
       const { data: sess } = await supabase.auth.getSession();
-      if (sess?.session) {
-        setHasSession(true);
-        const { data: u } = await supabase.auth.getUser();
-        setUserEmail(u?.user?.email ?? null);
-      } else {
-        setHasSession(false);
-        setUserEmail(null);
+
+      if (!sess.session) {
+        if (!cancelled) {
+          setHasSession(false);
+          setUserEmail(null);
+        }
+        return;
       }
+
+      if (!cancelled) setHasSession(true);
+
+      const { data: u } = await supabase.auth.getUser();
+      if (!cancelled) setUserEmail(u?.user?.email ?? null);
+
+      // Optional: ONLY auto-redirect when an explicit ?redirect= is present.
+      const p = new URLSearchParams(window.location.search);
+      const dest = p.get("redirect");
+      if (dest) navigate(dest, { replace: true });
     })();
-  }, []);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate]);
 
   const heading =
     intent === "signup" ? "Create your account" : "Sign in to VAiyu";
@@ -58,7 +74,7 @@ export default function SignIn() {
     setError(null);
     setLoading(true);
     try {
-      // default to /welcome if no redirect was supplied
+      // Default to /welcome if no redirect was supplied.
       const desired = redirect || "/welcome";
       const redirectTo = `${ORIGIN}/auth/callback?redirect=${encodeURIComponent(
         desired

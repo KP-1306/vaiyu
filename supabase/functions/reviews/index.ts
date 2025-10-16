@@ -26,12 +26,6 @@ function supabaseService() {
   return createClient(url, key);
 }
 
-// ... after you call the model and have usage:
-const totalTokens = resp?.usage?.total_tokens ?? 0;   // adapt to your client
-const modelName   = resp?.model ?? "gpt-4o-mini";     // adapt
-// you already know hotel_id in your codepath (from auth/tenant)
-await logTokens(supabase, hotelId, totalTokens, { model: modelName, func: "reviews/auto" });
-
 /** naive rate limit */
 async function rateLimitOrThrow(req: Request, keyHint: string, limit = 40) {
   const supa = supabaseAnon();
@@ -176,8 +170,28 @@ async function handleAuto(body: any, svc: SupabaseClient, req: Request) {
     if (hit) return j(req, 200, hit);
   }
 
+  // Compute KPIs & build a baseline draft (non-AI)
   const kpis = await computeKpis(svc, hotelId, periodDays);
-  const autoDraft = buildDraft(kpis);
+  let draft = buildDraft(kpis);
+
+  // --- Optional: AI-enhanced draft (wire later) -----------------------------
+  // If you already call a model here, capture token usage and set `draft`
+  // to the model's output. Until then, you can pass usage via the request body.
+  // Example client opt-in:
+  // body.ai_total_tokens = 123; body.ai_model = "gpt-4o-mini";
+  try {
+    const totalTokens = Number(body?.ai_total_tokens ?? 0);
+    if (totalTokens > 0) {
+      const modelName = String(body?.ai_model || "gpt-4o-mini");
+      await logTokens(svc, hotelId, Math.max(0, Math.floor(totalTokens)), {
+        model: modelName,
+        func: "reviews/auto",
+      });
+    }
+  } catch {
+    // never fail the workflow because logging hiccuped
+  }
+  // -------------------------------------------------------------------------
 
   const rating = Math.min(Math.max(Number(body?.rating ?? 5), 1), 5);
   const insert = {
@@ -185,7 +199,7 @@ async function handleAuto(body: any, svc: SupabaseClient, req: Request) {
     booking_code: body?.booking_code ?? null,
     rating,
     title: body?.title ?? "Stay review draft",
-    body: body?.body ?? autoDraft,
+    body: body?.body ?? draft,
     status: "pending",
   };
 
@@ -271,11 +285,12 @@ serve(async (req) => {
     if (req.method === "POST" && url.pathname.endsWith("/approve")) return await handleApprove(body, svc, req);
     return j(req, 404, { ok: false, error: "Unknown route" });
   } catch (e) {
+    // function label fixed to "reviews"
     await alertError(Deno.env.get("WEBHOOK_ALERT_URL"), {
-    fn: "tickets", // change per function
-    message: String(e?.message || e),
-    meta: { url: req.url, method: req.method },
-  });
+      fn: "reviews",
+      message: String((e as any)?.message || e),
+      meta: { url: req.url, method: req.method },
+    });
 
     return j(req, 500, { ok: false, error: String(e) });
   }

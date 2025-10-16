@@ -1,54 +1,45 @@
 // web/src/main.tsx
-import React, { StrictMode, Suspense, lazy } from "react";
+import React, { StrictMode, Suspense, lazy, useEffect } from "react";
 import { createRoot } from "react-dom/client";
-import { createBrowserRouter, RouterProvider, Outlet } from "react-router-dom";
+import { createBrowserRouter, RouterProvider, Outlet, useNavigate } from "react-router-dom";
 
 import { initMonitoring } from "./lib/monitoring";
 initMonitoring();
 
-// Guard for protected routes
 import AuthGate from "./components/AuthGate";
 
-// Service worker registration (kept)
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/sw.js").catch(() => {});
   });
 }
 
-// Analytics (kept)
 import { initAnalytics, track } from "./lib/analytics";
 initAnalytics();
 track("page_view", { path: location.pathname });
 
-// Theme + global styles
 import { ThemeProvider } from "./components/ThemeProvider";
 import "./theme.css";
 import "./index.css";
 
-// Global chrome helpers
 import ScrollToTop from "./components/ScrollToTop";
 import BackHome from "./components/BackHome";
-
-// Crash guard
 import GlobalErrorBoundary from "./components/GlobalErrorBoundary";
-
-// A11y + analytics helpers
 import SkipToContent from "./components/SkipToContent";
 import PageViewTracker from "./components/PageViewTracker";
 import RouteAnnouncer from "./components/RouteAnnouncer";
 import RouteErrorBoundary from "./routes/RouteErrorBoundary";
-
-// Network/perf helpers
 import OnlineStatusBar from "./components/OnlineStatusBar";
 import TopProgressBar from "./components/TopProgressBar";
 import UpdatePrompt from "./components/UpdatePrompt";
 import Spinner from "./components/Spinner";
 
-/* ======== Lazy-loaded routes ======== */
-// Public / Website
+// NEW: supabase client for session claim
+import { supabase } from "./lib/supabase";
+
+/* ======== Lazy routes ======== */
 const SignIn = lazy(() => import("./routes/SignIn"));
-const AuthCallback = lazy(() => import("./routes/AuthCallback")); // <-- important
+const AuthCallback = lazy(() => import("./routes/AuthCallback"));
 const Logout = lazy(() => import("./routes/Logout"));
 const App = lazy(() => import("./App"));
 const AboutUs = lazy(() => import("./routes/AboutUs"));
@@ -61,7 +52,6 @@ const Careers = lazy(() => import("./routes/Careers"));
 const Status = lazy(() => import("./routes/Status"));
 const Thanks = lazy(() => import("./routes/Thanks"));
 
-// Guest / Journey
 const Hotel = lazy(() => import("./routes/Hotel"));
 const Menu = lazy(() => import("./routes/Menu"));
 const RequestTracker = lazy(() => import("./routes/RequestTracker"));
@@ -73,12 +63,10 @@ const Checkout = lazy(() => import("./routes/Checkout"));
 const GuestDashboard = lazy(() => import("./routes/GuestDashboard"));
 const HotelReviews = lazy(() => import("./routes/HotelReviews"));
 
-// Staff / Ops
 const Desk = lazy(() => import("./routes/Desk"));
 const HK = lazy(() => import("./routes/HK"));
 const Maint = lazy(() => import("./routes/Maint"));
 
-// Owner / Admin
 const OwnerHome = lazy(() => import("./routes/OwnerHome"));
 const OwnerDashboard = lazy(() => import("./routes/OwnerDashboard"));
 const OwnerSettings = lazy(() => import("./routes/OwnerSettings"));
@@ -86,18 +74,55 @@ const OwnerServices = lazy(() => import("./routes/OwnerServices"));
 const OwnerReviews = lazy(() => import("./routes/OwnerReviews"));
 const AdminOps = lazy(() => import("./pages/AdminOps"));
 
-// Grid (VPP)
 const GridDevices = lazy(() => import("./routes/GridDevices"));
 const GridPlaybooks = lazy(() => import("./routes/GridPlaybooks"));
 const GridEvents = lazy(() => import("./routes/GridEvents"));
 
-// 404
 const NotFound = lazy(() => import("./routes/NotFound"));
-
-// Guest ticket deep link
 const RequestStatus = lazy(() => import("./pages/RequestStatus"));
 
-/* ======== Root layout that adds global helpers ======== */
+/* ======== NEW: global catcher for magic-link tokens ======== */
+function AuthSessionCatcher() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const { hash, search } = window.location;
+
+    const hashHasTokens =
+      /access_token=|refresh_token=|type=recovery|provider_token=/.test(hash);
+
+    const searchHasCode = /[?&]code=/.test(search);
+
+    if (!hashHasTokens && !searchHasCode) return;
+
+    (async () => {
+      try {
+        // Try both flows; one of these will succeed depending on link format
+        await supabase.auth.getSessionFromUrl({ storeSession: true }).catch(async () => {
+          const code = new URLSearchParams(window.location.search).get("code");
+          if (code) await supabase.auth.exchangeCodeForSession(code);
+        });
+      } catch {
+        // swallow errors; user will remain on signin if it fails
+      } finally {
+        // Clean URL and redirect to requested page (or /)
+        const url = new URL(window.location.href);
+        const dest = url.searchParams.get("redirect") || "/";
+        url.hash = "";
+        url.searchParams.delete("code");
+        url.searchParams.delete("redirect");
+        window.history.replaceState({}, "", url.pathname + url.search);
+        navigate(dest, { replace: true });
+      }
+    })();
+  }, [navigate]);
+
+  return null;
+  emailRedirectTo = `${origin}/auth/callback?redirect=...`
+
+}
+
+/* ======== Root layout ======== */
 function RootLayout() {
   return (
     <>
@@ -109,6 +134,8 @@ function RootLayout() {
       <PageViewTracker />
       <RouteAnnouncer />
       <UpdatePrompt />
+      {/* Run the catcher on every page so hash/PKCE links are claimed */}
+      <AuthSessionCatcher />
       <Outlet />
     </>
   );
@@ -122,9 +149,9 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <App /> },
 
-      // Website (public)
+      // Public
       { path: "signin", element: <SignIn /> },
-      { path: "auth/callback", element: <AuthCallback /> }, // <-- important
+      { path: "auth/callback", element: <AuthCallback /> }, // still supported
       { path: "logout", element: <Logout /> },
       { path: "about", element: <AboutUs /> },
       { path: "about-ai", element: <AboutAI /> },
@@ -136,10 +163,10 @@ const router = createBrowserRouter([
       { path: "status", element: <Status /> },
       { path: "thanks", element: <Thanks /> },
 
-      // Guest / Journey (public)
+      // Guest / Journey
       { path: "hotel/:slug", element: <Hotel /> },
       { path: "menu", element: <Menu /> },
-      { path: "stay/:code/menu", element: <Menu /> }, // alias
+      { path: "stay/:code/menu", element: <Menu /> },
       { path: "requestTracker", element: <RequestTracker /> },
       { path: "bill", element: <Bill /> },
       { path: "precheck/:code", element: <Precheck /> },
@@ -149,7 +176,7 @@ const router = createBrowserRouter([
       { path: "guest", element: <GuestDashboard /> },
       { path: "hotel/:slug/reviews", element: <HotelReviews /> },
 
-      // Guest deep link (public)
+      // Guest deep link
       { path: "stay/:slug/requests/:id", element: <RequestStatus /> },
 
       // Staff (protected)
@@ -171,7 +198,7 @@ const router = createBrowserRouter([
       { path: "grid/playbooks", element: <AuthGate><GridPlaybooks /></AuthGate> },
       { path: "grid/events", element: <AuthGate><GridEvents /></AuthGate> },
 
-      // 404 (catch-all)
+      // 404
       { path: "*", element: <NotFound /> },
     ],
   },

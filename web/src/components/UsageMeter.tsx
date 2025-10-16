@@ -1,50 +1,79 @@
 import { useEffect, useState } from "react";
-import { supa } from "@/lib/db";
-import { Card } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { API } from "../lib/api";
 
-export default function UsageMeter({ hotelId }: { hotelId?: string|null }) {
-  const [used, setUsed] = useState<number|null>(null);
-  const [budget, setBudget] = useState<number|null>(null);
-  const [err, setErr] = useState<string|null>(null);
+type Usage = {
+  month_utc?: string;
+  used_tokens: number;
+  budget_tokens: number;
+};
+
+export default function UsageMeter({ hotelId }: { hotelId?: string }) {
+  const [data, setData] = useState<Usage | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let ok = true;
+    const ac = new AbortController();
     (async () => {
+      setLoading(true);
       try {
-        const q = hotelId
-          ? supa.from("ai_usage").select("used_tokens,budget_tokens").eq("hotel_id", hotelId).order("month_utc", { ascending: false }).limit(1)
-          : supa.from("ai_usage").select("used_tokens,budget_tokens").order("month_utc", { ascending: false }).limit(1);
-        const { data, error } = await q;
-        if (error) throw error;
-        const row = data?.[0];
-        if (ok) {
-          setUsed(row?.used_tokens ?? 0);
-          setBudget(row?.budget_tokens ?? 0);
-        }
+        const u = new URL(`${API}/ai/usage`, window.location.origin);
+        if (hotelId) u.searchParams.set("hotel_id", hotelId);
+        const r = await fetch(u.toString(), { signal: ac.signal });
+        if (!r.ok) throw new Error(`Usage fetch failed (${r.status})`);
+        const j = await r.json();
+        // Accept either {used_tokens, budget_tokens} or {data:{...}}
+        const row = j?.data ?? j;
+        setData({
+          month_utc: row?.month_utc ?? undefined,
+          used_tokens: Number(row?.used_tokens ?? 0),
+          budget_tokens: Number(row?.budget_tokens ?? 200000),
+        });
+        setErr(null);
       } catch (e: any) {
-        if (ok) setErr(e.message ?? String(e));
+        // graceful fallback demo values
+        setData({ month_utc: undefined, used_tokens: 0, budget_tokens: 200000 });
+        setErr(e?.message || String(e));
+      } finally {
+        setLoading(false);
       }
     })();
-    return () => { ok = false; };
+    return () => ac.abort();
   }, [hotelId]);
 
-  if (err) return <div className="text-sm text-red-600">{err}</div>;
-  if (used === null || budget === null) return <div className="text-sm text-muted-foreground">Loading usage…</div>;
-  if (budget === 0 && used === 0) return <div className="text-sm text-muted-foreground">No usage yet.</div>;
-
-  const pct = Math.min(100, Math.round((used / Math.max(1, budget)) * 100));
+  const used = data?.used_tokens ?? 0;
+  const budget = data?.budget_tokens || 1;
+  const pct = Math.min(100, Math.round((used * 100) / budget));
 
   return (
-    <Card className="p-4">
-      <div className="flex items-center justify-between">
-        <div className="font-medium">AI Usage (this month)</div>
-        <div className="text-sm">{pct}%</div>
+    <section className="card p-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="font-semibold">AI usage</div>
+        {data?.month_utc && (
+          <div className="text-xs text-gray-500">Month: {data.month_utc}</div>
+        )}
       </div>
-      <Progress className="mt-2" value={pct} aria-label="Monthly AI usage" />
-      <div className="mt-2 text-sm text-muted-foreground">
-        {used.toLocaleString()} / {budget.toLocaleString()} tokens
+
+      <div className="h-2 w-full rounded bg-gray-200 overflow-hidden" aria-label="AI token usage">
+        <div
+          className="h-full bg-blue-600"
+          style={{ width: `${pct}%` }}
+          role="progressbar"
+          aria-valuenow={pct}
+          aria-valuemin={0}
+          aria-valuemax={100}
+        />
       </div>
-    </Card>
+
+      <div className="mt-2 text-sm text-gray-700">
+        {loading ? "Loading…" : `${used.toLocaleString()} / ${budget.toLocaleString()} tokens (${pct}%)`}
+      </div>
+
+      {err && (
+        <div className="mt-1 text-xs text-orange-600">
+          Showing fallback; fetch error: {err}
+        </div>
+      )}
+    </section>
   );
 }

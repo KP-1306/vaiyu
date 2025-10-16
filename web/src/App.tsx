@@ -72,7 +72,7 @@ export default function App() {
             <Link to="/owner" className="hover:text-gray-700">For Hotels</Link>
             <Link to="/about" className="hover:text-gray-700">About</Link>
             {/* Subtle sign-in for returning users */}
-            <Link to="/signin" className="hover:text-gray-700">Sign in</Link>
+            <Link to="/signin?redirect=/welcome" className="hover:text-gray-700">Sign in</Link>
           </nav>
 
           <div className="flex items-center gap-2">
@@ -84,7 +84,10 @@ export default function App() {
             )}
 
             {/* Primary production CTA */}
-            <Link to="/signin?intent=signup" className="btn !py-2 !px-3 text-sm">
+            <Link
+              to="/signin?intent=signup&redirect=/welcome"
+              className="btn !py-2 !px-3 text-sm"
+            >
               Get started
             </Link>
           </div>
@@ -116,7 +119,10 @@ export default function App() {
             </p>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              <Link to="/signin?intent=signup" className="btn btn-light">
+              <Link
+                to="/signin?intent=signup&redirect=/welcome"
+                className="btn btn-light"
+              >
                 Start with your email
               </Link>
             </div>
@@ -280,7 +286,7 @@ export default function App() {
             </p>
           </div>
           <div>
-            <Link to="/signin?intent=signup" className="btn">
+            <Link to="/signin?intent=signup&redirect=/welcome" className="btn">
               Get started
             </Link>
           </div>

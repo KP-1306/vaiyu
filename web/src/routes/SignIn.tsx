@@ -30,6 +30,11 @@ export default function SignIn() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const desired = new URLSearchParams(window.location.search).get("redirect") || "/owner";
+  const redirectTo = `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(desired)}`;
+  await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo }});
+
+
   const heading = intent === "signup" ? "Create your account" : "Sign in to VAiyu";
   const sub =
     "Enter your work email. We’ll email you a secure magic link — if you’re new, we’ll create your account automatically.";

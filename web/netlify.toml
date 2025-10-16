@@ -2,7 +2,11 @@
   command = "npm run build"
   publish = "dist"
 
-# ---------- Core Security Headers (all routes)
+[functions]
+  directory = "functions"      # => web/functions
+  node_bundler = "esbuild"
+
+# ---------- Security Headers (all routes)
 [[headers]]
   for = "/*"
   [headers.values]
@@ -11,23 +15,28 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "geolocation=(), microphone=(), camera=(), payment=()"
     Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
-    # CSP baseline (extend if you enable analytics; see notes below)
     Content-Security-Policy = "default-src 'self'; connect-src 'self' https:; img-src 'self' data: https:; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:; frame-ancestors 'self'; base-uri 'self'"
 
-# ---------- API Reverse Proxy (keep if you want /api/* to hit backend)
+# ---------- Observability proxy (MORE SPECIFIC; must come before /api/*)
+[[redirects]]
+  from = "/api/obs/*"
+  to = "/.netlify/functions/obs/:splat"
+  status = 200
+
+# ---------- API reverse proxy (generic)
 [[redirects]]
   from = "/api/*"
   to = "https://api.vaiyu.app/:splat"
   status = 200
   force = true
 
-# ---------- SPA Fallback (deep links like /owner load index.html)
+# ---------- SPA fallback (deep links load index.html)
 [[redirects]]
-  from = "/**"
+  from = "/*"
   to = "/index.html"
   status = 200
 
-# ---------- Long-term caching for static assets (Vite outputs /assets/*)
+# ---------- Long-term caching for static assets
 [[headers]]
   for = "/assets/*"
   [headers.values]
@@ -38,24 +47,8 @@
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
 
-# ---------- Service worker: always fetch latest (so updates roll out promptly)
+# ---------- Service worker: fetch latest
 [[headers]]
   for = "/sw.js"
   [headers.values]
     Cache-Control = "no-cache"
-
-# ---------- (Optional) If you enable analytics, extend CSP accordingly:
-# For GA4:
-#   script-src ... https://www.googletagmanager.com https://www.google-analytics.com;
-#   img-src    ... https://www.google-analytics.com https://www.googletagmanager.com;
-#   connect-src... https://www.google-analytics.com https://region1.google-analytics.com https://analytics.google.com;
-#
-# For Plausible:
-#   script-src ... https://plausible.io;
-#   connect-src... https://plausible.io;
-#
-# For Mixpanel:
-#   script-src ... https://cdn.mxpnl.com;
-#   connect-src... https://api.mixpanel.com https://api-eu.mixpanel.com;
-#
-# (If you later enable Sentry, add to connect-src: https://*.ingest.sentry.io https://sentry.io)

@@ -43,6 +43,11 @@ import { supabase } from "./lib/supabase";
 
 /* ======== Lazy routes ======== */
 const SignIn          = lazy(() => import("./routes/SignIn"));
+// in main.tsx router config
+const Welcome        = lazy(() => import("./routes/Welcome"));
+const OwnerRegister  = lazy(() => import("./routes/OwnerRegister"));
+const GuestGate      = lazy(() => import("./components/GuestGate")); // if you keep it in components
+
 const AuthCallback    = lazy(() => import("./routes/AuthCallback"));
 const Logout          = lazy(() => import("./routes/Logout"));
 const App             = lazy(() => import("./App"));
@@ -145,6 +150,9 @@ const router = createBrowserRouter([
       // Public
       { path: "signin",          element: <SignIn /> },
       { path: "auth/callback",   element: <AuthCallback /> },
+      { path: "welcome",         element: <AuthGate><Welcome /></AuthGate> },
+      { path: "owner/register",  element: <AuthGate><OwnerRegister /></AuthGate> },
+      { path: "auth/callback",   element: <AuthCallback /> },
       { path: "logout",          element: <Logout /> },
       { path: "about",           element: <AboutUs /> },
       { path: "about-ai",        element: <AboutAI /> },
@@ -166,8 +174,10 @@ const router = createBrowserRouter([
       { path: "regcard",         element: <Regcard /> },
       { path: "claim",           element: <ClaimStay /> },
       { path: "checkout",        element: <Checkout /> },
-      { path: "guest",           element: <GuestDashboard /> },
+      // { path: "guest",           element: <GuestDashboard /> },
       { path: "hotel/:slug/reviews", element: <HotelReviews /> },
+      // Guest space
+      { path: "guest",           element: <GuestGate><GuestDashboard /></GuestGate> },
 
       // Guest deep link
       { path: "stay/:slug/requests/:id", element: <RequestStatus /> },

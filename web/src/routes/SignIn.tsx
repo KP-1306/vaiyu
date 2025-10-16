@@ -13,27 +13,19 @@ function maskEmail(e: string) {
   return `${u}@${domain}`;
 }
 
-// Prefer VITE_SITE_URL if set; fall back to runtime origin.
-// Strip any trailing slash to avoid double slashes.
 const ORIGIN =
   (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/$/, "") ||
   (typeof window !== "undefined" ? window.location.origin : "");
 
 export default function SignIn() {
   const [params] = useSearchParams();
-  const intent = params.get("intent");            // "signup" | "signin" | null
-  const redirectParam = params.get("redirect");   // e.g. "/desk"
-  const redirectTarget = redirectParam || "/owner"; // default target
+  const intent = params.get("intent");              // "signup" | "signin" | null
+  const redirectParam = params.get("redirect") || ""; // optional preselected dest
 
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const desired = new URLSearchParams(window.location.search).get("redirect") || "/owner";
-  const redirectTo = `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(desired)}`;
-  await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo }});
-
 
   const heading = intent === "signup" ? "Create your account" : "Sign in to VAiyu";
   const sub =
@@ -46,14 +38,19 @@ export default function SignIn() {
     setLoading(true);
 
     try {
-      // include the redirect hint so the callback knows where to send the user
-      const emailRedirectTo = `${ORIGIN}/auth/callback?redirect=${encodeURIComponent(
-        redirectTarget
+      // Prefer ?redirect=… (if provided), else default to /owner (owner flow).
+      const desired =
+        redirectParam ||
+        new URLSearchParams(window.location.search).get("redirect") ||
+        "/owner";
+
+      const redirectTo = `${ORIGIN}/auth/callback?redirect=${encodeURIComponent(
+        desired
       )}`;
 
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim(),
-        options: { emailRedirectTo },
+        options: { emailRedirectTo: redirectTo },
       });
       if (error) throw error;
 
@@ -109,19 +106,11 @@ export default function SignIn() {
           </Link>
           {!sent &&
             (intent === "signup" ? (
-              <Link
-                to={`/signin${redirectParam ? `?redirect=${encodeURIComponent(redirectParam)}` : ""}`}
-                className="hover:underline"
-              >
+              <Link to="/signin" className="hover:underline">
                 Already have an account? Sign in
               </Link>
             ) : (
-              <Link
-                to={`/signin?intent=signup${
-                  redirectParam ? `&redirect=${encodeURIComponent(redirectParam)}` : `&redirect=${encodeURIComponent(redirectTarget)}`
-                }`}
-                className="hover:underline"
-              >
+              <Link to="/signin?intent=signup" className="hover:underline">
                 New here? Create an account
               </Link>
             ))}

@@ -28,6 +28,13 @@ export default function OwnerHome() {
     setSp(next, { replace: true });
   }, [slug]); // eslint-disable-line
 
+  // example snippet wherever you render nav links
+const role = profile?.role; // from your existing OwnerGate/profile
+{ (role === "owner" || role === "manager") && (
+  <NavLink to="/owner/services">Services (SLA)</NavLink>
+)}
+
+  
   useEffect(() => {
     (async () => {
       setLoading(true);

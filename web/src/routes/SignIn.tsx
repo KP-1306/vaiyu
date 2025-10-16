@@ -32,6 +32,33 @@ export default function SignIn() {
     "Enter your work email. We’ll email you a secure magic link — if you’re new, we’ll create your account automatically.";
   const cta = intent === "signup" ? "Email me a sign-up link" : "Send magic link";
 
+  // web/src/routes/SignIn.tsx (only the send part changes)
+async function handleSend(e: React.FormEvent) {
+  e.preventDefault();
+  setError(null);
+  setLoading(true);
+
+  try {
+    // NEW: default to /owner if no ?redirect=...
+    const params = new URLSearchParams(window.location.search);
+    const desired = params.get("redirect") || "/owner";
+
+    const redirectTo = `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(desired)}`;
+
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: { emailRedirectTo: redirectTo },
+    });
+    if (error) throw error;
+    setSent(true);
+  } catch (err: any) {
+    setError(err?.message ?? "Could not send magic link. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+}
+
+  
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
     setError(null);

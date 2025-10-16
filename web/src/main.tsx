@@ -3,6 +3,7 @@ import React, { StrictMode, Suspense, lazy, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider, Outlet, useNavigate } from "react-router-dom";
 
+// === monitoring / analytics / theme & globals (unchanged) ===
 import { initMonitoring } from "./lib/monitoring";
 initMonitoring();
 
@@ -34,7 +35,10 @@ import TopProgressBar from "./components/TopProgressBar";
 import UpdatePrompt from "./components/UpdatePrompt";
 import Spinner from "./components/Spinner";
 
-// Supabase client (for claiming sessions and role lookup)
+// === NEW: React Query provider to fix "No QueryClient set" ===
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+// === Supabase client for session claim & role-based redirect ===
 import { supabase } from "./lib/supabase";
 
 /* ======== Lazy routes ======== */
@@ -81,23 +85,20 @@ const GridEvents = lazy(() => import("./routes/GridEvents"));
 const NotFound = lazy(() => import("./routes/NotFound"));
 const RequestStatus = lazy(() => import("./pages/RequestStatus"));
 
-/* ======== Global catcher for magic-link tokens ======== */
+/* ======== Global catcher for Supabase magic-link tokens ======== */
 function AuthSessionCatcher() {
   const navigate = useNavigate();
 
   useEffect(() => {
     const { hash, search } = window.location;
-
-    // Supabase sends either a hash (token) or a search ?code= (PKCE)
-    const hashHasTokens =
-      /access_token=|refresh_token=|type=recovery|provider_token=/.test(hash);
+    // Supabase uses either hash tokens or PKCE ?code=
+    const hashHasTokens = /access_token=|refresh_token=|type=recovery|provider_token=/.test(hash);
     const searchHasCode = /[?&]code=/.test(search);
-
     if (!hashHasTokens && !searchHasCode) return;
 
     (async () => {
       try {
-        // Try both flows; one will succeed depending on link format
+        // Try both claim flows; whichever applies will succeed
         await supabase.auth
           .getSessionFromUrl({ storeSession: true })
           .catch(async () => {
@@ -105,7 +106,7 @@ function AuthSessionCatcher() {
             if (code) await supabase.auth.exchangeCodeForSession(code);
           });
 
-        // ---- Role-based default destination if ?redirect= is absent ----
+        // Role-based default destination when ?redirect is absent
         let defaultDest = "/";
         try {
           const { data: { user } } = await supabase.auth.getUser();
@@ -124,20 +125,18 @@ function AuthSessionCatcher() {
             else defaultDest = "/guest";
           }
         } catch {
-          // if role lookup fails, keep "/"
+          /* ignore lookup errors; keep "/" */
         }
 
-        // Clean URL & navigate to redirect (or role-based default)
+        // Clean URL & navigate
         const url = new URL(window.location.href);
         const dest = url.searchParams.get("redirect") || defaultDest;
-
         url.hash = "";
         url.searchParams.delete("code");
         url.searchParams.delete("redirect");
         window.history.replaceState({}, "", url.pathname + url.search);
         navigate(dest, { replace: true });
       } catch {
-        // If claim fails, go home
         navigate("/", { replace: true });
       }
     })();
@@ -158,7 +157,6 @@ function RootLayout() {
       <PageViewTracker />
       <RouteAnnouncer />
       <UpdatePrompt />
-      {/* Run the catcher on every page so hash/PKCE links are claimed */}
       <AuthSessionCatcher />
       <Outlet />
     </>
@@ -175,7 +173,7 @@ const router = createBrowserRouter([
 
       // Public
       { path: "signin", element: <SignIn /> },
-      { path: "auth/callback", element: <AuthCallback /> }, // still supported
+      { path: "auth/callback", element: <AuthCallback /> },
       { path: "logout", element: <Logout /> },
       { path: "about", element: <AboutUs /> },
       { path: "about-ai", element: <AboutAI /> },
@@ -228,6 +226,13 @@ const router = createBrowserRouter([
   },
 ]);
 
+// === NEW: create QueryClient and wrap the app ===
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { refetchOnWindowFocus: false },
+  },
+});
+
 const rootEl = document.getElementById("root");
 if (!rootEl) throw new Error("Root element #root not found in index.html");
 
@@ -235,15 +240,17 @@ createRoot(rootEl).render(
   <StrictMode>
     <GlobalErrorBoundary>
       <ThemeProvider>
-        <Suspense
-          fallback={
-            <div className="min-h-[40vh] grid place-items-center">
-              <Spinner label="Loading page…" />
-            </div>
-          }
-        >
-          <RouterProvider router={router} />
-        </Suspense>
+        <QueryClientProvider client={queryClient}>
+          <Suspense
+            fallback={
+              <div className="min-h-[40vh] grid place-items-center">
+                <Spinner label="Loading page…" />
+              </div>
+            }
+          >
+            <RouterProvider router={router} />
+          </Suspense>
+        </QueryClientProvider>
       </ThemeProvider>
     </GlobalErrorBoundary>
   </StrictMode>

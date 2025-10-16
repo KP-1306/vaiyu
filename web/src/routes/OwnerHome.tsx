@@ -1,5 +1,5 @@
 // web/src/routes/OwnerHome.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useState, memo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import OwnerGate from '../components/OwnerGate';
 import { API } from '../lib/api';
@@ -60,13 +60,13 @@ export default function OwnerHome() {
 
   return (
     <OwnerGate>
-      <main className="max-w-6xl mx-auto p-4 space-y-4">
+      <main className="max-w-6xl mx-auto p-4 space-y-4" aria-labelledby="owner-home-title">
         <SEO title="Owner Home" noIndex />
 
         {/* Header */}
         <header className="flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-semibold">Owner Home</h1>
+            <h1 id="owner-home-title" className="text-xl font-semibold">Owner Home</h1>
             <div className="text-sm text-gray-600">
               {peek?.hotel?.name || slug}
             </div>
@@ -75,6 +75,7 @@ export default function OwnerHome() {
             <input
               className="input"
               placeholder="Hotel slug"
+              aria-label="Hotel slug"
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
               style={{ width: 160 }}
@@ -86,13 +87,13 @@ export default function OwnerHome() {
         </header>
 
         {/* NEW: Usage (AI tokens) — shows latest month; if you want per-hotel, pass hotelId here */}
-        <section className="grid md:grid-cols-2 gap-3">
+        <section className="grid md:grid-cols-2 gap-3" aria-label="Digest and usage">
           <OwnerDigestCard slug={slug} apiBase={API} className="mb-2" />
           <UsageMeter /* hotelId={profile?.hotel_id} */ />
         </section>
 
         {/* KPI glance (keep existing quick numbers) */}
-        <section className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <section className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3" aria-label="Key performance indicators">
           <Kpi title="Tickets" value={peek?.kpis?.tickets ?? '—'} />
           <Kpi title="Orders" value={peek?.kpis?.orders ?? '—'} />
           <Kpi title="On-time" value={peek?.kpis?.onTime ?? '—'} />
@@ -101,7 +102,7 @@ export default function OwnerHome() {
         </section>
 
         {/* Quick actions / deep links */}
-        <section className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <section className="grid md:grid-cols-2 lg:grid-cols-3 gap-3" aria-label="Quick links">
           <Tile
             title="Dashboard & KPIs"
             text="Trends, SLA hints, exports."
@@ -155,7 +156,7 @@ export default function OwnerHome() {
         </section>
 
         {/* Coming soon / secondary */}
-        <section className="card">
+        <section className="card" aria-label="Coming soon">
           <div className="font-semibold mb-1">Coming soon</div>
           <ul className="text-sm text-gray-600 list-disc pl-5 space-y-1">
             <li>Bookings & revenue peek (PMS sync)</li>
@@ -165,29 +166,30 @@ export default function OwnerHome() {
           </ul>
         </section>
 
-        {loading && <div>Loading…</div>}
+        {loading && <div role="status" aria-live="polite">Loading…</div>}
       </main>
     </OwnerGate>
   );
 }
 
-function Kpi({ title, value }: { title: string; value: number | string }) {
+/* --- Small perf/a11y polish: memoize simple cards --- */
+const Kpi = memo(function Kpi({ title, value }: { title: string; value: number | string }) {
   return (
-    <div className="card">
+    <div className="card" role="group" aria-label={`${title} KPI`}>
       <div className="text-sm text-gray-600">{title}</div>
       <div className="text-2xl font-semibold mt-1">{value}</div>
     </div>
   );
-}
+});
 
-function Tile({
+const Tile = memo(function Tile({
   title, text, to, emoji, cta,
 }: {
   title: string; text: string; to: string; emoji: string; cta: string;
 }) {
   return (
-    <Link to={to} className="card hover:shadow transition-shadow block">
-      <div className="text-xl">{emoji}</div>
+    <Link to={to} className="card hover:shadow transition-shadow block" aria-label={`${title}: ${text}`}>
+      <div className="text-xl" aria-hidden>{emoji}</div>
       <div className="font-semibold mt-1">{title}</div>
       <div className="text-sm text-gray-600 mt-1">{text}</div>
       <div className="mt-3">
@@ -195,4 +197,4 @@ function Tile({
       </div>
     </Link>
   );
-}
+});

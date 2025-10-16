@@ -1,14 +1,49 @@
 // web/src/routes/SmartLanding.tsx
+import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
-import { useAuth } from "../lib/auth";           // your auth hook (relative import)
-import App from "../App";                         // <-- Public landing is App.tsx
-import GuestDashboard from "./GuestDashboard";    // guest home
+import App from "../App";                    // public marketing landing
+import GuestDashboard from "./GuestDashboard";
 import Spinner from "../components/Spinner";
+import { supabase } from "../lib/supabase";
+
+type LiteUser = { id: string; email?: string | null; user_metadata?: any; app_metadata?: any } | null;
+
+function getRole(u: LiteUser): "guest" | "owner" | "staff" | "admin" {
+  // Adjust if you store role elsewhere
+  return (
+    u?.user_metadata?.role ||
+    u?.app_metadata?.role ||
+    "guest"
+  );
+}
 
 const OWNER_DEST = "/owner"; // change to "/owner/home" if that's your owner route
 
 export default function SmartLanding() {
-  const { loading, user, role } = useAuth(); // role: 'guest' | 'owner' | 'staff' | 'admin'
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<LiteUser>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      const { data } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
+      if (!mounted) return;
+      setUser(data?.user ?? null);
+      setLoading(false);
+
+      // keep in sync with auth events
+      const { data: sub } = supabase.auth.onAuthStateChange((_evt, sess) => {
+        if (!mounted) return;
+        setUser(sess?.user ?? null);
+      });
+      return () => sub.subscription.unsubscribe();
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   if (loading) {
     return (
@@ -18,17 +53,12 @@ export default function SmartLanding() {
     );
   }
 
-  // Not signed in -> show marketing landing (App)
   if (!user) return <App />;
 
-  // Signed in as guest -> personalized dashboard
+  const role = getRole(user);
   if (role === "guest") return <GuestDashboard />;
-
-  // Owners / staff / admins -> owner surface
   if (role === "owner" || role === "staff" || role === "admin") {
     return <Navigate to={OWNER_DEST} replace />;
   }
-
-  // Fallback to public landing
   return <App />;
 }

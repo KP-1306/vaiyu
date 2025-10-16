@@ -55,9 +55,9 @@ const queryClient = new QueryClient({
 /* ======== Lazy routes ======== */
 // Public
 const SignIn         = lazy(() => import("./routes/SignIn"));
-const AuthCallback   = lazy(() => import("./routes/AuthCallback")); // NEW
+const AuthCallback   = lazy(() => import("./routes/AuthCallback")); // kept
 const Logout         = lazy(() => import("./routes/Logout"));
-const App            = lazy(() => import("./App"));
+const App            = lazy(() => import("./App"));                 // (still available for marketing sections if used elsewhere)
 const AboutUs        = lazy(() => import("./routes/AboutUs"));
 const AboutAI        = lazy(() => import("./routes/AboutAI"));
 const Press          = lazy(() => import("./routes/Press"));
@@ -67,6 +67,9 @@ const Contact        = lazy(() => import("./routes/Contact"));
 const Careers        = lazy(() => import("./routes/Careers"));
 const Status         = lazy(() => import("./routes/Status"));
 const Thanks         = lazy(() => import("./routes/Thanks"));
+
+// Smart Landing (NEW): decides Landing vs GuestDashboard vs /owner
+const SmartLanding   = lazy(() => import("./routes/SmartLanding"));
 
 // Guest / Journey
 const Hotel          = lazy(() => import("./routes/Hotel"));
@@ -103,9 +106,7 @@ const NotFound       = lazy(() => import("./routes/NotFound"));
 const RequestStatus  = lazy(() => import("./pages/RequestStatus"));
 const Welcome        = lazy(() => import("./routes/Welcome"));
 
-/* ======== Auth bootstrap gate ========
-   Prevents the app from rendering routes until Supabase auth is hydrated.
-   This eliminates the “flash of Sign-in” after magic-link. */
+/* ======== Auth bootstrap gate ======== */
 function AuthBootstrap({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
 
@@ -113,20 +114,14 @@ function AuthBootstrap({ children }: { children: React.ReactNode }) {
     let mounted = true;
 
     (async () => {
-      // First read – if a session already exists, we’re instantly ready.
       await supabase.auth.getSession().catch(() => {});
       if (!mounted) return;
 
-      // Subscribe: when magic-link completes (or sign-out happens), we’ll be up to date.
       const { data: sub } = supabase.auth.onAuthStateChange((_evt) => {
-        // We don’t gate on “has session”, only on “auth APIs are ready”.
-        // So we can mark ready on first event after mount.
         if (!mounted) return;
         setReady(true);
       });
 
-      // If no event arrives quickly (cold start), still mark ready.
-      // (Supabase often emits an event quickly; this is just a safety net.)
       const t = setTimeout(() => {
         if (!mounted) return;
         setReady(true);
@@ -176,11 +171,12 @@ const router = createBrowserRouter([
     element: <RootLayout />,
     errorElement: <RouteErrorBoundary />,
     children: [
-      { index: true, element: <App /> },
+      // ⬇️ Changed: SmartLanding decides where to go at "/"
+      { index: true, element: <SmartLanding /> },
 
       // Public
       { path: "signin", element: <SignIn /> },
-      { path: "auth/callback", element: <AuthCallback /> }, // ← NEW
+      { path: "auth/callback", element: <AuthCallback /> }, // spinner-only callback
       { path: "logout", element: <Logout /> },
       { path: "about", element: <AboutUs /> },
       { path: "about-ai", element: <AboutAI /> },
@@ -227,6 +223,7 @@ const router = createBrowserRouter([
       { path: "grid/playbooks", element: <AuthGate><GridPlaybooks /></AuthGate> },
       { path: "grid/events",    element: <AuthGate><GridEvents /></AuthGate> },
 
+      // Welcome (still available for owner/staff/admin if you link to it)
       { path: "welcome", element: <Welcome /> },
 
       // 404 (catch-all)

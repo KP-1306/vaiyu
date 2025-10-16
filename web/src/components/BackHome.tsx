@@ -1,33 +1,27 @@
-// web/src/components/BackHome.tsx
-import { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { supabase } from "../lib/supabase";
+import { useNavigate } from "react-router-dom";
 
-export default function BackHome() {
-  const [hasSession, setHasSession] = useState(false);
+export default function BackHome({ to = "/" }: { to?: string }) {
   const navigate = useNavigate();
-  const loc = useLocation();
 
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      const { data } = await supabase.auth.getSession();
-      if (mounted) setHasSession(Boolean(data.session));
-    })();
-    return () => { mounted = false; };
-  }, [loc.pathname]);
+  function onClick(e: React.MouseEvent) {
+    e.preventDefault();
 
-  function go() {
-    if (hasSession) {
-      navigate("/welcome");
+    // If we have real history, go back; otherwise go to fallback ("/" by default)
+    if (window.history.length > 2) {
+      navigate(-1);
     } else {
-      navigate("/");
+      navigate(to, { replace: true });
     }
   }
 
   return (
-    <button onClick={go} className="btn btn-light fixed top-3 left-3 z-40">
-      ← {hasSession ? "Back to app" : "Back to website"}
+    <button
+      className="btn btn-light"
+      onClick={onClick}
+      aria-label="Back to app"
+      title="Back to app"
+    >
+      ← Back to app
     </button>
   );
 }

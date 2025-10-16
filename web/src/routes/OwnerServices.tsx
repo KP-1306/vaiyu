@@ -1,239 +1,228 @@
+// web/src/routes/OwnerServices.tsx
 import { useEffect, useMemo, useState } from "react";
 import OwnerGate from "../components/OwnerGate";
-import { getServices } from "../lib/api";
+import { Input } from "../components/ui/input";
+import { Button } from "../components/ui/button";
+import { Switch } from "../components/ui/switch";
+import { Card } from "../components/ui/card";
+import { Progress } from "../components/ui/progress";
+import { useToast } from "../components/ui/use-toast";
 import SEO from "../components/SEO";
 
-// Optional enhanced endpoints (if you add API routes below):
-import { saveServices as apiSave, upsertService as apiUpsert, deleteService as apiDelete } from "../lib/api";
+import { getServices } from "../lib/api";
+// OPTIONAL: if you already exposed bulk/save endpoints in ../lib/api, these imports will work.
+// If not, the component will fall back to localStorage so you can test the UI now.
+import { saveServices as apiSave } from "../lib/api";
 
-type Service = { key: string; label_en: string; sla_minutes: number };
+type Service = { key: string; label_en: string; sla_minutes: number; active?: boolean };
 
 const LKEY = "owner:services:local";
 
-<SEO title="Owner Home" noIndex />
-
 export default function OwnerServices() {
-  const [rows, setRows] = useState<Service[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  const [rows, setRows] = useState<Service[] | null>(null);
+  const [filter, setFilter] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const [q, setQ] = useState("");
-  const [draft, setDraft] = useState<Service>({ key: "", label_en: "", sla_minutes: 30 });
-  const [editingKey, setEditingKey] = useState<string | null>(null);
-  const [useLocalFallback, setUseLocalFallback] = useState(false);
-
+  // 1) Load services from your existing API; if it fails, use localStorage so the page is still usable.
   useEffect(() => {
+    let ok = true;
     (async () => {
-      setErr(null);
-      setLoading(true);
       try {
-        const r = await getServices();
-        const items = (r as any)?.items || [];
-        setRows(items as Service[]);
-      } catch (e: any) {
-        // Fallback to local storage if API POST/PATCH/DELETE not added yet
-        const raw = localStorage.getItem(LKEY);
-        if (raw) {
-          setRows(JSON.parse(raw));
-          setUseLocalFallback(true);
+        const r = await getServices(); // your current API helper
+        if (!ok) return;
+        const items: Service[] = Array.isArray(r?.items) ? r.items : [];
+        if (items.length) {
+          setRows(items.map(n => ({ ...n, active: n.active ?? true })));
+          localStorage.setItem(LKEY, JSON.stringify(items));
         } else {
-          setErr(e?.message || "Failed to load services");
+          // try local cache so UI still works
+          const cached = localStorage.getItem(LKEY);
+          setRows(cached ? (JSON.parse(cached) as Service[]) : []);
         }
-      } finally {
-        setLoading(false);
+      } catch (e: any) {
+        // graceful fallback
+        const cached = localStorage.getItem(LKEY);
+        setRows(cached ? (JSON.parse(cached) as Service[]) : []);
+        setErr(e?.message || String(e));
       }
     })();
+    return () => {
+      ok = false;
+    };
   }, []);
 
   const filtered = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    if (!s) return rows;
+    if (!rows) return [];
+    const q = filter.trim().toLowerCase();
+    if (!q) return rows;
     return rows.filter(
       (r) =>
-        r.key.toLowerCase().includes(s) ||
-        r.label_en.toLowerCase().includes(s) ||
-        String(r.sla_minutes).includes(s)
+        r.key.toLowerCase().includes(q) ||
+        (r.label_en || "").toLowerCase().includes(q)
     );
-  }, [rows, q]);
+  }, [rows, filter]);
 
-  function resetDraft() {
-    setDraft({ key: "", label_en: "", sla_minutes: 30 });
-    setEditingKey(null);
-  }
-
-  function startEdit(s: Service) {
-    setDraft({ ...s });
-    setEditingKey(s.key);
-  }
-
-  // Save to API (preferred) else localStorage
-  async function saveAllToApiOrLocal(next: Service[]) {
-    try {
-      await apiSave(next); // POST /catalog/services (replace-all)
-      setUseLocalFallback(false);
-    } catch {
-      // fallback to local only
-      localStorage.setItem(LKEY, JSON.stringify(next));
-      setUseLocalFallback(true);
-    }
+  function patch(i: number, p: Partial<Service>) {
+    if (!rows) return;
+    const next = rows.map((r, idx) => (idx === i ? { ...r, ...p } : r));
     setRows(next);
+    setDirty(true);
   }
 
-  async function upsertOne(s: Service) {
-    // optimistic update
-    const exists = rows.some((r) => r.key === s.key);
-    const updated = exists ? rows.map((r) => (r.key === s.key ? s : r)) : [s, ...rows];
+  function addRow() {
+    const draft: Service = {
+      key: "new_service",
+      label_en: "New Service",
+      sla_minutes: 30,
+      active: true,
+    };
+    setRows([...(rows || []), draft]);
+    setDirty(true);
+  }
 
+  async function saveAll() {
+    if (!rows) return;
+    // simple validation
+    const bad = rows.find(
+      (r) => !r.key?.trim() || !r.label_en?.trim() || r.sla_minutes < 0
+    );
+    if (bad) {
+      toast({
+        title: "Fix validation",
+        description: "Key & Label are required; SLA must be ≥ 0.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSaving(true);
     try {
-      await apiUpsert(s); // PATCH/POST single
-      setUseLocalFallback(false);
-    } catch {
-      localStorage.setItem(LKEY, JSON.stringify(updated));
-      setUseLocalFallback(true);
+      // If your ../lib/api provides saveServices(items), this will persist server-side
+      if (typeof apiSave === "function") {
+        await apiSave(rows);
+        toast({ title: "Saved", description: "Services updated." });
+      } else {
+        // fallback: local cache so you can test the UI now
+        localStorage.setItem(LKEY, JSON.stringify(rows));
+        toast({
+          title: "Saved (local only)",
+          description: "API save not wired yet—changes kept in this browser.",
+        });
+      }
+      setDirty(false);
+    } catch (e: any) {
+      toast({
+        title: "Save failed",
+        description: e?.message || String(e),
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
     }
-    setRows(updated);
-  }
-
-  async function deleteOne(key: string) {
-    const updated = rows.filter((r) => r.key !== key);
-    try {
-      await apiDelete(key);
-      setUseLocalFallback(false);
-    } catch {
-      localStorage.setItem(LKEY, JSON.stringify(updated));
-      setUseLocalFallback(true);
-    }
-    setRows(updated);
-  }
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    const cleanKey = draft.key.trim().toLowerCase().replace(/\s+/g, "_");
-    if (!cleanKey) return alert("Service key is required");
-    if (!draft.label_en.trim()) return alert("Label is required");
-    const s: Service = { key: cleanKey, label_en: draft.label_en.trim(), sla_minutes: Math.max(1, Number(draft.sla_minutes) || 30) };
-
-    if (editingKey && editingKey !== cleanKey) {
-      // key changed: remove old, add new
-      const pruned = rows.filter((r) => r.key !== editingKey);
-      await saveAllToApiOrLocal([s, ...pruned]);
-    } else {
-      await upsertOne(s);
-    }
-    resetDraft();
   }
 
   return (
-    <OwnerGate>
-      <main className="max-w-3xl mx-auto p-4 space-y-4">
-        <header className="flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-semibold">Services & SLA</h1>
-            <div className="text-sm text-gray-600">
-              Define guest services (e.g., Towel, Room Cleaning) and their SLA mins.
+    <>
+      <SEO title="Owner Services (SLA)" noIndex />
+      {/* OwnerGate already exists in your repo; it protects owner/manager routes */}
+      <OwnerGate roles={["owner", "manager"]}>
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="Filter by key or label…"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="max-w-sm"
+            />
+            <div className="ml-auto flex items-center gap-2">
+              <Button variant="secondary" onClick={addRow}>
+                Add service
+              </Button>
+              <Button disabled={!dirty || saving} onClick={saveAll}>
+                {saving ? "Saving…" : "Save changes"}
+              </Button>
             </div>
           </div>
-          <input
-            className="input"
-            placeholder="Search services…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            style={{ width: 240 }}
-          />
-        </header>
 
-        {err && <div className="card" style={{ borderColor: "#f59e0b" }}>⚠️ {err}</div>}
-        {loading && <div>Loading…</div>}
-
-        {useLocalFallback && (
-          <div className="card" style={{ borderColor: "#f59e0b" }}>
-            Using local storage (API save endpoints not detected). You can still manage services for demo purposes.
-          </div>
-        )}
-
-        <section className="card">
-          <form onSubmit={submit} className="grid sm:grid-cols-5 gap-3 items-end">
-            <label className="text-sm sm:col-span-2">
-              Key
-              <input
-                className="input mt-1"
-                placeholder="towel"
-                value={draft.key}
-                onChange={(e) => setDraft((p) => ({ ...p, key: e.target.value }))}
-              />
-            </label>
-            <label className="text-sm sm:col-span-2">
-              Label
-              <input
-                className="input mt-1"
-                placeholder="Towel"
-                value={draft.label_en}
-                onChange={(e) => setDraft((p) => ({ ...p, label_en: e.target.value }))}
-              />
-            </label>
-            <label className="text-sm">
-              SLA (mins)
-              <input
-                type="number"
-                min={1}
-                className="input mt-1"
-                value={draft.sla_minutes}
-                onChange={(e) => setDraft((p) => ({ ...p, sla_minutes: Number(e.target.value || 0) }))}
-              />
-            </label>
-            <div className="flex gap-2">
-              <button className="btn" type="submit">{editingKey ? "Update" : "Add"}</button>
-              {editingKey && (
-                <button className="btn btn-outline" type="button" onClick={resetDraft}>
-                  Cancel
-                </button>
-              )}
+          {err && (
+            <div className="text-sm text-orange-600">
+              Loaded from cache because API failed: {err}
             </div>
-          </form>
-        </section>
-
-        <section className="card">
-          {!filtered.length ? (
-            <div className="text-gray-600">No services.</div>
-          ) : (
-            <table className="table">
-              <thead>
-                <tr>
-                  <th style={{ width: 160 }}>Key</th>
-                  <th>Label</th>
-                  <th style={{ width: 120 }}>SLA (mins)</th>
-                  <th style={{ width: 200 }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((s) => (
-                  <tr key={s.key}>
-                    <td className="font-mono">{s.key}</td>
-                    <td>{s.label_en}</td>
-                    <td>{s.sla_minutes}</td>
-                    <td>
-                      <div className="flex gap-2">
-                        <button className="btn btn-light" onClick={() => startEdit(s)}>
-                          Edit
-                        </button>
-                        <button
-                          className="btn btn-outline"
-                          onClick={() => {
-                            if (!confirm(`Delete service "${s.label_en}"?`)) return;
-                            deleteOne(s.key);
-                          }}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           )}
-        </section>
-      </main>
-    </OwnerGate>
+
+          {!rows ? (
+            <Card className="p-6">
+              <div className="text-sm text-muted-foreground">Loading services…</div>
+              <Progress className="mt-3" value={33} />
+            </Card>
+          ) : rows.length === 0 ? (
+            <Card className="p-6">
+              <div className="text-sm text-muted-foreground">
+                No services yet. Click “Add service” to create your first row.
+              </div>
+            </Card>
+          ) : (
+            <div className="rounded-xl border overflow-hidden">
+              <div className="grid grid-cols-12 px-4 py-2 text-xs uppercase tracking-wide text-muted-foreground border-b bg-muted/40">
+                <div className="col-span-3">Key</div>
+                <div className="col-span-5">Label</div>
+                <div className="col-span-2">SLA (min)</div>
+                <div className="col-span-2 text-right">Active</div>
+              </div>
+
+              {filtered.map((r, i) => (
+                <div
+                  key={`${r.key}-${i}`}
+                  className="grid grid-cols-12 items-center px-4 py-3 border-b"
+                >
+                  <div className="col-span-3 pr-2">
+                    <Input
+                      value={r.key}
+                      onChange={(e) => patch(i, { key: e.target.value })}
+                      aria-label={`Service key row ${i + 1}`}
+                    />
+                  </div>
+                  <div className="col-span-5 pr-2">
+                    <Input
+                      value={r.label_en}
+                      onChange={(e) => patch(i, { label_en: e.target.value })}
+                      aria-label={`Service label row ${i + 1}`}
+                    />
+                  </div>
+                  <div className="col-span-2 pr-2">
+                    <Input
+                      type="number"
+                      min={0}
+                      value={r.sla_minutes}
+                      onChange={(e) =>
+                        patch(i, { sla_minutes: Number(e.target.value) })
+                      }
+                      aria-label={`SLA minutes row ${i + 1}`}
+                    />
+                  </div>
+                  <div className="col-span-2 flex justify-end">
+                    <Switch
+                      checked={r.active ?? true}
+                      onCheckedChange={(v) => patch(i, { active: Boolean(v) })}
+                      aria-label={`Toggle active for ${r.key}`}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="text-xs text-muted-foreground">
+            Changes are saved via your existing API (<code>saveServices</code>).
+            If that isn’t wired yet, they’re cached in this browser using{" "}
+            <code>localStorage</code> under <code>{LKEY}</code>.
+          </div>
+        </div>
+      </OwnerGate>
+    </>
   );
 }

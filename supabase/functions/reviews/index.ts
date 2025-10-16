@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { j } from "../_shared/cors.ts";
 import { alertError } from "../_shared/alert.ts";
+import { logTokens } from "../_shared/ai.ts";
 
 /** lightweight admin API key for publish */
 function isAdmin(req: Request) {
@@ -24,6 +25,12 @@ function supabaseService() {
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   return createClient(url, key);
 }
+
+// ... after you call the model and have usage:
+const totalTokens = resp?.usage?.total_tokens ?? 0;   // adapt to your client
+const modelName   = resp?.model ?? "gpt-4o-mini";     // adapt
+// you already know hotel_id in your codepath (from auth/tenant)
+await logTokens(supabase, hotelId, totalTokens, { model: modelName, func: "reviews/auto" });
 
 /** naive rate limit */
 async function rateLimitOrThrow(req: Request, keyHint: string, limit = 40) {

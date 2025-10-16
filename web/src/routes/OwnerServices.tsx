@@ -1,5 +1,5 @@
 // web/src/routes/OwnerServices.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import OwnerGate from "../components/OwnerGate";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
@@ -11,8 +11,6 @@ import SEO from "../components/SEO";
 import Empty from "../components/Empty";
 
 import { getServices } from "../lib/api";
-// OPTIONAL: if you already exposed bulk/save endpoints in ../lib/api, these imports will work.
-// If not, the component will fall back to localStorage so you can test the UI now.
 import { saveServices as apiSave } from "../lib/api";
 
 type Service = { key: string; label_en: string; sla_minutes: number; active?: boolean };
@@ -28,6 +26,12 @@ export default function OwnerServices() {
   const [dirty, setDirty] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  // focus the filter for keyboard users
+  const filterRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    filterRef.current?.focus();
+  }, []);
+
   // 1) Load services from your existing API; if it fails, use localStorage so the page is still usable.
   useEffect(() => {
     let ok = true;
@@ -35,7 +39,7 @@ export default function OwnerServices() {
       try {
         const r = await getServices(); // your current API helper
         if (!ok) return;
-        const items: Service[] = Array.isArray(r?.items) ? r.items : [];
+        const items: Service[] = Array.isArray((r as any)?.items) ? (r as any).items : [];
         if (items.length) {
           setRows(items.map(n => ({ ...n, active: n.active ?? true })));
           localStorage.setItem(LKEY, JSON.stringify(items));
@@ -89,7 +93,7 @@ export default function OwnerServices() {
     if (!rows) return;
     // simple validation
     const bad = rows.find(
-      (r) => !r.key?.trim() || !r.label_en?.trim() || r.sla_minutes < 0
+      (r) => !r.key?.trim() || !r.label_en?.trim() || (r.sla_minutes as number) < 0
     );
     if (bad) {
       toast({
@@ -102,7 +106,6 @@ export default function OwnerServices() {
 
     setSaving(true);
     try {
-      // If your ../lib/api provides saveServices(items), this will persist server-side
       if (typeof apiSave === "function") {
         await apiSave(rows);
         toast({ title: "Saved", description: "Services updated." });
@@ -131,43 +134,47 @@ export default function OwnerServices() {
       <SEO title="Owner Services (SLA)" noIndex />
       {/* OwnerGate already exists in your repo; it protects owner/manager routes */}
       <OwnerGate roles={["owner", "manager"]}>
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
+        <main className="max-w-5xl mx-auto p-4 space-y-4" aria-labelledby="page-title">
+          <h1 id="page-title" className="text-xl font-semibold">Services (SLA)</h1>
+
+          <section className="flex items-center gap-2" aria-label="Service controls">
             <Input
+              ref={filterRef}
               placeholder="Filter by key or label…"
+              aria-label="Filter services by key or label"
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
               className="max-w-sm"
             />
             <div className="ml-auto flex items-center gap-2">
-              <Button variant="secondary" onClick={addRow}>
+              <Button variant="secondary" onClick={addRow} aria-label="Add a new service">
                 Add service
               </Button>
-              <Button disabled={!dirty || saving} onClick={saveAll}>
+              <Button disabled={!dirty || saving} onClick={saveAll} aria-label="Save changes">
                 {saving ? "Saving…" : "Save changes"}
               </Button>
             </div>
-          </div>
+          </section>
 
           {err && (
-            <div className="text-sm text-orange-600">
+            <div className="text-sm text-orange-700" role="status" aria-live="polite">
               Loaded from cache because API failed: {err}
             </div>
           )}
 
           {!rows ? (
-            <Card className="p-6">
+            <Card className="p-6" aria-busy="true" aria-live="polite">
               <div className="text-sm text-muted-foreground">Loading services…</div>
               <Progress className="mt-3" value={33} />
             </Card>
           ) : rows.length === 0 ? (
-            <Card className="p-6">
-              <div className="text-sm text-muted-foreground">
-                No services yet. Click “Add service” to create your first row.
-              </div>
-            </Card>
+            <Empty
+              title="No services yet"
+              hint="Add your first service and set an SLA in minutes."
+              action={<Button onClick={addRow}>Add service</Button>}
+            />
           ) : (
-            <div className="rounded-xl border overflow-hidden">
+            <section className="rounded-xl border overflow-hidden" aria-label="Services table">
               <div className="grid grid-cols-12 px-4 py-2 text-xs uppercase tracking-wide text-muted-foreground border-b bg-muted/40">
                 <div className="col-span-3">Key</div>
                 <div className="col-span-5">Label</div>
@@ -184,14 +191,14 @@ export default function OwnerServices() {
                     <Input
                       value={r.key}
                       onChange={(e) => patch(i, { key: e.target.value })}
-                      aria-label={`Service key row ${i + 1}`}
+                      aria-label={`Service key for row ${i + 1}`}
                     />
                   </div>
                   <div className="col-span-5 pr-2">
                     <Input
                       value={r.label_en}
                       onChange={(e) => patch(i, { label_en: e.target.value })}
-                      aria-label={`Service label row ${i + 1}`}
+                      aria-label={`Service label for row ${i + 1}`}
                     />
                   </div>
                   <div className="col-span-2 pr-2">
@@ -202,7 +209,7 @@ export default function OwnerServices() {
                       onChange={(e) =>
                         patch(i, { sla_minutes: Number(e.target.value) })
                       }
-                      aria-label={`SLA minutes row ${i + 1}`}
+                      aria-label={`SLA minutes for row ${i + 1}`}
                     />
                   </div>
                   <div className="col-span-2 flex justify-end">
@@ -214,15 +221,14 @@ export default function OwnerServices() {
                   </div>
                 </div>
               ))}
-            </div>
+            </section>
           )}
 
-          <div className="text-xs text-muted-foreground">
-            Changes are saved via your existing API (<code>saveServices</code>).
-            If that isn’t wired yet, they’re cached in this browser using{" "}
-            <code>localStorage</code> under <code>{LKEY}</code>.
-          </div>
-        </div>
+          <p className="text-xs text-muted-foreground">
+            Changes are saved via your API (<code>saveServices</code>). If that isn’t wired yet,
+            they’re cached in this browser under <code>{LKEY}</code>.
+          </p>
+        </main>
       </OwnerGate>
     </>
   );

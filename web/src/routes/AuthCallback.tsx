@@ -10,43 +10,38 @@ export default function AuthCallback() {
   useEffect(() => {
     (async () => {
       try {
-        // 1) Try claiming the session if it hasn't been claimed yet
-        const { data: got } = await supabase.auth.getSession();
-        if (!got.session) {
+        // Claim session if needed (hash OR PKCE)
+        const { data: cur } = await supabase.auth.getSession();
+        if (!cur.session) {
           await supabase.auth.getSessionFromUrl({ storeSession: true }).catch(async () => {
             const code = sp.get("code");
             if (code) await supabase.auth.exchangeCodeForSession(code);
           });
         }
 
-        // 2) Decide where to go
-        const desired = sp.get("redirect"); // e.g. "/owner" from the magic-link
+        // Decide destination
+        const desired = sp.get("redirect");
         let dest = desired || "/guest";
 
-        // 3) If you keep roles in user_profiles, decide by role
-        const { data: user } = await supabase.auth.getUser();
-        if (user?.user) {
+        const { data: u } = await supabase.auth.getUser();
+        if (u?.user) {
           const { data: profile } = await supabase
             .from("user_profiles")
             .select("role, home_path")
-            .eq("user_id", user.user.id)
+            .eq("user_id", u.user.id)
             .maybeSingle();
 
-          // Role-based default if no explicit redirect was requested
           if (!desired) {
             const role = profile?.role;
             if (role === "owner" || role === "manager") dest = "/owner";
             else if (role === "staff") dest = "/desk";
             else dest = "/guest";
+            if (profile?.home_path) dest = profile.home_path;
           }
-
-          // Optional override from DB
-          if (!desired && profile?.home_path) dest = profile.home_path;
         }
 
         navigate(dest, { replace: true });
       } catch {
-        // If something went wrong, drop them to sign in
         navigate("/signin", { replace: true });
       }
     })();

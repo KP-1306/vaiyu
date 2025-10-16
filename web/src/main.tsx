@@ -2,6 +2,7 @@ import React, { StrictMode, Suspense, lazy, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider, Outlet, useNavigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import PublicGate from "./components/PublicGate";
 
 import { initMonitoring } from "./lib/monitoring";
 initMonitoring();
@@ -163,6 +164,7 @@ const router = createBrowserRouter([
       { path: "careers",         element: <Careers /> },
       { path: "status",          element: <Status /> },
       { path: "thanks",          element: <Thanks /> },
+      { path: "/", element: <PublicGate><App /></PublicGate> },
 
       // Guest / Journey
       { path: "hotel/:slug",     element: <Hotel /> },

@@ -6,9 +6,17 @@ import { supabase } from "../lib/supabase";
 function maskEmail(e: string) {
   const [user, domain = ""] = e.split("@");
   if (!user || !domain) return e;
-  const u = user.length <= 2 ? user[0] ?? "" : `${user[0]}${"*".repeat(Math.max(1, user.length - 2))}${user.at(-1)}`;
+  const u =
+    user.length <= 2
+      ? user[0] ?? ""
+      : `${user[0]}${"*".repeat(Math.max(1, user.length - 2))}${user.at(-1)}`;
   return `${u}@${domain}`;
 }
+
+// Prefer an explicit site URL to avoid localhost links in production
+const ORIGIN =
+  (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/$/, "") ||
+  (typeof window !== "undefined" ? window.location.origin : "");
 
 export default function SignIn() {
   const [params] = useSearchParams();
@@ -19,14 +27,10 @@ export default function SignIn() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const heading =
-    intent === "signup" ? "Create your account" : "Sign in to VAiyu";
-
+  const heading = intent === "signup" ? "Create your account" : "Sign in to VAiyu";
   const sub =
     "Enter your work email. We’ll email you a secure magic link — if you’re new, we’ll create your account automatically.";
-
-  const cta =
-    intent === "signup" ? "Email me a sign-up link" : "Send magic link";
+  const cta = intent === "signup" ? "Email me a sign-up link" : "Send magic link";
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
@@ -34,11 +38,15 @@ export default function SignIn() {
     setLoading(true);
 
     try {
-      const redirectTo = `${window.location.origin}/auth/callback`;
+      const redirectTo = `${ORIGIN}/auth/callback`;
+
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim(),
-        options: { emailRedirectTo: redirectTo },
+        options: {
+          emailRedirectTo: redirectTo, // <- IMPORTANT: forces correct domain
+        },
       });
+
       if (error) throw error;
       setSent(true);
     } catch (err: any) {
@@ -90,8 +98,8 @@ export default function SignIn() {
           <Link to="/" className="hover:underline">
             ← Back to home
           </Link>
-          {!sent && (
-            intent === "signup" ? (
+          {!sent &&
+            (intent === "signup" ? (
               <Link to="/signin" className="hover:underline">
                 Already have an account? Sign in
               </Link>
@@ -99,8 +107,7 @@ export default function SignIn() {
               <Link to="/signin?intent=signup" className="hover:underline">
                 New here? Create an account
               </Link>
-            )
-          )}
+            ))}
         </div>
 
         <div className="mt-3 text-xs text-gray-500">

@@ -34,7 +34,7 @@ import TopProgressBar from "./components/TopProgressBar";
 import UpdatePrompt from "./components/UpdatePrompt";
 import Spinner from "./components/Spinner";
 
-// NEW: supabase client for session claim
+// Supabase client (for claiming sessions and role lookup)
 import { supabase } from "./lib/supabase";
 
 /* ======== Lazy routes ======== */
@@ -81,45 +81,69 @@ const GridEvents = lazy(() => import("./routes/GridEvents"));
 const NotFound = lazy(() => import("./routes/NotFound"));
 const RequestStatus = lazy(() => import("./pages/RequestStatus"));
 
-/* ======== NEW: global catcher for magic-link tokens ======== */
+/* ======== Global catcher for magic-link tokens ======== */
 function AuthSessionCatcher() {
   const navigate = useNavigate();
 
   useEffect(() => {
     const { hash, search } = window.location;
 
+    // Supabase sends either a hash (token) or a search ?code= (PKCE)
     const hashHasTokens =
       /access_token=|refresh_token=|type=recovery|provider_token=/.test(hash);
-
     const searchHasCode = /[?&]code=/.test(search);
 
     if (!hashHasTokens && !searchHasCode) return;
 
     (async () => {
       try {
-        // Try both flows; one of these will succeed depending on link format
-        await supabase.auth.getSessionFromUrl({ storeSession: true }).catch(async () => {
-          const code = new URLSearchParams(window.location.search).get("code");
-          if (code) await supabase.auth.exchangeCodeForSession(code);
-        });
-      } catch {
-        // swallow errors; user will remain on signin if it fails
-      } finally {
-        // Clean URL and redirect to requested page (or /)
+        // Try both flows; one will succeed depending on link format
+        await supabase.auth
+          .getSessionFromUrl({ storeSession: true })
+          .catch(async () => {
+            const code = new URLSearchParams(window.location.search).get("code");
+            if (code) await supabase.auth.exchangeCodeForSession(code);
+          });
+
+        // ---- Role-based default destination if ?redirect= is absent ----
+        let defaultDest = "/";
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user?.id) {
+            const { data: prof } = await supabase
+              .from("user_profiles")
+              .select("role")
+              .eq("user_id", user.id)
+              .maybeSingle();
+
+            const role = prof?.role;
+            if (role === "owner" || role === "manager") defaultDest = "/owner";
+            else if (role === "admin") defaultDest = "/admin";
+            else if (role === "hk") defaultDest = "/hk";
+            else if (role === "desk") defaultDest = "/desk";
+            else defaultDest = "/guest";
+          }
+        } catch {
+          // if role lookup fails, keep "/"
+        }
+
+        // Clean URL & navigate to redirect (or role-based default)
         const url = new URL(window.location.href);
-        const dest = url.searchParams.get("redirect") || "/";
+        const dest = url.searchParams.get("redirect") || defaultDest;
+
         url.hash = "";
         url.searchParams.delete("code");
         url.searchParams.delete("redirect");
         window.history.replaceState({}, "", url.pathname + url.search);
         navigate(dest, { replace: true });
+      } catch {
+        // If claim fails, go home
+        navigate("/", { replace: true });
       }
     })();
   }, [navigate]);
 
   return null;
-  emailRedirectTo = `${origin}/auth/callback?redirect=...`
-
 }
 
 /* ======== Root layout ======== */

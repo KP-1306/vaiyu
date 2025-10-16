@@ -1,12 +1,15 @@
 // web/src/routes/Welcome.tsx
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { signOutEverywhere } from "../lib/auth";
 import SEO from "../components/SEO";
 
 type Profile = { full_name?: string | null; role?: string | null };
 
 export default function Welcome() {
+  const navigate = useNavigate();
+
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [hasProperty, setHasProperty] = useState(false);
@@ -16,13 +19,23 @@ export default function Welcome() {
     (async () => {
       setLoading(true);
       try {
-        // who am I?
+        // Guard: must be signed in to see /welcome
+        const { data: sess } = await supabase.auth.getSession();
+        if (!sess?.session) {
+          navigate(`/signin?redirect=${encodeURIComponent("/welcome")}`, {
+            replace: true,
+          });
+          return;
+        }
+
+        // Who am I?
         const { data: u } = await supabase.auth.getUser();
         const uid = u?.user?.id || null;
         setEmail(u?.user?.email ?? null);
 
-        // profile: prefer your user_profiles table for role/name
         let role: string | null = null;
+
+        // Load profile (name/role) from user_profiles
         if (uid) {
           const { data: p } = await supabase
             .from("user_profiles")
@@ -34,20 +47,18 @@ export default function Welcome() {
           role = p?.role ?? null;
         }
 
-        // Decide if user has a property yet:
-        // 1) Owner/Manager role ⇒ has property tools
+        // Determine if user already has a property
         if (role === "owner" || role === "manager") {
           setHasProperty(true);
         } else if (uid) {
-          // 2) Member of any property?
-          //    Adjust table/column names if yours differ
+          // Member of any property?
           const { data: mem } = await supabase
             .from("hotel_members")
             .select("hotel_id")
             .eq("user_id", uid)
             .limit(1);
 
-          // 3) Or owns any property directly?
+          // Owner of any property?
           const { data: owns } = await supabase
             .from("hotels")
             .select("id")
@@ -60,31 +71,46 @@ export default function Welcome() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [navigate]);
 
   const name = profile?.full_name || email || "there";
+
+  async function handleSignOut() {
+    await signOutEverywhere();
+    // Send them to sign-in (and avoid stale caching with a cache-buster)
+    navigate(`/signin?intent=signin&_=${Date.now()}`, { replace: true });
+  }
 
   return (
     <main className="max-w-5xl mx-auto p-4 space-y-6">
       <SEO title="Welcome" noIndex />
 
-      {/* Friendly header / hero */}
+      {/* Header */}
       <header className="rounded-2xl border bg-white p-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Welcome, {name} 👋</h1>
-          <p className="text-gray-600">
-            Choose what you want to do today.
-          </p>
+          <p className="text-gray-600">Choose what you want to do today.</p>
         </div>
-        {/* optional small badge/brand could go here */}
+
+        {/* Simple account cluster */}
+        <div className="flex items-center gap-3">
+          {email && (
+            <span className="text-sm text-gray-600 hidden sm:inline">
+              {email}
+            </span>
+          )}
+          <button className="btn btn-light" onClick={handleSignOut}>
+            Sign out
+          </button>
+        </div>
       </header>
 
       {loading ? (
         <div className="card p-6 text-sm text-muted-foreground">Loading…</div>
       ) : hasProperty ? (
-        // ===================================================================
-        // Users who already have a property ⇒ show BOTH consoles
-        // ===================================================================
+        /* ===============================================================
+           Users who already have a property ⇒ show BOTH consoles
+           =============================================================== */
         <section className="grid md:grid-cols-2 gap-4">
           {/* Property console */}
           <div className="card p-5">
@@ -96,13 +122,17 @@ export default function Welcome() {
               Manage services, dashboards, staff workflows and AI moderation.
             </p>
             <div className="mt-4 flex items-center gap-2">
-              <Link to="/owner" className="btn">Open owner home</Link>
-              <Link to="/owner/services" className="btn btn-light">Services (SLA)</Link>
+              <Link to="/owner" className="btn">
+                Open owner home
+              </Link>
+              <Link to="/owner/services" className="btn btn-light">
+                Services (SLA)
+              </Link>
             </div>
             <div className="mt-3 text-xs text-gray-500">
               Need to add another?{" "}
               <Link to="/owner/settings?new=1" className="underline">
-                Register & configure
+                Register &amp; configure
               </Link>
             </div>
           </div>
@@ -117,16 +147,19 @@ export default function Welcome() {
               Attach a booking, request housekeeping, order F&amp;B, view bills.
             </p>
             <div className="mt-4 flex items-center gap-2">
-              <Link to="/claim" className="btn">Claim my stay</Link>
-              <Link to="/guest" className="btn btn-light">Open guest dashboard</Link>
+              <Link to="/claim" className="btn">
+                Claim my stay
+              </Link>
+              <Link to="/guest" className="btn btn-light">
+                Open guest dashboard
+              </Link>
             </div>
           </div>
         </section>
       ) : (
-        // ===================================================================
-        // New users (no property yet) ⇒ show ONLY the guest console,
-        // and a subtle CTA to register a property.
-        // ===================================================================
+        /* ===============================================================
+           New users (no property) ⇒ show ONLY guest console + CTA
+           =============================================================== */
         <section className="grid md:grid-cols-12 gap-4">
           <div className="md:col-span-7">
             <div className="card p-6">
@@ -135,14 +168,19 @@ export default function Welcome() {
                 <div>
                   <div className="font-semibold">Get started as a guest</div>
                   <div className="text-sm text-gray-600">
-                    Link your stay to manage requests, F&amp;B orders and bills—right from your phone.
+                    Link your stay to manage requests, F&amp;B orders and
+                    bills—right from your phone.
                   </div>
                 </div>
               </div>
 
               <div className="mt-5 flex items-center gap-2">
-                <Link to="/claim" className="btn">Claim my stay</Link>
-                <Link to="/guest" className="btn btn-light">Open guest dashboard</Link>
+                <Link to="/claim" className="btn">
+                  Claim my stay
+                </Link>
+                <Link to="/guest" className="btn btn-light">
+                  Open guest dashboard
+                </Link>
               </div>
             </div>
           </div>
@@ -151,8 +189,8 @@ export default function Welcome() {
             <div className="card p-6 h-full">
               <div className="font-semibold">Want to run a property?</div>
               <p className="text-sm text-gray-600 mt-1">
-                When you register a property, you’ll unlock the owner console: dashboards, SLA services,
-                staff workflows and AI moderation.
+                When you register a property, you’ll unlock the owner console:
+                dashboards, SLA services, staff workflows and AI moderation.
               </p>
               <div className="mt-4">
                 <Link to="/owner/settings?new=1" className="btn btn-light">

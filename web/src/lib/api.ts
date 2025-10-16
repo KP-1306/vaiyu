@@ -9,6 +9,32 @@ export let DEMO_MODE = false;
 export const isDemo = () => DEMO_MODE;
 
 /* ============================================================================
+   Optional Supabase client (for direct reads/writes with RLS)
+   - Uses existing Supabase Auth session in the browser (magic link).
+   - If env isn’t present or any call fails, we gracefully fall back to HTTP API.
+============================================================================ */
+type MaybeSupa = {
+  from: ReturnType<typeof import("@supabase/supabase-js").createClient>["from"];
+} | null;
+
+let _supa: MaybeSupa = null;
+function supa(): MaybeSupa {
+  // lazy init to avoid import cost if unused
+  try {
+    const url = (import.meta as any).env?.VITE_SUPABASE_URL as string | undefined;
+    const anon = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY as string | undefined;
+    if (!url || !anon) return null;
+    if (_supa) return _supa;
+    // dynamic import so this file still works without supabase-js at build time
+    const { createClient } = require("@supabase/supabase-js");
+    _supa = createClient(url, anon) as any;
+    return _supa;
+  } catch {
+    return null;
+  }
+}
+
+/* ============================================================================
    Types (lightweight)
 ============================================================================ */
 export type Stay = {
@@ -24,6 +50,9 @@ export type Service = {
   key: string;
   label_en: string;
   sla_minutes: number;
+  /** new, backward-compatible fields for editor/UI */
+  active?: boolean;
+  hotel_id?: string | null;
 };
 
 export type ReferralIdentifier = {
@@ -116,11 +145,11 @@ const demoHotel = {
   theme: { brand: '#145AF2', mode: 'light' as const },
 };
 
-const demoServices = [
-  { key: 'towel', label_en: 'Towel', sla_minutes: 25 },
-  { key: 'room_cleaning', label_en: 'Room Cleaning', sla_minutes: 30 },
-  { key: 'water_bottle', label_en: 'Water Bottles', sla_minutes: 20 },
-  { key: 'extra_pillow', label_en: 'Extra Pillow', sla_minutes: 20 },
+const demoServices: Service[] = [
+  { key: 'towel', label_en: 'Towel', sla_minutes: 25, active: true },
+  { key: 'room_cleaning', label_en: 'Room Cleaning', sla_minutes: 30, active: true },
+  { key: 'water_bottle', label_en: 'Water Bottles', sla_minutes: 20, active: true },
+  { key: 'extra_pillow', label_en: 'Extra Pillow', sla_minutes: 20, active: true },
 ];
 
 const demoMenu = [
@@ -325,8 +354,51 @@ export async function myStays(token: string): Promise<{ stays: Stay[]; items: St
 
 /* ============================================================================
    Owner: Services admin helpers
+   - First try Supabase (preferred), then fall back to your existing API.
 ============================================================================ */
-export async function saveServices(items: Service[]) {
+export async function getServices(hotelId?: string) {
+  const s = supa();
+  if (s) {
+    try {
+      const q = hotelId
+        ? s.from('services')
+            .select('hotel_id,key,label_en,sla_minutes,active')
+            .eq('hotel_id', hotelId)
+            .order('key', { ascending: true })
+        : s.from('services')
+            .select('hotel_id,key,label_en,sla_minutes,active')
+            .order('key', { ascending: true });
+
+      // @ts-ignore (runtime call)
+      const { data, error } = await q;
+      if (error) throw error;
+      return { items: (data || []) as Service[] };
+    } catch {
+      // fall through to HTTP API
+    }
+  }
+  return req(`/catalog/services`);
+}
+
+export async function saveServices(items: Service[], fallbackHotelId?: string | null) {
+  const s = supa();
+  if (s) {
+    try {
+      const payload = (items || []).map((r) => ({
+        hotel_id: r.hotel_id ?? fallbackHotelId ?? null,
+        key: String(r.key || '').trim(),
+        label_en: String(r.label_en || '').trim(),
+        sla_minutes: Number(r.sla_minutes) || 0,
+        active: r.active ?? true,
+      }));
+      // @ts-ignore
+      const { error } = await s.from('services').upsert(payload, { onConflict: 'hotel_id,key' });
+      if (error) throw error;
+      return { ok: true };
+    } catch {
+      // fall through to HTTP API
+    }
+  }
   return req(`/catalog/services`, {
     method: 'POST',
     body: JSON.stringify({ items }),
@@ -407,9 +479,6 @@ export async function setBookingConsent(code: string, reviews: boolean) {
 /* ============================================================================
    Catalog
 ============================================================================ */
-export async function getServices() {
-  return req(`/catalog/services`);
-}
 export async function getMenu() {
   return req(`/menu/items`);
 }

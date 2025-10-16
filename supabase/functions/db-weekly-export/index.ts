@@ -2,40 +2,116 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_KEY  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+/**
+ * Exports select tables to CSV and uploads to Storage (bucket: db-backups/weekly/YYYY-MM-DD/*.csv).
+ * - Uses SERVICE_ROLE so it can read everything (RLS bypass).
+ * - Keep bucket PRIVATE (recommended). You'll download as needed from the dashboard.
+ *
+ * ENV required in Function:
+ *   SUPABASE_URL
+ *   SUPABASE_SERVICE_ROLE_KEY
+ *
+ * Optional:
+ *   EXPORT_TABLES: comma-separated list. Default: tickets,orders,services
+ *   EXPORT_PREFIX: folder prefix inside bucket (default: weekly)
+ *   EXPORT_BUCKET: bucket name (default: db-backups)
+ */
 
-serve(async () => {
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+const DEFAULT_TABLES = ["tickets", "orders", "services"];
+const TABLES =
+  (Deno.env.get("EXPORT_TABLES")?.split(",").map((s) => s.trim()).filter(Boolean)) ??
+  DEFAULT_TABLES;
+
+const BUCKET = Deno.env.get("EXPORT_BUCKET") ?? "db-backups";
+const PREFIX = Deno.env.get("EXPORT_PREFIX") ?? "weekly";
+
+type Row = Record<string, unknown>;
+
+function toCsv(rows: Row[]): string {
+  if (!rows?.length) return "";
+  // union of keys across rows (keeps stable order)
+  const columns = Array.from(
+    rows.reduce((set, r) => {
+      Object.keys(r).forEach((k) => set.add(k));
+      return set;
+    }, new Set<string>(Object.keys(rows[0])))
+  );
+
+  const escape = (v: unknown) => {
+    if (v === null || v === undefined) return "";
+    // stringify objects/arrays
+    const s = typeof v === "object" ? JSON.stringify(v) : String(v);
+    // CSV escape: wrap in quotes if contains comma/quote/newline; escape quotes by doubling
+    if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+  };
+
+  const header = columns.join(",");
+  const lines = rows.map((r) => columns.map((c) => escape(r[c])).join(","));
+  return [header, ...lines].join("\n");
+}
+
+serve(async (req) => {
+  // CORS (allow dashboard/manual invocations)
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+        "Access-Control-Allow-Headers": "authorization, x-client-info, content-type",
+      },
+    });
+  }
+
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
-  // 1) Pull data you care about (use pagination if huge)
-  const [tickets, orders, services] = await Promise.all([
-    supabase.from("tickets").select("*"),
-    supabase.from("orders").select("*"),
-    supabase.from("services").select("*"),
-  ]);
+  try {
+    // optional: accept override via body { tables?: string[], prefix?: string, bucket?: string }
+    const override = await req.json().catch(() => ({} as any));
+    const tables: string[] = Array.isArray(override?.tables) && override.tables.length
+      ? override.tables
+      : TABLES;
 
-  // 2) Serialize as CSV (very basic)
-  const toCsv = (rows: any[]) => {
-    if (!rows?.length) return "";
-    const headers = Object.keys(rows[0]);
-    const lines = rows.map(r => headers.map(h => JSON.stringify(r[h] ?? "")).join(","));
-    return headers.join(",") + "\n" + lines.join("\n");
-  };
+    const bucket = String(override?.bucket || BUCKET);
+    const prefix = String(override?.prefix || PREFIX);
 
-  const now = new Date();
-  const stamp = now.toISOString().slice(0,10); // YYYY-MM-DD
+    const stamp = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 
-  // 3) Upload to Storage (create a "db-backups" bucket once)
-  const upload = async (name: string, rows: any[]|undefined) => {
-    const content = toCsv(rows || []);
-    const path = `weekly/${stamp}/${name}.csv`;
-    await supabase.storage.from("db-backups").upload(path, new Blob([content], { type: "text/csv" }), { upsert: true });
-  };
+    // fetch each table; if very large, add range pagination
+    const results: Record<string, Row[] | null> = {};
+    for (const t of tables) {
+      const { data, error } = await supabase.from(t).select("*");
+      if (error) throw new Error(`Select failed for ${t}: ${error.message}`);
+      results[t] = data ?? [];
+    }
 
-  await upload("tickets", tickets.data);
-  await upload("orders", orders.data);
-  await upload("services", services.data);
+    // upload each as CSV
+    for (const [table, rows] of Object.entries(results)) {
+      const csv = toCsv(rows || []);
+      const path = `${prefix}/${stamp}/${table}.csv`;
+      const res = await supabase.storage
+        .from(bucket)
+        .upload(path, new Blob([csv], { type: "text/csv" }), { upsert: true });
+      if (res.error) throw new Error(`Upload failed for ${table}: ${res.error.message}`);
+    }
 
-  return new Response(JSON.stringify({ ok: true }), { headers: { "content-type": "application/json" }});
+    return new Response(JSON.stringify({ ok: true, bucket, prefix, date: stamp, tables }), {
+      headers: {
+        "content-type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      },
+      status: 200,
+    });
+  } catch (e) {
+    return new Response(JSON.stringify({ ok: false, error: String(e) }), {
+      headers: {
+        "content-type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      },
+      status: 500,
+    });
+  }
 });

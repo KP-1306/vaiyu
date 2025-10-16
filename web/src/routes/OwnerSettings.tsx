@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import OwnerGate from "../components/OwnerGate"; // if you gate the page; otherwise remove
 import SEO from "../components/SEO";
+import UsageMeter from "../components/UsageMeter";
 
 const API = import.meta.env.VITE_API_URL as string;
 
@@ -46,6 +47,8 @@ function fromCsv(s: string) {
     .map((x) => x.trim())
     .filter(Boolean);
 }
+
+<UsageMeter hotelId={profile?.hotel_id} />
 
 // -------- Page --------
 export default function OwnerSettings() {

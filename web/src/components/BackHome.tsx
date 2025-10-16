@@ -1,27 +1,31 @@
-import { useNavigate } from "react-router-dom";
+// web/src/components/BackHome.tsx
+import { useLocation, useNavigate } from "react-router-dom";
 
-export default function BackHome({ to = "/" }: { to?: string }) {
+const HIDE_PATHS = new Set([
+  "/", "/about", "/about-ai", "/use-cases", "/for-hotels", "/press",
+  "/privacy", "/terms", "/contact", "/careers", "/status", "/thanks",
+  "/signin", "/welcome",
+]);
+
+export default function BackHome() {
+  const loc = useLocation();
   const navigate = useNavigate();
 
-  function onClick(e: React.MouseEvent) {
-    e.preventDefault();
-
-    // If we have real history, go back; otherwise go to fallback ("/" by default)
-    if (window.history.length > 2) {
-      navigate(-1);
-    } else {
-      navigate(to, { replace: true });
-    }
-  }
+  // Hide on marketing/public pages
+  const path = loc.pathname.toLowerCase();
+  if (HIDE_PATHS.has(path) || path.startsWith("/hotel/")) return null;
 
   return (
-    <button
-      className="btn btn-light"
-      onClick={onClick}
-      aria-label="Back to app"
-      title="Back to app"
-    >
-      ← Back to app
-    </button>
+    <div className="p-2">
+      <button
+        className="btn btn-light"
+        onClick={() => {
+          if (window.history.length > 1) navigate(-1);
+          else navigate("/welcome"); // safe default
+        }}
+      >
+        ← Back to app
+      </button>
+    </div>
   );
 }

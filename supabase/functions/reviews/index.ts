@@ -4,6 +4,7 @@ import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-
 import { j } from "../_shared/cors.ts";
 import { alertError } from "../_shared/alert.ts";
 import { logTokens } from "../_shared/ai.ts";
+import { runReviewDraftLLM } from "../_shared/llm.ts"; // NEW: real model helper
 
 /** lightweight admin API key for publish */
 function isAdmin(req: Request) {
@@ -54,32 +55,44 @@ async function idemGet(svc: SupabaseClient, route: string, hotel_id: string | nu
     .maybeSingle();
   return data?.response ?? null;
 }
-async function idemSet(svc: SupabaseClient, route: string, hotel_id: string | null, key: string, response: unknown) {
+async function idemSet(
+  svc: SupabaseClient,
+  route: string,
+  hotel_id: string | null,
+  key: string,
+  response: unknown
+) {
   await svc.from("va_idempotency_keys").insert({ route, hotel_id, key, response }).catch(() => {});
 }
 
 /** audit helper */
-async function audit(svc: SupabaseClient, row: {
-  action: string;
-  actor?: string | null;
-  hotel_id?: string | null;
-  entity?: string | null;
-  entity_id?: string | null;
-  ip?: string | null;
-  ua?: string | null;
-  meta?: unknown;
-}) {
-  await svc.from("va_audit_logs").insert({
-    at: new Date().toISOString(),
-    action: row.action,
-    actor: row.actor ?? null,
-    hotel_id: row.hotel_id ?? null,
-    entity: row.entity ?? null,
-    entity_id: row.entity_id ?? null,
-    ip: row.ip ?? null,
-    ua: row.ua ?? null,
-    meta: row.meta ?? null,
-  }).catch(() => {});
+async function audit(
+  svc: SupabaseClient,
+  row: {
+    action: string;
+    actor?: string | null;
+    hotel_id?: string | null;
+    entity?: string | null;
+    entity_id?: string | null;
+    ip?: string | null;
+    ua?: string | null;
+    meta?: unknown;
+  }
+) {
+  await svc
+    .from("va_audit_logs")
+    .insert({
+      at: new Date().toISOString(),
+      action: row.action,
+      actor: row.actor ?? null,
+      hotel_id: row.hotel_id ?? null,
+      entity: row.entity ?? null,
+      entity_id: row.entity_id ?? null,
+      ip: row.ip ?? null,
+      ua: row.ua ?? null,
+      meta: row.meta ?? null,
+    })
+    .catch(() => {});
 }
 
 type Kpis = {
@@ -94,12 +107,20 @@ type Kpis = {
 };
 
 async function getHotelId(supabase: SupabaseClient, slug: string) {
-  const { data: hotel, error } = await supabase.from("hotels").select("id").eq("slug", slug).single();
+  const { data: hotel, error } = await supabase
+    .from("hotels")
+    .select("id")
+    .eq("slug", slug)
+    .single();
   if (error || !hotel) throw new Error("Unknown hotel");
   return hotel.id as string;
 }
 
-async function computeKpis(supabase: SupabaseClient, hotelId: string, periodDays: number): Promise<Kpis> {
+async function computeKpis(
+  supabase: SupabaseClient,
+  hotelId: string,
+  periodDays: number
+): Promise<Kpis> {
   const since = new Date(Date.now() - periodDays * 86400_000).toISOString();
   const { data: tickets = [], error } = await supabase
     .from("tickets")
@@ -174,22 +195,25 @@ async function handleAuto(body: any, svc: SupabaseClient, req: Request) {
   const kpis = await computeKpis(svc, hotelId, periodDays);
   let draft = buildDraft(kpis);
 
-  // --- Optional: AI-enhanced draft (wire later) -----------------------------
-  // If you already call a model here, capture token usage and set `draft`
-  // to the model's output. Until then, you can pass usage via the request body.
-  // Example client opt-in:
-  // body.ai_total_tokens = 123; body.ai_model = "gpt-4o-mini";
+  // --- AI-enhanced draft (real usage if OPENAI_API_KEY is set) --------------
   try {
-    const totalTokens = Number(body?.ai_total_tokens ?? 0);
-    if (totalTokens > 0) {
-      const modelName = String(body?.ai_model || "gpt-4o-mini");
-      await logTokens(svc, hotelId, Math.max(0, Math.floor(totalTokens)), {
-        model: modelName,
-        func: "reviews/auto",
-      });
+    if (Deno.env.get("OPENAI_API_KEY")) {
+      const out = await runReviewDraftLLM(draft);
+      draft = out.text || draft; // prefer model text, safely fallback
+      await logTokens(svc, hotelId, out.totalTokens, { model: out.model, func: "reviews/auto" });
+    } else {
+      // Fallback: accept client-reported usage (temporary)
+      const totalTokens = Number(body?.ai_total_tokens ?? 0);
+      if (totalTokens > 0) {
+        const modelName = String(body?.ai_model || "gpt-4o-mini");
+        await logTokens(svc, hotelId, Math.max(0, Math.floor(totalTokens)), {
+          model: modelName,
+          func: "reviews/auto",
+        });
+      }
     }
   } catch {
-    // never fail the workflow because logging hiccuped
+    // never fail the workflow because AI/logging hiccuped
   }
   // -------------------------------------------------------------------------
 
@@ -215,7 +239,8 @@ async function handleAuto(body: any, svc: SupabaseClient, req: Request) {
     hotel_id: hotelId,
     entity: "review",
     entity_id: data.id,
-    ip, ua,
+    ip,
+    ua,
     meta: { periodDays, rating },
   });
 
@@ -265,7 +290,8 @@ async function handleApprove(body: any, svc: SupabaseClient, req: Request) {
     hotel_id: r.hotel_id,
     entity: "review",
     entity_id: id,
-    ip, ua,
+    ip,
+    ua,
   });
 
   return j(req, 200, response);
@@ -280,18 +306,19 @@ serve(async (req) => {
   const body = await req.json().catch(() => ({}));
 
   try {
-    if (req.method === "GET"  && url.pathname.endsWith("/summary")) return await handleSummary(url, svc, req);
-    if (req.method === "POST" && url.pathname.endsWith("/auto"))    return await handleAuto(body, svc, req);
-    if (req.method === "POST" && url.pathname.endsWith("/approve")) return await handleApprove(body, svc, req);
+    if (req.method === "GET" && url.pathname.endsWith("/summary"))
+      return await handleSummary(url, svc, req);
+    if (req.method === "POST" && url.pathname.endsWith("/auto"))
+      return await handleAuto(body, svc, req);
+    if (req.method === "POST" && url.pathname.endsWith("/approve"))
+      return await handleApprove(body, svc, req);
     return j(req, 404, { ok: false, error: "Unknown route" });
   } catch (e) {
-    // function label fixed to "reviews"
     await alertError(Deno.env.get("WEBHOOK_ALERT_URL"), {
       fn: "reviews",
       message: String((e as any)?.message || e),
       meta: { url: req.url, method: req.method },
     });
-
     return j(req, 500, { ok: false, error: String(e) });
   }
 });

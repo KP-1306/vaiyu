@@ -13,7 +13,6 @@ function maskEmail(e: string) {
   return `${u}@${domain}`;
 }
 
-// Prefer an explicit site URL to avoid localhost links in production
 const ORIGIN =
   (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/$/, "") ||
   (typeof window !== "undefined" ? window.location.origin : "");
@@ -21,6 +20,7 @@ const ORIGIN =
 export default function SignIn() {
   const [params] = useSearchParams();
   const intent = params.get("intent"); // "signup" | "signin" | null
+  const redirect = params.get("redirect") || ""; // e.g. "%2Fadmin"
 
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
@@ -38,13 +38,13 @@ export default function SignIn() {
     setLoading(true);
 
     try {
-      const redirectTo = `${ORIGIN}/auth/callback`;
+      const redirectTo =
+        `${ORIGIN}/auth/callback` +
+        (redirect ? `?redirect=${encodeURIComponent(redirect)}` : "");
 
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim(),
-        options: {
-          emailRedirectTo: redirectTo, // <- IMPORTANT: forces correct domain
-        },
+        options: { emailRedirectTo: redirectTo },
       });
 
       if (error) throw error;

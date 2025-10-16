@@ -1,8 +1,10 @@
 // web/src/routes/GuestDashboard.tsx
 import { useEffect, useMemo, useState, memo } from "react";
 import { Link } from "react-router-dom";
-import { useAuth } from "@/lib/auth";
-import { API } from "@/lib/api";
+
+import { useAuth } from "../lib/auth"; // was "@/lib/auth"
+import { API } from "../lib/api";      // was "@/lib/api"
+
 
 type Stay = {
   id: string;

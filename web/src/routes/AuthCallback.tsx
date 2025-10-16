@@ -1,58 +1,59 @@
-// web/src/routes/AuthCallback.tsx
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
 export default function AuthCallback() {
-  const [sp] = useSearchParams();
+  const [params] = useSearchParams();
   const navigate = useNavigate();
 
   useEffect(() => {
+    let done = false;
+
     (async () => {
       try {
-        // Claim session if needed (hash OR PKCE)
-        const { data: cur } = await supabase.auth.getSession();
-        if (!cur.session) {
-          await supabase.auth.getSessionFromUrl({ storeSession: true }).catch(async () => {
-            const code = sp.get("code");
-            if (code) await supabase.auth.exchangeCodeForSession(code);
-          });
+        // Try hash-style (getSessionFromUrl) first:
+        const hash = window.location.hash || "";
+        if (/access_token=|refresh_token=/.test(hash)) {
+          await supabase.auth.getSessionFromUrl({ storeSession: true });
+          done = true;
         }
 
-        // Decide destination
-        const desired = sp.get("redirect");
-        let dest = desired || "/guest";
-
-        const { data: u } = await supabase.auth.getUser();
-        if (u?.user) {
-          const { data: profile } = await supabase
-            .from("user_profiles")
-            .select("role, home_path")
-            .eq("user_id", u.user.id)
-            .maybeSingle();
-
-          if (!desired) {
-            const role = profile?.role;
-            if (role === "owner" || role === "manager") dest = "/owner";
-            else if (role === "staff") dest = "/desk";
-            else dest = "/guest";
-            if (profile?.home_path) dest = profile.home_path;
+        // Fallback: PKCE "code" flow (query param)
+        if (!done) {
+          const code = params.get("code");
+          if (code) {
+            await supabase.auth.exchangeCodeForSession(code);
+            done = true;
           }
         }
 
+        // Where to go next (default /welcome)
+        const dest = params.get("redirect") || "/welcome";
+
+        // Clean URL (strip hash + sensitive params) before navigating
+        const url = new URL(window.location.href);
+        url.hash = "";
+        ["code", "redirect", "error", "error_description"].forEach((k) =>
+          url.searchParams.delete(k)
+        );
+        window.history.replaceState({}, "", url.pathname + url.search);
+
         navigate(dest, { replace: true });
-      } catch {
-        navigate("/signin", { replace: true });
+      } catch (e) {
+        // If something failed, push the user to a safe sign-in with a message
+        const message =
+          (e as any)?.message || "Could not complete login. Please try again.";
+        navigate(
+          `/signin?intent=signin&error=${encodeURIComponent(message)}`,
+          { replace: true }
+        );
       }
     })();
-  }, [navigate, sp]);
+  }, [navigate, params]);
 
   return (
-    <div className="min-h-[50vh] grid place-items-center">
-      <div className="text-center">
-        <div className="text-lg font-medium">Signing you in…</div>
-        <div className="text-sm text-gray-500 mt-1">Please wait.</div>
-      </div>
+    <div className="min-h-screen grid place-items-center">
+      <div className="text-sm text-gray-600">Finishing sign-in…</div>
     </div>
   );
 }

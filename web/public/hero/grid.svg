@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f766e"/>
+      <stop offset="60%" stop-color="#0ea5e9"/>
+      <stop offset="100%" stop-color="#111827"/>
+    </linearGradient>
+    <pattern id="mesh" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M0 40H40M40 0V40" stroke="rgba(255,255,255,.13)" stroke-width="1"/>
+    </pattern>
+    <radialGradient id="halo" cx="22%" cy="18%" r="60%">
+      <stop offset="0%" stop-color="rgba(255,255,255,.28)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="100%" height="100%" fill="url(#bg)"/>
+  <rect width="100%" height="100%" fill="url(#mesh)"/>
+  <circle cx="360" cy="240" r="420" fill="url(#halo)"/>
+
+  <!-- Wall tablet -->
+  <g transform="translate(220,160)" opacity=".95">
+    <rect x="0" y="0" width="460" height="300" rx="18" fill="rgba(255,255,255,.1)" stroke="rgba(255,255,255,.35)"/>
+    <g transform="translate(24,24)" font-family="system-ui">
+      <text x="0" y="14" font-size="14" fill="#fff">Grid-smart dashboard</text>
+      <rect x="0" y="26" width="120" height="20" rx="10" fill="rgba(34,211,238,.2)" stroke="#22d3ee"/>
+      <text x="12" y="40" font-size="12" fill="#0e7490">Tariff-aware</text>
+
+      <!-- stacked bars -->
+      <g transform="translate(0,72)">
+        <rect x="0" y="0" width="60" height="88" rx="8" fill="#34d399"/>
+        <rect x="70" y="20" width="60" height="68" rx="8" fill="#f59e0b"/>
+        <rect x="140" y="36" width="60" height="52" rx="8" fill="#f43f5e"/>
+        <rect x="210" y="10" width="60" height="78" rx="8" fill="#60a5fa"/>
+        <rect x="280" y="28" width="60" height="60" rx="8" fill="#22d3ee"/>
+      </g>
+
+      <text x="0" y="188" font-size="12" fill="rgba(255,255,255,.9)">Peak shift kWh</text>
+      <rect x="0" y="204" width="160" height="24" rx="8" fill="rgba(255,255,255,.15)"/>
+      <text x="10" y="220" font-size="12" fill="#fff">Shed 2 devices</text>
+    </g>
+  </g>
+</svg>

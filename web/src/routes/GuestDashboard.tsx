@@ -22,21 +22,9 @@ export default function GuestDashboard() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   // independent card states
-  const [stays, setStays] = useState<AsyncData<Stay[]>>({
-    loading: true,
-    source: "live",
-    data: [],
-  });
-  const [reviews, setReviews] = useState<AsyncData<Review[]>>({
-    loading: true,
-    source: "live",
-    data: [],
-  });
-  const [spend, setSpend] = useState<AsyncData<Spend[]>>({
-    loading: true,
-    source: "live",
-    data: [],
-  });
+  const [stays, setStays] = useState<AsyncData<Stay[]>>({ loading: true, source: "live", data: [] });
+  const [reviews, setReviews] = useState<AsyncData<Review[]>>({ loading: true, source: "live", data: [] });
+  const [spend, setSpend] = useState<AsyncData<Spend[]>>({ loading: true, source: "live", data: [] });
 
   /* ---- Auth ---- */
   useEffect(() => {
@@ -57,9 +45,7 @@ export default function GuestDashboard() {
       });
       return () => sub.subscription.unsubscribe();
     })();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, []);
 
   /* ---- Independent loads (graceful per-card fallback) ---- */
@@ -105,32 +91,19 @@ export default function GuestDashboard() {
             <h1 id="guest-dash-title" className="text-xl font-semibold">{welcomeText}</h1>
             <p className="text-sm text-gray-600 mt-1">Your trips, bookings and bills — all in one place.</p>
           </div>
-          <ProfileMenu
-            email={email}
-            avatarUrl={avatarUrl}
-            onEditProfile={() => nav("/profile")}
-          />
+          <ProfileMenu email={email} avatarUrl={avatarUrl} onEditProfile={() => nav("/profile")} />
         </div>
       </section>
 
       {/* Top row */}
       <section className="grid md:grid-cols-3 gap-4">
-        {/* Ad-hoc check-in only (no bookings yet) */}
-        <Card
-          title="Check-in"
-          subtitle="Scan & go"
-          icon={<CalendarIcon />}
-        >
+        {/* Ad-hoc check-in only */}
+        <Card title="Check-in" subtitle="Scan & go" icon={<CalendarIcon />}>
           <ArrivalCheckInEmpty />
         </Card>
 
         {/* Recent Stays */}
-        <Card
-          title="Recent stays"
-          subtitle="Last 5 hotels"
-          icon={<SuitcaseIcon />}
-          badge={stays.source === "preview" ? "Preview" : undefined}
-        >
+        <Card title="Recent stays" subtitle="Last 5 hotels" icon={<SuitcaseIcon />} badge={stays.source === "preview" ? "Preview" : undefined}>
           {stays.loading ? (
             <Skeleton lines={5} />
           ) : stays.data.length ? (
@@ -153,12 +126,7 @@ export default function GuestDashboard() {
         </Card>
 
         {/* Spend */}
-        <Card
-          title="Spend summary"
-          subtitle="By year"
-          icon={<RupeeIcon />}
-          badge={spend.source === "preview" ? "Preview" : undefined}
-        >
+        <Card title="Spend summary" subtitle="By year" icon={<RupeeIcon />} badge={spend.source === "preview" ? "Preview" : undefined}>
           {spend.loading ? (
             <Skeleton lines={4} />
           ) : spend.data.length ? (
@@ -300,15 +268,9 @@ function ProfileMenu({
           >
             Update profile
           </button>
-          <Link role="menuitem" to="/settings" className="block px-3 py-2 text-sm hover:bg-gray-50">
-            Settings
-          </Link>
+          <Link role="menuitem" to="/settings" className="block px-3 py-2 text-sm hover:bg-gray-50">Settings</Link>
           <div className="border-t my-1" />
-          <button
-            role="menuitem"
-            className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-            onClick={signOut}
-          >
+          <button role="menuitem" className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50" onClick={signOut}>
             Sign out
           </button>
         </div>
@@ -338,32 +300,38 @@ const Card = memo(function Card({
   );
 });
 
+/* ===== Spend spark bar (dependency-free) ===== */
+function MiniBars({ data }: { data: Spend[] }) {
+  const max = Math.max(1, ...data.map((d) => Number(d.total || 0)));
+  return (
+    <div className="flex items-end gap-1 h-14 mt-1">
+      {data
+        .slice()
+        .sort((a, b) => a.year - b.year)
+        .map((d) => {
+          const h = Math.max(4, Math.round((Number(d.total || 0) / max) * 48));
+          return (
+            <div
+              key={d.year}
+              className="w-6 rounded bg-indigo-100 border border-indigo-200"
+              style={{ height: h }}
+              title={`${d.year}: ₹${Number(d.total || 0).toLocaleString()}`}
+            />
+          );
+        })}
+    </div>
+  );
+}
+
 /* ===== Icons (no extra deps) ===== */
 function CalendarIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" {...props}>
-      <rect x="3" y="4" width="18" height="18" rx="2" />
-      <line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="8" y1="2" x2="8" y2="6" />
-      <line x1="3" y1="10" x2="21" y2="10" />
-    </svg>
-  );
+  return (<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" {...props}><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>);
 }
 function SuitcaseIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" {...props}>
-      <rect x="3" y="7" width="18" height="13" rx="2" />
-      <rect x="8" y="3" width="8" height="4" rx="1" />
-    </svg>
-  );
+  return (<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" {...props}><rect x="3" y="7" width="18" height="13" rx="2"/><rect x="8" y="3" width="8" height="4" rx="1"/></svg>);
 }
 function RupeeIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" {...props}>
-      <text x="5" y="17" fontSize="14" fontFamily="system-ui">₹</text>
-      <line x1="9" y1="8" x2="18" y2="8" />
-    </svg>
-  );
+  return (<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" {...props}><text x="5" y="17" fontSize="14" fontFamily="system-ui">₹</text><line x1="9" y1="8" x2="18" y2="8"/></svg>);
 }
 
 /* ===== Small helpers ===== */
@@ -379,16 +347,8 @@ async function jsonWithTimeout(url: string, ms = 5000) {
   }
 }
 function fmtDate(s: string) { try { return new Date(s).toLocaleString(); } catch { return s; } }
-function fmtRange(a: string, b: string) {
-  try {
-    const A = new Date(a), B = new Date(b);
-    return `${A.toLocaleDateString()} – ${B.toLocaleDateString()}`;
-  } catch { return `${a} – ${b}`; }
-}
-function stars(n: number) {
-  const c = Math.max(0, Math.min(5, Math.round(n)));
-  return "★★★★★".slice(0, c) + "☆☆☆☆☆".slice(c);
-}
+function fmtRange(a: string, b: string) { try { const A = new Date(a), B = new Date(b); return `${A.toLocaleDateString()} – ${B.toLocaleDateString()}`; } catch { return `${a} – ${b}`; } }
+function stars(n: number) { const c = Math.max(0, Math.min(5, Math.round(n))); return "★★★★★".slice(0, c) + "☆☆☆☆☆".slice(c); }
 
 /* ===== Demo fallbacks (only for failed cards) ===== */
 function demoStays(): Stay[] {
@@ -410,11 +370,5 @@ function demoSpend(): Spend[] {
 }
 
 function Skeleton({ lines = 3 }: { lines?: number }) {
-  return (
-    <div className="space-y-2">
-      {Array.from({ length: lines }).map((_, i) => (
-        <div key={i} className="h-3 rounded bg-gray-100 animate-pulse" />
-      ))}
-    </div>
-  );
+  return <div className="space-y-2">{Array.from({ length: lines }).map((_, i) => <div key={i} className="h-3 rounded bg-gray-100 animate-pulse" />)}</div>;
 }

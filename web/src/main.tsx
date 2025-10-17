@@ -1,12 +1,17 @@
+// web/src/main.tsx
 import React, { StrictMode, Suspense, lazy, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
+import {
+  createBrowserRouter,
+  RouterProvider,
+  Outlet,
+} from "react-router-dom";
 
-// -- TEMP: Force-unregister any existing service worker to stop stale caching
+// ── Kill stale SW + caches (do NOT register a new one while debugging)
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.getRegistrations().then(regs => {
     for (const r of regs) r.unregister().catch(() => {});
   });
-  // Also clear caches bravely; wrap in try to avoid unsupported errors
   (async () => {
     try {
       const keys = await caches.keys();
@@ -14,27 +19,10 @@ if ("serviceWorker" in navigator) {
     } catch {}
   })();
 }
-// DO NOT register a new SW while debugging. Remove any register("/sw.js") calls.
-
-
-import {
-  createBrowserRouter,
-  RouterProvider,
-  Outlet,
-} from "react-router-dom";
 
 // Monitoring (kept)
 import { initMonitoring } from "./lib/monitoring";
 initMonitoring();
-
-
-
-// Service worker (kept)
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
-  });
-}
 
 // Analytics (kept)
 import { initAnalytics, track } from "./lib/analytics";
@@ -46,29 +34,27 @@ import { ThemeProvider } from "./components/ThemeProvider";
 import "./theme.css";
 import "./index.css";
 
-// add import
+// UI chrome
 import AccountControls from "./components/AccountControls";
-
-// Global chrome helpers
 import ScrollToTop from "./components/ScrollToTop";
 import BackHome from "./components/BackHome";
 import GlobalErrorBoundary from "./components/GlobalErrorBoundary";
 import SkipToContent from "./components/SkipToContent";
 import PageViewTracker from "./components/PageViewTracker";
 import RouteAnnouncer from "./components/RouteAnnouncer";
-import RouteErrorBoundary from "./routes/RouteErrorBoundary";
 import OnlineStatusBar from "./components/OnlineStatusBar";
 import TopProgressBar from "./components/TopProgressBar";
 import UpdatePrompt from "./components/UpdatePrompt";
 import Spinner from "./components/Spinner";
 
-// Auth guard for protected routes
-import AuthGate from "./components/AuthGate";
+// Error UI for route loader/render errors
+import { RouteErrorElement } from "./components/RouteErrorBoundary";
 
-// Supabase client
+// Auth guard + client
+import AuthGate from "./components/AuthGate";
 import { supabase } from "./lib/supabase";
 
-// (Optional) React Query – prevents “No QueryClient set” warnings
+// React Query
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false } },
@@ -78,9 +64,9 @@ const queryClient = new QueryClient({
 // Public
 const SignIn         = lazy(() => import("./routes/SignIn"));
 const OwnerRegister  = lazy(() => import("./routes/OwnerRegister"));
-const AuthCallback   = lazy(() => import("./routes/AuthCallback")); // kept
+const AuthCallback   = lazy(() => import("./routes/AuthCallback"));
 const Logout         = lazy(() => import("./routes/Logout"));
-const App            = lazy(() => import("./App"));                 // (still available for marketing sections if used elsewhere)
+const App            = lazy(() => import("./App")); // marketing if used
 const AboutUs        = lazy(() => import("./routes/AboutUs"));
 const AboutAI        = lazy(() => import("./routes/AboutAI"));
 const Press          = lazy(() => import("./routes/Press"));
@@ -93,7 +79,7 @@ const Thanks         = lazy(() => import("./routes/Thanks"));
 const Profile        = lazy(() => import("./routes/Profile"));
 const Scan           = lazy(() => import("./routes/Scan"));
 
-// Smart Landing (NEW): decides Landing vs GuestDashboard vs /owner
+// Smart Landing (decides landing vs dashboard vs owner)
 const SmartLanding   = lazy(() => import("./routes/SmartLanding"));
 
 // Guest / Journey
@@ -130,18 +116,31 @@ const GridEvents     = lazy(() => import("./routes/GridEvents"));
 const NotFound       = lazy(() => import("./routes/NotFound"));
 const RequestStatus  = lazy(() => import("./pages/RequestStatus"));
 
+/* ======== Minimal always-on OK page ======== */
+function MinimalOK() {
+  return (
+    <main className="p-8">
+      <h1 className="text-2xl font-semibold">Router is working</h1>
+      <p className="mt-2 text-gray-600">Use /guest, /profile, etc., one by one.</p>
+      <div className="mt-4 space-x-4">
+        <a className="text-blue-700 underline" href="/guest">Guest Dashboard</a>
+        <a className="text-blue-700 underline" href="/profile">Profile</a>
+      </div>
+    </main>
+  );
+}
+
 /* ======== Auth bootstrap gate ======== */
 function AuthBootstrap({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     let mounted = true;
-
     (async () => {
       await supabase.auth.getSession().catch(() => {});
       if (!mounted) return;
 
-      const { data: sub } = supabase.auth.onAuthStateChange((_evt) => {
+      const { data: sub } = supabase.auth.onAuthStateChange(() => {
         if (!mounted) return;
         setReady(true);
       });
@@ -156,10 +155,7 @@ function AuthBootstrap({ children }: { children: React.ReactNode }) {
         sub.subscription.unsubscribe();
       };
     })();
-
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, []);
 
   if (!ready) {
@@ -172,7 +168,7 @@ function AuthBootstrap({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-/* ======== Root layout that adds global helpers ======== */
+/* ======== Root layout with global chrome ======== */
 function RootLayout() {
   return (
     <>
@@ -184,24 +180,26 @@ function RootLayout() {
       <PageViewTracker />
       <RouteAnnouncer />
       <UpdatePrompt />
-      <AccountControls />   {/* ← NEW: sign-out + open app */}
+      <AccountControls />
       <Outlet />
     </>
   );
 }
 
+/* ======== Router ======== */
 const router = createBrowserRouter([
   {
     path: "/",
     element: <RootLayout />,
-    errorElement: <RouteErrorBoundary />,
+    errorElement: <RouteErrorElement />, // show real error details
     children: [
-      // ⬇️ Changed: SmartLanding decides where to go at "/"
-      { index: true, element: <SmartLanding /> },
+      // TEMP safety: keep index unbreakable; keep /ok too.
+      { index: true, element: <MinimalOK /> },
+      { path: "ok", element: <MinimalOK /> },
 
       // Public
       { path: "signin", element: <SignIn /> },
-      { path: "auth/callback", element: <AuthCallback /> }, // spinner-only callback
+      { path: "auth/callback", element: <AuthCallback /> },
       { path: "logout", element: <Logout /> },
       { path: "about", element: <AboutUs /> },
       { path: "about-ai", element: <AboutAI /> },
@@ -213,7 +211,7 @@ const router = createBrowserRouter([
       { path: "status", element: <Status /> },
       { path: "thanks", element: <Thanks /> },
       { path: "profile", element: <Profile /> },
-      { path: "settings", element: <Profile /> }, // (optional alias)
+      { path: "settings", element: <Profile /> },
       { path: "scan", element: <Scan /> },
 
       // Guest / Journey (public)
@@ -245,19 +243,20 @@ const router = createBrowserRouter([
       { path: "owner/services",        element: <AuthGate><OwnerServices /></AuthGate> },
       { path: "owner/reviews",         element: <AuthGate><OwnerReviews /></AuthGate> },
       { path: "admin",                 element: <AuthGate><AdminOps /></AuthGate> },
-      { path: "owner/register",        element: <OwnerRegister /> }, // public intake form
+      { path: "owner/register",        element: <OwnerRegister /> }, // public intake
 
       // Grid (protected)
       { path: "grid/devices",   element: <AuthGate><GridDevices /></AuthGate> },
       { path: "grid/playbooks", element: <AuthGate><GridPlaybooks /></AuthGate> },
       { path: "grid/events",    element: <AuthGate><GridEvents /></AuthGate> },
 
-      // 404 (catch-all)
+      // 404
       { path: "*", element: <NotFound /> },
     ],
   },
 ]);
 
+/* ======== Mount ======== */
 const rootEl = document.getElementById("root");
 if (!rootEl) throw new Error("Root element #root not found in index.html");
 

@@ -1,39 +1,43 @@
 // web/src/routes/HomeOrApp.tsx
-import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
+import Spinner from "../components/Spinner";
 
-// 👇 Use whatever your current homepage component is.
-// If your file is named differently, just change the import.
-import Home from "./Home"; // or "./MarketingHome", "./Landing", etc.
+// ✅ This path is correct if HomeOrApp.tsx and Home.tsx are in the same folder
+import Home from "./Home";
+import GuestDashboard from "./GuestDashboard";
 
 export default function HomeOrApp() {
-  const navigate = useNavigate();
+  const [hasSession, setHasSession] = useState<boolean | null>(null);
+
+  // Allow `?app=1` or a local token chip to force the app view
+  const forceApp = useMemo(() => {
+    const sp = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
+    if (sp.get("app") === "1") return true;
+    return !!(typeof window !== "undefined" && localStorage.getItem("stay:token"));
+  }, []);
 
   useEffect(() => {
     let mounted = true;
-
     (async () => {
       const { data } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
       if (!mounted) return;
-
-      // If we already have a session, go straight to the app
-      if (data?.session) {
-        navigate("/guest", { replace: true });
-      }
+      setHasSession(!!data?.session);
     })();
-
-    // Also react if the user logs in on this page
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, s) => {
-      if (s?.user) navigate("/guest", { replace: true });
-    });
-
     return () => {
       mounted = false;
-      sub.subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, []);
 
-  // While signed out, render the normal marketing homepage.
+  if (hasSession === null) {
+    return (
+      <div className="min-h-[50vh] grid place-items-center">
+        <Spinner label="Loading…" />
+      </div>
+    );
+  }
+
+  // If signed in OR user forced app view -> show dashboard; otherwise show marketing Home
+  if (hasSession || forceApp) return <GuestDashboard />;
   return <Home />;
 }

@@ -50,12 +50,12 @@ export default function Profile() {
         setEmail(u.user?.email ?? null);
 
         // 2) Detect which columns exist so we can read/write safely
-        const { data: colsData, error: colsErr } = await supabase
-          .from("user_profiles")
-          .select("*")
-          .limit(0); // metadata-only roundtrip
+        // const { data: colsData, error: colsErr } = await supabase
+          //  .from("user_profiles")
+          // .select("*")
+          // .limit(0); // metadata-only roundtrip
 
-        if (colsErr && colsErr.code !== "PGRST116") throw colsErr;
+       // if (colsErr && colsErr.code !== "PGRST116") throw colsErr;
 
         // Supabase JS doesn't directly expose column list; infer from error hint or do a probe read:
         // We'll try a single read to get one row if it exists; otherwise fall back to a known set.

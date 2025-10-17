@@ -3,37 +3,30 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import Spinner from "../components/Spinner";
 
-// ✅ This path is correct if HomeOrApp.tsx and Home.tsx are in the same folder
 import Home from "./Home";
 import GuestDashboard from "./GuestDashboard";
 
 export default function HomeOrApp() {
   const [hasSession, setHasSession] = useState<boolean | null>(null);
 
-    return (
-    <main className="min-h-[50vh] grid place-items-center">
-      <div className="text-center">
-        <h1 className="text-xl font-semibold">VAiyu</h1>
-        <p className="text-gray-600 mt-1">HomeOrApp placeholder</p>
-        <div className="mt-4 space-x-2">
-          <a className="btn" href="/guest">Open dashboard</a>
-          <a className="btn btn-light" href="/profile">Profile</a>
-        </div>
-      </div>
-    </main>
-  );
-  
   // Allow `?app=1` or a local token chip to force the app view
   const forceApp = useMemo(() => {
-    const sp = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
+    const sp = new URLSearchParams(
+      typeof window !== "undefined" ? window.location.search : ""
+    );
     if (sp.get("app") === "1") return true;
-    return !!(typeof window !== "undefined" && localStorage.getItem("stay:token"));
+    return !!(
+      typeof window !== "undefined" && localStorage.getItem("stay:token")
+    );
   }, []);
 
+  // Snapshot the current auth session
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const { data } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+      const { data } = await supabase.auth
+        .getSession()
+        .catch(() => ({ data: { session: null } as any }));
       if (!mounted) return;
       setHasSession(!!data?.session);
     })();
@@ -42,6 +35,7 @@ export default function HomeOrApp() {
     };
   }, []);
 
+  // Loading
   if (hasSession === null) {
     return (
       <div className="min-h-[50vh] grid place-items-center">
@@ -51,6 +45,8 @@ export default function HomeOrApp() {
   }
 
   // If signed in OR user forced app view -> show dashboard; otherwise show marketing Home
-  if (hasSession || forceApp) return <GuestDashboard />;
+  if (hasSession || forceApp) {
+    return <GuestDashboard />;
+  }
   return <Home />;
 }

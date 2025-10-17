@@ -1,71 +1,83 @@
 // web/src/routes/GuestDashboard.tsx
 import { useEffect, useMemo, useState, memo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { API } from "../lib/api";
 
+/* ------------ Types ------------ */
 type Stay = { id: string; hotel: { name: string; city?: string }; check_in: string; check_out: string; bill_total?: number | null };
 type Booking = { id: string; code: string; hotel: { name: string; city?: string }; scheduled_for: string; room?: string | null };
 type Review = { id: string; hotel: { name: string }; rating: number; title?: string | null; created_at: string };
 type Spend = { year: number; total: number };
 
+/* ------------ Page ------------ */
 export default function GuestDashboard() {
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [userName, setUserName] = useState<string | null>(null);
+  const nav = useNavigate();
 
+  // auth snapshot
+  const [email, setEmail] = useState<string | null>(null);
+  const [name, setName] = useState<string | null>(null);
+
+  // data
   const [upcoming, setUpcoming] = useState<Booking | null>(null);
   const [recentStays, setRecentStays] = useState<Stay[]>([]);
   const [recentReviews, setRecentReviews] = useState<Review[]>([]);
   const [spend, setSpend] = useState<Spend[]>([]);
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
+  const [usedPreview, setUsedPreview] = useState(false); // only true if we fall back
 
-  // Lightweight auth snapshot (no custom hook)
+  // auth
   useEffect(() => {
     let mounted = true;
     (async () => {
       const { data } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
       if (!mounted) return;
       const u = data?.user;
-      setUserEmail(u?.email ?? null);
-      setUserName(u?.user_metadata?.name ?? null);
+      setEmail(u?.email ?? null);
+      setName(u?.user_metadata?.name ?? null);
 
       const { data: sub } = supabase.auth.onAuthStateChange((_evt, sess) => {
         if (!mounted) return;
-        setUserEmail(sess?.user?.email ?? null);
-        setUserName(sess?.user?.user_metadata?.name ?? null);
+        setEmail(sess?.user?.email ?? null);
+        setName(sess?.user?.user_metadata?.name ?? null);
       });
       return () => sub.subscription.unsubscribe();
     })();
     return () => { mounted = false; };
   }, []);
 
+  // fetch data with a small timeout
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      setErr(null);
+      setUsedPreview(false);
       try {
+        const controller = new AbortController();
+        const t = setTimeout(() => controller.abort(), 4000);
+
         const [b, s, r, p] = await Promise.all([
-          safeJson(`${API}/me/bookings?status=upcoming&limit=1`),
-          safeJson(`${API}/me/stays?limit=5`),
-          safeJson(`${API}/me/reviews?limit=5`),
-          safeJson(`${API}/me/spend?years=5`),
+          safeJson(`${API}/me/bookings?status=upcoming&limit=1`, controller),
+          safeJson(`${API}/me/stays?limit=5`, controller),
+          safeJson(`${API}/me/reviews?limit=5`, controller),
+          safeJson(`${API}/me/spend?years=5`, controller),
         ]);
-        if (!cancelled) {
-          setUpcoming(b?.items?.[0] ?? null);
-          setRecentStays(Array.isArray(s?.items) ? s.items : []);
-          setRecentReviews(Array.isArray(r?.items) ? r.items : []);
-          setSpend(Array.isArray(p?.items) ? p.items : []);
-        }
+
+        clearTimeout(t);
+        if (cancelled) return;
+
+        setUpcoming(b?.items?.[0] ?? null);
+        setRecentStays(Array.isArray(s?.items) ? s.items : []);
+        setRecentReviews(Array.isArray(r?.items) ? r.items : []);
+        setSpend(Array.isArray(p?.items) ? p.items : []);
       } catch {
-        if (!cancelled) {
-          setErr("We couldn’t load your dashboard. Showing a quick preview.");
-          setUpcoming(null);
-          setRecentStays(demoStays());
-          setRecentReviews(demoReviews());
-          setSpend(demoSpend());
-        }
+        if (cancelled) return;
+        // friendly demo fallback, but no scary banner—just set a small “preview” hint
+        setUpcoming(null);
+        setRecentStays(demoStays());
+        setRecentReviews(demoReviews());
+        setSpend(demoSpend());
+        setUsedPreview(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -73,7 +85,7 @@ export default function GuestDashboard() {
     return () => { cancelled = true; };
   }, []);
 
-  const firstName = (userName || userEmail || "Guest").split(" ")[0];
+  const firstName = (name || email || "Guest").split(" ")[0];
   const lastStay = recentStays[0];
   const welcomeText = useMemo(() => {
     if (lastStay?.hotel) {
@@ -83,38 +95,53 @@ export default function GuestDashboard() {
     return `Welcome, ${firstName}!`;
   }, [firstName, lastStay]);
 
-  {/* Property owner CTA */}
-<section className="rounded-2xl p-4 shadow bg-white">
-  <div className="flex items-center justify-between">
-    <div>
-      <div className="font-semibold">Want to run a property?</div>
-      <div className="text-sm text-gray-600">
-        Register your hotel to unlock the owner console: dashboards, SLA services, workflows and AI moderation.
-      </div>
-    </div>
-    <Link className="btn" to="/owner/register">Register your property</Link>
-  </div>
-</section>
-
-  
   return (
-    <main className="max-w-6xl mx-auto p-4 space-y-4" aria-labelledby="guest-dash-title">
-      <header className="rounded-2xl p-5 shadow bg-white">
-        <h1 id="guest-dash-title" className="text-xl font-semibold">{welcomeText}</h1>
-        <p className="text-sm text-gray-600">Your trips, bookings, and bills — all in one place.</p>
-        {err && <p className="mt-2 text-sm text-amber-700">{err}</p>}
-      </header>
+    <main className="max-w-6xl mx-auto p-4 space-y-5" aria-labelledby="guest-dash-title">
+      {/* Hero */}
+      <section
+        className="relative overflow-hidden rounded-2xl p-6 bg-gradient-to-r from-sky-50 via-white to-indigo-50 border"
+        aria-label="Welcome"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 id="guest-dash-title" className="text-xl font-semibold">{welcomeText}</h1>
+            <p className="text-sm text-gray-600 mt-1">
+              Your trips, bookings and bills — all in one place.
+            </p>
+            {usedPreview && (
+              <div className="mt-2 text-xs text-gray-500">
+                Showing a quick preview while we connect to your data.
+              </div>
+            )}
+          </div>
+          <ProfileMenu email={email} onEditProfile={() => nav("/profile")} />
+        </div>
+      </section>
 
       {/* Top row */}
       <section className="grid md:grid-cols-3 gap-4">
-        <Card title="Upcoming booking" subtitle="Check-in faster with QR">
-          {loading ? <Skeleton lines={4} /> : upcoming ? <UpcomingBlock booking={upcoming} /> : (
+        <Card
+          title="Upcoming booking"
+          subtitle="Check-in faster with QR"
+          icon={<CalendarIcon aria-hidden className="w-5 h-5" />}
+        >
+          {loading ? (
+            <Skeleton lines={4} />
+          ) : upcoming ? (
+            <UpcomingBlock booking={upcoming} />
+          ) : (
             <Empty small text="No upcoming bookings. Plan your next stay!" cta={{ to: "/hotel/sunrise", label: "Explore hotels" }} />
           )}
         </Card>
 
-        <Card title="Recent stays" subtitle="Last 5 hotels">
-          {loading ? <Skeleton lines={5} /> : recentStays.length ? (
+        <Card
+          title="Recent stays"
+          subtitle="Last 5 hotels"
+          icon={<SuitcaseIcon aria-hidden className="w-5 h-5" />}
+        >
+          {loading ? (
+            <Skeleton lines={5} />
+          ) : recentStays.length ? (
             <>
               <ul className="space-y-2 text-sm">
                 {recentStays.map((s) => (
@@ -128,11 +155,19 @@ export default function GuestDashboard() {
                 <Link className="btn btn-light" to="/stays">View all stays</Link>
               </div>
             </>
-          ) : <Empty small text="No past stays yet." />}
+          ) : (
+            <Empty small text="No past stays yet." />
+          )}
         </Card>
 
-        <Card title="Spend summary" subtitle="By year">
-          {loading ? <Skeleton lines={4} /> : spend.length ? (
+        <Card
+          title="Spend summary"
+          subtitle="By year"
+          icon={<RupeeIcon aria-hidden className="w-5 h-5" />}
+        >
+          {loading ? (
+            <Skeleton lines={4} />
+          ) : spend.length ? (
             <>
               <ul className="text-sm space-y-1">
                 {spend.map((s) => (
@@ -146,22 +181,26 @@ export default function GuestDashboard() {
                 <Link className="btn btn-light" to="/bills">Download bills</Link>
               </div>
             </>
-          ) : <Empty small text="No spend yet." />}
+          ) : (
+            <Empty small text="No spend yet." />
+          )}
         </Card>
       </section>
 
       {/* Reviews */}
-      <section className="rounded-2xl p-4 shadow bg-white">
+      <section className="rounded-2xl p-4 shadow bg-white border">
         <div className="flex items-center justify-between">
           <div>
             <div className="text-sm text-gray-600 mb-1">Your latest reviews</div>
             <div className="text-xs text-gray-500">Edit or add context anytime.</div>
           </div>
-        <Link className="btn btn-light" to="/reviews/mine">Manage reviews</Link>
+          <Link className="btn btn-light" to="/reviews/mine">Manage reviews</Link>
         </div>
 
         <div className="mt-3">
-          {loading ? <Skeleton lines={3} /> : recentReviews.length ? (
+          {loading ? (
+            <Skeleton lines={3} />
+          ) : recentReviews.length ? (
             <ul className="space-y-2">
               {recentReviews.map((rv) => (
                 <li key={rv.id} className="text-sm">
@@ -170,19 +209,96 @@ export default function GuestDashboard() {
                 </li>
               ))}
             </ul>
-          ) : <Empty text="No reviews yet." />}
+          ) : (
+            <Empty text="No reviews yet." />
+          )}
+        </div>
+      </section>
+
+      {/* Owner CTA */}
+      <section className="rounded-2xl p-4 shadow bg-white border">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="font-semibold">Want to run a property?</div>
+            <div className="text-sm text-gray-600">
+              Register your hotel to unlock the owner console: dashboards, SLAs, workflows and AI moderation.
+            </div>
+          </div>
+          <Link className="btn" to="/owner/register">Register your property</Link>
         </div>
       </section>
     </main>
   );
 }
 
-/* ---------- Reusable pieces ---------- */
-const Card = memo(function Card({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode; }) {
+/* ------------ Profile menu (top-right) ------------ */
+function ProfileMenu({ email, onEditProfile }: { email: string | null; onEditProfile: () => void }) {
+  const [open, setOpen] = useState(false);
+
+  async function signOut() {
+    await supabase.auth.signOut();
+    location.href = "/";
+  }
+
+  const initial = (email?.[0]?.toUpperCase() ?? "G");
+
   return (
-    <div className="rounded-2xl p-4 shadow bg-white">
-      <div className="mb-1"><div className="text-sm text-gray-600">{subtitle || ""}</div><div className="font-semibold">{title}</div></div>
-      <div className="mt-2">{children}</div>
+    <div className="relative">
+      <button
+        className="flex items-center gap-2 rounded-full border bg-white px-3 py-1.5 shadow"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        <div className="w-7 h-7 rounded-full bg-indigo-600 text-white grid place-items-center text-xs font-semibold">
+          {initial}
+        </div>
+        <span className="text-sm text-gray-700 max-w-[160px] truncate">{email || "Guest"}</span>
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 mt-2 w-56 rounded-xl border bg-white shadow-lg overflow-hidden z-10"
+        >
+          <button
+            role="menuitem"
+            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+            onClick={() => { setOpen(false); onEditProfile(); }}
+          >
+            Update profile
+          </button>
+          <Link role="menuitem" to="/settings" className="block px-3 py-2 text-sm hover:bg-gray-50">
+            Settings
+          </Link>
+          <div className="border-t my-1" />
+          <button
+            role="menuitem"
+            className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+            onClick={signOut}
+          >
+            Sign out
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ------------ Cards & bits ------------ */
+const Card = memo(function Card({
+  title, subtitle, icon, children,
+}: { title: string; subtitle?: string; icon?: React.ReactNode; children: React.ReactNode; }) {
+  return (
+    <div className="rounded-2xl p-4 shadow bg-white border">
+      <div className="mb-2 flex items-center gap-2">
+        {icon ? <div className="text-gray-600">{icon}</div> : null}
+        <div>
+          <div className="text-xs text-gray-500">{subtitle || ""}</div>
+          <div className="font-semibold">{title}</div>
+        </div>
+      </div>
+      <div>{children}</div>
     </div>
   );
 });
@@ -222,13 +338,28 @@ function Skeleton({ lines = 3 }: { lines?: number }) {
   return <div className="space-y-2">{Array.from({ length: lines }).map((_, i) => <div key={i} className="h-3 rounded bg-gray-100 animate-pulse" />)}</div>;
 }
 
-/* ---------- Helpers ---------- */
-async function safeJson(url: string) { const r = await fetch(url); if (!r.ok) throw new Error(String(r.status)); return r.json(); }
+/* ------------ Helpers ------------ */
+async function safeJson(url: string, controller?: AbortController) {
+  const r = await fetch(url, { signal: controller?.signal });
+  if (!r.ok) throw new Error(String(r.status));
+  return r.json();
+}
 function fmtDate(s: string) { try { return new Date(s).toLocaleString(); } catch { return s; } }
 function fmtRange(a: string, b: string) { try { const A = new Date(a), B = new Date(b); return `${A.toLocaleDateString()} – ${B.toLocaleDateString()}`; } catch { return `${a} – ${b}`; } }
-function stars(n: number) { const clamped = Math.max(0, Math.min(5, Math.round(n))); return "★★★★★".slice(0, clamped) + "☆☆☆☆☆".slice(clamped); }
+function stars(n: number) { const c = Math.max(0, Math.min(5, Math.round(n))); return "★★★★★".slice(0, c) + "☆☆☆☆☆".slice(c); }
 
-/* ---------- Demo fallback data ---------- */
+/* ------------ Tiny icons (no extra deps) ------------ */
+function CalendarIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...props}><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>);
+}
+function SuitcaseIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...props}><rect x="3" y="7" width="18" height="13" rx="2"/><rect x="8" y="3" width="8" height="4" rx="1"/></svg>);
+}
+function RupeeIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...props}><text x="5" y="17" fontSize="14" fontFamily="system-ui">₹</text><line x1="9" y1="8" x2="18" y2="8"/></svg>);
+}
+
+/* ------------ Demo fallback data (only if API fails/timeout) ------------ */
 function demoStays(): Stay[] {
   return [
     { id: "s1", hotel: { name: "Sunrise Suites", city: "Nainital" }, check_in: "2025-08-10T12:00:00Z", check_out: "2025-08-12T08:00:00Z", bill_total: 7420 },

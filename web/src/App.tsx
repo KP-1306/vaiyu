@@ -1,6 +1,7 @@
 import React from "react";
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
-import { withBoundary, Spinner } from "./components/RouteBoundary";
+import { withBoundary, Spinner } from "./components/RouteErrorBoundary";
+
 
 // Eager imports while debugging (flip to lazy once stable)
 import HomeOrApp from "./routes/HomeOrApp";

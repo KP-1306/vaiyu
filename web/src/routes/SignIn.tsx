@@ -99,10 +99,14 @@ export default function SignIn() {
       )}`;
 
       const emailTrimmed = email.trim();
-      const { error } = await supabase.auth.signInWithOtp({
-        email: emailTrimmed,
-        options: { emailRedirectTo: redirectTo },
+      // inside /routes/SignIn.tsx
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback?redirect=/guest`
+      }
       });
+
       if (error) throw error;
       setSent(true);
     } catch (err: any) {

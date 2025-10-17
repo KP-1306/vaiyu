@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { API } from "../lib/api";
 import WelcomeExperience from "../components/WelcomeExperience";
-import WhatsNewBanner from "../components/WhatsNewBanner";
+
 
 /* ===== Types ===== */
 type Stay = { id: string; hotel: { name: string; city?: string }; check_in: string; check_out: string; bill_total?: number | null };
@@ -38,8 +38,7 @@ export default function GuestDashboard() {
       {/* 👇 New: one-time welcome/feature highlight */}
       <WelcomeExperience />
 
-     {/* Tiny rolling “What’s new” banner */}
-      <WhatsNewBanner />
+
       
       {/* existing cards: Check-in, Recent stays, Spend, Reviews, Owner CTA, etc. */}
       {/* ... */}

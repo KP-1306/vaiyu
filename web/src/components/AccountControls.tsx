@@ -5,14 +5,16 @@ import { supabase } from "../lib/supabase";
 export default function AccountControls() {
   const [email, setEmail] = useState<string | null>(null);
 
-  // Detect where we are
-  const isMarketingOnly = useMemo(() => {
-    const sp = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
-    const onRoot = typeof window !== "undefined" ? window.location.pathname === "/" : false;
-    const appParam = sp.get("app") === "1";
-    // Only show on marketing: "/" without ?app=1
-    return onRoot && !appParam;
-  }, []);
+
+const isMarketingOnly = useMemo(() => {
+  if (typeof window === "undefined") return false;
+  const { pathname, search } = window.location;
+  // show only on marketing homepage without ?app=1
+  const onMarketingHome = pathname === "/";
+  const isForcedApp = new URLSearchParams(search).get("app") === "1";
+  return onMarketingHome && !isForcedApp;
+}, []);
+
 
   useEffect(() => {
     let mounted = true;

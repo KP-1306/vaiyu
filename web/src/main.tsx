@@ -27,6 +27,9 @@ import { ThemeProvider } from "./components/ThemeProvider";
 import "./theme.css";
 import "./index.css";
 
+// add import
+import AccountControls from "./components/AccountControls";
+
 // Global chrome helpers
 import ScrollToTop from "./components/ScrollToTop";
 import BackHome from "./components/BackHome";
@@ -160,6 +163,7 @@ function RootLayout() {
       <PageViewTracker />
       <RouteAnnouncer />
       <UpdatePrompt />
+      <AccountControls />   {/* ← NEW: sign-out + open app */}
       <Outlet />
     </>
   );

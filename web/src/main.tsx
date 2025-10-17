@@ -71,6 +71,7 @@ const Contact        = lazy(() => import("./routes/Contact"));
 const Careers        = lazy(() => import("./routes/Careers"));
 const Status         = lazy(() => import("./routes/Status"));
 const Thanks         = lazy(() => import("./routes/Thanks"));
+const Profile        = lazy(() => import("./routes/Profile"));
 
 // Smart Landing (NEW): decides Landing vs GuestDashboard vs /owner
 const SmartLanding   = lazy(() => import("./routes/SmartLanding"));
@@ -191,6 +192,8 @@ const router = createBrowserRouter([
       { path: "careers", element: <Careers /> },
       { path: "status", element: <Status /> },
       { path: "thanks", element: <Thanks /> },
+      { path: "profile", element: <Profile /> },
+      { path: "settings", element: <Profile /> }, // (optional alias)
 
       // Guest / Journey (public)
       { path: "hotel/:slug", element: <Hotel /> },

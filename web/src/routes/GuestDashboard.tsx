@@ -113,7 +113,7 @@ export default function GuestDashboard() {
   return (
     <main className="max-w-6xl mx-auto p-4 space-y-5" aria-labelledby="guest-dash-title">
       {/* Hero */}
-      <section className="relative overflow-hidden rounded-2xl p-6 bg-gradient-to-r from-sky-50 via-white to-indigo-50 border">
+      <section className="relative rounded-2xl p-6 bg-gradient-to-r from-sky-50 via-white to-indigo-50 border overflow-visible">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 id="guest-dash-title" className="text-xl font-semibold">{welcomeText}</h1>
@@ -368,7 +368,8 @@ function ProfileMenu({
       </button>
 
       {open && (
-        <div role="menu" className="absolute right-0 mt-2 w-56 rounded-xl border bg-white shadow-lg overflow-hidden z-10">
+        <div role="menu" className="absolute right-0 mt-2 w-56 rounded-xl border bg-white shadow-lg overflow-hidden z-50">
+
           <button
             role="menuitem"
             className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"

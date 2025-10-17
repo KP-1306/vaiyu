@@ -1,8 +1,7 @@
 // web/src/App.tsx
-import React, { lazy, Suspense, useEffect } from "react";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import React, { lazy, Suspense } from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 
-/* ---------- Tiny fallback UI ---------- */
 function Spinner({ label = "Loading…" }: { label?: string }) {
   return (
     <div className="min-h-[40vh] grid place-items-center text-sm text-gray-600">
@@ -11,31 +10,27 @@ function Spinner({ label = "Loading…" }: { label?: string }) {
   );
 }
 
-/* ---------- Global error boundary ---------- */
-type EBState = { error: any };
+/** ✅ Proper error boundary */
 class RouteErrorBoundary extends React.Component<
-  React.PropsWithChildren,
-  EBState
+  { children: React.ReactNode },
+  { error: any }
 > {
-  state: EBState = { error: null };
-
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { error: null };
+  }
   static getDerivedStateFromError(error: any) {
     return { error };
   }
-
   componentDidCatch(error: unknown, info: unknown) {
-    // Helpful while debugging
-    // eslint-disable-next-line no-console
+    // helpful in DevTools
     console.error("Route error:", error, info);
   }
-
   render() {
     if (this.state.error) {
-      const e: any = this.state.error;
+      const e = this.state.error as any;
       const message =
-        e?.message ??
-        e?.toString?.() ??
-        "Unknown error. Check the browser console for details.";
+        e?.message ?? e?.toString?.() ?? "Unknown error. See console.";
       return (
         <div className="max-w-3xl mx-auto p-6">
           <h1 className="text-lg font-semibold mb-2">Something went wrong</h1>
@@ -44,37 +39,25 @@ class RouteErrorBoundary extends React.Component<
             {(e?.stack || "").toString()}
           </pre>
           <div className="mt-4">
-            <a href="/" className="btn btn-light">
-              Back home
-            </a>
+            <a href="/" className="btn btn-light">Back home</a>
           </div>
         </div>
       );
     }
-    return this.props.children as React.ReactNode;
+    return this.props.children;
   }
 }
 
-/* ---------- Keep scroll position sane ---------- */
-function ScrollToTop() {
-  const loc = useLocation();
-  useEffect(() => {
-    try {
-      window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
-    } catch {
-      window.scrollTo(0, 0);
-    }
-  }, [loc.pathname, loc.search, loc.hash]);
-  return null;
-}
+// (optional)
+function ScrollToTop() { return null; }
 
-/* ---------- Lazy routes (each file must default export a component) ---------- */
-const HomeOrApp = lazy(() => import("./routes/HomeOrApp"));
+// Lazy pages (each of these files **must** default-export a component)
+const HomeOrApp      = lazy(() => import("./routes/HomeOrApp"));
 const GuestDashboard = lazy(() => import("./routes/GuestDashboard"));
-const Profile = lazy(() => import("./routes/Profile"));
-const AuthCallback = lazy(() => import("./routes/AuthCallback"));
+const Profile        = lazy(() => import("./routes/Profile"));
+const AuthCallback   = lazy(() => import("./routes/AuthCallback"));
 
-/* ---------- Known-good debug page ---------- */
+// debug/health page
 function DebugOK() {
   return (
     <div className="min-h-[40vh] grid place-items-center">
@@ -85,23 +68,24 @@ function DebugOK() {
   );
 }
 
-/* ---------- App ---------- */
 export default function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <Suspense fallback={<Spinner />}>
         <RouteErrorBoundary>
-          <ScrollToTop />
           <Routes>
-            <Route path="/" element={<HomeOrApp />} />
+            {/* ── TEMP: set root to DebugOK to prove routing works ── */}
+            {/* Change back to <HomeOrApp/> once confirmed */}
+            <Route path="/" element={<DebugOK />} />
+
             <Route path="/guest" element={<GuestDashboard />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
 
-            {/* health-check route */}
+            {/* You can still visit /debug directly */}
             <Route path="/debug" element={<DebugOK />} />
 
-            {/* 404 */}
             <Route
               path="*"
               element={
@@ -111,9 +95,7 @@ export default function App() {
                     <div className="mt-2 text-gray-600">
                       We couldn’t find that page.
                     </div>
-                    <a href="/" className="btn mt-4">
-                      Go home
-                    </a>
+                    <a href="/" className="btn mt-4">Go home</a>
                   </div>
                 </div>
               }

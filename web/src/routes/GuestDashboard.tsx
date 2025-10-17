@@ -484,3 +484,13 @@ function demoSpend(): Spend[] {
   const y = new Date().getFullYear();
   return [{ year: y, total: 13240 }, { year: y - 1, total: 19880 }, { year: y - 2, total: 0 }];
 }
+
+function Skeleton({ lines = 3 }: { lines?: number }) {
+  return (
+    <div className="space-y-2">
+      {Array.from({ length: lines }).map((_, i) => (
+        <div key={i} className="h-3 rounded bg-gray-100 animate-pulse" />
+      ))}
+    </div>
+  );
+}

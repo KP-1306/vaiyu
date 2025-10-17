@@ -23,9 +23,9 @@
     { "src": "/icons/guest.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
   ],
 
-  "screenshots": [
-    { "src": "/screenshots/guest.png", "sizes": "1280x720", "type": "image/png", "form_factor": "wide" }
-  ],
+//  "screenshots": [
+ //   { "src": "/screenshots/guest.png", "sizes": "1280x720", "type": "image/png", "form_factor": "wide" }
+//  ],
 
   "shortcuts": [
     { "name": "Housekeeping", "short_name": "HK", "url": "/hk" },

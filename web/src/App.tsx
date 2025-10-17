@@ -69,48 +69,54 @@ const slides = [
     headline: "Where Intelligence Meets Comfort",
     sub: "AI turns live stay activity into faster service and delightful guest journeys.",
     cta: { label: isAuthed ? "Open app" : "Start with your email", href: isAuthed ? "/guest" : "/signin?intent=signup&redirect=/guest" },
-    img: "/hero/ai-hero.svg",
-    imgAlt: "Abstract AI gradient with subtle tech bands",
+    variant: "photo", // or "vector" if you prefer the SVG gradient
+    img: "/hero/ai-hero.png",
+    imgAlt: "AI hero background"
   },
   {
     id: "checkin",
     headline: "10-second Mobile Check-in",
     sub: "Scan, confirm, head to your room. No kiosk queues.",
     cta: { label: "Try the guest demo", href: "/guest" },
-    img: "/hero/checkin.svg",
-    imgAlt: "Phone and QR placard showing fast check-in flow",
+    variant: "photo",
+    img: "/hero/checkin.png",
+    imgAlt: "Guest scanning QR at the front desk"
   },
   {
     id: "sla",
     headline: "SLA Nudges for Staff",
     sub: "On-time nudges and a clean digest keep service humming.",
     cta: { label: "See the owner console", href: "/owner" },
-    img: "/hero/sla.svg",
-    imgAlt: "Staff dashboard card with SLA hints",
+    variant: "photo",
+    img: "/hero/sla.png",
+    imgAlt: "Tablet with SLA dashboard"
   },
   {
     id: "reviews",
     headline: "Truth-Anchored Reviews",
     sub: "AI drafts grounded in verified stay data—owners approve, brand stays safe.",
     cta: { label: "How moderation works", href: "/about-ai" },
-    img: "/hero/reviews.svg",
-    imgAlt: "Owner reviewing AI-drafted review with approve/edit",
+    variant: "photo",
+    img: "/hero/reviews.png",
+    imgAlt: "Owner reviewing AI draft"
   },
   {
     id: "grid-smart",
     headline: "Grid-Smart Operations & Sustainability",
     sub: "Tariff-aware actions and device shedding without drama.",
     cta: { label: "Learn about grid mode", href: "/grid/devices" },
-    img: "/hero/grid.svg",
-    imgAlt: "Energy dashboard with peak-shift and device shed chips",
+    variant: "photo",
+    img: "/hero/grid.png",
+    imgAlt: "Energy dashboard on wall tablet"
   },
   {
     id: "owner-console",
     headline: "AI-Driven Owner Console",
     sub: "Digest, usage, moderation and KPIs—clean, fast, reliable.",
     cta: { label: "Open owner home", href: "/owner" },
-    img: "/hero/owner-console.svg",
-    imgAlt: "Owner console cards for digest and KPIs",
+    variant: "photo",
+    img: "/hero/owner-console.png",
+    imgAlt: "Owner console KPIs on monitor"
   },
 ];
 

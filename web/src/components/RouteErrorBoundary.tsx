@@ -2,20 +2,23 @@
 import React from "react";
 import { Link, isRouteErrorResponse, useRouteError } from "react-router-dom";
 
-/**
- * Simple route-level Error Boundary for React Router apps.
- * Works both as a class fallback for unexpected render crashes
- * and as an element for data/router errors via useRouteError.
- */
+/** Spinner */
+export function Spinner({ label = "Loading…" }: { label?: string }) {
+  return (
+    <div className="min-h-[40vh] grid place-items-center text-sm text-gray-600">
+      {label}
+    </div>
+  );
+}
 
-/* ---------- Element for data/router errors ---------- */
+/** 1) Element for data/route errors (loaders/actions) */
 export function RouteErrorElement() {
   const err = useRouteError();
   let title = "Something went wrong";
   let message = "Unknown error. Check the console for details.";
 
   if (isRouteErrorResponse(err)) {
-    title = `${err.status} – ${err.statusText}`;
+    title = `${err.status} · ${err.statusText}`;
     try {
       const bodyText =
         typeof err.data === "string" ? err.data : JSON.stringify(err.data);
@@ -27,54 +30,62 @@ export function RouteErrorElement() {
     message = err.message || message;
   }
 
+  // Log once for dev
+  // eslint-disable-next-line no-console
+  console.error("[RouteErrorElement]", err);
+
   return (
-    <main className="max-w-3xl mx-auto p-6">
-      <h1 className="text-lg font-semibold mb-2">{title}</h1>
-      <p className="text-red-600 mb-3">{message}</p>
-      <div className="mt-4 flex gap-2">
-        <Link to="/" className="btn btn-light">Back home</Link>
-        <button className="btn" onClick={() => location.reload()}>Reload</button>
+    <div className="mx-auto max-w-xl p-6 my-10 rounded-2xl border bg-white/50">
+      <h2 className="text-lg font-semibold">{title}</h2>
+      <p className="mt-2 text-sm text-gray-600">{message}</p>
+      <div className="mt-4 flex gap-4 text-sm">
+        <Link to="/" className="text-blue-600 underline">Go Home</Link>
+        <button onClick={() => location.reload()} className="underline">Reload</button>
       </div>
-    </main>
+    </div>
   );
 }
 
-/* ---------- Class boundary for render-time crashes ---------- */
-export default class RouteErrorBoundary extends React.Component<
+/** 2) Class Error Boundary for render/runtime crashes */
+export class RouteErrorBoundary extends React.Component<
   { children: React.ReactNode },
   { error: any }
 > {
-  state = { error: null as any };
-
+  constructor(props: any) {
+    super(props);
+    this.state = { error: null };
+  }
   static getDerivedStateFromError(error: any) {
     return { error };
   }
-
-  componentDidCatch(error: unknown, info: unknown) {
-    // Useful while debugging:
+  componentDidCatch(error: any, info: any) {
     // eslint-disable-next-line no-console
-    console.error("Route error:", error, info);
+    console.error("[RouteErrorBoundary]", error, info);
   }
-
   render() {
     if (this.state.error) {
-      const e = this.state.error as any;
-      const message =
-        e?.message ?? e?.toString?.() ?? "Unknown error. See console.";
       return (
-        <main className="max-w-3xl mx-auto p-6">
-          <h1 className="text-lg font-semibold mb-2">Something went wrong</h1>
-          <p className="text-red-600 mb-3">{message}</p>
-          <pre className="p-3 rounded bg-gray-50 overflow-auto text-xs">
-            {(e?.stack || "").toString()}
+        <div className="mx-auto max-w-xl p-6 my-10 rounded-2xl border bg-white/50">
+          <h2 className="text-lg font-semibold">Something went wrong on this page.</h2>
+          <p className="mt-2 text-sm text-gray-600">
+            We couldn’t render this route. Try reloading, or go back to Home.
+          </p>
+          <pre className="mt-3 overflow-auto max-h-48 text-xs bg-gray-50 p-3 rounded">
+            {String(this.state.error?.message || this.state.error)}
           </pre>
-          <div className="mt-4 flex gap-2">
-            <a href="/" className="btn btn-light">Back home</a>
-            <button className="btn" onClick={() => location.reload()}>Reload</button>
-          </div>
-        </main>
+          <a href="/" className="inline-block mt-4 text-blue-600 underline">Go Home</a>
+        </div>
       );
     }
-    return this.props.children as React.ReactNode;
+    return this.props.children;
   }
+}
+
+/** 3) Helper to wrap elements with Suspense + Boundary */
+export function withBoundary(node: React.ReactNode) {
+  return (
+    <RouteErrorBoundary>
+      <React.Suspense fallback={<Spinner />}>{node}</React.Suspense>
+    </RouteErrorBoundary>
+  );
 }

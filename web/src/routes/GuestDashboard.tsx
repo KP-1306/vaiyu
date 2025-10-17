@@ -3,11 +3,9 @@ import { useEffect, useMemo, useState, memo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { API } from "../lib/api";
-import QR from "../components/QR";
 
 /* ===== Types ===== */
 type Stay = { id: string; hotel: { name: string; city?: string }; check_in: string; check_out: string; bill_total?: number | null };
-type Booking = { id: string; code: string; hotel: { name: string; city?: string }; scheduled_for: string; room?: string | null };
 type Review = { id: string; hotel: { name: string }; rating: number; title?: string | null; created_at: string };
 type Spend = { year: number; total: number };
 
@@ -24,11 +22,6 @@ export default function GuestDashboard() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   // independent card states
-  const [upcoming, setUpcoming] = useState<AsyncData<Booking | null>>({
-    loading: true,
-    source: "live",
-    data: null,
-  });
   const [stays, setStays] = useState<AsyncData<Stay[]>>({
     loading: true,
     source: "live",
@@ -71,13 +64,6 @@ export default function GuestDashboard() {
 
   /* ---- Independent loads (graceful per-card fallback) ---- */
   useEffect(() => {
-    loadCard(
-      () => jsonWithTimeout(`${API}/me/bookings?status=upcoming&limit=1`),
-      (j) => j?.items?.[0] ?? null,
-      () => demoBooking(),
-      (next) => setUpcoming(next),
-    );
-
     loadCard(
       () => jsonWithTimeout(`${API}/me/stays?limit=5`),
       (j) => (Array.isArray(j?.items) ? j.items : []),
@@ -129,20 +115,13 @@ export default function GuestDashboard() {
 
       {/* Top row */}
       <section className="grid md:grid-cols-3 gap-4">
-        {/* Check-in / Next Trip */}
+        {/* Ad-hoc check-in only (no bookings yet) */}
         <Card
-          title={upcoming.data && isSoon(upcoming.data.scheduled_for) ? "Check-in" : "Your next trip"}
-          subtitle={upcoming.data ? (isSoon(upcoming.data.scheduled_for) ? "Scan & go" : "Plan ahead") : "Scan & go"}
+          title="Check-in"
+          subtitle="Scan & go"
           icon={<CalendarIcon />}
-          badge={upcoming.source === "preview" ? "Preview" : undefined}
         >
-          {upcoming.loading ? (
-            <Skeleton lines={4} />
-          ) : upcoming.data ? (
-            <CheckInBlock booking={upcoming.data} />
-          ) : (
-            <ArrivalCheckInEmpty />
-          )}
+          <ArrivalCheckInEmpty />
         </Card>
 
         {/* Recent Stays */}
@@ -210,7 +189,6 @@ export default function GuestDashboard() {
             <div className="text-sm text-gray-600 mb-1">Your latest reviews</div>
             <div className="text-xs text-gray-500">Edit or add context anytime.</div>
           </div>
-          <Link className="btn btn-light" to="/reviews/mine">Manage reviews</Link>
         </div>
 
         <div className="mt-3">
@@ -267,74 +245,7 @@ async function loadCard<J, T>(
   }
 }
 
-/* ===== Check-in card ===== */
-function CheckInBlock({ booking }: { booking: Booking }) {
-  const soon = isSoon(booking.scheduled_for);
-  return (
-    <>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="font-semibold">
-            {booking.hotel.name} {booking.hotel.city ? `• ${booking.hotel.city}` : ""}
-          </div>
-          <div className="text-sm text-gray-600 mt-1">
-            Check-in {soon ? relTime(booking.scheduled_for) : `on ${fmtDate(booking.scheduled_for)}`}
-          </div>
-        </div>
-        <span
-          className={`text-xs px-2 py-0.5 rounded-full border ${
-            soon ? "bg-green-50 border-green-200 text-green-700" : "bg-gray-50 border-gray-200 text-gray-700"
-          }`}
-        >
-          {soon ? "Ready" : "Scheduled"}
-        </span>
-      </div>
-
-      <div className="mt-3 flex items-center gap-3">
-        <QR
-          data={`checkin:${booking.code}:${booking.hotel.name}`}
-          size={112}
-          className="rounded border"
-        />
-        <div className="text-xs text-gray-600">
-          Show this QR at the front desk to check-in faster. <br />
-          Booking code: <span className="font-mono">{booking.code}</span>
-        </div>
-      </div>
-
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Link className="btn" to={`/precheck/${encodeURIComponent(booking.code)}`}>Start check-in</Link>
-        <Link className="btn btn-light" to={`/stay/${encodeURIComponent(booking.code)}/menu`}>Room menu</Link>
-        <Link className="btn btn-light" to="/claim">Find my booking</Link>
-      </div>
-    </>
-  );
-}
-
-// Tiny spark-bar used in "Spend summary"
-function MiniBars({ data }: { data: { year: number; total: number }[] }) {
-  const max = Math.max(1, ...data.map((d) => Number(d.total || 0)));
-  return (
-    <div className="flex items-end gap-1 h-14 mt-1" aria-label="Spend bars">
-      {data
-        .slice()
-        .sort((a, b) => a.year - b.year)
-        .map((d) => {
-          const h = Math.max(4, Math.round((Number(d.total || 0) / max) * 48));
-          return (
-            <div
-              key={d.year}
-              className="w-6 rounded bg-indigo-100 border border-indigo-200"
-              style={{ height: h }}
-              title={`${d.year}: ₹${Number(d.total || 0).toLocaleString()}`}
-              aria-label={`${d.year} spend ₹${Number(d.total || 0).toLocaleString()}`}
-            />
-          );
-        })}
-    </div>
-  );
-}
-
+/* ===== Ad-hoc Check-in card content ===== */
 function ArrivalCheckInEmpty() {
   return (
     <div className="text-sm text-gray-700">
@@ -352,7 +263,6 @@ function ArrivalCheckInEmpty() {
     </div>
   );
 }
-
 
 /* ===== Profile menu (top-right in hero) ===== */
 function ProfileMenu({
@@ -383,7 +293,6 @@ function ProfileMenu({
 
       {open && (
         <div role="menu" className="absolute right-0 mt-2 w-56 rounded-xl border bg-white shadow-lg overflow-hidden z-50">
-
           <button
             role="menuitem"
             className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
@@ -480,33 +389,8 @@ function stars(n: number) {
   const c = Math.max(0, Math.min(5, Math.round(n)));
   return "★★★★★".slice(0, c) + "☆☆☆☆☆".slice(c);
 }
-function isSoon(iso: string, hrs = 48) {
-  const t = new Date(iso).getTime();
-  const now = Date.now();
-  // within the next X hours (and allow a small grace if just started)
-  return t - now <= hrs * 3600 * 1000 && t >= now - 6 * 3600 * 1000;
-}
-function relTime(iso: string) {
-  const t = new Date(iso).getTime();
-  const now = Date.now();
-  const diff = t - now;
-  const mins = Math.round(diff / 60000);
-  if (mins <= 0) return "now";
-  if (mins < 60) return `in ${mins} min`;
-  const hrs = Math.round(mins / 60);
-  return `in ${hrs} hr`;
-}
 
 /* ===== Demo fallbacks (only for failed cards) ===== */
-function demoBooking(): Booking {
-  return {
-    id: "b1",
-    code: "VA-12345",
-    hotel: { name: "Sunrise Suites", city: "Nainital" },
-    scheduled_for: new Date(Date.now() + 7 * 864e5).toISOString(),
-    room: "304",
-  } as any;
-}
 function demoStays(): Stay[] {
   return [
     { id: "s1", hotel: { name: "Sunrise Suites", city: "Nainital" }, check_in: "2025-08-10T12:00:00Z", check_out: "2025-08-12T08:00:00Z", bill_total: 7420 },

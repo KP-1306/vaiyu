@@ -1,64 +1,72 @@
-// web/src/routes/SmartLanding.tsx
-import { useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
-import App from "../App";                    // public marketing landing
-import GuestDashboard from "./GuestDashboard";
-import Spinner from "../components/Spinner";
+import { useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
-type LiteUser = { id: string; email?: string | null; user_metadata?: any; app_metadata?: any } | null;
+// Never throws; always lands somewhere valid.
+// Decision order (customize as needed):
+// 1) ?next=/some/path (same-origin only) → redirect there
+// 2) If signed in and user has "owner" role → /owner/dashboard
+// 3) If signed in (guest) → /guest
+// 4) Else → /guest (public landing)
 
-function getRole(u: LiteUser): "guest" | "owner" | "staff" | "admin" {
-  // Adjust if you store role elsewhere
-  return (
-    u?.user_metadata?.role ||
-    u?.app_metadata?.role ||
-    "guest"
-  );
+function safeSameOriginPath(raw: string | null) {
+  if (!raw) return null;
+  try {
+    const u = new URL(raw, window.location.origin);
+    if (u.origin !== window.location.origin) return null;
+    if (!u.pathname.startsWith("/")) return null;
+    return u.pathname + u.search + u.hash;
+  } catch {
+    return null;
+  }
 }
 
-const OWNER_DEST = "/owner"; // change to "/owner/home" if that's your owner route
-
 export default function SmartLanding() {
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<LiteUser>(null);
+  const nav = useNavigate();
+  const [params] = useSearchParams();
 
   useEffect(() => {
-    let mounted = true;
+    let cancelled = false;
 
     (async () => {
-      const { data } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
-      if (!mounted) return;
-      setUser(data?.user ?? null);
-      setLoading(false);
+      try {
+        // 1) honor explicit next= param if it's safe
+        const next = safeSameOriginPath(params.get("next")) || safeSameOriginPath(params.get("redirect"));
+        if (next) {
+          if (!cancelled) nav(next, { replace: true });
+          return;
+        }
 
-      // keep in sync with auth events
-      const { data: sub } = supabase.auth.onAuthStateChange((_evt, sess) => {
-        if (!mounted) return;
-        setUser(sess?.user ?? null);
-      });
-      return () => sub.subscription.unsubscribe();
+        // 2) check session
+        const { data } = await supabase.auth.getSession().catch(() => ({ data: null as any }));
+        const session = data?.session ?? null;
+
+        // 3) read a quick role flag from user_metadata (customize your source)
+        const role = (session?.user?.user_metadata?.role as string | undefined)?.toLowerCase();
+
+        const dest =
+          role === "owner"
+            ? "/owner/dashboard"
+            : session
+            ? "/guest"
+            : "/guest"; // public landing is also /guest for now
+
+        if (!cancelled) nav(dest, { replace: true });
+      } catch (e) {
+        // last-resort: never crash the route
+        console.error("[SmartLanding] unexpected", e);
+        if (!cancelled) nav("/guest", { replace: true });
+      }
     })();
 
     return () => {
-      mounted = false;
+      cancelled = true;
     };
-  }, []);
+  }, [nav, params]);
 
-  if (loading) {
-    return (
-      <div className="min-h-[50vh] grid place-items-center">
-        <Spinner label="Loading…" />
-      </div>
-    );
-  }
-
-  if (!user) return <App />;
-
-  const role = getRole(user);
-  if (role === "guest") return <GuestDashboard />;
-  if (role === "owner" || role === "staff" || role === "admin") {
-    return <Navigate to={OWNER_DEST} replace />;
-  }
-  return <App />;
+  return (
+    <main className="min-h-[40vh] grid place-items-center">
+      <div className="text-sm text-gray-600">Taking you to your dashboard…</div>
+    </main>
+  );
 }

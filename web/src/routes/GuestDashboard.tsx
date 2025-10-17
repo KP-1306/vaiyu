@@ -24,10 +24,26 @@ export default function GuestDashboard() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   // independent card states
-  const [upcoming, setUpcoming] = useState<AsyncData<Booking | null>>({ loading: true, source: "live", data: null });
-  const [stays, setStays] = useState<AsyncData<Stay[]>>({ loading: true, source: "live", data: [] });
-  const [reviews, setReviews] = useState<AsyncData<Review[]>>({ loading: true, source: "live", data: [] });
-  const [spend, setSpend] = useState<AsyncData<Spend[]>>({ loading: true, source: "live", data: [] });
+  const [upcoming, setUpcoming] = useState<AsyncData<Booking | null>>({
+    loading: true,
+    source: "live",
+    data: null,
+  });
+  const [stays, setStays] = useState<AsyncData<Stay[]>>({
+    loading: true,
+    source: "live",
+    data: [],
+  });
+  const [reviews, setReviews] = useState<AsyncData<Review[]>>({
+    loading: true,
+    source: "live",
+    data: [],
+  });
+  const [spend, setSpend] = useState<AsyncData<Spend[]>>({
+    loading: true,
+    source: "live",
+    data: [],
+  });
 
   /* ---- Auth ---- */
   useEffect(() => {
@@ -48,14 +64,16 @@ export default function GuestDashboard() {
       });
       return () => sub.subscription.unsubscribe();
     })();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   /* ---- Independent loads (graceful per-card fallback) ---- */
   useEffect(() => {
     loadCard(
       () => jsonWithTimeout(`${API}/me/bookings?status=upcoming&limit=1`),
-      (j) => (j?.items?.[0] ?? null),
+      (j) => j?.items?.[0] ?? null,
       () => demoBooking(),
       (next) => setUpcoming(next),
     );
@@ -111,25 +129,27 @@ export default function GuestDashboard() {
 
       {/* Top row */}
       <section className="grid md:grid-cols-3 gap-4">
+        {/* Check-in / Next Trip */}
         <Card
-          title="Upcoming booking"
-          subtitle="Check-in faster with QR"
+          title={upcoming.data && isSoon(upcoming.data.scheduled_for) ? "Check-in" : "Your next trip"}
+          subtitle={upcoming.data ? (isSoon(upcoming.data.scheduled_for) ? "Scan & go" : "Plan ahead") : "Scan & go"}
           icon={<CalendarIcon />}
           badge={upcoming.source === "preview" ? "Preview" : undefined}
         >
           {upcoming.loading ? (
             <Skeleton lines={4} />
           ) : upcoming.data ? (
-            <UpcomingBlock booking={upcoming.data} />
+            <CheckInBlock booking={upcoming.data} />
           ) : (
             <Empty
               small
-              text="No upcoming bookings. Plan your next stay!"
-              cta={{ to: "/hotel/sunrise", label: "Explore hotels" }}
+              text="No trip found. Claim your stay or plan your next one."
+              cta={{ to: "/claim", label: "Claim my stay" }}
             />
           )}
         </Card>
 
+        {/* Recent Stays */}
         <Card
           title="Recent stays"
           subtitle="Last 5 hotels"
@@ -157,6 +177,7 @@ export default function GuestDashboard() {
           )}
         </Card>
 
+        {/* Spend */}
         <Card
           title="Spend summary"
           subtitle="By year"
@@ -193,7 +214,7 @@ export default function GuestDashboard() {
             <div className="text-sm text-gray-600 mb-1">Your latest reviews</div>
             <div className="text-xs text-gray-500">Edit or add context anytime.</div>
           </div>
-          <Link className="btn btn-light" to="/reviews/mine">Manage reviews</Link>
+        <Link className="btn btn-light" to="/reviews/mine">Manage reviews</Link>
         </div>
 
         <div className="mt-3">
@@ -214,9 +235,7 @@ export default function GuestDashboard() {
         </div>
 
         {reviews.source === "preview" && (
-          <div className="mt-3 text-xs text-gray-500">
-            Showing a preview while we connect to your reviews.
-          </div>
+          <div className="mt-3 text-xs text-gray-500">Showing a preview while we connect to your reviews.</div>
         )}
       </section>
 
@@ -252,6 +271,50 @@ async function loadCard<J, T>(
   }
 }
 
+/* ===== Check-in card ===== */
+function CheckInBlock({ booking }: { booking: Booking }) {
+  const soon = isSoon(booking.scheduled_for);
+  return (
+    <>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="font-semibold">
+            {booking.hotel.name} {booking.hotel.city ? `• ${booking.hotel.city}` : ""}
+          </div>
+          <div className="text-sm text-gray-600 mt-1">
+            Check-in {soon ? relTime(booking.scheduled_for) : `on ${fmtDate(booking.scheduled_for)}`}
+          </div>
+        </div>
+        <span
+          className={`text-xs px-2 py-0.5 rounded-full border ${
+            soon ? "bg-green-50 border-green-200 text-green-700" : "bg-gray-50 border-gray-200 text-gray-700"
+          }`}
+        >
+          {soon ? "Ready" : "Scheduled"}
+        </span>
+      </div>
+
+      <div className="mt-3 flex items-center gap-3">
+        <QR
+          data={`checkin:${booking.code}:${booking.hotel.name}`}
+          size={112}
+          className="rounded border"
+        />
+        <div className="text-xs text-gray-600">
+          Show this QR at the front desk to check-in faster. <br />
+          Booking code: <span className="font-mono">{booking.code}</span>
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Link className="btn" to={`/precheck/${encodeURIComponent(booking.code)}`}>Start check-in</Link>
+        <Link className="btn btn-light" to={`/stay/${encodeURIComponent(booking.code)}/menu`}>Room menu</Link>
+        <Link className="btn btn-light" to="/claim">Find my booking</Link>
+      </div>
+    </>
+  );
+}
+
 /* ===== Profile menu (top-right in hero) ===== */
 function ProfileMenu({
   email,
@@ -281,13 +344,22 @@ function ProfileMenu({
 
       {open && (
         <div role="menu" className="absolute right-0 mt-2 w-56 rounded-xl border bg-white shadow-lg overflow-hidden z-10">
-          <button role="menuitem" className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
-            onClick={() => { setOpen(false); onEditProfile(); }}>
+          <button
+            role="menuitem"
+            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+            onClick={() => { setOpen(false); onEditProfile(); }}
+          >
             Update profile
           </button>
-          <Link role="menuitem" to="/settings" className="block px-3 py-2 text-sm hover:bg-gray-50">Settings</Link>
+          <Link role="menuitem" to="/settings" className="block px-3 py-2 text-sm hover:bg-gray-50">
+            Settings
+          </Link>
           <div className="border-t my-1" />
-          <button role="menuitem" className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50" onClick={signOut}>
+          <button
+            role="menuitem"
+            className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+            onClick={signOut}
+          >
             Sign out
           </button>
         </div>
@@ -317,67 +389,32 @@ const Card = memo(function Card({
   );
 });
 
-function UpcomingBlock({ booking }: { booking: Booking }) {
-  return (
-    <>
-      <div className="font-semibold">
-        {booking.hotel.name} {booking.hotel.city ? `• ${booking.hotel.city}` : ""}
-      </div>
-      <div className="text-sm text-gray-600 mt-1">Check-in: {fmtDate(booking.scheduled_for)}</div>
-      <div className="mt-3 flex items-center gap-3">
-        <QR
-          data={`checkin:${booking.code}:${booking.hotel.name}`}
-          size={96}
-          className="rounded border"
-        />
-        <div className="text-xs text-gray-600">
-          Show this QR at the front desk to check-in faster. <br />
-          Booking code: <span className="font-mono">{booking.code}</span>
-        </div>
-      </div>
-      <div className="mt-3 flex gap-2">
-        <Link className="btn btn-light" to={`/stay/${encodeURIComponent(booking.code)}/menu`}>Room menu</Link>
-        <Link className="btn" to={`/precheck/${encodeURIComponent(booking.code)}`}>Pre-check</Link>
-      </div>
-    </>
-  );
-}
-
-function Empty({ text, cta, small }: { text: string; small?: boolean; cta?: { to: string; label: string } }) {
-  return (
-    <div className={small ? "text-sm text-gray-600" : "p-6 text-center text-gray-600"}>
-      <span>{text}</span>
-      {cta && <Link className="ml-2 underline" to={cta.to}>{cta.label}</Link>}
-    </div>
-  );
-}
-
-function Skeleton({ lines = 3 }: { lines?: number }) {
-  return <div className="space-y-2">{Array.from({ length: lines }).map((_, i) => <div key={i} className="h-3 rounded bg-gray-100 animate-pulse" />)}</div>;
-}
-
-/* ===== Spend spark bar (cute, dependency-free) ===== */
-function MiniBars({ data }: { data: Spend[] }) {
-  const max = Math.max(1, ...data.map((d) => Number(d.total || 0)));
-  return (
-    <div className="flex items-end gap-1 h-14 mt-1">
-      {data.slice().sort((a,b)=>a.year-b.year).map((d) => {
-        const h = Math.max(4, Math.round((Number(d.total || 0) / max) * 48));
-        return <div key={d.year} className="w-6 rounded bg-indigo-100 border border-indigo-200" style={{ height: h }} title={`${d.year}: ₹${Number(d.total||0).toLocaleString()}`} />;
-      })}
-    </div>
-  );
-}
-
 /* ===== Icons (no extra deps) ===== */
 function CalendarIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" {...props}><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>);
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" {...props}>
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+    </svg>
+  );
 }
 function SuitcaseIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" {...props}><rect x="3" y="7" width="18" height="13" rx="2"/><rect x="8" y="3" width="8" height="4" rx="1"/></svg>);
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" {...props}>
+      <rect x="3" y="7" width="18" height="13" rx="2" />
+      <rect x="8" y="3" width="8" height="4" rx="1" />
+    </svg>
+  );
 }
 function RupeeIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" {...props}><text x="5" y="17" fontSize="14" fontFamily="system-ui">₹</text><line x1="9" y1="8" x2="18" y2="8"/></svg>);
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" {...props}>
+      <text x="5" y="17" fontSize="14" fontFamily="system-ui">₹</text>
+      <line x1="9" y1="8" x2="18" y2="8" />
+    </svg>
+  );
 }
 
 /* ===== Small helpers ===== */
@@ -393,12 +430,42 @@ async function jsonWithTimeout(url: string, ms = 5000) {
   }
 }
 function fmtDate(s: string) { try { return new Date(s).toLocaleString(); } catch { return s; } }
-function fmtRange(a: string, b: string) { try { const A = new Date(a), B = new Date(b); return `${A.toLocaleDateString()} – ${B.toLocaleDateString()}`; } catch { return `${a} – ${b}`; } }
-function stars(n: number) { const c = Math.max(0, Math.min(5, Math.round(n))); return "★★★★★".slice(0, c) + "☆☆☆☆☆".slice(c); }
+function fmtRange(a: string, b: string) {
+  try {
+    const A = new Date(a), B = new Date(b);
+    return `${A.toLocaleDateString()} – ${B.toLocaleDateString()}`;
+  } catch { return `${a} – ${b}`; }
+}
+function stars(n: number) {
+  const c = Math.max(0, Math.min(5, Math.round(n)));
+  return "★★★★★".slice(0, c) + "☆☆☆☆☆".slice(c);
+}
+function isSoon(iso: string, hrs = 48) {
+  const t = new Date(iso).getTime();
+  const now = Date.now();
+  // within the next X hours (and allow a small grace if just started)
+  return t - now <= hrs * 3600 * 1000 && t >= now - 6 * 3600 * 1000;
+}
+function relTime(iso: string) {
+  const t = new Date(iso).getTime();
+  const now = Date.now();
+  const diff = t - now;
+  const mins = Math.round(diff / 60000);
+  if (mins <= 0) return "now";
+  if (mins < 60) return `in ${mins} min`;
+  const hrs = Math.round(mins / 60);
+  return `in ${hrs} hr`;
+}
 
 /* ===== Demo fallbacks (only for failed cards) ===== */
 function demoBooking(): Booking {
-  return { id: "b1", code: "VA-12345", hotel: { name: "Sunrise Suites", city: "Nainital" }, scheduled_for: new Date(Date.now()+7*864e5).toISOString(), room: "304" } as any;
+  return {
+    id: "b1",
+    code: "VA-12345",
+    hotel: { name: "Sunrise Suites", city: "Nainital" },
+    scheduled_for: new Date(Date.now() + 7 * 864e5).toISOString(),
+    room: "304",
+  } as any;
 }
 function demoStays(): Stay[] {
   return [

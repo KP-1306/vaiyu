@@ -5,7 +5,6 @@ import { supabase } from "../lib/supabase";
 import { API } from "../lib/api";
 import QR from "../components/QR";
 
-
 /* ===== Types ===== */
 type Stay = { id: string; hotel: { name: string; city?: string }; check_in: string; check_out: string; bill_total?: number | null };
 type Booking = { id: string; code: string; hotel: { name: string; city?: string }; scheduled_for: string; room?: string | null };
@@ -22,12 +21,13 @@ export default function GuestDashboard() {
   // auth snapshot
   const [email, setEmail] = useState<string | null>(null);
   const [name, setName] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   // independent card states
   const [upcoming, setUpcoming] = useState<AsyncData<Booking | null>>({ loading: true, source: "live", data: null });
-  const [stays, setStays]       = useState<AsyncData<Stay[]>>({ loading: true, source: "live", data: [] });
-  const [reviews, setReviews]   = useState<AsyncData<Review[]>>({ loading: true, source: "live", data: [] });
-  const [spend, setSpend]       = useState<AsyncData<Spend[]>>({ loading: true, source: "live", data: [] });
+  const [stays, setStays] = useState<AsyncData<Stay[]>>({ loading: true, source: "live", data: [] });
+  const [reviews, setReviews] = useState<AsyncData<Review[]>>({ loading: true, source: "live", data: [] });
+  const [spend, setSpend] = useState<AsyncData<Spend[]>>({ loading: true, source: "live", data: [] });
 
   /* ---- Auth ---- */
   useEffect(() => {
@@ -38,11 +38,13 @@ export default function GuestDashboard() {
       const u = data?.user;
       setEmail(u?.email ?? null);
       setName(u?.user_metadata?.name ?? null);
+      setAvatarUrl((u?.user_metadata?.avatar_url as string) || null);
 
       const { data: sub } = supabase.auth.onAuthStateChange((_evt, sess) => {
         if (!mounted) return;
         setEmail(sess?.user?.email ?? null);
         setName(sess?.user?.user_metadata?.name ?? null);
+        setAvatarUrl((sess?.user?.user_metadata?.avatar_url as string) || null);
       });
       return () => sub.subscription.unsubscribe();
     })();
@@ -99,25 +101,41 @@ export default function GuestDashboard() {
             <h1 id="guest-dash-title" className="text-xl font-semibold">{welcomeText}</h1>
             <p className="text-sm text-gray-600 mt-1">Your trips, bookings and bills — all in one place.</p>
           </div>
-          <ProfileMenu email={email} onEditProfile={() => nav("/profile")} />
+          <ProfileMenu
+            email={email}
+            avatarUrl={avatarUrl}
+            onEditProfile={() => nav("/profile")}
+          />
         </div>
       </section>
 
       {/* Top row */}
       <section className="grid md:grid-cols-3 gap-4">
-        <Card title="Upcoming booking" subtitle="Check-in faster with QR" icon={<CalendarIcon />}
-              badge={upcoming.source === "preview" ? "Preview" : undefined}>
+        <Card
+          title="Upcoming booking"
+          subtitle="Check-in faster with QR"
+          icon={<CalendarIcon />}
+          badge={upcoming.source === "preview" ? "Preview" : undefined}
+        >
           {upcoming.loading ? (
             <Skeleton lines={4} />
           ) : upcoming.data ? (
             <UpcomingBlock booking={upcoming.data} />
           ) : (
-            <Empty small text="No upcoming bookings. Plan your next stay!" cta={{ to: "/hotel/sunrise", label: "Explore hotels" }} />
+            <Empty
+              small
+              text="No upcoming bookings. Plan your next stay!"
+              cta={{ to: "/hotel/sunrise", label: "Explore hotels" }}
+            />
           )}
         </Card>
 
-        <Card title="Recent stays" subtitle="Last 5 hotels" icon={<SuitcaseIcon />}
-              badge={stays.source === "preview" ? "Preview" : undefined}>
+        <Card
+          title="Recent stays"
+          subtitle="Last 5 hotels"
+          icon={<SuitcaseIcon />}
+          badge={stays.source === "preview" ? "Preview" : undefined}
+        >
           {stays.loading ? (
             <Skeleton lines={5} />
           ) : stays.data.length ? (
@@ -139,8 +157,12 @@ export default function GuestDashboard() {
           )}
         </Card>
 
-        <Card title="Spend summary" subtitle="By year" icon={<RupeeIcon />}
-              badge={spend.source === "preview" ? "Preview" : undefined}>
+        <Card
+          title="Spend summary"
+          subtitle="By year"
+          icon={<RupeeIcon />}
+          badge={spend.source === "preview" ? "Preview" : undefined}
+        >
           {spend.loading ? (
             <Skeleton lines={4} />
           ) : spend.data.length ? (
@@ -192,7 +214,9 @@ export default function GuestDashboard() {
         </div>
 
         {reviews.source === "preview" && (
-          <div className="mt-3 text-xs text-gray-500">Showing a preview while we connect to your reviews.</div>
+          <div className="mt-3 text-xs text-gray-500">
+            Showing a preview while we connect to your reviews.
+          </div>
         )}
       </section>
 
@@ -229,22 +253,36 @@ async function loadCard<J, T>(
 }
 
 /* ===== Profile menu (top-right in hero) ===== */
-function ProfileMenu({ email, onEditProfile }: { email: string | null; onEditProfile: () => void }) {
+function ProfileMenu({
+  email,
+  avatarUrl,
+  onEditProfile,
+}: { email: string | null; avatarUrl: string | null; onEditProfile: () => void }) {
   const [open, setOpen] = useState(false);
   async function signOut() { await supabase.auth.signOut(); location.href = "/"; }
   const initial = (email?.[0]?.toUpperCase() ?? "G");
   return (
     <div className="relative">
-      <button className="flex items-center gap-2 rounded-full border bg-white px-3 py-1.5 shadow"
-              onClick={() => setOpen((v) => !v)} aria-haspopup="menu" aria-expanded={open}>
-        <div className="w-7 h-7 rounded-full bg-indigo-600 text-white grid place-items-center text-xs font-semibold">{initial}</div>
+      <button
+        className="flex items-center gap-2 rounded-full border bg-white px-3 py-1.5 shadow"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        <div className="w-7 h-7 rounded-full overflow-hidden bg-indigo-600 text-white grid place-items-center text-xs font-semibold">
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+          ) : (
+            initial
+          )}
+        </div>
         <span className="text-sm text-gray-700 max-w-[160px] truncate">{email || "Guest"}</span>
       </button>
 
       {open && (
         <div role="menu" className="absolute right-0 mt-2 w-56 rounded-xl border bg-white shadow-lg overflow-hidden z-10">
           <button role="menuitem" className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
-                  onClick={() => { setOpen(false); onEditProfile(); }}>
+            onClick={() => { setOpen(false); onEditProfile(); }}>
             Update profile
           </button>
           <Link role="menuitem" to="/settings" className="block px-3 py-2 text-sm hover:bg-gray-50">Settings</Link>
@@ -287,11 +325,11 @@ function UpcomingBlock({ booking }: { booking: Booking }) {
       </div>
       <div className="text-sm text-gray-600 mt-1">Check-in: {fmtDate(booking.scheduled_for)}</div>
       <div className="mt-3 flex items-center gap-3">
-          <QR
-      data={`checkin:${booking.code}:${booking.hotel.name}`}
-      size={96}
-      className="rounded border"
-      />
+        <QR
+          data={`checkin:${booking.code}:${booking.hotel.name}`}
+          size={96}
+          className="rounded border"
+        />
         <div className="text-xs text-gray-600">
           Show this QR at the front desk to check-in faster. <br />
           Booking code: <span className="font-mono">{booking.code}</span>

@@ -1,52 +1,64 @@
 // web/src/routes/HomeOrApp.tsx
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
-import Spinner from "../components/Spinner";
 
-import Home from "./Home";
-import GuestDashboard from "./GuestDashboard";
+// Lazy import your real pages to keep this file tiny and safe,
+// but you can also keep the direct imports if you prefer.
+const Home = React.lazy(() => import("./Home"));
+const GuestDashboard = React.lazy(() => import("./GuestDashboard"));
+
+function Spinner({ label = "Loading…" }: { label?: string }) {
+  return (
+    <div className="min-h-[40vh] grid place-items-center text-sm text-gray-600">
+      {label}
+    </div>
+  );
+}
 
 export default function HomeOrApp() {
+  // 1) Session snapshot
   const [hasSession, setHasSession] = useState<boolean | null>(null);
 
-  // Allow `?app=1` or a local token chip to force the app view
+  // 2) “force app” switch (?app=1 or guest chip in localStorage)
   const forceApp = useMemo(() => {
-    const sp = new URLSearchParams(
-      typeof window !== "undefined" ? window.location.search : ""
-    );
-    if (sp.get("app") === "1") return true;
-    return !!(
-      typeof window !== "undefined" && localStorage.getItem("stay:token")
-    );
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.get("app") === "1") return true;
+      return !!localStorage.getItem("stay:token");
+    } catch {
+      return false;
+    }
   }, []);
 
-  // Snapshot the current auth session
+  // 3) Load session once
   useEffect(() => {
-    let mounted = true;
+    let alive = true;
     (async () => {
-      const { data } = await supabase.auth
-        .getSession()
-        .catch(() => ({ data: { session: null } as any }));
-      if (!mounted) return;
-      setHasSession(!!data?.session);
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!alive) return;
+        setHasSession(!!data?.session);
+      } catch {
+        if (!alive) return;
+        setHasSession(false);
+      }
     })();
     return () => {
-      mounted = false;
+      alive = false;
     };
   }, []);
 
-  // Loading
+  // 4) Initial spinner while we check
   if (hasSession === null) {
-    return (
-      <div className="min-h-[50vh] grid place-items-center">
-        <Spinner label="Loading…" />
-      </div>
-    );
+    return <Spinner label="Loading…" />;
   }
 
-  // If signed in OR user forced app view -> show dashboard; otherwise show marketing Home
-  if (hasSession || forceApp) {
-    return <GuestDashboard />;
-  }
-  return <Home />;
+  // 5) Decide what to show
+  const showApp = hasSession || forceApp;
+
+  return (
+    <React.Suspense fallback={<Spinner />}>
+      {showApp ? <GuestDashboard /> : <Home />}
+    </React.Suspense>
+  );
 }

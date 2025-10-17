@@ -20,6 +20,7 @@
     { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
 
     { "src": "/icons/apple-touch-180-alt.png", "sizes": "180x180", "type": "image/png", "purpose": "any" }
+    { "src": "/icons/guest.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
   ],
 
   "screenshots": [

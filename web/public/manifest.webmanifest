@@ -2,39 +2,28 @@
   "name": "VAiyu — Where Intelligence Meets Comfort",
   "short_name": "VAiyu",
   "description": "Where Intelligence Meets Comfort — an AI OS for hospitality.",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
-  "id": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
-
-  // Brand colors (align with Tailwind tokens)
-  "background_color": "#ffffff",
+  "background_color": "#FFFFFF",
   "theme_color": "#0F62FE",
-
   "icons": [
     { "src": "/icons/favicon-light-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/icons/favicon-light-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-
     { "src": "/icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
     { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
-
-    { "src": "/icons/apple-touch-180-alt.png", "sizes": "180x180", "type": "image/png", "purpose": "any" }
+    { "src": "/icons/apple-touch-180-alt.png", "sizes": "180x180", "type": "image/png", "purpose": "any" },
     { "src": "/icons/guest.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
   ],
-
-//  "screenshots": [
- //   { "src": "/screenshots/guest.png", "sizes": "1280x720", "type": "image/png", "form_factor": "wide" }
-//  ],
-
   "shortcuts": [
     { "name": "Housekeeping", "short_name": "HK", "url": "/hk" },
     { "name": "Kitchen", "url": "/kitchen" },
     { "name": "Owner", "url": "/owner" }
   ],
-
   "categories": ["travel", "business", "productivity"],
   "dir": "ltr",
   "lang": "en",
-  "prefer_related_applications": false
+  "prefer_related_applications": false"
 }

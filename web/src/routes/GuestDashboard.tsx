@@ -210,7 +210,7 @@ export default function GuestDashboard() {
             <div className="text-sm text-gray-600 mb-1">Your latest reviews</div>
             <div className="text-xs text-gray-500">Edit or add context anytime.</div>
           </div>
-        <Link className="btn btn-light" to="/reviews/mine">Manage reviews</Link>
+          <Link className="btn btn-light" to="/reviews/mine">Manage reviews</Link>
         </div>
 
         <div className="mt-3">

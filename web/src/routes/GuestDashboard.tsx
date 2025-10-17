@@ -1,4 +1,3 @@
-// web/src/routes/GuestDashboard.tsx
 import { useEffect, useMemo, useState, memo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -483,7 +482,7 @@ async function jsonWithTimeout(url: string, ms = 5000) {
   const c = new AbortController();
   const t = setTimeout(() => c.abort(), ms);
   try {
-    const r = await fetch(url, { signal: c.signal });
+    const r = await fetch(url, { signal: c.signal, cache: "no-store" });
     if (!r.ok) throw new Error(String(r.status));
     return r.json();
   } finally {

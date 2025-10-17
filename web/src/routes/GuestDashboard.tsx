@@ -107,7 +107,13 @@ const WhatsNewBanner = React.lazy(() =>
     }
     return `Welcome, ${firstName}!`;
   }, [firstName, lastStay]);
-
+  
+<Suspense fallback={null}>
+  <SoftBoundary>
+    <WhatsNewBanner />
+  </SoftBoundary>
+</Suspense>
+  
   return (
     <main className="max-w-6xl mx-auto p-4 space-y-5" aria-labelledby="guest-dash-title">
       {/* Hero */}

@@ -1,17 +1,8 @@
 // web/src/routes/GuestDashboard.tsx
-import {
-  useEffect,
-  useMemo,
-  useState,
-  memo,
-  lazy,
-  Suspense,
-} from "react";
+import { useEffect, useMemo, useState, memo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { API } from "../lib/api";
-import WelcomeExperience from "../components/WelcomeExperience";
-import SoftBoundary from "../components/SoftBoundary";
 
 /* ===== Types ===== */
 type Stay = {
@@ -32,13 +23,6 @@ type Spend = { year: number; total: number };
 
 type Source = "live" | "preview";
 type AsyncData<T> = { loading: boolean; source: Source; data: T };
-
-/* Lazy “What’s new” banner (keeps bundle lean) */
-const WhatsNewBanner = lazy(() =>
-  import("../components/WhatsNewBanner").then((m) => ({
-    default: m.default || m,
-  }))
-);
 
 /* ===== Page ===== */
 export default function GuestDashboard() {
@@ -70,8 +54,7 @@ export default function GuestDashboard() {
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const { data } = await supabase
-        .auth
+      const { data } = await supabase.auth
         .getUser()
         .catch(() => ({ data: { user: null as any } }));
       if (!mounted) return;
@@ -130,7 +113,7 @@ export default function GuestDashboard() {
   return (
     <main className="max-w-6xl mx-auto p-4 space-y-5" aria-labelledby="guest-dash-title">
       {/* Hero */}
-      <section className="relative rounded-2xl p-6 bg-gradient-to-r from-sky-50 via-white to-indigo-50 border overflow-visible">
+      <section className="relative rounded-2xl p-6 bg-gradient-to-r from-sky-50 via-white to-indigo-50 border">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 id="guest-dash-title" className="text-xl font-semibold">
@@ -146,15 +129,17 @@ export default function GuestDashboard() {
             onEditProfile={() => nav("/profile")}
           />
         </div>
-      </section>
 
-      {/* One-time welcome / highlights */}
-      <WelcomeExperience />
-      <Suspense fallback={null}>
-        <SoftBoundary>
-          <WhatsNewBanner />
-        </SoftBoundary>
-      </Suspense>
+        {/* Small inline welcome/highlights (no external imports) */}
+        <div className="mt-4 rounded-xl border bg-white p-3 text-sm text-gray-700">
+          <div className="font-medium mb-1">What you can do here</div>
+          <ul className="list-disc ml-5 space-y-1">
+            <li>Scan the property QR to check in instantly—no kiosk queues.</li>
+            <li>See your recent stays, download bills, and manage reviews.</li>
+            <li>Register a property to unlock the owner console.</li>
+          </ul>
+        </div>
+      </section>
 
       {/* Top row */}
       <section className="grid md:grid-cols-3 gap-4">
@@ -290,7 +275,7 @@ export default function GuestDashboard() {
   );
 }
 
-/* ===== Card loader helper (per-card resilience) ===== */
+/* ===== Card loader helper ===== */
 async function loadCard<J, T>(
   fetcher: () => Promise<J>,
   map: (j: J | null) => T,
@@ -440,7 +425,7 @@ const Card = memo(function Card({
   );
 });
 
-/* ===== Spend spark bars (tiny, dependency-free) ===== */
+/* ===== Spend spark bars ===== */
 function MiniBars({ data }: { data: Spend[] }) {
   const max = Math.max(1, ...data.map((d) => Number(d.total || 0)));
   return (

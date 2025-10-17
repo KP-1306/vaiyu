@@ -10,6 +10,19 @@ import GuestDashboard from "./GuestDashboard";
 export default function HomeOrApp() {
   const [hasSession, setHasSession] = useState<boolean | null>(null);
 
+    return (
+    <main className="min-h-[50vh] grid place-items-center">
+      <div className="text-center">
+        <h1 className="text-xl font-semibold">VAiyu</h1>
+        <p className="text-gray-600 mt-1">HomeOrApp placeholder</p>
+        <div className="mt-4 space-x-2">
+          <a className="btn" href="/guest">Open dashboard</a>
+          <a className="btn btn-light" href="/profile">Profile</a>
+        </div>
+      </div>
+    </main>
+  );
+  
   // Allow `?app=1` or a local token chip to force the app view
   const forceApp = useMemo(() => {
     const sp = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");

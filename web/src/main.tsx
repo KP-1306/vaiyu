@@ -55,6 +55,7 @@ const queryClient = new QueryClient({
 /* ======== Lazy routes ======== */
 // Public
 const SignIn         = lazy(() => import("./routes/SignIn"));
+const OwnerRegister  = lazy(() => import("./routes/OwnerRegister"));
 const AuthCallback   = lazy(() => import("./routes/AuthCallback")); // kept
 const Logout         = lazy(() => import("./routes/Logout"));
 const App            = lazy(() => import("./App"));                 // (still available for marketing sections if used elsewhere)
@@ -216,6 +217,7 @@ const router = createBrowserRouter([
       { path: "owner/services",        element: <AuthGate><OwnerServices /></AuthGate> },
       { path: "owner/reviews",         element: <AuthGate><OwnerReviews /></AuthGate> },
       { path: "admin",                 element: <AuthGate><AdminOps /></AuthGate> },
+      { path: "owner/register",        element: <OwnerRegister /> }, // public intake form
 
       // Grid (protected)
       { path: "grid/devices",   element: <AuthGate><GridDevices /></AuthGate> },

@@ -1,28 +1,32 @@
 // web/src/routes/Profile.tsx
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Spinner from "../components/Spinner";
 
-type ProfileRow = {
-  id: string;
-  email: string | null;
+type Profile = {
   full_name: string | null;
   phone: string | null;
   avatar_url: string | null;
+  // optional extras if your table has them
+  gender?: string | null;
+  dob?: string | null; // ISO yyyy-mm-dd
 };
 
-export default function Profile() {
-  const nav = useNavigate();
+function hasCol(cols: string[], name: string) {
+  return cols.includes(name);
+}
 
+export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [ok, setOk] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  const [userId, setUserId] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
-  const [p, setP] = useState<Omit<ProfileRow, "id" | "email">>({
+  const [userId, setUserId] = useState<string | null>(null);
+  const [cols, setCols] = useState<string[]>([]); // columns that actually exist
+  const [p, setP] = useState<Profile>({
     full_name: "",
     phone: "",
     avatar_url: null,
@@ -30,41 +34,79 @@ export default function Profile() {
 
   const fileRef = useRef<HTMLInputElement | null>(null);
 
-  // ---- Load current user + profile
   useEffect(() => {
     let mounted = true;
 
     (async () => {
       try {
-        setLoading(true);
-
-        // 1) Who's signed in?
+        // 1) Who am I?
         const { data: u, error: uErr } = await supabase.auth.getUser();
         if (uErr) throw uErr;
-        const uid = u.user?.id;
+        const uid = u.user?.id ?? null;
         if (!uid) throw new Error("Not signed in.");
+        if (!mounted) return;
+
         setUserId(uid);
         setEmail(u.user?.email ?? null);
 
-        // 2) Load the profile row for this user
-        const { data: prof, error: pErr } = await supabase
+        // 2) Detect which columns exist so we can read/write safely
+        const { data: colsData, error: colsErr } = await supabase
           .from("user_profiles")
-          .select("full_name, phone, avatar_url")
+          .select("*")
+          .limit(0); // metadata-only roundtrip
+
+        if (colsErr && colsErr.code !== "PGRST116") throw colsErr;
+
+        // Supabase JS doesn't directly expose column list; infer from error hint or do a probe read:
+        // We'll try a single read to get one row if it exists; otherwise fall back to a known set.
+        let existingCols: string[] = ["id", "email", "full_name", "phone", "avatar_url"];
+        try {
+          const { data: oneRow } = await supabase
+            .from("user_profiles")
+            .select("*")
+            .eq("id", uid)
+            .limit(1)
+            .maybeSingle();
+
+          if (oneRow) existingCols = Object.keys(oneRow);
+        } catch {
+          // ignore, we’ll keep the defaults
+        }
+        if (!mounted) return;
+        setCols(existingCols);
+
+        // 3) Read my profile row (if any)
+        const { data: prof, error } = await supabase
+          .from("user_profiles")
+          .select(
+            [
+              "full_name",
+              "phone",
+              "avatar_url",
+              hasCol(existingCols, "gender") ? "gender" : undefined,
+              hasCol(existingCols, "dob") ? "dob" : undefined,
+            ]
+              .filter(Boolean)
+              .join(",")
+          )
           .eq("id", uid)
           .maybeSingle();
 
-        // If table exists but row is missing, that's fine—we'll create on save
-        if (pErr && pErr.code !== "PGRST116") throw pErr;
+        if (!mounted) return;
 
-        if (mounted && prof) {
-          setP({
+        if (error && error.code !== "PGRST116") throw error; // ignore “no rows”
+        if (prof) {
+          setP((old) => ({
+            ...old,
             full_name: prof.full_name ?? "",
             phone: prof.phone ?? "",
             avatar_url: prof.avatar_url ?? null,
-          });
+            ...(hasCol(existingCols, "gender") ? { gender: prof.gender ?? null } : {}),
+            ...(hasCol(existingCols, "dob") ? { dob: prof.dob ?? null } : {}),
+          }));
         }
       } catch (e: any) {
-        setErr(normalizeErr(e, "Could not load profile"));
+        setErr(e?.message ?? "Could not load profile");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -75,58 +117,51 @@ export default function Profile() {
     };
   }, []);
 
-  // ---- Save profile (upsert by id)
   async function save() {
     if (!userId) return;
     setSaving(true);
     setErr(null);
     setOk(null);
     try {
-      const payload = {
-        id: userId,              // <- required for upsert
-        email,                   // store for convenience; ignore if your schema doesn't have it
-        full_name: p.full_name || null,
-        phone: p.phone || null,
-        avatar_url: p.avatar_url || null,
-      } as any;
+      // Build payload only with columns that exist
+      const payload: Record<string, any> = {
+        id: userId,
+        full_name: p.full_name ?? null,
+        phone: p.phone ?? null,
+        avatar_url: p.avatar_url ?? null,
+      };
+      if (hasCol(cols, "gender")) payload.gender = p.gender ?? null;
+      if (hasCol(cols, "dob")) payload.dob = p.dob ?? null;
 
-      // If your table does not have 'email', it will be ignored by PostgREST.
-      const { error } = await supabase.from("user_profiles").upsert(payload, {
-        onConflict: "id", // safe even if PK is id
-      });
+      const { error } = await supabase
+        .from("user_profiles")
+        .upsert(payload, { onConflict: "id" });
+
       if (error) throw error;
-
       setOk("Profile updated.");
     } catch (e: any) {
-      setErr(normalizeErr(e, "Could not save profile"));
+      setErr(e?.message ?? "Could not save profile");
     } finally {
       setSaving(false);
     }
   }
 
-  // ---- Upload avatar and set URL in state
   async function onAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f || !userId) return;
-
     try {
       setSaving(true);
-      setErr(null);
-      setOk(null);
-
-      // Store in the public bucket
       const key = `avatars/${userId}-${Date.now()}-${f.name}`;
       const { error: upErr } = await supabase.storage
         .from("public")
-        .upload(key, f, { upsert: true, cacheControl: "3600", contentType: f.type });
-
+        .upload(key, f, { upsert: true });
       if (upErr) throw upErr;
 
       const { data: url } = supabase.storage.from("public").getPublicUrl(key);
       setP((old) => ({ ...old, avatar_url: url.publicUrl }));
-      setOk("Avatar uploaded — click Save changes to finish.");
+      setOk("Avatar updated. Don’t forget to Save changes.");
     } catch (e: any) {
-      setErr(normalizeErr(e, "Could not upload avatar"));
+      setErr(e?.message ?? "Could not upload avatar");
     } finally {
       setSaving(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -168,7 +203,6 @@ export default function Profile() {
         </div>
       )}
 
-      {/* Form */}
       <section className="rounded-2xl p-4 shadow bg-white border">
         <div className="flex items-center gap-4">
           <div
@@ -185,13 +219,19 @@ export default function Profile() {
           </div>
           <div className="text-sm">
             <div className="font-medium">Change avatar</div>
-            <input ref={fileRef} type="file" accept="image/*" onChange={onAvatarChange} className="mt-1" />
-            <div className="text-gray-500">JPG/PNG, &lt; ~1MB is ideal.</div>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              onChange={onAvatarChange}
+              className="mt-1"
+            />
+            <div className="text-gray-500">JPG/PNG, &lt;~1MB is ideal.</div>
           </div>
         </div>
 
-        <div className="mt-5 space-y-3">
-          <div>
+        <div className="mt-5 grid gap-3 md:grid-cols-2">
+          <div className="md:col-span-2">
             <label className="block text-sm font-medium">Full name</label>
             <input
               className="mt-1 w-full rounded-lg border px-3 py-2"
@@ -200,6 +240,7 @@ export default function Profile() {
               placeholder="Your name"
             />
           </div>
+
           <div>
             <label className="block text-sm font-medium">Phone</label>
             <input
@@ -209,6 +250,35 @@ export default function Profile() {
               placeholder="+91…"
             />
           </div>
+
+          {hasCol(cols, "gender") && (
+            <div>
+              <label className="block text-sm font-medium">Gender</label>
+              <select
+                className="mt-1 w-full rounded-lg border px-3 py-2"
+                value={p.gender ?? ""}
+                onChange={(e) => setP({ ...p, gender: e.target.value || null })}
+              >
+                <option value="">—</option>
+                <option>Male</option>
+                <option>Female</option>
+                <option>Non-binary</option>
+                <option>Prefer not to say</option>
+              </select>
+            </div>
+          )}
+
+          {hasCol(cols, "dob") && (
+            <div>
+              <label className="block text-sm font-medium">Date of birth</label>
+              <input
+                type="date"
+                className="mt-1 w-full rounded-lg border px-3 py-2"
+                value={p.dob ?? ""}
+                onChange={(e) => setP({ ...p, dob: e.target.value || null })}
+              />
+            </div>
+          )}
         </div>
 
         <div className="mt-5">
@@ -222,14 +292,4 @@ export default function Profile() {
       </section>
     </main>
   );
-}
-
-/* ---------- helpers ---------- */
-function normalizeErr(e: unknown, fallback: string) {
-  const msg =
-    (e as any)?.message ||
-    (e as any)?.error_description ||
-    (e as any)?.error ||
-    "";
-  return msg ? String(msg) : fallback;
 }

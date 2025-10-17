@@ -173,7 +173,7 @@ const router = createBrowserRouter([
     errorElement: <RouteErrorElement />,
     children: [
       // SAFETY: keep index unbreakable for now
-      { index: true, element: <MinimalOK /> },
+      { index: true, element: <SmartLanding /> },
       { path: "ok", element: <MinimalOK /> },
 
       // Public

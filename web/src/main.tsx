@@ -1,11 +1,7 @@
 // web/src/main.tsx
 import React, { StrictMode, Suspense, lazy, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import {
-  createBrowserRouter,
-  RouterProvider,
-  Outlet,
-} from "react-router-dom";
+import { createBrowserRouter, RouterProvider, Outlet } from "react-router-dom";
 
 // ── Kill stale SW + caches (do NOT register a new one while debugging)
 if ("serviceWorker" in navigator) {
@@ -19,6 +15,7 @@ if ("serviceWorker" in navigator) {
     } catch {}
   })();
 }
+// ⚠️ IMPORTANT: do not register a SW anywhere below.
 
 // Monitoring (kept)
 import { initMonitoring } from "./lib/monitoring";
@@ -34,7 +31,7 @@ import { ThemeProvider } from "./components/ThemeProvider";
 import "./theme.css";
 import "./index.css";
 
-// UI chrome
+// Chrome
 import AccountControls from "./components/AccountControls";
 import ScrollToTop from "./components/ScrollToTop";
 import BackHome from "./components/BackHome";
@@ -47,10 +44,10 @@ import TopProgressBar from "./components/TopProgressBar";
 import UpdatePrompt from "./components/UpdatePrompt";
 import Spinner from "./components/Spinner";
 
-// Error UI for route loader/render errors
+// Error UI for routes
 import { RouteErrorElement } from "./components/RouteErrorBoundary";
 
-// Auth guard + client
+// Auth + guard
 import AuthGate from "./components/AuthGate";
 import { supabase } from "./lib/supabase";
 
@@ -60,13 +57,12 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false } },
 });
 
-/* ======== Lazy routes ======== */
-// Public
+/* ===== Lazy routes ===== */
 const SignIn         = lazy(() => import("./routes/SignIn"));
 const OwnerRegister  = lazy(() => import("./routes/OwnerRegister"));
 const AuthCallback   = lazy(() => import("./routes/AuthCallback"));
 const Logout         = lazy(() => import("./routes/Logout"));
-const App            = lazy(() => import("./App")); // marketing if used
+const App            = lazy(() => import("./App"));
 const AboutUs        = lazy(() => import("./routes/AboutUs"));
 const AboutAI        = lazy(() => import("./routes/AboutAI"));
 const Press          = lazy(() => import("./routes/Press"));
@@ -79,10 +75,8 @@ const Thanks         = lazy(() => import("./routes/Thanks"));
 const Profile        = lazy(() => import("./routes/Profile"));
 const Scan           = lazy(() => import("./routes/Scan"));
 
-// Smart Landing (decides landing vs dashboard vs owner)
-const SmartLanding   = lazy(() => import("./routes/SmartLanding"));
+const SmartLanding   = lazy(() => import("./routes/SmartLanding")); // keep for later
 
-// Guest / Journey
 const Hotel          = lazy(() => import("./routes/Hotel"));
 const Menu           = lazy(() => import("./routes/Menu"));
 const RequestTracker = lazy(() => import("./routes/RequestTracker"));
@@ -94,12 +88,10 @@ const Checkout       = lazy(() => import("./routes/Checkout"));
 const GuestDashboard = lazy(() => import("./routes/GuestDashboard"));
 const HotelReviews   = lazy(() => import("./routes/HotelReviews"));
 
-// Staff / Ops
 const Desk           = lazy(() => import("./routes/Desk"));
 const HK             = lazy(() => import("./routes/HK"));
 const Maint          = lazy(() => import("./routes/Maint"));
 
-// Owner / Admin
 const OwnerHome      = lazy(() => import("./routes/OwnerHome"));
 const OwnerDashboard = lazy(() => import("./routes/OwnerDashboard"));
 const OwnerSettings  = lazy(() => import("./routes/OwnerSettings"));
@@ -107,57 +99,44 @@ const OwnerServices  = lazy(() => import("./routes/OwnerServices"));
 const OwnerReviews   = lazy(() => import("./routes/OwnerReviews"));
 const AdminOps       = lazy(() => import("./pages/AdminOps"));
 
-// Grid (VPP)
 const GridDevices    = lazy(() => import("./routes/GridDevices"));
 const GridPlaybooks  = lazy(() => import("./routes/GridPlaybooks"));
 const GridEvents     = lazy(() => import("./routes/GridEvents"));
 
-// 404 + deep link
 const NotFound       = lazy(() => import("./routes/NotFound"));
 const RequestStatus  = lazy(() => import("./pages/RequestStatus"));
 
-/* ======== Minimal always-on OK page ======== */
+/* ===== Minimal always-on OK page ===== */
 function MinimalOK() {
   return (
     <main className="p-8">
       <h1 className="text-2xl font-semibold">Router is working</h1>
-      <p className="mt-2 text-gray-600">Use /guest, /profile, etc., one by one.</p>
-      <div className="mt-4 space-x-4">
-        <a className="text-blue-700 underline" href="/guest">Guest Dashboard</a>
+      <p className="mt-2 text-gray-600">Try /guest or /profile next.</p>
+      <p className="mt-4 space-x-4">
+        <a className="text-blue-700 underline" href="/guest">Guest Dashboard</a>{" "}
         <a className="text-blue-700 underline" href="/profile">Profile</a>
-      </div>
+      </p>
     </main>
   );
 }
 
-/* ======== Auth bootstrap gate ======== */
+/* ===== Auth bootstrap gate ===== */
 function AuthBootstrap({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
-
   useEffect(() => {
     let mounted = true;
     (async () => {
       await supabase.auth.getSession().catch(() => {});
       if (!mounted) return;
-
       const { data: sub } = supabase.auth.onAuthStateChange(() => {
         if (!mounted) return;
         setReady(true);
       });
-
-      const t = setTimeout(() => {
-        if (!mounted) return;
-        setReady(true);
-      }, 250);
-
-      return () => {
-        clearTimeout(t);
-        sub.subscription.unsubscribe();
-      };
+      const t = setTimeout(() => { if (mounted) setReady(true); }, 250);
+      return () => { clearTimeout(t); sub.subscription.unsubscribe(); };
     })();
     return () => { mounted = false; };
   }, []);
-
   if (!ready) {
     return (
       <div className="min-h-[40vh] grid place-items-center">
@@ -168,7 +147,7 @@ function AuthBootstrap({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-/* ======== Root layout with global chrome ======== */
+/* ===== Root layout ===== */
 function RootLayout() {
   return (
     <>
@@ -186,14 +165,14 @@ function RootLayout() {
   );
 }
 
-/* ======== Router ======== */
+/* ===== Router ===== */
 const router = createBrowserRouter([
   {
     path: "/",
     element: <RootLayout />,
-    errorElement: <RouteErrorElement />, // show real error details
+    errorElement: <RouteErrorElement />,
     children: [
-      // TEMP safety: keep index unbreakable; keep /ok too.
+      // SAFETY: keep index unbreakable for now
       { index: true, element: <MinimalOK /> },
       { path: "ok", element: <MinimalOK /> },
 
@@ -214,7 +193,7 @@ const router = createBrowserRouter([
       { path: "settings", element: <Profile /> },
       { path: "scan", element: <Scan /> },
 
-      // Guest / Journey (public)
+      // Guest / Journey
       { path: "hotel/:slug", element: <Hotel /> },
       { path: "menu", element: <Menu /> },
       { path: "stay/:code/menu", element: <Menu /> },
@@ -227,7 +206,7 @@ const router = createBrowserRouter([
       { path: "guest", element: <GuestDashboard /> },
       { path: "hotel/:slug/reviews", element: <HotelReviews /> },
 
-      // Guest deep link (public)
+      // Guest deep link
       { path: "stay/:slug/requests/:id", element: <RequestStatus /> },
 
       // Staff (protected)
@@ -243,7 +222,7 @@ const router = createBrowserRouter([
       { path: "owner/services",        element: <AuthGate><OwnerServices /></AuthGate> },
       { path: "owner/reviews",         element: <AuthGate><OwnerReviews /></AuthGate> },
       { path: "admin",                 element: <AuthGate><AdminOps /></AuthGate> },
-      { path: "owner/register",        element: <OwnerRegister /> }, // public intake
+      { path: "owner/register",        element: <OwnerRegister /> },
 
       // Grid (protected)
       { path: "grid/devices",   element: <AuthGate><GridDevices /></AuthGate> },
@@ -256,7 +235,7 @@ const router = createBrowserRouter([
   },
 ]);
 
-/* ======== Mount ======== */
+/* ===== Mount ===== */
 const rootEl = document.getElementById("root");
 if (!rootEl) throw new Error("Root element #root not found in index.html");
 

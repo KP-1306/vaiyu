@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, BrowserRouter, Routes, Route } from "react-router-dom";
+import HomeOrApp from "./routes/HomeOrApp";  // 👈 new
+import GuestDashboard from "./routes/GuestDashboard";
+import Profile from "./routes/Profile";
 
 import SEO from "./components/SEO";
 import Pill from "./components/Pill";
 import HeroCarousel from "./components/HeroCarousel"; // NEW
+
 // Supabase client
 import { supabase } from "./lib/supabase";
 
@@ -25,6 +29,24 @@ export default function App() {
     };
   }, []);
 
+    return (
+    <BrowserRouter>
+      <Routes>
+        {/* Marketing root -> immediately sends signed-in users to /guest */}
+        <Route path="/" element={<HomeOrApp />} />
+
+        {/* App surfaces */}
+        <Route path="/guest" element={<GuestDashboard />} />
+        <Route path="/profile" element={<Profile />} />
+
+        {/* …the rest of your routes… */}
+        {/* <Route path="/auth/callback" element={<AuthCallback />} /> */}
+        {/* <Route path="/owner/*" element={<OwnerConsole />} /> */}
+        {/* <Route path="*" element={<ErrorBoundary />} /> */}
+      </Routes>
+    </BrowserRouter>
+  );
+  
   // --- Auth/session awareness for nav ---
   const [userEmail, setUserEmail] = useState<string | null>(null);
 

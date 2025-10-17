@@ -62,7 +62,7 @@ const SignIn         = lazy(() => import("./routes/SignIn"));
 const OwnerRegister  = lazy(() => import("./routes/OwnerRegister"));
 const AuthCallback   = lazy(() => import("./routes/AuthCallback"));
 const Logout         = lazy(() => import("./routes/Logout"));
-const App            = lazy(() => import("./App"));
+const App            = lazy(() => import("./App"));                 // ← public landing
 const AboutUs        = lazy(() => import("./routes/AboutUs"));
 const AboutAI        = lazy(() => import("./routes/AboutAI"));
 const Press          = lazy(() => import("./routes/Press"));
@@ -75,8 +75,7 @@ const Thanks         = lazy(() => import("./routes/Thanks"));
 const Profile        = lazy(() => import("./routes/Profile"));
 const Scan           = lazy(() => import("./routes/Scan"));
 
-const SmartLanding   = lazy(() => import("./routes/SmartLanding")); // keep for later
-
+// Guest / Journey
 const Hotel          = lazy(() => import("./routes/Hotel"));
 const Menu           = lazy(() => import("./routes/Menu"));
 const RequestTracker = lazy(() => import("./routes/RequestTracker"));
@@ -88,10 +87,12 @@ const Checkout       = lazy(() => import("./routes/Checkout"));
 const GuestDashboard = lazy(() => import("./routes/GuestDashboard"));
 const HotelReviews   = lazy(() => import("./routes/HotelReviews"));
 
+// Staff / Ops
 const Desk           = lazy(() => import("./routes/Desk"));
 const HK             = lazy(() => import("./routes/HK"));
 const Maint          = lazy(() => import("./routes/Maint"));
 
+// Owner / Admin
 const OwnerHome      = lazy(() => import("./routes/OwnerHome"));
 const OwnerDashboard = lazy(() => import("./routes/OwnerDashboard"));
 const OwnerSettings  = lazy(() => import("./routes/OwnerSettings"));
@@ -99,10 +100,12 @@ const OwnerServices  = lazy(() => import("./routes/OwnerServices"));
 const OwnerReviews   = lazy(() => import("./routes/OwnerReviews"));
 const AdminOps       = lazy(() => import("./pages/AdminOps"));
 
+// Grid (VPP)
 const GridDevices    = lazy(() => import("./routes/GridDevices"));
 const GridPlaybooks  = lazy(() => import("./routes/GridPlaybooks"));
 const GridEvents     = lazy(() => import("./routes/GridEvents"));
 
+// 404 + deep link
 const NotFound       = lazy(() => import("./routes/NotFound"));
 const RequestStatus  = lazy(() => import("./pages/RequestStatus"));
 
@@ -172,8 +175,10 @@ const router = createBrowserRouter([
     element: <RootLayout />,
     errorElement: <RouteErrorElement />,
     children: [
-      // SAFETY: keep index unbreakable for now
-      { index: true, element: <SmartLanding /> },
+      // Default public page at "/"
+      { index: true, element: <App /> },
+
+      // Safety hatch that must always render
       { path: "ok", element: <MinimalOK /> },
 
       // Public

@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState, memo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { API } from "../lib/api";
+import QR from "../components/QR";
+
 
 /* ===== Types ===== */
 type Stay = { id: string; hotel: { name: string; city?: string }; check_in: string; check_out: string; bill_total?: number | null };
@@ -285,7 +287,11 @@ function UpcomingBlock({ booking }: { booking: Booking }) {
       </div>
       <div className="text-sm text-gray-600 mt-1">Check-in: {fmtDate(booking.scheduled_for)}</div>
       <div className="mt-3 flex items-center gap-3">
-        <div className="w-24 h-24 grid place-items-center rounded bg-gray-100 text-xs" aria-label="Check-in QR placeholder">QR</div>
+          <QR
+      data={`checkin:${booking.code}:${booking.hotel.name}`}
+      size={96}
+      className="rounded border"
+      />
         <div className="text-xs text-gray-600">
           Show this QR at the front desk to check-in faster. <br />
           Booking code: <span className="font-mono">{booking.code}</span>

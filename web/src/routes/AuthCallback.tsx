@@ -1,12 +1,15 @@
+// web/src/routes/AuthCallback.tsx
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import Spinner from "../components/Spinner";
 
-function safeRedirect(raw: string | null | undefined, fallback = "/welcome") {
+/** Allow only same-origin, app-internal redirects. Default to "/" (SmartLanding). */
+function safeRedirect(raw: string | null | undefined, fallback = "/") {
   if (!raw) return fallback;
   try {
-    // allow only same-origin relative paths like "/owner" or "/welcome?x=1"
     const u = new URL(raw, window.location.origin);
+    // block cross-origin and non-rooted paths
     if (u.origin !== window.location.origin) return fallback;
     if (!u.pathname.startsWith("/")) return fallback;
     return u.pathname + (u.search || "") + (u.hash || "");
@@ -20,49 +23,47 @@ export default function AuthCallback() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    let done = false;
+    let finished = false;
 
     (async () => {
       try {
-        // 1) Try hash-style tokens (implicit flow)
+        // 1) Hash-style tokens (implicit flow)
         const hash = window.location.hash || "";
         if (/access_token=|refresh_token=/.test(hash)) {
           await supabase.auth.getSessionFromUrl({ storeSession: true });
-          done = true;
+          finished = true;
         }
 
-        // 2) Fallback to PKCE code flow (?code=...)
-        if (!done) {
+        // 2) PKCE code flow (?code=...)
+        if (!finished) {
           const code = params.get("code");
           if (code) {
             await supabase.auth.exchangeCodeForSession(code);
-            done = true;
+            finished = true;
           }
         }
 
-        // 3) If no tokens but session already exists, continue
-        if (!done) {
+        // 3) Already signed in (no tokens in URL but session exists)
+        if (!finished) {
           const { data } = await supabase.auth.getSession();
-          if (data?.session) {
-            done = true;
-          }
+          if (data?.session) finished = true;
         }
 
-        // Destination (default /welcome), but keep it safe
-        const dest = safeRedirect(params.get("redirect"), "/welcome");
+        // Decide destination: default to "/" so SmartLanding kicks in
+        const dest = safeRedirect(params.get("redirect"), "/");
 
-        // Clean the URL (remove hash + sensitive params) before navigating
-        const url = new URL(window.location.href);
-        url.hash = "";
+        // Clean sensitive params & hash from the URL before navigation
+        const clean = new URL(window.location.href);
+        clean.hash = "";
         ["code", "redirect", "error", "error_description"].forEach((k) =>
-          url.searchParams.delete(k)
+          clean.searchParams.delete(k)
         );
-        window.history.replaceState({}, "", url.pathname + url.search);
+        window.history.replaceState({}, "", clean.pathname + clean.search);
 
-        if (done) {
+        if (finished) {
           navigate(dest, { replace: true });
         } else {
-          // no tokens and no session → back to sign-in with a friendly msg
+          // No valid tokens and no session → back to sign-in with friendly message
           navigate(
             `/signin?intent=signin&redirect=${encodeURIComponent(dest)}&error=${encodeURIComponent(
               "Login link is missing or expired. Please request a new one."
@@ -82,8 +83,8 @@ export default function AuthCallback() {
   }, [navigate, params]);
 
   return (
-    <div className="min-h-screen grid place-items-center">
-      <div className="text-sm text-gray-600">Finishing sign-in…</div>
+    <div className="min-h-[50vh] grid place-items-center">
+      <Spinner label="Signing you in…" />
     </div>
   );
 }

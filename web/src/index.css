@@ -31,6 +31,12 @@ html.dark body {
   color: var(--fg);
 }
 
+/* Hide Netlify Identity floating pill/menu if the script is injected by host */
+.netlify-identity-button,
+.netlify-identity-menu {
+  display: none !important;
+}
+
 /* ===== Resets for form elements ===== */
 button, input, select, textarea {
   font: inherit;

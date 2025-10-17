@@ -233,7 +233,6 @@ const router = createBrowserRouter([
       { path: "grid/playbooks", element: <AuthGate><GridPlaybooks /></AuthGate> },
       { path: "grid/events",    element: <AuthGate><GridEvents /></AuthGate> },
 
-
       // 404 (catch-all)
       { path: "*", element: <NotFound /> },
     ],

@@ -315,6 +315,31 @@ function CheckInBlock({ booking }: { booking: Booking }) {
   );
 }
 
+// Tiny spark-bar used in "Spend summary"
+function MiniBars({ data }: { data: { year: number; total: number }[] }) {
+  const max = Math.max(1, ...data.map((d) => Number(d.total || 0)));
+  return (
+    <div className="flex items-end gap-1 h-14 mt-1" aria-label="Spend bars">
+      {data
+        .slice()
+        .sort((a, b) => a.year - b.year)
+        .map((d) => {
+          const h = Math.max(4, Math.round((Number(d.total || 0) / max) * 48));
+          return (
+            <div
+              key={d.year}
+              className="w-6 rounded bg-indigo-100 border border-indigo-200"
+              style={{ height: h }}
+              title={`${d.year}: ₹${Number(d.total || 0).toLocaleString()}`}
+              aria-label={`${d.year} spend ₹${Number(d.total || 0).toLocaleString()}`}
+            />
+          );
+        })}
+    </div>
+  );
+}
+
+
 /* ===== Profile menu (top-right in hero) ===== */
 function ProfileMenu({
   email,

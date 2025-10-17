@@ -83,6 +83,20 @@ export default function GuestDashboard() {
     return `Welcome, ${firstName}!`;
   }, [firstName, lastStay]);
 
+  {/* Property owner CTA */}
+<section className="rounded-2xl p-4 shadow bg-white">
+  <div className="flex items-center justify-between">
+    <div>
+      <div className="font-semibold">Want to run a property?</div>
+      <div className="text-sm text-gray-600">
+        Register your hotel to unlock the owner console: dashboards, SLA services, workflows and AI moderation.
+      </div>
+    </div>
+    <Link className="btn" to="/owner/register">Register your property</Link>
+  </div>
+</section>
+
+  
   return (
     <main className="max-w-6xl mx-auto p-4 space-y-4" aria-labelledby="guest-dash-title">
       <header className="rounded-2xl p-5 shadow bg-white">

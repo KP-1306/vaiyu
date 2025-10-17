@@ -15,6 +15,7 @@ if ("serviceWorker" in navigator) {
     } catch {}
   })();
 }
+// ⚠️ IMPORTANT: do not register a SW anywhere below.
 
 // Monitoring (kept)
 import { initMonitoring } from "./lib/monitoring";
@@ -43,10 +44,10 @@ import TopProgressBar from "./components/TopProgressBar";
 import UpdatePrompt from "./components/UpdatePrompt";
 import Spinner from "./components/Spinner";
 
-// Route error UI + wrapper
-import { RouteErrorElement, withBoundary } from "./components/RouteErrorBoundary";
+// Route error UI
+import { RouteErrorElement } from "./components/RouteErrorBoundary";
 
-// Auth + guard
+// Auth + client
 import AuthGate from "./components/AuthGate";
 import { supabase } from "./lib/supabase";
 
@@ -61,7 +62,7 @@ const SignIn         = lazy(() => import("./routes/SignIn"));
 const OwnerRegister  = lazy(() => import("./routes/OwnerRegister"));
 const AuthCallback   = lazy(() => import("./routes/AuthCallback"));
 const Logout         = lazy(() => import("./routes/Logout"));
-const App            = lazy(() => import("./App"));                 // original marketing shell
+// const App         = lazy(() => import("./App")); // (optional: keep around for /home if you want)
 const AboutUs        = lazy(() => import("./routes/AboutUs"));
 const AboutAI        = lazy(() => import("./routes/AboutAI"));
 const Press          = lazy(() => import("./routes/Press"));
@@ -74,7 +75,7 @@ const Thanks         = lazy(() => import("./routes/Thanks"));
 const Profile        = lazy(() => import("./routes/Profile"));
 const Scan           = lazy(() => import("./routes/Scan"));
 
-const SmartLanding   = lazy(() => import("./routes/SmartLanding")); // public landing (safe)
+const PublicLanding  = lazy(() => import("./routes/PublicLanding")); // ← the page above
 
 // Guest / Journey
 const Hotel          = lazy(() => import("./routes/Hotel"));
@@ -176,11 +177,8 @@ const router = createBrowserRouter([
     element: <RootLayout />,
     errorElement: <RouteErrorElement />,
     children: [
-      // ✅ Public landing at "/" (does not crash)
-      { index: true, element: <SmartLanding /> },
-
-      // Optional: expose your original marketing shell safely at /home
-      { path: "home", element: withBoundary(<App />) },
+      // ✅ Public landing at "/"
+      { index: true, element: <PublicLanding /> },
 
       // Safety hatch
       { path: "ok", element: <MinimalOK /> },

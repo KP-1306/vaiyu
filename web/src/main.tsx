@@ -104,7 +104,6 @@ const GridEvents     = lazy(() => import("./routes/GridEvents"));
 // 404 + deep link
 const NotFound       = lazy(() => import("./routes/NotFound"));
 const RequestStatus  = lazy(() => import("./pages/RequestStatus"));
-const Welcome        = lazy(() => import("./routes/Welcome"));
 
 /* ======== Auth bootstrap gate ======== */
 function AuthBootstrap({ children }: { children: React.ReactNode }) {
@@ -223,8 +222,6 @@ const router = createBrowserRouter([
       { path: "grid/playbooks", element: <AuthGate><GridPlaybooks /></AuthGate> },
       { path: "grid/events",    element: <AuthGate><GridEvents /></AuthGate> },
 
-      // Welcome (still available for owner/staff/admin if you link to it)
-      { path: "welcome", element: <Welcome /> },
 
       // 404 (catch-all)
       { path: "*", element: <NotFound /> },

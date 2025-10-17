@@ -1,68 +1,71 @@
-// web/src/routes/OwnerRegister.tsx
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { supabase } from "../lib/supabase";
+import { Link } from "react-router-dom";
+import { API } from "../lib/api";
 
 export default function OwnerRegister() {
-  const [name, setName] = useState("");
-  const [slug, setSlug] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ hotel_name: "", city: "", contact_name: "", contact_email: "" });
+  const [submitting, setSubmitting] = useState(false);
+  const [ok, setOk] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const nav = useNavigate();
 
-  async function createProperty(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setErr(null);
-    setSaving(true);
+    if (submitting) return;
+    setSubmitting(true); setOk(null); setErr(null);
     try {
-      // naive insert — adjust to your schema
-      const { data: session } = await supabase.auth.getSession();
-      const userId = session.session?.user.id;
-      if (!userId) throw new Error("Not signed in");
-
-      const { data: prop, error: e1 } = await supabase
-        .from("properties")
-        .insert({ name, slug, created_by: userId })
-        .select("id, slug")
-        .single();
-      if (e1) throw e1;
-
-      // add membership
-      await supabase
-        .from("property_members")
-        .insert({ property_id: prop.id, user_id: userId, role: "owner" });
-
-      nav(`/owner?slug=${encodeURIComponent(prop.slug)}`, { replace: true });
+      const r = await fetch(`${API}/owner/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      if (!r.ok) throw new Error("Could not submit application");
+      setOk("Thanks! We’ve received your details. Our team will review and contact you.");
+      setForm({ hotel_name: "", city: "", contact_name: "", contact_email: "" });
     } catch (e: any) {
-      setErr(e?.message || String(e));
+      setErr(e?.message || "Something went wrong. Please try again.");
     } finally {
-      setSaving(false);
+      setSubmitting(false);
     }
   }
 
   return (
-    <main className="max-w-lg mx-auto p-6">
-      <h1 className="text-xl font-semibold">Register a property</h1>
-      <form className="mt-4 space-y-3" onSubmit={createProperty}>
-        <input
-          className="input w-full"
-          placeholder="Property name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-        />
-        <input
-          className="input w-full"
-          placeholder="Property slug (e.g., sunrise)"
-          value={slug}
-          onChange={(e) => setSlug(e.target.value)}
-          required
-        />
-        {err && <div className="text-sm text-red-600">{err}</div>}
-        <button className="btn" disabled={saving} type="submit">
-          {saving ? "Saving…" : "Create property"}
+    <main className="max-w-xl mx-auto p-6 space-y-4">
+      <h1 className="text-xl font-semibold">Register your property</h1>
+      <p className="text-sm text-gray-600">Tell us a bit about your hotel. We’ll review and help complete the formalities.</p>
+
+      {ok && <div className="rounded-md bg-green-50 text-green-800 p-3 text-sm">{ok}</div>}
+      {err && <div className="rounded-md bg-red-50 text-red-700 p-3 text-sm">{err}</div>}
+
+      <form className="space-y-3" onSubmit={onSubmit}>
+        <div>
+          <label className="block text-sm font-medium">Hotel name</label>
+          <input className="mt-1 w-full rounded-lg border px-3 py-2" required
+            value={form.hotel_name} onChange={e=>setForm({...form, hotel_name:e.target.value})}/>
+        </div>
+        <div>
+          <label className="block text-sm font-medium">City</label>
+          <input className="mt-1 w-full rounded-lg border px-3 py-2" required
+            value={form.city} onChange={e=>setForm({...form, city:e.target.value})}/>
+        </div>
+        <div>
+          <label className="block text-sm font-medium">Your name</label>
+          <input className="mt-1 w-full rounded-lg border px-3 py-2" required
+            value={form.contact_name} onChange={e=>setForm({...form, contact_name:e.target.value})}/>
+        </div>
+        <div>
+          <label className="block text-sm font-medium">Work email</label>
+          <input type="email" className="mt-1 w-full rounded-lg border px-3 py-2" required
+            value={form.contact_email} onChange={e=>setForm({...form, contact_email:e.target.value})}/>
+        </div>
+
+        <button className="btn w-full" type="submit" disabled={submitting}>
+          {submitting ? "Submitting…" : "Submit for approval"}
         </button>
       </form>
+
+      <div className="text-sm text-gray-600">
+        Changed your mind? <Link to="/" className="underline">Go back</Link>
+      </div>
     </main>
   );
 }

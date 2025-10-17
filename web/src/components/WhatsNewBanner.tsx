@@ -1,13 +1,11 @@
 import { Link } from "react-router-dom";
 
 export default function WhatsNewBanner() {
-  // edit the items as you like
   const items = [
     { tag: "New",    text: "Scan & check-in from your phone" },
     { tag: "Faster", text: "Room service with live ETA" },
     { tag: "Beta",   text: "Spend by year & bill downloads" },
   ];
-
   return (
     <div className="rounded-xl border bg-white/90 backdrop-blur px-3 py-2 shadow flex items-center gap-3">
       <span className="text-xs font-medium text-gray-700">What’s new</span>

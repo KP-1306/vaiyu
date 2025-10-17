@@ -4,79 +4,129 @@ import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Spinner from "../components/Spinner";
 
-type Profile = { full_name: string | null; phone: string | null; avatar_url: string | null };
+type ProfileRow = {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  phone: string | null;
+  avatar_url: string | null;
+};
 
 export default function Profile() {
   const nav = useNavigate();
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [ok, setOk] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
+  const [userId, setUserId] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
-  const [p, setP] = useState<Profile>({ full_name: "", phone: "", avatar_url: null });
+  const [p, setP] = useState<Omit<ProfileRow, "id" | "email">>({
+    full_name: "",
+    phone: "",
+    avatar_url: null,
+  });
+
   const fileRef = useRef<HTMLInputElement | null>(null);
 
+  // ---- Load current user + profile
   useEffect(() => {
     let mounted = true;
+
     (async () => {
       try {
-        const [{ data: u }, { data: prof, error }] = await Promise.all([
-          supabase.auth.getUser(),
-          supabase.from("user_profiles").select("full_name, phone, avatar_url").single(),
-        ]);
-        if (!mounted) return;
+        setLoading(true);
+
+        // 1) Who's signed in?
+        const { data: u, error: uErr } = await supabase.auth.getUser();
+        if (uErr) throw uErr;
+        const uid = u.user?.id;
+        if (!uid) throw new Error("Not signed in.");
+        setUserId(uid);
         setEmail(u.user?.email ?? null);
-        if (error && error.code !== "PGRST116") throw error; // ignore ‘no rows’
-        if (prof) setP({ full_name: prof.full_name, phone: prof.phone, avatar_url: prof.avatar_url });
+
+        // 2) Load the profile row for this user
+        const { data: prof, error: pErr } = await supabase
+          .from("user_profiles")
+          .select("full_name, phone, avatar_url")
+          .eq("id", uid)
+          .maybeSingle();
+
+        // If table exists but row is missing, that's fine—we'll create on save
+        if (pErr && pErr.code !== "PGRST116") throw pErr;
+
+        if (mounted && prof) {
+          setP({
+            full_name: prof.full_name ?? "",
+            phone: prof.phone ?? "",
+            avatar_url: prof.avatar_url ?? null,
+          });
+        }
       } catch (e: any) {
-        setErr(e?.message ?? "Could not load profile");
+        setErr(normalizeErr(e, "Could not load profile"));
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     })();
+
     return () => {
       mounted = false;
     };
   }, []);
 
+  // ---- Save profile (upsert by id)
   async function save() {
+    if (!userId) return;
     setSaving(true);
     setErr(null);
     setOk(null);
     try {
-      const { error } = await supabase.from("user_profiles").upsert(
-        {
-          id: (await supabase.auth.getUser()).data.user?.id,
-          full_name: p.full_name,
-          phone: p.phone,
-          avatar_url: p.avatar_url ?? null,
-        },
-        { onConflict: "id" }
-      );
+      const payload = {
+        id: userId,              // <- required for upsert
+        email,                   // store for convenience; ignore if your schema doesn't have it
+        full_name: p.full_name || null,
+        phone: p.phone || null,
+        avatar_url: p.avatar_url || null,
+      } as any;
+
+      // If your table does not have 'email', it will be ignored by PostgREST.
+      const { error } = await supabase.from("user_profiles").upsert(payload, {
+        onConflict: "id", // safe even if PK is id
+      });
       if (error) throw error;
+
       setOk("Profile updated.");
     } catch (e: any) {
-      setErr(e?.message ?? "Could not save profile");
+      setErr(normalizeErr(e, "Could not save profile"));
     } finally {
       setSaving(false);
     }
   }
 
+  // ---- Upload avatar and set URL in state
   async function onAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
-    if (!f) return;
+    if (!f || !userId) return;
+
     try {
       setSaving(true);
-      const userId = (await supabase.auth.getUser()).data.user!.id;
+      setErr(null);
+      setOk(null);
+
+      // Store in the public bucket
       const key = `avatars/${userId}-${Date.now()}-${f.name}`;
-      const { error: upErr } = await supabase.storage.from("public").upload(key, f, { upsert: true });
+      const { error: upErr } = await supabase.storage
+        .from("public")
+        .upload(key, f, { upsert: true, cacheControl: "3600", contentType: f.type });
+
       if (upErr) throw upErr;
+
       const { data: url } = supabase.storage.from("public").getPublicUrl(key);
       setP((old) => ({ ...old, avatar_url: url.publicUrl }));
-      setOk("Avatar updated. Don’t forget to Save changes.");
+      setOk("Avatar uploaded — click Save changes to finish.");
     } catch (e: any) {
-      setErr(e?.message ?? "Could not upload avatar");
+      setErr(normalizeErr(e, "Could not upload avatar"));
     } finally {
       setSaving(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -107,9 +157,18 @@ export default function Profile() {
       </div>
 
       {/* Alerts */}
-      {ok && <div className="rounded-md bg-green-50 border border-green-200 text-green-800 px-3 py-2 text-sm">{ok}</div>}
-      {err && <div className="rounded-md bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">{err}</div>}
+      {ok && (
+        <div className="rounded-md bg-green-50 border border-green-200 text-green-800 px-3 py-2 text-sm">
+          {ok}
+        </div>
+      )}
+      {err && (
+        <div className="rounded-md bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">
+          {err}
+        </div>
+      )}
 
+      {/* Form */}
       <section className="rounded-2xl p-4 shadow bg-white border">
         <div className="flex items-center gap-4">
           <div
@@ -119,13 +178,15 @@ export default function Profile() {
             {p.avatar_url ? (
               <img src={p.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
             ) : (
-              <span className="text-indigo-700 font-semibold text-lg">{(email?.[0] || "G").toUpperCase()}</span>
+              <span className="text-indigo-700 font-semibold text-lg">
+                {(email?.[0] || "G").toUpperCase()}
+              </span>
             )}
           </div>
           <div className="text-sm">
             <div className="font-medium">Change avatar</div>
             <input ref={fileRef} type="file" accept="image/*" onChange={onAvatarChange} className="mt-1" />
-            <div className="text-gray-500">JPG/PNG, &lt;~1MB is ideal.</div>
+            <div className="text-gray-500">JPG/PNG, &lt; ~1MB is ideal.</div>
           </div>
         </div>
 
@@ -136,6 +197,7 @@ export default function Profile() {
               className="mt-1 w-full rounded-lg border px-3 py-2"
               value={p.full_name ?? ""}
               onChange={(e) => setP({ ...p, full_name: e.target.value })}
+              placeholder="Your name"
             />
           </div>
           <div>
@@ -144,6 +206,7 @@ export default function Profile() {
               className="mt-1 w-full rounded-lg border px-3 py-2"
               value={p.phone ?? ""}
               onChange={(e) => setP({ ...p, phone: e.target.value })}
+              placeholder="+91…"
             />
           </div>
         </div>
@@ -159,4 +222,14 @@ export default function Profile() {
       </section>
     </main>
   );
+}
+
+/* ---------- helpers ---------- */
+function normalizeErr(e: unknown, fallback: string) {
+  const msg =
+    (e as any)?.message ||
+    (e as any)?.error_description ||
+    (e as any)?.error ||
+    "";
+  return msg ? String(msg) : fallback;
 }

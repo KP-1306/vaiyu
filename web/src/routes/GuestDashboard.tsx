@@ -4,6 +4,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { API } from "../lib/api";
 import WelcomeExperience from "../components/WelcomeExperience";
+import React, { Suspense } from "react";
+import SoftBoundary from "../components/SoftBoundary";
 
 
 /* ===== Types ===== */
@@ -27,6 +29,11 @@ export default function GuestDashboard() {
   const [stays, setStays] = useState<AsyncData<Stay[]>>({ loading: true, source: "live", data: [] });
   const [reviews, setReviews] = useState<AsyncData<Review[]>>({ loading: true, source: "live", data: [] });
   const [spend, setSpend] = useState<AsyncData<Spend[]>>({ loading: true, source: "live", data: [] });
+
+  // NOTE: leave the default export in WhatsNewBanner.tsx
+const WhatsNewBanner = React.lazy(() =>
+  import("../components/WhatsNewBanner").then((m) => ({ default: m.default || m }))
+);
 
   return (
     <main className="max-w-6xl mx-auto p-4 space-y-5" aria-labelledby="guest-dash-title">

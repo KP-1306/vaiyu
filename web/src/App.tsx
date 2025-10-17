@@ -61,56 +61,59 @@ export default function App() {
     typeof window !== "undefined" ? window.location.origin : "https://vaiyu.co.in";
 
   // ---------- Slides (images are placeholders; replace with your assets) ----------
-  const slides = [
-    {
-      id: "ai-hero",
-      headline: "Where Intelligence Meets Comfort",
-      sub: "AI turns live stay activity into faster service and delightful guest journeys.",
-      cta: { label: isAuthed ? "Open app" : "Start with your email", href: isAuthed ? "/welcome" : "/signin?intent=signup&redirect=/welcome" },
-      img: "/hero/ai-hero.jpg",
-      imgAlt: "Guest using mobile at hotel lobby",
-    },
-    {
-      id: "checkin",
-      headline: "10-second Mobile Check-in",
-      sub: "Scan, confirm, head to your room. No kiosk queues.",
-      cta: { label: "Try the guest demo", href: "/guest" },
-      img: "/hero/checkin.jpg",
-      imgAlt: "QR check-in at the front desk",
-    },
-    {
-      id: "sla",
-      headline: "SLA Nudges for Staff",
-      sub: "Requests auto-routed with on-time nudges and a clean digest.",
-      cta: { label: "See the owner console", href: "/owner" },
-      img: "/hero/sla.jpg",
-      imgAlt: "Staff dashboard with SLA hints",
-    },
-    {
-      id: "reviews",
-      headline: "Truth-Anchored Reviews",
-      sub: "AI drafts grounded in verified stay data—owners approve, brand stays safe.",
-      cta: { label: "Review pipeline", href: "/owner/reviews" },
-      img: "/hero/reviews.jpg",
-      imgAlt: "Review moderation interface",
-    },
-    {
-      id: "grid-smart",
-      headline: "Grid-Smart Operations & Sustainability",
-      sub: "Shift load intelligently, ride through outages, and cut carbon—without compromising guest comfort.",
-      cta: { label: "Explore grid-smart ops", href: "/grid/devices" },
-      img: "/hero/grid.jpg",
-      imgAlt: "Property energy controls and grid view",
-    },
-    {
-      id: "owner-console",
-      headline: "AI-Driven Owner Console",
-      sub: "One place to run services, SLAs, reviews, and workflows—with clear insights and guardrails.",
-      cta: { label: "See the console", href: "/owner" },
-      img: "/hero/owner-console.jpg",
-      imgAlt: "Owner dashboard with KPIs and actions",
-    },
-  ];
+
+  // -------- Slides (keep structure; just updated assets/copy) --------
+const slides = [
+  {
+    id: "ai-hero",
+    headline: "Where Intelligence Meets Comfort",
+    sub: "AI turns live stay activity into faster service and delightful guest journeys.",
+    cta: { label: isAuthed ? "Open app" : "Start with your email", href: isAuthed ? "/guest" : "/signin?intent=signup&redirect=/guest" },
+    img: "/hero/ai-hero.svg",
+    imgAlt: "Abstract AI gradient with subtle tech bands",
+  },
+  {
+    id: "checkin",
+    headline: "10-second Mobile Check-in",
+    sub: "Scan, confirm, head to your room. No kiosk queues.",
+    cta: { label: "Try the guest demo", href: "/guest" },
+    img: "/hero/checkin.svg",
+    imgAlt: "Phone and QR placard showing fast check-in flow",
+  },
+  {
+    id: "sla",
+    headline: "SLA Nudges for Staff",
+    sub: "On-time nudges and a clean digest keep service humming.",
+    cta: { label: "See the owner console", href: "/owner" },
+    img: "/hero/sla.svg",
+    imgAlt: "Staff dashboard card with SLA hints",
+  },
+  {
+    id: "reviews",
+    headline: "Truth-Anchored Reviews",
+    sub: "AI drafts grounded in verified stay data—owners approve, brand stays safe.",
+    cta: { label: "How moderation works", href: "/about-ai" },
+    img: "/hero/reviews.svg",
+    imgAlt: "Owner reviewing AI-drafted review with approve/edit",
+  },
+  {
+    id: "grid-smart",
+    headline: "Grid-Smart Operations & Sustainability",
+    sub: "Tariff-aware actions and device shedding without drama.",
+    cta: { label: "Learn about grid mode", href: "/grid/devices" },
+    img: "/hero/grid.svg",
+    imgAlt: "Energy dashboard with peak-shift and device shed chips",
+  },
+  {
+    id: "owner-console",
+    headline: "AI-Driven Owner Console",
+    sub: "Digest, usage, moderation and KPIs—clean, fast, reliable.",
+    cta: { label: "Open owner home", href: "/owner" },
+    img: "/hero/owner-console.svg",
+    imgAlt: "Owner console cards for digest and KPIs",
+  },
+];
+
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">

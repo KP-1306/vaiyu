@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, memo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { API } from "../lib/api";
+import WelcomeExperience from "../components/WelcomeExperience";
 
 /* ===== Types ===== */
 type Stay = { id: string; hotel: { name: string; city?: string }; check_in: string; check_out: string; bill_total?: number | null };
@@ -26,6 +27,21 @@ export default function GuestDashboard() {
   const [reviews, setReviews] = useState<AsyncData<Review[]>>({ loading: true, source: "live", data: [] });
   const [spend, setSpend] = useState<AsyncData<Spend[]>>({ loading: true, source: "live", data: [] });
 
+  return (
+    <main className="max-w-6xl mx-auto p-4 space-y-5" aria-labelledby="guest-dash-title">
+      {/* existing hero */}
+      <section className="relative overflow-hidden rounded-2xl p-6 bg-gradient-to-r from-sky-50 via-white to-indigo-50 border">
+        {/* ... */}
+      </section>
+
+      {/* 👇 New: one-time welcome/feature highlight */}
+      <WelcomeExperience />
+
+      {/* existing cards: Check-in, Recent stays, Spend, Reviews, Owner CTA, etc. */}
+      {/* ... */}
+    </main>
+  );
+  
   /* ---- Auth ---- */
   useEffect(() => {
     let mounted = true;

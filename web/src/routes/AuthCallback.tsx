@@ -4,15 +4,22 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Spinner from "../components/Spinner";
 
-/** Allow only same-origin, app-internal redirects. Default to "/" (SmartLanding). */
+/**
+ * Normalize a redirect target:
+ * - Same-origin only
+ * - Rooted path only (starts with "/")
+ * - Coerce any legacy "/welcome" URLs to "/"
+ * - Fallback to "/" if anything looks off
+ */
 function safeRedirect(raw: string | null | undefined, fallback = "/") {
+  const normalize = (p: string) => (p.startsWith("/welcome") ? "/" : p);
+
   if (!raw) return fallback;
   try {
     const u = new URL(raw, window.location.origin);
-    // block cross-origin and non-rooted paths
     if (u.origin !== window.location.origin) return fallback;
     if (!u.pathname.startsWith("/")) return fallback;
-    return u.pathname + (u.search || "") + (u.hash || "");
+    return normalize(u.pathname + (u.search || "") + (u.hash || ""));
   } catch {
     return fallback;
   }
@@ -27,14 +34,14 @@ export default function AuthCallback() {
 
     (async () => {
       try {
-        // 1) Hash-style tokens (implicit flow)
+        // 1) Handle implicit (hash) flow
         const hash = window.location.hash || "";
         if (/access_token=|refresh_token=/.test(hash)) {
           await supabase.auth.getSessionFromUrl({ storeSession: true });
           finished = true;
         }
 
-        // 2) PKCE code flow (?code=...)
+        // 2) Handle PKCE code flow
         if (!finished) {
           const code = params.get("code");
           if (code) {
@@ -43,29 +50,37 @@ export default function AuthCallback() {
           }
         }
 
-        // 3) Already signed in (no tokens in URL but session exists)
+        // 3) If no tokens but already signed in, continue
         if (!finished) {
           const { data } = await supabase.auth.getSession();
           if (data?.session) finished = true;
         }
 
-        // Decide destination: default to "/" so SmartLanding kicks in
-        const dest = safeRedirect(params.get("redirect"), "/");
+        // Prefer ?redirect=…, or accept ?next=… as a backup
+        const rawDest = params.get("redirect") ?? params.get("next");
+        const dest = safeRedirect(rawDest, "/");
 
-        // Clean sensitive params & hash from the URL before navigation
+        // Clean sensitive params + hash before we navigate
         const clean = new URL(window.location.href);
         clean.hash = "";
-        ["code", "redirect", "error", "error_description"].forEach((k) =>
-          clean.searchParams.delete(k)
-        );
+        [
+          "code",
+          "redirect",
+          "next",
+          "error",
+          "error_description",
+          "provider_token",
+        ].forEach((k) => clean.searchParams.delete(k));
         window.history.replaceState({}, "", clean.pathname + clean.search);
 
         if (finished) {
           navigate(dest, { replace: true });
         } else {
-          // No valid tokens and no session → back to sign-in with friendly message
+          // No valid tokens/session → back to sign-in
           navigate(
-            `/signin?intent=signin&redirect=${encodeURIComponent(dest)}&error=${encodeURIComponent(
+            `/signin?intent=signin&redirect=${encodeURIComponent(
+              dest
+            )}&error=${encodeURIComponent(
               "Login link is missing or expired. Please request a new one."
             )}`,
             { replace: true }

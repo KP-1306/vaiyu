@@ -1,5 +1,22 @@
 import React, { StrictMode, Suspense, lazy, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
+
+// -- TEMP: Force-unregister any existing service worker to stop stale caching
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    for (const r of regs) r.unregister().catch(() => {});
+  });
+  // Also clear caches bravely; wrap in try to avoid unsupported errors
+  (async () => {
+    try {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    } catch {}
+  })();
+}
+// DO NOT register a new SW while debugging. Remove any register("/sw.js") calls.
+
+
 import {
   createBrowserRouter,
   RouterProvider,
@@ -9,6 +26,8 @@ import {
 // Monitoring (kept)
 import { initMonitoring } from "./lib/monitoring";
 initMonitoring();
+
+
 
 // Service worker (kept)
 if ("serviceWorker" in navigator) {

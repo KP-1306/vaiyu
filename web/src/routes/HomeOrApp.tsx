@@ -1,64 +1,72 @@
-// web/src/routes/HomeOrApp.tsx
-import React, { useEffect, useMemo, useState } from "react";
-import { supabase } from "../lib/supabase";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { fetchJSON, asObject } from "../lib/safeFetch";
 
-// Lazy import your real pages to keep this file tiny and safe,
-// but you can also keep the direct imports if you prefer.
-const Home = React.lazy(() => import("./Home"));
-const GuestDashboard = React.lazy(() => import("./GuestDashboard"));
-
-function Spinner({ label = "Loading…" }: { label?: string }) {
-  return (
-    <div className="min-h-[40vh] grid place-items-center text-sm text-gray-600">
-      {label}
-    </div>
-  );
-}
+type Status = { ok?: boolean; env?: string; version?: string } | null;
 
 export default function HomeOrApp() {
-  // 1) Session snapshot
-  const [hasSession, setHasSession] = useState<boolean | null>(null);
+  const [status, setStatus] = useState<Status>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-  // 2) “force app” switch (?app=1 or guest chip in localStorage)
-  const forceApp = useMemo(() => {
-    try {
-      const sp = new URLSearchParams(window.location.search);
-      if (sp.get("app") === "1") return true;
-      return !!localStorage.getItem("stay:token");
-    } catch {
-      return false;
-    }
+  const apiBase = useMemo(() => {
+    // Be forgiving if env var missing—don’t crash, just skip call
+    const v = (import.meta as any)?.env?.VITE_API_URL || "";
+    return typeof v === "string" ? v : "";
   }, []);
 
-  // 3) Load session once
   useEffect(() => {
-    let alive = true;
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+
     (async () => {
+      if (!apiBase) {
+        setErr("API not configured (VITE_API_URL missing). Showing offline home.");
+        return;
+      }
       try {
-        const { data } = await supabase.auth.getSession();
-        if (!alive) return;
-        setHasSession(!!data?.session);
-      } catch {
-        if (!alive) return;
-        setHasSession(false);
+        const data = await fetchJSON(`${apiBase}/status`, {
+          timeoutMs: 5000,
+          retries: 1,
+          signal: abortRef.current.signal,
+        });
+        setStatus(asObject(data));
+        setErr(null);
+      } catch (e: any) {
+        console.error("[HomeOrApp] status error", e);
+        setErr(e?.message || "Failed to reach backend");
       }
     })();
-    return () => {
-      alive = false;
-    };
-  }, []);
 
-  // 4) Initial spinner while we check
-  if (hasSession === null) {
-    return <Spinner label="Loading…" />;
-  }
-
-  // 5) Decide what to show
-  const showApp = hasSession || forceApp;
+    return () => abortRef.current?.abort();
+  }, [apiBase]);
 
   return (
-    <React.Suspense fallback={<Spinner />}>
-      {showApp ? <GuestDashboard /> : <Home />}
-    </React.Suspense>
+    <main className="p-8 space-y-6">
+      <h1 className="text-2xl font-semibold">Welcome to VAiyu</h1>
+
+      {err && (
+        <div className="p-4 border rounded-xl bg-yellow-50 text-sm">
+          <b>Degraded:</b> {err}
+        </div>
+      )}
+
+      <section className="p-4 border rounded-xl bg-white/60">
+        <h2 className="font-medium">App Status</h2>
+        <dl className="mt-2 grid grid-cols-2 gap-2 text-sm">
+          <dt>Backend reachable</dt>
+          <dd>{status?.ok ? "Yes" : err ? "No (offline)" : "Checking…"}</dd>
+          <dt>Environment</dt>
+          <dd>{status?.env ?? "—"}</dd>
+          <dt>Version</dt>
+          <dd>{status?.version ?? "—"}</dd>
+        </dl>
+      </section>
+
+      <section className="p-4 border rounded-xl bg-white/60">
+        <p className="text-gray-700">
+          Use the top links or go directly to <a className="text-blue-700 underline" href="/guest">Guest Dashboard</a>.
+        </p>
+      </section>
+    </main>
   );
 }

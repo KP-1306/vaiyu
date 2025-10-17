@@ -1,16 +1,13 @@
-// web/src/App.tsx
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import SEO from "./components/SEO";
 import Pill from "./components/Pill";
-// NEW: Supabase client
+import HeroCarousel from "./components/HeroCarousel"; // NEW
+// Supabase client
 import { supabase } from "./lib/supabase";
 
 const TOKEN_KEY = "stay:token";
-
-const heroBg =
-  "https://images.unsplash.com/photo-1500375592092-40eb2168fd21?q=80&w=1600&auto=format&fit=crop";
 
 export default function App() {
   // --- Guest token chip (unchanged) ---
@@ -28,7 +25,7 @@ export default function App() {
     };
   }, []);
 
-  // --- NEW: Auth/session awareness for nav ---
+  // --- Auth/session awareness for nav ---
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
@@ -53,17 +50,67 @@ export default function App() {
 
   async function handleSignOut() {
     try {
-      // Clear app auth + guest token
       await supabase.auth.signOut();
       localStorage.removeItem(TOKEN_KEY);
     } finally {
-      // Hard redirect to avoid stale UI anywhere
       window.location.assign("/");
     }
   }
 
   const site =
     typeof window !== "undefined" ? window.location.origin : "https://vaiyu.co.in";
+
+  // ---------- Slides (images are placeholders; replace with your assets) ----------
+  const slides = [
+    {
+      id: "ai-hero",
+      headline: "Where Intelligence Meets Comfort",
+      sub: "AI turns live stay activity into faster service and delightful guest journeys.",
+      cta: { label: isAuthed ? "Open app" : "Start with your email", href: isAuthed ? "/welcome" : "/signin?intent=signup&redirect=/welcome" },
+      img: "/hero/ai-hero.jpg",
+      imgAlt: "Guest using mobile at hotel lobby",
+    },
+    {
+      id: "checkin",
+      headline: "10-second Mobile Check-in",
+      sub: "Scan, confirm, head to your room. No kiosk queues.",
+      cta: { label: "Try the guest demo", href: "/guest" },
+      img: "/hero/checkin.jpg",
+      imgAlt: "QR check-in at the front desk",
+    },
+    {
+      id: "sla",
+      headline: "SLA Nudges for Staff",
+      sub: "Requests auto-routed with on-time nudges and a clean digest.",
+      cta: { label: "See the owner console", href: "/owner" },
+      img: "/hero/sla.jpg",
+      imgAlt: "Staff dashboard with SLA hints",
+    },
+    {
+      id: "reviews",
+      headline: "Truth-Anchored Reviews",
+      sub: "AI drafts grounded in verified stay data—owners approve, brand stays safe.",
+      cta: { label: "Review pipeline", href: "/owner/reviews" },
+      img: "/hero/reviews.jpg",
+      imgAlt: "Review moderation interface",
+    },
+    {
+      id: "grid-smart",
+      headline: "Grid-Smart Operations & Sustainability",
+      sub: "Shift load intelligently, ride through outages, and cut carbon—without compromising guest comfort.",
+      cta: { label: "Explore grid-smart ops", href: "/grid/devices" },
+      img: "/hero/grid.jpg",
+      imgAlt: "Property energy controls and grid view",
+    },
+    {
+      id: "owner-console",
+      headline: "AI-Driven Owner Console",
+      sub: "One place to run services, SLAs, reviews, and workflows—with clear insights and guardrails.",
+      cta: { label: "See the console", href: "/owner" },
+      img: "/hero/owner-console.jpg",
+      imgAlt: "Owner dashboard with KPIs and actions",
+    },
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
@@ -109,7 +156,6 @@ export default function App() {
             <Link to="/owner" className="hover:text-gray-700">For Hotels</Link>
             <Link to="/about" className="hover:text-gray-700">About</Link>
 
-            {/* When NOT signed-in: show Sign in */}
             {!isAuthed && (
               <Link to="/signin?redirect=/welcome" className="hover:text-gray-700">
                 Sign in
@@ -118,14 +164,12 @@ export default function App() {
           </nav>
 
           <div className="flex items-center gap-2">
-            {/* Only show when guest is logged in (has stay token) */}
             {hasToken && (
               <Link to="/guest" className="btn btn-light !py-2 !px-3 text-sm">
                 My credits
               </Link>
             )}
 
-            {/* Primary CTA changes with auth state */}
             {isAuthed ? (
               <>
                 <Link to="/welcome" className="btn !py-2 !px-3 text-sm">
@@ -147,65 +191,10 @@ export default function App() {
         </div>
       </header>
 
-      {/* Hero */}
-      <section
-        className="relative isolate"
-        style={{
-          backgroundImage: `linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.35)), url(${heroBg})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
-      >
-        <div id="main" className="mx-auto max-w-7xl px-4 py-24 sm:py-28 lg:py-32 text-white relative">
-          <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs backdrop-blur">
-              <span className="animate-pulse">🤖</span> AI-powered hospitality OS
-            </div>
-
-            <h1 className="mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl leading-tight">
-              Where <span className="text-sky-300">Intelligence</span> Meets Comfort
-            </h1>
-
-            <p className="mt-3 text-white/90 text-lg">
-              We turn real stay activity into faster service, verified reviews, and delightful mobile journeys — while
-              helping properties run smarter during peak hours.
-            </p>
-
-            <div className="mt-6 flex flex-wrap items-center gap-3">
-              <Link
-                to={isAuthed ? "/welcome" : "/signin?intent=signup&redirect=/welcome"}
-                className="btn btn-light"
-              >
-                {isAuthed ? "Open app" : "Start with your email"}
-              </Link>
-            </div>
-          </div>
-
-          {/* Right-side bullets */}
-          <aside className="mt-8 lg:mt-0 lg:absolute lg:right-4 lg:top-1/2 lg:-translate-y-1/2">
-            <div className="w-full lg:w-[420px] rounded-2xl bg-white/85 text-gray-900 shadow-lg backdrop-blur p-5">
-              <div className="text-xs font-medium text-sky-800 bg-sky-100 inline-flex px-2 py-1 rounded-full">
-                What VAiyu enables
-              </div>
-              <ul className="mt-3 space-y-2 text-sm">
-                <Bullet>📲 Mobile pre-check-in &amp; guest menu</Bullet>
-                <Bullet>⚡ One-tap requests with live SLA tracking</Bullet>
-                <Bullet>🍽️ Room service &amp; F&amp;B ordering</Bullet>
-                <Bullet>🧽 Housekeeping / maintenance workflows</Bullet>
-                <Bullet>🧠 AI review drafts grounded in real stay data</Bullet>
-                <Bullet>🛡️ Owner moderation &amp; brand safety</Bullet>
-                <Bullet>🎁 Refer &amp; Earn credits (property-scoped)</Bullet>
-                <Bullet>🌐 Grid-aware operations (manual → assist → auto)</Bullet>
-              </ul>
-            </div>
-          </aside>
-        </div>
-
-        {/* wave divider */}
-        <svg viewBox="0 0 1440 140" className="absolute bottom-[-1px] left-0 w-full" aria-hidden>
-          <path fill="#f9fafb" d="M0,80 C240,160 480,0 720,60 C960,120 1200,40 1440,100 L1440,140 L0,140 Z" />
-        </svg>
-      </section>
+      {/* Hero — NEW carousel */}
+      <div className="mx-auto max-w-7xl px-4 py-6">
+        <HeroCarousel slides={slides} />
+      </div>
 
       {/* Why VAiyu / value props */}
       <section id="why" className="mx-auto max-w-7xl px-4 py-14">
@@ -366,15 +355,6 @@ export default function App() {
 }
 
 /* ---------- tiny building blocks ---------- */
-
-function Bullet({ children }: { children: React.ReactNode }) {
-  return (
-    <li className="flex items-start gap-2">
-      <span className="mt-0.5">•</span>
-      <span>{children}</span>
-    </li>
-  );
-}
 
 function ValueCard({
   title,

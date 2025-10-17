@@ -141,11 +141,7 @@ export default function GuestDashboard() {
           ) : upcoming.data ? (
             <CheckInBlock booking={upcoming.data} />
           ) : (
-            <Empty
-              small
-              text="No trip found. Claim your stay or plan your next one."
-              cta={{ to: "/claim", label: "Claim my stay" }}
-            />
+            <ArrivalCheckInEmpty />
           )}
         </Card>
 
@@ -335,6 +331,24 @@ function MiniBars({ data }: { data: { year: number; total: number }[] }) {
             />
           );
         })}
+    </div>
+  );
+}
+
+function ArrivalCheckInEmpty() {
+  return (
+    <div className="text-sm text-gray-700">
+      <div className="rounded-lg border-2 border-dashed p-4 bg-gray-50">
+        <div className="font-medium">Arriving at a VAiyu hotel?</div>
+        <p className="text-gray-600 mt-1">
+          When you reach the property, scan the VAiyu QR at the front desk to fetch your booking and start check-in.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link className="btn" to="/scan">Scan property QR</Link>
+          <Link className="btn btn-light" to="/claim">Enter booking code</Link>
+          <Link className="btn btn-light" to="/hotel/sunrise">Explore hotels</Link>
+        </div>
+      </div>
     </div>
   );
 }

@@ -14,7 +14,7 @@ export default function AIOperatingSystemBanner() {
           </p>
         </div>
 
-        {/* 3-zone banner */}
+        {/* 3-zone frame */}
         <div className="mt-10 rounded-2xl ring-1 ring-slate-200 overflow-hidden">
           <div className="grid lg:grid-cols-3">
             {/* Left: Traditional */}
@@ -24,88 +24,27 @@ export default function AIOperatingSystemBanner() {
                 Fragmented systems, manual effort, reactive decisions — data exists but never connects.
               </p>
               <ul className="mt-4 space-y-2 text-sm text-slate-700">
-                <li className="pl-4 relative">
-                  <span className="absolute left-0 top-2 w-1.5 h-1.5 rounded-full bg-slate-400" />
-                  Staff firefighting, not forecasting
-                </li>
-                <li className="pl-4 relative">
-                  <span className="absolute left-0 top-2 w-1.5 h-1.5 rounded-full bg-slate-400" />
-                  Guests waiting, not delighted
-                </li>
-                <li className="pl-4 relative">
-                  <span className="absolute left-0 top-2 w-1.5 h-1.5 rounded-full bg-slate-400" />
-                  Energy and resources wasted without insight
-                </li>
+                <Bullet>Staff firefighting, not forecasting</Bullet>
+                <Bullet>Guests waiting, not delighted</Bullet>
+                <Bullet>Energy and resources wasted without insight</Bullet>
               </ul>
             </div>
 
-            {/* Center: Engine */}
-            <div className="relative bg-white p-6 md:p-8">
-              <h3 className="sr-only">VAiyu Intelligence Engine</h3>
-              <div className="relative rounded-xl ring-1 ring-slate-200 p-5 md:p-8 bg-gradient-to-b from-white to-slate-50">
-                {/* Hotel + engine graphic */}
-                <svg viewBox="0 0 600 360" className="w-full h-auto" role="img" aria-label="VAiyu Intelligence Engine">
-                  <defs>
-                    <radialGradient id="glow" cx="50%" cy="50%" r="60%">
-                      <stop offset="0%" stopColor="#32E0C4" stopOpacity="0.95"/>
-                      <stop offset="60%" stopColor="#0EC9F7" stopOpacity="0.55"/>
-                      <stop offset="100%" stopColor="#0EC9F7" stopOpacity="0.15"/>
-                    </radialGradient>
-                    <linearGradient id="wire" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="#00A9FF"/>
-                      <stop offset="60%" stopColor="#1FD7BD"/>
-                      <stop offset="100%" stopColor="#61E87A"/>
-                    </linearGradient>
-                    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
-                      <feGaussianBlur stdDeviation="3" result="b"/>
-                      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-                    </filter>
-                  </defs>
-
-                  {/* Hotel silhouette */}
-                  <path d="M120 210 L300 90 L480 210 L480 300 L120 300 Z" fill="#E6F7F5" stroke="#BFEDE6" />
-                  {/* Wires in/out */}
-                  <g stroke="url(#wire)" strokeWidth="3" fill="none" filter="url(#soft)" opacity="0.9">
-                    <path d="M60 160 C120 160, 140 160, 180 180" />
-                    <path d="M60 245 C140 240, 180 230, 220 220" />
-                    <path d="M540 160 C480 160, 460 160, 420 180" />
-                    <path d="M540 245 C460 240, 420 230, 380 220" />
-                    <path d="M300 300 C300 330, 300 330, 300 340" />
-                  </g>
-
-                  {/* Engine core */}
-                  <circle cx="300" cy="220" r="58" fill="url(#glow)" />
-                  <text x="300" y="214" textAnchor="middle" fontSize="16" fontWeight="700" fill="#033">
-                    Va<span style={{letterSpacing: '-0.02em'}}>i</span>yu
-                  </text>
-                  <text x="300" y="234" textAnchor="middle" fontSize="11" fill="#065f46">
-                    INTELLIGENCE ENGINE
-                  </text>
-
-                  {/* Labels */}
-                  <g fontSize="11" fill="#0f172a">
-                    <text x="70" y="150">Guest Signals</text>
-                    <text x="65" y="260">Service Requests</text>
-                    <text x="485" y="150">Energy & Device Data</text>
-                    <text x="480" y="260">Owner Dashboards</text>
-                    <text x="280" y="355">Sustainability KPIs</text>
-                  </g>
-
-                  {/* Core capabilities */}
-                  <g fontSize="11" fill="#0f172a" textAnchor="middle">
-                    <text x="180" y="205">Predictive Models</text>
-                    <text x="420" y="205">Autonomous Ops Engine</text>
-                    <text x="300" y="265">Generative Review Intelligence</text>
-                    <text x="205" y="255">Learning Graph</text>
-                    <text x="395" y="255">ESG Optimizer</text>
-                  </g>
-                </svg>
-
-                {/* Footer line under engine */}
-                <p className="mt-3 text-xs text-slate-500 text-center">
-                  Proprietary AI graph that learns from 1,000+ real-world operations signals per day.
-                </p>
-              </div>
+            {/* Center: Approved investor banner IMAGE (this is the change) */}
+            <div className="relative bg-white p-0">
+              <figure className="m-0">
+                <img
+                  src="/illustrations/ai-os-banner.png"
+                  srcSet="/illustrations/ai-os-banner.png 1x, /illustrations/ai-os-banner@2x.png 2x"
+                  alt="VAiyu Intelligence — AI + Sustainability engine transforming hotel operations"
+                  className="block w-full h-full object-contain"
+                  loading="eager"
+                  fetchPriority="high"
+                />
+                <figcaption className="sr-only">
+                  Investor-grade diagram of VAiyu’s AI OS for hospitality.
+                </figcaption>
+              </figure>
             </div>
 
             {/* Right: Outcomes */}
@@ -117,18 +56,9 @@ export default function AIOperatingSystemBanner() {
                 <KPI value="−17%" label="Operational Cost" />
               </div>
               <ul className="mt-5 space-y-2 text-sm text-slate-700">
-                <li className="pl-4 relative">
-                  <span className="absolute left-0 top-2 w-1.5 h-1.5 rounded-full bg-emerald-500/90" />
-                  Data-verified ESG reporting and policy guidance
-                </li>
-                <li className="pl-4 relative">
-                  <span className="absolute left-0 top-2 w-1.5 h-1.5 rounded-full bg-emerald-500/90" />
-                  Safe automations with owner control and audit trail
-                </li>
-                <li className="pl-4 relative">
-                  <span className="absolute left-0 top-2 w-1.5 h-1.5 rounded-full bg-emerald-500/90" />
-                  Every stay trains the model. Every model grows your brand.
-                </li>
+                <Bullet>Data-verified ESG reporting and policy guidance</Bullet>
+                <Bullet>Safe automations with owner control and audit trail</Bullet>
+                <Bullet>Every stay trains the model. Every model grows your brand.</Bullet>
               </ul>
             </div>
           </div>
@@ -149,5 +79,14 @@ function KPI({ value, label }: { value: string; label: string }) {
       <div className="text-xl font-semibold text-slate-900">{value}</div>
       <div className="text-xs text-slate-600">{label}</div>
     </div>
+  );
+}
+
+function Bullet({ children }: { children: React.ReactNode }) {
+  return (
+    <li className="pl-4 relative">
+      <span className="absolute left-0 top-2 w-1.5 h-1.5 rounded-full bg-emerald-500/90" />
+      {children}
+    </li>
   );
 }

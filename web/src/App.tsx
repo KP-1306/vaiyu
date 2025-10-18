@@ -179,7 +179,7 @@ const slides = [
 
             {isAuthed ? (
               <>
-                <Link to="/welcome" className="btn !py-2 !px-3 text-sm">
+                <Link to="/guest" className="btn !py-2 !px-3 text-sm">
                   Open app
                 </Link>
                 <button onClick={handleSignOut} className="btn btn-light !py-2 !px-3 text-sm">
@@ -188,7 +188,7 @@ const slides = [
               </>
             ) : (
               <Link
-                to="/signin?intent=signup&redirect=/welcome"
+                to="/signin?intent=signup&redirect=/guest"
                 className="btn !py-2 !px-3 text-sm"
               >
                 Get started
@@ -333,7 +333,7 @@ const slides = [
             </p>
           </div>
           <div>
-            <Link to={isAuthed ? "/welcome" : "/signin?intent=signup&redirect=/welcome"} className="btn">
+            <Link to={isAuthed ? "/guest" : "/signin?intent=signup&redirect=/guest"} className="btn">
               {isAuthed ? "Open app" : "Get started"}
             </Link>
           </div>

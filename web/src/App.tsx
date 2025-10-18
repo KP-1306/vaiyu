@@ -5,10 +5,13 @@ import SEO from "./components/SEO";
 import HeroCarousel from "./components/HeroCarousel";
 import { supabase } from "./lib/supabase";
 
-// NEW alternating image–text section
+// Existing alternating image–text section
 import AIShowcase from "./components/AIShowcase";
-import ResultsAndSocialProof from "@/components/ResultsAndSocialProof";
 
+// NEW: Section 4 – Results & Social Proof
+import ResultsAndSocialProof from "@/components/ResultsAndSocialProof";
+// NEW: Section 5 – Onboarding, Security & Integrations (Option A – Glass Band)
+import GlassBand_OnboardingSecurityIntegrations from "@/components/GlassBand_OnboardingSecurityIntegrations";
 
 const TOKEN_KEY = "stay:token";
 
@@ -240,12 +243,22 @@ export default function App() {
         </div>
       </section>
 
-      {/* NEW — Alternating image + content layout (large but not full-page) */}
+      {/* Alternating image + content layout (large but not full-page) */}
       <section id="ai" className="mx-auto max-w-7xl px-4 pb-14">
         <AIShowcase />
       </section>
 
-      {/* Use-cases CTA */}
+      {/* 4) Results & Social Proof — Trust + Credibility */}
+      <section className="mx-auto max-w-7xl px-4 pb-4">
+        <ResultsAndSocialProof />
+      </section>
+
+      {/* 5) Onboarding, Security & Integrations — Confidence + Ease */}
+      <section className="mx-auto max-w-7xl px-4 pb-16">
+        <GlassBand_OnboardingSecurityIntegrations />
+      </section>
+
+      {/* Use-cases CTA (kept as-is; you can move below sections if you prefer) */}
       <section id="use-cases" className="mx-auto max-w-7xl px-4 pb-16">
         <div className="flex items-end justify-between">
           <div>

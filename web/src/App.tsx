@@ -3,17 +3,14 @@ import { Link } from "react-router-dom";
 
 import SEO from "./components/SEO";
 import HeroCarousel from "./components/HeroCarousel";
-// Supabase client
 import { supabase } from "./lib/supabase";
 
-// Investor-grade AI sections
-import AIOperatingSystemBanner from "./components/AIOperatingSystemBanner";
-import VaiyuAIHeroImage from "./components/VaiyuAIHeroImage";
+// NEW alternating image–text section
+import AIShowcase from "./components/AIShowcase";
 
 const TOKEN_KEY = "stay:token";
 
 export default function App() {
-  // --- Guest token chip (unchanged) ---
   const [hasToken, setHasToken] = useState<boolean>(() => !!localStorage.getItem(TOKEN_KEY));
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
@@ -28,21 +25,16 @@ export default function App() {
     };
   }, []);
 
-  // --- Auth/session awareness for nav ---
   const [userEmail, setUserEmail] = useState<string | null>(null);
-
   useEffect(() => {
     let mounted = true;
-
     (async () => {
       const { data } = await supabase.auth.getSession();
       if (mounted) setUserEmail(data.session?.user?.email ?? null);
     })();
-
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
       setUserEmail(session?.user?.email ?? null);
     });
-
     return () => {
       mounted = false;
       sub?.subscription?.unsubscribe();
@@ -63,7 +55,6 @@ export default function App() {
   const site =
     typeof window !== "undefined" ? window.location.origin : "https://vaiyu.co.in";
 
-  // ---------- Slides (images are placeholders; replace with your assets) ----------
   const slides = [
     {
       id: "ai-hero",
@@ -178,21 +169,13 @@ export default function App() {
                 My credits
               </Link>
             )}
-
             {isAuthed ? (
               <>
-                <Link to="/guest" className="btn !py-2 !px-3 text-sm">
-                  Open app
-                </Link>
-                <button onClick={handleSignOut} className="btn btn-light !py-2 !px-3 text-sm">
-                  Sign out
-                </button>
+                <Link to="/guest" className="btn !py-2 !px-3 text-sm">Open app</Link>
+                <button onClick={handleSignOut} className="btn btn-light !py-2 !px-3 text-sm">Sign out</button>
               </>
             ) : (
-              <Link
-                to="/signin?intent=signup&redirect=/guest"
-                className="btn !py-2 !px-3 text-sm"
-              >
+              <Link to="/signin?intent=signup&redirect=/guest" className="btn !py-2 !px-3 text-sm">
                 Get started
               </Link>
             )}
@@ -222,7 +205,6 @@ export default function App() {
             ]}
             emoji="🧳"
           />
-
           <ValueCard
             title="For Staff"
             points={[
@@ -233,7 +215,6 @@ export default function App() {
             ]}
             emoji="🧑‍🔧"
           />
-
           <ValueCard
             title="For Owners"
             points={[
@@ -244,7 +225,6 @@ export default function App() {
             ]}
             emoji="📈"
           />
-
           <ValueCard
             title="For Your Brand"
             points={[
@@ -258,15 +238,12 @@ export default function App() {
         </div>
       </section>
 
-      {/* AI section: Investor banner + Approved image */}
+      {/* NEW — Alternating image + content layout (large but not full-page) */}
       <section id="ai" className="mx-auto max-w-7xl px-4 pb-14">
-        <AIOperatingSystemBanner />
-        <div className="mt-10">
-          <VaiyuAIHeroImage />
-        </div>
+        <AIShowcase />
       </section>
 
-      {/* Use-cases */}
+      {/* Use-cases CTA */}
       <section id="use-cases" className="mx-auto max-w-7xl px-4 pb-16">
         <div className="flex items-end justify-between">
           <div>

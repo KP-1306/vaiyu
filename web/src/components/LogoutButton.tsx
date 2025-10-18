@@ -3,6 +3,9 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
+/**
+ * Core sign-out button. Use anywhere you need a "Sign out" CTA.
+ */
 export default function LogoutButton({
   className = "btn btn-light",
   label = "Sign out",
@@ -14,11 +17,24 @@ export default function LogoutButton({
     if (busy) return;
     setBusy(true);
     try {
-      await supabase.auth.signOut();
+      // Global: signs out all tabs/sessions
+      await supabase.auth.signOut({ scope: "global" });
     } catch {
-      // ignore – even if signOut throws, kick them to public home
+      /* ignore — still redirect */
     } finally {
-      // ✅ public home after logout
+      // Extra hygiene: clear any cached keys if you store them
+      try {
+        const keys: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith("sb-") && k.endsWith("-auth-token")) keys.push(k);
+        }
+        keys.forEach(k => localStorage.removeItem(k));
+      } catch {}
+      try { localStorage.removeItem("va:guest"); } catch {}
+      try { sessionStorage.clear(); } catch {}
+
+      // ✅ New flow: go to public home
       navigate("/", { replace: true });
     }
   }
@@ -33,5 +49,36 @@ export default function LogoutButton({
     >
       {busy ? "Signing out…" : label}
     </button>
+  );
+}
+
+/**
+ * Optional wrapper that matches your existing usage:
+ * shows (optional) email, a "Home" link, and the sign-out button.
+ *
+ * Example:
+ *   <LogoutRow authed={true} userEmail="user@site.com" />
+ */
+export function LogoutRow({
+  authed,
+  userEmail,
+}: {
+  authed?: boolean;
+  userEmail?: string | null;
+}) {
+  if (!authed) return null;
+
+  return (
+    <div className="flex items-center gap-2">
+      {/* Optional: show who’s signed in */}
+      {userEmail ? (
+        <span className="text-sm text-muted-foreground">{userEmail}</span>
+      ) : null}
+
+      {/* 🔁 Replaces the old href="/welcome" */}
+      <a className="btn btn-light" href="/">Home</a>
+
+      <LogoutButton />
+    </div>
   );
 }

@@ -1,285 +1,566 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Spinner from "../components/Spinner";
+import BackHome from "../components/BackHome";
 
-type Profile = {
-  full_name: string | null;
-  phone: string | null;
-  avatar_url: string | null;
-  // optional extras if your table has them
-  gender?: string | null;
-  dob?: string | null; // ISO yyyy-mm-dd
+/** ---------- Types ---------- */
+type ProfileRecord = {
+  id?: string;                 // user id (uuid)
+  // User Profile
+  full_name: string;
+  phone: string;
+  email: string;
+  // KYC
+  govt_id_type: "Aadhar" | "DL" | "Passport" | "Voter ID" | "";
+  govt_id_number: string;
+  address: string;
+  // Other
+  emergency_name: string;
+  emergency_phone: string;
+  vehicle_number: string;
+  // Consent
+  consent_terms: boolean;
+  updated_at?: string | null;
 };
 
-function hasCol(cols: string[], name: string) {
-  return cols.includes(name);
+const EMPTY: ProfileRecord = {
+  full_name: "",
+  phone: "",
+  email: "",
+  govt_id_type: "",
+  govt_id_number: "",
+  address: "",
+  emergency_name: "",
+  emergency_phone: "",
+  vehicle_number: "",
+  consent_terms: false,
+};
+
+/** LocalStorage safety fallback key */
+const LS_KEY = "va:profile";
+
+/** Utility: simple phone & email checks (very light) */
+const isPhone = (s: string) => /^[0-9+\-\s]{8,}$/.test(s.trim());
+const isEmail = (s: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s.trim());
+
+/** Save + load with graceful Supabase fallback */
+async function loadProfile(): Promise<{ data: ProfileRecord; source: "db" | "local" }> {
+  const { data: sess } = await supabase.auth.getSession().catch(() => ({ data: { session: null } as any }));
+  const user = sess?.session?.user;
+  if (!user) {
+    const cached = safeReadLocal();
+    return { data: cached ?? { ...EMPTY, email: "" }, source: "local" };
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (data) {
+      const rec = normalizeFromDb(data as any);
+      safeWriteLocal(rec);
+      return { data: rec, source: "db" };
+    }
+
+    // No row yet — prefill from auth
+    const rec: ProfileRecord = {
+      ...EMPTY,
+      email: user.email ?? "",
+      full_name: user.user_metadata?.full_name ?? "",
+      phone: user.user_metadata?.phone ?? "",
+    };
+    return { data: rec, source: "db" };
+  } catch {
+    const cached = safeReadLocal();
+    return { data: cached ?? { ...EMPTY, email: user?.email ?? "" }, source: "local" };
+  }
 }
 
+async function saveProfile(next: ProfileRecord): Promise<"db" | "local"> {
+  const { data: sess } = await supabase.auth.getSession().catch(() => ({ data: { session: null } as any }));
+  const user = sess?.session?.user;
+
+  if (!user) {
+    safeWriteLocal(next);
+    return "local";
+  }
+
+  try {
+    const payload = normalizeToDb(user.id, next);
+    const { error } = await supabase.from("profiles").upsert(payload, { onConflict: "id" });
+    if (error) throw error;
+    safeWriteLocal(next);
+    return "db";
+  } catch {
+    safeWriteLocal(next);
+    return "local";
+  }
+}
+
+/** ---------- Local cache helpers ---------- */
+function safeReadLocal(): ProfileRecord | null {
+  try {
+    const s = localStorage.getItem(LS_KEY);
+    return s ? (JSON.parse(s) as ProfileRecord) : null;
+  } catch {
+    return null;
+  }
+}
+function safeWriteLocal(p: ProfileRecord) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(p));
+  } catch {}
+}
+
+/** ---------- DB <-> UI normalization ---------- */
+function normalizeFromDb(row: any): ProfileRecord {
+  return {
+    id: row.id,
+    full_name: row.full_name ?? "",
+    phone: row.phone ?? "",
+    email: row.email ?? "",
+    govt_id_type: row.govt_id_type ?? "",
+    govt_id_number: row.govt_id_number ?? "",
+    address: row.address ?? "",
+    emergency_name: row.emergency_name ?? "",
+    emergency_phone: row.emergency_phone ?? "",
+    vehicle_number: row.vehicle_number ?? "",
+    consent_terms: !!row.consent_terms,
+    updated_at: row.updated_at ?? null,
+  };
+}
+function normalizeToDb(id: string, p: ProfileRecord) {
+  return {
+    id,
+    full_name: p.full_name || null,
+    phone: p.phone || null,
+    email: p.email || null,
+    govt_id_type: p.govt_id_type || null,
+    govt_id_number: p.govt_id_number || null,
+    address: p.address || null,
+    emergency_name: p.emergency_name || null,
+    emergency_phone: p.emergency_phone || null,
+    vehicle_number: p.vehicle_number || null,
+    consent_terms: !!p.consent_terms,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+/** ---------- UI ---------- */
 export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [ok, setOk] = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-
-  const [email, setEmail] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [cols, setCols] = useState<string[]>([]); // columns that actually exist
-  const [p, setP] = useState<Profile>({
-    full_name: "",
-    phone: "",
-    avatar_url: null,
-  });
-
-  const fileRef = useRef<HTMLInputElement | null>(null);
+  const [mode, setMode] = useState<"view" | "edit">("view");
+  const [profile, setProfile] = useState<ProfileRecord>(EMPTY);
+  const [error, setError] = useState<string | null>(null);
+  const [source, setSource] = useState<"db" | "local">("local");
+  const [savedOnce, setSavedOnce] = useState(false);
 
   useEffect(() => {
     let mounted = true;
-
     (async () => {
-      try {
-        // 1) Who am I?
-        const { data: u, error: uErr } = await supabase.auth.getUser();
-        if (uErr) throw uErr;
-        const uid = u.user?.id ?? null;
-        if (!uid) throw new Error("Not signed in.");
-        if (!mounted) return;
-
-        setUserId(uid);
-        setEmail(u.user?.email ?? null);
-
-        // 2) Detect which columns exist so we can read/write safely
-        let existingCols: string[] = ["id", "email", "full_name", "phone", "avatar_url"];
-        try {
-          const { data: oneRow } = await supabase
-            .from("user_profiles")
-            .select("*")
-            .eq("id", uid)
-            .limit(1)
-            .maybeSingle();
-
-          if (oneRow) existingCols = Object.keys(oneRow);
-        } catch {
-          // ignore, we’ll keep the defaults
-        }
-        if (!mounted) return;
-        setCols(existingCols);
-
-        // 3) Read my profile row (if any)
-        const { data: prof, error } = await supabase
-          .from("user_profiles")
-          .select(
-            [
-              "full_name",
-              "phone",
-              "avatar_url",
-              hasCol(existingCols, "gender") ? "gender" : undefined,
-              hasCol(existingCols, "dob") ? "dob" : undefined,
-            ]
-              .filter(Boolean)
-              .join(",")
-          )
-          .eq("id", uid)
-          .maybeSingle();
-
-        if (!mounted) return;
-
-        if (error && error.code !== "PGRST116") throw error; // ignore “no rows”
-        if (prof) {
-          setP((old) => ({
-            ...old,
-            full_name: prof.full_name ?? "",
-            phone: prof.phone ?? "",
-            avatar_url: prof.avatar_url ?? null,
-            ...(hasCol(existingCols, "gender") ? { gender: prof.gender ?? null } : {}),
-            ...(hasCol(existingCols, "dob") ? { dob: prof.dob ?? null } : {}),
-          }));
-        }
-      } catch (e: any) {
-        setErr(e?.message ?? "Could not load profile");
-      } finally {
-        if (mounted) setLoading(false);
-      }
+      setLoading(true);
+      const res = await loadProfile();
+      if (!mounted) return;
+      setProfile(res.data);
+      setSource(res.source);
+      setMode(res.data.full_name || res.data.phone || res.data.govt_id_type ? "view" : "edit");
+      setLoading(false);
     })();
-
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, []);
 
-  async function save() {
-    if (!userId) return;
+  const requiredOk = useMemo(() => {
+    if (!profile.full_name.trim()) return false;
+    if (!isPhone(profile.phone)) return false;
+    if (!isEmail(profile.email)) return false;
+    if (!profile.govt_id_type) return false;
+    if (!profile.govt_id_number.trim()) return false;
+    if (!profile.consent_terms) return false;
+    return true;
+  }, [profile]);
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!requiredOk) {
+      setError("Please complete all required fields marked with * and fix validation errors.");
+      return;
+    }
     setSaving(true);
-    setErr(null);
-    setOk(null);
-    try {
-      // Build payload only with columns that exist
-      const payload: Record<string, any> = {
-        id: userId,
-        full_name: p.full_name ?? null,
-        phone: p.phone ?? null,
-        avatar_url: p.avatar_url ?? null,
-      };
-      if (hasCol(cols, "gender")) payload.gender = p.gender ?? null;
-      if (hasCol(cols, "dob")) payload.dob = p.dob ?? null;
-
-      const { error } = await supabase
-        .from("user_profiles")
-        .upsert(payload, { onConflict: "id" });
-
-      if (error) throw error;
-      setOk("Profile updated.");
-    } catch (e: any) {
-      setErr(e?.message ?? "Could not save profile");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function onAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (!f || !userId) return;
-    try {
-      setSaving(true);
-      const key = `avatars/${userId}-${Date.now()}-${f.name}`;
-      const { error: upErr } = await supabase.storage
-        .from("public")
-        .upload(key, f, { upsert: true });
-      if (upErr) throw upErr;
-
-      const { data: url } = supabase.storage.from("public").getPublicUrl(key);
-      setP((old) => ({ ...old, avatar_url: url.publicUrl }));
-      setOk("Avatar updated. Don’t forget to Save changes.");
-    } catch (e: any) {
-      setErr(e?.message ?? "Could not upload avatar");
-    } finally {
-      setSaving(false);
-      if (fileRef.current) fileRef.current.value = "";
-    }
+    const where = await saveProfile(profile);
+    setSaving(false);
+    setSource(where);
+    setMode("view");
+    setSavedOnce(true);
   }
 
   if (loading) {
     return (
-      <div className="min-h-[50vh] grid place-items-center">
-        <Spinner label="Loading profile…" />
-      </div>
+      <main className="min-h-[50vh] grid place-items-center">
+        <Spinner label="Loading your profile…" />
+      </main>
     );
   }
 
   return (
-    <main className="max-w-3xl mx-auto p-4 space-y-5">
-      {/* Top bar */}
-      <div className="flex items-center justify-between">
+    <main className="max-w-3xl mx-auto p-6">
+      <BackHome />
+
+      <header className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-lg font-semibold">Your profile</h1>
-          <div className="text-sm text-gray-600">{email ?? ""}</div>
+          <h1 className="text-2xl font-semibold">Your profile</h1>
+          <p className="text-sm text-gray-600 mt-1">
+            Keep these handy — they speed up check-in and help us reach you in a pinch.
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Link to="/guest" className="btn btn-light" aria-label="Back to dashboard">
-            ← Back to dashboard
-          </Link>
-        </div>
-      </div>
 
-      {/* Alerts */}
-      {ok && (
-        <div className="rounded-md bg-green-50 border border-green-200 text-green-800 px-3 py-2 text-sm">
-          {ok}
+        {/* Back to dashboard on view mode */}
+        {mode === "view" ? (
+          <Link to="/guest" className="btn btn-light whitespace-nowrap">Back to dashboard</Link>
+        ) : null}
+      </header>
+
+      {/* success banner */}
+      {savedOnce && mode === "view" && (
+        <div className="mt-4 rounded-xl border border-green-300 bg-green-50 px-4 py-3 text-sm flex items-center justify-between">
+          <span>✅ Profile updated successfully.</span>
+          <div className="flex gap-2">
+            <Link to="/guest" className="btn btn-light">Back to dashboard</Link>
+            <button className="btn btn-light" onClick={() => setSavedOnce(false)}>Dismiss</button>
+          </div>
         </div>
       )}
-      {err && (
-        <div className="rounded-md bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">
-          {err}
-        </div>
-      )}
 
-      <section className="rounded-2xl p-4 shadow bg-white border">
-        <div className="flex items-center gap-4">
-          <div
-            className="w-16 h-16 rounded-full bg-indigo-100 grid place-items-center overflow-hidden border"
-            aria-label="Avatar"
-          >
-            {p.avatar_url ? (
-              <img src={p.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-indigo-700 font-semibold text-lg">
-                {(email?.[0] || "G").toUpperCase()}
-              </span>
-            )}
+      <div className="mt-4 rounded-2xl border bg-white/90 shadow-sm">
+        <div className="flex items-center justify-between p-4 border-b">
+          <div className="text-xs text-gray-600">
+            Saved in <span className="font-medium">{source === "db" ? "Cloud (Supabase)" : "This device"}</span>
           </div>
-          <div className="text-sm">
-            <div className="font-medium">Change avatar</div>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              onChange={onAvatarChange}
-              className="mt-1"
-            />
-            <div className="text-gray-500">JPG/PNG, &lt;~1MB is ideal.</div>
-          </div>
-        </div>
-
-        <div className="mt-5 grid gap-3 md:grid-cols-2">
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium">Full name</label>
-            <input
-              className="mt-1 w-full rounded-lg border px-3 py-2"
-              value={p.full_name ?? ""}
-              onChange={(e) => setP({ ...p, full_name: e.target.value })}
-              placeholder="Your name"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium">Phone</label>
-            <input
-              className="mt-1 w-full rounded-lg border px-3 py-2"
-              value={p.phone ?? ""}
-              onChange={(e) => setP({ ...p, phone: e.target.value })}
-              placeholder="+91…"
-            />
-          </div>
-
-          {hasCol(cols, "gender") && (
-            <div>
-              <label className="block text-sm font-medium">Gender</label>
-              <select
-                className="mt-1 w-full rounded-lg border px-3 py-2"
-                value={p.gender ?? ""}
-                onChange={(e) => setP({ ...p, gender: e.target.value || null })}
-              >
-                <option value="">—</option>
-                <option>Male</option>
-                <option>Female</option>
-                <option>Non-binary</option>
-                <option>Prefer not to say</option>
-              </select>
+          {mode === "view" ? (
+            <button className="btn btn-light" onClick={() => setMode("edit")}>Edit</button>
+          ) : (
+            <div className="flex gap-2">
+              <button className="btn btn-light" onClick={() => setMode("view")}>Cancel</button>
+              <button className="btn" onClick={handleSave} disabled={saving || !requiredOk}>
+                {saving ? "Saving…" : "Save changes"}
+              </button>
             </div>
           )}
+        </div>
 
-          {hasCol(cols, "dob") && (
-            <div>
-              <label className="block text-sm font-medium">Date of birth</label>
-              <input
-                type="date"
-                className="mt-1 w-full rounded-lg border px-3 py-2"
-                value={p.dob ?? ""}
-                onChange={(e) => setP({ ...p, dob: e.target.value || null })}
+        {/* Friendly, sectioned form */}
+        <form className="p-5 grid gap-6">
+          <CardSection
+            emoji="🧑‍💼"
+            title="User profile"
+            blurb="How we address you & get in touch."
+          >
+            <Field
+              label="Full name *"
+              value={profile.full_name}
+              onChange={(v) => setProfile({ ...profile, full_name: v })}
+              placeholder="Your full legal name"
+              required
+              readOnly={mode === "view"}
+            />
+            <Field
+              label="Mobile number *"
+              value={profile.phone}
+              onChange={(v) => setProfile({ ...profile, phone: v })}
+              placeholder="+91 9xxxxxxxxx"
+              required
+              readOnly={mode === "view"}
+              error={profile.phone && !isPhone(profile.phone) ? "Enter a valid phone number" : ""}
+            />
+            <Field
+              label="Email *"
+              value={profile.email}
+              onChange={(v) => setProfile({ ...profile, email: v })}
+              placeholder="you@example.com"
+              required
+              readOnly={mode === "view"}
+              error={profile.email && !isEmail(profile.email) ? "Enter a valid email" : ""}
+            />
+          </CardSection>
+
+          <CardSection
+            emoji="🪪"
+            title="KYC details"
+            blurb="Required for smooth and fast check-in."
+          >
+            <div className="grid gap-3 md:grid-cols-2">
+              <Select
+                label="Government ID type *"
+                value={profile.govt_id_type}
+                onChange={(v) =>
+                  setProfile({ ...profile, govt_id_type: v as ProfileRecord["govt_id_type"] })
+                }
+                options={["Aadhar", "DL", "Passport", "Voter ID"]}
+                required
+                readOnly={mode === "view"}
+              />
+              <Field
+                label="Government ID number *"
+                value={profile.govt_id_number}
+                onChange={(v) => setProfile({ ...profile, govt_id_number: v })}
+                placeholder="Enter ID number exactly as on document"
+                required
+                readOnly={mode === "view"}
               />
             </div>
-          )}
-        </div>
+            <TextArea
+              label="Residential address"
+              value={profile.address}
+              onChange={(v) => setProfile({ ...profile, address: v })}
+              placeholder="House / Street, Area, City, State, PIN"
+              readOnly={mode === "view"}
+            />
+          </CardSection>
 
-        <div className="mt-5">
-          <button className="btn" onClick={save} disabled={saving}>
-            {saving ? "Saving…" : "Save changes"}
-          </button>
-          <Link to="/guest" className="btn btn-light ml-2">
-            Cancel
-          </Link>
-        </div>
-      </section>
+          <CardSection
+            emoji="🧰"
+            title="Other"
+            blurb="Who should we call in case of an emergency?"
+          >
+            <div className="grid gap-3 md:grid-cols-2">
+              <Field
+                label="Emergency contact person"
+                value={profile.emergency_name}
+                onChange={(v) => setProfile({ ...profile, emergency_name: v })}
+                placeholder="Name"
+                readOnly={mode === "view"}
+              />
+              <Field
+                label="Emergency contact number"
+                value={profile.emergency_phone}
+                onChange={(v) => setProfile({ ...profile, emergency_phone: v })}
+                placeholder="+91 …"
+                readOnly={mode === "view"}
+                error={
+                  profile.emergency_phone && !isPhone(profile.emergency_phone)
+                    ? "Enter a valid phone number"
+                    : ""
+                }
+              />
+            </div>
+            <Field
+              label="Vehicle number"
+              value={profile.vehicle_number}
+              onChange={(v) => setProfile({ ...profile, vehicle_number: v.toUpperCase() })}
+              placeholder="e.g., DL01AB1234"
+              readOnly={mode === "view"}
+            />
+          </CardSection>
+
+          <CardSection
+            emoji="✍️"
+            title="Signature / Consent"
+            blurb="A quick confirmation of our policies."
+          >
+            <Checkbox
+              label={
+                <>
+                  I agree to the{" "}
+                  <a className="underline" href="/about" target="_blank" rel="noreferrer">About</a>,{" "}
+                  <a className="underline" href="/terms" target="_blank" rel="noreferrer">Terms</a>{" "}
+                  and{" "}
+                  <a className="underline" href="/privacy" target="_blank" rel="noreferrer">Policies</a>.
+                </>
+              }
+              checked={!!profile.consent_terms}
+              onChange={(v) => setProfile({ ...profile, consent_terms: v })}
+              required
+              readOnly={mode === "view"}
+            />
+          </CardSection>
+
+          {error ? <p className="text-sm text-red-600 -mt-2">{error}</p> : null}
+        </form>
+      </div>
     </main>
+  );
+}
+
+/** ---------- Small UI helpers ---------- */
+function CardSection({
+  emoji,
+  title,
+  blurb,
+  children,
+}: {
+  emoji: string;
+  title: string;
+  blurb?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-xl border p-4 bg-white/95 shadow-xs">
+      <div className="mb-3">
+        <h2 className="text-base font-semibold flex items-center gap-2">
+          <span className="text-lg">{emoji}</span>
+          {title}
+        </h2>
+        {blurb ? <p className="text-xs text-gray-600 mt-1">{blurb}</p> : null}
+      </div>
+      <div className="grid gap-3">{children}</div>
+    </section>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+  placeholder,
+  required,
+  readOnly,
+  error,
+}: {
+  label: string;
+  value: string;
+  onChange?: (v: string) => void;
+  placeholder?: string;
+  required?: boolean;
+  readOnly?: boolean;
+  error?: string;
+}) {
+  const id = useMemo(() => label.toLowerCase().replace(/\s+/g, "-"), [label]);
+  return (
+    <div className="grid gap-1">
+      <label htmlFor={id} className="text-sm">
+        {label} {required ? <span className="text-red-600">*</span> : null}
+      </label>
+      {readOnly ? (
+        <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm">{value || "—"}</div>
+      ) : (
+        <input
+          id={id}
+          className={`rounded-lg border px-3 py-2 text-sm outline-none focus:ring
+            ${error ? "border-red-500" : "border-gray-300"}`}
+          value={value}
+          onChange={(e) => onChange?.(e.target.value)}
+          placeholder={placeholder}
+          required={required}
+        />
+      )}
+      {error ? <p className="text-xs text-red-600">{error}</p> : null}
+    </div>
+  );
+}
+
+function TextArea({
+  label,
+  value,
+  onChange,
+  placeholder,
+  readOnly,
+}: {
+  label: string;
+  value: string;
+  onChange?: (v: string) => void;
+  placeholder?: string;
+  readOnly?: boolean;
+}) {
+  const id = useMemo(() => label.toLowerCase().replace(/\s+/g, "-"), [label]);
+  return (
+    <div className="grid gap-1">
+      <label htmlFor={id} className="text-sm">{label}</label>
+      {readOnly ? (
+        <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm whitespace-pre-wrap">
+          {value || "—"}
+        </div>
+      ) : (
+        <textarea
+          id={id}
+          className="rounded-lg border px-3 py-2 text-sm outline-none focus:ring min-h-[90px]"
+          value={value}
+          onChange={(e) => onChange?.(e.target.value)}
+          placeholder={placeholder}
+        />
+      )}
+    </div>
+  );
+}
+
+function Select({
+  label,
+  value,
+  onChange,
+  options,
+  required,
+  readOnly,
+}: {
+  label: string;
+  value: string;
+  onChange?: (v: string) => void;
+  options: string[];
+  required?: boolean;
+  readOnly?: boolean;
+}) {
+  const id = useMemo(() => label.toLowerCase().replace(/\s+/g, "-"), [label]);
+  return (
+    <div className="grid gap-1">
+      <label htmlFor={id} className="text-sm">
+        {label} {required ? <span className="text-red-600">*</span> : null}
+      </label>
+      {readOnly ? (
+        <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm">{value || "—"}</div>
+      ) : (
+        <select
+          id={id}
+          className="rounded-lg border px-3 py-2 text-sm"
+          value={value}
+          onChange={(e) => onChange?.(e.target.value)}
+          required={required}
+        >
+          <option value="">Select</option>
+          {options.map((op) => (
+            <option key={op} value={op}>
+              {op}
+            </option>
+          ))}
+        </select>
+      )}
+    </div>
+  );
+}
+
+function Checkbox({
+  label,
+  checked,
+  onChange,
+  required,
+  readOnly,
+}: {
+  label: React.ReactNode;
+  checked: boolean;
+  onChange?: (v: boolean) => void;
+  required?: boolean;
+  readOnly?: boolean;
+}) {
+  return (
+    <label className="flex items-start gap-3 text-sm">
+      {readOnly ? (
+        <input type="checkbox" checked={checked} readOnly className="mt-1" />
+      ) : (
+        <input
+          type="checkbox"
+          className="mt-1"
+          checked={checked}
+          onChange={(e) => onChange?.(e.target.checked)}
+          required={required}
+        />
+      )}
+      <span>
+        {label} {required ? <span className="text-red-600">*</span> : null}
+      </span>
+    </label>
   );
 }

@@ -1,12 +1,13 @@
 // web/src/components/BackHome.tsx
-import { useLocation, useNavigate } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 
 const APP_PREFIXES = [
   "/guest", "/owner", "/desk", "/hk", "/maint", "/grid",
   "/stay", "/menu", "/precheck", "/regcard", "/bill", "/admin",
 ];
 
-const HIDE_PREFIXES = ["/", "/signin", "/auth/callback", "/welcome"];
+// Pages where the pill should not be shown
+const HIDE_PREFIXES = ["/", "/signin", "/auth/callback"];
 
 function startsWithAny(path: string, list: string[]) {
   // exact match or "prefix + /..."
@@ -15,26 +16,24 @@ function startsWithAny(path: string, list: string[]) {
 
 export default function BackHome() {
   const { pathname } = useLocation();
-  const navigate = useNavigate();
 
-  // never show on marketing/auth
-  if (pathname === "/" || startsWithAny(pathname, HIDE_PREFIXES)) return null;
+  // Never show on home/auth
+  if (startsWithAny(pathname, HIDE_PREFIXES)) return null;
 
-  // only show on real in-app surfaces
+  // Only show on real in-app surfaces
   const isApp = startsWithAny(pathname, APP_PREFIXES);
   if (!isApp) return null;
 
+  // Always go to the public landing (/)
   return (
-    <div className="p-2">
-      <button
-        className="btn btn-light"
-        onClick={() => {
-          if (window.history.length > 1) navigate(-1);
-          else navigate("/guest"); // safe default
-        }}
+    <div className="fixed left-3 top-3 z-40">
+      <NavLink
+        to="/"
+        className="inline-flex items-center gap-2 rounded-xl border bg-white/95 px-3 py-2 text-sm shadow hover:bg-white"
+        aria-label="Go to home"
       >
         ← Back home
-      </button>
+      </NavLink>
     </div>
   );
 }

@@ -7,30 +7,39 @@ import BackHome from "../components/BackHome";
 /** ---------- Types ---------- */
 type ProfileRecord = {
   id?: string;                 // user id (uuid)
+  vaiyu_id?: string | null;    // read-only VAiyu ID like V-123456
+
   // User Profile
   full_name: string;
   phone: string;
   email: string;
+
   // KYC
   govt_id_type: "Aadhar" | "DL" | "Passport" | "Voter ID" | "";
   govt_id_number: string;
   address: string;
+  govt_id_file_url?: string | null; // public URL of uploaded KYC doc
+
   // Other
   emergency_name: string;
   emergency_phone: string;
   vehicle_number: string;
+
   // Consent
   consent_terms: boolean;
+
   updated_at?: string | null;
 };
 
 const EMPTY: ProfileRecord = {
+  vaiyu_id: null,
   full_name: "",
   phone: "",
   email: "",
   govt_id_type: "",
   govt_id_number: "",
   address: "",
+  govt_id_file_url: null,
   emergency_name: "",
   emergency_phone: "",
   vehicle_number: "",
@@ -122,12 +131,14 @@ function safeWriteLocal(p: ProfileRecord) {
 function normalizeFromDb(row: any): ProfileRecord {
   return {
     id: row.id,
+    vaiyu_id: row.vaiyu_id ?? null,
     full_name: row.full_name ?? "",
     phone: row.phone ?? "",
     email: row.email ?? "",
     govt_id_type: row.govt_id_type ?? "",
     govt_id_number: row.govt_id_number ?? "",
     address: row.address ?? "",
+    govt_id_file_url: row.govt_id_file_url ?? null,
     emergency_name: row.emergency_name ?? "",
     emergency_phone: row.emergency_phone ?? "",
     vehicle_number: row.vehicle_number ?? "",
@@ -138,12 +149,14 @@ function normalizeFromDb(row: any): ProfileRecord {
 function normalizeToDb(id: string, p: ProfileRecord) {
   return {
     id,
+    vaiyu_id: p.vaiyu_id ?? null,
     full_name: p.full_name || null,
     phone: p.phone || null,
     email: p.email || null,
     govt_id_type: p.govt_id_type || null,
     govt_id_number: p.govt_id_number || null,
     address: p.address || null,
+    govt_id_file_url: p.govt_id_file_url || null,
     emergency_name: p.emergency_name || null,
     emergency_phone: p.emergency_phone || null,
     vehicle_number: p.vehicle_number || null,
@@ -161,6 +174,10 @@ export default function Profile() {
   const [error, setError] = useState<string | null>(null);
   const [source, setSource] = useState<"db" | "local">("local");
   const [savedOnce, setSavedOnce] = useState(false);
+
+  // KYC upload state
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -199,6 +216,54 @@ export default function Profile() {
     setSource(where);
     setMode("view");
     setSavedOnce(true);
+  }
+
+  async function handleKycFile(e: React.ChangeEvent<HTMLInputElement>) {
+    setUploadError(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Basic checks
+    const allowed = ["image/png", "image/jpeg", "image/webp", "application/pdf"];
+    if (!allowed.includes(file.type)) {
+      setUploadError("Please upload a PNG, JPG, WEBP, or PDF file.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError("File is too large. Max 5 MB.");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const uid = sess?.session?.user?.id;
+      if (!uid) {
+        setUploadError("You must be signed in to upload.");
+        setUploading(false);
+        return;
+      }
+
+      const safeName = file.name.replace(/[^\w.\-]+/g, "_");
+      const path = `${uid}/${Date.now()}-${safeName}`;
+
+      // Upload to "kyc" bucket (make sure this bucket exists, public or with RLS that allows read)
+      const { error: upErr } = await supabase.storage.from("kyc").upload(path, file, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: file.type,
+      });
+      if (upErr) throw upErr;
+
+      const { data: pub } = supabase.storage.from("kyc").getPublicUrl(path);
+      const publicUrl = pub?.publicUrl ?? null;
+
+      setProfile((p) => ({ ...p, govt_id_file_url: publicUrl }));
+    } catch (err: any) {
+      setUploadError(err?.message ?? "Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+    }
   }
 
   if (loading) {
@@ -263,6 +328,11 @@ export default function Profile() {
             blurb="How we address you & get in touch."
           >
             <Field
+              label="VAiyu ID"
+              value={profile.vaiyu_id || ""}
+              readOnly
+            />
+            <Field
               label="Full name "
               value={profile.full_name}
               onChange={(v) => setProfile({ ...profile, full_name: v })}
@@ -315,6 +385,47 @@ export default function Profile() {
                 readOnly={mode === "view"}
               />
             </div>
+
+            {/* Attachment upload / view */}
+            {mode === "view" ? (
+              <div className="grid gap-1">
+                <label className="text-sm">KYC attachment</label>
+                {profile.govt_id_file_url ? (
+                  <a
+                    className="inline-block text-blue-700 underline text-sm"
+                    href={profile.govt_id_file_url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    View uploaded document
+                  </a>
+                ) : (
+                  <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm">—</div>
+                )}
+              </div>
+            ) : (
+              <div className="grid gap-1">
+                <label className="text-sm">KYC attachment (PNG/JPG/WEBP/PDF, max 5 MB)</label>
+                <input
+                  type="file"
+                  accept=".png,.jpg,.jpeg,.webp,.pdf"
+                  onChange={handleKycFile}
+                  disabled={uploading}
+                />
+                {uploading ? <p className="text-xs text-gray-600">Uploading…</p> : null}
+                {uploadError ? <p className="text-xs text-red-600">{uploadError}</p> : null}
+                {profile.govt_id_file_url ? (
+                  <p className="text-xs">
+                    Current:{" "}
+                    <a className="text-blue-700 underline" href={profile.govt_id_file_url} target="_blank" rel="noreferrer">
+                      view
+                    </a>{" "}
+                    (upload again to replace)
+                  </p>
+                ) : null}
+              </div>
+            )}
+
             <TextArea
               label="Residential address"
               value={profile.address}

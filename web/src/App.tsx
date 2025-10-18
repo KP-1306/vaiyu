@@ -9,7 +9,7 @@ import { supabase } from "./lib/supabase";
 // NEW: investor-grade AI sections
 import AIOperatingSystemBanner from "./components/AIOperatingSystemBanner";
 import VaiyuAIHeroImage from "./components/VaiyuAIHeroImage";
-import IntelligenceLoop from "./components/IntelligenceLoop";
+// import IntelligenceLoop from "./components/IntelligenceLoop";
 
 const TOKEN_KEY = "stay:token";
 
@@ -262,10 +262,10 @@ export default function App() {
       {/* NEW: Investor-grade AI OS banner + Intelligence Loop (replaces the old AI cards & steps) */}
       <section id="ai" className="mx-auto max-w-7xl px-4 pb-14">
         <AIOperatingSystemBanner />
-        <div className="mt-10">
-          <IntelligenceLoop theme="light" />
-        </div>
-      </section>
+   //     <div className="mt-10">
+     //     <IntelligenceLoop theme="light" />
+      //  </div>
+     // </section>
 
       {/* Approved VAiyu AI image */}
         <section id="ai-hero">

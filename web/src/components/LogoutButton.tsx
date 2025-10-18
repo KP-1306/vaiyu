@@ -1,13 +1,37 @@
-import LogoutButton from "./LogoutButton";
+// web/src/components/LogoutButton.tsx
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "../lib/supabase";
 
-// ...
-if (authed) {
+export default function LogoutButton({
+  className = "btn btn-light",
+  label = "Sign out",
+}: { className?: string; label?: string }) {
+  const [busy, setBusy] = useState(false);
+  const navigate = useNavigate();
+
+  async function handleSignOut() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // ignore – even if signOut throws, kick them to public home
+    } finally {
+      // ✅ public home after logout
+      navigate("/", { replace: true });
+    }
+  }
+
   return (
-    <div className="flex items-center gap-2">
-      {/* Optional: show who’s signed in */}
-      {/* <span className="text-sm text-muted-foreground">{userEmail}</span> */}
-      <a className="btn btn-light" href="/">Home</a>
-      <LogoutButton />
-    </div>
+    <button
+      type="button"
+      onClick={handleSignOut}
+      disabled={busy}
+      className={className}
+      aria-busy={busy}
+    >
+      {busy ? "Signing out…" : label}
+    </button>
   );
 }

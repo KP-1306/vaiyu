@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchJSON, asObject } from "../lib/safeFetch";
 import IntelligenceLoop from "../components/IntelligenceLoop";
+import AIOperatingSystemBanner from "../components/AIOperatingSystemBanner";
 
 type Status = { ok?: boolean; env?: string; version?: string } | null;
 
@@ -72,12 +73,17 @@ export default function HomeOrApp() {
         </p>
       </section>
 
-      {/* ✅ New: Public “Use Cases / VAiyu Intelligence Loop” */}
+      {/* ✅ Investor-grade AI OS banner */}
+      <section id="ai-os" className="py-8 md:py-12 bg-white">
+        <AIOperatingSystemBanner />
+      </section>
+
+      {/* ✅ Public “Use Cases / VAiyu Intelligence Loop” */}
       <section id="use-cases" className="py-8 md:py-12 bg-white">
-  <div className="mx-auto max-w-7xl px-0 md:px-8">
-    <IntelligenceLoop theme="light" />
-  </div>
-</section>
+        <div className="mx-auto max-w-7xl px-0 md:px-8">
+          <IntelligenceLoop theme="light" />
+        </div>
+      </section>
     </main>
   );
 }

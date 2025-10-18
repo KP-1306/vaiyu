@@ -272,19 +272,21 @@ export default function App() {
         <FAQShort />
       </section>
 
-      {/* Use-cases CTA (kept as-is) */}
-      <section id="use-cases" className="mx-auto max-w-7xl px-4 pb-16">
-        <div className="flex items-end justify-between">
-          <div>
-            <h3 className="text-xl font-semibold">See it in action</h3>
-            <p className="text-gray-600">
-              From pre-check-in to service requests and owner KPIs — built for real operations.
-            </p>
-          </div>
-          <div>
-            <Link to={isAuthed ? "/guest" : "/signin?intent=signup&redirect=/guest"} className="btn">
-              {isAuthed ? "Open app" : "Get started"}
-            </Link>
+      {/* Contact CTA (replaces old 'See it in action') */}
+      <section id="contact-cta" className="mx-auto max-w-7xl px-4 pb-16">
+        <div className="rounded-3xl border border-gray-200 bg-white p-8 sm:p-10 shadow-sm">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="text-center md:text-left">
+              <h3 className="text-2xl font-semibold text-gray-900">Want a walkthrough for your property?</h3>
+              <p className="text-gray-600 mt-1">
+                We’ll brand the demo with your details and share a 7-day pilot plan.
+              </p>
+            </div>
+            <div className="flex-shrink-0">
+              <Link to="/contact" className="btn">
+                Contact us
+              </Link>
+            </div>
           </div>
         </div>
       </section>

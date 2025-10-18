@@ -7,6 +7,8 @@ import { supabase } from "./lib/supabase";
 
 // NEW alternating image–text section
 import AIShowcase from "./components/AIShowcase";
+import ResultsAndSocialProof from "@/components/ResultsAndSocialProof";
+
 
 const TOKEN_KEY = "stay:token";
 

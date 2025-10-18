@@ -1,3 +1,4 @@
+// web/src/routes/Profile.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -193,6 +194,12 @@ export default function Profile() {
     return () => { mounted = false; };
   }, []);
 
+  // ✅ Consent becomes immutable once accepted and saved to DB (or after first successful save).
+  const consentLocked = useMemo(
+    () => !!profile.consent_terms && (source === "db" || savedOnce),
+    [profile.consent_terms, source, savedOnce]
+  );
+
   const requiredOk = useMemo(() => {
     if (!profile.full_name.trim()) return false;
     if (!isPhone(profile.phone)) return false;
@@ -215,7 +222,7 @@ export default function Profile() {
     setSaving(false);
     setSource(where);
     setMode("view");
-    setSavedOnce(true);
+    setSavedOnce(true); // lock consent within this session after a successful save
   }
 
   async function handleKycFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -488,7 +495,7 @@ export default function Profile() {
               checked={!!profile.consent_terms}
               onChange={(v) => setProfile({ ...profile, consent_terms: v })}
               required
-              readOnly={mode === "view"}
+              readOnly={mode === "view" || consentLocked}
             />
           </CardSection>
 

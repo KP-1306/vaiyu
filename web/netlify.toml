@@ -20,7 +20,7 @@
 # Old links → new flow
 [[redirects]]
   from = "/welcome"
-  to = "/"
+  to = "/guest"
   status = 301
   force = true
 

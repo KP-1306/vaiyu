@@ -6,10 +6,9 @@ import HeroCarousel from "./components/HeroCarousel";
 // Supabase client
 import { supabase } from "./lib/supabase";
 
-// NEW: investor-grade AI sections
+// Investor-grade AI sections
 import AIOperatingSystemBanner from "./components/AIOperatingSystemBanner";
 import VaiyuAIHeroImage from "./components/VaiyuAIHeroImage";
-import IntelligenceLoop from "./components/IntelligenceLoop";
 
 const TOKEN_KEY = "stay:token";
 
@@ -259,18 +258,13 @@ export default function App() {
         </div>
       </section>
 
-      {/* NEW: Investor-grade AI OS banner + Intelligence Loop (replaces the old AI cards & steps) */}
+      {/* AI section: Investor banner + Approved image */}
       <section id="ai" className="mx-auto max-w-7xl px-4 pb-14">
         <AIOperatingSystemBanner />
-       <div className="mt-10">
-        <IntelligenceLoop theme="light" />
-     </div>
+        <div className="mt-10">
+          <VaiyuAIHeroImage />
+        </div>
       </section>
-
-      {/* Approved VAiyu AI image */}
-        <section id="ai-hero">
-    <VaiyuAIHeroImage />
-       </section>
 
       {/* Use-cases */}
       <section id="use-cases" className="mx-auto max-w-7xl px-4 pb-16">

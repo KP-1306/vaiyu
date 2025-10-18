@@ -16,14 +16,14 @@ export default function PublicGate({ children }: { children: React.ReactNode }) 
     (async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session) {
-        navigate("/welcome", { replace: true });
+        navigate("/guest", { replace: true });
         return;
       }
       setReady(true);
 
       // If they sign in while on a public page, move them to /welcome
       const sub = supabase.auth.onAuthStateChange((_evt, session) => {
-        if (session) navigate("/welcome", { replace: true });
+        if (session) navigate("/guest", { replace: true });
       });
       unsub = () => sub.data.subscription.unsubscribe();
     })();

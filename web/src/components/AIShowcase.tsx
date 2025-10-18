@@ -17,7 +17,7 @@ export default function AIShowcase() {
             bullets={[
               "Elevates guest experience with real-time intelligence",
               "Guides teams with predictive SLAs and precise nudges",
-              "Owner-approved outputs—brand-safe by design",
+              "Owner-approved outputs — brand-safe by design",
             ]}
             cta={{ label: "See it in action", href: "#use-cases" }}
           />
@@ -63,7 +63,7 @@ function Figure({
   return (
     <figure className="m-0">
       <div className="rounded-2xl ring-1 ring-slate-200 bg-white overflow-hidden shadow-sm">
-        {/* Maintain generous real estate without distortion */}
+        {/* Large & crisp, never stretched or squished */}
         <img
           src={src}
           srcSet={src2x ? `${src} 1x, ${src2x} 2x` : undefined}
@@ -72,7 +72,8 @@ function Figure({
           loading={eager ? "eager" : "lazy"}
           fetchPriority={eager ? "high" : "auto"}
           decoding="async"
-          sizes="(min-width: 1024px) 640px, 100vw"
+          /* Big on desktop (~720px), full-width on mobile */
+          sizes="(min-width: 1280px) 720px, (min-width: 1024px) 680px, 100vw"
         />
       </div>
       <figcaption className="sr-only">{alt}</figcaption>

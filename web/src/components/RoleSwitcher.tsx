@@ -30,7 +30,7 @@ export default function RoleSwitcher() {
   // Optional: if user is in owner area but has no properties anymore → push to /welcome
   useEffect(() => {
     if (!loading && loc.pathname.startsWith("/owner") && propsIManage.length === 0) {
-      nav("/welcome", { replace:true });
+    nav("/owner/register", { replace: true });
     }
   }, [loading, propsIManage.length, loc.pathname, nav]);
 

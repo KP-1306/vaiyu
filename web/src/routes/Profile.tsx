@@ -263,7 +263,7 @@ export default function Profile() {
             blurb="How we address you & get in touch."
           >
             <Field
-              label="Full name *"
+              label="Full name "
               value={profile.full_name}
               onChange={(v) => setProfile({ ...profile, full_name: v })}
               placeholder="Your full legal name"
@@ -271,7 +271,7 @@ export default function Profile() {
               readOnly={mode === "view"}
             />
             <Field
-              label="Mobile number *"
+              label="Mobile number "
               value={profile.phone}
               onChange={(v) => setProfile({ ...profile, phone: v })}
               placeholder="+91 9xxxxxxxxx"
@@ -280,7 +280,7 @@ export default function Profile() {
               error={profile.phone && !isPhone(profile.phone) ? "Enter a valid phone number" : ""}
             />
             <Field
-              label="Email *"
+              label="Email "
               value={profile.email}
               onChange={(v) => setProfile({ ...profile, email: v })}
               placeholder="you@example.com"
@@ -297,7 +297,7 @@ export default function Profile() {
           >
             <div className="grid gap-3 md:grid-cols-2">
               <Select
-                label="Government ID type *"
+                label="Government ID type "
                 value={profile.govt_id_type}
                 onChange={(v) =>
                   setProfile({ ...profile, govt_id_type: v as ProfileRecord["govt_id_type"] })
@@ -307,7 +307,7 @@ export default function Profile() {
                 readOnly={mode === "view"}
               />
               <Field
-                label="Government ID number *"
+                label="Government ID number "
                 value={profile.govt_id_number}
                 onChange={(v) => setProfile({ ...profile, govt_id_number: v })}
                 placeholder="Enter ID number exactly as on document"

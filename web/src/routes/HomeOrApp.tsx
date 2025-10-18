@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchJSON, asObject } from "../lib/safeFetch";
+import IntelligenceLoop from "../components/IntelligenceLoop";
 
 type Status = { ok?: boolean; env?: string; version?: string } | null;
 
@@ -64,9 +65,19 @@ export default function HomeOrApp() {
 
       <section className="p-4 border rounded-xl bg-white/60">
         <p className="text-gray-700">
-          Use the top links or go directly to <a className="text-blue-700 underline" href="/guest">Guest Dashboard</a>.
+          Use the top links or go directly to{" "}
+          <a className="text-blue-700 underline" href="/guest">
+            Guest Dashboard
+          </a>.
         </p>
       </section>
+
+      {/* ✅ New: Public “Use Cases / VAiyu Intelligence Loop” */}
+      <section id="use-cases" className="py-8 md:py-12 bg-white">
+  <div className="mx-auto max-w-7xl px-0 md:px-8">
+    <IntelligenceLoop theme="light" />
+  </div>
+</section>
     </main>
   );
 }

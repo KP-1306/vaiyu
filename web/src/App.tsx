@@ -8,10 +8,14 @@ import { supabase } from "./lib/supabase";
 // Existing alternating image–text section
 import AIShowcase from "./components/AIShowcase";
 
-// NEW: Section 4 – Results & Social Proof
+// 4) Results & Social Proof
 import ResultsAndSocialProof from "./components/ResultsAndSocialProof";
-// NEW: Section 5 – Onboarding, Security & Integrations (Option A – Glass Band)
+// 5) Onboarding, Security & Integrations (Glass Band)
 import GlassBand_OnboardingSecurityIntegrations from "./components/GlassBand_OnboardingSecurityIntegrations";
+// 6) Live Product Peek (static image version)
+import LiveProductPeek from "./components/LiveProductPeek";
+// 7) FAQ (short)
+import FAQShort from "./components/FAQShort";
 
 const TOKEN_KEY = "stay:token";
 
@@ -258,7 +262,17 @@ export default function App() {
         <GlassBand_OnboardingSecurityIntegrations />
       </section>
 
-      {/* Use-cases CTA (kept as-is; you can move below sections if you prefer) */}
+      {/* 6) Live Product Peek — static poster image */}
+      <section className="mx-auto max-w-7xl px-4 pb-16">
+        <LiveProductPeek />
+      </section>
+
+      {/* 7) FAQ (short, with answers) */}
+      <section className="mx-auto max-w-7xl px-4 pb-20">
+        <FAQShort />
+      </section>
+
+      {/* Use-cases CTA (kept as-is) */}
       <section id="use-cases" className="mx-auto max-w-7xl px-4 pb-16">
         <div className="flex items-end justify-between">
           <div>

@@ -9,9 +9,9 @@ import { supabase } from "./lib/supabase";
 import AIShowcase from "./components/AIShowcase";
 
 // NEW: Section 4 – Results & Social Proof
-import ResultsAndSocialProof from "@/components/ResultsAndSocialProof";
+import ResultsAndSocialProof from "./components/ResultsAndSocialProof";
 // NEW: Section 5 – Onboarding, Security & Integrations (Option A – Glass Band)
-import GlassBand_OnboardingSecurityIntegrations from "@/components/GlassBand_OnboardingSecurityIntegrations";
+import GlassBand_OnboardingSecurityIntegrations from "./components/GlassBand_OnboardingSecurityIntegrations";
 
 const TOKEN_KEY = "stay:token";
 

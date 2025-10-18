@@ -93,7 +93,7 @@ export default function SignIn() {
     setLoading(true);
     try {
       // CHANGED: default to "/" instead of "/welcome"
-      const desired = redirect || "/"; // was "/welcome"
+      const desired = redirect || "/guest";
       const redirectTo = `${ORIGIN}/auth/callback?redirect=${encodeURIComponent(
         desired
       )}`;
@@ -118,7 +118,7 @@ export default function SignIn() {
 
   function continueSignedIn() {
     // CHANGED: default to "/" instead of "/welcome"
-    const dest = redirect || "/"; // was "/welcome"
+    const dest = redirect || "/guest";
     navigate(dest, { replace: true });
   }
 

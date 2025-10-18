@@ -10,9 +10,9 @@ import Spinner from "../components/Spinner";
  * - Coerce any legacy "/welcome" URLs to "/"
  * - Fallback to "/" if anything looks off
  */
-function safeRedirect(raw: string | null | undefined, fallback = "/") {
-  const normalize = (p: string) => (p.startsWith("/welcome") ? "/" : p);
-
+function safeRedirect(raw: string | null | undefined, fallback = "/guest") {
+   const normalize = (p: string) => (p.startsWith("/welcome") ? "/guest" : p);
+  
   if (!raw) return fallback;
   try {
     const u = new URL(raw, window.location.origin);

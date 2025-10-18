@@ -2,21 +2,9 @@ import React from "react";
 
 export default function LiveProductPeek() {
   const items = [
-    {
-      title: "Guest — Pre-check-in → Request → Live status",
-      src: "/videos/guest_peek.mp4",
-      poster: "/illustrations/peek_guest_poster.jpg",
-    },
-    {
-      title: "Staff — HK ticket → Countdown → On-time/Late dashboard",
-      src: "/videos/staff_peek.mp4",
-      poster: "/illustrations/peek_staff_poster.jpg",
-    },
-    {
-      title: "Owner — AI review draft → Approve → Publish",
-      src: "/videos/owner_peek.mp4",
-      poster: "/illustrations/peek_owner_poster.jpg",
-    },
+    { tag: "Guest", title: "Pre-check-in → Request → Live status" },
+    { tag: "Staff", title: "HK ticket → Countdown → On-time/Late dashboard" },
+    { tag: "Owner", title: "AI review draft → Approve → Publish" },
   ];
 
   return (
@@ -25,25 +13,31 @@ export default function LiveProductPeek() {
         <div className="text-center mb-10">
           <h2 className="text-3xl sm:text-4xl font-semibold text-gray-900">Live Product Peek</h2>
           <p className="mt-3 text-gray-600 max-w-3xl mx-auto">
-            Three quick clips. Real flows, no fluff.
+            Three quick flows, captured from the real product.
           </p>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
-          {items.map((v) => (
-            <figure key={v.title} className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-              <div className="bg-gray-900 text-gray-200 px-4 py-2 text-xs">{v.title}</div>
-              <video
+          {items.map((it) => (
+            <figure key={it.tag} className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+              {/* Title bar */}
+              <div className="bg-gray-900 text-gray-100 px-4 py-2 text-xs">
+                {it.tag} — {it.title}
+              </div>
+
+              {/* Static poster image */}
+              <img
+                src="/illustrations/peek_poster.jpg"
+                alt={`${it.tag} flow preview`}
                 className="w-full aspect-[16/10] object-cover"
-                muted
-                playsInline
-                autoPlay
-                loop
-                preload="metadata"
-                poster={v.poster}
-              >
-                <source src={v.src} type="video/mp4" />
-              </video>
+                loading="lazy"
+                decoding="async"
+              />
+
+              {/* Caption row */}
+              <figcaption className="px-4 py-3 text-sm text-gray-700 border-t border-gray-100">
+                {it.tag} flow: {it.title}
+              </figcaption>
             </figure>
           ))}
         </div>

@@ -164,7 +164,7 @@ const slides = [
             <Link to="/about" className="hover:text-gray-700">About</Link>
 
             {!isAuthed && (
-              <Link to="/signin?redirect=/welcome" className="hover:text-gray-700">
+              <Link to="/signin?redirect=/guest" className="hover:text-gray-700">
                 Sign in
               </Link>
             )}

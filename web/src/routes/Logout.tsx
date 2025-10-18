@@ -3,11 +3,12 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
-// Utilities to purge any lingering local/session storage keys
+/**
+ * Remove any lingering Supabase session keys from localStorage.
+ * Supabase stores sessions under keys like: sb-<project-ref>-auth-token
+ */
 function hardClearSupabaseStorage() {
   try {
-    // Supabase stores the session in a key like: sb-<project-ref>-auth-token
-    // We’ll remove anything that looks like it.
     const keys: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
@@ -15,31 +16,47 @@ function hardClearSupabaseStorage() {
       if (k.startsWith("sb-") && k.endsWith("-auth-token")) keys.push(k);
     }
     keys.forEach((k) => localStorage.removeItem(k));
-  } catch {}
+  } catch {
+    /* ignore */
+  }
 }
 
 export default function Logout() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    let cancelled = false;
+
     (async () => {
       try {
-        // 1) Revoke refresh token server-side and clear client state.
-        //    scope:'global' ensures other tabs also get signed out.
+        // 1) Revoke refresh token server-side for ALL tabs.
         await supabase.auth.signOut({ scope: "global" });
       } catch {
-        // ignore, we’ll force-clear anyway
+        // ignore – we'll still clear client cache and redirect
       }
 
-      // 2) Belt & suspenders: clear any lingering auth cache
+      // 2) Extra hygiene (client-side)
       hardClearSupabaseStorage();
-      localStorage.removeItem("va:guest");       // if you store guest info
-      sessionStorage.clear();                    // optional
+      try {
+        localStorage.removeItem("va:guest"); // if you cache guest info
+      } catch {}
+      try {
+        sessionStorage.clear();
+      } catch {}
 
-      // 3) Redirect to sign-in (add cache-buster so browsers don’t reuse history)
-      navigate(`/signin?intent=signin&_=${Date.now()}`, { replace: true });
+      // 3) Redirect to PUBLIC HOME (consistent with BackHome pill + new flow)
+      if (!cancelled) navigate("/", { replace: true });
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [navigate]);
 
-  return null;
+  // Lightweight UX while sign-out happens
+  return (
+    <main className="min-h-[40vh] grid place-items-center">
+      <p className="text-sm text-gray-600">Signing you out…</p>
+    </main>
+  );
 }

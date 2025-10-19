@@ -3,12 +3,10 @@ import React from "react";
 export default function LiveProductPeek() {
   const items = [
     { tag: "Guest", poster: "/illustrations/peek_guest.png", y: 0 },
-    // staff poster has extra canvas at the bottom; lift it a bit (no crop to content)
-    { tag: "Staff", poster: "/illustrations/peek_staff.png", y: -10 },
+    { tag: "Staff", poster: "/illustrations/peek_staff.png", y: -10 }, // lift to counter extra canvas
     { tag: "Owner", poster: "/illustrations/peek_owner.png", y: 0 },
   ] as const;
 
-  // Fallback image in case any poster is missing
   const FALLBACK = "/illustrations/peek_poster.png";
 
   return (
@@ -29,13 +27,12 @@ export default function LiveProductPeek() {
               key={it.tag}
               className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden"
             >
-              {/* Fixed-height frame (equal for all), keep full image with object-contain */}
               <div className="w-full h-[360px] bg-gray-50 grid place-items-center">
                 <img
                   src={it.poster}
                   alt={`${it.tag} flow preview`}
                   className="h-full w-auto object-contain select-none"
-                  style={{ transform: `translateY(${it.y}px)` }} // subtle lift for Staff only
+                  style={{ transform: `translateY(${it.y}px)` }}
                   loading="lazy"
                   decoding="async"
                   draggable={false}
@@ -48,16 +45,6 @@ export default function LiveProductPeek() {
               </div>
             </figure>
           ))}
-        </div>
-
-        {/* CTA */}
-        <div className="mt-8 text-center">
-          <a
-            href="/demo?property=sample"
-            className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-3 text-white font-medium hover:bg-blue-700 shadow"
-          >
-            Try a sample property
-          </a>
         </div>
       </div>
     </section>

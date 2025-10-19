@@ -1,4 +1,3 @@
-// web/src/routes/AboutUs.tsx
 import { Link } from 'react-router-dom';
 import SEO from '../components/SEO';
 
@@ -7,7 +6,7 @@ export default function AboutUs() {
     <main className="min-h-screen bg-gray-50 text-gray-900">
       <SEO
         title="About VAiyu"
-        description="Building the operating system for modern hospitality — uniting guest experience, hotel ops, and truth-anchored AI."
+        description="VAiyu is the operating system for modern hospitality—uniting guest experience, hotel operations, sustainability signals, and truth-anchored AI."
       />
 
       {/* Hero */}
@@ -26,18 +25,21 @@ export default function AboutUs() {
             Building the operating system for modern hospitality
           </h1>
           <p className="mt-3 max-w-2xl text-white/85">
-            We’re on a mission to make every stay feel effortless—by uniting guest experience,
-            hotel operations and <b>truth-anchored AI</b> on a single platform.
+            We make every stay feel effortless—by uniting guest experience, hotel operations,
+            sustainability signals and <b>truth-anchored AI</b> on a single, calm platform.
           </p>
-          <div className="mt-6 flex gap-3">
+
+          {/* CTAs — “See Owner Dashboard” removed earlier; keep these two */}
+          <div className="mt-6 flex flex-wrap gap-3">
             <Link to="/about-ai" className="btn !bg-white !text-gray-900 hover:!bg-gray-50">
               How our AI works
             </Link>
-            <Link to="/owner/dashboard?slug=sunrise" className="btn btn-light">
-              See Owner Dashboard
+            <Link to="/contact" className="btn btn-light">
+              Contact us
             </Link>
           </div>
         </div>
+
         <svg
           viewBox="0 0 1440 140"
           className="absolute bottom-[-1px] left-0 w-full pointer-events-none"
@@ -47,60 +49,92 @@ export default function AboutUs() {
         </svg>
       </section>
 
-      {/* Mission + Numbers */}
+      {/* Mission — authentic, with sustainability / energy signals */}
       <section className="mx-auto max-w-6xl px-4 py-12">
         <div className="grid lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 card bg-white">
+          <div className="lg:col-span-3 card bg-white">
             <h2 className="text-xl font-semibold">Our mission</h2>
             <p className="mt-2 text-gray-700">
-              Hospitality should feel human, not hectic. VAiyu gives hotels a single, elegant system that
-              connects guests, teams and data—so service is faster, SLAs are clearer, and reviews reflect
-              the truth of the stay. We call it <b>Where Intelligence Meets Comfort.</b>
+              Hospitality should feel human—and calm. VAiyu gives hotels one intelligent system that
+              connects guests, teams, owners and devices in real time. We predict service risk, route
+              work with clear SLAs, and ground every AI output in verified activity. The result: faster
+              service, fewer misses, better margins and reviews that reflect the truth of the stay.
             </p>
-            <div className="mt-4 grid sm:grid-cols-2 gap-3">
-              <Bullet>Guest-first UX: microsites, in-stay ordering, live request tracking.</Bullet>
-              <Bullet>Ops that hum: housekeeping, kitchen and desk with real-time updates.</Bullet>
-              <Bullet>Truth-anchored AI: summaries and review drafts grounded in real activity.</Bullet>
-              <Bullet>Owner clarity: KPIs, SLA signals and policy hints that drive action.</Bullet>
-            </div>
-          </div>
 
-          <div className="card bg-white">
-            <h3 className="text-sm font-semibold text-gray-600">
-              In numbers <span className="text-xs text-gray-400">(demo)</span>
-            </h3>
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              <Stat label="Avg. resolution" value="⟲ 23m" />
-              <Stat label="On-time rate" value="92%" />
-              <Stat label="Requests handled" value="12k" />
-              <Stat label="Kitchen orders" value="8k" />
+            <div className="mt-4 grid sm:grid-cols-2 gap-3">
+              <Bullet>Guest experience: contactless pre-check-in, live request tracking, transparent bills.</Bullet>
+              <Bullet>Staff efficiency: housekeeping, kitchen and desk with real-time updates and SLA nudges.</Bullet>
+              <Bullet>Owner clarity: KPIs, exceptions, and policy hints that turn insight into action.</Bullet>
+              <Bullet>Truth-anchored AI: summaries and review drafts grounded in tickets, orders and SLAs—with owner approval.</Bullet>
+              <Bullet>Grid-smart operations: <b>tariff-aware device shedding</b>, <b>peak-hour playbooks</b> and <b>carbon-aware scheduling</b> to reduce cost and impact.</Bullet>
             </div>
-            <p className="mt-3 text-xs text-gray-500">
-              Replace with live metrics when your data pipeline is connected.
-            </p>
           </div>
         </div>
       </section>
 
-      {/* What we build */}
+      {/* What we build — improved structure (4 pillars + 2 enablers) */}
       <section className="mx-auto max-w-6xl px-4 pb-6">
         <h2 className="text-xl font-semibold">What we build</h2>
-        <div className="mt-3 grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Tile title="Guest Microsite" desc="Contactless check-in, in-stay menu, live tickets & transparent bills." emoji="📱" />
-          <Tile title="Ops Console" desc="Desk, HK & Kitchen with SSE live updates—no refresh, no polling." emoji="🛠️" />
-          <Tile title="AI Experience" desc="Drafts reviews and summaries grounded in tickets, orders & SLAs." emoji="🤖" />
-          <Tile title="Owner Intelligence" desc="KPIs, SLA breaches and policy hints—actionable, not just charts." emoji="📊" />
+        <p className="mt-1 text-gray-600">Six pieces, one calm system.</p>
+        <div className="mt-3 grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <Tile
+            title="Guest Microsite"
+            desc="Contactless check-in, in-stay menu, live tickets and transparent bills—no app to download."
+            emoji="📱"
+          />
+          <Tile
+            title="Ops Console"
+            desc="Desk, Housekeeping and Kitchen with SSE live updates, SLA timers and one-tap actions."
+            emoji="🛠️"
+          />
+          <Tile
+            title="Owner Intelligence"
+            desc="KPIs, SLA breaches and policy hints—clear paths from signal to action."
+            emoji="📊"
+          />
+          <Tile
+            title="AI Experience"
+            desc="Truth-anchored summaries and review drafts grounded in verified activity, with brand-safe approval."
+            emoji="🤖"
+          />
+          <Tile
+            title="Grid & Sustainability"
+            desc="Tariff-aware device shedding, peak-hour playbooks, carbon-aware schedules and energy insights."
+            emoji="⚡"
+          />
+          <Tile
+            title="Open APIs"
+            desc="Clean interfaces for PMS, POS, sensors and identity—faster rollouts, lower integration cost."
+            emoji="🧩"
+          />
         </div>
       </section>
 
-      {/* Story / Timeline */}
+      {/* Our story — clearer, credible timeline */}
       <section className="mx-auto max-w-6xl px-4 py-6">
         <div className="card bg-white">
           <h2 className="text-xl font-semibold">Our story</h2>
           <div className="mt-4 grid md:grid-cols-3 gap-4">
-            <Timeline year="2024" text="Prototype launched to remove friction from guest messaging." />
-            <Timeline year="2025" text="Truth-anchored AI pilots: reviews grounded in real stay activity." />
-            <Timeline year="Now" text="Platformizing the OS for hospitality—open APIs, faster rollouts, richer insights." />
+            <Timeline
+              year="Origins"
+              text="We started as operators and builders—fixing the everyday frictions of guest requests and follow-ups."
+            />
+            <Timeline
+              year="Pilot"
+              text="A simple guest microsite and live ticketing stack proved one system could calm both guests and staff."
+            />
+            <Timeline
+              year="Truth-anchored AI"
+              text="We added AI summaries and draft reviews grounded in verified tickets and orders—owner-approved, brand-safe."
+            />
+            <Timeline
+              year="Grid-smart layer"
+              text="Energy signals joined the loop—tariff-aware device shedding and peak-hour playbooks for leaner ops."
+            />
+            <Timeline
+              year="Now"
+              text="Platformizing the OS for hospitality: open APIs, faster rollouts, richer insights—without noise."
+            />
           </div>
         </div>
       </section>
@@ -110,51 +144,23 @@ export default function AboutUs() {
         <h2 className="text-xl font-semibold">Leadership</h2>
         <div className="mt-3 grid md:grid-cols-3 gap-4">
           <Leader name="A. Rama Bisht" role="CEO / Product" blurb="Building the bridge between human hospitality and intelligent systems." />
-          <Leader name="B. Kapil R Bisht" role="Advisor and Architect" blurb="Blends advisory insight and architectural discipline to keep VAiyu ahead." />
+          <Leader name="B. Kapil R Bisht" role="Advisor & Architect" blurb="Blends advisory insight and architectural discipline to keep VAiyu ahead." />
           <Leader name="C. Arti Bisht" role="CTO" blurb="Leads the code, the cloud, and the cadence—shipping intelligence at scale." />
-          <Leader name="D. Kamal Bisht" role="Head of operations" blurb="Drives operational excellence that keeps intelligence running smoothly." />
-          <Leader name="E. Ravi Joshi" role="Head of Research & AI / ML" blurb="Bridges research and runtime—models that perform in the wild." />
-          <Leader name="F. Virender Singh" role="Head of Marketing" blurb="Builds the VAiyu narrative—trust, clarity, and measurable growth." />
+          <Leader name="D. Kamal Bisht" role="Head of Operations" blurb="Leads people, processes and precision to make hospitality flow effortlessly." />
+          <Leader name="E. Ravi Joshi" role="Head of Research & AI/ML" blurb="Bridges research and runtime—models that perform in the wild." />
+          <Leader name="F. Virender Singh" role="Head of Marketing" blurb="Builds the VAiyu narrative—trust, clarity and measurable growth." />
         </div>
       </section>
 
-      {/* Values */}
-      <section className="mx-auto max-w-6xl px-4 py-6">
-        <div className="card bg-white">
-          <h2 className="text-xl font-semibold">What we value</h2>
-        <div className="mt-3 grid md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm text-gray-700">
-            <Value>Start with the guest</Value>
-            <Value>Earn trust with truth</Value>
-            <Value>Design for calm</Value>
-            <Value>Default to action</Value>
-            <Value>Own the outcome</Value>
-            <Value>Play the long game</Value>
-          </div>
-        </div>
-      </section>
-
-      {/* Logos / Social proof (placeholders) */}
-      <section className="mx-auto max-w-6xl px-4 py-10">
-        <h2 className="text-sm font-semibold text-gray-600">Backed by operators & builders</h2>
-        <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-14 rounded border bg-white flex items-center justify-center text-gray-400">
-              LOGO
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* CTA */}
+      {/* CTA — single Contact button */}
       <section className="border-t bg-white">
         <div className="mx-auto max-w-6xl px-4 py-8 flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="font-semibold">Let’s make stays effortless.</div>
-            <div className="text-sm text-gray-600">Run the demo, then talk to us about your property.</div>
+            <div className="text-sm text-gray-600">Talk to us about your property and goals.</div>
           </div>
           <div className="flex gap-2">
-            <Link to="/stay/DEMO/menu" className="btn btn-light">Open Guest Demo</Link>
-            <Link to="/owner" className="btn">Book a demo</Link>
+            <Link to="/contact" className="btn">Contact us</Link>
           </div>
         </div>
       </section>
@@ -166,15 +172,6 @@ export default function AboutUs() {
 
 function Bullet({ children }: { children: React.ReactNode }) {
   return <div className="flex items-start gap-2 text-sm text-gray-700">• <span>{children}</span></div>;
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded border p-3">
-      <div className="text-xs text-gray-500">{label}</div>
-      <div className="text-xl font-semibold">{value}</div>
-    </div>
-  );
 }
 
 function Tile({ title, desc, emoji }: { title: string; desc: string; emoji: string }) {
@@ -209,14 +206,6 @@ function Leader({ name, role, blurb }: { name: string; role: string; blurb: stri
         </div>
       </div>
       <p className="mt-2 text-sm text-gray-700">{blurb}</p>
-    </div>
-  );
-}
-
-function Value({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="rounded border p-3 bg-white">
-      {children}
     </div>
   );
 }

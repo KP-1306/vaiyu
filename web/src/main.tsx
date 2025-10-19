@@ -6,6 +6,8 @@ const Scan = React.lazy(() => import("./routes/Scan"));   // ✅ scan route
 const Stays = lazy(() => import("./routes/Stays"));
 const Stay  = lazy(() => import("./routes/Stay"));
 const Bills = React.lazy(() => import("./routes/Bill"));
+const OwnerAccess   = React.lazy(() => import("./routes/OwnerAccess"));
+const InviteAccept  = React.lazy(() => import("./routes/InviteAccept"));
 
 /* ────────────────────────────────────────────────────────────
    Kill stale SW + caches (do NOT register a new one while debugging)
@@ -262,6 +264,8 @@ const router = createBrowserRouter([
       { path: "owner/services",  element: <AuthGate><OwnerServices /></AuthGate> },
       { path: "owner/reviews",   element: <AuthGate><OwnerReviews /></AuthGate> },
       { path: "admin",           element: <AuthGate><AdminOps /></AuthGate> },
+      { path: "owner/:slug/settings/access", element: <AuthGate><OwnerAccess /></AuthGate> },
+      { path: "owner/invite/accept/:token", element: <AuthGate><InviteAccept /></AuthGate> },
 
       // Public property registration
       { path: "owner/register",  element: <OwnerRegister /> },

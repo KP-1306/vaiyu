@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { API } from "../lib/api";
 
@@ -11,6 +11,8 @@ const PROPERTY_TYPES = ["Hotel","Resort","Villa","Homestay","Hostel","Other"] as
 
 type PropertyType = (typeof PROPERTY_TYPES)[number];
 
+const MAX_IMAGE_BYTES = 3 * 1024 * 1024; // 3 MB
+
 type FormState = {
   property_name: string;
   property_type: PropertyType | "";
@@ -21,8 +23,7 @@ type FormState = {
   contact_email: string;
   contact_phone: string;
   room_count?: number | "";
-  website_url?: string;
-  cover_image_url?: string;
+  links: string[]; // website / instagram / listing links
 };
 
 export default function OwnerRegister() {
@@ -37,16 +38,40 @@ export default function OwnerRegister() {
     contact_email: "",
     contact_phone: "",
     room_count: "",
-    website_url: "",
-    cover_image_url: "",
+    links: [""]
   });
+
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [ok, setOk] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
+  useEffect(() => {
+    return () => {
+      if (coverPreview) URL.revokeObjectURL(coverPreview);
+    };
+  }, [coverPreview]);
+
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  function updateLink(i: number, value: string) {
+    setForm((f) => {
+      const links = [...f.links];
+      links[i] = value;
+      return { ...f, links };
+    });
+  }
+
+  function addLink() {
+    setForm((f) => ({ ...f, links: [...f.links, ""] }));
+  }
+
+  function removeLink(i: number) {
+    setForm((f) => ({ ...f, links: f.links.filter((_, idx) => idx !== i) }));
   }
 
   function validate(): string | null {
@@ -58,8 +83,12 @@ export default function OwnerRegister() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contact_email)) return "Enter a valid email address.";
     if (!/^\+?[0-9\-\s()]{7,20}$/.test(form.contact_phone)) return "Enter a valid phone number.";
     if (form.map_link && !/^https?:\/\//i.test(form.map_link)) return "Google Map link must start with http or https.";
-    if (form.website_url && !/^https?:\/\//i.test(form.website_url)) return "Website/Instagram URL must start with http or https.";
-    if (form.cover_image_url && !/^https?:\/\//i.test(form.cover_image_url)) return "Cover image URL must start with http or https.";
+    for (const link of form.links) {
+      if (!link) continue; // empty optional rows allowed
+      if (!/^https?:\/\//i.test(link)) return "Each website/Instagram link must start with http or https.";
+    }
+    if (coverFile && coverFile.size > MAX_IMAGE_BYTES) return "Cover image must be \u2264 3 MB.";
+    if (coverFile && !/^image\/(png|jpe?g|webp)$/i.test(coverFile.type)) return "Cover image must be PNG, JPG, or WEBP.";
     return null;
   }
 
@@ -72,7 +101,8 @@ export default function OwnerRegister() {
 
     setSubmitting(true); setOk(null); setErr(null);
     try {
-      // Light payload, backend can ignore unknown keys safely
+      // Prepare multipart form to send JSON + optional file
+      const fd = new FormData();
       const payload = {
         property_name: form.property_name.trim(),
         property_type: form.property_type,
@@ -83,16 +113,14 @@ export default function OwnerRegister() {
         contact_email: form.contact_email.trim(),
         contact_phone: form.contact_phone.trim(),
         room_count: form.room_count === "" ? undefined : Number(form.room_count),
-        website_url: form.website_url?.trim() || undefined,
-        cover_image_url: form.cover_image_url?.trim() || undefined,
+        links: form.links.filter(Boolean).map((s) => s.trim())
       };
 
-      const r = await fetch(`${API}/owner/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      // Append JSON payload as a part named `data` (backend can parse it)
+      fd.append("data", new Blob([JSON.stringify(payload)], { type: "application/json" }));
+      if (coverFile) fd.append("cover_file", coverFile, coverFile.name);
 
+      const r = await fetch(`${API}/owner/register`, { method: "POST", body: fd });
       if (!r.ok) throw new Error("Could not submit application");
 
       setOk("Thanks! We’ve received your property details. Our team will review and contact you soon.");
@@ -106,12 +134,12 @@ export default function OwnerRegister() {
         contact_email: "",
         contact_phone: "",
         room_count: "",
-        website_url: "",
-        cover_image_url: "",
+        links: [""]
       });
+      setCoverFile(null);
+      if (coverPreview) { URL.revokeObjectURL(coverPreview); setCoverPreview(null); }
 
-      // Optionally route somewhere after success
-      // navigate("/thanks");
+      // Optionally: navigate("/thanks");
     } catch (e: any) {
       setErr(e?.message || "Something went wrong. Please try again.");
     } finally {
@@ -212,19 +240,48 @@ export default function OwnerRegister() {
                 value={form.room_count} onChange={(e)=>update("room_count", e.target.value === "" ? "" : Number(e.target.value))} placeholder="e.g., 24"/>
             </div>
 
-            {/* Website / Instagram */}
+            {/* Links (dynamic) */}
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium">Property website / page / Instagram URL</label>
-              <input className="mt-1 w-full rounded-xl border px-3 py-2" inputMode="url"
-                value={form.website_url} onChange={(e)=>update("website_url", e.target.value)} placeholder="https://…"/>
+              <label className="block text-sm font-medium">Property website / page / Instagram URL(s)</label>
+              <div className="space-y-2 mt-1">
+                {form.links.map((link, i) => (
+                  <div key={i} className="flex gap-2 items-center">
+                    <input className="flex-1 rounded-xl border px-3 py-2" inputMode="url" placeholder="https://…"
+                      value={link} onChange={(e)=>updateLink(i, e.target.value)} />
+                    {form.links.length > 1 && (
+                      <button type="button" onClick={()=>removeLink(i)} className="px-3 py-2 rounded-xl border text-slate-700">Remove</button>
+                    )}
+                  </div>
+                ))}
+                <button type="button" onClick={addLink} className="text-sm underline">+ Add another link</button>
+              </div>
             </div>
 
-            {/* Cover image URL */}
+            {/* Cover image upload */}
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium">Property cover image (URL)</label>
-              <input className="mt-1 w-full rounded-xl border px-3 py-2" inputMode="url"
-                value={form.cover_image_url} onChange={(e)=>update("cover_image_url", e.target.value)} placeholder="https://…/cover.jpg"/>
-              <p className="text-xs text-slate-500 mt-1">Tip: Paste a public image link for quick review. We’ll request originals later.</p>
+              <label className="block text-sm font-medium">Property cover image (upload)</label>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="mt-1 block w-full text-sm"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  if (file && file.size > MAX_IMAGE_BYTES) {
+                    setErr("Cover image must be \u2264 3 MB.");
+                    e.currentTarget.value = "";
+                    return;
+                  }
+                  setCoverFile(file);
+                  if (coverPreview) URL.revokeObjectURL(coverPreview);
+                  setCoverPreview(file ? URL.createObjectURL(file) : null);
+                }}
+              />
+              {coverPreview && (
+                <div className="mt-2">
+                  <img src={coverPreview} alt="Cover preview" className="h-28 rounded-lg border object-cover" />
+                  <p className="text-xs text-slate-500 mt-1">Preview only — final will be uploaded on submit.</p>
+                </div>
+              )}
             </div>
 
             {/* Submit */}

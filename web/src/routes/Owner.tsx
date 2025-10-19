@@ -1,164 +1,94 @@
-import { useEffect, useState } from 'react';
-import { getHotel, upsertHotel } from '../lib/api';
-import { API } from '../lib/api';
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { supabase } from "../lib/supabase";
+import Spinner from "../components/Spinner";
+import BackHome from "../components/BackHome";
+
+type HotelRow = {
+  id: string;
+  name: string;
+  slug: string;
+  city: string | null;
+  cover_image_url: string | null;
+  role?: string | null; // from membership (if you add it to the view)
+};
 
 export default function Owner() {
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [slug, setSlug] = useState('sunrise');
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [address, setAddress] = useState('');
-  const [amenities, setAmenities] = useState<string>('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [brand, setBrand] = useState('#145AF2');
-  const [mode, setMode] = useState<'light'|'dark'>('light');
-
-  // reviews policy
-  const [policyMode, setPolicyMode] = useState<'off'|'preview'|'auto'>('preview');
-  const [minActivity, setMinActivity] = useState(1);
-  const [blockLate, setBlockLate] = useState(0);
-  const [requireConsent, setRequireConsent] = useState(true);
+  const [hotels, setHotels] = useState<HotelRow[]>([]);
 
   useEffect(() => {
+    let alive = true;
     (async () => {
-      try {
-        const h = await getHotel('sunrise');
-        setSlug(h.slug || 'sunrise');
-        setName(h.name || '');
-        setDescription(h.description || '');
-        setAddress(h.address || '');
-        setAmenities((h.amenities || []).join(', '));
-        setPhone(h.phone || '');
-        setEmail(h.email || '');
-        setBrand(h?.theme?.brand || '#145AF2');
-        setMode(h?.theme?.mode || 'light');
+      setLoading(true);
+      // View returns only hotels where auth user is a member
+      const { data, error } = await supabase
+        .from("hotels_for_user")
+        .select("id,name,slug,city,cover_image_url,role")
+        .order("name", { ascending: true });
 
-        const rp = h.reviews_policy || {};
-        setPolicyMode(rp.mode || 'preview');
-        setMinActivity(rp.min_activity ?? 1);
-        setBlockLate(rp.block_if_late_exceeds ?? 0);
-        setRequireConsent(!!rp.require_consent);
-      } catch (e) {
-        // ignore for first-time setup
-      } finally {
-        setLoading(false);
+      if (!alive) return;
+      if (error) {
+        console.error(error);
+        setHotels([]);
+      } else {
+        setHotels(data || []);
       }
+      setLoading(false);
     })();
+    return () => {
+      alive = false;
+    };
   }, []);
 
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      const payload = {
-        slug,
-        name,
-        description,
-        address,
-        amenities: amenities.split(',').map(s => s.trim()).filter(Boolean),
-        phone, email,
-        theme: { brand, mode },
-        reviews_policy: {
-          mode: policyMode,
-          min_activity: Number(minActivity),
-          block_if_late_exceeds: Number(blockLate),
-          require_consent: Boolean(requireConsent)
-        }
-      };
-      await upsertHotel(payload);
-      alert('Saved!');
-    } catch (err: any) {
-      alert(err?.message || 'Failed to save');
-    } finally {
-      setSaving(false);
-    }
+  if (loading) {
+    return (
+      <main className="min-h-[60vh] grid place-items-center">
+        <Spinner label="Loading your properties…" />
+      </main>
+    );
   }
 
-  if (loading) return <div style={{padding:20}}>Loading…</div>;
-
   return (
-    <div style={{maxWidth: 900, margin: '20px auto', display: 'grid', gap: 16}}>
-      <h2>Owner Settings</h2>
-      <form onSubmit={save} className="card" style={{display:'grid', gap:12}}>
-        <div style={{display:'grid', gap:6}}>
-          <label>Slug</label>
-          <input className="input" value={slug} onChange={e=>setSlug(e.target.value)} />
+    <main className="max-w-5xl mx-auto p-6">
+      <BackHome />
+      <header className="mb-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Owner console</h1>
+          <p className="text-sm text-gray-600">Select a property to manage.</p>
         </div>
-        <div style={{display:'grid', gap:6}}>
-          <label>Name</label>
-          <input className="input" value={name} onChange={e=>setName(e.target.value)} />
-        </div>
-        <div style={{display:'grid', gap:6}}>
-          <label>Description</label>
-          <textarea className="input" value={description} onChange={e=>setDescription(e.target.value)} />
-        </div>
-        <div style={{display:'grid', gap:6}}>
-          <label>Address</label>
-          <input className="input" value={address} onChange={e=>setAddress(e.target.value)} />
-        </div>
-        <div style={{display:'grid', gap:6}}>
-          <label>Amenities (comma-separated)</label>
-          <input className="input" value={amenities} onChange={e=>setAmenities(e.target.value)} />
-        </div>
-        <div style={{display:'grid', gap:6}}>
-          <label>Phone</label>
-          <input className="input" value={phone} onChange={e=>setPhone(e.target.value)} />
-        </div>
-        <div style={{display:'grid', gap:6}}>
-          <label>Email</label>
-          <input className="input" value={email} onChange={e=>setEmail(e.target.value)} />
-        </div>
+        <Link to="/owner/onboard" className="btn btn-light">+ Add property</Link>
+      </header>
 
-        <div className="card" style={{display:'grid', gap:10}}>
-          <b>Theme</b>
-          <div style={{display:'flex', gap:12, alignItems:'center'}}>
-            <label style={{minWidth:100}}>Brand color</label>
-            <input type="color" className="input" value={brand} onChange={e=>setBrand(e.target.value)} />
-            <input className="input" value={brand} onChange={e=>setBrand(e.target.value)} />
-          </div>
-          <div style={{display:'flex', gap:12, alignItems:'center'}}>
-            <label style={{minWidth:100}}>Mode</label>
-            <select className="select" value={mode} onChange={e=>setMode(e.target.value as any)}>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-            </select>
+      {hotels.length === 0 ? (
+        <div className="rounded-xl border bg-white p-6 text-sm">
+          You don’t have access to any properties yet.
+          <div className="mt-3">
+            <Link to="/owner/onboard" className="btn">Register a property</Link>
           </div>
         </div>
-
-        <div className="card" style={{display:'grid', gap:10}}>
-          <b>Reviews Policy</b>
-          <div style={{display:'grid', gridTemplateColumns:'160px 1fr', gap:10, alignItems:'center'}}>
-            <label>Mode</label>
-            <select className="select" value={policyMode} onChange={e=>setPolicyMode(e.target.value as any)}>
-              <option value="off">Off</option>
-              <option value="preview">Preview (draft only)</option>
-              <option value="auto">Auto (consent rules apply)</option>
-            </select>
-
-            <label>Min activity</label>
-            <input className="input" type="number" min={0} value={minActivity} onChange={e=>setMinActivity(parseInt(e.target.value||'0'))} />
-
-            <label>Block if late &gt;</label>
-            <input className="input" type="number" min={0} value={blockLate} onChange={e=>setBlockLate(parseInt(e.target.value||'0'))} />
-
-            <label>Require consent</label>
-            <select className="select" value={requireConsent ? 'yes' : 'no'} onChange={e=>setRequireConsent(e.target.value==='yes')}>
-              <option value="yes">Yes (recommended)</option>
-              <option value="no">No</option>
-            </select>
-          </div>
-          <div style={{fontSize:12, color:'var(--muted)'}}>
-            Auto never publishes without consent if “Require consent” is ON. Without consent, it will create a private pending draft instead.
-          </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {hotels.map((h) => (
+            <Link
+              key={h.id}
+              to={`/owner/${h.slug}`}
+              className="rounded-xl border bg-white hover:shadow-md transition p-4 flex flex-col"
+            >
+              <div className="h-32 rounded-lg overflow-hidden bg-gray-100 mb-3">
+                {h.cover_image_url ? (
+                  <img src={h.cover_image_url} alt={h.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full grid place-items-center text-gray-400 text-xs">No photo</div>
+                )}
+              </div>
+              <div className="text-base font-medium">{h.name}</div>
+              <div className="text-xs text-gray-500">{h.city || "—"}</div>
+              {h.role ? <div className="text-[11px] mt-1 px-2 py-0.5 bg-gray-100 rounded w-fit">{h.role}</div> : null}
+            </Link>
+          ))}
         </div>
-
-        <button className="btn" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save settings'}</button>
-        <div style={{fontSize:12}}>
-          API: <code>{API}</code>
-        </div>
-      </form>
-    </div>
+      )}
+    </main>
   );
 }

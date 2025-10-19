@@ -8,7 +8,7 @@ export default function AIShowcase() {
         <div className="grid lg:grid-cols-2 gap-10 lg:gap-14 items-center">
           <Figure
             src="/illustrations/vaiyu-intelligence-final.png"
-            src2x="/illustrations/vaiyu-intelligence-final@2x.png"
+     //       src2x="/illustrations/vaiyu-intelligence-final@2x.png"
             alt="VAiyu AI Intelligence connecting Guest Experience, Property Efficiency, Brand Value, and Self-Improvement"
           />
           <Copy
@@ -37,7 +37,7 @@ export default function AIShowcase() {
           />
           <Figure
             src="/illustrations/ai-os-banner.png"
-            src2x="/illustrations/ai-os-banner@2x.png"
+        //    src2x="/illustrations/ai-os-banner@2x.png"
             alt="VAiyu Intelligence — AI + Sustainability Operating System for Hospitality"
             eager={false}
           />

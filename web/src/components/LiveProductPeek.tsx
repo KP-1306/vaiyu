@@ -2,21 +2,9 @@ import React from "react";
 
 export default function LiveProductPeek() {
   const items = [
-    {
-      tag: "Guest",
-      title: "Pre-check-in → Request → Live status",
-      poster: "/illustrations/peek_guest.png",
-    },
-    {
-      tag: "Staff",
-      title: "HK ticket → Countdown → On-time/Late dashboard",
-      poster: "/illustrations/peek_staff.png",
-    },
-    {
-      tag: "Owner",
-      title: "AI review draft → Approve → Publish",
-      poster: "/illustrations/peek_owner.png",
-    },
+    { tag: "Guest", poster: "/illustrations/peek_guest.png" },
+    { tag: "Staff", poster: "/illustrations/peek_staff.png" },
+    { tag: "Owner", poster: "/illustrations/peek_owner.png" },
   ];
 
   // Fallback image in case any poster is missing
@@ -33,19 +21,14 @@ export default function LiveProductPeek() {
           </p>
         </div>
 
-        {/* Cards */}
+        {/* Cards (no captions, equal sizes) */}
         <div className="grid gap-6 lg:grid-cols-3">
           {items.map((it) => (
             <figure
               key={it.tag}
               className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden"
             >
-              {/* Title bar */}
-              <div className="bg-gray-900 text-gray-100 px-4 py-2 text-xs">
-                {it.tag} — {it.title}
-              </div>
-
-              {/* Poster (no cropping) */}
+              {/* Poster only (no title bar, no figcaption) */}
               <div className="w-full aspect-[16/10] bg-gray-50 grid place-items-center">
                 <img
                   src={it.poster}
@@ -60,8 +43,9 @@ export default function LiveProductPeek() {
                   }}
                 />
               </div>
-
-
+            </figure>
+          ))}
+        </div>
 
         {/* CTA */}
         <div className="mt-8 text-center">

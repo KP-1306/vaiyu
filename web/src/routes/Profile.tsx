@@ -14,6 +14,7 @@ type ProfileRecord = {
   full_name: string;
   phone: string;
   email: string;
+  profile_photo_url?: string | null; // NEW: public avatar URL
 
   // KYC
   govt_id_type: "Aadhar" | "DL" | "Passport" | "Voter ID" | "";
@@ -37,6 +38,7 @@ const EMPTY: ProfileRecord = {
   full_name: "",
   phone: "",
   email: "",
+  profile_photo_url: null,
   govt_id_type: "",
   govt_id_number: "",
   address: "",
@@ -54,6 +56,23 @@ const LS_KEY = "va:profile";
 const isPhone = (s: string) => /^[0-9+\-\s]{8,}$/.test(s.trim());
 const isEmail = (s: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s.trim());
 
+/** Completeness score (0–100) — just a nudge, not blocking */
+function completeness(p: ProfileRecord) {
+  let got = 0;
+  const needs: Array<boolean> = [
+    !!p.full_name.trim(),
+    isPhone(p.phone),
+    isEmail(p.email),
+    !!p.govt_id_type,
+    !!p.govt_id_number.trim(),
+    !!p.profile_photo_url,
+    !!p.govt_id_file_url,
+    !!p.consent_terms,
+  ];
+  needs.forEach((b) => (got += b ? 1 : 0));
+  return Math.round((got / needs.length) * 100);
+}
+
 /** Save + load with graceful Supabase fallback */
 async function loadProfile(): Promise<{ data: ProfileRecord; source: "db" | "local" }> {
   const { data: sess } = await supabase.auth.getSession().catch(() => ({ data: { session: null } as any }));
@@ -64,12 +83,7 @@ async function loadProfile(): Promise<{ data: ProfileRecord; source: "db" | "loc
   }
 
   try {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .maybeSingle();
-
+    const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
     if (error) throw error;
 
     if (data) {
@@ -136,6 +150,7 @@ function normalizeFromDb(row: any): ProfileRecord {
     full_name: row.full_name ?? "",
     phone: row.phone ?? "",
     email: row.email ?? "",
+    profile_photo_url: row.profile_photo_url ?? null,
     govt_id_type: row.govt_id_type ?? "",
     govt_id_number: row.govt_id_number ?? "",
     address: row.address ?? "",
@@ -154,6 +169,7 @@ function normalizeToDb(id: string, p: ProfileRecord) {
     full_name: p.full_name || null,
     phone: p.phone || null,
     email: p.email || null,
+    profile_photo_url: p.profile_photo_url || null,
     govt_id_type: p.govt_id_type || null,
     govt_id_number: p.govt_id_number || null,
     address: p.address || null,
@@ -176,9 +192,12 @@ export default function Profile() {
   const [source, setSource] = useState<"db" | "local">("local");
   const [savedOnce, setSavedOnce] = useState(false);
 
-  // KYC upload state
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  // Upload states
+  const [kycUploading, setKycUploading] = useState(false);
+  const [kycError, setKycError] = useState<string | null>(null);
+
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -210,6 +229,8 @@ export default function Profile() {
     return true;
   }, [profile]);
 
+  const score = completeness(profile);
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -225,36 +246,39 @@ export default function Profile() {
     setSavedOnce(true); // lock consent within this session after a successful save
   }
 
+  /** ---------- Upload handlers ---------- */
+
+  // KYC (PDF or Image) — 3 MB
   async function handleKycFile(e: React.ChangeEvent<HTMLInputElement>) {
-    setUploadError(null);
+    setKycError(null);
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Basic checks
     const allowed = ["image/png", "image/jpeg", "image/webp", "application/pdf"];
     if (!allowed.includes(file.type)) {
-      setUploadError("Please upload a PNG, JPG, WEBP, or PDF file.");
+      setKycError("Please upload a PNG, JPG, WEBP, or PDF file.");
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setUploadError("File is too large. Max 5 MB.");
+    if (file.size > 3 * 1024 * 1024) {
+      setKycError("File is too large. Max 3 MB.");
+      e.currentTarget.value = "";
       return;
     }
 
-    setUploading(true);
+    setKycUploading(true);
     try {
       const { data: sess } = await supabase.auth.getSession();
       const uid = sess?.session?.user?.id;
       if (!uid) {
-        setUploadError("You must be signed in to upload.");
-        setUploading(false);
+        setKycError("You must be signed in to upload.");
+        setKycUploading(false);
         return;
       }
 
       const safeName = file.name.replace(/[^\w.\-]+/g, "_");
       const path = `${uid}/${Date.now()}-${safeName}`;
 
-      // Upload to "kyc" bucket (make sure this bucket exists, public or with RLS that allows read)
+      // Upload to "kyc" bucket
       const { error: upErr } = await supabase.storage.from("kyc").upload(path, file, {
         cacheControl: "3600",
         upsert: false,
@@ -267,9 +291,57 @@ export default function Profile() {
 
       setProfile((p) => ({ ...p, govt_id_file_url: publicUrl }));
     } catch (err: any) {
-      setUploadError(err?.message ?? "Upload failed. Please try again.");
+      setKycError(err?.message ?? "Upload failed. Please try again.");
     } finally {
-      setUploading(false);
+      setKycUploading(false);
+    }
+  }
+
+  // Avatar (Image only) — 3 MB
+  async function handleAvatarFile(e: React.ChangeEvent<HTMLInputElement>) {
+    setAvatarError(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!/^image\\/(png|jpe?g|webp)$/i.test(file.type)) {
+      setAvatarError("Please upload a PNG, JPG, or WEBP image.");
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      setAvatarError("Image is too large. Max 3 MB.");
+      e.currentTarget.value = "";
+      return;
+    }
+
+    setAvatarUploading(true);
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const uid = sess?.session?.user?.id;
+      if (!uid) {
+        setAvatarError("You must be signed in to upload.");
+        setAvatarUploading(false);
+        return;
+      }
+
+      const safeName = file.name.replace(/[^\w.\-]+/g, "_");
+      const path = `${uid}/${Date.now()}-${safeName}`;
+
+      // Upload to "avatars" bucket
+      const { error: upErr } = await supabase.storage.from("avatars").upload(path, file, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: file.type,
+      });
+      if (upErr) throw upErr;
+
+      const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
+      const publicUrl = pub?.publicUrl ?? null;
+
+      setProfile((p) => ({ ...p, profile_photo_url: publicUrl }));
+    } catch (err: any) {
+      setAvatarError(err?.message ?? "Upload failed. Please try again.");
+    } finally {
+      setAvatarUploading(false);
     }
   }
 
@@ -291,6 +363,11 @@ export default function Profile() {
           <p className="text-sm text-gray-600 mt-1">
             Keep these handy — they speed up check-in and help us reach you in a pinch.
           </p>
+          {/* Friendly helper nudges */}
+          <p className="text-xs text-gray-600 mt-2">
+            <strong>Tip:</strong> Add a <em>profile photo</em> so hotel staff can greet you faster, and upload your{" "}
+            <em>KYC</em> once to breeze through future stays.
+          </p>
         </div>
 
         {/* Back to dashboard on view mode */}
@@ -298,6 +375,17 @@ export default function Profile() {
           <Link to="/guest" className="btn btn-light whitespace-nowrap">Back to dashboard</Link>
         ) : null}
       </header>
+
+      {/* Completeness indicator */}
+      <div className="mt-4 rounded-xl border bg-white/90 shadow-sm p-3">
+        <div className="flex items-center justify-between text-sm">
+          <span>Profile completeness</span>
+          <span className="font-medium">{score}%</span>
+        </div>
+        <div className="mt-2 h-2 rounded bg-gray-200 overflow-hidden">
+          <div className="h-full bg-blue-600" style={{ width: `${score}%` }} />
+        </div>
+      </div>
 
       {/* success banner */}
       {savedOnce && mode === "view" && (
@@ -332,15 +420,49 @@ export default function Profile() {
           <CardSection
             emoji="🧑‍💼"
             title="User profile"
-            blurb="How we address you & get in touch."
+            blurb="Your public face for reservations — add a photo so staff can recognise you quickly."
           >
+            {/* Avatar + basic info */}
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-full overflow-hidden border bg-gray-100">
+                {profile.profile_photo_url ? (
+                  <img
+                    src={profile.profile_photo_url}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full grid place-items-center text-gray-400 text-xs">No photo</div>
+                )}
+              </div>
+
+              {mode === "edit" && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-gray-600">Profile photo (PNG/JPG/WEBP, max 3 MB)</label>
+                  <input
+                    type="file"
+                    accept=".png,.jpg,.jpeg,.webp"
+                    onChange={handleAvatarFile}
+                    disabled={avatarUploading}
+                  />
+                  {avatarUploading ? <p className="text-xs text-gray-600">Uploading…</p> : null}
+                  {avatarError ? <p className="text-xs text-red-600">{avatarError}</p> : null}
+                  {profile.profile_photo_url && (
+                    <button
+                      type="button"
+                      className="text-xs underline self-start"
+                      onClick={() => setProfile((p) => ({ ...p, profile_photo_url: null }))}
+                    >
+                      Remove photo
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <Field label="VAiyu ID" value={profile.vaiyu_id || ""} readOnly />
             <Field
-              label="VAiyu ID"
-              value={profile.vaiyu_id || ""}
-              readOnly
-            />
-            <Field
-              label="Full name "
+              label="Full name *"
               value={profile.full_name}
               onChange={(v) => setProfile({ ...profile, full_name: v })}
               placeholder="Your full legal name"
@@ -348,7 +470,7 @@ export default function Profile() {
               readOnly={mode === "view"}
             />
             <Field
-              label="Mobile number "
+              label="Mobile number *"
               value={profile.phone}
               onChange={(v) => setProfile({ ...profile, phone: v })}
               placeholder="+91 9xxxxxxxxx"
@@ -357,7 +479,7 @@ export default function Profile() {
               error={profile.phone && !isPhone(profile.phone) ? "Enter a valid phone number" : ""}
             />
             <Field
-              label="Email "
+              label="Email *"
               value={profile.email}
               onChange={(v) => setProfile({ ...profile, email: v })}
               placeholder="you@example.com"
@@ -370,11 +492,11 @@ export default function Profile() {
           <CardSection
             emoji="🪪"
             title="KYC details"
-            blurb="Required for smooth and fast check-in."
+            blurb="Upload once, and speed through future check-ins."
           >
             <div className="grid gap-3 md:grid-cols-2">
               <Select
-                label="Government ID type "
+                label="Government ID type *"
                 value={profile.govt_id_type}
                 onChange={(v) =>
                   setProfile({ ...profile, govt_id_type: v as ProfileRecord["govt_id_type"] })
@@ -384,7 +506,7 @@ export default function Profile() {
                 readOnly={mode === "view"}
               />
               <Field
-                label="Government ID number "
+                label="Government ID number *"
                 value={profile.govt_id_number}
                 onChange={(v) => setProfile({ ...profile, govt_id_number: v })}
                 placeholder="Enter ID number exactly as on document"
@@ -393,7 +515,7 @@ export default function Profile() {
               />
             </div>
 
-            {/* Attachment upload / view */}
+            {/* KYC upload / view (≤3 MB) */}
             {mode === "view" ? (
               <div className="grid gap-1">
                 <label className="text-sm">KYC attachment</label>
@@ -412,15 +534,15 @@ export default function Profile() {
               </div>
             ) : (
               <div className="grid gap-1">
-                <label className="text-sm">KYC attachment (PNG/JPG/WEBP/PDF, max 5 MB)</label>
+                <label className="text-sm">KYC attachment (PNG/JPG/WEBP/PDF, max 3 MB)</label>
                 <input
                   type="file"
                   accept=".png,.jpg,.jpeg,.webp,.pdf"
                   onChange={handleKycFile}
-                  disabled={uploading}
+                  disabled={kycUploading}
                 />
-                {uploading ? <p className="text-xs text-gray-600">Uploading…</p> : null}
-                {uploadError ? <p className="text-xs text-red-600">{uploadError}</p> : null}
+                {kycUploading ? <p className="text-xs text-gray-600">Uploading…</p> : null}
+                {kycError ? <p className="text-xs text-red-600">{kycError}</p> : null}
                 {profile.govt_id_file_url ? (
                   <p className="text-xs">
                     Current:{" "}
@@ -442,11 +564,7 @@ export default function Profile() {
             />
           </CardSection>
 
-          <CardSection
-            emoji="🧰"
-            title="Other"
-            blurb="Who should we call in case of an emergency?"
-          >
+          <CardSection emoji="🧰" title="Other" blurb="Who should we call in case of an emergency?">
             <div className="grid gap-3 md:grid-cols-2">
               <Field
                 label="Emergency contact person"
@@ -477,19 +595,23 @@ export default function Profile() {
             />
           </CardSection>
 
-          <CardSection
-            emoji="✍️"
-            title="Signature / Consent"
-            blurb="A quick confirmation of our policies."
-          >
+          <CardSection emoji="✍️" title="Signature / Consent" blurb="A quick confirmation of our policies.">
             <Checkbox
               label={
                 <>
                   I agree to the{" "}
-                  <a className="underline" href="/about" target="_blank" rel="noreferrer">About</a>,{" "}
-                  <a className="underline" href="/terms" target="_blank" rel="noreferrer">Terms</a>{" "}
+                  <a className="underline" href="/about" target="_blank" rel="noreferrer">
+                    About
+                  </a>
+                  ,{" "}
+                  <a className="underline" href="/terms" target="_blank" rel="noreferrer">
+                    Terms
+                  </a>{" "}
                   and{" "}
-                  <a className="underline" href="/privacy" target="_blank" rel="noreferrer">Policies</a>.
+                  <a className="underline" href="/privacy" target="_blank" rel="noreferrer">
+                    Policies
+                  </a>
+                  .
                 </>
               }
               checked={!!profile.consent_terms}
@@ -501,6 +623,17 @@ export default function Profile() {
 
           {error ? <p className="text-sm text-red-600 -mt-2">{error}</p> : null}
         </form>
+      </div>
+
+      {/* Help box */}
+      <div className="mt-4 rounded-xl border bg-blue-50/70 p-4 text-sm flex items-center justify-between">
+        <div className="max-w-[80%]">
+          Having trouble with your profile? No worries — our team can help fix it quickly.
+        </div>
+        <div className="flex gap-2">
+          <Link to="/contact" className="btn btn-light">Contact us</Link>
+          <a className="btn btn-light" href="mailto:support@vaiyu.co.in?subject=Profile%20help">Email support</a>
+        </div>
       </div>
     </main>
   );

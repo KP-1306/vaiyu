@@ -31,13 +31,17 @@ export default function AboutUs() {
 
           {/* CTAs — “See Owner Dashboard” removed earlier; keep these two */}
           <div className="mt-6 flex flex-wrap gap-3">
-            <Link to="/about-ai" className="btn !bg-white !text-gray-900 hover:!bg-gray-50">
-              How our AI works
-            </Link>
-            <Link to="/contact" className="btn btn-light">
-              Contact us
-            </Link>
-          </div>
+      <Link to="/about-ai" className="btn !bg-white !text-gray-900 hover:!bg-gray-50">
+        How our AI works
+        </Link>
+        <Link to="/contact" className="btn btn-light">
+          Contact us
+        </Link>
+          {/* Back to dashboard */}
+        <Link to="/owner/dashboard?slug=sunrise" className="btn btn-light">
+      Back to dashboard
+        </Link>
+    </div>
         </div>
 
         <svg

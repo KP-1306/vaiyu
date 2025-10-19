@@ -1,4 +1,3 @@
-// web/src/routes/Profile.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -14,13 +13,15 @@ type ProfileRecord = {
   full_name: string;
   phone: string;
   email: string;
-  profile_photo_url?: string | null; // NEW: public avatar URL
+  profile_photo_url?: string | null; // public avatar URL (derived from avatar_path)
+  avatar_path?: string | null;       // storage key for avatar
 
   // KYC
   govt_id_type: "Aadhar" | "DL" | "Passport" | "Voter ID" | "";
   govt_id_number: string;
   address: string;
-  govt_id_file_url?: string | null; // public URL of uploaded KYC doc
+  govt_id_file_url?: string | null;  // (kept for backward compat; may be null going forward)
+  kyc_path?: string | null;          // storage key for KYC (private bucket)
 
   // Other
   emergency_name: string;
@@ -39,10 +40,12 @@ const EMPTY: ProfileRecord = {
   phone: "",
   email: "",
   profile_photo_url: null,
+  avatar_path: null,
   govt_id_type: "",
   govt_id_number: "",
   address: "",
   govt_id_file_url: null,
+  kyc_path: null,
   emergency_name: "",
   emergency_phone: "",
   vehicle_number: "",
@@ -65,8 +68,8 @@ function completeness(p: ProfileRecord) {
     isEmail(p.email),
     !!p.govt_id_type,
     !!p.govt_id_number.trim(),
-    !!p.profile_photo_url,
-    !!p.govt_id_file_url,
+    !!(p.profile_photo_url || p.avatar_path),
+    !!(p.govt_id_file_url || p.kyc_path),
     !!p.consent_terms,
   ];
   needs.forEach((b) => (got += b ? 1 : 0));
@@ -88,6 +91,11 @@ async function loadProfile(): Promise<{ data: ProfileRecord; source: "db" | "loc
 
     if (data) {
       const rec = normalizeFromDb(data as any);
+      // Derive avatar public URL if we have a path but not a URL
+      if (!rec.profile_photo_url && rec.avatar_path) {
+        const { data: pub } = supabase.storage.from("avatars").getPublicUrl(rec.avatar_path);
+        rec.profile_photo_url = pub?.publicUrl ?? null;
+      }
       safeWriteLocal(rec);
       return { data: rec, source: "db" };
     }
@@ -151,10 +159,12 @@ function normalizeFromDb(row: any): ProfileRecord {
     phone: row.phone ?? "",
     email: row.email ?? "",
     profile_photo_url: row.profile_photo_url ?? null,
+    avatar_path: row.avatar_path ?? null,
     govt_id_type: row.govt_id_type ?? "",
     govt_id_number: row.govt_id_number ?? "",
     address: row.address ?? "",
     govt_id_file_url: row.govt_id_file_url ?? null,
+    kyc_path: row.kyc_path ?? null,
     emergency_name: row.emergency_name ?? "",
     emergency_phone: row.emergency_phone ?? "",
     vehicle_number: row.vehicle_number ?? "",
@@ -170,16 +180,93 @@ function normalizeToDb(id: string, p: ProfileRecord) {
     phone: p.phone || null,
     email: p.email || null,
     profile_photo_url: p.profile_photo_url || null,
+    avatar_path: p.avatar_path || null,
     govt_id_type: p.govt_id_type || null,
     govt_id_number: p.govt_id_number || null,
     address: p.address || null,
     govt_id_file_url: p.govt_id_file_url || null,
+    kyc_path: p.kyc_path || null,
     emergency_name: p.emergency_name || null,
     emergency_phone: p.emergency_phone || null,
     vehicle_number: p.vehicle_number || null,
     consent_terms: !!p.consent_terms,
     updated_at: new Date().toISOString(),
   };
+}
+
+/** ---------- Small helpers ---------- */
+// Upload to a bucket; optionally delete previous path; optionally downscale (images only)
+async function uploadToBucket({
+  bucket,
+  file,
+  userId,
+  prevPath,
+  downscaleMax,
+}: {
+  bucket: "avatars" | "kyc";
+  file: File;
+  userId: string;
+  prevPath?: string | null;
+  downscaleMax?: number; // px
+}): Promise<{ path: string; publicUrl?: string }> {
+  let uploadFile: File | Blob = file;
+
+  if (downscaleMax && file.type.startsWith("image/")) {
+    try {
+      uploadFile = await downscaleImage(file, downscaleMax);
+    } catch {
+      // ignore — fallback to original file
+    }
+  }
+
+  const safeName = file.name.replace(/[^\w.\-]+/g, "_");
+  const path = `${userId}/${Date.now()}-${safeName}`;
+
+  const { error: upErr } = await supabase.storage
+    .from(bucket)
+    .upload(path, uploadFile, { cacheControl: "3600", upsert: false, contentType: file.type });
+  if (upErr) throw upErr;
+
+  // best-effort: delete old object after successful upload
+  if (prevPath) {
+    try {
+      await supabase.storage.from(bucket).remove([prevPath]);
+    } catch {}
+  }
+
+  const out: { path: string; publicUrl?: string } = { path };
+  if (bucket === "avatars") {
+    const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path);
+    out.publicUrl = pub?.publicUrl ?? undefined;
+  }
+  return out;
+}
+
+function downscaleImage(file: File, max = 1024): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const scale = Math.min(1, max / Math.max(img.width, img.height));
+      if (scale >= 1) {
+        URL.revokeObjectURL(url);
+        resolve(file);
+        return;
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { URL.revokeObjectURL(url); return reject(new Error("Canvas not supported")); }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => {
+        URL.revokeObjectURL(url);
+        if (blob) resolve(blob); else reject(new Error("Could not create blob"));
+      }, file.type === "image/webp" ? "image/webp" : "image/jpeg", 0.9);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Invalid image")); };
+    img.src = url;
+  });
 }
 
 /** ---------- UI ---------- */
@@ -195,8 +282,10 @@ export default function Profile() {
   // Upload states
   const [kycUploading, setKycUploading] = useState(false);
   const [kycError, setKycError] = useState<string | null>(null);
+  const [kycSignedUrl, setKycSignedUrl] = useState<string | null>(null);
 
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarRemoving, setAvatarRemoving] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -212,6 +301,23 @@ export default function Profile() {
     })();
     return () => { mounted = false; };
   }, []);
+
+  // refresh signed KYC URL whenever path changes (TTL ~60s)
+  useEffect(() => {
+    (async () => {
+      if (!profile.kyc_path) { setKycSignedUrl(null); return; }
+      try {
+        const { data, error } = await supabase
+          .storage
+          .from("kyc")
+          .createSignedUrl(profile.kyc_path, 60);
+        if (error) throw error;
+        setKycSignedUrl(data?.signedUrl ?? null);
+      } catch {
+        setKycSignedUrl(null);
+      }
+    })();
+  }, [profile.kyc_path]);
 
   // ✅ Consent becomes immutable once accepted and saved to DB (or after first successful save).
   const consentLocked = useMemo(
@@ -248,7 +354,7 @@ export default function Profile() {
 
   /** ---------- Upload handlers ---------- */
 
-  // KYC (PDF or Image) — 3 MB
+  // KYC (PDF or Image) — 3 MB with delete-on-replace + signed delivery
   async function handleKycFile(e: React.ChangeEvent<HTMLInputElement>) {
     setKycError(null);
     const file = e.target.files?.[0];
@@ -257,6 +363,7 @@ export default function Profile() {
     const allowed = ["image/png", "image/jpeg", "image/webp", "application/pdf"];
     if (!allowed.includes(file.type)) {
       setKycError("Please upload a PNG, JPG, WEBP, or PDF file.");
+      e.currentTarget.value = "";
       return;
     }
     if (file.size > 3 * 1024 * 1024) {
@@ -269,27 +376,11 @@ export default function Profile() {
     try {
       const { data: sess } = await supabase.auth.getSession();
       const uid = sess?.session?.user?.id;
-      if (!uid) {
-        setKycError("You must be signed in to upload.");
-        setKycUploading(false);
-        return;
-      }
+      if (!uid) throw new Error("You must be signed in to upload.");
 
-      const safeName = file.name.replace(/[^\w.\-]+/g, "_");
-      const path = `${uid}/${Date.now()}-${safeName}`;
+      const up = await uploadToBucket({ bucket: "kyc", file, userId: uid, prevPath: profile.kyc_path || undefined });
 
-      // Upload to "kyc" bucket
-      const { error: upErr } = await supabase.storage.from("kyc").upload(path, file, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: file.type,
-      });
-      if (upErr) throw upErr;
-
-      const { data: pub } = supabase.storage.from("kyc").getPublicUrl(path);
-      const publicUrl = pub?.publicUrl ?? null;
-
-      setProfile((p) => ({ ...p, govt_id_file_url: publicUrl }));
+      setProfile((p) => ({ ...p, kyc_path: up.path, govt_id_file_url: null })); // url no longer public
     } catch (err: any) {
       setKycError(err?.message ?? "Upload failed. Please try again.");
     } finally {
@@ -297,52 +388,56 @@ export default function Profile() {
     }
   }
 
-  // Avatar (Image only) — 3 MB
+  // Avatar (Image only) — 3 MB  ✅ downscale + delete-on-replace
   async function handleAvatarFile(e: React.ChangeEvent<HTMLInputElement>) {
     setAvatarError(null);
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!/^image\\/(png|jpe?g|webp)$/i.test(file.type)) {
+    const allowed = /^image\/(png|jpe?g|webp)$/i;
+    if (!allowed.test(file.type)) {
       setAvatarError("Please upload a PNG, JPG, or WEBP image.");
-      return;
-    }
-    if (file.size > 3 * 1024 * 1024) {
-      setAvatarError("Image is too large. Max 3 MB.");
       e.currentTarget.value = "";
       return;
+    }
+
+    if (file.size > 3 * 1024 * 1024) {
+      // we still try to downscale; if still big, block
     }
 
     setAvatarUploading(true);
     try {
       const { data: sess } = await supabase.auth.getSession();
       const uid = sess?.session?.user?.id;
-      if (!uid) {
-        setAvatarError("You must be signed in to upload.");
-        setAvatarUploading(false);
-        return;
-      }
+      if (!uid) throw new Error("You must be signed in to upload.");
 
-      const safeName = file.name.replace(/[^\w.\-]+/g, "_");
-      const path = `${uid}/${Date.now()}-${safeName}`;
-
-      // Upload to "avatars" bucket
-      const { error: upErr } = await supabase.storage.from("avatars").upload(path, file, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: file.type,
+      const up = await uploadToBucket({
+        bucket: "avatars",
+        file,
+        userId: uid,
+        prevPath: profile.avatar_path || undefined,
+        downscaleMax: 1024,
       });
-      if (upErr) throw upErr;
 
-      const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
-      const publicUrl = pub?.publicUrl ?? null;
-
-      setProfile((p) => ({ ...p, profile_photo_url: publicUrl }));
+      setProfile((p) => ({ ...p, avatar_path: up.path, profile_photo_url: up.publicUrl ?? p.profile_photo_url }));
     } catch (err: any) {
       setAvatarError(err?.message ?? "Upload failed. Please try again.");
     } finally {
       setAvatarUploading(false);
     }
+  }
+
+  // Remove avatar and clear state (also deletes from Storage)
+  async function handleRemoveAvatar() {
+    if (!profile.avatar_path) { setProfile((p) => ({ ...p, profile_photo_url: null })); return; }
+    setAvatarError(null); setAvatarRemoving(true);
+    try {
+      const { error } = await supabase.storage.from("avatars").remove([profile.avatar_path]);
+      if (error) throw error;
+      setProfile((p) => ({ ...p, avatar_path: null, profile_photo_url: null }));
+    } catch (err: any) {
+      setAvatarError(err?.message ?? "Could not remove photo. Please try again.");
+    } finally { setAvatarRemoving(false); }
   }
 
   if (loading) {
@@ -443,19 +538,21 @@ export default function Profile() {
                     type="file"
                     accept=".png,.jpg,.jpeg,.webp"
                     onChange={handleAvatarFile}
-                    disabled={avatarUploading}
+                    disabled={avatarUploading || avatarRemoving}
                   />
                   {avatarUploading ? <p className="text-xs text-gray-600">Uploading…</p> : null}
+                  {avatarRemoving ? <p className="text-xs text-gray-600">Removing…</p> : null}
                   {avatarError ? <p className="text-xs text-red-600">{avatarError}</p> : null}
-                  {profile.profile_photo_url && (
+                  {profile.avatar_path || profile.profile_photo_url ? (
                     <button
                       type="button"
                       className="text-xs underline self-start"
-                      onClick={() => setProfile((p) => ({ ...p, profile_photo_url: null }))}
+                      onClick={handleRemoveAvatar}
+                      disabled={avatarRemoving}
                     >
                       Remove photo
                     </button>
-                  )}
+                  ) : null}
                 </div>
               )}
             </div>
@@ -519,15 +616,12 @@ export default function Profile() {
             {mode === "view" ? (
               <div className="grid gap-1">
                 <label className="text-sm">KYC attachment</label>
-                {profile.govt_id_file_url ? (
-                  <a
-                    className="inline-block text-blue-700 underline text-sm"
-                    href={profile.govt_id_file_url}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    View uploaded document
-                  </a>
+                {profile.kyc_path ? (
+                  kycSignedUrl ? (
+                    <a className="inline-block text-blue-700 underline text-sm" href={kycSignedUrl} target="_blank" rel="noreferrer">View (secure link)</a>
+                  ) : (
+                    <span className="text-sm text-gray-600">Generating link…</span>
+                  )
                 ) : (
                   <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm">—</div>
                 )}
@@ -543,14 +637,8 @@ export default function Profile() {
                 />
                 {kycUploading ? <p className="text-xs text-gray-600">Uploading…</p> : null}
                 {kycError ? <p className="text-xs text-red-600">{kycError}</p> : null}
-                {profile.govt_id_file_url ? (
-                  <p className="text-xs">
-                    Current:{" "}
-                    <a className="text-blue-700 underline" href={profile.govt_id_file_url} target="_blank" rel="noreferrer">
-                      view
-                    </a>{" "}
-                    (upload again to replace)
-                  </p>
+                {profile.kyc_path ? (
+                  <p className="text-xs">A document is on file. Upload again to replace.</p>
                 ) : null}
               </div>
             )}

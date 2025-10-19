@@ -2,6 +2,8 @@
 import React, { StrictMode, Suspense, lazy, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider, Outlet } from "react-router-dom";
+const Scan = React.lazy(() => import("./routes/Scan"));   // ✅ add this
+
 
 /* ────────────────────────────────────────────────────────────
    Kill stale SW + caches (do NOT register a new one while debugging)
@@ -215,7 +217,7 @@ const router = createBrowserRouter([
       { path: "careers", element: <Careers /> },
       { path: "status", element: <Status /> },
       { path: "thanks", element: <Thanks /> },
-
+      
       // 👇 NEW: Rewards page
       { path: "rewards", element: <Rewards /> },
 
@@ -223,6 +225,8 @@ const router = createBrowserRouter([
       { path: "profile", element: <Profile /> },
 
       // Guest / Journey (public)
+       { path: "scan", element: <Scan /> },                      // ✅ add this
+
       { path: "hotel/:slug", element: <Hotel /> },
       { path: "menu", element: <Menu /> },
       { path: "stay/:code/menu", element: <Menu /> },

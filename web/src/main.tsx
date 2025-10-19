@@ -100,12 +100,13 @@ const HK             = lazy(() => import("./routes/HK"));
 const Maint          = lazy(() => import("./routes/Maint"));
 
 /* Owner / Admin (updated) */
-const Owner          = lazy(() => import("./routes/Owner"));              // NEW: property list
-const OwnerDashboard = lazy(() => import("./routes/OwnerDashboard"));     // NEW: single property
-const OwnerSettings  = lazy(() => import("./routes/OwnerSettings"));
-const OwnerServices  = lazy(() => import("./routes/OwnerServices"));
-const OwnerReviews   = lazy(() => import("./routes/OwnerReviews"));
-const AdminOps       = lazy(() => import("./pages/AdminOps"));
+const Owner              = lazy(() => import("./routes/Owner"));              // property list
+const OwnerDashboard     = lazy(() => import("./routes/OwnerDashboard"));     // single property
+const OwnerSettings      = lazy(() => import("./routes/OwnerSettings"));
+const OwnerServices      = lazy(() => import("./routes/OwnerServices"));
+const OwnerReviews       = lazy(() => import("./routes/OwnerReviews"));
+const OwnerHousekeeping  = lazy(() => import("./routes/OwnerHousekeeping"));  // ✅ NEW
+const AdminOps           = lazy(() => import("./pages/AdminOps"));
 
 /* Grid (VPP) */
 const GridDevices    = lazy(() => import("./routes/GridDevices"));
@@ -251,9 +252,10 @@ const router = createBrowserRouter([
       { path: "hk",    element: <AuthGate><HK /></AuthGate> },
       { path: "maint", element: <AuthGate><Maint /></AuthGate> },
 
-      // Owner (protected) — NEW canonical routes
-      { path: "owner",           element: <AuthGate><Owner /></AuthGate> },
-      { path: "owner/:slug",     element: <AuthGate><OwnerDashboard /></AuthGate> },
+      // Owner (protected) — canonical
+      { path: "owner",                 element: <AuthGate><Owner /></AuthGate> },
+      { path: "owner/:slug",           element: <AuthGate><OwnerDashboard /></AuthGate> },
+      { path: "owner/:slug/housekeeping", element: <AuthGate><OwnerHousekeeping /></AuthGate> }, // ✅ NEW
 
       // Owner legacy aliases (still work)
       { path: "owner/dashboard",       element: <AuthGate><OwnerDashboard /></AuthGate> },
@@ -264,8 +266,12 @@ const router = createBrowserRouter([
       { path: "owner/services",  element: <AuthGate><OwnerServices /></AuthGate> },
       { path: "owner/reviews",   element: <AuthGate><OwnerReviews /></AuthGate> },
       { path: "admin",           element: <AuthGate><AdminOps /></AuthGate> },
+
+      // Access & Invite (protected) — canonical + aliases for your UI links
       { path: "owner/:slug/settings/access", element: <AuthGate><OwnerAccess /></AuthGate> },
-      { path: "owner/invite/accept/:token", element: <AuthGate><InviteAccept /></AuthGate> },
+      { path: "owner/invite/accept/:token",  element: <AuthGate><InviteAccept /></AuthGate> },
+      { path: "owner/access",                element: <AuthGate><OwnerAccess /></AuthGate> },  // ✅ alias for ?slug=
+      { path: "invite/accept",               element: <AuthGate><InviteAccept /></AuthGate> }, // ✅ alias for ?code=
 
       // Public property registration
       { path: "owner/register",  element: <OwnerRegister /> },

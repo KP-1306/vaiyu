@@ -177,7 +177,7 @@ export default function App() {
         <figure className="mt-6">
           <div className="rounded-3xl ring-1 ring-slate-200 bg-white overflow-hidden shadow-sm">
             {/* Reserve 16:9 space; add light bg so very bright posters remain visible */}
-            <div className="w-full aspect-[16/9] bg-slate-50">
+            <div className="w-full aspect-[21/6] bg-slate-50">
               <img
                 src="/illustrations/journey-upgraded.png?v=4"
                 alt="The whole journey, upgraded — benefits for Guests, Staff, Owners, and Brand"

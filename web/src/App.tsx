@@ -169,31 +169,33 @@ export default function App() {
         <HeroCarousel slides={slides} />
       </div>
 
-      {/* WHY: fixed 16:9 banner, eager-load, cache-busted */}
-      <section id="why" className="mx-auto max-w-7xl px-4 py-14">
-        <h2 className="text-2xl font-bold">The whole journey, upgraded</h2>
-        <p className="text-gray-600 mt-1">Clear wins for guests, staff, owners, and your brand.</p>
+      {/* WHY: fixed 16:9 banner, full-bleed inside the rounded container */}
+<section id="why" className="mx-auto max-w-7xl px-4 py-14">
+  <h2 className="text-2xl font-bold">The whole journey, upgraded</h2>
+  <p className="text-gray-600 mt-1">Clear wins for guests, staff, owners, and your brand.</p>
 
-        <figure className="mt-6">
-          <div className="rounded-3xl ring-1 ring-slate-200 bg-white overflow-hidden shadow-sm">
-            {/* Reserve 16:9 space; add light bg so very bright posters remain visible */}
-            <div className="w-full aspect-[21/6] bg-slate-50">
-              <img
-                src="/illustrations/journey-upgraded.png?v=4"
-                alt="The whole journey, upgraded — benefits for Guests, Staff, Owners, and Brand"
-                className="block w-full h-full object-contain"
-                loading="eager"
-                decoding="async"
-                onError={(e) => {
-                  const el = e.currentTarget as HTMLImageElement;
-                  el.src = "/illustrations/vaiyu-intelligence-final.png";
-                }}
-              />
-            </div>
-          </div>
-          <figcaption className="sr-only">VAiyu benefits across Guests, Staff, Owners, and Brand.</figcaption>
-        </figure>
-      </section>
+  <figure className="mt-6">
+    <div className="rounded-3xl ring-1 ring-slate-200 bg-white overflow-hidden shadow-sm">
+      {/* Keep the same height; fill width by covering */}
+      <div className="w-full aspect-[16/9]">
+        <img
+          src="/illustrations/journey-upgraded.png?v=5"
+          alt="The whole journey, upgraded — benefits for Guests, Staff, Owners, and Brand"
+          className="block w-full h-full object-cover object-center"
+          loading="eager"
+          decoding="async"
+          onError={(e) => {
+            const el = e.currentTarget as HTMLImageElement;
+            el.src = "/illustrations/vaiyu-intelligence-final.png";
+          }}
+        />
+      </div>
+    </div>
+    <figcaption className="sr-only">
+      VAiyu benefits across Guests, Staff, Owners, and Brand.
+    </figcaption>
+  </figure>
+</section>
 
       {/* Alternating image + content */}
       <section id="ai" className="mx-auto max-w-7xl px-4 pb-14">

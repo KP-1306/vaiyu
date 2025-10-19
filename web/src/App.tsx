@@ -164,10 +164,10 @@ export default function App() {
         </div>
       </header>
 
-      {/* Hero — carousel */}
-      <div className="mx-auto max-w-7xl px-4 py-6">
+        {/* Use-cases (anchor) — hero carousel */}
+        <section id="use-cases" className="mx-auto max-w-7xl px-4 py-6 scroll-mt-24">
         <HeroCarousel slides={slides} />
-      </div>
+        </section>
 
       {/* WHY: fixed 16:9 banner, full-bleed inside the rounded container */}
 <section id="why" className="mx-auto max-w-7xl px-4 py-14">

@@ -109,9 +109,12 @@ export default function AboutUs() {
       <section className="mx-auto max-w-6xl px-4 py-6">
         <h2 className="text-xl font-semibold">Leadership</h2>
         <div className="mt-3 grid md:grid-cols-3 gap-4">
-          <Leader name="A. Founder" role="CEO / Product" blurb="Obsessed with guest delight and simple systems." />
-          <Leader name="B. Founder" role="CTO" blurb="Builds resilient, real-time infra for operations at scale." />
-          <Leader name="C. Founder" role="Design" blurb="Crafts interfaces that feel calm—especially on busy days." />
+          <Leader name="A. Rama Bisht" role="CEO / Product" blurb="Building the bridge between human hospitality and intelligent systems." />
+          <Leader name="B. Kapil R Bisht" role="Advisor and Architect" blurb="Blends advisory insight and architectural discipline to keep VAiyu ahead." />
+          <Leader name="C. Arti Bisht" role="CTO" blurb="Leads the code, the cloud, and the cadence—shipping intelligence at scale." />
+          <Leader name="D. Kamal Bisht" role="Head of operations" blurb="Drives operational excellence that keeps intelligence running smoothly." />
+          <Leader name="E. Ravi Joshi" role="Head of Research & AI / ML" blurb="Bridges research and runtime—models that perform in the wild." />
+          <Leader name="F. Virender Singh" role="Head of Marketing" blurb="Builds the VAiyu narrative—trust, clarity, and measurable growth." />
         </div>
       </section>
 

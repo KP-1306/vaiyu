@@ -5,7 +5,7 @@ import { createBrowserRouter, RouterProvider, Outlet } from "react-router-dom";
 const Scan = React.lazy(() => import("./routes/Scan"));   // ✅ add this
 const Stays = lazy(() => import("./routes/Stays"));
 const Stay  = lazy(() => import("./routes/Stay"));
-const Bills = React.lazy(() => import("./routes/Bills"));
+const Bills = React.lazy(() => import("./routes/Bill"));
 
 
 

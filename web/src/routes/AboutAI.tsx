@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
-import Pill from "../components/Pill"; // adjust the path if you're inside /routes
-
+import Pill from "../components/Pill";
 
 export default function AboutAI() {
   return (
@@ -17,22 +16,28 @@ export default function AboutAI() {
           <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs backdrop-blur">
             🤖 Truth-anchored AI for hospitality
           </div>
+
           <h1 className="mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl">
             Where <span className="text-sky-300">Intelligence</span> Meets Comfort
           </h1>
+
           <p className="mt-3 text-white/85 max-w-2xl">
-            VAiyu turns real stay activity—service tickets, kitchen orders, timings and outcomes—into helpful
-            suggestions, faster ops, and reviews that reflect the truth of the stay.
+            VAiyu converts verified stay signals—service tickets, kitchen orders, timings and resolutions—
+            into <b>actionable guidance</b>, <b>on-time operations</b> and <b>brand-safe AI summaries</b>.
+            Every output is grounded in real activity and approved by the owner.
           </p>
+
+          {/* CTAs — keep it simple: Contact + Back home */}
           <div className="mt-6 flex gap-3">
-            <Link to="/owner/reviews" className="btn !bg-white !text-gray-900 hover:!bg-gray-50">
-              Try AI Review Demo
+            <Link to="/contact" className="btn !bg-white !text-gray-900 hover:!bg-gray-50">
+              Contact us
             </Link>
-            <Link to="/owner/dashboard" className="btn btn-light">
-              View Owner Dashboard
+            <Link to="/" className="btn btn-light">
+              Back to home
             </Link>
           </div>
         </div>
+
         <svg viewBox="0 0 1440 140" className="absolute bottom-[-1px] left-0 w-full" aria-hidden>
           <path fill="#f9fafb" d="M0,80 C240,160 480,0 720,60 C960,120 1200,40 1440,100 L1440,140 L0,140 Z" />
         </svg>
@@ -43,21 +48,21 @@ export default function AboutAI() {
         <div className="grid lg:grid-cols-2 gap-6">
           <Card title="For Guests" emoji="🌴">
             <ul className="space-y-2 text-sm text-gray-700">
-              <li>• Express check-in and digital room keys (planned)</li>
-              <li>• Order food & amenities from your phone</li>
-              <li>• Track housekeeping in real-time</li>
-              <li>• Crystal-clear bills and easy checkout</li>
-              <li>• AI-assisted review draft that summarizes your stay—always editable, never posted without consent</li>
+              <li>• Fast, contactless pre-check-in and a simple in-stay microsite (no app required)</li>
+              <li>• Order food & amenities from your phone; live status on every request</li>
+              <li>• Track housekeeping and timings in real time</li>
+              <li>• Transparent bills and easy checkout</li>
+              <li>• Privacy-first review draft of your stay—always editable, never auto-published</li>
             </ul>
           </Card>
 
           <Card title="For Hotels" emoji="🏨">
             <ul className="space-y-2 text-sm text-gray-700">
-              <li>• Live service desk with SSE updates (no refresh, no polling)</li>
-              <li>• Auto-draft reviews grounded in tickets, orders & SLA timing</li>
-              <li>• SLA breach detection, policy hints, and quick wins</li>
-              <li>• Owner dashboard with KPIs (on-time, late, avg mins, volume)</li>
-              <li>• Consent-aware publishing & moderation workflow</li>
+              <li>• Live service desk with SSE updates—no refresh, no polling, no noise</li>
+              <li>• SLA timers and nudges that keep work on time; breach and policy hints</li>
+              <li>• AI drafts grounded in tickets, orders & timing; owner approval ensures brand safety</li>
+              <li>• Owner intelligence dashboard: KPIs, exceptions and quick-win guidance</li>
+              <li>• Clean integrations: PMS/POS/sensors via open APIs</li>
             </ul>
           </Card>
         </div>
@@ -68,15 +73,16 @@ export default function AboutAI() {
         <h2 className="text-xl font-semibold">How it works</h2>
         <div className="grid md:grid-cols-3 gap-4 mt-3">
           <Step n={1} title="Capture">
-            We record structured activity during a stay: service requests, kitchen orders, start/finish timestamps and
-            SLA targets.
+            Structured signals are recorded during a stay: service tickets, kitchen orders, start/finish timestamps,
+            SLA targets and outcomes—no free-form scraping.
           </Step>
           <Step n={2} title="Summarize">
-            The AI builds a <b>truth-anchored</b> draft: number of requests, on-time vs late, average minutes, and key
-            highlights.
+            Our models assemble a <b>truth-anchored</b> draft: request counts, on-time vs late, average minutes,
+            and highlights tied to verified events.
           </Step>
           <Step n={3} title="Act">
-            Guests can publish or edit their review; owners see KPIs and policy hints to fix what matters first.
+            Guests can edit or publish their review. Owners see KPIs and policy hints that convert insight into
+            on-time actions and measurable outcomes.
           </Step>
         </div>
       </section>
@@ -87,7 +93,7 @@ export default function AboutAI() {
           <Card title="What data we use" emoji="📊">
             <p className="text-sm text-gray-700">
               Tickets (service_key, room, timestamps, SLA), kitchen orders (items, time), check-in/out markers and
-              booking meta. No free-form scraping; just signals we can verify.
+              booking meta. We only use signals we can verify.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Pill>Tickets</Pill>
@@ -107,16 +113,15 @@ export default function AboutAI() {
         </div>
       </section>
 
-      {/* CTA strip */}
+      {/* CTA strip — single Contact button */}
       <section className="border-t bg-white">
         <div className="mx-auto max-w-6xl px-4 py-8 flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="font-semibold">Ready to make operations feel effortless?</div>
-            <div className="text-sm text-gray-600">Run the demo or open the owner dashboard.</div>
+            <div className="text-sm text-gray-600">Let’s talk about your property and rollout plan.</div>
           </div>
           <div className="flex gap-2">
-            <Link to="/stay/DEMO/menu" className="btn btn-light">Open Guest Demo</Link>
-            <Link to="/owner/dashboard" className="btn">Go to Dashboard</Link>
+            <Link to="/contact" className="btn">Contact us</Link>
           </div>
         </div>
       </section>

@@ -26,7 +26,7 @@ export default function AIShowcase() {
         {/* Block 2 — Content left, image right */}
         <div className="grid lg:grid-cols-2 gap-10 lg:gap-14 items-center">
           <Copy
-            eyebrow="Investor-grade architecture"
+           
             title="VAiyu Intelligence — The AI Operating System"
             bullets={[
               "Unifies Guest, Ops, and Sustainability signals into one truth graph",

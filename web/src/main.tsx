@@ -3,6 +3,8 @@ import React, { StrictMode, Suspense, lazy, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider, Outlet } from "react-router-dom";
 const Scan = React.lazy(() => import("./routes/Scan"));   // ✅ add this
+const Stays = lazy(() => import("./routes/Stays"));
+const Stay  = lazy(() => import("./routes/Stay"));
 
 
 /* ────────────────────────────────────────────────────────────
@@ -238,6 +240,9 @@ const router = createBrowserRouter([
       { path: "checkout", element: <Checkout /> },
       { path: "guest", element: <GuestDashboard /> },
       { path: "hotel/:slug/reviews", element: <HotelReviews /> },
+      { path: "stays", element: <Stays /> },        // list page used by “View all stays / See all”
+      { path: "stay/:id", element: <Stay /> },      // detail page used by “View details”
+
 
       // Guest deep link (public)
       { path: "stay/:slug/requests/:id", element: <RequestStatus /> },

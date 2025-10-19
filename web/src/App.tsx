@@ -130,7 +130,7 @@ export default function App() {
       {/* Top nav */}
       <header className="sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-gray-100">
         <div className="mx-auto max-w-7xl px-4 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
+          <Link to="/" className="flex itemseller gap-2">
             <img
               src="/brand/vaiyu-logo.png"
               alt="VAiyu"
@@ -169,30 +169,26 @@ export default function App() {
         <HeroCarousel slides={slides} />
       </div>
 
-      {/* WHY: ultra-wide desktop poster + taller mobile poster */}
+      {/* WHY: fixed 16:9 banner */}
       <section id="why" className="mx-auto max-w-7xl px-4 py-14">
         <h2 className="text-2xl font-bold">The whole journey, upgraded</h2>
         <p className="text-gray-600 mt-1">Clear wins for guests, staff, owners, and your brand.</p>
 
         <figure className="mt-6">
           <div className="rounded-3xl ring-1 ring-slate-200 bg-white/40 backdrop-blur-sm overflow-hidden shadow-sm">
-            {/* Reserve aspect: a bit taller on phones → wide & short on desktop */}
-            <div className="w-full aspect-[4/3] sm:aspect-[16/9] lg:aspect-[21/9]">
+            {/* Fixed 16:9 aspect on all breakpoints */}
+            <div className="w-full aspect-[16/9]">
               <picture>
-                {/* Desktop ultra-wide (21:9) */}
-                <source srcSet="/illustrations/journey-upgraded-wide.webp?v=1" media="(min-width: 1024px)" type="image/webp" />
-                <source srcSet="/illustrations/journey-upgraded-wide.png?v=1"  media="(min-width: 1024px)" />
-                {/* Mobile/tablet poster (taller) */}
-                <source srcSet="/illustrations/journey-upgraded-mobile.webp?v=1" type="image/webp" />
+                {/* Optional modern format */}
+                <source srcSet="/illustrations/journey-upgraded.webp?v=1" type="image/webp" />
                 <img
-                  src="/illustrations/journey-upgraded-mobile.png?v=1"
+                  src="/illustrations/journey-upgraded.png?v=1"
                   alt="The whole journey, upgraded — benefits for Guests, Staff, Owners, and Brand"
                   className="block w-full h-full object-contain"
                   loading="lazy"
                   decoding="async"
                   onError={(e) => {
                     const el = e.currentTarget as HTMLImageElement;
-                    // Last-resort: local safe fallback so layout never looks empty
                     el.src = "/illustrations/vaiyu-intelligence-final.png";
                   }}
                 />

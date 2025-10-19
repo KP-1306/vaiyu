@@ -3,7 +3,7 @@ import React from "react";
 export default function LiveProductPeek() {
   const items = [
     { tag: "Guest", poster: "/illustrations/peek_guest.png" },
-    { tag: "Staff", poster: "/illustrations/peek_staff.png" },
+    { tag: "Staff", poster: "/illustrations/peek_staff.png" }, // if cached, add ?v=2
     { tag: "Owner", poster: "/illustrations/peek_owner.png" },
   ];
 
@@ -28,14 +28,15 @@ export default function LiveProductPeek() {
               key={it.tag}
               className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden"
             >
-              {/* Poster only (no title bar, no figcaption) */}
-              <div className="w-full aspect-[16/10] bg-gray-50 grid place-items-center">
+              {/* Poster only (fill frame, crop bottom whitespace) */}
+              <div className="relative w-full aspect-[16/10] bg-gray-50 overflow-hidden">
                 <img
                   src={it.poster}
                   alt={`${it.tag} flow preview`}
-                  className="h-full w-full object-cover"
+                  className="absolute inset-0 h-full w-full object-cover object-top select-none"
                   loading="lazy"
                   decoding="async"
+                  draggable={false}
                   onError={(e) => {
                     const el = e.currentTarget as HTMLImageElement;
                     if (el.src.endsWith(FALLBACK)) return;

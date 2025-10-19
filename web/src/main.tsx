@@ -2,12 +2,10 @@
 import React, { StrictMode, Suspense, lazy, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider, Outlet } from "react-router-dom";
-const Scan = React.lazy(() => import("./routes/Scan"));   // ✅ add this
+const Scan = React.lazy(() => import("./routes/Scan"));   // ✅ scan route
 const Stays = lazy(() => import("./routes/Stays"));
 const Stay  = lazy(() => import("./routes/Stay"));
 const Bills = React.lazy(() => import("./routes/Bill"));
-
-
 
 /* ────────────────────────────────────────────────────────────
    Kill stale SW + caches (do NOT register a new one while debugging)
@@ -59,7 +57,7 @@ import AuthGate from "./components/AuthGate";
 /* Supabase client */
 import { supabase } from "./lib/supabase";
 
-/* React Query (prevents “No QueryClient set” warnings) */
+/* React Query */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false } },
@@ -70,7 +68,7 @@ const queryClient = new QueryClient({
 const SignIn         = lazy(() => import("./routes/SignIn"));
 const AuthCallback   = lazy(() => import("./routes/AuthCallback"));
 const Logout         = lazy(() => import("./routes/Logout"));
-const App            = lazy(() => import("./App")); // ← your approved public landing
+const App            = lazy(() => import("./App"));
 const AboutUs        = lazy(() => import("./routes/AboutUs"));
 const AboutAI        = lazy(() => import("./routes/AboutAI"));
 const Press          = lazy(() => import("./routes/Press"));
@@ -80,7 +78,7 @@ const Contact        = lazy(() => import("./routes/Contact"));
 const Careers        = lazy(() => import("./routes/Careers"));
 const Status         = lazy(() => import("./routes/Status"));
 const Thanks         = lazy(() => import("./routes/Thanks"));
-const OwnerRegister  = lazy(() => import("./routes/OwnerRegister")); // used by public CTAs
+const OwnerRegister  = lazy(() => import("./routes/OwnerRegister")); // public registration
 
 /* Guest / Journey */
 const Hotel          = lazy(() => import("./routes/Hotel"));
@@ -99,9 +97,9 @@ const Desk           = lazy(() => import("./routes/Desk"));
 const HK             = lazy(() => import("./routes/HK"));
 const Maint          = lazy(() => import("./routes/Maint"));
 
-/* Owner / Admin */
-const OwnerHome      = lazy(() => import("./routes/OwnerHome"));
-const OwnerDashboard = lazy(() => import("./routes/OwnerDashboard"));
+/* Owner / Admin (updated) */
+const Owner          = lazy(() => import("./routes/Owner"));              // NEW: property list
+const OwnerDashboard = lazy(() => import("./routes/OwnerDashboard"));     // NEW: single property
 const OwnerSettings  = lazy(() => import("./routes/OwnerSettings"));
 const OwnerServices  = lazy(() => import("./routes/OwnerServices"));
 const OwnerReviews   = lazy(() => import("./routes/OwnerReviews"));
@@ -112,16 +110,16 @@ const GridDevices    = lazy(() => import("./routes/GridDevices"));
 const GridPlaybooks  = lazy(() => import("./routes/GridPlaybooks"));
 const GridEvents     = lazy(() => import("./routes/GridEvents"));
 
-/* Profile (new) */
+/* Profile */
 const Profile        = lazy(() => import("./routes/Profile"));
 
-/* ✅ Rewards (new) */
+/* Rewards */
 const Rewards        = lazy(() => import("./routes/Rewards"));
 
 /* 404 + deep link + welcome */
 const NotFound       = lazy(() => import("./routes/NotFound"));
 const RequestStatus  = lazy(() => import("./pages/RequestStatus"));
-// const Welcome        = lazy(() => import("./routes/Welcome"));
+// const Welcome     = lazy(() => import("./routes/Welcome"));
 
 /* ================= Auth bootstrap gate ================= */
 function AuthBootstrap({ children }: { children: React.ReactNode }) {
@@ -202,10 +200,10 @@ const router = createBrowserRouter([
     element: <RootLayout />,
     errorElement: <RouteErrorElement />,
     children: [
-      // ✅ Public landing at "/" using your approved App + hero carousel
+      // Public landing at "/"
       { index: true, element: withBoundary(<App />) },
 
-      // Safety hatch (always renders)
+      // Safety hatch
       { path: "ok", element: <MinimalOK /> },
 
       // Public
@@ -221,16 +219,13 @@ const router = createBrowserRouter([
       { path: "careers", element: <Careers /> },
       { path: "status", element: <Status /> },
       { path: "thanks", element: <Thanks /> },
-      
-      // 👇 NEW: Rewards page
-      { path: "rewards", element: <Rewards /> },
 
-      // 👇 Profile (public route; page handles its own auth checks)
+      // Rewards + Profile
+      { path: "rewards", element: <Rewards /> },
       { path: "profile", element: <Profile /> },
 
-      // Guest / Journey (public)
-       { path: "scan", element: <Scan /> },                      // ✅ add this
-
+      // Guest / Journey
+      { path: "scan", element: <Scan /> },
       { path: "hotel/:slug", element: <Hotel /> },
       { path: "menu", element: <Menu /> },
       { path: "stay/:code/menu", element: <Menu /> },
@@ -242,11 +237,11 @@ const router = createBrowserRouter([
       { path: "checkout", element: <Checkout /> },
       { path: "guest", element: <GuestDashboard /> },
       { path: "hotel/:slug/reviews", element: <HotelReviews /> },
-      { path: "stays", element: <Stays /> },        // list page used by “View all stays / See all”
-      { path: "stay/:id", element: <Stay /> },      // detail page used by “View details”
+      { path: "stays", element: <Stays /> },
+      { path: "stay/:id", element: <Stay /> },
       { path: "bills", element: <Bills /> },
 
-      // Guest deep link (public)
+      // Deep link
       { path: "stay/:slug/requests/:id", element: <RequestStatus /> },
 
       // Staff (protected)
@@ -254,25 +249,29 @@ const router = createBrowserRouter([
       { path: "hk",    element: <AuthGate><HK /></AuthGate> },
       { path: "maint", element: <AuthGate><Maint /></AuthGate> },
 
-      // Owner / Admin (protected)
-      { path: "owner",                 element: <AuthGate><OwnerHome /></AuthGate> },
+      // Owner (protected) — NEW canonical routes
+      { path: "owner",           element: <AuthGate><Owner /></AuthGate> },
+      { path: "owner/:slug",     element: <AuthGate><OwnerDashboard /></AuthGate> },
+
+      // Owner legacy aliases (still work)
       { path: "owner/dashboard",       element: <AuthGate><OwnerDashboard /></AuthGate> },
       { path: "owner/dashboard/:slug", element: <AuthGate><OwnerDashboard /></AuthGate> },
-      { path: "owner/settings",        element: <AuthGate><OwnerSettings /></AuthGate> },
-      { path: "owner/services",        element: <AuthGate><OwnerServices /></AuthGate> },
-      { path: "owner/reviews",         element: <AuthGate><OwnerReviews /></AuthGate> },
-      { path: "admin",                 element: <AuthGate><AdminOps /></AuthGate> },
-      { path: "owner/register",        element: <OwnerRegister /> },
+
+      // Owner settings/services/reviews (protected)
+      { path: "owner/settings",  element: <AuthGate><OwnerSettings /></AuthGate> },
+      { path: "owner/services",  element: <AuthGate><OwnerServices /></AuthGate> },
+      { path: "owner/reviews",   element: <AuthGate><OwnerReviews /></AuthGate> },
+      { path: "admin",           element: <AuthGate><AdminOps /></AuthGate> },
+
+      // Public property registration
+      { path: "owner/register",  element: <OwnerRegister /> },
 
       // Grid (protected)
       { path: "grid/devices",   element: <AuthGate><GridDevices /></AuthGate> },
       { path: "grid/playbooks", element: <AuthGate><GridPlaybooks /></AuthGate> },
       { path: "grid/events",    element: <AuthGate><GridEvents /></AuthGate> },
 
-      // Welcome (still available if linked)
-      // { path: "welcome", element: <Welcome /> },
-
-      // 404 (catch-all)
+      // 404
       { path: "*", element: <NotFound /> },
     ],
   },

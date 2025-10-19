@@ -61,8 +61,7 @@ export default function LiveProductPeek() {
                 />
               </div>
 
-          ))}
-        </div>
+
 
         {/* CTA */}
         <div className="mt-8 text-center">

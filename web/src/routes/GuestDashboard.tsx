@@ -18,7 +18,7 @@ type Review = {
   rating: number; // 1..5
   title?: string | null;
   created_at: string;
-  hotel_reply?: string | null; // NEW: optional bi-directional reply
+  hotel_reply?: string | null;
 };
 
 type Spend = { year: number; total: number };
@@ -26,8 +26,8 @@ type Spend = { year: number; total: number };
 type Referral = {
   id: string;
   hotel: { name: string; city?: string };
-  credits: number; // ₹ earned for this hotel via referrals
-  referrals_count: number; // successful referrals count
+  credits: number;
+  referrals_count: number;
 };
 
 type Source = "live" | "preview";
@@ -37,9 +37,10 @@ type AsyncData<T> = { loading: boolean; source: Source; data: T };
 export default function GuestDashboard() {
   const nav = useNavigate();
 
-  // auth snapshot
+  // auth/profile snapshot
   const [email, setEmail] = useState<string | null>(null);
-  const [name, setName] = useState<string | null>(null);
+  const [authName, setAuthName] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string | null>(null); // <- shows “Kapil” instead of email when available
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   // independent card states
@@ -48,27 +49,55 @@ export default function GuestDashboard() {
   const [spend, setSpend] = useState<AsyncData<Spend[]>>({ loading: true, source: "live", data: [] });
   const [referrals, setReferrals] = useState<AsyncData<Referral[]>>({ loading: true, source: "live", data: [] });
 
-  /* ---- Auth ---- */
+  /* ---- Auth + Profile ---- */
   useEffect(() => {
     let mounted = true;
+
     (async () => {
-      const { data } = await supabase.auth
-        .getUser()
-        .catch(() => ({ data: { user: null as any } }));
+      const { data } = await supabase.auth.getUser().catch(() => ({ data: { user: null as any } }));
       if (!mounted) return;
       const u = data?.user;
+
       setEmail(u?.email ?? null);
-      setName((u?.user_metadata?.name as string) ?? u?.user_metadata?.full_name ?? null);
+      setAuthName((u?.user_metadata?.name as string) ?? u?.user_metadata?.full_name ?? null);
       setAvatarUrl((u?.user_metadata?.avatar_url as string) || null);
 
-      const { data: sub } = supabase.auth.onAuthStateChange((_evt, sess) => {
+      // Pull name/photo from profiles table (preferred once user saved profile)
+      if (u?.id) {
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("full_name, profile_photo_url")
+          .eq("id", u.id)
+          .maybeSingle();
+        if (prof) {
+          if (prof.full_name && prof.full_name.trim()) setDisplayName(prof.full_name.trim());
+          if (prof.profile_photo_url) setAvatarUrl(prof.profile_photo_url);
+        }
+      }
+
+      // keep badge fresh on auth updates
+      const { data: sub } = supabase.auth.onAuthStateChange(async (_evt, sess) => {
         if (!mounted) return;
-        setEmail(sess?.user?.email ?? null);
-        setName((sess?.user?.user_metadata?.name as string) ?? sess?.user?.user_metadata?.full_name ?? null);
-        setAvatarUrl((sess?.user?.user_metadata?.avatar_url as string) || null);
+        const user = sess?.user;
+        setEmail(user?.email ?? null);
+        setAuthName((user?.user_metadata?.name as string) ?? user?.user_metadata?.full_name ?? null);
+        setAvatarUrl((user?.user_metadata?.avatar_url as string) || null);
+
+        if (user?.id) {
+          const { data: prof } = await supabase
+            .from("profiles")
+            .select("full_name, profile_photo_url")
+            .eq("id", user.id)
+            .maybeSingle();
+          if (prof) {
+            if (prof.full_name && prof.full_name.trim()) setDisplayName(prof.full_name.trim());
+            if (prof.profile_photo_url) setAvatarUrl(prof.profile_photo_url);
+          }
+        }
       });
       return () => sub.subscription.unsubscribe();
     })();
+
     return () => {
       mounted = false;
     };
@@ -105,7 +134,9 @@ export default function GuestDashboard() {
     );
   }, []);
 
-  const firstName = (name || email || "Guest").split(" ")[0];
+  const who = displayName || authName || email || "Guest";
+  const firstName = who.split(" ")[0];
+
   const lastStay = stays.data[0];
   const welcomeText = useMemo(() => {
     if (lastStay?.hotel) {
@@ -166,17 +197,29 @@ export default function GuestDashboard() {
             </h1>
             <p className="text-sm text-gray-600 mt-1">Your trips, bookings and bills — all in one happy place 😄</p>
             <p className="text-xs text-gray-600 mt-2">
-              Tip: Add a profile photo and KYC in your <button onClick={()=>nav('/profile')} className="underline">profile</button> to speed up check‑in.
+              Tip: Add a profile photo and KYC in your{" "}
+              <button onClick={() => nav("/profile")} className="underline">
+                profile
+              </button>{" "}
+              to speed up check-in.
             </p>
           </div>
-          <ProfileMenu email={email} avatarUrl={avatarUrl} onEditProfile={() => nav("/profile")} />
+          <ProfileMenu
+            label={who}
+            email={email}
+            avatarUrl={avatarUrl}
+            onEditProfile={() => nav("/profile")}
+          />
         </div>
 
-        <Link to="/rewards" className="btn">Rewards & Vouchers</Link>
-        
+        {/* Rewards: more prominent, right under welcome */}
+        <div className="mt-4">
+          <RewardsPill total={totalReferralCredits} />
+        </div>
+
         {/* Hero actions */}
-        <div className="mt-5 grid sm:grid-cols-3 gap-3">
-          <QuickPill title="Scan & go" text="Check‑in with a QR" to="/scan" />
+        <div className="mt-4 grid sm:grid-cols-3 gap-3">
+          <QuickPill title="Scan & go" text="Check-in with a QR" to="/scan" />
           <QuickPill title="Find my booking" text="Enter code" to="/claim" variant="light" />
           <QuickPill title="Explore hotels" text="Discover stays" to="/hotel/sunrise" variant="light" />
         </div>
@@ -191,27 +234,37 @@ export default function GuestDashboard() {
         <StatBadge label="Most visited" value={stats.mostVisited} emoji="❤️" />
       </section>
 
-      {/* Row 1: Check‑in, Recent stays, Spend */}
+      {/* Row 1: Check-in, Recent stays, Spend */}
       <section className="grid md:grid-cols-3 gap-4">
-        <Card title="Check‑in" subtitle="Scan & go" icon={<CalendarIcon />}>
+        <Card title="Check-in" subtitle="Scan & go" icon={<CalendarIcon />}>
           <ArrivalCheckInEmpty />
         </Card>
 
-        <Card title="Recent stays" subtitle="Last 5 hotels" icon={<SuitcaseIcon />} badge={stays.source === "preview" ? "Preview" : undefined}>
+        <Card
+          title="Recent stays"
+          subtitle="Last 5 hotels"
+          icon={<SuitcaseIcon />}
+          badge={stays.source === "preview" ? "Preview" : undefined}
+        >
           {stays.loading ? (
             <Skeleton lines={5} />
-          ) : stays.data.slice(0,5).length ? (
+          ) : stays.data.slice(0, 5).length ? (
             <>
               <ul className="space-y-2 text-sm">
-                {stays.data.slice(0,5).map((s) => (
+                {stays.data.slice(0, 5).map((s) => (
                   <li key={s.id} className="flex items-center justify-between">
-                    <span>{s.hotel.name}{s.hotel.city ? `, ${s.hotel.city}` : ""}</span>
+                    <span>
+                      {s.hotel.name}
+                      {s.hotel.city ? `, ${s.hotel.city}` : ""}
+                    </span>
                     <span className="opacity-70">{fmtRange(s.check_in, s.check_out)}</span>
                   </li>
                 ))}
               </ul>
               <div className="mt-3 text-right">
-                <Link className="btn btn-light" to="/stays">View all stays</Link>
+                <Link className="btn btn-light" to="/stays">
+                  View all stays
+                </Link>
               </div>
             </>
           ) : (
@@ -219,7 +272,12 @@ export default function GuestDashboard() {
           )}
         </Card>
 
-        <Card title="Spend summary" subtitle="By year" icon={<RupeeIcon />} badge={spend.source === "preview" ? "Preview" : undefined}>
+        <Card
+          title="Spend summary"
+          subtitle="By year"
+          icon={<RupeeIcon />}
+          badge={spend.source === "preview" ? "Preview" : undefined}
+        >
           {spend.loading ? (
             <Skeleton lines={4} />
           ) : spend.data.length ? (
@@ -227,10 +285,17 @@ export default function GuestDashboard() {
               <MiniBars data={spend.data} />
               <ul className="text-sm space-y-1 mt-3">
                 {spend.data.map((s) => (
-                  <li key={s.year} className="flex justify-between"><span>{s.year}</span><span>₹ {Number(s.total || 0).toLocaleString()}</span></li>
+                  <li key={s.year} className="flex justify-between">
+                    <span>{s.year}</span>
+                    <span>₹ {Number(s.total || 0).toLocaleString()}</span>
+                  </li>
                 ))}
               </ul>
-              <div className="mt-3 text-right"><Link className="btn btn-light" to="/bills">Download bills</Link></div>
+              <div className="mt-3 text-right">
+                <Link className="btn btn-light" to="/bills">
+                  Download bills
+                </Link>
+              </div>
             </>
           ) : (
             <Empty small text="No spend yet." />
@@ -238,21 +303,23 @@ export default function GuestDashboard() {
         </Card>
       </section>
 
-      {/* Row 2: My Journey (10 stays) */}
+      {/* Row 2: My Journey (10 stays) with reviews inline */}
       <section className="rounded-2xl p-4 shadow bg-white border">
         <div className="flex items-center justify-between mb-2">
           <div>
             <div className="text-xs text-gray-500">Personal timeline</div>
             <h2 className="font-semibold">My Journey — last 10 stays</h2>
           </div>
-          <Link className="btn btn-light" to="/stays">See all</Link>
+          <Link className="btn btn-light" to="/stays">
+            See all
+          </Link>
         </div>
 
         {stays.loading ? (
           <Skeleton lines={6} />
         ) : stays.data.length ? (
           <div className="grid md:grid-cols-2 gap-3">
-            {stays.data.slice(0,10).map((s) => {
+            {stays.data.slice(0, 10).map((s) => {
               const key = s.hotel.name.toLowerCase();
               const rv = reviewByHotel[key];
               const credits = creditsByHotel[key] || 0;
@@ -267,18 +334,26 @@ export default function GuestDashboard() {
                       )}
                     </div>
                     <div className="min-w-0">
-                      <div className="font-medium truncate">{s.hotel.name}{s.hotel.city ? `, ${s.hotel.city}` : ""}</div>
+                      <div className="font-medium truncate">
+                        {s.hotel.name}
+                        {s.hotel.city ? `, ${s.hotel.city}` : ""}
+                      </div>
                       <div className="text-xs text-gray-500">{fmtRange(s.check_in, s.check_out)}</div>
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
                         {credits > 0 && (
-                          <span className="px-2 py-0.5 rounded-full bg-amber-100 border border-amber-200">Earned ₹ {credits.toLocaleString()} 🎉</span>
+                          <span className="px-2 py-0.5 rounded-full bg-amber-100 border border-amber-200">
+                            Earned ₹ {credits.toLocaleString()} 🎉
+                          </span>
                         )}
                         {rv ? (
-                          <span className="px-2 py-0.5 rounded-full bg-indigo-100 border border-indigo-200">Your rating: {stars(rv.rating)}</span>
+                          <span className="px-2 py-0.5 rounded-full bg-indigo-100 border border-indigo-200">
+                            Your rating: {stars(rv.rating)}
+                          </span>
                         ) : null}
                       </div>
                     </div>
                   </div>
+
                   {rv && (
                     <div className="mt-2 text-sm text-gray-700">
                       {rv.title ? `“${rv.title}”` : ""}
@@ -290,8 +365,11 @@ export default function GuestDashboard() {
                       )}
                     </div>
                   )}
+
                   <div className="mt-3 text-right">
-                    <Link className="btn btn-light" to={`/stay/${s.id}`}>View details</Link>
+                    <Link className="btn btn-light" to={`/stay/${s.id}`}>
+                      View details
+                    </Link>
                   </div>
                 </div>
               );
@@ -302,9 +380,14 @@ export default function GuestDashboard() {
         )}
       </section>
 
-      {/* Row 3: Referrals (existing) + Reviews (fun) */}
+      {/* Row 3: Referrals + Latest reviews (kept fun), but Manage → /stays */}
       <section className="grid lg:grid-cols-3 gap-4">
-        <Card title="Your referrals" subtitle="Earn credits hotel‑wise" icon={<GiftIcon />} badge={referrals.source === "preview" ? "Preview" : undefined}>
+        <Card
+          title="Your referrals"
+          subtitle="Earn credits hotel-wise"
+          icon={<GiftIcon />}
+          badge={referrals.source === "preview" ? "Preview" : undefined}
+        >
           {referrals.loading ? (
             <Skeleton lines={5} />
           ) : referrals.data.length ? (
@@ -317,12 +400,19 @@ export default function GuestDashboard() {
                 {referrals.data.map((r) => (
                   <li key={r.id} className="py-2 flex items-center justify-between">
                     <div>
-                      <div className="font-medium">{r.hotel.name}{r.hotel.city ? `, ${r.hotel.city}` : ""}</div>
-                      <div className="text-xs text-gray-500">{r.referrals_count} successful {r.referrals_count === 1 ? "referral" : "referrals"}</div>
+                      <div className="font-medium">
+                        {r.hotel.name}
+                        {r.hotel.city ? `, ${r.hotel.city}` : ""}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {r.referrals_count} successful {r.referrals_count === 1 ? "referral" : "referrals"}
+                      </div>
                     </div>
                     <div className="text-right">
                       <div className="font-semibold">₹ {Number(r.credits || 0).toLocaleString()}</div>
-                      <button className="text-xs underline" onClick={() => copyReferral(r.hotel.name)}>Share link</button>
+                      <button className="text-xs underline" onClick={() => copyReferral(r.hotel.name)}>
+                        Share link
+                      </button>
                     </div>
                   </li>
                 ))}
@@ -339,7 +429,10 @@ export default function GuestDashboard() {
               <div className="text-sm text-gray-600 mb-1">Your latest reviews</div>
               <div className="text-xs text-gray-500">Spread the travel joy — add a fun title or edit anytime.</div>
             </div>
-            <Link className="btn btn-light" to="/reviews">Manage</Link>
+            {/* Option A: send them to stays, not /reviews */}
+            <Link className="btn btn-light" to="/stays">
+              Manage
+            </Link>
           </div>
 
           <div className="mt-3">
@@ -347,7 +440,7 @@ export default function GuestDashboard() {
               <Skeleton lines={3} />
             ) : reviews.data.length ? (
               <div className="grid md:grid-cols-2 gap-3">
-                {reviews.data.slice(0,6).map((rv) => (
+                {reviews.data.slice(0, 6).map((rv) => (
                   <ReviewCard key={rv.id} review={rv} />
                 ))}
               </div>
@@ -364,12 +457,14 @@ export default function GuestDashboard() {
 
       {/* Help / Support */}
       <section className="rounded-2xl p-4 shadow bg-blue-50/60 border border-blue-100 flex items-center justify-between">
-        <div className="text-sm text-blue-900">
-          Need help with your bookings or profile? No worries — our team can fix it quickly.
-        </div>
+        <div className="text-sm text-blue-900">Need help with your bookings or profile? No worries — our team can fix it quickly.</div>
         <div className="flex gap-2">
-          <Link to="/contact" className="btn btn-light">Contact support</Link>
-          <a className="btn btn-light" href="mailto:support@vaiyu.co.in?subject=Help%20on%20Guest%20Dashboard">Email us</a>
+          <Link to="/contact" className="btn btn-light">
+            Contact support
+          </Link>
+          <a className="btn btn-light" href="mailto:support@vaiyu.co.in?subject=Help%20on%20Guest%20Dashboard">
+            Email us
+          </a>
         </div>
       </section>
 
@@ -380,7 +475,9 @@ export default function GuestDashboard() {
             <div className="font-semibold">Want to run a property?</div>
             <div className="text-sm text-gray-600">Register your hotel to unlock the owner console: dashboards, SLAs, workflows and AI moderation.</div>
           </div>
-          <Link className="btn" to="/owner/register">Register your property</Link>
+          <Link className="btn" to="/owner/register">
+            Register your property
+          </Link>
         </div>
       </section>
     </main>
@@ -409,40 +506,110 @@ function ArrivalCheckInEmpty() {
     <div className="text-sm text-gray-700">
       <div className="rounded-lg border-2 border-dashed p-4 bg-gray-50">
         <div className="font-medium">Arriving at a VAiyu hotel?</div>
-        <p className="text-gray-600 mt-1">When you reach the property, scan the VAiyu QR at the front desk to fetch your booking and start check‑in.</p>
+        <p className="text-gray-600 mt-1">
+          When you reach the property, scan the VAiyu QR at the front desk to fetch your booking and start check-in.
+        </p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <Link className="btn" to="/scan">Scan property QR</Link>
-          <Link className="btn btn-light" to="/claim">Enter booking code</Link>
-          <Link className="btn btn-light" to="/hotel/sunrise">Explore hotels</Link>
+          <Link className="btn" to="/scan">
+            Scan property QR
+          </Link>
+          <Link className="btn btn-light" to="/claim">
+            Enter booking code
+          </Link>
+          <Link className="btn btn-light" to="/hotel/sunrise">
+            Explore hotels
+          </Link>
         </div>
       </div>
     </div>
   );
 }
 
+/* ===== Rewards pill ===== */
+function RewardsPill({ total }: { total: number }) {
+  return (
+    <Link
+      to="/rewards"
+      className="inline-flex items-center gap-3 rounded-xl border bg-gradient-to-r from-amber-50 to-yellow-50 px-4 py-2 shadow hover:shadow-md transition"
+    >
+      <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-200 border border-amber-300">🎁</span>
+      <span className="text-sm">
+        <span className="font-semibold">Rewards & Vouchers</span>
+        <span className="ml-2 text-gray-600">({`₹ ${total.toLocaleString()}`} earned)</span>
+      </span>
+      <span className="ml-2 text-gray-500">→</span>
+    </Link>
+  );
+}
+
 /* ===== Profile menu (top-right) ===== */
-function ProfileMenu({ email, avatarUrl, onEditProfile }: { email: string | null; avatarUrl: string | null; onEditProfile: () => void; }) {
+function ProfileMenu({
+  label,
+  email,
+  avatarUrl,
+  onEditProfile,
+}: {
+  label: string | null;
+  email: string | null;
+  avatarUrl: string | null;
+  onEditProfile: () => void;
+}) {
   const [open, setOpen] = useState(false);
   async function signOut() {
     await supabase.auth.signOut();
     location.href = "/"; // back to marketing shell
   }
-  const initial = email?.[0]?.toUpperCase() ?? "G";
+  const initials =
+    (label?.trim().split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() ||
+      email?.[0]?.toUpperCase() ||
+      "G");
+
   return (
     <div className="relative">
-      <button className="flex items-center gap-2 rounded-full border bg-white px-3 py-1.5 shadow" onClick={() => setOpen((v) => !v)} aria-haspopup="menu" aria-expanded={open}>
+      <button
+        className="flex items-center gap-2 rounded-full border bg-white px-3 py-1.5 shadow"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title={email || undefined}
+      >
         <div className="w-8 h-8 rounded-full overflow-hidden bg-indigo-600 text-white grid place-items-center text-sm font-semibold">
-          {avatarUrl ? (<img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />) : (initial)}
+          {avatarUrl ? <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : initials}
         </div>
-        <span className="text-sm text-gray-700 max-w-[160px] truncate">{email || "Guest"}</span>
+        <span className="text-sm text-gray-700 max-w-[180px] truncate">{label || email || "Guest"}</span>
       </button>
 
       {open && (
-        <div role="menu" className="absolute right-0 mt-2 w-56 rounded-xl border bg-white shadow-lg overflow-hidden z-50">
-          <button role="menuitem" className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50" onClick={() => { setOpen(false); onEditProfile(); }}>Update profile</button>
-          <Link role="menuitem" to="/settings" className="block px-3 py-2 text-sm hover:bg-gray-50" onClick={() => setOpen(false)}>Settings</Link>
+        <div
+          role="menu"
+          className="absolute right-0 mt-2 w-56 rounded-xl border bg-white shadow-lg overflow-hidden z-50"
+        >
+          <button
+            role="menuitem"
+            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+            onClick={() => {
+              setOpen(false);
+              onEditProfile();
+            }}
+          >
+            Update profile
+          </button>
+          <Link
+            role="menuitem"
+            to="/settings"
+            className="block px-3 py-2 text-sm hover:bg-gray-50"
+            onClick={() => setOpen(false)}
+          >
+            Settings
+          </Link>
           <div className="border-t my-1" />
-          <button role="menuitem" className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50" onClick={signOut}>Sign out</button>
+          <button
+            role="menuitem"
+            className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+            onClick={signOut}
+          >
+            Sign out
+          </button>
         </div>
       )}
     </div>
@@ -450,7 +617,19 @@ function ProfileMenu({ email, avatarUrl, onEditProfile }: { email: string | null
 }
 
 /* ===== Reusable UI ===== */
-const Card = memo(function Card({ title, subtitle, icon, badge, children }: { title: string; subtitle?: string; icon?: React.ReactNode; badge?: string; children: React.ReactNode; }) {
+const Card = memo(function Card({
+  title,
+  subtitle,
+  icon,
+  badge,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  icon?: React.ReactNode;
+  badge?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="rounded-2xl p-4 shadow bg-white border">
       <div className="mb-2 flex items-center justify-between">
@@ -461,17 +640,31 @@ const Card = memo(function Card({ title, subtitle, icon, badge, children }: { ti
             <div className="font-semibold">{title}</div>
           </div>
         </div>
-        {badge && (<span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 border text-gray-700">{badge}</span>)}
+        {badge && <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 border text-gray-700">{badge}</span>}
       </div>
       <div>{children}</div>
     </div>
   );
 });
 
-/* Cute quick action pills */
-function QuickPill({ title, text, to, variant = "solid" }: { title: string; text: string; to: string; variant?: "solid" | "light" }) {
+function QuickPill({
+  title,
+  text,
+  to,
+  variant = "solid",
+}: {
+  title: string;
+  text: string;
+  to: string;
+  variant?: "solid" | "light";
+}) {
   return (
-    <Link to={to} className={`rounded-xl border px-4 py-3 flex items-center justify-between ${variant === "solid" ? "bg-white shadow" : "bg-white/70"}`}>
+    <Link
+      to={to}
+      className={`rounded-xl border px-4 py-3 flex items-center justify-between ${
+        variant === "solid" ? "bg-white shadow" : "bg-white/70"
+      }`}
+    >
       <div>
         <div className="text-xs text-gray-500">{text}</div>
         <div className="font-semibold">{title}</div>
@@ -481,24 +674,26 @@ function QuickPill({ title, text, to, variant = "solid" }: { title: string; text
   );
 }
 
-/* Stat Badges */
 function StatBadge({ label, value, emoji }: { label: string; value: string; emoji: string }) {
   return (
     <div className="rounded-xl border bg-white shadow-sm p-3">
       <div className="text-xs text-gray-500">{label}</div>
-      <div className="mt-1 text-lg font-semibold flex items-center gap-2">{value} <span>{emoji}</span></div>
+      <div className="mt-1 text-lg font-semibold flex items-center gap-2">
+        {value} <span>{emoji}</span>
+      </div>
     </div>
   );
 }
 
-/* Reviews as playful cards */
 function ReviewCard({ review }: { review: Review }) {
   const vibe = review.rating >= 5 ? "🎉" : review.rating >= 4 ? "😊" : review.rating >= 3 ? "🙂" : review.rating >= 2 ? "😐" : "😞";
   return (
     <div className="rounded-xl border p-3 bg-gradient-to-b from-white to-gray-50">
       <div className="flex items-center justify-between">
         <div className="font-medium truncate mr-2">{review.hotel.name}</div>
-        <div className="text-xs">{stars(review.rating)} <span className="ml-1">{vibe}</span></div>
+        <div className="text-xs">
+          {stars(review.rating)} <span className="ml-1">{vibe}</span>
+        </div>
       </div>
       {review.title ? <div className="text-sm text-gray-700 mt-1">“{review.title}”</div> : null}
       <div className="text-xs text-gray-500 mt-2">{fmtDate(review.created_at)}</div>
@@ -506,20 +701,28 @@ function ReviewCard({ review }: { review: Review }) {
   );
 }
 
-/* Spark bars for Spend */
 function MiniBars({ data }: { data: Spend[] }) {
   const max = Math.max(1, ...data.map((d) => Number(d.total || 0)));
   return (
     <div className="flex items-end gap-1 h-14 mt-1">
-      {data.slice().sort((a, b) => a.year - b.year).map((d) => {
-        const h = Math.max(4, Math.round((Number(d.total || 0) / max) * 48));
-        return <div key={d.year} className="w-6 rounded bg-indigo-100 border border-indigo-200" style={{ height: h }} title={`${d.year}: ₹${Number(d.total || 0).toLocaleString()}`} />;
-      })}
+      {data
+        .slice()
+        .sort((a, b) => a.year - b.year)
+        .map((d) => {
+          const h = Math.max(4, Math.round((Number(d.total || 0) / max) * 48));
+          return (
+            <div
+              key={d.year}
+              className="w-6 rounded bg-indigo-100 border border-indigo-200"
+              style={{ height: h }}
+              title={`${d.year}: ₹${Number(d.total || 0).toLocaleString()}`}
+            />
+          );
+        })}
     </div>
   );
 }
 
-/* Bubbles background (zero deps) */
 function Bubbles() {
   return (
     <div aria-hidden className="absolute inset-0 pointer-events-none">
@@ -529,7 +732,7 @@ function Bubbles() {
   );
 }
 
-/* ===== Icons (no extra deps) ===== */
+/* ===== Icons ===== */
 function CalendarIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" {...props}>
@@ -551,7 +754,9 @@ function SuitcaseIcon(props: React.SVGProps<SVGSVGElement>) {
 function RupeeIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" {...props}>
-      <text x="5" y="17" fontSize="14" fontFamily="system-ui">₹</text>
+      <text x="5" y="17" fontSize="14" fontFamily="system-ui">
+        ₹
+      </text>
       <line x1="9" y1="8" x2="18" y2="8" />
     </svg>
   );
@@ -589,7 +794,8 @@ function fmtDate(s: string) {
 }
 function fmtRange(a: string, b: string) {
   try {
-    const A = new Date(a), B = new Date(b);
+    const A = new Date(a),
+      B = new Date(b);
     return `${A.toLocaleDateString()} – ${B.toLocaleDateString()}`;
   } catch {
     return `${a} – ${b}`;
@@ -620,7 +826,8 @@ function copyReferral(hotelName: string) {
   if (!el) {
     el = document.createElement("div");
     el.id = id;
-    el.className = "fixed bottom-4 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-3 py-1.5 rounded-full opacity-0 transition-opacity";
+    el.className =
+      "fixed bottom-4 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-3 py-1.5 rounded-full opacity-0 transition-opacity";
     document.body.appendChild(el);
   }
   el.textContent = "Referral link copied! Share the love ✨";
@@ -642,22 +849,70 @@ function diffDays(a: string, b: string) {
 /* ===== Demo fallbacks (only for failed cards) ===== */
 function demoStays(): Stay[] {
   return [
-    { id: "s1", hotel: { name: "Sunrise Suites", city: "Nainital", cover_url: "https://images.unsplash.com/photo-1559599101-b59c1b3bcd9b?w=640" }, check_in: "2025-08-10T12:00:00Z", check_out: "2025-08-12T08:00:00Z", bill_total: 7420 },
-    { id: "s2", hotel: { name: "Lakeside Inn", city: "Nainital", cover_url: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=640" }, check_in: "2025-06-05T12:00:00Z", check_out: "2025-06-07T08:00:00Z", bill_total: 5810 },
-    { id: "s3", hotel: { name: "Pine View", city: "Almora", cover_url: "https://images.unsplash.com/photo-1496412705862-e0088f16f791?w=640" }, check_in: "2025-04-01T12:00:00Z", check_out: "2025-04-03T08:00:00Z", bill_total: 3999 },
+    {
+      id: "s1",
+      hotel: {
+        name: "Sunrise Suites",
+        city: "Nainital",
+        cover_url: "https://images.unsplash.com/photo-1559599101-b59c1b3bcd9b?w=640",
+      },
+      check_in: "2025-08-10T12:00:00Z",
+      check_out: "2025-08-12T08:00:00Z",
+      bill_total: 7420,
+    },
+    {
+      id: "s2",
+      hotel: {
+        name: "Lakeside Inn",
+        city: "Nainital",
+        cover_url: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=640",
+      },
+      check_in: "2025-06-05T12:00:00Z",
+      check_out: "2025-06-07T08:00:00Z",
+      bill_total: 5810,
+    },
+    {
+      id: "s3",
+      hotel: {
+        name: "Pine View",
+        city: "Almora",
+        cover_url: "https://images.unsplash.com/photo-1496412705862-e0088f16f791?w=640",
+      },
+      check_in: "2025-04-01T12:00:00Z",
+      check_out: "2025-04-03T08:00:00Z",
+      bill_total: 3999,
+    },
     { id: "s4", hotel: { name: "Cedar Ridge", city: "Ranikhet", cover_url: null }, check_in: "2025-03-01T12:00:00Z", check_out: "2025-03-02T08:00:00Z" },
   ];
 }
 function demoReviews(): Review[] {
   return [
-    { id: "r1", hotel: { name: "Sunrise Suites" }, rating: 5, title: "Great staff!", created_at: "2025-08-12T10:00:00Z", hotel_reply: "Thank you Kapil! We loved hosting you." },
+    {
+      id: "r1",
+      hotel: { name: "Sunrise Suites" },
+      rating: 5,
+      title: "Great staff!",
+      created_at: "2025-08-12T10:00:00Z",
+      hotel_reply: "Thank you Kapil! We loved hosting you.",
+    },
     { id: "r2", hotel: { name: "Lakeside Inn" }, rating: 4, title: "Beautiful view", created_at: "2025-06-07T09:00:00Z", hotel_reply: null },
-    { id: "r3", hotel: { name: "Pine View" }, rating: 5, title: "Breakfast was superb", created_at: "2025-04-03T09:30:00Z", hotel_reply: "Come back for our new menu!" },
+    {
+      id: "r3",
+      hotel: { name: "Pine View" },
+      rating: 5,
+      title: "Breakfast was superb",
+      created_at: "2025-04-03T09:30:00Z",
+      hotel_reply: "Come back for our new menu!",
+    },
   ];
 }
 function demoSpend(): Spend[] {
   const y = new Date().getFullYear();
-  return [ { year: y, total: 13240 }, { year: y - 1, total: 19880 }, { year: y - 2, total: 0 } ];
+  return [
+    { year: y, total: 13240 },
+    { year: y - 1, total: 19880 },
+    { year: y - 2, total: 0 },
+  ];
 }
 function demoReferrals(): Referral[] {
   return [

@@ -197,54 +197,34 @@ export default function App() {
         <HeroCarousel slides={slides} />
       </div>
 
-      {/* Why VAiyu / value props */}
+      {/* Why VAiyu / value props — now a responsive poster image */}
       <section id="why" className="mx-auto max-w-7xl px-4 py-14">
         <h2 className="text-2xl font-bold">The whole journey, upgraded</h2>
         <p className="text-gray-600 mt-1">Clear wins for guests, staff, owners, and your brand.</p>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
-          <ValueCard
-            title="For Guests"
-            points={[
-              "Express pre-check-in",
-              "In-app requests & tracking",
-              "Room service that just works",
-              "Crystal-clear bills",
-              "Refer friends, earn credits on your next stay",
-            ]}
-            emoji="🧳"
-          />
-          <ValueCard
-            title="For Staff"
-            points={[
-              "Clean tickets & SLAs",
-              "Live SSE updates (no refresh)",
-              "Auto-routing to teams",
-              "Fewer calls, more action",
-            ]}
-            emoji="🧑‍🔧"
-          />
-          <ValueCard
-            title="For Owners"
-            points={[
-              "SLA KPIs & policy hints",
-              "Bottleneck alerts",
-              "Property-wide trends",
-              "Energy-smart peak-hour playbooks",
-            ]}
-            emoji="📈"
-          />
-          <ValueCard
-            title="For Your Brand"
-            points={[
-              "Truth-anchored reviews",
-              "Owner approval before publish",
-              "Fewer disputes, more trust",
-              "Clear impact on rankings",
-            ]}
-            emoji="🏆"
-          />
-        </div>
+        {/* Poster: drop your final image(s) in /public/illustrations (webp preferred) */}
+        <figure className="mt-6">
+          <div className="rounded-3xl ring-1 ring-slate-200 bg-white/40 backdrop-blur-sm overflow-hidden shadow-sm">
+            <picture>
+              {/* AVIF and WebP if available */}
+              <source srcSet="/illustrations/journey-upgraded.avif" type="image/avif" />
+              <source srcSet="/illustrations/journey-upgraded.webp" type="image/webp" />
+              {/* PNG 1x/2x fallback */}
+              <img
+                src="/illustrations/journey-upgraded.png"
+                srcSet="/illustrations/journey-upgraded.png 1x, /illustrations/journey-upgraded@2x.png 2x"
+                alt="The whole journey, upgraded — benefits for Guests, Staff, Owners, and Brand"
+                className="block w-full h-auto"
+                loading="lazy"
+                decoding="async"
+                sizes="(min-width: 1280px) 1120px, (min-width: 1024px) 960px, 100vw"
+              />
+            </picture>
+          </div>
+          <figcaption className="sr-only">
+            VAiyu benefits across Guests, Staff, Owners, and Brand.
+          </figcaption>
+        </figure>
       </section>
 
       {/* Alternating image + content layout (large but not full-page) */}

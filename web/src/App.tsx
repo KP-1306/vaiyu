@@ -197,19 +197,18 @@ export default function App() {
         <HeroCarousel slides={slides} />
       </div>
 
-      {/* Why VAiyu / value props — now a responsive poster image */}
+      {/* Why VAiyu / value props — responsive poster image */}
       <section id="why" className="mx-auto max-w-7xl px-4 py-14">
         <h2 className="text-2xl font-bold">The whole journey, upgraded</h2>
         <p className="text-gray-600 mt-1">Clear wins for guests, staff, owners, and your brand.</p>
 
-        {/* Poster: drop your final image(s) in /public/illustrations (webp preferred) */}
         <figure className="mt-6">
           <div className="rounded-3xl ring-1 ring-slate-200 bg-white/40 backdrop-blur-sm overflow-hidden shadow-sm">
             <picture>
-              {/* AVIF and WebP if available */}
+              {/* High-efficiency formats (optional) */}
               <source srcSet="/illustrations/journey-upgraded.avif" type="image/avif" />
               <source srcSet="/illustrations/journey-upgraded.webp" type="image/webp" />
-              {/* PNG 1x/2x fallback */}
+              {/* PNG (required; you've uploaded this) */}
               <img
                 src="/illustrations/journey-upgraded.png"
                 srcSet="/illustrations/journey-upgraded.png 1x, /illustrations/journey-upgraded@2x.png 2x"
@@ -218,6 +217,11 @@ export default function App() {
                 loading="lazy"
                 decoding="async"
                 sizes="(min-width: 1280px) 1120px, (min-width: 1024px) 960px, 100vw"
+                onError={(e) => {
+                  const el = e.currentTarget as HTMLImageElement;
+                  // Last-resort safe fallback so layout never breaks
+                  el.src = "/illustrations/vaiyu-intelligence-final.png";
+                }}
               />
             </picture>
           </div>
@@ -227,32 +231,32 @@ export default function App() {
         </figure>
       </section>
 
-      {/* Alternating image + content layout (large but not full-page) */}
+      {/* Alternating image + content layout */}
       <section id="ai" className="mx-auto max-w-7xl px-4 pb-14">
         <AIShowcase />
       </section>
 
-      {/* 4) Results & Social Proof — Trust + Credibility */}
+      {/* 4) Results & Social Proof */}
       <section className="mx-auto max-w-7xl px-4 pb-4">
         <ResultsAndSocialProof />
       </section>
 
-      {/* 5) Onboarding, Security & Integrations — Confidence + Ease */}
+      {/* 5) Onboarding, Security & Integrations */}
       <section className="mx-auto max-w-7xl px-4 pb-16">
         <GlassBand_OnboardingSecurityIntegrations />
       </section>
 
-      {/* 6) Live Product Peek — static poster image */}
+      {/* 6) Live Product Peek */}
       <section className="mx-auto max-w-7xl px-4 pb-16">
         <LiveProductPeek />
       </section>
 
-      {/* 7) FAQ (short, with answers) */}
+      {/* 7) FAQ */}
       <section className="mx-auto max-w-7xl px-4 pb-20">
         <FAQShort />
       </section>
 
-      {/* Contact CTA (replaces old 'See it in action') */}
+      {/* Contact CTA */}
       <section id="contact-cta" className="mx-auto max-w-7xl px-4 pb-16">
         <div className="rounded-3xl border border-gray-200 bg-white p-8 sm:p-10 shadow-sm">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
@@ -263,9 +267,7 @@ export default function App() {
               </p>
             </div>
             <div className="flex-shrink-0">
-              <Link to="/contact" className="btn">
-                Contact us
-              </Link>
+              <Link to="/contact" className="btn">Contact us</Link>
             </div>
           </div>
         </div>

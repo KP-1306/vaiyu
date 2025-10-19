@@ -5,16 +5,10 @@ import SEO from "./components/SEO";
 import HeroCarousel from "./components/HeroCarousel";
 import { supabase } from "./lib/supabase";
 
-// Existing alternating image–text section
 import AIShowcase from "./components/AIShowcase";
-
-// 4) Results & Social Proof
 import ResultsAndSocialProof from "./components/ResultsAndSocialProof";
-// 5) Onboarding, Security & Integrations (Glass Band)
 import GlassBand_OnboardingSecurityIntegrations from "./components/GlassBand_OnboardingSecurityIntegrations";
-// 6) Live Product Peek (static image version)
 import LiveProductPeek from "./components/LiveProductPeek";
-// 7) FAQ (short)
 import FAQShort from "./components/FAQShort";
 
 const TOKEN_KEY = "stay:token";
@@ -22,9 +16,7 @@ const TOKEN_KEY = "stay:token";
 export default function App() {
   const [hasToken, setHasToken] = useState<boolean>(() => !!localStorage.getItem(TOKEN_KEY));
   useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === TOKEN_KEY) setHasToken(!!e.newValue);
-    };
+    const onStorage = (e: StorageEvent) => { if (e.key === TOKEN_KEY) setHasToken(!!e.newValue); };
     const onVis = () => setHasToken(!!localStorage.getItem(TOKEN_KEY));
     window.addEventListener("storage", onStorage);
     document.addEventListener("visibilitychange", onVis);
@@ -44,12 +36,8 @@ export default function App() {
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
       setUserEmail(session?.user?.email ?? null);
     });
-    return () => {
-      mounted = false;
-      sub?.subscription?.unsubscribe();
-    };
+    return () => { mounted = false; sub?.subscription?.unsubscribe(); };
   }, []);
-
   const isAuthed = !!userEmail;
 
   async function handleSignOut() {
@@ -61,8 +49,7 @@ export default function App() {
     }
   }
 
-  const site =
-    typeof window !== "undefined" ? window.location.origin : "https://vaiyu.co.in";
+  const site = typeof window !== "undefined" ? window.location.origin : "https://vaiyu.co.in";
 
   const slides = [
     {
@@ -150,11 +137,7 @@ export default function App() {
               className="h-8 w-auto hidden sm:block"
               onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")}
             />
-            <span
-              className="sm:hidden inline-block h-8 w-8 rounded-xl"
-              style={{ background: "var(--brand, #145AF2)" }}
-              aria-hidden
-            />
+            <span className="sm:hidden inline-block h-8 w-8 rounded-xl" style={{ background: "var(--brand, #145AF2)" }} aria-hidden />
             <span className="font-semibold text-lg tracking-tight">VAiyu</span>
           </Link>
 
@@ -164,29 +147,18 @@ export default function App() {
             <a href="#use-cases" className="hover:text-gray-700">Use-cases</a>
             <Link to="/owner" className="hover:text-gray-700">For Hotels</Link>
             <Link to="/about" className="hover:text-gray-700">About</Link>
-
-            {!isAuthed && (
-              <Link to="/signin?redirect=/guest" className="hover:text-gray-700">
-                Sign in
-              </Link>
-            )}
+            {!isAuthed && <Link to="/signin?redirect=/guest" className="hover:text-gray-700">Sign in</Link>}
           </nav>
 
           <div className="flex items-center gap-2">
-            {hasToken && (
-              <Link to="/guest" className="btn btn-light !py-2 !px-3 text-sm">
-                My credits
-              </Link>
-            )}
+            {hasToken && <Link to="/guest" className="btn btn-light !py-2 !px-3 text-sm">My credits</Link>}
             {isAuthed ? (
               <>
                 <Link to="/guest" className="btn !py-2 !px-3 text-sm">Open app</Link>
                 <button onClick={handleSignOut} className="btn btn-light !py-2 !px-3 text-sm">Sign out</button>
               </>
             ) : (
-              <Link to="/signin?intent=signup&redirect=/guest" className="btn !py-2 !px-3 text-sm">
-                Get started
-              </Link>
+              <Link to="/signin?intent=signup&redirect=/guest" className="btn !py-2 !px-3 text-sm">Get started</Link>
             )}
           </div>
         </div>
@@ -197,61 +169,61 @@ export default function App() {
         <HeroCarousel slides={slides} />
       </div>
 
-      {/* Why VAiyu / value props — responsive poster image */}
+      {/* WHY: ultra-wide desktop poster + taller mobile poster */}
       <section id="why" className="mx-auto max-w-7xl px-4 py-14">
         <h2 className="text-2xl font-bold">The whole journey, upgraded</h2>
         <p className="text-gray-600 mt-1">Clear wins for guests, staff, owners, and your brand.</p>
 
         <figure className="mt-6">
           <div className="rounded-3xl ring-1 ring-slate-200 bg-white/40 backdrop-blur-sm overflow-hidden shadow-sm">
-            <picture>
-              {/* High-efficiency formats (optional) */}
-              <source srcSet="/illustrations/journey-upgraded.avif" type="image/avif" />
-              <source srcSet="/illustrations/journey-upgraded.webp" type="image/webp" />
-              {/* PNG (required; you've uploaded this) */}
-              <img
-                src="/illustrations/journey-upgraded.png"
-                srcSet="/illustrations/journey-upgraded.png 1x, /illustrations/journey-upgraded@2x.png 2x"
-                alt="The whole journey, upgraded — benefits for Guests, Staff, Owners, and Brand"
-                className="block w-full h-auto"
-                loading="lazy"
-                decoding="async"
-                sizes="(min-width: 1280px) 1120px, (min-width: 1024px) 960px, 100vw"
-                onError={(e) => {
-                  const el = e.currentTarget as HTMLImageElement;
-                  // Last-resort safe fallback so layout never breaks
-                  el.src = "/illustrations/vaiyu-intelligence-final.png";
-                }}
-              />
-            </picture>
+            {/* Reserve aspect: a bit taller on phones → wide & short on desktop */}
+            <div className="w-full aspect-[4/3] sm:aspect-[16/9] lg:aspect-[21/9]">
+              <picture>
+                {/* Desktop ultra-wide (21:9) */}
+                <source srcSet="/illustrations/journey-upgraded-wide.webp?v=1" media="(min-width: 1024px)" type="image/webp" />
+                <source srcSet="/illustrations/journey-upgraded-wide.png?v=1"  media="(min-width: 1024px)" />
+                {/* Mobile/tablet poster (taller) */}
+                <source srcSet="/illustrations/journey-upgraded-mobile.webp?v=1" type="image/webp" />
+                <img
+                  src="/illustrations/journey-upgraded-mobile.png?v=1"
+                  alt="The whole journey, upgraded — benefits for Guests, Staff, Owners, and Brand"
+                  className="block w-full h-full object-contain"
+                  loading="lazy"
+                  decoding="async"
+                  onError={(e) => {
+                    const el = e.currentTarget as HTMLImageElement;
+                    // Last-resort: local safe fallback so layout never looks empty
+                    el.src = "/illustrations/vaiyu-intelligence-final.png";
+                  }}
+                />
+              </picture>
+            </div>
           </div>
-          <figcaption className="sr-only">
-            VAiyu benefits across Guests, Staff, Owners, and Brand.
-          </figcaption>
+          <figcaption className="sr-only">VAiyu benefits across Guests, Staff, Owners, and Brand.</figcaption>
         </figure>
       </section>
 
-      {/* Alternating image + content layout */}
+      {/* Alternating image + content */}
       <section id="ai" className="mx-auto max-w-7xl px-4 pb-14">
         <AIShowcase />
       </section>
 
-      {/* 4) Results & Social Proof */}
+      {/* Social proof */}
       <section className="mx-auto max-w-7xl px-4 pb-4">
         <ResultsAndSocialProof />
       </section>
 
-      {/* 5) Onboarding, Security & Integrations */}
+      {/* Onboarding / Security / Integrations */}
       <section className="mx-auto max-w-7xl px-4 pb-16">
         <GlassBand_OnboardingSecurityIntegrations />
       </section>
 
-      {/* 6) Live Product Peek */}
+      {/* Live Product Peek */}
       <section className="mx-auto max-w-7xl px-4 pb-16">
         <LiveProductPeek />
       </section>
 
-      {/* 7) FAQ */}
+      {/* FAQ */}
       <section className="mx-auto max-w-7xl px-4 pb-20">
         <FAQShort />
       </section>
@@ -262,9 +234,7 @@ export default function App() {
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="text-center md:text-left">
               <h3 className="text-2xl font-semibold text-gray-900">Want a walkthrough for your property?</h3>
-              <p className="text-gray-600 mt-1">
-                We’ll brand the demo with your details and share a 7-day pilot plan.
-              </p>
+              <p className="text-gray-600 mt-1">We’ll brand the demo with your details and share a 7-day pilot plan.</p>
             </div>
             <div className="flex-shrink-0">
               <Link to="/contact" className="btn">Contact us</Link>
@@ -294,7 +264,7 @@ export default function App() {
   );
 }
 
-/* ---------- tiny building blocks ---------- */
+/* ---------- tiny building blocks (kept) ---------- */
 
 function ValueCard({
   title,

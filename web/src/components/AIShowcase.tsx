@@ -32,7 +32,7 @@ export default function AIShowcase() {
               "Predicts service risk; automates safely with audit trail",
               "Delivers measurable outcomes and ESG reporting",
             ]}
-            cta={{ label: "Learn the architecture", href: "#ai" }}
+         //   cta={{ label: "Learn the architecture", href: "#ai" }}
           />
           <Figure
             src="/illustrations/ai-os-banner.png"

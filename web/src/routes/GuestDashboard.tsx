@@ -172,6 +172,8 @@ export default function GuestDashboard() {
           <ProfileMenu email={email} avatarUrl={avatarUrl} onEditProfile={() => nav("/profile")} />
         </div>
 
+        <Link to="/rewards" className="btn">Rewards & Vouchers</Link>
+        
         {/* Hero actions */}
         <div className="mt-5 grid sm:grid-cols-3 gap-3">
           <QuickPill title="Scan & go" text="Check‑in with a QR" to="/scan" />

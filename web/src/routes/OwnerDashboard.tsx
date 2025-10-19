@@ -1,5 +1,6 @@
+// web/src/routes/OwnerDashboard.tsx
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Spinner from "../components/Spinner";
 import BackHome from "../components/BackHome";
@@ -23,19 +24,28 @@ type StayRow = {
 
 export default function OwnerDashboard() {
   const { slug } = useParams();
+  const [params] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [hotel, setHotel] = useState<Hotel | null>(null);
   const [arrivals, setArrivals] = useState<StayRow[]>([]);
   const [inhouse, setInhouse] = useState<StayRow[]>([]);
   const [departures, setDepartures] = useState<StayRow[]>([]);
+  const [accessProblem, setAccessProblem] = useState<string | null>(null);
 
+  const inviteToken = params.get("invite"); // if present, show Accept Invite CTA
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   useEffect(() => {
-    if (!slug) return;
+    if (!slug) {
+      setLoading(false);
+      setAccessProblem("Missing property slug in the URL.");
+      return;
+    }
     let alive = true;
+
     (async () => {
       setLoading(true);
+      setAccessProblem(null);
 
       // 1) Get the hotel by slug (RLS will ensure membership)
       const { data: hotelRows, error: hErr } = await supabase
@@ -45,13 +55,21 @@ export default function OwnerDashboard() {
         .limit(1)
         .maybeSingle();
 
+      if (!alive) return;
+
       if (hErr || !hotelRows) {
+        // If RLS denies access or hotel not found, keep a friendly access message
         console.error(hErr);
         setHotel(null);
+        setArrivals([]);
+        setInhouse([]);
+        setDepartures([]);
+        setAccessProblem(
+          "We couldn’t open this property. You might not have access yet or the property doesn’t exist."
+        );
         setLoading(false);
         return;
       }
-      if (!alive) return;
 
       setHotel(hotelRows);
 
@@ -97,15 +115,48 @@ export default function OwnerDashboard() {
       setDepartures(dep || []);
       setLoading(false);
     })();
+
     return () => {
       alive = false;
     };
   }, [slug, today]);
 
-  if (loading || !hotel) {
+  // Loading state (before we know if access is allowed)
+  if (loading) {
     return (
       <main className="min-h-[60vh] grid place-items-center">
         <Spinner label="Loading property dashboard…" />
+      </main>
+    );
+  }
+
+  // Access problem (no hotel row due to RLS or missing slug)
+  if (accessProblem) {
+    return (
+      <main className="max-w-3xl mx-auto p-6">
+        <BackHome />
+        <AccessHelp
+          slug={slug || ""}
+          message={accessProblem}
+          inviteToken={inviteToken || undefined}
+        />
+      </main>
+    );
+  }
+
+  // Safety: if not loading and no hotel (shouldn’t happen because accessProblem covers it)
+  if (!hotel) {
+    return (
+      <main className="min-h-[60vh] grid place-items-center">
+        <div className="rounded-xl border p-6 text-center">
+          <div className="text-lg font-medium mb-2">No property to show</div>
+          <p className="text-sm text-gray-600">
+            Try opening your property dashboard from the Owner Home.
+          </p>
+          <div className="mt-4">
+            <Link to="/owner" className="btn btn-light">Owner Home</Link>
+          </div>
+        </div>
       </main>
     );
   }
@@ -121,6 +172,27 @@ export default function OwnerDashboard() {
   return (
     <main className="max-w-6xl mx-auto p-6">
       <BackHome />
+
+      {/* Invite banner if token present */}
+      {inviteToken ? (
+        <div className="mb-4 rounded-2xl border p-4 bg-emerald-50">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="font-medium">You have a pending invite</div>
+              <div className="text-sm text-emerald-900">
+                Accept the invitation to manage this property.
+              </div>
+            </div>
+            <Link
+              to={`/invite/accept?code=${encodeURIComponent(inviteToken)}`}
+              className="btn"
+            >
+              Accept Invite
+            </Link>
+          </div>
+        </div>
+      ) : null}
+
       <header className="mb-4 flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">{hotel.name}</h1>
@@ -130,6 +202,11 @@ export default function OwnerDashboard() {
           <Link to={`/owner/${hotel.slug}/ops`} className="btn btn-light">Operations</Link>
           <Link to={`/owner/${hotel.slug}/housekeeping`} className="btn btn-light">Housekeeping</Link>
           <Link to={`/owner/${hotel.slug}/settings`} className="btn btn-light">Settings</Link>
+          {/* Access & Invite entry points in header */}
+          <Link to={`/owner/access?slug=${encodeURIComponent(hotel.slug)}`} className="btn btn-light">
+            Access
+          </Link>
+          <Link to={`/invite/accept`} className="btn btn-light">Accept Invite</Link>
         </div>
       </header>
 
@@ -180,6 +257,46 @@ function Board({ title, items, empty }:{
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+function AccessHelp({
+  slug,
+  message,
+  inviteToken,
+}: {
+  slug: string;
+  message: string;
+  inviteToken?: string;
+}) {
+  return (
+    <div className="rounded-2xl border p-6 bg-amber-50">
+      <div className="text-lg font-semibold mb-1">Property access needed</div>
+      <p className="text-sm text-amber-900 mb-4">{message}</p>
+      <div className="flex flex-wrap gap-2">
+        {slug ? (
+          <Link
+            to={`/owner/access?slug=${encodeURIComponent(slug)}`}
+            className="btn"
+          >
+            Request Access
+          </Link>
+        ) : null}
+        <Link to="/owner" className="btn btn-light">Owner Home</Link>
+        <Link to="/invite/accept" className="btn btn-light">Accept Invite</Link>
+        {inviteToken ? (
+          <Link
+            to={`/invite/accept?code=${encodeURIComponent(inviteToken)}`}
+            className="btn btn-light"
+          >
+            Accept via Code
+          </Link>
+        ) : null}
+      </div>
+      <p className="text-xs text-amber-900 mt-3">
+        Tip: If you received an email invite, open it on this device so we can auto-fill your invite code.
+      </p>
     </div>
   );
 }

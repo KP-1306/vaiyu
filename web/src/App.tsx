@@ -130,7 +130,7 @@ export default function App() {
       {/* Top nav */}
       <header className="sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-gray-100">
         <div className="mx-auto max-w-7xl px-4 h-16 flex items-center justify-between">
-          <Link to="/" className="flex itemseller gap-2">
+          <Link to="/" className="flex items-center gap-2">
             <img
               src="/brand/vaiyu-logo.png"
               alt="VAiyu"
@@ -169,30 +169,26 @@ export default function App() {
         <HeroCarousel slides={slides} />
       </div>
 
-      {/* WHY: fixed 16:9 banner */}
+      {/* WHY: fixed 16:9 banner, eager-load, cache-busted */}
       <section id="why" className="mx-auto max-w-7xl px-4 py-14">
         <h2 className="text-2xl font-bold">The whole journey, upgraded</h2>
         <p className="text-gray-600 mt-1">Clear wins for guests, staff, owners, and your brand.</p>
 
         <figure className="mt-6">
-          <div className="rounded-3xl ring-1 ring-slate-200 bg-white/40 backdrop-blur-sm overflow-hidden shadow-sm">
-            {/* Fixed 16:9 aspect on all breakpoints */}
-            <div className="w-full aspect-[16/9]">
-              <picture>
-                {/* Optional modern format */}
-                <source srcSet="/illustrations/journey-upgraded.webp?v=1" type="image/webp" />
-                <img
-                  src="/illustrations/journey-upgraded.png?v=1"
-                  alt="The whole journey, upgraded — benefits for Guests, Staff, Owners, and Brand"
-                  className="block w-full h-full object-contain"
-                  loading="lazy"
-                  decoding="async"
-                  onError={(e) => {
-                    const el = e.currentTarget as HTMLImageElement;
-                    el.src = "/illustrations/vaiyu-intelligence-final.png";
-                  }}
-                />
-              </picture>
+          <div className="rounded-3xl ring-1 ring-slate-200 bg-white overflow-hidden shadow-sm">
+            {/* Reserve 16:9 space; add light bg so very bright posters remain visible */}
+            <div className="w-full aspect-[16/9] bg-slate-50">
+              <img
+                src="/illustrations/journey-upgraded.png?v=4"
+                alt="The whole journey, upgraded — benefits for Guests, Staff, Owners, and Brand"
+                className="block w-full h-full object-contain"
+                loading="eager"
+                decoding="async"
+                onError={(e) => {
+                  const el = e.currentTarget as HTMLImageElement;
+                  el.src = "/illustrations/vaiyu-intelligence-final.png";
+                }}
+              />
             </div>
           </div>
           <figcaption className="sr-only">VAiyu benefits across Guests, Staff, Owners, and Brand.</figcaption>

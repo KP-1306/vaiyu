@@ -33,7 +33,7 @@ export default function LiveProductPeek() {
                 <img
                   src={it.poster}
                   alt={`${it.tag} flow preview`}
-                  className="max-h-full max-w-full object-contain p-2"
+                  className="h-full w-full object-cover"
                   loading="lazy"
                   decoding="async"
                   onError={(e) => {

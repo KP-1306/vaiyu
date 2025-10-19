@@ -4,11 +4,11 @@ export default function AIShowcase() {
     <section className="bg-white">
       <div className="mx-auto max-w-7xl px-6 md:px-8 py-16 md:py-20 space-y-20">
 
-        {/* Block 1 — Image left, content right */}
+        {/* Block 1 — Image left, content right (NO CTA) */}
         <div className="grid lg:grid-cols-2 gap-10 lg:gap-14 items-center">
           <Figure
             src="/illustrations/vaiyu-intelligence-final.png"
-     //       src2x="/illustrations/vaiyu-intelligence-final@2x.png"
+            // src2x="/illustrations/vaiyu-intelligence-final@2x.png"
             alt="VAiyu AI Intelligence connecting Guest Experience, Property Efficiency, Brand Value, and Self-Improvement"
           />
           <Copy
@@ -19,14 +19,13 @@ export default function AIShowcase() {
               "Guides teams with predictive SLAs and precise nudges",
               "Owner-approved outputs — brand-safe by design",
             ]}
-            cta={{ label: "See it in action", href: "#use-cases" }}
+            // cta removed intentionally
           />
         </div>
 
-        {/* Block 2 — Content left, image right */}
+        {/* Block 2 — Content left, image right (keeps CTA) */}
         <div className="grid lg:grid-cols-2 gap-10 lg:gap-14 items-center">
           <Copy
-           
             title="VAiyu Intelligence — The AI Operating System"
             bullets={[
               "Unifies Guest, Ops, and Sustainability signals into one truth graph",
@@ -37,7 +36,7 @@ export default function AIShowcase() {
           />
           <Figure
             src="/illustrations/ai-os-banner.png"
-        //    src2x="/illustrations/ai-os-banner@2x.png"
+            // src2x="/illustrations/ai-os-banner@2x.png"
             alt="VAiyu Intelligence — AI + Sustainability Operating System for Hospitality"
             eager={false}
           />
@@ -87,15 +86,21 @@ function Copy({
   bullets,
   cta,
 }: {
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
   bullets: string[];
   cta?: { label: string; href: string };
 }) {
   return (
     <div>
-      <div className="text-cyan-700 text-xs font-semibold tracking-wide uppercase">{eyebrow}</div>
-      <h3 className="mt-2 text-2xl md:text-3xl font-semibold leading-tight text-slate-900">{title}</h3>
+      {eyebrow && (
+        <div className="text-cyan-700 text-xs font-semibold tracking-wide uppercase">
+          {eyebrow}
+        </div>
+      )}
+      <h3 className="mt-2 text-2xl md:text-3xl font-semibold leading-tight text-slate-900">
+        {title}
+      </h3>
       <ul className="mt-4 space-y-2 text-slate-700">
         {bullets.map((b) => (
           <li key={b} className="pl-5 relative">
@@ -106,7 +111,9 @@ function Copy({
       </ul>
       {cta && (
         <div className="mt-5">
-          <a href={cta.href} className="btn">{cta.label}</a>
+          <a href={cta.href} className="btn">
+            {cta.label}
+          </a>
         </div>
       )}
     </div>

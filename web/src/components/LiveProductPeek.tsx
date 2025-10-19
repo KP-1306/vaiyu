@@ -63,7 +63,7 @@ export default function LiveProductPeek() {
 
               {/* Caption row */}
               <figcaption className="px-4 py-3 text-sm text-gray-700 border-t border-gray-100">
-         //       {it.tag} flow: {it.title}
+              
               </figcaption>
             </figure>
           ))}

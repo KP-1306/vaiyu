@@ -109,6 +109,9 @@ const GridEvents     = lazy(() => import("./routes/GridEvents"));
 /* Profile (new) */
 const Profile        = lazy(() => import("./routes/Profile"));
 
+/* ✅ Rewards (new) */
+const Rewards        = lazy(() => import("./routes/Rewards"));
+
 /* 404 + deep link + welcome */
 const NotFound       = lazy(() => import("./routes/NotFound"));
 const RequestStatus  = lazy(() => import("./pages/RequestStatus"));
@@ -213,7 +216,10 @@ const router = createBrowserRouter([
       { path: "status", element: <Status /> },
       { path: "thanks", element: <Thanks /> },
 
-      // 👇 NEW: Profile (public route; page handles its own auth checks)
+      // 👇 NEW: Rewards page
+      { path: "rewards", element: <Rewards /> },
+
+      // 👇 Profile (public route; page handles its own auth checks)
       { path: "profile", element: <Profile /> },
 
       // Guest / Journey (public)

@@ -5,22 +5,22 @@ export default function LiveProductPeek() {
     {
       tag: "Guest",
       title: "Pre-check-in → Request → Live status",
-      poster: "/illustrations/peek_guest.jpg",
+      poster: "/illustrations/peek_guest.png",
     },
     {
       tag: "Staff",
       title: "HK ticket → Countdown → On-time/Late dashboard",
-      poster: "/illustrations/peek_staff.jpg",
+      poster: "/illustrations/peek_staff.png",
     },
     {
       tag: "Owner",
       title: "AI review draft → Approve → Publish",
-      poster: "/illustrations/peek_owner.jpg",
+      poster: "/illustrations/peek_owner.png",
     },
   ];
 
   // Fallback image in case any poster is missing
-  const FALLBACK = "/illustrations/peek_poster.jpg";
+  const FALLBACK = "/illustrations/peek_poster.png";
 
   return (
     <section id="peek" className="py-24 bg-white">

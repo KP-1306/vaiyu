@@ -19,7 +19,7 @@ type StayRow = {
   check_out_end: string | null;
   status: string | null;
   room: string | null;
-  guest_name?: string | null; // optional if you have joined view
+  guest_name?: string | null;
 };
 
 export default function OwnerDashboard() {
@@ -27,12 +27,16 @@ export default function OwnerDashboard() {
   const [params] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [hotel, setHotel] = useState<Hotel | null>(null);
+
   const [arrivals, setArrivals] = useState<StayRow[]>([]);
   const [inhouse, setInhouse] = useState<StayRow[]>([]);
   const [departures, setDepartures] = useState<StayRow[]>([]);
-  const [accessProblem, setAccessProblem] = useState<string | null>(null);
 
-  const inviteToken = params.get("invite"); // if present, show Accept Invite CTA
+  // NEW: rooms + occupancy%
+  const [totalRooms, setTotalRooms] = useState<number>(0);
+
+  const [accessProblem, setAccessProblem] = useState<string | null>(null);
+  const inviteToken = params.get("invite");
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   useEffect(() => {
@@ -47,8 +51,8 @@ export default function OwnerDashboard() {
       setLoading(true);
       setAccessProblem(null);
 
-      // 1) Get the hotel by slug (RLS will ensure membership)
-      const { data: hotelRows, error: hErr } = await supabase
+      // 1) Hotel (RLS-gated)
+      const { data: hotelRow, error: hErr } = await supabase
         .from("hotels")
         .select("id,name,slug,city")
         .eq("slug", slug)
@@ -57,13 +61,13 @@ export default function OwnerDashboard() {
 
       if (!alive) return;
 
-      if (hErr || !hotelRows) {
-        // If RLS denies access or hotel not found, keep a friendly access message
+      if (hErr || !hotelRow) {
         console.error(hErr);
         setHotel(null);
         setArrivals([]);
         setInhouse([]);
         setDepartures([]);
+        setTotalRooms(0);
         setAccessProblem(
           "We couldn’t open this property. You might not have access yet or the property doesn’t exist."
         );
@@ -71,12 +75,12 @@ export default function OwnerDashboard() {
         return;
       }
 
-      setHotel(hotelRows);
+      setHotel(hotelRow);
 
-      // 2) Fetch ops lists – small client-side filters for MVP
-      const hotelId = hotelRows.id;
+      // 2) Ops lists
+      const hotelId = hotelRow.id;
 
-      // Arrivals today: check_in_start::date = today
+      // Arrivals today
       const { data: arr, error: aErr } = await supabase
         .from("stays")
         .select("id,guest_id,check_in_start,check_out_end,status,room")
@@ -85,7 +89,7 @@ export default function OwnerDashboard() {
         .lt("check_in_start", nextDayISO(today))
         .order("check_in_start", { ascending: true });
 
-      // In-house: now overlaps the stay window
+      // In-house now (overlap)
       const nowIso = new Date().toISOString();
       const { data: inh, error: iErr } = await supabase
         .from("stays")
@@ -95,7 +99,7 @@ export default function OwnerDashboard() {
         .gte("check_out_end", nowIso)
         .order("check_out_end", { ascending: true });
 
-      // Departures today: check_out_end::date = today
+      // Departures today
       const { data: dep, error: dErr } = await supabase
         .from("stays")
         .select("id,guest_id,check_in_start,check_out_end,status,room")
@@ -104,15 +108,24 @@ export default function OwnerDashboard() {
         .lt("check_out_end", nextDayISO(today))
         .order("check_out_end", { ascending: true });
 
+      // 3) NEW: Rooms → totalRooms (active inventory count)
+      const { data: rooms, error: rErr } = await supabase
+        .from("rooms")
+        .select("id")
+        .eq("hotel_id", hotelId);
+
       if (!alive) return;
 
       if (aErr) console.error(aErr);
       if (iErr) console.error(iErr);
       if (dErr) console.error(dErr);
+      if (rErr) console.error(rErr);
 
       setArrivals(arr || []);
       setInhouse(inh || []);
       setDepartures(dep || []);
+      setTotalRooms(rooms?.length || 0);
+
       setLoading(false);
     })();
 
@@ -121,7 +134,7 @@ export default function OwnerDashboard() {
     };
   }, [slug, today]);
 
-  // Loading state (before we know if access is allowed)
+  // Loading
   if (loading) {
     return (
       <main className="min-h-[60vh] grid place-items-center">
@@ -130,7 +143,7 @@ export default function OwnerDashboard() {
     );
   }
 
-  // Access problem (no hotel row due to RLS or missing slug)
+  // Access problem
   if (accessProblem) {
     return (
       <main className="max-w-3xl mx-auto p-6">
@@ -144,7 +157,6 @@ export default function OwnerDashboard() {
     );
   }
 
-  // Safety: if not loading and no hotel (shouldn’t happen because accessProblem covers it)
   if (!hotel) {
     return (
       <main className="min-h-[60vh] grid place-items-center">
@@ -161,12 +173,18 @@ export default function OwnerDashboard() {
     );
   }
 
-  const occ = inhouse.length; // MVP – later compute vs total rooms
+  // NEW: occupancy% using rooms + inhouse[]
+  const occPct =
+    totalRooms > 0 ? Math.round((inhouse.length / totalRooms) * 100) : 0;
+
   const kpCards = [
     { label: "Arrivals", value: arrivals.length },
     { label: "In-house", value: inhouse.length },
     { label: "Departures", value: departures.length },
-    { label: "Occupancy (rooms)", value: occ },
+    {
+      label: "Occupancy",
+      value: `${occPct}% (${inhouse.length}/${totalRooms})`,
+    },
   ];
 
   return (
@@ -196,13 +214,12 @@ export default function OwnerDashboard() {
       <header className="mb-4 flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">{hotel.name}</h1>
-          <p className="text-sm text-gray-600">Today at a glance — {hotel.city || "—"}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link to={`/owner/${hotel.slug}/ops`} className="btn btn-light">Operations</Link>
           <Link to={`/owner/${hotel.slug}/housekeeping`} className="btn btn-light">Housekeeping</Link>
           <Link to={`/owner/${hotel.slug}/settings`} className="btn btn-light">Settings</Link>
-          {/* Access & Invite entry points in header */}
+          {/* OwnerAccess & InviteAccept entry points */}
           <Link to={`/owner/access?slug=${encodeURIComponent(hotel.slug)}`} className="btn btn-light">
             Access
           </Link>
@@ -210,7 +227,7 @@ export default function OwnerDashboard() {
         </div>
       </header>
 
-      {/* KPIs */}
+      {/* KPI cards */}
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-6">
         {kpCards.map((k) => (
           <div key={k.label} className="rounded-xl border bg-white p-4">
@@ -306,6 +323,7 @@ function fmt(ts: string | null) {
   const d = new Date(ts);
   return d.toLocaleString();
 }
+
 function nextDayISO(yyyy_mm_dd: string) {
   const d = new Date(yyyy_mm_dd + "T00:00:00Z");
   d.setUTCDate(d.getUTCDate() + 1);

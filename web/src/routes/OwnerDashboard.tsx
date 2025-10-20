@@ -22,23 +22,18 @@ type StayRow = {
   room: string | null;
 };
 
-type KpisToday = {
+/** Row from owner_dashboard_kpis */
+type KpiRow = {
   hotel_id: string;
-  d: string; // date
-  total_rooms: number | null;
-  inhouse: number | null;
-  arrivals: number | null;
-  departures: number | null;
-  room_revenue_today: number | null;
-  occupied_rooms_today: number | null;
-  // Optional deltas/extra fields you may later add to the view:
-  occ_delta?: number | null;
-  adr_delta?: number | null;
-  revpar_delta?: number | null;
-  pickup7d?: number | null;
+  as_of_date: string;
+  occupied_today: number;
+  orders_today: number;
+  revenue_today: number;
+  pickup_7d: number;
+  avg_rating_30d: number | null;
+  updated_at: string;
 };
 
-/** Optional Edge Functions guard (keep false until you actually deploy them) */
 const HAS_FUNCS = import.meta.env.VITE_HAS_FUNCS === "true";
 
 /** ========= Page ========= */
@@ -55,13 +50,14 @@ export default function OwnerDashboard() {
 
   const [totalRooms, setTotalRooms] = useState<number>(0);
 
-  // New: KPIs from an optional view; we fall back if absent
-  const [kpis, setKpis] = useState<KpisToday | null>(null);
+  // KPI state (live via Realtime)
+  const [kpi, setKpi] = useState<KpiRow | null>(null);
 
   const [accessProblem, setAccessProblem] = useState<string | null>(null);
   const inviteToken = params.get("invite");
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
+  // Resolve slug → hotel + hydrate lists + start KPI subscription
   useEffect(() => {
     if (!slug) {
       setLoading(false);
@@ -70,6 +66,8 @@ export default function OwnerDashboard() {
     }
 
     let alive = true;
+    let unsubscribe = () => {};
+
     (async () => {
       setLoading(true);
       setAccessProblem(null);
@@ -89,7 +87,7 @@ export default function OwnerDashboard() {
         setHotel(null);
         setArrivals([]); setInhouse([]); setDepartures([]);
         setTotalRooms(0);
-        setKpis(null);
+        setKpi(null);
         setAccessProblem(
           "We couldn’t open this property. You might not have access yet or the property doesn’t exist."
         );
@@ -98,11 +96,10 @@ export default function OwnerDashboard() {
       }
 
       setHotel(hotelRow);
+      const hotelId = hotelRow.id;
 
       // 2) Ops lists (non-blocking; if any fail, we still render dashboard)
-      const hotelId = hotelRow.id;
       const nowIso = new Date().toISOString();
-
       try {
         const [{ data: arr }, { data: inh }, { data: dep }] = await Promise.all([
           supabase
@@ -150,28 +147,45 @@ export default function OwnerDashboard() {
         setTotalRooms(0);
       }
 
-      // 4) KPIs view (non-blocking). It’s OK if the view doesn’t exist yet.
+      // 4) KPI initial load (from cache table)
       try {
-        const { data: k } = await supabase
-          .from("v_hotel_kpis_today")
+        const { data: row } = await supabase
+          .from("owner_dashboard_kpis")
           .select("*")
           .eq("hotel_id", hotelId)
           .maybeSingle();
         if (!alive) return;
-        setKpis(k ?? null);
+        setKpi(row ?? null);
       } catch {
-        setKpis(null);
+        setKpi(null);
       }
 
-      // 5) (Optional) Edge Function demo toggle
+      // 5) Realtime subscription for live KPIs (filters on hotel_id server-side)
+      const channel = supabase
+        .channel(`kpi-stream-${hotelId}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "owner_dashboard_kpis", filter: `hotel_id=eq.${hotelId}` },
+          (payload) => {
+            const next = (payload.new as KpiRow) ?? null;
+            setKpi(next);
+          }
+        )
+        .subscribe();
+      unsubscribe = () => supabase.removeChannel(channel);
+
+      // 6) (Optional) Edge functions
       if (HAS_FUNCS) {
-        // Invoke your functions here
+        // Your function calls here if needed
       }
 
       setLoading(false);
     })();
 
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+      unsubscribe();
+    };
   }, [slug, today]);
 
   /** ======= UI States ======= */
@@ -212,17 +226,17 @@ export default function OwnerDashboard() {
     );
   }
 
-  /** ======= KPI Calculations (fallbacks if view absent) ======= */
-  const total = kpis?.total_rooms ?? totalRooms;
-  const inH = kpis?.inhouse ?? inhouse.length;
+  /** ======= KPI Calculations (fallbacks if row absent) ======= */
+  const total = totalRooms;
+  const inH = kpi?.occupied_today ?? 0;
   const occPct = total ? Math.round((inH / total) * 100) : 0;
 
-  const occupiedRoomsToday = kpis?.occupied_rooms_today ?? inH;
-  const revenueToday = kpis?.room_revenue_today ?? 0;
+  const occupiedRoomsToday = kpi?.occupied_today ?? 0;
+  const revenueToday = kpi?.revenue_today ?? 0;
   const adr = occupiedRoomsToday ? revenueToday / occupiedRoomsToday : 0;
   const revpar = total ? (adr * inH) / total : 0;
 
-  const pickup7d = kpis?.pickup7d ?? 0; // when you add it
+  const pickup7d = kpi?.pickup_7d ?? 0;
 
   /** ======= Render ======= */
   return (
@@ -260,17 +274,17 @@ export default function OwnerDashboard() {
         </div>
       </header>
 
-      {/* ======= New KPI Row ======= */}
+      {/* ======= KPI Row (live) ======= */}
       <KpiRow
         items={[
-          { label: "Occupancy", value: `${occPct}%`, sub: `${inH}/${total}`, trend: kpis?.occ_delta ?? null },
-          { label: "ADR", value: `₹${adr.toFixed(0)}`, sub: "today", trend: kpis?.adr_delta ?? null },
-          { label: "RevPAR", value: `₹${revpar.toFixed(0)}`, sub: "today", trend: kpis?.revpar_delta ?? null },
-          { label: "Pick-up (7d)", value: pickup7d ?? 0, sub: "new nights", trend: null },
+          { label: "Occupancy", value: `${occPct}%`, sub: `${inH}/${total}` },
+          { label: "ADR", value: `₹${adr.toFixed(0)}`, sub: "today" },
+          { label: "RevPAR", value: `₹${revpar.toFixed(0)}`, sub: "today" },
+          { label: "Pick-up (7d)", value: pickup7d, sub: "new nights" },
         ]}
       />
 
-      {/* ======= Pricing nudge (owner-friendly) ======= */}
+      {/* ======= Pricing nudge ======= */}
       <PricingNudge
         occupancy={occPct}
         suggestion={`Consider raising tonight’s base rate by ₹${suggestedBump(occPct)} to capture late demand.`}
@@ -292,7 +306,7 @@ export default function OwnerDashboard() {
         </div>
       </section>
 
-      {/* ======= Lists (kept from your file) ======= */}
+      {/* ======= Lists ======= */}
       <section className="grid gap-4 md:grid-cols-3">
         <Board title="Arrivals today" items={arrivals} empty="No arrivals today." />
         <Board title="In-house" items={inhouse} empty="No guests are currently in-house." />
@@ -333,7 +347,6 @@ function KpiRow({
 }
 
 function MiniSparkline() {
-  // Simple CSS sparkline placeholder (no extra libs)
   return (
     <div className="ml-4 mt-1 h-8 w-20 relative">
       <div className="absolute inset-0 opacity-20 bg-gradient-to-tr from-emerald-500 to-indigo-500 rounded" />
@@ -373,7 +386,6 @@ function PricingNudge({
 }
 
 function OccupancyHeatmap({ title }: { title: string }) {
-  // 6 weeks x 7 days skeleton grid (replace with real data later)
   const weeks = 6, days = 7;
   return (
     <div className="rounded-xl border bg-white p-4">

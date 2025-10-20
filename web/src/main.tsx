@@ -2,6 +2,7 @@
 import React, { StrictMode, Suspense, lazy, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider, Outlet } from "react-router-dom";
+
 const Scan = React.lazy(() => import("./routes/Scan"));   // ✅ scan route
 const Stays = lazy(() => import("./routes/Stays"));
 const Stay  = lazy(() => import("./routes/Stay"));
@@ -14,13 +15,13 @@ const OwnerHomeRedirect = lazy(() => import("./routes/OwnerHomeRedirect"));
    Kill stale SW + caches (do NOT register a new one while debugging) 
    ──────────────────────────────────────────────────────────── */
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.getRegistrations().then(regs => {
+  navigator.serviceWorker.getRegistrations().then((regs) => {
     for (const r of regs) r.unregister().catch(() => {});
   });
   (async () => {
     try {
       const keys = await caches.keys();
-      await Promise.all(keys.map(k => caches.delete(k)));
+      await Promise.all(keys.map((k) => caches.delete(k)));
     } catch {}
   })();
 }
@@ -267,7 +268,7 @@ const router = createBrowserRouter([
       { path: "owner/services",  element: <AuthGate><OwnerServices /></AuthGate> },
       { path: "owner/reviews",   element: <AuthGate><OwnerReviews /></AuthGate> },
       { path: "admin",           element: <AuthGate><AdminOps /></AuthGate> },
-      { path="owner/home"        element={<AuthGate><OwnerHomeRedirect /></AuthGate>},
+      { path: "owner/home",      element: <AuthGate><OwnerHomeRedirect /></AuthGate> }, // ✅ fixed syntax
 
       // Access & Invite (protected) — canonical + aliases for your UI links
       { path: "owner/:slug/settings/access", element: <AuthGate><OwnerAccess /></AuthGate> },

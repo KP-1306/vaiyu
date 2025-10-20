@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
-import Spinner from "@/components/Spinner";
+import { supabase } from "../lib/supabase";
+import Spinner from "../components/Spinner";
 
 export default function InviteAccept() {
   const nav = useNavigate();

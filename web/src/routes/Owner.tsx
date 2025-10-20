@@ -1,90 +1,107 @@
+// web/src/routes/Owner.tsx
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { supabase } from "../lib/supabase";
-import Spinner from "../components/Spinner";
-import BackHome from "../components/BackHome";
+import { useNavigate, Link } from "react-router-dom";
+import { supabase } from "@/lib/supabase";
+import Spinner from "@/components/Spinner";
 
-type HotelRow = {
-  id: string;
-  name: string;
-  slug: string;
-  city: string | null;
-  cover_image_url: string | null;
-  role?: string | null; // from membership (if you add it to the view)
-};
+type HotelCard = { id: string; slug: string; name: string };
 
 export default function Owner() {
+  const nav = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [hotels, setHotels] = useState<HotelRow[]>([]);
+  const [err, setErr] = useState<string | null>(null);
+  const [hotels, setHotels] = useState<HotelCard[]>([]);
 
   useEffect(() => {
     let alive = true;
+
     (async () => {
       setLoading(true);
-      // View returns only hotels where auth user is a member
-      const { data, error } = await supabase
-        .from("hotels_for_user")
-        .select("id,name,slug,city,cover_image_url,role")
-        .order("name", { ascending: true });
+      setErr(null);
+      try {
+        const { data: sess } = await supabase.auth.getSession();
+        const uid = sess?.session?.user?.id;
+        if (!uid) { setErr("Not signed in."); setLoading(false); return; }
 
-      if (!alive) return;
-      if (error) {
-        console.error(error);
-        setHotels([]);
-      } else {
-        setHotels(data || []);
+        // 1) memberships (must be allowed by RLS)
+        const memRes = await supabase
+          .from("hotel_members")
+          .select("hotel_id")
+          .eq("user_id", uid);
+
+        if (memRes.error) throw memRes.error;
+        const ids = (memRes.data ?? []).map(m => m.hotel_id);
+        if (ids.length === 0) { setHotels([]); setLoading(false); return; }
+
+        // 2) hotels for those ids (must be allowed by RLS)
+        const hotRes = await supabase
+          .from("hotels")
+          .select("id, slug, name")
+          .in("id", ids);
+
+        if (hotRes.error) throw hotRes.error;
+
+        const hs = (hotRes.data ?? []) as HotelCard[];
+        if (!alive) return;
+
+        setHotels(hs);
+        setLoading(false);
+
+        // Auto-open when there’s exactly one property
+        if (hs.length === 1 && hs[0].slug) {
+          nav(`/owner/${hs[0].slug}`, { replace: true });
+        }
+      } catch (e: any) {
+        if (!alive) return;
+        setErr(e?.message || "Failed to load your properties.");
+        setLoading(false);
       }
-      setLoading(false);
     })();
-    return () => {
-      alive = false;
-    };
-  }, []);
+
+    return () => { alive = false; };
+  }, [nav]);
 
   if (loading) {
     return (
-      <main className="min-h-[60vh] grid place-items-center">
-        <Spinner label="Loading your properties…" />
-      </main>
+      <div className="min-h-[40vh] grid place-items-center">
+        <Spinner label="Loading your properties..." />
+      </div>
     );
   }
 
+  if (err) {
+    return (
+      <div className="max-w-xl mx-auto p-6 rounded-2xl border bg-rose-50 text-rose-900">
+        <div className="font-semibold mb-2">Couldn’t load your properties</div>
+        <div className="text-sm mb-3">{err}</div>
+        <ul className="text-xs list-disc ml-5 space-y-1">
+          <li>Check that you’re signed in with the invited/owner email.</li>
+          <li>Make sure RLS policies allow <code>SELECT</code> on <code>hotel_members</code> and <code>hotels</code>.</li>
+        </ul>
+      </div>
+    );
+  }
+
+  // render your existing grid/list
   return (
-    <main className="max-w-5xl mx-auto p-6">
-      <BackHome />
+    <main className="max-w-6xl mx-auto p-6">
       <header className="mb-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Owner console</h1>
-          <p className="text-sm text-gray-600">Select a property to manage.</p>
-        </div>
-        <Link to="/owner/onboard" className="btn btn-light">+ Add property</Link>
+        <h1 className="text-2xl font-semibold">Owner console</h1>
+        <Link to="/owner/register" className="btn btn-light">+ Add property</Link>
       </header>
 
       {hotels.length === 0 ? (
-        <div className="rounded-xl border bg-white p-6 text-sm">
-          You don’t have access to any properties yet.
-          <div className="mt-3">
-            <Link to="/owner/onboard" className="btn">Register a property</Link>
-          </div>
+        <div className="rounded-2xl border p-6 bg-gray-50">
+          <div className="font-medium mb-1">No properties yet</div>
+          <div className="text-sm text-gray-600">Add a property or accept an invite sent to your email.</div>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {hotels.map((h) => (
-            <Link
-              key={h.id}
-              to={`/owner/${h.slug}`}
-              className="rounded-xl border bg-white hover:shadow-md transition p-4 flex flex-col"
-            >
-              <div className="h-32 rounded-lg overflow-hidden bg-gray-100 mb-3">
-                {h.cover_image_url ? (
-                  <img src={h.cover_image_url} alt={h.name} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full grid place-items-center text-gray-400 text-xs">No photo</div>
-                )}
-              </div>
-              <div className="text-base font-medium">{h.name}</div>
-              <div className="text-xs text-gray-500">{h.city || "—"}</div>
-              {h.role ? <div className="text-[11px] mt-1 px-2 py-0.5 bg-gray-100 rounded w-fit">{h.role}</div> : null}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {hotels.map(h => (
+            <Link key={h.id} to={`/owner/${h.slug}`} className="rounded-2xl border p-4 bg-white hover:shadow-sm">
+              <div className="h-28 rounded-xl bg-gray-100 grid place-items-center text-gray-400">No photo</div>
+              <div className="mt-3 font-medium">{h.name}</div>
+              <div className="text-xs mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5">owner</div>
             </Link>
           ))}
         </div>

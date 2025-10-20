@@ -173,7 +173,7 @@ export default function App() {
           <div className="flex items-center gap-2">
             {hasToken && <Link to="/guest" className="btn btn-light !py-2 !px-3 text-sm">My credits</Link>}
             {/* NEW: Owner console button for members */}
-            {isAuthed && hasHotel && (
+            {isAuthed && (
               <Link to="/owner" className="btn btn-light !py-2 !px-3 text-sm">
                 Owner console
               </Link>

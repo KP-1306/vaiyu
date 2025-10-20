@@ -22,9 +22,13 @@ type StayRow = {
   guest_name?: string | null;
 };
 
+// Optional Edge Functions guard (keep false until you actually deploy them)
+const HAS_FUNCS = import.meta.env.VITE_HAS_FUNCS === "true";
+
 export default function OwnerDashboard() {
   const { slug } = useParams();
   const [params] = useSearchParams();
+
   const [loading, setLoading] = useState(true);
   const [hotel, setHotel] = useState<Hotel | null>(null);
 
@@ -45,13 +49,13 @@ export default function OwnerDashboard() {
       setAccessProblem("Missing property slug in the URL.");
       return;
     }
-    let alive = true;
 
+    let alive = true;
     (async () => {
       setLoading(true);
       setAccessProblem(null);
 
-      // 1) Hotel (RLS-gated)
+      // 1) Hotel (RLS-gated). Only show "access needed" if this fails or returns null.
       const { data: hotelRow, error: hErr } = await supabase
         .from("hotels")
         .select("id,name,slug,city")
@@ -62,7 +66,7 @@ export default function OwnerDashboard() {
       if (!alive) return;
 
       if (hErr || !hotelRow) {
-        console.error(hErr);
+        console.error("[OwnerDashboard] hotel read failed:", hErr);
         setHotel(null);
         setArrivals([]);
         setInhouse([]);
@@ -77,54 +81,68 @@ export default function OwnerDashboard() {
 
       setHotel(hotelRow);
 
-      // 2) Ops lists
+      // 2) Ops lists (non-blocking: if any fail, we still render dashboard skeleton)
       const hotelId = hotelRow.id;
-
-      // Arrivals today
-      const { data: arr, error: aErr } = await supabase
-        .from("stays")
-        .select("id,guest_id,check_in_start,check_out_end,status,room")
-        .eq("hotel_id", hotelId)
-        .gte("check_in_start", today)
-        .lt("check_in_start", nextDayISO(today))
-        .order("check_in_start", { ascending: true });
-
-      // In-house now (overlap)
       const nowIso = new Date().toISOString();
-      const { data: inh, error: iErr } = await supabase
-        .from("stays")
-        .select("id,guest_id,check_in_start,check_out_end,status,room")
-        .eq("hotel_id", hotelId)
-        .lte("check_in_start", nowIso)
-        .gte("check_out_end", nowIso)
-        .order("check_out_end", { ascending: true });
 
-      // Departures today
-      const { data: dep, error: dErr } = await supabase
-        .from("stays")
-        .select("id,guest_id,check_in_start,check_out_end,status,room")
-        .eq("hotel_id", hotelId)
-        .gte("check_out_end", today)
-        .lt("check_out_end", nextDayISO(today))
-        .order("check_out_end", { ascending: true });
+      try {
+        const [{ data: arr }, { data: inh }, { data: dep }] = await Promise.all([
+          supabase
+            .from("stays")
+            .select("id,guest_id,check_in_start,check_out_end,status,room")
+            .eq("hotel_id", hotelId)
+            .gte("check_in_start", today)
+            .lt("check_in_start", nextDayISO(today))
+            .order("check_in_start", { ascending: true }),
+          supabase
+            .from("stays")
+            .select("id,guest_id,check_in_start,check_out_end,status,room")
+            .eq("hotel_id", hotelId)
+            .lte("check_in_start", nowIso)
+            .gte("check_out_end", nowIso)
+            .order("check_out_end", { ascending: true }),
+          supabase
+            .from("stays")
+            .select("id,guest_id,check_in_start,check_out_end,status,room")
+            .eq("hotel_id", hotelId)
+            .gte("check_out_end", today)
+            .lt("check_out_end", nextDayISO(today))
+            .order("check_out_end", { ascending: true }),
+        ]);
 
-      // 3) NEW: Rooms → totalRooms (active inventory count)
-      const { data: rooms, error: rErr } = await supabase
-        .from("rooms")
-        .select("id")
-        .eq("hotel_id", hotelId);
+        if (!alive) return;
+        setArrivals(arr || []);
+        setInhouse(inh || []);
+        setDepartures(dep || []);
+      } catch (e) {
+        console.warn("[OwnerDashboard] stays queries failed:", e);
+        setArrivals([]);
+        setInhouse([]);
+        setDepartures([]);
+      }
 
-      if (!alive) return;
+      // 3) Rooms (non-blocking)
+      try {
+        const { data: rooms } = await supabase
+          .from("rooms")
+          .select("id")
+          .eq("hotel_id", hotelId);
+        if (!alive) return;
+        setTotalRooms(rooms?.length || 0);
+      } catch (e) {
+        console.warn("[OwnerDashboard] rooms query failed:", e);
+        setTotalRooms(0);
+      }
 
-      if (aErr) console.error(aErr);
-      if (iErr) console.error(iErr);
-      if (dErr) console.error(dErr);
-      if (rErr) console.error(rErr);
-
-      setArrivals(arr || []);
-      setInhouse(inh || []);
-      setDepartures(dep || []);
-      setTotalRooms(rooms?.length || 0);
+      // 4) (Optional) Edge Function widgets behind a flag
+      if (HAS_FUNCS) {
+        // Example:
+        // try {
+        //   const { data } = await supabase.functions.invoke("me-spend", { body: { years: 1 } });
+        //   if (!alive) return;
+        //   setSpend(data ?? []);
+        // } catch { /* ignore */ }
+      }
 
       setLoading(false);
     })();
@@ -143,7 +161,7 @@ export default function OwnerDashboard() {
     );
   }
 
-  // Access problem
+  // Access problem (hotel not readable / not found)
   if (accessProblem) {
     return (
       <main className="max-w-3xl mx-auto p-6">
@@ -173,18 +191,13 @@ export default function OwnerDashboard() {
     );
   }
 
-  // NEW: occupancy% using rooms + inhouse[]
-  const occPct =
-    totalRooms > 0 ? Math.round((inhouse.length / totalRooms) * 100) : 0;
-
+  // Occupancy using rooms + inhouse[]
+  const occPct = totalRooms > 0 ? Math.round((inhouse.length / totalRooms) * 100) : 0;
   const kpCards = [
     { label: "Arrivals", value: arrivals.length },
     { label: "In-house", value: inhouse.length },
     { label: "Departures", value: departures.length },
-    {
-      label: "Occupancy",
-      value: `${occPct}% (${inhouse.length}/${totalRooms})`,
-    },
+    { label: "Occupancy", value: `${occPct}% (${inhouse.length}/${totalRooms})` },
   ];
 
   return (
@@ -214,13 +227,17 @@ export default function OwnerDashboard() {
       <header className="mb-4 flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">{hotel.name}</h1>
+          {hotel.city ? <p className="text-sm text-gray-600">{hotel.city}</p> : null}
         </div>
         <div className="flex flex-wrap gap-2">
           <Link to={`/owner/${hotel.slug}/ops`} className="btn btn-light">Operations</Link>
           <Link to={`/owner/${hotel.slug}/housekeeping`} className="btn btn-light">Housekeeping</Link>
           <Link to={`/owner/${hotel.slug}/settings`} className="btn btn-light">Settings</Link>
           {/* OwnerAccess & InviteAccept entry points */}
-          <Link to={`/owner/access?slug=${encodeURIComponent(hotel.slug)}`} className="btn btn-light">
+          <Link
+            to={`/owner/access?slug=${encodeURIComponent(hotel.slug)}`}
+            className="btn btn-light"
+          >
             Access
           </Link>
           <Link to={`/invite/accept`} className="btn btn-light">Accept Invite</Link>
@@ -247,7 +264,11 @@ export default function OwnerDashboard() {
   );
 }
 
-function Board({ title, items, empty }:{
+function Board({
+  title,
+  items,
+  empty,
+}: {
   title: string;
   items: StayRow[];
   empty: string;
@@ -263,12 +284,16 @@ function Board({ title, items, empty }:{
             <li key={s.id} className="rounded-lg border p-3 text-sm">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="font-medium">{s.room ? `Room ${s.room}` : "Unassigned room"}</div>
+                  <div className="font-medium">
+                    {s.room ? `Room ${s.room}` : "Unassigned room"}
+                  </div>
                   <div className="text-gray-500 text-xs">
                     {fmt(s.check_in_start)} → {fmt(s.check_out_end)}
                   </div>
                 </div>
-                <div className="text-xs uppercase tracking-wide text-gray-600">{s.status || "—"}</div>
+                <div className="text-xs uppercase tracking-wide text-gray-600">
+                  {s.status || "—"}
+                </div>
               </div>
             </li>
           ))}

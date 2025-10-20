@@ -1,8 +1,8 @@
 // web/src/routes/Owner.tsx
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
-import Spinner from "@/components/Spinner";
+import { supabase } from "../lib/supabase";
+import Spinner from "../components/Spinner";
 
 type HotelCard = { id: string; slug: string; name: string };
 

@@ -1,7 +1,7 @@
 // web/src/routes/Logout.tsx
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "../lib/supabase";
 
 const GUEST_CACHE_KEYS = ["va:guest", "stay:token"]; // add more keys here if needed
 

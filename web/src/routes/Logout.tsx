@@ -1,21 +1,31 @@
 // web/src/routes/Logout.tsx
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../lib/supabase";
+import { supabase } from "@/lib/supabase";
 
-/**
- * Remove any lingering Supabase session keys from localStorage.
- * Supabase stores sessions under keys like: sb-<project-ref>-auth-token
- */
-function hardClearSupabaseStorage() {
+const GUEST_CACHE_KEYS = ["va:guest", "stay:token"]; // add more keys here if needed
+
+function clearSupabaseAuthStorage() {
   try {
     const keys: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
       if (!k) continue;
+      // Supabase stores tokens like: sb-<project-ref>-auth-token
       if (k.startsWith("sb-") && k.endsWith("-auth-token")) keys.push(k);
     }
     keys.forEach((k) => localStorage.removeItem(k));
+  } catch {
+    /* ignore */
+  }
+}
+
+async function unregisterServiceWorkers() {
+  try {
+    if ("serviceWorker" in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.allSettled(regs.map((r) => r.unregister()));
+    }
   } catch {
     /* ignore */
   }
@@ -28,32 +38,45 @@ export default function Logout() {
     let cancelled = false;
 
     (async () => {
+      // 1) Best-effort: revoke refresh token server-side (all tabs)
       try {
-        // 1) Revoke refresh token server-side for ALL tabs.
         await supabase.auth.signOut({ scope: "global" });
       } catch {
-        // ignore – we'll still clear client cache and redirect
+        // ignore – we'll still wipe client state and force reload
       }
 
-      // 2) Extra hygiene (client-side)
-      hardClearSupabaseStorage();
+      // 2) Client hygiene: clear all local/session storage we use
       try {
-        localStorage.removeItem("va:guest"); // if you cache guest info
-      } catch {}
-      try {
-        sessionStorage.clear();
-      } catch {}
+        clearSupabaseAuthStorage();
+        GUEST_CACHE_KEYS.forEach((k) => {
+          try { localStorage.removeItem(k); } catch {}
+        });
+        try { sessionStorage.clear(); } catch {}
+      } catch {
+        /* ignore */
+      }
 
-      // 3) Redirect to PUBLIC HOME (consistent with BackHome pill + new flow)
-      if (!cancelled) navigate("/", { replace: true });
+      // 3) (Optional) ensure no stale SW keeps an old app shell around
+      await unregisterServiceWorkers();
+
+      // 4) Redirect home. Do SPA nav first, then hard reload as fallback.
+      if (!cancelled) {
+        navigate("/", { replace: true });
+        // In case the router is mid-transition or a stale shell is cached
+        setTimeout(() => {
+          try {
+            // Prefer replace() to avoid adding an extra history entry
+            window.location.replace("/");
+          } catch {
+            window.location.href = "/";
+          }
+        }, 60);
+      }
     })();
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [navigate]);
 
-  // Lightweight UX while sign-out happens
   return (
     <main className="min-h-[40vh] grid place-items-center">
       <p className="text-sm text-gray-600">Signing you out…</p>

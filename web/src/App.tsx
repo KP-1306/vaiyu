@@ -40,6 +40,26 @@ export default function App() {
   }, []);
   const isAuthed = !!userEmail;
 
+  // NEW: show “Owner console” when the user belongs to at least one hotel
+  const [hasHotel, setHasHotel] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const { data: sess } = await supabase.auth.getSession();
+      const userId = sess?.session?.user?.id;
+      if (!userId) { setHasHotel(false); return; }
+
+      const { error, count } = await supabase
+        .from("hotel_members")
+        .select("hotel_id", { head: true, count: "exact" })
+        .eq("user_id", userId);
+
+      if (!alive) return;
+      setHasHotel(!error && !!count && count > 0);
+    })();
+    return () => { alive = false; };
+  }, []);
+
   async function handleSignOut() {
     try {
       await supabase.auth.signOut();
@@ -152,6 +172,12 @@ export default function App() {
 
           <div className="flex items-center gap-2">
             {hasToken && <Link to="/guest" className="btn btn-light !py-2 !px-3 text-sm">My credits</Link>}
+            {/* NEW: Owner console button for members */}
+            {isAuthed && hasHotel && (
+              <Link to="/owner" className="btn btn-light !py-2 !px-3 text-sm">
+                Owner console
+              </Link>
+            )}
             {isAuthed ? (
               <>
                 <Link to="/guest" className="btn !py-2 !px-3 text-sm">Open app</Link>
@@ -164,38 +190,38 @@ export default function App() {
         </div>
       </header>
 
-        {/* Use-cases (anchor) — hero carousel */}
-        <section id="use-cases" className="mx-auto max-w-7xl px-4 py-6 scroll-mt-24">
+      {/* Use-cases (anchor) — hero carousel */}
+      <section id="use-cases" className="mx-auto max-w-7xl px-4 py-6 scroll-mt-24">
         <HeroCarousel slides={slides} />
-        </section>
+      </section>
 
       {/* WHY: fixed 16:9 banner, full-bleed inside the rounded container */}
-<section id="why" className="mx-auto max-w-7xl px-4 py-14">
-  <h2 className="text-2xl font-bold">The whole journey, upgraded</h2>
-  <p className="text-gray-600 mt-1">Clear wins for guests, staff, owners, and your brand.</p>
+      <section id="why" className="mx-auto max-w-7xl px-4 py-14">
+        <h2 className="text-2xl font-bold">The whole journey, upgraded</h2>
+        <p className="text-gray-600 mt-1">Clear wins for guests, staff, owners, and your brand.</p>
 
-  <figure className="mt-6">
-    <div className="rounded-3xl ring-1 ring-slate-200 bg-white overflow-hidden shadow-sm">
-      {/* Keep the same height; fill width by covering */}
-      <div className="w-full aspect-[16/9]">
-        <img
-          src="/illustrations/journey-upgraded.png?v=5"
-          alt="The whole journey, upgraded — benefits for Guests, Staff, Owners, and Brand"
-          className="block w-full h-full object-cover object-center"
-          loading="eager"
-          decoding="async"
-          onError={(e) => {
-            const el = e.currentTarget as HTMLImageElement;
-            el.src = "/illustrations/vaiyu-intelligence-final.png";
-          }}
-        />
-      </div>
-    </div>
-    <figcaption className="sr-only">
-      VAiyu benefits across Guests, Staff, Owners, and Brand.
-    </figcaption>
-  </figure>
-</section>
+        <figure className="mt-6">
+          <div className="rounded-3xl ring-1 ring-slate-200 bg-white overflow-hidden shadow-sm">
+            {/* Keep the same height; fill width by covering */}
+            <div className="w-full aspect-[16/9]">
+              <img
+                src="/illustrations/journey-upgraded.png?v=5"
+                alt="The whole journey, upgraded — benefits for Guests, Staff, Owners, and Brand"
+                className="block w-full h-full object-cover object-center"
+                loading="eager"
+                decoding="async"
+                onError={(e) => {
+                  const el = e.currentTarget as HTMLImageElement;
+                  el.src = "/illustrations/vaiyu-intelligence-final.png";
+                }}
+              />
+            </div>
+          </div>
+          <figcaption className="sr-only">
+            VAiyu benefits across Guests, Staff, Owners, and Brand.
+          </figcaption>
+        </figure>
+      </section>
 
       {/* Alternating image + content */}
       <section id="ai" className="mx-auto max-w-7xl px-4 pb-14">

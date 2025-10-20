@@ -3,17 +3,16 @@ import React, { StrictMode, Suspense, lazy, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider, Outlet } from "react-router-dom";
 
-const Scan = React.lazy(() => import("./routes/Scan"));   // ✅ scan route
+/* ────────────── Lazy routes (grouped like your file) ────────────── */
+const Scan = React.lazy(() => import("./routes/Scan"));
 const Stays = lazy(() => import("./routes/Stays"));
 const Stay  = lazy(() => import("./routes/Stay"));
 const Bills = React.lazy(() => import("./routes/Bill"));
-const OwnerAccess   = React.lazy(() => import("./routes/OwnerAccess"));
-const InviteAccept  = React.lazy(() => import("./routes/InviteAccept"));
-const OwnerHomeRedirect = lazy(() => import("./routes/OwnerHomeRedirect"));
+const OwnerAccess        = React.lazy(() => import("./routes/OwnerAccess"));
+const InviteAccept       = React.lazy(() => import("./routes/InviteAccept"));
+const OwnerHomeRedirect  = lazy(() => import("./routes/OwnerHomeRedirect"));
 
-/* ────────────────────────────────────────────────────────────
-   Kill stale SW + caches (do NOT register a new one while debugging) 
-   ──────────────────────────────────────────────────────────── */
+/* Kill stale SW + caches (keep disabled while debugging) */
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.getRegistrations().then((regs) => {
     for (const r of regs) r.unregister().catch(() => {});
@@ -26,11 +25,9 @@ if ("serviceWorker" in navigator) {
   })();
 }
 
-/* Monitoring (kept) */
+/* Monitoring / Analytics */
 import { initMonitoring } from "./lib/monitoring";
 initMonitoring();
-
-/* Analytics (kept) */
 import { initAnalytics, track } from "./lib/analytics";
 initAnalytics();
 track("page_view", { path: location.pathname });
@@ -52,7 +49,7 @@ import TopProgressBar from "./components/TopProgressBar";
 import UpdatePrompt from "./components/UpdatePrompt";
 import Spinner from "./components/Spinner";
 
-/* Route error UI (element + wrapper) */
+/* Route error UI */
 import { RouteErrorElement, withBoundary } from "./components/RouteErrorBoundary";
 
 /* Auth guard for protected routes */
@@ -82,7 +79,7 @@ const Contact        = lazy(() => import("./routes/Contact"));
 const Careers        = lazy(() => import("./routes/Careers"));
 const Status         = lazy(() => import("./routes/Status"));
 const Thanks         = lazy(() => import("./routes/Thanks"));
-const OwnerRegister  = lazy(() => import("./routes/OwnerRegister")); // public registration
+const OwnerRegister  = lazy(() => import("./routes/OwnerRegister"));
 
 /* Guest / Journey */
 const Hotel          = lazy(() => import("./routes/Hotel"));
@@ -101,13 +98,13 @@ const Desk           = lazy(() => import("./routes/Desk"));
 const HK             = lazy(() => import("./routes/HK"));
 const Maint          = lazy(() => import("./routes/Maint"));
 
-/* Owner / Admin (updated) */
-const Owner              = lazy(() => import("./routes/Owner"));              // property list
-const OwnerDashboard     = lazy(() => import("./routes/OwnerDashboard"));     // single property
+/* Owner / Admin */
+const Owner              = lazy(() => import("./routes/Owner"));
+const OwnerDashboard     = lazy(() => import("./routes/OwnerDashboard"));
 const OwnerSettings      = lazy(() => import("./routes/OwnerSettings"));
 const OwnerServices      = lazy(() => import("./routes/OwnerServices"));
 const OwnerReviews       = lazy(() => import("./routes/OwnerReviews"));
-const OwnerHousekeeping  = lazy(() => import("./routes/OwnerHousekeeping"));  // ✅ NEW
+const OwnerHousekeeping  = lazy(() => import("./routes/OwnerHousekeeping"));
 const AdminOps           = lazy(() => import("./pages/AdminOps"));
 
 /* Grid (VPP) */
@@ -115,10 +112,8 @@ const GridDevices    = lazy(() => import("./routes/GridDevices"));
 const GridPlaybooks  = lazy(() => import("./routes/GridPlaybooks"));
 const GridEvents     = lazy(() => import("./routes/GridEvents"));
 
-/* Profile */
+/* Profile / Rewards */
 const Profile        = lazy(() => import("./routes/Profile"));
-
-/* Rewards */
 const Rewards        = lazy(() => import("./routes/Rewards"));
 
 /* 404 + deep link + welcome */
@@ -126,34 +121,37 @@ const NotFound       = lazy(() => import("./routes/NotFound"));
 const RequestStatus  = lazy(() => import("./pages/RequestStatus"));
 // const Welcome     = lazy(() => import("./routes/Welcome"));
 
-/* ================= Auth bootstrap gate ================= */
+/* ================= Auth bootstrap gate (robust) ================= */
 function AuthBootstrap({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    let mounted = true;
+    let cancelled = false;
 
-    (async () => {
-      await supabase.auth.getSession().catch(() => {});
-      if (!mounted) return;
-
-      const { data: sub } = supabase.auth.onAuthStateChange(() => {
-        if (!mounted) return;
-        setReady(true);
+    // Resolve quickly if a session is already present; otherwise still mark ready.
+    supabase.auth
+      .getSession()
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setReady(true);
       });
 
-      const t = setTimeout(() => {
-        if (mounted) setReady(true);
-      }, 250);
+    // Also listen for any changes (first load, tab switching, etc.)
+    const sub = supabase.auth.onAuthStateChange(() => {
+      if (!cancelled) setReady(true);
+    });
 
-      return () => {
-        clearTimeout(t);
-        sub.subscription.unsubscribe();
-      };
-    })();
+    // Absolute backstop so UI never stalls on "Starting app…"
+    const t = setTimeout(() => {
+      if (!cancelled) setReady(true);
+    }, 1500);
 
     return () => {
-      mounted = false;
+      cancelled = true;
+      clearTimeout(t);
+      try {
+        sub.data.subscription.unsubscribe();
+      } catch {}
     };
   }, []);
 
@@ -205,10 +203,7 @@ const router = createBrowserRouter([
     element: <RootLayout />,
     errorElement: <RouteErrorElement />,
     children: [
-      // Public landing at "/"
       { index: true, element: withBoundary(<App />) },
-
-      // Safety hatch
       { path: "ok", element: <MinimalOK /> },
 
       // Public
@@ -224,6 +219,7 @@ const router = createBrowserRouter([
       { path: "careers", element: <Careers /> },
       { path: "status", element: <Status /> },
       { path: "thanks", element: <Thanks /> },
+      { path: "owner/register", element: <OwnerRegister /> },
 
       // Rewards + Profile
       { path: "rewards", element: <Rewards /> },
@@ -255,29 +251,26 @@ const router = createBrowserRouter([
       { path: "maint", element: <AuthGate><Maint /></AuthGate> },
 
       // Owner (protected) — canonical
-      { path: "owner",                 element: <AuthGate><Owner /></AuthGate> },
-      { path: "owner/:slug",           element: <AuthGate><OwnerDashboard /></AuthGate> },
-      { path: "owner/:slug/housekeeping", element: <AuthGate><OwnerHousekeeping /></AuthGate> }, // ✅ NEW
+      { path: "owner",                       element: <AuthGate><Owner /></AuthGate> },
+      { path: "owner/:slug",                 element: <AuthGate><OwnerDashboard /></AuthGate> },
+      { path: "owner/:slug/housekeeping",    element: <AuthGate><OwnerHousekeeping /></AuthGate> },
 
       // Owner legacy aliases (still work)
-      { path: "owner/dashboard",       element: <AuthGate><OwnerDashboard /></AuthGate> },
-      { path: "owner/dashboard/:slug", element: <AuthGate><OwnerDashboard /></AuthGate> },
+      { path: "owner/dashboard",             element: <AuthGate><OwnerDashboard /></AuthGate> },
+      { path: "owner/dashboard/:slug",       element: <AuthGate><OwnerDashboard /></AuthGate> },
 
       // Owner settings/services/reviews (protected)
-      { path: "owner/settings",  element: <AuthGate><OwnerSettings /></AuthGate> },
-      { path: "owner/services",  element: <AuthGate><OwnerServices /></AuthGate> },
-      { path: "owner/reviews",   element: <AuthGate><OwnerReviews /></AuthGate> },
-      { path: "admin",           element: <AuthGate><AdminOps /></AuthGate> },
-      { path: "owner/home",      element: <AuthGate><OwnerHomeRedirect /></AuthGate> }, // ✅ fixed syntax
+      { path: "owner/settings",              element: <AuthGate><OwnerSettings /></AuthGate> },
+      { path: "owner/services",              element: <AuthGate><OwnerServices /></AuthGate> },
+      { path: "owner/reviews",               element: <AuthGate><OwnerReviews /></AuthGate> },
+      { path: "admin",                       element: <AuthGate><AdminOps /></AuthGate> },
+      { path: "owner/home",                  element: <AuthGate><OwnerHomeRedirect /></AuthGate> },
 
-      // Access & Invite (protected) — canonical + aliases for your UI links
+      // Access & Invite (protected) — canonical + aliases
       { path: "owner/:slug/settings/access", element: <AuthGate><OwnerAccess /></AuthGate> },
       { path: "owner/invite/accept/:token",  element: <AuthGate><InviteAccept /></AuthGate> },
-      { path: "owner/access",                element: <AuthGate><OwnerAccess /></AuthGate> },  // ✅ alias for ?slug=
-      { path: "invite/accept",               element: <AuthGate><InviteAccept /></AuthGate> }, // ✅ alias for ?code=
-
-      // Public property registration
-      { path: "owner/register",  element: <OwnerRegister /> },
+      { path: "owner/access",                element: <AuthGate><OwnerAccess /></AuthGate> }, // supports ?slug=
+      { path: "invite/accept",               element: <AuthGate><InviteAccept /></AuthGate> }, // supports ?code=
 
       // Grid (protected)
       { path: "grid/devices",   element: <AuthGate><GridDevices /></AuthGate> },

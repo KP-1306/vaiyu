@@ -11,7 +11,7 @@ const InviteAccept  = React.lazy(() => import("./routes/InviteAccept"));
 const OwnerHomeRedirect = lazy(() => import("./routes/OwnerHomeRedirect"));
 
 /* ────────────────────────────────────────────────────────────
-   Kill stale SW + caches (do NOT register a new one while debugging)
+   Kill stale SW + caches (do NOT register a new one while debugging) 
    ──────────────────────────────────────────────────────────── */
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.getRegistrations().then(regs => {

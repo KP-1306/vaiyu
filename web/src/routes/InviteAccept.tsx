@@ -1,53 +1,54 @@
-// web/src/routes/InviteAccept.tsx
-import { useEffect, useState } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
-import { supabase } from "../lib/supabase";
-import Spinner from "../components/Spinner";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { supabase } from "@/lib/supabase";
+import Spinner from "@/components/Spinner";
 
 export default function InviteAccept() {
-  const { token } = useParams();
   const nav = useNavigate();
+  const params = useParams<{ token?: string }>();
+  const [sp] = useSearchParams();
   const [msg, setMsg] = useState<string | null>(null);
-  const [ok, setOk] = useState(false);
+  const token = useMemo(
+    () => params.token || sp.get("code") || sp.get("token") || "",
+    [params, sp]
+  );
 
   useEffect(() => {
-    if (!token) return;
-    let run = true;
+    let alive = true;
+
     (async () => {
-      // Ensure user is signed in
-      const { data } = await supabase.auth.getSession();
-      if (!data?.session) {
-        setMsg("Please sign in first, then open the invite link again.");
+      // If no token, show a friendly prompt instead of spinning forever.
+      if (!token) {
+        setMsg("Missing invite code. Open the link from your email, or paste ?code=<token>.");
         return;
       }
-      const { data: res, error } = await supabase.rpc("accept_hotel_invite", { _token: token });
-      if (!run) return;
-      if (error) {
-        setMsg(error.message);
-      } else {
-        setOk(true);
-        setMsg(res || "Invite accepted!");
-      }
-    })();
-    return () => { run = false; };
-  }, [token]);
 
-  if (!msg) {
-    return (
-      <main className="min-h-[60vh] grid place-items-center">
-        <Spinner label="Accepting invite…" />
-      </main>
-    );
-  }
+      const { data: sess } = await supabase.auth.getSession();
+      if (!sess?.session?.user) {
+        nav(`/signin?redirect=/owner/invite/accept/${token}`, { replace: true });
+        return;
+      }
+
+      // Call the definer RPC. Parameter name must match your SQL: _token
+      const { data, error } = await supabase.rpc("accept_hotel_invite", { _token: token });
+      if (!alive) return;
+
+      if (error) {
+        setMsg(error.message || "Invite could not be accepted.");
+        return;
+      }
+
+      // Success → go to Owner console
+      setMsg(data || "Invite accepted.");
+      nav("/owner", { replace: true });
+    })();
+
+    return () => { alive = false; };
+  }, [token, nav]);
 
   return (
-    <main className="max-w-lg mx-auto p-6">
-      <h1 className="text-2xl font-semibold mb-2">{ok ? "You're in!" : "Oops"}</h1>
-      <p className="text-sm text-gray-700">{msg}</p>
-      <div className="mt-4 flex gap-2">
-        <button className="btn" onClick={() => nav("/owner")}>Go to Owner console</button>
-        <Link className="btn btn-light" to="/guest">Guest dashboard</Link>
-      </div>
+    <main className="min-h-[40vh] grid place-items-center p-6">
+      {!msg ? <Spinner label="Accepting invite…" /> : <p className="text-gray-700">{msg}</p>}
     </main>
   );
 }

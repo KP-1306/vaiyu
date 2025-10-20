@@ -8,6 +8,7 @@ const Stay  = lazy(() => import("./routes/Stay"));
 const Bills = React.lazy(() => import("./routes/Bill"));
 const OwnerAccess   = React.lazy(() => import("./routes/OwnerAccess"));
 const InviteAccept  = React.lazy(() => import("./routes/InviteAccept"));
+const OwnerHomeRedirect = lazy(() => import("./routes/OwnerHomeRedirect"));
 
 /* ────────────────────────────────────────────────────────────
    Kill stale SW + caches (do NOT register a new one while debugging)
@@ -266,6 +267,7 @@ const router = createBrowserRouter([
       { path: "owner/services",  element: <AuthGate><OwnerServices /></AuthGate> },
       { path: "owner/reviews",   element: <AuthGate><OwnerReviews /></AuthGate> },
       { path: "admin",           element: <AuthGate><AdminOps /></AuthGate> },
+      { path="owner/home"        element={<AuthGate><OwnerHomeRedirect /></AuthGate>},
 
       // Access & Invite (protected) — canonical + aliases for your UI links
       { path: "owner/:slug/settings/access", element: <AuthGate><OwnerAccess /></AuthGate> },

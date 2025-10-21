@@ -2,6 +2,11 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import {
+  buildEmailRedirectUrl,
+  consumeAuthFromUrl,
+  getCurrentSession,
+} from "../lib/auth";
 
 function maskEmail(e: string) {
   const [user, domain = ""] = e.split("@");
@@ -13,60 +18,54 @@ function maskEmail(e: string) {
   return `${u}@${domain}`;
 }
 
-const ORIGIN =
-  (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/$/, "") ||
-  (typeof window !== "undefined" ? window.location.origin : "");
-
 export default function SignIn() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
 
-  const intent = params.get("intent");           // "signup" | "signin" | null
-  const redirect = params.get("redirect") || ""; // where to go after login
+  const intent = params.get("intent") || "signin"; // "signup" | "signin"
+  const redirect = params.get("redirect") || "/guest"; // where to go after login
 
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Detect existing session (no auto-redirect unless ?redirect= is present).
+  // Detect existing session (no auto-redirect unless ?redirect= present)
   const [hasSession, setHasSession] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
+  // Optional Step 4: users sometimes land on /signin WITH tokens in the URL.
+  // Try to consume, then forward to the desired page.
   useEffect(() => {
     let cancelled = false;
-
     (async () => {
-      const { data: sess } = await supabase.auth.getSession();
+      // 1) Consume tokens/code if present (magic link / OAuth PKCE)
+      const consumed = await consumeAuthFromUrl();
+      // 2) If we have a session now, go to redirect
+      const sess = await getCurrentSession();
+      if (!cancelled && sess) {
+        navigate(redirect, { replace: true });
+        return;
+      }
 
-      if (sess.session) {
-        if (!cancelled) setHasSession(true);
-        const { data: u } = await supabase.auth.getUser();
-        if (!cancelled) setUserEmail(u?.user?.email ?? null);
-
-        // Only auto-redirect when an explicit ?redirect= is present.
-        const p = new URLSearchParams(window.location.search);
-        const dest = p.get("redirect");
-        if (dest) navigate(dest, { replace: true });
-      } else {
-        if (!cancelled) {
+      // 3) Otherwise hydrate "already signed in?" UI
+      if (!cancelled) {
+        if (sess) {
+          setHasSession(true);
+          setUserEmail(sess.user?.email ?? null);
+        } else {
           setHasSession(false);
           setUserEmail(null);
         }
       }
     })();
 
-    // Also listen for changes (e.g., magic-link opened in this tab)
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_evt, s) => {
+    // Also listen for auth changes (e.g., link opened in this tab)
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, s) => {
       if (cancelled) return;
       if (s?.user) {
         setHasSession(true);
         setUserEmail(s.user.email ?? null);
-
-        // Again, only jump automatically if ?redirect= exists
-        const p = new URLSearchParams(window.location.search);
-        const dest = p.get("redirect");
-        if (dest) navigate(dest, { replace: true });
       } else {
         setHasSession(false);
         setUserEmail(null);
@@ -77,7 +76,7 @@ export default function SignIn() {
       cancelled = true;
       sub.subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, [navigate, redirect]);
 
   const heading =
     intent === "signup" ? "Create your account" : "Sign in to VAiyu";
@@ -92,19 +91,17 @@ export default function SignIn() {
     setError(null);
     setLoading(true);
     try {
-      // CHANGED: default to "/" instead of "/welcome"
-      const desired = redirect || "/guest";
-      const redirectTo = `${ORIGIN}/auth/callback?redirect=${encodeURIComponent(
-        desired
-      )}`;
-
       const emailTrimmed = email.trim();
-      // inside /routes/SignIn.tsx
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?redirect=/guest`
-      }
+
+      // STEP 3: Send the user to our callback with intent + redirect
+      const emailRedirectTo = buildEmailRedirectUrl("/auth/callback", {
+        intent,
+        redirect,
+      });
+
+      const { error } = await supabase.auth.signInWithOtp({
+        email: emailTrimmed,
+        options: { emailRedirectTo },
       });
 
       if (error) throw error;
@@ -117,9 +114,7 @@ export default function SignIn() {
   }
 
   function continueSignedIn() {
-    // CHANGED: default to "/" instead of "/welcome"
-    const dest = redirect || "/guest";
-    navigate(dest, { replace: true });
+    navigate(redirect, { replace: true });
   }
 
   async function signOutAndUseAnother() {
@@ -134,7 +129,7 @@ export default function SignIn() {
         <h1 className="text-xl font-semibold">{heading}</h1>
         <p className="text-sm text-gray-600 mt-1">{sub}</p>
 
-        {/* If already signed in, show options instead of auto-redirect */}
+        {/* If already signed in, offer choices instead of auto-redirect */}
         {hasSession && !sent ? (
           <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm">
             <div className="font-medium mb-1">

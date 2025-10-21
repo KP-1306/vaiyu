@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Suspense, lazy, useEffect, useState } from "react";
+import { BrowserRouter, Routes, Route, Navigate, Link } from "react-router-dom";
 
 import SEO from "./components/SEO";
 import HeroCarousel from "./components/HeroCarousel";
@@ -11,9 +11,73 @@ import GlassBand_OnboardingSecurityIntegrations from "./components/GlassBand_Onb
 import LiveProductPeek from "./components/LiveProductPeek";
 import FAQShort from "./components/FAQShort";
 
+/* ===== Owner pages kept ===== */
+import OwnerDashboard from "./routes/OwnerDashboard";
+
+/* ===== Rooms only (lazy) ===== */
+const OwnerRooms = lazy(() => import("./routes/OwnerRooms"));
+const OwnerRoomDetail = lazy(() => import("./routes/OwnerRoomDetail"));
+
 const TOKEN_KEY = "stay:token";
 
+function RouteFallback() {
+  return (
+    <main className="min-h-[50vh] grid place-items-center">
+      <div className="text-sm text-gray-600">Loading…</div>
+    </main>
+  );
+}
+
 export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Marketing / landing */}
+        <Route path="/" element={<HomeLanding />} />
+
+        {/* Owner area */}
+        <Route path="/owner/:slug" element={<OwnerDashboard />} />
+
+        {/* Rooms (availability + history) ONLY */}
+        <Route
+          path="/owner/:slug/rooms"
+          element={
+            <Suspense fallback={<RouteFallback />}>
+              <OwnerRooms />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/owner/:slug/rooms/:roomId"
+          element={
+            <Suspense fallback={<RouteFallback />}>
+              <OwnerRoomDetail />
+            </Suspense>
+          }
+        />
+
+        {/* Convenience redirects / 404 */}
+        <Route path="/owner" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+function NotFound() {
+  return (
+    <main className="min-h-[60vh] grid place-items-center">
+      <div className="rounded-xl border p-6 text-center">
+        <div className="text-lg font-medium mb-2">Page not found</div>
+        <p className="text-sm text-gray-600">The page you’re looking for doesn’t exist.</p>
+        <div className="mt-4"><Link to="/" className="btn btn-light">Go home</Link></div>
+      </div>
+    </main>
+  );
+}
+
+/* ---------- HomeLanding (unchanged from your working version) ---------- */
+function HomeLanding() {
   const [hasToken, setHasToken] = useState<boolean>(() => !!localStorage.getItem(TOKEN_KEY));
   useEffect(() => {
     const onStorage = (e: StorageEvent) => { if (e.key === TOKEN_KEY) setHasToken(!!e.newValue); };
@@ -40,7 +104,6 @@ export default function App() {
   }, []);
   const isAuthed = !!userEmail;
 
-  // NEW: show “Owner console” when the user belongs to at least one hotel
   const [hasHotel, setHasHotel] = useState(false);
   useEffect(() => {
     let alive = true;
@@ -72,65 +135,16 @@ export default function App() {
   const site = typeof window !== "undefined" ? window.location.origin : "https://vaiyu.co.in";
 
   const slides = [
-    {
-      id: "ai-hero",
-      headline: "Where Intelligence Meets Comfort",
-      sub: "AI turns live stay activity into faster service and delightful guest journeys.",
-      cta: { label: isAuthed ? "Open app" : "Start with your email", href: isAuthed ? "/guest" : "/signin?intent=signup&redirect=/guest" },
-      variant: "photo",
-      img: "/hero/ai-hero.png",
-      imgAlt: "AI hero background"
-    },
-    {
-      id: "checkin",
-      headline: "10-second Mobile Check-in",
-      sub: "Scan, confirm, head to your room. No kiosk queues.",
-      cta: { label: "Try the guest demo", href: "/guest" },
-      variant: "photo",
-      img: "/hero/checkin.png",
-      imgAlt: "Guest scanning QR at the front desk"
-    },
-    {
-      id: "sla",
-      headline: "SLA Nudges for Staff",
-      sub: "On-time nudges and a clean digest keep service humming.",
-      cta: { label: "See the owner console", href: "/owner" },
-      variant: "photo",
-      img: "/hero/sla.png",
-      imgAlt: "Tablet with SLA dashboard"
-    },
-    {
-      id: "reviews",
-      headline: "Truth-Anchored Reviews",
-      sub: "AI drafts grounded in verified stay data—owners approve, brand stays safe.",
-      cta: { label: "How moderation works", href: "/about-ai" },
-      variant: "photo",
-      img: "/hero/reviews.png",
-      imgAlt: "Owner reviewing AI draft"
-    },
-    {
-      id: "grid-smart",
-      headline: "Grid-Smart Operations & Sustainability",
-      sub: "Tariff-aware actions and device shedding without drama.",
-      cta: { label: "Learn about grid mode", href: "/grid/devices" },
-      variant: "photo",
-      img: "/hero/grid.png",
-      imgAlt: "Energy dashboard on wall tablet"
-    },
-    {
-      id: "owner-console",
-      headline: "AI-Driven Owner Console",
-      sub: "Digest, usage, moderation and KPIs—clean, fast, reliable.",
-      cta: { label: "Open owner home", href: "/owner" },
-      variant: "photo",
-      img: "/hero/owner-console.png",
-      imgAlt: "Owner console KPIs on monitor"
-    },
+    { id: "ai-hero", headline: "Where Intelligence Meets Comfort", sub: "AI turns live stay activity into faster service and delightful guest journeys.", cta: { label: isAuthed ? "Open app" : "Start with your email", href: isAuthed ? "/guest" : "/signin?intent=signup&redirect=/guest" }, variant: "photo", img: "/hero/ai-hero.png", imgAlt: "AI hero background" },
+    { id: "checkin", headline: "10-second Mobile Check-in", sub: "Scan, confirm, head to your room. No kiosk queues.", cta: { label: "Try the guest demo", href: "/guest" }, variant: "photo", img: "/hero/checkin.png", imgAlt: "Guest scanning QR at the front desk" },
+    { id: "sla", headline: "SLA Nudges for Staff", sub: "On-time nudges and a clean digest keep service humming.", cta: { label: "See the owner console", href: "/owner" }, variant: "photo", img: "/hero/sla.png", imgAlt: "Tablet with SLA dashboard" },
+    { id: "reviews", headline: "Truth-Anchored Reviews", sub: "AI drafts grounded in verified stay data—owners approve, brand stays safe.", cta: { label: "How moderation works", href: "/about-ai" }, variant: "photo", img: "/hero/reviews.png", imgAlt: "Owner reviewing AI draft" },
+    { id: "grid-smart", headline: "Grid-Smart Operations & Sustainability", sub: "Tariff-aware actions and device shedding without drama.", cta: { label: "Learn about grid mode", href: "/grid/devices" }, variant: "photo", img: "/hero/grid.png", imgAlt: "Energy dashboard on wall tablet" },
+    { id: "owner-console", headline: "AI-Driven Owner Console", sub: "Digest, usage, moderation and KPIs—clean, fast, reliable.", cta: { label: "Open owner home", href: "/owner" }, variant: "photo", img: "/hero/owner-console.png", imgAlt: "Owner console KPIs on monitor" },
   ];
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      {/* SEO */}
       <SEO
         title="VAiyu — AI OS for Hotels"
         description="Where Intelligence Meets Comfort — verified reviews, refer-and-earn growth, and grid-smart operations."
@@ -147,16 +161,11 @@ export default function App() {
         }}
       />
 
-      {/* Top nav */}
       <header className="sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-gray-100">
         <div className="mx-auto max-w-7xl px-4 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <img
-              src="/brand/vaiyu-logo.png"
-              alt="VAiyu"
-              className="h-8 w-auto hidden sm:block"
-              onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")}
-            />
+            <img src="/brand/vaiyu-logo.png" alt="VAiyu" className="h-8 w-auto hidden sm:block"
+              onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")} />
             <span className="sm:hidden inline-block h-8 w-8 rounded-xl" style={{ background: "var(--brand, #145AF2)" }} aria-hidden />
             <span className="font-semibold text-lg tracking-tight">VAiyu</span>
           </Link>
@@ -172,12 +181,7 @@ export default function App() {
 
           <div className="flex items-center gap-2">
             {hasToken && <Link to="/guest" className="btn btn-light !py-2 !px-3 text-sm">My credits</Link>}
-            {/* NEW: Owner console button for members */}
-            {isAuthed && (
-              <Link to="/owner" className="btn btn-light !py-2 !px-3 text-sm">
-                Owner console
-              </Link>
-            )}
+            {isAuthed && <Link to="/owner" className="btn btn-light !py-2 !px-3 text-sm">Owner console</Link>}
             {isAuthed ? (
               <>
                 <Link to="/guest" className="btn !py-2 !px-3 text-sm">Open app</Link>
@@ -190,19 +194,17 @@ export default function App() {
         </div>
       </header>
 
-      {/* Use-cases (anchor) — hero carousel */}
+      {/* Use-cases */}
       <section id="use-cases" className="mx-auto max-w-7xl px-4 py-6 scroll-mt-24">
         <HeroCarousel slides={slides} />
       </section>
 
-      {/* WHY: fixed 16:9 banner, full-bleed inside the rounded container */}
+      {/* WHY */}
       <section id="why" className="mx-auto max-w-7xl px-4 py-14">
         <h2 className="text-2xl font-bold">The whole journey, upgraded</h2>
         <p className="text-gray-600 mt-1">Clear wins for guests, staff, owners, and your brand.</p>
-
         <figure className="mt-6">
           <div className="rounded-3xl ring-1 ring-slate-200 bg-white overflow-hidden shadow-sm">
-            {/* Keep the same height; fill width by covering */}
             <div className="w-full aspect-[16/9]">
               <img
                 src="/illustrations/journey-upgraded.png?v=5"
@@ -217,9 +219,7 @@ export default function App() {
               />
             </div>
           </div>
-          <figcaption className="sr-only">
-            VAiyu benefits across Guests, Staff, Owners, and Brand.
-          </figcaption>
+          <figcaption className="sr-only">VAiyu benefits across Guests, Staff, Owners, and Brand.</figcaption>
         </figure>
       </section>
 
@@ -280,33 +280,6 @@ export default function App() {
           </div>
         </div>
       </footer>
-    </div>
-  );
-}
-
-/* ---------- tiny building blocks (kept) ---------- */
-
-function ValueCard({
-  title,
-  points,
-  emoji,
-}: {
-  title: string;
-  points: string[];
-  emoji: string;
-}) {
-  return (
-    <div className="card group hover:shadow-lg transition-shadow">
-      <div className="text-2xl">{emoji}</div>
-      <div className="font-semibold mt-1">{title}</div>
-      <ul className="text-sm text-gray-600 mt-2 space-y-1">
-        {points.map((p) => (
-          <li key={p} className="flex gap-2">
-            <span>✓</span>
-            <span>{p}</span>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }

@@ -1,18 +1,18 @@
+// web/src/routes/AuthCallback.tsx
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { supabase } from "../lib/supabase";
 import Spinner from "../components/Spinner";
+import { consumeAuthFromUrl, getCurrentSession } from "../lib/auth";
 
 /**
  * Normalize a redirect target:
  * - Same-origin only
  * - Rooted path only (starts with "/")
- * - Coerce any legacy "/welcome" URLs to "/"
- * - Fallback to "/" if anything looks off
+ * - Coerce legacy "/welcome" to "/guest"
+ * - Fallback to "/guest" if anything looks off
  */
 function safeRedirect(raw: string | null | undefined, fallback = "/guest") {
-   const normalize = (p: string) => (p.startsWith("/welcome") ? "/guest" : p);
-  
+  const normalize = (p: string) => (p.startsWith("/welcome") ? "/guest" : p);
   if (!raw) return fallback;
   try {
     const u = new URL(raw, window.location.origin);
@@ -25,75 +25,53 @@ function safeRedirect(raw: string | null | undefined, fallback = "/guest") {
 }
 
 export default function AuthCallback() {
-  const [params] = useSearchParams();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
 
   useEffect(() => {
-    let finished = false;
+    let alive = true;
 
     (async () => {
-      try {
-        // 1) Handle implicit (hash) flow
-        const hash = window.location.hash || "";
-        if (/access_token=|refresh_token=/.test(hash)) {
-          await supabase.auth.getSessionFromUrl({ storeSession: true });
-          finished = true;
-        }
+      // 1) Try to consume tokens/code from the URL (magic link / OAuth PKCE).
+      const consumed = await consumeAuthFromUrl();
 
-        // 2) Handle PKCE code flow
-        if (!finished) {
-          const code = params.get("code");
-          if (code) {
-            await supabase.auth.exchangeCodeForSession(code);
-            finished = true;
-          }
-        }
+      // 2) If we have a session (either consumed now or already signed in), continue.
+      const sess = await getCurrentSession();
 
-        // 3) If no tokens but already signed in, continue
-        if (!finished) {
-          const { data } = await supabase.auth.getSession();
-          if (data?.session) finished = true;
-        }
+      // Destination preference: ?redirect=… (or legacy ?next=…)
+      const rawDest = params.get("redirect") ?? params.get("next");
+      const dest = safeRedirect(rawDest, "/guest");
 
-        // Prefer ?redirect=…, or accept ?next=… as a backup
-        const rawDest = params.get("redirect") ?? params.get("next");
-        const dest = safeRedirect(rawDest, "/");
+      // Clean sensitive params + hash from the URL before navigating
+      const clean = new URL(window.location.href);
+      clean.hash = "";
+      ["code", "redirect", "next", "error", "error_description", "provider_token"].forEach((k) =>
+        clean.searchParams.delete(k)
+      );
+      window.history.replaceState({}, "", clean.pathname + clean.search);
 
-        // Clean sensitive params + hash before we navigate
-        const clean = new URL(window.location.href);
-        clean.hash = "";
-        [
-          "code",
-          "redirect",
-          "next",
-          "error",
-          "error_description",
-          "provider_token",
-        ].forEach((k) => clean.searchParams.delete(k));
-        window.history.replaceState({}, "", clean.pathname + clean.search);
+      if (!alive) return;
 
-        if (finished) {
-          navigate(dest, { replace: true });
-        } else {
-          // No valid tokens/session → back to sign-in
-          navigate(
-            `/signin?intent=signin&redirect=${encodeURIComponent(
-              dest
-            )}&error=${encodeURIComponent(
-              "Login link is missing or expired. Please request a new one."
-            )}`,
-            { replace: true }
-          );
-        }
-      } catch (e) {
-        const message =
-          (e as any)?.message || "Could not complete login. Please try again.";
+      if (sess) {
+        // Success → go to the app
+        navigate(dest, { replace: true });
+      } else {
+        // No session (invalid/expired link) → send back to signin
+        const intent = params.get("intent") || "signin";
         navigate(
-          `/signin?intent=signin&error=${encodeURIComponent(message)}`,
+          `/signin?intent=${encodeURIComponent(
+            intent
+          )}&redirect=${encodeURIComponent(dest)}&error=${encodeURIComponent(
+            "Login link is missing or expired. Please request a new one."
+          )}`,
           { replace: true }
         );
       }
     })();
+
+    return () => {
+      alive = false;
+    };
   }, [navigate, params]);
 
   return (

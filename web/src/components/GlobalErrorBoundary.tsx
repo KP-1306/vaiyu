@@ -5,13 +5,19 @@ type State = { error?: Error };
 
 export default class GlobalErrorBoundary extends React.Component<Props, State> {
   state: State = {};
-  static getDerivedStateFromError(error: Error) { return { error }; }
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    // Log to console so we can see it in the browser DevTools
+    // Visible in browser DevTools so we can diagnose quickly
     console.error("[App Crash]", error, info);
   }
+
   render() {
     if (!this.state.error) return this.props.children;
+
     return (
       <main className="min-h-[60vh] grid place-items-center p-6">
         <div className="rounded-xl border p-6 max-w-lg w-full bg-white">
@@ -20,7 +26,9 @@ export default class GlobalErrorBoundary extends React.Component<Props, State> {
           <pre className="text-xs bg-slate-50 p-3 rounded overflow-auto max-h-64">
             {this.state.error?.message}
           </pre>
-          <button className="btn btn-light mt-3" onClick={()=>location.assign("/")}>Go Home</button>
+          <button className="btn btn-light mt-3" onClick={() => location.assign("/")}>
+            Go Home
+          </button>
         </div>
       </main>
     );

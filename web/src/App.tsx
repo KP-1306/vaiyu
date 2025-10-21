@@ -19,31 +19,36 @@ import { OwnerADR, OwnerRevPAR } from "./routes/OwnerRevenue";
 import OwnerPickup from "./routes/OwnerPickup";
 import OwnerHRMS from "./routes/OwnerHRMS";
 
+/* NEW: global error boundary */
+import GlobalErrorBoundary from "./components/GlobalErrorBoundary";
+
 const TOKEN_KEY = "stay:token";
 
 /* ----------------------------------------------------------------------------
-   App: Router shell
+   App: Router shell (wrapped with GlobalErrorBoundary)
 ---------------------------------------------------------------------------- */
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        {/* Marketing / landing */}
-        <Route path="/" element={<HomeLanding />} />
+      <GlobalErrorBoundary>
+        <Routes>
+          {/* Marketing / landing */}
+          <Route path="/" element={<HomeLanding />} />
 
-        {/* Owner area */}
-        <Route path="/owner/:slug" element={<OwnerDashboard />} />
-        <Route path="/owner/:slug/rooms" element={<OwnerRooms />} />
-        <Route path="/owner/:slug/rooms/:roomId" element={<OwnerRoomDetail />} />
-        <Route path="/owner/:slug/revenue/adr" element={<OwnerADR />} />
-        <Route path="/owner/:slug/revenue/revpar" element={<OwnerRevPAR />} />
-        <Route path="/owner/:slug/bookings/pickup" element={<OwnerPickup />} />
-        <Route path="/owner/:slug/hrms/*" element={<OwnerHRMS />} />
+          {/* Owner area */}
+          <Route path="/owner/:slug" element={<OwnerDashboard />} />
+          <Route path="/owner/:slug/rooms" element={<OwnerRooms />} />
+          <Route path="/owner/:slug/rooms/:roomId" element={<OwnerRoomDetail />} />
+          <Route path="/owner/:slug/revenue/adr" element={<OwnerADR />} />
+          <Route path="/owner/:slug/revenue/revpar" element={<OwnerRevPAR />} />
+          <Route path="/owner/:slug/bookings/pickup" element={<OwnerPickup />} />
+          <Route path="/owner/:slug/hrms/*" element={<OwnerHRMS />} />
 
-        {/* Convenience redirects / 404 */}
-        <Route path="/owner" element={<Navigate to="/" replace />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+          {/* Convenience redirects / 404 */}
+          <Route path="/owner" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </GlobalErrorBoundary>
     </BrowserRouter>
   );
 }
@@ -57,15 +62,16 @@ function NotFound() {
       <div className="rounded-xl border p-6 text-center">
         <div className="text-lg font-medium mb-2">Page not found</div>
         <p className="text-sm text-gray-600">The page you’re looking for doesn’t exist.</p>
-        <div className="mt-4"><Link to="/" className="btn btn-light">Go home</Link></div>
+        <div className="mt-4">
+          <Link to="/" className="btn btn-light">Go home</Link>
+        </div>
       </div>
     </main>
   );
 }
 
 /* ----------------------------------------------------------------------------
-   HomeLanding: your existing landing-page UI (moved from default App)
-   (Content below is unchanged from your current App.tsx, just wrapped as a component)
+   HomeLanding: your existing landing-page UI
 ---------------------------------------------------------------------------- */
 function HomeLanding() {
   const [hasToken, setHasToken] = useState<boolean>(() => !!localStorage.getItem(TOKEN_KEY));

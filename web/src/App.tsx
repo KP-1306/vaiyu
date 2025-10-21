@@ -1,4 +1,4 @@
-import { useEffect, useState, lazy, Suspense } from "react";
+import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate, Link } from "react-router-dom";
 
 import SEO from "./components/SEO";
@@ -11,18 +11,13 @@ import GlassBand_OnboardingSecurityIntegrations from "./components/GlassBand_Onb
 import LiveProductPeek from "./components/LiveProductPeek";
 import FAQShort from "./components/FAQShort";
 
-/* ===== Lazy owner routes (NO "@/") ===== */
-const OwnerDashboard = lazy(() => import("./routes/OwnerDashboard"));
-const OwnerRooms = lazy(() => import("./routes/OwnerRooms"));
-const OwnerRoomDetail = lazy(() => import("./routes/OwnerRoomDetail"));
-const OwnerADR = lazy(() =>
-  import("./routes/OwnerRevenue").then(m => ({ default: m.OwnerADR }))
-);
-const OwnerRevPAR = lazy(() =>
-  import("./routes/OwnerRevenue").then(m => ({ default: m.OwnerRevPAR }))
-);
-const OwnerPickup = lazy(() => import("./routes/OwnerPickup"));
-const OwnerHRMS = lazy(() => import("./routes/OwnerHRMS"));
+/* ===== Owner routes (STATIC imports, no "@/") ===== */
+import OwnerDashboard from "./routes/OwnerDashboard";
+import OwnerRooms from "./routes/OwnerRooms";
+import OwnerRoomDetail from "./routes/OwnerRoomDetail";
+import { OwnerADR, OwnerRevPAR } from "./routes/OwnerRevenue";
+import OwnerPickup from "./routes/OwnerPickup";
+import OwnerHRMS from "./routes/OwnerHRMS";
 
 const TOKEN_KEY = "stay:token";
 
@@ -32,43 +27,30 @@ const TOKEN_KEY = "stay:token";
 export default function App() {
   return (
     <BrowserRouter>
-      <Suspense fallback={<PageSpinner />}>
-        <Routes>
-          {/* Marketing / landing */}
-          <Route path="/" element={<HomeLanding />} />
+      <Routes>
+        {/* Marketing / landing */}
+        <Route path="/" element={<HomeLanding />} />
 
-          {/* Owner area */}
-          <Route path="/owner/:slug" element={<OwnerDashboard />} />
-          <Route path="/owner/:slug/rooms" element={<OwnerRooms />} />
-          <Route path="/owner/:slug/rooms/:roomId" element={<OwnerRoomDetail />} />
+        {/* Owner area */}
+        <Route path="/owner/:slug" element={<OwnerDashboard />} />
+        <Route path="/owner/:slug/rooms" element={<OwnerRooms />} />
+        <Route path="/owner/:slug/rooms/:roomId" element={<OwnerRoomDetail />} />
 
-          {/* Revenue */}
-          <Route path="/owner/:slug/revenue/adr" element={<OwnerADR />} />
-          <Route path="/owner/:slug/revenue/revpar" element={<OwnerRevPAR />} />
+        {/* Revenue */}
+        <Route path="/owner/:slug/revenue/adr" element={<OwnerADR />} />
+        <Route path="/owner/:slug/revenue/revpar" element={<OwnerRevPAR />} />
 
-          {/* Bookings */}
-          <Route path="/owner/:slug/bookings/pickup" element={<OwnerPickup />} />
+        {/* Bookings */}
+        <Route path="/owner/:slug/bookings/pickup" element={<OwnerPickup />} />
 
-          {/* HRMS */}
-          <Route path="/owner/:slug/hrms/*" element={<OwnerHRMS />} />
+        {/* HRMS */}
+        <Route path="/owner/:slug/hrms/*" element={<OwnerHRMS />} />
 
-          {/* Convenience redirects / 404 */}
-          <Route path="/owner" element={<Navigate to="/" replace />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </Suspense>
+        {/* Convenience redirects / 404 */}
+        <Route path="/owner" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
     </BrowserRouter>
-  );
-}
-
-/* ----------------------------------------------------------------------------
-   Tiny spinner while lazy routes load
----------------------------------------------------------------------------- */
-function PageSpinner() {
-  return (
-    <main className="min-h-[50vh] grid place-items-center">
-      <div className="animate-pulse text-gray-500 text-sm">Loading…</div>
-    </main>
   );
 }
 
@@ -88,7 +70,7 @@ function NotFound() {
 }
 
 /* ----------------------------------------------------------------------------
-   HomeLanding: your landing UI (unchanged) + quick owner strips
+   HomeLanding: landing UI + quick owner strips
 ---------------------------------------------------------------------------- */
 function HomeLanding() {
   const [hasToken, setHasToken] = useState<boolean>(() => !!localStorage.getItem(TOKEN_KEY));
@@ -124,12 +106,10 @@ function HomeLanding() {
       const { data: sess } = await supabase.auth.getSession();
       const userId = sess?.session?.user?.id;
       if (!userId) { setHasHotel(false); return; }
-
       const { error, count } = await supabase
         .from("hotel_members")
         .select("hotel_id", { head: true, count: "exact" })
         .eq("user_id", userId);
-
       if (!alive) return;
       setHasHotel(!error && !!count && count > 0);
     })();
@@ -137,9 +117,7 @@ function HomeLanding() {
   }, []);
 
   const [ownerSlug, setOwnerSlug] = useState<string | null>(null);
-  useEffect(() => {
-    setOwnerSlug(localStorage.getItem("owner:slug")); // e.g., "DEMO1"
-  }, []);
+  useEffect(() => { setOwnerSlug(localStorage.getItem("owner:slug")); }, []);
 
   async function handleSignOut() {
     try {
@@ -327,7 +305,7 @@ function HomeLanding() {
         <FAQShort />
       </section>
 
-      {/* Quick Owner KPIs (Revenue / Pick-up) */}
+      {/* Quick Owner KPIs */}
       {isAuthed && hasHotel && ownerSlug && (
         <section className="mx-auto max-w-7xl px-4 pb-6">
           <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -348,7 +326,7 @@ function HomeLanding() {
         </section>
       )}
 
-      {/* HRMS Quick Links (Attendance / Leaves / Staff) */}
+      {/* HRMS Quick Links */}
       {isAuthed && hasHotel && ownerSlug && (
         <section className="mx-auto max-w-7xl px-4 pb-10">
           <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -401,32 +379,6 @@ function HomeLanding() {
           </div>
         </div>
       </footer>
-    </div>
-  );
-}
-
-/* ---------- kept helper (if you still need it somewhere) ---------- */
-function ValueCard({
-  title,
-  points,
-  emoji,
-}: {
-  title: string;
-  points: string[];
-  emoji: string;
-}) {
-  return (
-    <div className="card group hover:shadow-lg transition-shadow">
-      <div className="text-2xl">{emoji}</div>
-      <div className="font-semibold mt-1">{title}</div>
-      <ul className="text-sm text-gray-600 mt-2 space-y-1">
-        {points.map((p) => (
-          <li key={p} className="flex gap-2">
-            <span>✓</span>
-            <span>{p}</span>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }

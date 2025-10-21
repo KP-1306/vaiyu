@@ -22,7 +22,6 @@ type StayRow = {
   room: string | null;
 };
 
-/** Row from owner_dashboard_kpis */
 type KpiRow = {
   hotel_id: string;
   as_of_date: string;
@@ -32,6 +31,34 @@ type KpiRow = {
   pickup_7d: number;
   avg_rating_30d: number | null;
   updated_at: string;
+};
+
+type LiveOrder = {
+  id: string;
+  created_at: string;
+  status: string;
+  price: number | null;
+};
+
+type StaffPerf = {
+  name: string;
+  orders_served: number;
+  avg_rating_30d: number | null;
+  avg_completion_min: number | null;
+  volume_score: number | null;
+  rating_score: number | null;
+  speed_score: number | null;
+  performance_score: number | null;
+};
+
+type HrmsSnapshot = {
+  staff_total: number;
+  present_today: number;
+  late_today: number;
+  absent_today: number;
+  attendance_pct_today: number;
+  absences_7d: number;
+  staff_with_absence_7d: number;
 };
 
 const HAS_FUNCS = import.meta.env.VITE_HAS_FUNCS === "true";
@@ -47,11 +74,18 @@ export default function OwnerDashboard() {
   const [arrivals, setArrivals] = useState<StayRow[]>([]);
   const [inhouse, setInhouse] = useState<StayRow[]>([]);
   const [departures, setDepartures] = useState<StayRow[]>([]);
-
   const [totalRooms, setTotalRooms] = useState<number>(0);
 
   // KPI state (live via Realtime)
   const [kpi, setKpi] = useState<KpiRow | null>(null);
+
+  // SLA + Live orders
+  const [slaTargetMin, setSlaTargetMin] = useState<number | null>(null);
+  const [liveOrders, setLiveOrders] = useState<LiveOrder[]>([]);
+
+  // Staff performance & HRMS snapshot (optional RPC)
+  const [staffPerf, setStaffPerf] = useState<StaffPerf[] | null>(null);
+  const [hrms, setHrms] = useState<HrmsSnapshot | null>(null);
 
   const [accessProblem, setAccessProblem] = useState<string | null>(null);
   const inviteToken = params.get("invite");
@@ -83,7 +117,6 @@ export default function OwnerDashboard() {
       if (!alive) return;
 
       if (hErr || !hotelRow) {
-        console.error("[OwnerDashboard] hotel read failed:", hErr);
         setHotel(null);
         setArrivals([]); setInhouse([]); setDepartures([]);
         setTotalRooms(0);
@@ -98,8 +131,7 @@ export default function OwnerDashboard() {
       setHotel(hotelRow);
       const hotelId = hotelRow.id;
 
-      // 2) Ops lists (non-blocking; if any fail, we still render dashboard)
-      const nowIso = new Date().toISOString();
+      // 2) Ops lists (non-blocking)
       try {
         const [{ data: arr }, { data: inh }, { data: dep }] = await Promise.all([
           supabase
@@ -113,8 +145,8 @@ export default function OwnerDashboard() {
             .from("stays")
             .select("id,guest_id,check_in_start,check_out_end,status,room")
             .eq("hotel_id", hotelId)
-            .lte("check_in_start", nowIso)
-            .gte("check_out_end", nowIso)
+            .lte("check_in_start", new Date().toISOString())
+            .gte("check_out_end", new Date().toISOString())
             .order("check_out_end", { ascending: true }),
           supabase
             .from("stays")
@@ -129,8 +161,7 @@ export default function OwnerDashboard() {
         setArrivals(arr || []);
         setInhouse(inh || []);
         setDepartures(dep || []);
-      } catch (e) {
-        console.warn("[OwnerDashboard] stays queries failed:", e);
+      } catch {
         setArrivals([]); setInhouse([]); setDepartures([]);
       }
 
@@ -142,8 +173,7 @@ export default function OwnerDashboard() {
           .eq("hotel_id", hotelId);
         if (!alive) return;
         setTotalRooms(rooms?.length || 0);
-      } catch (e) {
-        console.warn("[OwnerDashboard] rooms query failed:", e);
+      } catch {
         setTotalRooms(0);
       }
 
@@ -160,7 +190,32 @@ export default function OwnerDashboard() {
         setKpi(null);
       }
 
-      // 5) Realtime subscription for live KPIs (filters on hotel_id server-side)
+      // 5) SLA target + Live orders
+      try {
+        const [{ data: sla }, { data: orders }] = await Promise.all([
+          supabase
+            .from("sla_targets")
+            .select("target_minutes")
+            .eq("hotel_id", hotelId)
+            .eq("key", "order_delivery_min")
+            .maybeSingle(),
+          supabase
+            .from("orders")
+            .select("id,created_at,status,price")
+            .eq("hotel_id", hotelId)
+            .in("status", ["open", "preparing"])
+            .order("created_at", { ascending: false })
+            .limit(50),
+        ]);
+        if (!alive) return;
+        setSlaTargetMin(sla?.target_minutes ?? 20); // sensible default
+        setLiveOrders(orders || []);
+      } catch {
+        setSlaTargetMin(20);
+        setLiveOrders([]);
+      }
+
+      // 6) Realtime subscription for live KPIs
       const channel = supabase
         .channel(`kpi-stream-${hotelId}`)
         .on(
@@ -174,9 +229,16 @@ export default function OwnerDashboard() {
         .subscribe();
       unsubscribe = () => supabase.removeChannel(channel);
 
-      // 6) (Optional) Edge functions
+      // 7) Optional RPCs (best staff + HRMS)
       if (HAS_FUNCS) {
-        // Your function calls here if needed
+        try {
+          const { data } = await supabase.rpc("best_staff_performance_for_slug", { p_slug: slug });
+          if (alive) setStaffPerf(data ?? null);
+        } catch { setStaffPerf(null); }
+        try {
+          const { data } = await supabase.rpc("hrms_snapshot_for_slug", { p_slug: slug });
+          if (alive) setHrms((data && data[0]) ?? null);
+        } catch { setHrms(null); }
       }
 
       setLoading(false);
@@ -226,16 +288,13 @@ export default function OwnerDashboard() {
     );
   }
 
-  /** ======= KPI Calculations (fallbacks if row absent) ======= */
+  /** ======= KPI Calculations ======= */
   const total = totalRooms;
-  const inH = kpi?.occupied_today ?? 0;
-  const occPct = total ? Math.round((inH / total) * 100) : 0;
-
-  const occupiedRoomsToday = kpi?.occupied_today ?? 0;
+  const occupied = kpi?.occupied_today ?? 0;
+  const occPct = total ? Math.round((occupied / total) * 100) : 0;
   const revenueToday = kpi?.revenue_today ?? 0;
-  const adr = occupiedRoomsToday ? revenueToday / occupiedRoomsToday : 0;
-  const revpar = total ? (adr * inH) / total : 0;
-
+  const adr = occupied ? revenueToday / occupied : 0;
+  const revpar = total ? (adr * occupied) / total : 0;
   const pickup7d = kpi?.pickup_7d ?? 0;
 
   /** ======= Render ======= */
@@ -243,44 +302,46 @@ export default function OwnerDashboard() {
     <main className="max-w-6xl mx-auto p-6">
       <BackHome />
 
-      {/* Invite banner if token present */}
-      {inviteToken ? (
-        <div className="mb-4 rounded-2xl border p-4 bg-emerald-50">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="font-medium">You have a pending invite</div>
-              <div className="text-sm text-emerald-900">
-                Accept the invitation to manage this property.
-              </div>
-            </div>
-            <Link to={`/invite/accept?code=${encodeURIComponent(inviteToken)}`} className="btn">
-              Accept Invite
-            </Link>
-          </div>
-        </div>
-      ) : null}
-
       <header className="mb-4 flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">{hotel.name}</h1>
           {hotel.city ? <p className="text-sm text-gray-600">{hotel.city}</p> : null}
+          <p className="text-xs text-gray-500 mt-1">
+            This page shows today’s performance, live orders & staff activity. Green is good —
+            anything in red needs attention.
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link to={`/owner/${hotel.slug}/ops`} className="btn btn-light">Operations</Link>
           <Link to={`/owner/${hotel.slug}/housekeeping`} className="btn btn-light">Housekeeping</Link>
           <Link to={`/owner/${hotel.slug}/settings`} className="btn btn-light">Settings</Link>
           <Link to={`/owner/access?slug=${encodeURIComponent(hotel.slug)}`} className="btn btn-light">Access</Link>
-          <Link to={`/invite/accept`} className="btn btn-light">Accept Invite</Link>
         </div>
       </header>
 
       {/* ======= KPI Row (live) ======= */}
       <KpiRow
         items={[
-          { label: "Occupancy", value: `${occPct}%`, sub: `${inH}/${total}` },
-          { label: "ADR", value: `₹${adr.toFixed(0)}`, sub: "today" },
-          { label: "RevPAR", value: `₹${revpar.toFixed(0)}`, sub: "today" },
-          { label: "Pick-up (7d)", value: pickup7d, sub: "new nights" },
+          {
+            label: "Occupancy",
+            value: `${occPct}%`,
+            sub: `${occupied}/${total} rooms · 60–80% is healthy`
+          },
+          {
+            label: "ADR (Average Daily Rate)",
+            value: `₹${adr.toFixed(0)}`,
+            sub: "Today’s average price per occupied room"
+          },
+          {
+            label: "RevPAR (Revenue Per Available Room)",
+            value: `₹${revpar.toFixed(0)}`,
+            sub: "Revenue ÷ total rooms (today)"
+          },
+          {
+            label: "Pick-up (7 days)",
+            value: pickup7d,
+            sub: "New nights added in the last week"
+          },
         ]}
       />
 
@@ -291,6 +352,25 @@ export default function OwnerDashboard() {
         ctaTo={`/owner/${hotel.slug}/settings`}
       />
 
+      {/* ======= SLA + Live orders ======= */}
+      <section className="grid gap-4 lg:grid-cols-3 mb-6">
+        <SlaCard
+          targetMin={slaTargetMin ?? 20}
+          orders={liveOrders}
+        />
+        <LiveOrdersPanel
+          orders={liveOrders}
+          targetMin={slaTargetMin ?? 20}
+          className="lg:col-span-2"
+        />
+      </section>
+
+      {/* ======= Staff performance + HRMS ======= */}
+      <section className="grid gap-4 lg:grid-cols-2 mb-6">
+        <StaffPerformancePanel data={staffPerf} />
+        <HrmsPanel data={hrms} />
+      </section>
+
       {/* ======= Heatmap + Lists ======= */}
       <section className="grid gap-4 lg:grid-cols-3 mb-6">
         <div className="lg:col-span-2">
@@ -298,7 +378,9 @@ export default function OwnerDashboard() {
         </div>
         <div className="rounded-xl border bg-white p-4">
           <div className="font-medium mb-2">Housekeeping progress</div>
-          <p className="text-sm text-gray-500">Hook this to your HK table next. For now this is a placeholder.</p>
+          <p className="text-sm text-gray-500">
+            Link your HK statuses to show real-time room readiness.
+          </p>
           <div className="mt-4 h-2 rounded-full bg-gray-100">
             <div className="h-2 rounded-full bg-emerald-500" style={{ width: `${Math.min(occPct, 100)}%` }} />
           </div>
@@ -306,12 +388,23 @@ export default function OwnerDashboard() {
         </div>
       </section>
 
-      {/* ======= Lists ======= */}
+      {/* ======= Arrivals / In-house / Departures ======= */}
       <section className="grid gap-4 md:grid-cols-3">
         <Board title="Arrivals today" items={arrivals} empty="No arrivals today." />
         <Board title="In-house" items={inhouse} empty="No guests are currently in-house." />
         <Board title="Departures today" items={departures} empty="No departures today." />
       </section>
+
+      {/* ======= Footer contact ======= */}
+      <footer className="mt-8">
+        <div className="rounded-2xl border p-4 flex items-center justify-between bg-white">
+          <div>
+            <div className="font-medium">Need help or want to improve results?</div>
+            <div className="text-sm text-gray-500">Our team can review your numbers and suggest quick wins.</div>
+          </div>
+          <a href="mailto:support@vaiyu.co.in?subject=Owner%20Dashboard%20help" className="btn">Contact us</a>
+        </div>
+      </footer>
     </main>
   );
 }
@@ -382,6 +475,127 @@ function PricingNudge({
         <Link to={ctaTo} className="btn">Open pricing</Link>
       </div>
     </section>
+  );
+}
+
+function SlaCard({ targetMin, orders }: { targetMin: number; orders: LiveOrder[] }) {
+  const total = orders.length;
+  const onTime = orders.filter((o) => ageMin(o.created_at) <= targetMin).length;
+  const pct = total ? Math.round((onTime / total) * 100) : 100;
+  return (
+    <div className="rounded-xl border bg-white p-4">
+      <div className="font-medium">SLA (order delivery)</div>
+      <div className="text-sm text-gray-500 mb-2">Target: {targetMin} min</div>
+      <div className="h-2 rounded-full bg-gray-100">
+        <div className={`h-2 rounded-full ${pct >= 90 ? "bg-emerald-500" : pct >= 70 ? "bg-amber-500" : "bg-rose-500"}`} style={{ width: `${pct}%` }} />
+      </div>
+      <div className="text-xs text-gray-500 mt-2">{onTime}/{total} orders on time</div>
+    </div>
+  );
+}
+
+function LiveOrdersPanel({ orders, targetMin, className = "" }:{ orders: LiveOrder[]; targetMin: number; className?: string }) {
+  return (
+    <div className={`rounded-xl border bg-white p-4 ${className}`}>
+      <div className="font-medium mb-2">Live orders</div>
+      {orders.length === 0 ? (
+        <div className="text-sm text-gray-500">No live orders right now.</div>
+      ) : (
+        <ul className="divide-y">
+          {orders.map((o) => {
+            const mins = ageMin(o.created_at);
+            const breach = mins > targetMin;
+            return (
+              <li key={o.id} className="py-2 flex items-center justify-between">
+                <div>
+                  <div className="text-sm">#{o.id.slice(0,8)} · {o.status}</div>
+                  <div className="text-xs text-gray-500">Age: {mins} min</div>
+                </div>
+                <div className={`text-xs px-2 py-1 rounded ${breach ? "bg-rose-50 text-rose-700 border border-rose-200" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>
+                  {breach ? "SLA breach" : "On time"}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function StaffPerformancePanel({ data }: { data: StaffPerf[] | null }) {
+  return (
+    <div className="rounded-xl border bg-white p-4">
+      <div className="font-medium mb-2">Staff performance (last 30 days)</div>
+      {!data || data.length === 0 ? (
+        <div className="text-sm text-gray-500">
+          Hook this to <code>best_staff_performance_for_slug(slug)</code> to rank your team by volume, rating and speed.
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="text-sm w-full">
+            <thead className="text-left text-gray-500">
+              <tr>
+                <th className="py-1 pr-3">Name</th>
+                <th className="py-1 pr-3">Orders</th>
+                <th className="py-1 pr-3">Avg rating</th>
+                <th className="py-1 pr-3">Avg mins</th>
+                <th className="py-1 pr-3">Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((r) => (
+                <tr key={r.name} className="border-t">
+                  <td className="py-1 pr-3">{r.name}</td>
+                  <td className="py-1 pr-3">{r.orders_served ?? "—"}</td>
+                  <td className="py-1 pr-3">{r.avg_rating_30d ?? "—"}</td>
+                  <td className="py-1 pr-3">{r.avg_completion_min ?? "—"}</td>
+                  <td className="py-1 pr-3 font-medium">{r.performance_score ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="text-xs text-gray-500 mt-2">Tip: Train under-performers on speed and guest experience.</p>
+    </div>
+  );
+}
+
+function HrmsPanel({ data }: { data: HrmsSnapshot | null }) {
+  if (!data) {
+    return (
+      <div className="rounded-xl border bg-white p-4">
+        <div className="font-medium mb-2">Attendance & leaves</div>
+        <div className="text-sm text-gray-500">
+          Connect <code>hrms_snapshot_for_slug(slug)</code> to see presence, late arrivals and 7-day absences.
+        </div>
+      </div>
+    );
+  }
+  const { staff_total, present_today, late_today, absent_today, attendance_pct_today, absences_7d, staff_with_absence_7d } = data;
+  return (
+    <div className="rounded-xl border bg-white p-4">
+      <div className="font-medium mb-2">Attendance & leaves</div>
+      <div className="grid grid-cols-3 gap-3 text-sm">
+        <Metric label="Total staff" value={staff_total} />
+        <Metric label="Present today" value={present_today} />
+        <Metric label="Late today" value={late_today} />
+        <Metric label="Absent today" value={absent_today} />
+        <Metric label="Attendance %" value={`${attendance_pct_today}%`} />
+        <Metric label="Absence days (7d)" value={absences_7d} />
+      </div>
+      <div className="text-xs text-gray-500 mt-2">{staff_with_absence_7d} staff had at least one absence in 7 days.</div>
+    </div>
+  );
+}
+
+function Metric({ label, value }:{ label:string; value:string|number }) {
+  return (
+    <div className="rounded-lg border p-3 bg-gray-50">
+      <div className="text-xs text-gray-500">{label}</div>
+      <div className="text-lg font-semibold">{value}</div>
+    </div>
   );
 }
 
@@ -490,4 +704,8 @@ function suggestedBump(occ: number) {
   if (occ >= 75) return 800;
   if (occ >= 60) return 500;
   return 300;
+}
+function ageMin(iso: string) {
+  const ms = Date.now() - new Date(iso).getTime();
+  return Math.max(0, Math.round(ms / 60000));
 }

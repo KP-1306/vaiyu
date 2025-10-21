@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, Link } from "react-router-dom";
 
 import SEO from "./components/SEO";
 import HeroCarousel from "./components/HeroCarousel";
-import { supabase } from "./lib/supabase";
+// ⛔️ removed: import { supabase } from "./lib/supabase";  // now lazy-loaded
 
 import AIShowcase from "./components/AIShowcase";
 import ResultsAndSocialProof from "./components/ResultsAndSocialProof";
@@ -62,16 +62,14 @@ function NotFound() {
       <div className="rounded-xl border p-6 text-center">
         <div className="text-lg font-medium mb-2">Page not found</div>
         <p className="text-sm text-gray-600">The page you’re looking for doesn’t exist.</p>
-        <div className="mt-4">
-          <Link to="/" className="btn btn-light">Go home</Link>
-        </div>
+        <div className="mt-4"><Link to="/" className="btn btn-light">Go home</Link></div>
       </div>
     </main>
   );
 }
 
 /* ----------------------------------------------------------------------------
-   HomeLanding: your existing landing-page UI
+   HomeLanding: landing UI (with lazy supabase to avoid hard crashes)
 ---------------------------------------------------------------------------- */
 function HomeLanding() {
   const [hasToken, setHasToken] = useState<boolean>(() => !!localStorage.getItem(TOKEN_KEY));
@@ -90,38 +88,53 @@ function HomeLanding() {
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const { data } = await supabase.auth.getSession();
-      if (mounted) setUserEmail(data.session?.user?.email ?? null);
+      try {
+        const { supabase } = await import("./lib/supabase");
+        const { data } = await supabase.auth.getSession();
+        if (mounted) setUserEmail(data.session?.user?.email ?? null);
+
+        const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
+          setUserEmail(session?.user?.email ?? null);
+        });
+        return () => sub?.subscription?.unsubscribe();
+      } catch (err) {
+        console.error("[supabase init failed]", err);
+      }
     })();
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
-      setUserEmail(session?.user?.email ?? null);
-    });
-    return () => { mounted = false; sub?.subscription?.unsubscribe(); };
+    return () => { mounted = false; };
   }, []);
   const isAuthed = !!userEmail;
 
-  // NEW: show “Owner console” when the user belongs to at least one hotel
+  // Show “Owner console” if user is a member of any hotel
   const [hasHotel, setHasHotel] = useState(false);
   useEffect(() => {
     let alive = true;
     (async () => {
-      const { data: sess } = await supabase.auth.getSession();
-      const userId = sess?.session?.user?.id;
-      if (!userId) { setHasHotel(false); return; }
+      try {
+        const { supabase } = await import("./lib/supabase");
+        const { data: sess } = await supabase.auth.getSession();
+        const userId = sess?.session?.user?.id;
+        if (!userId) { setHasHotel(false); return; }
 
-      const { error, count } = await supabase
-        .from("hotel_members")
-        .select("hotel_id", { head: true, count: "exact" })
-        .eq("user_id", userId);
+        const { error, count } = await supabase
+          .from("hotel_members")
+          .select("hotel_id", { head: true, count: "exact" })
+          .eq("user_id", userId);
 
-      if (!alive) return;
-      setHasHotel(!error && !!count && count > 0);
+        if (!alive) return;
+        setHasHotel(!error && !!count && count > 0);
+      } catch (err) {
+        console.error("[hotel check failed]", err);
+        if (!alive) return;
+        setHasHotel(false);
+      }
     })();
     return () => { alive = false; };
   }, []);
 
   async function handleSignOut() {
     try {
+      const { supabase } = await import("./lib/supabase");
       await supabase.auth.signOut();
       localStorage.removeItem(TOKEN_KEY);
     } finally {

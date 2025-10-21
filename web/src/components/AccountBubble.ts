@@ -2,17 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 
 /**
- * AccountBubble — compact avatar + dropdown for the marketing homepage.
- *
- * - Renders ONLY on "/" (marketing) and hides if "?app=1" is present.
- * - Shows only when the user is signed in.
- * - Provides "Open app" (go to the in-app shell) + "Sign out".
+ * Compact avatar bubble for the public homepage.
+ * - Renders only on "/" and only when the user is signed in
+ * - Never appears for logged-out visitors, so no “app” hints for true guests
  */
 export default function AccountBubble() {
   const [email, setEmail] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
 
-  // ✅ Show only on marketing home and not when the app shell is forced.
   const isMarketingOnly = useMemo(() => {
     if (typeof window === "undefined") return false;
     const { pathname, search } = window.location;
@@ -29,20 +26,15 @@ export default function AccountBubble() {
       if (!mounted) return;
       setEmail(data?.user?.email ?? null);
     };
-
     init();
 
-    // Keep in sync with auth state changes in this tab
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, sess) => {
       if (!mounted) return;
       setEmail(sess?.user?.email ?? null);
     });
 
-    // Keep in sync with other tabs
     const onStorage = (e: StorageEvent) => {
-      if (e.key && e.key.includes("supabase.auth.token")) {
-        init();
-      }
+      if (e.key && e.key.includes("supabase.auth.token")) init();
     };
     window.addEventListener("storage", onStorage);
 
@@ -53,12 +45,12 @@ export default function AccountBubble() {
     };
   }, []);
 
-  // Hide entirely if not on marketing OR not signed in
+  // Hidden for logged-out users or off the homepage
   if (!isMarketingOnly || !email) return null;
 
   async function signOut() {
     await supabase.auth.signOut();
-    location.href = "/"; // bubble disappears because email becomes null
+    location.href = "/";
   }
 
   const initial = email?.[0]?.toUpperCase() ?? "U";
@@ -85,7 +77,6 @@ export default function AccountBubble() {
             role="menu"
             className="absolute right-0 mt-2 w-56 rounded-xl border bg-white shadow-lg overflow-hidden"
           >
-            {/* A lightweight way to jump into the “app shell” without deciding a role here */}
             <a
               role="menuitem"
               href="/?app=1"

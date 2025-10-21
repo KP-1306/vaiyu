@@ -1,61 +1,37 @@
 // web/src/routes/OwnerHome.tsx
-import { useEffect, useState, memo } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import { supabase } from "../lib/supabase";
-import { API } from "../lib/api";
-import OwnerDigestCard from "../components/OwnerDigestCard";
-import SEO from "../components/SEO";
-import UsageMeter from "../components/UsageMeter";
-import ObservabilityCard from "../components/ObservabilityCard"; // right-column widget
+import { memo, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { supabase } from "../../lib/supabase";
+import { API } from "../../lib/api";
+import { useRole } from "../../context/RoleContext";
+import OwnerDigestCard from "../../components/OwnerDigestCard";
+import UsageMeter from "../../components/UsageMeter";
+import ObservabilityCard from "../../components/ObservabilityCard";
 
-// Tiny types to keep this file self-contained
+/** --- Local types to keep the file focused --- */
 type Kpis = { tickets: number; orders: number; onTime: number; late: number; avgMins: number };
 type GridPeek = { mode: "manual" | "assist" | "auto"; lastEventAt?: string | null };
 type Peek = { hotel: { slug: string; name: string }; kpis?: Kpis; grid?: GridPeek };
 
-// Lightweight auth snapshot (no custom hook)
-type LiteUser = { id: string; email?: string | null; user_metadata?: any; app_metadata?: any } | null;
-function getRole(u: LiteUser): "guest" | "owner" | "staff" | "admin" {
-  return (u?.user_metadata?.role || u?.app_metadata?.role || "guest") as any;
-}
-function getPropertySlug(u: LiteUser): string | undefined {
-  return u?.user_metadata?.property_slug || u?.app_metadata?.property_slug;
-}
-
+/** --- Component --- */
 export default function OwnerHome() {
-  // Auth state
-  const [authLoading, setAuthLoading] = useState(true);
-  const [user, setUser] = useState<LiteUser>(null);
-  const role = getRole(user);
-  const profileSlug = getPropertySlug(user);
-
-  // URL state
+  const navigate = useNavigate();
+  const { slug: slugParam } = useParams<{ slug?: string }>();
   const [sp, setSp] = useSearchParams();
-  const [slug, setSlug] = useState<string>(sp.get("slug") || profileSlug || "sunrise");
 
-  // Page data
+  // Role context (you created this)
+  const { current } = useRole(); // { role: 'guest'|'staff'|'manager'|'owner', hotelSlug?: string|null }
+
+  // Resolve slug: route param > role context > ?slug > fallback
+  const initialSlug =
+    slugParam || current.hotelSlug || sp.get("slug") || "demo";
+
+  const [slug, setSlug] = useState<string>(initialSlug);
   const [peek, setPeek] = useState<Peek | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authUser, setAuthUser] = useState<any>(null);
 
-  // ---- Auth hydrate ----
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      const { data } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
-      if (!mounted) return;
-      setUser(data?.user ?? null);
-      setAuthLoading(false);
-
-      const { data: sub } = supabase.auth.onAuthStateChange((_evt, sess) => {
-        if (!mounted) return;
-        setUser(sess?.user ?? null);
-      });
-      return () => sub.subscription.unsubscribe();
-    })();
-    return () => { mounted = false; };
-  }, []);
-
-  // Keep slug in the URL
+  // Keep ?slug in the URL for refresh/share
   useEffect(() => {
     const next = new URLSearchParams(sp);
     next.set("slug", slug);
@@ -63,61 +39,82 @@ export default function OwnerHome() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
-  // Fetch peek (with demo fallback)
+  // Hydrate auth user (lightweight)
   useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const { data } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
+      if (!mounted) return;
+      setAuthUser(data?.user ?? null);
+
+      const { data: sub } = supabase.auth.onAuthStateChange((_evt, sess) => {
+        if (!mounted) return;
+        setAuthUser(sess?.user ?? null);
+      });
+      return () => sub.subscription.unsubscribe();
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // RBAC guard — only owners/managers may view
+  const allowed = useMemo(
+    () => current.role === "owner" || current.role === "manager",
+    [current.role]
+  );
+
+  // Redirect staff/guest into their consoles if they end up here
+  useEffect(() => {
+    if (!authUser) return;
+    if (!allowed) {
+      if (current.role === "staff") navigate("/staff", { replace: true });
+      else navigate("/guest", { replace: true });
+    }
+  }, [allowed, authUser, current.role, navigate]);
+
+  // Fetch peek (API best-effort; safe demo fallback)
+  useEffect(() => {
+    let alive = true;
     (async () => {
       setLoading(true);
       try {
-        const r = await fetch(`${API}/owner/peek/${encodeURIComponent(slug)}`).catch(() => null);
-        if (r && r.ok) {
-          const j = await r.json();
-          setPeek(j);
-        } else {
-          setPeek({
-            hotel: { slug, name: slug[0].toUpperCase() + slug.slice(1) },
-            kpis: { tickets: 42, orders: 19, onTime: 36, late: 6, avgMins: 12 },
-            grid: { mode: "manual", lastEventAt: null },
-          });
+        const r = await fetch(`${API}/owner/peek/${encodeURIComponent(slug)}`);
+        if (alive && r.ok) {
+          setPeek(await r.json());
+        } else if (alive) {
+          setPeek(demoPeek(slug));
         }
       } catch {
-        setPeek({
-          hotel: { slug, name: slug[0].toUpperCase() + slug.slice(1) },
-          kpis: { tickets: 42, orders: 19, onTime: 36, late: 6, avgMins: 12 },
-          grid: { mode: "manual", lastEventAt: null },
-        });
+        if (alive) setPeek(demoPeek(slug));
       } finally {
-        setLoading(false);
+        if (alive) setLoading(false);
       }
     })();
+    return () => {
+      alive = false;
+    };
   }, [slug]);
 
-  // ---- RBAC Edge States (UI) ----
-  if (authLoading) {
+  if (!allowed) {
     return (
-      <div className="min-h-[50vh] grid place-items-center">
-        <div className="animate-pulse">Loading…</div>
-      </div>
+      <main className="max-w-xl mx-auto p-8 text-center space-y-3">
+        <h1 className="text-xl font-semibold">No access</h1>
+        <p className="opacity-70">You need owner/manager permissions to view this page.</p>
+        <a className="btn btn-light" href="/contact">Request access</a>
+      </main>
     );
-  }
-
-  if (!user || !["owner", "admin"].includes(role)) {
-    return <Denied />;
-  }
-
-  const hasProperty = Boolean(profileSlug || slug);
-  if (!hasProperty) {
-    return <NoProperty />;
   }
 
   return (
     <main className="max-w-6xl mx-auto p-4 space-y-4" aria-labelledby="owner-home-title">
-      <SEO title="Owner Home" noIndex />
-
       {/* Header */}
       <header className="flex items-center justify-between gap-3">
         <div>
-          <h1 id="owner-home-title" className="text-xl font-semibold">Owner Home</h1>
-          <div className="text-sm text-gray-600">{peek?.hotel?.name || slug}</div>
+          <h1 id="owner-home-title" className="text-xl font-semibold">Owner Console</h1>
+          <div className="text-sm text-gray-600">
+            {peek?.hotel?.name ?? slug}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <input
@@ -125,7 +122,7 @@ export default function OwnerHome() {
             placeholder="Hotel slug"
             aria-label="Hotel slug"
             value={slug}
-            onChange={(e) => setSlug(e.target.value)}
+            onChange={(e) => setSlug(e.target.value.trim())}
             style={{ width: 160 }}
           />
           <Link to={`/owner/settings?slug=${encodeURIComponent(slug)}`} className="btn btn-light">
@@ -134,9 +131,9 @@ export default function OwnerHome() {
         </div>
       </header>
 
-      {/* Two-column layout: content + observability */}
+      {/* Two-column layout */}
       <div className="grid md:grid-cols-3 gap-4">
-        {/* Left: main owner content */}
+        {/* Left: main content */}
         <div className="md:col-span-2 space-y-4">
           {/* Digest + Usage */}
           <section className="grid md:grid-cols-2 gap-3" aria-label="Digest and usage">
@@ -171,7 +168,7 @@ export default function OwnerHome() {
                   to={`/owner/services?slug=${encodeURIComponent(slug)}`} emoji="🧩" cta="Open services" />
           </section>
 
-          {/* Coming soon / secondary */}
+          {/* Coming soon */}
           <section className="card" aria-label="Coming soon">
             <div className="font-semibold mb-1">Coming soon</div>
             <ul className="text-sm text-gray-600 list-disc pl-5 space-y-1">
@@ -185,7 +182,7 @@ export default function OwnerHome() {
           {loading && <div role="status" aria-live="polite">Loading…</div>}
         </div>
 
-        {/* Right: Observability widgets */}
+        {/* Right: observability widgets */}
         <div className="space-y-4">
           <ObservabilityCard />
         </div>
@@ -194,7 +191,7 @@ export default function OwnerHome() {
   );
 }
 
-/* --- Small perf/a11y polish: memoize simple cards --- */
+/** --- Small perf/a11y polish: memoized presentational bits --- */
 const Kpi = memo(function Kpi({ title, value }: { title: string; value: number | string }) {
   return (
     <div className="card" role="group" aria-label={`${title} KPI`}>
@@ -206,7 +203,7 @@ const Kpi = memo(function Kpi({ title, value }: { title: string; value: number |
 
 const Tile = memo(function Tile({
   title, text, to, emoji, cta,
-}: { title: string; text: string; to: string; emoji: string; cta: string; }) {
+}: { title: string; text: string; to: string; emoji: string; cta: string }) {
   return (
     <Link to={to} className="card hover:shadow transition-shadow block" aria-label={`${title}: ${text}`}>
       <div className="text-xl" aria-hidden>{emoji}</div>
@@ -219,26 +216,11 @@ const Tile = memo(function Tile({
   );
 });
 
-/* ---- RBAC Empty/Deny blocks (inline; can move to components/EmptyStates.tsx) ---- */
-function Denied() {
-  return (
-    <main className="max-w-xl mx-auto p-8 text-center space-y-3">
-      <h1 className="text-xl font-semibold">No access</h1>
-      <p className="opacity-70">Your account doesn’t have permission to view this page.</p>
-      <a className="btn btn-light" href="/contact">Request access</a>
-    </main>
-  );
-}
-
-function NoProperty() {
-  return (
-    <main className="max-w-xl mx-auto p-8 text-center space-y-4">
-      <h1 className="text-xl font-semibold">You’re signed in as a Guest</h1>
-      <p className="opacity-70">Join an existing property or register a new one to unlock owner tools.</p>
-      <div className="flex gap-2 justify-center">
-        <a className="btn" href="/join">Join property</a>
-        <a className="btn btn-light" href="/owner/register">Register property</a>
-      </div>
-    </main>
-  );
+/** --- Local helpers --- */
+function demoPeek(slug: string): Peek {
+  return {
+    hotel: { slug, name: slug[0]?.toUpperCase() + slug.slice(1) },
+    kpis: { tickets: 42, orders: 19, onTime: 36, late: 6, avgMins: 12 },
+    grid: { mode: "manual", lastEventAt: null },
+  };
 }

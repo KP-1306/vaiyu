@@ -60,7 +60,7 @@ export default function App() {
     return () => { alive = false; };
   }, []);
 
-  // NEW: derive ownerSlug non-invasively from localStorage (set this anywhere in your app)
+  // Non-invasive source of slug for quick links
   const [ownerSlug, setOwnerSlug] = useState<string | null>(null);
   useEffect(() => {
     setOwnerSlug(localStorage.getItem("owner:slug")); // e.g., "DEMO1"
@@ -252,7 +252,7 @@ export default function App() {
         <FAQShort />
       </section>
 
-      {/* NEW — Owner KPIs (ADR/RevPAR) — only if we know the slug */}
+      {/* Quick Owner KPIs (ADR / RevPAR / Pick-up) — only if we know the slug */}
       {isAuthed && hasHotel && ownerSlug && (
         <section className="mx-auto max-w-7xl px-4 pb-10">
           <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -260,12 +260,13 @@ export default function App() {
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">Quick owner KPIs</h3>
                 <p className="text-gray-600 text-sm mt-0.5">
-                  Jump straight to today’s ADR or RevPAR for <span className="font-medium">{ownerSlug}</span>.
+                  Jump straight to today’s metrics for <span className="font-medium">{ownerSlug}</span>.
                 </p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <Link to={`/owner/${ownerSlug}/revenue/adr`} className="btn">ADR</Link>
                 <Link to={`/owner/${ownerSlug}/revenue/revpar`} className="btn btn-light">RevPAR</Link>
+                <Link to={`/owner/${ownerSlug}/bookings/pickup`} className="btn btn-light">Pick-up (7 days)</Link>
               </div>
             </div>
           </div>

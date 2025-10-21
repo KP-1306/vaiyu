@@ -1,33 +1,28 @@
-import { Component, ReactNode } from 'react';
+import React from "react";
 
-type Props = { children: ReactNode };
-type State = { hasError: boolean; message?: string };
+type Props = { children: React.ReactNode };
+type State = { error?: Error };
 
-export default class GlobalErrorBoundary extends Component<Props, State> {
-  state: State = { hasError: false };
-
-  static getDerivedStateFromError(err: unknown): State {
-    return { hasError: true, message: err instanceof Error ? err.message : String(err) };
+export default class GlobalErrorBoundary extends React.Component<Props, State> {
+  state: State = {};
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    // Log to console so we can see it in the browser DevTools
+    console.error("[App Crash]", error, info);
   }
-
-  componentDidCatch(error: any, info: any) {
-    console.error('App crashed:', error, info);
-  }
-
   render() {
-    if (this.state.hasError) {
-      return (
-        <main className="mx-auto max-w-xl p-6">
-          <h1 className="text-xl font-semibold">Something went wrong</h1>
-          <p className="text-gray-600 mt-2">
-            The app failed to start. We’ve logged the error in the console. Please refresh or try again.
-          </p>
-          {this.state.message && (
-            <pre className="mt-3 rounded bg-gray-100 p-3 text-[12px] overflow-auto">{this.state.message}</pre>
-          )}
-        </main>
-      );
-    }
-    return this.props.children;
+    if (!this.state.error) return this.props.children;
+    return (
+      <main className="min-h-[60vh] grid place-items-center p-6">
+        <div className="rounded-xl border p-6 max-w-lg w-full bg-white">
+          <h1 className="text-lg font-semibold mb-1">Something went wrong</h1>
+          <p className="text-sm text-gray-600 mb-3">We couldn’t render this route.</p>
+          <pre className="text-xs bg-slate-50 p-3 rounded overflow-auto max-h-64">
+            {this.state.error?.message}
+          </pre>
+          <button className="btn btn-light mt-3" onClick={()=>location.assign("/")}>Go Home</button>
+        </div>
+      </main>
+    );
   }
 }

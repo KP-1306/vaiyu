@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Link } from "react-router-dom";
 
 import SEO from "./components/SEO";
 import HeroCarousel from "./components/HeroCarousel";
@@ -11,9 +11,63 @@ import GlassBand_OnboardingSecurityIntegrations from "./components/GlassBand_Onb
 import LiveProductPeek from "./components/LiveProductPeek";
 import FAQShort from "./components/FAQShort";
 
+/* ===== Owner pages (no "@/") ===== */
+import OwnerDashboard from "./routes/OwnerDashboard";
+import OwnerRooms from "./routes/OwnerRooms";
+import OwnerRoomDetail from "./routes/OwnerRoomDetail";
+import { OwnerADR, OwnerRevPAR } from "./routes/OwnerRevenue";
+import OwnerPickup from "./routes/OwnerPickup";
+import OwnerHRMS from "./routes/OwnerHRMS";
+
 const TOKEN_KEY = "stay:token";
 
+/* ----------------------------------------------------------------------------
+   App: Router shell
+---------------------------------------------------------------------------- */
 export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Marketing / landing */}
+        <Route path="/" element={<HomeLanding />} />
+
+        {/* Owner area */}
+        <Route path="/owner/:slug" element={<OwnerDashboard />} />
+        <Route path="/owner/:slug/rooms" element={<OwnerRooms />} />
+        <Route path="/owner/:slug/rooms/:roomId" element={<OwnerRoomDetail />} />
+        <Route path="/owner/:slug/revenue/adr" element={<OwnerADR />} />
+        <Route path="/owner/:slug/revenue/revpar" element={<OwnerRevPAR />} />
+        <Route path="/owner/:slug/bookings/pickup" element={<OwnerPickup />} />
+        <Route path="/owner/:slug/hrms/*" element={<OwnerHRMS />} />
+
+        {/* Convenience redirects / 404 */}
+        <Route path="/owner" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+/* ----------------------------------------------------------------------------
+   NotFound (tiny 404)
+---------------------------------------------------------------------------- */
+function NotFound() {
+  return (
+    <main className="min-h-[60vh] grid place-items-center">
+      <div className="rounded-xl border p-6 text-center">
+        <div className="text-lg font-medium mb-2">Page not found</div>
+        <p className="text-sm text-gray-600">The page you’re looking for doesn’t exist.</p>
+        <div className="mt-4"><Link to="/" className="btn btn-light">Go home</Link></div>
+      </div>
+    </main>
+  );
+}
+
+/* ----------------------------------------------------------------------------
+   HomeLanding: your existing landing-page UI (moved from default App)
+   (Content below is unchanged from your current App.tsx, just wrapped as a component)
+---------------------------------------------------------------------------- */
+function HomeLanding() {
   const [hasToken, setHasToken] = useState<boolean>(() => !!localStorage.getItem(TOKEN_KEY));
   useEffect(() => {
     const onStorage = (e: StorageEvent) => { if (e.key === TOKEN_KEY) setHasToken(!!e.newValue); };
@@ -195,14 +249,13 @@ export default function App() {
         <HeroCarousel slides={slides} />
       </section>
 
-      {/* WHY: fixed 16:9 banner, full-bleed inside the rounded container */}
+      {/* WHY */}
       <section id="why" className="mx-auto max-w-7xl px-4 py-14">
         <h2 className="text-2xl font-bold">The whole journey, upgraded</h2>
         <p className="text-gray-600 mt-1">Clear wins for guests, staff, owners, and your brand.</p>
 
         <figure className="mt-6">
           <div className="rounded-3xl ring-1 ring-slate-200 bg-white overflow-hidden shadow-sm">
-            {/* Keep the same height; fill width by covering */}
             <div className="w-full aspect-[16/9]">
               <img
                 src="/illustrations/journey-upgraded.png?v=5"
@@ -280,33 +333,6 @@ export default function App() {
           </div>
         </div>
       </footer>
-    </div>
-  );
-}
-
-/* ---------- tiny building blocks (kept) ---------- */
-
-function ValueCard({
-  title,
-  points,
-  emoji,
-}: {
-  title: string;
-  points: string[];
-  emoji: string;
-}) {
-  return (
-    <div className="card group hover:shadow-lg transition-shadow">
-      <div className="text-2xl">{emoji}</div>
-      <div className="font-semibold mt-1">{title}</div>
-      <ul className="text-sm text-gray-600 mt-2 space-y-1">
-        {points.map((p) => (
-          <li key={p} className="flex gap-2">
-            <span>✓</span>
-            <span>{p}</span>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }

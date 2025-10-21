@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BrowserRouter, Routes, Route, Navigate, Link } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Link, Outlet } from "react-router-dom";
 
 import SEO from "./components/SEO";
 import HeroCarousel from "./components/HeroCarousel";
@@ -11,11 +11,10 @@ import GlassBand_OnboardingSecurityIntegrations from "./components/GlassBand_Onb
 import LiveProductPeek from "./components/LiveProductPeek";
 import FAQShort from "./components/FAQShort";
 
-/* ===== Owner pages (no "@/") ===== */
 import OwnerDashboard from "./routes/OwnerDashboard";
 
 /* -------------------------------------------------------------------------- */
-/* Inline throwaway components (to isolate routing vs. module issues)         */
+/* Inline throwaway components (for isolation)                                 */
 /* -------------------------------------------------------------------------- */
 function RoomsInline() {
   return (
@@ -25,13 +24,18 @@ function RoomsInline() {
     </main>
   );
 }
+
 function RoomDetailInline() {
   return (
     <main className="p-6">
       <h1 className="text-xl font-semibold">Room detail (inline)</h1>
-      <p className="text-gray-600 mt-1">Minimal shell for debugging.</p>
     </main>
   );
+}
+
+/** Owner layout used only for nested routes under /owner/:slug/* */
+function OwnerShell() {
+  return <Outlet />;
 }
 
 const TOKEN_KEY = "stay:token";
@@ -40,18 +44,34 @@ const TOKEN_KEY = "stay:token";
    App: Router shell
 ---------------------------------------------------------------------------- */
 export default function App() {
+  // Minimal global logging in prod so we can see actual cause in DevTools
+  useEffect(() => {
+    if (import.meta.env.PROD) {
+      const onErr = (e: ErrorEvent) => console.error("[Global error]", e.error ?? e.message);
+      const onRej = (e: PromiseRejectionEvent) => console.error("[Unhandled rejection]", e.reason);
+      window.addEventListener("error", onErr);
+      window.addEventListener("unhandledrejection", onRej);
+      return () => {
+        window.removeEventListener("error", onErr);
+        window.removeEventListener("unhandledrejection", onRej);
+      };
+    }
+  }, []);
+
   return (
     <BrowserRouter>
       <Routes>
         {/* Marketing / landing */}
         <Route path="/" element={<HomeLanding />} />
 
-        {/* Owner area (dashboard only remains imported) */}
-        <Route path="/owner/:slug" element={<OwnerDashboard />} />
-
-        {/* Rooms ONLY — inline components (no dynamic imports) */}
-        <Route path="/owner/:slug/rooms" element={<RoomsInline />} />
-        <Route path="/owner/:slug/rooms/:roomId" element={<RoomDetailInline />} />
+        {/* ===== Owner area (nested) =====
+             Parent route handles /owner/:slug/*; index renders dashboard.
+             Child "rooms" is now unambiguous. */}
+        <Route path="/owner/:slug/*" element={<OwnerShell />}>
+          <Route index element={<OwnerDashboard />} />
+          <Route path="rooms" element={<RoomsInline />} />
+          <Route path="rooms/:roomId" element={<RoomDetailInline />} />
+        </Route>
 
         {/* Convenience redirects / 404 */}
         <Route path="/owner" element={<Navigate to="/" replace />} />
@@ -77,7 +97,7 @@ function NotFound() {
 }
 
 /* ----------------------------------------------------------------------------
-   HomeLanding: your existing landing-page UI (unchanged)
+   HomeLanding: unchanged from your working version
 ---------------------------------------------------------------------------- */
 function HomeLanding() {
   const [hasToken, setHasToken] = useState<boolean>(() => !!localStorage.getItem(TOKEN_KEY));
@@ -106,7 +126,6 @@ function HomeLanding() {
   }, []);
   const isAuthed = !!userEmail;
 
-  // Show “Owner console” when the user belongs to at least one hotel
   const [hasHotel, setHasHotel] = useState(false);
   useEffect(() => {
     let alive = true;
@@ -114,12 +133,10 @@ function HomeLanding() {
       const { data: sess } = await supabase.auth.getSession();
       const userId = sess?.session?.user?.id;
       if (!userId) { setHasHotel(false); return; }
-
       const { error, count } = await supabase
         .from("hotel_members")
         .select("hotel_id", { head: true, count: "exact" })
         .eq("user_id", userId);
-
       if (!alive) return;
       setHasHotel(!error && !!count && count > 0);
     })();
@@ -238,12 +255,7 @@ function HomeLanding() {
 
           <div className="flex items-center gap-2">
             {hasToken && <Link to="/guest" className="btn btn-light !py-2 !px-3 text-sm">My credits</Link>}
-            {/* Owner console button for members */}
-            {isAuthed && (
-              <Link to="/owner" className="btn btn-light !py-2 !px-3 text-sm">
-                Owner console
-              </Link>
-            )}
+            {isAuthed && <Link to="/owner" className="btn btn-light !py-2 !px-3 text-sm">Owner console</Link>}
             {isAuthed ? (
               <>
                 <Link to="/guest" className="btn !py-2 !px-3 text-sm">Open app</Link>

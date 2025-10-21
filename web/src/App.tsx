@@ -252,9 +252,9 @@ export default function App() {
         <FAQShort />
       </section>
 
-      {/* Quick Owner KPIs (ADR / RevPAR / Pick-up) — only if we know the slug */}
+      {/* Quick Owner KPIs (Revenue / Pick-up) — only if we know the slug */}
       {isAuthed && hasHotel && ownerSlug && (
-        <section className="mx-auto max-w-7xl px-4 pb-10">
+        <section className="mx-auto max-w-7xl px-4 pb-6">
           <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
@@ -267,6 +267,27 @@ export default function App() {
                 <Link to={`/owner/${ownerSlug}/revenue/adr`} className="btn">ADR</Link>
                 <Link to={`/owner/${ownerSlug}/revenue/revpar`} className="btn btn-light">RevPAR</Link>
                 <Link to={`/owner/${ownerSlug}/bookings/pickup`} className="btn btn-light">Pick-up (7 days)</Link>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* HRMS Quick Links (Attendance / Leaves / Staff) — only if we know the slug */}
+      {isAuthed && hasHotel && ownerSlug && (
+        <section className="mx-auto max-w-7xl px-4 pb-10">
+          <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Team & HRMS</h3>
+                <p className="text-gray-600 text-sm mt-0.5">
+                  One-tap access to your team pages for <span className="font-medium">{ownerSlug}</span>.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <Link to={`/owner/${ownerSlug}/hrms/attendance`} className="btn">Attendance</Link>
+                <Link to={`/owner/${ownerSlug}/hrms/leaves`} className="btn btn-light">Leaves</Link>
+                <Link to={`/owner/${ownerSlug}/hrms/staff`} className="btn btn-light">Staff</Link>
               </div>
             </div>
           </div>

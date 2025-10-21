@@ -1,9 +1,9 @@
-import { Suspense, lazy, useEffect, useState } from "react";
-import { BrowserRouter, Routes, Route, Navigate, Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 import SEO from "./components/SEO";
 import HeroCarousel from "./components/HeroCarousel";
-// NOTE: we lazy-import supabase inside HomeLanding now
+import { supabase } from "./lib/supabase";
 
 import AIShowcase from "./components/AIShowcase";
 import ResultsAndSocialProof from "./components/ResultsAndSocialProof";
@@ -11,93 +11,9 @@ import GlassBand_OnboardingSecurityIntegrations from "./components/GlassBand_Onb
 import LiveProductPeek from "./components/LiveProductPeek";
 import FAQShort from "./components/FAQShort";
 
-/* ===== Lazy owner routes ===== */
-const OwnerDashboard  = lazy(() => import("./routes/OwnerDashboard"));
-const OwnerRooms      = lazy(() => import("./routes/OwnerRooms"));
-const OwnerRoomDetail = lazy(() => import("./routes/OwnerRoomDetail"));
-const OwnerRevenue    = lazy(() => import("./routes/OwnerRevenue")); // must export OwnerADR/OwnerRevPAR named
-const OwnerPickup     = lazy(() => import("./routes/OwnerPickup"));
-const OwnerHRMS       = lazy(() => import("./routes/OwnerHRMS"));
-
-/* Global error boundary */
-import GlobalErrorBoundary from "./components/GlobalErrorBoundary";
-
 const TOKEN_KEY = "stay:token";
 
-/* Simple loading shell while chunks load */
-function RouteFallback() {
-  return (
-    <main className="min-h-[50vh] grid place-items-center">
-      <div className="text-sm text-gray-600">Loading…</div>
-    </main>
-  );
-}
-
-/* ----------------------------------------------------------------------------
-   App: Router shell
----------------------------------------------------------------------------- */
 export default function App() {
-  return (
-    <BrowserRouter>
-      <GlobalErrorBoundary>
-        <Suspense fallback={<RouteFallback />}>
-          <Routes>
-            {/* Marketing / landing */}
-            <Route path="/" element={<HomeLanding />} />
-
-            {/* Owner area */}
-            <Route path="/owner/:slug" element={<OwnerDashboard />} />
-            <Route path="/owner/:slug/rooms" element={<OwnerRooms />} />
-            <Route path="/owner/:slug/rooms/:roomId" element={<OwnerRoomDetail />} />
-            {/* OwnerRevenue exports { OwnerADR, OwnerRevPAR } as named exports */}
-            <Route
-              path="/owner/:slug/revenue/adr"
-              element={
-                <Suspense fallback={<RouteFallback />}>
-                  <OwnerRevenue.OwnerADR />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/owner/:slug/revenue/revpar"
-              element={
-                <Suspense fallback={<RouteFallback />}>
-                  <OwnerRevenue.OwnerRevPAR />
-                </Suspense>
-              }
-            />
-            <Route path="/owner/:slug/bookings/pickup" element={<OwnerPickup />} />
-            <Route path="/owner/:slug/hrms/*" element={<OwnerHRMS />} />
-
-            {/* Convenience redirects / 404 */}
-            <Route path="/owner" element={<Navigate to="/" replace />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Suspense>
-      </GlobalErrorBoundary>
-    </BrowserRouter>
-  );
-}
-
-/* ----------------------------------------------------------------------------
-   NotFound (tiny 404)
----------------------------------------------------------------------------- */
-function NotFound() {
-  return (
-    <main className="min-h-[60vh] grid place-items-center">
-      <div className="rounded-xl border p-6 text-center">
-        <div className="text-lg font-medium mb-2">Page not found</div>
-        <p className="text-sm text-gray-600">The page you’re looking for doesn’t exist.</p>
-        <div className="mt-4"><Link to="/" className="btn btn-light">Go home</Link></div>
-      </div>
-    </main>
-  );
-}
-
-/* ----------------------------------------------------------------------------
-   HomeLanding: landing UI (lazy supabase to avoid hard crashes)
----------------------------------------------------------------------------- */
-function HomeLanding() {
   const [hasToken, setHasToken] = useState<boolean>(() => !!localStorage.getItem(TOKEN_KEY));
   useEffect(() => {
     const onStorage = (e: StorageEvent) => { if (e.key === TOKEN_KEY) setHasToken(!!e.newValue); };
@@ -114,49 +30,38 @@ function HomeLanding() {
   useEffect(() => {
     let mounted = true;
     (async () => {
-      try {
-        const { supabase } = await import("./lib/supabase");
-        const { data } = await supabase.auth.getSession();
-        if (mounted) setUserEmail(data.session?.user?.email ?? null);
-        const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
-          setUserEmail(session?.user?.email ?? null);
-        });
-        return () => sub?.subscription?.unsubscribe();
-      } catch (err) {
-        console.error("[supabase init failed]", err);
-      }
+      const { data } = await supabase.auth.getSession();
+      if (mounted) setUserEmail(data.session?.user?.email ?? null);
     })();
-    return () => { mounted = false; };
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
+      setUserEmail(session?.user?.email ?? null);
+    });
+    return () => { mounted = false; sub?.subscription?.unsubscribe(); };
   }, []);
   const isAuthed = !!userEmail;
 
+  // NEW: show “Owner console” when the user belongs to at least one hotel
   const [hasHotel, setHasHotel] = useState(false);
   useEffect(() => {
     let alive = true;
     (async () => {
-      try {
-        const { supabase } = await import("./lib/supabase");
-        const { data: sess } = await supabase.auth.getSession();
-        const userId = sess?.session?.user?.id;
-        if (!userId) { setHasHotel(false); return; }
-        const { error, count } = await supabase
-          .from("hotel_members")
-          .select("hotel_id", { head: true, count: "exact" })
-          .eq("user_id", userId);
-        if (!alive) return;
-        setHasHotel(!error && !!count && count > 0);
-      } catch (err) {
-        console.error("[hotel check failed]", err);
-        if (!alive) return;
-        setHasHotel(false);
-      }
+      const { data: sess } = await supabase.auth.getSession();
+      const userId = sess?.session?.user?.id;
+      if (!userId) { setHasHotel(false); return; }
+
+      const { error, count } = await supabase
+        .from("hotel_members")
+        .select("hotel_id", { head: true, count: "exact" })
+        .eq("user_id", userId);
+
+      if (!alive) return;
+      setHasHotel(!error && !!count && count > 0);
     })();
     return () => { alive = false; };
   }, []);
 
   async function handleSignOut() {
     try {
-      const { supabase } = await import("./lib/supabase");
       await supabase.auth.signOut();
       localStorage.removeItem(TOKEN_KEY);
     } finally {
@@ -167,22 +72,60 @@ function HomeLanding() {
   const site = typeof window !== "undefined" ? window.location.origin : "https://vaiyu.co.in";
 
   const slides = [
-    { id: "ai-hero", headline: "Where Intelligence Meets Comfort",
+    {
+      id: "ai-hero",
+      headline: "Where Intelligence Meets Comfort",
       sub: "AI turns live stay activity into faster service and delightful guest journeys.",
       cta: { label: isAuthed ? "Open app" : "Start with your email", href: isAuthed ? "/guest" : "/signin?intent=signup&redirect=/guest" },
-      variant: "photo", img: "/hero/ai-hero.png", imgAlt: "AI hero background" },
-    { id: "checkin", headline: "10-second Mobile Check-in", sub: "Scan, confirm, head to your room. No kiosk queues.",
-      cta: { label: "Try the guest demo", href: "/guest" }, variant: "photo", img: "/hero/checkin.png", imgAlt: "Guest scanning QR" },
-    { id: "sla", headline: "SLA Nudges for Staff", sub: "On-time nudges and a clean digest keep service humming.",
-      cta: { label: "See the owner console", href: "/owner" }, variant: "photo", img: "/hero/sla.png", imgAlt: "SLA dashboard" },
-    { id: "reviews", headline: "Truth-Anchored Reviews", sub: "AI drafts grounded in verified stay data—owners approve, brand stays safe.",
-      cta: { label: "How moderation works", href: "/about-ai" }, variant: "photo", img: "/hero/reviews.png", imgAlt: "Owner reviewing AI draft" },
-    { id: "grid-smart", headline: "Grid-Smart Operations & Sustainability",
+      variant: "photo",
+      img: "/hero/ai-hero.png",
+      imgAlt: "AI hero background"
+    },
+    {
+      id: "checkin",
+      headline: "10-second Mobile Check-in",
+      sub: "Scan, confirm, head to your room. No kiosk queues.",
+      cta: { label: "Try the guest demo", href: "/guest" },
+      variant: "photo",
+      img: "/hero/checkin.png",
+      imgAlt: "Guest scanning QR at the front desk"
+    },
+    {
+      id: "sla",
+      headline: "SLA Nudges for Staff",
+      sub: "On-time nudges and a clean digest keep service humming.",
+      cta: { label: "See the owner console", href: "/owner" },
+      variant: "photo",
+      img: "/hero/sla.png",
+      imgAlt: "Tablet with SLA dashboard"
+    },
+    {
+      id: "reviews",
+      headline: "Truth-Anchored Reviews",
+      sub: "AI drafts grounded in verified stay data—owners approve, brand stays safe.",
+      cta: { label: "How moderation works", href: "/about-ai" },
+      variant: "photo",
+      img: "/hero/reviews.png",
+      imgAlt: "Owner reviewing AI draft"
+    },
+    {
+      id: "grid-smart",
+      headline: "Grid-Smart Operations & Sustainability",
       sub: "Tariff-aware actions and device shedding without drama.",
-      cta: { label: "Learn about grid mode", href: "/grid/devices" }, variant: "photo", img: "/hero/grid.png", imgAlt: "Energy dashboard" },
-    { id: "owner-console", headline: "AI-Driven Owner Console",
+      cta: { label: "Learn about grid mode", href: "/grid/devices" },
+      variant: "photo",
+      img: "/hero/grid.png",
+      imgAlt: "Energy dashboard on wall tablet"
+    },
+    {
+      id: "owner-console",
+      headline: "AI-Driven Owner Console",
       sub: "Digest, usage, moderation and KPIs—clean, fast, reliable.",
-      cta: { label: "Open owner home", href: "/owner" }, variant: "photo", img: "/hero/owner-console.png", imgAlt: "Owner console KPIs" },
+      cta: { label: "Open owner home", href: "/owner" },
+      variant: "photo",
+      img: "/hero/owner-console.png",
+      imgAlt: "Owner console KPIs on monitor"
+    },
   ];
 
   return (
@@ -199,7 +142,7 @@ function HomeLanding() {
           "@type": "Organization",
           name: "VAiyu",
           url: site,
-          logo: `${site}/icons/icon-192.png`,
+          logo: `${site}/icons/favicon-light-512.png`,
           sameAs: [site],
         }}
       />
@@ -229,8 +172,11 @@ function HomeLanding() {
 
           <div className="flex items-center gap-2">
             {hasToken && <Link to="/guest" className="btn btn-light !py-2 !px-3 text-sm">My credits</Link>}
+            {/* NEW: Owner console button for members */}
             {isAuthed && (
-              <Link to="/owner" className="btn btn-light !py-2 !px-3 text-sm">Owner console</Link>
+              <Link to="/owner" className="btn btn-light !py-2 !px-3 text-sm">
+                Owner console
+              </Link>
             )}
             {isAuthed ? (
               <>
@@ -244,18 +190,19 @@ function HomeLanding() {
         </div>
       </header>
 
-      {/* Use-cases (anchor) */}
+      {/* Use-cases (anchor) — hero carousel */}
       <section id="use-cases" className="mx-auto max-w-7xl px-4 py-6 scroll-mt-24">
         <HeroCarousel slides={slides} />
       </section>
 
-      {/* WHY */}
+      {/* WHY: fixed 16:9 banner, full-bleed inside the rounded container */}
       <section id="why" className="mx-auto max-w-7xl px-4 py-14">
         <h2 className="text-2xl font-bold">The whole journey, upgraded</h2>
         <p className="text-gray-600 mt-1">Clear wins for guests, staff, owners, and your brand.</p>
 
         <figure className="mt-6">
           <div className="rounded-3xl ring-1 ring-slate-200 bg-white overflow-hidden shadow-sm">
+            {/* Keep the same height; fill width by covering */}
             <div className="w-full aspect-[16/9]">
               <img
                 src="/illustrations/journey-upgraded.png?v=5"
@@ -270,7 +217,9 @@ function HomeLanding() {
               />
             </div>
           </div>
-          <figcaption className="sr-only">VAiyu benefits across Guests, Staff, Owners, and Brand.</figcaption>
+          <figcaption className="sr-only">
+            VAiyu benefits across Guests, Staff, Owners, and Brand.
+          </figcaption>
         </figure>
       </section>
 
@@ -331,6 +280,33 @@ function HomeLanding() {
           </div>
         </div>
       </footer>
+    </div>
+  );
+}
+
+/* ---------- tiny building blocks (kept) ---------- */
+
+function ValueCard({
+  title,
+  points,
+  emoji,
+}: {
+  title: string;
+  points: string[];
+  emoji: string;
+}) {
+  return (
+    <div className="card group hover:shadow-lg transition-shadow">
+      <div className="text-2xl">{emoji}</div>
+      <div className="font-semibold mt-1">{title}</div>
+      <ul className="text-sm text-gray-600 mt-2 space-y-1">
+        {points.map((p) => (
+          <li key={p} className="flex gap-2">
+            <span>✓</span>
+            <span>{p}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

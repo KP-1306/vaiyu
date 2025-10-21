@@ -45,30 +45,71 @@ export default function Header() {
   const { pathname } = useLocation();
 
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string>("Guest");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // show account/CTA when signed in
+  // show account/CTA when signed in + populate avatar/name
   useEffect(() => {
     let alive = true;
+
     (async () => {
       setLoading(true);
       const { data } = await supabase.auth.getUser();
-      const email = data?.user?.email ?? null;
+      const user = data?.user ?? null;
+
+      // basic identity
+      const email = user?.email ?? null;
+      const name =
+        (user?.user_metadata?.full_name as string) ||
+        (user?.user_metadata?.name as string) ||
+        email ||
+        "User";
+      const avatar =
+        (user?.user_metadata?.avatar_url as string) ||
+        (user?.user_metadata?.picture as string) ||
+        null;
+
+      // memberships
       const mems = email ? await getMyMemberships() : [];
+
       if (!alive) return;
       setUserEmail(email);
+      setDisplayName(name);
+      setAvatarUrl(avatar);
       setMemberships(mems);
       setLoading(false);
+
+      try {
+        if (name) localStorage.setItem("user:name", name);
+      } catch {}
     })();
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
-      const email = session?.user?.email ?? null;
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_evt, session) => {
+      const user = session?.user ?? null;
+      const email = user?.email ?? null;
+
+      const name =
+        (user?.user_metadata?.full_name as string) ||
+        (user?.user_metadata?.name as string) ||
+        email ||
+        "User";
+      const avatar =
+        (user?.user_metadata?.avatar_url as string) ||
+        (user?.user_metadata?.picture as string) ||
+        null;
+
       setUserEmail(email);
+      setDisplayName(name);
+      setAvatarUrl(avatar);
+
       if (!email) {
         setMemberships([]);
       } else {
-        getMyMemberships().then(setMemberships);
+        const mems = await getMyMemberships();
+        setMemberships(mems);
       }
     });
 
@@ -105,10 +146,11 @@ export default function Header() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
+          {/* Owner console quick link (visible when user has owner/manager membership) */}
           {!loading && userEmail && showOwnerConsoleButton && (
             <Link
               to="/owner"
-              className="hidden rounded-full border px-3 py-1.5 text-sm md:inline-block"
+              className="rounded-full border px-3 py-1.5 text-sm"
             >
               Owner console
             </Link>
@@ -131,9 +173,13 @@ export default function Header() {
             </Link>
           )}
 
-          {/* Avatar / account menu: now visible on ALL pages when signed in */}
+          {/* Avatar / account menu */}
           {!loading && userEmail && (
-            <AccountControls className="ml-1" displayName={userEmail.split("@")[0]} />
+            <AccountControls
+              className="ml-1"
+              displayName={displayName}
+              avatarUrl={avatarUrl}
+            />
           )}
         </div>
       </div>

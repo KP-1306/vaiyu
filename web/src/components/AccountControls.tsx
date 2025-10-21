@@ -1,4 +1,3 @@
-// web/src/components/AccountControls.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -67,13 +66,13 @@ export default function AccountControls({
         }
 
         // 1) fetch member rows
-        const { data: mems, error: mErr } = await supabase
+        const { data: mems } = await supabase
           .from("hotel_members")
           .select("hotel_id, role, active")
           .eq("user_id", uid)
           .eq("active", true);
 
-        if (mErr || !mems?.length) {
+        if (!mems?.length) {
           if (alive) setMemberships([]);
           return;
         }

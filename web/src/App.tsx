@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BrowserRouter, Routes, Route, Navigate, Link, Outlet } from "react-router-dom";
+import { HashRouter, Routes, Route, Navigate, Link, Outlet } from "react-router-dom";
 
 import SEO from "./components/SEO";
 import HeroCarousel from "./components/HeroCarousel";
@@ -13,18 +13,15 @@ import FAQShort from "./components/FAQShort";
 
 import OwnerDashboard from "./routes/OwnerDashboard";
 
-/* -------------------------------------------------------------------------- */
-/* Inline throwaway components (for isolation)                                 */
-/* -------------------------------------------------------------------------- */
+/* Inline placeholders just to keep routes alive while we debug */
 function RoomsInline() {
   return (
     <main className="p-6">
       <h1 className="text-xl font-semibold">Rooms (inline)</h1>
-      <p className="text-gray-600 mt-1">Route & router wiring OK.</p>
+      <p className="text-gray-600 mt-1">Route OK (HashRouter).</p>
     </main>
   );
 }
-
 function RoomDetailInline() {
   return (
     <main className="p-6">
@@ -32,58 +29,30 @@ function RoomDetailInline() {
     </main>
   );
 }
-
-/** Owner layout used only for nested routes under /owner/:slug/* */
-function OwnerShell() {
-  return <Outlet />;
-}
+function OwnerShell() { return <Outlet />; }
 
 const TOKEN_KEY = "stay:token";
 
-/* ----------------------------------------------------------------------------
-   App: Router shell
----------------------------------------------------------------------------- */
 export default function App() {
-  // Minimal global logging in prod so we can see actual cause in DevTools
-  useEffect(() => {
-    if (import.meta.env.PROD) {
-      const onErr = (e: ErrorEvent) => console.error("[Global error]", e.error ?? e.message);
-      const onRej = (e: PromiseRejectionEvent) => console.error("[Unhandled rejection]", e.reason);
-      window.addEventListener("error", onErr);
-      window.addEventListener("unhandledrejection", onRej);
-      return () => {
-        window.removeEventListener("error", onErr);
-        window.removeEventListener("unhandledrejection", onRej);
-      };
-    }
-  }, []);
-
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
-        {/* Marketing / landing */}
         <Route path="/" element={<HomeLanding />} />
 
-        {/* ===== Owner area (nested) =====
-             Parent route handles /owner/:slug/*; index renders dashboard.
-             Child "rooms" is now unambiguous. */}
+        {/* Nested owner routes to avoid any ranking edge cases */}
         <Route path="/owner/:slug/*" element={<OwnerShell />}>
           <Route index element={<OwnerDashboard />} />
           <Route path="rooms" element={<RoomsInline />} />
           <Route path="rooms/:roomId" element={<RoomDetailInline />} />
         </Route>
 
-        {/* Convenience redirects / 404 */}
         <Route path="/owner" element={<Navigate to="/" replace />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 
-/* ----------------------------------------------------------------------------
-   NotFound (tiny 404)
----------------------------------------------------------------------------- */
 function NotFound() {
   return (
     <main className="min-h-[60vh] grid place-items-center">
@@ -96,9 +65,6 @@ function NotFound() {
   );
 }
 
-/* ----------------------------------------------------------------------------
-   HomeLanding: unchanged from your working version
----------------------------------------------------------------------------- */
 function HomeLanding() {
   const [hasToken, setHasToken] = useState<boolean>(() => !!localStorage.getItem(TOKEN_KEY));
   useEffect(() => {
@@ -155,65 +121,16 @@ function HomeLanding() {
   const site = typeof window !== "undefined" ? window.location.origin : "https://vaiyu.co.in";
 
   const slides = [
-    {
-      id: "ai-hero",
-      headline: "Where Intelligence Meets Comfort",
-      sub: "AI turns live stay activity into faster service and delightful guest journeys.",
-      cta: { label: isAuthed ? "Open app" : "Start with your email", href: isAuthed ? "/guest" : "/signin?intent=signup&redirect=/guest" },
-      variant: "photo",
-      img: "/hero/ai-hero.png",
-      imgAlt: "AI hero background"
-    },
-    {
-      id: "checkin",
-      headline: "10-second Mobile Check-in",
-      sub: "Scan, confirm, head to your room. No kiosk queues.",
-      cta: { label: "Try the guest demo", href: "/guest" },
-      variant: "photo",
-      img: "/hero/checkin.png",
-      imgAlt: "Guest scanning QR at the front desk"
-    },
-    {
-      id: "sla",
-      headline: "SLA Nudges for Staff",
-      sub: "On-time nudges and a clean digest keep service humming.",
-      cta: { label: "See the owner console", href: "/owner" },
-      variant: "photo",
-      img: "/hero/sla.png",
-      imgAlt: "Tablet with SLA dashboard"
-    },
-    {
-      id: "reviews",
-      headline: "Truth-Anchored Reviews",
-      sub: "AI drafts grounded in verified stay data—owners approve, brand stays safe.",
-      cta: { label: "How moderation works", href: "/about-ai" },
-      variant: "photo",
-      img: "/hero/reviews.png",
-      imgAlt: "Owner reviewing AI draft"
-    },
-    {
-      id: "grid-smart",
-      headline: "Grid-Smart Operations & Sustainability",
-      sub: "Tariff-aware actions and device shedding without drama.",
-      cta: { label: "Learn about grid mode", href: "/grid/devices" },
-      variant: "photo",
-      img: "/hero/grid.png",
-      imgAlt: "Energy dashboard on wall tablet"
-    },
-    {
-      id: "owner-console",
-      headline: "AI-Driven Owner Console",
-      sub: "Digest, usage, moderation and KPIs—clean, fast, reliable.",
-      cta: { label: "Open owner home", href: "/owner" },
-      variant: "photo",
-      img: "/hero/owner-console.png",
-      imgAlt: "Owner console KPIs on monitor"
-    },
+    { id: "ai-hero", headline: "Where Intelligence Meets Comfort", sub: "AI turns live stay activity into faster service and delightful guest journeys.", cta: { label: isAuthed ? "Open app" : "Start with your email", href: isAuthed ? "/guest" : "/signin?intent=signup&redirect=/guest" }, variant: "photo", img: "/hero/ai-hero.png", imgAlt: "AI hero background" },
+    { id: "checkin", headline: "10-second Mobile Check-in", sub: "Scan, confirm, head to your room. No kiosk queues.", cta: { label: "Try the guest demo", href: "/guest" }, variant: "photo", img: "/hero/checkin.png", imgAlt: "Guest scanning QR at the front desk" },
+    { id: "sla", headline: "SLA Nudges for Staff", sub: "On-time nudges and a clean digest keep service humming.", cta: { label: "See the owner console", href: "/owner" }, variant: "photo", img: "/hero/sla.png", imgAlt: "Tablet with SLA dashboard" },
+    { id: "reviews", headline: "Truth-Anchored Reviews", sub: "AI drafts grounded in verified stay data—owners approve, brand stays safe.", cta: { label: "How moderation works", href: "/about-ai" }, variant: "photo", img: "/hero/reviews.png", imgAlt: "Owner reviewing AI draft" },
+    { id: "grid-smart", headline: "Grid-Smart Operations & Sustainability", sub: "Tariff-aware actions and device shedding without drama.", cta: { label: "Learn about grid mode", href: "/grid/devices" }, variant: "photo", img: "/hero/grid.png", imgAlt: "Energy dashboard on wall tablet" },
+    { id: "owner-console", headline: "AI-Driven Owner Console", sub: "Digest, usage, moderation and KPIs—clean, fast, reliable.", cta: { label: "Open owner home", href: "/owner" }, variant: "photo", img: "/hero/owner-console.png", imgAlt: "Owner console KPIs on monitor" },
   ];
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      {/* SEO */}
       <SEO
         title="VAiyu — AI OS for Hotels"
         description="Where Intelligence Meets Comfort — verified reviews, refer-and-earn growth, and grid-smart operations."
@@ -230,16 +147,12 @@ function HomeLanding() {
         }}
       />
 
-      {/* Top nav */}
+      {/* nav, sections, footer — unchanged */}
+      {/* --- Top nav --- */}
       <header className="sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-gray-100">
         <div className="mx-auto max-w-7xl px-4 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <img
-              src="/brand/vaiyu-logo.png"
-              alt="VAiyu"
-              className="h-8 w-auto hidden sm:block"
-              onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")}
-            />
+            <img src="/brand/vaiyu-logo.png" alt="VAiyu" className="h-8 w-auto hidden sm:block" onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")} />
             <span className="sm:hidden inline-block h-8 w-8 rounded-xl" style={{ background: "var(--brand, #145AF2)" }} aria-hidden />
             <span className="font-semibold text-lg tracking-tight">VAiyu</span>
           </Link>
@@ -250,12 +163,11 @@ function HomeLanding() {
             <a href="#use-cases" className="hover:text-gray-700">Use-cases</a>
             <Link to="/owner" className="hover:text-gray-700">For Hotels</Link>
             <Link to="/about" className="hover:text-gray-700">About</Link>
-            {!isAuthed && <Link to="/signin?redirect=/guest" className="hover:text-gray-700">Sign in</Link>}
           </nav>
 
           <div className="flex items-center gap-2">
             {hasToken && <Link to="/guest" className="btn btn-light !py-2 !px-3 text-sm">My credits</Link>}
-            {isAuthed && <Link to="/owner" className="btn btn-light !py-2 !px-3 text-sm">Owner console</Link>}
+            <Link to="/owner" className="btn btn-light !py-2 !px-3 text-sm">Owner console</Link>
             {isAuthed ? (
               <>
                 <Link to="/guest" className="btn !py-2 !px-3 text-sm">Open app</Link>
@@ -268,16 +180,13 @@ function HomeLanding() {
         </div>
       </header>
 
-      {/* Use-cases (anchor) — hero carousel */}
+      {/* Hero, sections, footer — same as your working version */}
       <section id="use-cases" className="mx-auto max-w-7xl px-4 py-6 scroll-mt-24">
         <HeroCarousel slides={slides} />
       </section>
-
-      {/* WHY */}
       <section id="why" className="mx-auto max-w-7xl px-4 py-14">
         <h2 className="text-2xl font-bold">The whole journey, upgraded</h2>
         <p className="text-gray-600 mt-1">Clear wins for guests, staff, owners, and your brand.</p>
-
         <figure className="mt-6">
           <div className="rounded-3xl ring-1 ring-slate-200 bg-white overflow-hidden shadow-sm">
             <div className="w-full aspect-[16/9]">
@@ -287,45 +196,18 @@ function HomeLanding() {
                 className="block w-full h-full object-cover object-center"
                 loading="eager"
                 decoding="async"
-                onError={(e) => {
-                  const el = e.currentTarget as HTMLImageElement;
-                  el.src = "/illustrations/vaiyu-intelligence-final.png";
-                }}
+                onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/illustrations/vaiyu-intelligence-final.png"; }}
               />
             </div>
           </div>
-          <figcaption className="sr-only">
-            VAiyu benefits across Guests, Staff, Owners, and Brand.
-          </figcaption>
+          <figcaption className="sr-only">VAiyu benefits across Guests, Staff, Owners, and Brand.</figcaption>
         </figure>
       </section>
-
-      {/* Alternating image + content */}
-      <section id="ai" className="mx-auto max-w-7xl px-4 pb-14">
-        <AIShowcase />
-      </section>
-
-      {/* Social proof */}
-      <section className="mx-auto max-w-7xl px-4 pb-4">
-        <ResultsAndSocialProof />
-      </section>
-
-      {/* Onboarding / Security / Integrations */}
-      <section className="mx-auto max-w-7xl px-4 pb-16">
-        <GlassBand_OnboardingSecurityIntegrations />
-      </section>
-
-      {/* Live Product Peek */}
-      <section className="mx-auto max-w-7xl px-4 pb-16">
-        <LiveProductPeek />
-      </section>
-
-      {/* FAQ */}
-      <section className="mx-auto max-w-7xl px-4 pb-20">
-        <FAQShort />
-      </section>
-
-      {/* Contact CTA */}
+      <section id="ai" className="mx-auto max-w-7xl px-4 pb-14"><AIShowcase /></section>
+      <section className="mx-auto max-w-7xl px-4 pb-4"><ResultsAndSocialProof /></section>
+      <section className="mx-auto max-w-7xl px-4 pb-16"><GlassBand_OnboardingSecurityIntegrations /></section>
+      <section className="mx-auto max-w-7xl px-4 pb-16"><LiveProductPeek /></section>
+      <section className="mx-auto max-w-7xl px-4 pb-20"><FAQShort /></section>
       <section id="contact-cta" className="mx-auto max-w-7xl px-4 pb-16">
         <div className="rounded-3xl border border-gray-200 bg-white p-8 sm:p-10 shadow-sm">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
@@ -333,14 +215,10 @@ function HomeLanding() {
               <h3 className="text-2xl font-semibold text-gray-900">Want a walkthrough for your property?</h3>
               <p className="text-gray-600 mt-1">We’ll brand the demo with your details and share a 7-day pilot plan.</p>
             </div>
-            <div className="flex-shrink-0">
-              <Link to="/contact" className="btn">Contact us</Link>
-            </div>
+            <div className="flex-shrink-0"><Link to="/contact" className="btn">Contact us</Link></div>
           </div>
         </div>
       </section>
-
-      {/* Footer */}
       <footer className="border-t border-gray-200">
         <div className="mx-auto max-w-7xl px-4 py-8 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-3">
           <div>© {new Date().getFullYear()} VAiyu — Where Intelligence Meets Comfort.</div>

@@ -1,5 +1,5 @@
 // web/src/App.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import SEO from "./components/SEO";
@@ -12,7 +12,7 @@ import GlassBand_OnboardingSecurityIntegrations from "./components/GlassBand_Onb
 import LiveProductPeek from "./components/LiveProductPeek";
 import FAQShort from "./components/FAQShort";
 
-// NEW: idle sign-out + focus auth check
+// Auth hardening hooks
 import { useIdleSignOut } from "./hooks/useIdleSignOut";
 import { useFocusAuthCheck } from "./hooks/useFocusAuthCheck";
 
@@ -22,12 +22,34 @@ import { useRole } from "./context/RoleContext";
 const TOKEN_KEY = "stay:token";
 
 export default function App() {
-  // 🔒 enable auth hardening hooks
+  // 🔒 enable auth hardening
   useIdleSignOut({ maxIdleMinutes: 180 }); // auto sign-out after 3 hours idle
   useFocusAuthCheck();                     // verify/expire session on tab focus
 
-  const { current } = useRole();
+  const { current } = useRole(); // { role: 'guest' | 'staff' | 'manager' | 'owner', hotelSlug?: string|null }
 
+  /** ---------- Auth/session basics ---------- */
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (mounted) setUserEmail(data.session?.user?.email ?? null);
+    })();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
+      setUserEmail(session?.user?.email ?? null);
+    });
+
+    return () => {
+      mounted = false;
+      sub?.subscription?.unsubscribe();
+    };
+  }, []);
+  const isAuthed = !!userEmail;
+
+  /** ---------- Token presence (for “My credits” button) ---------- */
   const [hasToken, setHasToken] = useState<boolean>(() => !!localStorage.getItem(TOKEN_KEY));
   useEffect(() => {
     const onStorage = (e: StorageEvent) => { if (e.key === TOKEN_KEY) setHasToken(!!e.newValue); };
@@ -40,28 +62,14 @@ export default function App() {
     };
   }, []);
 
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      const { data } = await supabase.auth.getSession();
-      if (mounted) setUserEmail(data.session?.user?.email ?? null);
-    })();
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
-      setUserEmail(session?.user?.email ?? null);
-    });
-    return () => { mounted = false; sub?.subscription?.unsubscribe(); };
-  }, []);
-  const isAuthed = !!userEmail;
-
-  // Show “Owner console” button only if user belongs to at least one hotel
+  /** ---------- Membership presence (owner/manager quick links) ---------- */
   const [hasHotel, setHasHotel] = useState(false);
   useEffect(() => {
     let alive = true;
     (async () => {
       const { data: sess } = await supabase.auth.getSession();
       const userId = sess?.session?.user?.id;
-      if (!userId) { setHasHotel(false); return; }
+      if (!userId) { if (alive) setHasHotel(false); return; }
 
       const { error, count } = await supabase
         .from("hotel_members")
@@ -75,17 +83,23 @@ export default function App() {
     return () => { alive = false; };
   }, []);
 
-  // Slugs for quick links (fallback to localStorage if role context doesn't carry it yet)
+  /** ---------- Helpful slugs for routing ---------- */
   const [ownerSlug, setOwnerSlug] = useState<string | null>(null);
   const [staffSlug, setStaffSlug] = useState<string | null>(null);
   useEffect(() => {
+    // Prefer RoleContext slug; otherwise look at last selection in localStorage
     setOwnerSlug(current.hotelSlug || localStorage.getItem("owner:slug"));
     setStaffSlug(current.hotelSlug || localStorage.getItem("staff:slug"));
   }, [current.hotelSlug]);
 
-  const site = typeof window !== "undefined" ? window.location.origin : "https://vaiyu.co.in";
+  const isOwnerSide = current.role === "owner" || current.role === "manager";
+  const isStaffSide = current.role === "staff" || current.role === "manager";
 
-  const slides = [
+  /** ---------- Hero slides (role-aware CTAs) ---------- */
+  const heroCtaForOwner = ownerSlug ? `/owner/${ownerSlug}` : "/owner";
+  const heroCtaForStaff = "/staff";
+
+  const slides = useMemo(() => ([
     {
       id: "ai-hero",
       headline: "Where Intelligence Meets Comfort",
@@ -108,7 +122,7 @@ export default function App() {
       id: "sla",
       headline: "SLA Nudges for Staff",
       sub: "On-time nudges and a clean digest keep service humming.",
-      cta: { label: current.role === "staff" || current.role === "manager" ? "Open staff workspace" : "See the owner console", href: current.role === "staff" || current.role === "manager" ? "/staff" : "/owner" },
+      cta: { label: isStaffSide ? "Open staff workspace" : "See the owner console", href: isStaffSide ? heroCtaForStaff : heroCtaForOwner },
       variant: "photo",
       img: "/hero/sla.png",
       imgAlt: "Tablet with SLA dashboard"
@@ -135,15 +149,14 @@ export default function App() {
       id: "owner-console",
       headline: "AI-Driven Owner Console",
       sub: "Digest, usage, moderation and KPIs—clean, fast, reliable.",
-      cta: { label: current.role === "staff" || current.role === "manager" ? "Open staff workspace" : "Open owner home", href: current.role === "staff" || current.role === "manager" ? "/staff" : "/owner" },
+      cta: { label: isStaffSide ? "Open staff workspace" : "Open owner home", href: isStaffSide ? heroCtaForStaff : heroCtaForOwner },
       variant: "photo",
       img: "/hero/owner-console.png",
       imgAlt: "Owner console KPIs on monitor"
     },
-  ];
+  ]), [isAuthed, isStaffSide, heroCtaForOwner, heroCtaForStaff]);
 
-  const isOwnerSide = current.role === "owner" || current.role === "manager";
-  const isStaffSide = current.role === "staff" || current.role === "manager";
+  const site = typeof window !== "undefined" ? window.location.origin : "https://vaiyu.co.in";
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
@@ -182,24 +195,24 @@ export default function App() {
             <a href="#why" className="hover:text-gray-700">Why VAiyu</a>
             <a href="#ai" className="hover:text-gray-700">AI</a>
             <a href="#use-cases" className="hover:text-gray-700">Use-cases</a>
-            {isOwnerSide && <Link to="/owner" className="hover:text-gray-700">For Hotels</Link>}
-            {isStaffSide && <Link to="/staff" className="hover:text-gray-700">Staff</Link>}
+            {isOwnerSide && <Link to={heroCtaForOwner} className="hover:text-gray-700">For Hotels</Link>}
+            {isStaffSide && <Link to={heroCtaForStaff} className="hover:text-gray-700">Staff</Link>}
             <Link to="/about" className="hover:text-gray-700">About</Link>
             {!isAuthed && <Link to="/signin?redirect=/guest" className="hover:text-gray-700">Sign in</Link>}
           </nav>
 
           <div className="flex items-center gap-2">
             {hasToken && <Link to="/guest" className="btn btn-light !py-2 !px-3 text-sm">My credits</Link>}
-            {isOwnerSide && ownerSlug && (
-              <Link to={`/owner/${ownerSlug}`} className="btn btn-light !py-2 !px-3 text-sm">Owner console</Link>
+            {isOwnerSide && (
+              <Link to={heroCtaForOwner} className="btn btn-light !py-2 !px-3 text-sm">Owner console</Link>
             )}
             {isStaffSide && (
-              <Link to="/staff" className="btn btn-light !py-2 !px-3 text-sm">Staff workspace</Link>
+              <Link to={heroCtaForStaff} className="btn btn-light !py-2 !px-3 text-sm">Staff workspace</Link>
             )}
             {isAuthed ? (
               <>
                 <Link to="/guest" className="btn !py-2 !px-3 text-sm">Open app</Link>
-                {/* Always route through /logout */}
+                {/* Always route through /logout for reliable sign-out */}
                 <Link to="/logout" className="btn btn-light !py-2 !px-3 text-sm">Sign out</Link>
               </>
             ) : (
@@ -209,7 +222,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* Use-cases (anchor) — hero carousel */}
+      {/* Use-cases — hero carousel */}
       <section id="use-cases" className="mx-auto max-w-7xl px-4 py-6 scroll-mt-24">
         <HeroCarousel slides={slides} />
       </section>
@@ -266,7 +279,7 @@ export default function App() {
         <FAQShort />
       </section>
 
-      {/* Quick Owner KPIs (Revenue / Pick-up) — only for owner/manager and when we know the slug */}
+      {/* Quick Owner KPIs — only for owner/manager & when we know the slug */}
       {isAuthed && isOwnerSide && hasHotel && ownerSlug && (
         <section className="mx-auto max-w-7xl px-4 pb-6">
           <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -352,8 +365,8 @@ export default function App() {
           <div className="flex items-center gap-4">
             <Link className="hover:text-gray-800" to="/about-ai">AI</Link>
             <a className="hover:text-gray-800" href="#why">Why VAiyu</a>
-            {isOwnerSide && <Link className="hover:text-gray-800" to="/owner">For Hotels</Link>}
-            {isStaffSide && <Link className="hover:text-gray-800" to="/staff">Staff</Link>}
+            {isOwnerSide && <Link className="hover:text-gray-800" to={heroCtaForOwner}>For Hotels</Link>}
+            {isStaffSide && <Link className="hover:text-gray-800" to={heroCtaForStaff}>Staff</Link>}
             <Link className="hover:text-gray-800" to="/about">About</Link>
             <Link className="hover:text-gray-800" to="/press">Press</Link>
             <Link className="hover:text-gray-800" to="/privacy">Privacy</Link>
@@ -367,8 +380,7 @@ export default function App() {
   );
 }
 
-/* ---------- tiny building blocks (kept) ---------- */
-
+/* ---------- tiny building blocks (kept for parity) ---------- */
 function ValueCard({
   title,
   points,

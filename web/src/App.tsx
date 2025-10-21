@@ -16,12 +16,17 @@ import FAQShort from "./components/FAQShort";
 import { useIdleSignOut } from "./hooks/useIdleSignOut";
 import { useFocusAuthCheck } from "./hooks/useFocusAuthCheck";
 
+// Role context
+import { useRole } from "./context/RoleContext";
+
 const TOKEN_KEY = "stay:token";
 
 export default function App() {
   // 🔒 enable auth hardening hooks
   useIdleSignOut({ maxIdleMinutes: 180 }); // auto sign-out after 3 hours idle
   useFocusAuthCheck();                     // verify/expire session on tab focus
+
+  const { current } = useRole();
 
   const [hasToken, setHasToken] = useState<boolean>(() => !!localStorage.getItem(TOKEN_KEY));
   useEffect(() => {
@@ -61,7 +66,8 @@ export default function App() {
       const { error, count } = await supabase
         .from("hotel_members")
         .select("hotel_id", { head: true, count: "exact" })
-        .eq("user_id", userId);
+        .eq("user_id", userId)
+        .eq("active", true);
 
       if (!alive) return;
       setHasHotel(!error && !!count && count > 0);
@@ -69,13 +75,13 @@ export default function App() {
     return () => { alive = false; };
   }, []);
 
-  // Non-invasive source of slug for quick links
+  // Slugs for quick links (fallback to localStorage if role context doesn't carry it yet)
   const [ownerSlug, setOwnerSlug] = useState<string | null>(null);
+  const [staffSlug, setStaffSlug] = useState<string | null>(null);
   useEffect(() => {
-    setOwnerSlug(localStorage.getItem("owner:slug")); // e.g., "DEMO1"
-  }, []);
-
-  // ❌ REMOVED inline handleSignOut; we always navigate to /logout
+    setOwnerSlug(current.hotelSlug || localStorage.getItem("owner:slug"));
+    setStaffSlug(current.hotelSlug || localStorage.getItem("staff:slug"));
+  }, [current.hotelSlug]);
 
   const site = typeof window !== "undefined" ? window.location.origin : "https://vaiyu.co.in";
 
@@ -102,7 +108,7 @@ export default function App() {
       id: "sla",
       headline: "SLA Nudges for Staff",
       sub: "On-time nudges and a clean digest keep service humming.",
-      cta: { label: "See the owner console", href: "/owner" },
+      cta: { label: current.role === "staff" || current.role === "manager" ? "Open staff workspace" : "See the owner console", href: current.role === "staff" || current.role === "manager" ? "/staff" : "/owner" },
       variant: "photo",
       img: "/hero/sla.png",
       imgAlt: "Tablet with SLA dashboard"
@@ -129,12 +135,15 @@ export default function App() {
       id: "owner-console",
       headline: "AI-Driven Owner Console",
       sub: "Digest, usage, moderation and KPIs—clean, fast, reliable.",
-      cta: { label: "Open owner home", href: "/owner" },
+      cta: { label: current.role === "staff" || current.role === "manager" ? "Open staff workspace" : "Open owner home", href: current.role === "staff" || current.role === "manager" ? "/staff" : "/owner" },
       variant: "photo",
       img: "/hero/owner-console.png",
       imgAlt: "Owner console KPIs on monitor"
     },
   ];
+
+  const isOwnerSide = current.role === "owner" || current.role === "manager";
+  const isStaffSide = current.role === "staff" || current.role === "manager";
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
@@ -173,22 +182,24 @@ export default function App() {
             <a href="#why" className="hover:text-gray-700">Why VAiyu</a>
             <a href="#ai" className="hover:text-gray-700">AI</a>
             <a href="#use-cases" className="hover:text-gray-700">Use-cases</a>
-            <Link to="/owner" className="hover:text-gray-700">For Hotels</Link>
+            {isOwnerSide && <Link to="/owner" className="hover:text-gray-700">For Hotels</Link>}
+            {isStaffSide && <Link to="/staff" className="hover:text-gray-700">Staff</Link>}
             <Link to="/about" className="hover:text-gray-700">About</Link>
             {!isAuthed && <Link to="/signin?redirect=/guest" className="hover:text-gray-700">Sign in</Link>}
           </nav>
 
           <div className="flex items-center gap-2">
             {hasToken && <Link to="/guest" className="btn btn-light !py-2 !px-3 text-sm">My credits</Link>}
-            {isAuthed && (
-              <Link to="/owner" className="btn btn-light !py-2 !px-3 text-sm">
-                Owner console
-              </Link>
+            {isOwnerSide && ownerSlug && (
+              <Link to={`/owner/${ownerSlug}`} className="btn btn-light !py-2 !px-3 text-sm">Owner console</Link>
+            )}
+            {isStaffSide && (
+              <Link to="/staff" className="btn btn-light !py-2 !px-3 text-sm">Staff workspace</Link>
             )}
             {isAuthed ? (
               <>
                 <Link to="/guest" className="btn !py-2 !px-3 text-sm">Open app</Link>
-                {/* Changed: always route through /logout */}
+                {/* Always route through /logout */}
                 <Link to="/logout" className="btn btn-light !py-2 !px-3 text-sm">Sign out</Link>
               </>
             ) : (
@@ -255,8 +266,8 @@ export default function App() {
         <FAQShort />
       </section>
 
-      {/* Quick Owner KPIs (Revenue / Pick-up) — only if we know the slug */}
-      {isAuthed && hasHotel && ownerSlug && (
+      {/* Quick Owner KPIs (Revenue / Pick-up) — only for owner/manager and when we know the slug */}
+      {isAuthed && isOwnerSide && hasHotel && ownerSlug && (
         <section className="mx-auto max-w-7xl px-4 pb-6">
           <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -276,8 +287,8 @@ export default function App() {
         </section>
       )}
 
-      {/* HRMS Quick Links (Attendance / Leaves / Staff) — only if we know the slug */}
-      {isAuthed && hasHotel && ownerSlug && (
+      {/* HRMS Quick Links — owners/managers only */}
+      {isAuthed && isOwnerSide && hasHotel && ownerSlug && (
         <section className="mx-auto max-w-7xl px-4 pb-10">
           <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -291,6 +302,28 @@ export default function App() {
                 <Link to={`/owner/${ownerSlug}/hrms/attendance`} className="btn">Attendance</Link>
                 <Link to={`/owner/${ownerSlug}/hrms/leaves`} className="btn btn-light">Leaves</Link>
                 <Link to={`/owner/${ownerSlug}/hrms/staff`} className="btn btn-light">Staff</Link>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Staff Quick Links — staff/managers */}
+      {isAuthed && isStaffSide && (
+        <section className="mx-auto max-w-7xl px-4 pb-10">
+          <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Staff shortcuts</h3>
+                <p className="text-gray-600 text-sm mt-0.5">
+                  Your core work areas {staffSlug ? <>for <span className="font-medium">{staffSlug}</span></> : null}.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <Link to="/desk" className="btn">Front Desk</Link>
+                <Link to="/hk" className="btn btn-light">Housekeeping</Link>
+                <Link to="/maint" className="btn btn-light">Maintenance</Link>
+                <Link to="/staff/attendance" className="btn btn-light">My Attendance</Link>
               </div>
             </div>
           </div>
@@ -319,7 +352,8 @@ export default function App() {
           <div className="flex items-center gap-4">
             <Link className="hover:text-gray-800" to="/about-ai">AI</Link>
             <a className="hover:text-gray-800" href="#why">Why VAiyu</a>
-            <Link className="hover:text-gray-800" to="/owner">For Hotels</Link>
+            {isOwnerSide && <Link className="hover:text-gray-800" to="/owner">For Hotels</Link>}
+            {isStaffSide && <Link className="hover:text-gray-800" to="/staff">Staff</Link>}
             <Link className="hover:text-gray-800" to="/about">About</Link>
             <Link className="hover:text-gray-800" to="/press">Press</Link>
             <Link className="hover:text-gray-800" to="/privacy">Privacy</Link>

@@ -4,8 +4,8 @@ import { supabase } from "../lib/supabase";
 import { useRole } from "../context/RoleContext";
 
 type AccountControlsProps = {
-  displayName?: string;       // e.g., "Kapil"
-  avatarUrl?: string | null;  // optional
+  displayName?: string;
+  avatarUrl?: string | null;
   className?: string;
 };
 
@@ -29,32 +29,28 @@ export default function AccountControls({
   const [memberships, setMemberships] = useState<MemberRow[]>([]);
 
   const boxRef = useRef<HTMLDivElement | null>(null);
-  const btnRef = useRef<HTMLButtonElement | null>(null);
 
-  // Close on outside click
+  // Close on outside click / ESC
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
       if (!boxRef.current) return;
       if (!boxRef.current.contains(e.target as Node)) setOpen(false);
     };
-    window.addEventListener("mousedown", onDown, { passive: true });
-    return () => window.removeEventListener("mousedown", onDown);
-  }, []);
-
-  // Close on ESC
-  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
+    window.addEventListener("mousedown", onDown, { passive: true });
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
   }, []);
 
-  // Load memberships (role per hotel) when menu opens
+  // Load memberships when menu opens
   useEffect(() => {
     if (!open) return;
     let alive = true;
-
     (async () => {
       setLoadingRoles(true);
       try {
@@ -65,21 +61,20 @@ export default function AccountControls({
           return;
         }
 
-        // 1) fetch member rows
-        const { data: mems } = await supabase
+        // 1) active memberships
+        const { data: mems, error: mErr } = await supabase
           .from("hotel_members")
           .select("hotel_id, role, active")
           .eq("user_id", uid)
           .eq("active", true);
 
-        if (!mems?.length) {
+        if (mErr || !mems?.length) {
           if (alive) setMemberships([]);
           return;
         }
 
+        // 2) hotel meta
         const hotelIds = [...new Set(mems.map((m) => m.hotel_id))];
-
-        // 2) fetch slugs/names for those hotels
         const { data: hotels } = await supabase
           .from("hotels")
           .select("id, slug, name")
@@ -98,26 +93,21 @@ export default function AccountControls({
         if (alive) setLoadingRoles(false);
       }
     })();
-
     return () => {
-      alive = false;
+      /* noop */
     };
   }, [open]);
 
-  // Simple avatar (initial fallback)
+  // Initial letter fallback
   const initial =
     displayName?.trim()?.charAt(0)?.toUpperCase() ||
     (typeof window !== "undefined"
       ? (localStorage.getItem("user:name") || "U").charAt(0).toUpperCase()
       : "U");
 
-  // Group entries for convenience
+  // Buckets
   const owners = useMemo(
     () => memberships.filter((m) => m.role === "owner" || m.role === "manager"),
-    [memberships]
-  );
-  const managers = useMemo(
-    () => memberships.filter((m) => m.role === "manager"),
     [memberships]
   );
   const staffs = useMemo(
@@ -125,54 +115,40 @@ export default function AccountControls({
     [memberships]
   );
 
-  // Role switches
-  const switchToGuest = () => {
-    setCurrent({ role: "guest", hotelSlug: null });
-    try {
-      localStorage.setItem("va:role", JSON.stringify({ role: "guest" }));
-    } catch {}
-    setOpen(false);
-    navigate("/guest");
-  };
-
-  const switchToOwner = (slug?: string | null) => {
+  // Switchers (we DO NOT offer “switch to guest” anymore)
+  const goOwner = (slug?: string | null) => {
     if (!slug) return;
     setCurrent({ role: "owner", hotelSlug: slug });
     try {
       localStorage.setItem("va:role", JSON.stringify({ role: "owner", hotelSlug: slug }));
-      localStorage.setItem("owner:slug", slug);
     } catch {}
     setOpen(false);
     navigate(`/owner/${slug}`);
   };
 
-  const switchToManager = (slug?: string | null) => {
+  const goManager = (slug?: string | null) => {
     if (!slug) return;
     setCurrent({ role: "manager", hotelSlug: slug });
     try {
       localStorage.setItem("va:role", JSON.stringify({ role: "manager", hotelSlug: slug }));
-      localStorage.setItem("owner:slug", slug);
     } catch {}
     setOpen(false);
     navigate(`/owner/${slug}`);
   };
 
-  const switchToStaff = (slug?: string | null) => {
+  const goStaff = (slug?: string | null) => {
     if (!slug) return;
     setCurrent({ role: "staff", hotelSlug: slug });
     try {
       localStorage.setItem("va:role", JSON.stringify({ role: "staff", hotelSlug: slug }));
-      localStorage.setItem("staff:slug", slug);
     } catch {}
     setOpen(false);
-    navigate("/staff");
+    navigate(`/staff`);
   };
 
   return (
     <div ref={boxRef} className={`relative ${className}`}>
-      {/* Trigger */}
       <button
-        ref={btnRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
@@ -191,79 +167,52 @@ export default function AccountControls({
         )}
       </button>
 
-      {/* Menu */}
       {open && (
         <div
           role="menu"
           aria-label="Account menu"
-          className="absolute right-0 mt-2 w-72 rounded-2xl bg-white shadow-lg ring-1 ring-black/5 z-[100]"
+          className="absolute right-0 mt-2 w-64 rounded-2xl bg-white shadow-lg ring-1 ring-black/5 z-[100]"
         >
           <div className="px-3 py-2">
             <div className="text-xs text-gray-500">Signed in as</div>
             <div className="text-sm font-medium truncate">{displayName}</div>
-            <div className="text-xs mt-1 text-gray-500">
-              Current:{" "}
-              <span className="font-medium">
-                {current?.role ?? "guest"}
-              </span>
-              {current?.hotelSlug ? ` @ ${current.hotelSlug}` : ""}
-            </div>
+            {current?.hotelSlug && (
+              <div className="text-xs mt-1 text-gray-500">
+                Current role: <span className="font-medium">{current.role}</span>
+                {current.hotelSlug ? ` @ ${current.hotelSlug}` : ""}
+              </div>
+            )}
           </div>
 
           <div className="h-px bg-gray-100" />
 
-          {/* Role switcher */}
+          {/* App shortcuts (no “switch to guest”) */}
           <div className="px-3 py-2">
-            <div className="text-xs font-semibold text-gray-700 mb-1">
-              Switch role
-            </div>
+            <div className="text-xs font-semibold text-gray-700 mb-1">Go to</div>
 
-            <MenuButton label="Guest" onClick={switchToGuest} />
+            <MenuLink to="/guest" label="My trips" onSelect={() => setOpen(false)} />
 
             {loadingRoles && (
-              <div className="text-xs text-gray-500 px-1 py-1.5">
-                Loading memberships…
-              </div>
+              <div className="text-xs text-gray-500 px-1 py-1.5">Loading properties…</div>
             )}
 
-            {!loadingRoles && staffs.length > 0 && (
-              <>
-                <div className="mt-2 mb-1 text-[11px] uppercase tracking-wide text-gray-400">
-                  Staff
-                </div>
-                {staffs.map((m) => (
-                  <MenuButton
-                    key={`stf-${m.hotel_id}`}
-                    label={`@ ${m.slug || m.name || "hotel"}`}
-                    onClick={() => switchToStaff(m.slug)}
-                  />
-                ))}
-              </>
-            )}
+            {!loadingRoles &&
+              owners.map((m) => (
+                <MenuButton
+                  key={`own-${m.hotel_id}`}
+                  label={`${m.role === "owner" ? "Owner" : "Manager"} @ ${m.slug || m.name || "hotel"}`}
+                  onClick={() => (m.role === "owner" ? goOwner(m.slug) : goManager(m.slug))}
+                />
+              ))}
 
-            {!loadingRoles && owners.length > 0 && (
-              <>
-                <div className="mt-2 mb-1 text-[11px] uppercase tracking-wide text-gray-400">
-                  Owner / Manager
-                </div>
-                {owners
-                  .filter((m) => m.role === "owner")
-                  .map((m) => (
-                    <MenuButton
-                      key={`own-${m.hotel_id}`}
-                      label={`Owner @ ${m.slug || m.name || "hotel"}`}
-                      onClick={() => switchToOwner(m.slug)}
-                    />
-                  ))}
-                {managers.map((m) => (
-                  <MenuButton
-                    key={`mgr-${m.hotel_id}`}
-                    label={`Manager @ ${m.slug || m.name || "hotel"}`}
-                    onClick={() => switchToManager(m.slug)}
-                  />
-                ))}
-              </>
-            )}
+            {!loadingRoles &&
+              staffs.map((m) => (
+                <MenuButton
+                  key={`stf-${m.hotel_id}`}
+                  label={`Staff @ ${m.slug || m.name || "hotel"}`}
+                  onClick={() => goStaff(m.slug)}
+                />
+              ))}
           </div>
 
           <div className="h-px bg-gray-100 my-1" />
@@ -274,7 +223,7 @@ export default function AccountControls({
 
           <div className="h-px bg-gray-100 my-1" />
 
-          {/* Sign out → always route through /logout */}
+          {/* Sign out goes through /logout for the reliable flow */}
           <MenuButton
             label="Sign out"
             onClick={() => {

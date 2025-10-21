@@ -1,4 +1,3 @@
-// web/src/components/Header.tsx
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import AccountControls from "./AccountControls";

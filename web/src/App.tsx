@@ -1,3 +1,4 @@
+// web/src/App.tsx
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -11,9 +12,17 @@ import GlassBand_OnboardingSecurityIntegrations from "./components/GlassBand_Onb
 import LiveProductPeek from "./components/LiveProductPeek";
 import FAQShort from "./components/FAQShort";
 
+// NEW: idle sign-out + focus auth check
+import { useIdleSignOut } from "./hooks/useIdleSignOut";
+import { useFocusAuthCheck } from "./hooks/useFocusAuthCheck";
+
 const TOKEN_KEY = "stay:token";
 
 export default function App() {
+  // 🔒 enable auth hardening hooks
+  useIdleSignOut({ maxIdleMinutes: 180 }); // auto sign-out after 3 hours idle
+  useFocusAuthCheck();                     // verify/expire session on tab focus
+
   const [hasToken, setHasToken] = useState<boolean>(() => !!localStorage.getItem(TOKEN_KEY));
   useEffect(() => {
     const onStorage = (e: StorageEvent) => { if (e.key === TOKEN_KEY) setHasToken(!!e.newValue); };
@@ -66,14 +75,7 @@ export default function App() {
     setOwnerSlug(localStorage.getItem("owner:slug")); // e.g., "DEMO1"
   }, []);
 
-  async function handleSignOut() {
-    try {
-      await supabase.auth.signOut();
-      localStorage.removeItem(TOKEN_KEY);
-    } finally {
-      window.location.assign("/");
-    }
-  }
+  // ❌ REMOVED inline handleSignOut; we always navigate to /logout
 
   const site = typeof window !== "undefined" ? window.location.origin : "https://vaiyu.co.in";
 
@@ -186,7 +188,8 @@ export default function App() {
             {isAuthed ? (
               <>
                 <Link to="/guest" className="btn !py-2 !px-3 text-sm">Open app</Link>
-                <button onClick={handleSignOut} className="btn btn-light !py-2 !px-3 text-sm">Sign out</button>
+                {/* Changed: always route through /logout */}
+                <Link to="/logout" className="btn btn-light !py-2 !px-3 text-sm">Sign out</Link>
               </>
             ) : (
               <Link to="/signin?intent=signup&redirect=/guest" className="btn !py-2 !px-3 text-sm">Get started</Link>

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate, Link } from "react-router-dom";
 
 import SEO from "./components/SEO";
@@ -11,23 +11,34 @@ import GlassBand_OnboardingSecurityIntegrations from "./components/GlassBand_Onb
 import LiveProductPeek from "./components/LiveProductPeek";
 import FAQShort from "./components/FAQShort";
 
-/* ===== Owner pages kept ===== */
+/* ===== Owner pages (no "@/") ===== */
 import OwnerDashboard from "./routes/OwnerDashboard";
 
-/* ===== Rooms only (lazy) ===== */
-const OwnerRooms = lazy(() => import("./routes/OwnerRooms"));
-const OwnerRoomDetail = lazy(() => import("./routes/OwnerRoomDetail"));
-
-const TOKEN_KEY = "stay:token";
-
-function RouteFallback() {
+/* -------------------------------------------------------------------------- */
+/* Inline throwaway components (to isolate routing vs. module issues)         */
+/* -------------------------------------------------------------------------- */
+function RoomsInline() {
   return (
-    <main className="min-h-[50vh] grid place-items-center">
-      <div className="text-sm text-gray-600">Loading…</div>
+    <main className="p-6">
+      <h1 className="text-xl font-semibold">Rooms (inline)</h1>
+      <p className="text-gray-600 mt-1">Route & router wiring OK.</p>
+    </main>
+  );
+}
+function RoomDetailInline() {
+  return (
+    <main className="p-6">
+      <h1 className="text-xl font-semibold">Room detail (inline)</h1>
+      <p className="text-gray-600 mt-1">Minimal shell for debugging.</p>
     </main>
   );
 }
 
+const TOKEN_KEY = "stay:token";
+
+/* ----------------------------------------------------------------------------
+   App: Router shell
+---------------------------------------------------------------------------- */
 export default function App() {
   return (
     <BrowserRouter>
@@ -35,26 +46,12 @@ export default function App() {
         {/* Marketing / landing */}
         <Route path="/" element={<HomeLanding />} />
 
-        {/* Owner area */}
+        {/* Owner area (dashboard only remains imported) */}
         <Route path="/owner/:slug" element={<OwnerDashboard />} />
 
-        {/* Rooms (availability + history) ONLY */}
-        <Route
-          path="/owner/:slug/rooms"
-          element={
-            <Suspense fallback={<RouteFallback />}>
-              <OwnerRooms />
-            </Suspense>
-          }
-        />
-        <Route
-          path="/owner/:slug/rooms/:roomId"
-          element={
-            <Suspense fallback={<RouteFallback />}>
-              <OwnerRoomDetail />
-            </Suspense>
-          }
-        />
+        {/* Rooms ONLY — inline components (no dynamic imports) */}
+        <Route path="/owner/:slug/rooms" element={<RoomsInline />} />
+        <Route path="/owner/:slug/rooms/:roomId" element={<RoomDetailInline />} />
 
         {/* Convenience redirects / 404 */}
         <Route path="/owner" element={<Navigate to="/" replace />} />
@@ -64,6 +61,9 @@ export default function App() {
   );
 }
 
+/* ----------------------------------------------------------------------------
+   NotFound (tiny 404)
+---------------------------------------------------------------------------- */
 function NotFound() {
   return (
     <main className="min-h-[60vh] grid place-items-center">
@@ -76,7 +76,9 @@ function NotFound() {
   );
 }
 
-/* ---------- HomeLanding (unchanged from your working version) ---------- */
+/* ----------------------------------------------------------------------------
+   HomeLanding: your existing landing-page UI (unchanged)
+---------------------------------------------------------------------------- */
 function HomeLanding() {
   const [hasToken, setHasToken] = useState<boolean>(() => !!localStorage.getItem(TOKEN_KEY));
   useEffect(() => {
@@ -104,6 +106,7 @@ function HomeLanding() {
   }, []);
   const isAuthed = !!userEmail;
 
+  // Show “Owner console” when the user belongs to at least one hotel
   const [hasHotel, setHasHotel] = useState(false);
   useEffect(() => {
     let alive = true;
@@ -135,16 +138,65 @@ function HomeLanding() {
   const site = typeof window !== "undefined" ? window.location.origin : "https://vaiyu.co.in";
 
   const slides = [
-    { id: "ai-hero", headline: "Where Intelligence Meets Comfort", sub: "AI turns live stay activity into faster service and delightful guest journeys.", cta: { label: isAuthed ? "Open app" : "Start with your email", href: isAuthed ? "/guest" : "/signin?intent=signup&redirect=/guest" }, variant: "photo", img: "/hero/ai-hero.png", imgAlt: "AI hero background" },
-    { id: "checkin", headline: "10-second Mobile Check-in", sub: "Scan, confirm, head to your room. No kiosk queues.", cta: { label: "Try the guest demo", href: "/guest" }, variant: "photo", img: "/hero/checkin.png", imgAlt: "Guest scanning QR at the front desk" },
-    { id: "sla", headline: "SLA Nudges for Staff", sub: "On-time nudges and a clean digest keep service humming.", cta: { label: "See the owner console", href: "/owner" }, variant: "photo", img: "/hero/sla.png", imgAlt: "Tablet with SLA dashboard" },
-    { id: "reviews", headline: "Truth-Anchored Reviews", sub: "AI drafts grounded in verified stay data—owners approve, brand stays safe.", cta: { label: "How moderation works", href: "/about-ai" }, variant: "photo", img: "/hero/reviews.png", imgAlt: "Owner reviewing AI draft" },
-    { id: "grid-smart", headline: "Grid-Smart Operations & Sustainability", sub: "Tariff-aware actions and device shedding without drama.", cta: { label: "Learn about grid mode", href: "/grid/devices" }, variant: "photo", img: "/hero/grid.png", imgAlt: "Energy dashboard on wall tablet" },
-    { id: "owner-console", headline: "AI-Driven Owner Console", sub: "Digest, usage, moderation and KPIs—clean, fast, reliable.", cta: { label: "Open owner home", href: "/owner" }, variant: "photo", img: "/hero/owner-console.png", imgAlt: "Owner console KPIs on monitor" },
+    {
+      id: "ai-hero",
+      headline: "Where Intelligence Meets Comfort",
+      sub: "AI turns live stay activity into faster service and delightful guest journeys.",
+      cta: { label: isAuthed ? "Open app" : "Start with your email", href: isAuthed ? "/guest" : "/signin?intent=signup&redirect=/guest" },
+      variant: "photo",
+      img: "/hero/ai-hero.png",
+      imgAlt: "AI hero background"
+    },
+    {
+      id: "checkin",
+      headline: "10-second Mobile Check-in",
+      sub: "Scan, confirm, head to your room. No kiosk queues.",
+      cta: { label: "Try the guest demo", href: "/guest" },
+      variant: "photo",
+      img: "/hero/checkin.png",
+      imgAlt: "Guest scanning QR at the front desk"
+    },
+    {
+      id: "sla",
+      headline: "SLA Nudges for Staff",
+      sub: "On-time nudges and a clean digest keep service humming.",
+      cta: { label: "See the owner console", href: "/owner" },
+      variant: "photo",
+      img: "/hero/sla.png",
+      imgAlt: "Tablet with SLA dashboard"
+    },
+    {
+      id: "reviews",
+      headline: "Truth-Anchored Reviews",
+      sub: "AI drafts grounded in verified stay data—owners approve, brand stays safe.",
+      cta: { label: "How moderation works", href: "/about-ai" },
+      variant: "photo",
+      img: "/hero/reviews.png",
+      imgAlt: "Owner reviewing AI draft"
+    },
+    {
+      id: "grid-smart",
+      headline: "Grid-Smart Operations & Sustainability",
+      sub: "Tariff-aware actions and device shedding without drama.",
+      cta: { label: "Learn about grid mode", href: "/grid/devices" },
+      variant: "photo",
+      img: "/hero/grid.png",
+      imgAlt: "Energy dashboard on wall tablet"
+    },
+    {
+      id: "owner-console",
+      headline: "AI-Driven Owner Console",
+      sub: "Digest, usage, moderation and KPIs—clean, fast, reliable.",
+      cta: { label: "Open owner home", href: "/owner" },
+      variant: "photo",
+      img: "/hero/owner-console.png",
+      imgAlt: "Owner console KPIs on monitor"
+    },
   ];
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
+      {/* SEO */}
       <SEO
         title="VAiyu — AI OS for Hotels"
         description="Where Intelligence Meets Comfort — verified reviews, refer-and-earn growth, and grid-smart operations."
@@ -161,11 +213,16 @@ function HomeLanding() {
         }}
       />
 
+      {/* Top nav */}
       <header className="sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-gray-100">
         <div className="mx-auto max-w-7xl px-4 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <img src="/brand/vaiyu-logo.png" alt="VAiyu" className="h-8 w-auto hidden sm:block"
-              onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")} />
+            <img
+              src="/brand/vaiyu-logo.png"
+              alt="VAiyu"
+              className="h-8 w-auto hidden sm:block"
+              onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")}
+            />
             <span className="sm:hidden inline-block h-8 w-8 rounded-xl" style={{ background: "var(--brand, #145AF2)" }} aria-hidden />
             <span className="font-semibold text-lg tracking-tight">VAiyu</span>
           </Link>
@@ -181,7 +238,12 @@ function HomeLanding() {
 
           <div className="flex items-center gap-2">
             {hasToken && <Link to="/guest" className="btn btn-light !py-2 !px-3 text-sm">My credits</Link>}
-            {isAuthed && <Link to="/owner" className="btn btn-light !py-2 !px-3 text-sm">Owner console</Link>}
+            {/* Owner console button for members */}
+            {isAuthed && (
+              <Link to="/owner" className="btn btn-light !py-2 !px-3 text-sm">
+                Owner console
+              </Link>
+            )}
             {isAuthed ? (
               <>
                 <Link to="/guest" className="btn !py-2 !px-3 text-sm">Open app</Link>
@@ -194,7 +256,7 @@ function HomeLanding() {
         </div>
       </header>
 
-      {/* Use-cases */}
+      {/* Use-cases (anchor) — hero carousel */}
       <section id="use-cases" className="mx-auto max-w-7xl px-4 py-6 scroll-mt-24">
         <HeroCarousel slides={slides} />
       </section>
@@ -203,6 +265,7 @@ function HomeLanding() {
       <section id="why" className="mx-auto max-w-7xl px-4 py-14">
         <h2 className="text-2xl font-bold">The whole journey, upgraded</h2>
         <p className="text-gray-600 mt-1">Clear wins for guests, staff, owners, and your brand.</p>
+
         <figure className="mt-6">
           <div className="rounded-3xl ring-1 ring-slate-200 bg-white overflow-hidden shadow-sm">
             <div className="w-full aspect-[16/9]">
@@ -219,7 +282,9 @@ function HomeLanding() {
               />
             </div>
           </div>
-          <figcaption className="sr-only">VAiyu benefits across Guests, Staff, Owners, and Brand.</figcaption>
+          <figcaption className="sr-only">
+            VAiyu benefits across Guests, Staff, Owners, and Brand.
+          </figcaption>
         </figure>
       </section>
 

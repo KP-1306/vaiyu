@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState, lazy, Suspense } from "react";
+import { BrowserRouter, Routes, Route, Navigate, Link } from "react-router-dom";
 
 import SEO from "./components/SEO";
 import HeroCarousel from "./components/HeroCarousel";
@@ -11,9 +11,86 @@ import GlassBand_OnboardingSecurityIntegrations from "./components/GlassBand_Onb
 import LiveProductPeek from "./components/LiveProductPeek";
 import FAQShort from "./components/FAQShort";
 
+/* ===== Lazy owner routes (NO "@/") ===== */
+const OwnerDashboard = lazy(() => import("./routes/OwnerDashboard"));
+const OwnerRooms = lazy(() => import("./routes/OwnerRooms"));
+const OwnerRoomDetail = lazy(() => import("./routes/OwnerRoomDetail"));
+const OwnerADR = lazy(() =>
+  import("./routes/OwnerRevenue").then(m => ({ default: m.OwnerADR }))
+);
+const OwnerRevPAR = lazy(() =>
+  import("./routes/OwnerRevenue").then(m => ({ default: m.OwnerRevPAR }))
+);
+const OwnerPickup = lazy(() => import("./routes/OwnerPickup"));
+const OwnerHRMS = lazy(() => import("./routes/OwnerHRMS"));
+
 const TOKEN_KEY = "stay:token";
 
+/* ----------------------------------------------------------------------------
+   App: Router shell
+---------------------------------------------------------------------------- */
 export default function App() {
+  return (
+    <BrowserRouter>
+      <Suspense fallback={<PageSpinner />}>
+        <Routes>
+          {/* Marketing / landing */}
+          <Route path="/" element={<HomeLanding />} />
+
+          {/* Owner area */}
+          <Route path="/owner/:slug" element={<OwnerDashboard />} />
+          <Route path="/owner/:slug/rooms" element={<OwnerRooms />} />
+          <Route path="/owner/:slug/rooms/:roomId" element={<OwnerRoomDetail />} />
+
+          {/* Revenue */}
+          <Route path="/owner/:slug/revenue/adr" element={<OwnerADR />} />
+          <Route path="/owner/:slug/revenue/revpar" element={<OwnerRevPAR />} />
+
+          {/* Bookings */}
+          <Route path="/owner/:slug/bookings/pickup" element={<OwnerPickup />} />
+
+          {/* HRMS */}
+          <Route path="/owner/:slug/hrms/*" element={<OwnerHRMS />} />
+
+          {/* Convenience redirects / 404 */}
+          <Route path="/owner" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </Suspense>
+    </BrowserRouter>
+  );
+}
+
+/* ----------------------------------------------------------------------------
+   Tiny spinner while lazy routes load
+---------------------------------------------------------------------------- */
+function PageSpinner() {
+  return (
+    <main className="min-h-[50vh] grid place-items-center">
+      <div className="animate-pulse text-gray-500 text-sm">Loading…</div>
+    </main>
+  );
+}
+
+/* ----------------------------------------------------------------------------
+   NotFound (tiny 404)
+---------------------------------------------------------------------------- */
+function NotFound() {
+  return (
+    <main className="min-h-[60vh] grid place-items-center">
+      <div className="rounded-xl border p-6 text-center">
+        <div className="text-lg font-medium mb-2">Page not found</div>
+        <p className="text-sm text-gray-600">The page you’re looking for doesn’t exist.</p>
+        <div className="mt-4"><Link to="/" className="btn btn-light">Go home</Link></div>
+      </div>
+    </main>
+  );
+}
+
+/* ----------------------------------------------------------------------------
+   HomeLanding: your landing UI (unchanged) + quick owner strips
+---------------------------------------------------------------------------- */
+function HomeLanding() {
   const [hasToken, setHasToken] = useState<boolean>(() => !!localStorage.getItem(TOKEN_KEY));
   useEffect(() => {
     const onStorage = (e: StorageEvent) => { if (e.key === TOKEN_KEY) setHasToken(!!e.newValue); };
@@ -40,7 +117,6 @@ export default function App() {
   }, []);
   const isAuthed = !!userEmail;
 
-  // Show “Owner console” button only if user belongs to at least one hotel
   const [hasHotel, setHasHotel] = useState(false);
   useEffect(() => {
     let alive = true;
@@ -60,7 +136,6 @@ export default function App() {
     return () => { alive = false; };
   }, []);
 
-  // Non-invasive source of slug for quick links
   const [ownerSlug, setOwnerSlug] = useState<string | null>(null);
   useEffect(() => {
     setOwnerSlug(localStorage.getItem("owner:slug")); // e.g., "DEMO1"
@@ -252,7 +327,7 @@ export default function App() {
         <FAQShort />
       </section>
 
-      {/* Quick Owner KPIs (Revenue / Pick-up) — only if we know the slug */}
+      {/* Quick Owner KPIs (Revenue / Pick-up) */}
       {isAuthed && hasHotel && ownerSlug && (
         <section className="mx-auto max-w-7xl px-4 pb-6">
           <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -273,7 +348,7 @@ export default function App() {
         </section>
       )}
 
-      {/* HRMS Quick Links (Attendance / Leaves / Staff) — only if we know the slug */}
+      {/* HRMS Quick Links (Attendance / Leaves / Staff) */}
       {isAuthed && hasHotel && ownerSlug && (
         <section className="mx-auto max-w-7xl px-4 pb-10">
           <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -330,8 +405,7 @@ export default function App() {
   );
 }
 
-/* ---------- tiny building blocks (kept) ---------- */
-
+/* ---------- kept helper (if you still need it somewhere) ---------- */
 function ValueCard({
   title,
   points,

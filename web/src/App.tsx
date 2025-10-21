@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate, Link } from "react-router-dom";
 
 import SEO from "./components/SEO";
 import HeroCarousel from "./components/HeroCarousel";
-// ⛔️ removed: import { supabase } from "./lib/supabase";  // now lazy-loaded
+// NOTE: we lazy-import supabase inside HomeLanding now
 
 import AIShowcase from "./components/AIShowcase";
 import ResultsAndSocialProof from "./components/ResultsAndSocialProof";
@@ -11,43 +11,69 @@ import GlassBand_OnboardingSecurityIntegrations from "./components/GlassBand_Onb
 import LiveProductPeek from "./components/LiveProductPeek";
 import FAQShort from "./components/FAQShort";
 
-/* ===== Owner pages (no "@/") ===== */
-import OwnerDashboard from "./routes/OwnerDashboard";
-import OwnerRooms from "./routes/OwnerRooms";
-import OwnerRoomDetail from "./routes/OwnerRoomDetail";
-import { OwnerADR, OwnerRevPAR } from "./routes/OwnerRevenue";
-import OwnerPickup from "./routes/OwnerPickup";
-import OwnerHRMS from "./routes/OwnerHRMS";
+/* ===== Lazy owner routes ===== */
+const OwnerDashboard  = lazy(() => import("./routes/OwnerDashboard"));
+const OwnerRooms      = lazy(() => import("./routes/OwnerRooms"));
+const OwnerRoomDetail = lazy(() => import("./routes/OwnerRoomDetail"));
+const OwnerRevenue    = lazy(() => import("./routes/OwnerRevenue")); // must export OwnerADR/OwnerRevPAR named
+const OwnerPickup     = lazy(() => import("./routes/OwnerPickup"));
+const OwnerHRMS       = lazy(() => import("./routes/OwnerHRMS"));
 
-/* NEW: global error boundary */
+/* Global error boundary */
 import GlobalErrorBoundary from "./components/GlobalErrorBoundary";
 
 const TOKEN_KEY = "stay:token";
 
+/* Simple loading shell while chunks load */
+function RouteFallback() {
+  return (
+    <main className="min-h-[50vh] grid place-items-center">
+      <div className="text-sm text-gray-600">Loading…</div>
+    </main>
+  );
+}
+
 /* ----------------------------------------------------------------------------
-   App: Router shell (wrapped with GlobalErrorBoundary)
+   App: Router shell
 ---------------------------------------------------------------------------- */
 export default function App() {
   return (
     <BrowserRouter>
       <GlobalErrorBoundary>
-        <Routes>
-          {/* Marketing / landing */}
-          <Route path="/" element={<HomeLanding />} />
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
+            {/* Marketing / landing */}
+            <Route path="/" element={<HomeLanding />} />
 
-          {/* Owner area */}
-          <Route path="/owner/:slug" element={<OwnerDashboard />} />
-          <Route path="/owner/:slug/rooms" element={<OwnerRooms />} />
-          <Route path="/owner/:slug/rooms/:roomId" element={<OwnerRoomDetail />} />
-          <Route path="/owner/:slug/revenue/adr" element={<OwnerADR />} />
-          <Route path="/owner/:slug/revenue/revpar" element={<OwnerRevPAR />} />
-          <Route path="/owner/:slug/bookings/pickup" element={<OwnerPickup />} />
-          <Route path="/owner/:slug/hrms/*" element={<OwnerHRMS />} />
+            {/* Owner area */}
+            <Route path="/owner/:slug" element={<OwnerDashboard />} />
+            <Route path="/owner/:slug/rooms" element={<OwnerRooms />} />
+            <Route path="/owner/:slug/rooms/:roomId" element={<OwnerRoomDetail />} />
+            {/* OwnerRevenue exports { OwnerADR, OwnerRevPAR } as named exports */}
+            <Route
+              path="/owner/:slug/revenue/adr"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <OwnerRevenue.OwnerADR />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/owner/:slug/revenue/revpar"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <OwnerRevenue.OwnerRevPAR />
+                </Suspense>
+              }
+            />
+            <Route path="/owner/:slug/bookings/pickup" element={<OwnerPickup />} />
+            <Route path="/owner/:slug/hrms/*" element={<OwnerHRMS />} />
 
-          {/* Convenience redirects / 404 */}
-          <Route path="/owner" element={<Navigate to="/" replace />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+            {/* Convenience redirects / 404 */}
+            <Route path="/owner" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
       </GlobalErrorBoundary>
     </BrowserRouter>
   );
@@ -69,7 +95,7 @@ function NotFound() {
 }
 
 /* ----------------------------------------------------------------------------
-   HomeLanding: landing UI (with lazy supabase to avoid hard crashes)
+   HomeLanding: landing UI (lazy supabase to avoid hard crashes)
 ---------------------------------------------------------------------------- */
 function HomeLanding() {
   const [hasToken, setHasToken] = useState<boolean>(() => !!localStorage.getItem(TOKEN_KEY));
@@ -92,7 +118,6 @@ function HomeLanding() {
         const { supabase } = await import("./lib/supabase");
         const { data } = await supabase.auth.getSession();
         if (mounted) setUserEmail(data.session?.user?.email ?? null);
-
         const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
           setUserEmail(session?.user?.email ?? null);
         });
@@ -105,7 +130,6 @@ function HomeLanding() {
   }, []);
   const isAuthed = !!userEmail;
 
-  // Show “Owner console” if user is a member of any hotel
   const [hasHotel, setHasHotel] = useState(false);
   useEffect(() => {
     let alive = true;
@@ -115,12 +139,10 @@ function HomeLanding() {
         const { data: sess } = await supabase.auth.getSession();
         const userId = sess?.session?.user?.id;
         if (!userId) { setHasHotel(false); return; }
-
         const { error, count } = await supabase
           .from("hotel_members")
           .select("hotel_id", { head: true, count: "exact" })
           .eq("user_id", userId);
-
         if (!alive) return;
         setHasHotel(!error && !!count && count > 0);
       } catch (err) {
@@ -145,60 +167,22 @@ function HomeLanding() {
   const site = typeof window !== "undefined" ? window.location.origin : "https://vaiyu.co.in";
 
   const slides = [
-    {
-      id: "ai-hero",
-      headline: "Where Intelligence Meets Comfort",
+    { id: "ai-hero", headline: "Where Intelligence Meets Comfort",
       sub: "AI turns live stay activity into faster service and delightful guest journeys.",
       cta: { label: isAuthed ? "Open app" : "Start with your email", href: isAuthed ? "/guest" : "/signin?intent=signup&redirect=/guest" },
-      variant: "photo",
-      img: "/hero/ai-hero.png",
-      imgAlt: "AI hero background"
-    },
-    {
-      id: "checkin",
-      headline: "10-second Mobile Check-in",
-      sub: "Scan, confirm, head to your room. No kiosk queues.",
-      cta: { label: "Try the guest demo", href: "/guest" },
-      variant: "photo",
-      img: "/hero/checkin.png",
-      imgAlt: "Guest scanning QR at the front desk"
-    },
-    {
-      id: "sla",
-      headline: "SLA Nudges for Staff",
-      sub: "On-time nudges and a clean digest keep service humming.",
-      cta: { label: "See the owner console", href: "/owner" },
-      variant: "photo",
-      img: "/hero/sla.png",
-      imgAlt: "Tablet with SLA dashboard"
-    },
-    {
-      id: "reviews",
-      headline: "Truth-Anchored Reviews",
-      sub: "AI drafts grounded in verified stay data—owners approve, brand stays safe.",
-      cta: { label: "How moderation works", href: "/about-ai" },
-      variant: "photo",
-      img: "/hero/reviews.png",
-      imgAlt: "Owner reviewing AI draft"
-    },
-    {
-      id: "grid-smart",
-      headline: "Grid-Smart Operations & Sustainability",
+      variant: "photo", img: "/hero/ai-hero.png", imgAlt: "AI hero background" },
+    { id: "checkin", headline: "10-second Mobile Check-in", sub: "Scan, confirm, head to your room. No kiosk queues.",
+      cta: { label: "Try the guest demo", href: "/guest" }, variant: "photo", img: "/hero/checkin.png", imgAlt: "Guest scanning QR" },
+    { id: "sla", headline: "SLA Nudges for Staff", sub: "On-time nudges and a clean digest keep service humming.",
+      cta: { label: "See the owner console", href: "/owner" }, variant: "photo", img: "/hero/sla.png", imgAlt: "SLA dashboard" },
+    { id: "reviews", headline: "Truth-Anchored Reviews", sub: "AI drafts grounded in verified stay data—owners approve, brand stays safe.",
+      cta: { label: "How moderation works", href: "/about-ai" }, variant: "photo", img: "/hero/reviews.png", imgAlt: "Owner reviewing AI draft" },
+    { id: "grid-smart", headline: "Grid-Smart Operations & Sustainability",
       sub: "Tariff-aware actions and device shedding without drama.",
-      cta: { label: "Learn about grid mode", href: "/grid/devices" },
-      variant: "photo",
-      img: "/hero/grid.png",
-      imgAlt: "Energy dashboard on wall tablet"
-    },
-    {
-      id: "owner-console",
-      headline: "AI-Driven Owner Console",
+      cta: { label: "Learn about grid mode", href: "/grid/devices" }, variant: "photo", img: "/hero/grid.png", imgAlt: "Energy dashboard" },
+    { id: "owner-console", headline: "AI-Driven Owner Console",
       sub: "Digest, usage, moderation and KPIs—clean, fast, reliable.",
-      cta: { label: "Open owner home", href: "/owner" },
-      variant: "photo",
-      img: "/hero/owner-console.png",
-      imgAlt: "Owner console KPIs on monitor"
-    },
+      cta: { label: "Open owner home", href: "/owner" }, variant: "photo", img: "/hero/owner-console.png", imgAlt: "Owner console KPIs" },
   ];
 
   return (
@@ -215,7 +199,7 @@ function HomeLanding() {
           "@type": "Organization",
           name: "VAiyu",
           url: site,
-          logo: `${site}/icons/favicon-light-512.png`,
+          logo: `${site}/icons/icon-192.png`,
           sameAs: [site],
         }}
       />
@@ -245,11 +229,8 @@ function HomeLanding() {
 
           <div className="flex items-center gap-2">
             {hasToken && <Link to="/guest" className="btn btn-light !py-2 !px-3 text-sm">My credits</Link>}
-            {/* NEW: Owner console button for members */}
             {isAuthed && (
-              <Link to="/owner" className="btn btn-light !py-2 !px-3 text-sm">
-                Owner console
-              </Link>
+              <Link to="/owner" className="btn btn-light !py-2 !px-3 text-sm">Owner console</Link>
             )}
             {isAuthed ? (
               <>
@@ -263,7 +244,7 @@ function HomeLanding() {
         </div>
       </header>
 
-      {/* Use-cases (anchor) — hero carousel */}
+      {/* Use-cases (anchor) */}
       <section id="use-cases" className="mx-auto max-w-7xl px-4 py-6 scroll-mt-24">
         <HeroCarousel slides={slides} />
       </section>
@@ -289,9 +270,7 @@ function HomeLanding() {
               />
             </div>
           </div>
-          <figcaption className="sr-only">
-            VAiyu benefits across Guests, Staff, Owners, and Brand.
-          </figcaption>
+          <figcaption className="sr-only">VAiyu benefits across Guests, Staff, Owners, and Brand.</figcaption>
         </figure>
       </section>
 

@@ -1,5 +1,5 @@
-import { useEffect, useState, Suspense } from "react";
-import { BrowserRouter, Routes, Route, Navigate, Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 import SEO from "./components/SEO";
 import HeroCarousel from "./components/HeroCarousel";
@@ -11,97 +11,9 @@ import GlassBand_OnboardingSecurityIntegrations from "./components/GlassBand_Onb
 import LiveProductPeek from "./components/LiveProductPeek";
 import FAQShort from "./components/FAQShort";
 
-/* ===== Owner pages that are already proven working ===== */
-import OwnerDashboard from "./routes/OwnerDashboard";
-import OwnerRooms from "./routes/OwnerRooms";
-import OwnerRoomDetail from "./routes/OwnerRoomDetail";
-import { OwnerADR, OwnerRevPAR } from "./routes/OwnerRevenue";
-import OwnerPickup from "./routes/OwnerPickup";
-
-/* ===== HRMS: load lazily + defer rendering until route matches ===== */
-import React from "react";
-
-/** Retry lazy chunk loads to dodge transient CDN/cache hiccups. */
-function lazyRetry<T>(factory: () => Promise<T>, retries = 3, interval = 800): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const attempt = (n: number) => {
-      factory().then(resolve).catch((err) => {
-        if (n <= 0) reject(err);
-        else setTimeout(() => attempt(n - 1), interval);
-      });
-    };
-    attempt(retries);
-  });
-}
-
-/** IMPORTANT: OwnerHRMS **must** be the module’s **default export**. */
-const OwnerHRMS = React.lazy(() =>
-  lazyRetry(() => import("./routes/OwnerHRMS"))
-);
-
-/** Render HRMS only when the route matches (prevents app-wide crash). */
-function HRMSRoute() {
-  return (
-    <Suspense fallback={<div className="p-6 text-sm text-gray-500">Loading HRMS…</div>}>
-      <OwnerHRMS />
-    </Suspense>
-  );
-}
-
 const TOKEN_KEY = "stay:token";
 
-/* ----------------------------------------------------------------------------
-   App: Router shell
----------------------------------------------------------------------------- */
 export default function App() {
-  return (
-    <BrowserRouter>
-      <Routes>
-        {/* Marketing / landing */}
-        <Route path="/" element={<HomeLanding />} />
-
-        {/* Owner area */}
-        <Route path="/owner/:slug" element={<OwnerDashboard />} />
-        <Route path="/owner/:slug/rooms" element={<OwnerRooms />} />
-        <Route path="/owner/:slug/rooms/:roomId" element={<OwnerRoomDetail />} />
-
-        {/* Revenue (working) */}
-        <Route path="/owner/:slug/revenue/adr" element={<OwnerADR />} />
-        <Route path="/owner/:slug/revenue/revpar" element={<OwnerRevPAR />} />
-
-        {/* Bookings (working) */}
-        <Route path="/owner/:slug/bookings/pickup" element={<OwnerPickup />} />
-
-        {/* HRMS: deferred + lazy */}
-        <Route path="/owner/:slug/hrms/*" element={<HRMSRoute />} />
-
-        {/* Convenience redirects / 404 */}
-        <Route path="/owner" element={<Navigate to="/" replace />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </BrowserRouter>
-  );
-}
-
-/* ----------------------------------------------------------------------------
-   NotFound (tiny 404)
----------------------------------------------------------------------------- */
-function NotFound() {
-  return (
-    <main className="min-h-[60vh] grid place-items-center">
-      <div className="rounded-xl border p-6 text-center">
-        <div className="text-lg font-medium mb-2">Page not found</div>
-        <p className="text-sm text-gray-600">The page you’re looking for doesn’t exist.</p>
-        <div className="mt-4"><Link to="/" className="btn btn-light">Go home</Link></div>
-      </div>
-    </main>
-  );
-}
-
-/* ----------------------------------------------------------------------------
-   HomeLanding (unchanged, trimmed only where necessary)
----------------------------------------------------------------------------- */
-function HomeLanding() {
   const [hasToken, setHasToken] = useState<boolean>(() => !!localStorage.getItem(TOKEN_KEY));
   useEffect(() => {
     const onStorage = (e: StorageEvent) => { if (e.key === TOKEN_KEY) setHasToken(!!e.newValue); };
@@ -128,6 +40,7 @@ function HomeLanding() {
   }, []);
   const isAuthed = !!userEmail;
 
+  // Show “Owner console” button only if user belongs to at least one hotel
   const [hasHotel, setHasHotel] = useState(false);
   useEffect(() => {
     let alive = true;
@@ -147,8 +60,11 @@ function HomeLanding() {
     return () => { alive = false; };
   }, []);
 
+  // Non-invasive source of slug for quick links
   const [ownerSlug, setOwnerSlug] = useState<string | null>(null);
-  useEffect(() => { setOwnerSlug(localStorage.getItem("owner:slug")); }, []);
+  useEffect(() => {
+    setOwnerSlug(localStorage.getItem("owner:slug")); // e.g., "DEMO1"
+  }, []);
 
   async function handleSignOut() {
     try {
@@ -220,6 +136,7 @@ function HomeLanding() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
+      {/* SEO */}
       <SEO
         title="VAiyu — AI OS for Hotels"
         description="Where Intelligence Meets Comfort — verified reviews, refer-and-earn growth, and grid-smart operations."
@@ -236,6 +153,7 @@ function HomeLanding() {
         }}
       />
 
+      {/* Top nav */}
       <header className="sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-gray-100">
         <div className="mx-auto max-w-7xl px-4 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
@@ -260,7 +178,11 @@ function HomeLanding() {
 
           <div className="flex items-center gap-2">
             {hasToken && <Link to="/guest" className="btn btn-light !py-2 !px-3 text-sm">My credits</Link>}
-            {isAuthed && <Link to="/owner" className="btn btn-light !py-2 !px-3 text-sm">Owner console</Link>}
+            {isAuthed && (
+              <Link to="/owner" className="btn btn-light !py-2 !px-3 text-sm">
+                Owner console
+              </Link>
+            )}
             {isAuthed ? (
               <>
                 <Link to="/guest" className="btn !py-2 !px-3 text-sm">Open app</Link>
@@ -273,13 +195,16 @@ function HomeLanding() {
         </div>
       </header>
 
+      {/* Use-cases (anchor) — hero carousel */}
       <section id="use-cases" className="mx-auto max-w-7xl px-4 py-6 scroll-mt-24">
         <HeroCarousel slides={slides} />
       </section>
 
+      {/* WHY */}
       <section id="why" className="mx-auto max-w-7xl px-4 py-14">
         <h2 className="text-2xl font-bold">The whole journey, upgraded</h2>
         <p className="text-gray-600 mt-1">Clear wins for guests, staff, owners, and your brand.</p>
+
         <figure className="mt-6">
           <div className="rounded-3xl ring-1 ring-slate-200 bg-white overflow-hidden shadow-sm">
             <div className="w-full aspect-[16/9]">
@@ -296,71 +221,80 @@ function HomeLanding() {
               />
             </div>
           </div>
-          <figcaption className="sr-only">VAiyu benefits across Guests, Staff, Owners, and Brand.</figcaption>
+          <figcaption className="sr-only">
+            VAiyu benefits across Guests, Staff, Owners, and Brand.
+          </figcaption>
         </figure>
       </section>
 
+      {/* Alternating image + content */}
       <section id="ai" className="mx-auto max-w-7xl px-4 pb-14">
         <AIShowcase />
       </section>
 
+      {/* Social proof */}
       <section className="mx-auto max-w-7xl px-4 pb-4">
         <ResultsAndSocialProof />
       </section>
 
+      {/* Onboarding / Security / Integrations */}
       <section className="mx-auto max-w-7xl px-4 pb-16">
         <GlassBand_OnboardingSecurityIntegrations />
       </section>
 
+      {/* Live Product Peek */}
       <section className="mx-auto max-w-7xl px-4 pb-16">
         <LiveProductPeek />
       </section>
 
+      {/* FAQ */}
       <section className="mx-auto max-w-7xl px-4 pb-20">
         <FAQShort />
       </section>
 
-      {/* Quick Owner links */}
+      {/* Quick Owner KPIs (Revenue / Pick-up) — only if we know the slug */}
       {isAuthed && hasHotel && ownerSlug && (
-        <>
-          <section className="mx-auto max-w-7xl px-4 pb-6">
-            <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Quick owner KPIs</h3>
-                  <p className="text-gray-600 text-sm mt-0.5">
-                    Jump to today’s metrics for <span className="font-medium">{ownerSlug}</span>.
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <Link to={`/owner/${ownerSlug}/revenue/adr`} className="btn">ADR</Link>
-                  <Link to={`/owner/${ownerSlug}/revenue/revpar`} className="btn btn-light">RevPAR</Link>
-                  <Link to={`/owner/${ownerSlug}/bookings/pickup`} className="btn btn-light">Pick-up (7 days)</Link>
-                </div>
+        <section className="mx-auto max-w-7xl px-4 pb-6">
+          <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Quick owner KPIs</h3>
+                <p className="text-gray-600 text-sm mt-0.5">
+                  Jump straight to today’s metrics for <span className="font-medium">{ownerSlug}</span>.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <Link to={`/owner/${ownerSlug}/revenue/adr`} className="btn">ADR</Link>
+                <Link to={`/owner/${ownerSlug}/revenue/revpar`} className="btn btn-light">RevPAR</Link>
+                <Link to={`/owner/${ownerSlug}/bookings/pickup`} className="btn btn-light">Pick-up (7 days)</Link>
               </div>
             </div>
-          </section>
-
-          <section className="mx-auto max-w-7xl px-4 pb-10">
-            <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Team & HRMS</h3>
-                  <p className="text-gray-600 text-sm mt-0.5">
-                    One-tap access for <span className="font-medium">{ownerSlug}</span>.
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <Link to={`/owner/${ownerSlug}/hrms/attendance`} className="btn">Attendance</Link>
-                  <Link to={`/owner/${ownerSlug}/hrms/leaves`} className="btn btn-light">Leaves</Link>
-                  <Link to={`/owner/${ownerSlug}/hrms/staff`} className="btn btn-light">Staff</Link>
-                </div>
-              </div>
-            </div>
-          </section>
-        </>
+          </div>
+        </section>
       )}
 
+      {/* HRMS Quick Links (Attendance / Leaves / Staff) — only if we know the slug */}
+      {isAuthed && hasHotel && ownerSlug && (
+        <section className="mx-auto max-w-7xl px-4 pb-10">
+          <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Team & HRMS</h3>
+                <p className="text-gray-600 text-sm mt-0.5">
+                  One-tap access to your team pages for <span className="font-medium">{ownerSlug}</span>.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <Link to={`/owner/${ownerSlug}/hrms/attendance`} className="btn">Attendance</Link>
+                <Link to={`/owner/${ownerSlug}/hrms/leaves`} className="btn btn-light">Leaves</Link>
+                <Link to={`/owner/${ownerSlug}/hrms/staff`} className="btn btn-light">Staff</Link>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Contact CTA */}
       <section id="contact-cta" className="mx-auto max-w-7xl px-4 pb-16">
         <div className="rounded-3xl border border-gray-200 bg-white p-8 sm:p-10 shadow-sm">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
@@ -375,6 +309,7 @@ function HomeLanding() {
         </div>
       </section>
 
+      {/* Footer */}
       <footer className="border-t border-gray-200">
         <div className="mx-auto max-w-7xl px-4 py-8 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-3">
           <div>© {new Date().getFullYear()} VAiyu — Where Intelligence Meets Comfort.</div>
@@ -391,6 +326,33 @@ function HomeLanding() {
           </div>
         </div>
       </footer>
+    </div>
+  );
+}
+
+/* ---------- tiny building blocks (kept) ---------- */
+
+function ValueCard({
+  title,
+  points,
+  emoji,
+}: {
+  title: string;
+  points: string[];
+  emoji: string;
+}) {
+  return (
+    <div className="card group hover:shadow-lg transition-shadow">
+      <div className="text-2xl">{emoji}</div>
+      <div className="font-semibold mt-1">{title}</div>
+      <ul className="text-sm text-gray-600 mt-2 space-y-1">
+        {points.map((p) => (
+          <li key={p} className="flex gap-2">
+            <span>✓</span>
+            <span>{p}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

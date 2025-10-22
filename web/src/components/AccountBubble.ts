@@ -3,51 +3,50 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 
 /**
- * AccountBubble — compact avatar + dropdown for marketing home ("/") only.
- * Hides when ?app=1 is present. Syncs with Supabase auth and cross-tab storage.
+ * Compact avatar + dropdown shown only on "/" (marketing) and hidden if ?app=1.
+ * Syncs with Supabase auth + cross-tab storage.
  */
 export default function AccountBubble() {
   const [email, setEmail] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
 
-  // Show only on the marketing homepage, and not when ?app=1 is present
+  // Show only on the marketing homepage ("/"), and not when ?app=1 is present
   const isMarketingOnly = useMemo(() => {
     if (typeof window === "undefined") return false;
     const { pathname, search } = window.location;
-    const isHome = pathname === "/";
+    const onHome = pathname === "/";
     const forcedApp = new URLSearchParams(search).get("app") === "1";
-    return isHome && !forcedApp;
+    return onHome && !forcedApp;
   }, []);
 
+  // Bootstrap + keep in sync
   useEffect(() => {
-    let mounted = true;
+    let alive = true;
 
-    const load = async () => {
+    const loadUser = async () => {
       try {
         const { data } = await supabase.auth.getUser();
-        if (!mounted) return;
+        if (!alive) return;
         setEmail(data?.user?.email ?? null);
       } catch {
-        if (mounted) setEmail(null);
+        if (alive) setEmail(null);
       }
     };
 
-    load();
+    loadUser();
 
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, sess) => {
-      if (!mounted) return;
+      if (!alive) return;
       setEmail(sess?.user?.email ?? null);
     });
 
     const onStorage = (e: StorageEvent) => {
-      if (e.key && e.key.includes("supabase.auth")) {
-        load();
-      }
+      if (e.key && e.key.includes("supabase.auth")) loadUser();
     };
     window.addEventListener("storage", onStorage);
 
     return () => {
-      mounted = false;
+      alive = false;
       sub.subscription?.unsubscribe();
       window.removeEventListener("storage", onStorage);
     };
@@ -56,17 +55,18 @@ export default function AccountBubble() {
   // Hide entirely if not on marketing OR not signed in
   if (!isMarketingOnly || !email) return null;
 
-  const initial = email[0]?.toUpperCase() ?? "U";
+  const initial = (email[0] || "U").toUpperCase();
 
   const signOut = () => {
-    // We already have a /logout route that clears everywhere; use it for reliability
+    // Use our dedicated route to clear everywhere reliably
     window.location.href = "/logout";
   };
 
   return (
-    <div className="fixed right-3 top-3 z-[60] md:right-4 md:top-4">
+    <div className="fixed right-3 top-3 z-50 md:right-4 md:top-4">
       <div className="relative">
         <button
+          type="button"
           onClick={() => setOpen((v) => !v)}
           aria-haspopup="menu"
           aria-expanded={open}

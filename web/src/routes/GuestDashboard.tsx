@@ -1,46 +1,60 @@
 import { useEffect, useMemo, useState, memo } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { supabase } from "../lib/supabase";
-import { API } from "../lib/api";
+import { supabase } from "../../lib/supabase";
+import { API } from "../../lib/api";
 
-/* ===== Types ===== */
-type Stay = {
-  id: string;
-  hotel: { name: string; city?: string; cover_url?: string | null };
-  check_in: string;
-  check_out: string;
-  bill_total?: number | null;
-};
-
-type Review = {
-  id: string;
-  hotel: { name: string };
-  rating: number; // 1..5
-  title?: string | null;
-  created_at: string;
-  hotel_reply?: string | null;
-};
-
-type Spend = { year: number; total: number };
-
-type Referral = {
-  id: string;
-  hotel: { name: string; city?: string };
-  credits: number;
-  referrals_count: number;
-};
-
-type Source = "live" | "preview";
-type AsyncData<T> = { loading: boolean; source: Source; data: T };
-
-/* ===== Page ===== */
+/* ======= QUICK AUTH GUARD (belt-and-suspenders) ======= */
 export default function GuestDashboard() {
   const nav = useNavigate();
+
+  useEffect(() => {
+    let mounted = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return;
+      if (!data.session) {
+        const redirect = encodeURIComponent("/guest");
+        window.location.replace(`/signin?intent=signin&redirect=${redirect}`);
+      }
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  /* ===== Types ===== */
+  type Stay = {
+    id: string;
+    hotel: { name: string; city?: string; cover_url?: string | null };
+    check_in: string;
+    check_out: string;
+    bill_total?: number | null;
+  };
+
+  type Review = {
+    id: string;
+    hotel: { name: string };
+    rating: number; // 1..5
+    title?: string | null;
+    created_at: string;
+    hotel_reply?: string | null;
+  };
+
+  type Spend = { year: number; total: number };
+
+  type Referral = {
+    id: string;
+    hotel: { name: string; city?: string };
+    credits: number;
+    referrals_count: number;
+  };
+
+  type Source = "live" | "preview";
+  type AsyncData<T> = { loading: boolean; source: Source; data: T };
 
   // auth/profile snapshot
   const [email, setEmail] = useState<string | null>(null);
   const [authName, setAuthName] = useState<string | null>(null);
-  const [displayName, setDisplayName] = useState<string | null>(null); // <- shows “Kapil” instead of email when available
+  const [displayName, setDisplayName] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   // independent card states
@@ -62,7 +76,7 @@ export default function GuestDashboard() {
       setAuthName((u?.user_metadata?.name as string) ?? u?.user_metadata?.full_name ?? null);
       setAvatarUrl((u?.user_metadata?.avatar_url as string) || null);
 
-      // Pull name/photo from profiles table (preferred once user saved profile)
+      // Pull name/photo from profiles table if available
       if (u?.id) {
         const { data: prof } = await supabase
           .from("profiles")
@@ -103,7 +117,7 @@ export default function GuestDashboard() {
     };
   }, []);
 
-  /* ---- Independent loads (per-card, resilient) ---- */
+  /* ---- Card loads (resilient) ---- */
   useEffect(() => {
     loadCard(
       () => jsonWithTimeout(`${API}/me/stays?limit=10`),
@@ -184,6 +198,7 @@ export default function GuestDashboard() {
     });
     return m;
   }, [referrals.data]);
+
 
   return (
     <main className="max-w-6xl mx-auto p-4 space-y-5" aria-labelledby="guest-dash-title">

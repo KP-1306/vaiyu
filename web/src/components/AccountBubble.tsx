@@ -10,7 +10,6 @@ export default function AccountBubble() {
   const [email, setEmail] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
 
-  // Show only on the marketing homepage ("/"), and not when ?app=1 is present
   const isMarketingOnly = useMemo(() => {
     if (typeof window === "undefined") return false;
     const { pathname, search } = window.location;
@@ -19,7 +18,6 @@ export default function AccountBubble() {
     return onHome && !forcedApp;
   }, []);
 
-  // Bootstrap + keep in sync
   useEffect(() => {
     let alive = true;
 
@@ -52,13 +50,11 @@ export default function AccountBubble() {
     };
   }, []);
 
-  // Hide entirely if not on marketing OR not signed in
   if (!isMarketingOnly || !email) return null;
 
   const initial = (email[0] || "U").toUpperCase();
 
   const signOut = () => {
-    // Use our dedicated route to clear everywhere reliably
     window.location.href = "/logout";
   };
 

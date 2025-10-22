@@ -16,7 +16,7 @@ function optionalFromGlob<T extends React.ComponentType<any>>(
   return lazy(async () => ({ default: Fallback }));
 }
 
-/* --------- Small shared UI ---------- */
+/* ---------------- Shared UI ---------------- */
 
 const PageSpinner: React.FC = () => (
   <div className="grid min-h-[40vh] place-items-center text-sm text-gray-500">
@@ -31,11 +31,12 @@ const FallbackPage: React.FC<{ title: string; hint?: string }> = ({ title, hint 
   </main>
 );
 
-const FallbackMarketing = () => (
+const FallbackMarketing: React.FC = () => (
   <main className="mx-auto max-w-3xl px-4 py-16">
     <h1 className="text-2xl font-semibold">VAiyu</h1>
     <p className="mt-2 text-gray-600">
-      Marketing page is not included in this build. Add <code>web/src/routes/MarketingHome.tsx</code> to enable it.
+      Marketing page is not included in this build. Add{" "}
+      <code>web/src/routes/MarketingHome.tsx</code> to enable it.
     </p>
     <div className="mt-6">
       <a
@@ -50,7 +51,7 @@ const FallbackMarketing = () => (
 
 /* --------- Optional routes (hardened) ---------- */
 
-// Marketing
+// Marketing (optional)
 const MarketingHome = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
     "./routes/MarketingHome.{tsx,jsx}"
@@ -58,54 +59,73 @@ const MarketingHome = optionalFromGlob(
   FallbackMarketing
 );
 
-// Staff
+// Staff (optional)
 const StaffHome = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
     "./routes/StaffHome.{tsx,jsx}"
   ),
-  () => <FallbackPage title="Staff workspace" hint="Add web/src/routes/StaffHome.tsx to enable this page." />
+  () => (
+    <FallbackPage
+      title="Staff workspace"
+      hint="Add web/src/routes/StaffHome.tsx to enable this page."
+    />
+  )
 );
 
-// Settings
+// Settings (optional)
 const Settings = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
     "./routes/Settings.{tsx,jsx}"
   ),
-  () => <FallbackPage title="Settings" hint="Add web/src/routes/Settings.tsx to enable this page." />
+  () => (
+    <FallbackPage
+      title="Settings"
+      hint="Add web/src/routes/Settings.tsx to enable this page."
+    />
+  )
 );
 
-// Profile
+// Profile (optional)
 const Profile = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
     "./routes/Profile.{tsx,jsx}"
   ),
-  () => <FallbackPage title="Profile" hint="Add web/src/routes/Profile.tsx to enable this page." />
+  () => (
+    <FallbackPage
+      title="Profile"
+      hint="Add web/src/routes/Profile.tsx to enable this page."
+    />
+  )
 );
 
-// Logout
+// Logout (optional)
 const Logout = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
     "./routes/Logout.{tsx,jsx}"
   ),
-  () => <FallbackPage title="Sign out" hint="Add web/src/routes/Logout.tsx to enable this page." />
+  () => (
+    <FallbackPage
+      title="Sign out"
+      hint="Add web/src/routes/Logout.tsx to enable this page."
+    />
+  )
 );
 
-/* --------- Required routes (keep as-is if they exist) ---------- */
-/* If you want *maximum* hardening, you can convert these to optionalFromGlob too. */
+/* --------- Required routes ---------- */
 
 const GuestDashboard = lazy(() => import("./routes/GuestDashboard"));
 const OwnerHome = lazy(() => import("./routes/OwnerHome"));
 const SignIn = lazy(() => import("./routes/SignIn"));
 const AuthCallback = lazy(() => import("./routes/AuthCallback"));
 
-/* --------- App ---------- */
+/* ---------------- App ---------------- */
 
 export default function App() {
   return (
     <Suspense fallback={<PageSpinner />}>
       <Routes>
-        {/* Prefer one home. If you want marketing as home, keep this.
-           If you want guest as home, swap to: <Route path="/" element={<Navigate to="/guest" replace />} /> */}
+        {/* If you want the app to land directly on /guest, change this line to:
+            <Route path="/" element={<Navigate to="/guest" replace />} /> */}
         <Route path="/" element={<MarketingHome />} />
 
         <Route path="/guest" element={<GuestDashboard />} />

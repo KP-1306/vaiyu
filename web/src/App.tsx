@@ -1,128 +1,98 @@
+// web/src/App.tsx
 import React, { Suspense, lazy } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 
 /**
- * Helper: try to lazy-import a module; if it doesn't exist (or throws),
- * render the given Fallback component instead. This makes the build robust
- * when some routes aren't present yet in the repo or differ by path.
+ * optionalLazy(pattern, Fallback)
+ *  - Tries to find a matching file for the given Vite glob pattern.
+ *  - If found, lazy-loads it.
+ *  - If NOT found, returns a lazy component that renders the provided Fallback.
+ *
+ * Why: static `import()` must resolve at build time; if the file is missing, build fails.
+ * `import.meta.glob` returns {} (empty) when nothing matches, which is safe.
  */
-function lazyOptional<T extends React.ComponentType<any>>(
-  importer: () => Promise<{ default: T }>,
+function optionalLazy<T extends React.ComponentType<any>>(
+  pattern: string,
   Fallback: T
 ) {
-  return lazy(async () => {
-    try {
-      return await importer();
-    } catch (_err) {
-      return { default: Fallback };
-    }
-  });
+  // Vite-only API. At build time, it expands into a map of possible modules.
+  const matches = import.meta.glob<{ default: T }>(pattern);
+
+  const first = Object.values(matches)[0];
+  if (first) {
+    // Found a file — load it lazily.
+    return lazy(async () => {
+      const mod = await first();
+      return { default: (mod as any).default ?? (mod as any) };
+    });
+  }
+
+  // No file matched — return a lazy component that just renders <Fallback />.
+  return lazy(async () => ({ default: Fallback }));
 }
 
-/* ---------- Tiny fallback screens (used if a route file is missing) ---------- */
+/* ----------------- Fallbacks & shared UI ----------------- */
 
-const Placeholder: React.FC<{ title: string; note?: string }> = ({ title, note }) => (
-  <div className="mx-auto max-w-3xl px-4 py-16">
-    <h1 className="text-2xl font-semibold">{title}</h1>
-    {note && <p className="mt-2 text-gray-600">{note}</p>}
-  </div>
+const FallbackMarketing: React.FC = () => (
+  <main className="mx-auto max-w-3xl px-4 py-16">
+    <h1 className="text-2xl font-semibold">VAiyu</h1>
+    <p className="mt-2 text-gray-600">
+      Marketing page is not available in this build. You’re seeing a safe
+      fallback. (Add <code>web/src/routes/MarketingHome.tsx</code> to enable a
+      full marketing homepage.)
+    </p>
+  </main>
 );
-
-const FallbackMarketing = () => (
-  <Placeholder
-    title="VAiyu"
-    note="Marketing page placeholder — replace with your MarketingHome component."
-  />
-);
-const FallbackGuest = () => <Placeholder title="Guest dashboard" note="GuestDashboard is missing." />;
-const FallbackOwner = () => <Placeholder title="Owner console" note="OwnerHome/OwnerConsole missing." />;
-const FallbackStaff = () => <Placeholder title="Staff workspace" note="StaffHome is missing." />;
-const FallbackSignIn = () => <Placeholder title="Sign in" note="SignIn route is missing." />;
-const FallbackAuthCb = () => <Placeholder title="Signing you in…" note="AuthCallback is missing." />;
-const FallbackProfile = () => <Placeholder title="Profile" note="Profile route is missing." />;
-const FallbackSettings = () => <Placeholder title="Settings" note="Settings route is missing." />;
-const FallbackLogout = () => <Placeholder title="Signing out…" note="Logout route is missing." />;
-
-/* ---------- Try to load your real components; otherwise use fallbacks ---------- */
-
-// Header and AccountBubble are optional; if absent we silently skip them.
-const Header = lazyOptional(
-  () => import("./components/Header"),
-  (() => null) as unknown as React.ComponentType
-);
-const AccountBubble = lazyOptional(
-  () => import("./components/AccountBubble"),
-  (() => null) as unknown as React.ComponentType
-);
-
-// Marketing home (/) – change to your actual marketing component if present
-const MarketingHome = lazyOptional(() => import("./routes/MarketingHome"), FallbackMarketing);
-
-// Guest dashboard (/guest)
-const GuestDashboard = lazyOptional(() => import("./routes/GuestDashboard"), FallbackGuest);
-
-// Owner console list (/owner) and single-hotel home (/owner/:slug)
-const OwnerConsole = lazyOptional(() => import("./routes/OwnerConsole"), FallbackOwner);
-const OwnerHome = lazyOptional(() => import("./routes/OwnerHome"), FallbackOwner);
-
-// Staff workspace (/staff)
-const StaffHome = lazyOptional(() => import("./routes/StaffHome"), FallbackStaff);
-
-// Auth flows
-const SignIn = lazyOptional(() => import("./routes/SignIn"), FallbackSignIn);
-const AuthCallback = lazyOptional(() => import("./routes/AuthCallback"), FallbackAuthCb);
-const Logout = lazyOptional(() => import("./routes/Logout"), FallbackLogout);
-
-// User settings
-const Profile = lazyOptional(() => import("./routes/Profile"), FallbackProfile);
-const Settings = lazyOptional(() => import("./routes/Settings"), FallbackSettings);
-
-/* ---------- App shell ---------- */
 
 const PageSpinner: React.FC = () => (
-  <div className="grid h-40 place-items-center">
-    <div className="animate-pulse text-gray-500">Loading…</div>
+  <div className="grid min-h-[40vh] place-items-center text-sm text-gray-500">
+    Loading…
   </div>
 );
+
+/* ----------------- Routes (lazy) ----------------- */
+
+// ✅ Optional route: only load if the file exists (TSX or JSX)
+const MarketingHome = optionalLazy(
+  "./routes/MarketingHome.{tsx,jsx}",
+  FallbackMarketing
+);
+
+// Normal lazy routes (these should exist)
+const GuestDashboard = lazy(() => import("./routes/GuestDashboard"));
+const OwnerHome = lazy(() => import("./routes/OwnerHome"));
+const StaffHome = lazy(() => import("./routes/StaffHome"));
+const SignIn = lazy(() => import("./routes/SignIn"));
+const AuthCallback = lazy(() => import("./routes/AuthCallback"));
+const Profile = lazy(() => import("./routes/Profile"));
+const Settings = lazy(() => import("./routes/Settings"));
+const Logout = lazy(() => import("./routes/Logout"));
+
+/* ----------------- App Routes ----------------- */
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Suspense fallback={<PageSpinner />}>
-        {/* Header is optional and lazy-loaded */}
-        <Header />
-        {/* AccountBubble only renders on marketing home when you want it */}
-        <AccountBubble />
+    <Suspense fallback={<PageSpinner />}>
+      <Routes>
+        {/* Marketing (optional). If you’d rather skip marketing entirely,
+            swap this for: <Route path="/" element={<Navigate to="/guest" replace />} /> */}
+        <Route path="/" element={<MarketingHome />} />
 
-        <Suspense fallback={<PageSpinner />}>
-          <Routes>
-            {/* Marketing home */}
-            <Route path="/" element={<MarketingHome />} />
+        {/* App areas */}
+        <Route path="/guest" element={<GuestDashboard />} />
+        <Route path="/owner/*" element={<OwnerHome />} />
+        <Route path="/staff" element={<StaffHome />} />
 
-            {/* Guest */}
-            <Route path="/guest" element={<GuestDashboard />} />
+        {/* Auth & account */}
+        <Route path="/signin" element={<SignIn />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/logout" element={<Logout />} />
 
-            {/* Owner */}
-            <Route path="/owner" element={<OwnerConsole />} />
-            <Route path="/owner/:slug" element={<OwnerHome />} />
-
-            {/* Staff */}
-            <Route path="/staff" element={<StaffHome />} />
-
-            {/* Auth */}
-            <Route path="/signin" element={<SignIn />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/logout" element={<Logout />} />
-
-            {/* User settings */}
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/settings" element={<Settings />} />
-
-            {/* Fallback */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Suspense>
-      </Suspense>
-    </BrowserRouter>
+        {/* 404 → send people somewhere useful */}
+        <Route path="*" element={<Navigate to="/guest" replace />} />
+      </Routes>
+    </Suspense>
   );
 }

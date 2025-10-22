@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, memo } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { supabase } from "../../lib/supabase";
-import { API } from "../../lib/api";
+import { supabase } from "../lib/supabase";
+import { API } from "../lib/api";
 
 /* ======= QUICK AUTH GUARD (belt-and-suspenders) ======= */
 export default function GuestDashboard() {

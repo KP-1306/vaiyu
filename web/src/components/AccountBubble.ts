@@ -1,24 +1,20 @@
-// web/src/components/AccountBubble.tsx
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 
 /**
- * AccountBubble — compact avatar + dropdown for marketing pages.
- * - Shows ONLY on "/" (marketing) and hides if ?app=1 is present
+ * AccountBubble — compact avatar + dropdown for the marketing homepage.
+ * - Shows ONLY on "/" (marketing) and hides on other pages
  * - Subscribes to Supabase auth state AND storage events for cross-tab sync
- * - Provides "My trips" + "Sign out"
+ * - Provides "My trips" and "Sign out"
  */
 export default function AccountBubble() {
   const [email, setEmail] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
 
-  // Guard: show only on marketing homepage (/) and not when ?app=1
+  // Show only on marketing homepage ("/")
   const isMarketingOnly = useMemo(() => {
     if (typeof window === "undefined") return false;
-    const { pathname, search } = window.location;
-    const onMarketingHome = pathname === "/";
-    const isForcedApp = new URLSearchParams(search).get("app") === "1";
-    return onMarketingHome && !isForcedApp;
+    return window.location.pathname === "/";
   }, []);
 
   // Bootstrap current user and keep it in sync (auth listener + cross-tab storage)
@@ -39,9 +35,8 @@ export default function AccountBubble() {
     });
 
     const onStorage = (e: StorageEvent) => {
-      if (e.key && e.key.includes("supabase.auth.token")) {
-        init();
-      }
+      // Supabase swaps tokens across tabs; react when auth token changes
+      if (e.key && e.key.includes("supabase.auth.token")) init();
     };
     window.addEventListener("storage", onStorage);
 
@@ -57,14 +52,13 @@ export default function AccountBubble() {
 
   async function signOut() {
     await supabase.auth.signOut();
-    // Return to marketing (and bubble will disappear because email becomes null)
-    location.href = "/";
+    location.href = "/"; // back to marketing; bubble disappears
   }
 
   const initial = email?.[0]?.toUpperCase() ?? "U";
 
   return (
-    <div className="fixed top-3 right-3 z-50">
+    <div className="absolute right-3 top-3 z-50 md:right-4 md:top-4">
       <div className="relative">
         <button
           onClick={() => setOpen((v) => !v)}

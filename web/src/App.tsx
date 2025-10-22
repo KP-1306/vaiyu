@@ -11,17 +11,20 @@ import GlassBand_OnboardingSecurityIntegrations from "./components/GlassBand_Onb
 import LiveProductPeek from "./components/LiveProductPeek";
 import FAQShort from "./components/FAQShort";
 
-// Auth hardening hooks
+// Auth hardening hooks (keep if you’re using them)
 import { useIdleSignOut } from "./hooks/useIdleSignOut";
 import { useFocusAuthCheck } from "./hooks/useFocusAuthCheck";
 
 // Role context
 import { useRole } from "./context/RoleContext";
 
+// The tiny avatar bubble that shows only on the marketing home ("/")
+import AccountBubble from "./components/AccountBubble";
+
 const TOKEN_KEY = "stay:token";
 
 export default function App() {
-  // 🔒 enable auth hardening
+  // 🔒 optional hardening
   useIdleSignOut({ maxIdleMinutes: 180 });
   useFocusAuthCheck();
 
@@ -93,7 +96,7 @@ export default function App() {
   const [ownerSlug, setOwnerSlug] = useState<string | null>(null);
   const [staffSlug, setStaffSlug] = useState<string | null>(null);
   useEffect(() => {
-    // Prefer RoleContext slug; otherwise look at last selection in localStorage
+    // Prefer RoleContext slug; otherwise last selection in localStorage
     setOwnerSlug(current.hotelSlug || localStorage.getItem("owner:slug"));
     setStaffSlug(current.hotelSlug || localStorage.getItem("staff:slug"));
   }, [current.hotelSlug]);
@@ -196,7 +199,7 @@ export default function App() {
         }}
       />
 
-      {/* Top nav */}
+      {/* Top nav (marketing) */}
       <header className="sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-gray-100">
         <div className="mx-auto max-w-7xl px-4 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
@@ -215,33 +218,13 @@ export default function App() {
           </Link>
 
           <nav className="hidden md:flex items-center gap-6 text-sm">
-            <a href="#why" className="hover:text-gray-700">
-              Why VAiyu
-            </a>
-            <a href="#ai" className="hover:text-gray-700">
-              AI
-            </a>
-            <a href="#use-cases" className="hover:text-gray-700">
-              Use-cases
-            </a>
-            {isOwnerSide && (
-              <Link to={heroCtaForOwner} className="hover:text-gray-700">
-                For Hotels
-              </Link>
-            )}
-            {isStaffSide && (
-              <Link to={heroCtaForStaff} className="hover:text-gray-700">
-                Staff
-              </Link>
-            )}
-            <Link to="/about" className="hover:text-gray-700">
-              About
-            </Link>
-            {!isAuthed && (
-              <Link to="/signin?redirect=/guest" className="hover:text-gray-700">
-                Sign in
-              </Link>
-            )}
+            <a href="#why" className="hover:text-gray-700">Why VAiyu</a>
+            <a href="#ai" className="hover:text-gray-700">AI</a>
+            <a href="#use-cases" className="hover:text-gray-700">Use-cases</a>
+            {isOwnerSide && <Link to={heroCtaForOwner} className="hover:text-gray-700">For Hotels</Link>}
+            {isStaffSide && <Link to={heroCtaForStaff} className="hover:text-gray-700">Staff</Link>}
+            <Link to="/about" className="hover:text-gray-700">About</Link>
+            {!isAuthed && <Link to="/signin?redirect=/guest" className="hover:text-gray-700">Sign in</Link>}
           </nav>
 
           <div className="flex items-center gap-2">
@@ -262,13 +245,9 @@ export default function App() {
             )}
             {isAuthed ? (
               <>
-                <Link to="/guest" className="btn !py-2 !px-3 text-sm">
-                  My trips
-                </Link>
+                <Link to="/guest" className="btn !py-2 !px-3 text-sm">My trips</Link>
                 {/* Always route through /logout for reliable sign-out */}
-                <Link to="/logout" className="btn btn-light !py-2 !px-3 text-sm">
-                  Sign out
-                </Link>
+                <Link to="/logout" className="btn btn-light !py-2 !px-3 text-sm">Sign out</Link>
               </>
             ) : (
               <Link
@@ -280,6 +259,9 @@ export default function App() {
             )}
           </div>
         </div>
+
+        {/* Compact avatar bubble for the marketing page */}
+        <AccountBubble />
       </header>
 
       {/* Use-cases — hero carousel */}
@@ -290,9 +272,7 @@ export default function App() {
       {/* WHY */}
       <section id="why" className="mx-auto max-w-7xl px-4 py-14">
         <h2 className="text-2xl font-bold">The whole journey, upgraded</h2>
-        <p className="text-gray-600 mt-1">
-          Clear wins for guests, staff, owners, and your brand.
-        </p>
+        <p className="text-gray-600 mt-1">Clear wins for guests, staff, owners, and your brand.</p>
 
         <figure className="mt-6">
           <div className="rounded-3xl ring-1 ring-slate-200 bg-white overflow-hidden shadow-sm">
@@ -354,15 +334,9 @@ export default function App() {
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-3">
-                <Link to={`/owner/${ownerSlug}/revenue/adr`} className="btn">
-                  ADR
-                </Link>
-                <Link to={`/owner/${ownerSlug}/revenue/revpar`} className="btn btn-light">
-                  RevPAR
-                </Link>
-                <Link to={`/owner/${ownerSlug}/bookings/pickup`} className="btn btn-light">
-                  Pick-up (7 days)
-                </Link>
+                <Link to={`/owner/${ownerSlug}/revenue/adr`} className="btn">ADR</Link>
+                <Link to={`/owner/${ownerSlug}/revenue/revpar`} className="btn btn-light">RevPAR</Link>
+                <Link to={`/owner/${ownerSlug}/bookings/pickup`} className="btn btn-light">Pick-up (7 days)</Link>
               </div>
             </div>
           </div>
@@ -382,15 +356,9 @@ export default function App() {
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-3">
-                <Link to={`/owner/${ownerSlug}/hrms/attendance`} className="btn">
-                  Attendance
-                </Link>
-                <Link to={`/owner/${ownerSlug}/hrms/leaves`} className="btn btn-light">
-                  Leaves
-                </Link>
-                <Link to={`/owner/${ownerSlug}/hrms/staff`} className="btn btn-light">
-                  Staff
-                </Link>
+                <Link to={`/owner/${ownerSlug}/hrms/attendance`} className="btn">Attendance</Link>
+                <Link to={`/owner/${ownerSlug}/hrms/leaves`} className="btn btn-light">Leaves</Link>
+                <Link to={`/owner/${ownerSlug}/hrms/staff`} className="btn btn-light">Staff</Link>
               </div>
             </div>
           </div>
@@ -406,27 +374,14 @@ export default function App() {
                 <h3 className="text-lg font-semibold text-gray-900">Staff shortcuts</h3>
                 <p className="text-gray-600 text-sm mt-0.5">
                   Your core work areas{" "}
-                  {staffSlug ? (
-                    <>
-                      for <span className="font-medium">{staffSlug}</span>
-                    </>
-                  ) : null}
-                  .
+                  {staffSlug ? (<>for <span className="font-medium">{staffSlug}</span></>) : null}.
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-3">
-                <Link to="/desk" className="btn">
-                  Front Desk
-                </Link>
-                <Link to="/hk" className="btn btn-light">
-                  Housekeeping
-                </Link>
-                <Link to="/maint" className="btn btn-light">
-                  Maintenance
-                </Link>
-                <Link to="/staff/attendance" className="btn btn-light">
-                  My Attendance
-                </Link>
+                <Link to="/desk" className="btn">Front Desk</Link>
+                <Link to="/hk" className="btn btn-light">Housekeeping</Link>
+                <Link to="/maint" className="btn btn-light">Maintenance</Link>
+                <Link to="/staff/attendance" className="btn btn-light">My Attendance</Link>
               </div>
             </div>
           </div>
@@ -446,9 +401,7 @@ export default function App() {
               </p>
             </div>
             <div className="flex-shrink-0">
-              <Link to="/contact" className="btn">
-                Contact us
-              </Link>
+              <Link to="/contact" className="btn">Contact us</Link>
             </div>
           </div>
         </div>
@@ -459,40 +412,16 @@ export default function App() {
         <div className="mx-auto max-w-7xl px-4 py-8 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-3">
           <div>© {new Date().getFullYear()} VAiyu — Where Intelligence Meets Comfort.</div>
           <div className="flex items-center gap-4">
-            <Link className="hover:text-gray-800" to="/about-ai">
-              AI
-            </Link>
-            <a className="hover:text-gray-800" href="#why">
-              Why VAiyu
-            </a>
-            {isOwnerSide && (
-              <Link className="hover:text-gray-800" to={heroCtaForOwner}>
-                For Hotels
-              </Link>
-            )}
-            {isStaffSide && (
-              <Link className="hover:text-gray-800" to={heroCtaForStaff}>
-                Staff
-              </Link>
-            )}
-            <Link className="hover:text-gray-800" to="/about">
-              About
-            </Link>
-            <Link className="hover:text-gray-800" to="/press">
-              Press
-            </Link>
-            <Link className="hover:text-gray-800" to="/privacy">
-              Privacy
-            </Link>
-            <Link className="hover:text-gray-800" to="/terms">
-              Terms
-            </Link>
-            <Link className="hover:text-gray-800" to="/contact">
-              Contact
-            </Link>
-            <Link className="hover:text-gray-800" to="/careers">
-              Careers
-            </Link>
+            <Link className="hover:text-gray-800" to="/about-ai">AI</Link>
+            <a className="hover:text-gray-800" href="#why">Why VAiyu</a>
+            {isOwnerSide && <Link className="hover:text-gray-800" to={heroCtaForOwner}>For Hotels</Link>}
+            {isStaffSide && <Link className="hover:text-gray-800" to={heroCtaForStaff}>Staff</Link>}
+            <Link className="hover:text-gray-800" to="/about">About</Link>
+            <Link className="hover:text-gray-800" to="/press">Press</Link>
+            <Link className="hover:text-gray-800" to="/privacy">Privacy</Link>
+            <Link className="hover:text-gray-800" to="/terms">Terms</Link>
+            <Link className="hover:text-gray-800" to="/contact">Contact</Link>
+            <Link className="hover:text-gray-800" to="/careers">Careers</Link>
           </div>
         </div>
       </footer>

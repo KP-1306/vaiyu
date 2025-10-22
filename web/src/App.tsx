@@ -1,33 +1,25 @@
-// web/src/App.tsx
 import React, { Suspense, lazy } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
 /**
- * optionalLazy(pattern, Fallback)
- *  - Tries to find a matching file for the given Vite glob pattern.
- *  - If found, lazy-loads it.
- *  - If NOT found, returns a lazy component that renders the provided Fallback.
+ * optionalFromGlob(globRecord, Fallback)
+ * - Accepts the record returned by a literal import.meta.glob() call
+ * - If there is a match, lazy-loads it; else returns a lazy fallback
  *
- * Why: static `import()` must resolve at build time; if the file is missing, build fails.
- * `import.meta.glob` returns {} (empty) when nothing matches, which is safe.
+ * NOTE: Vite requires import.meta.glob() args to be *string literals*.
+ * We pass the record produced by the literal call into this helper.
  */
-function optionalLazy<T extends React.ComponentType<any>>(
-  pattern: string,
+function optionalFromGlob<T extends React.ComponentType<any>>(
+  globRecord: Record<string, () => Promise<{ default: T }>>,
   Fallback: T
 ) {
-  // Vite-only API. At build time, it expands into a map of possible modules.
-  const matches = import.meta.glob<{ default: T }>(pattern);
-
-  const first = Object.values(matches)[0];
+  const first = Object.values(globRecord)[0];
   if (first) {
-    // Found a file — load it lazily.
     return lazy(async () => {
       const mod = await first();
       return { default: (mod as any).default ?? (mod as any) };
     });
   }
-
-  // No file matched — return a lazy component that just renders <Fallback />.
   return lazy(async () => ({ default: Fallback }));
 }
 
@@ -37,10 +29,17 @@ const FallbackMarketing: React.FC = () => (
   <main className="mx-auto max-w-3xl px-4 py-16">
     <h1 className="text-2xl font-semibold">VAiyu</h1>
     <p className="mt-2 text-gray-600">
-      Marketing page is not available in this build. You’re seeing a safe
-      fallback. (Add <code>web/src/routes/MarketingHome.tsx</code> to enable a
-      full marketing homepage.)
+      Marketing page is not included in this build. Add{" "}
+      <code>web/src/routes/MarketingHome.tsx</code> to enable it.
     </p>
+    <div className="mt-6">
+      <a
+        href="/guest"
+        className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+      >
+        Go to my trips
+      </a>
+    </div>
   </main>
 );
 
@@ -52,13 +51,15 @@ const PageSpinner: React.FC = () => (
 
 /* ----------------- Routes (lazy) ----------------- */
 
-// ✅ Optional route: only load if the file exists (TSX or JSX)
-const MarketingHome = optionalLazy(
-  "./routes/MarketingHome.{tsx,jsx}",
+// ✅ Optional/marketing: use a *literal* glob and pass its record
+const MarketingHome = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/MarketingHome.{tsx,jsx}"
+  ),
   FallbackMarketing
 );
 
-// Normal lazy routes (these should exist)
+// Normal lazy routes (these files should exist)
 const GuestDashboard = lazy(() => import("./routes/GuestDashboard"));
 const OwnerHome = lazy(() => import("./routes/OwnerHome"));
 const StaffHome = lazy(() => import("./routes/StaffHome"));
@@ -74,8 +75,8 @@ export default function App() {
   return (
     <Suspense fallback={<PageSpinner />}>
       <Routes>
-        {/* Marketing (optional). If you’d rather skip marketing entirely,
-            swap this for: <Route path="/" element={<Navigate to="/guest" replace />} /> */}
+        {/* If you want to *skip* marketing entirely, replace this with:
+             <Route path="/" element={<Navigate to="/guest" replace />} /> */}
         <Route path="/" element={<MarketingHome />} />
 
         {/* App areas */}

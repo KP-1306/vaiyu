@@ -1,11 +1,7 @@
 import React, { Suspense, lazy } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
-/**
- * optionalFromGlob(globRecord, Fallback)
- * Accepts the record returned by a *literal* import.meta.glob() call.
- * If a match exists, lazy-loads it; else returns a lazy fallback.
- */
+/** Helper: optional lazy import from a literal glob + fallback */
 function optionalFromGlob<T extends React.ComponentType<any>>(
   globRecord: Record<string, () => Promise<{ default: T }>>,
   Fallback: T
@@ -20,7 +16,7 @@ function optionalFromGlob<T extends React.ComponentType<any>>(
   return lazy(async () => ({ default: Fallback }));
 }
 
-/* ---------------- Fallbacks & shared UI ---------------- */
+/* --------- Small shared UI ---------- */
 
 const PageSpinner: React.FC = () => (
   <div className="grid min-h-[40vh] place-items-center text-sm text-gray-500">
@@ -28,12 +24,18 @@ const PageSpinner: React.FC = () => (
   </div>
 );
 
-const FallbackMarketing: React.FC = () => (
+const FallbackPage: React.FC<{ title: string; hint?: string }> = ({ title, hint }) => (
+  <main className="mx-auto max-w-3xl px-4 py-10">
+    <h1 className="text-xl font-semibold">{title}</h1>
+    {hint ? <p className="mt-2 text-gray-600">{hint}</p> : null}
+  </main>
+);
+
+const FallbackMarketing = () => (
   <main className="mx-auto max-w-3xl px-4 py-16">
     <h1 className="text-2xl font-semibold">VAiyu</h1>
     <p className="mt-2 text-gray-600">
-      Marketing page is not included in this build.
-      Add <code>web/src/routes/MarketingHome.tsx</code> to enable it.
+      Marketing page is not included in this build. Add <code>web/src/routes/MarketingHome.tsx</code> to enable it.
     </p>
     <div className="mt-6">
       <a
@@ -46,19 +48,9 @@ const FallbackMarketing: React.FC = () => (
   </main>
 );
 
-const FallbackStaff: React.FC = () => (
-  <main className="mx-auto max-w-3xl px-4 py-10">
-    <h1 className="text-xl font-semibold">Staff workspace</h1>
-    <p className="mt-2 text-gray-600">
-      Staff workspace is not part of this build. To enable it, add{" "}
-      <code>web/src/routes/StaffHome.tsx</code>.
-    </p>
-  </main>
-);
+/* --------- Optional routes (hardened) ---------- */
 
-/* ---------------- Routes (lazy/optional) ---------------- */
-
-/** Optional marketing: literal glob + fallback */
+// Marketing
 const MarketingHome = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
     "./routes/MarketingHome.{tsx,jsx}"
@@ -66,31 +58,54 @@ const MarketingHome = optionalFromGlob(
   FallbackMarketing
 );
 
-/** Optional staff: literal glob + fallback (prevents build failure) */
+// Staff
 const StaffHome = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
     "./routes/StaffHome.{tsx,jsx}"
   ),
-  FallbackStaff
+  () => <FallbackPage title="Staff workspace" hint="Add web/src/routes/StaffHome.tsx to enable this page." />
 );
 
-/** Regular routes that should exist */
+// Settings
+const Settings = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/Settings.{tsx,jsx}"
+  ),
+  () => <FallbackPage title="Settings" hint="Add web/src/routes/Settings.tsx to enable this page." />
+);
+
+// Profile
+const Profile = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/Profile.{tsx,jsx}"
+  ),
+  () => <FallbackPage title="Profile" hint="Add web/src/routes/Profile.tsx to enable this page." />
+);
+
+// Logout
+const Logout = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/Logout.{tsx,jsx}"
+  ),
+  () => <FallbackPage title="Sign out" hint="Add web/src/routes/Logout.tsx to enable this page." />
+);
+
+/* --------- Required routes (keep as-is if they exist) ---------- */
+/* If you want *maximum* hardening, you can convert these to optionalFromGlob too. */
+
 const GuestDashboard = lazy(() => import("./routes/GuestDashboard"));
 const OwnerHome = lazy(() => import("./routes/OwnerHome"));
 const SignIn = lazy(() => import("./routes/SignIn"));
 const AuthCallback = lazy(() => import("./routes/AuthCallback"));
-const Profile = lazy(() => import("./routes/Profile"));
-const Settings = lazy(() => import("./routes/Settings"));
-const Logout = lazy(() => import("./routes/Logout"));
 
-/* ---------------- App ---------------- */
+/* --------- App ---------- */
 
 export default function App() {
   return (
     <Suspense fallback={<PageSpinner />}>
       <Routes>
-        {/* If you prefer to skip marketing entirely: 
-             <Route path="/" element={<Navigate to="/guest" replace />} /> */}
+        {/* Prefer one home. If you want marketing as home, keep this.
+           If you want guest as home, swap to: <Route path="/" element={<Navigate to="/guest" replace />} /> */}
         <Route path="/" element={<MarketingHome />} />
 
         <Route path="/guest" element={<GuestDashboard />} />
@@ -103,7 +118,7 @@ export default function App() {
         <Route path="/settings" element={<Settings />} />
         <Route path="/logout" element={<Logout />} />
 
-        {/* 404 → send people somewhere useful */}
+        {/* 404 */}
         <Route path="*" element={<Navigate to="/guest" replace />} />
       </Routes>
     </Suspense>

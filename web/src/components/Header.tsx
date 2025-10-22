@@ -1,58 +1,28 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
 import AccountControls from "./AccountControls";
 import { supabase } from "../lib/supabase";
-import { getMyMemberships, loadPersistedRole, PersistedRole } from "../lib/auth";
-
-type Membership = {
-  hotelSlug: string | null;
-  hotelName: string | null;
-  role: "viewer" | "staff" | "manager" | "owner";
-};
-
-function pickDefaultLanding(
-  mems: Membership[],
-  persisted: PersistedRole | null
-): { href: string; label: string } {
-  // Always land users somewhere useful; but we don't surface console buttons here.
-  if (persisted?.role === "owner" && persisted.hotelSlug) {
-    return { href: `/owner/${persisted.hotelSlug}`, label: "My trips" };
-  }
-  if (persisted?.role === "manager" && persisted.hotelSlug) {
-    return { href: `/owner/${persisted.hotelSlug}`, label: "My trips" };
-  }
-  if (persisted?.role === "staff") {
-    return { href: `/guest`, label: "My trips" };
-  }
-  return { href: `/guest`, label: "My trips" };
-}
 
 export default function Header() {
-  const navigate = useNavigate();
   const { pathname } = useLocation();
 
   const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [memberships, setMemberships] = useState<Membership[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let alive = true;
+
     (async () => {
       setLoading(true);
-      const { data } = await supabase.auth.getUser();
-      const email = data?.user?.email ?? null;
-      const mems = email ? await getMyMemberships() : [];
+      const { data } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
       if (!alive) return;
-      setUserEmail(email);
-      setMemberships(mems);
+      setUserEmail(data?.user?.email ?? null);
       setLoading(false);
     })();
 
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
-      const email = session?.user?.email ?? null;
-      setUserEmail(email);
-      if (!email) setMemberships([]);
-      else getMyMemberships().then(setMemberships);
+      setUserEmail(session?.user?.email ?? null);
+      setLoading(false);
     });
 
     return () => {
@@ -60,9 +30,6 @@ export default function Header() {
       sub.subscription.unsubscribe();
     };
   }, []);
-
-  const persisted = useMemo(() => loadPersistedRole(), []);
-  const cta = useMemo(() => pickDefaultLanding(memberships, persisted), [memberships, persisted]);
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-white/90 backdrop-blur">
@@ -74,6 +41,7 @@ export default function Header() {
           </span>
         </Link>
 
+        {/* Primary nav (marketing) */}
         <nav className="ml-6 hidden gap-4 text-sm md:flex">
           <Link to="/why">Why VAiyu</Link>
           <Link to="/ai">AI</Link>
@@ -82,13 +50,9 @@ export default function Header() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
-          {!loading && userEmail ? (
-            <button
-              onClick={() => navigate(cta.href)}
-              className="rounded-full bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              {cta.label}
-            </button>
+          {/* While loading, render nothing here to avoid flicker */}
+          {loading ? null : userEmail ? (
+            <AccountControls className="ml-1" displayName={userEmail.split("@")[0]} />
           ) : (
             <Link
               to="/signin?intent=signin&redirect=/guest"
@@ -96,10 +60,6 @@ export default function Header() {
             >
               Sign in
             </Link>
-          )}
-
-          {!loading && userEmail && (
-            <AccountControls className="ml-1" displayName={userEmail.split("@")[0]} />
           )}
         </div>
       </div>

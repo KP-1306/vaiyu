@@ -197,91 +197,12 @@ export default function MarketingHome() {
         }}
       />
 
-      {/* Top nav */}
-      <header className="sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-gray-100">
-        <div className="mx-auto max-w-7xl px-4 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <img
-              src="/brand/vaiyu-logo.png"
-              alt="VAiyu"
-              className="h-8 w-auto hidden sm:block"
-              onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")}
-            />
-            <span
-              className="sm:hidden inline-block h-8 w-8 rounded-xl"
-              style={{ background: "var(--brand, #145AF2)" }}
-              aria-hidden
-            />
-            <span className="font-semibold text-lg tracking-tight">VAiyu</span>
-          </Link>
-
-          <nav className="hidden md:flex items-center gap-6 text-sm">
-            <a href="#why" className="hover:text-gray-700">
-              Why VAiyu
-            </a>
-            <a href="#ai" className="hover:text-gray-700">
-              AI
-            </a>
-            <a href="#use-cases" className="hover:text-gray-700">
-              Use-cases
-            </a>
-            {isOwnerSide && (
-              <Link to={heroCtaForOwner} className="hover:text-gray-700">
-                For Hotels
-              </Link>
-            )}
-            {isStaffSide && (
-              <Link to={heroCtaForStaff} className="hover:text-gray-700">
-                Staff
-              </Link>
-            )}
-            <Link to="/about" className="hover:text-gray-700">
-              About
-            </Link>
-            {!isAuthed && (
-              <Link to="/signin?redirect=/guest" className="hover:text-gray-700">
-                Sign in
-              </Link>
-            )}
-          </nav>
-
-          <div className="flex items-center gap-2">
-            {hasToken && (
-              <Link to="/guest" className="btn btn-light !py-2 !px-3 text-sm">
-                My credits
-              </Link>
-            )}
-            {isOwnerSide && (
-              <Link to={heroCtaForOwner} className="btn btn-light !py-2 !px-3 text-sm">
-                Owner console
-              </Link>
-            )}
-            {isStaffSide && (
-              <Link to={heroCtaForStaff} className="btn btn-light !py-2 !px-3 text-sm">
-                Staff workspace
-              </Link>
-            )}
-            {isAuthed ? (
-              <>
-                <Link to="/guest" className="btn !py-2 !px-3 text-sm">
-                  My trips
-                </Link>
-                {/* Always route through /logout for reliable sign-out */}
-                <Link to="/logout" className="btn btn-light !py-2 !px-3 text-sm">
-                  Sign out
-                </Link>
-              </>
-            ) : (
-              <Link
-                to="/signin?intent=signup&redirect=/guest"
-                className="btn !py-2 !px-3 text-sm"
-              >
-                Get started
-              </Link>
-            )}
-          </div>
-        </div>
-      </header>
+      {/*
+        IMPORTANT:
+        - No page-level header here.
+        - No absolute/fixed top-right account buttons.
+        - The global <Header> will render the avatar & account menu.
+      */}
 
       {/* Use-cases — hero carousel */}
       <section id="use-cases" className="mx-auto max-w-7xl px-4 py-6 scroll-mt-24">

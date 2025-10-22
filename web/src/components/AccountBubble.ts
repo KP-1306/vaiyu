@@ -1,23 +1,27 @@
+// web/src/components/AccountBubble.tsx
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 
 /**
- * Compact avatar bubble for the public homepage.
- * - Renders only on "/" and only when the user is signed in
- * - Never appears for logged-out visitors, so no “app” hints for true guests
+ * AccountBubble — compact avatar + dropdown for marketing pages.
+ * - Shows ONLY on "/" (marketing) and hides if ?app=1 is present
+ * - Subscribes to Supabase auth state AND storage events for cross-tab sync
+ * - Provides "My trips" + "Sign out"
  */
 export default function AccountBubble() {
   const [email, setEmail] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
 
+  // Guard: show only on marketing homepage (/) and not when ?app=1
   const isMarketingOnly = useMemo(() => {
     if (typeof window === "undefined") return false;
     const { pathname, search } = window.location;
     const onMarketingHome = pathname === "/";
-    const forcedApp = new URLSearchParams(search).get("app") === "1";
-    return onMarketingHome && !forcedApp;
+    const isForcedApp = new URLSearchParams(search).get("app") === "1";
+    return onMarketingHome && !isForcedApp;
   }, []);
 
+  // Bootstrap current user and keep it in sync (auth listener + cross-tab storage)
   useEffect(() => {
     let mounted = true;
 
@@ -26,6 +30,7 @@ export default function AccountBubble() {
       if (!mounted) return;
       setEmail(data?.user?.email ?? null);
     };
+
     init();
 
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, sess) => {
@@ -34,7 +39,9 @@ export default function AccountBubble() {
     });
 
     const onStorage = (e: StorageEvent) => {
-      if (e.key && e.key.includes("supabase.auth.token")) init();
+      if (e.key && e.key.includes("supabase.auth.token")) {
+        init();
+      }
     };
     window.addEventListener("storage", onStorage);
 
@@ -45,11 +52,12 @@ export default function AccountBubble() {
     };
   }, []);
 
-  // Hidden for logged-out users or off the homepage
+  // Hide entirely if not on marketing OR not signed in
   if (!isMarketingOnly || !email) return null;
 
   async function signOut() {
     await supabase.auth.signOut();
+    // Return to marketing (and bubble will disappear because email becomes null)
     location.href = "/";
   }
 
@@ -79,11 +87,11 @@ export default function AccountBubble() {
           >
             <a
               role="menuitem"
-              href="/?app=1"
+              href="/guest"
               className="block px-3 py-2 text-sm hover:bg-gray-50"
               onClick={() => setOpen(false)}
             >
-              Open app
+              My trips
             </a>
             <button
               role="menuitem"

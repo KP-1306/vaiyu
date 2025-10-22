@@ -1,4 +1,3 @@
-// web/src/components/Header.tsx
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import AccountControls from "./AccountControls";
@@ -15,28 +14,16 @@ function pickDefaultLanding(
   mems: Membership[],
   persisted: PersistedRole | null
 ): { href: string; label: string } {
-  // 1) Persisted role preference wins
+  // Always land users somewhere useful; but we don't surface console buttons here.
   if (persisted?.role === "owner" && persisted.hotelSlug) {
-    return { href: `/owner/${persisted.hotelSlug}`, label: "Owner console" };
+    return { href: `/owner/${persisted.hotelSlug}`, label: "My trips" };
   }
   if (persisted?.role === "manager" && persisted.hotelSlug) {
-    return { href: `/owner/${persisted.hotelSlug}`, label: "Property console" };
+    return { href: `/owner/${persisted.hotelSlug}`, label: "My trips" };
   }
-  if (persisted?.role === "staff" && persisted.hotelSlug) {
-    return { href: `/staff`, label: "Staff workspace" };
+  if (persisted?.role === "staff") {
+    return { href: `/guest`, label: "My trips" };
   }
-
-  // 2) Otherwise pick best membership
-  const owner = mems.find((m) => m.role === "owner" && m.hotelSlug);
-  if (owner?.hotelSlug) return { href: `/owner/${owner.hotelSlug}`, label: "Owner console" };
-
-  const mgr = mems.find((m) => m.role === "manager" && m.hotelSlug);
-  if (mgr?.hotelSlug) return { href: `/owner/${mgr.hotelSlug}`, label: "Property console" };
-
-  const staff = mems.find((m) => m.role === "staff");
-  if (staff) return { href: `/staff`, label: "Staff workspace" };
-
-  // 3) Fallback: guest
   return { href: `/guest`, label: "My trips" };
 }
 
@@ -50,7 +37,6 @@ export default function Header() {
 
   useEffect(() => {
     let alive = true;
-
     (async () => {
       setLoading(true);
       const { data } = await supabase.auth.getUser();
@@ -78,14 +64,8 @@ export default function Header() {
   const persisted = useMemo(() => loadPersistedRole(), []);
   const cta = useMemo(() => pickDefaultLanding(memberships, persisted), [memberships, persisted]);
 
-  const showOwnerConsoleButton = useMemo(
-    () => memberships.some((m) => m.role === "owner" || m.role === "manager"),
-    [memberships]
-  );
-
   return (
-    // NOTE: z-50 keeps header above any hero/slider content.
-    <header className="sticky top-0 z-50 w-full border-b bg-white/90 backdrop-blur">
+    <header className="sticky top-0 z-40 w-full border-b bg-white/90 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-4">
         <Link to="/" className="font-semibold">
           <span className="inline-flex items-center gap-2">
@@ -94,7 +74,6 @@ export default function Header() {
           </span>
         </Link>
 
-        {/* Primary nav */}
         <nav className="ml-6 hidden gap-4 text-sm md:flex">
           <Link to="/why">Why VAiyu</Link>
           <Link to="/ai">AI</Link>
@@ -103,13 +82,6 @@ export default function Header() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
-          {!loading && userEmail && showOwnerConsoleButton && (
-            <Link to="/owner" className="hidden rounded-full border px-3 py-1.5 text-sm md:inline-block">
-              Owner console
-            </Link>
-          )}
-
-          {/* Role-aware CTA */}
           {!loading && userEmail ? (
             <button
               onClick={() => navigate(cta.href)}
@@ -126,14 +98,12 @@ export default function Header() {
             </Link>
           )}
 
-          {/* Avatar / account menu */}
           {!loading && userEmail && (
             <AccountControls className="ml-1" displayName={userEmail.split("@")[0]} />
           )}
         </div>
       </div>
 
-      {/* Optional: tiny hint bar on marketing home */}
       {pathname === "/" && userEmail && (
         <div className="border-t bg-blue-50 text-center text-xs text-blue-900">
           You’re signed in as <strong>{userEmail}</strong>

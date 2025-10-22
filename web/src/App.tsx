@@ -1,6 +1,7 @@
 // web/src/App.tsx
 import React, { Suspense, lazy } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
+import Header from "./components/Header";
 
 /** Helper: optional lazy import from a literal glob + fallback */
 function optionalFromGlob<T extends React.ComponentType<any>>(
@@ -124,24 +125,30 @@ const AuthCallback = lazy(() => import("./routes/AuthCallback"));
 export default function App() {
   return (
     <Suspense fallback={<PageSpinner />}>
-      <Routes>
-        {/* If you want the app to land directly on /guest, change this line to:
-            <Route path="/" element={<Navigate to="/guest" replace />} /> */}
-        <Route path="/" element={<MarketingHome />} />
+      {/* Global layout: header once, routes below */}
+      <div className="min-h-screen bg-white flex flex-col">
+        <Header />
+        <main className="flex-1">
+          <Routes>
+            {/* To land directly on /guest, swap the next line for:
+                <Route path="/" element={<Navigate to="/guest" replace />} /> */}
+            <Route path="/" element={<MarketingHome />} />
 
-        <Route path="/guest" element={<GuestDashboard />} />
-        <Route path="/owner/*" element={<OwnerHome />} />
-        <Route path="/staff" element={<StaffHome />} />
+            <Route path="/guest" element={<GuestDashboard />} />
+            <Route path="/owner/*" element={<OwnerHome />} />
+            <Route path="/staff" element={<StaffHome />} />
 
-        <Route path="/signin" element={<SignIn />} />
-        <Route path="/auth/callback" element={<AuthCallback />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route path="/logout" element={<Logout />} />
+            <Route path="/signin" element={<SignIn />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/logout" element={<Logout />} />
 
-        {/* 404 */}
-        <Route path="*" element={<Navigate to="/guest" replace />} />
-      </Routes>
+            {/* 404 */}
+            <Route path="*" element={<Navigate to="/guest" replace />} />
+          </Routes>
+        </main>
+      </div>
     </Suspense>
   );
 }

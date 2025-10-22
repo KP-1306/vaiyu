@@ -1,4 +1,3 @@
-// web/src/components/Header.tsx
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import AccountControls from "./AccountControls";
@@ -48,22 +47,19 @@ export default function Header() {
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Load session once and keep it in sync
+  // show account/CTA when signed in
   useEffect(() => {
     let alive = true;
-
-    const bootstrap = async () => {
+    (async () => {
       setLoading(true);
-      const { data } = await supabase.auth.getSession();
-      const email = data?.session?.user?.email ?? null;
+      const { data } = await supabase.auth.getUser();
+      const email = data?.user?.email ?? null;
       const mems = email ? await getMyMemberships() : [];
       if (!alive) return;
       setUserEmail(email);
       setMemberships(mems);
       setLoading(false);
-    };
-
-    bootstrap();
+    })();
 
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
       const email = session?.user?.email ?? null;
@@ -92,7 +88,6 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-white/90 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-4">
-        {/* Logo */}
         <Link to="/" className="font-semibold">
           <span className="inline-flex items-center gap-2">
             <img src="/logo.svg" alt="VAiyu" className="h-6 w-6" />
@@ -100,7 +95,7 @@ export default function Header() {
           </span>
         </Link>
 
-        {/* Primary nav (marketing) */}
+        {/* Primary nav (marketing links shown across) */}
         <nav className="ml-6 hidden gap-4 text-sm md:flex">
           <Link to="/why">Why VAiyu</Link>
           <Link to="/ai">AI</Link>
@@ -108,17 +103,14 @@ export default function Header() {
           <Link to="/about">About</Link>
         </nav>
 
-        {/* Right side: CTA + Avatar */}
         <div className="ml-auto flex items-center gap-2">
           {!loading && userEmail && showOwnerConsoleButton && (
-            <Link
-              to="/owner"
-              className="hidden rounded-full border px-3 py-1.5 text-sm md:inline-block"
-            >
+            <Link to="/owner" className="hidden rounded-full border px-3 py-1.5 text-sm md:inline-block">
               Owner console
             </Link>
           )}
 
+          {/* Role-aware CTA */}
           {!loading && userEmail ? (
             <button
               onClick={() => navigate(cta.href)}
@@ -135,14 +127,14 @@ export default function Header() {
             </Link>
           )}
 
-          {/* Avatar / account menu: ALWAYS when signed in */}
+          {/* Avatar / account menu */}
           {!loading && userEmail && (
             <AccountControls className="ml-1" displayName={userEmail.split("@")[0]} />
           )}
         </div>
       </div>
 
-      {/* Tiny signed-in hint only on marketing / */}
+      {/* Optional: tiny marketing hint bar */}
       {pathname === "/" && userEmail && (
         <div className="border-t bg-blue-50 text-center text-xs text-blue-900">
           You’re signed in as <strong>{userEmail}</strong>

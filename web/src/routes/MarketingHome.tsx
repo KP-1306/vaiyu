@@ -19,21 +19,17 @@ import { useFocusAuthCheck } from "../hooks/useFocusAuthCheck";
 // Role context (safe to keep; it only helps tailor a few CTAs)
 import { useRole } from "../context/RoleContext";
 
-/** ---------------- Small welcome ribbon ----------------
- * Shows only when the user is signed in.
- * Uses the first-part of the email (before '@') as a light "name".
- */
-function WelcomeRibbon({ email }: { email: string | null }) {
-  if (!email) return null;
-  const first = email.split("@")[0] || email;
-  return (
-    <div className="border-b bg-blue-50 text-center text-xs text-blue-900">
-      You’re signed in as <strong>{first}</strong>
-    </div>
-  );
-}
-
 const TOKEN_KEY = "stay:token";
+
+// Make a friendly name from email-like strings (e.g., "kapil.bisht" -> "Kapil Bisht")
+function prettyNameFromEmail(email: string | null): string | null {
+  if (!email) return null;
+  const raw = email.split("@")[0] || email;
+  const parts = raw.split(/[\W_]+/).filter(Boolean);
+  if (!parts.length) return raw;
+  const cased = parts.map((p) => p.charAt(0).toUpperCase() + p.slice(1));
+  return cased.join(" ");
+}
 
 export default function MarketingHome() {
   // Optional: keep your auth hardening
@@ -62,6 +58,7 @@ export default function MarketingHome() {
     };
   }, []);
   const isAuthed = !!userEmail;
+  const displayName = prettyNameFromEmail(userEmail);
 
   /** ---------- Token presence (if you show credits somewhere) ---------- */
   const [hasToken, setHasToken] = useState<boolean>(() => !!localStorage.getItem(TOKEN_KEY));
@@ -99,8 +96,7 @@ export default function MarketingHome() {
         id: "ai-hero",
         headline: "Where Intelligence Meets Comfort",
         sub: "AI turns live stay activity into faster service and delightful guest journeys.",
-        // CTA kept neutral; header avatar handles account actions
-        cta: isAuthed ? { label: "Learn more", href: "#why" } : { label: "Learn more", href: "#why" },
+        cta: { label: "Learn more", href: "#why" },
         variant: "photo",
         img: "/hero/ai-hero.png",
         imgAlt: "AI hero background",
@@ -155,7 +151,7 @@ export default function MarketingHome() {
         imgAlt: "Owner console KPIs on monitor",
       },
     ],
-    [isAuthed, isOwnerSide, isStaffSide, ownerHomeHref, staffHomeHref]
+    [isOwnerSide, isStaffSide, ownerHomeHref, staffHomeHref]
   );
 
   const site =
@@ -163,9 +159,6 @@ export default function MarketingHome() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      {/* Friendly signed-in ribbon (only renders when userEmail is set) */}
-      <WelcomeRibbon email={userEmail} />
-
       {/* SEO */}
       <SEO
         title="VAiyu — AI OS for Hotels"
@@ -183,8 +176,17 @@ export default function MarketingHome() {
         }}
       />
 
-      {/* HERO / Use-cases carousel */}
-      <section id="use-cases" className="mx-auto max-w-7xl px-4 py-6 scroll-mt-24">
+      {/* HERO welcome chip + carousel */}
+      <section id="use-cases" className="mx-auto max-w-7xl px-4 pt-4 pb-6 scroll-mt-24">
+        {/* --- Super friendly welcome (only when signed in) --- */}
+        {displayName && (
+          <div className="relative z-10 -mb-4 flex justify-center">
+            <div className="rounded-full bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 px-4 py-2 text-white text-sm shadow-lg ring-1 ring-white/30">
+              👋 Welcome back, <strong className="font-semibold">{displayName}</strong>!
+            </div>
+          </div>
+        )}
+
         <HeroCarousel slides={slides} />
       </section>
 

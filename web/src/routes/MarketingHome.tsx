@@ -19,6 +19,20 @@ import { useFocusAuthCheck } from "../hooks/useFocusAuthCheck";
 // Role context (safe to keep; it only helps tailor a few CTAs)
 import { useRole } from "../context/RoleContext";
 
+/** ---------------- Small welcome ribbon ----------------
+ * Shows only when the user is signed in.
+ * Uses the first-part of the email (before '@') as a light "name".
+ */
+function WelcomeRibbon({ email }: { email: string | null }) {
+  if (!email) return null;
+  const first = email.split("@")[0] || email;
+  return (
+    <div className="border-b bg-blue-50 text-center text-xs text-blue-900">
+      You’re signed in as <strong>{first}</strong>
+    </div>
+  );
+}
+
 const TOKEN_KEY = "stay:token";
 
 export default function MarketingHome() {
@@ -149,6 +163,9 @@ export default function MarketingHome() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
+      {/* Friendly signed-in ribbon (only renders when userEmail is set) */}
+      <WelcomeRibbon email={userEmail} />
+
       {/* SEO */}
       <SEO
         title="VAiyu — AI OS for Hotels"

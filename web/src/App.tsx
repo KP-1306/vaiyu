@@ -1,58 +1,76 @@
 // web/src/App.tsx
-import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
+import { Suspense, lazy } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+
 import Header from "./components/Header";
+import AccountBubble from "./components/AccountBubble";
 
-// Routes / screens (use your existing implementations)
-import HomeGate from "./routes/HomeGate";               // "/" — redirects when authed; shows light marketing when signed out
-import GuestDashboard from "./routes/GuestDashboard";   // "/guest"
-import OwnerHome from "./routes/OwnerHome";             // "/owner", "/owner/:slug/*"
-import StaffHome from "./routes/StaffHome";             // "/staff/*"
+// Unified home (marketing when signed out; auto-redirect when signed in)
+import HomeGate from "./routes/HomeGate";
 
-import Profile from "./routes/Profile";                 // "/profile"
-import Settings from "./routes/Settings";               // "/settings"
-import SignIn from "./routes/SignIn";                   // "/signin"
-import AuthCallback from "./routes/AuthCallback";       // "/auth/callback"
-import Logout from "./routes/Logout";                   // "/logout"
-import NotFound from "./routes/NotFound";               // 404
+// Lazy routes (all paths are relative to /src and use "./routes/...")
+const OwnerHome = lazy(() => import("./routes/OwnerHome"));
+const StaffHome = lazy(() => import("./routes/StaffHome"));
+const GuestDashboard = lazy(() => import("./routes/GuestDashboard"));
+const SignIn = lazy(() => import("./routes/SignIn"));
+const AuthCallback = lazy(() => import("./routes/AuthCallback"));
+const Logout = lazy(() => import("./routes/Logout"));
+const Profile = lazy(() => import("./routes/Profile"));
+const Settings = lazy(() => import("./routes/Settings"));
+const NotFound = lazy(() => import("./routes/NotFound"));
 
-function Layout() {
-  return (
-    <div className="min-h-screen bg-white text-gray-900">
-      <Header />
-      <Outlet />
-    </div>
-  );
-}
-
+/**
+ * App
+ * - "/" shows marketing if signed out, otherwise forwards to the best console
+ * - "/owner" lists properties; "/owner/:slug" opens a single property console
+ * - "/staff" staff workspace
+ * - "/guest" guest dashboard
+ * - auth helpers: "/signin", "/auth/callback", "/logout"
+ * - profile/settings
+ */
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route element={<Layout />}>
-          {/* Single-home gate at "/" */}
-          <Route index element={<HomeGate />} />
+      <Header />
+      <AccountBubble />
 
-          {/* Core app surfaces */}
+      <Suspense fallback={<Fallback />}>
+        <Routes>
+          {/* Unified home gate */}
+          <Route path="/" element={<HomeGate />} />
+
+          {/* Owner */}
+          <Route path="/owner" element={<OwnerHome />} />
+          <Route path="/owner/:slug" element={<OwnerHome />} />
+
+          {/* Staff */}
+          <Route path="/staff" element={<StaffHome />} />
+
+          {/* Guest */}
           <Route path="/guest" element={<GuestDashboard />} />
 
-          {/* Owner console (canonical + slug) */}
-          <Route path="/owner" element={<OwnerHome />} />
-          <Route path="/owner/:slug/*" element={<OwnerHome />} />
-
-          {/* Staff workspace */}
-          <Route path="/staff/*" element={<StaffHome />} />
-
-          {/* Utilities / account */}
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/settings" element={<Settings />} />
+          {/* Auth */}
           <Route path="/signin" element={<SignIn />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/logout" element={<Logout />} />
 
-          {/* Catch-all */}
+          {/* Profile / Settings */}
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/settings" element={<Settings />} />
+
+          {/* Legacy/unknown -> 404 */}
+          <Route path="/home" element={<Navigate to="/" replace />} />
           <Route path="*" element={<NotFound />} />
-        </Route>
-      </Routes>
+        </Routes>
+      </Suspense>
     </BrowserRouter>
+  );
+}
+
+function Fallback() {
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-10 text-sm text-gray-500">
+      Loading…
+    </div>
   );
 }

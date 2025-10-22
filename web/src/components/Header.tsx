@@ -40,7 +40,6 @@ export default function Header() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
-  const [authReady, setAuthReady] = useState(false);
   const [authed, setAuthed] = useState(false);
   const [displayName, setDisplayName] = useState<string>("Guest");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -57,7 +56,6 @@ export default function Header() {
       if (!alive) return;
 
       setAuthed(!!user);
-      setAuthReady(true);
 
       if (user) {
         const name =
@@ -154,7 +152,7 @@ export default function Header() {
             </Link>
           )}
 
-          {/* CTA: never show "My trips" unless authed; while loading, show Sign in */}
+          {/* CTA: Sign in when anonymous; role-aware when authed */}
           {authed ? (
             <button
               onClick={() => navigate(cta.href)}

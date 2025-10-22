@@ -1,33 +1,38 @@
+// web/src/components/AccountBubble.tsx
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 
 /**
- * AccountBubble — compact avatar + dropdown for the marketing homepage.
- * - Shows ONLY on "/" (marketing) and hides on other pages
- * - Subscribes to Supabase auth state AND storage events for cross-tab sync
- * - Provides "My trips" and "Sign out"
+ * AccountBubble — compact avatar + dropdown for marketing home ("/") only.
+ * Hides when ?app=1 is present. Syncs with Supabase auth and cross-tab storage.
  */
 export default function AccountBubble() {
   const [email, setEmail] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
 
-  // Show only on marketing homepage ("/")
+  // Show only on the marketing homepage, and not when ?app=1 is present
   const isMarketingOnly = useMemo(() => {
     if (typeof window === "undefined") return false;
-    return window.location.pathname === "/";
+    const { pathname, search } = window.location;
+    const isHome = pathname === "/";
+    const forcedApp = new URLSearchParams(search).get("app") === "1";
+    return isHome && !forcedApp;
   }, []);
 
-  // Bootstrap current user and keep it in sync (auth listener + cross-tab storage)
   useEffect(() => {
     let mounted = true;
 
-    const init = async () => {
-      const { data } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
-      if (!mounted) return;
-      setEmail(data?.user?.email ?? null);
+    const load = async () => {
+      try {
+        const { data } = await supabase.auth.getUser();
+        if (!mounted) return;
+        setEmail(data?.user?.email ?? null);
+      } catch {
+        if (mounted) setEmail(null);
+      }
     };
 
-    init();
+    load();
 
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, sess) => {
       if (!mounted) return;
@@ -35,14 +40,15 @@ export default function AccountBubble() {
     });
 
     const onStorage = (e: StorageEvent) => {
-      // Supabase swaps tokens across tabs; react when auth token changes
-      if (e.key && e.key.includes("supabase.auth.token")) init();
+      if (e.key && e.key.includes("supabase.auth")) {
+        load();
+      }
     };
     window.addEventListener("storage", onStorage);
 
     return () => {
       mounted = false;
-      sub.subscription.unsubscribe();
+      sub.subscription?.unsubscribe();
       window.removeEventListener("storage", onStorage);
     };
   }, []);
@@ -50,26 +56,26 @@ export default function AccountBubble() {
   // Hide entirely if not on marketing OR not signed in
   if (!isMarketingOnly || !email) return null;
 
-  async function signOut() {
-    await supabase.auth.signOut();
-    location.href = "/"; // back to marketing; bubble disappears
-  }
+  const initial = email[0]?.toUpperCase() ?? "U";
 
-  const initial = email?.[0]?.toUpperCase() ?? "U";
+  const signOut = () => {
+    // We already have a /logout route that clears everywhere; use it for reliability
+    window.location.href = "/logout";
+  };
 
   return (
-    <div className="absolute right-3 top-3 z-50 md:right-4 md:top-4">
+    <div className="fixed right-3 top-3 z-[60] md:right-4 md:top-4">
       <div className="relative">
         <button
           onClick={() => setOpen((v) => !v)}
           aria-haspopup="menu"
           aria-expanded={open}
-          className="flex items-center gap-2 rounded-full border bg-white/90 backdrop-blur px-3 py-2 shadow hover:shadow-md transition"
+          className="flex items-center gap-2 rounded-full border bg-white/90 px-3 py-2 shadow backdrop-blur hover:shadow-md"
         >
-          <span className="inline-grid place-items-center w-7 h-7 rounded-full bg-indigo-600 text-white text-xs font-semibold">
+          <span className="inline-grid h-7 w-7 place-items-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
             {initial}
           </span>
-          <span className="text-xs text-gray-700 max-w-[160px] truncate" title={email}>
+          <span className="max-w-[160px] truncate text-xs text-gray-700" title={email}>
             {email}
           </span>
         </button>
@@ -77,7 +83,7 @@ export default function AccountBubble() {
         {open && (
           <div
             role="menu"
-            className="absolute right-0 mt-2 w-56 rounded-xl border bg-white shadow-lg overflow-hidden"
+            className="absolute right-0 mt-2 w-56 overflow-hidden rounded-xl border bg-white shadow-lg"
           >
             <a
               role="menuitem"
@@ -87,10 +93,18 @@ export default function AccountBubble() {
             >
               My trips
             </a>
+            <a
+              role="menuitem"
+              href="/owner"
+              className="block px-3 py-2 text-sm hover:bg-gray-50"
+              onClick={() => setOpen(false)}
+            >
+              Owner console
+            </a>
             <button
               role="menuitem"
               onClick={signOut}
-              className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+              className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
             >
               Sign out
             </button>

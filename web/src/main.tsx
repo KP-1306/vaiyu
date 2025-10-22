@@ -1,4 +1,3 @@
-// web/src/main.tsx
 import React, { StrictMode, Suspense, lazy, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider, Outlet } from "react-router-dom";
@@ -223,7 +222,8 @@ const router = createBrowserRouter([
 
       // Rewards + Profile
       { path: "rewards", element: <Rewards /> },
-      { path: "profile", element: <Profile /> },
+      // 🔒 protect profile
+      { path: "profile", element: <AuthGate><Profile /></AuthGate> },
 
       // Guest / Journey
       { path: "scan", element: <Scan /> },
@@ -236,7 +236,8 @@ const router = createBrowserRouter([
       { path: "regcard", element: <Regcard /> },
       { path: "claim", element: <ClaimStay /> },
       { path: "checkout", element: <Checkout /> },
-      { path: "guest", element: <GuestDashboard /> },
+      // 🔒 protect guest dashboard
+      { path: "guest", element: <AuthGate><GuestDashboard /></AuthGate> },
       { path: "hotel/:slug/reviews", element: <HotelReviews /> },
       { path: "stays", element: <Stays /> },
       { path: "stay/:id", element: <Stay /> },

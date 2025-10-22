@@ -1,9 +1,9 @@
+// web/src/App.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import SEO from "./components/SEO";
 import HeroCarousel from "./components/HeroCarousel";
-import AccountControls from "./components/AccountControls";
 import { supabase } from "./lib/supabase";
 
 import AIShowcase from "./components/AIShowcase";
@@ -30,42 +30,12 @@ export default function App() {
 
   /** ---------- Auth/session basics ---------- */
   const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [displayName, setDisplayName] = useState<string>("Guest");
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-
   useEffect(() => {
     let mounted = true;
 
     (async () => {
-      const [{ data: sess }, { data: usr }] = await Promise.all([
-        supabase.auth.getSession(),
-        supabase.auth.getUser(),
-      ]);
-
-      if (!mounted) return;
-
-      const email = sess?.session?.user?.email ?? null;
-      setUserEmail(email);
-
-      const user = usr?.user ?? null;
-      if (user) {
-        const name =
-          (user.user_metadata?.full_name as string) ||
-          (user.user_metadata?.name as string) ||
-          (user.email as string) ||
-          "User";
-        const avatar =
-          (user.user_metadata?.avatar_url as string) ||
-          (user.user_metadata?.picture as string) ||
-          null;
-
-        setDisplayName(name);
-        setAvatarUrl(avatar);
-        try { localStorage.setItem("user:name", name); } catch {}
-      } else {
-        setDisplayName("Guest");
-        setAvatarUrl(null);
-      }
+      const { data } = await supabase.auth.getSession();
+      if (mounted) setUserEmail(data.session?.user?.email ?? null);
     })();
 
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
@@ -77,7 +47,6 @@ export default function App() {
       sub?.subscription?.unsubscribe();
     };
   }, []);
-
   const isAuthed = !!userEmail;
 
   /** ---------- Token presence (for “My credits” button) ---------- */
@@ -93,7 +62,7 @@ export default function App() {
     };
   }, []);
 
-  /** ---------- Quick membership checks & slugs ---------- */
+  /** ---------- Membership presence (owner/manager quick links) ---------- */
   const [hasHotel, setHasHotel] = useState(false);
   useEffect(() => {
     let alive = true;
@@ -114,6 +83,7 @@ export default function App() {
     return () => { alive = false; };
   }, []);
 
+  /** ---------- Helpful slugs for routing ---------- */
   const [ownerSlug, setOwnerSlug] = useState<string | null>(null);
   const [staffSlug, setStaffSlug] = useState<string | null>(null);
   useEffect(() => {
@@ -125,25 +95,16 @@ export default function App() {
   const isOwnerSide = current.role === "owner" || current.role === "manager";
   const isStaffSide = current.role === "staff" || current.role === "manager";
 
-  /** ---------- Landing CTA (role-aware) ---------- */
+  /** ---------- Hero slides (role-aware CTAs) ---------- */
   const heroCtaForOwner = ownerSlug ? `/owner/${ownerSlug}` : "/owner";
   const heroCtaForStaff = "/staff";
 
-  const defaultAppCta = useMemo(() => {
-    if (isOwnerSide) return { href: heroCtaForOwner, label: "Owner console" };
-    if (isStaffSide) return { href: heroCtaForStaff, label: "Staff workspace" };
-    return { href: "/guest", label: "My trips" };
-  }, [isOwnerSide, isStaffSide, heroCtaForOwner, heroCtaForStaff]);
-
-  /** ---------- Hero slides (role-aware labels) ---------- */
   const slides = useMemo(() => ([
     {
       id: "ai-hero",
       headline: "Where Intelligence Meets Comfort",
       sub: "AI turns live stay activity into faster service and delightful guest journeys.",
-      cta: isAuthed
-        ? { label: defaultAppCta.label, href: defaultAppCta.href }
-        : { label: "Start with your email", href: "/signin?intent=signup&redirect=/guest" },
+      cta: { label: isAuthed ? "Open app" : "Start with your email", href: isAuthed ? "/guest" : "/signin?intent=signup&redirect=/guest" },
       variant: "photo",
       img: "/hero/ai-hero.png",
       imgAlt: "AI hero background"
@@ -161,9 +122,7 @@ export default function App() {
       id: "sla",
       headline: "SLA Nudges for Staff",
       sub: "On-time nudges and a clean digest keep service humming.",
-      cta: isStaffSide
-        ? { label: "Open staff workspace", href: heroCtaForStaff }
-        : { label: "See the owner console", href: heroCtaForOwner },
+      cta: { label: isStaffSide ? "Open staff workspace" : "See the owner console", href: isStaffSide ? heroCtaForStaff : heroCtaForOwner },
       variant: "photo",
       img: "/hero/sla.png",
       imgAlt: "Tablet with SLA dashboard"
@@ -190,14 +149,12 @@ export default function App() {
       id: "owner-console",
       headline: "AI-Driven Owner Console",
       sub: "Digest, usage, moderation and KPIs—clean, fast, reliable.",
-      cta: isStaffSide
-        ? { label: "Open staff workspace", href: heroCtaForStaff }
-        : { label: "Open owner home", href: heroCtaForOwner },
+      cta: { label: isStaffSide ? "Open staff workspace" : "Open owner home", href: isStaffSide ? heroCtaForStaff : heroCtaForOwner },
       variant: "photo",
       img: "/hero/owner-console.png",
       imgAlt: "Owner console KPIs on monitor"
     },
-  ]), [isAuthed, isStaffSide, heroCtaForOwner, heroCtaForStaff, defaultAppCta]);
+  ]), [isAuthed, isStaffSide, heroCtaForOwner, heroCtaForStaff]);
 
   const site = typeof window !== "undefined" ? window.location.origin : "https://vaiyu.co.in";
 
@@ -220,7 +177,7 @@ export default function App() {
         }}
       />
 
-      {/* Top nav (now includes avatar) */}
+      {/* Top nav */}
       <header className="sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-gray-100">
         <div className="mx-auto max-w-7xl px-4 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
@@ -230,11 +187,7 @@ export default function App() {
               className="h-8 w-auto hidden sm:block"
               onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")}
             />
-            <span
-              className="sm:hidden inline-block h-8 w-8 rounded-xl"
-              style={{ background: "var(--brand, #145AF2)" }}
-              aria-hidden
-            />
+            <span className="sm:hidden inline-block h-8 w-8 rounded-xl" style={{ background: "var(--brand, #145AF2)" }} aria-hidden />
             <span className="font-semibold text-lg tracking-tight">VAiyu</span>
           </Link>
 
@@ -249,18 +202,21 @@ export default function App() {
           </nav>
 
           <div className="flex items-center gap-2">
-            {hasToken && (
-              <Link to="/guest" className="btn btn-light !py-2 !px-3 text-sm">My credits</Link>
+            {hasToken && <Link to="/guest" className="btn btn-light !py-2 !px-3 text-sm">My credits</Link>}
+            {isOwnerSide && (
+              <Link to={heroCtaForOwner} className="btn btn-light !py-2 !px-3 text-sm">Owner console</Link>
             )}
-
-            {/* Primary CTA becomes role-aware */}
-            <Link to={defaultAppCta.href} className="btn !py-2 !px-3 text-sm">
-              {defaultAppCta.label}
-            </Link>
-
-            {/* Avatar / account menu (works across marketing pages now) */}
-            {isAuthed && (
-              <AccountControls className="ml-1" displayName={displayName} avatarUrl={avatarUrl} />
+            {isStaffSide && (
+              <Link to={heroCtaForStaff} className="btn btn-light !py-2 !px-3 text-sm">Staff workspace</Link>
+            )}
+            {isAuthed ? (
+              <>
+                <Link to="/guest" className="btn !py-2 !px-3 text-sm">Open app</Link>
+                {/* Always route through /logout for reliable sign-out */}
+                <Link to="/logout" className="btn btn-light !py-2 !px-3 text-sm">Sign out</Link>
+              </>
+            ) : (
+              <Link to="/signin?intent=signup&redirect=/guest" className="btn !py-2 !px-3 text-sm">Get started</Link>
             )}
           </div>
         </div>

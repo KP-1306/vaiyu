@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
-/** Minimal, robust hero carousel data (images only) */
+/** Toggle this to true if you ever want a CTA on the hero again */
+const SHOW_HERO_CTA = false;
+
+/** Simple slide data */
 const slides = [
   {
     id: "ai-hero",
@@ -42,6 +44,7 @@ const slides = [
 ];
 
 export default function MarketingHome() {
+  // We still hydrate auth so we could show a CTA later if desired
   const [hydrated, setHydrated] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
 
@@ -66,9 +69,9 @@ export default function MarketingHome() {
     };
   }, []);
 
-  // Single CTA for the hero — avoids duplicates and mis-routes
+  // Prepared (but not rendered when SHOW_HERO_CTA=false)
   const cta = useMemo(() => {
-    if (!hydrated) return { label: "\u00A0", href: "#" }; // reserve space; no flicker
+    if (!hydrated) return { label: "\u00A0", href: "#" };
     return email
       ? { label: "My trips", href: "/guest" }
       : { label: "Sign in", href: "/signin?intent=signin&redirect=/guest" };
@@ -76,19 +79,16 @@ export default function MarketingHome() {
 
   return (
     <main>
-      {/* Hero carousel (simple static version) */}
+      {/* Hero */}
       <section className="mx-auto max-w-7xl px-4 pb-10 pt-6">
         <div className="relative overflow-hidden rounded-2xl">
-          <picture>
-            {/* The first slide for initial paint; you can add a simple carousel later */}
-            <img
-              src={slides[0].img}
-              alt={slides[0].imgAlt}
-              className="block h-[520px] w-full object-cover sm:h-[560px]"
-              loading="eager"
-              fetchPriority="high"
-            />
-          </picture>
+          <img
+            src={slides[0].img}
+            alt={slides[0].imgAlt}
+            className="block h-[520px] w-full object-cover sm:h-[560px]"
+            loading="eager"
+            fetchPriority="high"
+          />
 
           <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
 
@@ -100,28 +100,29 @@ export default function MarketingHome() {
               <h1 className="text-3xl font-bold sm:text-5xl">{slides[0].headline}</h1>
               <p className="mt-3 max-w-2xl text-sm sm:text-base opacity-95">{slides[0].sub}</p>
 
-              <div className="mt-6">
-                {/* Single CTA (no Owner/Staff buttons here) */}
-                <Link
-                  to={cta.href}
-                  className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                >
-                  {cta.label}
-                </Link>
-              </div>
+              {/* CTA removed from landing by default */}
+              {SHOW_HERO_CTA && (
+                <div className="mt-6">
+                  <a
+                    href={cta.href}
+                    className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                  >
+                    {cta.label}
+                  </a>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </section>
 
-      {/* Example of the rest of the page content (unchanged) */}
+      {/* Rest of your page sections … */}
       <section className="mx-auto max-w-7xl px-4 pb-16">
         <h2 className="text-xl font-semibold">The whole journey, upgraded</h2>
         <p className="mt-1 text-gray-600">
           Clear wins for guests, staff, owners, and your brand.
         </p>
-
-        {/* … keep your existing tiles/sections here … */}
+        {/* Keep the rest of your content/tiles here */}
       </section>
     </main>
   );

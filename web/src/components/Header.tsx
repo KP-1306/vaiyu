@@ -1,3 +1,4 @@
+// web/src/components/Header.tsx
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import AccountControls from "./AccountControls";
@@ -14,28 +15,25 @@ function pickDefaultLanding(
   mems: Membership[],
   persisted: PersistedRole | null
 ): { href: string; label: string } {
-  // 1) If they explicitly chose a role before, respect it
+  // Remembered choice first
   if (persisted?.role === "owner" && persisted.hotelSlug) {
     return { href: `/owner/${persisted.hotelSlug}`, label: "Owner console" };
   }
   if (persisted?.role === "manager" && persisted.hotelSlug) {
     return { href: `/owner/${persisted.hotelSlug}`, label: "Property console" };
   }
-  if (persisted?.role === "staff" && persisted.hotelSlug) {
+  if (persisted?.role === "staff") {
     return { href: `/staff`, label: "Staff workspace" };
   }
 
-  // 2) Otherwise pick best available role from memberships
-  const owner = mems.find((m) => m.role === "owner" && m.hotelSlug);
+  // Best available membership
+  const owner = mems.find((m) => (m.role === "owner" || m.role === "manager") && m.hotelSlug);
   if (owner?.hotelSlug) return { href: `/owner/${owner.hotelSlug}`, label: "Owner console" };
-
-  const mgr = mems.find((m) => m.role === "manager" && m.hotelSlug);
-  if (mgr?.hotelSlug) return { href: `/owner/${mgr.hotelSlug}`, label: "Property console" };
 
   const staff = mems.find((m) => m.role === "staff");
   if (staff) return { href: `/staff`, label: "Staff workspace" };
 
-  // 3) Fallback: guest
+  // Fallback
   return { href: `/guest`, label: "My trips" };
 }
 
@@ -43,38 +41,34 @@ export default function Header() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // show account/CTA when signed in
+  // Bootstrap + keep in sync
   useEffect(() => {
     let alive = true;
+
     (async () => {
       setLoading(true);
-      const { data } = await supabase.auth.getUser();
-      const email = data?.user?.email ?? null;
-      const mems = email ? await getMyMemberships() : [];
+      const { data } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
+      const user = data?.user;
+      const em = user?.email ?? null;
+      const mems = em ? await getMyMemberships() : [];
       if (!alive) return;
-      setUserEmail(email);
+      setEmail(em);
       setMemberships(mems);
       setLoading(false);
     })();
 
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
-      const email = session?.user?.email ?? null;
-      setUserEmail(email);
-      if (!email) {
-        setMemberships([]);
-      } else {
-        getMyMemberships().then(setMemberships);
-      }
+      const em = session?.user?.email ?? null;
+      setEmail(em);
+      if (!em) setMemberships([]);
+      else getMyMemberships().then(setMemberships);
     });
 
-    return () => {
-      alive = false;
-      sub.subscription.unsubscribe();
-    };
+    return () => sub.subscription.unsubscribe();
   }, []);
 
   const persisted = useMemo(() => loadPersistedRole(), []);
@@ -95,7 +89,7 @@ export default function Header() {
           </span>
         </Link>
 
-        {/* Primary nav (marketing links shown across) */}
+        {/* Primary nav (simple + SEO-friendly) */}
         <nav className="ml-6 hidden gap-4 text-sm md:flex">
           <Link to="/why">Why VAiyu</Link>
           <Link to="/ai">AI</Link>
@@ -104,14 +98,17 @@ export default function Header() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
-          {!loading && userEmail && showOwnerConsoleButton && (
-            <Link to="/owner" className="hidden rounded-full border px-3 py-1.5 text-sm md:inline-block">
+          {!loading && email && showOwnerConsoleButton && (
+            <Link
+              to="/owner"
+              className="hidden rounded-full border px-3 py-1.5 text-sm md:inline-block"
+            >
               Owner console
             </Link>
           )}
 
           {/* Role-aware CTA */}
-          {!loading && userEmail ? (
+          {!loading && email ? (
             <button
               onClick={() => navigate(cta.href)}
               className="rounded-full bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
@@ -127,17 +124,17 @@ export default function Header() {
             </Link>
           )}
 
-          {/* Avatar / account menu */}
-          {!loading && userEmail && (
-            <AccountControls className="ml-1" displayName={userEmail.split("@")[0]} />
+          {/* Avatar / account menu (switch role, profile, sign out) */}
+          {!loading && email && (
+            <AccountControls className="ml-1" displayName={email.split("@")[0]} />
           )}
         </div>
       </div>
 
-      {/* Optional: tiny marketing hint bar */}
-      {pathname === "/" && userEmail && (
+      {/* Optional: tiny hint only on marketing "/" when authed */}
+      {pathname === "/" && email && (
         <div className="border-t bg-blue-50 text-center text-xs text-blue-900">
-          You’re signed in as <strong>{userEmail}</strong>
+          You’re signed in as <strong>{email}</strong>
         </div>
       )}
     </header>

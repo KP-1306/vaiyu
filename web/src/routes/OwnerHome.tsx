@@ -1,12 +1,12 @@
 // web/src/routes/OwnerHome.tsx
 import { memo, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { supabase } from "../../lib/supabase";
-import { API } from "../../lib/api";
-import { useRole } from "../../context/RoleContext";
-import OwnerDigestCard from "../../components/OwnerDigestCard";
-import UsageMeter from "../../components/UsageMeter";
-import ObservabilityCard from "../../components/ObservabilityCard";
+import { supabase } from "../lib/supabase";
+import { API } from "../lib/api";
+import { useRole } from "../context/RoleContext";
+import OwnerDigestCard from "../components/OwnerDigestCard";
+import UsageMeter from "../components/UsageMeter";
+import ObservabilityCard from "../components/ObservabilityCard";
 
 /** --- Local types to keep the file focused --- */
 type Kpis = { tickets: number; orders: number; onTime: number; late: number; avgMins: number };

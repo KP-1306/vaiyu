@@ -1,241 +1,283 @@
+// web/src/routes/MarketingHome.tsx
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+
+import SEO from "../components/SEO";
+import HeroCarousel from "../components/HeroCarousel";
+import AIShowcase from "../components/AIShowcase";
+import ResultsAndSocialProof from "../components/ResultsAndSocialProof";
+import GlassBand_OnboardingSecurityIntegrations from "../components/GlassBand_OnboardingSecurityIntegrations";
+import LiveProductPeek from "../components/LiveProductPeek";
+import FAQShort from "../components/FAQShort";
+
 import { supabase } from "../lib/supabase";
 
-/** Show a hero CTA button? (kept false to avoid duplicating “My trips”) */
-const SHOW_HERO_CTA = false;
+// Hardening hooks (do nothing if you don’t use them)
+import { useIdleSignOut } from "../hooks/useIdleSignOut";
+import { useFocusAuthCheck } from "../hooks/useFocusAuthCheck";
 
-/** --- Content: tweak copy/images here --- */
-const HERO = {
-  badge: "AI-powered hospitality OS",
-  headline: "Where Intelligence Meets Comfort",
-  sub: "AI turns live stay activity into faster service and delightful guest journeys.",
-  img: "/hero/ai-hero.png",
-  imgAlt: "AI hero background",
-};
+// Role context (safe to keep; it only helps tailor a few CTAs)
+import { useRole } from "../context/RoleContext";
 
-const FEATURE_CARDS = [
-  {
-    id: "checkin",
-    title: "10-second Mobile Check-in",
-    sub: "Scan, confirm, head to your room. No kiosk queues.",
-    href: "/guest",
-    image: "/hero/checkin.png",
-  },
-  {
-    id: "owner",
-    title: "Owner console",
-    sub: "Digest, usage, moderation and KPIs — clean, fast, reliable.",
-    href: "/owner",
-    image: "/hero/owner.png",
-  },
-  {
-    id: "staff",
-    title: "Staff workspace",
-    sub: "On-time delivery SLAs, nudges, and an organized inbox.",
-    href: "/staff",
-    image: "/hero/sla.png",
-  },
-];
+const TOKEN_KEY = "stay:token";
 
-const HOW_STEPS = [
-  {
-    title: "Capture live events",
-    text: "Check-ins, requests, room status, payments and more stream in real-time.",
-  },
-  {
-    title: "AI triage & nudges",
-    text: "Smart routing, deadlines, and reminders keep operations humming.",
-  },
-  {
-    title: "Delightful dashboards",
-    text: "Owners see the signal — digest, trends, KPIs — without the noise.",
-  },
-];
-
-const LOGOS = [
-  { src: "/logos/hotel-01.svg", alt: "Hotel A" },
-  { src: "/logos/hotel-02.svg", alt: "Hotel B" },
-  { src: "/logos/hotel-03.svg", alt: "Hotel C" },
-  { src: "/logos/hotel-04.svg", alt: "Hotel D" },
-  { src: "/logos/hotel-05.svg", alt: "Hotel E" },
-];
-
-/** --- Auth hydrate (for optional hero CTA) --- */
 export default function MarketingHome() {
-  const [hydrated, setHydrated] = useState(false);
-  const [email, setEmail] = useState<string | null>(null);
+  // Optional: keep your auth hardening
+  useIdleSignOut({ maxIdleMinutes: 180 });
+  useFocusAuthCheck();
 
+  const { current } = useRole(); // { role: 'guest'|'staff'|'manager'|'owner', hotelSlug?: string|null }
+
+  /** ---------- Auth/session basics ---------- */
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   useEffect(() => {
-    let alive = true;
+    let mounted = true;
+
     (async () => {
-      const { data } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
-      if (!alive) return;
-      setEmail(data?.user?.email ?? null);
-      setHydrated(true);
+      const { data } = await supabase.auth.getSession();
+      if (mounted) setUserEmail(data.session?.user?.email ?? null);
     })();
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, sess) => {
-      setEmail(sess?.user?.email ?? null);
-      setHydrated(true);
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
+      setUserEmail(session?.user?.email ?? null);
     });
 
     return () => {
-      alive = false;
-      sub.subscription.unsubscribe();
+      mounted = false;
+      sub?.subscription?.unsubscribe();
+    };
+  }, []);
+  const isAuthed = !!userEmail;
+
+  /** ---------- Token presence (if you show credits somewhere) ---------- */
+  const [hasToken, setHasToken] = useState<boolean>(() => !!localStorage.getItem(TOKEN_KEY));
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === TOKEN_KEY) setHasToken(!!e.newValue);
+    };
+    const onVis = () => setHasToken(!!localStorage.getItem(TOKEN_KEY));
+    window.addEventListener("storage", onStorage);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      document.removeEventListener("visibilitychange", onVis);
     };
   }, []);
 
-  const cta = useMemo(() => {
-    if (!hydrated) return { label: "\u00A0", href: "#" };
-    return email
-      ? { label: "My trips", href: "/guest" }
-      : { label: "Sign in", href: "/signin?intent=signin&redirect=/guest" };
-  }, [email, hydrated]);
+  /** ---------- Owner/staff helpers ---------- */
+  const [ownerSlug, setOwnerSlug] = useState<string | null>(null);
+  const [staffSlug, setStaffSlug] = useState<string | null>(null);
+  useEffect(() => {
+    setOwnerSlug(current.hotelSlug || localStorage.getItem("owner:slug"));
+    setStaffSlug(current.hotelSlug || localStorage.getItem("staff:slug"));
+  }, [current.hotelSlug]);
+
+  const isOwnerSide = current.role === "owner" || current.role === "manager";
+  const isStaffSide = current.role === "staff" || current.role === "manager";
+
+  const ownerHomeHref = ownerSlug ? `/owner/${ownerSlug}` : "/owner";
+  const staffHomeHref = "/staff";
+
+  /** ---------- Hero slides (kept role-aware but neutral) ---------- */
+  const slides = useMemo(
+    () => [
+      {
+        id: "ai-hero",
+        headline: "Where Intelligence Meets Comfort",
+        sub: "AI turns live stay activity into faster service and delightful guest journeys.",
+        // CTA kept neutral; header avatar handles account actions
+        cta: isAuthed ? { label: "Learn more", href: "#why" } : { label: "Learn more", href: "#why" },
+        variant: "photo",
+        img: "/hero/ai-hero.png",
+        imgAlt: "AI hero background",
+      },
+      {
+        id: "checkin",
+        headline: "10-second Mobile Check-in",
+        sub: "Scan, confirm, head to your room. No kiosk queues.",
+        cta: { label: "See how it works", href: "#ai" },
+        variant: "photo",
+        img: "/hero/checkin.png",
+        imgAlt: "Guest scanning QR at the front desk",
+      },
+      {
+        id: "sla",
+        headline: "SLA Nudges for Staff",
+        sub: "On-time nudges and a clean digest keep service humming.",
+        cta: isStaffSide
+          ? { label: "Staff workspace", href: staffHomeHref }
+          : { label: "For hotels", href: ownerHomeHref },
+        variant: "photo",
+        img: "/hero/sla.png",
+        imgAlt: "Tablet with SLA dashboard",
+      },
+      {
+        id: "reviews",
+        headline: "Truth-Anchored Reviews",
+        sub: "AI drafts grounded in verified stay data—owners approve, brand stays safe.",
+        cta: { label: "Moderation overview", href: "/about-ai" },
+        variant: "photo",
+        img: "/hero/reviews.png",
+        imgAlt: "Owner reviewing AI draft",
+      },
+      {
+        id: "grid-smart",
+        headline: "Grid-Smart Operations & Sustainability",
+        sub: "Tariff-aware actions and device shedding without drama.",
+        cta: { label: "Learn about grid mode", href: "/grid/devices" },
+        variant: "photo",
+        img: "/hero/grid.png",
+        imgAlt: "Energy dashboard on wall tablet",
+      },
+      {
+        id: "owner-console",
+        headline: "AI-Driven Owner Console",
+        sub: "Digest, usage, moderation and KPIs—clean, fast, reliable.",
+        cta: isOwnerSide
+          ? { label: "Open owner home", href: ownerHomeHref }
+          : { label: "For hotels", href: ownerHomeHref },
+        variant: "photo",
+        img: "/hero/owner-console.png",
+        imgAlt: "Owner console KPIs on monitor",
+      },
+    ],
+    [isAuthed, isOwnerSide, isStaffSide, ownerHomeHref, staffHomeHref]
+  );
+
+  const site =
+    typeof window !== "undefined" ? window.location.origin : "https://vaiyu.co.in";
 
   return (
-    <main>
+    <div className="min-h-screen bg-gray-50 text-gray-900">
+      {/* SEO */}
+      <SEO
+        title="VAiyu — AI OS for Hotels"
+        description="Where Intelligence Meets Comfort — verified reviews, refer-and-earn growth, and grid-smart operations."
+        canonical={`${site}/`}
+        ogImage="/og/home.png"
+        twitter={{ site: "@vaiyu", card: "summary_large_image" }}
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: "VAiyu",
+          url: site,
+          logo: `${site}/icons/favicon-light-512.png`,
+          sameAs: [site],
+        }}
+      />
 
-      {/* HERO */}
-      <section className="mx-auto max-w-7xl px-4 pb-10 pt-6">
-        <div className="relative overflow-hidden rounded-2xl">
-          <img
-            src={HERO.img}
-            alt={HERO.imgAlt}
-            className="block h-[520px] w-full object-cover sm:h-[560px]"
-            loading="eager"
-            fetchPriority="high"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
+      {/* HERO / Use-cases carousel */}
+      <section id="use-cases" className="mx-auto max-w-7xl px-4 py-6 scroll-mt-24">
+        <HeroCarousel slides={slides} />
+      </section>
 
-          <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8 md:p-12">
-            <div className="max-w-3xl text-white drop-shadow">
-              <div className="mb-3 inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-xs backdrop-blur">
-                {HERO.badge}
-              </div>
-              <h1 className="text-3xl font-bold sm:text-5xl">{HERO.headline}</h1>
-              <p className="mt-3 max-w-2xl text-sm sm:text-base opacity-95">{HERO.sub}</p>
+      {/* WHY */}
+      <section id="why" className="mx-auto max-w-7xl px-4 py-14">
+        <h2 className="text-2xl font-bold">The whole journey, upgraded</h2>
+        <p className="text-gray-600 mt-1">
+          Clear wins for guests, staff, owners, and your brand.
+        </p>
 
-              {SHOW_HERO_CTA && (
-                <div className="mt-6">
-                  <a
-                    href={cta.href}
-                    className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                  >
-                    {cta.label}
-                  </a>
-                </div>
-              )}
+        <figure className="mt-6">
+          <div className="rounded-3xl ring-1 ring-slate-200 bg-white overflow-hidden shadow-sm">
+            <div className="w-full aspect-[16/9]">
+              <img
+                src="/illustrations/journey-upgraded.png?v=5"
+                alt="The whole journey, upgraded — benefits for Guests, Staff, Owners, and Brand"
+                className="block w-full h-full object-cover object-center"
+                loading="eager"
+                decoding="async"
+                onError={(e) => {
+                  const el = e.currentTarget as HTMLImageElement;
+                  el.src = "/illustrations/vaiyu-intelligence-final.png";
+                }}
+              />
+            </div>
+          </div>
+          <figcaption className="sr-only">
+            VAiyu benefits across Guests, Staff, Owners, and Brand.
+          </figcaption>
+        </figure>
+      </section>
+
+      {/* Alternating image + content */}
+      <section id="ai" className="mx-auto max-w-7xl px-4 pb-14">
+        <AIShowcase />
+      </section>
+
+      {/* Social proof */}
+      <section className="mx-auto max-w-7xl px-4 pb-4">
+        <ResultsAndSocialProof />
+      </section>
+
+      {/* Onboarding / Security / Integrations */}
+      <section className="mx-auto max-w-7xl px-4 pb-16">
+        <GlassBand_OnboardingSecurityIntegrations />
+      </section>
+
+      {/* Live Product Peek */}
+      <section className="mx-auto max-w-7xl px-4 pb-16">
+        <LiveProductPeek />
+      </section>
+
+      {/* FAQ */}
+      <section className="mx-auto max-w-7xl px-4 pb-20">
+        <FAQShort />
+      </section>
+
+      {/* Closing contact CTA (kept light) */}
+      <section id="contact-cta" className="mx-auto max-w-7xl px-4 pb-16">
+        <div className="rounded-3xl border border-gray-200 bg-white p-8 sm:p-10 shadow-sm">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="text-center md:text-left">
+              <h3 className="text-2xl font-semibold text-gray-900">
+                Want a walkthrough for your property?
+              </h3>
+              <p className="text-gray-600 mt-1">
+                We’ll brand the demo with your details and share a 7-day pilot plan.
+              </p>
+            </div>
+            <div className="flex-shrink-0">
+              <Link to="/contact" className="btn">
+                Contact us
+              </Link>
             </div>
           </div>
         </div>
       </section>
 
-      {/* WHY STRIP */}
-      <section className="mx-auto max-w-7xl px-4 pb-10">
-        <h2 className="text-xl font-semibold">The whole journey, upgraded</h2>
-        <p className="mt-1 text-gray-600">
-          Clear wins for guests, staff, owners, and your brand.
-        </p>
-      </section>
-
-      {/* 3 FEATURE CARDS */}
-      <section className="mx-auto max-w-7xl px-4 pb-16">
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {FEATURE_CARDS.map((c) => (
-            <a
-              key={c.id}
-              href={c.href}
-              className="group overflow-hidden rounded-xl border bg-white shadow-sm transition hover:shadow-md"
-            >
-              <div className="aspect-[16/9] w-full overflow-hidden bg-gray-100">
-                <img
-                  src={c.image}
-                  alt={c.title}
-                  className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
-                  loading="lazy"
-                />
-              </div>
-              <div className="p-4">
-                <h3 className="font-medium">{c.title}</h3>
-                <p className="mt-1 text-sm text-gray-600">{c.sub}</p>
-              </div>
-            </a>
-          ))}
-        </div>
-      </section>
-
-      {/* HOW IT WORKS */}
-      <section className="mx-auto max-w-7xl px-4 pb-16">
-        <div className="rounded-2xl border bg-gradient-to-br from-slate-50 to-white p-6 md:p-8">
-          <h2 className="text-xl font-semibold">How VAiyu works</h2>
-          <p className="mt-1 text-gray-600">
-            A clean pipeline from live events to outcomes — for guests, staff and owners.
-          </p>
-
-          <ol className="mt-6 grid gap-6 sm:grid-cols-3">
-            {HOW_STEPS.map((s, idx) => (
-              <li key={s.title} className="rounded-xl border bg-white p-4">
-                <div className="mb-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-xs font-semibold text-white">
-                  {idx + 1}
-                </div>
-                <h3 className="font-medium">{s.title}</h3>
-                <p className="mt-1 text-sm text-gray-600">{s.text}</p>
-              </li>
-            ))}
-          </ol>
-        </div>
-      </section>
-
-      {/* LOGOS BAND */}
-      <section className="mx-auto max-w-7xl px-4 pb-16">
-        <div className="rounded-2xl border bg-white px-4 py-6">
-          <p className="text-center text-sm text-gray-500">Trusted by modern hotels</p>
-          <div className="mt-4 grid grid-cols-2 items-center gap-6 sm:grid-cols-3 md:grid-cols-5">
-            {LOGOS.map((l, i) => (
-              <div key={i} className="flex items-center justify-center">
-                <img
-                  src={l.src}
-                  alt={l.alt}
-                  className="h-8 opacity-70 grayscale"
-                  loading="lazy"
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CLOSING CTA (no My trips duplication) */}
-      <section className="mx-auto max-w-7xl px-4 pb-24">
-        <div className="rounded-2xl border bg-gradient-to-r from-indigo-50 to-blue-50 p-6 md:p-8">
-          <h2 className="text-xl font-semibold">Ready to see it live?</h2>
-          <p className="mt-1 text-gray-700">
-            Explore the guest journey, owner console, and staff workspace.
-          </p>
-
-          <div className="mt-4 flex flex-wrap gap-3">
-            <a
-              href="/why"
-              className="inline-flex items-center rounded-lg border bg-white px-4 py-2 text-sm font-medium hover:bg-white/80"
-            >
+      {/* Footer */}
+      <footer className="border-t border-gray-200">
+        <div className="mx-auto max-w-7xl px-4 py-8 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-3">
+          <div>© {new Date().getFullYear()} VAiyu — Where Intelligence Meets Comfort.</div>
+          <div className="flex items-center gap-4">
+            <Link className="hover:text-gray-800" to="/about-ai">
+              AI
+            </Link>
+            <a className="hover:text-gray-800" href="#why">
               Why VAiyu
             </a>
-            <a
-              href="/use-cases"
-              className="inline-flex items-center rounded-lg border bg-white px-4 py-2 text-sm font-medium hover:bg-white/80"
-            >
-              Use-cases
-            </a>
-            <a
-              href="/ai"
-              className="inline-flex items-center rounded-lg border bg-white px-4 py-2 text-sm font-medium hover:bg-white/80"
-            >
-              AI
-            </a>
+            <Link className="hover:text-gray-800" to="/about">
+              About
+            </Link>
+            <Link className="hover:text-gray-800" to="/press">
+              Press
+            </Link>
+            <Link className="hover:text-gray-800" to="/privacy">
+              Privacy
+            </Link>
+            <Link className="hover:text-gray-800" to="/terms">
+              Terms
+            </Link>
+            <Link className="hover:text-gray-800" to="/contact">
+              Contact
+            </Link>
+            <Link className="hover:text-gray-800" to="/careers">
+              Careers
+            </Link>
           </div>
         </div>
-      </section>
-
-    </main>
+      </footer>
+    </div>
   );
 }

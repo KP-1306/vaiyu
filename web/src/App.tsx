@@ -23,10 +23,10 @@ const TOKEN_KEY = "stay:token";
 
 export default function App() {
   // 🔒 enable auth hardening
-  useIdleSignOut({ maxIdleMinutes: 180 }); // auto sign-out after 3 hours idle
-  useFocusAuthCheck();                     // verify/expire session on tab focus
+  useIdleSignOut({ maxIdleMinutes: 180 });
+  useFocusAuthCheck();
 
-  const { current } = useRole(); // { role: 'guest' | 'staff' | 'manager' | 'owner', hotelSlug?: string|null }
+  const { current } = useRole(); // { role: 'guest'|'staff'|'manager'|'owner', hotelSlug?: string|null }
 
   /** ---------- Auth/session basics ---------- */
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -52,7 +52,9 @@ export default function App() {
   /** ---------- Token presence (for “My credits” button) ---------- */
   const [hasToken, setHasToken] = useState<boolean>(() => !!localStorage.getItem(TOKEN_KEY));
   useEffect(() => {
-    const onStorage = (e: StorageEvent) => { if (e.key === TOKEN_KEY) setHasToken(!!e.newValue); };
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === TOKEN_KEY) setHasToken(!!e.newValue);
+    };
     const onVis = () => setHasToken(!!localStorage.getItem(TOKEN_KEY));
     window.addEventListener("storage", onStorage);
     document.addEventListener("visibilitychange", onVis);
@@ -69,7 +71,10 @@ export default function App() {
     (async () => {
       const { data: sess } = await supabase.auth.getSession();
       const userId = sess?.session?.user?.id;
-      if (!userId) { if (alive) setHasHotel(false); return; }
+      if (!userId) {
+        if (alive) setHasHotel(false);
+        return;
+      }
 
       const { error, count } = await supabase
         .from("hotel_members")
@@ -80,7 +85,9 @@ export default function App() {
       if (!alive) return;
       setHasHotel(!error && !!count && count > 0);
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, []);
 
   /** ---------- Helpful slugs for routing ---------- */
@@ -99,64 +106,77 @@ export default function App() {
   const heroCtaForOwner = ownerSlug ? `/owner/${ownerSlug}` : "/owner";
   const heroCtaForStaff = "/staff";
 
-  const slides = useMemo(() => ([
-    {
-      id: "ai-hero",
-      headline: "Where Intelligence Meets Comfort",
-      sub: "AI turns live stay activity into faster service and delightful guest journeys.",
-      cta: { label: isAuthed ? "Open app" : "Start with your email", href: isAuthed ? "/guest" : "/signin?intent=signup&redirect=/guest" },
-      variant: "photo",
-      img: "/hero/ai-hero.png",
-      imgAlt: "AI hero background"
-    },
-    {
-      id: "checkin",
-      headline: "10-second Mobile Check-in",
-      sub: "Scan, confirm, head to your room. No kiosk queues.",
-      cta: { label: "Try the guest demo", href: "/guest" },
-      variant: "photo",
-      img: "/hero/checkin.png",
-      imgAlt: "Guest scanning QR at the front desk"
-    },
-    {
-      id: "sla",
-      headline: "SLA Nudges for Staff",
-      sub: "On-time nudges and a clean digest keep service humming.",
-      cta: { label: isStaffSide ? "Open staff workspace" : "See the owner console", href: isStaffSide ? heroCtaForStaff : heroCtaForOwner },
-      variant: "photo",
-      img: "/hero/sla.png",
-      imgAlt: "Tablet with SLA dashboard"
-    },
-    {
-      id: "reviews",
-      headline: "Truth-Anchored Reviews",
-      sub: "AI drafts grounded in verified stay data—owners approve, brand stays safe.",
-      cta: { label: "How moderation works", href: "/about-ai" },
-      variant: "photo",
-      img: "/hero/reviews.png",
-      imgAlt: "Owner reviewing AI draft"
-    },
-    {
-      id: "grid-smart",
-      headline: "Grid-Smart Operations & Sustainability",
-      sub: "Tariff-aware actions and device shedding without drama.",
-      cta: { label: "Learn about grid mode", href: "/grid/devices" },
-      variant: "photo",
-      img: "/hero/grid.png",
-      imgAlt: "Energy dashboard on wall tablet"
-    },
-    {
-      id: "owner-console",
-      headline: "AI-Driven Owner Console",
-      sub: "Digest, usage, moderation and KPIs—clean, fast, reliable.",
-      cta: { label: isStaffSide ? "Open staff workspace" : "Open owner home", href: isStaffSide ? heroCtaForStaff : heroCtaForOwner },
-      variant: "photo",
-      img: "/hero/owner-console.png",
-      imgAlt: "Owner console KPIs on monitor"
-    },
-  ]), [isAuthed, isStaffSide, heroCtaForOwner, heroCtaForStaff]);
+  const slides = useMemo(
+    () => [
+      {
+        id: "ai-hero",
+        headline: "Where Intelligence Meets Comfort",
+        sub: "AI turns live stay activity into faster service and delightful guest journeys.",
+        cta: {
+          label: isAuthed ? "My trips" : "Start with your email",
+          href: isAuthed ? "/guest" : "/signin?intent=signup&redirect=/guest",
+        },
+        variant: "photo",
+        img: "/hero/ai-hero.png",
+        imgAlt: "AI hero background",
+      },
+      {
+        id: "checkin",
+        headline: "10-second Mobile Check-in",
+        sub: "Scan, confirm, head to your room. No kiosk queues.",
+        cta: { label: "Try the guest demo", href: "/guest" },
+        variant: "photo",
+        img: "/hero/checkin.png",
+        imgAlt: "Guest scanning QR at the front desk",
+      },
+      {
+        id: "sla",
+        headline: "SLA Nudges for Staff",
+        sub: "On-time nudges and a clean digest keep service humming.",
+        cta: {
+          label: isStaffSide ? "Open staff workspace" : "See the owner console",
+          href: isStaffSide ? heroCtaForStaff : heroCtaForOwner,
+        },
+        variant: "photo",
+        img: "/hero/sla.png",
+        imgAlt: "Tablet with SLA dashboard",
+      },
+      {
+        id: "reviews",
+        headline: "Truth-Anchored Reviews",
+        sub: "AI drafts grounded in verified stay data—owners approve, brand stays safe.",
+        cta: { label: "How moderation works", href: "/about-ai" },
+        variant: "photo",
+        img: "/hero/reviews.png",
+        imgAlt: "Owner reviewing AI draft",
+      },
+      {
+        id: "grid-smart",
+        headline: "Grid-Smart Operations & Sustainability",
+        sub: "Tariff-aware actions and device shedding without drama.",
+        cta: { label: "Learn about grid mode", href: "/grid/devices" },
+        variant: "photo",
+        img: "/hero/grid.png",
+        imgAlt: "Energy dashboard on wall tablet",
+      },
+      {
+        id: "owner-console",
+        headline: "AI-Driven Owner Console",
+        sub: "Digest, usage, moderation and KPIs—clean, fast, reliable.",
+        cta: {
+          label: isStaffSide ? "Open staff workspace" : "Open owner home",
+          href: isStaffSide ? heroCtaForStaff : heroCtaForOwner,
+        },
+        variant: "photo",
+        img: "/hero/owner-console.png",
+        imgAlt: "Owner console KPIs on monitor",
+      },
+    ],
+    [isAuthed, isStaffSide, heroCtaForOwner, heroCtaForStaff]
+  );
 
-  const site = typeof window !== "undefined" ? window.location.origin : "https://vaiyu.co.in";
+  const site =
+    typeof window !== "undefined" ? window.location.origin : "https://vaiyu.co.in";
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
@@ -187,36 +207,77 @@ export default function App() {
               className="h-8 w-auto hidden sm:block"
               onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")}
             />
-            <span className="sm:hidden inline-block h-8 w-8 rounded-xl" style={{ background: "var(--brand, #145AF2)" }} aria-hidden />
+            <span
+              className="sm:hidden inline-block h-8 w-8 rounded-xl"
+              style={{ background: "var(--brand, #145AF2)" }}
+              aria-hidden
+            />
             <span className="font-semibold text-lg tracking-tight">VAiyu</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-6 text-sm">
-            <a href="#why" className="hover:text-gray-700">Why VAiyu</a>
-            <a href="#ai" className="hover:text-gray-700">AI</a>
-            <a href="#use-cases" className="hover:text-gray-700">Use-cases</a>
-            {isOwnerSide && <Link to={heroCtaForOwner} className="hover:text-gray-700">For Hotels</Link>}
-            {isStaffSide && <Link to={heroCtaForStaff} className="hover:text-gray-700">Staff</Link>}
-            <Link to="/about" className="hover:text-gray-700">About</Link>
-            {!isAuthed && <Link to="/signin?redirect=/guest" className="hover:text-gray-700">Sign in</Link>}
+            <a href="#why" className="hover:text-gray-700">
+              Why VAiyu
+            </a>
+            <a href="#ai" className="hover:text-gray-700">
+              AI
+            </a>
+            <a href="#use-cases" className="hover:text-gray-700">
+              Use-cases
+            </a>
+            {isOwnerSide && (
+              <Link to={heroCtaForOwner} className="hover:text-gray-700">
+                For Hotels
+              </Link>
+            )}
+            {isStaffSide && (
+              <Link to={heroCtaForStaff} className="hover:text-gray-700">
+                Staff
+              </Link>
+            )}
+            <Link to="/about" className="hover:text-gray-700">
+              About
+            </Link>
+            {!isAuthed && (
+              <Link to="/signin?redirect=/guest" className="hover:text-gray-700">
+                Sign in
+              </Link>
+            )}
           </nav>
 
           <div className="flex items-center gap-2">
-            {hasToken && <Link to="/guest" className="btn btn-light !py-2 !px-3 text-sm">My credits</Link>}
+            {hasToken && (
+              <Link to="/guest" className="btn btn-light !py-2 !px-3 text-sm">
+                My credits
+              </Link>
+            )}
             {isOwnerSide && (
-              <Link to={heroCtaForOwner} className="btn btn-light !py-2 !px-3 text-sm">Owner console</Link>
+              <Link to={heroCtaForOwner} className="btn btn-light !py-2 !px-3 text-sm">
+                Owner console
+              </Link>
             )}
             {isStaffSide && (
-              <Link to={heroCtaForStaff} className="btn btn-light !py-2 !px-3 text-sm">Staff workspace</Link>
+              <Link to={heroCtaForStaff} className="btn btn-light !py-2 !px-3 text-sm">
+                Staff workspace
+              </Link>
             )}
             {isAuthed ? (
               <>
-                <Link to="/guest" className="btn !py-2 !px-3 text-sm">Open app</Link>
+                <Link to="/guest" className="btn !py-2 !px-3 text-sm">
+                  My trips
+                </Link>
                 {/* Always route through /logout for reliable sign-out */}
-                <Link to="/logout" className="btn btn-light !py-2 !px-3 text-sm">Sign out</Link>
+                <Link to="/logout" className="btn btn-light !py-2 !px-3 text-sm">
+                  Sign out
+                </Link>
               </>
             ) : (
-              <Link to="/signin?intent=signup&redirect=/guest" className="btn !py-2 !px-3 text-sm">Get started</Link>
+              <Link
+                to="/signin?intent=signup&redirect=/guest"
+                className="btn !py-2 !px-3 text-sm"
+              >
+                Get started
+              </Link>
             )}
           </div>
         </div>
@@ -230,7 +291,9 @@ export default function App() {
       {/* WHY */}
       <section id="why" className="mx-auto max-w-7xl px-4 py-14">
         <h2 className="text-2xl font-bold">The whole journey, upgraded</h2>
-        <p className="text-gray-600 mt-1">Clear wins for guests, staff, owners, and your brand.</p>
+        <p className="text-gray-600 mt-1">
+          Clear wins for guests, staff, owners, and your brand.
+        </p>
 
         <figure className="mt-6">
           <div className="rounded-3xl ring-1 ring-slate-200 bg-white overflow-hidden shadow-sm">
@@ -287,13 +350,20 @@ export default function App() {
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">Quick owner KPIs</h3>
                 <p className="text-gray-600 text-sm mt-0.5">
-                  Jump straight to today’s metrics for <span className="font-medium">{ownerSlug}</span>.
+                  Jump straight to today’s metrics for{" "}
+                  <span className="font-medium">{ownerSlug}</span>.
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-3">
-                <Link to={`/owner/${ownerSlug}/revenue/adr`} className="btn">ADR</Link>
-                <Link to={`/owner/${ownerSlug}/revenue/revpar`} className="btn btn-light">RevPAR</Link>
-                <Link to={`/owner/${ownerSlug}/bookings/pickup`} className="btn btn-light">Pick-up (7 days)</Link>
+                <Link to={`/owner/${ownerSlug}/revenue/adr`} className="btn">
+                  ADR
+                </Link>
+                <Link to={`/owner/${ownerSlug}/revenue/revpar`} className="btn btn-light">
+                  RevPAR
+                </Link>
+                <Link to={`/owner/${ownerSlug}/bookings/pickup`} className="btn btn-light">
+                  Pick-up (7 days)
+                </Link>
               </div>
             </div>
           </div>
@@ -308,13 +378,20 @@ export default function App() {
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">Team & HRMS</h3>
                 <p className="text-gray-600 text-sm mt-0.5">
-                  One-tap access to your team pages for <span className="font-medium">{ownerSlug}</span>.
+                  One-tap access to your team pages for{" "}
+                  <span className="font-medium">{ownerSlug}</span>.
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-3">
-                <Link to={`/owner/${ownerSlug}/hrms/attendance`} className="btn">Attendance</Link>
-                <Link to={`/owner/${ownerSlug}/hrms/leaves`} className="btn btn-light">Leaves</Link>
-                <Link to={`/owner/${ownerSlug}/hrms/staff`} className="btn btn-light">Staff</Link>
+                <Link to={`/owner/${ownerSlug}/hrms/attendance`} className="btn">
+                  Attendance
+                </Link>
+                <Link to={`/owner/${ownerSlug}/hrms/leaves`} className="btn btn-light">
+                  Leaves
+                </Link>
+                <Link to={`/owner/${ownerSlug}/hrms/staff`} className="btn btn-light">
+                  Staff
+                </Link>
               </div>
             </div>
           </div>
@@ -329,14 +406,28 @@ export default function App() {
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">Staff shortcuts</h3>
                 <p className="text-gray-600 text-sm mt-0.5">
-                  Your core work areas {staffSlug ? <>for <span className="font-medium">{staffSlug}</span></> : null}.
+                  Your core work areas{" "}
+                  {staffSlug ? (
+                    <>
+                      for <span className="font-medium">{staffSlug}</span>
+                    </>
+                  ) : null}
+                  .
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-3">
-                <Link to="/desk" className="btn">Front Desk</Link>
-                <Link to="/hk" className="btn btn-light">Housekeeping</Link>
-                <Link to="/maint" className="btn btn-light">Maintenance</Link>
-                <Link to="/staff/attendance" className="btn btn-light">My Attendance</Link>
+                <Link to="/desk" className="btn">
+                  Front Desk
+                </Link>
+                <Link to="/hk" className="btn btn-light">
+                  Housekeeping
+                </Link>
+                <Link to="/maint" className="btn btn-light">
+                  Maintenance
+                </Link>
+                <Link to="/staff/attendance" className="btn btn-light">
+                  My Attendance
+                </Link>
               </div>
             </div>
           </div>
@@ -348,11 +439,17 @@ export default function App() {
         <div className="rounded-3xl border border-gray-200 bg-white p-8 sm:p-10 shadow-sm">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="text-center md:text-left">
-              <h3 className="text-2xl font-semibold text-gray-900">Want a walkthrough for your property?</h3>
-              <p className="text-gray-600 mt-1">We’ll brand the demo with your details and share a 7-day pilot plan.</p>
+              <h3 className="text-2xl font-semibold text-gray-900">
+                Want a walkthrough for your property?
+              </h3>
+              <p className="text-gray-600 mt-1">
+                We’ll brand the demo with your details and share a 7-day pilot plan.
+              </p>
             </div>
             <div className="flex-shrink-0">
-              <Link to="/contact" className="btn">Contact us</Link>
+              <Link to="/contact" className="btn">
+                Contact us
+              </Link>
             </div>
           </div>
         </div>
@@ -363,16 +460,40 @@ export default function App() {
         <div className="mx-auto max-w-7xl px-4 py-8 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-3">
           <div>© {new Date().getFullYear()} VAiyu — Where Intelligence Meets Comfort.</div>
           <div className="flex items-center gap-4">
-            <Link className="hover:text-gray-800" to="/about-ai">AI</Link>
-            <a className="hover:text-gray-800" href="#why">Why VAiyu</a>
-            {isOwnerSide && <Link className="hover:text-gray-800" to={heroCtaForOwner}>For Hotels</Link>}
-            {isStaffSide && <Link className="hover:text-gray-800" to={heroCtaForStaff}>Staff</Link>}
-            <Link className="hover:text-gray-800" to="/about">About</Link>
-            <Link className="hover:text-gray-800" to="/press">Press</Link>
-            <Link className="hover:text-gray-800" to="/privacy">Privacy</Link>
-            <Link className="hover:text-gray-800" to="/terms">Terms</Link>
-            <Link className="hover:text-gray-800" to="/contact">Contact</Link>
-            <Link className="hover:text-gray-800" to="/careers">Careers</Link>
+            <Link className="hover:text-gray-800" to="/about-ai">
+              AI
+            </Link>
+            <a className="hover:text-gray-800" href="#why">
+              Why VAiyu
+            </a>
+            {isOwnerSide && (
+              <Link className="hover:text-gray-800" to={heroCtaForOwner}>
+                For Hotels
+              </Link>
+            )}
+            {isStaffSide && (
+              <Link className="hover:text-gray-800" to={heroCtaForStaff}>
+                Staff
+              </Link>
+            )}
+            <Link className="hover:text-gray-800" to="/about">
+              About
+            </Link>
+            <Link className="hover:text-gray-800" to="/press">
+              Press
+            </Link>
+            <Link className="hover:text-gray-800" to="/privacy">
+              Privacy
+            </Link>
+            <Link className="hover:text-gray-800" to="/terms">
+              Terms
+            </Link>
+            <Link className="hover:text-gray-800" to="/contact">
+              Contact
+            </Link>
+            <Link className="hover:text-gray-800" to="/careers">
+              Careers
+            </Link>
           </div>
         </div>
       </footer>

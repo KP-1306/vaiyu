@@ -1,236 +1,159 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-import { useRole } from "../context/RoleContext";
+import { getMyMemberships, PersistedRole, loadPersistedRole } from "../lib/auth";
 
-type AccountControlsProps = {
-  displayName?: string;
-  avatarUrl?: string | null;
-  className?: string;
+type Membership = {
+  hotelSlug: string | null;
+  hotelName: string | null;
+  role: "viewer" | "staff" | "manager" | "owner";
 };
 
-type MemberRow = {
-  hotel_id: string;
-  role: "owner" | "manager" | "staff" | "viewer";
-  slug?: string | null;
-  name?: string | null;
-};
+function useOnClickOutside(ref: React.RefObject<HTMLElement>, onOutside: () => void) {
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (!ref.current) return;
+      if (!ref.current.contains(e.target as Node)) onOutside();
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [ref, onOutside]);
+}
 
-export default function AccountControls({
-  displayName = "Guest",
-  avatarUrl = null,
-  className = "",
-}: AccountControlsProps) {
-  const navigate = useNavigate();
-  const { current, setCurrent } = useRole();
+export default function AccountControls({ className = "" }: { className?: string }) {
+  const nav = useNavigate();
 
   const [open, setOpen] = useState(false);
-  const [loadingRoles, setLoadingRoles] = useState(false);
-  const [memberships, setMemberships] = useState<MemberRow[]>([]);
+  const [email, setEmail] = useState<string | null>(null);
+  const [memberships, setMemberships] = useState<Membership[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const boxRef = useRef<HTMLDivElement | null>(null);
-
-  // Close on outside click / ESC
+  // Show the same menu everywhere
   useEffect(() => {
-    const onDown = (e: MouseEvent) => {
-      if (!boxRef.current) return;
-      if (!boxRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("mousedown", onDown, { passive: true });
-    window.addEventListener("keydown", onKey);
+    let alive = true;
+
+    (async () => {
+      setLoading(true);
+      const { data } = await supabase.auth.getUser();
+      const e = data?.user?.email ?? null;
+      const mems = e ? await getMyMemberships() : [];
+      if (!alive) return;
+      setEmail(e);
+      setMemberships(mems);
+      setLoading(false);
+    })();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
+      const e = session?.user?.email ?? null;
+      setEmail(e);
+      if (!e) {
+        setMemberships([]);
+      } else {
+        getMyMemberships().then(setMemberships);
+      }
+    });
+
     return () => {
-      window.removeEventListener("mousedown", onDown);
-      window.removeEventListener("keydown", onKey);
+      alive = false;
+      sub?.subscription?.unsubscribe();
     };
   }, []);
 
-  // Load memberships when menu opens
-  useEffect(() => {
-    if (!open) return;
-    let alive = true;
-    (async () => {
-      setLoadingRoles(true);
-      try {
-        const { data: sess } = await supabase.auth.getSession();
-        const uid = sess?.session?.user?.id;
-        if (!uid) {
-          if (alive) setMemberships([]);
-          return;
-        }
+  const persisted: PersistedRole | null = loadPersistedRole();
 
-        // 1) active memberships
-        const { data: mems, error: mErr } = await supabase
-          .from("hotel_members")
-          .select("hotel_id, role, active")
-          .eq("user_id", uid)
-          .eq("active", true);
+  const initials =
+    (email?.trim()?.[0] ?? "U").toUpperCase();
 
-        if (mErr || !mems?.length) {
-          if (alive) setMemberships([]);
-          return;
-        }
+  const menuRef = useRef<HTMLDivElement>(null);
+  useOnClickOutside(menuRef, () => setOpen(false));
 
-        // 2) hotel meta
-        const hotelIds = [...new Set(mems.map((m) => m.hotel_id))];
-        const { data: hotels } = await supabase
-          .from("hotels")
-          .select("id, slug, name")
-          .in("id", hotelIds);
+  if (loading) {
+    return (
+      <div className={`h-8 w-8 animate-pulse rounded-full bg-gray-200 ${className}`} />
+    );
+  }
 
-        const byId = new Map((hotels || []).map((h: any) => [h.id, h]));
-        const rows: MemberRow[] = mems.map((m: any) => ({
-          hotel_id: m.hotel_id,
-          role: m.role,
-          slug: byId.get(m.hotel_id)?.slug ?? null,
-          name: byId.get(m.hotel_id)?.name ?? null,
-        }));
-
-        if (alive) setMemberships(rows);
-      } finally {
-        if (alive) setLoadingRoles(false);
-      }
-    })();
-    return () => {
-      /* noop */
-    };
-  }, [open]);
-
-  // Initial letter fallback
-  const initial =
-    displayName?.trim()?.charAt(0)?.toUpperCase() ||
-    (typeof window !== "undefined"
-      ? (localStorage.getItem("user:name") || "U").charAt(0).toUpperCase()
-      : "U");
-
-  // Buckets
-  const owners = useMemo(
-    () => memberships.filter((m) => m.role === "owner" || m.role === "manager"),
-    [memberships]
-  );
-  const staffs = useMemo(
-    () => memberships.filter((m) => m.role === "staff"),
-    [memberships]
-  );
-
-  // Switchers (we DO NOT offer “switch to guest” anymore)
-  const goOwner = (slug?: string | null) => {
-    if (!slug) return;
-    setCurrent({ role: "owner", hotelSlug: slug });
-    try {
-      localStorage.setItem("va:role", JSON.stringify({ role: "owner", hotelSlug: slug }));
-    } catch {}
-    setOpen(false);
-    navigate(`/owner/${slug}`);
-  };
-
-  const goManager = (slug?: string | null) => {
-    if (!slug) return;
-    setCurrent({ role: "manager", hotelSlug: slug });
-    try {
-      localStorage.setItem("va:role", JSON.stringify({ role: "manager", hotelSlug: slug }));
-    } catch {}
-    setOpen(false);
-    navigate(`/owner/${slug}`);
-  };
-
-  const goStaff = (slug?: string | null) => {
-    if (!slug) return;
-    setCurrent({ role: "staff", hotelSlug: slug });
-    try {
-      localStorage.setItem("va:role", JSON.stringify({ role: "staff", hotelSlug: slug }));
-    } catch {}
-    setOpen(false);
-    navigate(`/staff`);
-  };
+  if (!email) {
+    return (
+      <Link
+        to="/signin?intent=signin&redirect=/guest"
+        className={`rounded-full bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 ${className}`}
+      >
+        Sign in
+      </Link>
+    );
+  }
 
   return (
-    <div ref={boxRef} className={`relative ${className}`}>
+    <div ref={menuRef} className={`relative ${className}`}>
       <button
-        type="button"
         onClick={() => setOpen((v) => !v)}
+        className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-800 text-white outline-none ring-slate-300 hover:bg-slate-700 focus:ring"
         aria-haspopup="menu"
         aria-expanded={open}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-sm font-semibold shadow hover:shadow-md outline-none focus:ring-2 focus:ring-blue-500"
       >
-        {avatarUrl ? (
-          <img
-            src={avatarUrl}
-            alt={displayName || "Account"}
-            className="h-9 w-9 rounded-full object-cover"
-            draggable={false}
-          />
-        ) : (
-          <span aria-hidden>{initial}</span>
-        )}
+        {initials}
       </button>
 
       {open && (
         <div
           role="menu"
-          aria-label="Account menu"
-          className="absolute right-0 mt-2 w-64 rounded-2xl bg-white shadow-lg ring-1 ring-black/5 z-[100]"
+          className="absolute right-0 mt-2 w-64 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
         >
-          <div className="px-3 py-2">
-            <div className="text-xs text-gray-500">Signed in as</div>
-            <div className="text-sm font-medium truncate">{displayName}</div>
-            {current?.hotelSlug && (
-              <div className="text-xs mt-1 text-gray-500">
-                Current role: <span className="font-medium">{current.role}</span>
-                {current.hotelSlug ? ` @ ${current.hotelSlug}` : ""}
-              </div>
+          {/* Signed in as */}
+          <div className="px-4 py-3 text-xs text-slate-600">
+            <div className="font-medium text-slate-900">{email.split("@")[0]}</div>
+            <div className="truncate text-slate-500">{email}</div>
+          </div>
+
+          <div className="h-px bg-slate-200" />
+
+          {/* Destinations */}
+          <div className="py-1">
+            <MenuLink to="/guest" label="My trips" onChoose={() => setOpen(false)} />
+            {(memberships || [])
+              .filter((m) => (m.role === "owner" || m.role === "manager") && m.hotelSlug)
+              .map((m, idx) => (
+                <MenuLink
+                  key={`${m.hotelSlug}-${idx}`}
+                  to={`/owner/${m.hotelSlug}`}
+                  label={`Owner @ ${m.hotelName || m.hotelSlug}`}
+                  onChoose={() => setOpen(false)}
+                />
+              ))}
+            {(memberships || []).some((m) => m.role === "staff") && (
+              <MenuLink to="/staff" label="Staff workspace" onChoose={() => setOpen(false)} />
             )}
           </div>
 
-          <div className="h-px bg-gray-100" />
+          <div className="h-px bg-slate-200" />
 
-          {/* App shortcuts (no “switch to guest”) */}
-          <div className="px-3 py-2">
-            <div className="text-xs font-semibold text-gray-700 mb-1">Go to</div>
-
-            <MenuLink to="/guest" label="My trips" onSelect={() => setOpen(false)} />
-
-            {loadingRoles && (
-              <div className="text-xs text-gray-500 px-1 py-1.5">Loading properties…</div>
-            )}
-
-            {!loadingRoles &&
-              owners.map((m) => (
-                <MenuButton
-                  key={`own-${m.hotel_id}`}
-                  label={`${m.role === "owner" ? "Owner" : "Manager"} @ ${m.slug || m.name || "hotel"}`}
-                  onClick={() => (m.role === "owner" ? goOwner(m.slug) : goManager(m.slug))}
-                />
-              ))}
-
-            {!loadingRoles &&
-              staffs.map((m) => (
-                <MenuButton
-                  key={`stf-${m.hotel_id}`}
-                  label={`Staff @ ${m.slug || m.name || "hotel"}`}
-                  onClick={() => goStaff(m.slug)}
-                />
-              ))}
+          {/* Settings */}
+          <div className="py-1">
+            <MenuLink to="/profile" label="Update profile" onChoose={() => setOpen(false)} />
+            <MenuLink to="/settings" label="Settings" onChoose={() => setOpen(false)} />
           </div>
 
-          <div className="h-px bg-gray-100 my-1" />
+          <div className="h-px bg-slate-200" />
 
-          {/* Profile/Settings */}
-          <MenuLink to="/profile" label="Update profile" onSelect={() => setOpen(false)} />
-          <MenuLink to="/settings" label="Settings" onSelect={() => setOpen(false)} />
-
-          <div className="h-px bg-gray-100 my-1" />
-
-          {/* Sign out goes through /logout for the reliable flow */}
-          <MenuButton
-            label="Sign out"
-            onClick={() => {
+          {/* Sign out */}
+          <button
+            role="menuitem"
+            onClick={async () => {
               setOpen(false);
-              navigate("/logout");
+              try {
+                // Clear any persisted role/slug if you use it
+                localStorage.removeItem("owner:slug");
+                localStorage.removeItem("staff:slug");
+                await supabase.auth.signOut();
+              } finally {
+                nav("/", { replace: true });
+              }
             }}
-          />
+            className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+          >
+            Sign out
+          </button>
         </div>
       )}
     </div>
@@ -240,39 +163,20 @@ export default function AccountControls({
 function MenuLink({
   to,
   label,
-  onSelect,
+  onChoose,
 }: {
   to: string;
   label: string;
-  onSelect?: () => void;
+  onChoose?: () => void;
 }) {
   return (
     <Link
       to={to}
+      onClick={onChoose}
+      className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
       role="menuitem"
-      onClick={onSelect}
-      className="block px-3 py-2 text-sm hover:bg-gray-50 focus:bg-gray-50 outline-none"
     >
       {label}
     </Link>
-  );
-}
-
-function MenuButton({
-  label,
-  onClick,
-}: {
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="menuitem"
-      onClick={onClick}
-      className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-50 focus:bg-gray-50 outline-none"
-    >
-      {label}
-    </button>
   );
 }

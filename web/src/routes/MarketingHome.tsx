@@ -221,7 +221,7 @@ export default function MarketingHome() {
           <div className="rounded-2xl bg-gradient-to-br from-slate-50 via-white to-slate-50 p-6 sm:p-10">
             <div className="text-center mb-8">
               <h3 className="text-3xl font-bold tracking-tight">
-                The whole journey, up<span className="underline decoration-sky-300">graa</span>rded
+                One OS for Guests, Staff, and Owners
               </h3>
               <p className="mt-2 text-gray-600">
                 Wins across guests, staff, owners, and brand.

@@ -1,6 +1,6 @@
 // web/src/routes/MarketingHome.tsx
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 import SEO from "../components/SEO";
 import HeroCarousel from "../components/HeroCarousel";
@@ -56,7 +56,7 @@ function TrophyIcon(props: React.SVGProps<SVGSVGElement>) {
       <path d="M7 6h10v3a5 5 0 1 1-10 0V6Z" className="fill-amber-400" />
       <rect x="9" y="15" width="6" height="2" className="fill-amber-500" />
       <rect x="8" y="17" width="8" height="2" rx="1" className="fill-amber-600" />
-      <path d="M17 6h3v2a3 3 0 0 1-3 3V6ZM7 6H4v2a3 3 0 0 0 3 3V6Z" className="fill-amber-300" />
+      <path d="M17 6h3v2a3 3 0 0 1-3 3V6ZM7 6H4v2a3 3 0 1 0 3 3V6Z" className="fill-amber-300" />
     </svg>
   );
 }
@@ -183,7 +183,25 @@ export default function MarketingHome() {
     [isOwnerSide, isStaffSide, ownerHomeHref, staffHomeHref]
   );
 
-  const site = typeof window !== "undefined" ? window.location.origin : "https://vaiyu.co.in";
+  const site =
+    typeof window !== "undefined" ? window.location.origin : "https://vaiyu.co.in";
+
+  /** ---------- Hash-based smooth scrolling (/#ai, /#use-cases, etc.) ---------- */
+  const location = useLocation();
+  useEffect(() => {
+    const hash = location.hash?.replace("#", "");
+    if (!hash) return;
+
+    // wait a tick so the DOM is laid out (esp. after route change)
+    const t = setTimeout(() => {
+      const el = document.getElementById(hash);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 0);
+
+    return () => clearTimeout(t);
+  }, [location.hash]);
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
@@ -223,9 +241,7 @@ export default function MarketingHome() {
               <h3 className="text-3xl font-bold tracking-tight">
                 One OS for Guests, Staff, and Owners
               </h3>
-              <p className="mt-2 text-gray-600">
-                Wins across guests, staff, owners, and brand.
-              </p>
+              <p className="mt-2 text-gray-600">Wins across guests, staff, owners, and brand.</p>
             </div>
 
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -310,7 +326,7 @@ export default function MarketingHome() {
       </section>
 
       {/* Alternating image + content */}
-      <section id="ai" className="mx-auto max-w-7xl px-4 pb-14">
+      <section id="ai" className="mx-auto max-w-7xl px-4 pb-14 scroll-mt-24">
         <AIShowcase />
       </section>
 

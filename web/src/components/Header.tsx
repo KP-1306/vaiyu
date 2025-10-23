@@ -1,4 +1,3 @@
-// web/src/components/Header.tsx
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState, useCallback } from "react";
 import AccountControls from "./AccountControls";
@@ -45,7 +44,6 @@ export default function Header() {
 
   // Smooth-scroll helper for in-page sections on "/"
   const scrollToId = useCallback((id: string) => {
-    // give the router a tick to update hash, then scroll
     requestAnimationFrame(() => {
       const el = document.querySelector(id) as HTMLElement | null;
       if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -56,7 +54,7 @@ export default function Header() {
     (e: React.MouseEvent<HTMLAnchorElement>, section: "#ai" | "#use-cases") => {
       e.preventDefault();
       if (pathname !== "/") {
-        // navigate home with hash; on load useEffect below will scroll
+        // navigate home with hash; MarketingHome will scroll on mount
         navigate(`/${section}`);
       } else {
         // already on home; just update hash & scroll
@@ -80,27 +78,21 @@ export default function Header() {
     <header className="sticky top-0 z-40 w-full border-b bg-white/90 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-4">
         <Link to="/" className="font-semibold">
-          <span className="inline-flex items-center gap-2">
-            <img src="/logo.svg" alt="VAiyu" className="h-6 w-6" />
-            VAiyu
-          </span>
+            <span className="inline-flex items-center gap-2">
+              <img src="/logo.svg" alt="VAiyu" className="h-6 w-6" />
+              VAiyu
+            </span>
         </Link>
 
         {/* Primary nav (marketing) */}
         <nav className="ml-6 hidden gap-4 text-sm md:flex">
-          <a href="/#why" onClick={(e) => onHashNav(e as any, "#use-cases")}>
-            Why VAiyu
-          </a>
-          <a href="/#ai" onClick={(e) => onHashNav(e as any, "#ai")}>
-            AI
-          </a>
-          <a href="/#use-cases" onClick={(e) => onHashNav(e as any, "#use-cases")}>
-            Use-cases
-          </a>
+          <a href="/#use-cases" onClick={(e) => onHashNav(e, "#use-cases")}>Why VAiyu</a>
+          <a href="/#ai"        onClick={(e) => onHashNav(e, "#ai")}>AI</a>
+          <a href="/#use-cases" onClick={(e) => onHashNav(e, "#use-cases")}>Use-cases</a>
           <Link to="/about">About</Link>
         </nav>
 
-        {/* Right side: avatar or sign-in. No "Owner console" pills. */}
+        {/* Right: avatar or Sign in — NO "Owner console" pills */}
         <div className="ml-auto flex items-center gap-2">
           {loading ? null : userEmail ? (
             <AccountControls className="ml-1" displayName={displayName ?? "Account"} />

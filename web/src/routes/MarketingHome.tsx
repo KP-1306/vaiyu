@@ -1,4 +1,3 @@
-// web/src/routes/MarketingHome.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
@@ -118,7 +117,7 @@ export default function MarketingHome() {
   const ownerHomeHref = ownerSlug ? `/owner/${ownerSlug}` : "/owner";
   const staffHomeHref = "/staff";
 
-  /** ---------- Hero slides (kept role-aware but neutral) ---------- */
+  /** ---------- Hero slides (role-aware CTAs, but NO header pills) ---------- */
   const slides = useMemo(
     () => [
       {
@@ -192,12 +191,9 @@ export default function MarketingHome() {
     const hash = location.hash?.replace("#", "");
     if (!hash) return;
 
-    // wait a tick so the DOM is laid out (esp. after route change)
     const t = setTimeout(() => {
       const el = document.getElementById(hash);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 0);
 
     return () => clearTimeout(t);
@@ -227,7 +223,7 @@ export default function MarketingHome() {
         <HeroCarousel slides={slides} />
       </section>
 
-      {/* WHY (HTML/CSS — NO IMAGE) */}
+      {/* WHY (HTML/CSS — lightweight, no big images) */}
       <section id="why" className="mx-auto max-w-7xl px-4 py-14">
         <h2 className="text-2xl font-bold">The whole journey, upgraded</h2>
         <p className="text-gray-600 mt-1">
@@ -235,7 +231,6 @@ export default function MarketingHome() {
         </p>
 
         <div className="mt-6 rounded-3xl ring-1 ring-slate-200 bg-white/70 p-6 sm:p-8 shadow-sm">
-          {/* soft gradient backdrop */}
           <div className="rounded-2xl bg-gradient-to-br from-slate-50 via-white to-slate-50 p-6 sm:p-10">
             <div className="text-center mb-8">
               <h3 className="text-3xl font-bold tracking-tight">
@@ -376,30 +371,14 @@ export default function MarketingHome() {
         <div className="mx-auto max-w-7xl px-4 py-8 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-3">
           <div>© {new Date().getFullYear()} VAiyu — Where Intelligence Meets Comfort.</div>
           <div className="flex items-center gap-4">
-            <Link className="hover:text-gray-800" to="/about-ai">
-              AI
-            </Link>
-            <a className="hover:text-gray-800" href="#why">
-              Why VAiyu
-            </a>
-            <Link className="hover:text-gray-800" to="/about">
-              About
-            </Link>
-            <Link className="hover:text-gray-800" to="/press">
-              Press
-            </Link>
-            <Link className="hover:text-gray-800" to="/privacy">
-              Privacy
-            </Link>
-            <Link className="hover:text-gray-800" to="/terms">
-              Terms
-            </Link>
-            <Link className="hover:text-gray-800" to="/contact">
-              Contact
-            </Link>
-            <Link className="hover:text-gray-800" to="/careers">
-              Careers
-            </Link>
+            <Link className="hover:text-gray-800" to="/about-ai">AI</Link>
+            <a className="hover:text-gray-800" href="#why">Why VAiyu</a>
+            <Link className="hover:text-gray-800" to="/about">About</Link>
+            <Link className="hover:text-gray-800" to="/press">Press</Link>
+            <Link className="hover:text-gray-800" to="/privacy">Privacy</Link>
+            <Link className="hover:text-gray-800" to="/terms">Terms</Link>
+            <Link className="hover:text-gray-800" to="/contact">Contact</Link>
+            <Link className="hover:text-gray-800" to="/careers">Careers</Link>
           </div>
         </div>
       </footer>

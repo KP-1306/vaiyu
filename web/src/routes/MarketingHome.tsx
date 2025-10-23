@@ -12,11 +12,11 @@ import FAQShort from "../components/FAQShort";
 
 import { supabase } from "../lib/supabase";
 
-// Hardening hooks (do nothing if you don’t use them)
+// Hardening hooks (safe no-ops if unused)
 import { useIdleSignOut } from "../hooks/useIdleSignOut";
 import { useFocusAuthCheck } from "../hooks/useFocusAuthCheck";
 
-// Role context (safe to keep; it only helps tailor a few CTAs)
+// Role context (used to tailor a few CTAs)
 import { useRole } from "../context/RoleContext";
 
 const TOKEN_KEY = "stay:token";
@@ -32,7 +32,7 @@ function prettyNameFromEmail(email: string | null): string | null {
 }
 
 export default function MarketingHome() {
-  // Optional: keep your auth hardening
+  // Optional auth hardening
   useIdleSignOut({ maxIdleMinutes: 180 });
   useFocusAuthCheck();
 
@@ -57,7 +57,6 @@ export default function MarketingHome() {
       sub?.subscription?.unsubscribe();
     };
   }, []);
-  const isAuthed = !!userEmail;
   const displayName = prettyNameFromEmail(userEmail);
 
   /** ---------- Token presence (if you show credits somewhere) ---------- */
@@ -89,7 +88,7 @@ export default function MarketingHome() {
   const ownerHomeHref = ownerSlug ? `/owner/${ownerSlug}` : "/owner";
   const staffHomeHref = "/staff";
 
-  /** ---------- Hero slides (kept role-aware but neutral) ---------- */
+  /** ---------- Hero slides (role-aware CTAs, imagery unchanged) ---------- */
   const slides = useMemo(
     () => [
       {
@@ -176,9 +175,9 @@ export default function MarketingHome() {
         }}
       />
 
-      {/* HERO welcome chip + carousel */}
+      {/* HERO — friendly welcome + use-cases carousel */}
       <section id="use-cases" className="mx-auto max-w-7xl px-4 pt-4 pb-6 scroll-mt-24">
-        {/* --- Super friendly welcome (only when signed in) --- */}
+        {/* Small friendly welcome chip (only when signed in) */}
         {displayName && (
           <div className="relative z-10 -mb-4 flex justify-center">
             <div className="rounded-full bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 px-4 py-2 text-white text-sm shadow-lg ring-1 ring-white/30">
@@ -244,7 +243,7 @@ export default function MarketingHome() {
         <FAQShort />
       </section>
 
-      {/* Closing contact CTA (kept light) */}
+      {/* Closing contact CTA */}
       <section id="contact-cta" className="mx-auto max-w-7xl px-4 pb-16">
         <div className="rounded-3xl border border-gray-200 bg-white p-8 sm:p-10 shadow-sm">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">

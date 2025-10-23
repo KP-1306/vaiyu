@@ -1,75 +1,40 @@
 // web/src/components/Header.tsx
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import AccountControls from "./AccountControls";
 import { supabase } from "../lib/supabase";
-import { getMyMemberships, loadPersistedRole, PersistedRole } from "../lib/auth";
 
-type Membership = {
-  hotelSlug: string | null;
-  hotelName: string | null;
-  role: "viewer" | "staff" | "manager" | "owner";
-};
-
-function pickDefaultLanding(
-  mems: Membership[],
-  persisted: PersistedRole | null
-): { href: string; label: string } {
-  // 1) If they explicitly chose a role before, respect it
-  if (persisted?.role === "owner" && persisted.hotelSlug) {
-    return { href: `/owner/${persisted.hotelSlug}`, label: "Owner console" };
-  }
-  if (persisted?.role === "manager" && persisted.hotelSlug) {
-    return { href: `/owner/${persisted.hotelSlug}`, label: "Property console" };
-  }
-  if (persisted?.role === "staff" && persisted.hotelSlug) {
-    return { href: `/staff`, label: "Staff workspace" };
-  }
-
-  // 2) Otherwise pick best available role from memberships
-  const owner = mems.find((m) => m.role === "owner" && m.hotelSlug);
-  if (owner?.hotelSlug) return { href: `/owner/${owner.hotelSlug}`, label: "Owner console" };
-
-  const mgr = mems.find((m) => m.role === "manager" && m.hotelSlug);
-  if (mgr?.hotelSlug) return { href: `/owner/${mgr.hotelSlug}`, label: "Property console" };
-
-  const staff = mems.find((m) => m.role === "staff");
-  if (staff) return { href: `/staff`, label: "Staff workspace" };
-
-  // 3) Fallback: guest
-  return { href: `/guest`, label: "My trips" };
-}
-
+/**
+ * Header: marketing nav + account avatar only
+ * - No "Owner console" pill anywhere
+ * - Friendly welcome bar on the home page when signed in
+ * - "AI" and "Use-cases" link to in-page sections on "/"
+ */
 export default function Header() {
+  const { pathname, hash } = useLocation();
   const navigate = useNavigate();
-  const { pathname } = useLocation();
 
   const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [memberships, setMemberships] = useState<Membership[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Load auth + memberships
+  // Load user once and react to auth changes (no flicker)
   useEffect(() => {
     let alive = true;
+
     (async () => {
       setLoading(true);
-      const { data } = await supabase.auth.getUser();
-      const email = data?.user?.email ?? null;
-      const mems = email ? await getMyMemberships() : [];
-      if (!alive) return;
-      setUserEmail(email);
-      setMemberships(mems);
-      setLoading(false);
+      try {
+        const { data } = await supabase.auth.getUser();
+        if (!alive) return;
+        setUserEmail(data?.user?.email ?? null);
+      } finally {
+        if (alive) setLoading(false);
+      }
     })();
 
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
-      const email = session?.user?.email ?? null;
-      setUserEmail(email);
-      if (!email) {
-        setMemberships([]);
-      } else {
-        getMyMemberships().then(setMemberships);
-      }
+      setUserEmail(session?.user?.email ?? null);
+      setLoading(false);
     });
 
     return () => {
@@ -78,31 +43,38 @@ export default function Header() {
     };
   }, []);
 
-  const persisted = useMemo(() => loadPersistedRole(), []);
-  const cta = useMemo(() => pickDefaultLanding(memberships, persisted), [memberships, persisted]);
+  // Smooth-scroll helper for in-page sections on "/"
+  const scrollToId = useCallback((id: string) => {
+    // give the router a tick to update hash, then scroll
+    requestAnimationFrame(() => {
+      const el = document.querySelector(id) as HTMLElement | null;
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, []);
 
-  const showOwnerConsoleButton = useMemo(
-    () => memberships.some((m) => m.role === "owner" || m.role === "manager"),
-    [memberships]
+  const onHashNav = useCallback(
+    (e: React.MouseEvent<HTMLAnchorElement>, section: "#ai" | "#use-cases") => {
+      e.preventDefault();
+      if (pathname !== "/") {
+        // navigate home with hash; on load useEffect below will scroll
+        navigate(`/${section}`);
+      } else {
+        // already on home; just update hash & scroll
+        if (window.location.hash !== section) window.history.replaceState(null, "", section);
+        scrollToId(section);
+      }
+    },
+    [navigate, pathname, scrollToId]
   );
 
-  // ---- Smooth in-page navigation (AI & Use-cases) ----
-  const scrollToId = (id: string) => {
-    const el = document.getElementById(id);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-
-  const jumpTo = (id: "use-cases" | "ai") => {
-    if (pathname !== "/") {
-      // navigate to home with hash, then scroll once mounted
-      navigate(`/#${id}`);
-      // the MarketingHome effect will handle the actual scroll
-    } else {
-      // already on home: update the hash & scroll smoothly
-      history.replaceState(null, "", `/#${id}`);
-      scrollToId(id);
+  // When landing on "/" with a hash, scroll to it
+  useEffect(() => {
+    if (pathname === "/" && (hash === "#ai" || hash === "#use-cases")) {
+      scrollToId(hash);
     }
-  };
+  }, [pathname, hash, scrollToId]);
+
+  const displayName = userEmail ? userEmail.split("@")[0] : null;
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-white/90 backdrop-blur">
@@ -116,44 +88,22 @@ export default function Header() {
 
         {/* Primary nav (marketing) */}
         <nav className="ml-6 hidden gap-4 text-sm md:flex">
-          <button
-            onClick={() => jumpTo("use-cases")}
-            className="hover:text-gray-900 text-gray-700 transition-colors"
-          >
+          <a href="/#why" onClick={(e) => onHashNav(e as any, "#use-cases")}>
             Why VAiyu
-          </button>
-          <button
-            onClick={() => jumpTo("ai")}
-            className="hover:text-gray-900 text-gray-700 transition-colors"
-          >
+          </a>
+          <a href="/#ai" onClick={(e) => onHashNav(e as any, "#ai")}>
             AI
-          </button>
-          <button
-            onClick={() => jumpTo("use-cases")}
-            className="hover:text-gray-900 text-gray-700 transition-colors"
-          >
+          </a>
+          <a href="/#use-cases" onClick={(e) => onHashNav(e as any, "#use-cases")}>
             Use-cases
-          </button>
-          <Link to="/about" className="hover:text-gray-900 text-gray-700 transition-colors">
-            About
-          </Link>
+          </a>
+          <Link to="/about">About</Link>
         </nav>
 
+        {/* Right side: avatar or sign-in. No "Owner console" pills. */}
         <div className="ml-auto flex items-center gap-2">
-          {!loading && userEmail && showOwnerConsoleButton && (
-            <Link to="/owner" className="hidden rounded-full border px-3 py-1.5 text-sm md:inline-block">
-              Owner console
-            </Link>
-          )}
-
-          {/* Role-aware CTA */}
-          {!loading && userEmail ? (
-            <Link
-              to={cta.href}
-              className="rounded-full bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              {cta.label}
-            </Link>
+          {loading ? null : userEmail ? (
+            <AccountControls className="ml-1" displayName={displayName ?? "Account"} />
           ) : (
             <Link
               to="/signin?intent=signin&redirect=/guest"
@@ -162,18 +112,13 @@ export default function Header() {
               Sign in
             </Link>
           )}
-
-          {/* Avatar / account menu */}
-          {!loading && userEmail && (
-            <AccountControls className="ml-1" displayName={userEmail.split("@")[0]} />
-          )}
         </div>
       </div>
 
-      {/* Optional: tiny marketing hint bar */}
-      {pathname === "/" && userEmail && (
+      {/* Friendly welcome bar only on home */}
+      {pathname === "/" && displayName && (
         <div className="border-t bg-blue-50 text-center text-xs text-blue-900">
-          You’re signed in as <strong>{userEmail}</strong>
+          Welcome back, <strong>{displayName}</strong> — great to see you! 🎉
         </div>
       )}
     </header>

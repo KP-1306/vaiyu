@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, memo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { API } from "../lib/api";
+import AccountControls from "../components/AccountControls";
 
 /* ======= QUICK AUTH GUARD (belt-and-suspenders) ======= */
 export default function GuestDashboard() {
@@ -55,7 +56,6 @@ export default function GuestDashboard() {
   const [email, setEmail] = useState<string | null>(null);
   const [authName, setAuthName] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   // independent card states
   const [stays, setStays] = useState<AsyncData<Stay[]>>({ loading: true, source: "live", data: [] });
@@ -74,38 +74,34 @@ export default function GuestDashboard() {
 
       setEmail(u?.email ?? null);
       setAuthName((u?.user_metadata?.name as string) ?? u?.user_metadata?.full_name ?? null);
-      setAvatarUrl((u?.user_metadata?.avatar_url as string) || null);
 
-      // Pull name/photo from profiles table if available
+      // Pull name from profiles table if available
       if (u?.id) {
         const { data: prof } = await supabase
           .from("profiles")
-          .select("full_name, profile_photo_url")
+          .select("full_name")
           .eq("id", u.id)
           .maybeSingle();
-        if (prof) {
-          if (prof.full_name && prof.full_name.trim()) setDisplayName(prof.full_name.trim());
-          if (prof.profile_photo_url) setAvatarUrl(prof.profile_photo_url);
+        if (prof && prof.full_name && prof.full_name.trim()) {
+          setDisplayName(prof.full_name.trim());
         }
       }
 
-      // keep badge fresh on auth updates
+      // keep welcome text fresh on auth updates
       const { data: sub } = supabase.auth.onAuthStateChange(async (_evt, sess) => {
         if (!mounted) return;
         const user = sess?.user;
         setEmail(user?.email ?? null);
         setAuthName((user?.user_metadata?.name as string) ?? user?.user_metadata?.full_name ?? null);
-        setAvatarUrl((user?.user_metadata?.avatar_url as string) || null);
 
         if (user?.id) {
           const { data: prof } = await supabase
             .from("profiles")
-            .select("full_name, profile_photo_url")
+            .select("full_name")
             .eq("id", user.id)
             .maybeSingle();
-          if (prof) {
-            if (prof.full_name && prof.full_name.trim()) setDisplayName(prof.full_name.trim());
-            if (prof.profile_photo_url) setAvatarUrl(prof.profile_photo_url);
+          if (prof && prof.full_name && prof.full_name.trim()) {
+            setDisplayName(prof.full_name.trim());
           }
         }
       });
@@ -219,12 +215,11 @@ export default function GuestDashboard() {
               to speed up check-in.
             </p>
           </div>
-          <ProfileMenu
-            label={who}
-            email={email}
-            avatarUrl={avatarUrl}
-            onEditProfile={() => nav("/profile")}
-          />
+
+          {/* Unified global account menu */}
+          <div className="ml-auto">
+            <AccountControls />
+          </div>
         </div>
 
         {/* Rewards: more prominent, right under welcome */}
@@ -504,7 +499,7 @@ async function loadCard<J, T>(
   fetcher: () => Promise<J>,
   map: (j: J | null) => T,
   demo: () => T,
-  set: (next: AsyncData<T>) => void
+  set: (next: any) => void
 ) {
   set({ loading: true, source: "live", data: map(null as any) });
   try {
@@ -554,80 +549,6 @@ function RewardsPill({ total }: { total: number }) {
       </span>
       <span className="ml-2 text-gray-500">→</span>
     </Link>
-  );
-}
-
-/* ===== Profile menu (top-right) ===== */
-function ProfileMenu({
-  label,
-  email,
-  avatarUrl,
-  onEditProfile,
-}: {
-  label: string | null;
-  email: string | null;
-  avatarUrl: string | null;
-  onEditProfile: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  async function signOut() {
-    await supabase.auth.signOut();
-    location.href = "/"; // back to marketing shell
-  }
-  const initials =
-    (label?.trim().split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() ||
-      email?.[0]?.toUpperCase() ||
-      "G");
-
-  return (
-    <div className="relative">
-      <button
-        className="flex items-center gap-2 rounded-full border bg-white px-3 py-1.5 shadow"
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        title={email || undefined}
-      >
-        <div className="w-8 h-8 rounded-full overflow-hidden bg-indigo-600 text-white grid place-items-center text-sm font-semibold">
-          {avatarUrl ? <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : initials}
-        </div>
-        <span className="text-sm text-gray-700 max-w-[180px] truncate">{label || email || "Guest"}</span>
-      </button>
-
-      {open && (
-        <div
-          role="menu"
-          className="absolute right-0 mt-2 w-56 rounded-xl border bg-white shadow-lg overflow-hidden z-50"
-        >
-          <button
-            role="menuitem"
-            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
-            onClick={() => {
-              setOpen(false);
-              onEditProfile();
-            }}
-          >
-            Update profile
-          </button>
-          <Link
-            role="menuitem"
-            to="/settings"
-            className="block px-3 py-2 text-sm hover:bg-gray-50"
-            onClick={() => setOpen(false)}
-          >
-            Settings
-          </Link>
-          <div className="border-t my-1" />
-          <button
-            role="menuitem"
-            className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-            onClick={signOut}
-          >
-            Sign out
-          </button>
-        </div>
-      )}
-    </div>
   );
 }
 

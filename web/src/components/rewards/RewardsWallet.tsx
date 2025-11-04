@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+// web/src/components/rewards/RewardsWallet.tsx
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
 /** Types */
@@ -25,7 +26,8 @@ type Voucher = {
 
 /** Utils */
 const inr = (paise: number) => `₹${(paise / 100).toFixed(2)}`;
-const cx = (...xs: Array<string | false | undefined | null>) => xs.filter(Boolean).join(" ");
+const cx = (...xs: Array<string | false | undefined | null>) =>
+  xs.filter(Boolean).join(" ");
 
 /** Component */
 export default function RewardsWallet() {
@@ -33,6 +35,7 @@ export default function RewardsWallet() {
   const [balances, setBalances] = useState<HotelBalance[]>([]);
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [needsAuth, setNeedsAuth] = useState(false);
 
   // Claim modal
   const [claimOpen, setClaimOpen] = useState(false);
@@ -45,43 +48,69 @@ export default function RewardsWallet() {
   // History modal
   const [historyOpen, setHistoryOpen] = useState(false);
 
+  // Abort in-flight requests on unmount/route change
+  const abortRef = useRef(new AbortController());
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [{ data: sess }, overviewRes, vouchersRes] = await Promise.all([
-          supabase.auth.getSession(),
-          supabase.from("rewards_overview").select("*").order("hotel_name", { ascending: true }),
-          supabase
-            .from("reward_vouchers_with_hotels")
-            .select("id, code, user_id, hotel_id, hotel_name, amount_paise, status, expires_at, created_at")
-            .order("created_at", { ascending: false })
-            .limit(50),
-        ]);
+    return () => abortRef.current.abort();
+  }, []);
 
-        const uid = sess.session?.user?.id;
-        if (!uid) throw new Error("Please sign in to view rewards.");
+  async function load() {
+    setLoading(true);
+    setError(null);
+    setNeedsAuth(false);
 
-        const obal = (overviewRes.data || []) as any[];
-        setBalances(
-          obal.map((r) => ({
-            hotel_id: r.hotel_id,
-            hotel_name: r.hotel_name,
-            city: r.city ?? null,
-            cover_image_url: r.cover_image_url ?? null,
-            available_paise: r.available_paise ?? 0,
-            pending_paise: r.pending_paise ?? 0,
-          }))
-        );
+    try {
+      // STEP 1: Session only
+      const { data: sess, error: sessErr } = await supabase.auth.getSession();
+      if (sessErr) throw sessErr;
 
-        setVouchers((vouchersRes.data || []) as Voucher[]);
-      } catch (e: any) {
-        setError(e?.message || "Could not load rewards.");
-      } finally {
-        setLoading(false);
+      const uid = sess.session?.user?.id;
+      if (!uid) {
+        setNeedsAuth(true);
+        return;
       }
-    })();
+
+      // STEP 2: Then data queries (only after we know we’re authed)
+      const [overviewRes, vouchersRes] = await Promise.all([
+        supabase
+          .from("rewards_overview")
+          .select("*")
+          .order("hotel_name", { ascending: true })
+          .throwOnError(),
+        supabase
+          .from("reward_vouchers_with_hotels")
+          .select(
+            "id, code, user_id, hotel_id, hotel_name, amount_paise, status, expires_at, created_at"
+          )
+          .order("created_at", { ascending: false })
+          .limit(50)
+          .throwOnError(),
+      ]);
+
+      const obal = (overviewRes.data || []) as any[];
+      setBalances(
+        obal.map((r) => ({
+          hotel_id: r.hotel_id,
+          hotel_name: r.hotel_name,
+          city: r.city ?? null,
+          cover_image_url: r.cover_image_url ?? null,
+          available_paise: r.available_paise ?? 0,
+          pending_paise: r.pending_paise ?? 0,
+        }))
+      );
+
+      setVouchers((vouchersRes.data || []) as Voucher[]);
+    } catch (e: any) {
+      console.error("[Rewards] load failed:", e);
+      setError(e?.message || "Could not load rewards.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const totalAvailable = useMemo(
@@ -118,32 +147,13 @@ export default function RewardsWallet() {
       });
       if (error) throw error;
 
-      const v: Voucher = data;
+      const v: Voucher = data as Voucher;
       setClaimSuccess(v);
 
-      // Refresh balances + vouchers
-      const [overviewRes, vouchersRes] = await Promise.all([
-        supabase.from("rewards_overview").select("*").order("hotel_name", { ascending: true }),
-        supabase
-          .from("reward_vouchers_with_hotels")
-          .select("id, code, user_id, hotel_id, hotel_name, amount_paise, status, expires_at, created_at")
-          .order("created_at", { ascending: false })
-          .limit(50),
-      ]);
-
-      const obal = (overviewRes.data || []) as any[];
-      setBalances(
-        obal.map((r) => ({
-          hotel_id: r.hotel_id,
-          hotel_name: r.hotel_name,
-          city: r.city ?? null,
-          cover_image_url: r.cover_image_url ?? null,
-          available_paise: r.available_paise ?? 0,
-          pending_paise: r.pending_paise ?? 0,
-        }))
-      );
-      setVouchers((vouchersRes.data || []) as Voucher[]);
+      // Refresh balances + vouchers after claim
+      await load();
     } catch (e: any) {
+      console.error("[Rewards] claim failed:", e);
       setClaimErr(e?.message || "Could not create voucher.");
     } finally {
       setClaimBusy(false);
@@ -165,8 +175,20 @@ export default function RewardsWallet() {
         </div>
       </header>
 
+      {needsAuth && !loading ? (
+        <div className="mt-4 p-3 rounded-md bg-amber-50 text-amber-800 text-sm">
+          Please sign in to view your rewards.{" "}
+          <a className="underline" href="/signin">Go to sign in</a>
+        </div>
+      ) : null}
+
       {error ? (
-        <div className="mt-4 p-3 rounded-md bg-red-50 text-red-700 text-sm">{error}</div>
+        <div className="mt-4 p-3 rounded-md bg-red-50 text-red-700 text-sm">
+          {error}{" "}
+          <button className="ml-2 underline" onClick={load}>
+            Retry
+          </button>
+        </div>
       ) : null}
 
       {loading ? (

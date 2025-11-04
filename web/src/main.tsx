@@ -1,6 +1,7 @@
 import React, { StrictMode, Suspense, lazy, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider, Outlet } from "react-router-dom";
+import OwnerApplications from "./routes/admin/OwnerApplications";
 
 /* ────────────── Lazy routes (grouped like your file) ────────────── */
 const Scan = React.lazy(() => import("./routes/Scan"));
@@ -222,6 +223,7 @@ const router = createBrowserRouter([
       { path: "rewards", element: <Rewards /> },
       { path: "invite",  element: <AuthGate><Invite /></AuthGate> }, // ← NEW (protected)
       { path: "profile", element: <AuthGate><Profile /></AuthGate> },
+      
 
       // Guest / Journey
       { path: "scan", element: <Scan /> },
@@ -263,6 +265,7 @@ const router = createBrowserRouter([
       { path: "owner/reviews",               element: <AuthGate><OwnerReviews /></AuthGate> },
       { path: "admin",                       element: <AuthGate><AdminOps /></AuthGate> },
       { path: "owner/home",                  element: <AuthGate><OwnerHomeRedirect /></AuthGate> },
+      { path: "/admin/owner-applications",   element: <AdminGate><OwnerApplications/></AdminGate>},
 
       // Access & Invite acceptance (protected)
       { path: "owner/:slug/settings/access", element: <AuthGate><OwnerAccess /></AuthGate> },

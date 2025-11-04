@@ -111,9 +111,10 @@ const GridDevices    = lazy(() => import("./routes/GridDevices"));
 const GridPlaybooks  = lazy(() => import("./routes/GridPlaybooks"));
 const GridEvents     = lazy(() => import("./routes/GridEvents"));
 
-/* Profile / Rewards */
+/* Profile / Rewards / Invite */
 const Profile        = lazy(() => import("./routes/Profile"));
 const Rewards        = lazy(() => import("./routes/Rewards"));
+const Invite         = lazy(() => import("./routes/Invite")); // ← NEW
 
 /* 404 + deep link + welcome */
 const NotFound       = lazy(() => import("./routes/NotFound"));
@@ -127,7 +128,6 @@ function AuthBootstrap({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let cancelled = false;
 
-    // Resolve quickly if a session is already present; otherwise still mark ready.
     supabase.auth
       .getSession()
       .catch(() => {})
@@ -135,12 +135,10 @@ function AuthBootstrap({ children }: { children: React.ReactNode }) {
         if (!cancelled) setReady(true);
       });
 
-    // Also listen for any changes (first load, tab switching, etc.)
     const sub = supabase.auth.onAuthStateChange(() => {
       if (!cancelled) setReady(true);
     });
 
-    // Absolute backstop so UI never stalls on "Starting app…"
     const t = setTimeout(() => {
       if (!cancelled) setReady(true);
     }, 1500);
@@ -220,9 +218,9 @@ const router = createBrowserRouter([
       { path: "thanks", element: <Thanks /> },
       { path: "owner/register", element: <OwnerRegister /> },
 
-      // Rewards + Profile
+      // Rewards + Profile + Invite
       { path: "rewards", element: <Rewards /> },
-      // 🔒 protect profile
+      { path: "invite",  element: <AuthGate><Invite /></AuthGate> }, // ← NEW (protected)
       { path: "profile", element: <AuthGate><Profile /></AuthGate> },
 
       // Guest / Journey
@@ -236,7 +234,6 @@ const router = createBrowserRouter([
       { path: "regcard", element: <Regcard /> },
       { path: "claim", element: <ClaimStay /> },
       { path: "checkout", element: <Checkout /> },
-      // 🔒 protect guest dashboard
       { path: "guest", element: <AuthGate><GuestDashboard /></AuthGate> },
       { path: "hotel/:slug/reviews", element: <HotelReviews /> },
       { path: "stays", element: <Stays /> },
@@ -267,7 +264,7 @@ const router = createBrowserRouter([
       { path: "admin",                       element: <AuthGate><AdminOps /></AuthGate> },
       { path: "owner/home",                  element: <AuthGate><OwnerHomeRedirect /></AuthGate> },
 
-      // Access & Invite (protected) — canonical + aliases
+      // Access & Invite acceptance (protected)
       { path: "owner/:slug/settings/access", element: <AuthGate><OwnerAccess /></AuthGate> },
       { path: "owner/invite/accept/:token",  element: <AuthGate><InviteAccept /></AuthGate> },
       { path: "owner/access",                element: <AuthGate><OwnerAccess /></AuthGate> }, // supports ?slug=

@@ -65,7 +65,7 @@ export type ReferralIdentifier = {
 
 export type CreditBalance = {
   property: string; // property slug (e.g., "sunrise")
-  balance: number; // currency minor units or plain number
+  balance: number;  // currency minor units or plain number
   currency?: string; // e.g., "INR"
   expiresAt?: string | null;
 };
@@ -98,7 +98,8 @@ export type OwnerApp = {
   review_notes?: string | null;
   rejected_reason?: string | null;
 
-  created_at?: string;
+  created_at?: string | null;
+  cover_url?: string | null;
 };
 
 /* ============================================================================
@@ -108,14 +109,8 @@ function withTimeout<T>(p: Promise<T>, ms = 10_000): Promise<T> {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error("Network timeout")), ms);
     p.then(
-      (v) => {
-        clearTimeout(t);
-        resolve(v);
-      },
-      (e) => {
-        clearTimeout(t);
-        reject(e);
-      }
+      (v) => { clearTimeout(t); resolve(v); },
+      (e) => { clearTimeout(t); reject(e); }
     );
   });
 }
@@ -404,80 +399,37 @@ export type GridEvent = {
   actions: Array<{ ts: string; device_id: string; action: "shed" | "restore" | "nudge"; by: "system" | "staff" | "owner"; note?: string }>;
 };
 
-export async function gridGetDevices() {
-  return req<Device[]>("/grid/devices");
-}
+export async function gridGetDevices() { return req<Device[]>("/grid/devices"); }
 export async function gridSaveDevices(items: Device[] | Device) {
-  return req<{ ok: boolean; items: Device[] }>("/grid/devices", {
-    method: "POST",
-    body: JSON.stringify(items),
-  });
+  return req<{ ok: boolean; items: Device[] }>("/grid/devices", { method: "POST", body: JSON.stringify(items) });
 }
-export async function gridGetPlaybooks() {
-  return req<Playbook[]>("/grid/playbooks");
-}
+export async function gridGetPlaybooks() { return req<Playbook[]>("/grid/playbooks"); }
 export async function gridSavePlaybooks(pb: Playbook[] | Playbook) {
-  return req<{ ok: boolean; items: Playbook[] }>("/grid/playbooks", {
-    method: "POST",
-    body: JSON.stringify(pb),
-  });
+  return req<{ ok: boolean; items: Playbook[] }>("/grid/playbooks", { method: "POST", body: JSON.stringify(pb) });
 }
 export async function gridStartEvent(target_kw: number, playbook_id?: string) {
-  return req<{ event: GridEvent }>("/grid/events/start", {
-    method: "POST",
-    body: JSON.stringify({ target_kw, playbook_id }),
-  });
+  return req<{ event: GridEvent }>("/grid/events/start", { method: "POST", body: JSON.stringify({ target_kw, playbook_id }) });
 }
-export async function gridStepEvent(
-  id: string,
-  device_id: string,
-  action: "shed" | "restore" | "nudge",
-  note?: string
-) {
-  return req<{ event: GridEvent }>(`/grid/events/${encodeURIComponent(id)}/step`, {
-    method: "POST",
-    body: JSON.stringify({ device_id, action, note }),
-  });
+export async function gridStepEvent(id: string, device_id: string, action: "shed" | "restore" | "nudge", note?: string) {
+  return req<{ event: GridEvent }>(`/grid/events/${encodeURIComponent(id)}/step`, { method: "POST", body: JSON.stringify({ device_id, action, note }) });
 }
-export async function gridStopEvent(id: string) {
-  return req<{ event: GridEvent }>(`/grid/events/${encodeURIComponent(id)}/stop`, {
-    method: "POST",
-  });
-}
-export async function gridListEvents() {
-  return req<{ items: GridEvent[] }>("/grid/events");
-}
-export async function gridDeviceShed(id: string) {
-  return req(`/grid/device/${encodeURIComponent(id)}/shed`, { method: "POST" });
-}
-export async function gridDeviceRestore(id: string) {
-  return req(`/grid/device/${encodeURIComponent(id)}/restore`, { method: "POST" });
-}
-export async function gridDeviceNudge(id: string) {
-  return req(`/grid/device/${encodeURIComponent(id)}/nudge`, { method: "POST" });
-}
+export async function gridStopEvent(id: string) { return req<{ event: GridEvent }>(`/grid/events/${encodeURIComponent(id)}/stop`, { method: "POST" }); }
+export async function gridListEvents() { return req<{ items: GridEvent[] }>("/grid/events"); }
+export async function gridDeviceShed(id: string) { return req(`/grid/device/${encodeURIComponent(id)}/shed`, { method: "POST" }); }
+export async function gridDeviceRestore(id: string) { return req(`/grid/device/${encodeURIComponent(id)}/restore`, { method: "POST" }); }
+export async function gridDeviceNudge(id: string) { return req(`/grid/device/${encodeURIComponent(id)}/nudge`, { method: "POST" }); }
 
 /* ============================================================================
    Self-claim (guest attaches an existing booking)
 ============================================================================ */
 export async function claimInit(code: string, contact: string) {
-  return req(`/claim/init`, {
-    method: "POST",
-    body: JSON.stringify({ code, phone: contact }),
-  });
+  return req(`/claim/init`, { method: "POST", body: JSON.stringify({ code, phone: contact }) });
 }
-
 export async function claimVerify(code: string, otp: string) {
-  return req(`/claim/verify`, {
-    method: "POST",
-    body: JSON.stringify({ code, otp }),
-  });
+  return req(`/claim/verify`, { method: "POST", body: JSON.stringify({ code, otp }) });
 }
-
 export async function myStays(token: string): Promise<{ stays: Stay[]; items: Stay[] }> {
-  const res = await req<any>("/me/stays", {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const res = await req<any>("/me/stays", { headers: { Authorization: `Bearer ${token}` } });
   const stays: Stay[] = res?.stays ?? res?.items ?? [];
   return { stays, items: stays };
 }
@@ -491,17 +443,9 @@ export async function getServices(hotelId?: string) {
   if (s) {
     try {
       const q = hotelId
-        ? s
-            .from("services")
-            .select("hotel_id,key,label_en,sla_minutes,active")
-            .eq("hotel_id", hotelId)
-            .order("key", { ascending: true })
-        : s
-            .from("services")
-            .select("hotel_id,key,label_en,sla_minutes,active")
-            .order("key", { ascending: true });
-
-      // @ts-ignore (runtime call)
+        ? s.from("services").select("hotel_id,key,label_en,sla_minutes,active").eq("hotel_id", hotelId).order("key", { ascending: true })
+        : s.from("services").select("hotel_id,key,label_en,sla_minutes,active").order("key", { ascending: true });
+      // @ts-ignore
       const { data, error } = await q;
       if (error) throw error;
       return { items: (data || []) as Service[] };
@@ -531,17 +475,13 @@ export async function saveServices(items: Service[], fallbackHotelId?: string | 
       // fall through to HTTP API
     }
   }
-  return req(`/catalog/services`, {
-    method: "POST",
-    body: JSON.stringify({ items }),
-  });
+  return req(`/catalog/services`, { method: "POST", body: JSON.stringify({ items }) });
 }
 
 /** Generic helpers some owner pages use. */
 export async function apiUpsert(path: string, payload: unknown) {
   return req(path, { method: "POST", body: JSON.stringify(payload) });
 }
-
 export async function apiDelete(path: string) {
   return req(path, { method: "DELETE" });
 }
@@ -568,18 +508,12 @@ export async function referralApply(bookingCode: string, referrer: ReferralIdent
   for (const k of keys) {
     if ((referrer as any)[k]) body.referrer = { [k]: (referrer as any)[k] };
   }
-  return req(`/referrals/apply`, {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
+  return req(`/referrals/apply`, { method: "POST", body: JSON.stringify(body) });
 }
 
 export async function myCredits(token: string): Promise<{ items: CreditBalance[]; total?: number }> {
-  return req(`/credits/mine`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  return req(`/credits/mine`, { headers: { Authorization: `Bearer ${token}` } });
 }
-
 export async function redeemCredits(token: string, property: string, amount: number, context?: any) {
   return req(`/credits/redeem`, {
     method: "POST",
@@ -591,29 +525,20 @@ export async function redeemCredits(token: string, property: string, amount: num
 /* ============================================================================
    Hotel
 ============================================================================ */
-export async function getHotel(slug: string) {
-  return req(`/hotel/${encodeURIComponent(slug)}`);
-}
-export async function upsertHotel(payload: Json) {
-  return req(`/hotel/upsert`, { method: "POST", body: JSON.stringify(payload) });
-}
+export async function getHotel(slug: string) { return req(`/hotel/${encodeURIComponent(slug)}`); }
+export async function upsertHotel(payload: Json) { return req(`/hotel/upsert`, { method: "POST", body: JSON.stringify(payload) }); }
 
 /* ============================================================================
    Consent
 ============================================================================ */
 export async function setBookingConsent(code: string, reviews: boolean) {
-  return req(`/booking/${encodeURIComponent(code)}/consent`, {
-    method: "POST",
-    body: JSON.stringify({ reviews }),
-  });
+  return req(`/booking/${encodeURIComponent(code)}/consent`, { method: "POST", body: JSON.stringify({ reviews }) });
 }
 
 /* ============================================================================
    Catalog
 ============================================================================ */
-export async function getMenu() {
-  return req(`/menu/items`);
-}
+export async function getMenu() { return req(`/menu/items`); }
 
 /* ============================================================================
    Tickets
@@ -621,24 +546,13 @@ export async function getMenu() {
 export async function createTicket(data: Json): Promise<{ id: string } & Record<string, any>> {
   const res = await req<any>(`/tickets`, { method: "POST", body: JSON.stringify(data) });
   const id = res?.id ?? res?.ticketId ?? res?.data?.id ?? null;
-
-  // Guarantee an id so UI never needs to alert "No ticket id returned"
-  if (!id) {
-    return { id: demoId("tkt"), demo: true, ...(typeof res === "object" ? res : {}) };
-  }
+  if (!id) { return { id: demoId("tkt"), demo: true, ...(typeof res === "object" ? res : {}) }; }
   return { id: String(id), ...(typeof res === "object" ? res : {}) };
 }
-export async function listTickets() {
-  return req(`/tickets`);
-}
-export async function getTicket(id: string) {
-  return req(`/tickets/${encodeURIComponent(id)}`);
-}
+export async function listTickets() { return req(`/tickets`); }
+export async function getTicket(id: string) { return req(`/tickets/${encodeURIComponent(id)}`); }
 export async function updateTicket(id: string, patch: Json) {
-  return req(`/tickets/${encodeURIComponent(id)}`, {
-    method: "PATCH",
-    body: JSON.stringify(patch),
-  });
+  return req(`/tickets/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) });
 }
 
 /* ============================================================================
@@ -647,34 +561,20 @@ export async function updateTicket(id: string, patch: Json) {
 export async function createOrder(data: Json): Promise<{ id: string } & Record<string, any>> {
   const res = await req<any>(`/orders`, { method: "POST", body: JSON.stringify(data) });
   const id = res?.id ?? res?.orderId ?? res?.data?.id ?? null;
-
-  if (!id) {
-    return { id: demoId("ord"), demo: true, ...(typeof res === "object" ? res : {}) };
-  }
+  if (!id) { return { id: demoId("ord"), demo: true, ...(typeof res === "object" ? res : {}) }; }
   return { id: String(id), ...(typeof res === "object" ? res : {}) };
 }
-export async function listOrders() {
-  return req(`/orders`);
-}
+export async function listOrders() { return req(`/orders`); }
 export async function updateOrder(id: string, patch: Json) {
-  return req(`/orders/${encodeURIComponent(id)}`, {
-    method: "PATCH",
-    body: JSON.stringify(patch),
-  });
+  return req(`/orders/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) });
 }
 
 /* ============================================================================
    Folio / Flows
 ============================================================================ */
-export async function getFolio() {
-  return req(`/folio`);
-}
-export async function precheck(data: Json) {
-  return req(`/precheck`, { method: "POST", body: JSON.stringify(data) });
-}
-export async function regcard(data: Json) {
-  return req(`/regcard`, { method: "POST", body: JSON.stringify(data) });
-}
+export async function getFolio() { return req(`/folio`); }
+export async function precheck(data: Json) { return req(`/precheck`, { method: "POST", body: JSON.stringify(data) }); }
+export async function regcard(data: Json) { return req(`/regcard`, { method: "POST", body: JSON.stringify(data) }); }
 export async function checkout(data: { bookingCode?: string; autopost?: boolean }) {
   return req(`/checkout`, { method: "POST", body: JSON.stringify(data) });
 }
@@ -682,46 +582,23 @@ export async function checkout(data: { bookingCode?: string; autopost?: boolean 
 /* ============================================================================
    Reviews
 ============================================================================ */
-export async function listReviews(slug: string) {
-  return req(`/reviews/${encodeURIComponent(slug)}`);
-}
-export async function listPendingReviews() {
-  return req(`/reviews/pending`);
-}
-export async function postManualReview(data: {
-  bookingCode: string;
-  rating: number;
-  title?: string;
-  body?: string;
-}) {
+export async function listReviews(slug: string) { return req(`/reviews/${encodeURIComponent(slug)}`); }
+export async function listPendingReviews() { return req(`/reviews/pending`); }
+export async function postManualReview(data: { bookingCode: string; rating: number; title?: string; body?: string; }) {
   return req(`/reviews`, { method: "POST", body: JSON.stringify(data) });
 }
-export async function reviewDraft(bookingCode: string) {
-  return req(`/reviews/draft/${encodeURIComponent(bookingCode)}`);
-}
+export async function reviewDraft(bookingCode: string) { return req(`/reviews/draft/${encodeURIComponent(bookingCode)}`); }
 export async function postAutoReviewPreview(bookingCode: string) {
-  return req(`/reviews/auto`, {
-    method: "POST",
-    body: JSON.stringify({ bookingCode }),
-  });
+  return req(`/reviews/auto`, { method: "POST", body: JSON.stringify({ bookingCode }) });
 }
 export async function postAutoReviewCommit(bookingCode: string) {
-  return req(`/reviews/auto`, {
-    method: "POST",
-    body: JSON.stringify({ bookingCode, commit: true }),
-  });
+  return req(`/reviews/auto`, { method: "POST", body: JSON.stringify({ bookingCode, commit: true }) });
 }
 export async function approveReview(id: string, bookingCode?: string) {
-  return req(`/reviews/approve`, {
-    method: "POST",
-    body: JSON.stringify({ id, bookingCode }),
-  });
+  return req(`/reviews/approve`, { method: "POST", body: JSON.stringify({ id, bookingCode }) });
 }
 export async function rejectReview(id: string, bookingCode?: string) {
-  return req(`/reviews/reject`, {
-    method: "POST",
-    body: JSON.stringify({ id, bookingCode }),
-  });
+  return req(`/reviews/reject`, { method: "POST", body: JSON.stringify({ id, bookingCode }) });
 }
 
 /* ============================================================================
@@ -743,7 +620,7 @@ export async function quickCheckin(data: { code: string; phone: string }) {
 
 /* ============================================================================
    NEW: Owner Applications – list + approve/reject
-   - These call your edge functions:
+   - Edge functions expected:
      GET    /owner/apps?status=pending|approved|rejected
      PATCH  /owner/apps/:id  { action: 'approve'|'reject', review_notes?, rejected_reason? }
 ============================================================================ */
@@ -768,6 +645,23 @@ export async function reviewOwnerApp(
     headers,
     body: JSON.stringify({ action, ...opts }),
   });
+}
+
+// Convenience wrappers (to match existing imports in OwnerApplications.tsx)
+export async function approveOwnerApp(
+  id: string,
+  notes?: string,
+  token?: string
+) {
+  return reviewOwnerApp(id, "approve", { review_notes: notes }, token);
+}
+export async function rejectOwnerApp(
+  id: string,
+  reason: string,
+  notes?: string,
+  token?: string
+) {
+  return reviewOwnerApp(id, "reject", { rejected_reason: reason, review_notes: notes }, token);
 }
 
 /* ============================================================================
@@ -801,7 +695,7 @@ export const api = {
   getServices,
   getMenu,
   services: (..._args: any[]) => getServices(), // back-compat alias
-  menu: (..._args: any[]) => getMenu(), // back-compat alias
+  menu: (..._args: any[]) => getMenu(),         // back-compat alias
   saveServices,
   apiUpsert,
   apiDelete,
@@ -846,4 +740,6 @@ export const api = {
   // owner apps (admin)
   fetchOwnerApps,
   reviewOwnerApp,
+  approveOwnerApp,
+  rejectOwnerApp,
 };

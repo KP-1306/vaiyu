@@ -57,6 +57,7 @@ export default function OwnerRegister() {
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false); // NEW: lock UI after success
   const [ok, setOk] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -107,7 +108,7 @@ export default function OwnerRegister() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (submitting) return;
+    if (submitting || submitted) return;
 
     const v = validate();
     if (v) {
@@ -175,6 +176,9 @@ export default function OwnerRegister() {
       }
 
       setOk("Thanks! We’ve received your property details. Our team will review and contact you soon.");
+      setSubmitted(true); // NEW: lock the UI after success
+
+      // Optional: clear fields/preview so the page looks “reset” but stays locked
       setForm({
         property_name: "",
         property_type: "",
@@ -222,219 +226,222 @@ export default function OwnerRegister() {
           {err && <div className="mx-6 mt-4 rounded-md bg-red-50 text-red-700 p-3 text-sm">{err}</div>}
 
           <form className="grid grid-cols-1 md:grid-cols-2 gap-4 p-6" onSubmit={onSubmit}>
-            {/* Property name */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium">
-                Property name<span className="text-red-500">*</span>
-              </label>
-              <input
-                className="mt-1 w-full rounded-xl border px-3 py-2"
-                required
-                value={form.property_name}
-                onChange={(e) => update("property_name", e.target.value)}
-                placeholder="e.g., Lakeview Retreat"
-              />
-            </div>
-
-            {/* Property type */}
-            <div>
-              <label className="block text-sm font-medium">
-                Property type<span className="text-red-500">*</span>
-              </label>
-              <select
-                className="mt-1 w-full rounded-xl border px-3 py-2 bg-white"
-                required
-                value={form.property_type}
-                onChange={(e) => update("property_type", e.target.value as PropertyType)}
-              >
-                <option value="" disabled>
-                  Choose type
-                </option>
-                {PROPERTY_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* City */}
-            <div>
-              <label className="block text-sm font-medium">
-                City<span className="text-red-500">*</span>
-              </label>
-              <input
-                className="mt-1 w-full rounded-xl border px-3 py-2"
-                required
-                value={form.city}
-                onChange={(e) => update("city", e.target.value)}
-                placeholder="e.g., Nainital"
-              />
-            </div>
-
-            {/* Country */}
-            <div>
-              <label className="block text-sm font-medium">
-                Country<span className="text-red-500">*</span>
-              </label>
-              <input
-                list="countries"
-                className="mt-1 w-full rounded-xl border px-3 py-2"
-                required
-                value={form.country}
-                onChange={(e) => update("country", e.target.value)}
-                placeholder="e.g., India"
-              />
-              <datalist id="countries">
-                {SUGGESTED_COUNTRIES.map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
-            </div>
-
-            {/* Google Map link */}
-            <div>
-              <label className="block text-sm font-medium">Google Map link</label>
-              <input
-                className="mt-1 w-full rounded-xl border px-3 py-2"
-                inputMode="url"
-                value={form.map_link}
-                onChange={(e) => update("map_link", e.target.value)}
-                placeholder="https://maps.google.com/..."
-              />
-            </div>
-
-            {/* Contact name */}
-            <div>
-              <label className="block text-sm font-medium">
-                Owner / Primary contact name<span className="text-red-500">*</span>
-              </label>
-              <input
-                className="mt-1 w-full rounded-xl border px-3 py-2"
-                required
-                value={form.contact_name}
-                onChange={(e) => update("contact_name", e.target.value)}
-                placeholder="Your full name"
-              />
-            </div>
-
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-medium">
-                Email<span className="text-red-500">*</span>
-              </label>
-              <input
-                type="email"
-                className="mt-1 w-full rounded-xl border px-3 py-2"
-                required
-                value={form.contact_email}
-                onChange={(e) => update("contact_email", e.target.value)}
-                placeholder="name@company.com"
-              />
-            </div>
-
-            {/* Phone */}
-            <div>
-              <label className="block text-sm font-medium">
-                Phone<span className="text-red-500">*</span>
-              </label>
-              <input
-                className="mt-1 w-full rounded-xl border px-3 py-2"
-                required
-                inputMode="tel"
-                pattern="\+?[0-9\-\s()]{7,20}"
-                value={form.contact_phone}
-                onChange={(e) => update("contact_phone", e.target.value)}
-                placeholder="e.g., +91 98765 43210"
-              />
-            </div>
-
-            {/* Room count */}
-            <div>
-              <label className="block text-sm font-medium">Approx. room count</label>
-              <input
-                type="number"
-                min={0}
-                className="mt-1 w-full rounded-xl border px-3 py-2"
-                value={form.room_count}
-                onChange={(e) =>
-                  update("room_count", e.target.value === "" ? "" : Number(e.target.value))
-                }
-                placeholder="e.g., 24"
-              />
-            </div>
-
-            {/* Links */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium">Property website / page / Instagram URL(s)</label>
-              <div className="space-y-2 mt-1">
-                {form.links.map((link, i) => (
-                  <div key={i} className="flex gap-2 items-center">
-                    <input
-                      className="flex-1 rounded-xl border px-3 py-2"
-                      inputMode="url"
-                      placeholder="https://…"
-                      value={link}
-                      onChange={(e) => updateLink(i, e.target.value)}
-                    />
-                    {form.links.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeLink(i)}
-                        className="px-3 py-2 rounded-xl border text-slate-700"
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                ))}
-                <button type="button" onClick={addLink} className="text-sm underline">
-                  + Add another link
-                </button>
+            {/* Disable all fields when submitting OR after a successful submit */}
+            <fieldset disabled={submitting || submitted} className="contents">
+              {/* Property name */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium">
+                  Property name<span className="text-red-500">*</span>
+                </label>
+                <input
+                  className="mt-1 w-full rounded-xl border px-3 py-2"
+                  required
+                  value={form.property_name}
+                  onChange={(e) => update("property_name", e.target.value)}
+                  placeholder="e.g., Lakeview Retreat"
+                />
               </div>
-            </div>
 
-            {/* Cover image */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium">Property cover image (upload)</label>
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                className="mt-1 block w-full text-sm"
-                onChange={(e) => {
-                  const file = e.target.files?.[0] || null;
-                  if (file && file.size > MAX_IMAGE_BYTES) {
-                    setErr("Cover image must be ≤ 3 MB.");
-                    e.currentTarget.value = "";
-                    return;
+              {/* Property type */}
+              <div>
+                <label className="block text-sm font-medium">
+                  Property type<span className="text-red-500">*</span>
+                </label>
+                <select
+                  className="mt-1 w-full rounded-xl border px-3 py-2 bg-white"
+                  required
+                  value={form.property_type}
+                  onChange={(e) => update("property_type", e.target.value as PropertyType)}
+                >
+                  <option value="" disabled>
+                    Choose type
+                  </option>
+                  {PROPERTY_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* City */}
+              <div>
+                <label className="block text-sm font-medium">
+                  City<span className="text-red-500">*</span>
+                </label>
+                <input
+                  className="mt-1 w-full rounded-xl border px-3 py-2"
+                  required
+                  value={form.city}
+                  onChange={(e) => update("city", e.target.value)}
+                  placeholder="e.g., Nainital"
+                />
+              </div>
+
+              {/* Country */}
+              <div>
+                <label className="block text-sm font-medium">
+                  Country<span className="text-red-500">*</span>
+                </label>
+                <input
+                  list="countries"
+                  className="mt-1 w-full rounded-xl border px-3 py-2"
+                  required
+                  value={form.country}
+                  onChange={(e) => update("country", e.target.value)}
+                  placeholder="e.g., India"
+                />
+                <datalist id="countries">
+                  {SUGGESTED_COUNTRIES.map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
+              </div>
+
+              {/* Google Map link */}
+              <div>
+                <label className="block text-sm font-medium">Google Map link</label>
+                <input
+                  className="mt-1 w-full rounded-xl border px-3 py-2"
+                  inputMode="url"
+                  value={form.map_link}
+                  onChange={(e) => update("map_link", e.target.value)}
+                  placeholder="https://maps.google.com/..."
+                />
+              </div>
+
+              {/* Contact name */}
+              <div>
+                <label className="block text-sm font-medium">
+                  Owner / Primary contact name<span className="text-red-500">*</span>
+                </label>
+                <input
+                  className="mt-1 w-full rounded-xl border px-3 py-2"
+                  required
+                  value={form.contact_name}
+                  onChange={(e) => update("contact_name", e.target.value)}
+                  placeholder="Your full name"
+                />
+              </div>
+
+              {/* Email */}
+              <div>
+                <label className="block text-sm font-medium">
+                  Email<span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  className="mt-1 w-full rounded-xl border px-3 py-2"
+                  required
+                  value={form.contact_email}
+                  onChange={(e) => update("contact_email", e.target.value)}
+                  placeholder="name@company.com"
+                />
+              </div>
+
+              {/* Phone */}
+              <div>
+                <label className="block text-sm font-medium">
+                  Phone<span className="text-red-500">*</span>
+                </label>
+                <input
+                  className="mt-1 w-full rounded-xl border px-3 py-2"
+                  required
+                  inputMode="tel"
+                  pattern="\+?[0-9\-\s()]{7,20}"
+                  value={form.contact_phone}
+                  onChange={(e) => update("contact_phone", e.target.value)}
+                  placeholder="e.g., +91 98765 43210"
+                />
+              </div>
+
+              {/* Room count */}
+              <div>
+                <label className="block text-sm font-medium">Approx. room count</label>
+                <input
+                  type="number"
+                  min={0}
+                  className="mt-1 w-full rounded-xl border px-3 py-2"
+                  value={form.room_count}
+                  onChange={(e) =>
+                    update("room_count", e.target.value === "" ? "" : Number(e.target.value))
                   }
-                  setCoverFile(file);
-                  if (coverPreview) URL.revokeObjectURL(coverPreview);
-                  setCoverPreview(file ? URL.createObjectURL(file) : null);
-                }}
-              />
-              {coverPreview && (
-                <div className="mt-2">
-                  <img
-                    src={coverPreview}
-                    alt="Cover preview"
-                    className="h-28 rounded-lg border object-cover"
-                  />
-                  <p className="text-xs text-slate-500 mt-1">
-                    Preview only — final will be uploaded on submit.
-                  </p>
+                  placeholder="e.g., 24"
+                />
+              </div>
+
+              {/* Links */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium">Property website / page / Instagram URL(s)</label>
+                <div className="space-y-2 mt-1">
+                  {form.links.map((link, i) => (
+                    <div key={i} className="flex gap-2 items-center">
+                      <input
+                        className="flex-1 rounded-xl border px-3 py-2"
+                        inputMode="url"
+                        placeholder="https://…"
+                        value={link}
+                        onChange={(e) => updateLink(i, e.target.value)}
+                      />
+                      {form.links.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeLink(i)}
+                          className="px-3 py-2 rounded-xl border text-slate-700"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button type="button" onClick={addLink} className="text-sm underline">
+                    + Add another link
+                  </button>
                 </div>
-              )}
-            </div>
+              </div>
+
+              {/* Cover image */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium">Property cover image (upload)</label>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="mt-1 block w-full text-sm"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    if (file && file.size > MAX_IMAGE_BYTES) {
+                      setErr("Cover image must be ≤ 3 MB.");
+                      e.currentTarget.value = "";
+                      return;
+                    }
+                    setCoverFile(file);
+                    if (coverPreview) URL.revokeObjectURL(coverPreview);
+                    setCoverPreview(file ? URL.createObjectURL(file) : null);
+                  }}
+                />
+                {coverPreview && (
+                  <div className="mt-2">
+                    <img
+                      src={coverPreview}
+                      alt="Cover preview"
+                      className="h-28 rounded-lg border object-cover"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">
+                      Preview only — final will be uploaded on submit.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </fieldset>
 
             {/* Submit */}
             <div className="md:col-span-2 mt-2">
               <button
                 className="w-full rounded-xl bg-blue-600 text-white py-2.5 font-medium hover:bg-blue-700 disabled:opacity-60"
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || submitted}
               >
-                {submitting ? "Submitting…" : "Submit for approval"}
+                {submitted ? "Submitted" : submitting ? "Submitting…" : "Submit for approval"}
               </button>
               <p className="text-xs text-slate-500 mt-2 text-center">
                 By submitting, you agree that a VAiyu specialist may contact you to verify details.

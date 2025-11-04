@@ -1,186 +1,189 @@
-// web/src/routes/Stays.tsx
+// web/src/routes/Stay.tsx
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
-type Stay = {
+type StayView = {
   id: string;
   hotel_id: string;
-  hotel_name: string;
+  hotel_name?: string | null;
   city?: string | null;
   cover_image_url?: string | null;
   check_in?: string | null;
   check_out?: string | null;
-  earned_paise?: number | null; // credits earned for this stay
-  review_status?: "pending" | "draft" | "published" | null;
+  earned_paise?: number | null;
+  review_status?: string | null;
 };
 
-const inr = (p = 0) => `₹${((p ?? 0) / 100).toFixed(2)}`;
+const isUuid = (s: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
 
-export default function Stays() {
+export default function Stay() {
+  const { id = "" } = useParams<{ id: string }>();
   const [loading, setLoading] = useState(true);
-  const [stays, setStays] = useState<Stay[]>([]);
+  const [stay, setStay] = useState<StayView | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [needsAuth, setNeedsAuth] = useState(false);
 
-  async function load() {
-    setLoading(true);
-    setError(null);
-    setNeedsAuth(false);
-    try {
-      // 1) Session gate
-      const { data: sess, error: sessErr } = await supabase.auth.getSession();
-      if (sessErr) throw sessErr;
-      const uid = sess.session?.user?.id;
-      if (!uid) {
-        setNeedsAuth(true);
+  const dates = useMemo(() => {
+    if (!stay) return null;
+    const ci = stay.check_in ? new Date(stay.check_in) : null;
+    const co = stay.check_out ? new Date(stay.check_out) : null;
+    return { ci, co };
+  }, [stay]);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      setStay(null);
+
+      // If the route param is not a UUID (e.g., /stay/s3), show a friendly “not found”.
+      if (!id || !isUuid(id)) {
+        setLoading(false);
+        setError("We couldn’t find that stay.");
         return;
       }
 
-      // 2) Try a view first, then fall back to a base table
-      // View shape we expect: user_recent_stays (recommended)
-      let rows: any[] | null = null;
-      let err: any = null;
-
-      const v1 = await supabase
-        .from("user_recent_stays")
-        .select(
-          "id, hotel_id, hotel_name, city, cover_image_url, check_in, check_out, earned_paise, review_status"
-        )
-        .order("check_in", { ascending: false })
-        .limit(10);
-
-      if (!v1.error) rows = v1.data ?? null;
-      else err = v1.error;
-
-      if (!rows) {
-        // Fallback: generic stays table joined via RPC or view on server
-        const v2 = await supabase
-          .from("stays")
+      try {
+        // 1) Preferred: read from the view (works with our list page)
+        const v = await supabase
+          .from("user_recent_stays")
           .select(
             "id, hotel_id, hotel_name, city, cover_image_url, check_in, check_out, earned_paise, review_status"
           )
-          .eq("user_id", uid)
-          .order("check_in", { ascending: false })
-          .limit(10);
+          .eq("id", id)
+          .maybeSingle();
 
-        if (!v2.error) rows = v2.data ?? null;
-        else err = v2.error;
+        if (!alive) return;
+
+        if (!v.error && v.data) {
+          setStay(v.data as StayView);
+          setLoading(false);
+          return;
+        }
+
+        // 2) Fallback: pull base stay + hydrate hotel bits
+        const s = await supabase
+          .from("stays")
+          .select("id, hotel_id, check_in, check_out, earned_paise, review_status")
+          .eq("id", id)
+          .maybeSingle();
+
+        if (!alive) return;
+
+        if (!s.error && s.data) {
+          const base = s.data as Partial<StayView>;
+          let hotel_name: string | null = null;
+          let city: string | null = null;
+          if (base.hotel_id) {
+            const h = await supabase
+              .from("hotels")
+              .select("name, city, cover_image_url")
+              .eq("id", base.hotel_id)
+              .maybeSingle();
+            if (!alive) return;
+            if (!h.error && h.data) {
+              hotel_name = (h.data as any).name ?? null;
+              city = (h.data as any).city ?? null;
+              (base as any).cover_image_url = (h.data as any).cover_image_url ?? null;
+            }
+          }
+          setStay({
+            id: base.id as string,
+            hotel_id: base.hotel_id as string,
+            hotel_name,
+            city,
+            cover_image_url: (base as any).cover_image_url ?? null,
+            check_in: (base as any).check_in ?? null,
+            check_out: (base as any).check_out ?? null,
+            earned_paise: (base as any).earned_paise ?? 0,
+            review_status: (base as any).review_status ?? null,
+          });
+        } else {
+          setError("We couldn’t find that stay.");
+        }
+      } catch (e: any) {
+        if (!alive) return;
+        setError(e?.message || "Something went wrong.");
+      } finally {
+        if (alive) setLoading(false);
       }
+    })();
 
-      if (!rows && err) throw err;
-      setStays((rows ?? []) as Stay[]);
-    } catch (e: any) {
-      console.error("[/stays] load failed:", e);
-      setError(e?.message || "Could not load your stays.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    load();
-  }, []);
-
-  const hasData = useMemo(() => (stays?.length ?? 0) > 0, [stays]);
+    return () => {
+      alive = false;
+    };
+  }, [id]);
 
   return (
-    <main className="max-w-5xl mx-auto p-6">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-2xl font-semibold">Your stays</h1>
-        <Link to="/guest" className="btn btn-light">Back to dashboard</Link>
+    <main className="max-w-3xl mx-auto p-6">
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-2xl font-semibold">Stay details</h1>
+        {/* Single, clear CTA — removes duplicate labels */}
+        <Link to="/stays" className="btn btn-light">Back to all stays</Link>
       </div>
-      <p className="text-sm text-gray-600 mt-1">
-        A tidy place for your trips, bills, reviews, and rewards—coming together here.
-      </p>
 
-      {needsAuth && !loading && (
-        <div className="mt-4 p-3 rounded-md bg-amber-50 text-amber-800 text-sm">
-          Please sign in to view your stays. <a href="/signin" className="underline">Go to sign in</a>
-        </div>
+      {/* Loading skeleton */}
+      {loading && (
+        <section className="mt-6 rounded-2xl border bg-white/90 shadow-sm p-6">
+          <div className="h-4 w-56 bg-gray-200 rounded mb-3" />
+          <div className="h-24 w-full bg-gray-100 rounded" />
+        </section>
       )}
 
-      {error && (
-        <div className="mt-4 p-3 rounded-md bg-red-50 text-red-700 text-sm">
-          {error} <button className="underline ml-2" onClick={load}>Retry</button>
-        </div>
+      {/* Not found / no data state */}
+      {!loading && (error || !stay) && (
+        <section className="mt-6 rounded-2xl border bg-white/90 shadow-sm p-6">
+          <p className="text-sm text-gray-700">
+            {error || "We couldn’t find that stay."} If you haven’t stayed with a partner hotel yet,
+            you’ll see your trips here once they’re available.
+          </p>
+          <div className="mt-4 flex gap-2">
+            <Link to="/stays" className="btn">Browse all stays</Link>
+            <Link to="/guest" className="btn btn-light">Back to dashboard</Link>
+          </div>
+        </section>
       )}
 
-      {/* Show skeleton ONLY while loading */}
-      {loading && <SkeletonGrid />}
-
-      {/* ⬇️ The important part: if no data, DON'T render the card grid */}
-      {!loading && !hasData && !error && !needsAuth && (
-        <EmptyState />
-      )}
-
-      {!loading && hasData && (
-        <section className="mt-6 grid gap-4 sm:grid-cols-2">
-          {stays.map((s) => (
-            <Link
-              key={s.id}
-              to={`/stays/${s.id}`}
-              className="rounded-2xl border bg-white/90 shadow-sm overflow-hidden hover:shadow-md transition"
-            >
-              <div className="flex">
-                {s.cover_image_url ? (
-                  <img src={s.cover_image_url} alt="" className="w-32 h-32 object-cover hidden sm:block" />
-                ) : (
-                  <div className="w-32 h-32 hidden sm:block bg-gradient-to-br from-slate-100 to-slate-200" />
-                )}
-                <div className="flex-1 p-4">
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="font-semibold">{s.hotel_name}</h3>
-                    <span className="text-xs text-gray-500">{s.city || ""}</span>
-                  </div>
-                  <div className="mt-1 text-sm text-gray-700">
-                    {(s.check_in || s.check_out) ? (
-                      <>
-                        {s.check_in ? new Date(s.check_in).toLocaleDateString() : "—"} →{" "}
-                        {s.check_out ? new Date(s.check_out).toLocaleDateString() : "—"}
-                      </>
-                    ) : "Dates coming soon"}
-                  </div>
-                  <div className="mt-2 text-sm">
-                    <span className="text-gray-500">Credits:</span>{" "}
-                    <span className="font-medium">{inr(s.earned_paise ?? 0)}</span>
-                  </div>
-                </div>
+      {/* Happy path */}
+      {!loading && stay && (
+        <section className="mt-6 rounded-2xl border bg-white/90 shadow-sm overflow-hidden">
+          <div className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">
+                  {stay.hotel_name ?? "Partner hotel"}
+                </h2>
+                <p className="text-sm text-gray-500">{stay.city ?? ""}</p>
               </div>
-            </Link>
-          ))}
+            </div>
+
+            <div className="mt-4 grid gap-2 text-sm">
+              <div>
+                <span className="text-gray-500">Dates:</span>{" "}
+                {dates?.ci || dates?.co
+                  ? `${dates?.ci ? dates.ci.toLocaleDateString() : "—"} → ${dates?.co ? dates.co.toLocaleDateString() : "—"}`
+                  : "Coming soon"}
+              </div>
+              <div>
+                <span className="text-gray-500">Credits:</span>{" "}
+                ₹{(((stay.earned_paise ?? 0) as number) / 100).toFixed(2)}
+              </div>
+              {stay.review_status && (
+                <div>
+                  <span className="text-gray-500">Review:</span> {stay.review_status}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6">
+              <Link to="/stays" className="btn">Back to all stays</Link>
+              <Link to="/guest" className="btn btn-light ml-2">Back to dashboard</Link>
+            </div>
+          </div>
         </section>
       )}
     </main>
-  );
-}
-
-function SkeletonGrid() {
-  return (
-    <section className="mt-6 grid gap-4 sm:grid-cols-2">
-      {[0, 1, 2, 3].map((i) => (
-        <div key={i} className="rounded-2xl border bg-white/90 shadow-sm p-4">
-          <div className="h-4 w-40 bg-gray-200 rounded mb-3" />
-          <div className="h-24 w-full bg-gray-100 rounded" />
-          <div className="mt-3 flex gap-2">
-            <div className="h-6 w-20 bg-gray-200 rounded" />
-            <div className="h-6 w-20 bg-gray-200 rounded" />
-          </div>
-        </div>
-      ))}
-    </section>
-  );
-}
-
-function EmptyState() {
-  return (
-    <section className="mt-6 rounded-2xl border bg-white/90 shadow-sm p-6 text-center">
-      <p className="text-sm text-gray-600">
-        No stays yet. When you book and check in at a partner hotel, your trips will appear here.
-      </p>
-      <div className="mt-3">
-        <a className="btn" href="/hotel/demo">Explore a demo stay</a>
-      </div>
-    </section>
   );
 }

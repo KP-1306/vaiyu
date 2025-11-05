@@ -1,3 +1,5 @@
+// web/src/components/AdminGate.tsx
+
 import { ReactNode, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 

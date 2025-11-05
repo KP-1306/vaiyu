@@ -1,13 +1,12 @@
-// web/src/routes/OwnerDashboard.tsx — final, friendly, linked
+// web/src/routes/OwnerDashboard.tsx — final, friendly, linked (hardened for :slug)
 // Notes:
-// • Implements friendly titles + 1‑liners, empty states, tone color chips
-// • Adds top‑right HRMS button (separate area)
-// • KPI cards include tone + deep links (e.g., to Rooms availability & history)
-// • Enum‑safe back end assumed (closed_at IS NOT NULL for completions)
-// • Keep logic in views where possible; UI stays light
+// • Keeps your full UI intact.
+// • Normalizes the route param so ":slug" or blank won't be used.
+// • If slug is invalid, shows AccessHelp (no endless spinner) and passes no bogus slug.
+// • "Request Access" will include the REAL slug only when valid.
 
 import { useEffect, useMemo, useState } from "react";
-import { Link, Navigate, NavLink, useParams, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Spinner from "../components/Spinner";
 import BackHome from "../components/BackHome";
@@ -27,11 +26,11 @@ type StayRow = {
 type KpiRow = {
   hotel_id: string;
   as_of_date: string;
-  occupied_today: number;        // rooms occupied today
-  orders_today: number;          // not shown yet but available
-  revenue_today: number;         // total revenue today
-  pickup_7d: number;             // new nights added last 7 days
-  avg_rating_30d: number | null; // optional
+  occupied_today: number;
+  orders_today: number;
+  revenue_today: number;
+  pickup_7d: number;
+  avg_rating_30d: number | null;
   updated_at: string;
 };
 
@@ -42,7 +41,7 @@ type StaffPerf = {
   orders_served: number;
   avg_rating_30d: number | null;
   avg_completion_min: number | null;
-  performance_score: number | null; // 0–100
+  performance_score: number | null;
 };
 
 type HrmsSnapshot = {
@@ -84,9 +83,19 @@ function slaTone(pctOnTime: number): "green" | "amber" | "red" {
   return "red";
 }
 
+/** ========= Small helpers to sanitize slug ========= */
+function normalizeSlug(raw?: string) {
+  const s = (raw || "").trim();
+  if (!s || s === ":slug") return ""; // treat placeholder as missing
+  return s;
+}
+
 /** ========= Page ========= */
 export default function OwnerDashboard() {
-  const { slug } = useParams();
+  const paramsHook = useParams();
+  const rawSlug = paramsHook.slug;
+  const slug = normalizeSlug(rawSlug);
+
   const [params] = useSearchParams();
 
   const [loading, setLoading] = useState(true);
@@ -139,9 +148,14 @@ export default function OwnerDashboard() {
 
       if (hErr || !hotelRow) {
         setHotel(null);
-        setArrivals([]); setInhouse([]); setDepartures([]);
-        setTotalRooms(0); setKpi(null);
-        setAccessProblem("We couldn’t open this property. You might not have access yet or the property doesn’t exist.");
+        setArrivals([]);
+        setInhouse([]);
+        setDepartures([]);
+        setTotalRooms(0);
+        setKpi(null);
+        setAccessProblem(
+          "We couldn’t open this property. You might not have access yet or the property doesn’t exist."
+        );
         setLoading(false);
         return;
       }
@@ -179,7 +193,9 @@ export default function OwnerDashboard() {
         setInhouse(inh || []);
         setDepartures(dep || []);
       } catch {
-        setArrivals([]); setInhouse([]); setDepartures([]);
+        setArrivals([]);
+        setInhouse([]);
+        setDepartures([]);
       }
 
       // 3) Rooms count (non-blocking)
@@ -187,7 +203,9 @@ export default function OwnerDashboard() {
         const { data: rooms } = await supabase.from("rooms").select("id").eq("hotel_id", hotelId);
         if (!alive) return;
         setTotalRooms(rooms?.length || 0);
-      } catch { setTotalRooms(0); }
+      } catch {
+        setTotalRooms(0);
+      }
 
       // 4) KPI initial load (from cache table)
       try {
@@ -198,7 +216,9 @@ export default function OwnerDashboard() {
           .maybeSingle();
         if (!alive) return;
         setKpi(row ?? null);
-      } catch { setKpi(null); }
+      } catch {
+        setKpi(null);
+      }
 
       // 5) SLA target + Live orders
       try {
@@ -213,34 +233,55 @@ export default function OwnerDashboard() {
             .from("orders")
             .select("id,created_at,status,price")
             .eq("hotel_id", hotelId)
-            .in("status", ["open", "preparing"]) // informational; UI uses age vs target
+            .in("status", ["open", "preparing"])
             .order("created_at", { ascending: false })
             .limit(50),
         ]);
         if (!alive) return;
         setSlaTargetMin(sla?.target_minutes ?? 20);
         setLiveOrders(orders || []);
-      } catch { setSlaTargetMin(20); setLiveOrders([]); }
+      } catch {
+        setSlaTargetMin(20);
+        setLiveOrders([]);
+      }
 
       // 6) Realtime KPI updates
       const channel = supabase
         .channel(`kpi-stream-${hotelId}`)
-        .on("postgres_changes", { event: "*", schema: "public", table: "owner_dashboard_kpis", filter: `hotel_id=eq.${hotelId}` }, (payload) => {
-          const next = (payload.new as KpiRow) ?? null; setKpi(next);
-        })
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "owner_dashboard_kpis", filter: `hotel_id=eq.${hotelId}` },
+          (payload) => {
+            const next = (payload.new as KpiRow) ?? null;
+            setKpi(next);
+          }
+        )
         .subscribe();
       unsubscribe = () => supabase.removeChannel(channel);
 
       // 7) Optional RPCs
       if (HAS_FUNCS) {
-        try { const { data } = await supabase.rpc("best_staff_performance_for_slug", { p_slug: slug }); if (alive) setStaffPerf(data ?? null); } catch { setStaffPerf(null); }
-        try { const { data } = await supabase.rpc("hrms_snapshot_for_slug", { p_slug: slug }); if (alive) setHrms((data && data[0]) ?? null); } catch { setHrms(null); }
+        try {
+          const { data } = await supabase.rpc("best_staff_performance_for_slug", { p_slug: slug });
+          if (alive) setStaffPerf(data ?? null);
+        } catch {
+          setStaffPerf(null);
+        }
+        try {
+          const { data } = await supabase.rpc("hrms_snapshot_for_slug", { p_slug: slug });
+          if (alive) setHrms((data && data[0]) ?? null);
+        } catch {
+          setHrms(null);
+        }
       }
 
       setLoading(false);
     })();
 
-    return () => { alive = false; unsubscribe(); };
+    return () => {
+      alive = false;
+      unsubscribe();
+    };
   }, [slug, today]);
 
   /** ======= UI States ======= */
@@ -255,7 +296,8 @@ export default function OwnerDashboard() {
     return (
       <main className="max-w-3xl mx-auto p-6">
         <BackHome />
-        <AccessHelp slug={slug || ""} message={accessProblem} inviteToken={params.get("invite") || undefined} />
+        {/* pass only the sanitized slug so we never forward ':slug' */}
+        <AccessHelp slug={slug} message={accessProblem} inviteToken={params.get("invite") || undefined} />
       </main>
     );
   }
@@ -265,7 +307,11 @@ export default function OwnerDashboard() {
         <div className="rounded-xl border p-6 text-center">
           <div className="text-lg font-medium mb-2">No property to show</div>
           <p className="text-sm text-gray-600">Open your property from the Owner Home.</p>
-          <div className="mt-4"><Link to="/owner" className="btn btn-light">Owner Home</Link></div>
+          <div className="mt-4">
+            <Link to="/owner" className="btn btn-light">
+              Owner Home
+            </Link>
+          </div>
         </div>
       </main>
     );
@@ -292,21 +338,26 @@ export default function OwnerDashboard() {
         <div>
           <h1 className="text-2xl font-semibold">{hotel.name}</h1>
           {hotel.city ? <p className="text-sm text-muted-foreground">{hotel.city}</p> : null}
-          <p className="text-xs text-muted-foreground mt-1">Your daily control room: see what needs attention, who’s shining, and how to boost tonight’s revenue.</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Your daily control room: see what needs attention, who’s shining, and how to boost tonight’s revenue.
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link to={`/owner/${hotel.slug}/pricing`} className="btn btn-light">Open pricing</Link>
-          <Link to={`/owner/${hotel.slug}/hrms`} className="btn">HRMS</Link>
-          <Link to={`/owner/${hotel.slug}/settings`} className="btn btn-light">Settings</Link>
+          <Link to={`/owner/${hotel.slug}/pricing`} className="btn btn-light">
+            Open pricing
+          </Link>
+          <Link to={`/owner/${hotel.slug}/hrms`} className="btn">
+            HRMS
+          </Link>
+          <Link to={`/owner/${hotel.slug}/settings`} className="btn btn-light">
+            Settings
+          </Link>
         </div>
       </header>
 
       {/* Today at a glance */}
       <section className="mb-2">
-        <SectionHeader
-          title="Today at a glance"
-          desc="Quick pulse for today. Green is healthy; orange needs a nudge."
-        />
+        <SectionHeader title="Today at a glance" desc="Quick pulse for today. Green is healthy; orange needs a nudge." />
         <KpiRow
           items={[
             {
@@ -334,12 +385,12 @@ export default function OwnerDashboard() {
               linkLabel: "Open RevPAR",
             },
             {
-              label: "Pick‑up (7 days)",
+              label: "Pick-up (7 days)",
               value: pickup7d,
               sub: "New nights added in the last week",
               tone: "grey",
               link: `/owner/${hotel.slug}/bookings/pickup?window=7d`,
-              linkLabel: "View pick‑up",
+              linkLabel: "View pick-up",
             },
           ]}
         />
@@ -367,15 +418,15 @@ export default function OwnerDashboard() {
       {/* Outlook & HK */}
       <section className="grid gap-4 lg:grid-cols-3 mb-6">
         <div className="lg:col-span-2">
-          <OccupancyHeatmap title="Booking curve (6‑week view)" desc="See pacing vs target; add offers on soft nights." />
+          <OccupancyHeatmap title="Booking curve (6-week view)" desc="See pacing vs target; add offers on soft nights." />
         </div>
         <HousekeepingProgress slug={hotel.slug} readyPct={Math.min(occPct, 100)} />
       </section>
 
-      {/* Arrivals / In‑house / Departures */}
+      {/* Arrivals / In-house / Departures */}
       <section className="grid gap-4 md:grid-cols-3">
         <Board title="Arrivals today" desc="Who’s expected today — assign rooms in advance." items={arrivals} empty="No arrivals today." />
-        <Board title="In‑house" desc="Guests currently staying with you." items={inhouse} empty="No guests are currently in‑house." />
+        <Board title="In-house" desc="Guests currently staying with you." items={inhouse} empty="No guests are currently in-house." />
         <Board title="Departures today" desc="Who’s checking out — plan housekeeping turns." items={departures} empty="No departures today." />
       </section>
 
@@ -386,7 +437,9 @@ export default function OwnerDashboard() {
             <div className="font-medium">Need help or want to improve results?</div>
             <div className="text-sm text-muted-foreground">Our team can review your numbers and suggest quick wins.</div>
           </div>
-          <a href="mailto:support@vaiyu.co.in?subject=Owner%20Dashboard%20help" className="btn">Contact us</a>
+          <a href="mailto:support@vaiyu.co.in?subject=Owner%20Dashboard%20help" className="btn">
+            Contact us
+          </a>
         </div>
       </footer>
     </main>
@@ -406,7 +459,11 @@ function SectionHeader({ title, desc, action }: { title: string; desc?: string; 
   );
 }
 
-function KpiRow({ items }: { items: { label: string; value: string | number; sub?: string; tone?: "green" | "amber" | "red" | "grey"; link?: string; linkLabel?: string }[] }) {
+function KpiRow({
+  items,
+}: {
+  items: { label: string; value: string | number; sub?: string; tone?: "green" | "amber" | "red" | "grey"; link?: string; linkLabel?: string }[];
+}) {
   return (
     <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {items.map((k) => (
@@ -416,12 +473,19 @@ function KpiRow({ items }: { items: { label: string; value: string | number; sub
               <div className="text-sm text-muted-foreground">{k.label}</div>
               <div className="text-2xl font-semibold mt-1 flex items-center gap-2">
                 <span>{k.value}</span>
-                {k.tone && <StatusBadge label={k.tone === "green" ? "Healthy" : k.tone === "amber" ? "Watch" : k.tone === "red" ? "Action" : "N/A"} tone={k.tone} />}
+                {k.tone && (
+                  <StatusBadge
+                    label={k.tone === "green" ? "Healthy" : k.tone === "amber" ? "Watch" : k.tone === "red" ? "Action" : "N/A"}
+                    tone={k.tone}
+                  />
+                )}
               </div>
               {k.sub ? <div className="text-xs text-muted-foreground mt-0.5">{k.sub}</div> : null}
               {k.link && (
                 <div className="mt-2">
-                  <Link to={k.link} className="text-xs underline">{k.linkLabel || "View details"}</Link>
+                  <Link to={k.link} className="text-xs underline">
+                    {k.linkLabel || "View details"}
+                  </Link>
                 </div>
               )}
             </div>
@@ -447,12 +511,12 @@ function MiniSparkline() {
 }
 
 function PricingNudge({ occupancy, suggestion, ctaTo }: { occupancy: number; suggestion: string; ctaTo: string }) {
-  const tone = occupancy >= 80 ? "Great momentum!" : occupancy >= 40 ? "Room to grow." : "Let’s boost pick‑up.";
+  const tone = occupancy >= 80 ? "Great momentum!" : occupancy >= 40 ? "Room to grow." : "Let’s boost pick-up.";
   return (
     <section className="mb-6 rounded-2xl border bg-gradient-to-r from-amber-50 to-white p-4">
-      <SectionHeader title="Let’s boost tonight" desc="Small price moves can lift pick‑up. Try this nudge and watch RevPAR." action={<Link to={ctaTo} className="btn">Open pricing</Link>} />
+      <SectionHeader title="Let’s boost tonight" desc="Small price moves can lift pick-up. Try this nudge and watch RevPAR." action={<Link to={ctaTo} className="btn">Open pricing</Link>} />
       <p className="text-gray-800">{suggestion}</p>
-      <p className="text-xs text-muted-foreground mt-1">Tip: Auto‑pricing can do this for you and report the uplift.</p>
+      <p className="text-xs text-muted-foreground mt-1">Tip: Auto-pricing can do this for you and report the uplift.</p>
     </section>
   );
 }
@@ -464,11 +528,13 @@ function SlaCard({ targetMin, orders }: { targetMin: number; orders: LiveOrder[]
   const tone = slaTone(pct);
   return (
     <div className="rounded-xl border bg-white p-4">
-      <SectionHeader title="On‑time delivery (SLA)" desc="How fast we’re closing requests today. Keep the green bar growing." />
+      <SectionHeader title="On-time delivery (SLA)" desc="How fast we’re closing requests today. Keep the green bar growing." />
       <div className="h-2 rounded-full bg-gray-100">
         <div className={`h-2 rounded-full ${tone === "green" ? "bg-emerald-500" : tone === "amber" ? "bg-amber-500" : "bg-rose-500"}`} style={{ width: `${pct}%` }} />
       </div>
-      <div className="text-xs text-muted-foreground mt-2">{onTime}/{total} orders on time — Target: {targetMin} min</div>
+      <div className="text-xs text-muted-foreground mt-2">
+        {onTime}/{total} orders on time — Target: {targetMin} min
+      </div>
     </div>
   );
 }
@@ -540,15 +606,23 @@ function HrmsPanel({ data, slug }: { data: HrmsSnapshot | null; slug: string }) 
   if (!data) {
     return (
       <div className="rounded-xl border bg-white p-4">
-        <SectionHeader title="Attendance snapshot" desc="Presence pattern over the last 30 days — spot gaps early." action={<Link to={`/owner/${slug}/hrms`} className="text-sm underline">Open HRMS</Link>} />
-        <div className="text-sm text-muted-foreground">Not connected to HR yet. We’re using activity‑based presence as a proxy.</div>
+        <SectionHeader
+          title="Attendance snapshot"
+          desc="Presence pattern over the last 30 days — spot gaps early."
+          action={<Link to={`/owner/${slug}/hrms`} className="text-sm underline">Open HRMS</Link>}
+        />
+        <div className="text-sm text-muted-foreground">Not connected to HR yet. We’re using activity-based presence as a proxy.</div>
       </div>
     );
   }
   const { staff_total, present_today, late_today, absent_today, attendance_pct_today, absences_7d, staff_with_absence_7d } = data;
   return (
     <div className="rounded-xl border bg-white p-4">
-      <SectionHeader title="Attendance snapshot" desc="Presence pattern over the last 30 days — spot gaps early." action={<Link to={`/owner/${slug}/hrms/attendance`} className="text-sm underline">See details</Link>} />
+      <SectionHeader
+        title="Attendance snapshot"
+        desc="Presence pattern over the last 30 days — spot gaps early."
+        action={<Link to={`/owner/${slug}/hrms/attendance`} className="text-sm underline">See details</Link>}
+      />
       <div className="grid grid-cols-3 gap-3 text-sm">
         <Metric label="Total staff" value={staff_total} />
         <Metric label="Present today" value={present_today} />
@@ -572,7 +646,8 @@ function Metric({ label, value }: { label: string; value: string | number }) {
 }
 
 function OccupancyHeatmap({ title, desc }: { title: string; desc?: string }) {
-  const weeks = 6, days = 7;
+  const weeks = 6,
+    days = 7;
   return (
     <div className="rounded-xl border bg-white p-4">
       <SectionHeader title={title} desc={desc} action={<Link to="../bookings/calendar" className="text-sm underline">Open calendar</Link>} />
@@ -589,7 +664,11 @@ function OccupancyHeatmap({ title, desc }: { title: string; desc?: string }) {
 function HousekeepingProgress({ slug, readyPct }: { slug: string; readyPct: number }) {
   return (
     <div className="rounded-xl border bg-white p-4">
-      <SectionHeader title="Room readiness" desc="How many rooms are ready for check‑in — and what’s blocking the rest." action={<Link to={`/owner/${slug}/housekeeping`} className="text-sm underline">Open HK</Link>} />
+      <SectionHeader
+        title="Room readiness"
+        desc="How many rooms are ready for check-in — and what’s blocking the rest."
+        action={<Link to={`/owner/${slug}/housekeeping`} className="text-sm underline">Open HK</Link>}
+      />
       <div className="h-2 rounded-full bg-gray-100">
         <div className="h-2 rounded-full bg-emerald-500" style={{ width: `${readyPct}%` }} />
       </div>
@@ -611,7 +690,9 @@ function Board({ title, desc, items, empty }: { title: string; desc?: string; it
               <div className="flex items-center justify-between">
                 <div>
                   <div className="font-medium">{s.room ? `Room ${s.room}` : "Unassigned room"}</div>
-                  <div className="text-muted-foreground text-xs">{fmt(s.check_in_start)} → {fmt(s.check_out_end)}</div>
+                  <div className="text-muted-foreground text-xs">
+                    {fmt(s.check_in_start)} → {fmt(s.check_out_end)}
+                  </div>
                 </div>
                 <div className="text-xs uppercase tracking-wide text-muted-foreground">{s.status || "—"}</div>
               </div>
@@ -624,23 +705,54 @@ function Board({ title, desc, items, empty }: { title: string; desc?: string; it
 }
 
 function AccessHelp({ slug, message, inviteToken }: { slug: string; message: string; inviteToken?: string }) {
+  const hasValidSlug = !!normalizeSlug(slug);
   return (
     <div className="rounded-2xl border p-6 bg-amber-50">
       <div className="text-lg font-semibold mb-1">Property access needed</div>
       <p className="text-sm text-amber-900 mb-4">{message}</p>
       <div className="flex flex-wrap gap-2">
-        {slug ? (<Link to={`/owner/access?slug=${encodeURIComponent(slug)}`} className="btn">Request Access</Link>) : null}
-        <Link to="/owner" className="btn btn-light">Owner Home</Link>
-        <Link to="/invite/accept" className="btn btn-light">Accept Invite</Link>
-        {inviteToken ? (<Link to={`/invite/accept?code=${encodeURIComponent(inviteToken)}`} className="btn btn-light">Accept via Code</Link>) : null}
+        {hasValidSlug ? (
+          <Link to={`/owner/access?slug=${encodeURIComponent(slug)}`} className="btn">
+            Request Access
+          </Link>
+        ) : null}
+        <Link to="/owner" className="btn btn-light">
+          Owner Home
+        </Link>
+        <Link to="/invite/accept" className="btn btn-light">
+          Accept Invite
+        </Link>
+        {inviteToken ? (
+          <Link to={`/invite/accept?code=${encodeURIComponent(inviteToken)}`} className="btn btn-light">
+            Accept via Code
+          </Link>
+        ) : null}
       </div>
-      <p className="text-xs text-amber-900 mt-3">Tip: If you received an email invite, open it on this device so we can auto‑fill your invite code.</p>
+      <p className="text-xs text-amber-900 mt-3">
+        Tip: If you received an email invite, open it on this device so we can auto-fill your invite code.
+      </p>
     </div>
   );
 }
 
 /** ========= Utils ========= */
-function fmt(ts: string | null) { if (!ts) return "—"; const d = new Date(ts); return d.toLocaleString(); }
-function nextDayISO(yyyy_mm_dd: string) { const d = new Date(yyyy_mm_dd + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10); }
-function suggestedBump(occ: number) { if (occ >= 90) return 1200; if (occ >= 75) return 800; if (occ >= 60) return 500; return 300; }
-function ageMin(iso: string) { const ms = Date.now() - new Date(iso).getTime(); return Math.max(0, Math.round(ms / 60000)); }
+function fmt(ts: string | null) {
+  if (!ts) return "—";
+  const d = new Date(ts);
+  return d.toLocaleString();
+}
+function nextDayISO(yyyy_mm_dd: string) {
+  const d = new Date(yyyy_mm_dd + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+function suggestedBump(occ: number) {
+  if (occ >= 90) return 1200;
+  if (occ >= 75) return 800;
+  if (occ >= 60) return 500;
+  return 300;
+}
+function ageMin(iso: string) {
+  const ms = Date.now() - new Date(iso).getTime();
+  return Math.max(0, Math.round(ms / 60000));
+}

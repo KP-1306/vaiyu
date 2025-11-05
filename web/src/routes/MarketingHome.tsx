@@ -118,14 +118,14 @@ export default function MarketingHome() {
   const ownerHomeHref = ownerSlug ? `/owner/${ownerSlug}` : "/owner";
   const staffHomeHref = "/staff";
 
-  /** ---------- Hero slides (CTAs removed on request) ---------- */
+  /** ---------- Hero slides (CTAs present for types, but hidden by disableCtas) ---------- */
   const slides = useMemo(
     () => [
       {
         id: "ai-hero",
         headline: "Where Intelligence Meets Comfort",
         sub: "AI turns live stay activity into faster service and delightful guest journeys.",
-        // cta removed
+        cta: { label: "Learn more", href: "#why" },
         variant: "photo",
         img: "/hero/ai-hero.png",
         imgAlt: "AI hero background",
@@ -134,7 +134,7 @@ export default function MarketingHome() {
         id: "checkin",
         headline: "10-second Mobile Check-in",
         sub: "Scan, confirm, head to your room. No kiosk queues.",
-        // cta removed
+        cta: { label: "See how it works", href: "#ai" },
         variant: "photo",
         img: "/hero/checkin.png",
         imgAlt: "Guest scanning QR at the front desk",
@@ -143,7 +143,9 @@ export default function MarketingHome() {
         id: "sla",
         headline: "SLA Nudges for Staff",
         sub: "On-time nudges and a clean digest keep service humming.",
-        // cta removed (was staff/owner links)
+        cta: isStaffSide
+          ? { label: "Staff workspace", href: staffHomeHref }
+          : { label: "For hotels", href: ownerHomeHref },
         variant: "photo",
         img: "/hero/sla.png",
         imgAlt: "Tablet with SLA dashboard",
@@ -152,7 +154,7 @@ export default function MarketingHome() {
         id: "reviews",
         headline: "Truth-Anchored Reviews",
         sub: "AI drafts grounded in verified stay data—owners approve, brand stays safe.",
-        // cta removed
+        cta: { label: "Moderation overview", href: "/about-ai" },
         variant: "photo",
         img: "/hero/reviews.png",
         imgAlt: "Owner reviewing AI draft",
@@ -161,7 +163,7 @@ export default function MarketingHome() {
         id: "grid-smart",
         headline: "Grid-Smart Operations & Sustainability",
         sub: "Tariff-aware actions and device shedding without drama.",
-        // cta removed
+        cta: { label: "Learn about grid mode", href: "/grid/devices" },
         variant: "photo",
         img: "/hero/grid.png",
         imgAlt: "Energy dashboard on wall tablet",
@@ -170,7 +172,9 @@ export default function MarketingHome() {
         id: "owner-console",
         headline: "AI-Driven Owner Console",
         sub: "Digest, usage, moderation and KPIs—clean, fast, reliable.",
-        // cta removed
+        cta: isOwnerSide
+          ? { label: "Open owner home", href: ownerHomeHref }
+          : { label: "For hotels", href: ownerHomeHref },
         variant: "photo",
         img: "/hero/owner-console.png",
         imgAlt: "Owner console KPIs on monitor",
@@ -217,7 +221,7 @@ export default function MarketingHome() {
 
       {/* HERO / Use-cases carousel */}
       <section id="use-cases" className="mx-auto max-w-7xl px-4 py-6 scroll-mt-24">
-        <HeroCarousel slides={slides} />
+        <HeroCarousel slides={slides} disableCtas />
       </section>
 
       {/* WHY (HTML/CSS — lightweight, no big images) */}

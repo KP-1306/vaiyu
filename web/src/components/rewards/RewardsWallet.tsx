@@ -9,7 +9,7 @@ type HotelBalance = {
   hotel_name: string;
   city: string | null;
   cover_image_url: string | null;
-  available_paise: number; // integer paise to avoid float math
+  available_paise: number; // paise to avoid float math
   pending_paise: number;   // credits under review
 };
 
@@ -48,29 +48,39 @@ export default function RewardsWallet() {
   // History modal
   const [historyOpen, setHistoryOpen] = useState(false);
 
-  // Abort in-flight requests on unmount/route change
-  const abortRef = useRef(new AbortController());
-  useEffect(() => {
-    return () => abortRef.current.abort();
-  }, []);
+  // Prevent stale updates if a newer load starts
+  const loadTokenRef = useRef(0);
 
-  async function load() {
-    setLoading(true);
-    setError(null);
-    setNeedsAuth(false);
+  // Clean up auth subscription on unmount
+  const authSubRef = useRef<ReturnType<typeof supabase.auth.onAuthStateChange> | null>(null);
+
+  async function load(initial = false) {
+    const myToken = ++loadTokenRef.current;
+
+    // fresh state only for the initial or explicit reloads
+    if (initial) {
+      setLoading(true);
+      setError(null);
+      setNeedsAuth(false);
+    }
 
     try {
-      // STEP 1: Session only
+      // 1) Ensure we have a session before hitting RLS-protected views
       const { data: sess, error: sessErr } = await supabase.auth.getSession();
       if (sessErr) throw sessErr;
 
       const uid = sess.session?.user?.id;
       if (!uid) {
-        setNeedsAuth(true);
+        if (myToken === loadTokenRef.current) {
+          setNeedsAuth(true);
+          setBalances([]);
+          setVouchers([]);
+          setLoading(false);
+        }
         return;
       }
 
-      // STEP 2: Then data queries (only after we know we’re authed)
+      // 2) Parallel queries (after session exists)
       const [overviewRes, vouchersRes] = await Promise.all([
         supabase
           .from("rewards_overview")
@@ -87,6 +97,8 @@ export default function RewardsWallet() {
           .throwOnError(),
       ]);
 
+      if (myToken !== loadTokenRef.current) return; // a newer load started—ignore this result
+
       const obal = (overviewRes.data || []) as any[];
       setBalances(
         obal.map((r) => ({
@@ -100,17 +112,31 @@ export default function RewardsWallet() {
       );
 
       setVouchers((vouchersRes.data || []) as Voucher[]);
+      setError(null);
     } catch (e: any) {
+      if (myToken !== loadTokenRef.current) return;
       console.error("[Rewards] load failed:", e);
       setError(e?.message || "Could not load rewards.");
     } finally {
-      setLoading(false);
+      if (myToken === loadTokenRef.current) setLoading(false);
     }
   }
 
+  // Initial load + refresh on auth change
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    load(true);
+
+    // subscribe once; reload when session changes (signin/signout)
+    authSubRef.current = supabase.auth.onAuthStateChange((_evt, _sess) => {
+      load(true);
+    });
+
+    return () => {
+      authSubRef.current?.data?.subscription?.unsubscribe?.();
+      authSubRef.current = null;
+      // bump token so late promises won't set state
+      loadTokenRef.current++;
+    };
   }, []);
 
   const totalAvailable = useMemo(
@@ -151,7 +177,7 @@ export default function RewardsWallet() {
       setClaimSuccess(v);
 
       // Refresh balances + vouchers after claim
-      await load();
+      await load(true);
     } catch (e: any) {
       console.error("[Rewards] claim failed:", e);
       setClaimErr(e?.message || "Could not create voucher.");
@@ -190,14 +216,14 @@ export default function RewardsWallet() {
       {error ? (
         <div className="mt-4 p-3 rounded-md bg-red-50 text-red-700 text-sm">
           {error}{" "}
-          <button className="ml-2 underline" onClick={load}>
+          <button className="ml-2 underline" onClick={() => load(true)}>
             Retry
           </button>
         </div>
       ) : null}
 
       {loading ? (
-        <div className="grid place-items-center min-h-[30vh]">Loading…</div>
+        <SkeletonGrid />
       ) : (
         <section className="mt-6 grid gap-4 md:grid-cols-2">
           {balances.length === 0 ? (
@@ -408,5 +434,25 @@ function EmptyWallet() {
         </Link>
       </div>
     </div>
+  );
+}
+
+function SkeletonGrid() {
+  return (
+    <section className="mt-6 grid gap-4 md:grid-cols-2">
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} className="rounded-2xl border bg-white/90 shadow-sm overflow-hidden flex">
+          <div className="w-32 h-32 hidden sm:block bg-slate-100 animate-pulse" />
+          <div className="flex-1 p-4">
+            <div className="h-4 w-1/3 bg-slate-100 rounded animate-pulse" />
+            <div className="mt-3 grid gap-2">
+              <div className="h-3 w-2/3 bg-slate-100 rounded animate-pulse" />
+              <div className="h-3 w-1/2 bg-slate-100 rounded animate-pulse" />
+            </div>
+            <div className="mt-4 h-8 w-28 bg-slate-100 rounded animate-pulse ml-auto" />
+          </div>
+        </div>
+      ))}
+    </section>
   );
 }

@@ -244,3 +244,17 @@ textarea:focus {
   background: var(--brand);
   opacity: 0;
 }
+
+/* Hide ALL controls inside the marketing hero carousel */
+#use-cases .slick-arrow,
+#use-cases .slick-dots,
+#use-cases .carousel-arrow,
+#use-cases .carousel-dots,
+#use-cases .slide-cta,
+#use-cases .cta,
+#use-cases button,
+#use-cases a.btn,
+#use-cases a[role="button"] {
+  display: none !important;
+  pointer-events: none !important;
+}

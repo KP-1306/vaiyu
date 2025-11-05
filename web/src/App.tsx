@@ -53,7 +53,7 @@ const FallbackMarketing: React.FC = () => (
 
 /* --------- Optional routes (hardened) ---------- */
 
-// Marketing (optional)
+// Marketing home (landing)
 const MarketingHome = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
     "./routes/MarketingHome.{tsx,jsx}"
@@ -79,12 +79,7 @@ const Settings = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
     "./routes/Settings.{tsx,jsx}"
   ),
-  () => (
-    <FallbackPage
-      title="Settings"
-      hint="Add web/src/routes/Settings.tsx to enable this page."
-    />
-  )
+  () => <FallbackPage title="Settings" hint="Add web/src/routes/Settings.tsx to enable this page." />
 );
 
 // Profile (optional)
@@ -92,12 +87,7 @@ const Profile = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
     "./routes/Profile.{tsx,jsx}"
   ),
-  () => (
-    <FallbackPage
-      title="Profile"
-      hint="Add web/src/routes/Profile.tsx to enable this page."
-    />
-  )
+  () => <FallbackPage title="Profile" hint="Add web/src/routes/Profile.tsx to enable this page." />
 );
 
 // Logout (optional)
@@ -105,12 +95,50 @@ const Logout = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
     "./routes/Logout.{tsx,jsx}"
   ),
-  () => (
-    <FallbackPage
-      title="Sign out"
-      hint="Add web/src/routes/Logout.tsx to enable this page."
-    />
-  )
+  () => <FallbackPage title="Sign out" hint="Add web/src/routes/Logout.tsx to enable this page." />
+);
+
+// --- NEW: marketing/legal pages (optional, safe if missing) ---
+const AboutUs = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/AboutUs.{tsx,jsx}"
+  ),
+  () => <FallbackPage title="About VAiyu" hint="Add web/src/routes/AboutUs.tsx to enable this page." />
+);
+
+const AboutAI = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/AboutAI.{tsx,jsx}"
+  ),
+  () => <FallbackPage title="How our AI works" hint="Add web/src/routes/AboutAI.tsx to enable this page." />
+);
+
+const Contact = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/Contact.{tsx,jsx}"
+  ),
+  () => <FallbackPage title="Contact" hint="Add web/src/routes/Contact.tsx to enable this page." />
+);
+
+const Careers = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/Careers.{tsx,jsx}"
+  ),
+  () => <FallbackPage title="Careers" hint="Add web/src/routes/Careers.tsx to enable this page." />
+);
+
+const Press = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/Press.{tsx,jsx}"
+  ),
+  () => <FallbackPage title="Press & Media" hint="Add web/src/routes/Press.tsx to enable this page." />
+);
+
+const Privacy = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/Privacy.{tsx,jsx}"
+  ),
+  () => <FallbackPage title="Privacy Policy" hint="Add web/src/routes/Privacy.tsx to enable this page." />
 );
 
 /* --------- Required routes ---------- */
@@ -134,15 +162,25 @@ export default function App() {
                 <Route path="/" element={<Navigate to="/guest" replace />} /> */}
             <Route path="/" element={<MarketingHome />} />
 
+            {/* Core app areas */}
             <Route path="/guest" element={<GuestDashboard />} />
             <Route path="/owner/*" element={<OwnerHome />} />
             <Route path="/staff" element={<StaffHome />} />
 
+            {/* Auth */}
             <Route path="/signin" element={<SignIn />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/logout" element={<Logout />} />
+
+            {/* Marketing/Legal (optional) */}
+            <Route path="/about" element={<AboutUs />} />
+            <Route path="/about-ai" element={<AboutAI />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/careers" element={<Careers />} />
+            <Route path="/press" element={<Press />} />
+            <Route path="/privacy" element={<Privacy />} />
 
             {/* 404 */}
             <Route path="*" element={<Navigate to="/guest" replace />} />

@@ -1,8 +1,26 @@
+// web/src/routes/GuestDashboard.tsx
 import { useEffect, useMemo, useState, memo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { API } from "../lib/api";
 import AccountControls from "../components/AccountControls";
+
+/** Decide if demo preview should be allowed */
+function shouldUseDemo(): boolean {
+  try {
+    const isLocal =
+      typeof location !== "undefined" &&
+      (location.hostname === "localhost" || location.hostname === "127.0.0.1");
+    const qp = typeof location !== "undefined" ? new URLSearchParams(location.search) : null;
+    const demoQP = qp?.get("demo") === "1";
+    const demoLS = typeof localStorage !== "undefined" && localStorage.getItem("demo:guest") === "1";
+    // Dev convenience: allow demo locally or when explicitly requested
+    return isLocal || demoQP || demoLS;
+  } catch {
+    return false;
+  }
+}
+const USE_DEMO = shouldUseDemo();
 
 /* ======= QUICK AUTH GUARD (belt-and-suspenders) ======= */
 export default function GuestDashboard() {
@@ -119,28 +137,32 @@ export default function GuestDashboard() {
       () => jsonWithTimeout(`${API}/me/stays?limit=10`),
       (j: any) => (Array.isArray(j?.items) ? (j.items as Stay[]) : []),
       demoStays,
-      setStays
+      setStays,
+      USE_DEMO
     );
 
     loadCard(
       () => jsonWithTimeout(`${API}/me/reviews?limit=50`),
       (j: any) => (Array.isArray(j?.items) ? (j.items as Review[]) : []),
       demoReviews,
-      setReviews
+      setReviews,
+      USE_DEMO
     );
 
     loadCard(
       () => jsonWithTimeout(`${API}/me/spend?years=5`),
       (j: any) => (Array.isArray(j?.items) ? (j.items as Spend[]) : []),
       demoSpend,
-      setSpend
+      setSpend,
+      USE_DEMO
     );
 
     loadCard(
       () => jsonWithTimeout(`${API}/me/referrals`),
       (j: any) => (Array.isArray(j?.items) ? (j.items as Referral[]) : []),
       demoReferrals,
-      setReferrals
+      setReferrals,
+      USE_DEMO
     );
   }, []);
 
@@ -149,12 +171,13 @@ export default function GuestDashboard() {
 
   const lastStay = stays.data[0];
   const welcomeText = useMemo(() => {
-    if (lastStay?.hotel) {
+    // Only personalize with a hotel when we actually have LIVE stays
+    if (stays.source === "live" && lastStay?.hotel) {
       const city = lastStay.hotel.city ? ` in ${lastStay.hotel.city}` : "";
       return `Welcome back, ${firstName}! Hope you enjoyed ${lastStay.hotel.name}${city}.`;
     }
     return `Welcome, ${firstName}!`;
-  }, [firstName, lastStay]);
+  }, [firstName, lastStay, stays.source]);
 
   const totalReferralCredits = referrals.data.reduce((a, r) => a + Number(r.credits || 0), 0);
 
@@ -194,7 +217,6 @@ export default function GuestDashboard() {
     });
     return m;
   }, [referrals.data]);
-
 
   return (
     <main className="max-w-6xl mx-auto p-4 space-y-5" aria-labelledby="guest-dash-title">
@@ -390,7 +412,7 @@ export default function GuestDashboard() {
         )}
       </section>
 
-      {/* Row 3: Referrals + Latest reviews (kept fun), but Manage → /stays */}
+      {/* Row 3: Referrals + Latest reviews */}
       <section className="grid lg:grid-cols-3 gap-4">
         <Card
           title="Your referrals"
@@ -439,7 +461,6 @@ export default function GuestDashboard() {
               <div className="text-sm text-gray-600 mb-1">Your latest reviews</div>
               <div className="text-xs text-gray-500">Spread the travel joy — add a fun title or edit anytime.</div>
             </div>
-            {/* Option A: send them to stays, not /reviews */}
             <Link className="btn btn-light" to="/stays">
               Manage
             </Link>
@@ -467,7 +488,9 @@ export default function GuestDashboard() {
 
       {/* Help / Support */}
       <section className="rounded-2xl p-4 shadow bg-blue-50/60 border border-blue-100 flex items-center justify-between">
-        <div className="text-sm text-blue-900">Need help with your bookings or profile? No worries — our team can fix it quickly.</div>
+        <div className="text-sm text-blue-900">
+          Need help with your bookings or profile? No worries — our team can fix it quickly.
+        </div>
         <div className="flex gap-2">
           <Link to="/contact" className="btn btn-light">
             Contact support
@@ -483,7 +506,9 @@ export default function GuestDashboard() {
         <div className="flex items-center justify-between">
           <div>
             <div className="font-semibold">Want to run a property?</div>
-            <div className="text-sm text-gray-600">Register your hotel to unlock the owner console: dashboards, SLAs, workflows and AI moderation.</div>
+            <div className="text-sm text-gray-600">
+              Register your hotel to unlock the owner console: dashboards, SLAs, workflows and AI moderation.
+            </div>
           </div>
           <Link className="btn" to="/owner/register">
             Register your property
@@ -499,14 +524,20 @@ async function loadCard<J, T>(
   fetcher: () => Promise<J>,
   map: (j: J | null) => T,
   demo: () => T,
-  set: (next: any) => void
+  set: (next: any) => void,
+  allowDemo: boolean
 ) {
-  set({ loading: true, source: "live", data: map(null as any) });
+  set({ loading: true, source: "live", data: [] as unknown as T });
   try {
     const j = await fetcher();
     set({ loading: false, source: "live", data: map(j) });
   } catch {
-    set({ loading: false, source: "preview", data: demo() });
+    // In production, prefer empty live data over misleading previews.
+    if (allowDemo) {
+      set({ loading: false, source: "preview", data: demo() });
+    } else {
+      set({ loading: false, source: "live", data: map(null as any) });
+    }
   }
 }
 
@@ -542,7 +573,9 @@ function RewardsPill({ total }: { total: number }) {
       to="/rewards"
       className="inline-flex items-center gap-3 rounded-xl border bg-gradient-to-r from-amber-50 to-yellow-50 px-4 py-2 shadow hover:shadow-md transition"
     >
-      <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-200 border border-amber-300">🎁</span>
+      <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-200 border border-amber-300">
+        🎁
+      </span>
       <span className="text-sm">
         <span className="font-semibold">Rewards & Vouchers</span>
         <span className="ml-2 text-gray-600">({`₹ ${total.toLocaleString()}`} earned)</span>
@@ -782,8 +815,8 @@ function diffDays(a: string, b: string) {
   }
 }
 
-/* ===== Demo fallbacks (only for failed cards) ===== */
-function demoStays(): Stay[] {
+/* ===== Demo fallbacks (only used if USE_DEMO is true) ===== */
+function demoStays(): any[] {
   return [
     {
       id: "s1",
@@ -821,7 +854,7 @@ function demoStays(): Stay[] {
     { id: "s4", hotel: { name: "Cedar Ridge", city: "Ranikhet", cover_url: null }, check_in: "2025-03-01T12:00:00Z", check_out: "2025-03-02T08:00:00Z" },
   ];
 }
-function demoReviews(): Review[] {
+function demoReviews(): any[] {
   return [
     {
       id: "r1",
@@ -842,7 +875,7 @@ function demoReviews(): Review[] {
     },
   ];
 }
-function demoSpend(): Spend[] {
+function demoSpend(): any[] {
   const y = new Date().getFullYear();
   return [
     { year: y, total: 13240 },
@@ -850,9 +883,18 @@ function demoSpend(): Spend[] {
     { year: y - 2, total: 0 },
   ];
 }
-function demoReferrals(): Referral[] {
+function demoReferrals(): any[] {
   return [
     { id: "rf1", hotel: { name: "Sunrise Suites", city: "Nainital" }, credits: 1200, referrals_count: 3 },
     { id: "rf2", hotel: { name: "Lakeside Inn", city: "Nainital" }, credits: 800, referrals_count: 2 },
   ];
+}
+
+/* ===== Simple empty state ===== */
+function Empty({ text, small }: { text: string; small?: boolean }) {
+  return (
+    <div className={`rounded-lg border border-dashed ${small ? "p-3 text-xs" : "p-6 text-sm"} text-gray-600 bg-gray-50`}>
+      {text}
+    </div>
+  );
 }

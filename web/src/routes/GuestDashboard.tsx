@@ -249,10 +249,7 @@ export default function GuestDashboard() {
           <QuickPill title="Explore hotels" text="Discover stays" to="/hotel/sunrise" variant="light" />
         </div>
 
-        {/* Rewards: prominent summary under hero */}
-        <div className="mt-4">
-          <RewardsSummaryPill total={totalReferralCredits} />
-        </div>
+        
       </section>
 
       {/* Row 0.5: Travel Stats badges */}
@@ -563,24 +560,7 @@ function ArrivalCheckInEmpty() {
   );
 }
 
-/* ===== Local rewards summary pill (renamed, safe) ===== */
-function RewardsSummaryPill({ total = 0 }: { total?: number }) {
-  return (
-    <Link
-      to="/rewards"
-      className="inline-flex items-center gap-3 rounded-xl border bg-gradient-to-r from-amber-50 to-yellow-50 px-4 py-2 shadow hover:shadow-md transition"
-    >
-      <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-200 border border-amber-300">
-        🎁
-      </span>
-      <span className="text-sm">
-        <span className="font-semibold">Rewards & Vouchers</span>
-        <span className="ml-2 text-gray-600">({fmtMoney(total)} earned)</span>
-      </span>
-      <span className="ml-2 text-gray-500">→</span>
-    </Link>
-  );
-}
+
 
 /* ===== Reusable UI ===== */
 const Card = memo(function Card({

@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { API } from "../lib/api";
 import AccountControls from "../components/AccountControls";
+import RewardsPill from "../components/guest/RewardsPill";
 
 /** Decide if demo preview should be allowed */
 function shouldUseDemo(): boolean {
@@ -244,6 +245,11 @@ export default function GuestDashboard() {
           </div>
         </div>
 
+        <div className="flex items-center gap-2">
+            <RewardsPill />
+          {/* …the rest of your quick actions (Scan & Go, Find my booking, etc.) */}
+          </div>
+        
         {/* Rewards: more prominent, right under welcome */}
         <div className="mt-4">
           <RewardsPill total={totalReferralCredits} />

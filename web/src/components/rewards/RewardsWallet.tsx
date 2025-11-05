@@ -9,7 +9,7 @@ type HotelBalance = {
   hotel_name: string;
   city: string | null;
   cover_image_url: string | null;
-  available_paise: number; // paise to avoid float math
+  available_paise: number; // integer paise to avoid float math
   pending_paise: number;   // credits under review
 };
 
@@ -48,39 +48,29 @@ export default function RewardsWallet() {
   // History modal
   const [historyOpen, setHistoryOpen] = useState(false);
 
-  // Prevent stale updates if a newer load starts
-  const loadTokenRef = useRef(0);
+  // Abort in-flight requests on unmount/route change
+  const abortRef = useRef(new AbortController());
+  useEffect(() => {
+    return () => abortRef.current.abort();
+  }, []);
 
-  // Clean up auth subscription on unmount
-  const authSubRef = useRef<ReturnType<typeof supabase.auth.onAuthStateChange> | null>(null);
-
-  async function load(initial = false) {
-    const myToken = ++loadTokenRef.current;
-
-    // fresh state only for the initial or explicit reloads
-    if (initial) {
-      setLoading(true);
-      setError(null);
-      setNeedsAuth(false);
-    }
+  async function load() {
+    setLoading(true);
+    setError(null);
+    setNeedsAuth(false);
 
     try {
-      // 1) Ensure we have a session before hitting RLS-protected views
+      // STEP 1: Session only
       const { data: sess, error: sessErr } = await supabase.auth.getSession();
       if (sessErr) throw sessErr;
 
       const uid = sess.session?.user?.id;
       if (!uid) {
-        if (myToken === loadTokenRef.current) {
-          setNeedsAuth(true);
-          setBalances([]);
-          setVouchers([]);
-          setLoading(false);
-        }
+        setNeedsAuth(true);
         return;
       }
 
-      // 2) Parallel queries (after session exists)
+      // STEP 2: Then data queries (only after we know we’re authed)
       const [overviewRes, vouchersRes] = await Promise.all([
         supabase
           .from("rewards_overview")
@@ -97,8 +87,6 @@ export default function RewardsWallet() {
           .throwOnError(),
       ]);
 
-      if (myToken !== loadTokenRef.current) return; // a newer load started—ignore this result
-
       const obal = (overviewRes.data || []) as any[];
       setBalances(
         obal.map((r) => ({
@@ -112,31 +100,17 @@ export default function RewardsWallet() {
       );
 
       setVouchers((vouchersRes.data || []) as Voucher[]);
-      setError(null);
     } catch (e: any) {
-      if (myToken !== loadTokenRef.current) return;
       console.error("[Rewards] load failed:", e);
       setError(e?.message || "Could not load rewards.");
     } finally {
-      if (myToken === loadTokenRef.current) setLoading(false);
+      setLoading(false);
     }
   }
 
-  // Initial load + refresh on auth change
   useEffect(() => {
-    load(true);
-
-    // subscribe once; reload when session changes (signin/signout)
-    authSubRef.current = supabase.auth.onAuthStateChange((_evt, _sess) => {
-      load(true);
-    });
-
-    return () => {
-      authSubRef.current?.data?.subscription?.unsubscribe?.();
-      authSubRef.current = null;
-      // bump token so late promises won't set state
-      loadTokenRef.current++;
-    };
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const totalAvailable = useMemo(
@@ -156,35 +130,81 @@ export default function RewardsWallet() {
     setClaimOpen(true);
   }
 
+  // --- UPDATED: safer submit with validations + friendly overload error message ---
   async function submitClaim() {
     setClaimErr(null);
     setClaimBusy(true);
     setClaimSuccess(null);
     try {
-      if (!claimHotelId) throw new Error("Choose a hotel.");
+      // Client-side validation
+      if (!claimHotelId) throw new Error("Please select a hotel.");
+      if (!Number.isFinite(claimAmountPaise)) throw new Error("Enter a valid amount.");
       if (claimAmountPaise <= 0) throw new Error("Enter a positive amount.");
       if (claimAmountPaise % 100 !== 0) throw new Error("Amount must be in whole rupees (no paise).");
       if (claimAmountPaise < 100 * 100) throw new Error("Minimum claim is ₹100.");
 
-      // Transactional RPC on the DB (prevents double-spend)
-      const { data, error } = await supabase.rpc("claim_rewards", {
+      const bal = balances.find(b => b.hotel_id === claimHotelId);
+      if (bal && claimAmountPaise > bal.available_paise) {
+        throw new Error(`Amount exceeds available balance (${inr(bal.available_paise)}).`);
+      }
+
+      // Try canonical alias first (if your DB created it), else fall back to claim_rewards
+      let data: any | null = null;
+      let err: any | null = null;
+
+      // Optional alias to avoid overloaded function ambiguity
+      const tryAlias = await supabase.rpc("claim_rewards_int8", {
         p_hotel_id: claimHotelId,
-        p_amount_paise: claimAmountPaise,
+        p_amount_paise: claimAmountPaise, // JS number → Postgres int8 in alias
       });
-      if (error) throw error;
+
+      if (tryAlias.error && tryAlias.error.code !== "PGRST116") {
+        // PGRST116: function not found (ignore and try default)
+        err = tryAlias.error;
+      } else if (tryAlias.data) {
+        data = tryAlias.data;
+      }
+
+      if (!data && !err) {
+        const res = await supabase.rpc("claim_rewards", {
+          p_hotel_id: claimHotelId,
+          p_amount_paise: claimAmountPaise,
+        });
+        data = res.data;
+        err = res.error || null;
+      }
+
+      if (err) {
+        const msg = String(err.message || err?.hint || err?.details || err);
+        if (msg.includes("best candidate function") || msg.includes("overloaded function")) {
+          throw new Error(
+            "We couldn’t create the voucher because the server has two versions of ‘claim_rewards’. " +
+            "Please keep a single version (prefer bigint/int8) or add an alias ‘claim_rewards_int8’. " +
+            "Nothing was deducted."
+          );
+        }
+        throw new Error(msg);
+      }
 
       const v: Voucher = data as Voucher;
       setClaimSuccess(v);
 
       // Refresh balances + vouchers after claim
-      await load(true);
+      await load();
     } catch (e: any) {
       console.error("[Rewards] claim failed:", e);
-      setClaimErr(e?.message || "Could not create voucher.");
+      setClaimErr(e?.message || "Could not create voucher. Please try again.");
     } finally {
       setClaimBusy(false);
     }
   }
+
+  const selectedBalance = balances.find(b => b.hotel_id === claimHotelId);
+  const amountInvalid =
+    !Number.isFinite(claimAmountPaise) ||
+    claimAmountPaise < 100 * 100 ||
+    claimAmountPaise % 100 !== 0 ||
+    (selectedBalance ? claimAmountPaise > selectedBalance.available_paise : false);
 
   return (
     <main className="max-w-5xl mx-auto p-6">
@@ -216,14 +236,14 @@ export default function RewardsWallet() {
       {error ? (
         <div className="mt-4 p-3 rounded-md bg-red-50 text-red-700 text-sm">
           {error}{" "}
-          <button className="ml-2 underline" onClick={() => load(true)}>
+          <button className="ml-2 underline" onClick={load}>
             Retry
           </button>
         </div>
       ) : null}
 
       {loading ? (
-        <SkeletonGrid />
+        <div className="grid place-items-center min-h-[30vh]">Loading…</div>
       ) : (
         <section className="mt-6 grid gap-4 md:grid-cols-2">
           {balances.length === 0 ? (
@@ -260,7 +280,10 @@ export default function RewardsWallet() {
                 <select
                   className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
                   value={claimHotelId}
-                  onChange={(e) => setClaimHotelId(e.target.value)}
+                  onChange={(e) => {
+                    setClaimHotelId(e.target.value);
+                    setClaimErr(null);
+                  }}
                   disabled={claimBusy}
                 >
                   <option value="">Select</option>
@@ -280,12 +303,21 @@ export default function RewardsWallet() {
                   min={100}
                   step={1}
                   value={claimAmountPaise / 100}
-                  onChange={(e) =>
-                    setClaimAmountPaise(Math.max(0, Math.round(Number(e.target.value) * 100)))
-                  }
+                  onChange={(e) => {
+                    const rupees = Math.max(0, Math.round(Number(e.target.value)));
+                    setClaimAmountPaise(rupees * 100);
+                    setClaimErr(null);
+                  }}
                   disabled={claimBusy}
                 />
-                <p className="text-xs text-gray-600 mt-1">Minimum ₹100. Whole rupees only.</p>
+                <p className="text-xs text-gray-600 mt-1">
+                  Minimum ₹100. Whole rupees only.
+                  {selectedBalance ? (
+                    <>
+                      {" "}Available: <span className="font-medium">{inr(selectedBalance.available_paise)}</span>
+                    </>
+                  ) : null}
+                </p>
               </div>
 
               {claimErr ? <p className="text-sm text-red-600">{claimErr}</p> : null}
@@ -305,7 +337,11 @@ export default function RewardsWallet() {
                 <button className="btn btn-light" onClick={() => setClaimOpen(false)} disabled={claimBusy}>
                   Close
                 </button>
-                <button className="btn" onClick={submitClaim} disabled={claimBusy}>
+                <button
+                  className="btn"
+                  onClick={submitClaim}
+                  disabled={claimBusy || !claimHotelId || amountInvalid}
+                >
                   {claimBusy ? "Creating…" : "Create voucher"}
                 </button>
               </div>
@@ -434,25 +470,5 @@ function EmptyWallet() {
         </Link>
       </div>
     </div>
-  );
-}
-
-function SkeletonGrid() {
-  return (
-    <section className="mt-6 grid gap-4 md:grid-cols-2">
-      {[0, 1, 2, 3].map((i) => (
-        <div key={i} className="rounded-2xl border bg-white/90 shadow-sm overflow-hidden flex">
-          <div className="w-32 h-32 hidden sm:block bg-slate-100 animate-pulse" />
-          <div className="flex-1 p-4">
-            <div className="h-4 w-1/3 bg-slate-100 rounded animate-pulse" />
-            <div className="mt-3 grid gap-2">
-              <div className="h-3 w-2/3 bg-slate-100 rounded animate-pulse" />
-              <div className="h-3 w-1/2 bg-slate-100 rounded animate-pulse" />
-            </div>
-            <div className="mt-4 h-8 w-28 bg-slate-100 rounded animate-pulse ml-auto" />
-          </div>
-        </div>
-      ))}
-    </section>
   );
 }

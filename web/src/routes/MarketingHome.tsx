@@ -1,3 +1,4 @@
+// web/src/routes/MarketingHome.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
@@ -15,7 +16,7 @@ import { supabase } from "../lib/supabase";
 import { useIdleSignOut } from "../hooks/useIdleSignOut";
 import { useFocusAuthCheck } from "../hooks/useFocusAuthCheck";
 
-// Role context (kept — only tailors a few CTAs)
+// Role context (kept — only tailors a few CTAs elsewhere)
 import { useRole } from "../context/RoleContext";
 
 const TOKEN_KEY = "stay:token";
@@ -65,7 +66,7 @@ export default function MarketingHome() {
   useIdleSignOut({ maxIdleMinutes: 180 });
   useFocusAuthCheck();
 
-  const { current } = useRole(); // { role: 'guest'|'staff'|'manager'|'owner', hotelSlug?: string|null }
+  const { current } = useRole(); // { role, hotelSlug? }
 
   /** ---------- Auth/session basics ---------- */
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -103,7 +104,7 @@ export default function MarketingHome() {
     };
   }, []);
 
-  /** ---------- Owner/staff helpers ---------- */
+  /** ---------- Owner/staff helpers (used elsewhere; kept) ---------- */
   const [ownerSlug, setOwnerSlug] = useState<string | null>(null);
   const [staffSlug, setStaffSlug] = useState<string | null>(null);
   useEffect(() => {
@@ -117,14 +118,14 @@ export default function MarketingHome() {
   const ownerHomeHref = ownerSlug ? `/owner/${ownerSlug}` : "/owner";
   const staffHomeHref = "/staff";
 
-  /** ---------- Hero slides (role-aware CTAs, but NO header pills) ---------- */
+  /** ---------- Hero slides (CTAs removed on request) ---------- */
   const slides = useMemo(
     () => [
       {
         id: "ai-hero",
         headline: "Where Intelligence Meets Comfort",
         sub: "AI turns live stay activity into faster service and delightful guest journeys.",
-        cta: { label: "Learn more", href: "#why" },
+        // cta removed
         variant: "photo",
         img: "/hero/ai-hero.png",
         imgAlt: "AI hero background",
@@ -133,7 +134,7 @@ export default function MarketingHome() {
         id: "checkin",
         headline: "10-second Mobile Check-in",
         sub: "Scan, confirm, head to your room. No kiosk queues.",
-        cta: { label: "See how it works", href: "#ai" },
+        // cta removed
         variant: "photo",
         img: "/hero/checkin.png",
         imgAlt: "Guest scanning QR at the front desk",
@@ -142,9 +143,7 @@ export default function MarketingHome() {
         id: "sla",
         headline: "SLA Nudges for Staff",
         sub: "On-time nudges and a clean digest keep service humming.",
-        cta: isStaffSide
-          ? { label: "Staff workspace", href: staffHomeHref }
-          : { label: "For hotels", href: ownerHomeHref },
+        // cta removed (was staff/owner links)
         variant: "photo",
         img: "/hero/sla.png",
         imgAlt: "Tablet with SLA dashboard",
@@ -153,7 +152,7 @@ export default function MarketingHome() {
         id: "reviews",
         headline: "Truth-Anchored Reviews",
         sub: "AI drafts grounded in verified stay data—owners approve, brand stays safe.",
-        cta: { label: "Moderation overview", href: "/about-ai" },
+        // cta removed
         variant: "photo",
         img: "/hero/reviews.png",
         imgAlt: "Owner reviewing AI draft",
@@ -162,7 +161,7 @@ export default function MarketingHome() {
         id: "grid-smart",
         headline: "Grid-Smart Operations & Sustainability",
         sub: "Tariff-aware actions and device shedding without drama.",
-        cta: { label: "Learn about grid mode", href: "/grid/devices" },
+        // cta removed
         variant: "photo",
         img: "/hero/grid.png",
         imgAlt: "Energy dashboard on wall tablet",
@@ -171,9 +170,7 @@ export default function MarketingHome() {
         id: "owner-console",
         headline: "AI-Driven Owner Console",
         sub: "Digest, usage, moderation and KPIs—clean, fast, reliable.",
-        cta: isOwnerSide
-          ? { label: "Open owner home", href: ownerHomeHref }
-          : { label: "For hotels", href: ownerHomeHref },
+        // cta removed
         variant: "photo",
         img: "/hero/owner-console.png",
         imgAlt: "Owner console KPIs on monitor",
@@ -185,7 +182,7 @@ export default function MarketingHome() {
   const site =
     typeof window !== "undefined" ? window.location.origin : "https://vaiyu.co.in";
 
-  /** ---------- Hash-based smooth scrolling (/#ai, /#use-cases, etc.) ---------- */
+  /** ---------- Hash-based smooth scrolling (/#ai, /#use-cases) ---------- */
   const location = useLocation();
   useEffect(() => {
     const hash = location.hash?.replace("#", "");

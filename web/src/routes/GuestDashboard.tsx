@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { API } from "../lib/api";
 import AccountControls from "../components/AccountControls";
-import RewardsPill from "../components/guest/RewardsPill";
+import RewardsPill from "../components/guest/RewardsPill"; // keep this for the quick-actions row
 
 /** Decide if demo preview should be allowed */
 function shouldUseDemo(): boolean {
@@ -15,7 +15,6 @@ function shouldUseDemo(): boolean {
     const qp = typeof location !== "undefined" ? new URLSearchParams(location.search) : null;
     const demoQP = qp?.get("demo") === "1";
     const demoLS = typeof localStorage !== "undefined" && localStorage.getItem("demo:guest") === "1";
-    // Dev convenience: allow demo locally or when explicitly requested
     return isLocal || demoQP || demoLS;
   } catch {
     return false;
@@ -23,7 +22,7 @@ function shouldUseDemo(): boolean {
 }
 const USE_DEMO = shouldUseDemo();
 
-/* ======= QUICK AUTH GUARD (belt-and-suspenders) ======= */
+/* ======= QUICK AUTH GUARD ======= */
 export default function GuestDashboard() {
   const nav = useNavigate();
 
@@ -94,7 +93,6 @@ export default function GuestDashboard() {
       setEmail(u?.email ?? null);
       setAuthName((u?.user_metadata?.name as string) ?? u?.user_metadata?.full_name ?? null);
 
-      // Pull name from profiles table if available
       if (u?.id) {
         const { data: prof } = await supabase
           .from("profiles")
@@ -106,7 +104,6 @@ export default function GuestDashboard() {
         }
       }
 
-      // keep welcome text fresh on auth updates
       const { data: sub } = supabase.auth.onAuthStateChange(async (_evt, sess) => {
         if (!mounted) return;
         const user = sess?.user;
@@ -172,7 +169,6 @@ export default function GuestDashboard() {
 
   const lastStay = stays.data[0];
   const welcomeText = useMemo(() => {
-    // Only personalize with a hotel when we actually have LIVE stays
     if (stays.source === "live" && lastStay?.hotel) {
       const city = lastStay.hotel.city ? ` in ${lastStay.hotel.city}` : "";
       return `Welcome back, ${firstName}! Hope you enjoyed ${lastStay.hotel.name}${city}.`;
@@ -245,21 +241,17 @@ export default function GuestDashboard() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-            <RewardsPill />
-          {/* …the rest of your quick actions (Scan & Go, Find my booking, etc.) */}
-          </div>
-        
-        {/* Rewards: more prominent, right under welcome */}
-        <div className="mt-4">
-          <RewardsPill total={totalReferralCredits} />
-        </div>
-
-        {/* Hero actions */}
-        <div className="mt-4 grid sm:grid-cols-3 gap-3">
+        {/* Quick actions */}
+        <div className="mt-4 flex items-center gap-2">
+          <RewardsPill />
           <QuickPill title="Scan & go" text="Check-in with a QR" to="/scan" />
           <QuickPill title="Find my booking" text="Enter code" to="/claim" variant="light" />
           <QuickPill title="Explore hotels" text="Discover stays" to="/hotel/sunrise" variant="light" />
+        </div>
+
+        {/* Rewards: prominent summary under hero */}
+        <div className="mt-4">
+          <RewardsSummaryPill total={totalReferralCredits} />
         </div>
       </section>
 
@@ -267,8 +259,8 @@ export default function GuestDashboard() {
       <section className="grid sm:grid-cols-5 gap-3">
         <StatBadge label="Total stays" value={String(stats.totalStays)} emoji="🧳" />
         <StatBadge label="Days at VAiyu" value={String(stats.nights)} emoji="📅" />
-        <StatBadge label="Total spend" value={`₹ ${stats.totalSpend.toLocaleString()}`} emoji="💸" />
-        <StatBadge label="Credits earned" value={`₹ ${stats.totalCredits.toLocaleString()}`} emoji="🎁" />
+        <StatBadge label="Total spend" value={fmtMoney(stats.totalSpend)} emoji="💸" />
+        <StatBadge label="Credits earned" value={fmtMoney(stats.totalCredits)} emoji="🎁" />
         <StatBadge label="Most visited" value={stats.mostVisited} emoji="❤️" />
       </section>
 
@@ -325,7 +317,7 @@ export default function GuestDashboard() {
                 {spend.data.map((s) => (
                   <li key={s.year} className="flex justify-between">
                     <span>{s.year}</span>
-                    <span>₹ {Number(s.total || 0).toLocaleString()}</span>
+                    <span>{fmtMoney(Number(s.total || 0))}</span>
                   </li>
                 ))}
               </ul>
@@ -341,7 +333,7 @@ export default function GuestDashboard() {
         </Card>
       </section>
 
-      {/* Row 2: My Journey (10 stays) with reviews inline */}
+      {/* Row 2: My Journey */}
       <section className="rounded-2xl p-4 shadow bg-white border">
         <div className="flex items-center justify-between mb-2">
           <div>
@@ -380,7 +372,7 @@ export default function GuestDashboard() {
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
                         {credits > 0 && (
                           <span className="px-2 py-0.5 rounded-full bg-amber-100 border border-amber-200">
-                            Earned ₹ {credits.toLocaleString()} 🎉
+                            Earned {fmtMoney(credits)} 🎉
                           </span>
                         )}
                         {rv ? (
@@ -432,7 +424,7 @@ export default function GuestDashboard() {
             <>
               <div className="rounded-lg border bg-gradient-to-r from-amber-50 to-orange-50 p-3 flex items-center justify-between">
                 <div className="text-sm">Total credits</div>
-                <div className="text-lg font-semibold">₹ {totalReferralCredits.toLocaleString()}</div>
+                <div className="text-lg font-semibold">{fmtMoney(totalReferralCredits)}</div>
               </div>
               <ul className="mt-3 divide-y text-sm">
                 {referrals.data.map((r) => (
@@ -447,7 +439,7 @@ export default function GuestDashboard() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-semibold">₹ {Number(r.credits || 0).toLocaleString()}</div>
+                      <div className="font-semibold">{fmtMoney(Number(r.credits || 0))}</div>
                       <button className="text-xs underline" onClick={() => copyReferral(r.hotel.name)}>
                         Share link
                       </button>
@@ -538,7 +530,6 @@ async function loadCard<J, T>(
     const j = await fetcher();
     set({ loading: false, source: "live", data: map(j) });
   } catch {
-    // In production, prefer empty live data over misleading previews.
     if (allowDemo) {
       set({ loading: false, source: "preview", data: demo() });
     } else {
@@ -572,8 +563,8 @@ function ArrivalCheckInEmpty() {
   );
 }
 
-/* ===== Rewards pill ===== */
-function RewardsPill({ total }: { total: number }) {
+/* ===== Local rewards summary pill (renamed, safe) ===== */
+function RewardsSummaryPill({ total = 0 }: { total?: number }) {
   return (
     <Link
       to="/rewards"
@@ -584,7 +575,7 @@ function RewardsPill({ total }: { total: number }) {
       </span>
       <span className="text-sm">
         <span className="font-semibold">Rewards & Vouchers</span>
-        <span className="ml-2 text-gray-600">({`₹ ${total.toLocaleString()}`} earned)</span>
+        <span className="ml-2 text-gray-600">({fmtMoney(total)} earned)</span>
       </span>
       <span className="ml-2 text-gray-500">→</span>
     </Link>
@@ -690,7 +681,7 @@ function MiniBars({ data }: { data: Spend[] }) {
               key={d.year}
               className="w-6 rounded bg-indigo-100 border border-indigo-200"
               style={{ height: h }}
-              title={`${d.year}: ₹${Number(d.total || 0).toLocaleString()}`}
+              title={`${d.year}: ${fmtMoney(Number(d.total || 0))}`}
             />
           );
         })}
@@ -729,9 +720,7 @@ function SuitcaseIcon(props: React.SVGProps<SVGSVGElement>) {
 function RupeeIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" {...props}>
-      <text x="5" y="17" fontSize="14" fontFamily="system-ui">
-        ₹
-      </text>
+      <text x="5" y="17" fontSize="14" fontFamily="system-ui">₹</text>
       <line x1="9" y1="8" x2="18" y2="8" />
     </svg>
   );
@@ -760,21 +749,19 @@ async function jsonWithTimeout(url: string, ms = 5000) {
     clearTimeout(t);
   }
 }
+function fmtMoney(n?: number) {
+  const v = Number.isFinite(Number(n)) ? Number(n) : 0;
+  return `₹ ${v.toLocaleString()}`;
+}
 function fmtDate(s: string) {
-  try {
-    return new Date(s).toLocaleString();
-  } catch {
-    return s;
-  }
+  const d = new Date(s);
+  return isFinite(d.getTime()) ? d.toLocaleString() : s;
 }
 function fmtRange(a: string, b: string) {
-  try {
-    const A = new Date(a),
-      B = new Date(b);
-    return `${A.toLocaleDateString()} – ${B.toLocaleDateString()}`;
-  } catch {
-    return `${a} – ${b}`;
-  }
+  const A = new Date(a), B = new Date(b);
+  const left = isFinite(A.getTime()) ? A.toLocaleDateString() : a;
+  const right = isFinite(B.getTime()) ? B.toLocaleDateString() : b;
+  return `${left} – ${right}`;
 }
 function stars(n: number) {
   const c = Math.max(0, Math.min(5, Math.round(n)));
@@ -795,7 +782,6 @@ function copyReferral(hotelName: string) {
   const base = location.origin;
   const url = `${base}/refer?hotel=${encodeURIComponent(hotelName)}`;
   navigator.clipboard?.writeText(url);
-  // tiny non-blocking toast
   const id = "copied-referral";
   let el = document.getElementById(id);
   if (!el) {
@@ -811,17 +797,14 @@ function copyReferral(hotelName: string) {
 }
 
 function diffDays(a: string, b: string) {
-  try {
-    const A = new Date(a).getTime();
-    const B = new Date(b).getTime();
-    const ONE = 24 * 60 * 60 * 1000;
-    return Math.max(0, Math.round((B - A) / ONE));
-  } catch {
-    return 0;
-  }
+  const A = new Date(a).getTime();
+  const B = new Date(b).getTime();
+  const ONE = 24 * 60 * 60 * 1000;
+  if (!isFinite(A) || !isFinite(B)) return 0;
+  return Math.max(0, Math.round((B - A) / ONE));
 }
 
-/* ===== Demo fallbacks (only used if USE_DEMO is true) ===== */
+/* ===== Demo fallbacks (used only if USE_DEMO is true) ===== */
 function demoStays(): any[] {
   return [
     {

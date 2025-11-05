@@ -1,38 +1,105 @@
 // web/src/components/BackHome.tsx
-import { NavLink, useLocation } from "react-router-dom";
 
+import { useEffect, useMemo, useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
+import { supabase } from "../lib/supabase";
+
+/** Surfaces where the pill is relevant (matches exact or as prefix/) */
 const APP_PREFIXES = [
-  "/guest", "/owner", "/desk", "/hk", "/maint", "/grid",
-  "/stay", "/menu", "/precheck", "/regcard", "/bill", "/admin",
+  "/guest",
+  "/owner",
+  "/desk",
+  "/hk",
+  "/maint",
+  "/grid",
+  "/stay",
+  "/menu",
+  "/precheck",
+  "/regcard",
+  "/bill",
+  "/admin",
 ];
 
-// Pages where the pill should not be shown
+/** Pages where the pill should not be shown */
 const HIDE_PREFIXES = ["/", "/signin", "/auth/callback"];
 
-function startsWithAny(path: string, list: string[]) {
-  // exact match or "prefix + /..."
-  return list.some(p => path === p || path.startsWith(p + "/"));
+function startsWithAny(path: string, prefixes: string[]) {
+  return prefixes.some((p) => path === p || path.startsWith(p + "/"));
 }
 
-export default function BackHome() {
+type Props = {
+  /** Force a destination. If omitted, we auto-decide. */
+  to?: string;
+  label?: string;
+  className?: string;
+};
+
+export default function BackHome({ to, label = "← Back home", className = "" }: Props) {
   const { pathname } = useLocation();
 
-  // Never show on home/auth
+  // Visibility unchanged from your original logic
   if (startsWithAny(pathname, HIDE_PREFIXES)) return null;
-
-  // Only show on real in-app surfaces
   const isApp = startsWithAny(pathname, APP_PREFIXES);
   if (!isApp) return null;
 
-  // Always go to the public landing (/)
+  // Destination
+  const [autoTo, setAutoTo] = useState<string>(to || "/");
+
+  // Only compute if caller didn't force a target
+  const shouldAuto = useMemo(() => !to, [to]);
+
+  useEffect(() => {
+    if (!shouldAuto) {
+      setAutoTo(to!);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function decide() {
+      try {
+        // 1) Auth state
+        const { data } = await supabase.auth.getSession();
+        const user = data?.session?.user;
+        if (!user) {
+          if (!cancelled) setAutoTo("/");
+          return;
+        }
+
+        // 2) Membership check (RLS will scope to user's rows)
+        const { data: memRows, error } = await supabase
+          .from("hotel_members")
+          .select("id")
+          .limit(1);
+
+        if (error) {
+          // If policy blocks read, prefer guest-safe route.
+          if (!cancelled) setAutoTo("/guest");
+          return;
+        }
+
+        const hasMembership = (memRows?.length || 0) > 0;
+        if (!cancelled) setAutoTo(hasMembership ? "/owner" : "/guest");
+      } catch {
+        // On unexpected errors, prefer guest-safe route.
+        if (!cancelled) setAutoTo("/guest");
+      }
+    }
+
+    decide();
+    return () => {
+      cancelled = true;
+    };
+  }, [shouldAuto, to]);
+
   return (
     <div className="fixed left-3 top-3 z-40">
       <NavLink
-        to="/"
-        className="inline-flex items-center gap-2 rounded-xl border bg-white/95 px-3 py-2 text-sm shadow hover:bg-white"
-        aria-label="Go to home"
+        to={autoTo}
+        className={`inline-flex items-center gap-2 rounded-xl border bg-white/95 px-3 py-2 text-sm shadow hover:bg-white ${className}`}
+        aria-label={label}
       >
-        ← Back home
+        {label}
       </NavLink>
     </div>
   );

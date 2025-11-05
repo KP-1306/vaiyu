@@ -1,3 +1,4 @@
+// web/src/components/Header.tsx
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import AccountControls from "./AccountControls";
@@ -7,19 +8,16 @@ export default function Header() {
   const { pathname, hash } = useLocation();
   const navigate = useNavigate();
 
-  // Used only for the tiny “You’re signed in as …” strip (kept from approved UI)
+  // Tiny “You’re signed in as …” strip (marketing only)
   const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let alive = true;
 
     (async () => {
-      setLoading(true);
       const { data } = await supabase.auth.getUser();
       if (!alive) return;
       setUserEmail(data?.user?.email ?? null);
-      setLoading(false);
     })();
 
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
@@ -32,26 +30,27 @@ export default function Header() {
     };
   }, []);
 
-  // Smooth-scroll for in-page anchors (#ai, #use-cases)
+  // Smooth-scroll when already on the home route and a hash is present
   useEffect(() => {
-    if (hash && (pathname === "/" || pathname === "")) {
-      const id = hash.replace("#", "");
+    if ((pathname === "/" || pathname === "") && hash) {
+      const id = hash.replace(/^#/, "");
       const el = document.getElementById(id);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }, [pathname, hash]);
 
-  const onAnchor = (id: string) => (e: React.MouseEvent) => {
+  // Single helper for the in-page "Use-cases" item
+  const goToHomeHash = (id: string) => (e: React.MouseEvent) => {
     e.preventDefault();
-    if (location.pathname !== "/") {
-      navigate("/#" + id);
+    if (window.location.pathname !== "/") {
+      // Navigate to /#id without a full reload
+      navigate(`/#${id}`);
       return;
     }
+    // Already on home: smooth-scroll + update hash
     const el = document.getElementById(id);
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-    history.replaceState(null, "", `#${id}`);
+    window.history.replaceState(null, "", `#${id}`);
   };
 
   return (
@@ -64,29 +63,27 @@ export default function Header() {
           </span>
         </Link>
 
-        {/* Primary nav (marketing anchors) */}
+        {/* Primary nav */}
         <nav className="ml-6 hidden gap-4 text-sm md:flex">
-          <a href="#why" onClick={onAnchor("why")} className="hover:underline">
+          <Link to="/about" className="hover:underline">
             Why VAiyu
-          </a>
-          <a href="#ai" onClick={onAnchor("ai")} className="hover:underline">
+          </Link>
+          <Link to="/about-ai" className="hover:underline">
             AI
-          </a>
-          <a href="#use-cases" onClick={onAnchor("use-cases")} className="hover:underline">
+          </Link>
+          {/* Use-cases: always land on /#use-cases and smooth-scroll if already home */}
+          <a href="/#use-cases" onClick={goToHomeHash("use-cases")} className="hover:underline">
             Use-cases
           </a>
-          <Link to="/about" className="hover:underline">
-            About
-          </Link>
         </nav>
 
-        {/* Right side: account menu only (no duplicate “Owner console”/“My trips” buttons) */}
+        {/* Right side: account menu */}
         <div className="ml-auto flex items-center gap-2">
           <AccountControls />
         </div>
       </div>
 
-      {/* Tiny signed-in hint on marketing home only */}
+      {/* Signed-in hint on marketing home only */}
       {pathname === "/" && userEmail && (
         <div className="border-t bg-blue-50 text-center text-xs text-blue-900">
           You’re signed in as <strong>{userEmail}</strong>

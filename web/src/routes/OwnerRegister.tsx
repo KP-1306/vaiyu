@@ -57,7 +57,7 @@ export default function OwnerRegister() {
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false); // NEW: lock UI after success
+  const [submitted, setSubmitted] = useState(false); // lock UI after success
   const [ok, setOk] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -150,7 +150,7 @@ export default function OwnerRegister() {
 
         res = await fetch(ENDPOINT, {
           method: "POST",
-          headers: { ...authHeader }, // DO NOT set Content-Type for multipart
+          headers: { ...authHeader }, // don't set Content-Type for multipart
           body: fd,
         });
       } else {
@@ -176,9 +176,9 @@ export default function OwnerRegister() {
       }
 
       setOk("Thanks! We’ve received your property details. Our team will review and contact you soon.");
-      setSubmitted(true); // NEW: lock the UI after success
+      setSubmitted(true);
 
-      // Optional: clear fields/preview so the page looks “reset” but stays locked
+      // Optional reset (UI stays locked)
       setForm({
         property_name: "",
         property_type: "",
@@ -347,8 +347,11 @@ export default function OwnerRegister() {
                 <input
                   className="mt-1 w-full rounded-xl border px-3 py-2"
                   required
+                  type="tel"
                   inputMode="tel"
-                  pattern="\+?[0-9\-\s()]{7,20}"
+                  autoComplete="tel"
+                  pattern={"^\\+?[0-9\\s()\\-]{7,20}$"}
+                  title="Phone number: optional '+' then 7–20 digits/spaces/()/-"
                   value={form.contact_phone}
                   onChange={(e) => update("contact_phone", e.target.value)}
                   placeholder="e.g., +91 98765 43210"

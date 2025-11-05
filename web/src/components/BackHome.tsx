@@ -1,12 +1,10 @@
 // web/src/components/BackHome.tsx
-import { useEffect, useMemo } from "react";
+
+import { useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { createPortal } from "react-dom";
+import { supabase } from "../lib/supabase";
 
-/** Hide on public/auth pages */
-const HIDE_PREFIXES = ["/", "/signin", "/auth/callback"];
-
-/** In-app surfaces (exact or prefix/) */
+/** Surfaces where the pill is relevant (matches exact or as prefix/) */
 const APP_PREFIXES = [
   "/guest",
   "/owner",
@@ -20,70 +18,86 @@ const APP_PREFIXES = [
   "/regcard",
   "/bill",
   "/admin",
-  "/requestTracker",
 ];
 
-function startsWithAny(path: string, list: string[]) {
-  return list.some((p) => path === p || path.startsWith(p + "/"));
+/** Pages where the pill should not be shown */
+const HIDE_PREFIXES = ["/", "/signin", "/auth/callback"];
+
+function startsWithAny(path: string, prefixes: string[]) {
+  return prefixes.some((p) => path === p || path.startsWith(p + "/"));
 }
 
 type Props = {
-  /** Force a destination. Default = "/" (public landing) */
+  /** Force a destination. If omitted, we auto-decide. */
   to?: string;
   label?: string;
   className?: string;
 };
 
-export default function BackHome({
-  to = "/",
-  label = "← Back home",
-  className = "",
-}: Props) {
+export default function BackHome({ to, label = "← Back home", className = "" }: Props) {
   const { pathname } = useLocation();
 
-  // Hide on public/auth and on non-app surfaces
-  const hide = useMemo(() => {
-    if (startsWithAny(pathname, HIDE_PREFIXES)) return true;
-    return !startsWithAny(pathname, APP_PREFIXES);
-  }, [pathname]);
+  // --- Hooks must run before any early returns ---
+  const forcedTo = to ?? null;
+  const [autoTo, setAutoTo] = useState<string>(forcedTo ?? "/");
+  const shouldAuto = useMemo(() => forcedTo == null, [forcedTo]);
 
-  // If hidden, render nothing
-  if (hide) return null;
-
-  // Ensure a <div id="backhome-portal"/> exists (once)
   useEffect(() => {
-    let host = document.getElementById("backhome-portal");
-    if (!host) {
-      host = document.createElement("div");
-      host.id = "backhome-portal";
-      document.body.appendChild(host);
+    if (!shouldAuto) {
+      setAutoTo(forcedTo!);
+      return;
     }
-    return () => {
-      // keep the host for subsequent pages; don’t remove on unmount
-    };
-  }, []);
 
-  const host = document.getElementById("backhome-portal");
-  if (!host) return null;
+    let cancelled = false;
 
-  // Render via portal to escape any stacking/overlay issues
-  return createPortal(
-    <div
-      // no pointer-events suppression; sit on top of everything
-      className="fixed left-3 top-3 z-[9999]"
-      style={{ pointerEvents: "auto" }}
-    >
-      <NavLink
-        to={to}
-        className={
-          "inline-flex items-center gap-2 rounded-xl border bg-white/95 px-3 py-2 text-sm shadow hover:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 " +
-          className
+    (async () => {
+      try {
+        // 1) Auth state
+        const { data } = await supabase.auth.getSession();
+        const user = data?.session?.user;
+
+        if (!user) {
+          if (!cancelled) setAutoTo("/");
+          return;
         }
+
+        // 2) Membership check (RLS limits to user’s rows; errors → fall back to guest)
+        const { data: memRows, error } = await supabase
+          .from("hotel_members")
+          .select("id")
+          .limit(1);
+
+        if (error) {
+          if (!cancelled) setAutoTo("/guest");
+          return;
+        }
+
+        const hasMembership = (memRows?.length || 0) > 0;
+        if (!cancelled) setAutoTo(hasMembership ? "/owner" : "/guest");
+      } catch {
+        if (!cancelled) setAutoTo("/guest");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [shouldAuto, forcedTo]);
+
+  // --- Decide visibility after hooks have run ---
+  const hide = startsWithAny(pathname, HIDE_PREFIXES);
+  const isAppSurface = startsWithAny(pathname, APP_PREFIXES);
+  if (hide || !isAppSurface) return null;
+
+  return (
+    <div className="fixed left-3 top-3 z-40">
+      <NavLink
+        to={autoTo}
+        className={`inline-flex items-center gap-2 rounded-xl border bg-white/95 px-3 py-2 text-sm shadow hover:bg-white ${className}`}
         aria-label={label}
       >
         {label}
       </NavLink>
-    </div>,
-    host
+    </div>
   );
 }

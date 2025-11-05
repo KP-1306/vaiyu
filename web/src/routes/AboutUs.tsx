@@ -1,5 +1,46 @@
-import { Link } from 'react-router-dom';
-import SEO from '../components/SEO';
+// web/src/routes/AboutUs.tsx
+import { Link } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import SEO from "../components/SEO";
+import { supabase } from "../lib/supabase";
+
+/** Inline smart button that decides the right dashboard route without changing the page layout */
+function BackToDashboardButton({ label = "Back to dashboard" }: { label?: string }) {
+  const [to, setTo] = useState<string>("/");
+
+  const compute = useMemo(
+    () => async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const user = data?.session?.user;
+        if (!user) {
+          setTo("/");
+          return;
+        }
+        // If RLS blocks reads here, we’ll default to guest to avoid leaking owner routes
+        const { data: rows, error } = await supabase.from("hotel_members").select("id").limit(1);
+        if (error) {
+          setTo("/guest");
+          return;
+        }
+        setTo((rows?.length || 0) > 0 ? "/owner" : "/guest");
+      } catch {
+        setTo("/guest");
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    compute();
+  }, [compute]);
+
+  return (
+    <Link to={to} className="btn btn-light">
+      {label}
+    </Link>
+  );
+}
 
 export default function AboutUs() {
   return (
@@ -14,7 +55,7 @@ export default function AboutUs() {
         className="relative isolate text-white"
         style={{
           background:
-            'radial-gradient(900px 320px at -10% -40%, rgba(20,90,242,.25), transparent 60%), radial-gradient(800px 300px at 110% -30%, rgba(14,165,233,.25), transparent 60%), linear-gradient(180deg, #0b1220, #101827)',
+            "radial-gradient(900px 320px at -10% -40%, rgba(20,90,242,.25), transparent 60%), radial-gradient(800px 300px at 110% -30%, rgba(14,165,233,.25), transparent 60%), linear-gradient(180deg, #0b1220, #101827)",
         }}
       >
         <div className="mx-auto max-w-6xl px-4 py-20 sm:py-24">
@@ -29,19 +70,17 @@ export default function AboutUs() {
             sustainability signals and <b>truth-anchored AI</b> on a single, calm platform.
           </p>
 
-          {/* CTAs — “See Owner Dashboard” removed earlier; keep these two */}
+          {/* CTAs */}
           <div className="mt-6 flex flex-wrap gap-3">
-      <Link to="/about-ai" className="btn !bg-white !text-gray-900 hover:!bg-gray-50">
-        How our AI works
-        </Link>
-        <Link to="/contact" className="btn btn-light">
-          Contact us
-        </Link>
-          {/* Back to dashboard */}
-        <Link to="/owner/dashboard?slug=sunrise" className="btn btn-light">
-      Back to dashboard
-        </Link>
-    </div>
+            <Link to="/about-ai" className="btn !bg-white !text-gray-900 hover:!bg-gray-50">
+              How our AI works
+            </Link>
+            <Link to="/contact" className="btn btn-light">
+              Contact us
+            </Link>
+            {/* Smart back button (guest-safe) */}
+            <BackToDashboardButton label="Back to dashboard" />
+          </div>
         </div>
 
         <svg
@@ -69,8 +108,14 @@ export default function AboutUs() {
               <Bullet>Guest experience: contactless pre-check-in, live request tracking, transparent bills.</Bullet>
               <Bullet>Staff efficiency: housekeeping, kitchen and desk with real-time updates and SLA nudges.</Bullet>
               <Bullet>Owner clarity: KPIs, exceptions, and policy hints that turn insight into action.</Bullet>
-              <Bullet>Truth-anchored AI: summaries and review drafts grounded in tickets, orders and SLAs—with owner approval.</Bullet>
-              <Bullet>Grid-smart operations: <b>tariff-aware device shedding</b>, <b>peak-hour playbooks</b> and <b>carbon-aware scheduling</b> to reduce cost and impact.</Bullet>
+              <Bullet>
+                Truth-anchored AI: summaries and review drafts grounded in verified activity, with brand-safe
+                approval.
+              </Bullet>
+              <Bullet>
+                Grid-smart operations: <b>tariff-aware device shedding</b>, <b>peak-hour playbooks</b> and{" "}
+                <b>carbon-aware scheduling</b> to reduce cost and impact.
+              </Bullet>
             </div>
           </div>
         </div>
@@ -147,12 +192,36 @@ export default function AboutUs() {
       <section className="mx-auto max-w-6xl px-4 py-6">
         <h2 className="text-xl font-semibold">Leadership</h2>
         <div className="mt-3 grid md:grid-cols-3 gap-4">
-          <Leader name="A. Rama Bisht" role="CEO / Product" blurb="Building the bridge between human hospitality and intelligent systems." />
-          <Leader name="B. Kapil R Bisht" role="Advisor & Architect" blurb="Blends advisory insight and architectural discipline to keep VAiyu ahead." />
-          <Leader name="C. Arti Bisht" role="CTO" blurb="Leads the code, the cloud, and the cadence—shipping intelligence at scale." />
-          <Leader name="D. Kamal Bisht" role="Head of Operations" blurb="Leads people, processes and precision to make hospitality flow effortlessly." />
-          <Leader name="E. Ravi Joshi" role="Head of Research & AI/ML" blurb="Bridges research and runtime—models that perform in the wild." />
-          <Leader name="F. Virender Singh" role="Head of Marketing" blurb="Builds the VAiyu narrative—trust, clarity and measurable growth." />
+          <Leader
+            name="A. Kamal Bisht"
+            role="CEO / Product"
+            blurb="Building the bridge between human hospitality and intelligent systems."
+          />
+          <Leader
+            name="B. Kapil R Bisht"
+            role="Advisor & Architect"
+            blurb="Blends advisory insight and architectural discipline to keep VAiyu ahead."
+          />
+          <Leader
+            name="C. Ajit Kumar"
+            role="CTO"
+            blurb="Leads the code, the cloud, and the cadence—shipping intelligence at scale."
+          />
+          <Leader
+            name="D. Arti Bisht"
+            role="Head of Operations"
+            blurb="Leads people, processes and precision to make hospitality flow effortlessly."
+          />
+          <Leader
+            name="E. Ravi Joshi"
+            role="Head of Research & AI/ML"
+            blurb="Bridges research and runtime—models that perform in the wild."
+          />
+          <Leader
+            name="F. Virender Singh"
+            role="Head of Marketing"
+            blurb="Builds the VAiyu narrative—trust, clarity and measurable growth."
+          />
         </div>
       </section>
 
@@ -164,7 +233,9 @@ export default function AboutUs() {
             <div className="text-sm text-gray-600">Talk to us about your property and goals.</div>
           </div>
           <div className="flex gap-2">
-            <Link to="/contact" className="btn">Contact us</Link>
+            <Link to="/contact" className="btn">
+              Contact us
+            </Link>
           </div>
         </div>
       </section>
@@ -175,7 +246,11 @@ export default function AboutUs() {
 /* ---------- small components ---------- */
 
 function Bullet({ children }: { children: React.ReactNode }) {
-  return <div className="flex items-start gap-2 text-sm text-gray-700">• <span>{children}</span></div>;
+  return (
+    <div className="flex items-start gap-2 text-sm text-gray-700">
+      • <span>{children}</span>
+    </div>
+  );
 }
 
 function Tile({ title, desc, emoji }: { title: string; desc: string; emoji: string }) {
@@ -202,7 +277,11 @@ function Leader({ name, role, blurb }: { name: string; role: string; blurb: stri
     <div className="card bg-white">
       <div className="flex items-center gap-3">
         <div className="h-12 w-12 rounded-full bg-gradient-to-br from-sky-500 to-indigo-600 text-white grid place-items-center font-semibold">
-          {name.split(' ').map((n) => n[0]).slice(0, 2).join('')}
+          {name
+            .split(" ")
+            .map((n) => n[0])
+            .slice(0, 2)
+            .join("")}
         </div>
         <div>
           <div className="font-semibold">{name}</div>

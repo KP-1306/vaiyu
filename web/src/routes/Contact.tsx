@@ -1,4 +1,7 @@
+// web/src/routes/Contact.tsx
+
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import SEO from "../components/SEO";
 
 export default function Contact() {
@@ -45,43 +48,62 @@ export default function Contact() {
             "radial-gradient(900px 320px at -10% -40%, rgba(20,90,242,.25), transparent 60%), radial-gradient(800px 300px at 110% -30%, rgba(14,165,233,.25), transparent 60%), linear-gradient(180deg, #0b1220, #101827)",
         }}
       >
-        <div className="mx-auto max-w-6xl px-4 py-16 sm:py-20">
+        <div className="relative z-[1] mx-auto max-w-6xl px-4 py-16 sm:py-20">
           <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs backdrop-blur">
             ✉️ Contact
           </span>
-          <h1 className="mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl">
-            Contact VAiyu
-          </h1>
+          <h1 className="mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl">Contact VAiyu</h1>
           <p className="mt-3 max-w-2xl text-white/85">
-            Partner with us to bring <b>truth-anchored AI</b> to your hotel — faster
-            service, clearer SLAs, happier guests.
+            Partner with us to bring <b>truth-anchored AI</b> to your hotel — faster service, clearer
+            SLAs, happier guests.
           </p>
+
+          {/* CTAs (adds Back to home here) */}
+          <div className="mt-6 flex flex-wrap gap-3">
+            <a className="btn !bg-white !text-gray-900 hover:!bg-gray-50" href="#form">
+              Send a message
+            </a>
+            <Link to="/" className="btn btn-light">
+              Back to home
+            </Link>
+          </div>
         </div>
-        <svg viewBox="0 0 1440 140" className="absolute bottom-[-1px] left-0 w-full" aria-hidden>
+
+        <svg
+          viewBox="0 0 1440 140"
+          className="pointer-events-none absolute bottom-[-1px] left-0 w-full"
+          aria-hidden
+        >
           <path fill="#f9fafb" d="M0,80 C240,160 480,0 720,60 C960,120 1200,40 1440,100 L1440,140 L0,140 Z" />
         </svg>
       </section>
 
       {/* ===== Content ===== */}
-      <section className="mx-auto max-w-6xl px-4 py-10 grid gap-8 lg:grid-cols-3">
+      <section id="form" className="mx-auto max-w-6xl px-4 py-10 grid gap-8 lg:grid-cols-3">
         {/* Left column: quick contacts */}
         <div className="space-y-4">
           <div className="card bg-white">
             <h2 className="text-lg font-semibold">Talk to sales</h2>
             <p className="mt-1 text-sm text-gray-600">Rollout, pricing, ROI.</p>
-            <a className="btn btn-light mt-3" href="mailto:sales@vaiyu.app">sales@vaiyu.app</a>
+            <a className="btn btn-light mt-3" href="mailto:sales@vaiyu.app">
+              sales@vaiyu.app
+            </a>
           </div>
 
           <div className="card bg-white">
             <h2 className="text-lg font-semibold">Customer support</h2>
             <p className="mt-1 text-sm text-gray-600">We’re here 24×7 for critical issues.</p>
-            <a className="btn btn-light mt-3" href="mailto:support@vaiyu.app">support@vaiyu.app</a>
+            <a className="btn btn-light mt-3" href="mailto:support@vaiyu.app">
+              support@vaiyu.app
+            </a>
           </div>
 
           <div className="card bg-white">
             <h2 className="text-lg font-semibold">Press & partnerships</h2>
             <p className="mt-1 text-sm text-gray-600">Media kit, interviews, ecosystem.</p>
-            <a className="btn btn-light mt-3" href="/press">Press resources</a>
+            <a className="btn btn-light mt-3" href="/press">
+              Press resources
+            </a>
           </div>
 
           <div className="card bg-white">
@@ -110,10 +132,6 @@ export default function Contact() {
               </div>
             )}
 
-            {/* Netlify Forms:
-                - Posts to /thanks (add the /thanks route)
-                - Honeypot (bot-field)
-                - Also includes your subject field */}
             <form
               name="lead"
               method="POST"
@@ -125,7 +143,9 @@ export default function Contact() {
             >
               <input type="hidden" name="form-name" value="lead" />
               <p className="hidden">
-                <label>Don’t fill this out: <input name="bot-field" /></label>
+                <label>
+                  Don’t fill this out: <input name="bot-field" />
+                </label>
               </p>
 
               <div className="grid sm:grid-cols-2 gap-3">
@@ -201,24 +221,24 @@ export default function Contact() {
               </div>
 
               <div className="text-xs text-gray-500 mt-2">
-                By contacting us you agree to our{" "}
-                <a className="link" href="/privacy">Privacy Policy</a>.
+                By contacting us you agree to our <a className="link" href="/privacy">Privacy Policy</a>.
               </div>
             </form>
 
-            {/* Direct email tiny note */}
             <p className="text-xs text-gray-500">
               Prefer to write directly? Email{" "}
               <a className="link" href="mailto:hello@vaiyu.app">hello@vaiyu.app</a>.
             </p>
           </div>
 
-          {/* (Optional) Quick FAQ — easy way to keep the page length/features similar to the old one */}
           <div className="mt-4 card bg-white">
             <h3 className="text-base font-semibold">FAQ</h3>
             <ul className="mt-2 text-sm text-gray-700 list-disc pl-5 space-y-1">
               <li>We typically respond within one business day.</li>
-              <li>For urgent issues, please write to <a className="link" href="mailto:support@vaiyu.app">support@vaiyu.app</a>.</li>
+              <li>
+                For urgent issues, please write to{" "}
+                <a className="link" href="mailto:support@vaiyu.app">support@vaiyu.app</a>.
+              </li>
               <li>We support pilots for single properties as well as chains.</li>
             </ul>
           </div>

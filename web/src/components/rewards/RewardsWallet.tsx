@@ -1,5 +1,5 @@
-// web/src/components/rewards/RewardsWallet.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 
 /** Types */
@@ -26,11 +26,11 @@ type Voucher = {
 
 /** Utils */
 const inr = (paise: number) => `₹${(paise / 100).toFixed(2)}`;
-const cx = (...xs: Array<string | false | undefined | null>) =>
-  xs.filter(Boolean).join(" ");
+const cx = (...xs: Array<string | false | undefined | null>) => xs.filter(Boolean).join(" ");
 
 /** Component */
 export default function RewardsWallet() {
+  const nav = useNavigate();
   const [loading, setLoading] = useState(true);
   const [balances, setBalances] = useState<HotelBalance[]>([]);
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
@@ -160,8 +160,27 @@ export default function RewardsWallet() {
     }
   }
 
+  /** Back behavior: go back if possible; otherwise go to dashboard */
+  function goBack() {
+    try {
+      if (window.history.length > 1) {
+        nav(-1);
+      } else {
+        nav("/guest");
+      }
+    } catch {
+      nav("/guest");
+    }
+  }
+
   return (
     <main className="max-w-5xl mx-auto p-6">
+      {/* Top back bar */}
+      <div className="mb-4 flex items-center gap-2">
+        <button className="btn btn-light" onClick={goBack}>← Back</button>
+        <Link to="/guest" className="btn btn-light">Go to dashboard</Link>
+      </div>
+
       <header className="flex items-end justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Your Rewards</h1>
@@ -205,7 +224,8 @@ export default function RewardsWallet() {
         </section>
       )}
 
-      <div className="mt-6 flex justify-end">
+      <div className="mt-6 flex flex-wrap gap-2 justify-end">
+        <Link to="/guest" className="btn btn-light">Back to dashboard</Link>
         <button className="btn btn-light" onClick={() => setHistoryOpen(true)}>
           View claim history
         </button>
@@ -398,9 +418,9 @@ function EmptyWallet() {
         No credits yet. Invite a friend to a partner hotel to start earning.
       </p>
       <div className="mt-3">
-        <a className="btn" href="/invite">
+        <Link className="btn" to="/invite">
           Invite & earn
-        </a>
+        </Link>
       </div>
     </div>
   );

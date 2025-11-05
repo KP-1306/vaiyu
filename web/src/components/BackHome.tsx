@@ -1,30 +1,18 @@
 // web/src/components/BackHome.tsx
-
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
-/** Surfaces where the pill is relevant (matches exact or as prefix/) */
-const APP_PREFIXES = [
-  "/guest",
-  "/owner",
-  "/desk",
-  "/hk",
-  "/maint",
-  "/grid",
-  "/stay",
-  "/menu",
-  "/precheck",
-  "/regcard",
-  "/bill",
-  "/admin",
-];
-
-/** Pages where the pill should not be shown */
+/** Never show on these */
 const HIDE_PREFIXES = ["/", "/signin", "/auth/callback"];
 
-function startsWithAny(path: string, prefixes: string[]) {
-  return prefixes.some((p) => path === p || path.startsWith(p + "/"));
+/** Area prefixes (exact or as prefix/) */
+const OWNER_PREFIXES = ["/owner", "/desk", "/hk", "/maint", "/grid", "/admin"];
+const GUEST_PREFIXES = ["/guest", "/stay", "/menu", "/precheck", "/regcard", "/bill", "/requestTracker"];
+
+/** Helpers */
+function startsWithAny(path: string, list: string[]) {
+  return list.some((p) => path === p || path.startsWith(p + "/"));
 }
 
 type Props = {
@@ -37,15 +25,16 @@ type Props = {
 export default function BackHome({ to, label = "← Back home", className = "" }: Props) {
   const { pathname } = useLocation();
 
-  // Visibility unchanged from your original logic
+  // Hide on public/auth pages
   if (startsWithAny(pathname, HIDE_PREFIXES)) return null;
-  const isApp = startsWithAny(pathname, APP_PREFIXES);
-  if (!isApp) return null;
 
-  // Destination
+  // Show only for known in-app surfaces
+  const isOwnerArea = startsWithAny(pathname, OWNER_PREFIXES);
+  const isGuestArea = startsWithAny(pathname, GUEST_PREFIXES);
+  if (!isOwnerArea && !isGuestArea) return null;
+
+  // Resolve destination
   const [autoTo, setAutoTo] = useState<string>(to || "/");
-
-  // Only compute if caller didn't force a target
   const shouldAuto = useMemo(() => !to, [to]);
 
   useEffect(() => {
@@ -54,49 +43,53 @@ export default function BackHome({ to, label = "← Back home", className = "" }
       return;
     }
 
-    let cancelled = false;
+    // Prefer context from URL (fast, no network)
+    if (isOwnerArea) {
+      setAutoTo("/owner");
+      return;
+    }
+    if (isGuestArea) {
+      setAutoTo("/guest");
+      return;
+    }
 
-    async function decide() {
+    // Fallback (rare): decide via auth + membership (RLS will scope)
+    let cancelled = false;
+    (async () => {
       try {
-        // 1) Auth state
         const { data } = await supabase.auth.getSession();
         const user = data?.session?.user;
         if (!user) {
           if (!cancelled) setAutoTo("/");
           return;
         }
-
-        // 2) Membership check (RLS will scope to user's rows)
         const { data: memRows, error } = await supabase
           .from("hotel_members")
           .select("id")
           .limit(1);
 
         if (error) {
-          // If policy blocks read, prefer guest-safe route.
           if (!cancelled) setAutoTo("/guest");
           return;
         }
-
         const hasMembership = (memRows?.length || 0) > 0;
         if (!cancelled) setAutoTo(hasMembership ? "/owner" : "/guest");
       } catch {
-        // On unexpected errors, prefer guest-safe route.
         if (!cancelled) setAutoTo("/guest");
       }
-    }
+    })();
 
-    decide();
     return () => {
       cancelled = true;
     };
-  }, [shouldAuto, to]);
+  }, [shouldAuto, to, isOwnerArea, isGuestArea]);
 
   return (
-    <div className="fixed left-3 top-3 z-40">
+    // Ensure the pill is always clickable and above other UI
+    <div className="fixed left-3 top-3 z-50 pointer-events-none">
       <NavLink
         to={autoTo}
-        className={`inline-flex items-center gap-2 rounded-xl border bg-white/95 px-3 py-2 text-sm shadow hover:bg-white ${className}`}
+        className={`pointer-events-auto inline-flex items-center gap-2 rounded-xl border bg-white/95 px-3 py-2 text-sm shadow hover:bg-white ${className}`}
         aria-label={label}
       >
         {label}

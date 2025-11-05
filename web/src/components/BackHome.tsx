@@ -1,5 +1,4 @@
 // web/src/components/BackHome.tsx
-
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -37,12 +36,18 @@ type Props = {
 export default function BackHome({ to, label = "← Back home", className = "" }: Props) {
   const { pathname } = useLocation();
 
-  // --- Hooks must run before any early returns ---
+  // --- Hooks first (no early returns before hooks) ---
   const forcedTo = to ?? null;
   const [autoTo, setAutoTo] = useState<string>(forcedTo ?? "/");
   const shouldAuto = useMemo(() => forcedTo == null, [forcedTo]);
 
   useEffect(() => {
+    // Special rule: if you're anywhere under /owner, always go to public landing.
+    if (shouldAuto && pathname.startsWith("/owner")) {
+      setAutoTo("/");
+      return;
+    }
+
     if (!shouldAuto) {
       setAutoTo(forcedTo!);
       return;
@@ -61,7 +66,7 @@ export default function BackHome({ to, label = "← Back home", className = "" }
           return;
         }
 
-        // 2) Membership check (RLS limits to user’s rows; errors → fall back to guest)
+        // 2) Membership check (RLS-scoped; errors → fall back to guest)
         const { data: memRows, error } = await supabase
           .from("hotel_members")
           .select("id")
@@ -82,7 +87,7 @@ export default function BackHome({ to, label = "← Back home", className = "" }
     return () => {
       cancelled = true;
     };
-  }, [shouldAuto, forcedTo]);
+  }, [shouldAuto, forcedTo, pathname]);
 
   // --- Decide visibility after hooks have run ---
   const hide = startsWithAny(pathname, HIDE_PREFIXES);

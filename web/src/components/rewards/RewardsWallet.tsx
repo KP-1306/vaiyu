@@ -1,5 +1,6 @@
+// web/src/components/rewards/RewardsWallet.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 
 /** Types */
@@ -30,7 +31,6 @@ const cx = (...xs: Array<string | false | undefined | null>) => xs.filter(Boolea
 
 /** Component */
 export default function RewardsWallet() {
-  const nav = useNavigate();
   const [loading, setLoading] = useState(true);
   const [balances, setBalances] = useState<HotelBalance[]>([]);
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
@@ -160,25 +160,11 @@ export default function RewardsWallet() {
     }
   }
 
-  /** Back behavior: go back if possible; otherwise go to dashboard */
-  function goBack() {
-    try {
-      if (window.history.length > 1) {
-        nav(-1);
-      } else {
-        nav("/guest");
-      }
-    } catch {
-      nav("/guest");
-    }
-  }
-
   return (
     <main className="max-w-5xl mx-auto p-6">
-      {/* Top back bar */}
-      <div className="mb-4 flex items-center gap-2">
-        <button className="btn btn-light" onClick={goBack}>← Back</button>
-        <Link to="/guest" className="btn btn-light">Go to dashboard</Link>
+      {/* Single navigation control */}
+      <div className="mb-4">
+        <Link to="/guest" className="btn btn-light">Back to dashboard</Link>
       </div>
 
       <header className="flex items-end justify-between flex-wrap gap-3">
@@ -225,7 +211,6 @@ export default function RewardsWallet() {
       )}
 
       <div className="mt-6 flex flex-wrap gap-2 justify-end">
-        <Link to="/guest" className="btn btn-light">Back to dashboard</Link>
         <button className="btn btn-light" onClick={() => setHistoryOpen(true)}>
           View claim history
         </button>

@@ -1,99 +1,89 @@
 // web/src/components/BackHome.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { supabase } from "../lib/supabase";
+import { createPortal } from "react-dom";
 
-/** Never show on these */
+/** Hide on public/auth pages */
 const HIDE_PREFIXES = ["/", "/signin", "/auth/callback"];
 
-/** Area prefixes (exact or as prefix/) */
-const OWNER_PREFIXES = ["/owner", "/desk", "/hk", "/maint", "/grid", "/admin"];
-const GUEST_PREFIXES = ["/guest", "/stay", "/menu", "/precheck", "/regcard", "/bill", "/requestTracker"];
+/** In-app surfaces (exact or prefix/) */
+const APP_PREFIXES = [
+  "/guest",
+  "/owner",
+  "/desk",
+  "/hk",
+  "/maint",
+  "/grid",
+  "/stay",
+  "/menu",
+  "/precheck",
+  "/regcard",
+  "/bill",
+  "/admin",
+  "/requestTracker",
+];
 
-/** Helpers */
 function startsWithAny(path: string, list: string[]) {
   return list.some((p) => path === p || path.startsWith(p + "/"));
 }
 
 type Props = {
-  /** Force a destination. If omitted, we auto-decide. */
+  /** Force a destination. Default = "/" (public landing) */
   to?: string;
   label?: string;
   className?: string;
 };
 
-export default function BackHome({ to, label = "← Back home", className = "" }: Props) {
+export default function BackHome({
+  to = "/",
+  label = "← Back home",
+  className = "",
+}: Props) {
   const { pathname } = useLocation();
 
-  // Hide on public/auth pages
-  if (startsWithAny(pathname, HIDE_PREFIXES)) return null;
+  // Hide on public/auth and on non-app surfaces
+  const hide = useMemo(() => {
+    if (startsWithAny(pathname, HIDE_PREFIXES)) return true;
+    return !startsWithAny(pathname, APP_PREFIXES);
+  }, [pathname]);
 
-  // Show only for known in-app surfaces
-  const isOwnerArea = startsWithAny(pathname, OWNER_PREFIXES);
-  const isGuestArea = startsWithAny(pathname, GUEST_PREFIXES);
-  if (!isOwnerArea && !isGuestArea) return null;
+  // If hidden, render nothing
+  if (hide) return null;
 
-  // Resolve destination
-  const [autoTo, setAutoTo] = useState<string>(to || "/");
-  const shouldAuto = useMemo(() => !to, [to]);
-
+  // Ensure a <div id="backhome-portal"/> exists (once)
   useEffect(() => {
-    if (!shouldAuto) {
-      setAutoTo(to!);
-      return;
+    let host = document.getElementById("backhome-portal");
+    if (!host) {
+      host = document.createElement("div");
+      host.id = "backhome-portal";
+      document.body.appendChild(host);
     }
-
-    // Prefer context from URL (fast, no network)
-    if (isOwnerArea) {
-      setAutoTo("/owner");
-      return;
-    }
-    if (isGuestArea) {
-      setAutoTo("/guest");
-      return;
-    }
-
-    // Fallback (rare): decide via auth + membership (RLS will scope)
-    let cancelled = false;
-    (async () => {
-      try {
-        const { data } = await supabase.auth.getSession();
-        const user = data?.session?.user;
-        if (!user) {
-          if (!cancelled) setAutoTo("/");
-          return;
-        }
-        const { data: memRows, error } = await supabase
-          .from("hotel_members")
-          .select("id")
-          .limit(1);
-
-        if (error) {
-          if (!cancelled) setAutoTo("/guest");
-          return;
-        }
-        const hasMembership = (memRows?.length || 0) > 0;
-        if (!cancelled) setAutoTo(hasMembership ? "/owner" : "/guest");
-      } catch {
-        if (!cancelled) setAutoTo("/guest");
-      }
-    })();
-
     return () => {
-      cancelled = true;
+      // keep the host for subsequent pages; don’t remove on unmount
     };
-  }, [shouldAuto, to, isOwnerArea, isGuestArea]);
+  }, []);
 
-  return (
-    // Ensure the pill is always clickable and above other UI
-    <div className="fixed left-3 top-3 z-50 pointer-events-none">
+  const host = document.getElementById("backhome-portal");
+  if (!host) return null;
+
+  // Render via portal to escape any stacking/overlay issues
+  return createPortal(
+    <div
+      // no pointer-events suppression; sit on top of everything
+      className="fixed left-3 top-3 z-[9999]"
+      style={{ pointerEvents: "auto" }}
+    >
       <NavLink
-        to={autoTo}
-        className={`pointer-events-auto inline-flex items-center gap-2 rounded-xl border bg-white/95 px-3 py-2 text-sm shadow hover:bg-white ${className}`}
+        to={to}
+        className={
+          "inline-flex items-center gap-2 rounded-xl border bg-white/95 px-3 py-2 text-sm shadow hover:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 " +
+          className
+        }
         aria-label={label}
       >
         {label}
       </NavLink>
-    </div>
+    </div>,
+    host
   );
 }

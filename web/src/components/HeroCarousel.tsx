@@ -1,13 +1,15 @@
+// web/src/components/HeroCarousel.tsx
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
-type Slide = {
+export type Slide = {
   id: string;
   headline: string;
-  sub: string;
-  cta: { label: string; href: string };
-  img: string;     // public path or URL
-  imgAlt: string;
+  sub?: string;
+  cta?: { label: string; href: string } | null; // allow null or omit
+  img?: string;                                   // optional: public path or URL
+  imgAlt?: string;
+  variant?: "photo" | "solid";
 };
 
 const DEFAULT_INTERVAL = 6500;
@@ -15,8 +17,14 @@ const DEFAULT_INTERVAL = 6500;
 export default function HeroCarousel({
   slides,
   interval = DEFAULT_INTERVAL,
-}: { slides: Slide[]; interval?: number }) {
+  disableCtas = false,
+}: {
+  slides: Slide[];
+  interval?: number;
+  disableCtas?: boolean;
+}) {
   const [i, setI] = useState(0);
+
   const prefReduced =
     typeof window !== "undefined" &&
     window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
@@ -29,10 +37,13 @@ export default function HeroCarousel({
     if (prefReduced || slides.length <= 1) return;
     const tick = () => setI((p) => (p + 1) % slides.length);
     timer.current = window.setInterval(() => !paused.current && tick(), interval);
-    return () => timer.current && window.clearInterval(timer.current);
+    return () => {
+      if (timer.current) window.clearInterval(timer.current);
+    };
   }, [interval, slides.length, prefReduced]);
 
   function goto(n: number) {
+    if (slides.length === 0) return;
     setI(((n % slides.length) + slides.length) % slides.length);
   }
 
@@ -41,11 +52,14 @@ export default function HeroCarousel({
     if (e.key === "ArrowRight") goto(i + 1);
   }
 
+  const activeId = slides[i]?.id ?? "";
+
   return (
     <section
       className="relative isolate h-[72vh] min-h-[520px] max-h-[820px] overflow-hidden rounded-3xl border"
       aria-roledescription="carousel"
       aria-label="Highlights"
+      aria-live="polite"
       tabIndex={0}
       onKeyDown={onKey}
       onMouseEnter={() => (paused.current = true)}
@@ -61,6 +75,7 @@ export default function HeroCarousel({
               className="absolute inset-0"
               aria-hidden={!active}
               aria-label={s.headline}
+              aria-current={active ? "true" : undefined}
               style={{
                 opacity: active ? 1 : 0,
                 transform: active ? "scale(1)" : "scale(1.02)",
@@ -68,14 +83,20 @@ export default function HeroCarousel({
               }}
             >
               {/* Background + overlay */}
-              <img
-                src={s.img}
-                alt={s.imgAlt}
-                className="h-full w-full object-cover"
-                loading={idx === 0 ? "eager" : "lazy"}
-                fetchpriority={idx === 0 ? "high" : undefined}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/30 to-black/10" />
+              {s.img ? (
+                <>
+                  <img
+                    src={s.img}
+                    alt={s.imgAlt || ""}
+                    className="h-full w-full object-cover"
+                    loading={idx === 0 ? "eager" : "lazy"}
+                    fetchpriority={idx === 0 ? "high" : undefined}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/30 to-black/10" />
+                </>
+              ) : (
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" />
+              )}
 
               {/* Copy */}
               <div className="absolute inset-0 grid">
@@ -87,17 +108,20 @@ export default function HeroCarousel({
                     <h1 className="text-4xl md:text-6xl font-bold leading-tight">
                       {s.headline}
                     </h1>
-                    <p className="mt-3 text-base md:text-lg text-white/90">
-                      {s.sub}
-                    </p>
-                    <div className="mt-6">
-                      <Link
-                        to={s.cta.href}
-                        className="btn btn-light text-base"
-                      >
-                        {s.cta.label}
-                      </Link>
-                    </div>
+                    {s.sub ? (
+                      <p className="mt-3 text-base md:text-lg text-white/90">
+                        {s.sub}
+                      </p>
+                    ) : null}
+
+                    {/* CTA — now optional & globally hideable */}
+                    {!disableCtas && s.cta?.href ? (
+                      <div className="mt-6">
+                        <Link to={s.cta.href} className="btn btn-light text-base">
+                          {s.cta.label}
+                        </Link>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -107,37 +131,46 @@ export default function HeroCarousel({
       </ul>
 
       {/* Dots */}
-      <div className="absolute bottom-4 left-0 right-0 flex items-center justify-center gap-2">
-        {slides.map((_, idx) => (
-          <button
-            key={idx}
-            aria-label={`Go to slide ${idx + 1}`}
-            aria-current={idx === i}
-            onClick={() => goto(idx)}
-            className={`h-2.5 rounded-full transition-all ${
-              idx === i ? "w-6 bg-white" : "w-2.5 bg-white/50 hover:bg-white/80"
-            }`}
-          />
-        ))}
-      </div>
+      {slides.length > 1 && (
+        <div className="absolute bottom-4 left-0 right-0 flex items-center justify-center gap-2">
+          {slides.map((s, idx) => (
+            <button
+              key={s.id ?? idx}
+              aria-label={`Go to slide ${idx + 1}`}
+              aria-current={idx === i}
+              onClick={() => goto(idx)}
+              className={`h-2.5 rounded-full transition-all ${
+                idx === i ? "w-6 bg-white" : "w-2.5 bg-white/50 hover:bg-white/80"
+              }`}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Prev/Next */}
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-2">
-        <button
-          onClick={() => goto(i - 1)}
-          className="pointer-events-auto btn btn-light !px-3 !py-2 opacity-80"
-          aria-label="Previous slide"
-        >
-          ‹
-        </button>
-        <button
-          onClick={() => goto(i + 1)}
-          className="pointer-events-auto btn btn-light !px-3 !py-2 opacity-80"
-          aria-label="Next slide"
-        >
-          ›
-        </button>
-      </div>
+      {slides.length > 1 && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-2">
+          <button
+            onClick={() => goto(i - 1)}
+            className="pointer-events-auto btn btn-light !px-3 !py-2 opacity-80"
+            aria-label="Previous slide"
+          >
+            ‹
+          </button>
+          <button
+            onClick={() => goto(i + 1)}
+            className="pointer-events-auto btn btn-light !px-3 !py-2 opacity-80"
+            aria-label="Next slide"
+          >
+            ›
+          </button>
+        </div>
+      )}
+
+      {/* SR-only active slide ref */}
+      <span className="sr-only" aria-live="polite">
+        {activeId}
+      </span>
     </section>
   );
 }

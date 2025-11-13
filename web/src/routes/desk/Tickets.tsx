@@ -40,6 +40,12 @@ type NewTicketPayload = {
   priority: TicketPriority;
 };
 
+/**
+ * Decide which hotel to use:
+ * - If URL has ?hotelId=… → use that
+ * - Else look up first hotel_members row for current user
+ * - If found, set it AND push ?hotelId=… into the URL
+ */
 function useEffectiveHotelId() {
   const [searchParams, setSearchParams] = useSearchParams();
   const urlHotelId = searchParams.get("hotelId");
@@ -48,7 +54,6 @@ function useEffectiveHotelId() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // If URL already has hotelId, trust it and we’re done.
     if (urlHotelId) {
       setHotelId(urlHotelId);
       setInitialised(true);
@@ -90,7 +95,6 @@ function useEffectiveHotelId() {
 
         setHotelId(data.hotel_id);
 
-        // Also push it into the URL so link is shareable:
         const next = new URLSearchParams();
         next.set("hotelId", data.hotel_id);
         setSearchParams(next, { replace: true });
@@ -239,17 +243,10 @@ export default function DeskTickets() {
         .order("priority", { ascending: false })
         .order("created_at", { ascending: false });
 
-      if (statusFilter !== "all") {
-        query = query.eq("status", statusFilter);
-      }
-      if (priorityFilter !== "all") {
-        query = query.eq("priority", priorityFilter);
-      }
-      if (overdueFilter === "overdue") {
-        query = query.eq("is_overdue", true);
-      } else if (overdueFilter === "on_time") {
-        query = query.eq("is_overdue", false);
-      }
+      if (statusFilter !== "all") query = query.eq("status", statusFilter);
+      if (priorityFilter !== "all") query = query.eq("priority", priorityFilter);
+      if (overdueFilter === "overdue") query = query.eq("is_overdue", true);
+      else if (overdueFilter === "on_time") query = query.eq("is_overdue", false);
 
       const { data, error } = await query;
       if (error) throw error;
@@ -277,6 +274,7 @@ export default function DeskTickets() {
       return;
     }
     setCreateError(null);
+
     try {
       const { error } = await supabase.rpc("create_ticket", {
         p_hotel_id: hotelId,
@@ -304,7 +302,10 @@ export default function DeskTickets() {
     }
   }
 
-  async function runAction(ticket: TicketRow, action: "accept" | "start" | "pause" | "resume" | "resolve" | "close" | "bump") {
+  async function runAction(
+    ticket: TicketRow,
+    action: "accept" | "start" | "pause" | "resume" | "resolve" | "close" | "bump"
+  ) {
     setActionPendingId(ticket.id);
     try {
       let fn: string;
@@ -339,7 +340,6 @@ export default function DeskTickets() {
       if (error) throw error;
       await refetch();
     } catch (err: any) {
-      // Keep it simple for now – later we can surface toast/notifier
       alert(err?.message ?? "Failed to apply ticket action.");
     } finally {
       setActionPendingId(null);
@@ -451,12 +451,12 @@ export default function DeskTickets() {
       {/* Errors */}
       {servicesError && (
         <p className="mt-3 text-sm text-red-700 bg-red-50 border border-red-100 rounded-md px-3 py-2">
-          Failed to load services: {String(servicesError.message ?? servicesError)}
+          Failed to load services: {String((servicesError as any).message ?? servicesError)}
         </p>
       )}
       {ticketsError && (
         <p className="mt-3 text-sm text-red-700 bg-red-50 border border-red-100 rounded-md px-3 py-2">
-          Failed to load tickets: {String(ticketsError.message ?? ticketsError)}
+          Failed to load tickets: {String((ticketsError as any).message ?? ticketsError)}
         </p>
       )}
 
@@ -470,7 +470,8 @@ export default function DeskTickets() {
 
         {!ticketsLoading && !hasTickets && (
           <p className="mt-4 text-sm text-gray-500">
-            No tickets yet for this hotel. Use <span className="font-medium">“+ New ticket”</span> to create the first one.
+            No tickets yet for this hotel. Use <span className="font-medium">“+ New ticket”</span> to
+            create the first one.
           </p>
         )}
 
@@ -496,7 +497,6 @@ export default function DeskTickets() {
                     hour: "2-digit",
                     minute: "2-digit",
                   });
-
                   const isBusy = actionPendingId === t.id;
 
                   return (
@@ -506,7 +506,9 @@ export default function DeskTickets() {
                         <span className="text-gray-400">•</span> {createdLabel}
                       </td>
                       <td className="px-3 py-2 text-sm text-gray-900">
-                        {service?.label ?? <span className="text-gray-400 italic">Unknown service</span>}
+                        {service?.label ?? (
+                          <span className="text-gray-400 italic">Unknown service</span>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-sm text-gray-900">
                         <button
@@ -691,7 +693,10 @@ export default function DeskTickets() {
                     className="mt-1 w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm"
                     value={newTicket.priority}
                     onChange={(e) =>
-                      setNewTicket((t) => ({ ...t, priority: e.target.value as TicketPriority }))
+                      setNewTicket((t) => ({
+                        ...t,
+                        priority: e.target.value as TicketPriority,
+                      }))
                     }
                   >
                     <option value="urgent">Urgent</option>
@@ -756,7 +761,9 @@ export default function DeskTickets() {
                 <SlaChip ticket={selectedTicket} />
               </div>
               {selectedTicket.details && (
-                <p className="mt-2 whitespace-pre-wrap text-gray-700">{selectedTicket.details}</p>
+                <p className="mt-2 whitespace-pre-wrap text-gray-700">
+                  {selectedTicket.details}
+                </p>
               )}
               {selectedTicket.booking_code && (
                 <p className="mt-1 text-xs text-gray-600">

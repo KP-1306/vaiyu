@@ -99,6 +99,8 @@ const HotelReviews = lazy(() => import("./routes/HotelReviews"));
 const Desk = lazy(() => import("./routes/Desk"));
 const HK = lazy(() => import("./routes/HK"));
 const Maint = lazy(() => import("./routes/Maint"));
+// NEW: Desk Tickets view (Ops tickets + SLA board)
+const DeskTickets = lazy(() => import("./routes/desk/Tickets"));
 
 // Owner / Admin
 const Owner = lazy(() => import("./routes/Owner"));
@@ -252,6 +254,8 @@ const router = createBrowserRouter([
 
       // Staff (protected)
       { path: "desk", element: <AuthGate><Desk /></AuthGate> },
+      // NEW: Desk tickets board (Ops tickets + SLA)
+      { path: "desk/tickets", element: <AuthGate><DeskTickets /></AuthGate> },
       { path: "hk", element: <AuthGate><HK /></AuthGate> },
       { path: "maint", element: <AuthGate><Maint /></AuthGate> },
 

@@ -1,206 +1,250 @@
-import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+// web/src/routes/Scan.tsx
+import React, {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import SEO from "../components/SEO";
 
-/**
- * Lightweight QR scanner using the native Shape Detection API (BarcodeDetector)
- * with graceful fallbacks:
- *  - If BarcodeDetector is available: live camera preview + auto-detect
- *  - Otherwise: file upload (accepts photos/screenshots of a QR)
- *
- * On successful scan:
- *  - If the text is a full URL => navigate to its pathname within this app (or window.location if off-domain)
- *  - Else if it looks like a code => push to /precheck/:code
- *  - Else show the scanned text so the user can copy.
- */
 export default function Scan() {
-  const nav = useNavigate();
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [supported, setSupported] = useState<boolean | null>(null);
-  const [scanning, setScanning] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [resultText, setResultText] = useState<string>("");
+  const [cameraSupported, setCameraSupported] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [decoded, setDecoded] = useState<string | null>(null);
+  const [manual, setManual] = useState("");
+  const [autoRedirected, setAutoRedirected] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      // @ts-ignore - experimental types
-      const ok = "BarcodeDetector" in window;
-      setSupported(ok);
-      if (!ok) return;
+  const handleResolvedTarget = useCallback((value: string) => {
+    // Basic normalisation
+    const v = value.trim();
+    if (!v) return;
 
-      try {
-        // @ts-ignore
-        const formats = await (window as any).BarcodeDetector.getSupportedFormats?.();
-        if (!formats || !formats.includes("qr_code")) {
-          setSupported(false);
-          return;
-        }
+    // 1) Full URL → just open
+    if (/^https?:\/\//i.test(v)) {
+      window.location.href = v;
+      return;
+    }
 
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" } },
-          audio: false,
-        });
-        if (!videoRef.current) return;
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+    // 2) Optional custom scheme like vaiyu://menu?hotelSlug=sunrise
+    if (/^vaiyu:\/\//i.test(v)) {
+      const url = v.replace(/^vaiyu:\/\//i, "https://vaiyu.co.in/");
+      window.location.href = url;
+      return;
+    }
 
-        setScanning(true);
-        // @ts-ignore
-        const detector = new (window as any).BarcodeDetector({ formats: ["qr_code"] });
+    // 3) Booking code (e.g. ABC123) → open stay menu
+    if (/^[A-Za-z0-9_-]{4,20}$/.test(v)) {
+      window.location.href = `/stay/${encodeURIComponent(v)}/menu`;
+      return;
+    }
 
-        let raf = 0;
-        const tick = async () => {
-          if (!videoRef.current) return;
-          try {
-            const bitmap = await createImageBitmap(videoRef.current);
-            const codes = await detector.detect(bitmap);
-            if (codes && codes.length > 0) {
-              handleDetected(codes[0].rawValue || codes[0].rawValue || "");
-              stopStream();
-              return;
-            }
-          } catch (_) {}
-          raf = requestAnimationFrame(tick);
-        };
-        raf = requestAnimationFrame(tick);
-
-        const stopStream = () => {
-          cancelAnimationFrame(raf);
-          const s = videoRef.current?.srcObject as MediaStream | null;
-          s?.getTracks().forEach((t) => t.stop());
-          setScanning(false);
-        };
-
-        return () => stopStream();
-      } catch (e: any) {
-        setError(e?.message || "Camera access denied. Use the upload option below.");
-        setScanning(false);
-      }
-    })();
+    // 4) Fallback: treat it as a hotel slug → property menu
+    window.location.href = `/menu?hotelSlug=${encodeURIComponent(v)}`;
   }, []);
 
-  function handleDetected(text: string) {
-    setResultText(text || "");
-    if (!text) return;
+  const handleDetected = useCallback(
+    (raw: string) => {
+      if (!raw || autoRedirected) return;
+      setDecoded(raw);
+      setAutoRedirected(true);
+      handleResolvedTarget(raw);
+    },
+    [autoRedirected, handleResolvedTarget],
+  );
 
-    // Full URL?
-    try {
-      const u = new URL(text);
-      if (u.origin === window.location.origin) {
-        // Same domain → SPA navigate
-        nav(u.pathname + u.search + u.hash);
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    let cancelled = false;
+    let rafId: number | null = null;
+
+    async function startCameraScan() {
+      if (typeof window === "undefined") return;
+
+      const BD = (window as any).BarcodeDetector;
+      if (!BD) {
+        setCameraSupported(false);
         return;
       }
-      // Different origin → continue to that URL
-      window.location.href = u.toString();
-      return;
-    } catch {
-      // Not a full URL — looks like a booking / precheck code?
-    }
 
-    // Simple heuristic: if alphanumeric-ish and 6–20 chars, treat as precheck code
-    const codeish = /^[A-Za-z0-9_-]{6,20}$/.test(text);
-    if (codeish) {
-      nav(`/precheck/${encodeURIComponent(text)}`);
-      return;
-    }
-
-    // Otherwise just display it; user can copy
-  }
-
-  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
-    setError(null);
-    setResultText("");
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      const img = await blobToImage(file);
-      // If BarcodeDetector exists, try detecting from still image
-      // @ts-ignore
-      if ("BarcodeDetector" in window) {
-        // @ts-ignore
-        const detector = new (window as any).BarcodeDetector({ formats: ["qr_code"] });
-        const bmp = await createImageBitmap(img);
-        const codes = await detector.detect(bmp);
-        if (codes && codes.length > 0) {
-          handleDetected(codes[0].rawValue || "");
-          return;
-        }
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setCameraSupported(false);
+        setCameraError("Camera access not supported in this browser.");
+        return;
       }
-      setError("Couldn’t read a QR code from that image. Try a clearer photo.");
-    } catch (err: any) {
-      setError(err?.message || "Couldn’t process the image.");
-    } finally {
-      e.currentTarget.value = "";
+
+      setCameraSupported(true);
+
+      const detector = new BD({ formats: ["qr_code"] });
+
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+        });
+      } catch (err: any) {
+        setCameraError(
+          err?.message || "Unable to access camera. Please allow camera access.",
+        );
+        return;
+      }
+      if (!videoRef.current) return;
+      videoRef.current.srcObject = stream;
+      await videoRef.current.play();
+
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+
+      async function frame() {
+        if (cancelled || !videoRef.current || !ctx) return;
+
+        const v = videoRef.current;
+        if (v.readyState === v.HAVE_ENOUGH_DATA) {
+          canvas.width = v.videoWidth;
+          canvas.height = v.videoHeight;
+          ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          try {
+            const barcodes = await detector.detect(imageData as any);
+            if (barcodes && barcodes[0]) {
+              const raw = barcodes[0].rawValue || "";
+              if (raw) {
+                handleDetected(raw);
+                return; // stop after first successful scan
+              }
+            }
+          } catch {
+            // ignore detection errors and keep scanning
+          }
+        }
+
+        rafId = window.requestAnimationFrame(frame);
+      }
+
+      rafId = window.requestAnimationFrame(frame);
     }
+
+    startCameraScan();
+
+    return () => {
+      cancelled = true;
+      if (rafId != null) window.cancelAnimationFrame(rafId);
+      if (stream) stream.getTracks().forEach((t) => t.stop());
+    };
+  }, [handleDetected]);
+
+  function handleManualSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!manual.trim()) return;
+    handleResolvedTarget(manual);
   }
 
   return (
-    <main className="max-w-2xl mx-auto p-6">
-      <h1 className="text-2xl font-semibold">Scan property QR</h1>
-      <p className="text-sm text-gray-600 mt-1">
-        Point your camera at the QR on the front desk to fetch your booking and start check-in.
-      </p>
+    <>
+      <SEO title="Scan QR – Guest Menu" noIndex />
 
-      {/* Live camera */}
-      {supported ? (
-        <div className="mt-4 rounded-xl overflow-hidden border bg-black">
-          <video ref={videoRef} className="w-full h-[320px] object-cover" playsInline muted />
-        </div>
-      ) : (
-        <div className="mt-4 p-3 rounded-xl border bg-yellow-50 text-sm">
-          Your browser doesn’t support live QR scanning. Upload a photo of the QR instead.
-        </div>
-      )}
+      <main className="max-w-xl mx-auto p-4 space-y-4">
+        <header className="space-y-1">
+          <h1 className="text-xl font-semibold">Scan hotel QR</h1>
+          <p className="text-sm text-gray-600">
+            Point your camera at the QR card placed at reception or in your
+            room. We’ll open the correct VAiyu guest menu for this property.
+          </p>
+        </header>
 
-      {/* Fallback: upload photo */}
-      <div className="mt-4">
-        <label className="text-sm">Upload a QR photo (fallback)</label>
-        <input
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="block mt-1"
-          onChange={onFile}
-        />
-      </div>
-
-      {scanning ? (
-        <p className="mt-2 text-xs text-gray-600">Scanning… keep the QR steady.</p>
-      ) : null}
-
-      {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
-
-      {resultText && (
-        <div className="mt-4 rounded-lg border p-3 bg-white/90">
-          <div className="text-xs text-gray-600">Scanned text</div>
-          <div className="font-mono text-sm break-all">{resultText}</div>
-          <div className="mt-2">
-            <button
-              className="btn btn-light"
-              onClick={() => navigator.clipboard.writeText(resultText)}
-            >
-              Copy
-            </button>
+        {/* Camera scan area */}
+        <section className="bg-white rounded shadow p-3 space-y-2">
+          <div className="text-sm font-medium mb-1">
+            1. Scan using your camera
           </div>
-        </div>
-      )}
-    </main>
-  );
-}
 
-async function blobToImage(file: Blob): Promise<HTMLImageElement> {
-  const url = URL.createObjectURL(file);
-  try {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    await new Promise<void>((res, rej) => {
-      img.onload = () => res();
-      img.onerror = () => rej(new Error("Image load error"));
-      img.src = url;
-    });
-    return img;
-  } finally {
-    URL.revokeObjectURL(url);
-  }
+          {!cameraSupported && !cameraError && (
+            <p className="text-xs text-gray-600">
+              Your phone’s browser may not support in-app scanning. You can
+              still use the{" "}
+              <span className="font-semibold">system camera or WhatsApp</span>{" "}
+              to scan the QR and open the link directly.
+            </p>
+          )}
+
+          {cameraError && (
+            <div className="p-2 text-xs rounded bg-amber-50 border border-amber-200 text-amber-800">
+              {cameraError}
+            </div>
+          )}
+
+          {cameraSupported && !cameraError && (
+            <div className="relative mt-2 rounded-lg overflow-hidden border aspect-[3/4] bg-black">
+              <video
+                ref={videoRef}
+                className="w-full h-full object-cover"
+                muted
+                playsInline
+              />
+              <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                <div className="w-40 h-40 border-2 border-white/80 rounded-md shadow-[0_0_0_9999px_rgba(0,0,0,0.3)]" />
+              </div>
+              <div className="absolute bottom-2 inset-x-0 text-center text-[11px] text-white/80">
+                Align the QR inside the square
+              </div>
+            </div>
+          )}
+
+          {decoded && (
+            <p className="mt-2 text-[11px] text-gray-500 break-all">
+              Last scanned: <span className="font-mono">{decoded}</span>
+            </p>
+          )}
+        </section>
+
+        {/* Manual / fallback entry */}
+        <section className="bg-white rounded shadow p-3 space-y-2">
+          <div className="text-sm font-medium mb-1">
+            2. Or paste the link / code
+          </div>
+          <p className="text-xs text-gray-600">
+            If you already have the{" "}
+            <span className="font-mono text-[11px]">
+              /menu?hotelSlug=&lt;slug&gt;
+            </span>{" "}
+            link or a booking code (like <b>ABC123</b>), paste it here and
+            we’ll route you to the right screen.
+          </p>
+
+          <form
+            onSubmit={handleManualSubmit}
+            className="flex flex-col sm:flex-row gap-2 mt-2"
+          >
+            <input
+              className="input flex-1"
+              placeholder="Paste QR link, hotel slug or booking code"
+              value={manual}
+              onChange={(e) => setManual(e.target.value)}
+            />
+            <button className="btn sm:w-32" type="submit">
+              Open
+            </button>
+          </form>
+
+          <p className="text-[11px] text-gray-500 mt-1">
+            Examples:{" "}
+            <code className="bg-gray-50 px-1 rounded">
+              https://vaiyu.co.in/menu?hotelSlug=sunrise
+            </code>{" "}
+            or <code className="bg-gray-50 px-1 rounded">ABC123</code>.
+          </p>
+        </section>
+
+        {/* Hint about WhatsApp usage */}
+        <section className="bg-sky-50 border border-sky-100 rounded p-3 text-xs text-sky-900">
+          <div className="font-medium mb-1">Tip for hotels</div>
+          <p>
+            You can also share the same guest menu link via{" "}
+            <b>WhatsApp Business</b>. When guests tap the link in WhatsApp or
+            scan the printed QR, they are taken to this property’s VAiyu
+            menu only.
+          </p>
+        </section>
+      </main>
+    </>
+  );
 }

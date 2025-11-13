@@ -51,7 +51,10 @@ import UpdatePrompt from "./components/UpdatePrompt";
 import Spinner from "./components/Spinner";
 
 // Route error UI
-import { RouteErrorElement, withBoundary } from "./components/RouteErrorBoundary";
+import {
+  RouteErrorElement,
+  withBoundary,
+} from "./components/RouteErrorBoundary";
 
 // Auth guards
 import AuthGate from "./components/AuthGate";
@@ -94,9 +97,6 @@ const ClaimStay = lazy(() => import("./routes/ClaimStay"));
 const Checkout = lazy(() => import("./routes/Checkout"));
 const GuestDashboard = lazy(() => import("./routes/GuestDashboard"));
 const HotelReviews = lazy(() => import("./routes/HotelReviews"));
-const HotelWhatsAppMenu = lazy(
-  () => import("./routes/HotelWhatsAppMenu")
-); // 👈 NEW
 
 // Staff / Ops
 const Desk = lazy(() => import("./routes/Desk"));
@@ -112,6 +112,7 @@ const OwnerSettings = lazy(() => import("./routes/OwnerSettings"));
 const OwnerServices = lazy(() => import("./routes/OwnerServices"));
 const OwnerReviews = lazy(() => import("./routes/OwnerReviews"));
 const OwnerHousekeeping = lazy(() => import("./routes/OwnerHousekeeping"));
+const OwnerQRSheet = lazy(() => import("./routes/OwnerQRSheet")); // ← NEW
 const AdminOps = lazy(() => import("./pages/AdminOps"));
 
 // Grid (VPP)
@@ -252,10 +253,6 @@ const router = createBrowserRouter([
       // Guest / Journey
       { path: "scan", element: <Scan /> },
       { path: "hotel/:slug", element: <Hotel /> },
-      {
-        path: "hotel/:slug/wa-menu",
-        element: <HotelWhatsAppMenu />,
-      }, // 👈 NEW
       { path: "menu", element: <Menu /> },
       { path: "stay/:code/menu", element: <Menu /> },
       { path: "requestTracker", element: <RequestTracker /> },
@@ -340,6 +337,14 @@ const router = createBrowserRouter([
           </AuthGate>
         ),
       },
+      {
+        path: "owner/:slug/qr",
+        element: (
+          <AuthGate>
+            <OwnerQRSheet />
+          </AuthGate>
+        ),
+      }, // ← NEW
 
       // Owner legacy aliases (still work)
       {
@@ -504,5 +509,5 @@ createRoot(rootEl).render(
         </QueryClientProvider>
       </ThemeProvider>
     </GlobalErrorBoundary>
-  </StrictMode>
+  </StrictMode>,
 );

@@ -1,3 +1,4 @@
+// web/src/routes/desk/Tickets.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -10,7 +11,8 @@ type TicketPriority = "low" | "normal" | "high" | "urgent";
 type TicketRow = {
   id: string;
   hotel_id: string;
-  service_id: string | null;
+  service_id: string | null;        // legacy path
+  service_key: string | null;       // new path (preferred)
   status: TicketStatus;
   priority: TicketPriority;
   title: string;
@@ -254,15 +256,19 @@ export default function DeskTickets() {
     },
   });
 
+  // Legacy map by ID (for any old tickets that still have service_id)
   const serviceById = useMemo(() => {
     const map = new Map<string, ServiceRow>();
     (services ?? []).forEach((s) => map.set(s.id, s));
     return map;
   }, [services]);
 
+  // New map by key (preferred path, matches tickets.service_key)
   const serviceByKey = useMemo(() => {
     const map = new Map<string, ServiceRow>();
-    (services ?? []).forEach((s) => map.set(s.key, s));
+    (services ?? []).forEach((s) => {
+      if (s.key) map.set(s.key, s);
+    });
     return map;
   }, [services]);
 
@@ -491,7 +497,12 @@ export default function DeskTickets() {
               </thead>
               <tbody className="divide-y divide-gray-100 bg-white">
                 {(tickets ?? []).map((t) => {
-                  const service = t.service_id ? serviceById.get(t.service_id) : undefined;
+                  // Prefer new service_key mapping, fall back to legacy service_id
+                  const service =
+                    (t.service_id && serviceById.get(t.service_id)) ||
+                    (t.service_key && serviceByKey.get(t.service_key)) ||
+                    undefined;
+
                   const created = new Date(t.created_at);
                   const createdLabel = created.toLocaleTimeString(undefined, {
                     hour: "2-digit",
@@ -506,7 +517,9 @@ export default function DeskTickets() {
                         <span className="text-gray-400">•</span> {createdLabel}
                       </td>
                       <td className="px-3 py-2 text-sm text-gray-900">
-                        {service?.label ?? (
+                        {service?.label ? (
+                          service.label
+                        ) : (
                           <span className="text-gray-400 italic">
                             {t.service_key || "Unknown service"}
                           </span>

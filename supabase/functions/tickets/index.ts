@@ -33,6 +33,31 @@ function json(body: unknown, init: ResponseInit = {}) {
   });
 }
 
+// ---- Status + transition rules (business guardrails) ----
+
+type TicketStatus =
+  | "new"
+  | "accepted"
+  | "in_progress"
+  | "paused"
+  | "resolved"
+  | "closed";
+
+/**
+ * Allowed actions from each status.
+ * We keep the main happy path:
+ *   new → accepted → in_progress → resolved → closed
+ * with optional paused between in_progress ↔ paused.
+ */
+const ALLOWED_ACTIONS: Record<TicketStatus, string[]> = {
+  new: ["accept", "start", "bumpPriority", "reassign"],
+  accepted: ["start", "bumpPriority", "reassign"],
+  in_progress: ["pause", "resolve", "bumpPriority", "reassign"],
+  paused: ["resume", "resolve", "bumpPriority", "reassign"],
+  resolved: ["close", "bumpPriority", "reassign"],
+  closed: ["reassign"], // no going back from closed; only ownership can change
+};
+
 serve(async (req: Request) => {
   // CORS preflight
   if (req.method === "OPTIONS") {
@@ -220,6 +245,34 @@ async function handleUpdateTicket(
 
   if (!action) {
     return json({ error: "Missing 'action' in body" }, { status: 400 });
+  }
+
+  // Look up current ticket status so we can enforce legal transitions
+  const { data: ticketRow, error: ticketError } = await supabase
+    .from("tickets")
+    .select("status")
+    .eq("id", ticketId)
+    .maybeSingle();
+
+  if (ticketError) {
+    console.error("handleUpdateTicket fetch error:", ticketError);
+    return json({ error: ticketError.message }, { status: 400 });
+  }
+
+  if (!ticketRow) {
+    return json({ error: "Ticket not found" }, { status: 404 });
+  }
+
+  const currentStatus = ticketRow.status as TicketStatus;
+  const allowedForStatus = ALLOWED_ACTIONS[currentStatus] ?? [];
+
+  if (!allowedForStatus.includes(action)) {
+    return json(
+      {
+        error: `Action '${action}' is not allowed from status '${currentStatus}'`,
+      },
+      { status: 409 },
+    );
   }
 
   const map: Record<

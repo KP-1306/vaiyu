@@ -1,5 +1,3 @@
-// web/src/lib/api.ts
-
 // Base URL (set on Netlify as VITE_API_URL, e.g. https://your-api.example.com)
 export const API = import.meta.env.VITE_API_URL || "http://localhost:4000";
 export const API_URL = API; // back-compat
@@ -222,12 +220,12 @@ function demoId(prefix: string) {
 }
 
 function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
-  const p = path.replace(/\/+$/, "");
   const method = String(opts.method || "GET").toUpperCase();
+  const url = new URL(`${API}${path}`);
+  const p = url.pathname.replace(/\/+$/, "");
 
   // ---- Owner apps demo ----
   if (p.startsWith("/owner/apps") && method === "GET") {
-    const url = new URL(`${API}${path}`);
     const status =
       (url.searchParams.get("status") as OwnerApp["status"]) || "pending";
     const items = demoOwnerApps.filter((a) => a.status === status);
@@ -437,23 +435,50 @@ export async function myStays(token: string): Promise<{ stays: Stay[]; items: St
 /* ============================================================================
    Owner: Services admin helpers
    - First try Supabase (preferred), then fall back to your existing API.
+   - NEW: if the argument looks like a UUID => treat as hotel_id;
+           if it looks like a slug => use HTTP `/catalog/services?hotelSlug=...`.
 ============================================================================ */
-export async function getServices(hotelId?: string) {
+function looksLikeUuid(value: string | undefined | null): boolean {
+  if (!value) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+}
+
+export async function getServices(hotelKey?: string) {
   const s = supa();
-  if (s) {
+  const isId = looksLikeUuid(hotelKey);
+
+  // Use Supabase when:
+  // - client is available AND
+  // - we either have no filter OR the filter looks like a hotel_id
+  if (s && (!hotelKey || isId)) {
     try {
-      const q = hotelId
-        ? s.from("services").select("hotel_id,key,label_en,sla_minutes,active").eq("hotel_id", hotelId).order("key", { ascending: true })
-        : s.from("services").select("hotel_id,key,label_en,sla_minutes,active").order("key", { ascending: true });
+      let query =
+        s
+          .from("services")
+          .select("hotel_id,key,label_en,sla_minutes,active")
+          .order("key", { ascending: true });
+      if (hotelKey && isId) {
+        // filter by hotel_id (owner/staff views)
+        // @ts-ignore
+        query = query.eq("hotel_id", hotelKey);
+      }
       // @ts-ignore
-      const { data, error } = await q;
+      const { data, error } = await query;
       if (error) throw error;
       return { items: (data || []) as Service[] };
     } catch {
       // fall through to HTTP API
     }
   }
-  return req(`/catalog/services`);
+
+  // HTTP path: used when:
+  // - Supabase is not available, OR
+  // - hotelKey looks like a slug (non-UUID), so we treat it as hotelSlug
+  let path = "/catalog/services";
+  if (hotelKey && !isId) {
+    path += `?hotelSlug=${encodeURIComponent(hotelKey)}`;
+  }
+  return req(path);
 }
 
 export async function saveServices(items: Service[], fallbackHotelId?: string | null) {
@@ -537,8 +562,15 @@ export async function setBookingConsent(code: string, reviews: boolean) {
 
 /* ============================================================================
    Catalog
+   - NEW: getMenu accepts optional hotelSlug, but old calls (no arg) still work.
 ============================================================================ */
-export async function getMenu() { return req(`/menu/items`); }
+export async function getMenu(hotelSlug?: string) {
+  let path = `/menu/items`;
+  if (hotelSlug) {
+    path += `?hotelSlug=${encodeURIComponent(hotelSlug)}`;
+  }
+  return req(path);
+}
 
 /* ============================================================================
    Tickets
@@ -694,8 +726,8 @@ export const api = {
   // catalog
   getServices,
   getMenu,
-  services: (..._args: any[]) => getServices(), // back-compat alias
-  menu: (..._args: any[]) => getMenu(),         // back-compat alias
+  services: (..._args: any[]) => getServices(), // back-compat alias (ignores args as before)
+  menu: (..._args: any[]) => getMenu(),         // back-compat alias (ignores args as before)
   saveServices,
   apiUpsert,
   apiDelete,

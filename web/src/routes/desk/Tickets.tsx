@@ -1,916 +1,776 @@
-// web/src/routes/desk/Tickets.tsx
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import {
-  useQuery,
-  useMutation,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
+import Spinner from "../../components/Spinner";
 
-type TicketStatus = string; // e.g. 'new' | 'accepted' | 'in_progress' | 'paused' | 'resolved' | 'closed' | 'open'
+type TicketStatus = "new" | "accepted" | "in_progress" | "paused" | "resolved" | "closed";
 type TicketPriority = "low" | "normal" | "high" | "urgent";
-type TicketSource = "guest" | "staff" | "desk" | "owner" | "api";
 
 type TicketRow = {
   id: string;
   hotel_id: string;
-  service_key: string;
+  service_id: string | null;
   status: TicketStatus;
   priority: TicketPriority;
   title: string;
   details: string | null;
-  source: TicketSource;
+  source: string;
   booking_code: string | null;
-  room: string | null;
-  created_by: string;
-  assigned_to: string | null;
-  created_at: string;
-  updated_at: string;
-  closed_at: string | null;
   sla_minutes_snapshot: number;
   due_at: string | null;
+  created_at: string;
+  updated_at: string;
   mins_remaining: number | null;
   is_overdue: boolean | null;
 };
 
 type ServiceRow = {
   id: string;
-  hotel_id: string;
   key: string;
   label: string;
   sla_minutes: number;
-  active: boolean;
-  priority_weight?: number | null;
 };
 
-const STATUS_OPTIONS: { value: string; label: string }[] = [
-  { value: "", label: "All" },
-  { value: "new", label: "New" },
-  { value: "accepted", label: "Accepted" },
-  { value: "in_progress", label: "In progress" },
-  { value: "paused", label: "Paused" },
-  { value: "resolved", label: "Resolved" },
-  { value: "closed", label: "Closed" },
-  { value: "open", label: "Open (legacy)" },
-];
-
-const PRIORITY_OPTIONS: { value: TicketPriority | ""; label: string }[] = [
-  { value: "", label: "All" },
-  { value: "urgent", label: "Urgent" },
-  { value: "high", label: "High" },
-  { value: "normal", label: "Normal" },
-  { value: "low", label: "Low" },
-];
-
-const ACTION_LABELS: Record<string, string> = {
-  accept: "Accept",
-  start: "Start",
-  pause: "Pause",
-  resume: "Resume",
-  resolve: "Resolve",
-  close: "Close",
-  bumpPriority: "Bump priority",
-  reassign: "Reassign",
+type NewTicketPayload = {
+  serviceKey: string;
+  title: string;
+  details?: string;
+  bookingCode?: string;
+  priority: TicketPriority;
 };
 
-export default function DeskTicketsRoute() {
-  const [searchParams] = useSearchParams();
-  const hotelId = searchParams.get("hotelId") ?? "";
-  const [statusFilter, setStatusFilter] = useState<string>("");
-  const [priorityFilter, setPriorityFilter] = useState<string>("");
-  const [overdueOnly, setOverdueOnly] = useState<boolean>(false);
-  const [selectedTicket, setSelectedTicket] = useState<TicketRow | null>(null);
-  const [createOpen, setCreateOpen] = useState<boolean>(false);
+function useEffectiveHotelId() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlHotelId = searchParams.get("hotelId");
+  const [hotelId, setHotelId] = useState<string | null>(urlHotelId);
+  const [initialised, setInitialised] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const queryClient = useQueryClient();
+  useEffect(() => {
+    // If URL already has hotelId, trust it and we’re done.
+    if (urlHotelId) {
+      setHotelId(urlHotelId);
+      setInitialised(true);
+      return;
+    }
 
-  const ticketsQuery = useQuery({
-    queryKey: [
-      "desk-tickets",
-      hotelId,
-      statusFilter,
-      priorityFilter,
-      overdueOnly,
-    ],
-    enabled: !!hotelId,
-    queryFn: async (): Promise<TicketRow[]> => {
-      if (!hotelId) return [];
-      let query = supabase
-        .from("tickets_sla_status")
-        .select("*")
-        .eq("hotel_id", hotelId)
-        .order("due_at", { ascending: true });
+    let cancelled = false;
 
-      if (statusFilter) {
-        query = query.eq("status", statusFilter);
+    (async () => {
+      try {
+        const { data: userRes } = await supabase.auth.getUser();
+        const userId = userRes?.user?.id;
+        if (!userId) {
+          setError("You are not signed in.");
+          setInitialised(true);
+          return;
+        }
+
+        const { data, error: hmError } = await supabase
+          .from("hotel_members")
+          .select("hotel_id")
+          .eq("user_id", userId)
+          .limit(1)
+          .maybeSingle();
+
+        if (hmError) {
+          setError(hmError.message);
+          setInitialised(true);
+          return;
+        }
+
+        if (!data) {
+          setError("You are not a member of any hotel yet.");
+          setInitialised(true);
+          return;
+        }
+
+        if (cancelled) return;
+
+        setHotelId(data.hotel_id);
+
+        // Also push it into the URL so link is shareable:
+        const next = new URLSearchParams();
+        next.set("hotelId", data.hotel_id);
+        setSearchParams(next, { replace: true });
+
+        setInitialised(true);
+      } catch (err: any) {
+        if (!cancelled) {
+          setError(err?.message ?? "Failed to detect hotel.");
+          setInitialised(true);
+        }
       }
-      if (priorityFilter) {
-        query = query.eq("priority", priorityFilter);
-      }
-      if (overdueOnly) {
-        query = query.eq("is_overdue", true);
-      }
+    })();
 
-      const { data, error } = await query;
-      if (error) throw error;
-      return (data ?? []) as TicketRow[];
-    },
-  });
+    return () => {
+      cancelled = true;
+    };
+  }, [urlHotelId, setSearchParams]);
 
-  const servicesQuery = useQuery({
-    queryKey: ["desk-services", hotelId],
-    enabled: !!hotelId,
-    queryFn: async (): Promise<ServiceRow[]> => {
-      if (!hotelId) return [];
-      const { data, error } = await supabase
-        .from("services")
-        .select("id, hotel_id, key, label, sla_minutes, active, priority_weight")
-        .eq("hotel_id", hotelId)
-        .eq("active", true)
-        .order("label", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as ServiceRow[];
-    },
-  });
-
-  const serviceMap = useMemo(() => {
-    const m = new Map<string, ServiceRow>();
-    (servicesQuery.data ?? []).forEach((s) => m.set(s.key, s));
-    return m;
-  }, [servicesQuery.data]);
-
-  const refreshTickets = () =>
-    queryClient.invalidateQueries({ queryKey: ["desk-tickets", hotelId] });
-
-  const createMutation = useMutation({
-    mutationFn: async (payload: {
-      serviceKey: string;
-      title: string;
-      details?: string;
-      priority: TicketPriority;
-      source: TicketSource;
-      bookingCode?: string;
-      room?: string;
-    }) => {
-      const { serviceKey, title, details, priority, source, bookingCode, room } =
-        payload;
-      const { data, error } = await supabase.rpc("create_ticket", {
-        p_hotel_id: hotelId,
-        p_service_key: serviceKey,
-        p_title: title,
-        p_details: details ?? null,
-        p_priority: priority,
-        p_source: source,
-        p_booking_code: bookingCode ?? null,
-        p_room: room ?? null,
-      });
-      if (error) throw error;
-      return data as TicketRow;
-    },
-    onSuccess: () => {
-      setCreateOpen(false);
-      refreshTickets();
-    },
-  });
-
-  const actionMutation = useMutation({
-    mutationFn: async (payload: {
-      ticketId: string;
-      action:
-        | "accept"
-        | "start"
-        | "pause"
-        | "resume"
-        | "resolve"
-        | "close"
-        | "bumpPriority"
-        | "reassign";
-      assigneeId?: string;
-    }) => {
-      const { ticketId, action, assigneeId } = payload;
-      const rpcMap: Record<string, string> = {
-        accept: "accept_ticket",
-        start: "start_progress",
-        pause: "pause_ticket",
-        resume: "resume_ticket",
-        resolve: "resolve_ticket",
-        close: "close_ticket",
-        bumpPriority: "bump_priority",
-        reassign: "reassign_ticket",
-      };
-      const fn = rpcMap[action];
-      const args: Record<string, unknown> = { p_ticket_id: ticketId };
-      if (action === "reassign") {
-        args["p_new_assigned_to"] = assigneeId;
-      }
-      const { error } = await supabase.rpc(fn, args);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      refreshTickets();
-    },
-  });
-
-  const isLoading =
-    ticketsQuery.isLoading || servicesQuery.isLoading || actionMutation.isPending;
-
-  if (!hotelId) {
-    return (
-      <div className="p-6 space-y-3">
-        <h1 className="text-2xl font-semibold">Desk – Tickets</h1>
-        <p className="text-sm text-slate-600">
-          No <code>hotelId</code> provided. Open this page with{" "}
-          <code>?hotelId=&lt;hotel-uuid&gt;</code> in the URL.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="p-6 space-y-4">
-      <header className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Desk – Tickets</h1>
-          <p className="text-xs text-slate-500">
-            Hotel: <span className="font-mono">{hotelId}</span>
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={refreshTickets}
-            className="px-3 py-1.5 text-sm rounded-md border border-slate-300 hover:bg-slate-50"
-          >
-            Refresh
-          </button>
-          <button
-            type="button"
-            onClick={() => setCreateOpen(true)}
-            className="px-3 py-1.5 text-sm rounded-md bg-emerald-600 text-white hover:bg-emerald-700"
-          >
-            + New ticket
-          </button>
-        </div>
-      </header>
-
-      <section className="flex flex-wrap items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
-        <div className="flex items-center gap-2">
-          <label className="text-xs font-medium text-slate-600">
-            Status
-          </label>
-          <select
-            className="h-8 rounded-md border border-slate-300 bg-white px-2 text-xs"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            {STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value || "all"} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <label className="text-xs font-medium text-slate-600">
-            Priority
-          </label>
-          <select
-            className="h-8 rounded-md border border-slate-300 bg-white px-2 text-xs"
-            value={priorityFilter}
-            onChange={(e) => setPriorityFilter(e.target.value)}
-          >
-            {PRIORITY_OPTIONS.map((opt) => (
-              <option key={opt.value || "all-priority"} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <label className="flex items-center gap-2 text-xs text-slate-700">
-          <input
-            type="checkbox"
-            className="rounded border-slate-300"
-            checked={overdueOnly}
-            onChange={(e) => setOverdueOnly(e.target.checked)}
-          />
-          Overdue only
-        </label>
-
-        {isLoading && (
-          <span className="ml-auto text-xs text-slate-500">Loading…</span>
-        )}
-      </section>
-
-      <section className="border border-slate-200 rounded-lg overflow-hidden bg-white">
-        <TicketsTable
-          tickets={ticketsQuery.data ?? []}
-          serviceMap={serviceMap}
-          onRowClick={setSelectedTicket}
-          onAction={(ticketId, action) =>
-            actionMutation.mutate({ ticketId, action })
-          }
-          isMutating={actionMutation.isPending}
-        />
-      </section>
-
-      {selectedTicket && (
-        <TicketDetailDrawer
-          ticket={selectedTicket}
-          service={serviceMap.get(selectedTicket.service_key) ?? null}
-          onClose={() => setSelectedTicket(null)}
-          onAction={(action, assigneeId) =>
-            actionMutation.mutate({
-              ticketId: selectedTicket.id,
-              action,
-              assigneeId,
-            })
-          }
-          isMutating={actionMutation.isPending}
-        />
-      )}
-
-      {createOpen && (
-        <CreateTicketModal
-          hotelId={hotelId}
-          services={servicesQuery.data ?? []}
-          onClose={() => setCreateOpen(false)}
-          onCreate={(payload) => createMutation.mutate(payload)}
-          isSubmitting={createMutation.isPending}
-        />
-      )}
-    </div>
-  );
+  return { hotelId, initialised, error };
 }
 
-// ---------- Table + subcomponents ----------
-
-function TicketsTable(props: {
-  tickets: TicketRow[];
-  serviceMap: Map<string, ServiceRow>;
-  onRowClick: (ticket: TicketRow) => void;
-  onAction: (
-    ticketId: string,
-    action:
-      | "accept"
-      | "start"
-      | "pause"
-      | "resume"
-      | "resolve"
-      | "close"
-      | "bumpPriority",
-  ) => void;
-  isMutating: boolean;
-}) {
-  const { tickets, serviceMap, onRowClick, onAction, isMutating } = props;
-
-  if (!tickets.length) {
+function SlaChip({ ticket }: { ticket: TicketRow }) {
+  const mins = ticket.mins_remaining;
+  if (mins == null) {
     return (
-      <div className="p-6 text-sm text-slate-500">
-        No tickets yet. Use “New ticket” to create one.
-      </div>
+      <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700">
+        No SLA
+      </span>
     );
   }
-
-  return (
-    <table className="min-w-full text-sm">
-      <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500">
-        <tr>
-          <th className="px-3 py-2 text-left">Service</th>
-          <th className="px-3 py-2 text-left">Title</th>
-          <th className="px-3 py-2 text-left">Status</th>
-          <th className="px-3 py-2 text-left">Priority</th>
-          <th className="px-3 py-2 text-left">SLA</th>
-          <th className="px-3 py-2 text-left">Source</th>
-          <th className="px-3 py-2 text-left">Room</th>
-          <th className="px-3 py-2 text-right">Actions</th>
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-slate-100">
-        {tickets.map((t) => {
-          const service = serviceMap.get(t.service_key);
-          return (
-            <tr
-              key={t.id}
-              className="hover:bg-slate-50 cursor-pointer"
-              onClick={() => onRowClick(t)}
-            >
-              <td className="px-3 py-2 align-top">
-                <div className="font-medium text-slate-800">
-                  {service?.label ?? t.service_key}
-                </div>
-                {service && (
-                  <div className="text-[10px] text-slate-500 uppercase">
-                    SLA {service.sla_minutes} min
-                  </div>
-                )}
-              </td>
-              <td className="px-3 py-2 align-top max-w-xs">
-                <div className="text-slate-900 line-clamp-2">{t.title}</div>
-                {t.booking_code && (
-                  <div className="text-[11px] text-slate-500">
-                    Booking: {t.booking_code}
-                  </div>
-                )}
-              </td>
-              <td className="px-3 py-2 align-top">
-                <StatusBadge status={t.status} />
-              </td>
-              <td className="px-3 py-2 align-top">
-                <PriorityBadge priority={t.priority} />
-              </td>
-              <td className="px-3 py-2 align-top">
-                <SlaChip
-                  minsRemaining={t.mins_remaining ?? null}
-                  isOverdue={t.is_overdue ?? false}
-                  dueAt={t.due_at}
-                />
-              </td>
-              <td className="px-3 py-2 align-top text-xs text-slate-600">
-                {t.source}
-              </td>
-              <td className="px-3 py-2 align-top text-xs text-slate-600">
-                {t.room ?? "-"}
-              </td>
-              <td
-                className="px-3 py-2 align-top text-right"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <TicketRowActions
-                  ticket={t}
-                  disabled={isMutating}
-                  onAction={(action) => onAction(t.id, action)}
-                />
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
-  );
-}
-
-function StatusBadge({ status }: { status: TicketStatus }) {
-  const label = status.replace(/_/g, " ");
-  let classes = "bg-slate-100 text-slate-700";
-  if (status === "new" || status === "open") {
-    classes = "bg-sky-100 text-sky-700";
-  } else if (status === "in_progress" || status === "accepted") {
-    classes = "bg-amber-100 text-amber-700";
-  } else if (status === "paused") {
-    classes = "bg-slate-200 text-slate-700";
-  } else if (status === "resolved") {
-    classes = "bg-emerald-100 text-emerald-700";
-  } else if (status === "closed") {
-    classes = "bg-slate-300 text-slate-800";
+  if (mins < 0) {
+    return (
+      <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700">
+        Overdue {Math.abs(mins)} min
+      </span>
+    );
+  }
+  if (mins <= 5) {
+    return (
+      <span className="inline-flex items-center rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-800">
+        Due now ({mins} min)
+      </span>
+    );
+  }
+  if (mins <= 30) {
+    return (
+      <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-800">
+        Due in {mins} min
+      </span>
+    );
   }
   return (
-    <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] ${classes}`}>
-      {label}
+    <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+      Due in {mins} min
     </span>
   );
 }
 
 function PriorityBadge({ priority }: { priority: TicketPriority }) {
-  let classes = "bg-slate-100 text-slate-700";
-  if (priority === "urgent") {
-    classes = "bg-red-100 text-red-700";
-  } else if (priority === "high") {
-    classes = "bg-orange-100 text-orange-700";
-  } else if (priority === "normal") {
-    classes = "bg-emerald-100 text-emerald-700";
-  } else if (priority === "low") {
-    classes = "bg-slate-100 text-slate-700";
+  const base = "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium";
+  switch (priority) {
+    case "urgent":
+      return <span className={`${base} bg-red-100 text-red-700`}>Urgent</span>;
+    case "high":
+      return <span className={`${base} bg-orange-100 text-orange-800`}>High</span>;
+    case "normal":
+      return <span className={`${base} bg-blue-100 text-blue-700`}>Normal</span>;
+    case "low":
+    default:
+      return <span className={`${base} bg-gray-100 text-gray-700`}>Low</span>;
   }
-  return (
-    <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] ${classes}`}>
-      {priority}
-    </span>
-  );
 }
 
-function SlaChip(props: {
-  minsRemaining: number | null;
-  isOverdue: boolean;
-  dueAt: string | null;
-}) {
-  const { minsRemaining, isOverdue, dueAt } = props;
-
-  if (!dueAt) {
-    return (
-      <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] bg-slate-100 text-slate-600">
-        No SLA
-      </span>
-    );
+function StatusBadge({ status }: { status: TicketStatus }) {
+  const base = "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium";
+  switch (status) {
+    case "new":
+      return <span className={`${base} bg-purple-100 text-purple-700`}>New</span>;
+    case "accepted":
+      return <span className={`${base} bg-indigo-100 text-indigo-700`}>Accepted</span>;
+    case "in_progress":
+      return <span className={`${base} bg-blue-100 text-blue-700`}>In progress</span>;
+    case "paused":
+      return <span className={`${base} bg-yellow-100 text-yellow-800`}>Paused</span>;
+    case "resolved":
+      return <span className={`${base} bg-emerald-100 text-emerald-700`}>Resolved</span>;
+    case "closed":
+    default:
+      return <span className={`${base} bg-gray-100 text-gray-700`}>Closed</span>;
   }
+}
 
-  const date = new Date(dueAt);
-  const timeStr = isNaN(date.getTime())
-    ? ""
-    : date.toLocaleTimeString(undefined, {
-        hour: "2-digit",
-        minute: "2-digit",
+export default function DeskTickets() {
+  const { hotelId, initialised, error: hotelError } = useEffectiveHotelId();
+  const queryClient = useQueryClient();
+
+  const [statusFilter, setStatusFilter] = useState<"all" | TicketStatus>("all");
+  const [priorityFilter, setPriorityFilter] = useState<"all" | TicketPriority>("all");
+  const [overdueFilter, setOverdueFilter] = useState<"all" | "overdue" | "on_time">("all");
+
+  const [isNewOpen, setIsNewOpen] = useState(false);
+  const [newTicket, setNewTicket] = useState<NewTicketPayload>({
+    serviceKey: "",
+    title: "",
+    details: "",
+    bookingCode: "",
+    priority: "normal",
+  });
+
+  const [selectedTicket, setSelectedTicket] = useState<TicketRow | null>(null);
+  const [actionPendingId, setActionPendingId] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const {
+    data: services,
+    isLoading: servicesLoading,
+    error: servicesError,
+  } = useQuery({
+    queryKey: ["services", hotelId],
+    enabled: !!hotelId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("services")
+        .select("id, key, label, sla_minutes")
+        .eq("hotel_id", hotelId)
+        .eq("active", true)
+        .order("priority_weight", { ascending: false });
+      if (error) throw error;
+      return data as ServiceRow[];
+    },
+  });
+
+  const {
+    data: tickets,
+    isLoading: ticketsLoading,
+    error: ticketsError,
+    refetch,
+  } = useQuery({
+    queryKey: ["tickets_sla_status", hotelId, statusFilter, priorityFilter, overdueFilter],
+    enabled: !!hotelId,
+    queryFn: async () => {
+      let query: any = supabase
+        .from("tickets_sla_status")
+        .select("*")
+        .eq("hotel_id", hotelId)
+        .order("priority", { ascending: false })
+        .order("created_at", { ascending: false });
+
+      if (statusFilter !== "all") {
+        query = query.eq("status", statusFilter);
+      }
+      if (priorityFilter !== "all") {
+        query = query.eq("priority", priorityFilter);
+      }
+      if (overdueFilter === "overdue") {
+        query = query.eq("is_overdue", true);
+      } else if (overdueFilter === "on_time") {
+        query = query.eq("is_overdue", false);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data as TicketRow[];
+    },
+  });
+
+  const serviceById = useMemo(() => {
+    const map = new Map<string, ServiceRow>();
+    (services ?? []).forEach((s) => map.set(s.id, s));
+    return map;
+  }, [services]);
+
+  const serviceByKey = useMemo(() => {
+    const map = new Map<string, ServiceRow>();
+    (services ?? []).forEach((s) => map.set(s.key, s));
+    return map;
+  }, [services]);
+
+  async function handleCreateTicket(e: React.FormEvent) {
+    e.preventDefault();
+    if (!hotelId) return;
+    if (!newTicket.serviceKey || !newTicket.title.trim()) {
+      setCreateError("Service and title are required.");
+      return;
+    }
+    setCreateError(null);
+    try {
+      const { error } = await supabase.rpc("create_ticket", {
+        p_hotel_id: hotelId,
+        p_service_key: newTicket.serviceKey,
+        p_title: newTicket.title.trim(),
+        p_details: newTicket.details?.trim() || null,
+        p_source: "desk",
+        p_booking_code: newTicket.bookingCode?.trim() || null,
+        p_priority: newTicket.priority,
       });
+      if (error) throw error;
 
-  if (isOverdue) {
+      setIsNewOpen(false);
+      setNewTicket({
+        serviceKey: "",
+        title: "",
+        details: "",
+        bookingCode: "",
+        priority: "normal",
+      });
+      await refetch();
+      queryClient.invalidateQueries({ queryKey: ["tickets_sla_status"] });
+    } catch (err: any) {
+      setCreateError(err?.message ?? "Failed to create ticket.");
+    }
+  }
+
+  async function runAction(ticket: TicketRow, action: "accept" | "start" | "pause" | "resume" | "resolve" | "close" | "bump") {
+    setActionPendingId(ticket.id);
+    try {
+      let fn: string;
+      const args: Record<string, any> = { p_ticket_id: ticket.id };
+
+      switch (action) {
+        case "accept":
+          fn = "accept_ticket";
+          break;
+        case "start":
+          fn = "start_progress";
+          break;
+        case "pause":
+          fn = "pause_ticket";
+          break;
+        case "resume":
+          fn = "resume_ticket";
+          break;
+        case "resolve":
+          fn = "resolve_ticket";
+          break;
+        case "close":
+          fn = "close_ticket";
+          break;
+        case "bump":
+        default:
+          fn = "bump_priority";
+          break;
+      }
+
+      const { error } = await supabase.rpc(fn, args);
+      if (error) throw error;
+      await refetch();
+    } catch (err: any) {
+      // Keep it simple for now – later we can surface toast/notifier
+      alert(err?.message ?? "Failed to apply ticket action.");
+    } finally {
+      setActionPendingId(null);
+    }
+  }
+
+  // ───────────────────────── UI STATES ─────────────────────────
+
+  if (!initialised) {
     return (
-      <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] bg-red-100 text-red-700">
-        Overdue {timeStr && `• due ${timeStr}`}
-      </span>
+      <main className="p-4 sm:p-6">
+        <h1 className="text-xl font-semibold mb-4">Desk – Tickets</h1>
+        <div className="mt-4">
+          <Spinner label="Detecting your hotel…" />
+        </div>
+      </main>
     );
   }
 
-  return (
-    <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] bg-emerald-50 text-emerald-700">
-      {minsRemaining != null
-        ? `Due in ${minsRemaining} min`
-        : "Due soon"}{" "}
-      {timeStr && `• ${timeStr}`}
-    </span>
-  );
-}
+  if (!hotelId) {
+    return (
+      <main className="p-4 sm:p-6">
+        <h1 className="text-xl font-semibold mb-2">Desk – Tickets</h1>
+        <p className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+          {hotelError || "Could not determine hotel. Please make sure your user is linked to a hotel."}
+        </p>
+      </main>
+    );
+  }
 
-function TicketRowActions(props: {
-  ticket: TicketRow;
-  disabled: boolean;
-  onAction: (
-    action:
-      | "accept"
-      | "start"
-      | "pause"
-      | "resume"
-      | "resolve"
-      | "close"
-      | "bumpPriority",
-  ) => void;
-}) {
-  const { ticket, disabled, onAction } = props;
-
-  const buttons: {
-    action:
-      | "accept"
-      | "start"
-      | "pause"
-      | "resume"
-      | "resolve"
-      | "close"
-      | "bumpPriority";
-    show: boolean;
-  }[] = [
-    { action: "accept", show: ticket.status === "new" || ticket.status === "open" },
-    {
-      action: "start",
-      show:
-        ticket.status === "new" ||
-        ticket.status === "accepted" ||
-        ticket.status === "open" ||
-        ticket.status === "paused",
-    },
-    { action: "pause", show: ticket.status === "in_progress" },
-    { action: "resume", show: ticket.status === "paused" },
-    {
-      action: "resolve",
-      show:
-        ticket.status === "in_progress" ||
-        ticket.status === "accepted" ||
-        ticket.status === "paused" ||
-        ticket.status === "open" ||
-        ticket.status === "new",
-    },
-    {
-      action: "close",
-      show: ticket.status === "resolved" || ticket.status === "closed",
-    },
-    { action: "bumpPriority", show: true },
-  ];
+  const hasTickets = (tickets ?? []).length > 0;
 
   return (
-    <div className="flex flex-wrap gap-1 justify-end">
-      {buttons
-        .filter((b) => b.show)
-        .map((b) => (
+    <main className="p-4 sm:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-xl font-semibold">Desk – Tickets</h1>
+          <p className="mt-1 text-sm text-gray-600">
+            Live operations board for this hotel. SLA chips turn red when tickets are overdue.
+          </p>
+        </div>
+
+        <div className="flex gap-2">
           <button
-            key={b.action}
             type="button"
-            disabled={disabled}
-            className="px-2 py-0.5 text-[11px] rounded border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-50"
-            onClick={() => onAction(b.action)}
+            onClick={() => refetch()}
+            className="inline-flex items-center rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
-            {ACTION_LABELS[b.action]}
+            Refresh
           </button>
-        ))}
-    </div>
-  );
-}
+          <button
+            type="button"
+            onClick={() => setIsNewOpen(true)}
+            className="inline-flex items-center rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+          >
+            + New ticket
+          </button>
+        </div>
+      </div>
 
-// ---------- Detail drawer & create modal ----------
+      {/* Filters */}
+      <section className="mt-4 grid gap-3 sm:grid-cols-3">
+        <label className="flex flex-col text-xs font-medium text-gray-600">
+          Status
+          <select
+            className="mt-1 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as any)}
+          >
+            <option value="all">All</option>
+            <option value="new">New</option>
+            <option value="accepted">Accepted</option>
+            <option value="in_progress">In progress</option>
+            <option value="paused">Paused</option>
+            <option value="resolved">Resolved</option>
+            <option value="closed">Closed</option>
+          </select>
+        </label>
 
-function TicketDetailDrawer(props: {
-  ticket: TicketRow;
-  service: ServiceRow | null;
-  onClose: () => void;
-  onAction: (
-    action:
-      | "accept"
-      | "start"
-      | "pause"
-      | "resume"
-      | "resolve"
-      | "close"
-      | "bumpPriority"
-      | "reassign",
-    assigneeId?: string,
-  ) => void;
-  isMutating: boolean;
-}) {
-  const { ticket, service, onClose, onAction, isMutating } = props;
-  const [reassignTo, setReassignTo] = useState<string>("");
+        <label className="flex flex-col text-xs font-medium text-gray-600">
+          Priority
+          <select
+            className="mt-1 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm"
+            value={priorityFilter}
+            onChange={(e) => setPriorityFilter(e.target.value as any)}
+          >
+            <option value="all">All</option>
+            <option value="urgent">Urgent</option>
+            <option value="high">High</option>
+            <option value="normal">Normal</option>
+            <option value="low">Low</option>
+          </select>
+        </label>
 
-  return (
-    <div className="fixed inset-0 z-40 flex justify-end bg-black/25">
-      <div className="w-full max-w-md h-full bg-white shadow-xl flex flex-col">
-        <header className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
-          <div>
-            <h2 className="text-lg font-semibold">Ticket details</h2>
-            <p className="text-xs text-slate-500">{ticket.id}</p>
+        <label className="flex flex-col text-xs font-medium text-gray-600">
+          SLA
+          <select
+            className="mt-1 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm"
+            value={overdueFilter}
+            onChange={(e) => setOverdueFilter(e.target.value as any)}
+          >
+            <option value="all">All</option>
+            <option value="overdue">Only overdue</option>
+            <option value="on_time">Only on-time</option>
+          </select>
+        </label>
+      </section>
+
+      {/* Errors */}
+      {servicesError && (
+        <p className="mt-3 text-sm text-red-700 bg-red-50 border border-red-100 rounded-md px-3 py-2">
+          Failed to load services: {String(servicesError.message ?? servicesError)}
+        </p>
+      )}
+      {ticketsError && (
+        <p className="mt-3 text-sm text-red-700 bg-red-50 border border-red-100 rounded-md px-3 py-2">
+          Failed to load tickets: {String(ticketsError.message ?? ticketsError)}
+        </p>
+      )}
+
+      {/* Tickets table */}
+      <section className="mt-4">
+        {(ticketsLoading || servicesLoading) && (
+          <div className="mt-4">
+            <Spinner label="Loading tickets…" />
           </div>
-          <button
-            type="button"
-            className="text-sm text-slate-500 hover:text-slate-800"
-            onClick={onClose}
-          >
-            ✕
-          </button>
-        </header>
-        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 text-sm">
-          <div>
-            <div className="text-xs uppercase text-slate-500">Service</div>
-            <div className="font-medium text-slate-900">
-              {service?.label ?? ticket.service_key}
+        )}
+
+        {!ticketsLoading && !hasTickets && (
+          <p className="mt-4 text-sm text-gray-500">
+            No tickets yet for this hotel. Use <span className="font-medium">“+ New ticket”</span> to create the first one.
+          </p>
+        )}
+
+        {hasTickets && (
+          <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">Created</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">Service</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">Title</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">Status</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">Priority</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">SLA</th>
+                  <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 bg-white">
+                {(tickets ?? []).map((t) => {
+                  const service = t.service_id ? serviceById.get(t.service_id) : undefined;
+                  const created = new Date(t.created_at);
+                  const createdLabel = created.toLocaleTimeString(undefined, {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+
+                  const isBusy = actionPendingId === t.id;
+
+                  return (
+                    <tr key={t.id} className="hover:bg-gray-50">
+                      <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-500">
+                        {created.toLocaleDateString()}{" "}
+                        <span className="text-gray-400">•</span> {createdLabel}
+                      </td>
+                      <td className="px-3 py-2 text-sm text-gray-900">
+                        {service?.label ?? <span className="text-gray-400 italic">Unknown service</span>}
+                      </td>
+                      <td className="px-3 py-2 text-sm text-gray-900">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTicket(t)}
+                          className="max-w-xs truncate text-left text-blue-700 hover:underline"
+                          title={t.title}
+                        >
+                          {t.title}
+                        </button>
+                      </td>
+                      <td className="px-3 py-2">
+                        <StatusBadge status={t.status} />
+                      </td>
+                      <td className="px-3 py-2">
+                        <PriorityBadge priority={t.priority} />
+                      </td>
+                      <td className="px-3 py-2">
+                        <SlaChip ticket={t} />
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <div className="inline-flex items-center gap-2">
+                          {t.status === "new" && (
+                            <>
+                              <button
+                                type="button"
+                                disabled={isBusy}
+                                onClick={() => runAction(t, "accept")}
+                                className="rounded-md border border-gray-300 px-2 py-0.5 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                              >
+                                Accept
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isBusy}
+                                onClick={() => runAction(t, "start")}
+                                className="rounded-md border border-blue-500 px-2 py-0.5 text-xs text-blue-600 hover:bg-blue-50 disabled:opacity-50"
+                              >
+                                Start
+                              </button>
+                            </>
+                          )}
+                          {t.status === "accepted" && (
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => runAction(t, "start")}
+                              className="rounded-md border border-blue-500 px-2 py-0.5 text-xs text-blue-600 hover:bg-blue-50 disabled:opacity-50"
+                            >
+                              Start
+                            </button>
+                          )}
+                          {t.status === "in_progress" && (
+                            <>
+                              <button
+                                type="button"
+                                disabled={isBusy}
+                                onClick={() => runAction(t, "pause")}
+                                className="rounded-md border border-yellow-500 px-2 py-0.5 text-xs text-yellow-700 hover:bg-yellow-50 disabled:opacity-50"
+                              >
+                                Pause
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isBusy}
+                                onClick={() => runAction(t, "resolve")}
+                                className="rounded-md border border-emerald-600 px-2 py-0.5 text-xs text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                              >
+                                Resolve
+                              </button>
+                            </>
+                          )}
+                          {t.status === "paused" && (
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => runAction(t, "resume")}
+                              className="rounded-md border border-blue-500 px-2 py-0.5 text-xs text-blue-600 hover:bg-blue-50 disabled:opacity-50"
+                            >
+                              Resume
+                            </button>
+                          )}
+                          {t.status === "resolved" && (
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => runAction(t, "close")}
+                              className="rounded-md border border-gray-400 px-2 py-0.5 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                            >
+                              Close
+                            </button>
+                          )}
+                          {t.status !== "closed" && (
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => runAction(t, "bump")}
+                              className="rounded-md border border-pink-500 px-2 py-0.5 text-xs text-pink-600 hover:bg-pink-50 disabled:opacity-50"
+                            >
+                              Bump priority
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* New ticket modal */}
+      {isNewOpen && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-xl bg-white p-4 shadow-xl">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-base font-semibold">New ticket</h2>
+              <button
+                type="button"
+                className="text-sm text-gray-500 hover:text-gray-800"
+                onClick={() => setIsNewOpen(false)}
+              >
+                ✕
+              </button>
             </div>
-          </div>
 
-          <div>
-            <div className="text-xs uppercase text-slate-500">Title</div>
-            <div className="font-medium text-slate-900">{ticket.title}</div>
-          </div>
+            <form className="mt-3 space-y-3" onSubmit={handleCreateTicket}>
+              <label className="block text-xs font-medium text-gray-700">
+                Service
+                <select
+                  className="mt-1 w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm"
+                  value={newTicket.serviceKey}
+                  onChange={(e) => setNewTicket((t) => ({ ...t, serviceKey: e.target.value }))}
+                >
+                  <option value="">Select a service…</option>
+                  {(services ?? []).map((s) => (
+                    <option key={s.key} value={s.key}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-          {ticket.details && (
-            <div>
-              <div className="text-xs uppercase text-slate-500">Details</div>
-              <p className="text-slate-800 whitespace-pre-line">
-                {ticket.details}
+              <label className="block text-xs font-medium text-gray-700">
+                Title
+                <input
+                  className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                  value={newTicket.title}
+                  onChange={(e) => setNewTicket((t) => ({ ...t, title: e.target.value }))}
+                  maxLength={200}
+                />
+              </label>
+
+              <label className="block text-xs font-medium text-gray-700">
+                Details (optional)
+                <textarea
+                  className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                  rows={3}
+                  value={newTicket.details}
+                  onChange={(e) => setNewTicket((t) => ({ ...t, details: e.target.value }))}
+                />
+              </label>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block text-xs font-medium text-gray-700">
+                  Booking / Room (optional)
+                  <input
+                    className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                    value={newTicket.bookingCode}
+                    onChange={(e) =>
+                      setNewTicket((t) => ({ ...t, bookingCode: e.target.value }))
+                    }
+                    placeholder="e.g. ROOM-101"
+                  />
+                </label>
+
+                <label className="block text-xs font-medium text-gray-700">
+                  Priority
+                  <select
+                    className="mt-1 w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm"
+                    value={newTicket.priority}
+                    onChange={(e) =>
+                      setNewTicket((t) => ({ ...t, priority: e.target.value as TicketPriority }))
+                    }
+                  >
+                    <option value="urgent">Urgent</option>
+                    <option value="high">High</option>
+                    <option value="normal">Normal</option>
+                    <option value="low">Low</option>
+                  </select>
+                </label>
+              </div>
+
+              {createError && (
+                <p className="text-xs text-red-700 bg-red-50 border border-red-100 rounded-md px-2 py-1.5">
+                  {createError}
+                </p>
+              )}
+
+              <div className="mt-3 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsNewOpen(false)}
+                  className="inline-flex items-center rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="inline-flex items-center rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+                >
+                  Create ticket
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Detail modal */}
+      {selectedTicket && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-xl bg-white p-4 shadow-xl">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-base font-semibold">Ticket details</h2>
+              <button
+                type="button"
+                className="text-sm text-gray-500 hover:text-gray-800"
+                onClick={() => setSelectedTicket(null)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-3 space-y-2 text-sm">
+              <p className="font-medium">{selectedTicket.title}</p>
+              <p className="text-xs text-gray-500">
+                ID: {selectedTicket.id}
+                <br />
+                Created at: {new Date(selectedTicket.created_at).toLocaleString()}
+              </p>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <StatusBadge status={selectedTicket.status} />
+                <PriorityBadge priority={selectedTicket.priority} />
+                <SlaChip ticket={selectedTicket} />
+              </div>
+              {selectedTicket.details && (
+                <p className="mt-2 whitespace-pre-wrap text-gray-700">{selectedTicket.details}</p>
+              )}
+              {selectedTicket.booking_code && (
+                <p className="mt-1 text-xs text-gray-600">
+                  Booking / Room:{" "}
+                  <span className="font-medium">{selectedTicket.booking_code}</span>
+                </p>
+              )}
+              <p className="mt-1 text-xs text-gray-500">
+                Source: <span className="font-mono">{selectedTicket.source}</span>
               </p>
             </div>
-          )}
-
-          <div className="flex flex-wrap gap-2">
-            <StatusBadge status={ticket.status} />
-            <PriorityBadge priority={ticket.priority} />
-            <SlaChip
-              minsRemaining={ticket.mins_remaining ?? null}
-              isOverdue={ticket.is_overdue ?? false}
-              dueAt={ticket.due_at}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            <InfoField label="Source" value={ticket.source} />
-            <InfoField label="Room" value={ticket.room ?? "-"} />
-            <InfoField label="Booking code" value={ticket.booking_code ?? "-"} />
-            <InfoField
-              label="Created at"
-              value={new Date(ticket.created_at).toLocaleString()}
-            />
-            <InfoField
-              label="Updated at"
-              value={new Date(ticket.updated_at).toLocaleString()}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <div className="text-xs font-medium text-slate-600">
-              Reassign ticket
-            </div>
-            <input
-              type="text"
-              className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
-              placeholder="Assignee user_id (UUID)"
-              value={reassignTo}
-              onChange={(e) => setReassignTo(e.target.value)}
-            />
-            <button
-              type="button"
-              disabled={isMutating || !reassignTo}
-              className="px-3 py-1.5 text-xs rounded-md border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-50"
-              onClick={() => onAction("reassign", reassignTo)}
-            >
-              {ACTION_LABELS.reassign}
-            </button>
           </div>
         </div>
-
-        <footer className="border-t border-slate-200 px-4 py-3">
-          <div className="flex flex-wrap justify-end gap-2">
-            <TicketRowActions
-              ticket={ticket}
-              disabled={isMutating}
-              onAction={(action) => onAction(action)}
-            />
-          </div>
-        </footer>
-      </div>
-    </div>
-  );
-}
-
-function InfoField({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="text-[10px] uppercase text-slate-500">{label}</div>
-      <div className="text-[11px] text-slate-800 break-words">{value}</div>
-    </div>
-  );
-}
-
-function CreateTicketModal(props: {
-  hotelId: string;
-  services: ServiceRow[];
-  onClose: () => void;
-  onCreate: (payload: {
-    serviceKey: string;
-    title: string;
-    details?: string;
-    priority: TicketPriority;
-    source: TicketSource;
-    bookingCode?: string;
-    room?: string;
-  }) => void;
-  isSubmitting: boolean;
-}) {
-  const { services, onClose, onCreate, isSubmitting } = props;
-  const [serviceKey, setServiceKey] = useState<string>(
-    services[0]?.key ?? "",
-  );
-  const [title, setTitle] = useState<string>("");
-  const [details, setDetails] = useState<string>("");
-  const [priority, setPriority] = useState<TicketPriority>("normal");
-  const [source, setSource] = useState<TicketSource>("desk");
-  const [bookingCode, setBookingCode] = useState<string>("");
-  const [room, setRoom] = useState<string>("");
-
-  const canSubmit = serviceKey && title && !isSubmitting;
-
-  return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30">
-      <div className="w-full max-w-lg bg-white rounded-xl shadow-xl flex flex-col max-h-[90vh]">
-        <header className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
-          <h2 className="text-lg font-semibold">New ticket</h2>
-          <button
-            type="button"
-            className="text-sm text-slate-500 hover:text-slate-800"
-            onClick={onClose}
-          >
-            ✕
-          </button>
-        </header>
-        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 text-sm">
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-600">
-              Service
-            </label>
-            <select
-              className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm bg-white"
-              value={serviceKey}
-              onChange={(e) => setServiceKey(e.target.value)}
-            >
-              <option value="">Select a service</option>
-              {services.map((s) => (
-                <option key={s.key} value={s.key}>
-                  {s.label} (SLA {s.sla_minutes} min)
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-600">
-              Title
-            </label>
-            <input
-              className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Short summary (visible on desk board)"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-600">
-              Details
-            </label>
-            <textarea
-              className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm min-h-[80px]"
-              value={details}
-              onChange={(e) => setDetails(e.target.value)}
-              placeholder="Optional additional context for staff"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-600">
-                Priority
-              </label>
-              <select
-                className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm bg-white"
-                value={priority}
-                onChange={(e) =>
-                  setPriority(e.target.value as TicketPriority)
-                }
-              >
-                <option value="urgent">Urgent</option>
-                <option value="high">High</option>
-                <option value="normal">Normal</option>
-                <option value="low">Low</option>
-              </select>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-600">
-                Source
-              </label>
-              <select
-                className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm bg-white"
-                value={source}
-                onChange={(e) =>
-                  setSource(e.target.value as TicketSource)
-                }
-              >
-                <option value="desk">Desk</option>
-                <option value="guest">Guest</option>
-                <option value="staff">Staff</option>
-                <option value="owner">Owner</option>
-                <option value="api">API</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-600">
-                Booking code
-              </label>
-              <input
-                className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
-                value={bookingCode}
-                onChange={(e) => setBookingCode(e.target.value)}
-                placeholder="Optional booking reference"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-600">
-                Room
-              </label>
-              <input
-                className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
-                value={room}
-                onChange={(e) => setRoom(e.target.value)}
-                placeholder="Optional room number"
-              />
-            </div>
-          </div>
-        </div>
-        <footer className="px-4 py-3 border-t border-slate-200 flex justify-end gap-2">
-          <button
-            type="button"
-            className="px-3 py-1.5 text-sm rounded-md border border-slate-300 bg-white hover:bg-slate-50"
-            onClick={onClose}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            disabled={!canSubmit}
-            className="px-3 py-1.5 text-sm rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
-            onClick={() =>
-              onCreate({
-                serviceKey,
-                title,
-                details,
-                priority,
-                source,
-                bookingCode: bookingCode || undefined,
-                room: room || undefined,
-              })
-            }
-          >
-            {isSubmitting ? "Creating…" : "Create ticket"}
-          </button>
-        </footer>
-      </div>
-    </div>
+      )}
+    </main>
   );
 }

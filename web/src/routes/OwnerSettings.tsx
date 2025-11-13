@@ -1,8 +1,11 @@
+// web/src/routes/OwnerSettings.tsx
+
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import OwnerGate from "../components/OwnerGate"; // if you gate the page; otherwise remove
 import SEO from "../components/SEO";
 import UsageMeter from "../components/UsageMeter";
+import OwnerWhatsAppQRHelper from "../components/OwnerWhatsAppQRHelper";
 
 const API = import.meta.env.VITE_API_URL as string;
 
@@ -47,8 +50,6 @@ function fromCsv(s: string) {
     .map((x) => x.trim())
     .filter(Boolean);
 }
-
-<UsageMeter hotelId={profile?.hotel_id} />
 
 // -------- Page --------
 export default function OwnerSettings() {
@@ -217,23 +218,35 @@ export default function OwnerSettings() {
                 Branding, contact, reviews policy &amp; service SLAs
               </div>
             </div>
-            <div className="flex gap-2">
-              <input
-                className="input"
-                style={{ width: 180 }}
-                value={slug}
-                onChange={(e) => setSlug(e.target.value)}
-                placeholder="hotel slug"
-                title="Hotel slug to load"
-              />
-              <button className="btn btn-light" onClick={load} disabled={loading}>
-                {loading ? "Loading…" : "Reload"}
-              </button>
+            <div className="flex flex-col items-end gap-2">
+              <div className="flex gap-2">
+                <input
+                  className="input"
+                  style={{ width: 180 }}
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value)}
+                  placeholder="hotel slug"
+                  title="Hotel slug to load"
+                />
+                <button className="btn btn-light" onClick={load} disabled={loading}>
+                  {loading ? "Loading…" : "Reload"}
+                </button>
+              </div>
+              {/* Usage meter (existing component, now in a safe place) */}
+              <UsageMeter hotelId={hotel?.id} />
             </div>
           </header>
 
-          {err && <div className="card" style={{ borderColor: "#f59e0b" }}>⚠️ {err}</div>}
-          {ok && <div className="card" style={{ borderColor: "#10b981" }}>✅ {ok}</div>}
+          {err && (
+            <div className="card" style={{ borderColor: "#f59e0b" }}>
+              ⚠️ {err}
+            </div>
+          )}
+          {ok && (
+            <div className="card" style={{ borderColor: "#10b981" }}>
+              ✅ {ok}
+            </div>
+          )}
 
           {hotel && (
             <>
@@ -387,9 +400,14 @@ export default function OwnerSettings() {
                       type="number"
                       min={0}
                       className="mt-1 input w-full"
-                      value={Number(hotel.reviews_policy?.block_if_late_exceeds ?? 0)}
+                      value={Number(
+                        hotel.reviews_policy?.block_if_late_exceeds ?? 0
+                      )}
                       onChange={(e) =>
-                        patchPolicy("block_if_late_exceeds", Number(e.target.value))
+                        patchPolicy(
+                          "block_if_late_exceeds",
+                          Number(e.target.value)
+                        )
                       }
                     />
                   </label>
@@ -406,7 +424,9 @@ export default function OwnerSettings() {
                 <div className="text-sm text-gray-600">Microsite preview</div>
                 <div style={themePreviewStyle}>
                   <div className="text-xs opacity-90">Property microsite</div>
-                  <div className="text-xl font-semibold">{hotel.name || "Hotel"}</div>
+                  <div className="text-xl font-semibold">
+                    {hotel.name || "Hotel"}
+                  </div>
                   <div className="text-sm opacity-90">
                     {hotel.address || "Address"} • {hotel.phone || "Phone"}
                   </div>
@@ -417,7 +437,10 @@ export default function OwnerSettings() {
               <section className="bg-white rounded shadow p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <h2 className="font-medium">Services &amp; SLAs</h2>
-                  <button className="btn btn-light !py-2 !px-3 text-sm" onClick={addService}>
+                  <button
+                    className="btn btn-light !py-2 !px-3 text-sm"
+                    onClick={addService}
+                  >
                     + Add service
                   </button>
                 </div>
@@ -428,7 +451,9 @@ export default function OwnerSettings() {
                       <tr>
                         <th className="text-left px-3 py-2 border-b">Key</th>
                         <th className="text-left px-3 py-2 border-b">Label</th>
-                        <th className="text-left px-3 py-2 border-b">SLA (min)</th>
+                        <th className="text-left px-3 py-2 border-b">
+                          SLA (min)
+                        </th>
                         <th className="text-left px-3 py-2 border-b">Active</th>
                       </tr>
                     </thead>
@@ -439,7 +464,9 @@ export default function OwnerSettings() {
                             <input
                               className="w-full rounded-md border px-2 py-1"
                               value={s.key}
-                              onChange={(e) => updateService(i, { key: e.target.value })}
+                              onChange={(e) =>
+                                updateService(i, { key: e.target.value })
+                              }
                               placeholder="HOUSEKEEPING"
                             />
                           </td>
@@ -447,7 +474,9 @@ export default function OwnerSettings() {
                             <input
                               className="w-full rounded-md border px-2 py-1"
                               value={s.label || ""}
-                              onChange={(e) => updateService(i, { label: e.target.value })}
+                              onChange={(e) =>
+                                updateService(i, { label: e.target.value })
+                              }
                               placeholder="Housekeeping"
                             />
                           </td>
@@ -462,7 +491,10 @@ export default function OwnerSettings() {
                                   sla_minutes:
                                     e.target.value === ""
                                       ? null
-                                      : Math.max(1, Math.trunc(Number(e.target.value))),
+                                      : Math.max(
+                                          1,
+                                          Math.trunc(Number(e.target.value))
+                                        ),
                                 })
                               }
                             />
@@ -471,14 +503,19 @@ export default function OwnerSettings() {
                             <input
                               type="checkbox"
                               checked={!!s.active}
-                              onChange={(e) => updateService(i, { active: e.target.checked })}
+                              onChange={(e) =>
+                                updateService(i, { active: e.target.checked })
+                              }
                             />
                           </td>
                         </tr>
                       ))}
                       {services.length === 0 && (
                         <tr>
-                          <td colSpan={4} className="px-3 py-6 text-center text-gray-500">
+                          <td
+                            colSpan={4}
+                            className="px-3 py-6 text-center text-gray-500"
+                          >
                             No services yet.
                           </td>
                         </tr>
@@ -488,11 +525,18 @@ export default function OwnerSettings() {
                 </div>
               </section>
 
+              {/* WhatsApp menu QR helper (read-only, safe) */}
+              <OwnerWhatsAppQRHelper />
+
               <div className="flex gap-2">
                 <button className="btn" onClick={save} disabled={saving}>
                   {saving ? "Saving…" : "Save settings"}
                 </button>
-                <button className="btn btn-light" onClick={load} disabled={loading}>
+                <button
+                  className="btn btn-light"
+                  onClick={load}
+                  disabled={loading}
+                >
                   Revert
                 </button>
               </div>

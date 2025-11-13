@@ -5,7 +5,6 @@ import { supabase } from "../lib/supabase";
 import OwnerGate from "../components/OwnerGate"; // if you gate the page; otherwise remove
 import SEO from "../components/SEO";
 import UsageMeter from "../components/UsageMeter";
-import OwnerWhatsAppQRHelper from "../components/OwnerWhatsAppQRHelper";
 
 const API = import.meta.env.VITE_API_URL as string;
 
@@ -81,11 +80,15 @@ export default function OwnerSettings() {
     setOk(null);
     setLoading(true);
     try {
-      const r = await fetch(`${API}/owner-settings?slug=${encodeURIComponent(slug)}`, {
-        headers: { "content-type": "application/json", ...sessionHeaders },
-      });
+      const r = await fetch(
+        `${API}/owner-settings?slug=${encodeURIComponent(slug)}`,
+        {
+          headers: { "content-type": "application/json", ...sessionHeaders },
+        }
+      );
       const data = await r.json();
-      if (!r.ok || !data?.ok) throw new Error(data?.error || "Failed to load settings");
+      if (!r.ok || !data?.ok)
+        throw new Error(data?.error || "Failed to load settings");
 
       const h: Hotel = data.hotel;
       const svcs: Service[] = data.services || [];
@@ -122,6 +125,26 @@ export default function OwnerSettings() {
     load();
   }, [load]);
 
+  // --- Guest menu share URL + WhatsApp text (NEW) ---
+  const shareUrl = useMemo(() => {
+    if (!hotel?.slug) return "";
+    const origin =
+      typeof window !== "undefined" && window.location?.origin
+        ? window.location.origin
+        : "https://vaiyu.co.in";
+    return `${origin}/menu?hotelSlug=${encodeURIComponent(hotel.slug)}`;
+  }, [hotel?.slug]);
+
+  const whatsappText = useMemo(() => {
+    if (!shareUrl) return "";
+    const hotelName = hotel?.name || "our hotel";
+    return (
+      `Welcome to ${hotelName}! 👋\n\n` +
+      `Use this link during your stay to request housekeeping, amenities or room service:\n` +
+      `${shareUrl}`
+    );
+  }, [hotel?.name, shareUrl]);
+
   function patchHotel<K extends keyof Hotel>(key: K, val: Hotel[K]) {
     setHotel((p) => (p ? { ...p, [key]: val } : p));
   }
@@ -130,9 +153,14 @@ export default function OwnerSettings() {
       p ? { ...p, theme: { ...(p.theme || {}), [key]: val } } : p
     );
   }
-  function patchPolicy<K extends keyof ReviewsPolicy>(key: K, val: ReviewsPolicy[K]) {
+  function patchPolicy<K extends keyof ReviewsPolicy>(
+    key: K,
+    val: ReviewsPolicy[K]
+  ) {
     setHotel((p) =>
-      p ? { ...p, reviews_policy: { ...(p.reviews_policy || {}), [key]: val } } : p
+      p
+        ? { ...p, reviews_policy: { ...(p.reviews_policy || {}), [key]: val } }
+        : p
     );
   }
   function updateService(idx: number, patch: Partial<Service>) {
@@ -168,7 +196,9 @@ export default function OwnerSettings() {
           reviews_policy: {
             mode: hotel.reviews_policy?.mode || "preview",
             min_activity: Number(hotel.reviews_policy?.min_activity ?? 1),
-            block_if_late_exceeds: Number(hotel.reviews_policy?.block_if_late_exceeds ?? 0),
+            block_if_late_exceeds: Number(
+              hotel.reviews_policy?.block_if_late_exceeds ?? 0
+            ),
             require_consent: !!hotel.reviews_policy?.require_consent,
           },
         },
@@ -183,11 +213,14 @@ export default function OwnerSettings() {
         })),
       };
 
-      const r = await fetch(`${API}/owner-settings?slug=${encodeURIComponent(slug)}`, {
-        method: "POST",
-        headers: { "content-type": "application/json", ...sessionHeaders },
-        body: JSON.stringify(body),
-      });
+      const r = await fetch(
+        `${API}/owner-settings?slug=${encodeURIComponent(slug)}`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json", ...sessionHeaders },
+          body: JSON.stringify(body),
+        }
+      );
       const data = await r.json();
       if (!r.ok || !data?.ok) throw new Error(data?.error || "Failed to save");
       setOk("Saved successfully.");
@@ -218,24 +251,27 @@ export default function OwnerSettings() {
                 Branding, contact, reviews policy &amp; service SLAs
               </div>
             </div>
-            <div className="flex flex-col items-end gap-2">
-              <div className="flex gap-2">
-                <input
-                  className="input"
-                  style={{ width: 180 }}
-                  value={slug}
-                  onChange={(e) => setSlug(e.target.value)}
-                  placeholder="hotel slug"
-                  title="Hotel slug to load"
-                />
-                <button className="btn btn-light" onClick={load} disabled={loading}>
-                  {loading ? "Loading…" : "Reload"}
-                </button>
-              </div>
-              {/* Usage meter (existing component, now in a safe place) */}
-              <UsageMeter hotelId={hotel?.id} />
+            <div className="flex gap-2">
+              <input
+                className="input"
+                style={{ width: 180 }}
+                value={slug}
+                onChange={(e) => setSlug(e.target.value)}
+                placeholder="hotel slug"
+                title="Hotel slug to load"
+              />
+              <button
+                className="btn btn-light"
+                onClick={load}
+                disabled={loading}
+              >
+                {loading ? "Loading…" : "Reload"}
+              </button>
             </div>
           </header>
+
+          {/* Optional usage meter (kept import; you can render it when you have profile */}
+          {/* <UsageMeter hotelId={...} /> */}
 
           {err && (
             <div className="card" style={{ borderColor: "#f59e0b" }}>
@@ -274,7 +310,9 @@ export default function OwnerSettings() {
                     <input
                       className="mt-1 input w-full"
                       value={hotel.description || ""}
-                      onChange={(e) => patchHotel("description", e.target.value)}
+                      onChange={(e) =>
+                        patchHotel("description", e.target.value)
+                      }
                     />
                   </label>
                   <label className="text-sm md:col-span-2">
@@ -359,7 +397,10 @@ export default function OwnerSettings() {
                       className="mt-1 select w-full"
                       value={hotel.reviews_policy?.mode || "preview"}
                       onChange={(e) =>
-                        patchPolicy("mode", e.target.value as ReviewsPolicy["mode"])
+                        patchPolicy(
+                          "mode",
+                          e.target.value as ReviewsPolicy["mode"]
+                        )
                       }
                     >
                       <option value="off">Off — never generate</option>
@@ -375,7 +416,10 @@ export default function OwnerSettings() {
                       className="mt-1 select w-full"
                       value={String(!!hotel.reviews_policy?.require_consent)}
                       onChange={(e) =>
-                        patchPolicy("require_consent", e.target.value === "true")
+                        patchPolicy(
+                          "require_consent",
+                          e.target.value === "true"
+                        )
                       }
                     >
                       <option value="true">Yes (recommended)</option>
@@ -414,8 +458,8 @@ export default function OwnerSettings() {
                 </div>
                 <p className="text-xs text-gray-600">
                   <b>Preview</b> shows an AI draft the guest can edit/approve.{" "}
-                  <b>Auto</b> can publish at checkout, but will be blocked if consent is
-                  required or thresholds aren’t met.
+                  <b>Auto</b> can publish at checkout, but will be blocked if
+                  consent is required or thresholds aren’t met.
                 </p>
               </section>
 
@@ -429,6 +473,72 @@ export default function OwnerSettings() {
                   </div>
                   <div className="text-sm opacity-90">
                     {hotel.address || "Address"} • {hotel.phone || "Phone"}
+                  </div>
+                </div>
+              </section>
+
+              {/* NEW: WhatsApp / QR share block */}
+              <section className="bg-white rounded shadow p-4 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="font-medium">Guest link (WhatsApp + QR)</h2>
+                  {shareUrl && (
+                    <a
+                      href={`https://wa.me/?text=${encodeURIComponent(
+                        whatsappText || shareUrl
+                      )}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn btn-light !py-1.5 !px-3 text-xs"
+                    >
+                      Open in WhatsApp
+                    </a>
+                  )}
+                </div>
+                <p className="text-xs text-gray-600">
+                  Share this link with guests at check-in. It opens your
+                  VAiyu-powered menu (services + food) for this property.
+                </p>
+
+                <div className="grid md:grid-cols-[2fr,1fr] gap-3 items-start">
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-gray-600">
+                      Guest menu link
+                      <input
+                        className="mt-1 input w-full text-xs"
+                        value={shareUrl || ""}
+                        readOnly
+                        onFocus={(e) => e.currentTarget.select()}
+                      />
+                    </label>
+                    <label className="text-xs font-medium text-gray-600">
+                      WhatsApp message template
+                      <textarea
+                        className="mt-1 input w-full text-xs min-h-[80px]"
+                        value={whatsappText || ""}
+                        readOnly
+                        onFocus={(e) => e.currentTarget.select()}
+                      />
+                    </label>
+                  </div>
+                  <div className="flex flex-col items-center gap-2">
+                    {shareUrl ? (
+                      <>
+                        <div className="text-xs text-gray-600 mb-1">
+                          QR for room standee / table tent
+                        </div>
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
+                            shareUrl
+                          )}`}
+                          alt="QR code for guest menu"
+                          className="border rounded"
+                        />
+                      </>
+                    ) : (
+                      <div className="text-xs text-gray-500 text-center">
+                        Slug missing – save hotel first to enable sharing.
+                      </div>
+                    )}
                   </div>
                 </div>
               </section>
@@ -493,7 +603,9 @@ export default function OwnerSettings() {
                                       ? null
                                       : Math.max(
                                           1,
-                                          Math.trunc(Number(e.target.value))
+                                          Math.trunc(
+                                            Number(e.target.value) || 1
+                                          )
                                         ),
                                 })
                               }
@@ -504,7 +616,9 @@ export default function OwnerSettings() {
                               type="checkbox"
                               checked={!!s.active}
                               onChange={(e) =>
-                                updateService(i, { active: e.target.checked })
+                                updateService(i, {
+                                  active: e.target.checked,
+                                })
                               }
                             />
                           </td>
@@ -524,9 +638,6 @@ export default function OwnerSettings() {
                   </table>
                 </div>
               </section>
-
-              {/* WhatsApp menu QR helper (read-only, safe) */}
-              <OwnerWhatsAppQRHelper />
 
               <div className="flex gap-2">
                 <button className="btn" onClick={save} disabled={saving}>

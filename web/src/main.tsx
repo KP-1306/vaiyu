@@ -94,6 +94,9 @@ const ClaimStay = lazy(() => import("./routes/ClaimStay"));
 const Checkout = lazy(() => import("./routes/Checkout"));
 const GuestDashboard = lazy(() => import("./routes/GuestDashboard"));
 const HotelReviews = lazy(() => import("./routes/HotelReviews"));
+const HotelWhatsAppMenu = lazy(
+  () => import("./routes/HotelWhatsAppMenu")
+); // 👈 NEW
 
 // Staff / Ops
 const Desk = lazy(() => import("./routes/Desk"));
@@ -229,12 +232,30 @@ const router = createBrowserRouter([
 
       // Rewards + Profile + Invite
       { path: "rewards", element: <Rewards /> },
-      { path: "invite", element: <AuthGate><Invite /></AuthGate> }, // protected
-      { path: "profile", element: <AuthGate><Profile /></AuthGate> },
+      {
+        path: "invite",
+        element: (
+          <AuthGate>
+            <Invite />
+          </AuthGate>
+        ),
+      }, // protected
+      {
+        path: "profile",
+        element: (
+          <AuthGate>
+            <Profile />
+          </AuthGate>
+        ),
+      },
 
       // Guest / Journey
       { path: "scan", element: <Scan /> },
       { path: "hotel/:slug", element: <Hotel /> },
+      {
+        path: "hotel/:slug/wa-menu",
+        element: <HotelWhatsAppMenu />,
+      }, // 👈 NEW
       { path: "menu", element: <Menu /> },
       { path: "stay/:code/menu", element: <Menu /> },
       { path: "requestTracker", element: <RequestTracker /> },
@@ -243,7 +264,14 @@ const router = createBrowserRouter([
       { path: "regcard", element: <Regcard /> },
       { path: "claim", element: <ClaimStay /> },
       { path: "checkout", element: <Checkout /> },
-      { path: "guest", element: <AuthGate><GuestDashboard /></AuthGate> },
+      {
+        path: "guest",
+        element: (
+          <AuthGate>
+            <GuestDashboard />
+          </AuthGate>
+        ),
+      },
       { path: "hotel/:slug/reviews", element: <HotelReviews /> },
       { path: "stays", element: <Stays /> },
       { path: "stay/:id", element: <Stay /> },
@@ -253,45 +281,199 @@ const router = createBrowserRouter([
       { path: "stay/:slug/requests/:id", element: <RequestStatus /> },
 
       // Staff (protected)
-      { path: "desk", element: <AuthGate><Desk /></AuthGate> },
+      {
+        path: "desk",
+        element: (
+          <AuthGate>
+            <Desk />
+          </AuthGate>
+        ),
+      },
       // NEW: Desk tickets board (Ops tickets + SLA)
-      { path: "desk/tickets", element: <AuthGate><DeskTickets /></AuthGate> },
-      { path: "hk", element: <AuthGate><HK /></AuthGate> },
-      { path: "maint", element: <AuthGate><Maint /></AuthGate> },
+      {
+        path: "desk/tickets",
+        element: (
+          <AuthGate>
+            <DeskTickets />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "hk",
+        element: (
+          <AuthGate>
+            <HK />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "maint",
+        element: (
+          <AuthGate>
+            <Maint />
+          </AuthGate>
+        ),
+      },
 
       // Owner (protected) — canonical
-      { path: "owner", element: <AuthGate><Owner /></AuthGate> },
-      { path: "owner/:slug", element: <AuthGate><OwnerDashboard /></AuthGate> },
-      { path: "owner/:slug/housekeeping", element: <AuthGate><OwnerHousekeeping /></AuthGate> },
+      {
+        path: "owner",
+        element: (
+          <AuthGate>
+            <Owner />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/:slug",
+        element: (
+          <AuthGate>
+            <OwnerDashboard />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/:slug/housekeeping",
+        element: (
+          <AuthGate>
+            <OwnerHousekeeping />
+          </AuthGate>
+        ),
+      },
 
       // Owner legacy aliases (still work)
-      { path: "owner/dashboard", element: <AuthGate><OwnerDashboard /></AuthGate> },
-      { path: "owner/dashboard/:slug", element: <AuthGate><OwnerDashboard /></AuthGate> },
+      {
+        path: "owner/dashboard",
+        element: (
+          <AuthGate>
+            <OwnerDashboard />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/dashboard/:slug",
+        element: (
+          <AuthGate>
+            <OwnerDashboard />
+          </AuthGate>
+        ),
+      },
 
       // Owner settings/services/reviews (protected)
-      { path: "owner/settings", element: <AuthGate><OwnerSettings /></AuthGate> },
-      { path: "owner/services", element: <AuthGate><OwnerServices /></AuthGate> },
-      { path: "owner/reviews", element: <AuthGate><OwnerReviews /></AuthGate> },
+      {
+        path: "owner/settings",
+        element: (
+          <AuthGate>
+            <OwnerSettings />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/services",
+        element: (
+          <AuthGate>
+            <OwnerServices />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/reviews",
+        element: (
+          <AuthGate>
+            <OwnerReviews />
+          </AuthGate>
+        ),
+      },
 
       // Admin shell (protected via AuthGate)
-      { path: "admin", element: <AuthGate><AdminOps /></AuthGate> },
+      {
+        path: "admin",
+        element: (
+          <AuthGate>
+            <AdminOps />
+          </AuthGate>
+        ),
+      },
 
       // Owner home alias
-      { path: "owner/home", element: <AuthGate><OwnerHomeRedirect /></AuthGate> },
+      {
+        path: "owner/home",
+        element: (
+          <AuthGate>
+            <OwnerHomeRedirect />
+          </AuthGate>
+        ),
+      },
 
       // Admin-only page with AdminGate (token/role)
-      { path: "admin/owner-applications", element: <AdminGate><OwnerApplications /></AdminGate> },
+      {
+        path: "admin/owner-applications",
+        element: (
+          <AdminGate>
+            <OwnerApplications />
+          </AdminGate>
+        ),
+      },
 
       // Access & Invite acceptance (protected)
-      { path: "owner/:slug/settings/access", element: <AuthGate><OwnerAccess /></AuthGate> },
-      { path: "owner/invite/accept/:token", element: <AuthGate><InviteAccept /></AuthGate> },
-      { path: "owner/access", element: <AuthGate><OwnerAccess /></AuthGate> }, // supports ?slug=
-      { path: "invite/accept", element: <AuthGate><InviteAccept /></AuthGate> }, // supports ?code=
+      {
+        path: "owner/:slug/settings/access",
+        element: (
+          <AuthGate>
+            <OwnerAccess />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/invite/accept/:token",
+        element: (
+          <AuthGate>
+            <InviteAccept />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/access",
+        element: (
+          <AuthGate>
+            <OwnerAccess />
+          </AuthGate>
+        ),
+      }, // supports ?slug=
+      {
+        path: "invite/accept",
+        element: (
+          <AuthGate>
+            <InviteAccept />
+          </AuthGate>
+        ),
+      }, // supports ?code=
 
       // Grid (protected)
-      { path: "grid/devices", element: <AuthGate><GridDevices /></AuthGate> },
-      { path: "grid/playbooks", element: <AuthGate><GridPlaybooks /></AuthGate> },
-      { path: "grid/events", element: <AuthGate><GridEvents /></AuthGate> },
+      {
+        path: "grid/devices",
+        element: (
+          <AuthGate>
+            <GridDevices />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "grid/playbooks",
+        element: (
+          <AuthGate>
+            <GridPlaybooks />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "grid/events",
+        element: (
+          <AuthGate>
+            <GridEvents />
+          </AuthGate>
+        ),
+      },
 
       // 404
       { path: "*", element: <NotFound /> },

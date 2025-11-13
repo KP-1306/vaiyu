@@ -507,7 +507,9 @@ export default function DeskTickets() {
                       </td>
                       <td className="px-3 py-2 text-sm text-gray-900">
                         {service?.label ?? (
-                          <span className="text-gray-400 italic">Unknown service</span>
+                          <span className="text-gray-400 italic">
+                            {t.service_key || "Unknown service"}
+                          </span>
                         )}
                       </td>
                       <td className="px-3 py-2 text-sm text-gray-900">

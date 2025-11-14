@@ -125,14 +125,15 @@ export default function OwnerSettings() {
     load();
   }, [load]);
 
-  // --- Guest menu share URL + WhatsApp text (NEW) ---
+  // --- Guest menu / scan share URL + WhatsApp text (UPDATED to use /scan) ---
   const shareUrl = useMemo(() => {
     if (!hotel?.slug) return "";
     const origin =
       typeof window !== "undefined" && window.location?.origin
         ? window.location.origin
         : "https://vaiyu.co.in";
-    return `${origin}/menu?hotelSlug=${encodeURIComponent(hotel.slug)}`;
+    // Use the Scan route so guests see the nice "Open web menu / WhatsApp" screen
+    return `${origin}/scan?hotel=${encodeURIComponent(hotel.slug)}`;
   }, [hotel?.slug]);
 
   const whatsappText = useMemo(() => {
@@ -140,7 +141,7 @@ export default function OwnerSettings() {
     const hotelName = hotel?.name || "our hotel";
     return (
       `Welcome to ${hotelName}! 👋\n\n` +
-      `Use this link during your stay to request housekeeping, amenities or room service:\n` +
+      `Use this link during your stay to open the VAiyu guest menu (services + food) and request housekeeping or amenities:\n` +
       `${shareUrl}`
     );
   }, [hotel?.name, shareUrl]);
@@ -244,34 +245,34 @@ export default function OwnerSettings() {
       <SEO title="Owner Settings" noIndex />
       <OwnerGate>
         <main className="max-w-5xl mx-auto p-4 space-y-4">
-          <header className="flex items-center justify-between gap-3">
+          <header className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 className="text-xl font-semibold">Owner Settings</h1>
               <div className="text-sm text-gray-600">
                 Branding, contact, reviews policy &amp; service SLAs
               </div>
             </div>
-            <div className="flex gap-2">
-              <input
-                className="input"
-                style={{ width: 180 }}
-                value={slug}
-                onChange={(e) => setSlug(e.target.value)}
-                placeholder="hotel slug"
-                title="Hotel slug to load"
-              />
-              <button
-                className="btn btn-light"
-                onClick={load}
-                disabled={loading}
-              >
-                {loading ? "Loading…" : "Reload"}
-              </button>
+            <div className="flex items-center gap-3">
+              {hotel?.id && <UsageMeter hotelId={hotel.id} />}
+              <div className="flex gap-2">
+                <input
+                  className="input"
+                  style={{ width: 180 }}
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value)}
+                  placeholder="hotel slug"
+                  title="Hotel slug to load"
+                />
+                <button
+                  className="btn btn-light"
+                  onClick={load}
+                  disabled={loading}
+                >
+                  {loading ? "Loading…" : "Reload"}
+                </button>
+              </div>
             </div>
           </header>
-
-          {/* Optional usage meter (kept import; you can render it when you have profile */}
-          {/* <UsageMeter hotelId={...} /> */}
 
           {err && (
             <div className="card" style={{ borderColor: "#f59e0b" }}>
@@ -477,7 +478,7 @@ export default function OwnerSettings() {
                 </div>
               </section>
 
-              {/* NEW: WhatsApp / QR share block */}
+              {/* Guest link (WhatsApp + QR) */}
               <section className="bg-white rounded shadow p-4 space-y-3">
                 <div className="flex items-center justify-between gap-2">
                   <h2 className="font-medium">Guest link (WhatsApp + QR)</h2>
@@ -495,14 +496,15 @@ export default function OwnerSettings() {
                   )}
                 </div>
                 <p className="text-xs text-gray-600">
-                  Share this link with guests at check-in. It opens your
-                  VAiyu-powered menu (services + food) for this property.
+                  Share this link with guests at check-in. It opens your VAiyu
+                  Scan screen, which then routes them to the in-room menu and
+                  services for this property.
                 </p>
 
                 <div className="grid md:grid-cols-[2fr,1fr] gap-3 items-start">
                   <div className="space-y-2">
                     <label className="text-xs font-medium text-gray-600">
-                      Guest menu link
+                      Guest scan link
                       <input
                         className="mt-1 input w-full text-xs"
                         value={shareUrl || ""}

@@ -1,6 +1,7 @@
 // web/src/routes/Scan.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useSearchParams, useNavigate } from "react-router-dom";
+import SEO from "../components/SEO";
 import Spinner from "../components/Spinner";
 import { getHotel, isDemo } from "../lib/api";
 
@@ -40,7 +41,7 @@ export default function Scan() {
       // Hotel-scoped menu (backend can later read ?hotel=slug)
       return `/menu?hotel=${encodeURIComponent(hotelSlug)}`;
     }
-    // Fallback: generic menu (demo)
+    // Fallback: generic menu (demo/global)
     return `/menu`;
   }, [hotelSlug, stayCode]);
 
@@ -99,7 +100,7 @@ export default function Scan() {
     // Build a shareable absolute URL for the menu
     const base =
       typeof window !== "undefined"
-        ? `${window.location.origin || ""}`
+        ? window.location.origin || ""
         : "";
     const fullUrl = `${base}${menuPath}`;
 
@@ -120,111 +121,116 @@ export default function Scan() {
     (isDemo() ? "#145AF2" : "#0f766e"); // default teal for non-demo
 
   return (
-    <main className="min-h-[60vh] px-4 py-6 flex items-center justify-center">
-      <div className="w-full max-w-md space-y-4">
-        <header className="space-y-1 text-center">
-          <p className="text-xs uppercase tracking-wide text-gray-500">
-            Scan to open
-          </p>
-          <h1 className="text-xl font-semibold">
-            Welcome to{" "}
-            <span style={{ color: themeColor }}>
-              {hotel?.name || "your stay"}
-            </span>
-          </h1>
-          <p className="text-sm text-gray-600">
-            You just scanned a QR at the property. Choose how you want to open
-            the guest menu and services.
-          </p>
-        </header>
+    <>
+      <SEO title="Scan to open guest menu" noIndex />
 
-        {/* Hotel badge */}
-        {(hotel || hotelSlug) && (
-          <section className="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="text-sm font-medium text-gray-900">
-                  {hotel?.name || hotelLabel}
+      <main className="min-h-[60vh] px-4 py-6 flex items-center justify-center">
+        <div className="w-full max-w-md space-y-4">
+          <header className="space-y-1 text-center">
+            <p className="text-xs uppercase tracking-wide text-gray-500">
+              Scan to open
+            </p>
+            <h1 className="text-xl font-semibold">
+              Welcome to{" "}
+              <span style={{ color: themeColor }}>
+                {hotel?.name || "your stay"}
+              </span>
+            </h1>
+            <p className="text-sm text-gray-600">
+              You just scanned a QR at the property. Choose how you want to open
+              the guest menu and services.
+            </p>
+          </header>
+
+          {/* Hotel badge */}
+          {(hotel || hotelSlug) && (
+            <section className="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-medium text-gray-900">
+                    {hotel?.name || hotelLabel}
+                  </div>
+                  {hotel?.address && (
+                    <div className="mt-0.5 text-xs text-gray-500">
+                      {hotel.address}
+                    </div>
+                  )}
+                  {hotel?.phone && (
+                    <div className="mt-0.5 text-xs text-gray-500">
+                      ☎ {hotel.phone}
+                    </div>
+                  )}
                 </div>
-                {hotel?.address && (
-                  <div className="mt-0.5 text-xs text-gray-500">
-                    {hotel.address}
-                  </div>
-                )}
-                {hotel?.phone && (
-                  <div className="mt-0.5 text-xs text-gray-500">
-                    ☎ {hotel.phone}
-                  </div>
-                )}
+                <div
+                  className="rounded-full px-2 py-1 text-[11px] font-medium text-white"
+                  style={{ backgroundColor: themeColor }}
+                >
+                  Powered by VAiyu
+                </div>
               </div>
-              <div
-                className="rounded-full px-2 py-1 text-[11px] font-medium text-white"
-                style={{ backgroundColor: themeColor }}
-              >
-                Powered by VAiyu
-              </div>
+            </section>
+          )}
+
+          {/* Status / errors */}
+          {loading && (
+            <div className="mt-2">
+              <Spinner label="Loading property…" />
             </div>
+          )}
+
+          {error && (
+            <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
+              {error} — आप फिर भी नीचे दिए गए बटन से मेनू खोल सकते हैं।
+            </p>
+          )}
+
+          {/* Primary actions */}
+          <section className="space-y-3">
+            <button
+              type="button"
+              onClick={handleOpenWebMenu}
+              className="inline-flex w-full items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-800 shadow-sm hover:bg-gray-50"
+            >
+              Open web menu
+            </button>
+
+            <button
+              type="button"
+              onClick={handleOpenWhatsApp}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-green-500 px-4 py-2.5 text-sm font-semibold text-white shadow hover:bg-green-600"
+            >
+              {/* Simple WA glyph */}
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-lg leading-none">
+                💬
+              </span>
+              Open in WhatsApp
+            </button>
           </section>
-        )}
 
-        {/* Status / errors */}
-        {loading && (
-          <div className="mt-2">
-            <Spinner label="Loading property…" />
-          </div>
-        )}
-
-        {error && (
-          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
-            {error} — आप फिर भी नीचे दिए गए बटन से मेनू खोल सकते हैं।
-          </p>
-        )}
-
-        {/* Primary actions */}
-        <section className="space-y-3">
-          <button
-            type="button"
-            onClick={handleOpenWebMenu}
-            className="inline-flex w-full items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-800 shadow-sm hover:bg-gray-50"
-          >
-            Open web menu
-          </button>
-
-          <button
-            type="button"
-            onClick={handleOpenWhatsApp}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-green-500 px-4 py-2.5 text-sm font-semibold text-white shadow hover:bg-green-600"
-          >
-            {/* Simple WA glyph */}
-            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-lg leading-none">
-              💬
-            </span>
-            Open in WhatsApp
-          </button>
-        </section>
-
-        {/* Explanation */}
-        <section className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600 space-y-1.5">
-          <p className="font-medium text-gray-700">How this works:</p>
-          <ol className="list-decimal pl-4 space-y-1">
-            <li>
-              <b>Web menu</b> opens the in-room menu and services directly in
-              your browser.
-            </li>
-            <li>
-              <b>WhatsApp</b> opens a chat with a pre-filled link to this
-              property&apos;s menu. You can pin/save that chat for quick access.
-            </li>
-          </ol>
-          <p className="text-[11px] text-gray-500">
-            If you have a live booking, your link may include your stay code so
-            that requests automatically reach the right room.
-          </p>
-          <p className="text-[10px] text-gray-400">
-            URL: <code>{location.pathname + location.search}</code>
-          </p>
-        </section>
-      </div>
-    </main>
+          {/* Explanation */}
+          <section className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600 space-y-1.5">
+            <p className="font-medium text-gray-700">How this works:</p>
+            <ol className="list-decimal pl-4 space-y-1">
+              <li>
+                <b>Web menu</b> opens the in-room menu and services directly in
+                your browser.
+              </li>
+              <li>
+                <b>WhatsApp</b> opens a chat with a pre-filled link to this
+                property&apos;s menu. You can pin/save that chat for quick
+                access.
+              </li>
+            </ol>
+            <p className="text-[11px] text-gray-500">
+              If you have a live booking, your link may include your stay code
+              so that requests automatically reach the right room.
+            </p>
+            <p className="text-[10px] text-gray-400">
+              URL: <code>{location.pathname + location.search}</code>
+            </p>
+          </section>
+        </div>
+      </main>
+    </>
   );
 }

@@ -1,106 +1,107 @@
 // web/src/routes/ClaimStay.tsx
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { API } from "../lib/api";
+import { FormEvent, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { claimInit, claimVerify, isDemo } from "../lib/api";
+import SEO from "../components/SEO";
+import Spinner from "../components/Spinner";
 
-type InitResp =
-  | { ok: true; claimId: string }
-  | { ok: false; error: string };
-
-type VerifyResp =
-  | { ok: true; bookingId?: string }
-  | { ok: false; error: string };
+type Step = "form" | "otp";
 
 export default function ClaimStay() {
-  const nav = useNavigate();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-  // Step state
-  const [step, setStep] = useState<"init" | "verify">("init");
+  // Allow prefill via ?code=ABC123&phone=9999999999
+  const initialCode = (searchParams.get("code") || "").toUpperCase();
+  const initialPhone = searchParams.get("phone") || "";
 
-  // Form fields
-  const [bookingCode, setBookingCode] = useState("");
-  const [channel, setChannel] = useState<"phone" | "email">("phone");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-
-  // OTP
-  const [claimId, setClaimId] = useState<string | null>(null);
+  const [step, setStep] = useState<Step>("form");
+  const [code, setCode] = useState(initialCode);
+  const [phone, setPhone] = useState(initialPhone);
   const [otp, setOtp] = useState("");
-
-  // UX state
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
 
-  async function handleInit(e: React.FormEvent) {
+  function normalizePhone(raw: string) {
+    return raw.replace(/[^\d]/g, "");
+  }
+
+  async function handleInit(e: FormEvent) {
     e.preventDefault();
-    setError(null);
+    setErr(null);
+    setInfo(null);
 
-    if (!bookingCode.trim()) {
-      setError("Please enter your booking code.");
+    const trimmedCode = code.trim().toUpperCase();
+    const cleanedPhone = normalizePhone(phone);
+
+    if (!trimmedCode) {
+      setErr("Please enter your booking code.");
       return;
     }
-    if (channel === "phone" && !/^\d{8,15}$/.test(phone.trim())) {
-      setError("Enter a valid phone number (digits only).");
-      return;
-    }
-    if (channel === "email" && !/^\S+@\S+\.\S+$/.test(email.trim())) {
-      setError("Enter a valid email address.");
+    if (!/^\d{8,15}$/.test(cleanedPhone)) {
+      setErr("Enter a valid phone number (8–15 digits).");
       return;
     }
 
     setBusy(true);
     try {
-      const res = await fetch(`${API}/claim/init`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        cache: "no-store",
-        body: JSON.stringify({
-          bookingCode: bookingCode.trim(),
-          phone: channel === "phone" ? phone.trim() : undefined,
-          email: channel === "email" ? email.trim() : undefined,
-        }),
-      });
-      const j = (await res.json()) as InitResp;
-      if (!res.ok || !("ok" in j) || !j.ok) {
-        throw new Error((j as any).error || `Failed to send OTP (${res.status})`);
+      const res: any = await claimInit(trimmedCode, cleanedPhone);
+
+      if (res && res.ok === false) {
+        throw new Error(res.error || "Could not start claim.");
       }
-      setClaimId(j.claimId);
-      setStep("verify");
-    } catch (err: any) {
-      setError(err?.message || "Could not start claim.");
+
+      setStep("otp");
+
+      if (isDemo() && res?.otp_hint) {
+        setInfo(`Demo mode: use OTP ${res.otp_hint}`);
+      } else {
+        setInfo("We’ve sent a one-time code to your phone.");
+      }
+    } catch (e: any) {
+      setErr(e?.message || "Could not start claim.");
     } finally {
       setBusy(false);
     }
   }
 
-  async function handleVerify(e: React.FormEvent) {
+  async function handleVerify(e: FormEvent) {
     e.preventDefault();
-    setError(null);
+    setErr(null);
+    setInfo(null);
 
-    if (!otp.trim()) {
-      setError("Please enter the OTP.");
-      return;
-    }
-    if (!claimId) {
-      setError("Missing claim session. Please start again.");
+    const trimmedCode = code.trim().toUpperCase();
+    const trimmedOtp = otp.trim();
+
+    if (!trimmedOtp) {
+      setErr("Please enter the OTP.");
       return;
     }
 
     setBusy(true);
     try {
-      const res = await fetch(`${API}/claim/verify`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        cache: "no-store",
-        body: JSON.stringify({ claimId, otp: otp.trim() }),
-      });
-      const j = (await res.json()) as VerifyResp;
-      if (!res.ok || !("ok" in j) || !j.ok) {
-        throw new Error((j as any).error || `Verification failed (${res.status})`);
+      const res: any = await claimVerify(trimmedCode, trimmedOtp);
+
+      if (res && res.ok === false) {
+        throw new Error(res.error || "Could not verify OTP.");
       }
-      nav("/guest", { replace: true });
-    } catch (err: any) {
-      setError(err?.message || "Could not verify OTP.");
+
+      const bookingCode: string = res?.booking?.code || trimmedCode;
+      const hotelSlug: string | undefined = res?.booking?.hotel_slug;
+
+      // Prefer sending guest straight into their in-room menu if we know the booking
+      if (bookingCode) {
+        navigate(`/stay/${encodeURIComponent(bookingCode)}/menu`, {
+          replace: true,
+        });
+        return;
+      }
+
+      // Fallback: guest dashboard
+      navigate("/guest", { replace: true });
+    } catch (e: any) {
+      setErr(e?.message || "Could not verify OTP.");
     } finally {
       setBusy(false);
     }
@@ -108,6 +109,8 @@ export default function ClaimStay() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50">
+      <SEO title="Claim your stay" />
+
       {/* Top bar with single nav control */}
       <header className="sticky top-0 z-10 backdrop-blur bg-white/70 border-b">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
@@ -115,12 +118,18 @@ export default function ClaimStay() {
             <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
               {/* key icon */}
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <path d="M21 7a5 5 0 0 1-7.938 4.063L10 14h-2v2H6v2H4v-2.586l5.062-5.062A5 5 0 1 1 21 7zM17 7a2 2 0 1 0-4 0 2 2 0 0 0 4 0Z" stroke="currentColor" strokeWidth="1.5"/>
+                <path
+                  d="M21 7a5 5 0 0 1-7.938 4.063L10 14h-2v2H6v2H4v-2.586l5.062-5.062A5 5 0 1 1 21 7zM17 7a2 2 0 1 0-4 0 2 2 0 0 0 4 0Z"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                />
               </svg>
             </span>
             <span className="font-semibold">Claim your stay</span>
           </div>
-          <Link to="/guest" className="btn btn-light">← Back to dashboard</Link>
+          <Link to="/guest" className="btn btn-light">
+            ← Back to dashboard
+          </Link>
         </div>
       </header>
 
@@ -133,17 +142,30 @@ export default function ClaimStay() {
               <div className="relative p-8">
                 <h2 className="text-2xl font-semibold">Welcome to VAiyu</h2>
                 <p className="text-slate-600 mt-2">
-                  Verify your booking with a quick OTP. You can use your phone number or email
-                  (since SMS is not connected yet).
+                  Verify your booking with a quick OTP sent to the phone number
+                  on your reservation. Once verified, we’ll open your in-room
+                  menu and services.
                 </p>
 
                 {/* Stepper */}
                 <ol className="mt-6 space-y-4">
-                  <Step num={1} title="Verify details" active={step === "init"} done={step === "verify"}>
-                    Enter your booking code and choose Phone or Email.
+                  <Step
+                    num={1}
+                    title="Verify details"
+                    active={step === "form"}
+                    done={step === "otp"}
+                  >
+                    Enter your booking code and the phone number used for your
+                    reservation.
                   </Step>
-                  <Step num={2} title="Enter OTP" active={step === "verify"}>
-                    Type the 6-digit code sent to your contact.
+                  <Step
+                    num={2}
+                    title="Enter OTP"
+                    active={step === "otp"}
+                    done={false}
+                  >
+                    Type the 6-digit code we send to your phone and access your
+                    stay.
                   </Step>
                 </ol>
 
@@ -151,15 +173,35 @@ export default function ClaimStay() {
                 <div className="mt-8 rounded-2xl border bg-white/70 p-5">
                   <div className="flex items-center gap-3">
                     <span className="h-10 w-10 rounded-xl bg-blue-600/10 text-blue-700 flex items-center justify-center">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                        <path d="M7 7h10M7 12h6M7 17h8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                      >
+                        <path
+                          d="M7 7h10M7 12h6M7 17h8"
+                          stroke="currentColor"
+                          strokeWidth="1.7"
+                          strokeLinecap="round"
+                        />
                       </svg>
                     </span>
                     <div>
-                      <div className="font-medium">Demo mode</div>
-                      <div className="text-sm text-slate-600">Use OTP <span className="font-mono">123456</span> for testing.</div>
+                      <div className="font-medium">Secure & simple</div>
+                      <div className="text-sm text-slate-600">
+                        Your details are used only to confirm your stay and
+                        unlock the VAiyu guest menu.
+                      </div>
                     </div>
                   </div>
+                  {isDemo() && (
+                    <p className="mt-3 text-xs text-slate-500">
+                      Demo mode is ON. Use booking code{" "}
+                      <span className="font-mono">ABC123</span> and OTP{" "}
+                      <span className="font-mono">123456</span> to test.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -167,94 +209,95 @@ export default function ClaimStay() {
 
           {/* Right: Form */}
           <section className="rounded-3xl border bg-white shadow-sm p-6 lg:p-8">
-            {error ? (
+            {err && (
               <div className="mb-4 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm p-3">
-                {error}
+                {err}
               </div>
-            ) : null}
+            )}
 
-            {step === "init" ? (
+            {info && (
+              <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50 text-blue-800 text-sm p-3">
+                {info}
+              </div>
+            )}
+
+            {busy && (
+              <div className="mb-4 flex items-center gap-2 text-sm text-slate-600">
+                <Spinner
+                  label={
+                    step === "form" ? "Sending OTP to your phone…" : "Verifying OTP…"
+                  }
+                />
+              </div>
+            )}
+
+            {step === "form" ? (
               <form className="grid gap-5" onSubmit={handleInit}>
                 <div>
                   <label className="text-sm font-medium">Booking code</label>
                   <div className="mt-1 relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                        <path d="M4 7h16M7 12h10M9 17h6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                      >
+                        <path
+                          d="M4 7h16M7 12h10M9 17h6"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          strokeLinecap="round"
+                        />
                       </svg>
                     </span>
                     <input
                       className="w-full rounded-xl border px-10 py-2.5 outline-none ring-0 focus:border-blue-500 focus:bg-blue-50/20 transition"
-                      value={bookingCode}
-                      onChange={(e) => setBookingCode(e.target.value.toUpperCase())}
+                      value={code}
+                      onChange={(e) =>
+                        setCode(e.target.value.toUpperCase())
+                      }
                       placeholder="ABC123"
-                      autoComplete="one-time-code"
+                      autoComplete="off"
                       required
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">Verify via</label>
-                  <div className="mt-2 inline-grid grid-cols-2 rounded-xl border bg-slate-50 p-1">
-                    <button
-                      type="button"
-                      className={`px-4 py-2 rounded-lg text-sm transition ${
-                        channel === "phone"
-                          ? "bg-white shadow-sm border"
-                          : "text-slate-600 hover:text-slate-900"
-                      }`}
-                      onClick={() => setChannel("phone")}
-                    >
-                      Phone
-                    </button>
-                    <button
-                      type="button"
-                      className={`px-4 py-2 rounded-lg text-sm transition ${
-                        channel === "email"
-                          ? "bg-white shadow-sm border"
-                          : "text-slate-600 hover:text-slate-900"
-                      }`}
-                      onClick={() => setChannel("email")}
-                    >
-                      Email
-                    </button>
-                  </div>
-                </div>
-
-                {channel === "phone" ? (
-                  <div>
-                    <label className="text-sm font-medium">Phone on your booking</label>
-                    <div className="mt-1 relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">+91</span>
-                      <input
-                        className="w-full rounded-xl border pl-12 pr-4 py-2.5 outline-none focus:border-blue-500 focus:bg-blue-50/20 transition"
-                        value={phone}
-                        inputMode="numeric"
-                        onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
-                        placeholder="9999999999"
-                      />
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1">Digits only, 8–15 characters.</p>
-                  </div>
-                ) : (
-                  <div>
-                    <label className="text-sm font-medium">Email on your booking</label>
+                  <label className="text-sm font-medium">
+                    Phone on your booking
+                  </label>
+                  <div className="mt-1 relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                      +91
+                    </span>
                     <input
-                      className="mt-1 w-full rounded-xl border px-4 py-2.5 outline-none focus:border-blue-500 focus:bg-blue-50/20 transition"
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@example.com"
+                      className="w-full rounded-xl border pl-12 pr-4 py-2.5 outline-none focus:border-blue-500 focus:bg-blue-50/20 transition"
+                      value={phone}
+                      inputMode="numeric"
+                      onChange={(e) => setPhone(normalizePhone(e.target.value))}
+                      placeholder="9999999999"
                     />
                   </div>
-                )}
+                  <p className="text-xs text-slate-500 mt-1">
+                    Digits only, 8–15 characters.
+                  </p>
+                </div>
 
-                <button className="btn w-full h-11 rounded-xl" type="submit" disabled={busy}>
+                <button
+                  className="btn w-full h-11 rounded-xl"
+                  type="submit"
+                  disabled={busy}
+                >
                   {busy ? "Sending…" : "Send OTP"}
                 </button>
 
-                <div className="text-xs text-slate-500 text-center">Demo OTP: 123456</div>
+                {isDemo() && (
+                  <div className="text-xs text-slate-500 text-center">
+                    Demo OTP: <span className="font-mono">123456</span>
+                  </div>
+                )}
               </form>
             ) : (
               <form className="grid gap-5" onSubmit={handleVerify}>
@@ -271,16 +314,21 @@ export default function ClaimStay() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <button className="btn w-full h-11 rounded-xl" type="submit" disabled={busy}>
-                    {busy ? "Verifying…" : "Verify"}
+                  <button
+                    className="btn w-full h-11 rounded-xl"
+                    type="submit"
+                    disabled={busy}
+                  >
+                    {busy ? "Verifying…" : "Verify & open menu"}
                   </button>
                   <button
                     type="button"
                     className="btn btn-light h-11 rounded-xl"
                     onClick={() => {
-                      setStep("init");
+                      setStep("form");
                       setOtp("");
-                      setClaimId(null);
+                      setInfo(null);
+                      setErr(null);
                     }}
                     disabled={busy}
                   >
@@ -288,7 +336,11 @@ export default function ClaimStay() {
                   </button>
                 </div>
 
-                <div className="text-xs text-slate-500 text-center">Demo OTP: 123456</div>
+                {isDemo() && (
+                  <div className="text-xs text-slate-500 text-center">
+                    Demo OTP: <span className="font-mono">123456</span>
+                  </div>
+                )}
               </form>
             )}
           </section>
@@ -319,12 +371,20 @@ function Step({
           "inline-flex h-8 w-8 items-center justify-center rounded-full border text-sm font-semibold",
           done ? "bg-green-600 text-white border-green-600" : "",
           active && !done ? "bg-blue-600 text-white border-blue-600" : "",
-          !active && !done ? "bg-white text-slate-700 border-slate-300" : "",
+          !active && !done
+            ? "bg-white text-slate-700 border-slate-300"
+            : "",
         ].join(" ")}
       >
         {done ? (
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-            <path d="m5 12 4 4L19 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path
+              d="m5 12 4 4L19 6"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
         ) : (
           num
@@ -332,7 +392,9 @@ function Step({
       </span>
       <div>
         <div className="font-medium">{title}</div>
-        {children ? <div className="text-sm text-slate-600">{children}</div> : null}
+        {children ? (
+          <div className="text-sm text-slate-600">{children}</div>
+        ) : null}
       </div>
     </li>
   );

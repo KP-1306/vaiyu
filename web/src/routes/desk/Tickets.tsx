@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import Spinner from "../../components/Spinner";
+import { api, createTicket, updateTicket, getServices } from "../../lib/api";
 
 type TicketStatus = "new" | "accepted" | "in_progress" | "paused" | "resolved" | "closed";
 type TicketPriority = "low" | "normal" | "high" | "urgent";
@@ -11,15 +12,16 @@ type TicketPriority = "low" | "normal" | "high" | "urgent";
 type TicketRow = {
   id: string;
   hotel_id: string;
-  service_id: string | null;        // legacy path
-  service_key: string | null;       // new path (preferred)
+  service_id?: string | null;
+  service_key?: string | null;
   status: TicketStatus;
   priority: TicketPriority;
   title: string;
   details: string | null;
   source: string;
   booking_code: string | null;
-  sla_minutes_snapshot: number;
+  room: string | null;
+  sla_minutes_snapshot: number | null;
   due_at: string | null;
   created_at: string;
   updated_at: string;
@@ -28,9 +30,8 @@ type TicketRow = {
 };
 
 type ServiceRow = {
-  id: string;
   key: string;
-  label: string;
+  label_en?: string;
   sla_minutes: number;
 };
 
@@ -42,15 +43,13 @@ type NewTicketPayload = {
   priority: TicketPriority;
 };
 
-/**
- * Decide which hotel to use:
- * - If URL has ?hotelId=… → use that
- * - Else look up first hotel_members row for current user
- * - If found, set it AND push ?hotelId=… into the URL
- */
+// ─────────────────────────────────────────────────────────────
+// Detect effective hotel (URL ?hotelId=… or first hotel_members row)
+// ─────────────────────────────────────────────────────────────
 function useEffectiveHotelId() {
   const [searchParams, setSearchParams] = useSearchParams();
   const urlHotelId = searchParams.get("hotelId");
+
   const [hotelId, setHotelId] = useState<string | null>(urlHotelId);
   const [initialised, setInitialised] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +65,12 @@ function useEffectiveHotelId() {
 
     (async () => {
       try {
-        const { data: userRes } = await supabase.auth.getUser();
+        const { data: userRes, error: userErr } = await supabase.auth.getUser();
+        if (userErr) {
+          setError(userErr.message);
+          setInitialised(true);
+          return;
+        }
         const userId = userRes?.user?.id;
         if (!userId) {
           setError("You are not signed in.");
@@ -86,18 +90,16 @@ function useEffectiveHotelId() {
           setInitialised(true);
           return;
         }
-
         if (!data) {
           setError("You are not a member of any hotel yet.");
           setInitialised(true);
           return;
         }
-
         if (cancelled) return;
 
         setHotelId(data.hotel_id);
 
-        const next = new URLSearchParams();
+        const next = new URLSearchParams(searchParams);
         next.set("hotelId", data.hotel_id);
         setSearchParams(next, { replace: true });
 
@@ -113,11 +115,15 @@ function useEffectiveHotelId() {
     return () => {
       cancelled = true;
     };
-  }, [urlHotelId, setSearchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlHotelId]);
 
   return { hotelId, initialised, error };
 }
 
+// ─────────────────────────────────────────────────────────────
+// Small UI helpers
+// ─────────────────────────────────────────────────────────────
 function SlaChip({ ticket }: { ticket: TicketRow }) {
   const mins = ticket.mins_remaining;
   if (mins == null) {
@@ -189,6 +195,9 @@ function StatusBadge({ status }: { status: TicketStatus }) {
   }
 }
 
+// ─────────────────────────────────────────────────────────────
+// Main component – Desk Tickets board
+// ─────────────────────────────────────────────────────────────
 export default function DeskTickets() {
   const { hotelId, initialised, error: hotelError } = useEffectiveHotelId();
   const queryClient = useQueryClient();
@@ -205,76 +214,85 @@ export default function DeskTickets() {
     bookingCode: "",
     priority: "normal",
   });
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const [selectedTicket, setSelectedTicket] = useState<TicketRow | null>(null);
   const [actionPendingId, setActionPendingId] = useState<string | null>(null);
-  const [createError, setCreateError] = useState<string | null>(null);
 
+  // Load services (for labels + SLA hints)
   const {
     data: services,
     isLoading: servicesLoading,
     error: servicesError,
   } = useQuery({
-    queryKey: ["services", hotelId],
+    queryKey: ["services_for_tickets", hotelId],
     enabled: !!hotelId,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("services")
-        .select("id, key, label, sla_minutes")
-        .eq("hotel_id", hotelId)
-        .eq("active", true)
-        .order("priority_weight", { ascending: false });
-      if (error) throw error;
-      return data as ServiceRow[];
+      const res = await getServices(hotelId || undefined);
+      return ((res as any)?.items || []) as ServiceRow[];
     },
   });
 
+  const serviceByKey = useMemo(() => {
+    const map = new Map<string, ServiceRow>();
+    (services ?? []).forEach((s) => map.set(s.key, s));
+    return map;
+  }, [services]);
+
+  // Load tickets from Edge Function, fall back to direct view if needed
   const {
     data: tickets,
     isLoading: ticketsLoading,
     error: ticketsError,
     refetch,
   } = useQuery({
-    queryKey: ["tickets_sla_status", hotelId, statusFilter, priorityFilter, overdueFilter],
+    queryKey: ["tickets_board", hotelId, statusFilter, priorityFilter, overdueFilter],
     enabled: !!hotelId,
     queryFn: async () => {
-      let query: any = supabase
-        .from("tickets_sla_status")
-        .select("*")
-        .eq("hotel_id", hotelId)
-        .order("priority", { ascending: false })
-        .order("created_at", { ascending: false });
+      if (!hotelId) return [] as TicketRow[];
 
-      if (statusFilter !== "all") query = query.eq("status", statusFilter);
-      if (priorityFilter !== "all") query = query.eq("priority", priorityFilter);
-      if (overdueFilter === "overdue") query = query.eq("is_overdue", true);
-      else if (overdueFilter === "on_time") query = query.eq("is_overdue", false);
+      const params = new URLSearchParams();
+      params.set("hotelId", hotelId);
+      if (statusFilter !== "all") params.set("status", statusFilter);
+      if (priorityFilter !== "all") params.set("priority", priorityFilter);
+      if (overdueFilter === "overdue") params.set("overdue", "true");
+      else if (overdueFilter === "on_time") params.set("overdue", "false");
 
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as TicketRow[];
+      try {
+        const res: any = await api.req(`/tickets?${params.toString()}`);
+        const items: TicketRow[] = (res?.items ?? res ?? []) as TicketRow[];
+        return items;
+      } catch (err) {
+        console.warn("Edge /tickets failed, falling back to direct tickets_sla_status view", err);
+
+        // Fallback: direct Supabase view (what we had earlier)
+        let query: any = supabase
+          .from("tickets_sla_status")
+          .select("*")
+          .eq("hotel_id", hotelId)
+          .order("due_at", { ascending: true });
+
+        if (statusFilter !== "all") query = query.eq("status", statusFilter);
+        if (priorityFilter !== "all") query = query.eq("priority", priorityFilter);
+        if (overdueFilter === "overdue") query = query.eq("is_overdue", true);
+        else if (overdueFilter === "on_time") query = query.eq("is_overdue", false);
+
+        const { data, error } = await query;
+        if (error) throw error;
+        return (data || []) as TicketRow[];
+      }
     },
   });
 
-  // Legacy map by ID (for any old tickets that still have service_id)
-  const serviceById = useMemo(() => {
-    const map = new Map<string, ServiceRow>();
-    (services ?? []).forEach((s) => map.set(s.id, s));
-    return map;
-  }, [services]);
+  const hasTickets = (tickets ?? []).length > 0;
 
-  // New map by key (preferred path, matches tickets.service_key)
-  const serviceByKey = useMemo(() => {
-    const map = new Map<string, ServiceRow>();
-    (services ?? []).forEach((s) => {
-      if (s.key) map.set(s.key, s);
-    });
-    return map;
-  }, [services]);
-
+  // ───────────────────────────────────────────────────────────
+  // Create ticket (desk-created) – uses Edge, falls back to old flow
+  // ───────────────────────────────────────────────────────────
   async function handleCreateTicket(e: React.FormEvent) {
     e.preventDefault();
     if (!hotelId) return;
+
     if (!newTicket.serviceKey || !newTicket.title.trim()) {
       setCreateError("Service and title are required.");
       return;
@@ -282,16 +300,18 @@ export default function DeskTickets() {
     setCreateError(null);
 
     try {
-      const { error } = await supabase.rpc("create_ticket", {
-        p_hotel_id: hotelId,
-        p_service_key: newTicket.serviceKey,
-        p_title: newTicket.title.trim(),
-        p_details: newTicket.details?.trim() || null,
-        p_source: "desk",
-        p_booking_code: newTicket.bookingCode?.trim() || null,
-        p_priority: newTicket.priority,
-      });
-      if (error) throw error;
+      // Primary path: Edge function (HTTP API)
+      await createTicket({
+        hotelId,
+        serviceKey: newTicket.serviceKey,
+        title: newTicket.title.trim(),
+        details: newTicket.details?.trim() || undefined,
+        source: "desk",
+        bookingCode: newTicket.bookingCode?.trim() || undefined,
+        // use same value for room when staff types "Room 201 / ABC123"
+        room: newTicket.bookingCode?.trim() || undefined,
+        priority: newTicket.priority,
+      } as any);
 
       setIsNewOpen(false);
       setNewTicket({
@@ -301,59 +321,122 @@ export default function DeskTickets() {
         bookingCode: "",
         priority: "normal",
       });
+
       await refetch();
-      queryClient.invalidateQueries({ queryKey: ["tickets_sla_status"] });
+      queryClient.invalidateQueries({ queryKey: ["tickets_board"] });
     } catch (err: any) {
-      setCreateError(err?.message ?? "Failed to create ticket.");
+      // As a last resort, fall back to the legacy RPC if available
+      console.warn("Desk createTicket failed, trying legacy RPC", err);
+      try {
+        const { error } = await supabase.rpc("create_ticket", {
+          p_hotel_id: hotelId,
+          p_service_key: newTicket.serviceKey,
+          p_title: newTicket.title.trim(),
+          p_details: newTicket.details?.trim() || null,
+          p_source: "desk",
+          p_booking_code: newTicket.bookingCode?.trim() || null,
+          p_priority: newTicket.priority,
+          p_room: newTicket.bookingCode?.trim() || null,
+        });
+        if (error) throw error;
+
+        setIsNewOpen(false);
+        setNewTicket({
+          serviceKey: "",
+          title: "",
+          details: "",
+          bookingCode: "",
+          priority: "normal",
+        });
+
+        await refetch();
+      } catch (fallbackErr: any) {
+        console.error("Legacy RPC create_ticket also failed:", fallbackErr);
+        setCreateError(fallbackErr?.message ?? "Failed to create ticket.");
+      }
     }
   }
 
-  async function runAction(
-    ticket: TicketRow,
-    action: "accept" | "start" | "pause" | "resume" | "resolve" | "close" | "bump"
-  ) {
+  // ───────────────────────────────────────────────────────────
+  // Actions with SLA – Edge first, then legacy RPC fallback
+  // ───────────────────────────────────────────────────────────
+  type TicketAction =
+    | "accept"
+    | "start"
+    | "pause"
+    | "resume"
+    | "resolve"
+    | "close"
+    | "bumpPriority"
+    | "reassign";
+
+  async function runAction(ticket: TicketRow, action: TicketAction, assigneeId?: string) {
     setActionPendingId(ticket.id);
     try {
-      let fn: string;
-      const args: Record<string, any> = { p_ticket_id: ticket.id };
-
-      switch (action) {
-        case "accept":
-          fn = "accept_ticket";
-          break;
-        case "start":
-          fn = "start_progress";
-          break;
-        case "pause":
-          fn = "pause_ticket";
-          break;
-        case "resume":
-          fn = "resume_ticket";
-          break;
-        case "resolve":
-          fn = "resolve_ticket";
-          break;
-        case "close":
-          fn = "close_ticket";
-          break;
-        case "bump":
-        default:
-          fn = "bump_priority";
-          break;
-      }
-
-      const { error } = await supabase.rpc(fn, args);
-      if (error) throw error;
+      // Primary: Edge /tickets/:id PATCH
+      const body: any = { action };
+      if (action === "reassign") body.assigneeId = assigneeId;
+      await updateTicket(ticket.id, body);
       await refetch();
     } catch (err: any) {
-      alert(err?.message ?? "Failed to apply ticket action.");
+      console.warn("Edge ticket action failed, trying legacy RPC", err);
+      try {
+        let fn: string;
+        const args: Record<string, any> = { p_ticket_id: ticket.id };
+
+        switch (action) {
+          case "accept":
+            fn = "accept_ticket";
+            break;
+          case "start":
+            fn = "start_progress";
+            break;
+          case "pause":
+            fn = "pause_ticket";
+            break;
+          case "resume":
+            fn = "resume_ticket";
+            break;
+          case "resolve":
+            fn = "resolve_ticket";
+            break;
+          case "close":
+            fn = "close_ticket";
+            break;
+          case "bumpPriority":
+            fn = "bump_priority";
+            break;
+          case "reassign":
+            fn = "reassign_ticket";
+            if (!assigneeId) {
+              setActionPendingId(null);
+              alert("Assignee id is required to reassign.");
+              return;
+            }
+            args["p_new_assigned_to"] = assigneeId;
+            break;
+          default:
+            setActionPendingId(null);
+            alert("Unknown action.");
+            return;
+        }
+
+        const { error } = await supabase.rpc(fn, args);
+        if (error) throw error;
+
+        await refetch();
+      } catch (fallbackErr: any) {
+        console.error("Legacy RPC action also failed:", fallbackErr);
+        alert(fallbackErr?.message ?? "Failed to apply ticket action.");
+      }
     } finally {
       setActionPendingId(null);
     }
   }
 
-  // ───────────────────────── UI STATES ─────────────────────────
-
+  // ───────────────────────────────────────────────────────────
+  // Render states
+  // ───────────────────────────────────────────────────────────
   if (!initialised) {
     return (
       <main className="p-4 sm:p-6">
@@ -376,15 +459,14 @@ export default function DeskTickets() {
     );
   }
 
-  const hasTickets = (tickets ?? []).length > 0;
-
   return (
     <main className="p-4 sm:p-6">
+      {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold">Desk – Tickets</h1>
           <p className="mt-1 text-sm text-gray-600">
-            Live operations board for this hotel. SLA chips turn red when tickets are overdue.
+            Live Ops board for this property. SLA chips go red when requests cross their promised time.
           </p>
         </div>
 
@@ -474,7 +556,7 @@ export default function DeskTickets() {
           </div>
         )}
 
-        {!ticketsLoading && !hasTickets && (
+        {!ticketsLoading && !hasTickets && !ticketsError && (
           <p className="mt-4 text-sm text-gray-500">
             No tickets yet for this hotel. Use <span className="font-medium">“+ New ticket”</span> to
             create the first one.
@@ -482,49 +564,42 @@ export default function DeskTickets() {
         )}
 
         {hasTickets && (
-          <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
+          <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200 bg-white">
             <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">Created</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">Room</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">Service</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">Title</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">Status</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">Priority</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">SLA</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">Source</th>
                   <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 bg-white">
+              <tbody className="divide-y divide-gray-100">
                 {(tickets ?? []).map((t) => {
-                  // Prefer new service_key mapping, fall back to legacy service_id
-                  const service =
-                    (t.service_id && serviceById.get(t.service_id)) ||
-                    (t.service_key && serviceByKey.get(t.service_key)) ||
-                    undefined;
-
+                  const service = t.service_key ? serviceByKey.get(t.service_key) : undefined;
                   const created = new Date(t.created_at);
-                  const createdLabel = created.toLocaleTimeString(undefined, {
+                  const createdTime = created.toLocaleTimeString(undefined, {
                     hour: "2-digit",
                     minute: "2-digit",
                   });
                   const isBusy = actionPendingId === t.id;
+                  const roomLabel = t.room || t.booking_code || "—";
+                  const serviceLabel =
+                    service?.label_en || service?.key || t.service_key || "Unknown service";
 
                   return (
                     <tr key={t.id} className="hover:bg-gray-50">
                       <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-500">
                         {created.toLocaleDateString()}{" "}
-                        <span className="text-gray-400">•</span> {createdLabel}
+                        <span className="text-gray-400">•</span> {createdTime}
                       </td>
-                      <td className="px-3 py-2 text-sm text-gray-900">
-                        {service?.label ? (
-                          service.label
-                        ) : (
-                          <span className="text-gray-400 italic">
-                            {t.service_key || "Unknown service"}
-                          </span>
-                        )}
-                      </td>
+                      <td className="px-3 py-2 text-sm text-gray-900">{roomLabel}</td>
+                      <td className="px-3 py-2 text-sm text-gray-900">{serviceLabel}</td>
                       <td className="px-3 py-2 text-sm text-gray-900">
                         <button
                           type="button"
@@ -544,8 +619,11 @@ export default function DeskTickets() {
                       <td className="px-3 py-2">
                         <SlaChip ticket={t} />
                       </td>
+                      <td className="px-3 py-2 text-xs text-gray-500">
+                        <code>{t.source}</code>
+                      </td>
                       <td className="px-3 py-2 text-right">
-                        <div className="inline-flex items-center gap-2">
+                        <div className="inline-flex flex-wrap items-center justify-end gap-1.5">
                           {t.status === "new" && (
                             <>
                               <button
@@ -616,14 +694,30 @@ export default function DeskTickets() {
                               Close
                             </button>
                           )}
+
+                          {/* Reassign (prompt-based, simple) */}
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => {
+                              const id = window.prompt("Assign to user id (Supabase user UUID):");
+                              if (!id) return;
+                              runAction(t, "reassign", id);
+                            }}
+                            className="rounded-md border border-slate-300 px-2 py-0.5 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                          >
+                            Reassign
+                          </button>
+
+                          {/* Bump priority (for any non-closed ticket) */}
                           {t.status !== "closed" && (
                             <button
                               type="button"
                               disabled={isBusy}
-                              onClick={() => runAction(t, "bump")}
+                              onClick={() => runAction(t, "bumpPriority")}
                               className="rounded-md border border-pink-500 px-2 py-0.5 text-xs text-pink-600 hover:bg-pink-50 disabled:opacity-50"
                             >
-                              Bump priority
+                              Bump
                             </button>
                           )}
                         </div>
@@ -663,7 +757,7 @@ export default function DeskTickets() {
                   <option value="">Select a service…</option>
                   {(services ?? []).map((s) => (
                     <option key={s.key} value={s.key}>
-                      {s.label}
+                      {s.label_en || s.key}
                     </option>
                   ))}
                 </select>
@@ -691,14 +785,14 @@ export default function DeskTickets() {
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="block text-xs font-medium text-gray-700">
-                  Booking / Room (optional)
+                  Room / Booking (optional)
                   <input
                     className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
                     value={newTicket.bookingCode}
                     onChange={(e) =>
                       setNewTicket((t) => ({ ...t, bookingCode: e.target.value }))
                     }
-                    placeholder="e.g. ROOM-101"
+                    placeholder="e.g. 201 or ABC123"
                   />
                 </label>
 
@@ -780,10 +874,12 @@ export default function DeskTickets() {
                   {selectedTicket.details}
                 </p>
               )}
-              {selectedTicket.booking_code && (
+              {(selectedTicket.room || selectedTicket.booking_code) && (
                 <p className="mt-1 text-xs text-gray-600">
-                  Booking / Room:{" "}
-                  <span className="font-medium">{selectedTicket.booking_code}</span>
+                  Room / Booking:{" "}
+                  <span className="font-medium">
+                    {selectedTicket.room || selectedTicket.booking_code}
+                  </span>
                 </p>
               )}
               <p className="mt-1 text-xs text-gray-500">

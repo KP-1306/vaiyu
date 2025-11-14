@@ -1,250 +1,230 @@
 // web/src/routes/Scan.tsx
-import React, {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
-import SEO from "../components/SEO";
+import React, { useEffect, useMemo, useState } from "react";
+import { useLocation, useSearchParams, useNavigate } from "react-router-dom";
+import Spinner from "../components/Spinner";
+import { getHotel, isDemo } from "../lib/api";
+
+type HotelInfo = {
+  slug: string;
+  name?: string;
+  description?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  theme?: { brand?: string; mode?: "light" | "dark" };
+};
+
+function useQueryParams() {
+  const [searchParams] = useSearchParams();
+  const hotelSlug = searchParams.get("hotel") || searchParams.get("slug") || "";
+  const stayCode = searchParams.get("code") || "";
+  return { hotelSlug, stayCode };
+}
 
 export default function Scan() {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [cameraSupported, setCameraSupported] = useState(false);
-  const [cameraError, setCameraError] = useState<string | null>(null);
-  const [decoded, setDecoded] = useState<string | null>(null);
-  const [manual, setManual] = useState("");
-  const [autoRedirected, setAutoRedirected] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { hotelSlug, stayCode } = useQueryParams();
 
-  const handleResolvedTarget = useCallback((value: string) => {
-    // Basic normalisation
-    const v = value.trim();
-    if (!v) return;
+  const [hotel, setHotel] = useState<HotelInfo | null>(null);
+  const [loading, setLoading] = useState<boolean>(!!hotelSlug);
+  const [error, setError] = useState<string | null>(null);
 
-    // 1) Full URL → just open
-    if (/^https?:\/\//i.test(v)) {
-      window.location.href = v;
-      return;
+  // Resolve menu URL
+  const menuPath = useMemo(() => {
+    if (stayCode) {
+      // Full guest journey: stay-specific menu
+      return `/stay/${encodeURIComponent(stayCode)}/menu`;
     }
-
-    // 2) Optional custom scheme like vaiyu://menu?hotelSlug=sunrise
-    if (/^vaiyu:\/\//i.test(v)) {
-      const url = v.replace(/^vaiyu:\/\//i, "https://vaiyu.co.in/");
-      window.location.href = url;
-      return;
+    if (hotelSlug) {
+      // Hotel-scoped menu (backend can later read ?hotel=slug)
+      return `/menu?hotel=${encodeURIComponent(hotelSlug)}`;
     }
+    // Fallback: generic menu (demo)
+    return `/menu`;
+  }, [hotelSlug, stayCode]);
 
-    // 3) Booking code (e.g. ABC123) → open stay menu
-    if (/^[A-Za-z0-9_-]{4,20}$/.test(v)) {
-      window.location.href = `/stay/${encodeURIComponent(v)}/menu`;
-      return;
-    }
+  // Friendly label
+  const hotelLabel = useMemo(() => {
+    if (hotel?.name) return hotel.name;
+    if (hotelSlug) return hotelSlug;
+    return "this property";
+  }, [hotelSlug, hotel]);
 
-    // 4) Fallback: treat it as a hotel slug → property menu
-    window.location.href = `/menu?hotelSlug=${encodeURIComponent(v)}`;
-  }, []);
-
-  const handleDetected = useCallback(
-    (raw: string) => {
-      if (!raw || autoRedirected) return;
-      setDecoded(raw);
-      setAutoRedirected(true);
-      handleResolvedTarget(raw);
-    },
-    [autoRedirected, handleResolvedTarget],
-  );
-
+  // Load hotel details (for nicer text + branding), but fail gracefully
   useEffect(() => {
-    let stream: MediaStream | null = null;
     let cancelled = false;
-    let rafId: number | null = null;
-
-    async function startCameraScan() {
-      if (typeof window === "undefined") return;
-
-      const BD = (window as any).BarcodeDetector;
-      if (!BD) {
-        setCameraSupported(false);
-        return;
-      }
-
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setCameraSupported(false);
-        setCameraError("Camera access not supported in this browser.");
-        return;
-      }
-
-      setCameraSupported(true);
-
-      const detector = new BD({ formats: ["qr_code"] });
-
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
-        });
-      } catch (err: any) {
-        setCameraError(
-          err?.message || "Unable to access camera. Please allow camera access.",
-        );
-        return;
-      }
-      if (!videoRef.current) return;
-      videoRef.current.srcObject = stream;
-      await videoRef.current.play();
-
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d");
-
-      async function frame() {
-        if (cancelled || !videoRef.current || !ctx) return;
-
-        const v = videoRef.current;
-        if (v.readyState === v.HAVE_ENOUGH_DATA) {
-          canvas.width = v.videoWidth;
-          canvas.height = v.videoHeight;
-          ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          try {
-            const barcodes = await detector.detect(imageData as any);
-            if (barcodes && barcodes[0]) {
-              const raw = barcodes[0].rawValue || "";
-              if (raw) {
-                handleDetected(raw);
-                return; // stop after first successful scan
-              }
-            }
-          } catch {
-            // ignore detection errors and keep scanning
-          }
-        }
-
-        rafId = window.requestAnimationFrame(frame);
-      }
-
-      rafId = window.requestAnimationFrame(frame);
+    if (!hotelSlug) {
+      setLoading(false);
+      return;
     }
 
-    startCameraScan();
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const res: any = await getHotel(hotelSlug);
+        if (cancelled) return;
+
+        const info: HotelInfo = {
+          slug: res?.slug ?? hotelSlug,
+          name: res?.name,
+          description: res?.description,
+          address: res?.address,
+          phone: res?.phone,
+          email: res?.email,
+          theme: res?.theme,
+        };
+        setHotel(info);
+      } catch (e: any) {
+        if (!cancelled) {
+          // Not fatal – we can still show QR actions without hotel metadata
+          setError(e?.message || "Could not load property details.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
 
     return () => {
       cancelled = true;
-      if (rafId != null) window.cancelAnimationFrame(rafId);
-      if (stream) stream.getTracks().forEach((t) => t.stop());
     };
-  }, [handleDetected]);
+  }, [hotelSlug]);
 
-  function handleManualSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!manual.trim()) return;
-    handleResolvedTarget(manual);
+  function handleOpenWebMenu() {
+    navigate(menuPath);
   }
 
-  return (
-    <>
-      <SEO title="Scan QR – Guest Menu" noIndex />
+  function handleOpenWhatsApp() {
+    // Build a shareable absolute URL for the menu
+    const base =
+      typeof window !== "undefined"
+        ? `${window.location.origin || ""}`
+        : "";
+    const fullUrl = `${base}${menuPath}`;
 
-      <main className="max-w-xl mx-auto p-4 space-y-4">
-        <header className="space-y-1">
-          <h1 className="text-xl font-semibold">Scan hotel QR</h1>
+    const textLines = [
+      `नमस्ते, मुझे ${hotelLabel} का मेनू देखना है।`,
+      "",
+      fullUrl,
+    ];
+    const text = encodeURIComponent(textLines.join("\n"));
+
+    // Generic WhatsApp share (user picks contact / hotel number)
+    const waUrl = `https://wa.me/?text=${text}`;
+    window.location.href = waUrl;
+  }
+
+  const themeColor =
+    hotel?.theme?.brand ||
+    (isDemo() ? "#145AF2" : "#0f766e"); // default teal for non-demo
+
+  return (
+    <main className="min-h-[60vh] px-4 py-6 flex items-center justify-center">
+      <div className="w-full max-w-md space-y-4">
+        <header className="space-y-1 text-center">
+          <p className="text-xs uppercase tracking-wide text-gray-500">
+            Scan to open
+          </p>
+          <h1 className="text-xl font-semibold">
+            Welcome to{" "}
+            <span style={{ color: themeColor }}>
+              {hotel?.name || "your stay"}
+            </span>
+          </h1>
           <p className="text-sm text-gray-600">
-            Point your camera at the QR card placed at reception or in your
-            room. We’ll open the correct VAiyu guest menu for this property.
+            You just scanned a QR at the property. Choose how you want to open
+            the guest menu and services.
           </p>
         </header>
 
-        {/* Camera scan area */}
-        <section className="bg-white rounded shadow p-3 space-y-2">
-          <div className="text-sm font-medium mb-1">
-            1. Scan using your camera
-          </div>
-
-          {!cameraSupported && !cameraError && (
-            <p className="text-xs text-gray-600">
-              Your phone’s browser may not support in-app scanning. You can
-              still use the{" "}
-              <span className="font-semibold">system camera or WhatsApp</span>{" "}
-              to scan the QR and open the link directly.
-            </p>
-          )}
-
-          {cameraError && (
-            <div className="p-2 text-xs rounded bg-amber-50 border border-amber-200 text-amber-800">
-              {cameraError}
-            </div>
-          )}
-
-          {cameraSupported && !cameraError && (
-            <div className="relative mt-2 rounded-lg overflow-hidden border aspect-[3/4] bg-black">
-              <video
-                ref={videoRef}
-                className="w-full h-full object-cover"
-                muted
-                playsInline
-              />
-              <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                <div className="w-40 h-40 border-2 border-white/80 rounded-md shadow-[0_0_0_9999px_rgba(0,0,0,0.3)]" />
+        {/* Hotel badge */}
+        {(hotel || hotelSlug) && (
+          <section className="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-sm font-medium text-gray-900">
+                  {hotel?.name || hotelLabel}
+                </div>
+                {hotel?.address && (
+                  <div className="mt-0.5 text-xs text-gray-500">
+                    {hotel.address}
+                  </div>
+                )}
+                {hotel?.phone && (
+                  <div className="mt-0.5 text-xs text-gray-500">
+                    ☎ {hotel.phone}
+                  </div>
+                )}
               </div>
-              <div className="absolute bottom-2 inset-x-0 text-center text-[11px] text-white/80">
-                Align the QR inside the square
+              <div
+                className="rounded-full px-2 py-1 text-[11px] font-medium text-white"
+                style={{ backgroundColor: themeColor }}
+              >
+                Powered by VAiyu
               </div>
             </div>
-          )}
+          </section>
+        )}
 
-          {decoded && (
-            <p className="mt-2 text-[11px] text-gray-500 break-all">
-              Last scanned: <span className="font-mono">{decoded}</span>
-            </p>
-          )}
-        </section>
-
-        {/* Manual / fallback entry */}
-        <section className="bg-white rounded shadow p-3 space-y-2">
-          <div className="text-sm font-medium mb-1">
-            2. Or paste the link / code
+        {/* Status / errors */}
+        {loading && (
+          <div className="mt-2">
+            <Spinner label="Loading property…" />
           </div>
-          <p className="text-xs text-gray-600">
-            If you already have the{" "}
-            <span className="font-mono text-[11px]">
-              /menu?hotelSlug=&lt;slug&gt;
-            </span>{" "}
-            link or a booking code (like <b>ABC123</b>), paste it here and
-            we’ll route you to the right screen.
+        )}
+
+        {error && (
+          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
+            {error} — आप फिर भी नीचे दिए गए बटन से मेनू खोल सकते हैं।
           </p>
+        )}
 
-          <form
-            onSubmit={handleManualSubmit}
-            className="flex flex-col sm:flex-row gap-2 mt-2"
+        {/* Primary actions */}
+        <section className="space-y-3">
+          <button
+            type="button"
+            onClick={handleOpenWebMenu}
+            className="inline-flex w-full items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-800 shadow-sm hover:bg-gray-50"
           >
-            <input
-              className="input flex-1"
-              placeholder="Paste QR link, hotel slug or booking code"
-              value={manual}
-              onChange={(e) => setManual(e.target.value)}
-            />
-            <button className="btn sm:w-32" type="submit">
-              Open
-            </button>
-          </form>
+            Open web menu
+          </button>
 
-          <p className="text-[11px] text-gray-500 mt-1">
-            Examples:{" "}
-            <code className="bg-gray-50 px-1 rounded">
-              https://vaiyu.co.in/menu?hotelSlug=sunrise
-            </code>{" "}
-            or <code className="bg-gray-50 px-1 rounded">ABC123</code>.
-          </p>
+          <button
+            type="button"
+            onClick={handleOpenWhatsApp}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-green-500 px-4 py-2.5 text-sm font-semibold text-white shadow hover:bg-green-600"
+          >
+            {/* Simple WA glyph */}
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-lg leading-none">
+              💬
+            </span>
+            Open in WhatsApp
+          </button>
         </section>
 
-        {/* Hint about WhatsApp usage */}
-        <section className="bg-sky-50 border border-sky-100 rounded p-3 text-xs text-sky-900">
-          <div className="font-medium mb-1">Tip for hotels</div>
-          <p>
-            You can also share the same guest menu link via{" "}
-            <b>WhatsApp Business</b>. When guests tap the link in WhatsApp or
-            scan the printed QR, they are taken to this property’s VAiyu
-            menu only.
+        {/* Explanation */}
+        <section className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600 space-y-1.5">
+          <p className="font-medium text-gray-700">How this works:</p>
+          <ol className="list-decimal pl-4 space-y-1">
+            <li>
+              <b>Web menu</b> opens the in-room menu and services directly in
+              your browser.
+            </li>
+            <li>
+              <b>WhatsApp</b> opens a chat with a pre-filled link to this
+              property&apos;s menu. You can pin/save that chat for quick access.
+            </li>
+          </ol>
+          <p className="text-[11px] text-gray-500">
+            If you have a live booking, your link may include your stay code so
+            that requests automatically reach the right room.
+          </p>
+          <p className="text-[10px] text-gray-400">
+            URL: <code>{location.pathname + location.search}</code>
           </p>
         </section>
-      </main>
-    </>
+      </div>
+    </main>
   );
 }

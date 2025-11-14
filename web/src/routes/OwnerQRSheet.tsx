@@ -21,10 +21,10 @@ export default function OwnerQRSheet() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setErr(null);
 
-    (async () => {
+    async function loadHotel() {
+      setLoading(true);
+      setErr(null);
       try {
         if (!slug) throw new Error("Missing hotel slug in URL");
         const data: any = await getHotel(slug);
@@ -40,26 +40,30 @@ export default function OwnerQRSheet() {
       } finally {
         if (!cancelled) setLoading(false);
       }
-    })();
+    }
+
+    loadHotel();
 
     return () => {
       cancelled = true;
     };
   }, [slug]);
 
+  // IMPORTANT: match OwnerSettings – use the /scan entry route
   const shareUrl = useMemo(() => {
     if (!slug) return "";
     const origin =
       typeof window !== "undefined" && window.location?.origin
         ? window.location.origin
         : "https://vaiyu.co.in";
-    return `${origin}/menu?hotelSlug=${encodeURIComponent(slug)}`;
+    // Guests see the Scan screen first (Web menu + WhatsApp options)
+    return `${origin}/scan?hotel=${encodeURIComponent(slug)}`;
   }, [slug]);
 
   const qrSrc = useMemo(() => {
     if (!shareUrl) return "";
     return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
-      shareUrl,
+      shareUrl
     )}`;
   }, [shareUrl]);
 
@@ -96,6 +100,7 @@ export default function OwnerQRSheet() {
         {loading && (
           <div className="text-gray-500 print:hidden">Loading hotel…</div>
         )}
+
         {err && !loading && (
           <div className="p-3 bg-amber-50 border border-amber-200 rounded text-amber-800 print:hidden">
             {err}
@@ -110,9 +115,7 @@ export default function OwnerQRSheet() {
                 <div
                   key={i}
                   className="border rounded-lg p-3 flex flex-col items-center justify-between text-center break-inside-avoid-page"
-                  style={{
-                    pageBreakInside: "avoid",
-                  }}
+                  style={{ pageBreakInside: "avoid" }}
                 >
                   <div className="text-xs text-gray-600 mb-2">
                     Scan for{" "}

@@ -10,6 +10,7 @@ import { Link, useSearchParams, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Spinner from "../components/Spinner";
 import BackHome from "../components/BackHome";
+import { useTicketsRealtime } from "../hooks/useTicketsRealtime";
 
 /** ========= Types ========= */
 type Hotel = { id: string; name: string; slug: string; city: string | null };
@@ -95,6 +96,9 @@ export default function OwnerDashboard() {
   const paramsHook = useParams();
   const rawSlug = paramsHook.slug;
   const slug = normalizeSlug(rawSlug);
+
+  // NEW: subscribe to tickets for this property and keep KPIs refreshed
+  useTicketsRealtime(slug);
 
   const [params] = useSearchParams();
 
@@ -294,7 +298,7 @@ export default function OwnerDashboard() {
   }
   if (accessProblem) {
     return (
-      <main className="max-w-3xl mx-auto p-6">
+      <main className="max-w-3xl mx_auto p-6">
         <BackHome />
         {/* pass only the sanitized slug so we never forward ':slug' */}
         <AccessHelp slug={slug} message={accessProblem} inviteToken={params.get("invite") || undefined} />

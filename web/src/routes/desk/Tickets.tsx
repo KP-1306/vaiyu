@@ -6,7 +6,13 @@ import { supabase } from "../../lib/supabase";
 import Spinner from "../../components/Spinner";
 import { api, createTicket, updateTicket, getServices } from "../../lib/api";
 
-type TicketStatus = "new" | "accepted" | "in_progress" | "paused" | "resolved" | "closed";
+type TicketStatus =
+  | "new"
+  | "accepted"
+  | "in_progress"
+  | "paused"
+  | "resolved"
+  | "closed";
 type TicketPriority = "low" | "normal" | "high" | "urgent";
 
 type TicketRow = {
@@ -162,36 +168,68 @@ function SlaChip({ ticket }: { ticket: TicketRow }) {
 }
 
 function PriorityBadge({ priority }: { priority: TicketPriority }) {
-  const base = "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium";
+  const base =
+    "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium";
   switch (priority) {
     case "urgent":
-      return <span className={`${base} bg-red-100 text-red-700`}>Urgent</span>;
+      return (
+        <span className={`${base} bg-red-100 text-red-700`}>Urgent</span>
+      );
     case "high":
-      return <span className={`${base} bg-orange-100 text-orange-800`}>High</span>;
+      return (
+        <span className={`${base} bg-orange-100 text-orange-800`}>High</span>
+      );
     case "normal":
-      return <span className={`${base} bg-blue-100 text-blue-700`}>Normal</span>;
+      return (
+        <span className={`${base} bg-blue-100 text-blue-700`}>Normal</span>
+      );
     case "low":
     default:
-      return <span className={`${base} bg-gray-100 text-gray-700`}>Low</span>;
+      return (
+        <span className={`${base} bg-gray-100 text-gray-700`}>Low</span>
+      );
   }
 }
 
 function StatusBadge({ status }: { status: TicketStatus }) {
-  const base = "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium";
+  const base =
+    "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium";
   switch (status) {
     case "new":
-      return <span className={`${base} bg-purple-100 text-purple-700`}>New</span>;
+      return (
+        <span className={`${base} bg-purple-100 text-purple-700`}>New</span>
+      );
     case "accepted":
-      return <span className={`${base} bg-indigo-100 text-indigo-700`}>Accepted</span>;
+      return (
+        <span className={`${base} bg-indigo-100 text-indigo-700`}>
+          Accepted
+        </span>
+      );
     case "in_progress":
-      return <span className={`${base} bg-blue-100 text-blue-700`}>In progress</span>;
+      return (
+        <span className={`${base} bg-blue-100 text-blue-700`}>
+          In progress
+        </span>
+      );
     case "paused":
-      return <span className={`${base} bg-yellow-100 text-yellow-800`}>Paused</span>;
+      return (
+        <span className={`${base} bg-yellow-100 text-yellow-800`}>
+          Paused
+        </span>
+      );
     case "resolved":
-      return <span className={`${base} bg-emerald-100 text-emerald-700`}>Resolved</span>;
+      return (
+        <span className={`${base} bg-emerald-100 text-emerald-700`}>
+          Resolved
+        </span>
+      );
     case "closed":
     default:
-      return <span className={`${base} bg-gray-100 text-gray-700`}>Closed</span>;
+      return (
+        <span className={`${base} bg-gray-100 text-gray-700`}>
+          Closed
+        </span>
+      );
   }
 }
 
@@ -202,9 +240,13 @@ export default function DeskTickets() {
   const { hotelId, initialised, error: hotelError } = useEffectiveHotelId();
   const queryClient = useQueryClient();
 
-  const [statusFilter, setStatusFilter] = useState<"all" | TicketStatus>("all");
-  const [priorityFilter, setPriorityFilter] = useState<"all" | TicketPriority>("all");
-  const [overdueFilter, setOverdueFilter] = useState<"all" | "overdue" | "on_time">("all");
+  const [statusFilter, setStatusFilter] =
+    useState<"all" | TicketStatus>("all");
+  const [priorityFilter, setPriorityFilter] =
+    useState<"all" | TicketPriority>("all");
+  const [overdueFilter, setOverdueFilter] = useState<
+    "all" | "overdue" | "on_time"
+  >("all");
 
   const [isNewOpen, setIsNewOpen] = useState(false);
   const [newTicket, setNewTicket] = useState<NewTicketPayload>({
@@ -216,8 +258,49 @@ export default function DeskTickets() {
   });
   const [createError, setCreateError] = useState<string | null>(null);
 
-  const [selectedTicket, setSelectedTicket] = useState<TicketRow | null>(null);
-  const [actionPendingId, setActionPendingId] = useState<string | null>(null);
+  const [selectedTicket, setSelectedTicket] = useState<TicketRow | null>(
+    null
+  );
+  const [actionPendingId, setActionPendingId] = useState<string | null>(
+    null
+  );
+
+  // ───────────────────────────────────────────────────────────
+  // Supabase Realtime – auto refresh tickets when any row changes
+  // ───────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!hotelId || !supabase) return;
+
+    const channel = supabase
+      .channel(`tickets-board-${hotelId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "tickets",
+          filter: `hotel_id=eq.${hotelId}`,
+        },
+        () => {
+          // Invalidate all variants of the tickets_board query for this hotel
+          queryClient.invalidateQueries({
+            queryKey: ["tickets_board", hotelId],
+          });
+        }
+      )
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR") {
+          console.error(
+            "[Realtime] tickets channel error for hotel",
+            hotelId
+          );
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [hotelId, queryClient]);
 
   // Load services (for labels + SLA hints)
   const {
@@ -246,7 +329,13 @@ export default function DeskTickets() {
     error: ticketsError,
     refetch,
   } = useQuery({
-    queryKey: ["tickets_board", hotelId, statusFilter, priorityFilter, overdueFilter],
+    queryKey: [
+      "tickets_board",
+      hotelId,
+      statusFilter,
+      priorityFilter,
+      overdueFilter,
+    ],
     enabled: !!hotelId,
     queryFn: async () => {
       if (!hotelId) return [] as TicketRow[];
@@ -256,14 +345,18 @@ export default function DeskTickets() {
       if (statusFilter !== "all") params.set("status", statusFilter);
       if (priorityFilter !== "all") params.set("priority", priorityFilter);
       if (overdueFilter === "overdue") params.set("overdue", "true");
-      else if (overdueFilter === "on_time") params.set("overdue", "false");
+      else if (overdueFilter === "on_time")
+        params.set("overdue", "false");
 
       try {
         const res: any = await api.req(`/tickets?${params.toString()}`);
         const items: TicketRow[] = (res?.items ?? res ?? []) as TicketRow[];
         return items;
       } catch (err) {
-        console.warn("Edge /tickets failed, falling back to direct tickets_sla_status view", err);
+        console.warn(
+          "Edge /tickets failed, falling back to direct tickets_sla_status view",
+          err
+        );
 
         // Fallback: direct Supabase view (what we had earlier)
         let query: any = supabase
@@ -273,9 +366,12 @@ export default function DeskTickets() {
           .order("due_at", { ascending: true });
 
         if (statusFilter !== "all") query = query.eq("status", statusFilter);
-        if (priorityFilter !== "all") query = query.eq("priority", priorityFilter);
-        if (overdueFilter === "overdue") query = query.eq("is_overdue", true);
-        else if (overdueFilter === "on_time") query = query.eq("is_overdue", false);
+        if (priorityFilter !== "all")
+          query = query.eq("priority", priorityFilter);
+        if (overdueFilter === "overdue")
+          query = query.eq("is_overdue", true);
+        else if (overdueFilter === "on_time")
+          query = query.eq("is_overdue", false);
 
         const { data, error } = await query;
         if (error) throw error;
@@ -352,7 +448,9 @@ export default function DeskTickets() {
         await refetch();
       } catch (fallbackErr: any) {
         console.error("Legacy RPC create_ticket also failed:", fallbackErr);
-        setCreateError(fallbackErr?.message ?? "Failed to create ticket.");
+        setCreateError(
+          fallbackErr?.message ?? "Failed to create ticket."
+        );
       }
     }
   }
@@ -370,7 +468,11 @@ export default function DeskTickets() {
     | "bumpPriority"
     | "reassign";
 
-  async function runAction(ticket: TicketRow, action: TicketAction, assigneeId?: string) {
+  async function runAction(
+    ticket: TicketRow,
+    action: TicketAction,
+    assigneeId?: string
+  ) {
     setActionPendingId(ticket.id);
     try {
       // Primary: Edge /tickets/:id PATCH
@@ -427,7 +529,9 @@ export default function DeskTickets() {
         await refetch();
       } catch (fallbackErr: any) {
         console.error("Legacy RPC action also failed:", fallbackErr);
-        alert(fallbackErr?.message ?? "Failed to apply ticket action.");
+        alert(
+          fallbackErr?.message ?? "Failed to apply ticket action."
+        );
       }
     } finally {
       setActionPendingId(null);
@@ -453,7 +557,8 @@ export default function DeskTickets() {
       <main className="p-4 sm:p-6">
         <h1 className="text-xl font-semibold mb-2">Desk – Tickets</h1>
         <p className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-          {hotelError || "Could not determine hotel. Please make sure your user is linked to a hotel."}
+          {hotelError ||
+            "Could not determine hotel. Please make sure your user is linked to a hotel."}
         </p>
       </main>
     );
@@ -466,7 +571,8 @@ export default function DeskTickets() {
         <div>
           <h1 className="text-xl font-semibold">Desk – Tickets</h1>
           <p className="mt-1 text-sm text-gray-600">
-            Live Ops board for this property. SLA chips go red when requests cross their promised time.
+            Live Ops board for this property. SLA chips go red when
+            requests cross their promised time.
           </p>
         </div>
 
@@ -495,7 +601,9 @@ export default function DeskTickets() {
           <select
             className="mt-1 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm"
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as any)}
+            onChange={(e) =>
+              setStatusFilter(e.target.value as any)
+            }
           >
             <option value="all">All</option>
             <option value="new">New</option>
@@ -512,7 +620,9 @@ export default function DeskTickets() {
           <select
             className="mt-1 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm"
             value={priorityFilter}
-            onChange={(e) => setPriorityFilter(e.target.value as any)}
+            onChange={(e) =>
+              setPriorityFilter(e.target.value as any)
+            }
           >
             <option value="all">All</option>
             <option value="urgent">Urgent</option>
@@ -527,7 +637,9 @@ export default function DeskTickets() {
           <select
             className="mt-1 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm"
             value={overdueFilter}
-            onChange={(e) => setOverdueFilter(e.target.value as any)}
+            onChange={(e) =>
+              setOverdueFilter(e.target.value as any)
+            }
           >
             <option value="all">All</option>
             <option value="overdue">Only overdue</option>
@@ -539,12 +651,18 @@ export default function DeskTickets() {
       {/* Errors */}
       {servicesError && (
         <p className="mt-3 text-sm text-red-700 bg-red-50 border border-red-100 rounded-md px-3 py-2">
-          Failed to load services: {String((servicesError as any).message ?? servicesError)}
+          Failed to load services:{" "}
+          {String(
+            (servicesError as any).message ?? servicesError
+          )}
         </p>
       )}
       {ticketsError && (
         <p className="mt-3 text-sm text-red-700 bg-red-50 border border-red-100 rounded-md px-3 py-2">
-          Failed to load tickets: {String((ticketsError as any).message ?? ticketsError)}
+          Failed to load tickets:{" "}
+          {String(
+            (ticketsError as any).message ?? ticketsError
+          )}
         </p>
       )}
 
@@ -558,7 +676,8 @@ export default function DeskTickets() {
 
         {!ticketsLoading && !hasTickets && !ticketsError && (
           <p className="mt-4 text-sm text-gray-500">
-            No tickets yet for this hotel. Use <span className="font-medium">“+ New ticket”</span> to
+            No tickets yet for this hotel. Use{" "}
+            <span className="font-medium">“+ New ticket”</span> to
             create the first one.
           </p>
         )}
@@ -568,38 +687,73 @@ export default function DeskTickets() {
             <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">Created</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">Room</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">Service</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">Title</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">Status</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">Priority</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">SLA</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">Source</th>
-                  <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600">Actions</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">
+                    Created
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">
+                    Room
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">
+                    Service
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">
+                    Title
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">
+                    Status
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">
+                    Priority
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">
+                    SLA
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">
+                    Source
+                  </th>
+                  <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {(tickets ?? []).map((t) => {
-                  const service = t.service_key ? serviceByKey.get(t.service_key) : undefined;
+                  const service = t.service_key
+                    ? serviceByKey.get(t.service_key)
+                    : undefined;
                   const created = new Date(t.created_at);
-                  const createdTime = created.toLocaleTimeString(undefined, {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  });
+                  const createdTime = created.toLocaleTimeString(
+                    undefined,
+                    {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }
+                  );
                   const isBusy = actionPendingId === t.id;
-                  const roomLabel = t.room || t.booking_code || "—";
+                  const roomLabel =
+                    t.room || t.booking_code || "—";
                   const serviceLabel =
-                    service?.label_en || service?.key || t.service_key || "Unknown service";
+                    service?.label_en ||
+                    service?.key ||
+                    t.service_key ||
+                    "Unknown service";
 
                   return (
-                    <tr key={t.id} className="hover:bg-gray-50">
+                    <tr
+                      key={t.id}
+                      className="hover:bg-gray-50"
+                    >
                       <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-500">
                         {created.toLocaleDateString()}{" "}
-                        <span className="text-gray-400">•</span> {createdTime}
+                        <span className="text-gray-400">•</span>{" "}
+                        {createdTime}
                       </td>
-                      <td className="px-3 py-2 text-sm text-gray-900">{roomLabel}</td>
-                      <td className="px-3 py-2 text-sm text-gray-900">{serviceLabel}</td>
+                      <td className="px-3 py-2 text-sm text-gray-900">
+                        {roomLabel}
+                      </td>
+                      <td className="px-3 py-2 text-sm text-gray-900">
+                        {serviceLabel}
+                      </td>
                       <td className="px-3 py-2 text-sm text-gray-900">
                         <button
                           type="button"
@@ -629,7 +783,9 @@ export default function DeskTickets() {
                               <button
                                 type="button"
                                 disabled={isBusy}
-                                onClick={() => runAction(t, "accept")}
+                                onClick={() =>
+                                  runAction(t, "accept")
+                                }
                                 className="rounded-md border border-gray-300 px-2 py-0.5 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                               >
                                 Accept
@@ -637,7 +793,9 @@ export default function DeskTickets() {
                               <button
                                 type="button"
                                 disabled={isBusy}
-                                onClick={() => runAction(t, "start")}
+                                onClick={() =>
+                                  runAction(t, "start")
+                                }
                                 className="rounded-md border border-blue-500 px-2 py-0.5 text-xs text-blue-600 hover:bg-blue-50 disabled:opacity-50"
                               >
                                 Start
@@ -648,7 +806,9 @@ export default function DeskTickets() {
                             <button
                               type="button"
                               disabled={isBusy}
-                              onClick={() => runAction(t, "start")}
+                              onClick={() =>
+                                runAction(t, "start")
+                              }
                               className="rounded-md border border-blue-500 px-2 py-0.5 text-xs text-blue-600 hover:bg-blue-50 disabled:opacity-50"
                             >
                               Start
@@ -659,7 +819,9 @@ export default function DeskTickets() {
                               <button
                                 type="button"
                                 disabled={isBusy}
-                                onClick={() => runAction(t, "pause")}
+                                onClick={() =>
+                                  runAction(t, "pause")
+                                }
                                 className="rounded-md border border-yellow-500 px-2 py-0.5 text-xs text-yellow-700 hover:bg-yellow-50 disabled:opacity-50"
                               >
                                 Pause
@@ -667,7 +829,9 @@ export default function DeskTickets() {
                               <button
                                 type="button"
                                 disabled={isBusy}
-                                onClick={() => runAction(t, "resolve")}
+                                onClick={() =>
+                                  runAction(t, "resolve")
+                                }
                                 className="rounded-md border border-emerald-600 px-2 py-0.5 text-xs text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
                               >
                                 Resolve
@@ -678,7 +842,9 @@ export default function DeskTickets() {
                             <button
                               type="button"
                               disabled={isBusy}
-                              onClick={() => runAction(t, "resume")}
+                              onClick={() =>
+                                runAction(t, "resume")
+                              }
                               className="rounded-md border border-blue-500 px-2 py-0.5 text-xs text-blue-600 hover:bg-blue-50 disabled:opacity-50"
                             >
                               Resume
@@ -688,7 +854,9 @@ export default function DeskTickets() {
                             <button
                               type="button"
                               disabled={isBusy}
-                              onClick={() => runAction(t, "close")}
+                              onClick={() =>
+                                runAction(t, "close")
+                              }
                               className="rounded-md border border-gray-400 px-2 py-0.5 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                             >
                               Close
@@ -700,7 +868,10 @@ export default function DeskTickets() {
                             type="button"
                             disabled={isBusy}
                             onClick={() => {
-                              const id = window.prompt("Assign to user id (Supabase user UUID):");
+                              const id =
+                                window.prompt(
+                                  "Assign to user id (Supabase user UUID):"
+                                );
                               if (!id) return;
                               runAction(t, "reassign", id);
                             }}
@@ -714,7 +885,9 @@ export default function DeskTickets() {
                             <button
                               type="button"
                               disabled={isBusy}
-                              onClick={() => runAction(t, "bumpPriority")}
+                              onClick={() =>
+                                runAction(t, "bumpPriority")
+                              }
                               className="rounded-md border border-pink-500 px-2 py-0.5 text-xs text-pink-600 hover:bg-pink-50 disabled:opacity-50"
                             >
                               Bump
@@ -746,13 +919,21 @@ export default function DeskTickets() {
               </button>
             </div>
 
-            <form className="mt-3 space-y-3" onSubmit={handleCreateTicket}>
+            <form
+              className="mt-3 space-y-3"
+              onSubmit={handleCreateTicket}
+            >
               <label className="block text-xs font-medium text-gray-700">
                 Service
                 <select
                   className="mt-1 w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm"
                   value={newTicket.serviceKey}
-                  onChange={(e) => setNewTicket((t) => ({ ...t, serviceKey: e.target.value }))}
+                  onChange={(e) =>
+                    setNewTicket((t) => ({
+                      ...t,
+                      serviceKey: e.target.value,
+                    }))
+                  }
                 >
                   <option value="">Select a service…</option>
                   {(services ?? []).map((s) => (
@@ -768,7 +949,12 @@ export default function DeskTickets() {
                 <input
                   className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
                   value={newTicket.title}
-                  onChange={(e) => setNewTicket((t) => ({ ...t, title: e.target.value }))}
+                  onChange={(e) =>
+                    setNewTicket((t) => ({
+                      ...t,
+                      title: e.target.value,
+                    }))
+                  }
                   maxLength={200}
                 />
               </label>
@@ -779,7 +965,12 @@ export default function DeskTickets() {
                   className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
                   rows={3}
                   value={newTicket.details}
-                  onChange={(e) => setNewTicket((t) => ({ ...t, details: e.target.value }))}
+                  onChange={(e) =>
+                    setNewTicket((t) => ({
+                      ...t,
+                      details: e.target.value,
+                    }))
+                  }
                 />
               </label>
 
@@ -790,7 +981,10 @@ export default function DeskTickets() {
                     className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
                     value={newTicket.bookingCode}
                     onChange={(e) =>
-                      setNewTicket((t) => ({ ...t, bookingCode: e.target.value }))
+                      setNewTicket((t) => ({
+                        ...t,
+                        bookingCode: e.target.value,
+                      }))
                     }
                     placeholder="e.g. 201 or ABC123"
                   />
@@ -862,7 +1056,10 @@ export default function DeskTickets() {
               <p className="text-xs text-gray-500">
                 ID: {selectedTicket.id}
                 <br />
-                Created at: {new Date(selectedTicket.created_at).toLocaleString()}
+                Created at:{" "}
+                {new Date(
+                  selectedTicket.created_at
+                ).toLocaleString()}
               </p>
               <div className="flex flex-wrap gap-2 pt-1">
                 <StatusBadge status={selectedTicket.status} />
@@ -874,16 +1071,21 @@ export default function DeskTickets() {
                   {selectedTicket.details}
                 </p>
               )}
-              {(selectedTicket.room || selectedTicket.booking_code) && (
+              {(selectedTicket.room ||
+                selectedTicket.booking_code) && (
                 <p className="mt-1 text-xs text-gray-600">
                   Room / Booking:{" "}
                   <span className="font-medium">
-                    {selectedTicket.room || selectedTicket.booking_code}
+                    {selectedTicket.room ||
+                      selectedTicket.booking_code}
                   </span>
                 </p>
               )}
               <p className="mt-1 text-xs text-gray-500">
-                Source: <span className="font-mono">{selectedTicket.source}</span>
+                Source:{" "}
+                <span className="font-mono">
+                  {selectedTicket.source}
+                </span>
               </p>
             </div>
           </div>

@@ -1,11 +1,13 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+// web/src/routes/Desk.tsx
+
+import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   listTickets,
   updateTicket,
   listOrders,
   updateOrder,
-} from '../lib/api';
-import { connectEvents } from '../lib/sse';
+} from "../lib/api";
+import { connectEvents } from "../lib/sse";
 import SEO from "../components/SEO";
 
 type Ticket = {
@@ -13,7 +15,7 @@ type Ticket = {
   service_key: string;
   room: string;
   booking: string;
-  status: 'Requested' | 'Accepted' | 'InProgress' | 'Done';
+  status: "Requested" | "Accepted" | "InProgress" | "Done";
   created_at: string;
   accepted_at?: string;
   started_at?: string;
@@ -21,8 +23,6 @@ type Ticket = {
   sla_minutes: number;
   sla_deadline: string;
 };
-
-<SEO title="Owner Home" noIndex />
 
 type Order = {
   id: string;
@@ -46,7 +46,7 @@ export default function Desk() {
       setTickets(((t as any)?.items || []) as Ticket[]);
       setOrders(((o as any)?.items || []) as Order[]);
     } catch (e: any) {
-      setError(e?.message || 'Failed to load');
+      setError(e?.message || "Failed to load");
     } finally {
       setLoading(false);
     }
@@ -61,32 +61,42 @@ export default function Desk() {
       ticket_created: (e) => {
         const t = (e as any)?.ticket as Ticket;
         if (!t) return;
-        setTickets((prev) => (prev.find((x) => x.id === t.id) ? prev : [t, ...prev]));
+        setTickets((prev) =>
+          prev.find((x) => x.id === t.id) ? prev : [t, ...prev]
+        );
       },
       ticket_updated: (e) => {
         const t = (e as any)?.ticket as Ticket;
         if (!t) return;
-        setTickets((prev) => prev.map((x) => (x.id === t.id ? { ...x, ...t } : x)));
+        setTickets((prev) =>
+          prev.map((x) => (x.id === t.id ? { ...x, ...t } : x))
+        );
       },
 
       // orders
       order_created: (e) => {
         const o = (e as any)?.order as Order;
         if (!o) return;
-        setOrders((prev) => (prev.find((x) => x.id === o.id) ? prev : [o, ...prev]));
+        setOrders((prev) =>
+          prev.find((x) => x.id === o.id) ? prev : [o, ...prev]
+        );
       },
       order_updated: (e) => {
         const o = (e as any)?.order as Order;
         if (!o) return;
-        setOrders((prev) => prev.map((x) => (x.id === o.id ? { ...x, ...o } : x)));
+        setOrders((prev) =>
+          prev.map((x) => (x.id === o.id ? { ...x, ...o } : x))
+        );
       },
     });
 
     return () => off();
   }, [refresh]);
 
-  async function setTicketStatus(id: string, status: Ticket['status']) {
-    setTickets((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)));
+  async function setTicketStatus(id: string, status: Ticket["status"]) {
+    setTickets((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, status } : t))
+    );
     try {
       await updateTicket(id, { status });
     } catch {
@@ -95,7 +105,9 @@ export default function Desk() {
   }
 
   async function setOrderStatus(id: string, status: string) {
-    setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status } : o)));
+    setOrders((prev) =>
+      prev.map((o) => (o.id === id ? { ...o, status } : o))
+    );
     try {
       await updateOrder(id, { status });
     } catch {
@@ -110,52 +122,124 @@ export default function Desk() {
   const orderRows = useMemo(() => orders, [orders]);
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', padding: 24, display: 'grid', gap: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div
+      style={{
+        maxWidth: 1100,
+        margin: "0 auto",
+        padding: 24,
+        display: "grid",
+        gap: 16,
+      }}
+    >
+      <SEO title="Front Desk" />
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
         <h1 style={{ margin: 0 }}>Front Desk</h1>
-        <button className="btn btn-light" onClick={refresh}>Refresh</button>
+        <button className="btn btn-light" onClick={refresh}>
+          Refresh
+        </button>
       </div>
 
-      {error && <div className="card" style={{ borderColor: '#f59e0b' }}>⚠️ {error}</div>}
+      {error && (
+        <div className="card" style={{ borderColor: "#f59e0b" }}>
+          ⚠️ {error}
+        </div>
+      )}
       {loading && <div>Loading…</div>}
 
-      <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <section
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 16,
+        }}
+      >
         {/* Housekeeping */}
         <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
             <h3 style={{ margin: 0 }}>Housekeeping</h3>
-            <button className="link" onClick={refresh}>Refresh</button>
+            <button className="link" onClick={refresh}>
+              Refresh
+            </button>
           </div>
-          {hkEmpty && <div style={{ marginTop: 8, color: 'var(--muted)' }}>No open HK requests.</div>}
-          <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
+          {hkEmpty && (
+            <div style={{ marginTop: 8, color: "var(--muted)" }}>
+              No open HK requests.
+            </div>
+          )}
+          <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
             {ticketRows.map((t) => (
-              <div key={t.id} className="card" style={{ background: 'transparent' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+              <div
+                key={t.id}
+                className="card"
+                style={{ background: "transparent" }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 8,
+                  }}
+                >
                   <div>
                     <div style={{ fontWeight: 700 }}>
-                      {t.service_key.replace(/_/g, ' ')} • Room {t.room}
+                      {t.service_key.replace(/_/g, " ")} • Room {t.room}
                     </div>
-                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                      Booking: {t.booking} · SLA: {t.sla_minutes}m · Created{' '}
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "var(--muted)",
+                      }}
+                    >
+                      Booking: {t.booking} · SLA: {t.sla_minutes}m · Created{" "}
                       {new Date(t.created_at).toLocaleTimeString()}
                     </div>
                   </div>
                   <span className="badge">{t.status}</span>
                 </div>
 
-                <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-                  {t.status === 'Requested' && (
-                    <button className="btn btn-light" onClick={() => setTicketStatus(t.id, 'Accepted')}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    marginTop: 8,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  {t.status === "Requested" && (
+                    <button
+                      className="btn btn-light"
+                      onClick={() => setTicketStatus(t.id, "Accepted")}
+                    >
                       Accept
                     </button>
                   )}
-                  {(t.status === 'Requested' || t.status === 'Accepted') && (
-                    <button className="btn btn-light" onClick={() => setTicketStatus(t.id, 'InProgress')}>
+                  {(t.status === "Requested" ||
+                    t.status === "Accepted") && (
+                    <button
+                      className="btn btn-light"
+                      onClick={() => setTicketStatus(t.id, "InProgress")}
+                    >
                       Start
                     </button>
                   )}
-                  {t.status !== 'Done' && (
-                    <button className="btn" onClick={() => setTicketStatus(t.id, 'Done')}>
+                  {t.status !== "Done" && (
+                    <button
+                      className="btn"
+                      onClick={() => setTicketStatus(t.id, "Done")}
+                    >
                       Mark Done
                     </button>
                   )}
@@ -167,39 +251,83 @@ export default function Desk() {
 
         {/* Kitchen Orders */}
         <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
             <h3 style={{ margin: 0 }}>Kitchen Orders</h3>
-            <button className="link" onClick={refresh}>Refresh</button>
+            <button className="link" onClick={refresh}>
+              Refresh
+            </button>
           </div>
-          {ordersEmpty && <div style={{ marginTop: 8, color: 'var(--muted)' }}>No active orders.</div>}
-          <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
+          {ordersEmpty && (
+            <div style={{ marginTop: 8, color: "var(--muted)" }}>
+              No active orders.
+            </div>
+          )}
+          <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
             {orderRows.map((o) => (
-              <div key={o.id} className="card" style={{ background: 'transparent' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+              <div
+                key={o.id}
+                className="card"
+                style={{ background: "transparent" }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 8,
+                  }}
+                >
                   <div>
                     <div style={{ fontWeight: 700 }}>
-                      Order #{o.id} • Room {o.room || '—'}
+                      Order #{o.id} • Room {o.room || "—"}
                     </div>
-                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                      {new Date(o.created_at).toLocaleTimeString()} · {o.items?.length || 0} item(s)
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "var(--muted)",
+                      }}
+                    >
+                      {new Date(o.created_at).toLocaleTimeString()} ·{" "}
+                      {o.items?.length || 0} item(s)
                     </div>
                   </div>
                   <span className="badge">{o.status}</span>
                 </div>
 
-                <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-                  {o.status === 'Placed' && (
-                    <button className="btn btn-light" onClick={() => setOrderStatus(o.id, 'Preparing')}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    marginTop: 8,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  {o.status === "Placed" && (
+                    <button
+                      className="btn btn-light"
+                      onClick={() => setOrderStatus(o.id, "Preparing")}
+                    >
                       Preparing
                     </button>
                   )}
-                  {o.status === 'Preparing' && (
-                    <button className="btn btn-light" onClick={() => setOrderStatus(o.id, 'Ready')}>
+                  {o.status === "Preparing" && (
+                    <button
+                      className="btn btn-light"
+                      onClick={() => setOrderStatus(o.id, "Ready")}
+                    >
                       Ready
                     </button>
                   )}
-                  {o.status !== 'Delivered' && (
-                    <button className="btn" onClick={() => setOrderStatus(o.id, 'Delivered')}>
+                  {o.status !== "Delivered" && (
+                    <button
+                      className="btn"
+                      onClick={() => setOrderStatus(o.id, "Delivered")}
+                    >
                       Delivered
                     </button>
                   )}

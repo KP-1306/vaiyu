@@ -54,7 +54,10 @@ export default function UsageMeter({ hotelId }: { hotelId?: string }) {
         )}
       </div>
 
-      <div className="h-2 w-full rounded bg-gray-200 overflow-hidden" aria-label="AI token usage">
+      <div
+        className="h-2 w-full rounded bg-gray-200 overflow-hidden"
+        aria-label="AI token usage"
+      >
         <div
           className="h-full bg-blue-600"
           style={{ width: `${pct}%` }}
@@ -66,7 +69,9 @@ export default function UsageMeter({ hotelId }: { hotelId?: string }) {
       </div>
 
       <div className="mt-2 text-sm text-gray-700">
-        {loading ? "Loading…" : `${used.toLocaleString()} / ${budget.toLocaleString()} tokens (${pct}%)`}
+        {loading
+          ? "Loading…"
+          : `${used.toLocaleString()} / ${budget.toLocaleString()} tokens (${pct}%)`}
       </div>
 
       {err && (

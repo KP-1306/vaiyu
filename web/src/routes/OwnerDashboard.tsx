@@ -1119,3 +1119,6 @@ function ageMin(iso: string) {
   const ms = Date.now() - new Date(iso).getTime();
   return Math.max(0, Math.round(ms / 60000));
 }
+``` :contentReference[oaicite:0]{index=0}
+
+If you paste this over your existing `OwnerDashboard.tsx`, it should line up with the Desk/UsageMeter/Realtime work we already did and keep all existing behavior intact.

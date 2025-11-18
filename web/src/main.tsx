@@ -373,6 +373,15 @@ const router = createBrowserRouter([
           </AuthGate>
         ),
       },
+      // NEW: fix 404 for /owner/TENANT1/settings
+      {
+        path: "owner/:slug/settings",
+        element: (
+          <AuthGate>
+            <OwnerSettings />
+          </AuthGate>
+        ),
+      },
       {
         path: "owner/services",
         element: (

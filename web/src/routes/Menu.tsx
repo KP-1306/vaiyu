@@ -16,9 +16,14 @@ export default function Menu() {
   // booking code from route: /stay/:code/menu  (fallback to DEMO)
   const { code = "DEMO" } = useParams();
 
-  // hotelSlug from query: /menu?hotelSlug=TENANT1 (WhatsApp / microsite use-case)
+  // hotelSlug from query:
+  // - /menu?hotelSlug=TENANT1 (old links)
+  // - /menu?hotel=TENANT1      (from Scan page, WhatsApp / microsite use-case)
   const [searchParams] = useSearchParams();
-  const hotelSlugFromQuery = searchParams.get("hotelSlug") || undefined;
+  const hotelSlugFromQuery =
+    searchParams.get("hotelSlug") ||
+    searchParams.get("hotel") ||
+    undefined;
 
   const [tab, setTab] = useState<"food" | "services">("services");
   const [services, setServices] = useState<Service[]>([]);
@@ -27,7 +32,7 @@ export default function Menu() {
   const [err, setErr] = useState<string | null>(null);
 
   // Room picker + tiny toast
-  const roomKey = useMemo(() => `room:${code}`, [code]);
+  const roomKey = useMemo(() => room:${code}, [code]);
   const [room, setRoom] = useState<string>(
     () => localStorage.getItem(roomKey) || "201"
   );
@@ -41,7 +46,7 @@ export default function Menu() {
 
     (async () => {
       try {
-        // Pass hotelSlugFromQuery so WhatsApp / microsite links see the *right* hotel's menu
+        // Pass hotelSlugFromQuery so WhatsApp / microsite links see the right hotel's menu
         const [svc, menu] = await Promise.all([
           getServices(hotelSlugFromQuery),
           getMenu(hotelSlugFromQuery),
@@ -84,7 +89,7 @@ export default function Menu() {
   }
 
   async function requestService(service_key: string) {
-    setBusy(`svc:${service_key}`);
+    setBusy(svc:${service_key});
     try {
       // Send both keys for compatibility (backend/demo may expect either)
       const payload: any = {
@@ -122,7 +127,7 @@ export default function Menu() {
   }
 
   async function addFood(item_key: string) {
-    setBusy(`food:${item_key}`);
+    setBusy(food:${item_key});
     try {
       const res: any = await createOrder({
         item_key,
@@ -219,14 +224,14 @@ export default function Menu() {
                 </div>
                 <button
                   onClick={() => requestService(it.key)}
-                  disabled={busy === `svc:${it.key}`}
+                  disabled={busy === svc:${it.key}}
                   className={`px-3 py-2 rounded text-white ${
-                    busy === `svc:${it.key}`
+                    busy === svc:${it.key}
                       ? "bg-sky-300"
                       : "bg-sky-600 hover:bg-sky-700"
                   }`}
                 >
-                  {busy === `svc:${it.key}` ? "Requesting…" : "Request"}
+                  {busy === svc:${it.key} ? "Requesting…" : "Request"}
                 </button>
               </li>
             ))}
@@ -254,14 +259,14 @@ export default function Menu() {
                 </div>
                 <button
                   onClick={() => addFood(it.item_key)}
-                  disabled={busy === `food:${it.item_key}`}
+                  disabled={busy === food:${it.item_key}}
                   className={`px-3 py-2 rounded text-white ${
-                    busy === `food:${it.item_key}`
+                    busy === food:${it.item_key}
                       ? "bg-sky-300"
                       : "bg-sky-600 hover:bg-sky-700"
                   }`}
                 >
-                  {busy === `food:${it.item_key}` ? "Adding…" : "Add"}
+                  {busy === food:${it.item_key} ? "Adding…" : "Add"}
                 </button>
               </li>
             ))}

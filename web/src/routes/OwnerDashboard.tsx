@@ -5,7 +5,7 @@
 // • If slug is invalid, shows AccessHelp (no endless spinner) and passes no bogus slug.
 // • "Request Access" will include the REAL slug only when valid.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useSearchParams, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Spinner from "../components/Spinner";
@@ -113,7 +113,7 @@ export default function OwnerDashboard() {
   const rawSlug = paramsHook.slug;
   const slug = normalizeSlug(rawSlug);
 
-  // NEW: subscribe to tickets for this property and keep KPIs refreshed
+  // ✅ Subscribe to tickets for this property and keep KPIs refreshed
   useTicketsRealtime(slug);
 
   const [params] = useSearchParams();
@@ -185,6 +185,7 @@ export default function OwnerDashboard() {
 
       // 2) Ops lists (non-blocking)
       try {
+        const nowIso = new Date().toISOString();
         const [{ data: arr }, { data: inh }, { data: dep }] = await Promise.all([
           supabase
             .from("stays")
@@ -197,8 +198,8 @@ export default function OwnerDashboard() {
             .from("stays")
             .select("id,guest_id,check_in_start,check_out_end,status,room")
             .eq("hotel_id", hotelId)
-            .lte("check_in_start", new Date().toISOString())
-            .gte("check_out_end", new Date().toISOString())
+            .lte("check_in_start", nowIso)
+            .gte("check_out_end", nowIso)
             .order("check_out_end", { ascending: true }),
           supabase
             .from("stays")
@@ -299,10 +300,9 @@ export default function OwnerDashboard() {
           setStaffPerf(null);
         }
         try {
-          const { data } = await supabase.rpc(
-            "hrms_snapshot_for_slug",
-            { p_slug: slug }
-          );
+          const { data } = await supabase.rpc("hrms_snapshot_for_slug", {
+            p_slug: slug,
+          });
           if (alive) setHrms((data && data[0]) ?? null);
         } catch {
           setHrms(null);
@@ -328,7 +328,7 @@ export default function OwnerDashboard() {
   }
   if (accessProblem) {
     return (
-      <main className="max-w-3xl mx_auto p-6">
+      <main className="max-w-3xl mx-auto p-6">
         <BackHome />
         {/* pass only the sanitized slug so we never forward ':slug' */}
         <AccessHelp
@@ -343,9 +343,7 @@ export default function OwnerDashboard() {
     return (
       <main className="min-h-[60vh] grid place-items-center">
         <div className="rounded-xl border p-6 text-center">
-          <div className="text-lg font-medium mb-2">
-            No property to show
-          </div>
+          <div className="text-lg font-medium mb-2">No property to show</div>
           <p className="text-sm text-gray-600">
             Open your property from the Owner Home.
           </p>
@@ -380,29 +378,21 @@ export default function OwnerDashboard() {
         <div>
           <h1 className="text-2xl font-semibold">{hotel.name}</h1>
           {hotel.city ? (
-            <p className="text-sm text-muted-foreground">
-              {hotel.city}
-            </p>
+            <p className="text-sm text-muted-foreground">{hotel.city}</p>
           ) : null}
           <p className="text-xs text-muted-foreground mt-1">
-            Your daily control room: see what needs attention, who’s
-            shining, and how to boost tonight’s revenue.
+            Your daily control room: see what needs attention, who’s shining,
+            and how to boost tonight’s revenue.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link
-            to={`/owner/${hotel.slug}/pricing`}
-            className="btn btn-light"
-          >
+          <Link to={`/owner/${hotel.slug}/pricing`} className="btn btn-light">
             Open pricing
           </Link>
           <Link to={`/owner/${hotel.slug}/hrms`} className="btn">
             HRMS
           </Link>
-          <Link
-            to={`/owner/${hotel.slug}/settings`}
-            className="btn btn-light"
-          >
+          <Link to={`/owner/${hotel.slug}/settings`} className="btn btn-light">
             Settings
           </Link>
         </div>
@@ -463,10 +453,7 @@ export default function OwnerDashboard() {
 
       {/* Live ops */}
       <section className="grid gap-4 lg:grid-cols-3 mb-6">
-        <SlaCard
-          targetMin={slaTargetMin ?? 20}
-          orders={liveOrders}
-        />
+        <SlaCard targetMin={slaTargetMin ?? 20} orders={liveOrders} />
         <LiveOrdersPanel
           orders={liveOrders}
           targetMin={slaTargetMin ?? 20}
@@ -480,7 +467,7 @@ export default function OwnerDashboard() {
         <HrmsPanel data={hrms} slug={hotel.slug} />
       </section>
 
-      {/* AI helper usage (NEW, using existing UsageMeter component) */}
+      {/* AI helper usage (UsageMeter) */}
       <section className="mb-6">
         <SectionHeader
           title="AI helper usage"
@@ -497,10 +484,7 @@ export default function OwnerDashboard() {
             desc="See pacing vs target; add offers on soft nights."
           />
         </div>
-        <HousekeepingProgress
-          slug={hotel.slug}
-          readyPct={Math.min(occPct, 100)}
-        />
+        <HousekeepingProgress slug={hotel.slug} readyPct={Math.min(occPct, 100)} />
       </section>
 
       {/* Arrivals / In-house / Departures */}
@@ -529,9 +513,7 @@ export default function OwnerDashboard() {
       <footer className="mt-8">
         <div className="rounded-2xl border p-4 flex items-center justify-between bg-white">
           <div>
-            <div className="font-medium">
-              Need help or want to improve results?
-            </div>
+            <div className="font-medium">Need help or want to improve results?</div>
             <div className="text-sm text-muted-foreground">
               Our team can review your numbers and suggest quick wins.
             </div>
@@ -556,15 +538,13 @@ function SectionHeader({
 }: {
   title: string;
   desc?: string;
-  action?: React.ReactNode;
+  action?: ReactNode;
 }) {
   return (
     <div className="flex items-start justify-between gap-4 mb-3">
       <div>
         <h2 className="text-lg font-semibold">{title}</h2>
-        {desc && (
-          <p className="text-sm text-muted-foreground">{desc}</p>
-        )}
+        {desc && <p className="text-sm text-muted-foreground">{desc}</p>}
       </div>
       {action}
     </div>
@@ -586,15 +566,10 @@ function KpiRow({
   return (
     <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {items.map((k) => (
-        <div
-          key={k.label}
-          className="rounded-xl border bg-white p-4"
-        >
+        <div key={k.label} className="rounded-xl border bg-white p-4">
           <div className="flex items-start justify-between">
             <div>
-              <div className="text-sm text-muted-foreground">
-                {k.label}
-              </div>
+              <div className="text-sm text-muted-foreground">{k.label}</div>
               <div className="text-2xl font-semibold mt-1 flex items-center gap-2">
                 <span>{k.value}</span>
                 {k.tone && (
@@ -692,9 +667,7 @@ function SlaCard({
   orders: LiveOrder[];
 }) {
   const total = orders.length;
-  const onTime = orders.filter(
-    (o) => ageMin(o.created_at) <= targetMin
-  ).length;
+  const onTime = orders.filter((o) => ageMin(o.created_at) <= targetMin).length;
   const pct = total ? Math.round((onTime / total) * 100) : 100;
   const tone = slaTone(pct);
   return (
@@ -732,9 +705,7 @@ function LiveOrdersPanel({
   className?: string;
 }) {
   return (
-    <div
-      className={`rounded-xl border bg-white p-4 ${className}`}
-    >
+    <div className={`rounded-xl border bg-white p-4 ${className}`}>
       <SectionHeader
         title="Live requests & orders"
         desc="What guests are asking for right now — jump in or assign to staff."
@@ -746,8 +717,8 @@ function LiveOrdersPanel({
       />
       {orders.length === 0 ? (
         <div className="text-sm text-muted-foreground">
-          No live requests right now — we’ll pop them here the
-          moment something arrives.
+          No live requests right now — we’ll pop them here the moment something
+          arrives.
         </div>
       ) : (
         <ul className="divide-y">
@@ -760,9 +731,7 @@ function LiveOrdersPanel({
                 className="py-2 flex items-center justify-between"
               >
                 <div>
-                  <div className="text-sm">
-                    #{o.id.slice(0, 8)} · {o.status}
-                  </div>
+                  <div className="text-sm">#{o.id.slice(0, 8)} · {o.status}</div>
                   <div className="text-xs text-muted-foreground">
                     Age: {mins} min
                   </div>
@@ -780,11 +749,7 @@ function LiveOrdersPanel({
   );
 }
 
-function StaffPerformancePanel({
-  data,
-}: {
-  data: StaffPerf[] | null;
-}) {
+function StaffPerformancePanel({ data }: { data: StaffPerf[] | null }) {
   return (
     <div className="rounded-xl border bg-white p-4">
       <SectionHeader
@@ -793,8 +758,8 @@ function StaffPerformancePanel({
       />
       {!data || data.length === 0 ? (
         <div className="text-sm text-muted-foreground">
-          We need a bit more activity to rank fairly — check back
-          after a few days.
+          We need a bit more activity to rank fairly — check back after a few
+          days.
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -812,15 +777,9 @@ function StaffPerformancePanel({
               {data.map((r) => (
                 <tr key={r.name} className="border-t">
                   <td className="py-1 pr-3">{r.name}</td>
-                  <td className="py-1 pr-3">
-                    {r.orders_served ?? "—"}
-                  </td>
-                  <td className="py-1 pr-3">
-                    {r.avg_rating_30d ?? "—"}
-                  </td>
-                  <td className="py-1 pr-3">
-                    {r.avg_completion_min ?? "—"}
-                  </td>
+                  <td className="py-1 pr-3">{r.orders_served ?? "—"}</td>
+                  <td className="py-1 pr-3">{r.avg_rating_30d ?? "—"}</td>
+                  <td className="py-1 pr-3">{r.avg_completion_min ?? "—"}</td>
                   <td className="py-1 pr-3 font-medium">
                     {r.performance_score ?? "—"}
                   </td>
@@ -834,13 +793,7 @@ function StaffPerformancePanel({
   );
 }
 
-function HrmsPanel({
-  data,
-  slug,
-}: {
-  data: HrmsSnapshot | null;
-  slug: string;
-}) {
+function HrmsPanel({ data, slug }: { data: HrmsSnapshot | null; slug: string }) {
   if (!data) {
     return (
       <div className="rounded-xl border bg-white p-4">
@@ -848,17 +801,14 @@ function HrmsPanel({
           title="Attendance snapshot"
           desc="Presence pattern over the last 30 days — spot gaps early."
           action={
-            <Link
-              to={`/owner/${slug}/hrms`}
-              className="text-sm underline"
-            >
+            <Link to={`/owner/${slug}/hrms`} className="text-sm underline">
               Open HRMS
             </Link>
           }
         />
         <div className="text-sm text-muted-foreground">
-          Not connected to HR yet. We’re using activity-based
-          presence as a proxy.
+          Not connected to HR yet. We’re using activity-based presence as a
+          proxy.
         </div>
       </div>
     );
@@ -891,30 +841,17 @@ function HrmsPanel({
         <Metric label="Present today" value={present_today} />
         <Metric label="Late today" value={late_today} />
         <Metric label="Absent today" value={absent_today} />
-        <Metric
-          label="Attendance %"
-          value={`${attendance_pct_today}%`}
-        />
-        <Metric
-          label="Absence days (7d)"
-          value={absences_7d}
-        />
+        <Metric label="Attendance %" value={`${attendance_pct_today}%`} />
+        <Metric label="Absence days (7d)" value={absences_7d} />
       </div>
       <div className="text-xs text-muted-foreground mt-2">
-        {staff_with_absence_7d} staff had at least one absence in 7
-        days.
+        {staff_with_absence_7d} staff had at least one absence in 7 days.
       </div>
     </div>
   );
 }
 
-function Metric({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | number;
-}) {
+function Metric({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="rounded-lg border p-3 bg-gray-50">
       <div className="text-xs text-muted-foreground">{label}</div>
@@ -923,25 +860,16 @@ function Metric({
   );
 }
 
-function OccupancyHeatmap({
-  title,
-  desc,
-}: {
-  title: string;
-  desc?: string;
-}) {
-  const weeks = 6,
-    days = 7;
+function OccupancyHeatmap({ title, desc }: { title: string; desc?: string }) {
+  const weeks = 6;
+  const days = 7;
   return (
     <div className="rounded-xl border bg-white p-4">
       <SectionHeader
         title={title}
         desc={desc}
         action={
-          <Link
-            to="../bookings/calendar"
-            className="text-sm underline"
-          >
+          <Link to="../bookings/calendar" className="text-sm underline">
             Open calendar
           </Link>
         }
@@ -978,10 +906,7 @@ function HousekeepingProgress({
         title="Room readiness"
         desc="How many rooms are ready for check-in — and what’s blocking the rest."
         action={
-          <Link
-            to={`/owner/${slug}/housekeeping`}
-            className="text-sm underline"
-          >
+          <Link to={`/owner/${slug}/housekeeping`} className="text-sm underline">
             Open HK
           </Link>
         }
@@ -1014,26 +939,18 @@ function Board({
     <div className="rounded-xl border bg-white p-4">
       <SectionHeader title={title} desc={desc} />
       {items.length === 0 ? (
-        <div className="text-sm text-muted-foreground">
-          {empty}
-        </div>
+        <div className="text-sm text-muted-foreground">{empty}</div>
       ) : (
         <ul className="space-y-2">
           {items.map((s) => (
-            <li
-              key={s.id}
-              className="rounded-lg border p-3 text-sm"
-            >
+            <li key={s.id} className="rounded-lg border p-3 text-sm">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="font-medium">
-                    {s.room
-                      ? `Room ${s.room}`
-                      : "Unassigned room"}
+                    {s.room ? `Room ${s.room}` : "Unassigned room"}
                   </div>
                   <div className="text-muted-foreground text-xs">
-                    {fmt(s.check_in_start)} →{" "}
-                    {fmt(s.check_out_end)}
+                    {fmt(s.check_in_start)} → {fmt(s.check_out_end)}
                   </div>
                 </div>
                 <div className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -1060,9 +977,7 @@ function AccessHelp({
   const hasValidSlug = !!normalizeSlug(slug);
   return (
     <div className="rounded-2xl border p-6 bg-amber-50">
-      <div className="text-lg font-semibold mb-1">
-        Property access needed
-      </div>
+      <div className="text-lg font-semibold mb-1">Property access needed</div>
       <p className="text-sm text-amber-900 mb-4">{message}</p>
       <div className="flex flex-wrap gap-2">
         {hasValidSlug ? (
@@ -1081,9 +996,7 @@ function AccessHelp({
         </Link>
         {inviteToken ? (
           <Link
-            to={`/invite/accept?code=${encodeURIComponent(
-              inviteToken
-            )}`}
+            to={`/invite/accept?code=${encodeURIComponent(inviteToken)}`}
             className="btn btn-light"
           >
             Accept via Code
@@ -1091,8 +1004,8 @@ function AccessHelp({
         ) : null}
       </div>
       <p className="text-xs text-amber-900 mt-3">
-        Tip: If you received an email invite, open it on this device
-        so we can auto-fill your invite code.
+        Tip: If you received an email invite, open it on this device so we can
+        auto-fill your invite code.
       </p>
     </div>
   );
@@ -1119,6 +1032,3 @@ function ageMin(iso: string) {
   const ms = Date.now() - new Date(iso).getTime();
   return Math.max(0, Math.round(ms / 60000));
 }
-``` :contentReference[oaicite:0]{index=0}
-
-If you paste this over your existing `OwnerDashboard.tsx`, it should line up with the Desk/UsageMeter/Realtime work we already did and keep all existing behavior intact.

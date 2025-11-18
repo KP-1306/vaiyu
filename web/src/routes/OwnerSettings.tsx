@@ -1,12 +1,12 @@
 // web/src/routes/OwnerSettings.tsx
 
 import { useEffect, useMemo, useState, useCallback } from "react";
+import { useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import OwnerGate from "../components/OwnerGate"; // if you gate the page; otherwise remove
 import SEO from "../components/SEO";
 import UsageMeter from "../components/UsageMeter";
-
-const API = import.meta.env.VITE_API_URL as string;
+import { API } from "../lib/api";
 
 // -------- Types --------
 type Theme = { brand?: string; mode?: "light" | "dark" };
@@ -52,10 +52,16 @@ function fromCsv(s: string) {
 
 // -------- Page --------
 export default function OwnerSettings() {
-  // which hotel to edit
-  const [slug, setSlug] = useState<string>(
-    () => new URLSearchParams(location.search).get("slug") || "TENANT1"
-  );
+  const params = useParams<{ slug?: string }>();
+
+  // which hotel to edit (supports both ?slug= and /owner/:slug/settings)
+  const [slug, setSlug] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const spSlug = new URLSearchParams(window.location.search).get("slug");
+      if (spSlug) return spSlug;
+    }
+    return params.slug || "TENANT1";
+  });
 
   // hotel + services state
   const [hotel, setHotel] = useState<Hotel | null>(null);
@@ -68,9 +74,8 @@ export default function OwnerSettings() {
   const [err, setErr] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
-  // forward the current Supabase session
+  // forward the current Supabase session (best-effort)
   const sessionHeaders = useMemo(() => {
-    // supabase-js v2: getSession() is async; we’ll also try the internal accessor for SSR-less apps
     const token = (supabase as any)?.auth?.session?.()?.access_token;
     return token ? { Authorization: `Bearer ${token}` } : {};
   }, []);
@@ -83,12 +88,16 @@ export default function OwnerSettings() {
       const r = await fetch(
         `${API}/owner-settings?slug=${encodeURIComponent(slug)}`,
         {
-          headers: { "content-type": "application/json", ...sessionHeaders },
-        }
+          headers: {
+            "content-type": "application/json",
+            ...sessionHeaders,
+          },
+        },
       );
       const data = await r.json();
-      if (!r.ok || !data?.ok)
+      if (!r.ok || !data?.ok) {
         throw new Error(data?.error || "Failed to load settings");
+      }
 
       const h: Hotel = data.hotel;
       const svcs: Service[] = data.services || [];
@@ -125,14 +134,13 @@ export default function OwnerSettings() {
     load();
   }, [load]);
 
-  // --- Guest menu / scan share URL + WhatsApp text (UPDATED to use /scan) ---
+  // --- Guest menu / scan share URL + WhatsApp text (uses /scan) ---
   const shareUrl = useMemo(() => {
     if (!hotel?.slug) return "";
     const origin =
       typeof window !== "undefined" && window.location?.origin
         ? window.location.origin
         : "https://vaiyu.co.in";
-    // Use the Scan route so guests see the nice "Open web menu / WhatsApp" screen
     return `${origin}/scan?hotel=${encodeURIComponent(hotel.slug)}`;
   }, [hotel?.slug]);
 
@@ -151,17 +159,17 @@ export default function OwnerSettings() {
   }
   function patchTheme<K extends keyof Theme>(key: K, val: Theme[K]) {
     setHotel((p) =>
-      p ? { ...p, theme: { ...(p.theme || {}), [key]: val } } : p
+      p ? { ...p, theme: { ...(p.theme || {}), [key]: val } } : p,
     );
   }
   function patchPolicy<K extends keyof ReviewsPolicy>(
     key: K,
-    val: ReviewsPolicy[K]
+    val: ReviewsPolicy[K],
   ) {
     setHotel((p) =>
       p
         ? { ...p, reviews_policy: { ...(p.reviews_policy || {}), [key]: val } }
-        : p
+        : p,
     );
   }
   function updateService(idx: number, patch: Partial<Service>) {
@@ -198,7 +206,7 @@ export default function OwnerSettings() {
             mode: hotel.reviews_policy?.mode || "preview",
             min_activity: Number(hotel.reviews_policy?.min_activity ?? 1),
             block_if_late_exceeds: Number(
-              hotel.reviews_policy?.block_if_late_exceeds ?? 0
+              hotel.reviews_policy?.block_if_late_exceeds ?? 0,
             ),
             require_consent: !!hotel.reviews_policy?.require_consent,
           },
@@ -218,12 +226,17 @@ export default function OwnerSettings() {
         `${API}/owner-settings?slug=${encodeURIComponent(slug)}`,
         {
           method: "POST",
-          headers: { "content-type": "application/json", ...sessionHeaders },
+          headers: {
+            "content-type": "application/json",
+            ...sessionHeaders,
+          },
           body: JSON.stringify(body),
-        }
+        },
       );
       const data = await r.json();
-      if (!r.ok || !data?.ok) throw new Error(data?.error || "Failed to save");
+      if (!r.ok || !data?.ok) {
+        throw new Error(data?.error || "Failed to save");
+      }
       setOk("Saved successfully.");
       await load();
     } catch (e: any) {
@@ -295,7 +308,9 @@ export default function OwnerSettings() {
                     <input
                       className="mt-1 input w-full"
                       value={hotel.name}
-                      onChange={(e) => patchHotel("name", e.target.value)}
+                      onChange={(e) =>
+                        patchHotel("name", e.target.value)
+                      }
                     />
                   </label>
                   <label className="text-sm">
@@ -321,7 +336,9 @@ export default function OwnerSettings() {
                     <input
                       className="mt-1 input w-full"
                       value={hotel.address || ""}
-                      onChange={(e) => patchHotel("address", e.target.value)}
+                      onChange={(e) =>
+                        patchHotel("address", e.target.value)
+                      }
                     />
                   </label>
                   <label className="text-sm">
@@ -329,7 +346,9 @@ export default function OwnerSettings() {
                     <input
                       className="mt-1 input w-full"
                       value={hotel.phone || ""}
-                      onChange={(e) => patchHotel("phone", e.target.value)}
+                      onChange={(e) =>
+                        patchHotel("phone", e.target.value)
+                      }
                     />
                   </label>
                   <label className="text-sm">
@@ -337,7 +356,9 @@ export default function OwnerSettings() {
                     <input
                       className="mt-1 input w-full"
                       value={hotel.email || ""}
-                      onChange={(e) => patchHotel("email", e.target.value)}
+                      onChange={(e) =>
+                        patchHotel("email", e.target.value)
+                      }
                     />
                   </label>
                   <label className="text-sm md:col-span-2">
@@ -345,7 +366,9 @@ export default function OwnerSettings() {
                     <input
                       className="mt-1 input w-full"
                       value={hotel.logo_url || ""}
-                      onChange={(e) => patchHotel("logo_url", e.target.value)}
+                      onChange={(e) =>
+                        patchHotel("logo_url", e.target.value)
+                      }
                     />
                   </label>
                 </div>
@@ -357,7 +380,9 @@ export default function OwnerSettings() {
                       type="color"
                       className="mt-1 border rounded w-28 h-10"
                       value={hotel.theme?.brand || "#145AF2"}
-                      onChange={(e) => patchTheme("brand", e.target.value)}
+                      onChange={(e) =>
+                        patchTheme("brand", e.target.value)
+                      }
                     />
                   </label>
                   <label className="text-sm">
@@ -381,7 +406,9 @@ export default function OwnerSettings() {
                     <input
                       className="mt-1 input w-full"
                       value={amenitiesCsv}
-                      onChange={(e) => setAmenitiesCsv(e.target.value)}
+                      onChange={(e) =>
+                        setAmenitiesCsv(e.target.value)
+                      }
                       placeholder="WiFi, Parking, Breakfast"
                     />
                   </label>
@@ -390,7 +417,9 @@ export default function OwnerSettings() {
 
               {/* Reviews Policy */}
               <section className="bg-white rounded shadow p-4 space-y-3">
-                <div className="font-semibold">Reviews / Experience Policy</div>
+                <div className="font-semibold">
+                  Reviews / Experience Policy
+                </div>
                 <div className="grid md:grid-cols-2 gap-3">
                   <label className="text-sm">
                     Mode
@@ -400,12 +429,14 @@ export default function OwnerSettings() {
                       onChange={(e) =>
                         patchPolicy(
                           "mode",
-                          e.target.value as ReviewsPolicy["mode"]
+                          e.target.value as ReviewsPolicy["mode"],
                         )
                       }
                     >
                       <option value="off">Off — never generate</option>
-                      <option value="preview">Preview — draft for guest</option>
+                      <option value="preview">
+                        Preview — draft for guest
+                      </option>
                       <option value="auto">
                         Auto — publish at checkout (respect rules)
                       </option>
@@ -415,11 +446,13 @@ export default function OwnerSettings() {
                     Require consent
                     <select
                       className="mt-1 select w-full"
-                      value={String(!!hotel.reviews_policy?.require_consent)}
+                      value={String(
+                        !!hotel.reviews_policy?.require_consent,
+                      )}
                       onChange={(e) =>
                         patchPolicy(
                           "require_consent",
-                          e.target.value === "true"
+                          e.target.value === "true",
                         )
                       }
                     >
@@ -433,9 +466,14 @@ export default function OwnerSettings() {
                       type="number"
                       min={0}
                       className="mt-1 input w-full"
-                      value={Number(hotel.reviews_policy?.min_activity ?? 1)}
+                      value={Number(
+                        hotel.reviews_policy?.min_activity ?? 1,
+                      )}
                       onChange={(e) =>
-                        patchPolicy("min_activity", Number(e.target.value))
+                        patchPolicy(
+                          "min_activity",
+                          Number(e.target.value),
+                        )
                       }
                     />
                   </label>
@@ -446,34 +484,41 @@ export default function OwnerSettings() {
                       min={0}
                       className="mt-1 input w-full"
                       value={Number(
-                        hotel.reviews_policy?.block_if_late_exceeds ?? 0
+                        hotel.reviews_policy
+                          ?.block_if_late_exceeds ?? 0,
                       )}
                       onChange={(e) =>
                         patchPolicy(
                           "block_if_late_exceeds",
-                          Number(e.target.value)
+                          Number(e.target.value),
                         )
                       }
                     />
                   </label>
                 </div>
                 <p className="text-xs text-gray-600">
-                  <b>Preview</b> shows an AI draft the guest can edit/approve.{" "}
-                  <b>Auto</b> can publish at checkout, but will be blocked if
-                  consent is required or thresholds aren’t met.
+                  <b>Preview</b> shows an AI draft the guest can
+                  edit/approve. <b>Auto</b> can publish at checkout, but
+                  will be blocked if consent is required or thresholds
+                  aren’t met.
                 </p>
               </section>
 
               {/* Microsite Preview */}
               <section className="bg-white rounded shadow p-4 space-y-2">
-                <div className="text-sm text-gray-600">Microsite preview</div>
+                <div className="text-sm text-gray-600">
+                  Microsite preview
+                </div>
                 <div style={themePreviewStyle}>
-                  <div className="text-xs opacity-90">Property microsite</div>
+                  <div className="text-xs opacity-90">
+                    Property microsite
+                  </div>
                   <div className="text-xl font-semibold">
                     {hotel.name || "Hotel"}
                   </div>
                   <div className="text-sm opacity-90">
-                    {hotel.address || "Address"} • {hotel.phone || "Phone"}
+                    {hotel.address || "Address"} •{" "}
+                    {hotel.phone || "Phone"}
                   </div>
                 </div>
               </section>
@@ -481,11 +526,13 @@ export default function OwnerSettings() {
               {/* Guest link (WhatsApp + QR) */}
               <section className="bg-white rounded shadow p-4 space-y-3">
                 <div className="flex items-center justify-between gap-2">
-                  <h2 className="font-medium">Guest link (WhatsApp + QR)</h2>
+                  <h2 className="font-medium">
+                    Guest link (WhatsApp + QR)
+                  </h2>
                   {shareUrl && (
                     <a
                       href={`https://wa.me/?text=${encodeURIComponent(
-                        whatsappText || shareUrl
+                        whatsappText || shareUrl,
                       )}`}
                       target="_blank"
                       rel="noreferrer"
@@ -496,9 +543,9 @@ export default function OwnerSettings() {
                   )}
                 </div>
                 <p className="text-xs text-gray-600">
-                  Share this link with guests at check-in. It opens your VAiyu
-                  Scan screen, which then routes them to the in-room menu and
-                  services for this property.
+                  Share this link with guests at check-in. It opens
+                  your VAiyu Scan screen, which then routes them to the
+                  in-room menu and services for this property.
                 </p>
 
                 <div className="grid md:grid-cols-[2fr,1fr] gap-3 items-start">
@@ -509,7 +556,9 @@ export default function OwnerSettings() {
                         className="mt-1 input w-full text-xs"
                         value={shareUrl || ""}
                         readOnly
-                        onFocus={(e) => e.currentTarget.select()}
+                        onFocus={(e) =>
+                          e.currentTarget.select()
+                        }
                       />
                     </label>
                     <label className="text-xs font-medium text-gray-600">
@@ -518,7 +567,9 @@ export default function OwnerSettings() {
                         className="mt-1 input w-full text-xs min-h-[80px]"
                         value={whatsappText || ""}
                         readOnly
-                        onFocus={(e) => e.currentTarget.select()}
+                        onFocus={(e) =>
+                          e.currentTarget.select()
+                        }
                       />
                     </label>
                   </div>
@@ -530,7 +581,7 @@ export default function OwnerSettings() {
                         </div>
                         <img
                           src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
-                            shareUrl
+                            shareUrl,
                           )}`}
                           alt="QR code for guest menu"
                           className="border rounded"
@@ -538,7 +589,8 @@ export default function OwnerSettings() {
                       </>
                     ) : (
                       <div className="text-xs text-gray-500 text-center">
-                        Slug missing – save hotel first to enable sharing.
+                        Slug missing – save hotel first to enable
+                        sharing.
                       </div>
                     )}
                   </div>
@@ -548,7 +600,9 @@ export default function OwnerSettings() {
               {/* Services & SLAs */}
               <section className="bg-white rounded shadow p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <h2 className="font-medium">Services &amp; SLAs</h2>
+                  <h2 className="font-medium">
+                    Services &amp; SLAs
+                  </h2>
                   <button
                     className="btn btn-light !py-2 !px-3 text-sm"
                     onClick={addService}
@@ -561,12 +615,18 @@ export default function OwnerSettings() {
                   <table className="min-w-[720px] w-full text-sm border">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="text-left px-3 py-2 border-b">Key</th>
-                        <th className="text-left px-3 py-2 border-b">Label</th>
+                        <th className="text-left px-3 py-2 border-b">
+                          Key
+                        </th>
+                        <th className="text-left px-3 py-2 border-b">
+                          Label
+                        </th>
                         <th className="text-left px-3 py-2 border-b">
                           SLA (min)
                         </th>
-                        <th className="text-left px-3 py-2 border-b">Active</th>
+                        <th className="text-left px-3 py-2 border-b">
+                          Active
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -577,7 +637,9 @@ export default function OwnerSettings() {
                               className="w-full rounded-md border px-2 py-1"
                               value={s.key}
                               onChange={(e) =>
-                                updateService(i, { key: e.target.value })
+                                updateService(i, {
+                                  key: e.target.value,
+                                })
                               }
                               placeholder="HOUSEKEEPING"
                             />
@@ -587,7 +649,9 @@ export default function OwnerSettings() {
                               className="w-full rounded-md border px-2 py-1"
                               value={s.label || ""}
                               onChange={(e) =>
-                                updateService(i, { label: e.target.value })
+                                updateService(i, {
+                                  label: e.target.value,
+                                })
                               }
                               placeholder="Housekeeping"
                             />
@@ -606,8 +670,10 @@ export default function OwnerSettings() {
                                       : Math.max(
                                           1,
                                           Math.trunc(
-                                            Number(e.target.value) || 1
-                                          )
+                                            Number(
+                                              e.target.value,
+                                            ) || 1,
+                                          ),
                                         ),
                                 })
                               }
@@ -642,7 +708,11 @@ export default function OwnerSettings() {
               </section>
 
               <div className="flex gap-2">
-                <button className="btn" onClick={save} disabled={saving}>
+                <button
+                  className="btn"
+                  onClick={save}
+                  disabled={saving}
+                >
                   {saving ? "Saving…" : "Save settings"}
                 </button>
                 <button

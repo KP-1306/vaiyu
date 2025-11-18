@@ -126,7 +126,7 @@ function buildHeaders(opts: RequestInit): HeadersInit {
 async function req<T = any>(path: string, opts: RequestInit = {}): Promise<T> {
   try {
     const r = await withTimeout(
-      fetch(${API}${path}, {
+      fetch(`${API}${path}`, {
         ...opts,
         headers: buildHeaders(opts),
       }),
@@ -141,7 +141,7 @@ async function req<T = any>(path: string, opts: RequestInit = {}): Promise<T> {
       const msg =
         (isJson && (payload as any)?.error) ||
         (typeof payload === "string" && payload.trim()) ||
-        Request failed (${r.status});
+        `Request failed (${r.status})`;
       throw new Error(msg);
     }
     return payload as T;
@@ -216,12 +216,12 @@ function safeJson(body: any): any {
 }
 
 function demoId(prefix: string) {
-  return ${prefix}-${Math.random().toString(36).slice(2, 9)};
+  return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
 function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
   const method = String(opts.method || "GET").toUpperCase();
-  const url = new URL(${API}${path});
+  const url = new URL(`${API}${path}`);
   const p = url.pathname.replace(/\/+$/, "");
 
   // ---- Owner apps demo ----
@@ -335,7 +335,7 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
     return {
       ok: true,
       code: "SUN-9X7Q",
-      shareUrl: https://www.vaiyu.co.in/hotel/${property}?ref=SUN-9X7Q,
+      shareUrl: `https://www.vaiyu.co.in/hotel/${property}?ref=SUN-9X7Q`,
       demo: true,
     } as unknown as T;
   }
@@ -409,25 +409,25 @@ export async function gridStartEvent(target_kw: number, playbook_id?: string) {
   return req<{ event: GridEvent }>("/grid/events/start", { method: "POST", body: JSON.stringify({ target_kw, playbook_id }) });
 }
 export async function gridStepEvent(id: string, device_id: string, action: "shed" | "restore" | "nudge", note?: string) {
-  return req<{ event: GridEvent }>(/grid/events/${encodeURIComponent(id)}/step, { method: "POST", body: JSON.stringify({ device_id, action, note }) });
+  return req<{ event: GridEvent }>(`/grid/events/${encodeURIComponent(id)}/step`, { method: "POST", body: JSON.stringify({ device_id, action, note }) });
 }
-export async function gridStopEvent(id: string) { return req<{ event: GridEvent }>(/grid/events/${encodeURIComponent(id)}/stop, { method: "POST" }); }
+export async function gridStopEvent(id: string) { return req<{ event: GridEvent }>(`/grid/events/${encodeURIComponent(id)}/stop`, { method: "POST" }); }
 export async function gridListEvents() { return req<{ items: GridEvent[] }>("/grid/events"); }
-export async function gridDeviceShed(id: string) { return req(/grid/device/${encodeURIComponent(id)}/shed, { method: "POST" }); }
-export async function gridDeviceRestore(id: string) { return req(/grid/device/${encodeURIComponent(id)}/restore, { method: "POST" }); }
-export async function gridDeviceNudge(id: string) { return req(/grid/device/${encodeURIComponent(id)}/nudge, { method: "POST" }); }
+export async function gridDeviceShed(id: string) { return req(`/grid/device/${encodeURIComponent(id)}/shed`, { method: "POST" }); }
+export async function gridDeviceRestore(id: string) { return req(`/grid/device/${encodeURIComponent(id)}/restore`, { method: "POST" }); }
+export async function gridDeviceNudge(id: string) { return req(`/grid/device/${encodeURIComponent(id)}/nudge`, { method: "POST" }); }
 
 /* ============================================================================
    Self-claim (guest attaches an existing booking)
 ============================================================================ */
 export async function claimInit(code: string, contact: string) {
-  return req(/claim/init, { method: "POST", body: JSON.stringify({ code, phone: contact }) });
+  return req(`/claim/init`, { method: "POST", body: JSON.stringify({ code, phone: contact }) });
 }
 export async function claimVerify(code: string, otp: string) {
-  return req(/claim/verify, { method: "POST", body: JSON.stringify({ code, otp }) });
+  return req(`/claim/verify`, { method: "POST", body: JSON.stringify({ code, otp }) });
 }
 export async function myStays(token: string): Promise<{ stays: Stay[]; items: Stay[] }> {
-  const res = await req<any>("/me/stays", { headers: { Authorization: Bearer ${token} } });
+  const res = await req<any>("/me/stays", { headers: { Authorization: `Bearer ${token}` } });
   const stays: Stay[] = res?.stays ?? res?.items ?? [];
   return { stays, items: stays };
 }
@@ -436,7 +436,7 @@ export async function myStays(token: string): Promise<{ stays: Stay[]; items: St
    Owner: Services admin helpers
    - First try Supabase (preferred), then fall back to your existing API.
    - NEW: if the argument looks like a UUID => treat as hotel_id;
-           if it looks like a slug => use HTTP /catalog/services?hotelSlug=....
+           if it looks like a slug => use HTTP `/catalog/services?hotelSlug=...`.
 ============================================================================ */
 function looksLikeUuid(value: string | undefined | null): boolean {
   if (!value) return false;
@@ -476,7 +476,7 @@ export async function getServices(hotelKey?: string) {
   // - hotelKey looks like a slug (non-UUID), so we treat it as hotelSlug
   let path = "/catalog/services";
   if (hotelKey && !isId) {
-    path += ?hotelSlug=${encodeURIComponent(hotelKey)};
+    path += `?hotelSlug=${encodeURIComponent(hotelKey)}`;
   }
   return req(path);
 }
@@ -500,7 +500,7 @@ export async function saveServices(items: Service[], fallbackHotelId?: string | 
       // fall through to HTTP API
     }
   }
-  return req(/catalog/services, { method: "POST", body: JSON.stringify({ items }) });
+  return req(`/catalog/services`, { method: "POST", body: JSON.stringify({ items }) });
 }
 
 /** Generic helpers some owner pages use. */
@@ -520,9 +520,9 @@ export const deleteService = apiDelete;
    Referrals & Credits (property-scoped)
 ============================================================================ */
 export async function referralInit(property: string, token?: string, channel = "guest_dashboard") {
-  return req(/referrals/init, {
+  return req(`/referrals/init`, {
     method: "POST",
-    headers: token ? { Authorization: Bearer ${token} } : undefined,
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     body: JSON.stringify({ property, channel }),
   });
 }
@@ -533,16 +533,16 @@ export async function referralApply(bookingCode: string, referrer: ReferralIdent
   for (const k of keys) {
     if ((referrer as any)[k]) body.referrer = { [k]: (referrer as any)[k] };
   }
-  return req(/referrals/apply, { method: "POST", body: JSON.stringify(body) });
+  return req(`/referrals/apply`, { method: "POST", body: JSON.stringify(body) });
 }
 
 export async function myCredits(token: string): Promise<{ items: CreditBalance[]; total?: number }> {
-  return req(/credits/mine, { headers: { Authorization: Bearer ${token} } });
+  return req(`/credits/mine`, { headers: { Authorization: `Bearer ${token}` } });
 }
 export async function redeemCredits(token: string, property: string, amount: number, context?: any) {
-  return req(/credits/redeem, {
+  return req(`/credits/redeem`, {
     method: "POST",
-    headers: { Authorization: Bearer ${token} },
+    headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify({ property, amount, context }),
   });
 }
@@ -550,14 +550,14 @@ export async function redeemCredits(token: string, property: string, amount: num
 /* ============================================================================
    Hotel
 ============================================================================ */
-export async function getHotel(slug: string) { return req(/hotel/${encodeURIComponent(slug)}); }
-export async function upsertHotel(payload: Json) { return req(/hotel/upsert, { method: "POST", body: JSON.stringify(payload) }); }
+export async function getHotel(slug: string) { return req(`/hotel/${encodeURIComponent(slug)}`); }
+export async function upsertHotel(payload: Json) { return req(`/hotel/upsert`, { method: "POST", body: JSON.stringify(payload) }); }
 
 /* ============================================================================
    Consent
 ============================================================================ */
 export async function setBookingConsent(code: string, reviews: boolean) {
-  return req(/booking/${encodeURIComponent(code)}/consent, { method: "POST", body: JSON.stringify({ reviews }) });
+  return req(`/booking/${encodeURIComponent(code)}/consent`, { method: "POST", body: JSON.stringify({ reviews }) });
 }
 
 /* ============================================================================
@@ -565,9 +565,9 @@ export async function setBookingConsent(code: string, reviews: boolean) {
    - NEW: getMenu accepts optional hotelSlug, but old calls (no arg) still work.
 ============================================================================ */
 export async function getMenu(hotelSlug?: string) {
-  let path = /menu/items;
+  let path = `/menu/items`;
   if (hotelSlug) {
-    path += ?hotelSlug=${encodeURIComponent(hotelSlug)};
+    path += `?hotelSlug=${encodeURIComponent(hotelSlug)}`;
   }
   return req(path);
 }
@@ -576,78 +576,78 @@ export async function getMenu(hotelSlug?: string) {
    Tickets
 ============================================================================ */
 export async function createTicket(data: Json): Promise<{ id: string } & Record<string, any>> {
-  const res = await req<any>(/tickets, { method: "POST", body: JSON.stringify(data) });
+  const res = await req<any>(`/tickets`, { method: "POST", body: JSON.stringify(data) });
   const id = res?.id ?? res?.ticketId ?? res?.data?.id ?? null;
   if (!id) { return { id: demoId("tkt"), demo: true, ...(typeof res === "object" ? res : {}) }; }
   return { id: String(id), ...(typeof res === "object" ? res : {}) };
 }
-export async function listTickets() { return req(/tickets); }
-export async function getTicket(id: string) { return req(/tickets/${encodeURIComponent(id)}); }
+export async function listTickets() { return req(`/tickets`); }
+export async function getTicket(id: string) { return req(`/tickets/${encodeURIComponent(id)}`); }
 export async function updateTicket(id: string, patch: Json) {
-  return req(/tickets/${encodeURIComponent(id)}, { method: "PATCH", body: JSON.stringify(patch) });
+  return req(`/tickets/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) });
 }
 
 /* ============================================================================
    Orders
 ============================================================================ */
 export async function createOrder(data: Json): Promise<{ id: string } & Record<string, any>> {
-  const res = await req<any>(/orders, { method: "POST", body: JSON.stringify(data) });
+  const res = await req<any>(`/orders`, { method: "POST", body: JSON.stringify(data) });
   const id = res?.id ?? res?.orderId ?? res?.data?.id ?? null;
   if (!id) { return { id: demoId("ord"), demo: true, ...(typeof res === "object" ? res : {}) }; }
   return { id: String(id), ...(typeof res === "object" ? res : {}) };
 }
-export async function listOrders() { return req(/orders); }
+export async function listOrders() { return req(`/orders`); }
 export async function updateOrder(id: string, patch: Json) {
-  return req(/orders/${encodeURIComponent(id)}, { method: "PATCH", body: JSON.stringify(patch) });
+  return req(`/orders/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) });
 }
 
 /* ============================================================================
    Folio / Flows
 ============================================================================ */
-export async function getFolio() { return req(/folio); }
-export async function precheck(data: Json) { return req(/precheck, { method: "POST", body: JSON.stringify(data) }); }
-export async function regcard(data: Json) { return req(/regcard, { method: "POST", body: JSON.stringify(data) }); }
+export async function getFolio() { return req(`/folio`); }
+export async function precheck(data: Json) { return req(`/precheck`, { method: "POST", body: JSON.stringify(data) }); }
+export async function regcard(data: Json) { return req(`/regcard`, { method: "POST", body: JSON.stringify(data) }); }
 export async function checkout(data: { bookingCode?: string; autopost?: boolean }) {
-  return req(/checkout, { method: "POST", body: JSON.stringify(data) });
+  return req(`/checkout`, { method: "POST", body: JSON.stringify(data) });
 }
 
 /* ============================================================================
    Reviews
 ============================================================================ */
-export async function listReviews(slug: string) { return req(/reviews/${encodeURIComponent(slug)}); }
-export async function listPendingReviews() { return req(/reviews/pending); }
+export async function listReviews(slug: string) { return req(`/reviews/${encodeURIComponent(slug)}`); }
+export async function listPendingReviews() { return req(`/reviews/pending`); }
 export async function postManualReview(data: { bookingCode: string; rating: number; title?: string; body?: string; }) {
-  return req(/reviews, { method: "POST", body: JSON.stringify(data) });
+  return req(`/reviews`, { method: "POST", body: JSON.stringify(data) });
 }
-export async function reviewDraft(bookingCode: string) { return req(/reviews/draft/${encodeURIComponent(bookingCode)}); }
+export async function reviewDraft(bookingCode: string) { return req(`/reviews/draft/${encodeURIComponent(bookingCode)}`); }
 export async function postAutoReviewPreview(bookingCode: string) {
-  return req(/reviews/auto, { method: "POST", body: JSON.stringify({ bookingCode }) });
+  return req(`/reviews/auto`, { method: "POST", body: JSON.stringify({ bookingCode }) });
 }
 export async function postAutoReviewCommit(bookingCode: string) {
-  return req(/reviews/auto, { method: "POST", body: JSON.stringify({ bookingCode, commit: true }) });
+  return req(`/reviews/auto`, { method: "POST", body: JSON.stringify({ bookingCode, commit: true }) });
 }
 export async function approveReview(id: string, bookingCode?: string) {
-  return req(/reviews/approve, { method: "POST", body: JSON.stringify({ id, bookingCode }) });
+  return req(`/reviews/approve`, { method: "POST", body: JSON.stringify({ id, bookingCode }) });
 }
 export async function rejectReview(id: string, bookingCode?: string) {
-  return req(/reviews/reject, { method: "POST", body: JSON.stringify({ id, bookingCode }) });
+  return req(`/reviews/reject`, { method: "POST", body: JSON.stringify({ id, bookingCode }) });
 }
 
 /* ============================================================================
    Experience (reports)
 ============================================================================ */
 export async function getExperienceSummary(bookingCode: string) {
-  return req(/experience/summary/${encodeURIComponent(bookingCode)});
+  return req(`/experience/summary/${encodeURIComponent(bookingCode)}`);
 }
 export async function getExperienceReport(slug: string) {
-  return req(/experience/report/${encodeURIComponent(slug)});
+  return req(`/experience/report/${encodeURIComponent(slug)}`);
 }
 
 /* ============================================================================
    Quick Check-in
 ============================================================================ */
 export async function quickCheckin(data: { code: string; phone: string }) {
-  return req(/checkin, { method: "POST", body: JSON.stringify(data) });
+  return req(`/checkin`, { method: "POST", body: JSON.stringify(data) });
 }
 
 /* ============================================================================
@@ -660,9 +660,9 @@ export async function fetchOwnerApps(
   status: OwnerApp["status"] = "pending",
   token?: string
 ): Promise<{ items: OwnerApp[] }> {
-  const headers = token ? { Authorization: Bearer ${token} } : undefined;
-  const q = ?status=${encodeURIComponent(status)};
-  return req<{ items: OwnerApp[] }>(/owner/apps${q}, { headers });
+  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+  const q = `?status=${encodeURIComponent(status)}`;
+  return req<{ items: OwnerApp[] }>(`/owner/apps${q}`, { headers });
 }
 
 export async function reviewOwnerApp(
@@ -671,8 +671,8 @@ export async function reviewOwnerApp(
   opts?: { review_notes?: string; rejected_reason?: string },
   token?: string
 ) {
-  const headers = token ? { Authorization: Bearer ${token} } : undefined;
-  return req<{ ok: boolean }>(/owner/apps/${encodeURIComponent(id)}, {
+  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+  return req<{ ok: boolean }>(`/owner/apps/${encodeURIComponent(id)}`, {
     method: "PATCH",
     headers,
     body: JSON.stringify({ action, ...opts }),

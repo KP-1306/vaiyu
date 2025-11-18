@@ -32,9 +32,9 @@ export default function Menu() {
   const [err, setErr] = useState<string | null>(null);
 
   // Room picker + tiny toast
-  const roomKey = useMemo(() => room:${code}, [code]);
+  const roomKey = useMemo(() => `room:${code}`, [code]);
   const [room, setRoom] = useState<string>(
-    () => localStorage.getItem(roomKey) || "201"
+    () => (typeof window !== "undefined" ? localStorage.getItem(roomKey) : null) || "201"
   );
   const [toast, setToast] = useState<string>("");
   const [busy, setBusy] = useState<string>(""); // keeps the id of item being actioned
@@ -69,7 +69,13 @@ export default function Menu() {
   }, [hotelSlugFromQuery]);
 
   useEffect(() => {
-    localStorage.setItem(roomKey, room);
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem(roomKey, room);
+      }
+    } catch {
+      // ignore localStorage errors
+    }
   }, [room, roomKey]);
 
   function showToast(msg: string) {
@@ -89,7 +95,8 @@ export default function Menu() {
   }
 
   async function requestService(service_key: string) {
-    setBusy(svc:${service_key});
+    const busyKey = `svc:${service_key}`;
+    setBusy(busyKey);
     try {
       // Send both keys for compatibility (backend/demo may expect either)
       const payload: any = {
@@ -127,7 +134,8 @@ export default function Menu() {
   }
 
   async function addFood(item_key: string) {
-    setBusy(food:${item_key});
+    const busyKey = `food:${item_key}`;
+    setBusy(busyKey);
     try {
       const res: any = await createOrder({
         item_key,
@@ -211,30 +219,33 @@ export default function Menu() {
       {!loading && !err && tab === "services" && (
         services.length ? (
           <ul className="space-y-3">
-            {services.map((it) => (
-              <li
-                key={it.key}
-                className="p-3 bg-white rounded shadow flex justify-between items-center"
-              >
-                <div>
-                  <div className="font-medium">{it.label_en}</div>
-                  <div className="text-xs text-gray-500">
-                    {it.sla_minutes} min SLA
-                  </div>
-                </div>
-                <button
-                  onClick={() => requestService(it.key)}
-                  disabled={busy === svc:${it.key}}
-                  className={`px-3 py-2 rounded text-white ${
-                    busy === svc:${it.key}
-                      ? "bg-sky-300"
-                      : "bg-sky-600 hover:bg-sky-700"
-                  }`}
+            {services.map((it) => {
+              const busyKey = `svc:${it.key}`;
+              return (
+                <li
+                  key={it.key}
+                  className="p-3 bg-white rounded shadow flex justify-between items-center"
                 >
-                  {busy === svc:${it.key} ? "Requesting…" : "Request"}
-                </button>
-              </li>
-            ))}
+                  <div>
+                    <div className="font-medium">{it.label_en}</div>
+                    <div className="text-xs text-gray-500">
+                      {it.sla_minutes} min SLA
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => requestService(it.key)}
+                    disabled={busy === busyKey}
+                    className={`px-3 py-2 rounded text-white ${
+                      busy === busyKey
+                        ? "bg-sky-300"
+                        : "bg-sky-600 hover:bg-sky-700"
+                    }`}
+                  >
+                    {busy === busyKey ? "Requesting…" : "Request"}
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <div className="text-gray-500">
@@ -246,30 +257,33 @@ export default function Menu() {
       {!loading && !err && tab === "food" && (
         food.length ? (
           <ul className="space-y-3">
-            {food.map((it) => (
-              <li
-                key={it.item_key}
-                className="p-3 bg-white rounded shadow flex justify-between items-center"
-              >
-                <div>
-                  <div className="font-medium">{it.name}</div>
-                  <div className="text-xs text-gray-500">
-                    ₹{it.base_price}
-                  </div>
-                </div>
-                <button
-                  onClick={() => addFood(it.item_key)}
-                  disabled={busy === food:${it.item_key}}
-                  className={`px-3 py-2 rounded text-white ${
-                    busy === food:${it.item_key}
-                      ? "bg-sky-300"
-                      : "bg-sky-600 hover:bg-sky-700"
-                  }`}
+            {food.map((it) => {
+              const busyKey = `food:${it.item_key}`;
+              return (
+                <li
+                  key={it.item_key}
+                  className="p-3 bg-white rounded shadow flex justify-between items-center"
                 >
-                  {busy === food:${it.item_key} ? "Adding…" : "Add"}
-                </button>
-              </li>
-            ))}
+                  <div>
+                    <div className="font-medium">{it.name}</div>
+                    <div className="text-xs text-gray-500">
+                      ₹{it.base_price}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => addFood(it.item_key)}
+                    disabled={busy === busyKey}
+                    className={`px-3 py-2 rounded text-white ${
+                      busy === busyKey
+                        ? "bg-sky-300"
+                        : "bg-sky-600 hover:bg-sky-700"
+                    }`}
+                  >
+                    {busy === busyKey ? "Adding…" : "Add"}
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <div className="text-gray-500">

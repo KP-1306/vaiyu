@@ -100,6 +100,7 @@ export default function Desk() {
     try {
       await updateTicket(id, { status });
     } catch {
+      // revert on failure
       refresh();
     }
   }
@@ -111,6 +112,7 @@ export default function Desk() {
     try {
       await updateOrder(id, { status });
     } catch {
+      // revert on failure
       refresh();
     }
   }

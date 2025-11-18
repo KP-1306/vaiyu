@@ -35,14 +35,14 @@ export default function Scan() {
   const menuPath = useMemo(() => {
     if (stayCode) {
       // Full guest journey: stay-specific menu
-      return `/stay/${encodeURIComponent(stayCode)}/menu`;
+      return /stay/${encodeURIComponent(stayCode)}/menu;
     }
     if (hotelSlug) {
       // Hotel-scoped menu (backend can later read ?hotel=slug)
-      return `/menu?hotel=${encodeURIComponent(hotelSlug)}`;
+      return /menu?hotel=${encodeURIComponent(hotelSlug)};
     }
     // Fallback: generic menu (demo/global)
-    return `/menu`;
+    return /menu;
   }, [hotelSlug, stayCode]);
 
   // Friendly label
@@ -80,7 +80,9 @@ export default function Scan() {
       } catch (e: any) {
         if (!cancelled) {
           // Not fatal – we can still show QR actions without hotel metadata
-          setError(e?.message || "Could not load property details.");
+          // Log the technical error for debugging, but show a guest-friendly message.
+          console.warn("[Scan] Could not load property details", e);
+          setError("हम अभी प्रॉपर्टी की पूरी जानकारी नहीं ला पाए — आप फिर भी नीचे से मेनू खोल सकते हैं।");
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -102,17 +104,17 @@ export default function Scan() {
       typeof window !== "undefined"
         ? window.location.origin || ""
         : "";
-    const fullUrl = `${base}${menuPath}`;
+    const fullUrl = ${base}${menuPath};
 
     const textLines = [
-      `नमस्ते, मुझे ${hotelLabel} का मेनू देखना है।`,
+      नमस्ते, मुझे ${hotelLabel} का मेनू देखना है।,
       "",
       fullUrl,
     ];
     const text = encodeURIComponent(textLines.join("\n"));
 
     // Generic WhatsApp share (user picks contact / hotel number)
-    const waUrl = `https://wa.me/?text=${text}`;
+    const waUrl = https://wa.me/?text=${text};
     window.location.href = waUrl;
   }
 
@@ -180,7 +182,7 @@ export default function Scan() {
 
           {error && (
             <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
-              {error} — आप फिर भी नीचे दिए गए बटन से मेनू खोल सकते हैं।
+              {error}
             </p>
           )}
 

@@ -31,7 +31,9 @@ export default function Scan() {
   const [loading, setLoading] = useState<boolean>(!!hotelSlug);
   const [error, setError] = useState<string | null>(null);
 
+  // ─────────────────────────────────────────────
   // Resolve menu URL (internal route path)
+  // ─────────────────────────────────────────────
   const menuPath = useMemo(() => {
     if (stayCode) {
       // Full guest journey: stay-specific menu
@@ -52,7 +54,9 @@ export default function Scan() {
     return "this property";
   }, [hotelSlug, hotel]);
 
+  // ─────────────────────────────────────────────
   // Load hotel details (for nicer text + branding), but fail gracefully
+  // ─────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
     if (!hotelSlug) {
@@ -79,7 +83,6 @@ export default function Scan() {
         setHotel(info);
       } catch (e: any) {
         if (!cancelled) {
-          // Not fatal – we can still show QR actions without hotel metadata
           console.warn("[Scan] Could not load property details", e);
           setError(
             "हम अभी प्रॉपर्टी की पूरी जानकारी नहीं ला पाए — आप फिर भी नीचे से मेनू खोल सकते हैं।"
@@ -199,7 +202,6 @@ export default function Scan() {
               onClick={handleOpenWhatsApp}
               className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-green-500 px-4 py-2.5 text-sm font-semibold text-white shadow hover:bg-green-600"
             >
-              {/* Simple WA glyph */}
               <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-lg leading-none">
                 💬
               </span>

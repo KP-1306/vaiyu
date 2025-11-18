@@ -37,11 +37,11 @@ export default function Scan() {
   const menuPath = useMemo(() => {
     if (stayCode) {
       // Full guest journey: stay-specific menu
-      return /stay/${encodeURIComponent(stayCode)}/menu;
+      return "/stay/" + encodeURIComponent(stayCode) + "/menu";
     }
     if (hotelSlug) {
       // Hotel-scoped menu (backend can later read ?hotel=slug)
-      return /menu?hotel=${encodeURIComponent(hotelSlug)};
+      return "/menu?hotel=" + encodeURIComponent(hotelSlug);
     }
     // Fallback: generic menu (demo/global)
     return "/menu";
@@ -106,17 +106,17 @@ export default function Scan() {
     // Build a shareable absolute URL for the menu
     const base =
       typeof window !== "undefined" ? window.location.origin || "" : "";
-    const fullUrl = ${base}${menuPath};
+    const fullUrl = `${base}${menuPath}`;
 
     const textLines = [
-      नमस्ते, मुझे ${hotelLabel} का मेनू देखना है।,
+      `नमस्ते, मुझे ${hotelLabel} का मेनू देखना है।`,
       "",
       fullUrl,
     ];
     const text = encodeURIComponent(textLines.join("\n"));
 
     // Generic WhatsApp share (user picks contact / hotel number)
-    const waUrl = https://wa.me/?text=${text};
+    const waUrl = `https://wa.me/?text=${text}`;
     window.location.href = waUrl;
   }
 
@@ -202,6 +202,7 @@ export default function Scan() {
               onClick={handleOpenWhatsApp}
               className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-green-500 px-4 py-2.5 text-sm font-semibold text-white shadow hover:bg-green-600"
             >
+              {/* Simple WA glyph */}
               <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-lg leading-none">
                 💬
               </span>

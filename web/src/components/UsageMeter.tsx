@@ -1,3 +1,5 @@
+// web/src/components/UsageMeter.tsx
+
 import { useEffect, useState } from "react";
 import { API } from "../lib/api";
 
@@ -14,13 +16,17 @@ export default function UsageMeter({ hotelId }: { hotelId?: string }) {
 
   useEffect(() => {
     const ac = new AbortController();
+
     (async () => {
       setLoading(true);
       try {
         const u = new URL(`${API}/ai/usage`, window.location.origin);
         if (hotelId) u.searchParams.set("hotel_id", hotelId);
+
         const r = await fetch(u.toString(), { signal: ac.signal });
-        if (!r.ok) throw new Error(`Usage fetch failed (${r.status})`);
+        if (!r.ok) {
+          throw new Error(`Usage fetch failed (${r.status})`);
+        }
         const j = await r.json();
         // Accept either {used_tokens, budget_tokens} or {data:{...}}
         const row = j?.data ?? j;
@@ -32,12 +38,18 @@ export default function UsageMeter({ hotelId }: { hotelId?: string }) {
         setErr(null);
       } catch (e: any) {
         // graceful fallback demo values
-        setData({ month_utc: undefined, used_tokens: 0, budget_tokens: 200000 });
+        console.warn("[UsageMeter] Falling back to demo usage:", e);
+        setData({
+          month_utc: undefined,
+          used_tokens: 0,
+          budget_tokens: 200000,
+        });
         setErr(e?.message || String(e));
       } finally {
         setLoading(false);
       }
     })();
+
     return () => ac.abort();
   }, [hotelId]);
 
@@ -50,7 +62,9 @@ export default function UsageMeter({ hotelId }: { hotelId?: string }) {
       <div className="flex items-center justify-between mb-2">
         <div className="font-semibold">AI usage</div>
         {data?.month_utc && (
-          <div className="text-xs text-gray-500">Month: {data.month_utc}</div>
+          <div className="text-xs text-gray-500">
+            Month: {data.month_utc}
+          </div>
         )}
       </div>
 
@@ -75,8 +89,11 @@ export default function UsageMeter({ hotelId }: { hotelId?: string }) {
       </div>
 
       {err && (
-        <div className="mt-1 text-xs text-orange-600">
-          Showing fallback; fetch error: {err}
+        <div className="mt-1 flex items-center gap-1 text-xs text-gray-500">
+          <span aria-hidden="true">ⓘ</span>
+          <span title={err}>
+            Using demo AI usage numbers (usage API not connected yet).
+          </span>
         </div>
       )}
     </section>

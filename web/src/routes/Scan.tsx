@@ -31,7 +31,7 @@ export default function Scan() {
   const [loading, setLoading] = useState<boolean>(!!hotelSlug);
   const [error, setError] = useState<string | null>(null);
 
-  // Resolve menu URL
+  // Resolve menu URL (internal route path)
   const menuPath = useMemo(() => {
     if (stayCode) {
       // Full guest journey: stay-specific menu
@@ -42,7 +42,7 @@ export default function Scan() {
       return /menu?hotel=${encodeURIComponent(hotelSlug)};
     }
     // Fallback: generic menu (demo/global)
-    return /menu;
+    return "/menu";
   }, [hotelSlug, stayCode]);
 
   // Friendly label
@@ -80,9 +80,10 @@ export default function Scan() {
       } catch (e: any) {
         if (!cancelled) {
           // Not fatal – we can still show QR actions without hotel metadata
-          // Log the technical error for debugging, but show a guest-friendly message.
           console.warn("[Scan] Could not load property details", e);
-          setError("हम अभी प्रॉपर्टी की पूरी जानकारी नहीं ला पाए — आप फिर भी नीचे से मेनू खोल सकते हैं।");
+          setError(
+            "हम अभी प्रॉपर्टी की पूरी जानकारी नहीं ला पाए — आप फिर भी नीचे से मेनू खोल सकते हैं।"
+          );
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -101,9 +102,7 @@ export default function Scan() {
   function handleOpenWhatsApp() {
     // Build a shareable absolute URL for the menu
     const base =
-      typeof window !== "undefined"
-        ? window.location.origin || ""
-        : "";
+      typeof window !== "undefined" ? window.location.origin || "" : "";
     const fullUrl = ${base}${menuPath};
 
     const textLines = [
@@ -119,8 +118,7 @@ export default function Scan() {
   }
 
   const themeColor =
-    hotel?.theme?.brand ||
-    (isDemo() ? "#145AF2" : "#0f766e"); // default teal for non-demo
+    hotel?.theme?.brand || (isDemo() ? "#145AF2" : "#0f766e"); // default teal for non-demo
 
   return (
     <>

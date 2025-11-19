@@ -32,7 +32,7 @@ export default function HeroCarousel({
   const timer = useRef<number | null>(null);
   const paused = useRef(false);
 
-  // Auto-advance (respect reduced motion)
+  // Auto-advance (same logic as before)
   useEffect(() => {
     if (prefReduced || slides.length <= 1) return;
 
@@ -49,7 +49,8 @@ export default function HeroCarousel({
 
   function goto(n: number) {
     if (!slides.length) return;
-    const next = ((n % slides.length) + slides.length) % slides.length;
+    const len = slides.length;
+    const next = ((n % len) + len) % len;
     setI(next);
   }
 
@@ -58,8 +59,11 @@ export default function HeroCarousel({
     if (e.key === "ArrowRight") goto(i + 1);
   }
 
-  const activeSlide = slides[i];
-  const activeId = activeSlide?.id ?? "";
+  const activeId = slides[i]?.id ?? "";
+
+  if (!slides.length) {
+    return null;
+  }
 
   return (
     <section
@@ -91,9 +95,10 @@ export default function HeroCarousel({
                 opacity: active ? 1 : 0,
                 transform: active ? "scale(1)" : "scale(1.02)",
                 transition: "opacity 700ms ease, transform 1200ms ease",
-                zIndex: active ? 10 : 0, // slides stay *below* controls
+                zIndex: active ? 10 : 0,
               }}
             >
+              {/* Background */}
               {s.img ? (
                 <>
                   <img
@@ -140,15 +145,21 @@ export default function HeroCarousel({
         })}
       </div>
 
-      {/* Dots – forced on top */}
+      {/* DOTS – now with inline size so they *must* show */}
       {slides.length > 1 && (
         <div
-          className="pointer-events-auto absolute inset-x-0 bottom-4 z-[60] flex items-center justify-center gap-2"
-          style={{
-            padding: "8px 0",
-          }}
+          className="absolute inset-x-0 bottom-4 flex items-center justify-center"
+          style={{ zIndex: 80 }}
         >
-          <div className="rounded-full bg-black/45 px-3 py-1 flex items-center gap-2 backdrop-blur">
+          <div
+            className="flex items-center gap-6"
+            style={{
+              padding: "6px 14px",
+              borderRadius: 9999,
+              backgroundColor: "rgba(0,0,0,0.55)",
+              backdropFilter: "blur(8px)",
+            }}
+          >
             {slides.map((s, idx) => (
               <button
                 key={s.id ?? idx}
@@ -156,40 +167,74 @@ export default function HeroCarousel({
                 aria-label={`Go to slide ${idx + 1}`}
                 aria-current={idx === i}
                 onClick={() => goto(idx)}
-                className={`h-2.5 rounded-full transition-all outline-none ${
-                  idx === i
-                    ? "w-6 bg-white shadow"
-                    : "w-2.5 bg-white/50 hover:bg-white/90"
-                }`}
+                style={{
+                  width: idx === i ? 20 : 10,
+                  height: 10,
+                  borderRadius: 9999,
+                  border: "none",
+                  backgroundColor:
+                    idx === i ? "#ffffff" : "rgba(255,255,255,0.55)",
+                  cursor: "pointer",
+                  padding: 0,
+                }}
               />
             ))}
           </div>
         </div>
       )}
 
-      {/* Prev / Next arrows – forced on top */}
+      {/* ARROWS – with inline positioning so they’re always visible */}
       {slides.length > 1 && (
-        <div className="pointer-events-none absolute inset-0 z-[70] flex items-center justify-between px-3">
+        <>
           <button
             type="button"
             onClick={() => goto(i - 1)}
-            className="pointer-events-auto inline-flex items-center justify-center rounded-full bg-black/65 px-3 py-2 text-white text-lg font-semibold shadow-lg backdrop-blur hover:bg-black/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
             aria-label="Previous slide"
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: 16,
+              transform: "translateY(-50%)",
+              zIndex: 85,
+              backgroundColor: "rgba(0,0,0,0.65)",
+              color: "#ffffff",
+              borderRadius: 9999,
+              border: "none",
+              padding: "6px 12px",
+              fontSize: 20,
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
           >
             ‹
           </button>
+
           <button
             type="button"
             onClick={() => goto(i + 1)}
-            className="pointer-events-auto inline-flex items-center justify-center rounded-full bg-black/65 px-3 py-2 text-white text-lg font-semibold shadow-lg backdrop-blur hover:bg-black/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
             aria-label="Next slide"
+            style={{
+              position: "absolute",
+              top: "50%",
+              right: 16,
+              transform: "translateY(-50%)",
+              zIndex: 85,
+              backgroundColor: "rgba(0,0,0,0.65)",
+              color: "#ffffff",
+              borderRadius: 9999,
+              border: "none",
+              padding: "6px 12px",
+              fontSize: 20,
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
           >
             ›
           </button>
-        </div>
+        </>
       )}
 
-      {/* Screen-reader announce current slide */}
+      {/* Screen-reader helper */}
       <span className="sr-only" aria-live="polite">
         {activeId}
       </span>

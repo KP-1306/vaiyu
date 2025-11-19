@@ -246,7 +246,7 @@ textarea:focus {
 }
 
 /* Hide ALL controls inside the marketing hero carousel */
-#use-cases .slick-arrow,
+ /* #use-cases .slick-arrow,
 #use-cases .slick-dots,
 #use-cases .carousel-arrow,
 #use-cases .carousel-dots,
@@ -258,3 +258,4 @@ textarea:focus {
   display: none !important;
   pointer-events: none !important;
 }
+*/

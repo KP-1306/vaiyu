@@ -1,4 +1,5 @@
 // web/src/components/HeroCarousel.tsx
+import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -7,22 +8,44 @@ export type Slide = {
   headline: string;
   sub?: string;
   cta?: { label: string; href: string } | null; // allow null or omit
-  img?: string;                                   // optional: public path or URL
+  img?: string; // optional: public path or URL
   imgAlt?: string;
   variant?: "photo" | "solid";
 };
 
 const DEFAULT_INTERVAL = 6500;
 
+type HeroCarouselProps = {
+  slides: Slide[];
+  interval?: number;
+  disableCtas?: boolean;
+};
+
+function CtaButton({ href, label }: { href: string; label: string }) {
+  const isHash = href.startsWith("#");
+  const isExternal = /^https?:\/\//i.test(href);
+
+  // Hash links or full URLs → plain <a>, routes → <Link>
+  if (isHash || isExternal) {
+    return (
+      <a href={href} className="btn btn-light text-base">
+        {label}
+      </a>
+    );
+  }
+
+  return (
+    <Link to={href} className="btn btn-light text-base">
+      {label}
+    </Link>
+  );
+}
+
 export default function HeroCarousel({
   slides,
   interval = DEFAULT_INTERVAL,
   disableCtas = false,
-}: {
-  slides: Slide[];
-  interval?: number;
-  disableCtas?: boolean;
-}) {
+}: HeroCarouselProps) {
   const [i, setI] = useState(0);
 
   const prefReduced =
@@ -47,7 +70,7 @@ export default function HeroCarousel({
     setI(((n % slides.length) + slides.length) % slides.length);
   }
 
-  function onKey(e: React.KeyboardEvent) {
+  function onKey(e: React.KeyboardEvent<HTMLElement>) {
     if (e.key === "ArrowLeft") goto(i - 1);
     if (e.key === "ArrowRight") goto(i + 1);
   }
@@ -66,7 +89,7 @@ export default function HeroCarousel({
       onMouseLeave={() => (paused.current = false)}
     >
       {/* Slides */}
-      <ul className="h-full w-full relative">
+      <ul className="relative h-full w-full">
         {slides.map((s, idx) => {
           const active = idx === i;
           return (
@@ -100,26 +123,24 @@ export default function HeroCarousel({
 
               {/* Copy */}
               <div className="absolute inset-0 grid">
-                <div className="self-end md:self-center px-6 md:px-10 lg:px-16 pb-10 md:pb-0">
+                <div className="self-end pb-10 pl-6 pr-6 md:self-center md:px-10 lg:px-16 md:pb-0">
                   <div className="max-w-3xl text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs mb-3 backdrop-blur">
+                    <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs backdrop-blur">
                       <span aria-hidden>🤖</span> AI-powered hospitality OS
                     </div>
-                    <h1 className="text-4xl md:text-6xl font-bold leading-tight">
+                    <h1 className="text-4xl font-bold leading-tight md:text-6xl">
                       {s.headline}
                     </h1>
                     {s.sub ? (
-                      <p className="mt-3 text-base md:text-lg text-white/90">
+                      <p className="mt-3 text-base text-white/90 md:text-lg">
                         {s.sub}
                       </p>
                     ) : null}
 
-                    {/* CTA — now optional & globally hideable */}
+                    {/* CTA — optional & globally hideable */}
                     {!disableCtas && s.cta?.href ? (
                       <div className="mt-6">
-                        <Link to={s.cta.href} className="btn btn-light text-base">
-                          {s.cta.label}
-                        </Link>
+                        <CtaButton href={s.cta.href} label={s.cta.label} />
                       </div>
                     ) : null}
                   </div>

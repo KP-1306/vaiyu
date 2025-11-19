@@ -34,9 +34,10 @@ export default function HeroCarousel({
 
   // Auto-advance (respect reduced motion)
   useEffect(() => {
-    if (prefReduced || !slides || slides.length <= 1) return;
+    if (prefReduced || slides.length <= 1) return;
 
-    const tick = () => setI((p) => (p + 1) % slides.length);
+    const tick = () => setI((prev) => (prev + 1) % slides.length);
+
     timer.current = window.setInterval(() => {
       if (!paused.current) tick();
     }, interval);
@@ -44,11 +45,12 @@ export default function HeroCarousel({
     return () => {
       if (timer.current) window.clearInterval(timer.current);
     };
-  }, [interval, slides, prefReduced]);
+  }, [interval, slides.length, prefReduced]);
 
   function goto(n: number) {
-    if (!slides || slides.length === 0) return;
-    setI(((n % slides.length) + slides.length) % slides.length);
+    if (!slides.length) return;
+    const next = ((n % slides.length) + slides.length) % slides.length;
+    setI(next);
   }
 
   function onKey(e: React.KeyboardEvent) {
@@ -56,12 +58,8 @@ export default function HeroCarousel({
     if (e.key === "ArrowRight") goto(i + 1);
   }
 
-  if (!slides || slides.length === 0) {
-    return null;
-  }
-
-  const showControls = slides.length > 1;
-  const activeId = slides[i]?.id ?? "";
+  const activeSlide = slides[i];
+  const activeId = activeSlide?.id ?? "";
 
   return (
     <section
@@ -77,14 +75,13 @@ export default function HeroCarousel({
       onMouseLeave={() => {
         paused.current = false;
       }}
-      style={{ position: "relative" }}
     >
       {/* Slides */}
-      <ul className="h-full w-full relative">
+      <div className="relative h-full w-full">
         {slides.map((s, idx) => {
           const active = idx === i;
           return (
-            <li
+            <div
               key={s.id}
               className="absolute inset-0"
               aria-hidden={!active}
@@ -94,10 +91,9 @@ export default function HeroCarousel({
                 opacity: active ? 1 : 0,
                 transform: active ? "scale(1)" : "scale(1.02)",
                 transition: "opacity 700ms ease, transform 1200ms ease",
-                zIndex: active ? 5 : 0, // always below controls
+                zIndex: active ? 10 : 0, // slides stay *below* controls
               }}
             >
-              {/* Background + overlay */}
               {s.img ? (
                 <>
                   <img
@@ -107,7 +103,7 @@ export default function HeroCarousel({
                     loading={idx === 0 ? "eager" : "lazy"}
                     fetchpriority={idx === 0 ? "high" : undefined}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/40 to-black/15" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/35 to-black/10" />
                 </>
               ) : (
                 <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" />
@@ -117,7 +113,7 @@ export default function HeroCarousel({
               <div className="absolute inset-0 grid">
                 <div className="self-end md:self-center px-6 md:px-10 lg:px-16 pb-10 md:pb-0">
                   <div className="max-w-3xl text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-black/40 px-3 py-1 text-xs mb-3 backdrop-blur-sm">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-black/35 px-3 py-1 text-xs mb-3 backdrop-blur">
                       <span aria-hidden>🤖</span> AI-powered hospitality OS
                     </div>
                     <h1 className="text-4xl md:text-6xl font-bold leading-tight">
@@ -129,7 +125,6 @@ export default function HeroCarousel({
                       </p>
                     ) : null}
 
-                    {/* CTA — optional & globally hideable */}
                     {!disableCtas && s.cta?.href ? (
                       <div className="mt-6">
                         <Link to={s.cta.href} className="btn btn-light text-base">
@@ -140,51 +135,45 @@ export default function HeroCarousel({
                   </div>
                 </div>
               </div>
-            </li>
+            </div>
           );
         })}
-      </ul>
+      </div>
 
-      {/* Dots */}
-      {showControls && (
+      {/* Dots – forced on top */}
+      {slides.length > 1 && (
         <div
-          className="absolute bottom-4 left-0 right-0 flex items-center justify-center gap-3"
-          style={{ zIndex: 30 }}
+          className="pointer-events-auto absolute inset-x-0 bottom-4 z-[60] flex items-center justify-center gap-2"
+          style={{
+            padding: "8px 0",
+          }}
         >
-          {slides.map((s, idx) => {
-            const active = idx === i;
-            return (
+          <div className="rounded-full bg-black/45 px-3 py-1 flex items-center gap-2 backdrop-blur">
+            {slides.map((s, idx) => (
               <button
                 key={s.id ?? idx}
                 type="button"
                 aria-label={`Go to slide ${idx + 1}`}
-                aria-current={active}
+                aria-current={idx === i}
                 onClick={() => goto(idx)}
-                className="relative inline-flex items-center justify-center rounded-full border border-white/70 transition-transform"
-                style={{
-                  width: active ? 18 : 10,
-                  height: 10,
-                  backgroundColor: active ? "#ffffff" : "rgba(0,0,0,0.45)",
-                  boxShadow: "0 0 4px rgba(0,0,0,0.5)",
-                }}
-              >
-                <span className="sr-only">{s.headline}</span>
-              </button>
-            );
-          })}
+                className={`h-2.5 rounded-full transition-all outline-none ${
+                  idx === i
+                    ? "w-6 bg-white shadow"
+                    : "w-2.5 bg-white/50 hover:bg-white/90"
+                }`}
+              />
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Prev / Next arrows */}
-      {showControls && (
-        <div
-          className="absolute inset-y-0 left-0 right-0 flex items-center justify-between px-3 sm:px-4"
-          style={{ zIndex: 30, pointerEvents: "none" }}
-        >
+      {/* Prev / Next arrows – forced on top */}
+      {slides.length > 1 && (
+        <div className="pointer-events-none absolute inset-0 z-[70] flex items-center justify-between px-3">
           <button
             type="button"
             onClick={() => goto(i - 1)}
-            className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-black/65 text-white text-lg font-semibold shadow-md hover:bg-black"
+            className="pointer-events-auto inline-flex items-center justify-center rounded-full bg-black/65 px-3 py-2 text-white text-lg font-semibold shadow-lg backdrop-blur hover:bg-black/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
             aria-label="Previous slide"
           >
             ‹
@@ -192,7 +181,7 @@ export default function HeroCarousel({
           <button
             type="button"
             onClick={() => goto(i + 1)}
-            className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-black/65 text-white text-lg font-semibold shadow-md hover:bg-black"
+            className="pointer-events-auto inline-flex items-center justify-center rounded-full bg-black/65 px-3 py-2 text-white text-lg font-semibold shadow-lg backdrop-blur hover:bg-black/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
             aria-label="Next slide"
           >
             ›
@@ -200,7 +189,7 @@ export default function HeroCarousel({
         </div>
       )}
 
-      {/* SR-only active slide ref */}
+      {/* Screen-reader announce current slide */}
       <span className="sr-only" aria-live="polite">
         {activeId}
       </span>

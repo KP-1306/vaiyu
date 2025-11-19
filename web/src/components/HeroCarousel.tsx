@@ -32,7 +32,7 @@ export default function HeroCarousel({
   const timer = useRef<number | null>(null);
   const paused = useRef(false);
 
-  // Auto-advance (same logic as before)
+  // Auto-advance (unchanged behaviour)
   useEffect(() => {
     if (prefReduced || slides.length <= 1) return;
 
@@ -61,9 +61,7 @@ export default function HeroCarousel({
 
   const activeId = slides[i]?.id ?? "";
 
-  if (!slides.length) {
-    return null;
-  }
+  if (!slides.length) return null;
 
   return (
     <section
@@ -145,7 +143,7 @@ export default function HeroCarousel({
         })}
       </div>
 
-      {/* DOTS – now with inline size so they *must* show */}
+      {/* DOTS */}
       {slides.length > 1 && (
         <div
           className="absolute inset-x-0 bottom-4 flex items-center justify-center"
@@ -183,7 +181,7 @@ export default function HeroCarousel({
         </div>
       )}
 
-      {/* ARROWS – with inline positioning so they’re always visible */}
+      {/* ARROWS */}
       {slides.length > 1 && (
         <>
           <button

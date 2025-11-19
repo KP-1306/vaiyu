@@ -26,16 +26,31 @@ const PageSpinner: React.FC = () => (
   </div>
 );
 
-const FallbackPage: React.FC<{ title: string; hint?: string }> = ({ title, hint }) => (
+const FallbackPage: React.FC<{ title: string; hint?: string }> = ({
+  title,
+  hint,
+}) => (
   <main className="mx-auto max-w-3xl px-4 py-10">
     <h1 className="text-xl font-semibold">{title}</h1>
     {hint ? <p className="mt-2 text-gray-600">{hint}</p> : null}
   </main>
 );
 
+/**
+ * Fallback marketing page — only used when
+ * web/src/routes/MarketingHome.tsx is missing.
+ * Now shows the VAiyu logo from /brand/vaiyu-logo.png.
+ */
 const FallbackMarketing: React.FC = () => (
   <main className="mx-auto max-w-3xl px-4 py-16">
-    <h1 className="text-2xl font-semibold">VAiyu</h1>
+    <div className="flex items-center gap-3">
+      <img
+        src="/brand/vaiyu-logo.png"
+        alt="VAiyu"
+        className="h-10 w-auto"
+      />
+      <h1 className="text-2xl font-semibold">VAiyu</h1>
+    </div>
     <p className="mt-2 text-gray-600">
       Marketing page is not included in this build. Add{" "}
       <code>web/src/routes/MarketingHome.tsx</code> to enable it.
@@ -79,7 +94,12 @@ const Settings = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
     "./routes/Settings.{tsx,jsx}"
   ),
-  () => <FallbackPage title="Settings" hint="Add web/src/routes/Settings.tsx to enable this page." />
+  () => (
+    <FallbackPage
+      title="Settings"
+      hint="Add web/src/routes/Settings.tsx to enable this page."
+    />
+  )
 );
 
 // Profile (optional)
@@ -87,7 +107,12 @@ const Profile = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
     "./routes/Profile.{tsx,jsx}"
   ),
-  () => <FallbackPage title="Profile" hint="Add web/src/routes/Profile.tsx to enable this page." />
+  () => (
+    <FallbackPage
+      title="Profile"
+      hint="Add web/src/routes/Profile.tsx to enable this page."
+    />
+  )
 );
 
 // Logout (optional)
@@ -95,50 +120,85 @@ const Logout = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
     "./routes/Logout.{tsx,jsx}"
   ),
-  () => <FallbackPage title="Sign out" hint="Add web/src/routes/Logout.tsx to enable this page." />
+  () => (
+    <FallbackPage
+      title="Sign out"
+      hint="Add web/src/routes/Logout.tsx to enable this page."
+    />
+  )
 );
 
-// --- NEW: marketing/legal pages (optional, safe if missing) ---
+// --- marketing/legal pages (optional, safe if missing) ---
 const AboutUs = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
     "./routes/AboutUs.{tsx,jsx}"
   ),
-  () => <FallbackPage title="About VAiyu" hint="Add web/src/routes/AboutUs.tsx to enable this page." />
+  () => (
+    <FallbackPage
+      title="About VAiyu"
+      hint="Add web/src/routes/AboutUs.tsx to enable this page."
+    />
+  )
 );
 
 const AboutAI = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
     "./routes/AboutAI.{tsx,jsx}"
   ),
-  () => <FallbackPage title="How our AI works" hint="Add web/src/routes/AboutAI.tsx to enable this page." />
+  () => (
+    <FallbackPage
+      title="How our AI works"
+      hint="Add web/src/routes/AboutAI.tsx to enable this page."
+    />
+  )
 );
 
 const Contact = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
     "./routes/Contact.{tsx,jsx}"
   ),
-  () => <FallbackPage title="Contact" hint="Add web/src/routes/Contact.tsx to enable this page." />
+  () => (
+    <FallbackPage
+      title="Contact"
+      hint="Add web/src/routes/Contact.tsx to enable this page."
+    />
+  )
 );
 
 const Careers = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
     "./routes/Careers.{tsx,jsx}"
   ),
-  () => <FallbackPage title="Careers" hint="Add web/src/routes/Careers.tsx to enable this page." />
+  () => (
+    <FallbackPage
+      title="Careers"
+      hint="Add web/src/routes/Careers.tsx to enable this page."
+    />
+  )
 );
 
 const Press = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
     "./routes/Press.{tsx,jsx}"
   ),
-  () => <FallbackPage title="Press & Media" hint="Add web/src/routes/Press.tsx to enable this page." />
+  () => (
+    <FallbackPage
+      title="Press & Media"
+      hint="Add web/src/routes/Press.tsx to enable this page."
+    />
+  )
 );
 
 const Privacy = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
     "./routes/Privacy.{tsx,jsx}"
   ),
-  () => <FallbackPage title="Privacy Policy" hint="Add web/src/routes/Privacy.tsx to enable this page." />
+  () => (
+    <FallbackPage
+      title="Privacy Policy"
+      hint="Add web/src/routes/Privacy.tsx to enable this page."
+    />
+  )
 );
 
 /* --------- Required routes ---------- */

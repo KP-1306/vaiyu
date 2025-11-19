@@ -1,3 +1,4 @@
+// web/src/components/Header.tsx
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import AccountControls from "./AccountControls";
@@ -17,9 +18,11 @@ export default function Header() {
       if (!alive) return;
       setUserEmail(data?.user?.email ?? null);
     })();
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
-      setUserEmail(session?.user?.email ?? null);
-    });
+    const { data: sub } = supabase.auth.onAuthStateChange(
+      (_evt, session) => {
+        setUserEmail(session?.user?.email ?? null);
+      }
+    );
     return () => {
       alive = false;
       sub?.subscription?.unsubscribe();
@@ -51,17 +54,29 @@ export default function Header() {
       <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-4">
         <Link to="/" className="font-semibold">
           <span className="inline-flex items-center gap-2">
-            <img src="/logo.svg" alt="VAiyu" className="h-6 w-6" />
+            <img
+              src="/brand/vaiyu-logo.png"
+              alt="VAiyu"
+              className="h-6 w-6 rounded-full"
+            />
             VAiyu
           </span>
         </Link>
 
         {/* Primary nav (marketing anchors) */}
         <nav className="ml-6 hidden gap-4 text-sm md:flex">
-          <a href="#why" onClick={onAnchor("why")} className="hover:underline">
+          <a
+            href="#why"
+            onClick={onAnchor("why")}
+            className="hover:underline"
+          >
             Why VAiyu
           </a>
-          <a href="#ai" onClick={onAnchor("ai")} className="hover:underline">
+          <a
+            href="#ai"
+            onClick={onAnchor("ai")}
+            className="hover:underline"
+          >
             AI
           </a>
 

@@ -7,8 +7,8 @@ export type Slide = {
   id: string;
   headline: string;
   sub?: string;
-  cta?: { label: string; href: string } | null; // allow null or omit
-  img?: string; // optional: public path or URL
+  cta?: { label: string; href: string } | null;
+  img?: string;
   imgAlt?: string;
   variant?: "photo" | "solid";
 };
@@ -25,7 +25,6 @@ function CtaButton({ href, label }: { href: string; label: string }) {
   const isHash = href.startsWith("#");
   const isExternal = /^https?:\/\//i.test(href);
 
-  // Hash links or full URLs → plain <a>, routes → <Link>
   if (isHash || isExternal) {
     return (
       <a href={href} className="btn btn-light text-base">
@@ -77,10 +76,7 @@ export default function HeroCarousel({
 
   const activeId = slides[i]?.id ?? "";
 
-  // Empty safety
-  if (!slides || slides.length === 0) {
-    return null;
-  }
+  if (!slides || slides.length === 0) return null;
 
   return (
     <section
@@ -142,7 +138,6 @@ export default function HeroCarousel({
                       </p>
                     ) : null}
 
-                    {/* CTA — optional & globally hideable */}
                     {!disableCtas && s.cta?.href ? (
                       <div className="mt-6">
                         <CtaButton href={s.cta.href} label={s.cta.label} />
@@ -159,17 +154,42 @@ export default function HeroCarousel({
       {/* Dots */}
       {slides.length > 1 && (
         <div className="absolute bottom-4 left-0 right-0 z-30 flex items-center justify-center gap-2">
-          {slides.map((s, idx) => (
-            <button
-              key={s.id ?? idx}
-              aria-label={`Go to slide ${idx + 1}`}
-              aria-current={idx === i}
-              onClick={() => goto(idx)}
-              className={`h-2.5 rounded-full transition-all ${
-                idx === i ? "w-6 bg-white" : "w-2.5 bg-white/50 hover:bg-white/80"
-              }`}
-            />
-          ))}
+          {slides.map((s, idx) => {
+            const active = idx === i;
+            return (
+              <button
+                key={s.id ?? idx}
+                aria-label={`Go to slide ${idx + 1}`}
+                aria-current={active}
+                onClick={() => goto(idx)}
+                className="rounded-full transition-all"
+                style={{
+                  width: active ? 24 : 10,
+                  height: 10,
+                  borderRadius: 9999,
+                  backgroundColor: `rgba(255,255,255,${active ? 1 : 0.5})`,
+                  border: active ? "1px solid rgba(0,0,0,0.4)" : "none",
+                }}
+              >
+                {/* Text bullet so it's visible even if CSS fails */}
+                <span
+                  style={{
+                    position: "absolute",
+                    width: 1,
+                    height: 1,
+                    padding: 0,
+                    margin: -1,
+                    overflow: "hidden",
+                    clip: "rect(0,0,0,0)",
+                    whiteSpace: "nowrap",
+                    border: 0,
+                  }}
+                >
+                  {idx + 1}
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -178,14 +198,28 @@ export default function HeroCarousel({
         <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-between px-2">
           <button
             onClick={() => goto(i - 1)}
-            className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white shadow-md backdrop-blur-sm hover:bg-black/60"
+            className="pointer-events-auto flex items-center justify-center text-white"
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 9999,
+              backgroundColor: "rgba(0,0,0,0.45)",
+              boxShadow: "0 2px 6px rgba(0,0,0,0.35)",
+            }}
             aria-label="Previous slide"
           >
             ‹
           </button>
           <button
             onClick={() => goto(i + 1)}
-            className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white shadow-md backdrop-blur-sm hover:bg-black/60"
+            className="pointer-events-auto flex items-center justify-center text-white"
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 9999,
+              backgroundColor: "rgba(0,0,0,0.45)",
+              boxShadow: "0 2px 6px rgba(0,0,0,0.35)",
+            }}
             aria-label="Next slide"
           >
             ›

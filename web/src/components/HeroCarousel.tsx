@@ -77,6 +77,11 @@ export default function HeroCarousel({
 
   const activeId = slides[i]?.id ?? "";
 
+  // Empty safety
+  if (!slides || slides.length === 0) {
+    return null;
+  }
+
   return (
     <section
       className="relative isolate h-[72vh] min-h-[520px] max-h-[820px] overflow-hidden rounded-3xl border"
@@ -95,7 +100,7 @@ export default function HeroCarousel({
           return (
             <li
               key={s.id}
-              className="absolute inset-0"
+              className="absolute inset-0 z-10"
               aria-hidden={!active}
               aria-label={s.headline}
               aria-current={active ? "true" : undefined}
@@ -153,7 +158,7 @@ export default function HeroCarousel({
 
       {/* Dots */}
       {slides.length > 1 && (
-        <div className="absolute bottom-4 left-0 right-0 flex items-center justify-center gap-2">
+        <div className="absolute bottom-4 left-0 right-0 z-30 flex items-center justify-center gap-2">
           {slides.map((s, idx) => (
             <button
               key={s.id ?? idx}
@@ -170,17 +175,17 @@ export default function HeroCarousel({
 
       {/* Prev/Next */}
       {slides.length > 1 && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-2">
+        <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-between px-2">
           <button
             onClick={() => goto(i - 1)}
-            className="pointer-events-auto btn btn-light !px-3 !py-2 opacity-80"
+            className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white shadow-md backdrop-blur-sm hover:bg-black/60"
             aria-label="Previous slide"
           >
             ‹
           </button>
           <button
             onClick={() => goto(i + 1)}
-            className="pointer-events-auto btn btn-light !px-3 !py-2 opacity-80"
+            className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white shadow-md backdrop-blur-sm hover:bg-black/60"
             aria-label="Next slide"
           >
             ›

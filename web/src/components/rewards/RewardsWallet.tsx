@@ -1,4 +1,5 @@
 // web/src/components/rewards/RewardsWallet.tsx
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
@@ -27,7 +28,8 @@ type Voucher = {
 
 /** Utils */
 const inr = (paise: number) => `₹${(paise / 100).toFixed(2)}`;
-const cx = (...xs: Array<string | false | undefined | null>) => xs.filter(Boolean).join(" ");
+const cx = (...xs: Array<string | false | undefined | null>) =>
+  xs.filter(Boolean).join(" ");
 
 /** Component */
 export default function RewardsWallet() {
@@ -66,7 +68,9 @@ export default function RewardsWallet() {
 
       const uid = sess.session?.user?.id;
       if (!uid) {
+        // ✅ no session: show auth message and stop loading state
         setNeedsAuth(true);
+        setLoading(false);
         return;
       }
 
@@ -130,7 +134,7 @@ export default function RewardsWallet() {
     setClaimOpen(true);
   }
 
-  // --- UPDATED: safer submit with validations + friendly overload error message ---
+  // --- safer submit with validations + friendly overload error message ---
   async function submitClaim() {
     setClaimErr(null);
     setClaimBusy(true);
@@ -140,12 +144,16 @@ export default function RewardsWallet() {
       if (!claimHotelId) throw new Error("Please select a hotel.");
       if (!Number.isFinite(claimAmountPaise)) throw new Error("Enter a valid amount.");
       if (claimAmountPaise <= 0) throw new Error("Enter a positive amount.");
-      if (claimAmountPaise % 100 !== 0) throw new Error("Amount must be in whole rupees (no paise).");
-      if (claimAmountPaise < 100 * 100) throw new Error("Minimum claim is ₹100.");
+      if (claimAmountPaise % 100 !== 0)
+        throw new Error("Amount must be in whole rupees (no paise).");
+      if (claimAmountPaise < 100 * 100)
+        throw new Error("Minimum claim is ₹100.");
 
-      const bal = balances.find(b => b.hotel_id === claimHotelId);
+      const bal = balances.find((b) => b.hotel_id === claimHotelId);
       if (bal && claimAmountPaise > bal.available_paise) {
-        throw new Error(`Amount exceeds available balance (${inr(bal.available_paise)}).`);
+        throw new Error(
+          `Amount exceeds available balance (${inr(bal.available_paise)}).`
+        );
       }
 
       // Try canonical alias first (if your DB created it), else fall back to claim_rewards
@@ -176,11 +184,14 @@ export default function RewardsWallet() {
 
       if (err) {
         const msg = String(err.message || err?.hint || err?.details || err);
-        if (msg.includes("best candidate function") || msg.includes("overloaded function")) {
+        if (
+          msg.includes("best candidate function") ||
+          msg.includes("overloaded function")
+        ) {
           throw new Error(
             "We couldn’t create the voucher because the server has two versions of ‘claim_rewards’. " +
-            "Please keep a single version (prefer bigint/int8) or add an alias ‘claim_rewards_int8’. " +
-            "Nothing was deducted."
+              "Please keep a single version (prefer bigint/int8) or add an alias ‘claim_rewards_int8’. " +
+              "Nothing was deducted."
           );
         }
         throw new Error(msg);
@@ -199,7 +210,7 @@ export default function RewardsWallet() {
     }
   }
 
-  const selectedBalance = balances.find(b => b.hotel_id === claimHotelId);
+  const selectedBalance = balances.find((b) => b.hotel_id === claimHotelId);
   const amountInvalid =
     !Number.isFinite(claimAmountPaise) ||
     claimAmountPaise < 100 * 100 ||
@@ -210,7 +221,9 @@ export default function RewardsWallet() {
     <main className="max-w-5xl mx-auto p-6">
       {/* Single navigation control */}
       <div className="mb-4">
-        <Link to="/guest" className="btn btn-light">Back to dashboard</Link>
+        <Link to="/guest" className="btn btn-light">
+          Back to dashboard
+        </Link>
       </div>
 
       <header className="flex items-end justify-between flex-wrap gap-3">
@@ -229,7 +242,9 @@ export default function RewardsWallet() {
       {needsAuth && !loading ? (
         <div className="mt-4 p-3 rounded-md bg-amber-50 text-amber-800 text-sm">
           Please sign in to view your rewards.{" "}
-          <a className="underline" href="/signin">Go to sign in</a>
+          <a className="underline" href="/signin">
+            Go to sign in
+          </a>
         </div>
       ) : null}
 
@@ -314,7 +329,11 @@ export default function RewardsWallet() {
                   Minimum ₹100. Whole rupees only.
                   {selectedBalance ? (
                     <>
-                      {" "}Available: <span className="font-medium">{inr(selectedBalance.available_paise)}</span>
+                      {" "}
+                      Available:{" "}
+                      <span className="font-medium">
+                        {inr(selectedBalance.available_paise)}
+                      </span>
                     </>
                   ) : null}
                 </p>
@@ -324,17 +343,27 @@ export default function RewardsWallet() {
               {claimSuccess ? (
                 <div className="rounded-md bg-green-50 border border-green-200 p-3 text-sm">
                   <div>
-                    Voucher created: <span className="font-medium">{claimSuccess.code}</span> for{" "}
-                    <span className="font-medium">{inr(claimSuccess.amount_paise)}</span>
+                    Voucher created:{" "}
+                    <span className="font-medium">{claimSuccess.code}</span> for{" "}
+                    <span className="font-medium">
+                      {inr(claimSuccess.amount_paise)}
+                    </span>
                   </div>
                   {claimSuccess.expires_at ? (
-                    <div>Expires on: {new Date(claimSuccess.expires_at).toLocaleDateString()}</div>
+                    <div>
+                      Expires on:{" "}
+                      {new Date(claimSuccess.expires_at).toLocaleDateString()}
+                    </div>
                   ) : null}
                 </div>
               ) : null}
 
               <div className="flex gap-2 justify-end mt-2">
-                <button className="btn btn-light" onClick={() => setClaimOpen(false)} disabled={claimBusy}>
+                <button
+                  className="btn btn-light"
+                  onClick={() => setClaimOpen(false)}
+                  disabled={claimBusy}
+                >
                   Close
                 </button>
                 <button
@@ -389,25 +418,35 @@ export default function RewardsWallet() {
                   ) : (
                     vouchers.map((v) => (
                       <tr key={v.id} className="border-t">
-                        <td className="py-2 pr-3">{new Date(v.created_at).toLocaleDateString()}</td>
-                        <td className="py-2 pr-3">{v.hotel_name || v.hotel_id}</td>
+                        <td className="py-2 pr-3">
+                          {new Date(v.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="py-2 pr-3">
+                          {v.hotel_name || v.hotel_id}
+                        </td>
                         <td className="py-2 pr-3 font-mono">{v.code}</td>
                         <td className="py-2 pr-3">{inr(v.amount_paise)}</td>
                         <td className="py-2 pr-3">
                           <span
                             className={cx(
                               "px-2 py-0.5 rounded text-xs",
-                              v.status === "active" && "bg-emerald-100 text-emerald-800",
-                              v.status === "redeemed" && "bg-blue-100 text-blue-800",
-                              v.status === "expired" && "bg-amber-100 text-amber-800",
-                              v.status === "cancelled" && "bg-gray-200 text-gray-700"
+                              v.status === "active" &&
+                                "bg-emerald-100 text-emerald-800",
+                              v.status === "redeemed" &&
+                                "bg-blue-100 text-blue-800",
+                              v.status === "expired" &&
+                                "bg-amber-100 text-amber-800",
+                              v.status === "cancelled" &&
+                                "bg-gray-200 text-gray-700"
                             )}
                           >
                             {v.status}
                           </span>
                         </td>
                         <td className="py-2 pr-3">
-                          {v.expires_at ? new Date(v.expires_at).toLocaleDateString() : "—"}
+                          {v.expires_at
+                            ? new Date(v.expires_at).toLocaleDateString()
+                            : "—"}
                         </td>
                       </tr>
                     ))
@@ -449,7 +488,11 @@ function HotelCard({ b, onClaim }: { b: HotelBalance; onClaim: () => void }) {
           </div>
         </div>
         <div className="flex justify-end">
-          <button className="btn" disabled={b.available_paise < 100 * 100} onClick={onClaim}>
+          <button
+            className="btn"
+            disabled={b.available_paise < 100 * 100}
+            onClick={onClaim}
+          >
             {b.available_paise < 100 * 100 ? "Need ₹100+" : "Claim rewards"}
           </button>
         </div>

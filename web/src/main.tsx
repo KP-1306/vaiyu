@@ -1,7 +1,13 @@
 // web/src/main.tsx
 import React, { StrictMode, Suspense, lazy, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { createBrowserRouter, RouterProvider, Outlet } from "react-router-dom";
+import {
+  createBrowserRouter,
+  RouterProvider,
+  Outlet,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import OwnerApplications from "./routes/admin/OwnerApplications";
 
 // ────────────── Lazy routes (grouped like your file) ──────────────
@@ -58,7 +64,7 @@ import {
 
 // Auth guards
 import AuthGate from "./components/AuthGate";
-import AdminGate from "./components/AdminGate"; // ← NEW (fixes ReferenceError)
+import AdminGate from "./components/AdminGate";
 
 // Supabase client
 import { supabase } from "./lib/supabase";
@@ -102,7 +108,7 @@ const HotelReviews = lazy(() => import("./routes/HotelReviews"));
 const Desk = lazy(() => import("./routes/Desk"));
 const HK = lazy(() => import("./routes/HK"));
 const Maint = lazy(() => import("./routes/Maint"));
-// NEW: Desk Tickets view (Ops tickets + SLA board)
+// Desk Tickets view (Ops tickets + SLA board)
 const DeskTickets = lazy(() => import("./routes/desk/Tickets"));
 
 // Owner / Admin
@@ -112,8 +118,16 @@ const OwnerSettings = lazy(() => import("./routes/OwnerSettings"));
 const OwnerServices = lazy(() => import("./routes/OwnerServices"));
 const OwnerReviews = lazy(() => import("./routes/OwnerReviews"));
 const OwnerHousekeeping = lazy(() => import("./routes/OwnerHousekeeping"));
-const OwnerQRSheet = lazy(() => import("./routes/OwnerQRSheet")); // ← NEW
+const OwnerQRSheet = lazy(() => import("./routes/OwnerQRSheet"));
 const AdminOps = lazy(() => import("./pages/AdminOps"));
+
+// ADR & RevPAR detail pages (from routes/OwnerRevenue.tsx)
+const OwnerADR = lazy(() =>
+  import("./routes/OwnerRevenue").then((m) => ({ default: m.OwnerADR })),
+);
+const OwnerRevPAR = lazy(() =>
+  import("./routes/OwnerRevenue").then((m) => ({ default: m.OwnerRevPAR })),
+);
 
 // Grid (VPP)
 const GridDevices = lazy(() => import("./routes/GridDevices"));
@@ -123,7 +137,7 @@ const GridEvents = lazy(() => import("./routes/GridEvents"));
 // Profile / Rewards / Invite
 const Profile = lazy(() => import("./routes/Profile"));
 const Rewards = lazy(() => import("./routes/Rewards"));
-const Invite = lazy(() => import("./routes/Invite")); // ← NEW
+const Invite = lazy(() => import("./routes/Invite"));
 
 // 404 + deep link + welcome
 const NotFound = lazy(() => import("./routes/NotFound"));
@@ -206,6 +220,56 @@ function RootLayout() {
   );
 }
 
+// ================= Simple owner detail pages to avoid 404s =================
+
+function OwnerRooms() {
+  const { slug } = useParams();
+
+  return (
+    <main className="max-w-6xl mx-auto p-6">
+      <h1 className="text-2xl font-semibold mb-2">Rooms & occupancy</h1>
+      <p className="text-sm text-muted-foreground mb-4">
+        This page will host a detailed rooms and occupancy view for{" "}
+        {slug || "this hotel"}. For now, the Occupancy card on the Owner
+        Dashboard remains the primary view.
+      </p>
+      <div className="rounded-xl border bg-white p-4 text-sm text-muted-foreground">
+        <p>
+          There&apos;s no extra logic here yet—this route exists so that{" "}
+          <strong>See rooms</strong> opens a valid page instead of a 404. You
+          can safely extend this component later with room lists or charts.
+        </p>
+      </div>
+    </main>
+  );
+}
+
+function OwnerPickup() {
+  const { slug } = useParams();
+  const [searchParams] = useSearchParams();
+  const windowLabel = searchParams.get("window") || "7d";
+
+  return (
+    <main className="max-w-6xl mx-auto p-6">
+      <h1 className="text-2xl font-semibold mb-2">
+        Pick-up<span className="text-base font-normal"> ({windowLabel})</span>
+      </h1>
+      <p className="text-sm text-muted-foreground mb-4">
+        This page will show booking pick-up trends for{" "}
+        {slug || "this hotel"} across the selected window.
+      </p>
+      <div className="rounded-xl border bg-white p-4 text-sm text-muted-foreground">
+        <p>
+          In this build, the dedicated analytics are not wired yet. The route is
+          present so the <strong>View pick-up</strong> link works and does not
+          throw a 404. You can still monitor demand using the Pick-up card on
+          the Owner Dashboard and the Ops board.
+        </p>
+      </div>
+    </main>
+  );
+}
+
 // ================= Router =================
 const router = createBrowserRouter([
   {
@@ -240,7 +304,7 @@ const router = createBrowserRouter([
             <Invite />
           </AuthGate>
         ),
-      }, // protected
+      },
       {
         path: "profile",
         element: (
@@ -286,7 +350,6 @@ const router = createBrowserRouter([
           </AuthGate>
         ),
       },
-      // NEW: Desk tickets board (Ops tickets + SLA)
       {
         path: "desk/tickets",
         element: (
@@ -330,6 +393,38 @@ const router = createBrowserRouter([
         ),
       },
       {
+        path: "owner/:slug/rooms",
+        element: (
+          <AuthGate>
+            <OwnerRooms />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/:slug/revenue/adr",
+        element: (
+          <AuthGate>
+            <OwnerADR />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/:slug/revenue/revpar",
+        element: (
+          <AuthGate>
+            <OwnerRevPAR />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/:slug/bookings/pickup",
+        element: (
+          <AuthGate>
+            <OwnerPickup />
+          </AuthGate>
+        ),
+      },
+      {
         path: "owner/:slug/housekeeping",
         element: (
           <AuthGate>
@@ -344,7 +439,7 @@ const router = createBrowserRouter([
             <OwnerQRSheet />
           </AuthGate>
         ),
-      }, // ← NEW
+      },
 
       // Owner legacy aliases (still work)
       {
@@ -373,7 +468,6 @@ const router = createBrowserRouter([
           </AuthGate>
         ),
       },
-      // NEW: fix 404 for /owner/TENANT1/settings
       {
         path: "owner/:slug/settings",
         element: (
@@ -453,7 +547,7 @@ const router = createBrowserRouter([
             <OwnerAccess />
           </AuthGate>
         ),
-      }, // supports ?slug=
+      },
       {
         path: "invite/accept",
         element: (
@@ -461,7 +555,7 @@ const router = createBrowserRouter([
             <InviteAccept />
           </AuthGate>
         ),
-      }, // supports ?code=
+      },
 
       // Grid (protected)
       {

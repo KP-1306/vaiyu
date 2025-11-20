@@ -12,9 +12,14 @@ function shouldUseDemo(): boolean {
     const isLocal =
       typeof location !== "undefined" &&
       (location.hostname === "localhost" || location.hostname === "127.0.0.1");
-    const qp = typeof location !== "undefined" ? new URLSearchParams(location.search) : null;
+    const qp =
+      typeof location !== "undefined"
+        ? new URLSearchParams(location.search)
+        : null;
     const demoQP = qp?.get("demo") === "1";
-    const demoLS = typeof localStorage !== "undefined" && localStorage.getItem("demo:guest") === "1";
+    const demoLS =
+      typeof localStorage !== "undefined" &&
+      localStorage.getItem("demo:guest") === "1";
     return isLocal || demoQP || demoLS;
   } catch {
     return false;
@@ -32,7 +37,9 @@ export default function GuestDashboard() {
       if (!mounted) return;
       if (!data.session) {
         const redirect = encodeURIComponent("/guest");
-        window.location.replace(`/signin?intent=signin&redirect=${redirect}`);
+        window.location.replace(
+          `/signin?intent=signin&redirect=${redirect}`,
+        );
       }
     });
     return () => {
@@ -76,22 +83,44 @@ export default function GuestDashboard() {
   const [displayName, setDisplayName] = useState<string | null>(null);
 
   // independent card states
-  const [stays, setStays] = useState<AsyncData<Stay[]>>({ loading: true, source: "live", data: [] });
-  const [reviews, setReviews] = useState<AsyncData<Review[]>>({ loading: true, source: "live", data: [] });
-  const [spend, setSpend] = useState<AsyncData<Spend[]>>({ loading: true, source: "live", data: [] });
-  const [referrals, setReferrals] = useState<AsyncData<Referral[]>>({ loading: true, source: "live", data: [] });
+  const [stays, setStays] = useState<AsyncData<Stay[]>>({
+    loading: true,
+    source: "live",
+    data: [],
+  });
+  const [reviews, setReviews] = useState<AsyncData<Review[]>>({
+    loading: true,
+    source: "live",
+    data: [],
+  });
+  const [spend, setSpend] = useState<AsyncData<Spend[]>>({
+    loading: true,
+    source: "live",
+    data: [],
+  });
+  const [referrals, setReferrals] = useState<AsyncData<Referral[]>>({
+    loading: true,
+    source: "live",
+    data: [],
+  });
 
   /* ---- Auth + Profile ---- */
   useEffect(() => {
     let mounted = true;
 
     (async () => {
-      const { data } = await supabase.auth.getUser().catch(() => ({ data: { user: null as any } }));
+      const { data } = await supabase.auth
+        .getUser()
+        .catch(() => ({ data: { user: null as any } }));
       if (!mounted) return;
       const u = data?.user;
 
       setEmail(u?.email ?? null);
-      setAuthName((u?.user_metadata?.name as string) ?? u?.user_metadata?.full_name ?? null);
+      setAuthName(
+        (u?.user_metadata?.name as string) ??
+          u?.user_metadata?.full_name ??
+          null,
+      );
 
       if (u?.id) {
         const { data: prof } = await supabase
@@ -104,23 +133,29 @@ export default function GuestDashboard() {
         }
       }
 
-      const { data: sub } = supabase.auth.onAuthStateChange(async (_evt, sess) => {
-        if (!mounted) return;
-        const user = sess?.user;
-        setEmail(user?.email ?? null);
-        setAuthName((user?.user_metadata?.name as string) ?? user?.user_metadata?.full_name ?? null);
+      const { data: sub } = supabase.auth.onAuthStateChange(
+        async (_evt, sess) => {
+          if (!mounted) return;
+          const user = sess?.user;
+          setEmail(user?.email ?? null);
+          setAuthName(
+            (user?.user_metadata?.name as string) ??
+              user?.user_metadata?.full_name ??
+              null,
+          );
 
-        if (user?.id) {
-          const { data: prof } = await supabase
-            .from("profiles")
-            .select("full_name")
-            .eq("id", user.id)
-            .maybeSingle();
-          if (prof && prof.full_name && prof.full_name.trim()) {
-            setDisplayName(prof.full_name.trim());
+          if (user?.id) {
+            const { data: prof } = await supabase
+              .from("profiles")
+              .select("full_name")
+              .eq("id", user.id)
+              .maybeSingle();
+            if (prof && prof.full_name && prof.full_name.trim()) {
+              setDisplayName(prof.full_name.trim());
+            }
           }
-        }
-      });
+        },
+      );
       return () => sub.subscription.unsubscribe();
     })();
 
@@ -136,7 +171,7 @@ export default function GuestDashboard() {
       (j: any) => (Array.isArray(j?.items) ? (j.items as Stay[]) : []),
       demoStays,
       setStays,
-      USE_DEMO
+      USE_DEMO,
     );
 
     loadCard(
@@ -144,7 +179,7 @@ export default function GuestDashboard() {
       (j: any) => (Array.isArray(j?.items) ? (j.items as Review[]) : []),
       demoReviews,
       setReviews,
-      USE_DEMO
+      USE_DEMO,
     );
 
     loadCard(
@@ -152,7 +187,7 @@ export default function GuestDashboard() {
       (j: any) => (Array.isArray(j?.items) ? (j.items as Spend[]) : []),
       demoSpend,
       setSpend,
-      USE_DEMO
+      USE_DEMO,
     );
 
     loadCard(
@@ -160,7 +195,7 @@ export default function GuestDashboard() {
       (j: any) => (Array.isArray(j?.items) ? (j.items as Referral[]) : []),
       demoReferrals,
       setReferrals,
-      USE_DEMO
+      USE_DEMO,
     );
   }, []);
 
@@ -176,17 +211,28 @@ export default function GuestDashboard() {
     return `Welcome, ${firstName}!`;
   }, [firstName, lastStay, stays.source]);
 
-  const totalReferralCredits = referrals.data.reduce((a, r) => a + Number(r.credits || 0), 0);
+  const totalReferralCredits = referrals.data.reduce(
+    (a, r) => a + Number(r.credits || 0),
+    0,
+  );
 
   // Travel Stats (derived)
   const stats = useMemo(() => {
-    const nights = stays.data.reduce((n, s) => n + diffDays(s.check_in, s.check_out), 0);
-    const totalSpend = spend.data.reduce((a, s) => a + Number(s.total || 0), 0);
+    const nights = stays.data.reduce(
+      (n, s) => n + diffDays(s.check_in, s.check_out),
+      0,
+    );
+    const totalSpend = spend.data.reduce(
+      (a, s) => a + Number(s.total || 0),
+      0,
+    );
     const countsByHotel: Record<string, number> = {};
     stays.data.forEach((s) => {
       countsByHotel[s.hotel.name] = (countsByHotel[s.hotel.name] || 0) + 1;
     });
-    const mostVisited = Object.entries(countsByHotel).sort((a, b) => b[1] - a[1])[0]?.[0] || "—";
+    const mostVisited =
+      Object.entries(countsByHotel).sort((a, b) => b[1] - a[1])[0]?.[0] ||
+      "—";
     return {
       totalStays: stays.data.length,
       nights,
@@ -201,7 +247,11 @@ export default function GuestDashboard() {
     const map: Record<string, Review> = {};
     for (const r of reviews.data) {
       const key = r.hotel.name.toLowerCase();
-      if (!map[key] || new Date(r.created_at) > new Date(map[key].created_at)) map[key] = r;
+      if (
+        !map[key] ||
+        new Date(r.created_at) > new Date(map[key].created_at)
+      )
+        map[key] = r;
     }
     return map;
   }, [reviews.data]);
@@ -216,16 +266,24 @@ export default function GuestDashboard() {
   }, [referrals.data]);
 
   return (
-    <main className="max-w-6xl mx-auto p-4 space-y-5" aria-labelledby="guest-dash-title">
+    <main
+      className="max-w-6xl mx-auto p-4 space-y-5"
+      aria-labelledby="guest-dash-title"
+    >
       {/* Hero */}
-      <section className="relative rounded-2xl p-6 bg-gradient-to-r from-sky-50 via-white to-indigo-50 border overflow-hidden">
+      <section className="relative rounded-2xl p-6 bg-gradient-to-r from-sky-50 via-white to-indigo-50 border">
         <Bubbles />
         <div className="flex items-start justify-between gap-4 relative">
           <div>
-            <h1 id="guest-dash-title" className="text-xl md:text-2xl font-semibold">
+            <h1
+              id="guest-dash-title"
+              className="text-xl md:text-2xl font-semibold"
+            >
               {welcomeText}
             </h1>
-            <p className="text-sm text-gray-600 mt-1">Your trips, bookings and bills — all in one happy place 😄</p>
+            <p className="text-sm text-gray-600 mt-1">
+              Your trips, bookings and bills — all in one happy place 😄
+            </p>
             <p className="text-xs text-gray-600 mt-2">
               Tip: Add a profile photo and KYC in your{" "}
               <button onClick={() => nav("/profile")} className="underline">
@@ -245,20 +303,40 @@ export default function GuestDashboard() {
         <div className="mt-4 flex items-center gap-2">
           <RewardsPill />
           <QuickPill title="Scan & go" text="Check-in with a QR" to="/scan" />
-          <QuickPill title="Find my booking" text="Enter code" to="/claim" variant="light" />
-          <QuickPill title="Explore hotels" text="Discover stays" to="/hotel/sunrise" variant="light" />
+          <QuickPill
+            title="Find my booking"
+            text="Enter code"
+            to="/claim"
+            variant="light"
+          />
+          <QuickPill
+            title="Explore hotels"
+            text="Discover stays"
+            to="/hotel/sunrise"
+            variant="light"
+          />
         </div>
-
-        
       </section>
 
       {/* Row 0.5: Travel Stats badges */}
       <section className="grid sm:grid-cols-5 gap-3">
         <StatBadge label="Total stays" value={String(stats.totalStays)} emoji="🧳" />
         <StatBadge label="Days at VAiyu" value={String(stats.nights)} emoji="📅" />
-        <StatBadge label="Total spend" value={fmtMoney(stats.totalSpend)} emoji="💸" />
-        <StatBadge label="Credits earned" value={fmtMoney(stats.totalCredits)} emoji="🎁" />
-        <StatBadge label="Most visited" value={stats.mostVisited} emoji="❤️" />
+        <StatBadge
+          label="Total spend"
+          value={fmtMoney(stats.totalSpend)}
+          emoji="💸"
+        />
+        <StatBadge
+          label="Credits earned"
+          value={fmtMoney(stats.totalCredits)}
+          emoji="🎁"
+        />
+        <StatBadge
+          label="Most visited"
+          value={stats.mostVisited}
+          emoji="❤️"
+        />
       </section>
 
       {/* Row 1: Check-in, Recent stays, Spend */}
@@ -279,12 +357,17 @@ export default function GuestDashboard() {
             <>
               <ul className="space-y-2 text-sm">
                 {stays.data.slice(0, 5).map((s) => (
-                  <li key={s.id} className="flex items-center justify-between">
+                  <li
+                    key={s.id}
+                    className="flex items-center justify-between"
+                  >
                     <span>
                       {s.hotel.name}
                       {s.hotel.city ? `, ${s.hotel.city}` : ""}
                     </span>
-                    <span className="opacity-70">{fmtRange(s.check_in, s.check_out)}</span>
+                    <span className="opacity-70">
+                      {fmtRange(s.check_in, s.check_out)}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -351,13 +434,22 @@ export default function GuestDashboard() {
               const rv = reviewByHotel[key];
               const credits = creditsByHotel[key] || 0;
               return (
-                <div key={s.id} className="rounded-xl border p-3 bg-gradient-to-b from-white to-slate-50">
+                <div
+                  key={s.id}
+                  className="rounded-xl border p-3 bg-gradient-to-b from-white to-slate-50"
+                >
                   <div className="flex gap-3">
                     <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex-none">
                       {s.hotel.cover_url ? (
-                        <img src={s.hotel.cover_url} alt="" className="w-full h-full object-cover" />
+                        <img
+                          src={s.hotel.cover_url}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
                       ) : (
-                        <div className="w-full h-full grid place-items-center text-gray-400 text-xs">No photo</div>
+                        <div className="w-full h-full grid place-items-center text-gray-400 text-xs">
+                          No photo
+                        </div>
                       )}
                     </div>
                     <div className="min-w-0">
@@ -365,7 +457,9 @@ export default function GuestDashboard() {
                         {s.hotel.name}
                         {s.hotel.city ? `, ${s.hotel.city}` : ""}
                       </div>
-                      <div className="text-xs text-gray-500">{fmtRange(s.check_in, s.check_out)}</div>
+                      <div className="text-xs text-gray-500">
+                        {fmtRange(s.check_in, s.check_out)}
+                      </div>
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
                         {credits > 0 && (
                           <span className="px-2 py-0.5 rounded-full bg-amber-100 border border-amber-200">
@@ -384,10 +478,13 @@ export default function GuestDashboard() {
                   {rv && (
                     <div className="mt-2 text-sm text-gray-700">
                       {rv.title ? `“${rv.title}”` : ""}
-                      <div className="text-xs text-gray-500 mt-1">{fmtDate(rv.created_at)}</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {fmtDate(rv.created_at)}
+                      </div>
                       {rv.hotel_reply && (
                         <div className="mt-2 text-xs rounded-md border bg-white p-2">
-                          <span className="opacity-70">Hotel replied:</span> {rv.hotel_reply}
+                          <span className="opacity-70">Hotel replied:</span>{" "}
+                          {rv.hotel_reply}
                         </div>
                       )}
                     </div>
@@ -421,23 +518,34 @@ export default function GuestDashboard() {
             <>
               <div className="rounded-lg border bg-gradient-to-r from-amber-50 to-orange-50 p-3 flex items-center justify-between">
                 <div className="text-sm">Total credits</div>
-                <div className="text-lg font-semibold">{fmtMoney(totalReferralCredits)}</div>
+                <div className="text-lg font-semibold">
+                  {fmtMoney(totalReferralCredits)}
+                </div>
               </div>
               <ul className="mt-3 divide-y text-sm">
                 {referrals.data.map((r) => (
-                  <li key={r.id} className="py-2 flex items-center justify-between">
+                  <li
+                    key={r.id}
+                    className="py-2 flex items-center justify-between"
+                  >
                     <div>
                       <div className="font-medium">
                         {r.hotel.name}
                         {r.hotel.city ? `, ${r.hotel.city}` : ""}
                       </div>
                       <div className="text-xs text-gray-500">
-                        {r.referrals_count} successful {r.referrals_count === 1 ? "referral" : "referrals"}
+                        {r.referrals_count} successful{" "}
+                        {r.referrals_count === 1 ? "referral" : "referrals"}
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-semibold">{fmtMoney(Number(r.credits || 0))}</div>
-                      <button className="text-xs underline" onClick={() => copyReferral(r.hotel.name)}>
+                      <div className="font-semibold">
+                        {fmtMoney(Number(r.credits || 0))}
+                      </div>
+                      <button
+                        className="text-xs underline"
+                        onClick={() => copyReferral(r.hotel.name)}
+                      >
                         Share link
                       </button>
                     </div>
@@ -453,8 +561,12 @@ export default function GuestDashboard() {
         <div className="lg:col-span-2 rounded-2xl p-4 shadow bg-white border">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-sm text-gray-600 mb-1">Your latest reviews</div>
-              <div className="text-xs text-gray-500">Spread the travel joy — add a fun title or edit anytime.</div>
+              <div className="text-sm text-gray-600 mb-1">
+                Your latest reviews
+              </div>
+              <div className="text-xs text-gray-500">
+                Spread the travel joy — add a fun title or edit anytime.
+              </div>
             </div>
             <Link className="btn btn-light" to="/stays">
               Manage
@@ -476,7 +588,9 @@ export default function GuestDashboard() {
           </div>
 
           {reviews.source === "preview" && (
-            <div className="mt-3 text-xs text-gray-500">Showing a preview while we connect to your reviews.</div>
+            <div className="mt-3 text-xs text-gray-500">
+              Showing a preview while we connect to your reviews.
+            </div>
           )}
         </div>
       </section>
@@ -484,13 +598,17 @@ export default function GuestDashboard() {
       {/* Help / Support */}
       <section className="rounded-2xl p-4 shadow bg-blue-50/60 border border-blue-100 flex items-center justify-between">
         <div className="text-sm text-blue-900">
-          Need help with your bookings or profile? No worries — our team can fix it quickly.
+          Need help with your bookings or profile? No worries — our team can fix
+          it quickly.
         </div>
         <div className="flex gap-2">
           <Link to="/contact" className="btn btn-light">
             Contact support
           </Link>
-          <a className="btn btn-light" href="mailto:support@vaiyu.co.in?subject=Help%20on%20Guest%20Dashboard">
+          <a
+            className="btn btn-light"
+            href="mailto:support@vaiyu.co.in?subject=Help%20on%20Guest%20Dashboard"
+          >
             Email us
           </a>
         </div>
@@ -502,7 +620,8 @@ export default function GuestDashboard() {
           <div>
             <div className="font-semibold">Want to run a property?</div>
             <div className="text-sm text-gray-600">
-              Register your hotel to unlock the owner console: dashboards, SLAs, workflows and AI moderation.
+              Register your hotel to unlock the owner console: dashboards, SLAs,
+              workflows and AI moderation.
             </div>
           </div>
           <Link className="btn" to="/owner/register">
@@ -520,7 +639,7 @@ async function loadCard<J, T>(
   map: (j: J | null) => T,
   demo: () => T,
   set: (next: any) => void,
-  allowDemo: boolean
+  allowDemo: boolean,
 ) {
   set({ loading: true, source: "live", data: [] as unknown as T });
   try {
@@ -542,7 +661,8 @@ function ArrivalCheckInEmpty() {
       <div className="rounded-lg border-2 border-dashed p-4 bg-gray-50">
         <div className="font-medium">Arriving at a VAiyu hotel?</div>
         <p className="text-gray-600 mt-1">
-          When you reach the property, scan the VAiyu QR at the front desk to fetch your booking and start check-in.
+          When you reach the property, scan the VAiyu QR at the front desk to
+          fetch your booking and start check-in.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Link className="btn" to="/scan">
@@ -559,8 +679,6 @@ function ArrivalCheckInEmpty() {
     </div>
   );
 }
-
-
 
 /* ===== Reusable UI ===== */
 const Card = memo(function Card({
@@ -586,7 +704,11 @@ const Card = memo(function Card({
             <div className="font-semibold">{title}</div>
           </div>
         </div>
-        {badge && <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 border text-gray-700">{badge}</span>}
+        {badge && (
+          <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 border text-gray-700">
+            {badge}
+          </span>
+        )}
       </div>
       <div>{children}</div>
     </div>
@@ -620,7 +742,15 @@ function QuickPill({
   );
 }
 
-function StatBadge({ label, value, emoji }: { label: string; value: string; emoji: string }) {
+function StatBadge({
+  label,
+  value,
+  emoji,
+}: {
+  label: string;
+  value: string;
+  emoji: string;
+}) {
   return (
     <div className="rounded-xl border bg-white shadow-sm p-3">
       <div className="text-xs text-gray-500">{label}</div>
@@ -632,7 +762,16 @@ function StatBadge({ label, value, emoji }: { label: string; value: string; emoj
 }
 
 function ReviewCard({ review }: { review: Review }) {
-  const vibe = review.rating >= 5 ? "🎉" : review.rating >= 4 ? "😊" : review.rating >= 3 ? "🙂" : review.rating >= 2 ? "😐" : "😞";
+  const vibe =
+    review.rating >= 5
+      ? "🎉"
+      : review.rating >= 4
+      ? "😊"
+      : review.rating >= 3
+      ? "🙂"
+      : review.rating >= 2
+      ? "😐"
+      : "😞";
   return (
     <div className="rounded-xl border p-3 bg-gradient-to-b from-white to-gray-50">
       <div className="flex items-center justify-between">
@@ -641,8 +780,12 @@ function ReviewCard({ review }: { review: Review }) {
           {stars(review.rating)} <span className="ml-1">{vibe}</span>
         </div>
       </div>
-      {review.title ? <div className="text-sm text-gray-700 mt-1">“{review.title}”</div> : null}
-      <div className="text-xs text-gray-500 mt-2">{fmtDate(review.created_at)}</div>
+      {review.title ? (
+        <div className="text-sm text-gray-700 mt-1">“{review.title}”</div>
+      ) : null}
+      <div className="text-xs text-gray-500 mt-2">
+        {fmtDate(review.created_at)}
+      </div>
     </div>
   );
 }
@@ -655,7 +798,10 @@ function MiniBars({ data }: { data: Spend[] }) {
         .slice()
         .sort((a, b) => a.year - b.year)
         .map((d) => {
-          const h = Math.max(4, Math.round((Number(d.total || 0) / max) * 48));
+          const h = Math.max(
+            4,
+            Math.round((Number(d.total || 0) / max) * 48),
+          );
           return (
             <div
               key={d.year}
@@ -681,7 +827,14 @@ function Bubbles() {
 /* ===== Icons ===== */
 function CalendarIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" {...props}>
+    <svg
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      fill="none"
+      stroke="currentColor"
+      {...props}
+    >
       <rect x="3" y="4" width="18" height="18" rx="2" />
       <line x1="16" y1="2" x2="16" y2="6" />
       <line x1="8" y1="2" x2="8" y2="6" />
@@ -691,7 +844,14 @@ function CalendarIcon(props: React.SVGProps<SVGSVGElement>) {
 }
 function SuitcaseIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" {...props}>
+    <svg
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      fill="none"
+      stroke="currentColor"
+      {...props}
+    >
       <rect x="3" y="7" width="18" height="13" rx="2" />
       <rect x="8" y="3" width="8" height="4" rx="1" />
     </svg>
@@ -699,15 +859,31 @@ function SuitcaseIcon(props: React.SVGProps<SVGSVGElement>) {
 }
 function RupeeIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" {...props}>
-      <text x="5" y="17" fontSize="14" fontFamily="system-ui">₹</text>
+    <svg
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      fill="none"
+      stroke="currentColor"
+      {...props}
+    >
+      <text x="5" y="17" fontSize="14" fontFamily="system-ui">
+        ₹
+      </text>
       <line x1="9" y1="8" x2="18" y2="8" />
     </svg>
   );
 }
 function GiftIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" {...props}>
+    <svg
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      fill="none"
+      stroke="currentColor"
+      {...props}
+    >
       <rect x="3" y="8" width="18" height="12" rx="2" />
       <path d="M3 12h18" />
       <path d="M12 8v12" />
@@ -738,7 +914,8 @@ function fmtDate(s: string) {
   return isFinite(d.getTime()) ? d.toLocaleString() : s;
 }
 function fmtRange(a: string, b: string) {
-  const A = new Date(a), B = new Date(b);
+  const A = new Date(a),
+    B = new Date(b);
   const left = isFinite(A.getTime()) ? A.toLocaleDateString() : a;
   const right = isFinite(B.getTime()) ? B.toLocaleDateString() : b;
   return `${left} – ${right}`;
@@ -792,7 +969,8 @@ function demoStays(): any[] {
       hotel: {
         name: "Sunrise Suites",
         city: "Nainital",
-        cover_url: "https://images.unsplash.com/photo-1559599101-b59c1b3bcd9b?w=640",
+        cover_url:
+          "https://images.unsplash.com/photo-1559599101-b59c1b3bcd9b?w=640",
       },
       check_in: "2025-08-10T12:00:00Z",
       check_out: "2025-08-12T08:00:00Z",
@@ -803,7 +981,8 @@ function demoStays(): any[] {
       hotel: {
         name: "Lakeside Inn",
         city: "Nainital",
-        cover_url: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=640",
+        cover_url:
+          "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=640",
       },
       check_in: "2025-06-05T12:00:00Z",
       check_out: "2025-06-07T08:00:00Z",
@@ -814,13 +993,23 @@ function demoStays(): any[] {
       hotel: {
         name: "Pine View",
         city: "Almora",
-        cover_url: "https://images.unsplash.com/photo-1496412705862-e0088f16f791?w=640",
+        cover_url:
+          "https://images.unsplash.com/photo-1496412705862-e0088f16f791?w=640",
       },
       check_in: "2025-04-01T12:00:00Z",
       check_out: "2025-04-03T08:00:00Z",
       bill_total: 3999,
     },
-    { id: "s4", hotel: { name: "Cedar Ridge", city: "Ranikhet", cover_url: null }, check_in: "2025-03-01T12:00:00Z", check_out: "2025-03-02T08:00:00Z" },
+    {
+      id: "s4",
+      hotel: {
+        name: "Cedar Ridge",
+        city: "Ranikhet",
+        cover_url: null,
+      },
+      check_in: "2025-03-01T12:00:00Z",
+      check_out: "2025-03-02T08:00:00Z",
+    },
   ];
 }
 function demoReviews(): any[] {
@@ -833,7 +1022,14 @@ function demoReviews(): any[] {
       created_at: "2025-08-12T10:00:00Z",
       hotel_reply: "Thank you Kapil! We loved hosting you.",
     },
-    { id: "r2", hotel: { name: "Lakeside Inn" }, rating: 4, title: "Beautiful view", created_at: "2025-06-07T09:00:00Z", hotel_reply: null },
+    {
+      id: "r2",
+      hotel: { name: "Lakeside Inn" },
+      rating: 4,
+      title: "Beautiful view",
+      created_at: "2025-06-07T09:00:00Z",
+      hotel_reply: null,
+    },
     {
       id: "r3",
       hotel: { name: "Pine View" },
@@ -854,15 +1050,29 @@ function demoSpend(): any[] {
 }
 function demoReferrals(): any[] {
   return [
-    { id: "rf1", hotel: { name: "Sunrise Suites", city: "Nainital" }, credits: 1200, referrals_count: 3 },
-    { id: "rf2", hotel: { name: "Lakeside Inn", city: "Nainital" }, credits: 800, referrals_count: 2 },
+    {
+      id: "rf1",
+      hotel: { name: "Sunrise Suites", city: "Nainital" },
+      credits: 1200,
+      referrals_count: 3,
+    },
+    {
+      id: "rf2",
+      hotel: { name: "Lakeside Inn", city: "Nainital" },
+      credits: 800,
+      referrals_count: 2,
+    },
   ];
 }
 
 /* ===== Simple empty state ===== */
 function Empty({ text, small }: { text: string; small?: boolean }) {
   return (
-    <div className={`rounded-lg border border-dashed ${small ? "p-3 text-xs" : "p-6 text-sm"} text-gray-600 bg-gray-50`}>
+    <div
+      className={`rounded-lg border border-dashed ${
+        small ? "p-3 text-xs" : "p-6 text-sm"
+      } text-gray-600 bg-gray-50`}
+    >
       {text}
     </div>
   );

@@ -7,6 +7,7 @@ import {
   Outlet,
   useParams,
   useSearchParams,
+  Link,
 } from "react-router-dom";
 import OwnerApplications from "./routes/admin/OwnerApplications";
 
@@ -270,6 +271,149 @@ function OwnerPickup() {
   );
 }
 
+// NEW: Revenue overview route backing /owner/:slug/revenue
+function OwnerRevenueOverview() {
+  const { slug } = useParams<{ slug?: string }>();
+
+  const baseSlug = slug || "";
+  const hasSlug = Boolean(slug);
+
+  return (
+    <main className="max-w-6xl mx-auto p-6">
+      <h1 className="text-2xl font-semibold mb-2">Revenue &amp; forecast</h1>
+      <p className="text-sm text-muted-foreground mb-4">
+        This page will host a focused revenue and forecast view for{" "}
+        {slug || "this hotel"}. For now, use the Revenue cards on the Owner
+        Dashboard plus the ADR and RevPAR detail tabs.
+      </p>
+      <div className="rounded-xl border bg-white p-4 text-sm text-muted-foreground space-y-3">
+        <p className="font-medium">Quick links</p>
+        <ul className="list-disc list-inside space-y-1">
+          {hasSlug ? (
+            <>
+              <li>
+                <Link
+                  className="text-blue-600 underline"
+                  to={`/owner/${baseSlug}/revenue/adr`}
+                >
+                  ADR detail view
+                </Link>
+              </li>
+              <li>
+                <Link
+                  className="text-blue-600 underline"
+                  to={`/owner/${baseSlug}/revenue/revpar`}
+                >
+                  RevPAR detail view
+                </Link>
+              </li>
+              <li>
+                <Link
+                  className="text-blue-600 underline"
+                  to={`/owner/${baseSlug}`}
+                >
+                  Back to Owner dashboard
+                </Link>
+              </li>
+            </>
+          ) : (
+            <li>
+              <Link className="text-blue-600 underline" to="/owner">
+                Go to Owner home
+              </Link>
+            </li>
+          )}
+        </ul>
+        <p className="text-xs text-muted-foreground">
+          This is a safe placeholder so the <strong>Revenue &amp; forecast</strong>{" "}
+          card can open without a 404. You can extend this later with charts and
+          filters.
+        </p>
+      </div>
+    </main>
+  );
+}
+
+// NEW: HRMS placeholder backing /owner/:slug/hrms
+function OwnerHRMS() {
+  const { slug } = useParams<{ slug?: string }>();
+  return (
+    <main className="max-w-6xl mx-auto p-6">
+      <h1 className="text-2xl font-semibold mb-2">HRMS &amp; attendance</h1>
+      <p className="text-sm text-muted-foreground mb-4">
+        This route is reserved for an HR and attendance snapshot for{" "}
+        {slug || "this hotel"}. It exists so the{" "}
+        <strong>Attendance snapshot</strong> link on the Owner dashboard no
+        longer shows a 404.
+      </p>
+      <div className="rounded-xl border bg-white p-4 text-sm text-muted-foreground">
+        <p>
+          You can safely wire staff rosters, shifts, and attendance widgets
+          here later. For now, please continue using your existing HR processes
+          while we design this module.
+        </p>
+      </div>
+    </main>
+  );
+}
+
+// NEW: Pricing placeholder backing /owner/:slug/pricing
+function OwnerPricing() {
+  const { slug } = useParams<{ slug?: string }>();
+  return (
+    <main className="max-w-6xl mx-auto p-6">
+      <h1 className="text-2xl font-semibold mb-2">Pricing &amp; plans</h1>
+      <p className="text-sm text-muted-foreground mb-4">
+        This route is a placeholder for a dedicated pricing configuration view
+        for {slug || "this hotel"}. It prevents 404s from the{" "}
+        <strong>Open pricing</strong> link.
+      </p>
+      <div className="rounded-xl border bg-white p-4 text-sm text-muted-foreground space-y-2">
+        <p>
+          Future versions can use this page to manage BAR, corporate rates,
+          packages, and channel-specific rules. Until then, pricing logic
+          continues to live in your PMS / channel manager.
+        </p>
+        <p className="text-xs">
+          If you reached this page from the dashboard, you can safely navigate
+          back without losing any data.
+        </p>
+      </div>
+    </main>
+  );
+}
+
+// NEW: Bookings calendar placeholder backing /bookings/calendar
+function BookingsCalendar() {
+  return (
+    <main className="max-w-6xl mx-auto p-6">
+      <h1 className="text-2xl font-semibold mb-2">Bookings calendar</h1>
+      <p className="text-sm text-muted-foreground mb-4">
+        This route is reserved for a calendar view of bookings. It exists so the{" "}
+        <strong>Open calendar</strong> action no longer results in a 404.
+      </p>
+      <div className="rounded-xl border bg-white p-4 text-sm text-muted-foreground space-y-2">
+        <p>
+          In a future release, this will show arrivals, in-house guests, and
+          departures in a visual calendar. For now, use the Stays list and Ops
+          board for operational visibility.
+        </p>
+        <p className="text-xs">
+          Tip: you can open{" "}
+          <Link to="/stays" className="text-blue-600 underline">
+            Stays
+          </Link>{" "}
+          or{" "}
+          <Link to="/desk" className="text-blue-600 underline">
+            Ops board
+          </Link>{" "}
+          for day-to-day operations.
+        </p>
+      </div>
+    </main>
+  );
+}
+
 // ================= Router =================
 const router = createBrowserRouter([
   {
@@ -350,6 +494,15 @@ const router = createBrowserRouter([
           </AuthGate>
         ),
       },
+      // NEW: /ops alias → Desk (Live requests & orders)
+      {
+        path: "ops",
+        element: (
+          <AuthGate>
+            <Desk />
+          </AuthGate>
+        ),
+      },
       {
         path: "desk/tickets",
         element: (
@@ -371,6 +524,16 @@ const router = createBrowserRouter([
         element: (
           <AuthGate>
             <Maint />
+          </AuthGate>
+        ),
+      },
+
+      // NEW: Bookings calendar route (from Owner dashboard link)
+      {
+        path: "bookings/calendar",
+        element: (
+          <AuthGate>
+            <BookingsCalendar />
           </AuthGate>
         ),
       },
@@ -397,6 +560,15 @@ const router = createBrowserRouter([
         element: (
           <AuthGate>
             <OwnerRooms />
+          </AuthGate>
+        ),
+      },
+      // NEW: /owner/:slug/revenue (Revenue & forecast entry)
+      {
+        path: "owner/:slug/revenue",
+        element: (
+          <AuthGate>
+            <OwnerRevenueOverview />
           </AuthGate>
         ),
       },
@@ -437,6 +609,24 @@ const router = createBrowserRouter([
         element: (
           <AuthGate>
             <OwnerQRSheet />
+          </AuthGate>
+        ),
+      },
+      // NEW: /owner/:slug/hrms (Attendance snapshot)
+      {
+        path: "owner/:slug/hrms",
+        element: (
+          <AuthGate>
+            <OwnerHRMS />
+          </AuthGate>
+        ),
+      },
+      // NEW: /owner/:slug/pricing (Open pricing)
+      {
+        path: "owner/:slug/pricing",
+        element: (
+          <AuthGate>
+            <OwnerPricing />
           </AuthGate>
         ),
       },

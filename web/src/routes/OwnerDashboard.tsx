@@ -1,6 +1,6 @@
 // web/src/routes/OwnerDashboard.tsx — ultra-premium owner dashboard
 // NOTE: All data fetching / Supabase / hooks logic is preserved;
-// only the layout and visual components have been upgraded.
+// we only add VIP / Events / NPS wiring and tweak layout safely.
 
 import {
   useEffect,
@@ -61,6 +61,37 @@ type HrmsSnapshot = {
   attendance_pct_today: number;
   absences_7d: number;
   staff_with_absence_7d: number;
+};
+
+// RPC types
+type VipStay = {
+  stay_id: string;
+  room: string | null;
+  is_vip: boolean;
+  has_open_complaint: boolean;
+  needs_courtesy_call: boolean;
+  check_in_start: string | null;
+  check_out_end: string | null;
+};
+
+type EventRow = {
+  id: string;
+  name: string;
+  start_at: string;
+  end_at: string | null;
+  venue: string | null;
+  status: string;
+  risk_status: string;
+  progress_pct: number;
+};
+
+type NpsSnapshot = {
+  hotel_id: string;
+  total_responses: number;
+  promoters: number;
+  passives: number;
+  detractors: number;
+  nps_30d: number | null;
 };
 
 type DrawerKind = "pickup" | "opsBoard" | "rushRooms" | "vipList";
@@ -141,6 +172,11 @@ export default function OwnerDashboard() {
   // Staff performance & HRMS snapshot (optional RPC)
   const [staffPerf, setStaffPerf] = useState<StaffPerf[] | null>(null);
   const [hrms, setHrms] = useState<HrmsSnapshot | null>(null);
+
+  // New RPC-backed state
+  const [vipStays, setVipStays] = useState<VipStay[] | null>(null);
+  const [eventsToday, setEventsToday] = useState<EventRow[] | null>(null);
+  const [npsSnapshot, setNpsSnapshot] = useState<NpsSnapshot | null>(null);
 
   const [accessProblem, setAccessProblem] = useState<string | null>(null);
   const inviteToken = params.get("invite");
@@ -305,7 +341,7 @@ export default function OwnerDashboard() {
           );
           if (alive) setStaffPerf(data ?? null);
         } catch {
-          setStaffPerf(null);
+          if (alive) setStaffPerf(null);
         }
         try {
           const { data } = await supabase.rpc("hrms_snapshot_for_slug", {
@@ -313,7 +349,34 @@ export default function OwnerDashboard() {
           });
           if (alive) setHrms((data && data[0]) ?? null);
         } catch {
-          setHrms(null);
+          if (alive) setHrms(null);
+        }
+        // NEW: VIP arrivals
+        try {
+          const { data } = await supabase.rpc("vip_arrivals_for_slug", {
+            p_slug: slug,
+          });
+          if (alive) setVipStays(data ?? []);
+        } catch {
+          if (alive) setVipStays([]);
+        }
+        // NEW: Events today
+        try {
+          const { data } = await supabase.rpc("events_today_for_slug", {
+            p_slug: slug,
+          });
+          if (alive) setEventsToday(data ?? []);
+        } catch {
+          if (alive) setEventsToday([]);
+        }
+        // NEW: NPS snapshot
+        try {
+          const { data } = await supabase.rpc("owner_nps_for_slug", {
+            p_slug: slug,
+          });
+          if (alive) setNpsSnapshot(data && data[0] ? data[0] : null);
+        } catch {
+          if (alive) setNpsSnapshot(null);
         }
       }
 
@@ -402,6 +465,15 @@ export default function OwnerDashboard() {
 
   const nightsOnBooks = occupied + pickup7d;
 
+  // NEW: derived VIP / events / NPS
+  const vipCount = vipStays?.length ?? 0;
+  const eventsCount = eventsToday?.length ?? 0;
+  const npsScore =
+    typeof npsSnapshot?.nps_30d === "number"
+      ? Math.round(npsSnapshot.nps_30d)
+      : undefined;
+  const npsResponses = npsSnapshot?.total_responses ?? 0;
+
   /** ======= Render ======= */
   return (
     <main className="min-h-screen bg-slate-50">
@@ -432,6 +504,10 @@ export default function OwnerDashboard() {
           ordersTotal={ordersTotal}
           ordersOverdue={ordersOverdue}
           hrms={hrms}
+          npsScore={npsScore}
+          npsResponses={npsResponses}
+          vipCount={vipCount}
+          eventCount={eventsCount}
           onOpenDrawer={(kind) => setDrawer({ kind })}
         />
 
@@ -466,6 +542,10 @@ export default function OwnerDashboard() {
             pickup7d={pickup7d}
             occPct={occPct}
             kpi={kpi}
+            npsScore={npsScore}
+            npsResponses={npsResponses}
+            vipStays={vipStays}
+            eventsToday={eventsToday}
           />
         </section>
 
@@ -549,8 +629,8 @@ function OwnerTopBar({
 }) {
   return (
     <header className="flex flex-col gap-3 rounded-3xl border border-slate-100 bg-white/90 px-3 py-3 shadow-sm shadow-slate-200/60 backdrop-blur-md lg:flex-row lg:items-center lg:justify-between">
+      {/* BackHome removed here to avoid duplicate; layout BackHome remains */}
       <div className="flex items-center gap-3">
-        <BackHome />
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-semibold tracking-tight text-slate-900">
@@ -640,6 +720,10 @@ function PulseStrip({
   ordersTotal,
   ordersOverdue,
   hrms,
+  npsScore,
+  npsResponses,
+  vipCount,
+  eventCount,
   onOpenDrawer,
 }: {
   hotelName: string;
@@ -658,12 +742,15 @@ function PulseStrip({
   ordersTotal: number;
   ordersOverdue: number;
   hrms: HrmsSnapshot | null;
+  npsScore?: number;
+  npsResponses?: number;
+  vipCount: number;
+  eventCount: number;
   onOpenDrawer: (kind: DrawerKind) => void;
 }) {
-  const npsApprox = (kpiRating: number | null) =>
-    kpiRating ? Math.min(100, Math.max(0, Math.round(kpiRating * 20))) : 78;
-
-  const nps = npsApprox(null); // placeholder until wired
+  const effectiveNps =
+    typeof npsScore === "number" ? npsScore : 78;
+  const effectiveResponses = npsResponses ?? 0;
 
   return (
     <section className="relative overflow-hidden rounded-3xl border border-sky-100 bg-gradient-to-r from-sky-50 via-slate-50 to-emerald-50 px-4 py-4 shadow-[0_20px_60px_rgba(15,23,42,0.12)] lg:px-6 lg:py-5">
@@ -700,8 +787,12 @@ function PulseStrip({
           />
           <PulseTile
             label="Guest experience"
-            primary={`NPS ~${nps}`}
-            secondary={`Live rating & escalations`}
+            primary={`NPS ~${effectiveNps}`}
+            secondary={
+              effectiveResponses > 0
+                ? `${effectiveResponses} responses (last 30 days)`
+                : "Live rating & escalations"
+            }
             badgeLabel="Guest"
             badgeTone="green"
           />
@@ -729,8 +820,12 @@ function PulseStrip({
           />
           <PulseTile
             label="Events & VIPs"
-            primary="0 events · 0 VIP arrivals"
-            secondary="Connect events & VIP list to see early alerts."
+            primary={`${eventCount} events · ${vipCount} VIP arrivals`}
+            secondary={
+              eventCount + vipCount > 0
+                ? "Tap to see today’s VIPs & events."
+                : "Connect events & VIP list to see early alerts."
+            }
             actionLabel="View VIP list"
             onAction={() => onOpenDrawer("vipList")}
           />
@@ -919,6 +1014,10 @@ function PerformanceColumn({
   pickup7d,
   occPct,
   kpi,
+  npsScore,
+  npsResponses,
+  vipStays,
+  eventsToday,
 }: {
   slug: string;
   revenueToday: number;
@@ -927,11 +1026,19 @@ function PerformanceColumn({
   pickup7d: number;
   occPct: number;
   kpi: KpiRow | null;
+  npsScore?: number;
+  npsResponses?: number;
+  vipStays: VipStay[] | null;
+  eventsToday: EventRow[] | null;
 }) {
   const rating = kpi?.avg_rating_30d ?? null;
-  const npsApprox = rating
-    ? Math.min(100, Math.max(0, Math.round(rating * 20)))
-    : 78;
+  const fallbackNps =
+    rating != null
+      ? Math.min(100, Math.max(0, Math.round(rating * 20)))
+      : 78;
+  const npsDisplay =
+    typeof npsScore === "number" ? npsScore : fallbackNps;
+  const responsesDisplay = npsResponses ?? 0;
 
   return (
     <section className="space-y-4">
@@ -967,7 +1074,7 @@ function PerformanceColumn({
           </div>
         </div>
         <p className="mt-2 text-[11px] text-slate-500">
-          This mini-chart gives a feel for revenue trend; detailed pacing &
+          This mini-chart gives a feel for revenue trend; detailed pacing &amp;
           segmentation live in the revenue module.
         </p>
       </div>
@@ -980,11 +1087,12 @@ function PerformanceColumn({
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-lg font-semibold text-slate-900">
-              NPS ~{npsApprox}
+              NPS ~{npsDisplay}
             </div>
             <div className="mt-1 text-xs text-slate-600">
-              Based on last 30 days’ ratings. Detailed case list in the
-              feedback view.
+              {responsesDisplay > 0
+                ? `${responsesDisplay} responses in the last 30 days.`
+                : "Based on last 30 days’ ratings. Detailed case list in the feedback view."}
             </div>
           </div>
           <div className="flex h-14 w-14 items-center justify-center rounded-full border-4 border-emerald-400 bg-emerald-50 text-sm font-semibold text-emerald-700">
@@ -1002,10 +1110,89 @@ function PerformanceColumn({
           title="VIP & special attention"
           desc="Today’s VIPs, long-stays and guests with open complaints."
         />
-        <div className="text-sm text-slate-500">
-          Connect your CRM / PMS VIP flags to see a live list here. For now,
-          use the guest list to manage special attention manually.
-        </div>
+        {(!vipStays || vipStays.length === 0) &&
+        (!eventsToday || eventsToday.length === 0) ? (
+          <div className="text-sm text-slate-500">
+            Connect your CRM / PMS VIP flags to see a live list here. For now,
+            use the guest list to manage special attention manually.
+          </div>
+        ) : (
+          <div className="space-y-3 text-xs text-slate-700">
+            {vipStays && vipStays.length > 0 && (
+              <div>
+                <div className="mb-1 font-semibold text-slate-900">
+                  VIP arrivals & attention stays
+                </div>
+                <ul className="space-y-1">
+                  {vipStays.slice(0, 4).map((v) => (
+                    <li
+                      key={v.stay_id}
+                      className="flex items-center justify-between rounded-lg bg-slate-50 px-2 py-1"
+                    >
+                      <div>
+                        <div className="font-medium">
+                          {v.room ? `Room ${v.room}` : "Unassigned room"}
+                        </div>
+                        <div className="text-[11px] text-slate-500">
+                          {fmt(v.check_in_start)} → {fmt(v.check_out_end)}
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {v.is_vip && (
+                          <StatusBadge label="VIP" tone="green" />
+                        )}
+                        {v.has_open_complaint && (
+                          <StatusBadge label="Complaint" tone="amber" />
+                        )}
+                        {v.needs_courtesy_call && (
+                          <StatusBadge label="Courtesy call" tone="grey" />
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {eventsToday && eventsToday.length > 0 && (
+              <div>
+                <div className="mb-1 mt-2 font-semibold text-slate-900">
+                  Events & banquets today
+                </div>
+                <ul className="space-y-1">
+                  {eventsToday.slice(0, 3).map((e) => (
+                    <li
+                      key={e.id}
+                      className="flex items-center justify-between rounded-lg bg-slate-50 px-2 py-1"
+                    >
+                      <div>
+                        <div className="font-medium">{e.name}</div>
+                        <div className="text-[11px] text-slate-500">
+                          {e.venue || "Venue TBC"} · {fmt(e.start_at)}
+                        </div>
+                      </div>
+                      <StatusBadge
+                        label={
+                          e.risk_status === "risk"
+                            ? "Risk"
+                            : e.risk_status === "check"
+                            ? "Check"
+                            : "OK"
+                        }
+                        tone={
+                          e.risk_status === "risk"
+                            ? "red"
+                            : e.risk_status === "check"
+                            ? "amber"
+                            : "green"
+                        }
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </section>
   );

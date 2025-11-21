@@ -1,16 +1,21 @@
 // web/src/routes/Desk.tsx
 
-import { useEffect, useState, useCallback, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import {
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+} from "react";
 import {
   listTickets,
   updateTicket,
   listOrders,
   updateOrder,
 } from "../lib/api";
-import { supabase } from "../lib/supabase";
 import { connectEvents } from "../lib/sse";
 import SEO from "../components/SEO";
+import { useSearchParams } from "react-router-dom";
+import { supabase } from "../lib/supabase";
 
 type Ticket = {
   id: string;
@@ -35,11 +40,12 @@ type Order = {
   booking?: string;
 };
 
-// ─────────────────────────────────────────────
-// Detect effective hotel for /ops
-// Uses ?hotelId=… from URL or first hotel_members row
-// ─────────────────────────────────────────────
-function useEffectiveHotelIdForOps() {
+/* ─────────────────────────────────────────────
+   Detect effective hotel (URL ?hotelId=… or first hotel_members row)
+   (Same behaviour as desk/Tickets.tsx)
+   ───────────────────────────────────────────── */
+
+function useEffectiveHotelId() {
   const [searchParams, setSearchParams] = useSearchParams();
   const urlHotelId = searchParams.get("hotelId");
 
@@ -61,19 +67,14 @@ function useEffectiveHotelIdForOps() {
       try {
         const { data: userRes, error: userErr } = await supabase.auth.getUser();
         if (userErr) {
-          if (!cancelled) {
-            setError(userErr.message);
-            setInitialised(true);
-          }
+          setError(userErr.message);
+          setInitialised(true);
           return;
         }
-
         const userId = userRes?.user?.id;
         if (!userId) {
-          if (!cancelled) {
-            setError("You are not signed in.");
-            setInitialised(true);
-          }
+          setError("You are not signed in.");
+          setInitialised(true);
           return;
         }
 
@@ -85,27 +86,21 @@ function useEffectiveHotelIdForOps() {
           .maybeSingle();
 
         if (hmError) {
-          if (!cancelled) {
-            setError(hmError.message);
-            setInitialised(true);
-          }
+          setError(hmError.message);
+          setInitialised(true);
           return;
         }
-
         if (!data) {
-          if (!cancelled) {
-            setError("You are not a member of any hotel yet.");
-            setInitialised(true);
-          }
+          setError("You are not a member of any hotel yet.");
+          setInitialised(true);
           return;
         }
-
         if (cancelled) return;
 
-        // Use the first hotel we find
+        // Use first mapped hotel
         setHotelId(data.hotel_id);
 
-        // Also push it into the URL so refresh/share keeps working
+        // Also write it into the URL so other helpers / SSE can read it
         const next = new URLSearchParams(searchParams);
         next.set("hotelId", data.hotel_id);
         setSearchParams(next, { replace: true });
@@ -129,19 +124,25 @@ function useEffectiveHotelIdForOps() {
 }
 
 export default function Desk() {
-  // NEW: make sure we always have a hotelId for /ops
-  const { hotelId, initialised, error: hotelError } =
-    useEffectiveHotelIdForOps();
+  const { hotelId, initialised: hotelReady, error: hotelDetectError } =
+    useEffectiveHotelId();
 
   const [loading, setLoading] = useState(true);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  // Keep any detection error visible in the same banner
+  useEffect(() => {
+    if (hotelDetectError) {
+      setError(hotelDetectError);
+      setLoading(false);
+    }
+  }, [hotelDetectError]);
+
   const refresh = useCallback(async () => {
-    // Don’t hit the backend until we know which hotel we’re looking at
+    // If we don’t yet know the hotel, don’t hit the backend
     if (!hotelId) {
-      setError("Hotel is not selected yet.");
       setLoading(false);
       return;
     }
@@ -149,9 +150,11 @@ export default function Desk() {
     setError(null);
     setLoading(true);
     try {
-      // listTickets / listOrders already know how to use the current URL
-      // (which now includes ?hotelId=…) so we keep their logic unchanged.
-      const [t, o] = await Promise.all([listTickets(), listOrders()]);
+      // Pass hotelId so backend doesn’t complain
+      const [t, o] = await Promise.all([
+        (listTickets as any)({ hotelId }),
+        (listOrders as any)({ hotelId }),
+      ]);
       setTickets(((t as any)?.items || []) as Ticket[]);
       setOrders(((o as any)?.items || []) as Order[]);
     } catch (e: any) {
@@ -163,11 +166,11 @@ export default function Desk() {
 
   // Initial load + SSE wiring for both tickets & orders
   useEffect(() => {
-    // Wait until hotel detection has finished and we have a hotelId
-    if (!initialised || !hotelId || hotelError) return;
+    if (!hotelReady) return; // wait until hotel detection finishes
 
     refresh();
 
+    // keep existing SSE behaviour; EventSource can read hotelId from URL
     const off = connectEvents({
       // tickets
       ticket_created: (e) => {
@@ -197,13 +200,13 @@ export default function Desk() {
         const o = (e as any)?.order as Order;
         if (!o) return;
         setOrders((prev) =>
-          prev.map((x) => (x.id === o.id ? { ...x, ...o } : o))
+          prev.map((x) => (x.id === o.id ? { ...x, ...o } : x))
         );
       },
     });
 
     return () => off();
-  }, [refresh, initialised, hotelId, hotelError]);
+  }, [refresh, hotelReady]);
 
   async function setTicketStatus(id: string, status: Ticket["status"]) {
     setTickets((prev) =>
@@ -235,8 +238,6 @@ export default function Desk() {
   const ticketRows = useMemo(() => tickets, [tickets]);
   const orderRows = useMemo(() => orders, [orders]);
 
-  const combinedError = hotelError || error;
-
   return (
     <div
       style={{
@@ -257,18 +258,14 @@ export default function Desk() {
         }}
       >
         <h1 style={{ margin: 0 }}>Front Desk</h1>
-        <button
-          className="btn btn-light"
-          onClick={refresh}
-          disabled={!hotelId || !!hotelError}
-        >
+        <button className="btn btn-light" onClick={refresh}>
           Refresh
         </button>
       </div>
 
-      {combinedError && (
+      {error && (
         <div className="card" style={{ borderColor: "#f59e0b" }}>
-          ⚠️ {combinedError}
+          ⚠️ {error}
         </div>
       )}
       {loading && <div>Loading…</div>}
@@ -290,11 +287,7 @@ export default function Desk() {
             }}
           >
             <h3 style={{ margin: 0 }}>Housekeeping</h3>
-            <button
-              className="link"
-              onClick={refresh}
-              disabled={!hotelId || !!hotelError}
-            >
+            <button className="link" onClick={refresh}>
               Refresh
             </button>
           </div>
@@ -383,11 +376,7 @@ export default function Desk() {
             }}
           >
             <h3 style={{ margin: 0 }}>Kitchen Orders</h3>
-            <button
-              className="link"
-              onClick={refresh}
-              disabled={!hotelId || !!hotelError}
-            >
+            <button className="link" onClick={refresh}>
               Refresh
             </button>
           </div>

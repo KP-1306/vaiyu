@@ -1,12 +1,14 @@
 // web/src/routes/Desk.tsx
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   listTickets,
   updateTicket,
   listOrders,
   updateOrder,
 } from "../lib/api";
+import { supabase } from "../lib/supabase";
 import { connectEvents } from "../lib/sse";
 import SEO from "../components/SEO";
 
@@ -33,15 +35,122 @@ type Order = {
   booking?: string;
 };
 
+// ─────────────────────────────────────────────
+// Detect effective hotel for /ops
+// Uses ?hotelId=… from URL or first hotel_members row
+// ─────────────────────────────────────────────
+function useEffectiveHotelIdForOps() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlHotelId = searchParams.get("hotelId");
+
+  const [hotelId, setHotelId] = useState<string | null>(urlHotelId);
+  const [initialised, setInitialised] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // If URL already has hotelId, just use it
+    if (urlHotelId) {
+      setHotelId(urlHotelId);
+      setInitialised(true);
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const { data: userRes, error: userErr } = await supabase.auth.getUser();
+        if (userErr) {
+          if (!cancelled) {
+            setError(userErr.message);
+            setInitialised(true);
+          }
+          return;
+        }
+
+        const userId = userRes?.user?.id;
+        if (!userId) {
+          if (!cancelled) {
+            setError("You are not signed in.");
+            setInitialised(true);
+          }
+          return;
+        }
+
+        const { data, error: hmError } = await supabase
+          .from("hotel_members")
+          .select("hotel_id")
+          .eq("user_id", userId)
+          .limit(1)
+          .maybeSingle();
+
+        if (hmError) {
+          if (!cancelled) {
+            setError(hmError.message);
+            setInitialised(true);
+          }
+          return;
+        }
+
+        if (!data) {
+          if (!cancelled) {
+            setError("You are not a member of any hotel yet.");
+            setInitialised(true);
+          }
+          return;
+        }
+
+        if (cancelled) return;
+
+        // Use the first hotel we find
+        setHotelId(data.hotel_id);
+
+        // Also push it into the URL so refresh/share keeps working
+        const next = new URLSearchParams(searchParams);
+        next.set("hotelId", data.hotel_id);
+        setSearchParams(next, { replace: true });
+
+        setInitialised(true);
+      } catch (err: any) {
+        if (!cancelled) {
+          setError(err?.message ?? "Failed to detect hotel.");
+          setInitialised(true);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlHotelId]);
+
+  return { hotelId, initialised, error };
+}
+
 export default function Desk() {
+  // NEW: make sure we always have a hotelId for /ops
+  const { hotelId, initialised, error: hotelError } =
+    useEffectiveHotelIdForOps();
+
   const [loading, setLoading] = useState(true);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
+    // Don’t hit the backend until we know which hotel we’re looking at
+    if (!hotelId) {
+      setError("Hotel is not selected yet.");
+      setLoading(false);
+      return;
+    }
+
     setError(null);
+    setLoading(true);
     try {
+      // listTickets / listOrders already know how to use the current URL
+      // (which now includes ?hotelId=…) so we keep their logic unchanged.
       const [t, o] = await Promise.all([listTickets(), listOrders()]);
       setTickets(((t as any)?.items || []) as Ticket[]);
       setOrders(((o as any)?.items || []) as Order[]);
@@ -50,10 +159,13 @@ export default function Desk() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [hotelId]);
 
   // Initial load + SSE wiring for both tickets & orders
   useEffect(() => {
+    // Wait until hotel detection has finished and we have a hotelId
+    if (!initialised || !hotelId || hotelError) return;
+
     refresh();
 
     const off = connectEvents({
@@ -85,13 +197,13 @@ export default function Desk() {
         const o = (e as any)?.order as Order;
         if (!o) return;
         setOrders((prev) =>
-          prev.map((x) => (x.id === o.id ? { ...x, ...o } : x))
+          prev.map((x) => (x.id === o.id ? { ...x, ...o } : o))
         );
       },
     });
 
     return () => off();
-  }, [refresh]);
+  }, [refresh, initialised, hotelId, hotelError]);
 
   async function setTicketStatus(id: string, status: Ticket["status"]) {
     setTickets((prev) =>
@@ -123,6 +235,8 @@ export default function Desk() {
   const ticketRows = useMemo(() => tickets, [tickets]);
   const orderRows = useMemo(() => orders, [orders]);
 
+  const combinedError = hotelError || error;
+
   return (
     <div
       style={{
@@ -143,14 +257,18 @@ export default function Desk() {
         }}
       >
         <h1 style={{ margin: 0 }}>Front Desk</h1>
-        <button className="btn btn-light" onClick={refresh}>
+        <button
+          className="btn btn-light"
+          onClick={refresh}
+          disabled={!hotelId || !!hotelError}
+        >
           Refresh
         </button>
       </div>
 
-      {error && (
+      {combinedError && (
         <div className="card" style={{ borderColor: "#f59e0b" }}>
-          ⚠️ {error}
+          ⚠️ {combinedError}
         </div>
       )}
       {loading && <div>Loading…</div>}
@@ -172,7 +290,11 @@ export default function Desk() {
             }}
           >
             <h3 style={{ margin: 0 }}>Housekeeping</h3>
-            <button className="link" onClick={refresh}>
+            <button
+              className="link"
+              onClick={refresh}
+              disabled={!hotelId || !!hotelError}
+            >
               Refresh
             </button>
           </div>
@@ -261,7 +383,11 @@ export default function Desk() {
             }}
           >
             <h3 style={{ margin: 0 }}>Kitchen Orders</h3>
-            <button className="link" onClick={refresh}>
+            <button
+              className="link"
+              onClick={refresh}
+              disabled={!hotelId || !!hotelError}
+            >
               Refresh
             </button>
           </div>

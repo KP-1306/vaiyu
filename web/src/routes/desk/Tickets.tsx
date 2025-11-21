@@ -49,38 +49,60 @@ type NewTicketPayload = {
   priority: TicketPriority;
 };
 
+
 // ─────────────────────────────────────────────────────────────
-// Detect effective hotel (URL ?hotelId=… or first hotel_members row)
+// Detect effective hotel (URL ?hotelId=… or ?id=… or first hotel_members row)
 // ─────────────────────────────────────────────────────────────
 function useEffectiveHotelId() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const urlHotelId = searchParams.get("hotelId");
 
-  const [hotelId, setHotelId] = useState<string | null>(urlHotelId);
+  // Accept both ?hotelId= and legacy ?id=, then normalise to hotelId
+  const urlHotelId = searchParams.get("hotelId");
+  const urlId = searchParams.get("id");
+  const initialFromUrl = urlHotelId || urlId || null;
+
+  const [hotelId, setHotelId] = useState<string | null>(initialFromUrl);
   const [initialised, setInitialised] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (urlHotelId) {
-      setHotelId(urlHotelId);
+    // 1) If we already have a hotel id in the URL, use that and normalise
+    const fromUrl = urlHotelId || urlId;
+    if (fromUrl) {
+      setHotelId(fromUrl);
+
+      // Canonicalise to ?hotelId=… so the rest of the app has a single shape
+      if (!urlHotelId) {
+        const next = new URLSearchParams(searchParams);
+        next.set("hotelId", fromUrl);
+        next.delete("id");
+        setSearchParams(next, { replace: true });
+      }
+
       setInitialised(true);
       return;
     }
 
+    // 2) Otherwise, fall back to first hotel_members row for this user
     let cancelled = false;
 
     (async () => {
       try {
         const { data: userRes, error: userErr } = await supabase.auth.getUser();
         if (userErr) {
-          setError(userErr.message);
-          setInitialised(true);
+          if (!cancelled) {
+            setError(userErr.message);
+            setInitialised(true);
+          }
           return;
         }
+
         const userId = userRes?.user?.id;
         if (!userId) {
-          setError("You are not signed in.");
-          setInitialised(true);
+          if (!cancelled) {
+            setError("You are not signed in.");
+            setInitialised(true);
+          }
           return;
         }
 
@@ -92,21 +114,28 @@ function useEffectiveHotelId() {
           .maybeSingle();
 
         if (hmError) {
-          setError(hmError.message);
-          setInitialised(true);
+          if (!cancelled) {
+            setError(hmError.message);
+            setInitialised(true);
+          }
           return;
         }
+
         if (!data) {
-          setError("You are not a member of any hotel yet.");
-          setInitialised(true);
+          if (!cancelled) {
+            setError("You are not a member of any hotel yet.");
+            setInitialised(true);
+          }
           return;
         }
+
         if (cancelled) return;
 
         setHotelId(data.hotel_id);
 
         const next = new URLSearchParams(searchParams);
         next.set("hotelId", data.hotel_id);
+        next.delete("id");
         setSearchParams(next, { replace: true });
 
         setInitialised(true);
@@ -121,11 +150,13 @@ function useEffectiveHotelId() {
     return () => {
       cancelled = true;
     };
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urlHotelId]);
+  }, [urlHotelId, urlId]);
 
   return { hotelId, initialised, error };
 }
+
 
 // ─────────────────────────────────────────────────────────────
 // Small UI helpers

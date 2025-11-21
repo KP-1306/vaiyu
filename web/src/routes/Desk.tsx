@@ -6,6 +6,7 @@ import {
   useCallback,
   useMemo,
 } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   listTickets,
   updateTicket,
@@ -13,9 +14,8 @@ import {
   updateOrder,
 } from "../lib/api";
 import { connectEvents } from "../lib/sse";
-import SEO from "../components/SEO";
-import { useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import SEO from "../components/SEO";
 
 type Ticket = {
   id: string;
@@ -40,11 +40,13 @@ type Order = {
   booking?: string;
 };
 
-/* ─────────────────────────────────────────────
-   Detect effective hotel (URL ?hotelId=… or first hotel_members row)
-   (Same behaviour as desk/Tickets.tsx)
-   ───────────────────────────────────────────── */
-
+/**
+ * Detect effective hotelId for staff:
+ * - If ?hotelId= is present in URL, use that.
+ * - Otherwise, look up first hotel_members row for the signed-in user
+ *   and push its hotel_id into the URL.
+ * Mirrors the logic used in /desk/Tickets.
+ */
 function useEffectiveHotelId() {
   const [searchParams, setSearchParams] = useSearchParams();
   const urlHotelId = searchParams.get("hotelId");
@@ -54,7 +56,7 @@ function useEffectiveHotelId() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // If URL already has hotelId, just use it
+    // If URL already has hotelId, trust it and mark done.
     if (urlHotelId) {
       setHotelId(urlHotelId);
       setInitialised(true);
@@ -67,14 +69,19 @@ function useEffectiveHotelId() {
       try {
         const { data: userRes, error: userErr } = await supabase.auth.getUser();
         if (userErr) {
-          setError(userErr.message);
-          setInitialised(true);
+          if (!cancelled) {
+            setError(userErr.message);
+            setInitialised(true);
+          }
           return;
         }
+
         const userId = userRes?.user?.id;
         if (!userId) {
-          setError("You are not signed in.");
-          setInitialised(true);
+          if (!cancelled) {
+            setError("You are not signed in.");
+            setInitialised(true);
+          }
           return;
         }
 
@@ -86,21 +93,26 @@ function useEffectiveHotelId() {
           .maybeSingle();
 
         if (hmError) {
-          setError(hmError.message);
-          setInitialised(true);
+          if (!cancelled) {
+            setError(hmError.message);
+            setInitialised(true);
+          }
           return;
         }
+
         if (!data) {
-          setError("You are not a member of any hotel yet.");
-          setInitialised(true);
+          if (!cancelled) {
+            setError("You are not a member of any hotel yet.");
+            setInitialised(true);
+          }
           return;
         }
+
         if (cancelled) return;
 
-        // Use first mapped hotel
+        // Use first membership row as default hotel
         setHotelId(data.hotel_id);
 
-        // Also write it into the URL so other helpers / SSE can read it
         const next = new URLSearchParams(searchParams);
         next.set("hotelId", data.hotel_id);
         setSearchParams(next, { replace: true });
@@ -124,37 +136,32 @@ function useEffectiveHotelId() {
 }
 
 export default function Desk() {
-  const { hotelId, initialised: hotelReady, error: hotelDetectError } =
-    useEffectiveHotelId();
+  const { hotelId, initialised, error: hotelError } = useEffectiveHotelId();
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // Keep any detection error visible in the same banner
-  useEffect(() => {
-    if (hotelDetectError) {
-      setError(hotelDetectError);
-      setLoading(false);
-    }
-  }, [hotelDetectError]);
+  const effectiveError = hotelError || error;
 
   const refresh = useCallback(async () => {
-    // If we don’t yet know the hotel, don’t hit the backend
+    // If we still don’t have a hotelId, don’t hit the API.
     if (!hotelId) {
-      setLoading(false);
+      setError("Missing required query param 'hotelId'");
       return;
     }
 
-    setError(null);
     setLoading(true);
+    setError(null);
+
     try {
-      // Pass hotelId so backend doesn’t complain
+      // IMPORTANT: pass hotelId through so the backend gets it.
       const [t, o] = await Promise.all([
-        (listTickets as any)({ hotelId }),
-        (listOrders as any)({ hotelId }),
+        listTickets(hotelId as string),
+        listOrders(hotelId as string),
       ]);
+
       setTickets(((t as any)?.items || []) as Ticket[]);
       setOrders(((o as any)?.items || []) as Order[]);
     } catch (e: any) {
@@ -164,27 +171,34 @@ export default function Desk() {
     }
   }, [hotelId]);
 
-  // Initial load + SSE wiring for both tickets & orders
+  // Initial load whenever hotelId is resolved.
   useEffect(() => {
-    if (!hotelReady) return; // wait until hotel detection finishes
-
+    if (!initialised) return;
+    if (!hotelId) {
+      // useEffectiveHotelId has already set the correct user-facing error,
+      // just make sure we’re not stuck in "Loading…".
+      setLoading(false);
+      return;
+    }
     refresh();
+  }, [initialised, hotelId, refresh]);
 
-    // keep existing SSE behaviour; EventSource can read hotelId from URL
+  // SSE wiring stays as-is; backend RLS scopes data to the staff’s hotel.
+  useEffect(() => {
     const off = connectEvents({
       // tickets
       ticket_created: (e) => {
         const t = (e as any)?.ticket as Ticket;
         if (!t) return;
         setTickets((prev) =>
-          prev.find((x) => x.id === t.id) ? prev : [t, ...prev]
+          prev.find((x) => x.id === t.id) ? prev : [t, ...prev],
         );
       },
       ticket_updated: (e) => {
         const t = (e as any)?.ticket as Ticket;
         if (!t) return;
         setTickets((prev) =>
-          prev.map((x) => (x.id === t.id ? { ...x, ...t } : x))
+          prev.map((x) => (x.id === t.id ? { ...x, ...t } : x)),
         );
       },
 
@@ -193,24 +207,24 @@ export default function Desk() {
         const o = (e as any)?.order as Order;
         if (!o) return;
         setOrders((prev) =>
-          prev.find((x) => x.id === o.id) ? prev : [o, ...prev]
+          prev.find((x) => x.id === o.id) ? prev : [o, ...prev],
         );
       },
       order_updated: (e) => {
         const o = (e as any)?.order as Order;
         if (!o) return;
         setOrders((prev) =>
-          prev.map((x) => (x.id === o.id ? { ...x, ...o } : x))
+          prev.map((x) => (x.id === o.id ? { ...x, ...o } : x)),
         );
       },
     });
 
     return () => off();
-  }, [refresh, hotelReady]);
+  }, []);
 
   async function setTicketStatus(id: string, status: Ticket["status"]) {
     setTickets((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, status } : t))
+      prev.map((t) => (t.id === id ? { ...t, status } : t)),
     );
     try {
       await updateTicket(id, { status });
@@ -222,7 +236,7 @@ export default function Desk() {
 
   async function setOrderStatus(id: string, status: string) {
     setOrders((prev) =>
-      prev.map((o) => (o.id === id ? { ...o, status } : o))
+      prev.map((o) => (o.id === id ? { ...o, status } : o)),
     );
     try {
       await updateOrder(id, { status });
@@ -263,9 +277,9 @@ export default function Desk() {
         </button>
       </div>
 
-      {error && (
+      {effectiveError && (
         <div className="card" style={{ borderColor: "#f59e0b" }}>
-          ⚠️ {error}
+          ⚠️ {effectiveError}
         </div>
       )}
       {loading && <div>Loading…</div>}
@@ -291,7 +305,7 @@ export default function Desk() {
               Refresh
             </button>
           </div>
-          {hkEmpty && (
+          {hkEmpty && !loading && (
             <div style={{ marginTop: 8, color: "var(--muted)" }}>
               No open HK requests.
             </div>
@@ -380,7 +394,7 @@ export default function Desk() {
               Refresh
             </button>
           </div>
-          {ordersEmpty && (
+          {ordersEmpty && !loading && (
             <div style={{ marginTop: 8, color: "var(--muted)" }}>
               No active orders.
             </div>

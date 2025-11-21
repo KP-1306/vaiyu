@@ -1,10 +1,10 @@
 // web/src/routes/GuestDashboard.tsx
 import { useEffect, useMemo, useState, memo } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { API } from "../lib/api";
 import AccountControls from "../components/AccountControls";
-import RewardsPill from "../components/guest/RewardsPill"; // keep this for the quick-actions row
+import RewardsPill from "../components/guest/RewardsPill"; // quick rewards CTA
 
 /** Decide if demo preview should be allowed */
 function shouldUseDemo(): boolean {
@@ -27,10 +27,15 @@ function shouldUseDemo(): boolean {
 }
 const USE_DEMO = shouldUseDemo();
 
-/* ======= QUICK AUTH GUARD ======= */
+/* ======= TRAVEL COMMAND CENTER ======= */
 export default function GuestDashboard() {
   const nav = useNavigate();
+  const location = useLocation();
 
+  const [searchTerm, setSearchTerm] = useState("");
+  const [spendMode, setSpendMode] = useState<"this" | "last" | "all">("this");
+
+  // Quick auth guard
   useEffect(() => {
     let mounted = true;
     supabase.auth.getSession().then(({ data }) => {
@@ -50,10 +55,17 @@ export default function GuestDashboard() {
   /* ===== Types ===== */
   type Stay = {
     id: string;
-    hotel: { name: string; city?: string; cover_url?: string | null };
+    hotel: {
+      name: string;
+      city?: string;
+      cover_url?: string | null;
+      country?: string | null;
+    };
     check_in: string;
     check_out: string;
     bill_total?: number | null;
+    room_type?: string | null;
+    booking_code?: string | null;
   };
 
   type Review = {
@@ -65,7 +77,13 @@ export default function GuestDashboard() {
     hotel_reply?: string | null;
   };
 
-  type Spend = { year: number; total: number };
+  type Spend = {
+    year: number;
+    total: number;
+    // Optional richer analytics if backend provides it later
+    monthly?: { month: number; total: number }[];
+    categories?: { room: number; dining: number; spa: number; other: number };
+  };
 
   type Referral = {
     id: string;
@@ -184,7 +202,15 @@ export default function GuestDashboard() {
 
     loadCard(
       () => jsonWithTimeout(`${API}/me/spend?years=5`),
-      (j: any) => (Array.isArray(j?.items) ? (j.items as Spend[]) : []),
+      (j: any) =>
+        Array.isArray(j?.items)
+          ? (j.items as any[]).map((row) => ({
+              year: Number(row.year),
+              total: Number(row.total ?? row.sum ?? 0),
+              monthly: row.monthly ?? row.months ?? undefined,
+              categories: row.categories ?? undefined,
+            }))
+          : [],
       demoSpend,
       setSpend,
       USE_DEMO,
@@ -208,7 +234,7 @@ export default function GuestDashboard() {
       const city = lastStay.hotel.city ? ` in ${lastStay.hotel.city}` : "";
       return `Welcome back, ${firstName}! Hope you enjoyed ${lastStay.hotel.name}${city}.`;
     }
-    return `Welcome, ${firstName}!`;
+    return `Welcome back, ${firstName} 👋`;
   }, [firstName, lastStay, stays.source]);
 
   const totalReferralCredits = referrals.data.reduce(
@@ -227,8 +253,12 @@ export default function GuestDashboard() {
       0,
     );
     const countsByHotel: Record<string, number> = {};
+    const cities = new Set<string>();
+    const countries = new Set<string>();
     stays.data.forEach((s) => {
       countsByHotel[s.hotel.name] = (countsByHotel[s.hotel.name] || 0) + 1;
+      if (s.hotel.city) cities.add(s.hotel.city);
+      if ((s.hotel as any).country) countries.add((s.hotel as any).country);
     });
     const mostVisited =
       Object.entries(countsByHotel).sort((a, b) => b[1] - a[1])[0]?.[0] ||
@@ -239,10 +269,24 @@ export default function GuestDashboard() {
       totalSpend,
       totalCredits: totalReferralCredits,
       mostVisited,
+      cityCount: cities.size,
+      countryCount: countries.size || (stays.data.length ? 1 : 0), // default 1 country if you prefer
     };
   }, [stays.data, spend.data, totalReferralCredits]);
 
-  // Join helpers for My Journey
+  const avgSpendPerTrip =
+    stats.totalStays > 0 ? stats.totalSpend / stats.totalStays : 0;
+  const typicalLength =
+    stats.totalStays > 0 ? stats.nights / stats.totalStays : 0;
+  const mostBookedRoomType = getMostBookedRoomType(stays.data);
+
+  const tierPoints = useMemo(() => {
+    // Simple derivation: 10 pts per ₹100 spend + credits
+    const fromSpend = stats.totalSpend / 100;
+    return Math.round(fromSpend + totalReferralCredits);
+  }, [stats.totalSpend, totalReferralCredits]);
+
+  // Join helpers for referrals + reviews
   const reviewByHotel: Record<string, Review | undefined> = useMemo(() => {
     const map: Record<string, Review> = {};
     for (const r of reviews.data) {
@@ -265,370 +309,643 @@ export default function GuestDashboard() {
     return m;
   }, [referrals.data]);
 
+  // Next stay (upcoming or most recent)
+  const nextStay: Stay | undefined = useMemo(() => {
+    if (!stays.data.length) return undefined;
+    const now = Date.now();
+    const upcoming = stays.data
+      .filter((s) => {
+        const t = new Date(s.check_in).getTime();
+        return isFinite(t) && t >= now;
+      })
+      .sort(
+        (a, b) =>
+          new Date(a.check_in).getTime() - new Date(b.check_in).getTime(),
+      );
+    return upcoming[0] || stays.data[0];
+  }, [stays.data]);
+
+  const countdown = useMemo(
+    () => (nextStay ? getCountdown(nextStay.check_in) : null),
+    [nextStay?.check_in],
+  );
+  const nextStayNights = nextStay
+    ? diffDays(nextStay.check_in, nextStay.check_out)
+    : 0;
+
+  // Spend analytics selection
+  const currentYear = new Date().getFullYear();
+  const spendByYearSorted = useMemo(
+    () => spend.data.slice().sort((a, b) => a.year - b.year),
+    [spend.data],
+  );
+
+  const selectedYear = useMemo(() => {
+    if (!spendByYearSorted.length) return null;
+    if (spendMode === "this") {
+      const match = spendByYearSorted.find((s) => s.year === currentYear);
+      return match || spendByYearSorted[spendByYearSorted.length - 1];
+    }
+    if (spendMode === "last") {
+      const match = spendByYearSorted.find((s) => s.year === currentYear - 1);
+      return match || spendByYearSorted[spendByYearSorted.length - 1];
+    }
+    // "all" – show latest year as representative
+    return spendByYearSorted[spendByYearSorted.length - 1];
+  }, [spendByYearSorted, spendMode, currentYear]);
+
+  const monthlySeries = useMemo(
+    () => (selectedYear ? buildMonthlySeries(selectedYear) : []),
+    [selectedYear],
+  );
+  const categorySeries = useMemo(
+    () => (selectedYear ? buildCategorySeries(selectedYear) : []),
+    [selectedYear],
+  );
+
+  const recentTrips = stays.data.slice(0, 5);
+
+  function onSearchSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const q = searchTerm.trim();
+    if (!q) return;
+    nav(`/stays?query=${encodeURIComponent(q)}`);
+  }
+
+  const sidebarNav = [
+    { label: "Dashboard", to: "/guest" },
+    { label: "Trips", to: "/stays" },
+    { label: "Rewards", to: "/rewards" },
+    { label: "Reports & bills", to: "/bills" },
+    { label: "Settings", to: "/profile" },
+    { label: "Help", to: "/contact" },
+  ];
+
+  const initials = (displayName || authName || email || "G")
+    .split(" ")
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
   return (
-    <main
-      className="max-w-6xl mx-auto p-4 space-y-5"
-      aria-labelledby="guest-dash-title"
-    >
-      {/* Hero */}
-      <section className="relative rounded-2xl p-6 bg-gradient-to-r from-sky-50 via-white to-indigo-50 border">
-        <Bubbles />
-        <div className="flex items-start justify-between gap-4 relative">
-          <div>
-            <h1
-              id="guest-dash-title"
-              className="text-xl md:text-2xl font-semibold"
-            >
-              {welcomeText}
-            </h1>
-            <p className="text-sm text-gray-600 mt-1">
-              Your trips, bookings and bills — all in one happy place 😄
-            </p>
-            <p className="text-xs text-gray-600 mt-2">
-              Tip: Add a profile photo and KYC in your{" "}
-              <button onClick={() => nav("/profile")} className="underline">
-                profile
-              </button>{" "}
-              to speed up check-in.
-            </p>
-          </div>
-
-          {/* Unified global account menu */}
-          <div className="ml-auto">
-            <AccountControls />
-          </div>
-        </div>
-
-        {/* Quick actions */}
-        <div className="mt-4 flex items-center gap-2">
-          <RewardsPill />
-          <QuickPill title="Scan & go" text="Check-in with a QR" to="/scan" />
-          <QuickPill
-            title="Find my booking"
-            text="Enter code"
-            to="/claim"
-            variant="light"
-          />
-          <QuickPill
-            title="Explore hotels"
-            text="Discover stays"
-            to="/hotel/sunrise"
-            variant="light"
-          />
-        </div>
-      </section>
-
-      {/* Row 0.5: Travel Stats badges */}
-      <section className="grid sm:grid-cols-5 gap-3">
-        <StatBadge label="Total stays" value={String(stats.totalStays)} emoji="🧳" />
-        <StatBadge label="Days at VAiyu" value={String(stats.nights)} emoji="📅" />
-        <StatBadge
-          label="Total spend"
-          value={fmtMoney(stats.totalSpend)}
-          emoji="💸"
-        />
-        <StatBadge
-          label="Credits earned"
-          value={fmtMoney(stats.totalCredits)}
-          emoji="🎁"
-        />
-        <StatBadge
-          label="Most visited"
-          value={stats.mostVisited}
-          emoji="❤️"
-        />
-      </section>
-
-      {/* Row 1: Check-in, Recent stays, Spend */}
-      <section className="grid md:grid-cols-3 gap-4">
-        <Card title="Check-in" subtitle="Scan & go" icon={<CalendarIcon />}>
-          <ArrivalCheckInEmpty />
-        </Card>
-
-        <Card
-          title="Recent stays"
-          subtitle="Last 5 hotels"
-          icon={<SuitcaseIcon />}
-          badge={stays.source === "preview" ? "Preview" : undefined}
-        >
-          {stays.loading ? (
-            <Skeleton lines={5} />
-          ) : stays.data.slice(0, 5).length ? (
-            <>
-              <ul className="space-y-2 text-sm">
-                {stays.data.slice(0, 5).map((s) => (
-                  <li
-                    key={s.id}
-                    className="flex items-center justify-between"
-                  >
-                    <span>
-                      {s.hotel.name}
-                      {s.hotel.city ? `, ${s.hotel.city}` : ""}
-                    </span>
-                    <span className="opacity-70">
-                      {fmtRange(s.check_in, s.check_out)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-3 text-right">
-                <Link className="btn btn-light" to="/stays">
-                  View all stays
-                </Link>
+    <main className="min-h-screen bg-slate-50">
+      <div className="max-w-7xl mx-auto flex gap-4 px-4 py-4">
+        {/* Left sidebar – matches owner / finance feel */}
+        <aside className="hidden lg:flex flex-col w-64 bg-white border rounded-3xl shadow-sm">
+          <div className="px-4 py-5 border-b">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-sky-100 text-sky-700 grid place-items-center text-sm font-semibold">
+                {initials}
               </div>
-            </>
-          ) : (
-            <Empty small text="No past stays yet." />
-          )}
-        </Card>
-
-        <Card
-          title="Spend summary"
-          subtitle="By year"
-          icon={<RupeeIcon />}
-          badge={spend.source === "preview" ? "Preview" : undefined}
-        >
-          {spend.loading ? (
-            <Skeleton lines={4} />
-          ) : spend.data.length ? (
-            <>
-              <MiniBars data={spend.data} />
-              <ul className="text-sm space-y-1 mt-3">
-                {spend.data.map((s) => (
-                  <li key={s.year} className="flex justify-between">
-                    <span>{s.year}</span>
-                    <span>{fmtMoney(Number(s.total || 0))}</span>
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-3 text-right">
-                <Link className="btn btn-light" to="/bills">
-                  Download bills
-                </Link>
-              </div>
-            </>
-          ) : (
-            <Empty small text="No spend yet." />
-          )}
-        </Card>
-      </section>
-
-      {/* Row 2: My Journey */}
-      <section className="rounded-2xl p-4 shadow bg-white border">
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <div className="text-xs text-gray-500">Personal timeline</div>
-            <h2 className="font-semibold">My Journey — last 10 stays</h2>
-          </div>
-          <Link className="btn btn-light" to="/stays">
-            See all
-          </Link>
-        </div>
-
-        {stays.loading ? (
-          <Skeleton lines={6} />
-        ) : stays.data.length ? (
-          <div className="grid md:grid-cols-2 gap-3">
-            {stays.data.slice(0, 10).map((s) => {
-              const key = s.hotel.name.toLowerCase();
-              const rv = reviewByHotel[key];
-              const credits = creditsByHotel[key] || 0;
-              return (
-                <div
-                  key={s.id}
-                  className="rounded-xl border p-3 bg-gradient-to-b from-white to-slate-50"
-                >
-                  <div className="flex gap-3">
-                    <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex-none">
-                      {s.hotel.cover_url ? (
-                        <img
-                          src={s.hotel.cover_url}
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full grid place-items-center text-gray-400 text-xs">
-                          No photo
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-medium truncate">
-                        {s.hotel.name}
-                        {s.hotel.city ? `, ${s.hotel.city}` : ""}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {fmtRange(s.check_in, s.check_out)}
-                      </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-                        {credits > 0 && (
-                          <span className="px-2 py-0.5 rounded-full bg-amber-100 border border-amber-200">
-                            Earned {fmtMoney(credits)} 🎉
-                          </span>
-                        )}
-                        {rv ? (
-                          <span className="px-2 py-0.5 rounded-full bg-indigo-100 border border-indigo-200">
-                            Your rating: {stars(rv.rating)}
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-
-                  {rv && (
-                    <div className="mt-2 text-sm text-gray-700">
-                      {rv.title ? `“${rv.title}”` : ""}
-                      <div className="text-xs text-gray-500 mt-1">
-                        {fmtDate(rv.created_at)}
-                      </div>
-                      {rv.hotel_reply && (
-                        <div className="mt-2 text-xs rounded-md border bg-white p-2">
-                          <span className="opacity-70">Hotel replied:</span>{" "}
-                          {rv.hotel_reply}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="mt-3 text-right">
-                    <Link className="btn btn-light" to={`/stay/${s.id}`}>
-                      View details
-                    </Link>
-                  </div>
+              <div className="min-w-0">
+                <div className="text-sm font-semibold truncate">
+                  {displayName || firstName || "Guest"}
                 </div>
+                {email && (
+                  <div className="text-xs text-slate-500 truncate">{email}</div>
+                )}
+              </div>
+            </div>
+          </div>
+          <nav className="flex-1 px-2 py-3 space-y-1 text-sm">
+            {sidebarNav.map((item) => {
+              const active = location.pathname === item.to;
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  className={`flex items-center justify-between rounded-xl px-3 py-2 ${
+                    active
+                      ? "bg-sky-50 text-sky-900 border border-sky-200 font-medium"
+                      : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <span>{item.label}</span>
+                  {active && (
+                    <span className="text-[10px] uppercase tracking-wide text-sky-600">
+                      Now
+                    </span>
+                  )}
+                </Link>
               );
             })}
-          </div>
-        ) : (
-          <Empty text="No stays yet — your travel story starts here!" />
-        )}
-      </section>
-
-      {/* Row 3: Referrals + Latest reviews */}
-      <section className="grid lg:grid-cols-3 gap-4">
-        <Card
-          title="Your referrals"
-          subtitle="Earn credits hotel-wise"
-          icon={<GiftIcon />}
-          badge={referrals.source === "preview" ? "Preview" : undefined}
-        >
-          {referrals.loading ? (
-            <Skeleton lines={5} />
-          ) : referrals.data.length ? (
-            <>
-              <div className="rounded-lg border bg-gradient-to-r from-amber-50 to-orange-50 p-3 flex items-center justify-between">
-                <div className="text-sm">Total credits</div>
-                <div className="text-lg font-semibold">
-                  {fmtMoney(totalReferralCredits)}
-                </div>
-              </div>
-              <ul className="mt-3 divide-y text-sm">
-                {referrals.data.map((r) => (
-                  <li
-                    key={r.id}
-                    className="py-2 flex items-center justify-between"
-                  >
-                    <div>
-                      <div className="font-medium">
-                        {r.hotel.name}
-                        {r.hotel.city ? `, ${r.hotel.city}` : ""}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {r.referrals_count} successful{" "}
-                        {r.referrals_count === 1 ? "referral" : "referrals"}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-semibold">
-                        {fmtMoney(Number(r.credits || 0))}
-                      </div>
-                      <button
-                        className="text-xs underline"
-                        onClick={() => copyReferral(r.hotel.name)}
-                      >
-                        Share link
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : (
-            <Empty text="No credits yet — invite a friend to a hotel you love and earn rewards!" />
-          )}
-        </Card>
-
-        <div className="lg:col-span-2 rounded-2xl p-4 shadow bg-white border">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm text-gray-600 mb-1">
-                Your latest reviews
-              </div>
-              <div className="text-xs text-gray-500">
-                Spread the travel joy — add a fun title or edit anytime.
-              </div>
-            </div>
-            <Link className="btn btn-light" to="/stays">
-              Manage
+          </nav>
+          <div className="px-4 py-3 border-t text-xs text-slate-500">
+            Need help?{" "}
+            <Link to="/contact" className="underline">
+              Contact support
             </Link>
           </div>
+        </aside>
 
-          <div className="mt-3">
-            {reviews.loading ? (
-              <Skeleton lines={3} />
-            ) : reviews.data.length ? (
-              <div className="grid md:grid-cols-2 gap-3">
-                {reviews.data.slice(0, 6).map((rv) => (
-                  <ReviewCard key={rv.id} review={rv} />
-                ))}
+        {/* Main content */}
+        <div className="flex-1 space-y-5">
+          {/* Top bar */}
+          <header className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                Travel Command Center
               </div>
+              <h1 className="text-xl md:text-2xl font-semibold">
+                Guest Dashboard
+              </h1>
+            </div>
+            <div className="flex items-center gap-3">
+              <form
+                onSubmit={onSearchSubmit}
+                className="hidden md:flex items-center bg-white border rounded-full px-3 py-1.5 shadow-sm max-w-xs"
+              >
+                <input
+                  className="bg-transparent text-xs outline-none flex-1"
+                  placeholder="Search booking, city or hotel"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                <button
+                  type="submit"
+                  className="text-[11px] font-medium text-sky-700"
+                >
+                  Go
+                </button>
+              </form>
+              <div className="rounded-full bg-gradient-to-r from-amber-100 to-orange-100 px-4 py-1.5 text-xs md:text-sm font-medium text-amber-900 shadow-sm">
+                Platinum · {tierPoints.toLocaleString()} pts
+              </div>
+              <div className="ml-1">
+                <AccountControls />
+              </div>
+            </div>
+          </header>
+
+          {/* Hero band – Next stay + quick actions */}
+          <section className="relative rounded-2xl p-5 bg-gradient-to-r from-sky-50 via-white to-indigo-50 border shadow-sm overflow-hidden">
+            <Bubbles />
+            <div className="grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-6 relative">
+              {/* Left – next stay */}
+              <div className="space-y-3">
+                <div className="inline-flex items-center gap-2 text-xs">
+                  <span className="inline-flex items-center rounded-full bg-white/80 px-2 py-0.5 border text-sky-700">
+                    Next stay
+                  </span>
+                  {countdown && (
+                    <span className="text-slate-600">
+                      {countdown.label}
+                    </span>
+                  )}
+                </div>
+                <h2 className="text-lg md:text-xl font-semibold">
+                  {welcomeText}
+                </h2>
+                <p className="text-xs text-gray-600">
+                  Your trips, spend and rewards in one place.
+                </p>
+
+                {nextStay ? (
+                  <div className="mt-2 rounded-2xl bg-white/85 border shadow-sm p-4 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <div className="text-xs text-slate-500">Hotel</div>
+                        <div className="font-semibold">
+                          {nextStay.hotel.name}
+                          {nextStay.hotel.city ? `, ${nextStay.hotel.city}` : ""}
+                        </div>
+                      </div>
+                      <div className="text-right text-xs text-slate-500">
+                        Booking ID
+                        <div className="font-mono text-[11px]">
+                          {nextStay.booking_code || nextStay.id.slice(0, 8)}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs mt-2">
+                      <div>
+                        <div className="text-slate-500">Dates</div>
+                        <div className="font-medium">
+                          {fmtRange(nextStay.check_in, nextStay.check_out)} ·{" "}
+                          {nextStayNights || 1} night
+                          {nextStayNights === 1 ? "" : "s"}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-slate-500">Room type</div>
+                        <div className="font-medium">
+                          {nextStay.room_type || mostBookedRoomType || "Standard room"}
+                        </div>
+                      </div>
+                      {typeof nextStay.bill_total === "number" && (
+                        <div>
+                          <div className="text-slate-500">Estimated bill</div>
+                          <div className="font-medium">
+                            {fmtMoney(Number(nextStay.bill_total))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Link className="btn" to={`/stay/${nextStay.id}`}>
+                        View stay details
+                      </Link>
+                      <Link
+                        className="btn btn-light"
+                        to="/scan"
+                      >
+                        Check-in guide
+                      </Link>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-3 rounded-2xl bg-white/70 border border-dashed p-4 text-sm text-slate-600">
+                    No upcoming stays yet. Start your next journey with VAiyu —
+                    book a new stay in seconds.
+                  </div>
+                )}
+              </div>
+
+              {/* Right – quick actions + rewards pill */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-semibold text-slate-800">
+                    Quick actions
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <RewardsPill />
+                  <div className="grid sm:grid-cols-2 gap-2">
+                    <QuickPill
+                      title="Book a new stay"
+                      text="Explore stays"
+                      to="/"
+                      variant="solid"
+                    />
+                    <QuickPill
+                      title="Scan QR to check-in"
+                      text="Scan & Go"
+                      to="/scan"
+                      variant="light"
+                    />
+                    <QuickPill
+                      title="Find my booking"
+                      text="Use booking code"
+                      to="/claim"
+                      variant="light"
+                    />
+                    <QuickPill
+                      title="Rewards & vouchers"
+                      text="View & redeem"
+                      to="/rewards"
+                      variant="light"
+                    />
+                    <QuickPill
+                      title="Download invoices"
+                      text="Bills & reports"
+                      to="/bills"
+                      variant="light"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* KPI strip – premium look */}
+          <section className="grid md:grid-cols-5 gap-3">
+            <StatBadge
+              label="Total stays"
+              value={String(stats.totalStays)}
+              sublabel={
+                stats.totalStays
+                  ? `${stats.cityCount} cities · ${stats.countryCount} ${
+                      stats.countryCount === 1 ? "country" : "countries"
+                    }`
+                  : "Your first trip awaits"
+              }
+              emoji="🧳"
+            />
+            <StatBadge
+              label="Nights at VAiyu"
+              value={String(stats.nights)}
+              sublabel={stats.nights ? "Across all your trips" : "No stays yet"}
+              emoji="📅"
+            />
+            <StatBadge
+              label="Lifetime spend"
+              value={fmtMoney(stats.totalSpend)}
+              sublabel={
+                stats.totalStays
+                  ? `Avg ${fmtMoney(Math.round(avgSpendPerTrip))} / trip`
+                  : "Start earning travel history"
+              }
+              emoji="💸"
+            />
+            <StatBadge
+              label="Rewards balance"
+              value={fmtMoney(stats.totalCredits)}
+              sublabel={`${totalReferralCredits ? "Active credits" : "Invite friends to earn"}`}
+              emoji="🎁"
+            />
+            <StatBadge
+              label="Most visited"
+              value={stats.mostVisited}
+              sublabel={stats.totalStays ? "Your comfort zone" : "—"}
+              emoji="❤️"
+            />
+          </section>
+
+          {/* Analytics + Recent trips / insights */}
+          <section className="grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-4">
+            {/* Spend & rewards analytics */}
+            <div className="rounded-2xl bg-white border shadow-sm p-4">
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div>
+                  <div className="text-xs text-slate-500">
+                    Spend & Rewards Analytics
+                  </div>
+                  <div className="font-semibold text-sm">
+                    {selectedYear
+                      ? `Year ${selectedYear.year}`
+                      : "Waiting for your first stay"}
+                  </div>
+                </div>
+                <div className="inline-flex rounded-full bg-slate-50 border px-1 py-0.5 text-[11px]">
+                  {[
+                    { key: "this", label: "This year" },
+                    { key: "last", label: "Last year" },
+                    { key: "all", label: "All time" },
+                  ].map((tab) => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() =>
+                        setSpendMode(tab.key as "this" | "last" | "all")
+                      }
+                      className={`px-2.5 py-0.5 rounded-full ${
+                        spendMode === tab.key
+                          ? "bg-white shadow-sm text-slate-900"
+                          : "text-slate-500"
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {spend.loading ? (
+                <Skeleton lines={5} />
+              ) : !selectedYear ? (
+                <Empty small text="Once you complete a stay, we’ll start showing detailed spend and rewards analytics here." />
+              ) : (
+                <div className="grid md:grid-cols-2 gap-4">
+                  {/* Monthly spend – simple column chart */}
+                  <div>
+                    <div className="text-xs text-slate-500 mb-1">
+                      Monthly spend (₹)
+                    </div>
+                    <MonthlyBars data={monthlySeries} />
+                  </div>
+
+                  {/* Category breakdown – stacked bars */}
+                  <div>
+                    <div className="text-xs text-slate-500 mb-1">
+                      Spend by category
+                    </div>
+                    <CategoryBreakdown data={categorySeries} />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Recent trips & travel insights */}
+            <div className="rounded-2xl bg-white border shadow-sm p-4 space-y-4">
+              {/* Recent trips */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <div className="text-xs text-slate-500">
+                      Recent trips
+                    </div>
+                    <div className="font-semibold text-sm">
+                      Last {Math.min(5, recentTrips.length)} stays
+                    </div>
+                  </div>
+                  <Link className="btn btn-light" to="/stays">
+                    View all
+                  </Link>
+                </div>
+                {stays.loading ? (
+                  <Skeleton lines={4} />
+                ) : recentTrips.length ? (
+                  <div className="space-y-2 text-xs">
+                    {recentTrips.map((s) => {
+                      const key = s.hotel.name.toLowerCase();
+                      const rv = reviewByHotel[key];
+                      const credits = creditsByHotel[key] || 0;
+                      return (
+                        <div
+                          key={s.id}
+                          className="rounded-xl border bg-slate-50/60 px-3 py-2 flex items-center justify-between gap-2"
+                        >
+                          <div className="min-w-0">
+                            <div className="font-medium truncate">
+                              {s.hotel.name}
+                              {s.hotel.city ? `, ${s.hotel.city}` : ""}
+                            </div>
+                            <div className="text-[11px] text-slate-500">
+                              {fmtRange(s.check_in, s.check_out)} ·{" "}
+                              {diffDays(s.check_in, s.check_out) || 1} night
+                              {diffDays(s.check_in, s.check_out) === 1
+                                ? ""
+                                : "s"}
+                            </div>
+                            <div className="mt-1 flex flex-wrap gap-2 items-center">
+                              {typeof s.bill_total === "number" && (
+                                <span className="text-[11px] text-slate-700">
+                                  {fmtMoney(Number(s.bill_total))}
+                                </span>
+                              )}
+                              {rv && (
+                                <span className="text-[11px] text-amber-700">
+                                  {stars(rv.rating)}
+                                </span>
+                              )}
+                              {credits > 0 && (
+                                <span className="text-[11px] text-emerald-700">
+                                  Credits: {fmtMoney(credits)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <Link
+                            to={`/stay/${s.id}`}
+                            className="text-[11px] underline shrink-0"
+                          >
+                            Details
+                          </Link>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <Empty small text="No trips yet. Your recent journeys will appear here." />
+                )}
+              </div>
+
+              {/* Travel insights */}
+              <div>
+                <div className="text-xs text-slate-500 mb-2">
+                  Travel insights
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <InsightCard
+                    label="Avg spend / trip"
+                    value={fmtMoney(Math.round(avgSpendPerTrip || 0))}
+                    hint={
+                      stats.totalStays
+                        ? `${stats.totalStays} trip${
+                            stats.totalStays === 1 ? "" : "s"
+                          } so far`
+                        : "Will appear after your first stay"
+                    }
+                  />
+                  <InsightCard
+                    label="Typical length"
+                    value={
+                      typicalLength
+                        ? `${typicalLength.toFixed(1)} nights`
+                        : "—"
+                    }
+                    hint={
+                      stats.totalStays
+                        ? "Average across all stays"
+                        : "Book a stay to get insights"
+                    }
+                  />
+                  <InsightCard
+                    label="Most booked room"
+                    value={mostBookedRoomType || "—"}
+                    hint="Based on your history"
+                  />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Journey timeline + export */}
+          <section className="rounded-2xl p-4 shadow bg-white border">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <div>
+                <div className="text-xs text-gray-500">
+                  Journey timeline
+                </div>
+                <h2 className="font-semibold text-sm md:text-base">
+                  My journey — last 10 stays
+                </h2>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="btn btn-light"
+                  onClick={() => window.print()}
+                >
+                  Export as PDF
+                </button>
+                <Link className="btn btn-light" to="/bills">
+                  Open annual report
+                </Link>
+              </div>
+            </div>
+
+            {stays.loading ? (
+              <Skeleton lines={6} />
+            ) : stays.data.length ? (
+              <ol className="relative border-s border-slate-200 pl-4 space-y-4">
+                {stays.data.slice(0, 10).map((s, idx) => {
+                  const key = s.hotel.name.toLowerCase();
+                  const rv = reviewByHotel[key];
+                  const credits = creditsByHotel[key] || 0;
+                  return (
+                    <li key={s.id} className="relative">
+                      <span className="absolute -left-2.5 mt-1 w-3 h-3 rounded-full bg-sky-500 border-2 border-white shadow" />
+                      <div className="rounded-xl border bg-gradient-to-r from-white to-slate-50 p-3">
+                        <div className="flex flex-wrap justify-between gap-2">
+                          <div>
+                            <div className="text-xs text-slate-500">
+                              {fmtDate(s.check_in)}
+                            </div>
+                            <div className="font-medium text-sm">
+                              {s.hotel.city
+                                ? `${s.hotel.city} · ${s.hotel.name}`
+                                : s.hotel.name}
+                            </div>
+                            <div className="text-[11px] text-slate-500">
+                              {diffDays(s.check_in, s.check_out) || 1} night
+                              {diffDays(s.check_in, s.check_out) === 1
+                                ? ""
+                                : "s"}{" "}
+                              · {fmtRange(s.check_in, s.check_out)}
+                            </div>
+                          </div>
+                          <div className="text-right text-[11px] space-y-1">
+                            {typeof s.bill_total === "number" && (
+                              <div className="font-medium">
+                                {fmtMoney(Number(s.bill_total))}
+                              </div>
+                            )}
+                            {rv && (
+                              <div className="text-amber-700">
+                                {stars(rv.rating)}
+                              </div>
+                            )}
+                            {credits > 0 && (
+                              <div className="text-emerald-700">
+                                Credits: {fmtMoney(credits)}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-600">
+                          <span className="px-2 py-0.5 rounded-full bg-sky-50 border border-sky-100">
+                            Journey #{stays.data.length - idx}
+                          </span>
+                          {rv?.title && (
+                            <span className="px-2 py-0.5 rounded-full bg-amber-50 border border-amber-100">
+                              “{rv.title}”
+                            </span>
+                          )}
+                          {credits > 0 && (
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-100">
+                              Earned rewards here
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
             ) : (
-              <Empty text="No reviews yet. Tell the world about your stay!" />
+              <Empty text="No stays yet — your travel story starts here!" />
             )}
-          </div>
+          </section>
 
-          {reviews.source === "preview" && (
-            <div className="mt-3 text-xs text-gray-500">
-              Showing a preview while we connect to your reviews.
+          {/* Owner CTA – unchanged */}
+          <section className="rounded-2xl p-4 shadow bg-white border">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-semibold">Want to run a property?</div>
+                <div className="text-sm text-gray-600">
+                  Register your hotel to unlock the owner console: dashboards,
+                  SLAs, workflows and AI moderation.
+                </div>
+              </div>
+              <Link className="btn" to="/owner/register">
+                Register your property
+              </Link>
             </div>
-          )}
+          </section>
         </div>
-      </section>
-
-      {/* Help / Support */}
-      <section className="rounded-2xl p-4 shadow bg-blue-50/60 border border-blue-100 flex items-center justify-between">
-        <div className="text-sm text-blue-900">
-          Need help with your bookings or profile? No worries — our team can fix
-          it quickly.
-        </div>
-        <div className="flex gap-2">
-          <Link to="/contact" className="btn btn-light">
-            Contact support
-          </Link>
-          <a
-            className="btn btn-light"
-            href="mailto:support@vaiyu.co.in?subject=Help%20on%20Guest%20Dashboard"
-          >
-            Email us
-          </a>
-        </div>
-      </section>
-
-      {/* Owner CTA */}
-      <section className="rounded-2xl p-4 shadow bg-white border">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="font-semibold">Want to run a property?</div>
-            <div className="text-sm text-gray-600">
-              Register your hotel to unlock the owner console: dashboards, SLAs,
-              workflows and AI moderation.
-            </div>
-          </div>
-          <Link className="btn" to="/owner/register">
-            Register your property
-          </Link>
-        </div>
-      </section>
+      </div>
     </main>
   );
 }
@@ -654,27 +971,144 @@ async function loadCard<J, T>(
   }
 }
 
-/* ===== Ad-hoc Check-in card content ===== */
-function ArrivalCheckInEmpty() {
+/* ===== Ad-hoc helpers ===== */
+
+function getMostBookedRoomType(stays: any[]): string | null {
+  const counts: Record<string, number> = {};
+  stays.forEach((s) => {
+    const rt = s.room_type as string | null;
+    if (!rt) return;
+    const key = rt.trim();
+    if (!key) return;
+    counts[key] = (counts[key] || 0) + 1;
+  });
+  const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+  return top ? top[0] : null;
+}
+
+function getCountdown(checkIn: string) {
+  const target = new Date(checkIn).getTime();
+  const now = Date.now();
+  if (!isFinite(target) || target <= now) {
+    return { days: 0, hours: 0, label: "Check-in today or earlier" };
+  }
+  const diff = target - now;
+  const ONE_DAY = 24 * 60 * 60 * 1000;
+  const ONE_HOUR = 60 * 60 * 1000;
+  const days = Math.floor(diff / ONE_DAY);
+  const hours = Math.floor((diff % ONE_DAY) / ONE_HOUR);
+  const dd = String(days).padStart(2, "0");
+  const hh = String(hours).padStart(2, "0");
+  return { days, hours, label: `Check-in in ${dd} days · ${hh} hrs` };
+}
+
+/** Build 12-month series even if backend only gives yearly total */
+function buildMonthlySeries(spend: {
+  total: number;
+  monthly?: { month: number; total: number }[];
+}) {
+  const monthNames = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
+  if (Array.isArray(spend.monthly) && spend.monthly.length) {
+    return monthNames.map((label, idx) => {
+      const found = spend.monthly!.find((m) => m.month === idx + 1);
+      return { label, value: Number(found?.total ?? 0) };
+    });
+  }
+  // Fallback: simple even split across 12 months
+  const base = Math.floor(spend.total / 12);
+  const remainder = spend.total - base * 12;
+  return monthNames.map((label, idx) => ({
+    label,
+    value: base + (idx < remainder ? 1 : 0),
+  }));
+}
+
+function buildCategorySeries(spend: {
+  total: number;
+  categories?: { room: number; dining: number; spa: number; other: number };
+}) {
+  if (spend.categories) {
+    const c = spend.categories;
+    return [
+      { label: "Room", value: Number(c.room || 0) },
+      { label: "Dining", value: Number(c.dining || 0) },
+      { label: "Spa", value: Number(c.spa || 0) },
+      { label: "Other", value: Number(c.other || 0) },
+    ];
+  }
+  // Fallback heuristic split
+  const total = spend.total || 0;
+  return [
+    { label: "Room", value: total * 0.65 },
+    { label: "Dining", value: total * 0.2 },
+    { label: "Spa", value: total * 0.1 },
+    { label: "Other", value: total * 0.05 },
+  ];
+}
+
+/* ===== Simple visualization components ===== */
+
+function MonthlyBars({ data }: { data: { label: string; value: number }[] }) {
+  if (!data.length) return <Empty small text="No data yet for this year." />;
+  const max = Math.max(1, ...data.map((d) => d.value));
   return (
-    <div className="text-sm text-gray-700">
-      <div className="rounded-lg border-2 border-dashed p-4 bg-gray-50">
-        <div className="font-medium">Arriving at a VAiyu hotel?</div>
-        <p className="text-gray-600 mt-1">
-          When you reach the property, scan the VAiyu QR at the front desk to
-          fetch your booking and start check-in.
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Link className="btn" to="/scan">
-            Scan property QR
-          </Link>
-          <Link className="btn btn-light" to="/claim">
-            Enter booking code
-          </Link>
-          <Link className="btn btn-light" to="/hotel/sunrise">
-            Explore hotels
-          </Link>
-        </div>
+    <div className="h-24 flex items-end gap-1 rounded-xl bg-slate-50 border px-2 py-2">
+      {data.map((m) => {
+        const h = Math.max(4, Math.round((m.value / max) * 64));
+        return (
+          <div key={m.label} className="flex flex-col items-center flex-1">
+            <div
+              className="w-2 rounded-full bg-indigo-200"
+              style={{ height: h }}
+              title={`${m.label}: ${fmtMoney(Math.round(m.value))}`}
+            />
+            <div className="mt-1 text-[9px] text-slate-500">{m.label}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function CategoryBreakdown({
+  data,
+}: {
+  data: { label: string; value: number }[];
+}) {
+  if (!data.length) return <Empty small text="We’ll break down your categories here after your first stay." />;
+  const total = data.reduce((a, d) => a + d.value, 0) || 1;
+  return (
+    <div className="space-y-2">
+      <div className="w-full h-3 rounded-full bg-slate-100 overflow-hidden flex">
+        {data.map((seg) => {
+          const pct = (seg.value / total) * 100;
+          return (
+            <div
+              key={seg.label}
+              className="h-full"
+              style={{ width: `${pct}%` }}
+            />
+          );
+        })}
+      </div>
+      <div className="space-y-1 text-[11px]">
+        {data.map((seg) => {
+          const pct = (seg.value / total) * 100;
+          return (
+            <div
+              key={seg.label}
+              className="flex items-center justify-between"
+            >
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-slate-400" />
+                <span>{seg.label}</span>
+              </div>
+              <span className="font-medium">
+                {pct.toFixed(1)}% · {fmtMoney(Math.round(seg.value))}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -696,7 +1130,7 @@ const Card = memo(function Card({
 }) {
   return (
     <div className="rounded-2xl p-4 shadow bg-white border">
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-2 flex items-center justify_between">
         <div className="flex items-center gap-2">
           {icon ? <div className="text-gray-600">{icon}</div> : null}
           <div>
@@ -729,15 +1163,15 @@ function QuickPill({
   return (
     <Link
       to={to}
-      className={`rounded-xl border px-4 py-3 flex items-center justify-between ${
-        variant === "solid" ? "bg-white shadow" : "bg-white/70"
+      className={`rounded-xl border px-3 py-3 flex flex-col justify-between text-xs ${
+        variant === "solid" ? "bg-white shadow-sm" : "bg-white/80"
       }`}
     >
-      <div>
-        <div className="text-xs text-gray-500">{text}</div>
-        <div className="font-semibold">{title}</div>
+      <div className="text-[11px] text-gray-500">{text}</div>
+      <div className="font-semibold mt-0.5 text-slate-900 flex items-center justify-between gap-2">
+        <span>{title}</span>
+        <span className="text-gray-500">→</span>
       </div>
-      <span className="text-gray-500">→</span>
     </Link>
   );
 }
@@ -745,18 +1179,48 @@ function QuickPill({
 function StatBadge({
   label,
   value,
+  sublabel,
   emoji,
 }: {
   label: string;
   value: string;
+  sublabel?: string;
   emoji: string;
 }) {
   return (
-    <div className="rounded-xl border bg-white shadow-sm p-3">
-      <div className="text-xs text-gray-500">{label}</div>
-      <div className="mt-1 text-lg font-semibold flex items-center gap-2">
-        {value} <span>{emoji}</span>
+    <div className="rounded-xl border bg-white shadow-sm p-3 flex flex-col justify-between">
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-xs text-gray-500">{label}</div>
+        <div className="text-lg">{emoji}</div>
       </div>
+      <div className="mt-1 text-lg font-semibold">{value}</div>
+      {sublabel && (
+        <div className="mt-1 text-[11px] text-slate-500 leading-snug">
+          {sublabel}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InsightCard({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+}) {
+  return (
+    <div className="rounded-xl border bg-slate-50/70 px-3 py-2 flex flex-col justify-between">
+      <div className="text-[11px] text-slate-500">{label}</div>
+      <div className="text-sm font-semibold">{value}</div>
+      {hint && (
+        <div className="mt-0.5 text-[10px] text-slate-500 line-clamp-2">
+          {hint}
+        </div>
+      )}
     </div>
   );
 }
@@ -790,31 +1254,6 @@ function ReviewCard({ review }: { review: Review }) {
   );
 }
 
-function MiniBars({ data }: { data: Spend[] }) {
-  const max = Math.max(1, ...data.map((d) => Number(d.total || 0)));
-  return (
-    <div className="flex items-end gap-1 h-14 mt-1">
-      {data
-        .slice()
-        .sort((a, b) => a.year - b.year)
-        .map((d) => {
-          const h = Math.max(
-            4,
-            Math.round((Number(d.total || 0) / max) * 48),
-          );
-          return (
-            <div
-              key={d.year}
-              className="w-6 rounded bg-indigo-100 border border-indigo-200"
-              style={{ height: h }}
-              title={`${d.year}: ${fmtMoney(Number(d.total || 0))}`}
-            />
-          );
-        })}
-    </div>
-  );
-}
-
 function Bubbles() {
   return (
     <div aria-hidden className="absolute inset-0 pointer-events-none">
@@ -824,7 +1263,7 @@ function Bubbles() {
   );
 }
 
-/* ===== Icons ===== */
+/* ===== Icons (kept for compatibility if needed) ===== */
 function CalendarIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -934,7 +1373,7 @@ function Skeleton({ lines = 3 }: { lines?: number }) {
   );
 }
 
-/* ===== Copy referral link ===== */
+/* ===== Copy referral link (unchanged) ===== */
 function copyReferral(hotelName: string) {
   const base = location.origin;
   const url = `${base}/refer?hotel=${encodeURIComponent(hotelName)}`;

@@ -1,11 +1,6 @@
 // web/src/routes/Desk.tsx
 
-import React, {
-  useEffect,
-  useState,
-  useCallback,
-  useMemo,
-} from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   listTickets,
@@ -46,7 +41,7 @@ type Order = {
 
 // ---------------------------------------------------------------------------
 // Hook: detect effective hotelId (from URL or hotel_members)
-//   – mirrors web/src/routes/desk/Tickets.tsx so behaviour is consistent.
+//   – mirrors desk/Tickets.tsx so behaviour is consistent.
 // ---------------------------------------------------------------------------
 
 function useEffectiveHotelId() {
@@ -159,15 +154,15 @@ export default function Desk() {
   const ticketRows = useMemo(() => tickets, [tickets]);
   const orderRows = useMemo(() => orders, [orders]);
 
-  // Either API error or hotel-detection error
+  // Combined error: either local API error or hotel-detection error
   const combinedError = error ?? hotelIdError ?? null;
 
   const refresh = useCallback(async () => {
-    // Don’t hit APIs until hotel detection logic is done.
+    // Don’t call APIs until we know our hotelId logic has run.
     if (!initialised) return;
 
     if (!hotelId) {
-      // If hotelId is still missing after initialisation, surface a clear error.
+      // If hotelId is still missing after initialisation, just surface the hook error.
       if (!hotelIdError) {
         setError("Hotel id is required to load desk operations.");
       }
@@ -179,8 +174,7 @@ export default function Desk() {
     setError(null);
 
     try {
-      // IMPORTANT: listTickets / listOrders should forward hotelId
-      // to the Edge Functions as a ?hotelId=… query param.
+      // IMPORTANT: pass hotelId through – backend Edge Functions expect ?hotelId=
       const [t, o] = await Promise.all([
         listTickets(hotelId),
         listOrders(hotelId),
@@ -205,14 +199,14 @@ export default function Desk() {
         const t = (e as any)?.ticket as Ticket;
         if (!t) return;
         setTickets((prev) =>
-          prev.find((x) => x.id === t.id) ? prev : [t, ...prev],
+          prev.find((x) => x.id === t.id) ? prev : [t, ...prev]
         );
       },
       ticket_updated: (e) => {
         const t = (e as any)?.ticket as Ticket;
         if (!t) return;
         setTickets((prev) =>
-          prev.map((x) => (x.id === t.id ? { ...x, ...t } : x)),
+          prev.map((x) => (x.id === t.id ? { ...x, ...t } : x))
         );
       },
 
@@ -221,14 +215,14 @@ export default function Desk() {
         const o = (e as any)?.order as Order;
         if (!o) return;
         setOrders((prev) =>
-          prev.find((x) => x.id === o.id) ? prev : [o, ...prev],
+          prev.find((x) => x.id === o.id) ? prev : [o, ...prev]
         );
       },
       order_updated: (e) => {
         const o = (e as any)?.order as Order;
         if (!o) return;
         setOrders((prev) =>
-          prev.map((x) => (x.id === o.id ? { ...x, ...o } : x)),
+          prev.map((x) => (x.id === o.id ? { ...x, ...o } : x))
         );
       },
     });
@@ -238,7 +232,7 @@ export default function Desk() {
 
   async function setTicketStatus(id: string, status: Ticket["status"]) {
     setTickets((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, status } : t)),
+      prev.map((t) => (t.id === id ? { ...t, status } : t))
     );
     try {
       await updateTicket(id, { status });
@@ -250,7 +244,7 @@ export default function Desk() {
 
   async function setOrderStatus(id: string, status: string) {
     setOrders((prev) =>
-      prev.map((o) => (o.id === id ? { ...o, status } : o)),
+      prev.map((o) => (o.id === id ? { ...o, status } : o))
     );
     try {
       await updateOrder(id, { status });
@@ -290,7 +284,7 @@ export default function Desk() {
           ⚠️ {combinedError}
         </div>
       )}
-      {loading && !combinedError && <div>Loading…</div>}
+      {loading && <div>Loading…</div>}
 
       <section
         style={{
@@ -365,8 +359,7 @@ export default function Desk() {
                       Accept
                     </button>
                   )}
-                  {(t.status === "Requested" ||
-                    t.status === "Accepted") && (
+                  {(t.status === "Requested" || t.status === "Accepted") && (
                     <button
                       className="btn btn-light"
                       onClick={() => setTicketStatus(t.id, "InProgress")}

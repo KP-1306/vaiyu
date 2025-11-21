@@ -1,6 +1,6 @@
 // web/src/routes/Desk.tsx
 
-import {
+import React, {
   useEffect,
   useState,
   useCallback,
@@ -46,7 +46,7 @@ type Order = {
 
 // ---------------------------------------------------------------------------
 // Hook: detect effective hotelId (from URL or hotel_members)
-//   – this mirrors desk/Tickets.tsx so behaviour is consistent.
+//   – mirrors web/src/routes/desk/Tickets.tsx so behaviour is consistent.
 // ---------------------------------------------------------------------------
 
 function useEffectiveHotelId() {
@@ -159,15 +159,15 @@ export default function Desk() {
   const ticketRows = useMemo(() => tickets, [tickets]);
   const orderRows = useMemo(() => orders, [orders]);
 
-  // Combined error: either local API error or hotel-detection error
+  // Either API error or hotel-detection error
   const combinedError = error ?? hotelIdError ?? null;
 
   const refresh = useCallback(async () => {
-    // Don’t call APIs until we know our hotelId logic has run.
+    // Don’t hit APIs until hotel detection logic is done.
     if (!initialised) return;
 
     if (!hotelId) {
-      // If hotelId is still missing after initialisation, just surface the hook error.
+      // If hotelId is still missing after initialisation, surface a clear error.
       if (!hotelIdError) {
         setError("Hotel id is required to load desk operations.");
       }
@@ -179,7 +179,8 @@ export default function Desk() {
     setError(null);
 
     try {
-      // ✅ Pass hotelId through to both helpers so they can call the functions correctly.
+      // IMPORTANT: listTickets / listOrders should forward hotelId
+      // to the Edge Functions as a ?hotelId=… query param.
       const [t, o] = await Promise.all([
         listTickets(hotelId),
         listOrders(hotelId),
@@ -204,14 +205,14 @@ export default function Desk() {
         const t = (e as any)?.ticket as Ticket;
         if (!t) return;
         setTickets((prev) =>
-          prev.find((x) => x.id === t.id) ? prev : [t, ...prev]
+          prev.find((x) => x.id === t.id) ? prev : [t, ...prev],
         );
       },
       ticket_updated: (e) => {
         const t = (e as any)?.ticket as Ticket;
         if (!t) return;
         setTickets((prev) =>
-          prev.map((x) => (x.id === t.id ? { ...x, ...t } : x))
+          prev.map((x) => (x.id === t.id ? { ...x, ...t } : x)),
         );
       },
 
@@ -220,14 +221,14 @@ export default function Desk() {
         const o = (e as any)?.order as Order;
         if (!o) return;
         setOrders((prev) =>
-          prev.find((x) => x.id === o.id) ? prev : [o, ...prev]
+          prev.find((x) => x.id === o.id) ? prev : [o, ...prev],
         );
       },
       order_updated: (e) => {
         const o = (e as any)?.order as Order;
         if (!o) return;
         setOrders((prev) =>
-          prev.map((x) => (x.id === o.id ? { ...x, ...o } : o))
+          prev.map((x) => (x.id === o.id ? { ...x, ...o } : x)),
         );
       },
     });
@@ -237,7 +238,7 @@ export default function Desk() {
 
   async function setTicketStatus(id: string, status: Ticket["status"]) {
     setTickets((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, status } : t))
+      prev.map((t) => (t.id === id ? { ...t, status } : t)),
     );
     try {
       await updateTicket(id, { status });
@@ -249,7 +250,7 @@ export default function Desk() {
 
   async function setOrderStatus(id: string, status: string) {
     setOrders((prev) =>
-      prev.map((o) => (o.id === id ? { ...o, status } : o))
+      prev.map((o) => (o.id === id ? { ...o, status } : o)),
     );
     try {
       await updateOrder(id, { status });
@@ -289,7 +290,7 @@ export default function Desk() {
           ⚠️ {combinedError}
         </div>
       )}
-      {loading && <div>Loading…</div>}
+      {loading && !combinedError && <div>Loading…</div>}
 
       <section
         style={{

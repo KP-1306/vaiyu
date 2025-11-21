@@ -1372,22 +1372,30 @@ function SlaCard({
   );
 }
 
+
 function LiveOrdersPanel({
   orders,
   targetMin,
+  hotelId,
   className = "",
 }: {
   orders: LiveOrder[];
   targetMin: number;
+  hotelId?: string;        // ✅ NEW – optional, so we don’t break anything
   className?: string;
 }) {
+  // ✅ Build the correct target URL
+  const opsPath = hotelId
+    ? `../ops?hotelId=${encodeURIComponent(hotelId)}`
+    : "../ops";
+
   return (
     <div className={`rounded-xl border bg-white p-4 shadow-sm ${className}`}>
       <SectionHeader
         title="Live requests & orders"
         desc="What guests are asking for right now — jump in or assign to staff."
         action={
-          <Link to="../ops" className="text-sm underline">
+          <Link to={opsPath} className="text-sm underline">
             Open operations
           </Link>
         }
@@ -1427,6 +1435,7 @@ function LiveOrdersPanel({
     </div>
   );
 }
+
 
 function AttentionServicesCard({ orders }: { orders: LiveOrder[] }) {
   const newCount = orders.filter((o) => o.status === "open").length;

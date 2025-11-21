@@ -1376,26 +1376,24 @@ function SlaCard({
 function LiveOrdersPanel({
   orders,
   targetMin,
-  hotelId,
+  hotelId,          // ✅ make sure this prop is passed in
   className = "",
 }: {
   orders: LiveOrder[];
   targetMin: number;
-  hotelId?: string;        // ✅ NEW – optional, so we don’t break anything
+  hotelId?: string | number;
   className?: string;
 }) {
-  // ✅ Build the correct target URL
-  const opsPath = hotelId
-    ? `../ops?hotelId=${encodeURIComponent(hotelId)}`
-    : "../ops";
-
   return (
     <div className={`rounded-xl border bg-white p-4 shadow-sm ${className}`}>
       <SectionHeader
         title="Live requests & orders"
         desc="What guests are asking for right now — jump in or assign to staff."
         action={
-          <Link to={opsPath} className="text-sm underline">
+          <Link
+            to={hotelId ? `/ops?hotelId=${encodeURIComponent(String(hotelId))}` : "/ops"}
+            className="text-sm underline"
+          >
             Open operations
           </Link>
         }

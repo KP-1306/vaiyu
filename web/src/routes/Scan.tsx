@@ -43,8 +43,8 @@ export default function Scan() {
       // Hotel-scoped menu (backend can later read ?hotel=slug)
       return "/menu?hotel=" + encodeURIComponent(hotelSlug);
     }
-    // Fallback: generic menu (demo/global)
-    return "/menu";
+    // No context → we should NOT send the guest to /menu blindly
+    return null;
   }, [hotelSlug, stayCode]);
 
   // Friendly label
@@ -59,7 +59,9 @@ export default function Scan() {
   // ─────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
+
     if (!hotelSlug) {
+      // Nothing to load if we don't know the property
       setLoading(false);
       return;
     }
@@ -98,11 +100,31 @@ export default function Scan() {
     };
   }, [hotelSlug]);
 
+  // ─────────────────────────────────────────────
+  // Actions
+  // ─────────────────────────────────────────────
   function handleOpenWebMenu() {
+    if (!menuPath) {
+      // No hotel / stay information → avoid sending to /menu (404)
+      setError(
+        "We couldn’t detect which property this QR belongs to. " +
+          "Please scan the VAiyu QR at your hotel (or ask the front desk) and try again."
+      );
+      return;
+    }
+    setError(null);
     navigate(menuPath);
   }
 
   function handleOpenWhatsApp() {
+    if (!menuPath) {
+      setError(
+        "We can’t build a menu link because this page doesn’t include a hotel or stay code. " +
+          "Please scan the VAiyu QR at the property again."
+      );
+      return;
+    }
+
     // Build a shareable absolute URL for the menu
     const base =
       typeof window !== "undefined" ? window.location.origin || "" : "";

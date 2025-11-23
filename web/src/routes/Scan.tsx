@@ -1,4 +1,5 @@
 // web/src/routes/Scan.tsx
+
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useSearchParams, useNavigate } from "react-router-dom";
 import SEO from "../components/SEO";

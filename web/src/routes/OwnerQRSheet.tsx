@@ -1,5 +1,3 @@
-// web/src/routes/OwnerQRSheet.tsx
-
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import SEO from "../components/SEO";

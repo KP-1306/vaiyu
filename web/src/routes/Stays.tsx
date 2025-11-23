@@ -1,8 +1,10 @@
-// web/src/routes/StayHome.tsx
-
+// web/src/routes/Stays.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import StayQuickLinks from "../components/guest/StayQuickLinks";
+import ChatPanel from "../components/chat/ChatPanel";
+import StayWalletPanel from "../components/rewards/StayWalletPanel";
 
 type StayView = {
   id: string;
@@ -240,20 +242,27 @@ function QrStayHome({ code }: { code: string }) {
     ? hotelSlug.replace(/[-_]+/g, " ")
     : "your VAiyu stay";
 
-  const baseMenu = `/menu?code=${encodeURIComponent(code)}${
-    hotelSlug ? `&hotel=${encodeURIComponent(hotelSlug)}` : ""
-  }`;
-
-  const roomServicesHref = `${baseMenu}&tab=services`;
-  const foodHref = `${baseMenu}&tab=fnb`;
-  const billHref = `/bill?code=${encodeURIComponent(code)}`;
-  const checkoutHref = `/checkout?code=${encodeURIComponent(code)}`;
-  const rewardsHref = `/guest?tab=rewards`;
-  const chatHref = `/guest?tab=chat`;
+  // Build a WhatsApp share link for this canonical stay URL (if we have window)
+  const whatsAppUrl =
+    typeof window !== "undefined"
+      ? (() => {
+          const basePath = `/stay/${encodeURIComponent(code)}${
+            hotelSlug ? `?hotel=${encodeURIComponent(hotelSlug)}` : ""
+          }`;
+          const fullUrl = `${window.location.origin || ""}${basePath}`;
+          const textLines = [
+            `Hi, this is my VAiyu stay link for ${hotelLabel}.`,
+            "",
+            fullUrl,
+          ];
+          const text = encodeURIComponent(textLines.join("\n"));
+          return `https://wa.me/?text=${text}`;
+        })()
+      : undefined;
 
   return (
-    <main className="max-w-3xl mx-auto p-6">
-      <header className="mb-6 space-y-1">
+    <main className="max-w-5xl mx-auto p-6">
+      <header className="mb-4 space-y-1">
         <p className="text-xs uppercase tracking-wide text-gray-500">
           Your stay link
         </p>
@@ -263,7 +272,7 @@ function QrStayHome({ code }: { code: string }) {
         </h1>
         <p className="text-sm text-gray-600">
           From this one page you can reach room services, food &amp; beverages,
-          chat, bill, checkout and rewards for this stay.
+          chat, your bill, checkout and rewards for this stay.
         </p>
         <p className="text-xs text-gray-500">
           Stay code:{" "}
@@ -271,70 +280,39 @@ function QrStayHome({ code }: { code: string }) {
         </p>
       </header>
 
-      <section className="grid gap-3 sm:grid-cols-2">
-        <QuickLinkCard
-          to={roomServicesHref}
-          title="Room services / Housekeeping"
-          description="Request cleaning, towels, water and more."
-        />
-        <QuickLinkCard
-          to={foodHref}
-          title="Food &amp; Beverages"
-          description="Browse the in-room menu and order to your room."
-        />
-        <QuickLinkCard
-          to={chatHref}
-          title="Chat with front desk"
-          description="Ask a question or share a note about your stay."
-        />
-        <QuickLinkCard
-          to={billHref}
-          title="My Bill"
-          description="Review your charges before checkout."
-        />
-        <QuickLinkCard
-          to={checkoutHref}
-          title="Checkout"
-          description="Request express checkout and avoid queues."
-        />
-        <QuickLinkCard
-          to={rewardsHref}
-          title="Rewards &amp; Offers"
-          description="See credits you can use during this stay."
-        />
-      </section>
+      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)] items-start">
+        <div className="space-y-3">
+          <StayQuickLinks
+            stayCode={code}
+            hotelSlug={hotelSlug || undefined}
+            openWhatsAppUrl={whatsAppUrl}
+          />
 
-      <section className="mt-6 rounded-xl bg-gray-50 p-3 text-xs text-gray-600">
-        <p>
-          Tip: you can bookmark this page or save it inside a WhatsApp chat —
-          the same link will keep working for this stay.
-        </p>
-      </section>
+          <section className="rounded-xl bg-gray-50 p-3 text-xs text-gray-600">
+            <p>
+              Tip: you can bookmark this page or save it inside a WhatsApp chat
+              — the same link will keep working for this stay.
+            </p>
+            <p className="mt-1 text-[10px] text-gray-400">
+              URL:{" "}
+              <code>
+                /stay/{code}
+                {hotelSlug ? `?hotel=${hotelSlug}` : ""}
+              </code>
+            </p>
+          </section>
+        </div>
+
+        <div className="space-y-3">
+          <ChatPanel
+            stayCode={code}
+            hotelName={hotelLabel}
+            messages={[]}
+            openWhatsAppUrl={whatsAppUrl}
+          />
+          <StayWalletPanel hotelName={hotelLabel} />
+        </div>
+      </div>
     </main>
-  );
-}
-
-function QuickLinkCard({
-  to,
-  title,
-  description,
-}: {
-  to: string;
-  title: string;
-  description: string;
-}) {
-  return (
-    <Link
-      to={to}
-      className="flex flex-col justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm hover:shadow-md transition-shadow"
-    >
-      <div>
-        <div className="text-sm font-medium text-gray-900">{title}</div>
-        <p className="mt-1 text-xs text-gray-500">{description}</p>
-      </div>
-      <div className="mt-2 text-[11px] font-semibold text-teal-700">
-        Open →
-      </div>
-    </Link>
   );
 }

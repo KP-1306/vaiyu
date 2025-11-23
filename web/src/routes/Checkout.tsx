@@ -1,5 +1,8 @@
+// web/src/routes/Checkout.tsx
+
+
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { checkout, setBookingConsent, redeemCredits } from '../lib/api';
 
 type ApiReview = {
@@ -25,7 +28,12 @@ type CheckoutResponse = {
 const TOKEN_KEY = 'stay:token';
 
 export default function Checkout() {
-  const { code = '' } = useParams();
+  // Support both /checkout/:code and /checkout?code=...
+  const { code: paramCode = '' } = useParams();
+  const [searchParams] = useSearchParams();
+  const queryCode = searchParams.get('code') || '';
+  const code = paramCode || queryCode || '';
+
   const [consent, setConsent] = useState<boolean>(true);
   const [autopost, setAutopost] = useState<boolean>(true);
   const [busy, setBusy] = useState(false);
@@ -33,16 +41,24 @@ export default function Checkout() {
   const [res, setRes] = useState<CheckoutResponse | null>(null);
 
   // Credits UI
-  const [creditsProperty, setCreditsProperty] = useState<string>(''); // property slug; if you can infer this, prefill it
+  const [creditsProperty, setCreditsProperty] = useState<string>(() => {
+    // If hotel slug is in the URL (?hotel=sunrise), prefill it; otherwise keep old behaviour (empty).
+    return searchParams.get('hotel') || '';
+  });
   const [creditsAmount, setCreditsAmount] = useState<number>(0);
   const [creditsMsg, setCreditsMsg] = useState<string>('');
   const [creditsBusy, setCreditsBusy] = useState<boolean>(false);
-  const token = typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) || '' : '';
+
+  const token =
+    typeof window !== 'undefined'
+      ? localStorage.getItem(TOKEN_KEY) || ''
+      : '';
 
   async function onApplyCredits(e: React.FormEvent) {
     e.preventDefault();
     setCreditsMsg('');
     setErr(null);
+
     if (!creditsProperty) {
       setErr('Please enter the property slug to apply credits.');
       return;
@@ -51,13 +67,21 @@ export default function Checkout() {
       setErr('Enter a positive amount to redeem.');
       return;
     }
+
     try {
       setCreditsBusy(true);
-      const r = await redeemCredits(token, creditsProperty.trim(), Math.floor(creditsAmount), {
-        reason: 'checkout',
-        bookingCode: code || undefined,
-      });
-      setCreditsMsg(`Applied ₹${creditsAmount}. New balance: ₹${r?.newBalance ?? '—'}`);
+      const r = await redeemCredits(
+        token,
+        creditsProperty.trim(),
+        Math.floor(creditsAmount),
+        {
+          reason: 'checkout',
+          bookingCode: code || undefined,
+        }
+      );
+      setCreditsMsg(
+        `Applied ₹${creditsAmount}. New balance: ₹${r?.newBalance ?? '—'}`
+      );
     } catch (e: any) {
       setErr(e?.message || 'Failed to apply credits');
     } finally {
@@ -98,7 +122,9 @@ export default function Checkout() {
     <main className="max-w-xl mx-auto p-4 space-y-4">
       <header>
         <h1 className="text-xl font-semibold">Checkout</h1>
-        <div className="text-sm text-gray-600">Booking code: <b>{code || '—'}</b></div>
+        <div className="text-sm text-gray-600">
+          Booking code: <b>{code || '—'}</b>
+        </div>
       </header>
 
       {err && (
@@ -112,15 +138,33 @@ export default function Checkout() {
           <div>Checkout completed.</div>
           {res.invoice && (
             <div>
-              Invoice: <a className="link" href={res.invoice} target="_blank" rel="noreferrer">Download</a>
+              Invoice:{' '}
+              <a
+                className="link"
+                href={res.invoice}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Download
+              </a>
             </div>
           )}
           {res.review_link && (
             <div>
-              Review link: <a className="link" href={res.review_link} target="_blank" rel="noreferrer">Open</a>
+              Review link:{' '}
+              <a
+                className="link"
+                href={res.review_link}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open
+              </a>
             </div>
           )}
-          {res.note && <div className="text-sm opacity-90">{res.note}</div>}
+          {res.note && (
+            <div className="text-sm opacity-90">{res.note}</div>
+          )}
         </div>
       )}
 
@@ -128,12 +172,21 @@ export default function Checkout() {
       {Published && (
         <section className="card">
           <div className="font-semibold">Published review</div>
-          <div className="text-sm text-gray-600">Source: {Published.source.toUpperCase()}</div>
+          <div className="text-sm text-gray-600">
+            Source: {Published.source.toUpperCase()}
+          </div>
           <div className="mt-2">{'⭐'.repeat(Published.rating)}</div>
-          {Published.title && <div className="mt-1 font-semibold">{Published.title}</div>}
-          {Published.body && <div className="mt-1 whitespace-pre-wrap">{Published.body}</div>}
+          {Published.title && (
+            <div className="mt-1 font-semibold">{Published.title}</div>
+          )}
+          {Published.body && (
+            <div className="mt-1 whitespace-pre-wrap">
+              {Published.body}
+            </div>
+          )}
           <div className="mt-2 text-xs text-gray-500">
-            {new Date(Published.created_at).toLocaleString()} • {Published.status}/{Published.visibility}
+            {new Date(Published.created_at).toLocaleString()} •{' '}
+            {Published.status}/{Published.visibility}
           </div>
         </section>
       )}
@@ -141,32 +194,48 @@ export default function Checkout() {
       {/* Pending result (needs approval) */}
       {Pending && (
         <section className="card">
-          <div className="font-semibold">AI review created — pending approval</div>
-          <div className="text-sm text-gray-600">Source: {Pending.source.toUpperCase()}</div>
+          <div className="font-semibold">
+            AI review created — pending approval
+          </div>
+          <div className="text-sm text-gray-600">
+            Source: {Pending.source.toUpperCase()}
+          </div>
           <div className="mt-2">{'⭐'.repeat(Pending.rating)}</div>
-          {Pending.title && <div className="mt-1 font-semibold">{Pending.title}</div>}
-          {Pending.body && <div className="mt-1 whitespace-pre-wrap">{Pending.body}</div>}
+          {Pending.title && (
+            <div className="mt-1 font-semibold">{Pending.title}</div>
+          )}
+          {Pending.body && (
+            <div className="mt-1 whitespace-pre-wrap">
+              {Pending.body}
+            </div>
+          )}
           <div className="mt-2 text-xs text-gray-500">
-            {new Date(Pending.created_at).toLocaleString()} • {Pending.status}/{Pending.visibility}
+            {new Date(Pending.created_at).toLocaleString()} •{' '}
+            {Pending.status}/{Pending.visibility}
           </div>
         </section>
       )}
 
-      {/* NEW: Apply credits */}
+      {/* Use credits */}
       <section className="bg-gray-50 p-4 rounded border space-y-2">
         <div className="font-medium">Use credits</div>
         <div className="text-xs text-gray-600">
           Credits are property-scoped and reduce your F&amp;B/services bill.
         </div>
 
-        <form onSubmit={onApplyCredits} className="mt-2 grid gap-2">
+        <form
+          onSubmit={onApplyCredits}
+          className="mt-2 grid gap-2"
+        >
           <label className="text-sm">
             Property slug
             <input
               className="mt-1 border rounded w-full px-2 py-1"
               placeholder="e.g. sunrise"
               value={creditsProperty}
-              onChange={(e) => setCreditsProperty(e.target.value)}
+              onChange={(e) =>
+                setCreditsProperty(e.target.value)
+              }
             />
           </label>
 
@@ -177,7 +246,9 @@ export default function Checkout() {
               min={0}
               className="mt-1 border rounded w-full px-2 py-1"
               value={creditsAmount}
-              onChange={(e) => setCreditsAmount(Number(e.target.value))}
+              onChange={(e) =>
+                setCreditsAmount(Number(e.target.value))
+              }
             />
           </label>
 
@@ -191,11 +262,18 @@ export default function Checkout() {
           </div>
         </form>
 
-        {creditsMsg && <div className="text-sm text-emerald-700">{creditsMsg}</div>}
+        {creditsMsg && (
+          <div className="text-sm text-emerald-700">
+            {creditsMsg}
+          </div>
+        )}
       </section>
 
       {/* Finish checkout */}
-      <form onSubmit={onSubmit} className="bg-white p-4 rounded shadow space-y-3">
+      <form
+        onSubmit={onSubmit}
+        className="bg-white p-4 rounded shadow space-y-3"
+      >
         <label className="flex items-center gap-2">
           <input
             type="checkbox"
@@ -203,7 +281,8 @@ export default function Checkout() {
             onChange={(e) => setConsent(e.target.checked)}
           />
           <span className="text-sm">
-            I consent to publishing a truthful, activity-anchored review for this stay.
+            I consent to publishing a truthful, activity-anchored
+            review for this stay.
           </span>
         </label>
 
@@ -214,7 +293,8 @@ export default function Checkout() {
             onChange={(e) => setAutopost(e.target.checked)}
           />
           <span className="text-sm">
-            Auto-publish the AI-generated review if policy allows (else create a pending draft).
+            Auto-publish the AI-generated review if policy allows
+            (else create a pending draft).
           </span>
         </label>
 
@@ -229,7 +309,8 @@ export default function Checkout() {
       </form>
 
       <p className="text-xs text-gray-500">
-        Note: Auto-publish respects your hotel’s policy (activity threshold, late SLA blocks, consent requirement).
+        Note: Auto-publish respects your hotel’s policy (activity
+        threshold, late SLA blocks, consent requirement).
       </p>
     </main>
   );

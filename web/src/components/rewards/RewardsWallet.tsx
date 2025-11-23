@@ -26,13 +26,36 @@ type Voucher = {
   created_at: string;
 };
 
+/** New: optional props so this can be a full page OR a “stay wallet” pane */
+export type RewardsWalletProps = {
+  /** Default: "global" (full /rewards page). Use "stay" to show a single-property wallet. */
+  context?: "global" | "stay";
+  /** When context is "stay", pass the current stay’s hotel_id so we can focus that property. */
+  hotelId?: string;
+  /** Optional custom heading for stay view (otherwise "Your stay wallet"). */
+  stayLabel?: string;
+  /** Override whether to show the “Back to dashboard” button. Defaults:
+   *  - global → true
+   *  - stay   → false
+   */
+  showBackLink?: boolean;
+};
+
 /** Utils */
 const inr = (paise: number) => `₹${(paise / 100).toFixed(2)}`;
 const cx = (...xs: Array<string | false | undefined | null>) =>
   xs.filter(Boolean).join(" ");
 
 /** Component */
-export default function RewardsWallet() {
+export default function RewardsWallet({
+  context = "global",
+  hotelId,
+  stayLabel,
+  showBackLink,
+}: RewardsWalletProps) {
+  const isStayContext = context === "stay";
+  const effectiveShowBackLink = showBackLink ?? !isStayContext;
+
   const [loading, setLoading] = useState(true);
   const [balances, setBalances] = useState<HotelBalance[]>([]);
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
@@ -117,10 +140,43 @@ export default function RewardsWallet() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** New: in “stay” context we focus on a single property’s balance + vouchers */
+  const balancesForDisplay = useMemo(() => {
+    if (isStayContext && hotelId) {
+      return balances.filter((b) => b.hotel_id === hotelId);
+    }
+    return balances;
+  }, [balances, isStayContext, hotelId]);
+
   const totalAvailable = useMemo(
-    () => balances.reduce((sum, b) => sum + b.available_paise, 0),
-    [balances]
+    () => balancesForDisplay.reduce((sum, b) => sum + b.available_paise, 0),
+    [balancesForDisplay]
   );
+
+  const vouchersForDisplay = useMemo(() => {
+    if (isStayContext && hotelId) {
+      return vouchers.filter((v) => v.hotel_id === hotelId);
+    }
+    return vouchers;
+  }, [vouchers, isStayContext, hotelId]);
+
+  /** Claim options:
+   *  - global: all properties
+   *  - stay: only the current property
+   */
+  const claimOptions = useMemo(() => {
+    if (isStayContext && hotelId) {
+      return balances.filter((b) => b.hotel_id === hotelId);
+    }
+    return balances;
+  }, [balances, isStayContext, hotelId]);
+
+  const heading = isStayContext
+    ? stayLabel || "Your stay wallet"
+    : "Your Rewards";
+  const subheading = isStayContext
+    ? "Credits and vouchers you can use at this property during your stay."
+    : "Earn from referrals, redeem as vouchers at partner stays.";
 
   function openClaim(hotel_id: string) {
     const bal = balances.find((b) => b.hotel_id === hotel_id);
@@ -152,7 +208,7 @@ export default function RewardsWallet() {
       const bal = balances.find((b) => b.hotel_id === claimHotelId);
       if (bal && claimAmountPaise > bal.available_paise) {
         throw new Error(
-          `Amount exceeds available balance (${inr(bal.available_paise)}).`
+          `Amount exceeds available balance (${inr(b.available_paise)}).`
         );
       }
 
@@ -219,19 +275,19 @@ export default function RewardsWallet() {
 
   return (
     <main className="max-w-5xl mx-auto p-6">
-      {/* Single navigation control */}
-      <div className="mb-4">
-        <Link to="/guest" className="btn btn-light">
-          Back to dashboard
-        </Link>
-      </div>
+      {/* Single navigation control — hidden by default in stay mode */}
+      {effectiveShowBackLink && (
+        <div className="mb-4">
+          <Link to="/guest" className="btn btn-light">
+            Back to dashboard
+          </Link>
+        </div>
+      )}
 
       <header className="flex items-end justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Your Rewards</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Earn from referrals, redeem as vouchers at partner stays.
-          </p>
+          <h1 className="text-2xl font-semibold">{heading}</h1>
+          <p className="text-sm text-gray-600 mt-1">{subheading}</p>
         </div>
         <div className="rounded-xl border px-4 py-2 bg-white/90 shadow-sm text-right">
           <div className="text-xs text-gray-500">Available</div>
@@ -261,11 +317,15 @@ export default function RewardsWallet() {
         <div className="grid place-items-center min-h-[30vh]">Loading…</div>
       ) : (
         <section className="mt-6 grid gap-4 md:grid-cols-2">
-          {balances.length === 0 ? (
+          {balancesForDisplay.length === 0 ? (
             <EmptyWallet />
           ) : (
-            balances.map((b) => (
-              <HotelCard key={b.hotel_id} b={b} onClaim={() => openClaim(b.hotel_id)} />
+            balancesForDisplay.map((b) => (
+              <HotelCard
+                key={b.hotel_id}
+                b={b}
+                onClaim={() => openClaim(b.hotel_id)}
+              />
             ))
           )}
         </section>
@@ -302,7 +362,7 @@ export default function RewardsWallet() {
                   disabled={claimBusy}
                 >
                   <option value="">Select</option>
-                  {balances.map((b) => (
+                  {claimOptions.map((b) => (
                     <option key={b.hotel_id} value={b.hotel_id}>
                       {b.hotel_name} ({inr(b.available_paise)} available)
                     </option>
@@ -391,7 +451,10 @@ export default function RewardsWallet() {
           >
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Claim history</h2>
-              <button className="btn btn-light" onClick={() => setHistoryOpen(false)}>
+              <button
+                className="btn btn-light"
+                onClick={() => setHistoryOpen(false)}
+              >
                 Close
               </button>
             </div>
@@ -409,14 +472,14 @@ export default function RewardsWallet() {
                   </tr>
                 </thead>
                 <tbody>
-                  {vouchers.length === 0 ? (
+                  {vouchersForDisplay.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="py-6 text-center text-gray-500">
                         No vouchers yet.
                       </td>
                     </tr>
                   ) : (
-                    vouchers.map((v) => (
+                    vouchersForDisplay.map((v) => (
                       <tr key={v.id} className="border-t">
                         <td className="py-2 pr-3">
                           {new Date(v.created_at).toLocaleDateString()}
@@ -466,7 +529,11 @@ function HotelCard({ b, onClaim }: { b: HotelBalance; onClaim: () => void }) {
   return (
     <div className="rounded-2xl border bg-white/90 shadow-sm overflow-hidden flex">
       {b.cover_image_url ? (
-        <img src={b.cover_image_url} alt="" className="w-32 h-32 object-cover hidden sm:block" />
+        <img
+          src={b.cover_image_url}
+          alt=""
+          className="w-32 h-32 object-cover hidden sm:block"
+        />
       ) : (
         <div className="w-32 h-32 hidden sm:block bg-gradient-to-br from-slate-100 to-slate-200" />
       )}

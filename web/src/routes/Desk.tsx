@@ -1,5 +1,3 @@
-// web/src/routes/Desk.tsx
-
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
@@ -148,6 +146,9 @@ export default function Desk() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  // NEW: simple tab between Ops (HK + Kitchen) and Chat workspace
+  const [activeTab, setActiveTab] = useState<"ops" | "chat">("ops");
+
   const hkEmpty = !tickets.length;
   const ordersEmpty = !orders.length;
 
@@ -286,189 +287,237 @@ export default function Desk() {
       )}
       {loading && <div>Loading…</div>}
 
-      <section
+      {/* Tabs: Operations vs Chat */}
+      <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 16,
+          display: "flex",
+          gap: 8,
+          marginTop: 4,
+          marginBottom: 4,
         }}
       >
-        {/* Housekeeping */}
-        <div className="card">
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <h3 style={{ margin: 0 }}>Housekeeping</h3>
-            <button className="link" onClick={refresh}>
-              Refresh
-            </button>
-          </div>
-          {hkEmpty && (
-            <div style={{ marginTop: 8, color: "var(--muted)" }}>
-              No open HK requests.
+        <button
+          type="button"
+          className={
+            activeTab === "ops"
+              ? "btn"
+              : "btn btn-light"
+          }
+          onClick={() => setActiveTab("ops")}
+        >
+          Operations (HK & Kitchen)
+        </button>
+        <button
+          type="button"
+          className={
+            activeTab === "chat"
+              ? "btn"
+              : "btn btn-light"
+          }
+          onClick={() => setActiveTab("chat")}
+        >
+          Chat workspace
+        </button>
+      </div>
+
+      {activeTab === "ops" && (
+        <section
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 16,
+          }}
+        >
+          {/* Housekeeping */}
+          <div className="card">
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <h3 style={{ margin: 0 }}>Housekeeping</h3>
+              <button className="link" onClick={refresh}>
+                Refresh
+              </button>
             </div>
-          )}
-          <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-            {ticketRows.map((t) => (
-              <div
-                key={t.id}
-                className="card"
-                style={{ background: "transparent" }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: 8,
-                  }}
-                >
-                  <div>
-                    <div style={{ fontWeight: 700 }}>
-                      {t.service_key.replace(/_/g, " ")} • Room {t.room}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: "var(--muted)",
-                      }}
-                    >
-                      Booking: {t.booking} · SLA: {t.sla_minutes}m · Created{" "}
-                      {new Date(t.created_at).toLocaleTimeString()}
-                    </div>
-                  </div>
-                  <span className="badge">{t.status}</span>
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 8,
-                    marginTop: 8,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  {t.status === "Requested" && (
-                    <button
-                      className="btn btn-light"
-                      onClick={() => setTicketStatus(t.id, "Accepted")}
-                    >
-                      Accept
-                    </button>
-                  )}
-                  {(t.status === "Requested" || t.status === "Accepted") && (
-                    <button
-                      className="btn btn-light"
-                      onClick={() => setTicketStatus(t.id, "InProgress")}
-                    >
-                      Start
-                    </button>
-                  )}
-                  {t.status !== "Done" && (
-                    <button
-                      className="btn"
-                      onClick={() => setTicketStatus(t.id, "Done")}
-                    >
-                      Mark Done
-                    </button>
-                  )}
-                </div>
+            {hkEmpty && (
+              <div style={{ marginTop: 8, color: "var(--muted)" }}>
+                No open HK requests.
               </div>
-            ))}
-          </div>
-        </div>
+            )}
+            <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+              {ticketRows.map((t) => (
+                <div
+                  key={t.id}
+                  className="card"
+                  style={{ background: "transparent" }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 8,
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 700 }}>
+                        {t.service_key.replace(/_/g, " ")} • Room {t.room}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "var(--muted)",
+                        }}
+                      >
+                        Booking: {t.booking} · SLA: {t.sla_minutes}m · Created{" "}
+                        {new Date(t.created_at).toLocaleTimeString()}
+                      </div>
+                    </div>
+                    <span className="badge">{t.status}</span>
+                  </div>
 
-        {/* Kitchen Orders */}
-        <div className="card">
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <h3 style={{ margin: 0 }}>Kitchen Orders</h3>
-            <button className="link" onClick={refresh}>
-              Refresh
-            </button>
-          </div>
-          {ordersEmpty && (
-            <div style={{ marginTop: 8, color: "var(--muted)" }}>
-              No active orders.
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      marginTop: 8,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    {t.status === "Requested" && (
+                      <button
+                        className="btn btn-light"
+                        onClick={() => setTicketStatus(t.id, "Accepted")}
+                      >
+                        Accept
+                      </button>
+                    )}
+                    {(t.status === "Requested" ||
+                      t.status === "Accepted") && (
+                      <button
+                        className="btn btn-light"
+                        onClick={() => setTicketStatus(t.id, "InProgress")}
+                      >
+                        Start
+                      </button>
+                    )}
+                    {t.status !== "Done" && (
+                      <button
+                        className="btn"
+                        onClick={() => setTicketStatus(t.id, "Done")}
+                      >
+                        Mark Done
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
-          )}
-          <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-            {orderRows.map((o) => (
-              <div
-                key={o.id}
-                className="card"
-                style={{ background: "transparent" }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: 8,
-                  }}
-                >
-                  <div>
-                    <div style={{ fontWeight: 700 }}>
-                      Order #{o.id} • Room {o.room || "—"}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: "var(--muted)",
-                      }}
-                    >
-                      {new Date(o.created_at).toLocaleTimeString()} ·{" "}
-                      {o.items?.length || 0} item(s)
-                    </div>
-                  </div>
-                  <span className="badge">{o.status}</span>
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 8,
-                    marginTop: 8,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  {o.status === "Placed" && (
-                    <button
-                      className="btn btn-light"
-                      onClick={() => setOrderStatus(o.id, "Preparing")}
-                    >
-                      Preparing
-                    </button>
-                  )}
-                  {o.status === "Preparing" && (
-                    <button
-                      className="btn btn-light"
-                      onClick={() => setOrderStatus(o.id, "Ready")}
-                    >
-                      Ready
-                    </button>
-                  )}
-                  {o.status !== "Delivered" && (
-                    <button
-                      className="btn"
-                      onClick={() => setOrderStatus(o.id, "Delivered")}
-                    >
-                      Delivered
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
           </div>
-        </div>
-      </section>
+
+          {/* Kitchen Orders */}
+          <div className="card">
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <h3 style={{ margin: 0 }}>Kitchen Orders</h3>
+              <button className="link" onClick={refresh}>
+                Refresh
+              </button>
+            </div>
+            {ordersEmpty && (
+              <div style={{ marginTop: 8, color: "var(--muted)" }}>
+                No active orders.
+              </div>
+            )}
+            <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+              {orderRows.map((o) => (
+                <div
+                  key={o.id}
+                  className="card"
+                  style={{ background: "transparent" }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 8,
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 700 }}>
+                        Order #{o.id} • Room {o.room || "—"}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "var(--muted)",
+                        }}
+                      >
+                        {new Date(o.created_at).toLocaleTimeString()} ·{" "}
+                        {o.items?.length || 0} item(s)
+                      </div>
+                    </div>
+                    <span className="badge">{o.status}</span>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      marginTop: 8,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    {o.status === "Placed" && (
+                      <button
+                        className="btn btn-light"
+                        onClick={() => setOrderStatus(o.id, "Preparing")}
+                      >
+                        Preparing
+                      </button>
+                    )}
+                    {o.status === "Preparing" && (
+                      <button
+                        className="btn btn-light"
+                        onClick={() => setOrderStatus(o.id, "Ready")}
+                      >
+                        Ready
+                      </button>
+                    )}
+                    {o.status !== "Delivered" && (
+                      <button
+                        className="btn"
+                        onClick={() => setOrderStatus(o.id, "Delivered")}
+                      >
+                        Delivered
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {activeTab === "chat" && (
+        <section className="card" style={{ marginTop: 8 }}>
+          <h3 style={{ marginTop: 0 }}>Chat workspace</h3>
+          <p style={{ fontSize: 14, color: "var(--muted)" }}>
+            This is the dedicated space for two-way guest chats (WhatsApp /
+            in-app). Once chat APIs and the shared <code>ChatPanel</code> are
+            wired, they will render here. For now, housekeeping requests and
+            orders continue to appear under the Operations tab.
+          </p>
+        </section>
+      )}
     </div>
   );
 }

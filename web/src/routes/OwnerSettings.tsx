@@ -1,5 +1,3 @@
-// web/src/routes/OwnerSettings.tsx
-
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";

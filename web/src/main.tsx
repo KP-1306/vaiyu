@@ -251,7 +251,7 @@ function OwnerPickup() {
   const windowLabel = searchParams.get("window") || "7d";
 
   return (
-    <main className="max-w-6xl mx-auto p-6">
+    <main className="max-w-6xl mx_auto p-6">
       <h1 className="text-2xl font-semibold mb-2">
         Pick-up<span className="text-base font-normal"> ({windowLabel})</span>
       </h1>
@@ -338,7 +338,7 @@ function OwnerRevenueOverview() {
 function OwnerHRMS() {
   const { slug } = useParams<{ slug?: string }>();
   return (
-    <main className="max-w-6xl mx-auto p-6">
+    <main className="max-w-6xl mx_auto p-6">
       <h1 className="text-2xl font-semibold mb-2">HRMS &amp; attendance</h1>
       <p className="text-sm text-muted-foreground mb-4">
         This route is reserved for an HR and attendance snapshot for{" "}
@@ -361,14 +361,14 @@ function OwnerHRMS() {
 function OwnerPricing() {
   const { slug } = useParams<{ slug?: string }>();
   return (
-    <main className="max-w-6xl mx-auto p-6">
+    <main className="max-w-6xl mx_auto p-6">
       <h1 className="text-2xl font-semibold mb-2">Pricing &amp; plans</h1>
       <p className="text-sm text-muted-foreground mb-4">
         This route is a placeholder for a dedicated pricing configuration view
         for {slug || "this hotel"}. It prevents 404s from the{" "}
         <strong>Open pricing</strong> link.
       </p>
-      <div className="rounded-xl border bg-white p-4 text-sm text-muted-foreground space-y-2">
+      <div className="rounded-xl border bg_white p-4 text-sm text-muted-foreground space-y-2">
         <p>
           Future versions can use this page to manage BAR, corporate rates,
           packages, and channel-specific rules. Until then, pricing logic
@@ -386,13 +386,13 @@ function OwnerPricing() {
 // NEW: Bookings calendar placeholder backing /bookings/calendar
 function BookingsCalendar() {
   return (
-    <main className="max-w-6xl mx-auto p-6">
+    <main className="max-w-6xl mx_auto p-6">
       <h1 className="text-2xl font-semibold mb-2">Bookings calendar</h1>
       <p className="text-sm text-muted-foreground mb-4">
         This route is reserved for a calendar view of bookings. It exists so the{" "}
         <strong>Open calendar</strong> action no longer results in a 404.
       </p>
-      <div className="rounded-xl border bg-white p-4 text-sm text-muted-foreground space-y-2">
+      <div className="rounded-xl border bg_white p-4 text-sm text-muted-foreground space-y-2">
         <p>
           In a future release, this will show arrivals, in-house guests, and
           departures in a visual calendar. For now, use the Stays list and Ops

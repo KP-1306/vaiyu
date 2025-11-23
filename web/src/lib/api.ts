@@ -107,8 +107,14 @@ function withTimeout<T>(p: Promise<T>, ms = 10_000): Promise<T> {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error("Network timeout")), ms);
     p.then(
-      (v) => { clearTimeout(t); resolve(v); },
-      (e) => { clearTimeout(t); reject(e); }
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      }
     );
   });
 }
@@ -578,10 +584,22 @@ export async function getMenu(hotelSlug?: string) {
 export async function createTicket(data: Json): Promise<{ id: string } & Record<string, any>> {
   const res = await req<any>(`/tickets`, { method: "POST", body: JSON.stringify(data) });
   const id = res?.id ?? res?.ticketId ?? res?.data?.id ?? null;
-  if (!id) { return { id: demoId("tkt"), demo: true, ...(typeof res === "object" ? res : {}) }; }
+  if (!id) {
+    return { id: demoId("tkt"), demo: true, ...(typeof res === "object" ? res : {}) };
+  }
   return { id: String(id), ...(typeof res === "object" ? res : {}) };
 }
-export async function listTickets() { return req(`/tickets`); }
+
+/**
+ * List tickets.
+ * - If hotelId is provided, we append ?hotelId=… (used by Desk/front-desk views).
+ * - If omitted, behaviour stays exactly as before (`GET /tickets`).
+ */
+export async function listTickets(hotelId?: string) {
+  const suffix = hotelId ? `?hotelId=${encodeURIComponent(hotelId)}` : "";
+  return req(`/tickets${suffix}`);
+}
+
 export async function getTicket(id: string) { return req(`/tickets/${encodeURIComponent(id)}`); }
 export async function updateTicket(id: string, patch: Json) {
   return req(`/tickets/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) });
@@ -593,10 +611,22 @@ export async function updateTicket(id: string, patch: Json) {
 export async function createOrder(data: Json): Promise<{ id: string } & Record<string, any>> {
   const res = await req<any>(`/orders`, { method: "POST", body: JSON.stringify(data) });
   const id = res?.id ?? res?.orderId ?? res?.data?.id ?? null;
-  if (!id) { return { id: demoId("ord"), demo: true, ...(typeof res === "object" ? res : {}) }; }
+  if (!id) {
+    return { id: demoId("ord"), demo: true, ...(typeof res === "object" ? res : {}) };
+  }
   return { id: String(id), ...(typeof res === "object" ? res : {}) };
 }
-export async function listOrders() { return req(`/orders`); }
+
+/**
+ * List orders.
+ * - If hotelId is provided, we append ?hotelId=… (used by Desk/front-desk views).
+ * - If omitted, behaviour stays exactly as before (`GET /orders`).
+ */
+export async function listOrders(hotelId?: string) {
+  const suffix = hotelId ? `?hotelId=${encodeURIComponent(hotelId)}` : "";
+  return req(`/orders${suffix}`);
+}
+
 export async function updateOrder(id: string, patch: Json) {
   return req(`/orders/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) });
 }
@@ -616,7 +646,7 @@ export async function checkout(data: { bookingCode?: string; autopost?: boolean 
 ============================================================================ */
 export async function listReviews(slug: string) { return req(`/reviews/${encodeURIComponent(slug)}`); }
 export async function listPendingReviews() { return req(`/reviews/pending`); }
-export async function postManualReview(data: { bookingCode: string; rating: number; title?: string; body?: string; }) {
+export async function postManualReview(data: { bookingCode: string; rating: number; title?: string; body?: string }) {
   return req(`/reviews`, { method: "POST", body: JSON.stringify(data) });
 }
 export async function reviewDraft(bookingCode: string) { return req(`/reviews/draft/${encodeURIComponent(bookingCode)}`); }

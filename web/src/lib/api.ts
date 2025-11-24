@@ -570,13 +570,16 @@ export async function setBookingConsent(code: string, reviews: boolean) {
    Catalog
    - NEW: getMenu accepts optional hotelSlug, but old calls (no arg) still work.
 ============================================================================ */
+
 export async function getMenu(hotelSlug?: string) {
-  let path = `/menu/items`;
+  // 🔁 Call the existing Edge Function `catalog-menu`
+  let path = `/catalog-menu`;
   if (hotelSlug) {
     path += `?hotelSlug=${encodeURIComponent(hotelSlug)}`;
   }
   return req(path);
 }
+
 
 /* ============================================================================
    Tickets

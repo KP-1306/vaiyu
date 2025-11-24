@@ -714,37 +714,37 @@ export async function setBookingConsent(code: string, reviews: boolean) {
 ============================================================================ */
 
 export async function getMenu(hotelSlug?: string) {
-  // Detect if API is pointing at Supabase Edge Functions
   const isSupabaseFunctions = API.includes(".supabase.co/functions");
 
-  // Primary path depends on backend
   let path = isSupabaseFunctions ? "/catalog_menu2" : "/menu/items";
-
   if (hotelSlug) {
     const sep = path.includes("?") ? "&" : "?";
     path += `${sep}hotelSlug=${encodeURIComponent(hotelSlug)}`;
   }
 
+  const url = `${API.replace(/\/+$/, "")}${path}`;  // normalize base
+
+  console.debug("getMenu DEBUG", {
+    API,
+    hotelSlug,
+    isSupabaseFunctions,
+    path,
+    url,
+  });
+
   const headers: Record<string, string> = {};
+  // OPTIONAL: you can even skip this now that Verify JWT is OFF
+  /*
   if (isSupabaseFunctions) {
     const anon =
       (import.meta as any).env?.VITE_SUPABASE_ANON_KEY as string | undefined;
-    if (anon) {
-      // This satisfies Edge Function "Verify JWT" without needing user login
-      headers["Authorization"] = `Bearer ${anon}`;
-    }
+    if (anon) headers["Authorization"] = `Bearer ${anon}`;
   }
-
-  // 🔍 DEBUG – temporary, just to verify what prod is calling
-  console.log("getMenu DEBUG", {
-    API,
-    isSupabaseFunctions,
-    path,
-    hotelSlug,
-  });
+  */
 
   return req(path, { headers });
 }
+
 
 
 /* ============================================================================

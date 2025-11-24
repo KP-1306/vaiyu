@@ -714,12 +714,10 @@ export async function setBookingConsent(code: string, reviews: boolean) {
 ============================================================================ */
 
 export async function getMenu(hotelSlug?: string) {
-  // 1) Detect if API base is pointing to Supabase Edge Functions
+  // Detect if API is pointing at Supabase Edge Functions
   const isSupabaseFunctions = API.includes(".supabase.co/functions");
 
-  // 2) Choose the path
-  //    - When using Supabase Functions directly → /catalog_menu2
-  //    - Otherwise fall back to your old Node API → /menu/items
+  // Primary path depends on backend
   let path = isSupabaseFunctions ? "/catalog_menu2" : "/menu/items";
 
   if (hotelSlug) {
@@ -727,19 +725,24 @@ export async function getMenu(hotelSlug?: string) {
     path += `${sep}hotelSlug=${encodeURIComponent(hotelSlug)}`;
   }
 
-  // 3) Headers (needed only for Supabase Edge Functions if "Verify JWT" is ON)
   const headers: Record<string, string> = {};
   if (isSupabaseFunctions) {
     const anon =
       (import.meta as any).env?.VITE_SUPABASE_ANON_KEY as string | undefined;
-
     if (anon) {
-      // Satisfies "Verify JWT with legacy secret"
+      // This satisfies Edge Function "Verify JWT" without needing user login
       headers["Authorization"] = `Bearer ${anon}`;
     }
   }
 
-  // 4) Fire the request using the existing helper
+  // 🔍 DEBUG – temporary, just to verify what prod is calling
+  console.log("getMenu DEBUG", {
+    API,
+    isSupabaseFunctions,
+    path,
+    hotelSlug,
+  });
+
   return req(path, { headers });
 }
 

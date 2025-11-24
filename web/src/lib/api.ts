@@ -6,6 +6,11 @@ export const API_URL = API; // back-compat
 export let DEMO_MODE = false;
 export const isDemo = () => DEMO_MODE;
 
+/** Base for Supabase Edge Functions (optional; falls back to project URL). */
+export const FUNCTIONS_BASE =
+  ((import.meta as any).env?.VITE_SUPABASE_FUNCTIONS_URL as string | undefined) ||
+  "https://vsqiuwbmawygkxxjrxnt.supabase.co/functions/v1";
+
 /* ============================================================================
    Optional Supabase client (for direct reads/writes with RLS)
    - Uses existing Supabase Auth session in the browser (magic link).
@@ -63,7 +68,7 @@ export type ReferralIdentifier = {
 
 export type CreditBalance = {
   property: string; // property slug (e.g., "sunrise")
-  balance: number;  // currency minor units or plain number
+  balance: number; // currency minor units or plain number
   currency?: string; // e.g., "INR"
   expiresAt?: string | null;
 };
@@ -375,7 +380,11 @@ export type GridMode = "manual" | "assist" | "auto";
 export type GridSettings = {
   mode: GridMode;
   peak_hours?: string[];
-  safety: { min_off_minutes?: number; max_off_minutes?: number; temperature_floor?: number };
+  safety: {
+    min_off_minutes?: number;
+    max_off_minutes?: number;
+    temperature_floor?: number;
+  };
 };
 export type Device = {
   id: string;
@@ -391,7 +400,12 @@ export type Device = {
 export type Playbook = {
   id: string;
   name: string;
-  steps: Array<{ device_id: string; do: "shed" | "nudge"; duration_min?: number; restore_after?: boolean }>;
+  steps: Array<{
+    device_id: string;
+    do: "shed" | "nudge";
+    duration_min?: number;
+    restore_after?: boolean;
+  }>;
 };
 export type GridEvent = {
   id: string;
@@ -400,40 +414,99 @@ export type GridEvent = {
   mode: GridMode;
   target_kw: number;
   reduced_kw?: number;
-  actions: Array<{ ts: string; device_id: string; action: "shed" | "restore" | "nudge"; by: "system" | "staff" | "owner"; note?: string }>;
+  actions: Array<{
+    ts: string;
+    device_id: string;
+    action: "shed" | "restore" | "nudge";
+    by: "system" | "staff" | "owner";
+    note?: string;
+  }>;
 };
 
-export async function gridGetDevices() { return req<Device[]>("/grid/devices"); }
-export async function gridSaveDevices(items: Device[] | Device) {
-  return req<{ ok: boolean; items: Device[] }>("/grid/devices", { method: "POST", body: JSON.stringify(items) });
+export async function gridGetDevices() {
+  return req<Device[]>("/grid/devices");
 }
-export async function gridGetPlaybooks() { return req<Playbook[]>("/grid/playbooks"); }
+export async function gridSaveDevices(items: Device[] | Device) {
+  return req<{ ok: boolean; items: Device[] }>("/grid/devices", {
+    method: "POST",
+    body: JSON.stringify(items),
+  });
+}
+export async function gridGetPlaybooks() {
+  return req<Playbook[]>("/grid/playbooks");
+}
 export async function gridSavePlaybooks(pb: Playbook[] | Playbook) {
-  return req<{ ok: boolean; items: Playbook[] }>("/grid/playbooks", { method: "POST", body: JSON.stringify(pb) });
+  return req<{ ok: boolean; items: Playbook[] }>("/grid/playbooks", {
+    method: "POST",
+    body: JSON.stringify(pb),
+  });
 }
 export async function gridStartEvent(target_kw: number, playbook_id?: string) {
-  return req<{ event: GridEvent }>("/grid/events/start", { method: "POST", body: JSON.stringify({ target_kw, playbook_id }) });
+  return req<{ event: GridEvent }>("/grid/events/start", {
+    method: "POST",
+    body: JSON.stringify({ target_kw, playbook_id }),
+  });
 }
-export async function gridStepEvent(id: string, device_id: string, action: "shed" | "restore" | "nudge", note?: string) {
-  return req<{ event: GridEvent }>(`/grid/events/${encodeURIComponent(id)}/step`, { method: "POST", body: JSON.stringify({ device_id, action, note }) });
+export async function gridStepEvent(
+  id: string,
+  device_id: string,
+  action: "shed" | "restore" | "nudge",
+  note?: string
+) {
+  return req<{ event: GridEvent }>(
+    `/grid/events/${encodeURIComponent(id)}/step`,
+    {
+      method: "POST",
+      body: JSON.stringify({ device_id, action, note }),
+    }
+  );
 }
-export async function gridStopEvent(id: string) { return req<{ event: GridEvent }>(`/grid/events/${encodeURIComponent(id)}/stop`, { method: "POST" }); }
-export async function gridListEvents() { return req<{ items: GridEvent[] }>("/grid/events"); }
-export async function gridDeviceShed(id: string) { return req(`/grid/device/${encodeURIComponent(id)}/shed`, { method: "POST" }); }
-export async function gridDeviceRestore(id: string) { return req(`/grid/device/${encodeURIComponent(id)}/restore`, { method: "POST" }); }
-export async function gridDeviceNudge(id: string) { return req(`/grid/device/${encodeURIComponent(id)}/nudge`, { method: "POST" }); }
+export async function gridStopEvent(id: string) {
+  return req<{ event: GridEvent }>(
+    `/grid/events/${encodeURIComponent(id)}/stop`,
+    { method: "POST" }
+  );
+}
+export async function gridListEvents() {
+  return req<{ items: GridEvent[] }>("/grid/events");
+}
+export async function gridDeviceShed(id: string) {
+  return req(`/grid/device/${encodeURIComponent(id)}/shed`, {
+    method: "POST",
+  });
+}
+export async function gridDeviceRestore(id: string) {
+  return req(`/grid/device/${encodeURIComponent(id)}/restore`, {
+    method: "POST",
+  });
+}
+export async function gridDeviceNudge(id: string) {
+  return req(`/grid/device/${encodeURIComponent(id)}/nudge`, {
+    method: "POST",
+  });
+}
 
 /* ============================================================================
    Self-claim (guest attaches an existing booking)
 ============================================================================ */
 export async function claimInit(code: string, contact: string) {
-  return req(`/claim/init`, { method: "POST", body: JSON.stringify({ code, phone: contact }) });
+  return req(`/claim/init`, {
+    method: "POST",
+    body: JSON.stringify({ code, phone: contact }),
+  });
 }
 export async function claimVerify(code: string, otp: string) {
-  return req(`/claim/verify`, { method: "POST", body: JSON.stringify({ code, otp }) });
+  return req(`/claim/verify`, {
+    method: "POST",
+    body: JSON.stringify({ code, otp }),
+  });
 }
-export async function myStays(token: string): Promise<{ stays: Stay[]; items: Stay[] }> {
-  const res = await req<any>("/me/stays", { headers: { Authorization: `Bearer ${token}` } });
+export async function myStays(
+  token: string
+): Promise<{ stays: Stay[]; items: Stay[] }> {
+  const res = await req<any>("/me/stays", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
   const stays: Stay[] = res?.stays ?? res?.items ?? [];
   return { stays, items: stays };
 }
@@ -446,7 +519,9 @@ export async function myStays(token: string): Promise<{ stays: Stay[]; items: St
 ============================================================================ */
 function looksLikeUuid(value: string | undefined | null): boolean {
   if (!value) return false;
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    value
+  );
 }
 
 export async function getServices(hotelKey?: string) {
@@ -458,11 +533,10 @@ export async function getServices(hotelKey?: string) {
   // - we either have no filter OR the filter looks like a hotel_id
   if (s && (!hotelKey || isId)) {
     try {
-      let query =
-        s
-          .from("services")
-          .select("hotel_id,key,label_en,sla_minutes,active")
-          .order("key", { ascending: true });
+      let query = s
+        .from("services")
+        .select("hotel_id,key,label_en,sla_minutes,active")
+        .order("key", { ascending: true });
       if (hotelKey && isId) {
         // filter by hotel_id (owner/staff views)
         // @ts-ignore
@@ -487,7 +561,10 @@ export async function getServices(hotelKey?: string) {
   return req(path);
 }
 
-export async function saveServices(items: Service[], fallbackHotelId?: string | null) {
+export async function saveServices(
+  items: Service[],
+  fallbackHotelId?: string | null
+) {
   const s = supa();
   if (s) {
     try {
@@ -499,14 +576,19 @@ export async function saveServices(items: Service[], fallbackHotelId?: string | 
         active: r.active ?? true,
       }));
       // @ts-ignore
-      const { error } = await s.from("services").upsert(payload, { onConflict: "hotel_id,key" });
+      const { error } = await s
+        .from("services")
+        .upsert(payload, { onConflict: "hotel_id,key" });
       if (error) throw error;
       return { ok: true };
     } catch {
       // fall through to HTTP API
     }
   }
-  return req(`/catalog/services`, { method: "POST", body: JSON.stringify({ items }) });
+  return req(`/catalog/services`, {
+    method: "POST",
+    body: JSON.stringify({ items }),
+  });
 }
 
 /** Generic helpers some owner pages use. */
@@ -525,7 +607,11 @@ export const deleteService = apiDelete;
 /* ============================================================================
    Referrals & Credits (property-scoped)
 ============================================================================ */
-export async function referralInit(property: string, token?: string, channel = "guest_dashboard") {
+export async function referralInit(
+  property: string,
+  token?: string,
+  channel = "guest_dashboard"
+) {
   return req(`/referrals/init`, {
     method: "POST",
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
@@ -533,19 +619,34 @@ export async function referralInit(property: string, token?: string, channel = "
   });
 }
 
-export async function referralApply(bookingCode: string, referrer: ReferralIdentifier) {
+export async function referralApply(
+  bookingCode: string,
+  referrer: ReferralIdentifier
+) {
   const body: any = { bookingCode };
   const keys = ["accountId", "phone", "email"] as const;
   for (const k of keys) {
     if ((referrer as any)[k]) body.referrer = { [k]: (referrer as any)[k] };
   }
-  return req(`/referrals/apply`, { method: "POST", body: JSON.stringify(body) });
+  return req(`/referrals/apply`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }
 
-export async function myCredits(token: string): Promise<{ items: CreditBalance[]; total?: number }> {
-  return req(`/credits/mine`, { headers: { Authorization: `Bearer ${token}` } });
+export async function myCredits(
+  token: string
+): Promise<{ items: CreditBalance[]; total?: number }> {
+  return req(`/credits/mine`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
-export async function redeemCredits(token: string, property: string, amount: number, context?: any) {
+export async function redeemCredits(
+  token: string,
+  property: string,
+  amount: number,
+  context?: any
+) {
   return req(`/credits/redeem`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
@@ -556,39 +657,115 @@ export async function redeemCredits(token: string, property: string, amount: num
 /* ============================================================================
    Hotel
 ============================================================================ */
-export async function getHotel(slug: string) { return req(`/hotel/${encodeURIComponent(slug)}`); }
-export async function upsertHotel(payload: Json) { return req(`/hotel/upsert`, { method: "POST", body: JSON.stringify(payload) }); }
+export async function getHotel(slug: string) {
+  return req(`/hotel/${encodeURIComponent(slug)}`);
+}
+export async function upsertHotel(payload: Json) {
+  return req(`/hotel/upsert`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
 
 /* ============================================================================
    Consent
 ============================================================================ */
 export async function setBookingConsent(code: string, reviews: boolean) {
-  return req(`/booking/${encodeURIComponent(code)}/consent`, { method: "POST", body: JSON.stringify({ reviews }) });
+  return req(`/booking/${encodeURIComponent(code)}/consent`, {
+    method: "POST",
+    body: JSON.stringify({ reviews }),
+  });
 }
 
 /* ============================================================================
    Catalog
-   - NEW: getMenu accepts optional hotelSlug, but old calls (no arg) still work.
+   - NEW: getMenu uses Supabase Edge Function `catalog_menu2` first;
+     falls back to existing `/menu/items` API + demo data if needed.
 ============================================================================ */
 
+async function fetchMenuFromFunction(hotelSlug?: string) {
+  const base = FUNCTIONS_BASE?.replace(/\/$/, "");
+  if (!base) {
+    throw new Error("Supabase functions base not configured");
+  }
+
+  const url = new URL(`${base}/catalog_menu2`);
+  if (hotelSlug) {
+    url.searchParams.set("hotelSlug", hotelSlug);
+  }
+
+  const anon =
+    ((import.meta as any).env?.VITE_SUPABASE_ANON_KEY as string | undefined) ||
+    "";
+
+  const res = await withTimeout(
+    fetch(url.toString(), {
+      method: "GET",
+      headers: anon ? { Authorization: `Bearer ${anon}` } : undefined,
+    }),
+    12_000
+  );
+
+  const ct = res.headers.get("content-type") || "";
+  const isJson = ct.includes("application/json");
+  const payload = isJson ? await res.json() : await res.text();
+
+  if (!res.ok) {
+    const msg =
+      (isJson && (payload as any)?.error) ||
+      (typeof payload === "string" && payload.trim()) ||
+      `Function catalog_menu2 failed (${res.status})`;
+    throw new Error(msg);
+  }
+
+  // Edge function already returns { items: [...] }
+  return payload as { items: any[] };
+}
+
 export async function getMenu(hotelSlug?: string) {
-  // 🔁 Call the existing Edge Function `catalog-menu`
-  let path = `/catalog-menu`;
+  // 1) Try Supabase Edge Function
+  try {
+    const payload = await fetchMenuFromFunction(hotelSlug);
+    if (Array.isArray((payload as any).items)) {
+      return payload;
+    }
+    // Normalise in case function ever returns a bare array
+    if (Array.isArray(payload)) {
+      return { items: payload };
+    }
+    return payload;
+  } catch (err) {
+    // console fallback is harmless; main goal is to keep UI working
+    if (typeof console !== "undefined") {
+      console.warn("getMenu: edge function failed, falling back to /menu/items", err);
+    }
+  }
+
+  // 2) Fallback to existing API + demo behaviour
+  let path = "/menu/items";
   if (hotelSlug) {
     path += `?hotelSlug=${encodeURIComponent(hotelSlug)}`;
   }
   return req(path);
 }
 
-
 /* ============================================================================
    Tickets
 ============================================================================ */
-export async function createTicket(data: Json): Promise<{ id: string } & Record<string, any>> {
-  const res = await req<any>(`/tickets`, { method: "POST", body: JSON.stringify(data) });
+export async function createTicket(
+  data: Json
+): Promise<{ id: string } & Record<string, any>> {
+  const res = await req<any>(`/tickets`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
   const id = res?.id ?? res?.ticketId ?? res?.data?.id ?? null;
   if (!id) {
-    return { id: demoId("tkt"), demo: true, ...(typeof res === "object" ? res : {}) };
+    return {
+      id: demoId("tkt"),
+      demo: true,
+      ...(typeof res === "object" ? res : {}),
+    };
   }
   return { id: String(id), ...(typeof res === "object" ? res : {}) };
 }
@@ -603,19 +780,33 @@ export async function listTickets(hotelId?: string) {
   return req(`/tickets${suffix}`);
 }
 
-export async function getTicket(id: string) { return req(`/tickets/${encodeURIComponent(id)}`); }
+export async function getTicket(id: string) {
+  return req(`/tickets/${encodeURIComponent(id)}`);
+}
 export async function updateTicket(id: string, patch: Json) {
-  return req(`/tickets/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) });
+  return req(`/tickets/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
 }
 
 /* ============================================================================
    Orders
 ============================================================================ */
-export async function createOrder(data: Json): Promise<{ id: string } & Record<string, any>> {
-  const res = await req<any>(`/orders`, { method: "POST", body: JSON.stringify(data) });
+export async function createOrder(
+  data: Json
+): Promise<{ id: string } & Record<string, any>> {
+  const res = await req<any>(`/orders`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
   const id = res?.id ?? res?.orderId ?? res?.data?.id ?? null;
   if (!id) {
-    return { id: demoId("ord"), demo: true, ...(typeof res === "object" ? res : {}) };
+    return {
+      id: demoId("ord"),
+      demo: true,
+      ...(typeof res === "object" ? res : {}),
+    };
   }
   return { id: String(id), ...(typeof res === "object" ? res : {}) };
 }
@@ -631,39 +822,74 @@ export async function listOrders(hotelId?: string) {
 }
 
 export async function updateOrder(id: string, patch: Json) {
-  return req(`/orders/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) });
+  return req(`/orders/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
 }
 
 /* ============================================================================
    Folio / Flows
 ============================================================================ */
-export async function getFolio() { return req(`/folio`); }
-export async function precheck(data: Json) { return req(`/precheck`, { method: "POST", body: JSON.stringify(data) }); }
-export async function regcard(data: Json) { return req(`/regcard`, { method: "POST", body: JSON.stringify(data) }); }
-export async function checkout(data: { bookingCode?: string; autopost?: boolean }) {
+export async function getFolio() {
+  return req(`/folio`);
+}
+export async function precheck(data: Json) {
+  return req(`/precheck`, { method: "POST", body: JSON.stringify(data) });
+}
+export async function regcard(data: Json) {
+  return req(`/regcard`, { method: "POST", body: JSON.stringify(data) });
+}
+export async function checkout(data: {
+  bookingCode?: string;
+  autopost?: boolean;
+}) {
   return req(`/checkout`, { method: "POST", body: JSON.stringify(data) });
 }
 
 /* ============================================================================
    Reviews
 ============================================================================ */
-export async function listReviews(slug: string) { return req(`/reviews/${encodeURIComponent(slug)}`); }
-export async function listPendingReviews() { return req(`/reviews/pending`); }
-export async function postManualReview(data: { bookingCode: string; rating: number; title?: string; body?: string }) {
+export async function listReviews(slug: string) {
+  return req(`/reviews/${encodeURIComponent(slug)}`);
+}
+export async function listPendingReviews() {
+  return req(`/reviews/pending`);
+}
+export async function postManualReview(data: {
+  bookingCode: string;
+  rating: number;
+  title?: string;
+  body?: string;
+}) {
   return req(`/reviews`, { method: "POST", body: JSON.stringify(data) });
 }
-export async function reviewDraft(bookingCode: string) { return req(`/reviews/draft/${encodeURIComponent(bookingCode)}`); }
+export async function reviewDraft(bookingCode: string) {
+  return req(`/reviews/draft/${encodeURIComponent(bookingCode)}`);
+}
 export async function postAutoReviewPreview(bookingCode: string) {
-  return req(`/reviews/auto`, { method: "POST", body: JSON.stringify({ bookingCode }) });
+  return req(`/reviews/auto`, {
+    method: "POST",
+    body: JSON.stringify({ bookingCode }),
+  });
 }
 export async function postAutoReviewCommit(bookingCode: string) {
-  return req(`/reviews/auto`, { method: "POST", body: JSON.stringify({ bookingCode, commit: true }) });
+  return req(`/reviews/auto`, {
+    method: "POST",
+    body: JSON.stringify({ bookingCode, commit: true }),
+  });
 }
 export async function approveReview(id: string, bookingCode?: string) {
-  return req(`/reviews/approve`, { method: "POST", body: JSON.stringify({ id, bookingCode }) });
+  return req(`/reviews/approve`, {
+    method: "POST",
+    body: JSON.stringify({ id, bookingCode }),
+  });
 }
 export async function rejectReview(id: string, bookingCode?: string) {
-  return req(`/reviews/reject`, { method: "POST", body: JSON.stringify({ id, bookingCode }) });
+  return req(`/reviews/reject`, {
+    method: "POST",
+    body: JSON.stringify({ id, bookingCode }),
+  });
 }
 
 /* ============================================================================
@@ -726,7 +952,12 @@ export async function rejectOwnerApp(
   notes?: string,
   token?: string
 ) {
-  return reviewOwnerApp(id, "reject", { rejected_reason: reason, review_notes: notes }, token);
+  return reviewOwnerApp(
+    id,
+    "reject",
+    { rejected_reason: reason, review_notes: notes },
+    token
+  );
 }
 
 /* ============================================================================
@@ -760,7 +991,7 @@ export const api = {
   getServices,
   getMenu,
   services: (..._args: any[]) => getServices(), // back-compat alias (ignores args as before)
-  menu: (..._args: any[]) => getMenu(),         // back-compat alias (ignores args as before)
+  menu: (..._args: any[]) => getMenu(), // back-compat alias (ignores args as before)
   saveServices,
   apiUpsert,
   apiDelete,

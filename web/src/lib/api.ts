@@ -4,6 +4,10 @@
 export const API = import.meta.env.VITE_API_URL || "http://localhost:4000";
 export const API_URL = API; // back-compat
 
+// Detect if we're pointing directly at Supabase Edge Functions
+export const IS_SUPABASE_FUNCTIONS =
+  API.includes(".supabase.co/functions") || API.includes("/functions/v1");
+
 /** When API is unreachable and demo fallbacks are used, we flip this on. */
 export let DEMO_MODE = false;
 export const isDemo = () => DEMO_MODE;
@@ -242,7 +246,12 @@ function demoId(prefix: string) {
 function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
   const method = String(opts.method || "GET").toUpperCase();
   const url = new URL(`${API}${path}`);
-  const p = url.pathname.replace(/\/+$/, "");
+  let p = url.pathname.replace(/\/+$/, "");
+
+  // Normalise known prefixes so demo fallbacks work with Supabase
+  // (/functions/v1/…) and Netlify (/api/…)
+  p = p.replace(/^\/functions\/v\d+\//, "/");
+  p = p.replace(/^\/api\//, "/");
 
   // ---- Owner apps demo ----
   if (p.startsWith("/owner/apps") && method === "GET") {
@@ -269,10 +278,18 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
 
   // ---- Existing demo fallbacks ----
   if (p.startsWith("/hotel/")) return demoHotel as unknown as T;
-  if (p === "/catalog/services" && method === "GET") {
+
+  // services
+  if (
+    (p === "/catalog/services" || p === "/catalog-services") &&
+    method === "GET"
+  ) {
     return { items: demoServices } as unknown as T;
   }
-  if (p === "/catalog/services" && ["POST", "PUT", "PATCH"].includes(method)) {
+  if (
+    (p === "/catalog/services" || p === "/catalog-services") &&
+    ["POST", "PUT", "PATCH"].includes(method)
+  ) {
     return { ok: true } as unknown as T;
   }
 
@@ -545,8 +562,10 @@ export async function myStays(
 /* ============================================================================
    Owner: Services admin helpers
    - First try Supabase (preferred), then fall back to your existing API.
-   - NEW: if the argument looks like a UUID => treat as hotel_id;
-           if it looks like a slug => use HTTP `/catalog/services?hotelSlug=...`.
+   - If the argument looks like a UUID => treat as hotel_id (Supabase table).
+   - If it looks like a slug => use HTTP API:
+       • Supabase Edge:  /catalog-services?hotelSlug=...
+       • Node backend:   /catalog/services?hotelSlug=...
 ============================================================================ */
 function looksLikeUuid(value: string | undefined | null): boolean {
   if (!value) return false;
@@ -559,7 +578,7 @@ export async function getServices(hotelKey?: string) {
   const s = supa();
   const isId = looksLikeUuid(hotelKey);
 
-  // Use Supabase when:
+  // Use Supabase table when:
   // - client is available AND
   // - we either have no filter OR the filter looks like a hotel_id
   if (s && (!hotelKey || isId)) {
@@ -583,16 +602,20 @@ export async function getServices(hotelKey?: string) {
   }
 
   // HTTP path: used when:
-  // - Supabase is not available, OR
+  // - Supabase client is not available, OR
   // - hotelKey looks like a slug (non-UUID), so we treat it as hotelSlug
-  let path = "/catalog/services";
+  let path = IS_SUPABASE_FUNCTIONS ? "/catalog-services" : "/catalog/services";
   if (hotelKey && !isId) {
-    path += `?hotelSlug=${encodeURIComponent(hotelKey)}`;
+    const sep = path.includes("?") ? "&" : "?";
+    path += `${sep}hotelSlug=${encodeURIComponent(hotelKey)}`;
   }
   return req(path);
 }
 
-export async function saveServices(items: Service[], fallbackHotelId?: string | null) {
+export async function saveServices(
+  items: Service[],
+  fallbackHotelId?: string | null
+) {
   const s = supa();
   if (s) {
     try {
@@ -707,45 +730,21 @@ export async function setBookingConsent(code: string, reviews: boolean) {
 
 /* ============================================================================
    Catalog
-   - NEW: getMenu detects Supabase Functions vs other backends.
-   - For Supabase Functions it calls Edge Function `catalog_menu2`
-     and sends Authorization: Bearer <VITE_SUPABASE_ANON_KEY>.
-   - For old/local Node backends it still calls `/menu/items`.
+   - getMenu detects Supabase Functions vs other backends.
+   - Supabase Functions: Edge Function `catalog_menu2`
+   - Old/local backend:  `/menu/items`
 ============================================================================ */
 
 export async function getMenu(hotelSlug?: string) {
-  const isSupabaseFunctions = API.includes(".supabase.co/functions");
+  let path = IS_SUPABASE_FUNCTIONS ? "/catalog_menu2" : "/menu/items";
 
-  let path = isSupabaseFunctions ? "/catalog_menu2" : "/menu/items";
   if (hotelSlug) {
     const sep = path.includes("?") ? "&" : "?";
     path += `${sep}hotelSlug=${encodeURIComponent(hotelSlug)}`;
   }
 
-  const url = `${API.replace(/\/+$/, "")}${path}`;  // normalize base
-
-  console.debug("getMenu DEBUG", {
-    API,
-    hotelSlug,
-    isSupabaseFunctions,
-    path,
-    url,
-  });
-
-  const headers: Record<string, string> = {};
-  // OPTIONAL: you can even skip this now that Verify JWT is OFF
-  /*
-  if (isSupabaseFunctions) {
-    const anon =
-      (import.meta as any).env?.VITE_SUPABASE_ANON_KEY as string | undefined;
-    if (anon) headers["Authorization"] = `Bearer ${anon}`;
-  }
-  */
-
-  return req(path, { headers });
+  return req(path);
 }
-
-
 
 /* ============================================================================
    Tickets

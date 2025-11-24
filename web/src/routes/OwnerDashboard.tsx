@@ -555,6 +555,7 @@ export default function OwnerDashboard() {
           <LiveOrdersPanel
             orders={liveOrders}
             targetMin={targetMin}
+            hotelId={hotel.id}          // ✅ pass hotel.id so /ops?hotelId=… works
             className="lg:col-span-1"
           />
           <AttentionServicesCard orders={liveOrders} />
@@ -1372,11 +1373,10 @@ function SlaCard({
   );
 }
 
-
 function LiveOrdersPanel({
   orders,
   targetMin,
-  hotelId,          // ✅ make sure this prop is passed in
+  hotelId,          // keeps the prop available for the link
   className = "",
 }: {
   orders: LiveOrder[];
@@ -1391,7 +1391,11 @@ function LiveOrdersPanel({
         desc="What guests are asking for right now — jump in or assign to staff."
         action={
           <Link
-            to={hotelId ? `/ops?hotelId=${encodeURIComponent(String(hotelId))}` : "/ops"}
+            to={
+              hotelId
+                ? `/ops?hotelId=${encodeURIComponent(String(hotelId))}`
+                : "/ops"
+            }
             className="text-sm underline"
           >
             Open operations
@@ -1433,7 +1437,6 @@ function LiveOrdersPanel({
     </div>
   );
 }
-
 
 function AttentionServicesCard({ orders }: { orders: LiveOrder[] }) {
   const newCount = orders.filter((o) => o.status === "open").length;

@@ -1,3 +1,5 @@
+// web/src/lib/api.ts
+
 // Base URL (set on Netlify as VITE_API_URL, e.g. https://your-api.example.com)
 export const API = import.meta.env.VITE_API_URL || "http://localhost:4000";
 export const API_URL = API; // back-compat
@@ -5,11 +7,6 @@ export const API_URL = API; // back-compat
 /** When API is unreachable and demo fallbacks are used, we flip this on. */
 export let DEMO_MODE = false;
 export const isDemo = () => DEMO_MODE;
-
-/** Base for Supabase Edge Functions (optional; falls back to project URL). */
-export const FUNCTIONS_BASE =
-  ((import.meta as any).env?.VITE_SUPABASE_FUNCTIONS_URL as string | undefined) ||
-  "https://vsqiuwbmawygkxxjrxnt.supabase.co/functions/v1";
 
 /* ============================================================================
    Optional Supabase client (for direct reads/writes with RLS)
@@ -24,8 +21,12 @@ let _supa: MaybeSupa = null;
 function supa(): MaybeSupa {
   // lazy init to avoid import cost if unused
   try {
-    const url = (import.meta as any).env?.VITE_SUPABASE_URL as string | undefined;
-    const anon = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY as string | undefined;
+    const url = (import.meta as any).env?.VITE_SUPABASE_URL as
+      | string
+      | undefined;
+    const anon = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY as
+      | string
+      | undefined;
     if (!url || !anon) return null;
     if (_supa) return _supa;
     // dynamic import so this file still works without supabase-js at build time
@@ -128,7 +129,10 @@ function buildHeaders(opts: RequestInit): HeadersInit {
   const h: Record<string, string> =
     { ...(opts.headers as Record<string, string> | undefined) } || {};
   const hasBody = typeof opts.body !== "undefined";
-  if (hasBody && !Object.keys(h).some((k) => k.toLowerCase() === "content-type")) {
+  if (
+    hasBody &&
+    !Object.keys(h).some((k) => k.toLowerCase() === "content-type")
+  ) {
     h["Content-Type"] = "application/json";
   }
   return h;
@@ -182,7 +186,12 @@ const demoHotel = {
 
 const demoServices: Service[] = [
   { key: "towel", label_en: "Towel", sla_minutes: 25, active: true },
-  { key: "room_cleaning", label_en: "Room Cleaning", sla_minutes: 30, active: true },
+  {
+    key: "room_cleaning",
+    label_en: "Room Cleaning",
+    sla_minutes: 30,
+    active: true,
+  },
   { key: "water_bottle", label_en: "Water Bottles", sla_minutes: 20, active: true },
   { key: "extra_pillow", label_en: "Extra Pillow", sla_minutes: 20, active: true },
 ];
@@ -266,8 +275,18 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
   if (p === "/catalog/services" && ["POST", "PUT", "PATCH"].includes(method)) {
     return { ok: true } as unknown as T;
   }
-  if (p === "/menu/items") return { items: demoMenu } as unknown as T;
-  if (p.startsWith("/experience/report")) return demoReport as unknown as T;
+
+  // menu – support all historical paths for safety
+  if (
+    p === "/menu/items" ||
+    p === "/catalog-menu" ||
+    p === "/catalog_menu2"
+  ) {
+    return { items: demoMenu } as unknown as T;
+  }
+
+  if (p.startsWith("/experience/report"))
+    return demoReport as unknown as T;
 
   if (p === "/reviews/pending" || p === "/reviews-pending")
     return { items: [] } as unknown as T;
@@ -278,7 +297,11 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
   }
   if (p === "/tickets" && method === "POST") {
     const body = safeJson(opts.body);
-    return { id: demoId("tkt"), demo: true, data: body ?? null } as unknown as T;
+    return {
+      id: demoId("tkt"),
+      demo: true,
+      data: body ?? null,
+    } as unknown as T;
   }
 
   // Orders: GET -> list; POST -> create returns id
@@ -287,7 +310,11 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
   }
   if (p === "/orders" && method === "POST") {
     const body = safeJson(opts.body);
-    return { id: demoId("ord"), demo: true, data: body ?? null } as unknown as T;
+    return {
+      id: demoId("ord"),
+      demo: true,
+      data: body ?? null,
+    } as unknown as T;
   }
 
   // Self-claim
@@ -304,7 +331,11 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
     return {
       ok: true,
       token: "demo-stay-token",
-      booking: { code: "ABC123", guest_name: "Test Guest", hotel_slug: "sunrise" },
+      booking: {
+        code: "ABC123",
+        guest_name: "Test Guest",
+        hotel_slug: "sunrise",
+      },
     } as unknown as T;
   }
 
@@ -561,10 +592,7 @@ export async function getServices(hotelKey?: string) {
   return req(path);
 }
 
-export async function saveServices(
-  items: Service[],
-  fallbackHotelId?: string | null
-) {
+export async function saveServices(items: Service[], fallbackHotelId?: string | null) {
   const s = supa();
   if (s) {
     try {
@@ -679,74 +707,35 @@ export async function setBookingConsent(code: string, reviews: boolean) {
 
 /* ============================================================================
    Catalog
-   - NEW: getMenu uses Supabase Edge Function `catalog_menu2` first;
-     falls back to existing `/menu/items` API + demo data if needed.
+   - NEW: getMenu detects Supabase Functions vs other backends.
+   - For Supabase Functions it calls Edge Function `catalog_menu2`
+     and sends Authorization: Bearer <VITE_SUPABASE_ANON_KEY>.
+   - For old/local Node backends it still calls `/menu/items`.
 ============================================================================ */
 
-async function fetchMenuFromFunction(hotelSlug?: string) {
-  const base = FUNCTIONS_BASE?.replace(/\/$/, "");
-  if (!base) {
-    throw new Error("Supabase functions base not configured");
-  }
-
-  const url = new URL(`${base}/catalog_menu2`);
-  if (hotelSlug) {
-    url.searchParams.set("hotelSlug", hotelSlug);
-  }
-
-  const anon =
-    ((import.meta as any).env?.VITE_SUPABASE_ANON_KEY as string | undefined) ||
-    "";
-
-  const res = await withTimeout(
-    fetch(url.toString(), {
-      method: "GET",
-      headers: anon ? { Authorization: `Bearer ${anon}` } : undefined,
-    }),
-    12_000
-  );
-
-  const ct = res.headers.get("content-type") || "";
-  const isJson = ct.includes("application/json");
-  const payload = isJson ? await res.json() : await res.text();
-
-  if (!res.ok) {
-    const msg =
-      (isJson && (payload as any)?.error) ||
-      (typeof payload === "string" && payload.trim()) ||
-      `Function catalog_menu2 failed (${res.status})`;
-    throw new Error(msg);
-  }
-
-  // Edge function already returns { items: [...] }
-  return payload as { items: any[] };
-}
-
 export async function getMenu(hotelSlug?: string) {
-  // 1) Try Supabase Edge Function
-  try {
-    const payload = await fetchMenuFromFunction(hotelSlug);
-    if (Array.isArray((payload as any).items)) {
-      return payload;
-    }
-    // Normalise in case function ever returns a bare array
-    if (Array.isArray(payload)) {
-      return { items: payload };
-    }
-    return payload;
-  } catch (err) {
-    // console fallback is harmless; main goal is to keep UI working
-    if (typeof console !== "undefined") {
-      console.warn("getMenu: edge function failed, falling back to /menu/items", err);
+  // Detect if API is pointing at Supabase Edge Functions
+  const isSupabaseFunctions = API.includes(".supabase.co/functions");
+
+  // Primary path depends on backend
+  let path = isSupabaseFunctions ? "/catalog_menu2" : "/menu/items";
+
+  if (hotelSlug) {
+    const sep = path.includes("?") ? "&" : "?";
+    path += `${sep}hotelSlug=${encodeURIComponent(hotelSlug)}`;
+  }
+
+  const headers: Record<string, string> = {};
+  if (isSupabaseFunctions) {
+    const anon =
+      (import.meta as any).env?.VITE_SUPABASE_ANON_KEY as string | undefined;
+    if (anon) {
+      // This satisfies Edge Function "Verify JWT" without needing user login
+      headers["Authorization"] = `Bearer ${anon}`;
     }
   }
 
-  // 2) Fallback to existing API + demo behaviour
-  let path = "/menu/items";
-  if (hotelSlug) {
-    path += `?hotelSlug=${encodeURIComponent(hotelSlug)}`;
-  }
-  return req(path);
+  return req(path, { headers });
 }
 
 /* ============================================================================
@@ -835,16 +824,25 @@ export async function getFolio() {
   return req(`/folio`);
 }
 export async function precheck(data: Json) {
-  return req(`/precheck`, { method: "POST", body: JSON.stringify(data) });
+  return req(`/precheck`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 }
 export async function regcard(data: Json) {
-  return req(`/regcard`, { method: "POST", body: JSON.stringify(data) });
+  return req(`/regcard`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 }
 export async function checkout(data: {
   bookingCode?: string;
   autopost?: boolean;
 }) {
-  return req(`/checkout`, { method: "POST", body: JSON.stringify(data) });
+  return req(`/checkout`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 }
 
 /* ============================================================================
@@ -862,7 +860,10 @@ export async function postManualReview(data: {
   title?: string;
   body?: string;
 }) {
-  return req(`/reviews`, { method: "POST", body: JSON.stringify(data) });
+  return req(`/reviews`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 }
 export async function reviewDraft(bookingCode: string) {
   return req(`/reviews/draft/${encodeURIComponent(bookingCode)}`);
@@ -906,7 +907,10 @@ export async function getExperienceReport(slug: string) {
    Quick Check-in
 ============================================================================ */
 export async function quickCheckin(data: { code: string; phone: string }) {
-  return req(`/checkin`, { method: "POST", body: JSON.stringify(data) });
+  return req(`/checkin`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 }
 
 /* ============================================================================

@@ -1,7 +1,13 @@
+// web/src/components/AccountControls.tsx
+
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-import { getMyMemberships, PersistedRole, loadPersistedRole } from "../lib/auth";
+import {
+  getMyMemberships,
+  PersistedRole,
+  loadPersistedRole,
+} from "../lib/auth";
 
 type Membership = {
   hotelSlug: string | null;
@@ -9,7 +15,10 @@ type Membership = {
   role: "viewer" | "staff" | "manager" | "owner";
 };
 
-function useOnClickOutside(ref: React.RefObject<HTMLElement>, onOutside: () => void) {
+function useOnClickOutside(
+  ref: React.RefObject<HTMLElement>,
+  onOutside: () => void
+) {
   useEffect(() => {
     function handler(e: MouseEvent) {
       if (!ref.current) return;
@@ -20,7 +29,11 @@ function useOnClickOutside(ref: React.RefObject<HTMLElement>, onOutside: () => v
   }, [ref, onOutside]);
 }
 
-export default function AccountControls({ className = "" }: { className?: string }) {
+export default function AccountControls({
+  className = "",
+}: {
+  className?: string;
+}) {
   const nav = useNavigate();
 
   const [open, setOpen] = useState(false);
@@ -28,7 +41,10 @@ export default function AccountControls({ className = "" }: { className?: string
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Show the same menu everywhere
+  // Keep for future role-based logic (already in your codebase)
+  const persisted: PersistedRole | null = loadPersistedRole();
+
+  // Show the same menu everywhere (including /guest)
   useEffect(() => {
     let alive = true;
 
@@ -43,15 +59,17 @@ export default function AccountControls({ className = "" }: { className?: string
       setLoading(false);
     })();
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
-      const e = session?.user?.email ?? null;
-      setEmail(e);
-      if (!e) {
-        setMemberships([]);
-      } else {
-        getMyMemberships().then(setMemberships);
+    const { data: sub } = supabase.auth.onAuthStateChange(
+      (_evt, session) => {
+        const e = session?.user?.email ?? null;
+        setEmail(e);
+        if (!e) {
+          setMemberships([]);
+        } else {
+          getMyMemberships().then(setMemberships);
+        }
       }
-    });
+    );
 
     return () => {
       alive = false;
@@ -59,21 +77,21 @@ export default function AccountControls({ className = "" }: { className?: string
     };
   }, []);
 
-  const persisted: PersistedRole | null = loadPersistedRole();
-
-  const initials =
-    (email?.trim()?.[0] ?? "U").toUpperCase();
+  const initials = (email?.trim()?.[0] ?? "U").toUpperCase();
 
   const menuRef = useRef<HTMLDivElement>(null);
   useOnClickOutside(menuRef, () => setOpen(false));
 
   if (loading) {
     return (
-      <div className={`h-8 w-8 animate-pulse rounded-full bg-gray-200 ${className}`} />
+      <div
+        className={`h-8 w-8 animate-pulse rounded-full bg-gray-200 ${className}`}
+      />
     );
   }
 
   if (!email) {
+    // Keep redirect to /guest for sign-in, same as before
     return (
       <Link
         to="/signin?intent=signin&redirect=/guest"
@@ -91,6 +109,7 @@ export default function AccountControls({ className = "" }: { className?: string
         className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-800 text-white outline-none ring-slate-300 hover:bg-slate-700 focus:ring"
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label="Account menu"
       >
         {initials}
       </button>
@@ -98,11 +117,14 @@ export default function AccountControls({ className = "" }: { className?: string
       {open && (
         <div
           role="menu"
-          className="absolute right-0 mt-2 w-64 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+          // IMPORTANT: z-50 keeps the menu above the large Guest dashboard panels
+          className="absolute right-0 mt-2 w-64 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg z-50"
         >
           {/* Signed in as */}
           <div className="px-4 py-3 text-xs text-slate-600">
-            <div className="font-medium text-slate-900">{email.split("@")[0]}</div>
+            <div className="font-medium text-slate-900">
+              {email.split("@")[0]}
+            </div>
             <div className="truncate text-slate-500">{email}</div>
           </div>
 
@@ -110,9 +132,16 @@ export default function AccountControls({ className = "" }: { className?: string
 
           {/* Destinations */}
           <div className="py-1">
-            <MenuLink to="/guest" label="My trips" onChoose={() => setOpen(false)} />
+            <MenuLink
+              to="/guest"
+              label="My trips"
+              onChoose={() => setOpen(false)}
+            />
             {(memberships || [])
-              .filter((m) => (m.role === "owner" || m.role === "manager") && m.hotelSlug)
+              .filter(
+                (m) =>
+                  (m.role === "owner" || m.role === "manager") && m.hotelSlug
+              )
               .map((m, idx) => (
                 <MenuLink
                   key={`${m.hotelSlug}-${idx}`}
@@ -122,7 +151,11 @@ export default function AccountControls({ className = "" }: { className?: string
                 />
               ))}
             {(memberships || []).some((m) => m.role === "staff") && (
-              <MenuLink to="/staff" label="Staff workspace" onChoose={() => setOpen(false)} />
+              <MenuLink
+                to="/staff"
+                label="Staff workspace"
+                onChoose={() => setOpen(false)}
+              />
             )}
           </div>
 
@@ -130,8 +163,16 @@ export default function AccountControls({ className = "" }: { className?: string
 
           {/* Settings */}
           <div className="py-1">
-            <MenuLink to="/profile" label="Update profile" onChoose={() => setOpen(false)} />
-            <MenuLink to="/settings" label="Settings" onChoose={() => setOpen(false)} />
+            <MenuLink
+              to="/profile"
+              label="Update profile"
+              onChoose={() => setOpen(false)}
+            />
+            <MenuLink
+              to="/settings"
+              label="Settings"
+              onChoose={() => setOpen(false)}
+            />
           </div>
 
           <div className="h-px bg-slate-200" />

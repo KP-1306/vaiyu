@@ -1,7 +1,9 @@
+// web/src/routes/OwnerSettings.tsx
+
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-import OwnerGate from "../components/OwnerGate"; // if you gate the page; otherwise remove
+import OwnerGate from "../components/OwnerGate";
 import SEO from "../components/SEO";
 import UsageMeter from "../components/UsageMeter";
 import { API } from "../lib/api";
@@ -83,44 +85,88 @@ export default function OwnerSettings() {
     setOk(null);
     setLoading(true);
     try {
-      const r = await fetch(
-        `${API}/owner-settings?slug=${encodeURIComponent(slug)}`,
-        {
-          headers: {
-            "content-type": "application/json",
-            ...sessionHeaders,
-          },
+      const url = `${API}/owner-settings?slug=${encodeURIComponent(slug)}`;
+      const r = await fetch(url, {
+        headers: {
+          "content-type": "application/json",
+          ...sessionHeaders,
         },
-      );
-      const data = await r.json();
-      if (!r.ok || !data?.ok) {
-        throw new Error(data?.error || "Failed to load settings");
+      });
+
+      const data: any = await r.json().catch(() => null);
+
+      if (!r.ok) {
+        throw new Error(
+          data?.error ||
+            data?.message ||
+            `Failed to load settings (HTTP ${r.status})`,
+        );
       }
 
-      const h: Hotel = data.hotel;
-      const svcs: Service[] = data.services || [];
+      // New Edge Function shape: { hotel, settings, services }
+      const hRaw = data?.hotel;
+      if (!hRaw) {
+        throw new Error("Failed to load hotel for slug");
+      }
+      const sRaw = data?.settings ?? {};
+      const svcsRaw: any[] = Array.isArray(data?.services)
+        ? data.services
+        : Array.isArray(data?.services?.items)
+        ? data.services.items
+        : [];
 
-      setHotel({
-        id: h.id,
-        slug: h.slug,
-        name: h.name,
-        description: h.description || "",
-        address: h.address || "",
-        amenities: h.amenities || [],
-        phone: h.phone || "",
-        email: h.email || "",
-        logo_url: h.logo_url || "",
-        theme: h.theme || { brand: "#145AF2", mode: "light" },
+      const defaultPolicy: ReviewsPolicy = {
+        mode: "preview",
+        min_activity: 1,
+        block_if_late_exceeds: 0,
+        require_consent: true,
+      };
+
+      const themeBrand =
+        sRaw.brand_color ||
+        hRaw.brand_color ||
+        hRaw.theme?.brand ||
+        "#145AF2";
+      const themeMode: Theme["mode"] =
+        hRaw.theme?.mode === "dark" ? "dark" : "light";
+
+      const normalizedHotel: Hotel = {
+        id: hRaw.id,
+        slug: hRaw.slug,
+        name: hRaw.name,
+        description: hRaw.description || "",
+        address: hRaw.address || "",
+        amenities: Array.isArray(hRaw.amenities) ? hRaw.amenities : [],
+        phone: sRaw.contact_phone || hRaw.phone || "",
+        email: sRaw.contact_email || hRaw.email || "",
+        logo_url: sRaw.logo_url || hRaw.logo_url || "",
+        theme: { brand: themeBrand, mode: themeMode },
         reviews_policy:
-          h.reviews_policy || {
-            mode: "preview",
-            min_activity: 1,
-            block_if_late_exceeds: 0,
-            require_consent: true,
-          },
-      });
-      setAmenitiesCsv(toCsv(h.amenities));
-      setServices(svcs);
+          sRaw.review_policy || hRaw.reviews_policy || defaultPolicy,
+      };
+
+      const normalizedServices: Service[] = svcsRaw.map((svc) => ({
+        key: String(svc.key || svc.service_key || "").trim(),
+        label:
+          (svc.label ??
+            svc.label_en ??
+            svc.name ??
+            "").toString() || null,
+        sla_minutes:
+          typeof svc.sla_minutes === "number"
+            ? svc.sla_minutes
+            : typeof svc.sla === "number"
+            ? svc.sla
+            : null,
+        active:
+          typeof svc.active === "boolean"
+            ? svc.active
+            : svc.is_active ?? true,
+      }));
+
+      setHotel(normalizedHotel);
+      setAmenitiesCsv(toCsv(normalizedHotel.amenities));
+      setServices(normalizedServices);
     } catch (e: any) {
       setErr(e?.message || "Failed to load settings");
     } finally {
@@ -209,6 +255,7 @@ export default function OwnerSettings() {
             require_consent: !!hotel.reviews_policy?.require_consent,
           },
         },
+        // keep old shape: services[] with "label"
         services: services.map((s) => ({
           key: String(s.key || "").trim(),
           label: (s.label ?? "").toString().trim() || null,
@@ -231,9 +278,13 @@ export default function OwnerSettings() {
           body: JSON.stringify(body),
         },
       );
-      const data = await r.json();
-      if (!r.ok || !data?.ok) {
-        throw new Error(data?.error || "Failed to save");
+      const data: any = await r.json().catch(() => null);
+      if (!r.ok) {
+        throw new Error(
+          data?.error ||
+            data?.message ||
+            `Failed to save settings (HTTP ${r.status})`,
+        );
       }
       setOk("Saved successfully.");
       await load();
@@ -306,9 +357,7 @@ export default function OwnerSettings() {
                     <input
                       className="mt-1 input w-full"
                       value={hotel.name}
-                      onChange={(e) =>
-                        patchHotel("name", e.target.value)
-                      }
+                      onChange={(e) => patchHotel("name", e.target.value)}
                     />
                   </label>
                   <label className="text-sm">
@@ -334,9 +383,7 @@ export default function OwnerSettings() {
                     <input
                       className="mt-1 input w-full"
                       value={hotel.address || ""}
-                      onChange={(e) =>
-                        patchHotel("address", e.target.value)
-                      }
+                      onChange={(e) => patchHotel("address", e.target.value)}
                     />
                   </label>
                   <label className="text-sm">
@@ -344,9 +391,7 @@ export default function OwnerSettings() {
                     <input
                       className="mt-1 input w-full"
                       value={hotel.phone || ""}
-                      onChange={(e) =>
-                        patchHotel("phone", e.target.value)
-                      }
+                      onChange={(e) => patchHotel("phone", e.target.value)}
                     />
                   </label>
                   <label className="text-sm">
@@ -354,9 +399,7 @@ export default function OwnerSettings() {
                     <input
                       className="mt-1 input w-full"
                       value={hotel.email || ""}
-                      onChange={(e) =>
-                        patchHotel("email", e.target.value)
-                      }
+                      onChange={(e) => patchHotel("email", e.target.value)}
                     />
                   </label>
                   <label className="text-sm md:col-span-2">
@@ -364,9 +407,7 @@ export default function OwnerSettings() {
                     <input
                       className="mt-1 input w-full"
                       value={hotel.logo_url || ""}
-                      onChange={(e) =>
-                        patchHotel("logo_url", e.target.value)
-                      }
+                      onChange={(e) => patchHotel("logo_url", e.target.value)}
                     />
                   </label>
                 </div>
@@ -378,9 +419,7 @@ export default function OwnerSettings() {
                       type="color"
                       className="mt-1 border rounded w-28 h-10"
                       value={hotel.theme?.brand || "#145AF2"}
-                      onChange={(e) =>
-                        patchTheme("brand", e.target.value)
-                      }
+                      onChange={(e) => patchTheme("brand", e.target.value)}
                     />
                   </label>
                   <label className="text-sm">
@@ -404,9 +443,7 @@ export default function OwnerSettings() {
                     <input
                       className="mt-1 input w-full"
                       value={amenitiesCsv}
-                      onChange={(e) =>
-                        setAmenitiesCsv(e.target.value)
-                      }
+                      onChange={(e) => setAmenitiesCsv(e.target.value)}
                       placeholder="WiFi, Parking, Breakfast"
                     />
                   </label>
@@ -444,9 +481,7 @@ export default function OwnerSettings() {
                     Require consent
                     <select
                       className="mt-1 select w-full"
-                      value={String(
-                        !!hotel.reviews_policy?.require_consent,
-                      )}
+                      value={String(!!hotel.reviews_policy?.require_consent)}
                       onChange={(e) =>
                         patchPolicy(
                           "require_consent",
@@ -464,14 +499,9 @@ export default function OwnerSettings() {
                       type="number"
                       min={0}
                       className="mt-1 input w-full"
-                      value={Number(
-                        hotel.reviews_policy?.min_activity ?? 1,
-                      )}
+                      value={Number(hotel.reviews_policy?.min_activity ?? 1)}
                       onChange={(e) =>
-                        patchPolicy(
-                          "min_activity",
-                          Number(e.target.value),
-                        )
+                        patchPolicy("min_activity", Number(e.target.value))
                       }
                     />
                   </label>
@@ -482,8 +512,7 @@ export default function OwnerSettings() {
                       min={0}
                       className="mt-1 input w-full"
                       value={Number(
-                        hotel.reviews_policy
-                          ?.block_if_late_exceeds ?? 0,
+                        hotel.reviews_policy?.block_if_late_exceeds ?? 0,
                       )}
                       onChange={(e) =>
                         patchPolicy(
@@ -495,28 +524,22 @@ export default function OwnerSettings() {
                   </label>
                 </div>
                 <p className="text-xs text-gray-600">
-                  <b>Preview</b> shows an AI draft the guest can
-                  edit/approve. <b>Auto</b> can publish at checkout, but
-                  will be blocked if consent is required or thresholds
-                  aren’t met.
+                  <b>Preview</b> shows an AI draft the guest can edit/approve.{" "}
+                  <b>Auto</b> can publish at checkout, but will be blocked if
+                  consent is required or thresholds aren’t met.
                 </p>
               </section>
 
               {/* Microsite Preview */}
               <section className="bg-white rounded shadow p-4 space-y-2">
-                <div className="text-sm text-gray-600">
-                  Microsite preview
-                </div>
+                <div className="text-sm text-gray-600">Microsite preview</div>
                 <div style={themePreviewStyle}>
-                  <div className="text-xs opacity-90">
-                    Property microsite
-                  </div>
+                  <div className="text-xs opacity-90">Property microsite</div>
                   <div className="text-xl font-semibold">
                     {hotel.name || "Hotel"}
                   </div>
                   <div className="text-sm opacity-90">
-                    {hotel.address || "Address"} •{" "}
-                    {hotel.phone || "Phone"}
+                    {hotel.address || "Address"} • {hotel.phone || "Phone"}
                   </div>
                 </div>
               </section>
@@ -524,9 +547,7 @@ export default function OwnerSettings() {
               {/* Guest link (WhatsApp + QR) */}
               <section className="bg-white rounded shadow p-4 space-y-3">
                 <div className="flex items-center justify-between gap-2">
-                  <h2 className="font-medium">
-                    Guest link (WhatsApp + QR)
-                  </h2>
+                  <h2 className="font-medium">Guest link (WhatsApp + QR)</h2>
                   {shareUrl && (
                     <a
                       href={`https://wa.me/?text=${encodeURIComponent(
@@ -541,9 +562,9 @@ export default function OwnerSettings() {
                   )}
                 </div>
                 <p className="text-xs text-gray-600">
-                  Share this link with guests at check-in. It opens
-                  your VAiyu Scan screen, which then routes them to the
-                  in-room menu and services for this property.
+                  Share this link with guests at check-in. It opens your VAiyu
+                  Scan screen, which then routes them to the in-room menu and
+                  services for this property.
                 </p>
 
                 <div className="grid md:grid-cols-[2fr,1fr] gap-3 items-start">
@@ -554,9 +575,7 @@ export default function OwnerSettings() {
                         className="mt-1 input w-full text-xs"
                         value={shareUrl || ""}
                         readOnly
-                        onFocus={(e) =>
-                          e.currentTarget.select()
-                        }
+                        onFocus={(e) => e.currentTarget.select()}
                       />
                     </label>
                     <label className="text-xs font-medium text-gray-600">
@@ -565,9 +584,7 @@ export default function OwnerSettings() {
                         className="mt-1 input w-full text-xs min-h-[80px]"
                         value={whatsappText || ""}
                         readOnly
-                        onFocus={(e) =>
-                          e.currentTarget.select()
-                        }
+                        onFocus={(e) => e.currentTarget.select()}
                       />
                     </label>
                   </div>
@@ -587,8 +604,7 @@ export default function OwnerSettings() {
                       </>
                     ) : (
                       <div className="text-xs text-gray-500 text-center">
-                        Slug missing – save hotel first to enable
-                        sharing.
+                        Slug missing – save hotel first to enable sharing.
                       </div>
                     )}
                   </div>
@@ -598,9 +614,7 @@ export default function OwnerSettings() {
               {/* Services & SLAs */}
               <section className="bg-white rounded shadow p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <h2 className="font-medium">
-                    Services &amp; SLAs
-                  </h2>
+                  <h2 className="font-medium">Services &amp; SLAs</h2>
                   <button
                     className="btn btn-light !py-2 !px-3 text-sm"
                     onClick={addService}
@@ -613,18 +627,12 @@ export default function OwnerSettings() {
                   <table className="min-w-[720px] w-full text-sm border">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="text-left px-3 py-2 border-b">
-                          Key
-                        </th>
-                        <th className="text-left px-3 py-2 border-b">
-                          Label
-                        </th>
+                        <th className="text-left px-3 py-2 border-b">Key</th>
+                        <th className="text-left px-3 py-2 border-b">Label</th>
                         <th className="text-left px-3 py-2 border-b">
                           SLA (min)
                         </th>
-                        <th className="text-left px-3 py-2 border-b">
-                          Active
-                        </th>
+                        <th className="text-left px-3 py-2 border-b">Active</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -635,9 +643,7 @@ export default function OwnerSettings() {
                               className="w-full rounded-md border px-2 py-1"
                               value={s.key}
                               onChange={(e) =>
-                                updateService(i, {
-                                  key: e.target.value,
-                                })
+                                updateService(i, { key: e.target.value })
                               }
                               placeholder="HOUSEKEEPING"
                             />
@@ -647,9 +653,7 @@ export default function OwnerSettings() {
                               className="w-full rounded-md border px-2 py-1"
                               value={s.label || ""}
                               onChange={(e) =>
-                                updateService(i, {
-                                  label: e.target.value,
-                                })
+                                updateService(i, { label: e.target.value })
                               }
                               placeholder="Housekeeping"
                             />
@@ -668,9 +672,7 @@ export default function OwnerSettings() {
                                       : Math.max(
                                           1,
                                           Math.trunc(
-                                            Number(
-                                              e.target.value,
-                                            ) || 1,
+                                            Number(e.target.value) || 1,
                                           ),
                                         ),
                                 })
@@ -682,9 +684,7 @@ export default function OwnerSettings() {
                               type="checkbox"
                               checked={!!s.active}
                               onChange={(e) =>
-                                updateService(i, {
-                                  active: e.target.checked,
-                                })
+                                updateService(i, { active: e.target.checked })
                               }
                             />
                           </td>
@@ -706,11 +706,7 @@ export default function OwnerSettings() {
               </section>
 
               <div className="flex gap-2">
-                <button
-                  className="btn"
-                  onClick={save}
-                  disabled={saving}
-                >
+                <button className="btn" onClick={save} disabled={saving}>
                   {saving ? "Saving…" : "Save settings"}
                 </button>
                 <button

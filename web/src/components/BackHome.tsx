@@ -46,63 +46,64 @@ export default function BackHome({
   const shouldAuto = useMemo(() => forcedTo == null, [forcedTo]);
 
   useEffect(() => {
-    // Explicit override via prop wins everywhere.
+    // If the caller explicitly passed a `to`, always respect that.
     if (!shouldAuto && forcedTo) {
       setAutoTo(forcedTo);
       return;
     }
 
-    // ---------- Path-specific overrides ----------
+    // ---------- Path-specific overrides (no Supabase round-trip) ----------
 
-    // 1) Deep owner pages (/owner/DEMO1, /owner/settings, etc.)
-    //    → go back to owner console (/owner).
+    // 1) Owner detail pages (/owner/DEMO1, /owner/settings, etc.)
+    //    → go back to the Owner console (/owner).
     if (pathname.startsWith("/owner/")) {
       setAutoTo("/owner");
       return;
     }
 
-    // 2) Owner console itself (/owner)
-    //    → step back to guest dashboard (their personal "home").
+    // 2) Owner console root (/owner) → go to public landing.
     if (pathname === "/owner") {
-      setAutoTo("/guest");
+      setAutoTo("/");
       return;
     }
 
-    // 3) Guest area: from any /guest* page go back to /guest.
+    // 3) Any guest area (/guest, /guest/trips, …) → go to public landing.
     if (pathname.startsWith("/guest")) {
-      setAutoTo("/guest");
+      setAutoTo("/");
       return;
     }
 
-    // ---------- Generic behaviour (same as before) ----------
-    // Decide between /owner and /guest using membership, with safe fallbacks.
+    // ---------- Generic fallback: use auth + membership ----------
+
     let cancelled = false;
 
     (async () => {
       try {
+        // 1) Auth state
         const { data } = await supabase.auth.getSession();
         const user = data?.session?.user;
 
-        // Not signed in → public landing
         if (!user) {
           if (!cancelled) setAutoTo("/");
           return;
         }
 
-        // Signed in → check if they have any hotel membership
+        // 2) Membership check (best-effort; RLS errors → /guest)
         const { data: memRows, error } = await supabase
           .from("hotel_members")
-          .select("id")
+          .select("role")
           .limit(1);
 
         if (error) {
-          // If something goes wrong, fall back to guest dashboard
           if (!cancelled) setAutoTo("/guest");
           return;
         }
 
-        const hasMembership = (memRows?.length || 0) > 0;
-        if (!cancelled) setAutoTo(hasMembership ? "/owner" : "/guest");
+        const hasOwnerRole = (memRows || []).some(
+          (m: any) => m.role === "owner" || m.role === "manager"
+        );
+
+        if (!cancelled) setAutoTo(hasOwnerRole ? "/owner" : "/guest");
       } catch {
         if (!cancelled) setAutoTo("/guest");
       }

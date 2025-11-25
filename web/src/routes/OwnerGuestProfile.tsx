@@ -90,16 +90,30 @@ type GuestCredits = {
   items?: GuestCreditEntry[];
 };
 
+type GuestSummary = {
+  name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  latest_booking_code?: string | null;
+  total_stays?: number | null;
+};
+
 type GuestProfilePayload = {
   ok?: boolean;
+  error?: string;
+  message?: string;
   hotel_id?: string;
   guest_id?: string;
+  // Legacy field from the older function:
+  guest?: GuestSummary;
+  // Newer/richer field for unified profile:
   profile?: GuestProfileCore;
   stays?: GuestStay[];
   tickets?: GuestTicket[];
   orders?: GuestOrder[];
   reviews?: GuestReview[];
-  credits?: GuestCredits;
+  // In some versions this might be an object; in older one it may be an array.
+  credits?: GuestCredits | any;
   stats?: {
     total_stays?: number;
     total_nights?: number;
@@ -288,6 +302,61 @@ function formatMoneyINR(v?: number | null) {
   return `₹${v.toLocaleString("en-IN")}`;
 }
 
+/**
+ * Normalise payload from the Edge Function:
+ * - Map legacy `guest` summary → `profile` if needed
+ * - Ensure arrays are always arrays
+ * - Be tolerant about credits shape
+ */
+function normaliseGuestPayload(
+  raw: any,
+  hotelSlug?: string | null,
+  guestId?: string | null
+): GuestProfilePayload {
+  if (!raw || typeof raw !== "object") return raw as GuestProfilePayload;
+  const cloned: any = { ...raw };
+
+  // Legacy shape: { guest: { name, email, phone, total_stays, latest_booking_code } }
+  if (!cloned.profile && cloned.guest && typeof cloned.guest === "object") {
+    const g = cloned.guest as GuestSummary;
+    const profileFromGuest: GuestProfileCore = {
+      id: guestId ?? undefined,
+      full_name: g.name ?? undefined,
+      name: g.name ?? undefined,
+      email: g.email ?? undefined,
+      phone: g.phone ?? undefined,
+      total_stays:
+        typeof g.total_stays === "number" ? g.total_stays : undefined,
+    };
+    cloned.profile = profileFromGuest;
+  }
+
+  // Stats
+  if (!cloned.stats) cloned.stats = {};
+  if (cloned.profile?.total_stays && !cloned.stats.total_stays) {
+    cloned.stats.total_stays = cloned.profile.total_stays;
+  }
+
+  // Ensure arrays
+  if (!Array.isArray(cloned.stays)) cloned.stays = [];
+  if (!Array.isArray(cloned.tickets)) cloned.tickets = [];
+  if (!Array.isArray(cloned.orders)) cloned.orders = [];
+  if (!Array.isArray(cloned.reviews)) cloned.reviews = [];
+
+  // Credits:
+  // - If it's already an object with balance, keep it.
+  // - If it's an array (e.g. credit_balances rows), ignore for now rather than guessing.
+  if (Array.isArray(cloned.credits)) {
+    cloned.credits = undefined;
+  }
+
+  if (!cloned.hotel_id && hotelSlug) {
+    cloned.hotel_id = hotelSlug;
+  }
+
+  return cloned as GuestProfilePayload;
+}
+
 export default function OwnerGuestProfile() {
   const { slug, guestId } = useParams<{
     slug?: string;
@@ -300,12 +369,13 @@ export default function OwnerGuestProfile() {
 
   const guestName =
     data?.profile?.full_name ||
-    (data?.profile?.first_name ||
-      data?.profile?.last_name
+    (data?.profile?.first_name || data?.profile?.last_name
       ? `${data?.profile?.first_name ?? ""} ${
           data?.profile?.last_name ?? ""
         }`.trim()
       : data?.profile?.name) ||
+    // Fallback to legacy guest summary if profile missing
+    (data as any)?.guest?.name ||
     "Guest";
 
   const stats = data?.stats ?? {};
@@ -313,9 +383,10 @@ export default function OwnerGuestProfile() {
   const tickets = data?.tickets ?? [];
   const orders = data?.orders ?? [];
   const reviews = data?.reviews ?? [];
-  const credits = data?.credits;
+  const credits = (data?.credits as GuestCredits | undefined) ?? undefined;
 
-  const totalStays = stats.total_stays ?? data?.profile?.total_stays ?? stays.length;
+  const totalStays =
+    stats.total_stays ?? data?.profile?.total_stays ?? stays.length;
   const totalNights = stats.total_nights ?? data?.profile?.total_nights ?? 0;
   const totalTickets = stats.total_tickets ?? tickets.length;
   const totalOrders = stats.total_orders ?? orders.length;
@@ -346,9 +417,12 @@ export default function OwnerGuestProfile() {
       setLoading(true);
       try {
         const query = new URLSearchParams();
-        // Keep API flexible: backend may accept hotel_slug and/or hotel_id
-        query.set("hotel_slug", slug);
-        query.set("guest_id", guestId);
+
+        // For now we treat guestId as a booking code "anchor" into the guest.
+        // Existing Edge Function signature:
+        //   /functions/v1/guest-profile?hotel_id=...&booking_code=...
+        query.set("hotel_id", slug); // if your function expects UUID later, we can adjust
+        query.set("booking_code", guestId);
 
         const url = `${API}/guest-profile?${query.toString()}`;
         const res = await fetch(url, {
@@ -361,13 +435,25 @@ export default function OwnerGuestProfile() {
           throw new Error(`Guest profile fetch failed (${res.status})`);
         }
 
-        const json = (await res.json()) as GuestProfilePayload;
+        const raw = (await res.json()) as GuestProfilePayload & {
+          guest?: GuestSummary;
+        };
+
+        // If the function explicitly returns ok:false, treat as soft-fail
+        if (raw && raw.ok === false) {
+          const msg = raw.message || raw.error || "Guest profile not ready yet";
+          throw new Error(msg);
+        }
+
+        const json = normaliseGuestPayload(raw, slug, guestId);
         setData(json);
         setErr(null);
       } catch (e: any) {
         if (ac.signal.aborted) return;
         console.warn("[OwnerGuestProfile] falling back to demo:", e);
-        setErr(e?.message || "Failed to load guest profile; showing demo data.");
+        setErr(
+          e?.message || "Failed to load guest profile; showing demo data."
+        );
         setData(buildDemoGuestProfile(slug, guestId));
       } finally {
         if (!ac.signal.aborted) setLoading(false);
@@ -398,7 +484,7 @@ export default function OwnerGuestProfile() {
           </p>
         </div>
         <div className="text-right text-xs text-gray-500 space-y-1">
-          {guestId && <div>Guest ID: {guestId}</div>}
+          {guestId && <div>Guest anchor: {guestId}</div>}
           {slug && <div>Property: {slug}</div>}
           {isDemo && (
             <div className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1 text-[11px] font-medium text-amber-700 border border-amber-200">
@@ -433,7 +519,11 @@ export default function OwnerGuestProfile() {
                 {(data?.profile?.city || data?.profile?.country) && (
                   <span className="inline-flex items-center rounded-full bg-white/70 px-3 py-1 border border-slate-200">
                     📍{" "}
-                    {[data.profile.city, data.profile.state, data.profile.country]
+                    {[
+                      data.profile.city,
+                      data.profile.state,
+                      data.profile.country,
+                    ]
                       .filter(Boolean)
                       .join(", ")}
                   </span>

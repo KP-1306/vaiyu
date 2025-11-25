@@ -139,6 +139,41 @@ export type StaffingPlanRow = {
   reason: string;
 };
 
+/** ---- NEW: Grid / Energy Coach types ---- */
+export type GridDeviceEnergyDaily = {
+  device_id: string;
+  hotel_id: string;
+  zone: string | null;
+  device_type: string | null;
+  day: string; // YYYY-MM-DD (date::text)
+  energy_kwh: number;
+  hours_covered: number;
+  avg_kw: number | null;
+  first_sample_at: string | null;
+  last_sample_at: string | null;
+};
+
+export type GridZoneEnergyDaily = {
+  hotel_id: string;
+  zone: string;
+  day: string; // YYYY-MM-DD
+  energy_kwh: number;
+  hours_covered: number;
+};
+
+export type GridSilentKiller = {
+  device_id: string;
+  hotel_id: string;
+  zone: string | null;
+  device_type: string | null;
+  day: string; // YYYY-MM-DD
+  total_kwh: number;
+  night_kwh: number | null;
+  peak_kwh: number | null;
+  waste_score: number;
+  rank_within_hotel: number;
+};
+
 /* ============================================================================
    HTTP helpers
 ============================================================================ */
@@ -325,6 +360,20 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
 
   if (p === "/staffing-plan" && method === "GET") {
     const demo: StaffingPlanRow[] = [];
+    return demo as unknown as T;
+  }
+
+  // ---- NEW: Grid / Energy Coach demo fallbacks ----
+  if (p === "/grid/energy/device-daily" && method === "GET") {
+    const demo: GridDeviceEnergyDaily[] = [];
+    return demo as unknown as T;
+  }
+  if (p === "/grid/energy/zone-daily" && method === "GET") {
+    const demo: GridZoneEnergyDaily[] = [];
+    return demo as unknown as T;
+  }
+  if (p === "/grid/energy/silent-killers" && method === "GET") {
+    const demo: GridSilentKiller[] = [];
     return demo as unknown as T;
   }
 
@@ -610,6 +659,128 @@ export async function gridDeviceNudge(id: string) {
   return req(`/grid/device/${encodeURIComponent(id)}/nudge`, {
     method: "POST",
   });
+}
+
+/* ============================================================================
+   Grid / Energy Coach – analytics helpers (using Supabase views where possible)
+============================================================================ */
+
+/**
+ * Fetch daily device energy for a hotel from the `grid_device_energy_daily` view.
+ * Falls back to HTTP API `/grid/energy/device-daily` if Supabase client fails.
+ */
+export async function gridFetchDeviceEnergyDaily(params: {
+  hotelId: string;
+  from?: string; // YYYY-MM-DD
+  to?: string; // YYYY-MM-DD
+}): Promise<GridDeviceEnergyDaily[]> {
+  const s = supa();
+  if (s) {
+    try {
+      let query: any = s
+        .from("grid_device_energy_daily")
+        .select(
+          "device_id,hotel_id,zone,device_type,day,energy_kwh,hours_covered,avg_kw,first_sample_at,last_sample_at"
+        )
+        .eq("hotel_id", params.hotelId)
+        .order("day", { ascending: true });
+
+      if (params.from) query = query.gte("day", params.from);
+      if (params.to) query = query.lte("day", params.to);
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data || []) as GridDeviceEnergyDaily[];
+    } catch {
+      // fall through to HTTP fallback
+    }
+  }
+
+  const search = new URLSearchParams();
+  search.set("hotelId", params.hotelId);
+  if (params.from) search.set("from", params.from);
+  if (params.to) search.set("to", params.to);
+  const qs = search.toString();
+  const path = `/grid/energy/device-daily${qs ? `?${qs}` : ""}`;
+  return req<GridDeviceEnergyDaily[]>(path);
+}
+
+/**
+ * Fetch daily zone energy for a hotel from `grid_zone_energy_daily`.
+ * Falls back to HTTP API `/grid/energy/zone-daily` if Supabase fails.
+ */
+export async function gridFetchZoneEnergyDaily(params: {
+  hotelId: string;
+  from?: string;
+  to?: string;
+}): Promise<GridZoneEnergyDaily[]> {
+  const s = supa();
+  if (s) {
+    try {
+      let query: any = s
+        .from("grid_zone_energy_daily")
+        .select("hotel_id,zone,day,energy_kwh,hours_covered")
+        .eq("hotel_id", params.hotelId)
+        .order("day", { ascending: true })
+        .order("zone", { ascending: true });
+
+      if (params.from) query = query.gte("day", params.from);
+      if (params.to) query = query.lte("day", params.to);
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data || []) as GridZoneEnergyDaily[];
+    } catch {
+      // fall through to HTTP fallback
+    }
+  }
+
+  const search = new URLSearchParams();
+  search.set("hotelId", params.hotelId);
+  if (params.from) search.set("from", params.from);
+  if (params.to) search.set("to", params.to);
+  const qs = search.toString();
+  const path = `/grid/energy/zone-daily${qs ? `?${qs}` : ""}`;
+  return req<GridZoneEnergyDaily[]>(path);
+}
+
+/**
+ * Fetch top-5 "silent killer" devices for a hotel from `grid_silent_killers_top5`.
+ * Optional day filter (YYYY-MM-DD) narrows to a specific day.
+ * Falls back to HTTP API `/grid/energy/silent-killers`.
+ */
+export async function gridFetchSilentKillers(params: {
+  hotelId: string;
+  day?: string; // YYYY-MM-DD
+}): Promise<GridSilentKiller[]> {
+  const s = supa();
+  if (s) {
+    try {
+      let query: any = s
+        .from("grid_silent_killers_top5")
+        .select(
+          "device_id,hotel_id,zone,device_type,day,total_kwh,night_kwh,peak_kwh,waste_score,rank_within_hotel"
+        )
+        .eq("hotel_id", params.hotelId)
+        .order("day", { ascending: false })
+        .order("rank_within_hotel", { ascending: true });
+
+      if (params.day) query = query.eq("day", params.day);
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data || []) as GridSilentKiller[];
+    } catch {
+      // fall through to HTTP fallback
+    }
+  }
+
+  const search = new URLSearchParams();
+  search.set("hotelId", params.hotelId);
+  if (params.day) search.set("day", params.day);
+  const qs = search.toString();
+  const path = `/grid/energy/silent-killers${qs ? `?${qs}` : ""}`;
+  return req<GridSilentKiller[]>(path);
 }
 
 /* ============================================================================
@@ -1245,6 +1416,11 @@ export const api = {
   gridDeviceShed,
   gridDeviceRestore,
   gridDeviceNudge,
+
+  // grid energy analytics
+  gridFetchDeviceEnergyDaily,
+  gridFetchZoneEnergyDaily,
+  gridFetchSilentKillers,
 
   // owner apps (admin)
   fetchOwnerApps,

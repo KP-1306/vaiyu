@@ -111,59 +111,6 @@ export type OwnerApp = {
 };
 
 /* ============================================================================
-   HTTP helpers - frontend to call /hotel-orders instead of /orders
-============================================================================ */
-
-// web/src/lib/api.ts
-
-import { API_URL } from "./api-base-or-existing-file"; // keep your existing import style
-
-export async function fetchHotelOrders(params: {
-  hotelId: string;
-  status?: "open" | "closed";
-  limit?: number;
-  since?: string; // ISO timestamp
-}) {
-  const search = new URLSearchParams();
-  search.set("hotelId", params.hotelId);
-  if (params.status) search.set("status", params.status);
-  if (params.limit != null) search.set("limit", String(params.limit));
-  if (params.since) search.set("since", params.since);
-
-  const res = await fetch(
-    `${API_URL}/functions/v1/hotel-orders?${search.toString()}`,
-    {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-    }
-  );
-
-  if (!res.ok) {
-    throw new Error(`Failed to fetch hotel orders: ${res.status}`);
-  }
-
-  return (await res.json()) as {
-    ok: boolean;
-    orders: Array<{
-      id: string;
-      hotel_id: string;
-      booking_code: string | null;
-      room: string | null;
-      item_key: string;
-      qty: number;
-      price: number;
-      status: string;
-      created_at: string;
-      closed_at: string | null;
-    }>;
-  };
-}
-
-
-/* ============================================================================
    HTTP helpers
 ============================================================================ */
 function withTimeout<T>(p: Promise<T>, ms = 10_000): Promise<T> {
@@ -385,6 +332,11 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
       demo: true,
       data: body ?? null,
     } as unknown as T;
+  }
+
+  // NEW: hotel-orders demo (Supabase Edge function path)
+  if (p === "/hotel-orders" && method === "GET") {
+    return { items: [] } as unknown as T;
   }
 
   // Self-claim
@@ -843,6 +795,45 @@ export async function updateTicket(id: string, patch: Json) {
 /* ============================================================================
    Orders
 ============================================================================ */
+
+/**
+ * Low-level helper that hits:
+ *   - `/hotel-orders` on Supabase Functions
+ *   - `/orders` elsewhere
+ * and normalises the response into `{ items: [...] }` shape
+ * (but preserves any other fields on the payload).
+ */
+export async function fetchHotelOrders(params: {
+  hotelId?: string;
+  status?: "open" | "closed";
+  limit?: number;
+  since?: string; // ISO timestamp
+}) {
+  const search = new URLSearchParams();
+  if (params.hotelId) search.set("hotelId", params.hotelId);
+  if (params.status) search.set("status", params.status);
+  if (typeof params.limit === "number") {
+    search.set("limit", String(params.limit));
+  }
+  if (params.since) search.set("since", params.since);
+
+  const qs = search.toString();
+  const basePath = IS_SUPABASE_FUNCTIONS ? "/hotel-orders" : "/orders";
+  const path = `${basePath}${qs ? `?${qs}` : ""}`;
+
+  const res = await req<any>(path);
+
+  // Normalise multiple possible shapes into `{ items: [...] }`
+  if (res && (Array.isArray(res.items) || Array.isArray(res.orders))) {
+    const items = (res.items ?? res.orders) as any[];
+    return { ...res, items };
+  }
+  if (Array.isArray(res)) {
+    return { items: res as any[] };
+  }
+  return res;
+}
+
 export async function createOrder(
   data: Json
 ): Promise<{ id: string } & Record<string, any>> {
@@ -863,12 +854,12 @@ export async function createOrder(
 
 /**
  * List orders.
- * - If hotelId is provided, we append ?hotelId=… (used by Desk/front-desk views).
- * - If omitted, behaviour stays exactly as before (`GET /orders`).
+ * - When pointing at Supabase Functions, we go via the new `hotel-orders`
+ *   Edge Function (with optional `hotelId` filter).
+ * - On other backends, we keep the old behaviour (`GET /orders`).
  */
 export async function listOrders(hotelId?: string) {
-  const suffix = hotelId ? `?hotelId=${encodeURIComponent(hotelId)}` : "";
-  return req(`/orders${suffix}`);
+  return fetchHotelOrders({ hotelId });
 }
 
 export async function updateOrder(id: string, patch: Json) {
@@ -1031,6 +1022,7 @@ export async function rejectOwnerApp(
 export const api = {
   API,
   API_URL,
+  IS_SUPABASE_FUNCTIONS,
   req,
   isDemo,
 
@@ -1074,6 +1066,7 @@ export const api = {
   createOrder,
   listOrders,
   updateOrder,
+  fetchHotelOrders,
 
   // folio/flows
   getFolio,
@@ -1097,6 +1090,19 @@ export const api = {
 
   // check-in
   quickCheckin,
+
+  // grid (VPP)
+  gridGetDevices,
+  gridSaveDevices,
+  gridGetPlaybooks,
+  gridSavePlaybooks,
+  gridStartEvent,
+  gridStepEvent,
+  gridStopEvent,
+  gridListEvents,
+  gridDeviceShed,
+  gridDeviceRestore,
+  gridDeviceNudge,
 
   // owner apps (admin)
   fetchOwnerApps,

@@ -20,30 +20,50 @@ export default function UsageMeter({ hotelId }: { hotelId?: string }) {
     (async () => {
       setLoading(true);
       try {
-        // NOTE: call Supabase Edge Function slug "ai-usage"
-        const u = new URL(`${API}/ai-usage`, window.location.origin);
-        if (hotelId) u.searchParams.set("hotel_id", hotelId);
+        // IMPORTANT: use existing "ai" function → /functions/v1/ai/usage
+        const url = new URL(`${API}/ai/usage`, window.location.origin);
+        if (hotelId) url.searchParams.set("hotel_id", hotelId);
 
-        const r = await fetch(u.toString(), { signal: ac.signal });
-        if (!r.ok) {
-          throw new Error(`Usage fetch failed (${r.status})`);
-        }
-        const j = await r.json();
-        // Accept either {used_tokens, budget_tokens} or {data:{...}}
-        const row = j?.data ?? j;
-        setData({
-          month_utc: row?.month_utc ?? undefined,
-          used_tokens: Number(row?.used_tokens ?? 0),
-          budget_tokens: Number(row?.budget_tokens ?? 200000),
-        });
+        const res = await fetch(url.toString(), { signal: ac.signal });
+        if (!res.ok) throw new Error(`Usage fetch failed (${res.status})`);
+
+        const raw = await res.json();
+
+        // Supported shapes:
+        // 1) { used_tokens, budget_tokens, month_utc }
+        // 2) { data: {...} }
+        // 3) { summary: { used_tokens, budget_tokens, month_utc }, totals: { tokens: { total } } }
+        const base = raw?.data ?? raw?.summary ?? raw;
+
+        const fromSummary = Number(base?.used_tokens);
+        const fromTotals = Number(
+          raw?.totals?.tokens?.total ??
+            (raw?.totals?.tokens?.input ?? 0) +
+              (raw?.totals?.tokens?.output ?? 0),
+        );
+
+        const used_tokens =
+          Number.isFinite(fromSummary) && fromSummary >= 0
+            ? fromSummary
+            : Number.isFinite(fromTotals) && fromTotals >= 0
+            ? fromTotals
+            : 0;
+
+        const budget_tokens = Number(
+          base?.budget_tokens ?? raw?.budget_tokens ?? 200_000,
+        );
+
+        const month_utc: string | undefined =
+          base?.month_utc ?? raw?.month_utc ?? undefined;
+
+        setData({ month_utc, used_tokens, budget_tokens });
         setErr(null);
       } catch (e: any) {
-        // graceful fallback demo values
         console.warn("[UsageMeter] Falling back to demo usage:", e);
         setData({
           month_utc: undefined,
           used_tokens: 0,
-          budget_tokens: 200000,
+          budget_tokens: 200_000,
         });
         setErr(e?.message || String(e));
       } finally {

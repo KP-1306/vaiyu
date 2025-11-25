@@ -111,6 +111,59 @@ export type OwnerApp = {
 };
 
 /* ============================================================================
+   HTTP helpers - frontend to call /hotel-orders instead of /orders
+============================================================================ */
+
+// web/src/lib/api.ts
+
+import { API_URL } from "./api-base-or-existing-file"; // keep your existing import style
+
+export async function fetchHotelOrders(params: {
+  hotelId: string;
+  status?: "open" | "closed";
+  limit?: number;
+  since?: string; // ISO timestamp
+}) {
+  const search = new URLSearchParams();
+  search.set("hotelId", params.hotelId);
+  if (params.status) search.set("status", params.status);
+  if (params.limit != null) search.set("limit", String(params.limit));
+  if (params.since) search.set("since", params.since);
+
+  const res = await fetch(
+    `${API_URL}/functions/v1/hotel-orders?${search.toString()}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error(`Failed to fetch hotel orders: ${res.status}`);
+  }
+
+  return (await res.json()) as {
+    ok: boolean;
+    orders: Array<{
+      id: string;
+      hotel_id: string;
+      booking_code: string | null;
+      room: string | null;
+      item_key: string;
+      qty: number;
+      price: number;
+      status: string;
+      created_at: string;
+      closed_at: string | null;
+    }>;
+  };
+}
+
+
+/* ============================================================================
    HTTP helpers
 ============================================================================ */
 function withTimeout<T>(p: Promise<T>, ms = 10_000): Promise<T> {

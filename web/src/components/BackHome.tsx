@@ -46,45 +46,57 @@ export default function BackHome({
   const shouldAuto = useMemo(() => forcedTo == null, [forcedTo]);
 
   useEffect(() => {
-    // If the caller passed an explicit destination, always honour that.
-    if (!shouldAuto) {
-      setAutoTo(forcedTo!);
+    // Explicit override via prop wins everywhere.
+    if (!shouldAuto && forcedTo) {
+      setAutoTo(forcedTo);
       return;
     }
 
-    // Stay inside the current app area when possible.
-    // Owner surfaces → owner hub
-    if (pathname.startsWith("/owner")) {
+    // ---------- Path-specific overrides ----------
+
+    // 1) Deep owner pages (/owner/DEMO1, /owner/settings, etc.)
+    //    → go back to owner console (/owner).
+    if (pathname.startsWith("/owner/")) {
       setAutoTo("/owner");
       return;
     }
 
-    // Guest surfaces → guest dashboard
+    // 2) Owner console itself (/owner)
+    //    → step back to guest dashboard (their personal "home").
+    if (pathname === "/owner") {
+      setAutoTo("/guest");
+      return;
+    }
+
+    // 3) Guest area: from any /guest* page go back to /guest.
     if (pathname.startsWith("/guest")) {
       setAutoTo("/guest");
       return;
     }
 
+    // ---------- Generic behaviour (same as before) ----------
+    // Decide between /owner and /guest using membership, with safe fallbacks.
     let cancelled = false;
 
     (async () => {
       try {
-        // 1) Auth state
         const { data } = await supabase.auth.getSession();
         const user = data?.session?.user;
 
+        // Not signed in → public landing
         if (!user) {
           if (!cancelled) setAutoTo("/");
           return;
         }
 
-        // 2) Membership check (RLS-scoped; errors → fall back to guest)
+        // Signed in → check if they have any hotel membership
         const { data: memRows, error } = await supabase
           .from("hotel_members")
           .select("id")
           .limit(1);
 
         if (error) {
+          // If something goes wrong, fall back to guest dashboard
           if (!cancelled) setAutoTo("/guest");
           return;
         }

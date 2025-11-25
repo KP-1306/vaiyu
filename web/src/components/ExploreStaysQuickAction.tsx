@@ -1,246 +1,315 @@
-// web/src/components/ExploreStaysQuickAction.tsx
-import { useMemo, useState } from "react";
+// web/src/components/guest/ExploreStaysQuickAction.tsx
+import React, { useMemo, useState } from "react";
 
-type Props = {
-  /** Optional extra classes for the small trigger button/link */
-  className?: string;
+type LocationKey = "all" | "jaipur" | "nainital" | "delhi-ncr";
+
+type StayOption = {
+  id: string;
+  name: string;
+  city: string;
+  state: string;
+  locationKey: LocationKey;
+  tagline: string;
+  highlights: string[];
+  fromText: string; // e.g. "From ₹ 9,500 / night*"
+  badge?: string;
+  vibe?: string;
 };
 
-/**
- * ExploreStaysQuickAction
- *
- * Replaces the old "Book a new stay" link in the Guest Dashboard quick-actions.
- * Instead of sending guests to the public landing page, this opens a premium
- * concierge-style panel where they can share basic trip details. We then
- * prepare a mail / WhatsApp message for offline booking support.
- */
-export default function ExploreStaysQuickAction({ className = "" }: Props) {
-  const [open, setOpen] = useState(false);
+const BOOKING_EMAIL =
+  import.meta.env.VITE_BOOKING_EMAIL || "bookings@vaiyu.co.in";
 
-  // Simple form state
-  const [city, setCity] = useState("");
-  const [checkIn, setCheckIn] = useState("");
-  const [checkOut, setCheckOut] = useState("");
-  const [guests, setGuests] = useState("2");
-  const [budget, setBudget] = useState("");
-  const [notes, setNotes] = useState("");
+/** Static concierge options for now – can be moved to API later */
+const STAY_OPTIONS: StayOption[] = [
+  {
+    id: "demo-hotel-one-jaipur",
+    name: "Demo Hotel One · Jaipur",
+    city: "Jaipur",
+    state: "Rajasthan",
+    locationKey: "jaipur",
+    tagline: "Flagship luxury · Partner",
+    highlights: [
+      "Pool & spa",
+      "Airport transfers",
+      "City tours desk",
+    ],
+    fromText: "From ₹ 9,500 / night*",
+    badge: "Most popular",
+    vibe: "Boutique luxury",
+  },
+  {
+    id: "demo-hotel-one-nainital",
+    name: "Demo Hotel One · Nainital",
+    city: "Nainital",
+    state: "Uttarakhand",
+    locationKey: "nainital",
+    tagline: "Lake view · Boutique",
+    highlights: [
+      "Lake-facing rooms",
+      "Breakfast included",
+      "Early check-in on request",
+    ],
+    fromText: "From ₹ 7,800 / night*",
+    badge: "Lake view",
+    vibe: "Family & friends",
+  },
+  {
+    id: "demo-hotel-two-delhi",
+    name: "Demo Hotel Two · Delhi",
+    city: "New Delhi",
+    state: "NCR",
+    locationKey: "delhi-ncr",
+    tagline: "Business + family friendly",
+    highlights: [
+      "Near metro access",
+      "Conference rooms",
+      "24×7 room service",
+    ],
+    fromText: "From ₹ 8,900 / night*",
+    badge: "City favourite",
+    vibe: "Work trips & layovers",
+  },
+];
 
-  const disabled = !city.trim() || !checkIn || !checkOut;
+const LOCATION_FILTERS: { key: LocationKey; label: string }[] = [
+  { key: "all", label: "All locations" },
+  { key: "jaipur", label: "Jaipur" },
+  { key: "nainital", label: "Nainital" },
+  { key: "delhi-ncr", label: "Delhi NCR" },
+];
 
-  // Build a nice booking request summary for email / WhatsApp
-  const requestSummary = useMemo(() => {
-    if (disabled) return "";
-    const parts: string[] = [];
-    parts.push(`City / Destination: ${city.trim()}`);
-    parts.push(`Check-in: ${checkIn}`);
-    parts.push(`Check-out: ${checkOut}`);
-    if (guests) parts.push(`Guests: ${guests}`);
-    if (budget) parts.push(`Nightly budget: ${budget}`);
-    if (notes.trim()) parts.push(`Preferences / Notes: ${notes.trim()}`);
-    return parts.join("\n");
-  }, [city, checkIn, checkOut, guests, budget, notes, disabled]);
+export type ExploreStaysQuickActionProps = {
+  open: boolean;
+  onClose: () => void;
+};
 
-  function handleSendEmail() {
-    if (disabled) return;
-    const subject = encodeURIComponent("New booking request via VAiyu guest dashboard");
-    const body = encodeURIComponent(
-      `Hi VAiyu team,\n\nI'd like help booking a new stay. Here are my details:\n\n${requestSummary}\n\nPlease share the best options and confirmation.\n\nThank you!`
-    );
-    window.location.href = `mailto:support@vaiyu.co.in?subject=${subject}&body=${body}`;
-  }
+export default function ExploreStaysQuickAction({
+  open,
+  onClose,
+}: ExploreStaysQuickActionProps) {
+  const [activeLocation, setActiveLocation] = useState<LocationKey>("all");
 
-  function handleSendWhatsApp() {
-    if (disabled) return;
-    // NOTE: if you later have a dedicated concierge number, replace this with it.
-    const text = encodeURIComponent(
-      `New booking request via VAiyu guest dashboard:\n\n${requestSummary}`
-    );
-    window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
-  }
+  const visibleOptions = useMemo(
+    () =>
+      STAY_OPTIONS.filter((o) =>
+        activeLocation === "all" ? true : o.locationKey === activeLocation,
+      ),
+    [activeLocation],
+  );
+
+  if (!open) return null;
 
   return (
-    <>
-      {/* Trigger – looks like a subtle link inside the quick action card */}
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className={`inline-flex items-center gap-1 text-xs font-medium text-blue-700 hover:text-blue-800 hover:underline ${className}`}
-      >
-        Book a new stay
-        <span aria-hidden>↗</span>
-      </button>
-
-      {/* Lightweight overlay panel */}
-      {open && (
-        <div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-3 py-6"
-          aria-modal="true"
-          role="dialog"
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 py-8">
+      <div className="relative w-full max-w-5xl max-h-[90vh] overflow-hidden rounded-3xl bg-white shadow-2xl">
+        {/* Close button */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+          aria-label="Close"
         >
-          <div className="relative w-full max-w-lg rounded-2xl bg-white/95 p-5 shadow-2xl">
-            {/* Close */}
+          ×
+        </button>
+
+        <div className="flex flex-col gap-4 px-6 pb-4 pt-6">
+          {/* Header */}
+          <div>
+            <div className="text-[11px] font-medium uppercase tracking-wide text-emerald-700">
+              Concierge booking · <span className="text-slate-500">Beta</span>
+            </div>
+            <h2 className="mt-1 text-lg md:text-xl font-semibold text-slate-900">
+              Explore stays with VAiyu
+            </h2>
+            <p className="mt-1 text-xs md:text-sm text-slate-600 max-w-3xl">
+              Right now we handle bookings with a human concierge. Pick a
+              property, share your dates and we’ll confirm the best available
+              rate over WhatsApp or email. Instant online booking is coming
+              soon.
+            </p>
+          </div>
+
+          {/* Location filters */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap gap-2 text-[11px] md:text-xs">
+              <span className="self-center text-slate-500">
+                Filter by location
+              </span>
+              {LOCATION_FILTERS.map((f) => {
+                const active = activeLocation === f.key;
+                return (
+                  <button
+                    key={f.key}
+                    type="button"
+                    onClick={() => setActiveLocation(f.key)}
+                    className={`rounded-full border px-3 py-1 ${
+                      active
+                        ? "border-sky-500 bg-sky-50 text-sky-800 text-xs font-medium"
+                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                );
+              })}
+            </div>
+
             <button
               type="button"
-              onClick={() => setOpen(false)}
-              className="absolute right-3 top-3 rounded-full border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+              className="text-[11px] md:text-xs text-sky-700 underline-offset-2 hover:underline"
+              onClick={() => {
+                const subject = encodeURIComponent(
+                  "Booking enquiry – different city (via VAiyu)",
+                );
+                const body = encodeURIComponent(
+                  [
+                    "Hi VAiyu concierge team,",
+                    "",
+                    "I’m looking for a stay in a different city than the ones listed in Explore stays.",
+                    "",
+                    "City (and area if any): ____",
+                    "Check-in date: ____",
+                    "Check-out date: ____",
+                    "Guests & rooms: ____",
+                    "",
+                    "Approximate budget (per night or total): ____",
+                    "",
+                    "Special requests (if any): ____",
+                    "",
+                    "Contact name: ____",
+                    "Mobile / WhatsApp: ____",
+                    "",
+                    "Please suggest the best options and rates available.",
+                    "",
+                    "Thank you!",
+                  ].join("\n"),
+                );
+                window.location.href = `mailto:${encodeURIComponent(
+                  BOOKING_EMAIL,
+                )}?subject=${subject}&body=${body}`;
+              }}
             >
-              ✕
+              Prefer a different city? Ask our concierge
             </button>
+          </div>
 
-            <div className="mb-3 space-y-1">
-              <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
-                <span>New</span>
-                <span className="h-1 w-1 rounded-full bg-blue-500" />
-                <span>Concierge booking</span>
-              </div>
-              <h2 className="text-lg font-semibold">
-                Tell us where you want to stay
-              </h2>
-              <p className="text-xs text-slate-600">
-                We&apos;re rolling out instant online booking soon. For now, share a
-                few details and our team will help you book the best VAiyu partner
-                property and send a confirmation over email or WhatsApp.
-              </p>
-            </div>
-
-            {/* Form */}
-            <div className="space-y-3">
-              <div className="grid gap-3 md:grid-cols-2">
-                <Field
-                  label="City / destination *"
-                  placeholder="Jaipur, Nainital, Goa…"
-                  value={city}
-                  onChange={setCity}
-                />
-                <Field
-                  label="Guests"
-                  placeholder="2"
-                  value={guests}
-                  onChange={setGuests}
-                />
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-2">
-                <Field
-                  label="Check-in *"
-                  type="date"
-                  value={checkIn}
-                  onChange={setCheckIn}
-                />
-                <Field
-                  label="Check-out *"
-                  type="date"
-                  value={checkOut}
-                  onChange={setCheckOut}
-                />
-              </div>
-
-              <Field
-                label="Budget per night (optional)"
-                placeholder="₹4,000 – ₹6,000"
-                value={budget}
-                onChange={setBudget}
-              />
-
-              <TextArea
-                label="Preferences / notes (optional)"
-                placeholder="Room type, view preference, occasion (birthday, anniversary), etc."
-                value={notes}
-                onChange={setNotes}
-              />
-
-              <p className="text-[11px] text-slate-500">
-                By sending a request, you agree that our team may contact you on your
-                registered email / phone number to confirm the booking. Payment and
-                final confirmation will be shared securely.
-              </p>
-
-              {/* Actions */}
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={handleSendEmail}
-                  disabled={disabled}
-                  className={`btn btn-sm ${
-                    disabled ? "cursor-not-allowed opacity-60" : ""
-                  }`}
-                >
-                  Request via email
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSendWhatsApp}
-                  disabled={disabled}
-                  className={`btn btn-light btn-sm ${
-                    disabled ? "cursor-not-allowed opacity-60" : ""
-                  }`}
-                >
-                  Request on WhatsApp
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  className="btn btn-ghost btn-sm ml-auto text-xs"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
+          {/* Property cards */}
+          <div className="grid gap-3 md:grid-cols-3 text-xs md:text-sm">
+            {visibleOptions.map((opt) => (
+              <StayCard key={opt.id} option={opt} />
+            ))}
           </div>
         </div>
+
+        {/* Footer strip */}
+        <div className="flex items-center justify-between gap-2 border-t px-6 py-3 text-[11px] text-slate-500 bg-slate-50/80">
+          <span>
+            You will receive a confirmation from our concierge team before any
+            booking is final.
+          </span>
+          <span className="hidden sm:inline">
+            Online one-tap booking · coming soon
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------------- */
+/* Stay card with “Share details to book” → mailto:                          */
+/* ------------------------------------------------------------------------- */
+
+function StayCard({ option }: { option: StayOption }) {
+  const { name, city, state, tagline, highlights, fromText, badge, vibe } =
+    option;
+
+  function handleShareDetailsClick() {
+    const subject = `Booking enquiry – ${name}${
+      city ? ` · ${city}` : ""
+    } (via VAiyu)`;
+
+    const bodyLines = [
+      "Hi VAiyu concierge team,",
+      "",
+      `I'd like to enquire about booking: ${name}${
+        city ? ` – ${city}, ${state}` : ""
+      }.`,
+      "",
+      "My preferred dates:",
+      "• Check-in date: ____",
+      "• Check-out date: ____",
+      "",
+      "Guests & rooms:",
+      "• Adults: ____    Children: ____",
+      "• Rooms: ____",
+      "",
+      "Budget (per night or total): ____",
+      "",
+      "Any special requests (view, meals, transfers, early check-in / late check-out, etc.):",
+      "____",
+      "",
+      "Contact details:",
+      "• Full name: ____",
+      "• Mobile / WhatsApp: ____",
+      "",
+      "Please confirm the best available rate and next steps.",
+      "",
+      "Thanks!",
+    ];
+
+    const mailto = `mailto:${encodeURIComponent(
+      BOOKING_EMAIL,
+    )}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(
+      bodyLines.join("\n"),
+    )}`;
+
+    // Open default mail client
+    window.location.href = mailto;
+  }
+
+  return (
+    <div className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+      <div className="text-[11px] text-slate-500 mb-1">
+        {city} · {state}
+      </div>
+      <div className="font-semibold text-slate-900 text-sm leading-snug">
+        {name}
+      </div>
+      <div className="mt-1 text-[11px] text-emerald-700 font-medium">
+        {tagline}
+      </div>
+      {vibe && (
+        <div className="mt-0.5 text-[11px] text-slate-500">{vibe}</div>
       )}
-    </>
-  );
-}
 
-/* ---------- Small internal UI helpers ---------- */
+      <ul className="mt-2 space-y-1 text-[11px] text-slate-600">
+        {highlights.map((h) => (
+          <li key={h}>• {h}</li>
+        ))}
+      </ul>
 
-type FieldProps = {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  type?: string;
-};
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-700">
+        <div>
+          <div className="font-semibold">{fromText}</div>
+          <div className="text-[10px] text-slate-400">
+            *Indicative rack rates. Final price will be confirmed on call.
+          </div>
+        </div>
+        {badge && (
+          <span className="rounded-full bg-sky-50 px-2 py-1 text-[10px] font-medium text-sky-700 border border-sky-100">
+            {badge}
+          </span>
+        )}
+      </div>
 
-function Field({
-  label,
-  value,
-  onChange,
-  placeholder,
-  type = "text",
-}: FieldProps) {
-  return (
-    <label className="grid gap-1 text-xs text-slate-700">
-      <span>{label}</span>
-      <input
-        type={type}
-        className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-      />
-    </label>
-  );
-}
-
-type TextAreaProps = {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-};
-
-function TextArea({ label, value, onChange, placeholder }: TextAreaProps) {
-  return (
-    <label className="grid gap-1 text-xs text-slate-700">
-      <span>{label}</span>
-      <textarea
-        className="min-h-[80px] rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-      />
-    </label>
+      <button
+        type="button"
+        onClick={handleShareDetailsClick}
+        className="mt-3 inline-flex w-full items-center justify-center rounded-xl border border-slate-900 bg-slate-900 px-3 py-2 text-[11px] font-medium text-white shadow-sm hover:bg-slate-800"
+      >
+        Share details to book
+      </button>
+    </div>
   );
 }

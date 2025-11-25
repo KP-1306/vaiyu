@@ -8,6 +8,9 @@ import SEO from "../components/SEO";
 import UsageMeter from "../components/UsageMeter";
 import { API } from "../lib/api";
 
+// -------- Env / feature flags --------
+const HAS_API_BASE = Boolean(import.meta.env.VITE_API_URL);
+
 // -------- Types --------
 type Theme = { brand?: string; mode?: "light" | "dark" };
 
@@ -74,46 +77,88 @@ export default function OwnerSettings() {
   const [err, setErr] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
-  // forward the current Supabase session (best-effort)
-  const sessionHeaders = useMemo(() => {
-    const token = (supabase as any)?.auth?.session?.()?.access_token;
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  }, []);
-
   const load = useCallback(async () => {
     setErr(null);
     setOk(null);
     setLoading(true);
     try {
-      const url = `${API}/owner-settings?slug=${encodeURIComponent(slug)}`;
-      const r = await fetch(url, {
-        headers: {
-          "content-type": "application/json",
-          ...sessionHeaders,
-        },
-      });
-
-      const data: any = await r.json().catch(() => null);
-
-      if (!r.ok) {
-        throw new Error(
-          data?.error ||
-            data?.message ||
-            `Failed to load settings (HTTP ${r.status})`,
-        );
+      // Best-effort Supabase session → Bearer token for Edge function
+      let authHeader: Record<string, string> = {};
+      try {
+        const { data } = await supabase.auth.getSession();
+        const token = data?.session?.access_token;
+        if (token) {
+          authHeader = { Authorization: `Bearer ${token}` };
+        }
+      } catch {
+        // If this fails, we just skip the Authorization header; RLS/Edge will treat as anon
       }
 
-      // New Edge Function shape: { hotel, settings, services }
-      const hRaw = data?.hotel;
-      if (!hRaw) {
-        throw new Error("Failed to load hotel for slug");
+      let hRaw: any = null;
+      let sRaw: any = {};
+      let svcsRaw: any[] = [];
+
+      if (HAS_API_BASE) {
+        // ---- Primary path: use the Owner Settings Edge / API endpoint ----
+        const url = `${API}/owner-settings?slug=${encodeURIComponent(slug)}`;
+        const r = await fetch(url, {
+          headers: {
+            "content-type": "application/json",
+            ...authHeader,
+          },
+        });
+
+        const data: any = await r.json().catch(() => null);
+
+        if (!r.ok) {
+          throw new Error(
+            data?.error ||
+              data?.message ||
+              `Failed to load settings (HTTP ${r.status})`,
+          );
+        }
+
+        // New Edge Function shape: { hotel, settings, services }
+        hRaw = data?.hotel;
+        if (!hRaw) {
+          throw new Error("Failed to load hotel for slug");
+        }
+        sRaw = data?.settings ?? {};
+        svcsRaw = Array.isArray(data?.services)
+          ? data.services
+          : Array.isArray(data?.services?.items)
+          ? data.services.items
+          : [];
+      } else {
+        // ---- Fallback: no VITE_API_URL → load directly via Supabase ----
+        const { data: hotelRow, error: hErr } = await supabase
+          .from("hotels")
+          .select(
+            "id,slug,name,description,address,amenities,phone,email,logo_url,theme,reviews_policy",
+          )
+          .eq("slug", slug)
+          .maybeSingle();
+
+        if (hErr || !hotelRow) {
+          throw new Error(
+            hErr?.message || "Failed to load hotel for slug (Supabase)",
+          );
+        }
+
+        hRaw = hotelRow;
+        sRaw = {}; // no extra settings row in this fallback
+
+        const { data: svcRows, error: svcErr } = await supabase
+          .from("services")
+          .select("key,label_en,sla_minutes,active")
+          .eq("hotel_id", hotelRow.id);
+
+        if (svcErr) {
+          svcsRaw = [];
+        } else {
+          svcsRaw = svcRows ?? [];
+        }
       }
-      const sRaw = data?.settings ?? {};
-      const svcsRaw: any[] = Array.isArray(data?.services)
-        ? data.services
-        : Array.isArray(data?.services?.items)
-        ? data.services.items
-        : [];
 
       const defaultPolicy: ReviewsPolicy = {
         mode: "preview",
@@ -168,11 +213,15 @@ export default function OwnerSettings() {
       setAmenitiesCsv(toCsv(normalizedHotel.amenities));
       setServices(normalizedServices);
     } catch (e: any) {
-      setErr(e?.message || "Failed to load settings");
+      const msg =
+        e?.message === "Failed to fetch"
+          ? "Could not reach the Owner Settings API. Please confirm your VAiyu backend (VITE_API_URL) is configured and online."
+          : e?.message || "Failed to load settings";
+      setErr(msg);
     } finally {
       setLoading(false);
     }
-  }, [slug, sessionHeaders]);
+  }, [slug]);
 
   useEffect(() => {
     load();
@@ -232,10 +281,32 @@ export default function OwnerSettings() {
 
   async function save() {
     if (!hotel) return;
+
+    if (!HAS_API_BASE) {
+      // We deliberately *do not* try to write directly to Supabase here
+      // to avoid bypassing your Edge Function / validation logic.
+      setErr(
+        "Owner Settings API base (VITE_API_URL) is not configured, so changes cannot be saved yet. Please set VITE_API_URL to your VAiyu backend and redeploy.",
+      );
+      return;
+    }
+
     setSaving(true);
     setErr(null);
     setOk(null);
     try {
+      // Best-effort session → Authorization header
+      let authHeader: Record<string, string> = {};
+      try {
+        const { data } = await supabase.auth.getSession();
+        const token = data?.session?.access_token;
+        if (token) {
+          authHeader = { Authorization: `Bearer ${token}` };
+        }
+      } catch {
+        // continue without auth header
+      }
+
       const body = {
         hotel: {
           name: hotel.name?.trim(),
@@ -273,7 +344,7 @@ export default function OwnerSettings() {
           method: "POST",
           headers: {
             "content-type": "application/json",
-            ...sessionHeaders,
+            ...authHeader,
           },
           body: JSON.stringify(body),
         },
@@ -289,7 +360,11 @@ export default function OwnerSettings() {
       setOk("Saved successfully.");
       await load();
     } catch (e: any) {
-      setErr(e?.message || "Failed to save");
+      const msg =
+        e?.message === "Failed to fetch"
+          ? "Could not reach the Owner Settings API. Please confirm your VAiyu backend (VITE_API_URL) is configured and online."
+          : e?.message || "Failed to save";
+      setErr(msg);
     } finally {
       setSaving(false);
     }
@@ -313,6 +388,13 @@ export default function OwnerSettings() {
               <div className="text-sm text-gray-600">
                 Branding, contact, reviews policy &amp; service SLAs
               </div>
+              {!HAS_API_BASE && (
+                <div className="mt-1 text-xs text-amber-700">
+                  Note: VITE_API_URL is not configured. Settings can be viewed
+                  via Supabase but won&apos;t be saved until the API base is
+                  wired.
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-3">
               {hotel?.id && <UsageMeter hotelId={hotel.id} />}
@@ -452,9 +534,7 @@ export default function OwnerSettings() {
 
               {/* Reviews Policy */}
               <section className="bg-white rounded shadow p-4 space-y-3">
-                <div className="font-semibold">
-                  Reviews / Experience Policy
-                </div>
+                <div className="font-semibold">Reviews / Experience Policy</div>
                 <div className="grid md:grid-cols-2 gap-3">
                   <label className="text-sm">
                     Mode

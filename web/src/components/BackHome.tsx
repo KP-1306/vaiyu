@@ -33,7 +33,11 @@ type Props = {
   className?: string;
 };
 
-export default function BackHome({ to, label = "← Back home", className = "" }: Props) {
+export default function BackHome({
+  to,
+  label = "← Back home",
+  className = "",
+}: Props) {
   const { pathname } = useLocation();
 
   // --- Hooks first (no early returns before hooks) ---
@@ -42,14 +46,22 @@ export default function BackHome({ to, label = "← Back home", className = "" }
   const shouldAuto = useMemo(() => forcedTo == null, [forcedTo]);
 
   useEffect(() => {
-    // Special rule: if you're anywhere under /owner, always go to public landing.
-    if (shouldAuto && pathname.startsWith("/owner")) {
-      setAutoTo("/");
+    // If the caller passed an explicit destination, always honour that.
+    if (!shouldAuto) {
+      setAutoTo(forcedTo!);
       return;
     }
 
-    if (!shouldAuto) {
-      setAutoTo(forcedTo!);
+    // Stay inside the current app area when possible.
+    // Owner surfaces → owner hub
+    if (pathname.startsWith("/owner")) {
+      setAutoTo("/owner");
+      return;
+    }
+
+    // Guest surfaces → guest dashboard
+    if (pathname.startsWith("/guest")) {
+      setAutoTo("/guest");
       return;
     }
 

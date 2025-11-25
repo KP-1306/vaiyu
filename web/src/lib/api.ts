@@ -121,6 +121,24 @@ export type GuestProfilePayload = {
   credits?: any[];
 };
 
+/** ---- NEW: AI Ops Co-pilot types ---- */
+export type OpsHeatmapPoint = {
+  hotel_id: string;
+  zone: string;
+  hour_bucket: string; // ISO timestamp string
+  total_tickets: number;
+  resolved_tickets: number;
+  breached_tickets: number;
+};
+
+export type StaffingPlanRow = {
+  department: string;
+  recommended_count: number;
+  min_count: number;
+  max_count: number;
+  reason: string;
+};
+
 /* ============================================================================
    HTTP helpers
 ============================================================================ */
@@ -297,6 +315,17 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
       };
     }
     return { ok: true } as unknown as T;
+  }
+
+  // ---- NEW: AI Ops Co-pilot demo fallbacks ----
+  if (p === "/ops-heatmap" && method === "GET") {
+    const demo: OpsHeatmapPoint[] = [];
+    return demo as unknown as T;
+  }
+
+  if (p === "/staffing-plan" && method === "GET") {
+    const demo: StaffingPlanRow[] = [];
+    return demo as unknown as T;
   }
 
   // ---- Existing demo fallbacks ----
@@ -837,6 +866,44 @@ export async function updateTicket(id: string, patch: Json) {
 }
 
 /* ============================================================================
+   AI Ops Co-pilot – Heatmap & Staffing Plan
+============================================================================ */
+
+/**
+ * Fetch aggregated ticket/SLA heatmap for a hotel (by zone × hour).
+ * Expects the `ops-heatmap` Edge Function / backend route to be present.
+ */
+export async function fetchOpsHeatmap(params: {
+  hotelId: string;
+  from?: string;
+  to?: string;
+}) {
+  const search = new URLSearchParams();
+  search.set("hotelId", params.hotelId);
+  if (params.from) search.set("from", params.from);
+  if (params.to) search.set("to", params.to);
+  const qs = search.toString();
+  const path = `/ops-heatmap${qs ? `?${qs}` : ""}`;
+  return req<OpsHeatmapPoint[]>(path);
+}
+
+/**
+ * Fetch AI staffing plan recommendation for a given hotel + date.
+ * Wraps the `staffing-plan` Edge Function / backend route.
+ */
+export async function fetchStaffingPlan(params: {
+  hotelId: string;
+  date: string; // YYYY-MM-DD
+}) {
+  const search = new URLSearchParams();
+  search.set("hotelId", params.hotelId);
+  search.set("date", params.date);
+  const qs = search.toString();
+  const path = `/staffing-plan${qs ? `?${qs}` : ""}`;
+  return req<StaffingPlanRow[]>(path);
+}
+
+/* ============================================================================
    Orders
 ============================================================================ */
 
@@ -1129,6 +1196,10 @@ export const api = {
   listTickets,
   getTicket,
   updateTicket,
+
+  // AI Ops Co-pilot
+  fetchOpsHeatmap,
+  fetchStaffingPlan,
 
   // orders
   createOrder,

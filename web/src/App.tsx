@@ -1,3 +1,5 @@
+// web/src/App.tsx
+
 import React, { Suspense, lazy } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import Header from "./components/Header";
@@ -206,6 +208,9 @@ const GuestDashboard = lazy(() => import("./routes/GuestDashboard"));
 const OwnerHome = lazy(() => import("./routes/OwnerHome"));
 const SignIn = lazy(() => import("./routes/SignIn"));
 const AuthCallback = lazy(() => import("./routes/AuthCallback"));
+const OwnerGuestProfile = lazy(
+  () => import("./routes/OwnerGuestProfile")
+);
 
 /* ---------------- App ---------------- */
 
@@ -223,7 +228,15 @@ export default function App() {
 
             {/* Core app areas */}
             <Route path="/guest" element={<GuestDashboard />} />
+
+            {/* Owner views */}
+            <Route
+              path="/owner/guests/:guestId"
+              element={<OwnerGuestProfile />}
+            />
             <Route path="/owner/*" element={<OwnerHome />} />
+
+            {/* Staff */}
             <Route path="/staff" element={<StaffHome />} />
 
             {/* Auth */}

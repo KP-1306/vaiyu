@@ -20,7 +20,8 @@ export default function UsageMeter({ hotelId }: { hotelId?: string }) {
     (async () => {
       setLoading(true);
       try {
-        const u = new URL(`${API}/ai/usage`, window.location.origin);
+        // NOTE: call Supabase Edge Function slug "ai-usage"
+        const u = new URL(`${API}/ai-usage`, window.location.origin);
         if (hotelId) u.searchParams.set("hotel_id", hotelId);
 
         const r = await fetch(u.toString(), { signal: ac.signal });

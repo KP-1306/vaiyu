@@ -1,6 +1,7 @@
 // web/src/routes/OwnerDashboard.tsx — ultra-premium owner dashboard
 // NOTE: All data fetching / Supabase / hooks logic is preserved;
-// we only add AI Ops Co-pilot (heatmap + staffing) in a safe, additive way.
+// we only add AI Ops Co-pilot (heatmap + staffing) and light feature flags
+// so unfinished modules don’t send users to 404s.
 
 import {
   useEffect,
@@ -103,7 +104,13 @@ type NpsSnapshot = {
 type DrawerKind = "pickup" | "opsBoard" | "rushRooms" | "vipList";
 type DrawerState = { kind: DrawerKind };
 
+/** ========= Feature flags ========= */
 const HAS_FUNCS = import.meta.env.VITE_HAS_FUNCS === "true";
+// New: feature flags so unfinished modules don’t cause 404s
+const HAS_REVENUE = import.meta.env.VITE_HAS_REVENUE === "true";
+const HAS_HRMS = import.meta.env.VITE_HAS_HRMS === "true";
+const HAS_PRICING = import.meta.env.VITE_HAS_PRICING === "true";
+const HAS_CALENDAR = import.meta.env.VITE_HAS_CALENDAR === "true";
 
 /** ========= Tone helpers ========= */
 function toneClass(tone: "green" | "amber" | "red" | "grey") {
@@ -469,7 +476,7 @@ export default function OwnerDashboard() {
         <AccessHelp
           slug={slug}
           message={accessProblem}
-          inviteToken={params.get("invite") || undefined}
+          inviteToken={inviteToken || undefined}
         />
       </main>
     );
@@ -698,7 +705,7 @@ function OwnerTopBar({
 }) {
   return (
     <header className="flex flex-col gap-3 rounded-3xl border border-slate-100 bg-white/90 px-3 py-3 shadow-sm shadow-slate-200/60 backdrop-blur-md lg:flex-row lg:items-center lg:justify-between">
-      {/* BackHome removed here to avoid duplicate; layout BackHome remains */}
+      {/* BackHome is rendered by layout; keep this space clean */}
       <div className="flex items-center gap-3">
         <div>
           <div className="flex items-center gap-2">
@@ -735,18 +742,22 @@ function OwnerTopBar({
           </Link>
         </div>
         <div className="flex items-center gap-2">
-          <Link
-            to={`/owner/${slug}/pricing`}
-            className="btn btn-light h-8 text-xs"
-          >
-            Open pricing
-          </Link>
-          <Link
-            to={`/owner/${slug}/hrms`}
-            className="btn btn-light h-8 text-xs"
-          >
-            HRMS
-          </Link>
+          {HAS_PRICING && (
+            <Link
+              to={`/owner/${slug}/pricing`}
+              className="btn btn-light h-8 text-xs"
+            >
+              Open pricing
+            </Link>
+          )}
+          {HAS_HRMS && (
+            <Link
+              to={`/owner/${slug}/hrms`}
+              className="btn btn-light h-8 text-xs"
+            >
+              HRMS
+            </Link>
+          )}
           <Link
             to={`/owner/${slug}/settings`}
             className="btn btn-light h-8 text-xs"
@@ -850,8 +861,8 @@ function PulseStrip({
             label="Revenue snapshot"
             primary={`₹${revenueToday.toFixed(0)} today`}
             secondary={`ADR ₹${adr.toFixed(0)} · RevPAR ₹${revpar.toFixed(0)}`}
-            actionLabel="View pickup"
-            onAction={() => onOpenDrawer("pickup")}
+            actionLabel={HAS_REVENUE ? "View pickup" : undefined}
+            onAction={HAS_REVENUE ? () => onOpenDrawer("pickup") : undefined}
           />
           <PulseTile
             label="Guest experience"
@@ -998,24 +1009,26 @@ function KpiStrip({
             value: `₹${adr.toFixed(0)}`,
             sub: "Today’s average price per occupied room",
             tone: "grey",
-            link: `/owner/${slug}/revenue/adr`,
-            linkLabel: "Open ADR",
+            link: HAS_REVENUE ? `/owner/${slug}/revenue/adr` : undefined,
+            linkLabel: HAS_REVENUE ? "Open ADR" : undefined,
           },
           {
             label: "RevPAR (Revenue Per Available Room)",
             value: `₹${revpar.toFixed(0)}`,
             sub: "Revenue ÷ total rooms (today)",
             tone: "grey",
-            link: `/owner/${slug}/revenue/revpar`,
-            linkLabel: "Open RevPAR",
+            link: HAS_REVENUE ? `/owner/${slug}/revenue/revpar` : undefined,
+            linkLabel: HAS_REVENUE ? "Open RevPAR" : undefined,
           },
           {
             label: "Pick-up (7 days)",
             value: pickup7d,
             sub: "New room nights added in the last week",
             tone: "grey",
-            link: `/owner/${slug}/bookings/pickup?window=7d`,
-            linkLabel: "View pick-up",
+            link: HAS_REVENUE
+              ? `/owner/${slug}/bookings/pickup?window=7d`
+              : undefined,
+            linkLabel: HAS_REVENUE ? "View pick-up" : undefined,
           },
           {
             label: "SLA on-time",
@@ -1114,20 +1127,23 @@ function PerformanceColumn({
           title="Revenue & forecast"
           desc="Today vs budget and same day last year — simplified view."
           action={
-            <Link
-              to={`/owner/${slug}/revenue`}
-              className="text-xs underline text-slate-700"
-            >
-              Open revenue view
-            </Link>
+            HAS_REVENUE ? (
+              <Link
+                to={`/owner/${slug}/revenue`}
+                className="text-xs underline text-slate-700"
+              >
+                Open revenue view
+              </Link>
+            ) : null
           }
         />
         <div className="text-2xl font-semibold text-slate-900">
           ₹{revenueToday.toFixed(0)}
         </div>
         <div className="mt-1 text-xs text-slate-600">
-          ADR ₹{adr.toFixed(0)} · RevPAR ₹{revpar.toFixed(0)} · Pick-up 7d{" "}
-          {pickup7d}
+          ADR ₹{adr.toFixed(0)} · RevPAR ₹{revpar.toFixed(
+            0
+          )} · Pick-up 7d {pickup7d}
         </div>
         <div className="mt-3 h-24 rounded-xl bg-gradient-to-r from-sky-100 via-emerald-100 to-amber-100 p-2">
           <div className="flex h-full items-end justify-between gap-1">
@@ -1389,9 +1405,11 @@ function PricingNudge({
         title="Let’s boost tonight"
         desc="Small price moves can lift pick-up. Try this nudge and watch RevPAR."
         action={
-          <Link to={ctaTo} className="btn">
-            Open pricing
-          </Link>
+          HAS_PRICING ? (
+            <Link to={ctaTo} className="btn">
+              Open pricing
+            </Link>
+          ) : null
         }
       />
       <p className="text-gray-800">{suggestion}</p>
@@ -1595,9 +1613,14 @@ function HrmsPanel({ data, slug }: { data: HrmsSnapshot | null; slug: string }) 
           title="Attendance snapshot"
           desc="Presence pattern over the last 30 days — spot gaps early."
           action={
-            <Link to={`/owner/${slug}/hrms`} className="text-sm underline">
-              Open HRMS
-            </Link>
+            HAS_HRMS ? (
+              <Link
+                to={`/owner/${slug}/hrms`}
+                className="text-sm underline"
+              >
+                Open HRMS
+              </Link>
+            ) : null
           }
         />
         <div className="text-sm text-muted-foreground">
@@ -1622,12 +1645,14 @@ function HrmsPanel({ data, slug }: { data: HrmsSnapshot | null; slug: string }) 
         title="Attendance snapshot"
         desc="Presence pattern over the last 30 days — spot gaps early."
         action={
-          <Link
-            to={`/owner/${slug}/hrms/attendance`}
-            className="text-sm underline"
-          >
-            See details
-          </Link>
+          HAS_HRMS ? (
+            <Link
+              to={`/owner/${slug}/hrms/attendance`}
+              className="text-sm underline"
+            >
+              See details
+            </Link>
+          ) : null
         }
       />
       <div className="grid grid-cols-3 gap-3 text-sm">
@@ -1915,9 +1940,14 @@ function OccupancyHeatmap({ title, desc }: { title: string; desc?: string }) {
         title={title}
         desc={desc}
         action={
-          <Link to="../bookings/calendar" className="text-sm underline">
-            Open calendar
-          </Link>
+          HAS_CALENDAR ? (
+            <Link
+              to="../bookings/calendar"
+              className="text-sm underline"
+            >
+              Open calendar
+            </Link>
+          ) : null
         }
       />
       <div className="grid grid-cols-7 gap-1">
@@ -1933,7 +1963,9 @@ function OccupancyHeatmap({ title, desc }: { title: string; desc?: string }) {
         ))}
       </div>
       <div className="mt-3 text-xs text-muted-foreground">
-        Deeper calendar with real data coming next.
+        {HAS_CALENDAR
+          ? "Deeper calendar with real data coming next."
+          : "Calendar / bookings module will plug in here once enabled."}
       </div>
     </div>
   );

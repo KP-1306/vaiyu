@@ -17,6 +17,7 @@ const APP_PREFIXES = [
   "/regcard",
   "/bill",
   "/admin",
+  "/careers", // NEW: show Back home on careers page too
 ];
 
 /** Pages where the pill should not be shown */
@@ -53,6 +54,12 @@ export default function BackHome({
     }
 
     // ---------- Path-specific overrides (no Supabase round-trip) ----------
+
+    // 0) Careers page → always back to public landing.
+    if (pathname === "/careers") {
+      setAutoTo("/");
+      return;
+    }
 
     // 1) Owner detail pages (/owner/DEMO1, /owner/settings, etc.)
     //    → go back to the Owner console (/owner).
@@ -100,7 +107,7 @@ export default function BackHome({
         }
 
         const hasOwnerRole = (memRows || []).some(
-          (m: any) => m.role === "owner" || m.role === "manager"
+          (m: any) => m.role === "owner" || m.role === "manager",
         );
 
         if (!cancelled) setAutoTo(hasOwnerRole ? "/owner" : "/guest");

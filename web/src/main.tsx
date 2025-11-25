@@ -223,6 +223,7 @@ function RootLayout() {
 
 // ================= Simple owner detail pages to avoid 404s =================
 
+// /owner/:slug/rooms
 function OwnerRooms() {
   const { slug } = useParams();
 
@@ -245,19 +246,20 @@ function OwnerRooms() {
   );
 }
 
+// /owner/:slug/bookings/pickup
 function OwnerPickup() {
   const { slug } = useParams();
   const [searchParams] = useSearchParams();
   const windowLabel = searchParams.get("window") || "7d";
 
   return (
-    <main className="max-w-6xl mx_auto p-6">
+    <main className="max-w-6xl mx-auto p-6">
       <h1 className="text-2xl font-semibold mb-2">
         Pick-up<span className="text-base font-normal"> ({windowLabel})</span>
       </h1>
       <p className="text-sm text-muted-foreground mb-4">
-        This page will show booking pick-up trends for{" "}
-        {slug || "this hotel"} across the selected window.
+        This page will show booking pick-up trends for {slug || "this hotel"}{" "}
+        across the selected window.
       </p>
       <div className="rounded-xl border bg-white p-4 text-sm text-muted-foreground">
         <p>
@@ -338,7 +340,7 @@ function OwnerRevenueOverview() {
 function OwnerHRMS() {
   const { slug } = useParams<{ slug?: string }>();
   return (
-    <main className="max-w-6xl mx_auto p-6">
+    <main className="max-w-6xl mx-auto p-6">
       <h1 className="text-2xl font-semibold mb-2">HRMS &amp; attendance</h1>
       <p className="text-sm text-muted-foreground mb-4">
         This route is reserved for an HR and attendance snapshot for{" "}
@@ -348,9 +350,34 @@ function OwnerHRMS() {
       </p>
       <div className="rounded-xl border bg-white p-4 text-sm text-muted-foreground">
         <p>
-          You can safely wire staff rosters, shifts, and attendance widgets
-          here later. For now, please continue using your existing HR processes
-          while we design this module.
+          You can safely wire staff rosters, shifts, and attendance widgets here
+          later. For now, please continue using your existing HR processes while
+          we design this module.
+        </p>
+      </div>
+    </main>
+  );
+}
+
+// NEW: HRMS attendance detail backing /owner/:slug/hrms/attendance
+function OwnerHRMSAttendance() {
+  const { slug } = useParams<{ slug?: string }>();
+  return (
+    <main className="max-w-6xl mx-auto p-6">
+      <h1 className="text-2xl font-semibold mb-2">
+        Attendance details{slug ? ` — ${slug}` : ""}
+      </h1>
+      <p className="text-sm text-muted-foreground mb-4">
+        This page is reserved for a detailed attendance breakdown (present,
+        late, absent, trends) for {slug || "this hotel"}. It exists so{" "}
+        <strong>See details</strong> from the Attendance snapshot opens a valid
+        page instead of a 404.
+      </p>
+      <div className="rounded-xl border bg-white p-4 text-sm text-muted-foreground">
+        <p>
+          Future versions can show per-staff timelines, shift compliance, and
+          alerts. For now, please continue using your existing HRMS while this
+          module is being designed.
         </p>
       </div>
     </main>
@@ -361,14 +388,14 @@ function OwnerHRMS() {
 function OwnerPricing() {
   const { slug } = useParams<{ slug?: string }>();
   return (
-    <main className="max-w-6xl mx_auto p-6">
+    <main className="max-w-6xl mx-auto p-6">
       <h1 className="text-2xl font-semibold mb-2">Pricing &amp; plans</h1>
       <p className="text-sm text-muted-foreground mb-4">
         This route is a placeholder for a dedicated pricing configuration view
         for {slug || "this hotel"}. It prevents 404s from the{" "}
         <strong>Open pricing</strong> link.
       </p>
-      <div className="rounded-xl border bg_white p-4 text-sm text-muted-foreground space-y-2">
+      <div className="rounded-xl border bg-white p-4 text-sm text-muted-foreground space-y-2">
         <p>
           Future versions can use this page to manage BAR, corporate rates,
           packages, and channel-specific rules. Until then, pricing logic
@@ -386,13 +413,13 @@ function OwnerPricing() {
 // NEW: Bookings calendar placeholder backing /bookings/calendar
 function BookingsCalendar() {
   return (
-    <main className="max-w-6xl mx_auto p-6">
+    <main className="max-w-6xl mx-auto p-6">
       <h1 className="text-2xl font-semibold mb-2">Bookings calendar</h1>
       <p className="text-sm text-muted-foreground mb-4">
         This route is reserved for a calendar view of bookings. It exists so the{" "}
         <strong>Open calendar</strong> action no longer results in a 404.
       </p>
-      <div className="rounded-xl border bg_white p-4 text-sm text-muted-foreground space-y-2">
+      <div className="rounded-xl border bg-white p-4 text-sm text-muted-foreground space-y-2">
         <p>
           In a future release, this will show arrivals, in-house guests, and
           departures in a visual calendar. For now, use the Stays list and Ops
@@ -528,9 +555,18 @@ const router = createBrowserRouter([
         ),
       },
 
-      // NEW: Bookings calendar route (from Owner dashboard link)
+      // NEW: Bookings calendar routes (from Owner dashboard link)
       {
         path: "bookings/calendar",
+        element: (
+          <AuthGate>
+            <BookingsCalendar />
+          </AuthGate>
+        ),
+      },
+      // also handle potential relative link /owner/bookings/calendar
+      {
+        path: "owner/bookings/calendar",
         element: (
           <AuthGate>
             <BookingsCalendar />
@@ -618,6 +654,15 @@ const router = createBrowserRouter([
         element: (
           <AuthGate>
             <OwnerHRMS />
+          </AuthGate>
+        ),
+      },
+      // NEW: /owner/:slug/hrms/attendance (See details)
+      {
+        path: "owner/:slug/hrms/attendance",
+        element: (
+          <AuthGate>
+            <OwnerHRMSAttendance />
           </AuthGate>
         ),
       },

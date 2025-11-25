@@ -34,6 +34,7 @@ export default function GuestDashboard() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [spendMode, setSpendMode] = useState<"this" | "last" | "all">("this");
+  const [showExplore, setShowExplore] = useState(false); // ⬅️ new: Explore stays overlay
 
   // Quick auth guard
   useEffect(() => {
@@ -557,7 +558,7 @@ export default function GuestDashboard() {
                 ) : (
                   <div className="mt-3 rounded-2xl bg-white/70 border border-dashed p-4 text-sm text-slate-600">
                     No upcoming stays yet. Start your next journey with VAiyu —
-                    book a new stay in seconds.
+                    explore curated partner hotels and request a booking with one tap.
                   </div>
                 )}
               </div>
@@ -575,8 +576,8 @@ export default function GuestDashboard() {
                     <QuickPill
                       title="Book a new stay"
                       text="Explore stays"
-                      to="/"
                       variant="solid"
+                      onClick={() => setShowExplore(true)}
                     />
                     <QuickPill
                       title="Scan QR to check-in"
@@ -946,6 +947,12 @@ export default function GuestDashboard() {
           </section>
         </div>
       </div>
+
+      {/* Premium Explore stays overlay for “Book a new stay” */}
+      <ExploreStaysQuickAction
+        open={showExplore}
+        onClose={() => setShowExplore(false)}
+      />
     </main>
   );
 }
@@ -1153,26 +1160,43 @@ function QuickPill({
   title,
   text,
   to,
+  onClick,
   variant = "solid",
 }: {
   title: string;
   text: string;
-  to: string;
+  to?: string;
+  onClick?: () => void;
   variant?: "solid" | "light";
 }) {
+  const baseClasses = `rounded-xl border px-3 py-3 flex flex-col justify-between text-xs ${
+    variant === "solid" ? "bg-white shadow-sm" : "bg-white/80"
+  }`;
+
+  if (to && !onClick) {
+    return (
+      <Link to={to} className={baseClasses}>
+        <div className="text-[11px] text-gray-500">{text}</div>
+        <div className="font-semibold mt-0.5 text-slate-900 flex items-center justify-between gap-2">
+          <span>{title}</span>
+          <span className="text-gray-500">→</span>
+        </div>
+      </Link>
+    );
+  }
+
   return (
-    <Link
-      to={to}
-      className={`rounded-xl border px-3 py-3 flex flex-col justify-between text-xs ${
-        variant === "solid" ? "bg-white shadow-sm" : "bg-white/80"
-      }`}
+    <button
+      type="button"
+      onClick={onClick}
+      className={`${baseClasses} text-left w-full`}
     >
       <div className="text-[11px] text-gray-500">{text}</div>
       <div className="font-semibold mt-0.5 text-slate-900 flex items-center justify-between gap-2">
         <span>{title}</span>
         <span className="text-gray-500">→</span>
       </div>
-    </Link>
+    </button>
   );
 }
 
@@ -1259,6 +1283,186 @@ function Bubbles() {
     <div aria-hidden className="absolute inset-0 pointer-events-none">
       <div className="absolute -top-8 -left-8 w-40 h-40 rounded-full bg-sky-100 blur-2xl opacity-70" />
       <div className="absolute -bottom-10 -right-10 w-44 h-44 rounded-full bg-indigo-100 blur-2xl opacity-80" />
+    </div>
+  );
+}
+
+/* ===== Premium Explore stays overlay ===== */
+function ExploreStaysQuickAction({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [cityFilter, setCityFilter] = useState<string>("all");
+
+  if (!open) return null;
+
+  const properties = [
+    {
+      id: "demo-hotel-one-jaipur",
+      name: "Demo Hotel One · Jaipur",
+      cityKey: "jaipur",
+      cityLabel: "Jaipur · Rajasthan",
+      tag: "Flagship luxury · Partner",
+      highlights: ["Pool & spa", "Airport transfers", "City tours desk"],
+      startingFrom: "₹ 9,500 / night*",
+    },
+    {
+      id: "demo-hotel-one-nainital",
+      name: "Demo Hotel One · Nainital",
+      cityKey: "nainital",
+      cityLabel: "Nainital · Uttarakhand",
+      tag: "Lake view · Boutique",
+      highlights: ["Lake-facing rooms", "Breakfast included", "Early check-in on request"],
+      startingFrom: "₹ 7,800 / night*",
+    },
+    {
+      id: "demo-hotel-two-delhi",
+      name: "Demo Hotel Two · Delhi",
+      cityKey: "delhi",
+      cityLabel: "New Delhi · NCR",
+      tag: "Business + family friendly",
+      highlights: ["Metro access", "Conference rooms", "24×7 room service"],
+      startingFrom: "₹ 8,900 / night*",
+    },
+  ];
+
+  const cities = [
+    { key: "all", label: "All locations" },
+    { key: "jaipur", label: "Jaipur" },
+    { key: "nainital", label: "Nainital" },
+    { key: "delhi", label: "Delhi NCR" },
+  ];
+
+  const filtered =
+    cityFilter === "all"
+      ? properties
+      : properties.filter((p) => p.cityKey === cityFilter);
+
+  const mailBase =
+    "mailto:support@vaiyu.co.in?subject=" +
+    encodeURIComponent("VAiyu booking interest");
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="max-w-4xl w-full rounded-3xl bg-white shadow-2xl border overflow-hidden">
+        <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-3 border-b">
+          <div>
+            <div className="text-[11px] uppercase tracking-wide text-sky-600">
+              Concierge booking · Beta
+            </div>
+            <h2 className="text-lg md:text-xl font-semibold">
+              Explore stays with VAiyu
+            </h2>
+            <p className="mt-1 text-xs text-slate-600 max-w-xl">
+              Right now we handle bookings with a human concierge. Pick a
+              property, share your dates and we’ll confirm the best available
+              rate over WhatsApp / email. Instant online booking is coming soon.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="ml-3 inline-flex h-8 w-8 items-center justify-center rounded-full border bg-slate-50 text-slate-500 hover:bg-slate-100"
+            aria-label="Close explore stays"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="px-5 pt-3 pb-4 border-b flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="inline-flex items-center gap-2">
+            <span className="text-slate-500">Filter by location</span>
+            <div className="inline-flex rounded-full border bg-slate-50 px-1 py-0.5">
+              {cities.map((c) => (
+                <button
+                  key={c.key}
+                  type="button"
+                  onClick={() => setCityFilter(c.key)}
+                  className={`px-2 py-0.5 rounded-full ${
+                    cityFilter === c.key
+                      ? "bg-white shadow-sm text-slate-900"
+                      : "text-slate-500"
+                  }`}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="text-[11px] text-slate-500">
+            Prefer a different city?{" "}
+            <a
+              href={`${mailBase}&body=${encodeURIComponent(
+                "I’d like to explore a booking in another city. Please contact me with options.",
+              )}`}
+              className="underline"
+            >
+              Ask our concierge
+            </a>
+          </div>
+        </div>
+
+        <div className="p-5 grid md:grid-cols-3 gap-4">
+          {filtered.map((p) => (
+            <div
+              key={p.id}
+              className="rounded-2xl border bg-slate-50/70 p-3 flex flex-col justify-between"
+            >
+              <div>
+                <div className="text-[11px] text-slate-500">{p.cityLabel}</div>
+                <div className="mt-0.5 font-semibold text-sm">
+                  {p.name}
+                </div>
+                <div className="mt-1 text-[11px] text-emerald-700">
+                  {p.tag}
+                </div>
+                <ul className="mt-2 space-y-1 text-[11px] text-slate-600">
+                  {p.highlights.map((h) => (
+                    <li key={h}>• {h}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <div className="text-[11px] text-slate-500">
+                  From{" "}
+                  <span className="font-semibold text-slate-800">
+                    {p.startingFrom}
+                  </span>
+                  <div className="text-[10px] text-slate-400">
+                    *Indicative rack rates. Final price will be confirmed on call.
+                  </div>
+                </div>
+                <a
+                  className="btn btn-light text-[11px] whitespace-nowrap"
+                  href={`${mailBase}&body=${encodeURIComponent(
+                    `I’d like to book: ${p.name} (${p.cityLabel}).\n\nPreferred dates:\nGuests:\nSpecial requests:\n\nPlease contact me on this number/email with availability and best rate.`,
+                  )}`}
+                >
+                  Share details to book
+                </a>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="px-5 py-3 border-t bg-slate-50 text-[11px] text-slate-500 flex flex-wrap items-center justify-between gap-2">
+          <span>
+            You will receive a confirmation from our concierge team before any booking is final.
+          </span>
+          <span>
+            Online one-tap booking ·{" "}
+            <span className="font-semibold text-slate-700">coming soon</span>
+          </span>
+        </div>
+      </div>
     </div>
   );
 }

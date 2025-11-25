@@ -1,11 +1,8 @@
+// web/src/routes/Desk.tsx
+
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import {
-  listTickets,
-  updateTicket,
-  listOrders,
-  updateOrder,
-} from "../lib/api";
+import { listTickets, updateTicket, listOrders, updateOrder } from "../lib/api";
 import { connectEvents } from "../lib/sse";
 import SEO from "../components/SEO";
 import { supabase } from "../lib/supabase";
@@ -146,7 +143,7 @@ export default function Desk() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // NEW: simple tab between Ops (HK + Kitchen) and Chat workspace
+  // Simple tab between Ops (HK + Kitchen) and Chat workspace
   const [activeTab, setActiveTab] = useState<"ops" | "chat">("ops");
 
   const hkEmpty = !tickets.length;
@@ -175,7 +172,7 @@ export default function Desk() {
     setError(null);
 
     try {
-      // IMPORTANT: pass hotelId through – backend Edge Functions expect ?hotelId=
+      // IMPORTANT: pass hotelId through – backend Edge Functions expect ?hotelId= / ?hotel_id=
       const [t, o] = await Promise.all([
         listTickets(hotelId),
         listOrders(hotelId),
@@ -200,14 +197,14 @@ export default function Desk() {
         const t = (e as any)?.ticket as Ticket;
         if (!t) return;
         setTickets((prev) =>
-          prev.find((x) => x.id === t.id) ? prev : [t, ...prev]
+          prev.find((x) => x.id === t.id) ? prev : [t, ...prev],
         );
       },
       ticket_updated: (e) => {
         const t = (e as any)?.ticket as Ticket;
         if (!t) return;
         setTickets((prev) =>
-          prev.map((x) => (x.id === t.id ? { ...x, ...t } : x))
+          prev.map((x) => (x.id === t.id ? { ...x, ...t } : x)),
         );
       },
 
@@ -216,14 +213,14 @@ export default function Desk() {
         const o = (e as any)?.order as Order;
         if (!o) return;
         setOrders((prev) =>
-          prev.find((x) => x.id === o.id) ? prev : [o, ...prev]
+          prev.find((x) => x.id === o.id) ? prev : [o, ...prev],
         );
       },
       order_updated: (e) => {
         const o = (e as any)?.order as Order;
         if (!o) return;
         setOrders((prev) =>
-          prev.map((x) => (x.id === o.id ? { ...x, ...o } : x))
+          prev.map((x) => (x.id === o.id ? { ...x, ...o } : x)),
         );
       },
     });
@@ -233,7 +230,7 @@ export default function Desk() {
 
   async function setTicketStatus(id: string, status: Ticket["status"]) {
     setTickets((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, status } : t))
+      prev.map((t) => (t.id === id ? { ...t, status } : t)),
     );
     try {
       await updateTicket(id, { status });
@@ -245,7 +242,7 @@ export default function Desk() {
 
   async function setOrderStatus(id: string, status: string) {
     setOrders((prev) =>
-      prev.map((o) => (o.id === id ? { ...o, status } : o))
+      prev.map((o) => (o.id === id ? { ...o, status } : o)),
     );
     try {
       await updateOrder(id, { status });
@@ -298,22 +295,14 @@ export default function Desk() {
       >
         <button
           type="button"
-          className={
-            activeTab === "ops"
-              ? "btn"
-              : "btn btn-light"
-          }
+          className={activeTab === "ops" ? "btn" : "btn btn-light"}
           onClick={() => setActiveTab("ops")}
         >
-          Operations (HK & Kitchen)
+          Operations (HK &amp; Kitchen)
         </button>
         <button
           type="button"
-          className={
-            activeTab === "chat"
-              ? "btn"
-              : "btn btn-light"
-          }
+          className={activeTab === "chat" ? "btn" : "btn btn-light"}
           onClick={() => setActiveTab("chat")}
         >
           Chat workspace

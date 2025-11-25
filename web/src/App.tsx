@@ -1,11 +1,5 @@
 // web/src/App.tsx
 
-
-const OwnerGuestProfile = lazy(
-  () => import("./routes/OwnerGuestProfile")
-);
-
-
 import React, { Suspense, lazy } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import Header from "./components/Header";
@@ -51,11 +45,7 @@ const FallbackPage: React.FC<{ title: string; hint?: string }> = ({
 const FallbackMarketing: React.FC = () => (
   <main className="mx-auto max-w-3xl px-4 py-16">
     <div className="flex items-center gap-3">
-      <img
-        src="/brand/vaiyu-logo.png"
-        alt="VAiyu"
-        className="h-10 w-auto"
-      />
+      <img src="/brand/vaiyu-logo.png" alt="VAiyu" className="h-10 w-auto" />
       <h1 className="text-2xl font-semibold">VAiyu</h1>
     </div>
     <p className="mt-2 text-gray-600">
@@ -236,8 +226,18 @@ export default function App() {
             <Route path="/guest" element={<GuestDashboard />} />
 
             {/* Owner views */}
+            {/* New canonical route with hotel slug + guestId */}
+            <Route
+              path="/owner/guest/:slug/:guestId"
+              element={<OwnerGuestProfile />}
+            />
+            {/* Back-compat aliases so old links don’t 404 */}
             <Route
               path="/owner/guests/:guestId"
+              element={<OwnerGuestProfile />}
+            />
+            <Route
+              path="/owner/guest/:guestId"
               element={<OwnerGuestProfile />}
             />
             <Route path="/owner/*" element={<OwnerHome />} />
@@ -260,10 +260,6 @@ export default function App() {
             <Route path="/press" element={<Press />} />
             <Route path="/privacy" element={<Privacy />} />
 
-            <Route path="/owner/*" element={<OwnerHome />} />
-            <Route path="/owner/guest/:guestId" element={<OwnerGuestProfile />} />
-
-            
             {/* 404 */}
             <Route path="*" element={<Navigate to="/guest" replace />} />
           </Routes>

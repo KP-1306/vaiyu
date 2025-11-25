@@ -1,6 +1,6 @@
 // web/src/routes/OwnerDashboard.tsx — ultra-premium owner dashboard
 // NOTE: All data fetching / Supabase / hooks logic is preserved;
-// we only add VIP / Events / NPS wiring and tweak layout safely.
+// we only add AI Ops Co-pilot (heatmap + staffing) in a safe, additive way.
 
 import {
   useEffect,
@@ -14,6 +14,12 @@ import Spinner from "../components/Spinner";
 import BackHome from "../components/BackHome";
 import { useTicketsRealtime } from "../hooks/useTicketsRealtime";
 import UsageMeter from "../components/UsageMeter";
+import {
+  fetchOpsHeatmap,
+  fetchStaffingPlan,
+  type OpsHeatmapPoint,
+  type StaffingPlanRow,
+} from "../lib/api";
 
 /** ========= Types ========= */
 type Hotel = { id: string; name: string; slug: string; city: string | null };
@@ -177,6 +183,13 @@ export default function OwnerDashboard() {
   const [vipStays, setVipStays] = useState<VipStay[] | null>(null);
   const [eventsToday, setEventsToday] = useState<EventRow[] | null>(null);
   const [npsSnapshot, setNpsSnapshot] = useState<NpsSnapshot | null>(null);
+
+  // NEW: AI Ops Co-pilot state (heatmap + staffing recommendations)
+  const [opsHeatmap, setOpsHeatmap] = useState<OpsHeatmapPoint[] | null>(null);
+  const [staffingPlan, setStaffingPlan] = useState<StaffingPlanRow[] | null>(
+    null
+  );
+  const [opsLoading, setOpsLoading] = useState(false);
 
   const [accessProblem, setAccessProblem] = useState<string | null>(null);
   const inviteToken = params.get("invite");
@@ -389,6 +402,57 @@ export default function OwnerDashboard() {
     };
   }, [slug, today]);
 
+  // NEW: AI Ops Co-pilot fetch (heatmap + staffing), purely additive
+  useEffect(() => {
+    if (!hotel?.id || !HAS_FUNCS) {
+      // if functions are off, keep this section in "preview" mode
+      setOpsHeatmap(null);
+      setStaffingPlan(null);
+      return;
+    }
+
+    let alive = true;
+
+    (async () => {
+      setOpsLoading(true);
+      try {
+        const now = new Date();
+        const to = now.toISOString();
+        const from = new Date(now);
+        from.setDate(from.getDate() - 7);
+        const fromIso = from.toISOString();
+
+        const [heat, plan] = await Promise.all([
+          fetchOpsHeatmap({
+            hotelId: hotel.id,
+            from: fromIso,
+            to,
+          }),
+          fetchStaffingPlan({
+            hotelId: hotel.id,
+            date: today,
+          }),
+        ]);
+
+        if (!alive) return;
+        setOpsHeatmap(heat ?? []);
+        setStaffingPlan(plan ?? []);
+      } catch {
+        if (!alive) return;
+        // degrade gracefully if backend route is not ready yet
+        setOpsHeatmap([]);
+        setStaffingPlan([]);
+      } finally {
+        if (!alive) return;
+        setOpsLoading(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [hotel?.id, today]);
+
   /** ======= UI States ======= */
   if (loading) {
     return (
@@ -555,7 +619,7 @@ export default function OwnerDashboard() {
           <LiveOrdersPanel
             orders={liveOrders}
             targetMin={targetMin}
-            hotelId={hotel.id}          // ✅ pass hotel.id so /ops?hotelId=… works
+            hotelId={hotel.id} // ✅ pass hotel.id so /ops?hotelId=… works
             className="lg:col-span-1"
           />
           <AttentionServicesCard orders={liveOrders} />
@@ -565,12 +629,16 @@ export default function OwnerDashboard() {
         <section className="grid gap-4 lg:grid-cols-3">
           <StaffPerformancePanel data={staffPerf} />
           <HrmsPanel data={hrms} slug={hotel.slug} />
-          <OwnerTasksPanel
-            occPct={occPct}
-            kpi={kpi}
-            slug={hotel.slug}
-          />
+          <OwnerTasksPanel occPct={occPct} kpi={kpi} slug={hotel.slug} />
         </section>
+
+        {/* AI Ops Co-pilot (new, additive) */}
+        <AiOpsSection
+          hotelId={hotel.id}
+          heatmap={opsHeatmap}
+          staffingPlan={staffingPlan}
+          loading={opsLoading}
+        />
 
         {/* AI usage */}
         <section className="rounded-2xl border border-slate-100 bg-white/80 px-4 py-4 shadow-sm lg:px-5 lg:py-5">
@@ -749,8 +817,7 @@ function PulseStrip({
   eventCount: number;
   onOpenDrawer: (kind: DrawerKind) => void;
 }) {
-  const effectiveNps =
-    typeof npsScore === "number" ? npsScore : 78;
+  const effectiveNps = typeof npsScore === "number" ? npsScore : 78;
   const effectiveResponses = npsResponses ?? 0;
 
   return (
@@ -1037,8 +1104,7 @@ function PerformanceColumn({
     rating != null
       ? Math.min(100, Math.max(0, Math.round(rating * 20)))
       : 78;
-  const npsDisplay =
-    typeof npsScore === "number" ? npsScore : fallbackNps;
+  const npsDisplay = typeof npsScore === "number" ? npsScore : fallbackNps;
   const responsesDisplay = npsResponses ?? 0;
 
   return (
@@ -1376,7 +1442,7 @@ function SlaCard({
 function LiveOrdersPanel({
   orders,
   targetMin,
-  hotelId,          // keeps the prop available for the link
+  hotelId, // keeps the prop available for the link
   className = "",
 }: {
   orders: LiveOrder[];
@@ -1569,10 +1635,7 @@ function HrmsPanel({ data, slug }: { data: HrmsSnapshot | null; slug: string }) 
         <Metric label="Present today" value={present_today} />
         <Metric label="Late today" value={late_today} />
         <Metric label="Absent today" value={absent_today} />
-        <Metric
-          label="Attendance %"
-          value={`${attendance_pct_today}%`}
-        />
+        <Metric label="Attendance %" value={`${attendance_pct_today}%`} />
         <Metric label="Absence days (7d)" value={absences_7d} />
       </div>
       <div className="mt-2 text-xs text-muted-foreground">
@@ -1637,6 +1700,211 @@ function Metric({ label, value }: { label: string; value: string | number }) {
     </div>
   );
 }
+
+/** ========= AI Ops Co-pilot section (new) ========= */
+
+function AiOpsSection({
+  hotelId,
+  heatmap,
+  staffingPlan,
+  loading,
+}: {
+  hotelId: string;
+  heatmap: OpsHeatmapPoint[] | null;
+  staffingPlan: StaffingPlanRow[] | null;
+  loading: boolean;
+}) {
+  const hasPlan = !!(staffingPlan && staffingPlan.length);
+  const hasHeatmap = !!(heatmap && heatmap.length);
+
+  return (
+    <section className="rounded-2xl border border-slate-100 bg-white/95 px-4 py-4 shadow-sm">
+      <SectionHeader
+        title="AI Ops Co-pilot (beta)"
+        desc={
+          HAS_FUNCS
+            ? "Early-warning on overload and staffing risk, based on last 7 days of tickets."
+            : "Turn on Supabase Functions to let VAiyu suggest staffing and highlight risky hours automatically."
+        }
+        action={
+          <Link
+            to={
+              hotelId
+                ? `/ops?hotelId=${encodeURIComponent(hotelId)}`
+                : "/ops"
+            }
+            className="text-[11px] underline text-slate-700"
+          >
+            Open ops view
+          </Link>
+        }
+      />
+      <div className="grid gap-4 md:grid-cols-5">
+        <div className="space-y-2 text-xs text-slate-700 md:col-span-2">
+          {loading ? (
+            <div className="text-xs text-slate-500">
+              Analyzing last 7 days of tickets…
+            </div>
+          ) : hasPlan ? (
+            <>
+              <div className="font-semibold text-slate-900">
+                Today’s suggested staffing bands
+              </div>
+              <ul className="space-y-1">
+                {staffingPlan!.slice(0, 3).map((row) => (
+                  <li
+                    key={row.department}
+                    className="flex items-start justify-between gap-2 rounded-lg bg-slate-50 px-2 py-1"
+                  >
+                    <div>
+                      <div className="text-[11px] font-semibold text-slate-900">
+                        {row.department}
+                      </div>
+                      <div className="text-[11px] text-slate-600">
+                        Recommend {row.recommended_count} staff (min{" "}
+                        {row.min_count}, max {row.max_count})
+                      </div>
+                      {row.reason && (
+                        <div className="mt-0.5 text-[10px] text-slate-500">
+                          {row.reason}
+                        </div>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-[11px] text-slate-500">
+                These are soft suggestions only. Final rosters stay under your
+                HRMS / owner control.
+              </p>
+            </>
+          ) : (
+            <div className="text-xs text-slate-600">
+              Once there’s enough recent ticket activity, this panel will
+              suggest headcount bands per department. For now, use your standard
+              roster and the HRMS attendance view.
+            </div>
+          )}
+          {HAS_FUNCS && hasHeatmap && (
+            <p className="text-[11px] text-emerald-700">
+              Tip: Use this along with Ops board filters to smooth busy bands
+              before SLAs slip.
+            </p>
+          )}
+        </div>
+        <div className="md:col-span-3">
+          <AiOpsHeatmap heatmap={heatmap} loading={loading} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function AiOpsHeatmap({
+  heatmap,
+  loading,
+}: {
+  heatmap: OpsHeatmapPoint[] | null;
+  loading: boolean;
+}) {
+  const buckets = ["00–06", "06–12", "12–18", "18–24"];
+
+  let zones: string[] = [];
+  const matrix: Record<string, Record<string, number>> = {};
+
+  if (heatmap && heatmap.length > 0) {
+    const zoneTotals: Record<string, number> = {};
+    for (const p of heatmap) {
+      const zone = p.zone || "Other";
+      const bucket = timeBucketFromISO(p.hour_bucket);
+      if (!matrix[zone]) matrix[zone] = {};
+      matrix[zone][bucket] =
+        (matrix[zone][bucket] || 0) + (p.total_tickets ?? 0);
+      zoneTotals[zone] = (zoneTotals[zone] || 0) + (p.total_tickets ?? 0);
+    }
+    zones = Object.keys(zoneTotals).sort(
+      (a, b) => (zoneTotals[b] ?? 0) - (zoneTotals[a] ?? 0)
+    );
+    zones = zones.slice(0, 4);
+  } else {
+    // Fallback preview grid
+    zones = ["Rooms", "F&B", "Front desk", "Engineering"];
+    for (const z of zones) {
+      matrix[z] = {};
+    }
+  }
+
+  let maxValue = 0;
+  for (const z of zones) {
+    for (const b of buckets) {
+      const v = matrix[z]?.[b] ?? 0;
+      if (v > maxValue) maxValue = v;
+    }
+  }
+  if (maxValue === 0) maxValue = 1;
+
+  return (
+    <div className="space-y-2">
+      <div className="text-[11px] text-slate-500">
+        {loading
+          ? "Analyzing last 7 days of requests…"
+          : "Darker cells ≈ more requests in that zone & time-band."}
+      </div>
+      <div className="overflow-x-auto rounded-xl border border-slate-100 bg-slate-50/60 p-2">
+        <table className="w-full border-separate border-spacing-0 text-[11px]">
+          <thead>
+            <tr>
+              <th className="py-1 pr-2 text-left text-slate-500">
+                Zone / Time
+              </th>
+              {buckets.map((b) => (
+                <th
+                  key={b}
+                  className="px-1 py-1 text-center text-slate-500"
+                >
+                  {b}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {zones.map((z) => (
+              <tr key={z}>
+                <td className="py-1 pr-2 text-left text-slate-700">{z}</td>
+                {buckets.map((b) => {
+                  const v = matrix[z]?.[b] ?? 0;
+                  const ratio = v / maxValue;
+                  const opacity = v === 0 ? 0.08 : 0.2 + ratio * 0.7;
+                  return (
+                    <td key={b} className="px-1 py-1 text-center">
+                      <div
+                        className="flex h-6 items-center justify-center rounded bg-emerald-500 text-[10px] font-medium text-emerald-50"
+                        style={{ opacity }}
+                        title={
+                          v > 0
+                            ? `${v} request${v === 1 ? "" : "s"} in ${z}, ${b}`
+                            : `No data yet in ${z}, ${b}`
+                        }
+                      >
+                        {v > 0 ? v : "·"}
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-[11px] text-slate-500">
+        AI uses this pattern to suggest staffing and alert bands before SLAs
+        slip. Detailed board lives in Operations.
+      </p>
+    </div>
+  );
+}
+
+/** ========= Remaining components ========= */
 
 function OccupancyHeatmap({ title, desc }: { title: string; desc?: string }) {
   const weeks = 6;
@@ -1918,6 +2186,16 @@ function nextDayISO(yyyy_mm_dd: string) {
   const d = new Date(yyyy_mm_dd + "T00:00:00Z");
   d.setUTCDate(d.getUTCDate() + 1);
   return d.toISOString().slice(0, 10);
+}
+function timeBucketFromISO(iso: string): string {
+  if (!iso) return "00–06";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "00–06";
+  const h = d.getHours();
+  if (h < 6) return "00–06";
+  if (h < 12) return "06–12";
+  if (h < 18) return "12–18";
+  return "18–24";
 }
 function suggestedBump(occ: number) {
   if (occ >= 90) return 1200;

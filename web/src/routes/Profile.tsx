@@ -7,23 +7,25 @@ import Spinner from "../components/Spinner";
 import BackHome from "../components/BackHome";
 
 /** ---------- Types ---------- */
+type GovtIdType = "Aadhar" | "DL" | "Passport" | "Voter ID" | "";
+
 type ProfileRecord = {
-  id?: string;                 // user id (uuid)
-  vaiyu_id?: string | null;    // read-only VAiyu ID like V-123456
+  id?: string; // user id (uuid)
+  vaiyu_id?: string | null; // read-only VAiyu ID like V-123456
 
   // User Profile
   full_name: string;
   phone: string;
   email: string;
   profile_photo_url?: string | null; // public avatar URL (derived from avatar_path)
-  avatar_path?: string | null;       // storage key for avatar
+  avatar_path?: string | null; // storage key for avatar
 
   // KYC
-  govt_id_type: "Aadhar" | "DL" | "Passport" | "Voter ID" | "";
+  govt_id_type: GovtIdType;
   govt_id_number: string;
   address: string;
-  govt_id_file_url?: string | null;  // (kept for backward compat; may be null going forward)
-  kyc_path?: string | null;          // storage key for KYC (private bucket)
+  govt_id_file_url?: string | null; // (kept for backward compat; may be null going forward)
+  kyc_path?: string | null; // storage key for KYC (private bucket)
 
   // Other
   emergency_name: string;
@@ -57,9 +59,62 @@ const EMPTY: ProfileRecord = {
 /** LocalStorage safety fallback key */
 const LS_KEY = "va:profile";
 
-/** Utility: simple phone & email checks (very light) */
-const isPhone = (s: string) => /^[0-9+\-\s]{8,}$/.test(s.trim());
+/** Utility: phone & email checks (slightly stricter) */
+const isPhone = (s: string) => {
+  const trimmed = s.trim();
+  const digits = trimmed.replace(/\D+/g, "");
+  if (digits.length < 8 || digits.length > 15) return false;
+  return /^[0-9+\-\s]+$/.test(trimmed);
+};
 const isEmail = (s: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s.trim());
+
+/** Basic full-name sanity check */
+const isFullName = (s: string) => {
+  const v = s.trim();
+  if (v.length < 3) return false;
+  // At least two letters somewhere; allow spaces and dots.
+  return /[A-Za-z]{2,}/.test(v);
+};
+
+/** Govt ID format checks per type (very India-oriented, but forgiving) */
+function validateGovtId(type: GovtIdType, raw: string): string {
+  const v = raw.trim().toUpperCase();
+  if (!type || !v) return "";
+  const digits = v.replace(/\D+/g, "");
+
+  switch (type) {
+    case "Aadhar": {
+      // 12 digits, starting 2–9
+      if (!/^[2-9]\d{11}$/.test(digits)) {
+        return "Aadhar should be a 12-digit number starting from 2–9.";
+      }
+      return "";
+    }
+    case "Passport": {
+      // Common Indian passport pattern: 1 letter + 7 digits
+      if (!/^[A-PR-WY][1-9][0-9]{6}$/.test(v)) {
+        return "Passport should look like N1234567 (1 letter + 7 digits).";
+      }
+      return "";
+    }
+    case "Voter ID": {
+      // 3 letters + 7 digits (EPIC)
+      if (!/^[A-Z]{3}[0-9]{7}$/.test(v)) {
+        return "Voter ID should be 3 letters followed by 7 digits.";
+      }
+      return "";
+    }
+    case "DL": {
+      // Rough DL pattern: 2 letters (state) + 2 digits (RTO) + 4–11 alnum
+      if (!/^[A-Z]{2}[0-9]{2}[0-9A-Z]{4,11}$/.test(v)) {
+        return "DL should look like DL01YYYY… (2 letters, 2 digits, then 4–11 letters/digits).";
+      }
+      return "";
+    }
+    default:
+      return "";
+  }
+}
 
 /** Completeness score (0–100) — just a nudge, not blocking */
 function completeness(p: ProfileRecord) {
@@ -78,65 +133,6 @@ function completeness(p: ProfileRecord) {
   return Math.round((got / needs.length) * 100);
 }
 
-/** Save + load with graceful Supabase fallback */
-async function loadProfile(): Promise<{ data: ProfileRecord; source: "db" | "local" }> {
-  const { data: sess } = await supabase.auth.getSession().catch(() => ({ data: { session: null } as any }));
-  const user = sess?.session?.user;
-  if (!user) {
-    const cached = safeReadLocal();
-    return { data: cached ?? { ...EMPTY, email: "" }, source: "local" };
-  }
-
-  try {
-    const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
-    if (error) throw error;
-
-    if (data) {
-      const rec = normalizeFromDb(data as any);
-      // Derive avatar public URL if we have a path but not a URL
-      if (!rec.profile_photo_url && rec.avatar_path) {
-        const { data: pub } = supabase.storage.from("avatars").getPublicUrl(rec.avatar_path);
-        rec.profile_photo_url = pub?.publicUrl ?? null;
-      }
-      safeWriteLocal(rec);
-      return { data: rec, source: "db" };
-    }
-
-    // No row yet — prefill from auth
-    const rec: ProfileRecord = {
-      ...EMPTY,
-      email: user.email ?? "",
-      full_name: user.user_metadata?.full_name ?? "",
-      phone: user.user_metadata?.phone ?? "",
-    };
-    return { data: rec, source: "db" };
-  } catch {
-    const cached = safeReadLocal();
-    return { data: cached ?? { ...EMPTY, email: user?.email ?? "" }, source: "local" };
-  }
-}
-
-async function saveProfile(next: ProfileRecord): Promise<"db" | "local"> {
-  const { data: sess } = await supabase.auth.getSession().catch(() => ({ data: { session: null } as any }));
-  const user = sess?.session?.user;
-
-  if (!user) {
-    safeWriteLocal(next);
-    return "local";
-  }
-
-  try {
-    const payload = normalizeToDb(user.id, next);
-    const { error } = await supabase.from("profiles").upsert(payload, { onConflict: "id" });
-    if (error) throw error;
-    safeWriteLocal(next);
-    return "db";
-  } catch {
-    safeWriteLocal(next);
-    return "local";
-  }
-}
-
 /** ---------- Local cache helpers ---------- */
 function safeReadLocal(): ProfileRecord | null {
   try {
@@ -149,7 +145,30 @@ function safeReadLocal(): ProfileRecord | null {
 function safeWriteLocal(p: ProfileRecord) {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(p));
-  } catch {}
+  } catch {
+    // ignore
+  }
+}
+
+/** Merge DB row with local cached profile.
+ *  Local non-empty fields always win, so a failed DB upsert
+ *  can’t wipe a newer local profile on reload.
+ */
+function mergeProfiles(dbRec: ProfileRecord, local: ProfileRecord | null): ProfileRecord {
+  if (!local) return dbRec;
+  const out: ProfileRecord = { ...dbRec };
+  (Object.keys(local) as (keyof ProfileRecord)[]).forEach((key) => {
+    const val = local[key];
+    if (val == null) return;
+    if (typeof val === "string" && val.trim() === "") return;
+    if (typeof val === "boolean" && val === false && (dbRec as any)[key] === true) {
+      // don't force false over true unless user really changed it – but
+      // for now, keep DB "true" if local is false and DB is true
+      return;
+    }
+    out[key] = val as any;
+  });
+  return out;
 }
 
 /** ---------- DB <-> UI normalization ---------- */
@@ -196,6 +215,87 @@ function normalizeToDb(id: string, p: ProfileRecord) {
   };
 }
 
+/** Save + load with graceful Supabase + local fallback */
+async function loadProfile(): Promise<{ data: ProfileRecord; source: "db" | "local" }> {
+  const { data: sess } = await supabase
+    .auth
+    .getSession()
+    .catch(() => ({ data: { session: null } as any }));
+
+  const user = sess?.session?.user;
+  const local = safeReadLocal();
+
+  if (!user) {
+    return { data: local ?? { ...EMPTY, email: "" }, source: "local" };
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (data) {
+      const rec = normalizeFromDb(data as any);
+
+      // Derive avatar public URL if we have a path but not a URL
+      if (!rec.profile_photo_url && rec.avatar_path) {
+        const { data: pub } = supabase.storage.from("avatars").getPublicUrl(rec.avatar_path);
+        rec.profile_photo_url = pub?.publicUrl ?? null;
+      }
+
+      const merged = mergeProfiles(rec, local);
+      safeWriteLocal(merged);
+      return { data: merged, source: "db" };
+    }
+
+    // No row yet — prefill from auth & merge with any local cache
+    const base: ProfileRecord = {
+      ...EMPTY,
+      email: user.email ?? "",
+      full_name: user.user_metadata?.full_name ?? "",
+      phone: user.user_metadata?.phone ?? "",
+    };
+    const merged = mergeProfiles(base, local);
+    safeWriteLocal(merged);
+    return { data: merged, source: local ? "local" : "db" };
+  } catch {
+    return { data: local ?? { ...EMPTY, email: user?.email ?? "" }, source: "local" };
+  }
+}
+
+async function saveProfile(next: ProfileRecord): Promise<"db" | "local"> {
+  const { data: sess } = await supabase
+    .auth
+    .getSession()
+    .catch(() => ({ data: { session: null } as any }));
+
+  const user = sess?.session?.user;
+
+  if (!user) {
+    safeWriteLocal(next);
+    return "local";
+  }
+
+  try {
+    const payload = normalizeToDb(user.id, next);
+    const { error } = await supabase
+      .from("profiles")
+      .upsert(payload, { onConflict: "id" });
+    if (error) throw error;
+    safeWriteLocal(next);
+    return "db";
+  } catch {
+    // If DB write fails for any reason (missing columns / RLS),
+    // keep at least the local copy so the user doesn't lose data.
+    safeWriteLocal(next);
+    return "local";
+  }
+}
+
 /** ---------- Small helpers ---------- */
 // Upload to a bucket; optionally delete previous path; optionally downscale (images only)
 async function uploadToBucket({
@@ -226,14 +326,20 @@ async function uploadToBucket({
 
   const { error: upErr } = await supabase.storage
     .from(bucket)
-    .upload(path, uploadFile, { cacheControl: "3600", upsert: false, contentType: file.type });
+    .upload(path, uploadFile, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: file.type,
+    });
   if (upErr) throw upErr;
 
   // best-effort: delete old object after successful upload
   if (prevPath) {
     try {
       await supabase.storage.from(bucket).remove([prevPath]);
-    } catch {}
+    } catch {
+      // ignore
+    }
   }
 
   const out: { path: string; publicUrl?: string } = { path };
@@ -259,14 +365,25 @@ function downscaleImage(file: File, max = 1024): Promise<Blob> {
       canvas.width = Math.round(img.width * scale);
       canvas.height = Math.round(img.height * scale);
       const ctx = canvas.getContext("2d");
-      if (!ctx) { URL.revokeObjectURL(url); return reject(new Error("Canvas not supported")); }
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob((blob) => {
+      if (!ctx) {
         URL.revokeObjectURL(url);
-        if (blob) resolve(blob); else reject(new Error("Could not create blob"));
-      }, file.type === "image/webp" ? "image/webp" : "image/jpeg", 0.9);
+        return reject(new Error("Canvas not supported"));
+      }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(
+        (blob) => {
+          URL.revokeObjectURL(url);
+          if (blob) resolve(blob);
+          else reject(new Error("Could not create blob"));
+        },
+        file.type === "image/webp" ? "image/webp" : "image/jpeg",
+        0.9,
+      );
     };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Invalid image")); };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Invalid image"));
+    };
     img.src = url;
   });
 }
@@ -298,16 +415,25 @@ export default function Profile() {
       if (!mounted) return;
       setProfile(res.data);
       setSource(res.source);
-      setMode(res.data.full_name || res.data.phone || res.data.govt_id_type ? "view" : "edit");
+      setMode(
+        res.data.full_name || res.data.phone || res.data.govt_id_type
+          ? "view"
+          : "edit",
+      );
       setLoading(false);
     })();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // refresh signed KYC URL whenever path changes (TTL ~60s)
   useEffect(() => {
     (async () => {
-      if (!profile.kyc_path) { setKycSignedUrl(null); return; }
+      if (!profile.kyc_path) {
+        setKycSignedUrl(null);
+        return;
+      }
       try {
         const { data, error } = await supabase
           .storage
@@ -324,26 +450,34 @@ export default function Profile() {
   // ✅ Consent becomes immutable once accepted and saved to DB (or after first successful save).
   const consentLocked = useMemo(
     () => !!profile.consent_terms && (source === "db" || savedOnce),
-    [profile.consent_terms, source, savedOnce]
+    [profile.consent_terms, source, savedOnce],
+  );
+
+  const govtIdError = useMemo(
+    () => validateGovtId(profile.govt_id_type, profile.govt_id_number),
+    [profile.govt_id_type, profile.govt_id_number],
   );
 
   const requiredOk = useMemo(() => {
-    if (!profile.full_name.trim()) return false;
+    if (!isFullName(profile.full_name)) return false;
     if (!isPhone(profile.phone)) return false;
     if (!isEmail(profile.email)) return false;
     if (!profile.govt_id_type) return false;
     if (!profile.govt_id_number.trim()) return false;
+    if (govtIdError) return false;
     if (!profile.consent_terms) return false;
     return true;
-  }, [profile]);
+  }, [profile, govtIdError]);
 
   const score = completeness(profile);
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSave(e?: React.SyntheticEvent) {
+    e?.preventDefault();
     setError(null);
     if (!requiredOk) {
-      setError("Please complete all required fields marked with * and fix validation errors.");
+      setError(
+        "Please complete all required fields marked with * and fix validation errors.",
+      );
       return;
     }
     setSaving(true);
@@ -380,9 +514,18 @@ export default function Profile() {
       const uid = sess?.session?.user?.id;
       if (!uid) throw new Error("You must be signed in to upload.");
 
-      const up = await uploadToBucket({ bucket: "kyc", file, userId: uid, prevPath: profile.kyc_path || undefined });
+      const up = await uploadToBucket({
+        bucket: "kyc",
+        file,
+        userId: uid,
+        prevPath: profile.kyc_path || undefined,
+      });
 
-      setProfile((p) => ({ ...p, kyc_path: up.path, govt_id_file_url: null })); // url no longer public
+      setProfile((p) => ({
+        ...p,
+        kyc_path: up.path,
+        govt_id_file_url: null,
+      })); // url no longer public
     } catch (err: any) {
       setKycError(err?.message ?? "Upload failed. Please try again.");
     } finally {
@@ -403,10 +546,6 @@ export default function Profile() {
       return;
     }
 
-    if (file.size > 3 * 1024 * 1024) {
-      // we still try to downscale; if still big, block
-    }
-
     setAvatarUploading(true);
     try {
       const { data: sess } = await supabase.auth.getSession();
@@ -421,7 +560,11 @@ export default function Profile() {
         downscaleMax: 1024,
       });
 
-      setProfile((p) => ({ ...p, avatar_path: up.path, profile_photo_url: up.publicUrl ?? p.profile_photo_url }));
+      setProfile((p) => ({
+        ...p,
+        avatar_path: up.path,
+        profile_photo_url: up.publicUrl ?? p.profile_photo_url,
+      }));
     } catch (err: any) {
       setAvatarError(err?.message ?? "Upload failed. Please try again.");
     } finally {
@@ -431,15 +574,29 @@ export default function Profile() {
 
   // Remove avatar and clear state (also deletes from Storage)
   async function handleRemoveAvatar() {
-    if (!profile.avatar_path) { setProfile((p) => ({ ...p, profile_photo_url: null })); return; }
-    setAvatarError(null); setAvatarRemoving(true);
+    if (!profile.avatar_path) {
+      setProfile((p) => ({ ...p, profile_photo_url: null }));
+      return;
+    }
+    setAvatarError(null);
+    setAvatarRemoving(true);
     try {
-      const { error } = await supabase.storage.from("avatars").remove([profile.avatar_path]);
+      const { error } = await supabase.storage
+        .from("avatars")
+        .remove([profile.avatar_path]);
       if (error) throw error;
-      setProfile((p) => ({ ...p, avatar_path: null, profile_photo_url: null }));
+      setProfile((p) => ({
+        ...p,
+        avatar_path: null,
+        profile_photo_url: null,
+      }));
     } catch (err: any) {
-      setAvatarError(err?.message ?? "Could not remove photo. Please try again.");
-    } finally { setAvatarRemoving(false); }
+      setAvatarError(
+        err?.message ?? "Could not remove photo. Please try again.",
+      );
+    } finally {
+      setAvatarRemoving(false);
+    }
   }
 
   if (loading) {
@@ -458,18 +615,22 @@ export default function Profile() {
         <div>
           <h1 className="text-2xl font-semibold">Your profile</h1>
           <p className="text-sm text-gray-600 mt-1">
-            Keep these handy — they speed up check-in and help us reach you in a pinch.
+            Keep these handy — they speed up check-in and help us reach you in a
+            pinch.
           </p>
           {/* Friendly helper nudges */}
           <p className="text-xs text-gray-600 mt-2">
-            <strong>Tip:</strong> Add a <em>profile photo</em> so hotel staff can greet you faster, and upload your{" "}
-            <em>KYC</em> once to breeze through future stays.
+            <strong>Tip:</strong> Add a <em>profile photo</em> so hotel staff
+            can greet you faster, and upload your <em>KYC</em> once to breeze
+            through future stays.
           </p>
         </div>
 
         {/* Back to dashboard on view mode */}
         {mode === "view" ? (
-          <Link to="/guest" className="btn btn-light whitespace-nowrap">Back to dashboard</Link>
+          <Link to="/guest" className="btn btn-light whitespace-nowrap">
+            Back to dashboard
+          </Link>
         ) : null}
       </header>
 
@@ -480,7 +641,10 @@ export default function Profile() {
           <span className="font-medium">{score}%</span>
         </div>
         <div className="mt-2 h-2 rounded bg-gray-200 overflow-hidden">
-          <div className="h-full bg-blue-600" style={{ width: `${score}%` }} />
+          <div
+            className="h-full bg-blue-600"
+            style={{ width: `${score}%` }}
+          />
         </div>
       </div>
 
@@ -489,8 +653,15 @@ export default function Profile() {
         <div className="mt-4 rounded-xl border border-green-300 bg-green-50 px-4 py-3 text-sm flex items-center justify-between">
           <span>✅ Profile updated successfully.</span>
           <div className="flex gap-2">
-            <Link to="/guest" className="btn btn-light">Back to dashboard</Link>
-            <button className="btn btn-light" onClick={() => setSavedOnce(false)}>Dismiss</button>
+            <Link to="/guest" className="btn btn-light">
+              Back to dashboard
+            </Link>
+            <button
+              className="btn btn-light"
+              onClick={() => setSavedOnce(false)}
+            >
+              Dismiss
+            </button>
           </div>
         </div>
       )}
@@ -498,14 +669,31 @@ export default function Profile() {
       <div className="mt-4 rounded-2xl border bg-white/90 shadow-sm">
         <div className="flex items-center justify-between p-4 border-b">
           <div className="text-xs text-gray-600">
-            Saved in <span className="font-medium">{source === "db" ? "Cloud (Supabase)" : "This device"}</span>
+            Saved in{" "}
+            <span className="font-medium">
+              {source === "db" ? "Cloud (Supabase)" : "This device"}
+            </span>
           </div>
           {mode === "view" ? (
-            <button className="btn btn-light" onClick={() => setMode("edit")}>Edit</button>
+            <button
+              className="btn btn-light"
+              onClick={() => setMode("edit")}
+            >
+              Edit
+            </button>
           ) : (
             <div className="flex gap-2">
-              <button className="btn btn-light" onClick={() => setMode("view")}>Cancel</button>
-              <button className="btn" onClick={handleSave} disabled={saving || !requiredOk}>
+              <button
+                className="btn btn-light"
+                onClick={() => setMode("view")}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn"
+                onClick={handleSave}
+                disabled={saving || !requiredOk}
+              >
                 {saving ? "Saving…" : "Save changes"}
               </button>
             </div>
@@ -529,23 +717,33 @@ export default function Profile() {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full grid place-items-center text-gray-400 text-xs">No photo</div>
+                  <div className="w-full h-full grid place-items-center text-gray-400 text-xs">
+                    No photo
+                  </div>
                 )}
               </div>
 
               {mode === "edit" && (
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs text-gray-600">Profile photo (PNG/JPG/WEBP, max 3 MB)</label>
+                  <label className="text-xs text-gray-600">
+                    Profile photo (PNG/JPG/WEBP, max 3 MB)
+                  </label>
                   <input
                     type="file"
                     accept=".png,.jpg,.jpeg,.webp"
                     onChange={handleAvatarFile}
                     disabled={avatarUploading || avatarRemoving}
                   />
-                  {avatarUploading ? <p className="text-xs text-gray-600">Uploading…</p> : null}
-                  {avatarRemoving ? <p className="text-xs text-gray-600">Removing…</p> : null}
-                  {avatarError ? <p className="text-xs text-red-600">{avatarError}</p> : null}
-                  {profile.avatar_path || profile.profile_photo_url ? (
+                  {avatarUploading ? (
+                    <p className="text-xs text-gray-600">Uploading…</p>
+                  ) : null}
+                  {avatarRemoving ? (
+                    <p className="text-xs text-gray-600">Removing…</p>
+                  ) : null}
+                  {avatarError ? (
+                    <p className="text-xs text-red-600">{avatarError}</p>
+                  ) : null}
+                  {(profile.avatar_path || profile.profile_photo_url) && (
                     <button
                       type="button"
                       className="text-xs underline self-start"
@@ -554,7 +752,7 @@ export default function Profile() {
                     >
                       Remove photo
                     </button>
-                  ) : null}
+                  )}
                 </div>
               )}
             </div>
@@ -567,6 +765,11 @@ export default function Profile() {
               placeholder="Your full legal name"
               required
               readOnly={mode === "view"}
+              error={
+                profile.full_name && !isFullName(profile.full_name)
+                  ? "Enter your full legal name."
+                  : ""
+              }
             />
             <Field
               label="Mobile number *"
@@ -575,7 +778,11 @@ export default function Profile() {
               placeholder="+91 9xxxxxxxxx"
               required
               readOnly={mode === "view"}
-              error={profile.phone && !isPhone(profile.phone) ? "Enter a valid phone number" : ""}
+              error={
+                profile.phone && !isPhone(profile.phone)
+                  ? "Enter a valid phone number (8–15 digits)."
+                  : ""
+              }
             />
             <Field
               label="Email *"
@@ -584,7 +791,11 @@ export default function Profile() {
               placeholder="you@example.com"
               required
               readOnly={mode === "view"}
-              error={profile.email && !isEmail(profile.email) ? "Enter a valid email" : ""}
+              error={
+                profile.email && !isEmail(profile.email)
+                  ? "Enter a valid email."
+                  : ""
+              }
             />
           </CardSection>
 
@@ -598,7 +809,10 @@ export default function Profile() {
                 label="Government ID type *"
                 value={profile.govt_id_type}
                 onChange={(v) =>
-                  setProfile({ ...profile, govt_id_type: v as ProfileRecord["govt_id_type"] })
+                  setProfile({
+                    ...profile,
+                    govt_id_type: v as ProfileRecord["govt_id_type"],
+                  })
                 }
                 options={["Aadhar", "DL", "Passport", "Voter ID"]}
                 required
@@ -607,10 +821,13 @@ export default function Profile() {
               <Field
                 label="Government ID number *"
                 value={profile.govt_id_number}
-                onChange={(v) => setProfile({ ...profile, govt_id_number: v })}
+                onChange={(v) =>
+                  setProfile({ ...profile, govt_id_number: v.toUpperCase() })
+                }
                 placeholder="Enter ID number exactly as on document"
                 required
                 readOnly={mode === "view"}
+                error={govtIdError}
               />
             </div>
 
@@ -620,27 +837,46 @@ export default function Profile() {
                 <label className="text-sm">KYC attachment</label>
                 {profile.kyc_path ? (
                   kycSignedUrl ? (
-                    <a className="inline-block text-blue-700 underline text-sm" href={kycSignedUrl} target="_blank" rel="noreferrer">View (secure link)</a>
+                    <a
+                      className="inline-block text-blue-700 underline text-sm"
+                      href={kycSignedUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      View (secure link)
+                    </a>
                   ) : (
-                    <span className="text-sm text-gray-600">Generating link…</span>
+                    <span className="text-sm text-gray-600">
+                      Generating link…
+                    </span>
                   )
                 ) : (
-                  <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm">—</div>
+                  <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm">
+                    —
+                  </div>
                 )}
               </div>
             ) : (
               <div className="grid gap-1">
-                <label className="text-sm">KYC attachment (PNG/JPG/WEBP/PDF, max 3 MB)</label>
+                <label className="text-sm">
+                  KYC attachment (PNG/JPG/WEBP/PDF, max 3 MB)
+                </label>
                 <input
                   type="file"
                   accept=".png,.jpg,.jpeg,.webp,.pdf"
                   onChange={handleKycFile}
                   disabled={kycUploading}
                 />
-                {kycUploading ? <p className="text-xs text-gray-600">Uploading…</p> : null}
-                {kycError ? <p className="text-xs text-red-600">{kycError}</p> : null}
+                {kycUploading ? (
+                  <p className="text-xs text-gray-600">Uploading…</p>
+                ) : null}
+                {kycError ? (
+                  <p className="text-xs text-red-600">{kycError}</p>
+                ) : null}
                 {profile.kyc_path ? (
-                  <p className="text-xs">A document is on file. Upload again to replace.</p>
+                  <p className="text-xs">
+                    A document is on file. Upload again to replace.
+                  </p>
                 ) : null}
               </div>
             )}
@@ -654,24 +890,32 @@ export default function Profile() {
             />
           </CardSection>
 
-          <CardSection emoji="🧰" title="Other" blurb="Who should we call in case of an emergency?">
+          <CardSection
+            emoji="🧰"
+            title="Other"
+            blurb="Who should we call in case of an emergency?"
+          >
             <div className="grid gap-3 md:grid-cols-2">
               <Field
                 label="Emergency contact person"
                 value={profile.emergency_name}
-                onChange={(v) => setProfile({ ...profile, emergency_name: v })}
+                onChange={(v) =>
+                  setProfile({ ...profile, emergency_name: v })
+                }
                 placeholder="Name"
                 readOnly={mode === "view"}
               />
               <Field
                 label="Emergency contact number"
                 value={profile.emergency_phone}
-                onChange={(v) => setProfile({ ...profile, emergency_phone: v })}
+                onChange={(v) =>
+                  setProfile({ ...profile, emergency_phone: v })
+                }
                 placeholder="+91 …"
                 readOnly={mode === "view"}
                 error={
                   profile.emergency_phone && !isPhone(profile.emergency_phone)
-                    ? "Enter a valid phone number"
+                    ? "Enter a valid phone number."
                     : ""
                 }
               />
@@ -679,50 +923,83 @@ export default function Profile() {
             <Field
               label="Vehicle number"
               value={profile.vehicle_number}
-              onChange={(v) => setProfile({ ...profile, vehicle_number: v.toUpperCase() })}
+              onChange={(v) =>
+                setProfile({ ...profile, vehicle_number: v.toUpperCase() })
+              }
               placeholder="e.g., DL01AB1234"
               readOnly={mode === "view"}
             />
           </CardSection>
 
-          <CardSection emoji="✍️" title="Signature / Consent" blurb="A quick confirmation of our policies.">
+          <CardSection
+            emoji="✍️"
+            title="Signature / Consent"
+            blurb="A quick confirmation of our policies."
+          >
             <Checkbox
               label={
                 <>
                   I agree to the{" "}
-                  <a className="underline" href="/about" target="_blank" rel="noreferrer">
+                  <a
+                    className="underline"
+                    href="/about"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     About
                   </a>
                   ,{" "}
-                  <a className="underline" href="/terms" target="_blank" rel="noreferrer">
+                  <a
+                    className="underline"
+                    href="/terms"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     Terms
                   </a>{" "}
                   and{" "}
-                  <a className="underline" href="/privacy" target="_blank" rel="noreferrer">
+                  <a
+                    className="underline"
+                    href="/privacy"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     Policies
                   </a>
                   .
                 </>
               }
               checked={!!profile.consent_terms}
-              onChange={(v) => setProfile({ ...profile, consent_terms: v })}
+              onChange={(v) =>
+                setProfile({ ...profile, consent_terms: v })
+              }
               required
               readOnly={mode === "view" || consentLocked}
             />
           </CardSection>
 
-          {error ? <p className="text-sm text-red-600 -mt-2">{error}</p> : null}
+          {error ? (
+            <p className="text-sm text-red-600 -mt-2">{error}</p>
+          ) : null}
         </form>
       </div>
 
       {/* Help box */}
       <div className="mt-4 rounded-xl border bg-blue-50/70 p-4 text-sm flex items-center justify-between">
         <div className="max-w-[80%]">
-          Having trouble with your profile? No worries — our team can help fix it quickly.
+          Having trouble with your profile? No worries — our team can help fix
+          it quickly.
         </div>
         <div className="flex gap-2">
-          <Link to="/contact" className="btn btn-light">Contact us</Link>
-          <a className="btn btn-light" href="mailto:support@vaiyu.co.in?subject=Profile%20help">Email support</a>
+          <Link to="/contact" className="btn btn-light">
+            Contact us
+          </Link>
+          <a
+            className="btn btn-light"
+            href="mailto:support@vaiyu.co.in?subject=Profile%20help"
+          >
+            Email support
+          </a>
         </div>
       </div>
     </main>
@@ -748,7 +1025,9 @@ function CardSection({
           <span className="text-lg">{emoji}</span>
           {title}
         </h2>
-        {blurb ? <p className="text-xs text-gray-600 mt-1">{blurb}</p> : null}
+        {blurb ? (
+          <p className="text-xs text-gray-600 mt-1">{blurb}</p>
+        ) : null}
       </div>
       <div className="grid gap-3">{children}</div>
     </section>
@@ -772,19 +1051,25 @@ function Field({
   readOnly?: boolean;
   error?: string;
 }) {
-  const id = useMemo(() => label.toLowerCase().replace(/\s+/g, "-"), [label]);
+  const id = useMemo(
+    () => label.toLowerCase().replace(/\s+/g, "-"),
+    [label],
+  );
   return (
     <div className="grid gap-1">
       <label htmlFor={id} className="text-sm">
         {label} {required ? <span className="text-red-600">*</span> : null}
       </label>
       {readOnly ? (
-        <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm">{value || "—"}</div>
+        <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm">
+          {value || "—"}
+        </div>
       ) : (
         <input
           id={id}
-          className={`rounded-lg border px-3 py-2 text-sm outline-none focus:ring
-            ${error ? "border-red-500" : "border-gray-300"}`}
+          className={`rounded-lg border px-3 py-2 text-sm outline-none focus:ring ${
+            error ? "border-red-500" : "border-gray-300"
+          }`}
           value={value}
           onChange={(e) => onChange?.(e.target.value)}
           placeholder={placeholder}
@@ -809,10 +1094,15 @@ function TextArea({
   placeholder?: string;
   readOnly?: boolean;
 }) {
-  const id = useMemo(() => label.toLowerCase().replace(/\s+/g, "-"), [label]);
+  const id = useMemo(
+    () => label.toLowerCase().replace(/\s+/g, "-"),
+    [label],
+  );
   return (
     <div className="grid gap-1">
-      <label htmlFor={id} className="text-sm">{label}</label>
+      <label htmlFor={id} className="text-sm">
+        {label}
+      </label>
       {readOnly ? (
         <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm whitespace-pre-wrap">
           {value || "—"}
@@ -845,14 +1135,19 @@ function Select({
   required?: boolean;
   readOnly?: boolean;
 }) {
-  const id = useMemo(() => label.toLowerCase().replace(/\s+/g, "-"), [label]);
+  const id = useMemo(
+    () => label.toLowerCase().replace(/\s+/g, "-"),
+    [label],
+  );
   return (
     <div className="grid gap-1">
       <label htmlFor={id} className="text-sm">
         {label} {required ? <span className="text-red-600">*</span> : null}
       </label>
       {readOnly ? (
-        <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm">{value || "—"}</div>
+        <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm">
+          {value || "—"}
+        </div>
       ) : (
         <select
           id={id}
@@ -889,7 +1184,12 @@ function Checkbox({
   return (
     <label className="flex items-start gap-3 text-sm">
       {readOnly ? (
-        <input type="checkbox" checked={checked} readOnly className="mt-1" />
+        <input
+          type="checkbox"
+          checked={checked}
+          readOnly
+          className="mt-1"
+        />
       ) : (
         <input
           type="checkbox"

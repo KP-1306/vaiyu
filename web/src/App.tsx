@@ -1,5 +1,11 @@
 // web/src/App.tsx
 
+
+const OwnerGuestProfile = lazy(
+  () => import("./routes/OwnerGuestProfile")
+);
+
+
 import React, { Suspense, lazy } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import Header from "./components/Header";
@@ -254,6 +260,10 @@ export default function App() {
             <Route path="/press" element={<Press />} />
             <Route path="/privacy" element={<Privacy />} />
 
+            <Route path="/owner/*" element={<OwnerHome />} />
+            <Route path="/owner/guest/:guestId" element={<OwnerGuestProfile />} />
+
+            
             {/* 404 */}
             <Route path="*" element={<Navigate to="/guest" replace />} />
           </Routes>

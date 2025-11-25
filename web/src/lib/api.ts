@@ -110,6 +110,17 @@ export type OwnerApp = {
   cover_url?: string | null;
 };
 
+// Unified Guest Profile response (Owner view)
+export type GuestProfilePayload = {
+  ok: boolean;
+  guest: any | null;
+  stays: any[];
+  tickets: any[];
+  orders: any[];
+  reviews: any[];
+  credits?: any[];
+};
+
 /* ============================================================================
    HTTP helpers
 ============================================================================ */
@@ -196,8 +207,18 @@ const demoServices: Service[] = [
     sla_minutes: 30,
     active: true,
   },
-  { key: "water_bottle", label_en: "Water Bottles", sla_minutes: 20, active: true },
-  { key: "extra_pillow", label_en: "Extra Pillow", sla_minutes: 20, active: true },
+  {
+    key: "water_bottle",
+    label_en: "Water Bottles",
+    sla_minutes: 20,
+    active: true,
+  },
+  {
+    key: "extra_pillow",
+    label_en: "Extra Pillow",
+    sla_minutes: 20,
+    active: true,
+  },
 ];
 
 const demoMenu = [
@@ -209,7 +230,9 @@ const demoReport = {
   hotel: { slug: "sunrise", name: "Sunrise Resort" },
   period: "all-time (demo)",
   kpis: { tickets: 7, orders: 4, onTime: 9, late: 2, avgMins: 18 },
-  hints: ["Investigate 2 SLA breach(es); consider buffer or staffing in peak hours."],
+  hints: [
+    "Investigate 2 SLA breach(es); consider buffer or staffing in peak hours.",
+  ],
 };
 
 const demoOwnerApps: OwnerApp[] = [
@@ -294,11 +317,7 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
   }
 
   // menu – support all historical paths for safety
-  if (
-    p === "/menu/items" ||
-    p === "/catalog-menu" ||
-    p === "/catalog_menu2"
-  ) {
+  if (p === "/menu/items" || p === "/catalog-menu" || p === "/catalog_menu2") {
     return { items: demoMenu } as unknown as T;
   }
 
@@ -337,6 +356,31 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
   // NEW: hotel-orders demo (Supabase Edge function path)
   if (p === "/hotel-orders" && method === "GET") {
     return { items: [] } as unknown as T;
+  }
+
+  // NEW: guest-profile demo
+  if (p === "/guest-profile" && method === "GET") {
+    const demo: GuestProfilePayload = {
+      ok: true,
+      guest: {
+        id: "guest_demo_1",
+        display_name: "Demo Guest",
+        primary_phone: "+91-90000-00000",
+        primary_email: "guest@example.com",
+        city: "Nainital",
+        country: "India",
+        preferences: {
+          veg_only: true,
+          pillow_type: "Soft",
+        },
+      },
+      stays: [],
+      tickets: [],
+      orders: [],
+      reviews: [],
+      credits: [],
+    };
+    return demo as unknown as T;
   }
 
   // Self-claim
@@ -870,6 +914,30 @@ export async function updateOrder(id: string, patch: Json) {
 }
 
 /* ============================================================================
+   Guest Profile (Owner unified view)
+   - Supabase Edge Function: /guest-profile
+============================================================================ */
+export async function fetchGuestProfile(params: {
+  hotelId?: string;
+  guestId?: string;
+  bookingCode?: string;
+  phone?: string;
+  email?: string;
+}) {
+  const search = new URLSearchParams();
+  if (params.hotelId) search.set("hotelId", params.hotelId);
+  if (params.guestId) search.set("guestId", params.guestId);
+  if (params.bookingCode) search.set("bookingCode", params.bookingCode);
+  if (params.phone) search.set("phone", params.phone);
+  if (params.email) search.set("email", params.email);
+
+  const qs = search.toString();
+  const path = `/guest-profile${qs ? `?${qs}` : ""}`;
+
+  return req<GuestProfilePayload>(path);
+}
+
+/* ============================================================================
    Folio / Flows
 ============================================================================ */
 export async function getFolio() {
@@ -1067,6 +1135,9 @@ export const api = {
   listOrders,
   updateOrder,
   fetchHotelOrders,
+
+  // guest profile
+  fetchGuestProfile,
 
   // folio/flows
   getFolio,

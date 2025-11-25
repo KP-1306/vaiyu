@@ -198,15 +198,26 @@ const Privacy = optionalFromGlob(
   )
 );
 
+// Ops board (optional, for /ops link from OwnerDashboard)
+const OpsBoard = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/OpsBoard.{tsx,jsx}"
+  ),
+  () => (
+    <FallbackPage
+      title="Operations board"
+      hint="Add web/src/routes/OpsBoard.tsx to enable this page."
+    />
+  )
+);
+
 /* --------- Required routes ---------- */
 
 const GuestDashboard = lazy(() => import("./routes/GuestDashboard"));
 const OwnerHome = lazy(() => import("./routes/OwnerHome"));
 const SignIn = lazy(() => import("./routes/SignIn"));
 const AuthCallback = lazy(() => import("./routes/AuthCallback"));
-const OwnerGuestProfile = lazy(
-  () => import("./routes/OwnerGuestProfile")
-);
+const OwnerGuestProfile = lazy(() => import("./routes/OwnerGuestProfile"));
 
 /* ---------------- App ---------------- */
 
@@ -244,6 +255,9 @@ export default function App() {
 
             {/* Staff */}
             <Route path="/staff" element={<StaffHome />} />
+
+            {/* Ops board (used by “Open operations” links) */}
+            <Route path="/ops" element={<OpsBoard />} />
 
             {/* Auth */}
             <Route path="/signin" element={<SignIn />} />

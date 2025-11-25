@@ -17,7 +17,7 @@ type Membership = {
 
 function useOnClickOutside(
   ref: React.RefObject<HTMLElement>,
-  onOutside: () => void
+  onOutside: () => void,
 ) {
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -68,7 +68,7 @@ export default function AccountControls({
         } else {
           getMyMemberships().then(setMemberships);
         }
-      }
+      },
     );
 
     return () => {
@@ -117,7 +117,7 @@ export default function AccountControls({
       {open && (
         <div
           role="menu"
-          // IMPORTANT: z-50 keeps the menu above the large Guest dashboard panels
+          // z-50 keeps the menu above large dashboard panels
           className="absolute right-0 mt-2 w-64 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg z-50"
         >
           {/* Signed in as */}
@@ -140,7 +140,7 @@ export default function AccountControls({
             {(memberships || [])
               .filter(
                 (m) =>
-                  (m.role === "owner" || m.role === "manager") && m.hotelSlug
+                  (m.role === "owner" || m.role === "manager") && m.hotelSlug,
               )
               .map((m, idx) => (
                 <MenuLink
@@ -161,16 +161,11 @@ export default function AccountControls({
 
           <div className="h-px bg-slate-200" />
 
-          {/* Settings */}
+          {/* Settings (combined) */}
           <div className="py-1">
             <MenuLink
               to="/profile"
-              label="Update profile"
-              onChoose={() => setOpen(false)}
-            />
-            <MenuLink
-              to="/settings"
-              label="Settings"
+              label="Profile & settings"
               onChoose={() => setOpen(false)}
             />
           </div>

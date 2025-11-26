@@ -198,19 +198,6 @@ const Privacy = optionalFromGlob(
   )
 );
 
-// Ops / Operations board (optional)
-const OpsHome = optionalFromGlob(
-  import.meta.glob<{ default: React.ComponentType<any> }>(
-    "./routes/OpsHome.{tsx,jsx}"
-  ),
-  () => (
-    <FallbackPage
-      title="Operations board"
-      hint="Add web/src/routes/OpsHome.tsx to enable this page."
-    />
-  )
-);
-
 // HRMS (optional)
 const OwnerHRMS = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
@@ -256,15 +243,23 @@ const GuestDashboard = lazy(() => import("./routes/GuestDashboard"));
 const OwnerHome = lazy(() => import("./routes/OwnerHome"));
 const SignIn = lazy(() => import("./routes/SignIn"));
 const AuthCallback = lazy(() => import("./routes/AuthCallback"));
-const OwnerGuestProfile = lazy(() => import("./routes/OwnerGuestProfile"));
+const OwnerGuestProfile = lazy(
+  () => import("./routes/OwnerGuestProfile")
+);
 
-// Revenue views
-const OwnerRevenue = lazy(() => import("./routes/OwnerRevenue"));
+// Ops board – uses existing OpsBoard.tsx (wraps Desk)
+const OpsBoard = lazy(() => import("./routes/OpsBoard"));
+
+// Revenue views – named exports from OwnerRevenue.tsx
 const OwnerADR = lazy(() =>
-  import("./routes/OwnerRevenue").then((mod) => ({ default: mod.OwnerADR }))
+  import("./routes/OwnerRevenue").then((mod) => ({
+    default: mod.OwnerADR,
+  }))
 );
 const OwnerRevPAR = lazy(() =>
-  import("./routes/OwnerRevenue").then((mod) => ({ default: mod.OwnerRevPAR }))
+  import("./routes/OwnerRevenue").then((mod) => ({
+    default: mod.OwnerRevPAR,
+  }))
 );
 
 /* ---------------- App ---------------- */
@@ -303,7 +298,7 @@ export default function App() {
             {/* Revenue views */}
             <Route
               path="/owner/:slug/revenue"
-              element={<OwnerRevenue />}
+              element={<OwnerADR />}
             />
             <Route
               path="/owner/:slug/revenue/adr"
@@ -330,8 +325,8 @@ export default function App() {
             {/* Staff */}
             <Route path="/staff" element={<StaffHome />} />
 
-            {/* Ops board */}
-            <Route path="/ops" element={<OpsHome />} />
+            {/* Ops board – reuses Desk via OpsBoard */}
+            <Route path="/ops" element={<OpsBoard />} />
 
             {/* Bookings calendar */}
             <Route

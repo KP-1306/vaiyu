@@ -237,6 +237,19 @@ const OwnerPricing = optionalFromGlob(
   )
 );
 
+// Owner occupancy (optional quick view)
+const OwnerOccupancy = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/OwnerOccupancy.{tsx,jsx}"
+  ),
+  () => (
+    <FallbackPage
+      title="Occupancy"
+      hint="Add web/src/routes/OwnerOccupancy.tsx to enable this page."
+    />
+  )
+);
+
 /* --------- Required routes ---------- */
 
 const GuestDashboard = lazy(() => import("./routes/GuestDashboard"));
@@ -248,7 +261,8 @@ const OwnerGuestProfile = lazy(() => import("./routes/OwnerGuestProfile"));
 // Ops board – uses existing OpsBoard.tsx (wraps Desk)
 const OpsBoard = lazy(() => import("./routes/OpsBoard"));
 
-// Revenue views – named exports from OwnerRevenue.tsx
+// Revenue views – default + named exports from OwnerRevenue.tsx
+const OwnerRevenue = lazy(() => import("./routes/OwnerRevenue"));
 const OwnerADR = lazy(() =>
   import("./routes/OwnerRevenue").then((mod) => ({
     default: mod.OwnerADR,
@@ -296,7 +310,7 @@ export default function App() {
             {/* Revenue views */}
             <Route
               path="/owner/:slug/revenue"
-              element={<OwnerADR />}
+              element={<OwnerRevenue />}
             />
             <Route
               path="/owner/:slug/revenue/adr"
@@ -305,6 +319,12 @@ export default function App() {
             <Route
               path="/owner/:slug/revenue/revpar"
               element={<OwnerRevPAR />}
+            />
+
+            {/* Occupancy view (optional, uses OwnerOccupancy.tsx if present) */}
+            <Route
+              path="/owner/:slug/occupancy"
+              element={<OwnerOccupancy />}
             />
 
             {/* HRMS + Pricing */}

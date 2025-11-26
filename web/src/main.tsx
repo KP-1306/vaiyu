@@ -107,6 +107,7 @@ const HotelReviews = lazy(() => import("./routes/HotelReviews"));
 
 // Staff / Ops
 const Desk = lazy(() => import("./routes/Desk"));
+const OpsBoard = lazy(() => import("./routes/OpsBoard"));
 const HK = lazy(() => import("./routes/HK"));
 const Maint = lazy(() => import("./routes/Maint"));
 // Desk Tickets view (Ops tickets + SLA board)
@@ -120,6 +121,7 @@ const OwnerServices = lazy(() => import("./routes/OwnerServices"));
 const OwnerReviews = lazy(() => import("./routes/OwnerReviews"));
 const OwnerHousekeeping = lazy(() => import("./routes/OwnerHousekeeping"));
 const OwnerQRSheet = lazy(() => import("./routes/OwnerQRSheet"));
+const OwnerPricing = lazy(() => import("./routes/OwnerPricing"));
 const AdminOps = lazy(() => import("./pages/AdminOps"));
 
 // ADR & RevPAR detail pages (from routes/OwnerRevenue.tsx)
@@ -139,6 +141,9 @@ const GridEvents = lazy(() => import("./routes/GridEvents"));
 const Profile = lazy(() => import("./routes/Profile"));
 const Rewards = lazy(() => import("./routes/Rewards"));
 const Invite = lazy(() => import("./routes/Invite"));
+
+// Bookings calendar (separate route file)
+const BookingsCalendar = lazy(() => import("./routes/BookingsCalendar"));
 
 // 404 + deep link + welcome
 const NotFound = lazy(() => import("./routes/NotFound"));
@@ -384,63 +389,6 @@ function OwnerHRMSAttendance() {
   );
 }
 
-// NEW: Pricing placeholder backing /owner/:slug/pricing
-function OwnerPricing() {
-  const { slug } = useParams<{ slug?: string }>();
-  return (
-    <main className="max-w-6xl mx-auto p-6">
-      <h1 className="text-2xl font-semibold mb-2">Pricing &amp; plans</h1>
-      <p className="text-sm text-muted-foreground mb-4">
-        This route is a placeholder for a dedicated pricing configuration view
-        for {slug || "this hotel"}. It prevents 404s from the{" "}
-        <strong>Open pricing</strong> link.
-      </p>
-      <div className="rounded-xl border bg-white p-4 text-sm text-muted-foreground space-y-2">
-        <p>
-          Future versions can use this page to manage BAR, corporate rates,
-          packages, and channel-specific rules. Until then, pricing logic
-          continues to live in your PMS / channel manager.
-        </p>
-        <p className="text-xs">
-          If you reached this page from the dashboard, you can safely navigate
-          back without losing any data.
-        </p>
-      </div>
-    </main>
-  );
-}
-
-// NEW: Bookings calendar placeholder backing /bookings/calendar
-function BookingsCalendar() {
-  return (
-    <main className="max-w-6xl mx-auto p-6">
-      <h1 className="text-2xl font-semibold mb-2">Bookings calendar</h1>
-      <p className="text-sm text-muted-foreground mb-4">
-        This route is reserved for a calendar view of bookings. It exists so the{" "}
-        <strong>Open calendar</strong> action no longer results in a 404.
-      </p>
-      <div className="rounded-xl border bg-white p-4 text-sm text-muted-foreground space-y-2">
-        <p>
-          In a future release, this will show arrivals, in-house guests, and
-          departures in a visual calendar. For now, use the Stays list and Ops
-          board for operational visibility.
-        </p>
-        <p className="text-xs">
-          Tip: you can open{" "}
-          <Link to="/stays" className="text-blue-600 underline">
-            Stays
-          </Link>{" "}
-          or{" "}
-          <Link to="/desk" className="text-blue-600 underline">
-            Ops board
-          </Link>{" "}
-          for day-to-day operations.
-        </p>
-      </div>
-    </main>
-  );
-}
-
 // ================= Router =================
 const router = createBrowserRouter([
   {
@@ -521,12 +469,12 @@ const router = createBrowserRouter([
           </AuthGate>
         ),
       },
-      // NEW: /ops alias → Desk (Live requests & orders)
+      // NEW: /ops alias → OpsBoard (Live requests & orders)
       {
         path: "ops",
         element: (
           <AuthGate>
-            <Desk />
+            <OpsBoard />
           </AuthGate>
         ),
       },

@@ -1471,16 +1471,23 @@ export type OwnerRevenueResponse = {
 
 /**
  * Fetch owner occupancy (snapshot + 30-day history).
- * Backend endpoint should:
- *  - Look up hotel_id from slug
- *  - Query owner_hotel_occupancy_snapshot + owner_hotel_occupancy_daily
+ * Calls the Edge Function with explicit metric + slug query params so routing
+ * works whether you rely on URL segments or not.
  */
 export async function fetchOwnerOccupancy(
   slug: string
 ): Promise<OwnerOccupancyResponse> {
-  const res = await fetch(`${API_URL}/owner/${encodeURIComponent(slug)}/occupancy`, {
-    credentials: "include",
+  const params = new URLSearchParams({
+    metric: "occupancy",
+    slug,
   });
+
+  const res = await fetch(
+    `${API_URL}/owner/${encodeURIComponent(slug)}/occupancy?${params.toString()}`,
+    {
+      credentials: "include",
+    }
+  );
 
   if (!res.ok) {
     throw new Error(`Failed to load occupancy for ${slug}`);
@@ -1495,12 +1502,19 @@ export async function fetchOwnerOccupancy(
  *  - Look up hotel_id from slug
  *  - Aggregate over owner_hotel_revenue_daily_split
  *  - Honor ?range=today|7d|30d etc.
+ * We pass metric + slug explicitly so the Edge Function router can use either
+ * path segments or query params.
  */
 export async function fetchOwnerRevenue(
   slug: string,
   range: string = "30d"
 ): Promise<OwnerRevenueResponse> {
-  const params = new URLSearchParams({ range });
+  const params = new URLSearchParams({
+    metric: "revenue",
+    slug,
+    range,
+  });
+
   const res = await fetch(
     `${API_URL}/owner/${encodeURIComponent(slug)}/revenue?${params.toString()}`,
     {

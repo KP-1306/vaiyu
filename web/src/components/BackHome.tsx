@@ -17,6 +17,7 @@ const APP_PREFIXES = [
   "/regcard",
   "/bill",
   "/admin",
+  "/ops",  
   "/careers", // NEW: show Back home on careers page too
 ];
 

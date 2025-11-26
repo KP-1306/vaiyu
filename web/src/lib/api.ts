@@ -1428,3 +1428,89 @@ export const api = {
   approveOwnerApp,
   rejectOwnerApp,
 };
+
+// ---------------- Owner – Occupancy & Revenue ----------------
+
+export type OwnerOccupancySnapshot = {
+  roomsTotal: number | null;
+  occupiedRooms: number;
+  occupancyPercent: number;
+};
+
+export type OwnerOccupancyPoint = {
+  day: string; // ISO date string, e.g. "2025-11-01"
+  occupancyPercent: number;
+};
+
+export type OwnerOccupancyResponse = {
+  hotelSlug: string;
+  snapshot: OwnerOccupancySnapshot;
+  history: OwnerOccupancyPoint[];
+};
+
+export type OwnerRevenuePoint = {
+  day: string;
+  totalRevenue: number;
+  roomRevenue: number;
+  fnbRevenue: number;
+};
+
+export type OwnerRevenueSummary = {
+  totalRevenue: number;
+  roomRevenue: number;
+  fnbRevenue: number;
+  avgDailyRevenue: number;
+};
+
+export type OwnerRevenueResponse = {
+  hotelSlug: string;
+  range: string;
+  summary: OwnerRevenueSummary;
+  series: OwnerRevenuePoint[];
+};
+
+/**
+ * Fetch owner occupancy (snapshot + 30-day history).
+ * Backend endpoint should:
+ *  - Look up hotel_id from slug
+ *  - Query owner_hotel_occupancy_snapshot + owner_hotel_occupancy_daily
+ */
+export async function fetchOwnerOccupancy(
+  slug: string
+): Promise<OwnerOccupancyResponse> {
+  const res = await fetch(`${API_URL}/owner/${encodeURIComponent(slug)}/occupancy`, {
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to load occupancy for ${slug}`);
+  }
+
+  return res.json();
+}
+
+/**
+ * Fetch owner revenue (summary + daily series).
+ * Backend endpoint should:
+ *  - Look up hotel_id from slug
+ *  - Aggregate over owner_hotel_revenue_daily_split
+ *  - Honor ?range=today|7d|30d etc.
+ */
+export async function fetchOwnerRevenue(
+  slug: string,
+  range: string = "30d"
+): Promise<OwnerRevenueResponse> {
+  const params = new URLSearchParams({ range });
+  const res = await fetch(
+    `${API_URL}/owner/${encodeURIComponent(slug)}/revenue?${params.toString()}`,
+    {
+      credentials: "include",
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error(`Failed to load revenue for ${slug}`);
+  }
+
+  return res.json();
+}

@@ -1701,7 +1701,7 @@ function OwnerTasksPanel({
         desc="2–3 nudges that keep the property ahead of the curve."
         action={
           <Link
-            to={`/owner/${slug}`}
+            to="/owner"
             className="text-xs underline text-slate-600"
           >
             View full owner hub

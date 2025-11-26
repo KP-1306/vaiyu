@@ -125,6 +125,20 @@ const Logout = optionalFromGlob(
   )
 );
 
+// OwnerReputation
+const OwnerReputation = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/OwnerReputation.{tsx,jsx}"
+  ),
+  () => (
+    <FallbackPage
+      title="Reputation radar"
+      hint="Add web/src/routes/OwnerReputation.tsx to enable this page."
+    />
+  )
+);
+
+
 // --- marketing/legal pages (optional, safe if missing) ---
 const AboutUs = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
@@ -291,6 +305,12 @@ export default function App() {
             {/* Core app areas */}
             <Route path="/guest" element={<GuestDashboard />} />
 
+            <Route
+            path="/owner/:slug/reputation"
+  element={<OwnerReputation />}
+/>
+
+            
             {/* Owner views */}
             {/* New canonical route with hotel slug + guestId */}
             <Route

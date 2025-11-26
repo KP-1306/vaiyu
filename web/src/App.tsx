@@ -198,15 +198,54 @@ const Privacy = optionalFromGlob(
   )
 );
 
-// Ops board (optional, for /ops link from OwnerDashboard)
-const OpsBoard = optionalFromGlob(
+// Ops / Operations board (optional)
+const OpsHome = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
-    "./routes/OpsBoard.{tsx,jsx}"
+    "./routes/OpsHome.{tsx,jsx}"
   ),
   () => (
     <FallbackPage
       title="Operations board"
-      hint="Add web/src/routes/OpsBoard.tsx to enable this page."
+      hint="Add web/src/routes/OpsHome.tsx to enable this page."
+    />
+  )
+);
+
+// HRMS (optional)
+const OwnerHRMS = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/OwnerHRMS.{tsx,jsx}"
+  ),
+  () => (
+    <FallbackPage
+      title="HRMS"
+      hint="Add web/src/routes/OwnerHRMS.tsx to enable this page."
+    />
+  )
+);
+
+// Bookings calendar (optional)
+const BookingsCalendar = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/BookingsCalendar.{tsx,jsx}"
+  ),
+  () => (
+    <FallbackPage
+      title="Bookings calendar"
+      hint="Add web/src/routes/BookingsCalendar.tsx to enable this page."
+    />
+  )
+);
+
+// Owner pricing (optional)
+const OwnerPricing = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/OwnerPricing.{tsx,jsx}"
+  ),
+  () => (
+    <FallbackPage
+      title="Pricing"
+      hint="Add web/src/routes/OwnerPricing.tsx to enable this page."
     />
   )
 );
@@ -218,6 +257,15 @@ const OwnerHome = lazy(() => import("./routes/OwnerHome"));
 const SignIn = lazy(() => import("./routes/SignIn"));
 const AuthCallback = lazy(() => import("./routes/AuthCallback"));
 const OwnerGuestProfile = lazy(() => import("./routes/OwnerGuestProfile"));
+
+// Revenue views
+const OwnerRevenue = lazy(() => import("./routes/OwnerRevenue"));
+const OwnerADR = lazy(() =>
+  import("./routes/OwnerRevenue").then((mod) => ({ default: mod.OwnerADR }))
+);
+const OwnerRevPAR = lazy(() =>
+  import("./routes/OwnerRevenue").then((mod) => ({ default: mod.OwnerRevPAR }))
+);
 
 /* ---------------- App ---------------- */
 
@@ -251,13 +299,45 @@ export default function App() {
               path="/owner/guest/:guestId"
               element={<OwnerGuestProfile />}
             />
+
+            {/* Revenue views */}
+            <Route
+              path="/owner/:slug/revenue"
+              element={<OwnerRevenue />}
+            />
+            <Route
+              path="/owner/:slug/revenue/adr"
+              element={<OwnerADR />}
+            />
+            <Route
+              path="/owner/:slug/revenue/revpar"
+              element={<OwnerRevPAR />}
+            />
+
+            {/* HRMS + Pricing */}
+            <Route
+              path="/owner/:slug/hrms"
+              element={<OwnerHRMS />}
+            />
+            <Route
+              path="/owner/:slug/pricing"
+              element={<OwnerPricing />}
+            />
+
+            {/* Catch-all owner console */}
             <Route path="/owner/*" element={<OwnerHome />} />
 
             {/* Staff */}
             <Route path="/staff" element={<StaffHome />} />
 
-            {/* Ops board (used by “Open operations” links) */}
-            <Route path="/ops" element={<OpsBoard />} />
+            {/* Ops board */}
+            <Route path="/ops" element={<OpsHome />} />
+
+            {/* Bookings calendar */}
+            <Route
+              path="/bookings/calendar"
+              element={<BookingsCalendar />}
+            />
 
             {/* Auth */}
             <Route path="/signin" element={<SignIn />} />

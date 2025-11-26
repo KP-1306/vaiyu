@@ -243,9 +243,7 @@ const GuestDashboard = lazy(() => import("./routes/GuestDashboard"));
 const OwnerHome = lazy(() => import("./routes/OwnerHome"));
 const SignIn = lazy(() => import("./routes/SignIn"));
 const AuthCallback = lazy(() => import("./routes/AuthCallback"));
-const OwnerGuestProfile = lazy(
-  () => import("./routes/OwnerGuestProfile")
-);
+const OwnerGuestProfile = lazy(() => import("./routes/OwnerGuestProfile"));
 
 // Ops board – uses existing OpsBoard.tsx (wraps Desk)
 const OpsBoard = lazy(() => import("./routes/OpsBoard"));

@@ -198,6 +198,14 @@ export default function OwnerHome() {
               emoji="📝"
               cta="Review drafts"
             />
+            {/* NEW: Reputation Radar tile */}
+            <Tile
+              title="Reputation Radar"
+              text="Correlate tickets, stays & reviews. Flag suspicious patterns early."
+              to={`/owner/${encodeURIComponent(slug)}/reputation`}
+              emoji="🛡️"
+              cta="Open radar"
+            />
             <Tile
               title="Grid: Devices"
               text={`Mode: ${
@@ -235,7 +243,7 @@ export default function OwnerHome() {
               emoji="🧩"
               cta="Open services"
             />
-            {/* NEW: Guest unified profile (demo entry) */}
+            {/* Guest unified profile (demo entry) */}
             <Tile
               title="Guest profiles"
               text="Unified timeline of stays, tickets, orders, reviews & credits (demo guest)."

@@ -1,16 +1,23 @@
-// web/src/routes/OwnerRevenue.tsx — ADR & RevPAR (friendly, with charts)
+// web/src/routes/OwnerRevenue.tsx — ADR, RevPAR, and Occupancy/Revenue overview
 // Three routes in one file for convenience:
 //   <Route path="/owner/:slug/revenue" element={<OwnerRevenue />} />
 //   <Route path="/owner/:slug/revenue/adr" element={<OwnerADR />} />
 //   <Route path="/owner/:slug/revenue/revpar" element={<OwnerRevPAR />} />
-// Uses Supabase views (recommended): owner_revenue_daily_v(hotel_id, day, rooms_available, rooms_sold, room_revenue)
-//   ADR   = room_revenue / NULLIF(rooms_sold,0)
-//   RevPAR= room_revenue / NULLIF(rooms_available,0)
-// The UI compares selected range vs baseline (same weekday median across current window) and color-codes performance.
-// Charts: recharts line charts (no custom colors hard-coded beyond defaults).
+//
+// Uses Supabase view (recommended):
+//   owner_revenue_daily_v(hotel_id, day, rooms_available, rooms_sold, room_revenue)
+//
+//  - Occupancy (%) = rooms_sold / NULLIF(rooms_available,0)
+//  - ADR          = room_revenue / NULLIF(rooms_sold,0)
+//  - RevPAR       = room_revenue / NULLIF(rooms_available,0)
+//
+// The default /revenue page now shows:
+//  - Summary tiles: Avg Occupancy, ADR, RevPAR, Total Room Revenue
+//  - Two line charts: Occupancy over time, Revenue over time
+//  - Quick links to ADR and RevPAR detailed views.
 
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams, useNavigate, Navigate } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import {
   LineChart,
@@ -41,6 +48,9 @@ const addDays = (d: Date, n: number) => {
 };
 const formatINR = (n?: number | null) =>
   n == null || isNaN(n) ? "—" : `₹${Math.round(n).toLocaleString("en-IN")}`;
+
+const formatPct = (n?: number | null) =>
+  n == null || isNaN(n) ? "—" : `${n.toFixed(1)}%`;
 
 function badgeTone(t: "green" | "amber" | "red" | "grey") {
   return {
@@ -86,6 +96,11 @@ function computeRevPAR(r: Row) {
   const avail = r.rooms_available || 0;
   return avail > 0 ? (r.room_revenue || 0) / avail : undefined;
 }
+function computeOccupancyPct(r: Row) {
+  const avail = r.rooms_available || 0;
+  const sold = r.rooms_sold || 0;
+  return avail > 0 ? (sold / avail) * 100 : undefined;
+}
 
 // ------------------------------- Shared header (currently unused, kept for future) ----
 function SectionHeader({
@@ -108,38 +123,377 @@ function SectionHeader({
   );
 }
 
-// ------------------------------- Index Page ---------------------------------
-// Default export for /owner/:slug/revenue — simply sends owner to ADR for now.
+// ------------------------------- Overview Page (Occupancy + Revenue) --------
+// Default export for /owner/:slug/revenue
 export default function OwnerRevenue() {
   const { slug } = useParams<{ slug: string }>();
+  const [hotel, setHotel] = useState<Hotel | null>(null);
+  const [fromDay, setFromDay] = useState<string>(() =>
+    isoDay(addDays(new Date(), -30))
+  );
+  const [toDay, setToDay] = useState<string>(() => isoDay(new Date()));
+  const [rows, setRows] = useState<Row[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!slug) {
-    return (
-      <main className="max-w-xl mx-auto p-6">
-        <h1 className="text-xl font-semibold mb-2">Revenue</h1>
-        <p className="text-sm text-muted-foreground">
-          Choose a metric to view revenue performance.
-        </p>
-        <div className="mt-4 space-y-2">
-          <div>
-            <span className="font-semibold">ADR</span>{" "}
-            <span className="text-sm text-muted-foreground">
-              – Average daily rate for occupied rooms.
-            </span>
-          </div>
-          <div>
-            <span className="font-semibold">RevPAR</span>{" "}
-            <span className="text-sm text-muted-foreground">
-              – Revenue per available room.
-            </span>
-          </div>
+  // Load hotel + daily view
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      if (!slug) {
+        setError("Missing hotel identifier in URL.");
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      setError(null);
+
+      const { data: h, error: hotelErr } = await supabase
+        .from("hotels")
+        .select("id,name,slug")
+        .eq("slug", slug)
+        .maybeSingle();
+
+      if (!alive) return;
+
+      if (hotelErr) {
+        console.error(hotelErr);
+        setError("Failed to load hotel details.");
+        setHotel(null);
+        setRows([]);
+        setLoading(false);
+        return;
+      }
+
+      setHotel(h || null);
+      const hotelId = h?.id;
+      if (!hotelId) {
+        setError("Hotel not found for this slug.");
+        setRows([]);
+        setLoading(false);
+        return;
+      }
+
+      const { data, error: revErr } = await supabase
+        .from("owner_revenue_daily_v")
+        .select("day,rooms_available,rooms_sold,room_revenue")
+        .eq("hotel_id", hotelId)
+        .gte("day", fromDay)
+        .lte("day", toDay)
+        .order("day", { ascending: true });
+
+      if (!alive) return;
+
+      if (revErr) {
+        console.error(revErr);
+        setError("Failed to load occupancy & revenue view.");
+        setRows([]);
+      } else {
+        setRows(data || []);
+      }
+
+      setLoading(false);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [slug, fromDay, toDay]);
+
+  // Summary stats across the selected range
+  const summary = useMemo(() => {
+    if (!rows.length) {
+      return {
+        totalRevenue: 0,
+        totalSold: 0,
+        totalAvail: 0,
+        avgOccupancy: undefined as number | undefined,
+        adr: undefined as number | undefined,
+        revpar: undefined as number | undefined,
+        daysCount: 0,
+      };
+    }
+    let totalRevenue = 0;
+    let totalSold = 0;
+    let totalAvail = 0;
+
+    for (const r of rows) {
+      const rev = r.room_revenue || 0;
+      const sold = r.rooms_sold || 0;
+      const avail = r.rooms_available || 0;
+      totalRevenue += rev;
+      totalSold += sold;
+      totalAvail += avail;
+    }
+
+    const avgOccupancy =
+      totalAvail > 0 ? (totalSold / totalAvail) * 100 : undefined;
+    const adr =
+      totalSold > 0 ? totalRevenue / totalSold : undefined;
+    const revpar =
+      totalAvail > 0 ? totalRevenue / totalAvail : undefined;
+
+    return {
+      totalRevenue,
+      totalSold,
+      totalAvail,
+      avgOccupancy,
+      adr,
+      revpar,
+      daysCount: rows.length,
+    };
+  }, [rows]);
+
+  // Time series for charts
+  const occupancySeries = useMemo(
+    () =>
+      rows.map((r) => ({
+        day: r.day,
+        occupancy: computeOccupancyPct(r),
+      })),
+    [rows]
+  );
+
+  const revenueSeries = useMemo(
+    () =>
+      rows.map((r) => ({
+        day: r.day,
+        roomRevenue: r.room_revenue || 0,
+      })),
+    [rows]
+  );
+
+  return (
+    <main className="max-w-6xl mx-auto p-6 space-y-4">
+      <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="text-xl font-semibold">Revenue &amp; Occupancy</div>
+          <p className="text-sm text-muted-foreground">
+            {hotel
+              ? `Control view for ${hotel.name}. Track occupancy, ADR, RevPAR and room revenue for the selected period.`
+              : "Track occupancy, ADR, RevPAR and room revenue for the selected period."}
+          </p>
         </div>
-      </main>
-    );
-  }
+        {slug && (
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-muted-foreground">Deep dives:</span>
+            <Link
+              to={`/owner/${encodeURIComponent(slug)}/revenue/adr`}
+              className="btn btn-light"
+            >
+              ADR
+            </Link>
+            <Link
+              to={`/owner/${encodeURIComponent(slug)}/revenue/revpar`}
+              className="btn btn-light"
+            >
+              RevPAR
+            </Link>
+            <Link
+              to={`/owner/${encodeURIComponent(slug)}/pricing`}
+              className="btn"
+            >
+              Open pricing
+            </Link>
+          </div>
+        )}
+      </header>
 
-  // For now, just redirect to ADR view to keep UX simple and avoid 404s.
-  return <Navigate to={`/owner/${encodeURIComponent(slug)}/revenue/adr`} replace />;
+      {/* Filters */}
+      <section className="rounded-xl border bg-white p-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1">
+              From
+            </label>
+            <input
+              type="date"
+              value={fromDay}
+              onChange={(e) => setFromDay(e.target.value)}
+              className="border rounded px-2 py-1 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1">
+              To
+            </label>
+            <input
+              type="date"
+              value={toDay}
+              onChange={(e) => setToDay(e.target.value)}
+              className="border rounded px-2 py-1 text-sm"
+            />
+          </div>
+          {summary.daysCount > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Showing {summary.daysCount} day
+              {summary.daysCount === 1 ? "" : "s"} of data.
+            </p>
+          )}
+        </div>
+      </section>
+
+      {/* Status / summary tiles */}
+      <section className="rounded-xl border bg-white p-4">
+        {loading ? (
+          <div className="text-sm text-muted-foreground">Loading…</div>
+        ) : error ? (
+          <div className="text-sm text-red-500">{error}</div>
+        ) : !rows.length ? (
+          <div className="text-sm text-muted-foreground">
+            No revenue/occupancy data for this period.
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {/* Avg Occupancy */}
+            <div className="rounded-lg border border-slate-100 bg-slate-50 px-4 py-3">
+              <div className="text-xs font-medium text-slate-600">
+                Avg occupancy
+              </div>
+              <div className="mt-1 text-2xl font-semibold">
+                {formatPct(summary.avgOccupancy)}
+              </div>
+              <div className="mt-1 text-[11px] text-slate-500">
+                Based on rooms sold vs rooms available across the range.
+              </div>
+            </div>
+
+            {/* ADR */}
+            <div className="rounded-lg border border-slate-100 bg-white px-4 py-3">
+              <div className="text-xs font-medium text-slate-600">ADR</div>
+              <div className="mt-1 text-2xl font-semibold">
+                {formatINR(summary.adr)}
+              </div>
+              <div className="mt-1 text-[11px] text-slate-500">
+                Average rate for occupied rooms.
+              </div>
+            </div>
+
+            {/* RevPAR */}
+            <div className="rounded-lg border border-slate-100 bg-white px-4 py-3">
+              <div className="text-xs font-medium text-slate-600">RevPAR</div>
+              <div className="mt-1 text-2xl font-semibold">
+                {formatINR(summary.revpar)}
+              </div>
+              <div className="mt-1 text-[11px] text-slate-500">
+                Revenue per available room.
+              </div>
+            </div>
+
+            {/* Total room revenue */}
+            <div className="rounded-lg border border-slate-100 bg-white px-4 py-3">
+              <div className="text-xs font-medium text-slate-600">
+                Total room revenue
+              </div>
+              <div className="mt-1 text-2xl font-semibold">
+                {formatINR(summary.totalRevenue)}
+              </div>
+              <div className="mt-1 text-[11px] text-slate-500">
+                Across all completed nights in this range.
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* Charts */}
+      {!loading && !error && rows.length > 0 && (
+        <section className="grid gap-4 lg:grid-cols-2">
+          {/* Occupancy chart */}
+          <div className="rounded-xl border bg-white p-4">
+            <div className="mb-2">
+              <h2 className="text-sm font-semibold">Occupancy over time</h2>
+              <p className="text-xs text-muted-foreground">
+                Rooms sold vs rooms available, day by day.
+              </p>
+            </div>
+            {occupancySeries.length === 0 ? (
+              <div className="text-sm text-muted-foreground">No data.</div>
+            ) : (
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={occupancySeries}
+                    margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="day"
+                      tick={{ fontSize: 12 }}
+                      minTickGap={28}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 12 }}
+                      tickFormatter={(v) => `${v}%`}
+                    />
+                    <Tooltip
+                      formatter={(v) => formatPct(v as number)}
+                      labelFormatter={(v) =>
+                        new Date(v as string).toLocaleDateString("en-IN", {
+                          day: "2-digit",
+                          month: "short",
+                        })
+                      }
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="occupancy"
+                      dot={false}
+                      strokeWidth={2}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+
+          {/* Revenue chart */}
+          <div className="rounded-xl border bg-white p-4">
+            <div className="mb-2">
+              <h2 className="text-sm font-semibold">Room revenue over time</h2>
+              <p className="text-xs text-muted-foreground">
+                Daily room revenue trend for the selected period.
+              </p>
+            </div>
+            {revenueSeries.length === 0 ? (
+              <div className="text-sm text-muted-foreground">No data.</div>
+            ) : (
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={revenueSeries}
+                    margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="day"
+                      tick={{ fontSize: 12 }}
+                      minTickGap={28}
+                    />
+                    <YAxis tick={{ fontSize: 12 }} />
+                    <Tooltip
+                      formatter={(v) => formatINR(v as number)}
+                      labelFormatter={(v) =>
+                        new Date(v as string).toLocaleDateString("en-IN", {
+                          day: "2-digit",
+                          month: "short",
+                        })
+                      }
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="roomRevenue"
+                      dot={false}
+                      strokeWidth={2}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+    </main>
+  );
 }
 
 // ------------------------------- ADR Page -----------------------------------

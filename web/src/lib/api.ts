@@ -461,8 +461,8 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
     return demo as unknown as T;
   }
 
-  // Self-claim
-  if (p === "/claim/init")
+  // Self-claim init
+  if (p === "/claim/init" && method === "POST")
     return {
       ok: true,
       method: "otp",
@@ -471,27 +471,32 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
       otp_hint: "123456",
     } as unknown as T;
 
-  
-  if (p === "/claim/verify") {
-  const payload = body as any;
+  // Self-claim verify (fixed: no undefined `body`, uses guest's booking code)
+  if (p === "/claim/verify" && method === "POST") {
+    const payload = safeJson(opts.body) || {};
 
-  // Accept either booking_code or bookingCode, just in case
-  const bookingCodeRaw =
-    payload?.booking_code ?? payload?.bookingCode ?? "ABC123";
+    // Accept various possible field names from the client
+    const rawCode =
+      payload.code ??
+      payload.booking_code ??
+      payload.bookingCode ??
+      payload.booking_id ??
+      null;
 
-  const bookingCode = String(bookingCodeRaw).trim().toUpperCase();
+    const bookingCode = rawCode
+      ? String(rawCode).trim().toUpperCase()
+      : "ABC123"; // fallback demo code, only used if request body is empty
 
-  return {
-    ok: true,
-    token: "demo-stay-token",
-    booking: {
-      code: bookingCode,          // <-- now uses what the guest typed
-      guest_name: "Test Guest",
-      hotel_slug: "sunrise",      // or "TENANT1" if you prefer
-    },
-  } as unknown as T;
-}
-
+    return {
+      ok: true,
+      token: "demo-stay-token",
+      booking: {
+        code: bookingCode, // echoes what the guest actually entered
+        guest_name: "Demo Guest",
+        hotel_slug: demoHotel.slug,
+      },
+    } as unknown as T;
+  }
 
   // Guest "my stays"
   if (p === "/me/stays") {

@@ -92,9 +92,10 @@ export default function ClaimStay() {
 
       // Prefer sending guest straight into their in-room menu if we know the booking
       if (bookingCode) {
-        navigate(`/stay/${encodeURIComponent(bookingCode)}/menu`, {
-          replace: true,
-        });
+        const menuPath = `/stay/${encodeURIComponent(bookingCode)}/menu${
+          hotelSlug ? `?hotel=${encodeURIComponent(hotelSlug)}` : ""
+        }`;
+        navigate(menuPath, { replace: true });
         return;
       }
 
@@ -225,7 +226,9 @@ export default function ClaimStay() {
               <div className="mb-4 flex items-center gap-2 text-sm text-slate-600">
                 <Spinner
                   label={
-                    step === "form" ? "Sending OTP to your phone…" : "Verifying OTP…"
+                    step === "form"
+                      ? "Sending OTP to your phone…"
+                      : "Verifying OTP…"
                   }
                 />
               </div>
@@ -244,7 +247,7 @@ export default function ClaimStay() {
                         fill="none"
                       >
                         <path
-                          d="M4 7h16M7 12h10M9 17h6"
+                          d="M4 7h16M7 12h6M9 17h6"
                           stroke="currentColor"
                           strokeWidth="1.6"
                           strokeLinecap="round"
@@ -254,9 +257,7 @@ export default function ClaimStay() {
                     <input
                       className="w-full rounded-xl border px-10 py-2.5 outline-none ring-0 focus:border-blue-500 focus:bg-blue-50/20 transition"
                       value={code}
-                      onChange={(e) =>
-                        setCode(e.target.value.toUpperCase())
-                      }
+                      onChange={(e) => setCode(e.target.value.toUpperCase())}
                       placeholder="ABC123"
                       autoComplete="off"
                       required
@@ -276,7 +277,9 @@ export default function ClaimStay() {
                       className="w-full rounded-xl border pl-12 pr-4 py-2.5 outline-none focus:border-blue-500 focus:bg-blue-50/20 transition"
                       value={phone}
                       inputMode="numeric"
-                      onChange={(e) => setPhone(normalizePhone(e.target.value))}
+                      onChange={(e) =>
+                        setPhone(normalizePhone(e.target.value))
+                      }
                       placeholder="9999999999"
                     />
                   </div>

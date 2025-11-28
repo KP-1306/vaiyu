@@ -1,7 +1,7 @@
 // web/src/routes/OwnerSettings.tsx
 
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import OwnerGate from "../components/OwnerGate";
 import SEO from "../components/SEO";
@@ -206,7 +206,7 @@ export default function OwnerSettings() {
         active:
           typeof svc.active === "boolean"
             ? svc.active
-            : svc.is_active ?? true,
+            : (svc as any).is_active ?? true,
       }));
 
       setHotel(normalizedHotel);
@@ -695,12 +695,22 @@ export default function OwnerSettings() {
               <section className="bg-white rounded shadow p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <h2 className="font-medium">Services &amp; SLAs</h2>
-                  <button
-                    className="btn btn-light !py-2 !px-3 text-sm"
-                    onClick={addService}
-                  >
-                    + Add service
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      className="btn btn-light !py-2 !px-3 text-sm"
+                      onClick={addService}
+                    >
+                      + Add service
+                    </button>
+                    {hotel.slug && (
+                      <Link
+                        to={`/owner/${hotel.slug}/menu`}
+                        className="btn btn-light !py-2 !px-3 text-sm"
+                      >
+                        Edit food menu
+                      </Link>
+                    )}
+                  </div>
                 </div>
 
                 <div className="overflow-auto mt-3">

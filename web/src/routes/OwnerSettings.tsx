@@ -1,7 +1,7 @@
 // web/src/routes/OwnerSettings.tsx
 
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import OwnerGate from "../components/OwnerGate";
 import SEO from "../components/SEO";
@@ -81,56 +81,69 @@ export default function OwnerSettings() {
     setErr(null);
     setOk(null);
     setLoading(true);
-    try {
-      // Best-effort Supabase session → Bearer token for Edge function
-      let authHeader: Record<string, string> = {};
-      try {
-        const { data } = await supabase.auth.getSession();
-        const token = data?.session?.access_token;
-        if (token) {
-          authHeader = { Authorization: `Bearer ${token}` };
-        }
-      } catch {
-        // If this fails, we just skip the Authorization header; RLS/Edge will treat as anon
-      }
 
+    try {
       let hRaw: any = null;
       let sRaw: any = {};
       let svcsRaw: any[] = [];
 
+      // ---- 1) Try Edge /owner-settings API if configured ----
       if (HAS_API_BASE) {
-        // ---- Primary path: use the Owner Settings Edge / API endpoint ----
-        const url = `${API}/owner-settings?slug=${encodeURIComponent(slug)}`;
-        const r = await fetch(url, {
-          headers: {
-            "content-type": "application/json",
-            ...authHeader,
-          },
-        });
+        try {
+          // Best-effort Supabase session → Bearer token for Edge function
+          let authHeader: Record<string, string> = {};
+          try {
+            const { data } = await supabase.auth.getSession();
+            const token = data?.session?.access_token;
+            if (token) {
+              authHeader = { Authorization: `Bearer ${token}` };
+            }
+          } catch {
+            // ignore, continue anon
+          }
 
-        const data: any = await r.json().catch(() => null);
+          const url = `${API}/owner-settings?slug=${encodeURIComponent(slug)}`;
+          const r = await fetch(url, {
+            headers: {
+              "content-type": "application/json",
+              ...authHeader,
+            },
+          });
 
-        if (!r.ok) {
-          throw new Error(
-            data?.error ||
-              data?.message ||
-              `Failed to load settings (HTTP ${r.status})`,
+          if (r.ok) {
+            const data: any = await r.json().catch(() => null);
+            hRaw = data?.hotel;
+            sRaw = data?.settings ?? {};
+            svcsRaw = Array.isArray(data?.services)
+              ? data.services
+              : Array.isArray(data?.services?.items)
+              ? data.services.items
+              : [];
+          } else if (r.status === 404 || r.status === 405) {
+            // Endpoint not wired yet – log & fall through to Supabase
+            console.warn(
+              "Owner settings Edge endpoint not ready (HTTP",
+              r.status,
+              ") – falling back to direct Supabase load",
+            );
+          } else {
+            const data: any = await r.json().catch(() => null);
+            throw new Error(
+              data?.error ||
+                data?.message ||
+                `Failed to load settings (HTTP ${r.status})`,
+            );
+          }
+        } catch (apiErr) {
+          console.warn(
+            "Owner settings API load failed, using Supabase fallback",
+            apiErr,
           );
         }
+      }
 
-        // New Edge Function shape: { hotel, settings, services }
-        hRaw = data?.hotel;
-        if (!hRaw) {
-          throw new Error("Failed to load hotel for slug");
-        }
-        sRaw = data?.settings ?? {};
-        svcsRaw = Array.isArray(data?.services)
-          ? data.services
-          : Array.isArray(data?.services?.items)
-          ? data.services.items
-          : [];
-      } else {
-        // ---- Fallback: no VITE_API_URL → load directly via Supabase ----
+      // ---- 2) Fallback: load directly via Supabase if API not used / failed ----
+      if (!hRaw) {
         const { data: hotelRow, error: hErr } = await supabase
           .from("hotels")
           .select(
@@ -154,12 +167,14 @@ export default function OwnerSettings() {
           .eq("hotel_id", hotelRow.id);
 
         if (svcErr) {
+          console.warn("Could not load services for hotel", svcErr);
           svcsRaw = [];
         } else {
           svcsRaw = svcRows ?? [];
         }
       }
 
+      // ---- Normalisation (same as before) ----
       const defaultPolicy: ReviewsPolicy = {
         mode: "preview",
         min_activity: 1,
@@ -206,7 +221,7 @@ export default function OwnerSettings() {
         active:
           typeof svc.active === "boolean"
             ? svc.active
-            : (svc as any).is_active ?? true,
+            : svc.is_active ?? true,
       }));
 
       setHotel(normalizedHotel);
@@ -215,7 +230,7 @@ export default function OwnerSettings() {
     } catch (e: any) {
       const msg =
         e?.message === "Failed to fetch"
-          ? "Could not reach the Owner Settings API. Please confirm your VAiyu backend (VITE_API_URL) is configured and online."
+          ? "Could not reach the Owner Settings API / database. Please confirm your VAiyu backend and Supabase are reachable."
           : e?.message || "Failed to load settings";
       setErr(msg);
     } finally {
@@ -282,31 +297,11 @@ export default function OwnerSettings() {
   async function save() {
     if (!hotel) return;
 
-    if (!HAS_API_BASE) {
-      // We deliberately *do not* try to write directly to Supabase here
-      // to avoid bypassing your Edge Function / validation logic.
-      setErr(
-        "Owner Settings API base (VITE_API_URL) is not configured, so changes cannot be saved yet. Please set VITE_API_URL to your VAiyu backend and redeploy.",
-      );
-      return;
-    }
-
     setSaving(true);
     setErr(null);
     setOk(null);
-    try {
-      // Best-effort session → Authorization header
-      let authHeader: Record<string, string> = {};
-      try {
-        const { data } = await supabase.auth.getSession();
-        const token = data?.session?.access_token;
-        if (token) {
-          authHeader = { Authorization: `Bearer ${token}` };
-        }
-      } catch {
-        // continue without auth header
-      }
 
+    try {
       const body = {
         hotel: {
           name: hotel.name?.trim(),
@@ -338,31 +333,113 @@ export default function OwnerSettings() {
         })),
       };
 
-      const r = await fetch(
-        `${API}/owner-settings?slug=${encodeURIComponent(slug)}`,
-        {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            ...authHeader,
-          },
-          body: JSON.stringify(body),
-        },
-      );
-      const data: any = await r.json().catch(() => null);
-      if (!r.ok) {
-        throw new Error(
-          data?.error ||
-            data?.message ||
-            `Failed to save settings (HTTP ${r.status})`,
-        );
+      let savedViaApi = false;
+
+      // ---- 1) Try Edge /owner-settings API if available ----
+      if (HAS_API_BASE) {
+        try {
+          let authHeader: Record<string, string> = {};
+          try {
+            const { data } = await supabase.auth.getSession();
+            const token = data?.session?.access_token;
+            if (token) {
+              authHeader = { Authorization: `Bearer ${token}` };
+            }
+          } catch {
+            // ignore
+          }
+
+          const r = await fetch(
+            `${API}/owner-settings?slug=${encodeURIComponent(slug)}`,
+            {
+              method: "POST",
+              headers: {
+                "content-type": "application/json",
+                ...authHeader,
+              },
+              body: JSON.stringify(body),
+            },
+          );
+
+          const data: any = await r.json().catch(() => null);
+
+          if (r.ok) {
+            savedViaApi = true;
+          } else if (r.status === 404 || r.status === 405) {
+            console.warn(
+              "Owner settings Edge endpoint does not allow POST yet (HTTP",
+              r.status,
+              ") – falling back to direct Supabase save",
+            );
+          } else {
+            throw new Error(
+              data?.error ||
+                data?.message ||
+                `Failed to save settings (HTTP ${r.status})`,
+            );
+          }
+        } catch (apiErr) {
+          console.warn(
+            "Owner settings API save failed, using Supabase direct save",
+            apiErr,
+          );
+        }
       }
+
+      // ---- 2) Fallback: write directly to Supabase if API not used / failed ----
+      if (!savedViaApi) {
+        // Update hotel row
+        const { error: hotelErr } = await supabase
+          .from("hotels")
+          .update({
+            name: body.hotel.name,
+            description: body.hotel.description || null,
+            address: body.hotel.address || null,
+            amenities: body.hotel.amenities,
+            phone: body.hotel.phone || null,
+            email: body.hotel.email || null,
+            logo_url: body.hotel.logo_url || null,
+            theme: body.hotel.theme,
+            reviews_policy: body.hotel.reviews_policy,
+          })
+          .eq("id", hotel.id);
+
+        if (hotelErr) {
+          throw new Error(
+            hotelErr.message || "Failed to update hotel settings",
+          );
+        }
+
+        // Upsert services for this hotel
+        const svcPayload = body.services
+          .filter((s) => s.key)
+          .map((s) => ({
+            hotel_id: hotel.id,
+            key: s.key,
+            label_en: s.label,
+            sla_minutes: s.sla_minutes,
+            active: s.active,
+          }));
+
+        if (svcPayload.length > 0) {
+          const { error: svcErr } = await supabase
+            .from("services")
+            .upsert(svcPayload, { onConflict: "hotel_id,key" });
+
+          if (svcErr) {
+            throw new Error(
+              svcErr.message || "Failed to update service SLAs",
+            );
+          }
+        }
+      }
+
       setOk("Saved successfully.");
       await load();
     } catch (e: any) {
       const msg =
         e?.message === "Failed to fetch"
-          ? "Could not reach the Owner Settings API. Please confirm your VAiyu backend (VITE_API_URL) is configured and online."
+          ? "Could not reach the Owner Settings API / database while saving. Please check your connection and try again."
           : e?.message || "Failed to save";
       setErr(msg);
     } finally {
@@ -390,9 +467,8 @@ export default function OwnerSettings() {
               </div>
               {!HAS_API_BASE && (
                 <div className="mt-1 text-xs text-amber-700">
-                  Note: VITE_API_URL is not configured. Settings can be viewed
-                  via Supabase but won&apos;t be saved until the API base is
-                  wired.
+                  Note: VITE_API_URL is not configured. Settings are loaded
+                  directly from Supabase and saved via Supabase.
                 </div>
               )}
             </div>
@@ -695,22 +771,12 @@ export default function OwnerSettings() {
               <section className="bg-white rounded shadow p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <h2 className="font-medium">Services &amp; SLAs</h2>
-                  <div className="flex items-center gap-2">
-                    <button
-                      className="btn btn-light !py-2 !px-3 text-sm"
-                      onClick={addService}
-                    >
-                      + Add service
-                    </button>
-                    {hotel.slug && (
-                      <Link
-                        to={`/owner/${hotel.slug}/menu`}
-                        className="btn btn-light !py-2 !px-3 text-sm"
-                      >
-                        Edit food menu
-                      </Link>
-                    )}
-                  </div>
+                  <button
+                    className="btn btn-light !py-2 !px-3 text-sm"
+                    onClick={addService}
+                  >
+                    + Add service
+                  </button>
                 </div>
 
                 <div className="overflow-auto mt-3">

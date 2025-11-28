@@ -35,7 +35,6 @@ function getStayStatus(row: StayRow, now = new Date()): StayStatusKey {
   const co = parseDate(row.check_out);
   if (!ci && !co) return "unknown";
 
-  // Use date-only comparison to avoid time-zone weirdness
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
   if (co && co < today) return "completed";
@@ -94,7 +93,7 @@ export default function Stays() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Filters / sorting (all client-side)
+  // Filters / sorting (client-side)
   const [yearFilter, setYearFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<
     "all" | "upcoming" | "ongoing" | "completed"
@@ -145,13 +144,44 @@ export default function Stays() {
     };
   }, []);
 
-  const totals = useMemo(() => {
+  const summary = useMemo(() => {
     if (!hasRows) return null;
+
     let totalPaise = 0;
-    for (const r of rows) totalPaise += r.earned_paise ?? 0;
+    let totalNights = 0;
+    const now = new Date();
+
+    let upcoming: { row: StayRow; ts: number } | null = null;
+    let last: { row: StayRow; ts: number } | null = null;
+
+    for (const r of rows) {
+      totalPaise += r.earned_paise ?? 0;
+      const nights = getNights(r);
+      if (nights) totalNights += nights;
+
+      const status = getStayStatus(r, now);
+      const d = parseDate(r.check_in || r.check_out);
+      const ts = d ? d.getTime() : null;
+
+      if (status === "upcoming" && ts !== null) {
+        if (!upcoming || ts < upcoming.ts) {
+          upcoming = { row: r, ts };
+        }
+      }
+
+      if ((status === "completed" || status === "ongoing") && ts !== null) {
+        if (!last || ts > last.ts) {
+          last = { row: r, ts };
+        }
+      }
+    }
+
     return {
       totalCreditsPaise: totalPaise,
       stayCount: rows.length,
+      totalNights,
+      upcomingStay: upcoming?.row ?? null,
+      lastStay: last?.row ?? null,
     };
   }, [rows, hasRows]);
 
@@ -258,14 +288,12 @@ export default function Stays() {
       </div>
 
       {loading ? (
-        // loading state
         <section className="mt-6 rounded-2xl border bg-white/90 shadow-sm p-6">
           <div className="h-4 w-40 bg-gray-200 rounded mb-4" />
           <div className="h-6 w-64 bg-gray-100 rounded mb-4" />
           <div className="h-24 w-full bg-gray-100 rounded" />
         </section>
       ) : error ? (
-        // error state
         <section className="mt-6 rounded-2xl border border-yellow-300 bg-yellow-50 p-4 text-sm">
           <p className="text-gray-800">{error}</p>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -282,32 +310,92 @@ export default function Stays() {
           </div>
         </section>
       ) : !hasRows ? (
-        // no stays at all
         <EmptyState />
       ) : (
         <>
-          {/* lifetime credits summary */}
-          {totals && (
-            <section className="mt-6 rounded-2xl border bg-slate-50/80 p-4 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-col gap-1 text-xs text-gray-700">
-                <span className="font-semibold text-sm">
-                  Lifetime credits from VAiyu stays
-                </span>
-                <span>
-                  You&apos;ve completed {totals.stayCount}{" "}
-                  {totals.stayCount === 1 ? "stay" : "stays"} so far.
-                </span>
+          {/* Lifetime summary band */}
+          {summary && (
+            <section className="mt-6 rounded-2xl border bg-gradient-to-r from-slate-50 via-white to-slate-50 shadow-sm p-4 md:p-5 flex flex-wrap items-stretch gap-4">
+              {/* Lifetime stats */}
+              <div className="flex-1 min-w-[200px] space-y-1 text-xs text-gray-700">
+                <div className="uppercase tracking-wide text-[10px] text-gray-500">
+                  Lifetime with VAiyu
+                </div>
+                <div className="text-sm md:text-base font-semibold text-gray-900">
+                  {summary.stayCount}{" "}
+                  {summary.stayCount === 1 ? "stay" : "stays"} •{" "}
+                  {summary.totalNights}{" "}
+                  {summary.totalNights === 1 ? "night" : "nights"}
+                </div>
+                <p className="text-xs text-gray-600">
+                  Every completed stay adds credits you can redeem at partner
+                  hotels.
+                </p>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500">Total credits</span>
-                <span className="px-4 py-2 rounded-full bg-white shadow-sm border text-base font-semibold text-emerald-700">
-                  ₹{(totals.totalCreditsPaise / 100).toFixed(2)}
-                </span>
+
+              {/* Next stay highlight */}
+              <div className="min-w-[210px] max-w-xs rounded-xl bg-white/80 border border-slate-100 shadow-sm px-3 py-3 text-xs text-gray-700 flex flex-col justify-between">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-gray-800">
+                    Next stay
+                  </span>
+                  {summary.upcomingStay && (
+                    <span className="rounded-full bg-emerald-50 border border-emerald-100 text-[10px] text-emerald-700 px-2 py-0.5">
+                      Upcoming
+                    </span>
+                  )}
+                </div>
+
+                {summary.upcomingStay ? (
+                  <>
+                    <div className="mt-1 text-sm font-medium truncate">
+                      {summary.upcomingStay.hotel_name || "Partner hotel"}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {summary.upcomingStay.city || "Location coming soon"}
+                    </div>
+                    <div className="mt-1 text-xs text-gray-600">
+                      {formatStayDates(summary.upcomingStay)}
+                    </div>
+                    <Link
+                      to={`/stay/${encodeURIComponent(
+                        summary.upcomingStay.id
+                      )}`}
+                      className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-teal-700 hover:text-teal-800"
+                    >
+                      View stay details <span>→</span>
+                    </Link>
+                  </>
+                ) : (
+                  <p className="mt-1 text-xs text-gray-600">
+                    No upcoming stay yet. Book directly with your favourite
+                    VAiyu property to earn more credits.
+                  </p>
+                )}
+              </div>
+
+              {/* Credits + last stay */}
+              <div className="flex flex-col items-end justify-between min-w-[160px] gap-2 text-xs text-gray-600">
+                <div className="text-right">
+                  <div className="text-[11px] text-gray-500">Total credits</div>
+                  <div className="mt-1 px-4 py-2 rounded-full bg-white shadow-sm border text-base font-semibold text-emerald-700">
+                    ₹{(summary.totalCreditsPaise / 100).toFixed(2)}
+                  </div>
+                </div>
+                {summary.lastStay && (
+                  <div className="text-[11px] text-gray-500 text-right">
+                    Last stayed at{" "}
+                    <span className="font-medium text-gray-700">
+                      {summary.lastStay.hotel_name || "a partner hotel"}
+                    </span>{" "}
+                    • {formatStayDates(summary.lastStay)}
+                  </div>
+                )}
               </div>
             </section>
           )}
 
-          {/* filters */}
+          {/* Filters */}
           <section className="mt-4 rounded-2xl border bg-white/90 shadow-sm p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap gap-3">
@@ -401,7 +489,6 @@ export default function Stays() {
               ))}
             </div>
           ) : (
-            // filters selected but nothing matches
             <section className="mt-6 rounded-2xl border bg-white/90 shadow-sm p-8 text-center text-sm text-gray-700">
               <p>No stays match the filters you&apos;ve selected.</p>
               <button

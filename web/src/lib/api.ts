@@ -637,6 +637,25 @@ export async function gridStartEvent(target_kw: number, playbook_id?: string) {
     body: JSON.stringify({ target_kw, playbook_id }),
   });
 }
+
+// Self-claim (guest attaches an existing booking)
+export async function claimInit(code: string, contact: string) {
+  const path = IS_SUPABASE_FUNCTIONS ? "/claim-init" : "/claim/init";
+  return req(path, {
+    method: "POST",
+    body: JSON.stringify({ code, phone: contact }),
+  });
+}
+
+export async function claimVerify(code: string, otp: string) {
+  const path = IS_SUPABASE_FUNCTIONS ? "/claim-verify" : "/claim/verify";
+  return req(path, {
+    method: "POST",
+    body: JSON.stringify({ code, otp }),
+  });
+}
+
+
 export async function gridStepEvent(
   id: string,
   device_id: string,

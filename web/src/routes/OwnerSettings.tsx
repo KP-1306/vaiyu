@@ -174,7 +174,7 @@ export default function OwnerSettings() {
         }
       }
 
-      // ---- Normalisation (same as before) ----
+      // ---- Normalisation ----
       const defaultPolicy: ReviewsPolicy = {
         mode: "preview",
         min_activity: 1,
@@ -302,6 +302,28 @@ export default function OwnerSettings() {
     setOk(null);
 
     try {
+      // Normalise services so we *never* send a null label
+      const normalisedServices = services
+        .map((s) => {
+          const key = String(s.key || "").trim();
+          const rawLabel = (s.label ?? "").toString().trim();
+          // Fallback: if label is blank but key exists, use key as label
+          const label = rawLabel || key || "Service";
+          const rawMinutes = s.sla_minutes;
+          const slaMinutes =
+            rawMinutes == null || Number.isNaN(Number(rawMinutes))
+              ? null
+              : Math.max(1, Math.trunc(Number(rawMinutes)));
+          return {
+            key,
+            label,
+            sla_minutes: slaMinutes,
+            active: !!s.active,
+          };
+        })
+        // Do not send completely blank rows (no key)
+        .filter((s) => !!s.key);
+
       const body = {
         hotel: {
           name: hotel.name?.trim(),
@@ -321,16 +343,8 @@ export default function OwnerSettings() {
             require_consent: !!hotel.reviews_policy?.require_consent,
           },
         },
-        // keep old shape: services[] with "label"
-        services: services.map((s) => ({
-          key: String(s.key || "").trim(),
-          label: (s.label ?? "").toString().trim() || null,
-          sla_minutes:
-            s.sla_minutes == null || Number.isNaN(Number(s.sla_minutes))
-              ? null
-              : Math.max(1, Math.trunc(Number(s.sla_minutes))),
-          active: !!s.active,
-        })),
+        // keep old shape: services[] with "label" (now always non-null for valid rows)
+        services: normalisedServices,
       };
 
       let savedViaApi = false;
@@ -411,15 +425,16 @@ export default function OwnerSettings() {
         }
 
         // Upsert services for this hotel
-        const svcPayload = body.services
-          .filter((s) => s.key)
-          .map((s) => ({
+        const svcPayload =
+          body.services?.map((s) => ({
             hotel_id: hotel.id,
             key: s.key,
+            // write both for safety – supports old `label` and newer `label_en`
+            label: s.label,
             label_en: s.label,
             sla_minutes: s.sla_minutes,
             active: s.active,
-          }));
+          })) ?? [];
 
         if (svcPayload.length > 0) {
           const { error: svcErr } = await supabase
@@ -637,7 +652,9 @@ export default function OwnerSettings() {
                     Require consent
                     <select
                       className="mt-1 select w-full"
-                      value={String(!!hotel.reviews_policy?.require_consent)}
+                      value={String(!!
+                        hotel.reviews_policy?.require_consent
+                      )}
                       onChange={(e) =>
                         patchPolicy(
                           "require_consent",

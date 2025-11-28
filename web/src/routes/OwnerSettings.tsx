@@ -1,7 +1,7 @@
 // web/src/routes/OwnerSettings.tsx
 
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import OwnerGate from "../components/OwnerGate";
 import SEO from "../components/SEO";
@@ -469,6 +469,8 @@ export default function OwnerSettings() {
     padding: 12,
   };
 
+  const menuSlug = hotel?.slug || slug;
+
   return (
     <>
       <SEO title="Owner Settings" noIndex />
@@ -652,8 +654,8 @@ export default function OwnerSettings() {
                     Require consent
                     <select
                       className="mt-1 select w-full"
-                      value={String(!!
-                        hotel.reviews_policy?.require_consent
+                      value={String(
+                        !!hotel.reviews_policy?.require_consent,
                       )}
                       onChange={(e) =>
                         patchPolicy(
@@ -788,12 +790,22 @@ export default function OwnerSettings() {
               <section className="bg-white rounded shadow p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <h2 className="font-medium">Services &amp; SLAs</h2>
-                  <button
-                    className="btn btn-light !py-2 !px-3 text-sm"
-                    onClick={addService}
-                  >
-                    + Add service
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {menuSlug && (
+                      <Link
+                        to={`/owner/${menuSlug}/menu`}
+                        className="btn btn-light !py-2 !px-3 text-sm"
+                      >
+                        Edit food menu
+                      </Link>
+                    )}
+                    <button
+                      className="btn btn-light !py-2 !px-3 text-sm"
+                      onClick={addService}
+                    >
+                      + Add service
+                    </button>
+                  </div>
                 </div>
 
                 <div className="overflow-auto mt-3">

@@ -471,17 +471,27 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
       otp_hint: "123456",
     } as unknown as T;
 
+  
   if (p === "/claim/verify") {
-    return {
-      ok: true,
-      token: "demo-stay-token",
-      booking: {
-        code: "ABC123",
-        guest_name: "Test Guest",
-        hotel_slug: "sunrise",
-      },
-    } as unknown as T;
-  }
+  const payload = body as any;
+
+  // Accept either booking_code or bookingCode, just in case
+  const bookingCodeRaw =
+    payload?.booking_code ?? payload?.bookingCode ?? "ABC123";
+
+  const bookingCode = String(bookingCodeRaw).trim().toUpperCase();
+
+  return {
+    ok: true,
+    token: "demo-stay-token",
+    booking: {
+      code: bookingCode,          // <-- now uses what the guest typed
+      guest_name: "Test Guest",
+      hotel_slug: "sunrise",      // or "TENANT1" if you prefer
+    },
+  } as unknown as T;
+}
+
 
   // Guest "my stays"
   if (p === "/me/stays") {

@@ -3,6 +3,7 @@
 import React, { Suspense, lazy } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import Header from "./components/Header";
+import WorkforceProfilePage from "./routes/WorkforceProfile";
 
 /** Helper: optional lazy import from a literal glob + fallback */
 function optionalFromGlob<T extends React.ComponentType<any>>(
@@ -372,6 +373,8 @@ export default function App() {
               element={<BookingsCalendar />}
             />
 
+            <Route path="/workforce/profile" element={<WorkforceProfilePage />} />
+            
             {/* Auth */}
             <Route path="/signin" element={<SignIn />} />
             <Route path="/auth/callback" element={<AuthCallback />} />

@@ -121,6 +121,22 @@ export type GuestProfilePayload = {
   credits?: any[];
 };
 
+/** ---- NEW: Central Guest Identity type ---- */
+export type GuestIdentity = {
+  id?: string;
+  account_id?: string;
+  full_name?: string | null;
+  primary_phone?: string | null;
+  primary_email?: string | null;
+  id_type?: string | null;
+  id_number?: string | null;
+  country?: string | null;
+  city?: string | null;
+  updated_at?: string | null;
+  // allow forward-compatible extra fields
+  [key: string]: any;
+};
+
 /** ---- NEW: AI Ops Co-pilot types ---- */
 export type OpsHeatmapPoint = {
   hotel_id: string;
@@ -461,8 +477,30 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
     return demo as unknown as T;
   }
 
-  // Self-claim init
-  if (p === "/claim/init" && method === "POST")
+  // NEW: guest-identity demo
+  if (p === "/guest-identity" && method === "GET") {
+    const identity: GuestIdentity = {
+      id: "guest_identity_demo_1",
+      full_name: "Demo Guest",
+      primary_phone: "+91-90000-00000",
+      primary_email: "guest@example.com",
+      id_type: "Aadhaar",
+      id_number: "XXXX-XXXX-1234",
+      city: "Nainital",
+      country: "India",
+    };
+    return { ok: true, identity } as unknown as T;
+  }
+  if (p === "/guest-identity-upsert" && method === "POST") {
+    const identity = safeJson(opts.body) || {};
+    return { ok: true, identity } as unknown as T;
+  }
+
+  // Self-claim init (support both /claim/init and /claim-init)
+  if (
+    (p === "/claim/init" || p === "/claim-init") &&
+    method === "POST"
+  ) {
     return {
       ok: true,
       method: "otp",
@@ -470,9 +508,13 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
       demo: true,
       otp_hint: "123456",
     } as unknown as T;
+  }
 
-  // Self-claim verify (fixed: no undefined `body`, uses guest's booking code)
-  if (p === "/claim/verify" && method === "POST") {
+  // Self-claim verify (support both /claim/verify and /claim-verify)
+  if (
+    (p === "/claim/verify" || p === "/claim-verify") &&
+    method === "POST"
+  ) {
     const payload = safeJson(opts.body) || {};
 
     // Accept various possible field names from the client
@@ -638,7 +680,11 @@ export async function gridStartEvent(target_kw: number, playbook_id?: string) {
   });
 }
 
-// Self-claim (guest attaches an existing booking)
+/* ============================================================================
+   Self-claim (guest attaches an existing booking)
+   - Uses Node routes (/claim/init,/claim/verify) OR
+     Supabase Functions (/claim-init,/claim-verify) based on API base.
+============================================================================ */
 export async function claimInit(code: string, contact: string) {
   const path = IS_SUPABASE_FUNCTIONS ? "/claim-init" : "/claim/init";
   return req(path, {
@@ -654,7 +700,6 @@ export async function claimVerify(code: string, otp: string) {
     body: JSON.stringify({ code, otp }),
   });
 }
-
 
 export async function gridStepEvent(
   id: string,
@@ -818,20 +863,8 @@ export async function gridFetchSilentKillers(params: {
 }
 
 /* ============================================================================
-   Self-claim (guest attaches an existing booking)
+   Self-claim helper – "my stays"
 ============================================================================ */
-export async function claimInit(code: string, contact: string) {
-  return req(`/claim/init`, {
-    method: "POST",
-    body: JSON.stringify({ code, phone: contact }),
-  });
-}
-export async function claimVerify(code: string, otp: string) {
-  return req(`/claim/verify`, {
-    method: "POST",
-    body: JSON.stringify({ code, otp }),
-  });
-}
 export async function myStays(
   token: string
 ): Promise<{ stays: Stay[]; items: Stay[] }> {
@@ -1210,6 +1243,50 @@ export async function fetchGuestProfile(params: {
 }
 
 /* ============================================================================
+   Guest Identity (central profile across bookings)
+   - Edge functions:
+     GET  /guest-identity
+     POST /guest-identity-upsert
+============================================================================ */
+export async function fetchGuestIdentity(
+  token?: string
+): Promise<GuestIdentity | null> {
+  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+  const res = await req<any>("/guest-identity", { headers }).catch(() => null);
+
+  if (!res) return null;
+  if (res.ok === false) return null;
+
+  const identity =
+    (res.identity as GuestIdentity) ??
+    (res.guest as GuestIdentity) ??
+    (res.data as GuestIdentity) ??
+    (res as GuestIdentity);
+
+  return identity || null;
+}
+
+export async function upsertGuestIdentity(
+  payload: Partial<GuestIdentity>,
+  token?: string
+): Promise<{ ok: boolean; identity?: GuestIdentity }> {
+  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+
+  const res = await req<any>("/guest-identity-upsert", {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  const identity =
+    (res.identity as GuestIdentity) ??
+    (res.data as GuestIdentity) ??
+    (res as GuestIdentity);
+
+  return { ok: res?.ok !== false, identity };
+}
+
+/* ============================================================================
    Folio / Flows
 ============================================================================ */
 export async function getFolio() {
@@ -1412,8 +1489,10 @@ export const api = {
   updateOrder,
   fetchHotelOrders,
 
-  // guest profile
+  // guest profile + identity
   fetchGuestProfile,
+  fetchGuestIdentity,
+  upsertGuestIdentity,
 
   // folio/flows
   getFolio,
@@ -1517,7 +1596,9 @@ export async function fetchOwnerOccupancy(
   });
 
   const res = await fetch(
-    `${API_URL}/owner/${encodeURIComponent(slug)}/occupancy?${params.toString()}`,
+    `${API_URL}/owner/${encodeURIComponent(
+      slug
+    )}/occupancy?${params.toString()}`,
     {
       credentials: "include",
     }
@@ -1550,7 +1631,9 @@ export async function fetchOwnerRevenue(
   });
 
   const res = await fetch(
-    `${API_URL}/owner/${encodeURIComponent(slug)}/revenue?${params.toString()}`,
+    `${API_URL}/owner/${encodeURIComponent(
+      slug
+    )}/revenue?${params.toString()}`,
     {
       credentials: "include",
     }

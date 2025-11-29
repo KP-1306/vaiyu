@@ -906,6 +906,23 @@ export async function listWorkforceJobs(
   return listOpenJobs(filters);
 }
 
+// Back-compat alias: old name used in WorkforceProfile.tsx
+export async function applyForWorkforceJob(params: {
+  jobId: string;
+  message?: string;
+  expectedSalary?: number;
+  token?: string;
+}): Promise<WorkforceJobApplication> {
+  return applyToJob(params);
+}
+
+// Back-compat alias: list my applications (candidate side)
+export async function listWorkforceApplications(
+  token?: string
+): Promise<WorkforceJobApplication[]> {
+  return listMyApplications(token);
+}
+
 
 /* ============================================================================
    --- Grid (VPP) ---

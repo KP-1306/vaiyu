@@ -43,6 +43,34 @@ function supa(): MaybeSupa {
   }
 }
 
+/**
+ * Build Authorization header from either:
+ *  - explicit token (if provided), or
+ *  - current Supabase session (via supa().auth.getSession()).
+ * Returns `{}` when no token is available so callers can safely spread it.
+ */
+async function getAuthHeaders(
+  explicitToken?: string
+): Promise<Record<string, string>> {
+  if (explicitToken) {
+    return { Authorization: `Bearer ${explicitToken}` };
+  }
+
+  const client = supa() as any;
+  if (!client?.auth?.getSession) return {};
+
+  try {
+    const { data } = await client.auth.getSession();
+    const token = data?.session?.access_token;
+    if (token) {
+      return { Authorization: `Bearer ${token}` };
+    }
+  } catch {
+    // swallow, we just return empty headers below
+  }
+  return {};
+}
+
 /* ============================================================================
    Types (lightweight)
 ============================================================================ */
@@ -188,6 +216,62 @@ export type GridSilentKiller = {
   peak_kwh: number | null;
   waste_score: number;
   rank_within_hotel: number;
+};
+
+/** ---- NEW: Workforce / Labour Beta types ---- */
+export type WorkforceProfile = {
+  id?: string;
+  user_id?: string;
+  full_name?: string | null;
+  headline?: string | null;
+  bio?: string | null;
+  skills?: string[] | null;
+  languages?: string[] | null;
+  experience_years?: number | null;
+  location_city?: string | null;
+  location_state?: string | null;
+  location_country?: string | null;
+  preferred_property_types?: string[] | null;
+  willing_relocate?: boolean | null;
+  status?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  [key: string]: any;
+};
+
+export type WorkforceJob = {
+  id?: string;
+  property_type?: string | null;
+  property_id?: string | null;
+  title?: string | null;
+  role_key?: string | null;
+  job_type?: "full_time" | "part_time" | "contract" | string;
+  contract_days?: number | null;
+  min_salary?: number | null;
+  max_salary?: number | null;
+  currency?: string | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  status?: "draft" | "open" | "closed" | "deleted" | string;
+  notes?: string | null;
+  created_by?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  [key: string]: any;
+};
+
+export type WorkforceJobApplication = {
+  id?: string;
+  job_id?: string;
+  applicant_user_id?: string;
+  workforce_profile_id?: string;
+  status?: "applied" | "shortlisted" | "rejected" | "hired" | string;
+  message?: string | null;
+  expected_salary?: number | null;
+  created_at?: string;
+  job?: WorkforceJob;
+  [key: string]: any;
 };
 
 /* ============================================================================
@@ -520,6 +604,8 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
     // Accept various possible field names from the client
     const rawCode =
       payload.code ??
+
+
       payload.booking_code ??
       payload.bookingCode ??
       payload.booking_id ??
@@ -603,6 +689,201 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
   }
 
   return undefined;
+}
+
+/* ============================================================================
+   Workforce / Labour Beta – helper APIs
+   Endpoints (Edge Functions / backend):
+   - GET/POST /workforce-profile
+   - GET      /workforce-jobs?mode=open|property&...
+   - POST     /workforce-jobs
+   - GET      /workforce-applications?mode=mine|job&...
+   - POST     /workforce-applications
+============================================================================ */
+
+/** Get the current user’s workforce profile (or null if none). */
+export async function getMyWorkforceProfile(
+  token?: string
+): Promise<WorkforceProfile | null> {
+  const headers = await getAuthHeaders(token);
+  const res = await req<any>("/workforce-profile", { headers }).catch(
+    () => null
+  );
+  if (!res) return null;
+
+  const profile: WorkforceProfile =
+    (res.profile as WorkforceProfile) ??
+    (res.data as WorkforceProfile) ??
+    (res as WorkforceProfile);
+
+  return profile || null;
+}
+
+/** Create or update the current user’s workforce profile. */
+export async function saveMyWorkforceProfile(
+  payload: Partial<WorkforceProfile>,
+  token?: string
+): Promise<WorkforceProfile> {
+  const headers = await getAuthHeaders(token);
+  const res = await req<any>("/workforce-profile", {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  const profile: WorkforceProfile =
+    (res.profile as WorkforceProfile) ??
+    (res.data as WorkforceProfile) ??
+    (res as WorkforceProfile);
+
+  return profile;
+}
+
+export type ListOpenJobsFilters = {
+  city?: string;
+  state?: string;
+  role?: string;
+  propertyType?: string;
+};
+
+/** Public: list open jobs (optionally filtered by city/state/role). */
+export async function listOpenJobs(
+  filters?: ListOpenJobsFilters
+): Promise<WorkforceJob[]> {
+  const search = new URLSearchParams();
+  search.set("mode", "open");
+  if (filters?.city) search.set("city", filters.city);
+  if (filters?.state) search.set("state", filters.state);
+  if (filters?.role) search.set("role", filters.role);
+  if (filters?.propertyType) search.set("property_type", filters.propertyType);
+
+  const qs = search.toString();
+  const res = await req<any>(`/workforce-jobs${qs ? `?${qs}` : ""}`);
+
+  const jobs =
+    (res?.jobs as WorkforceJob[]) ??
+    (res?.items as WorkforceJob[]) ??
+    (Array.isArray(res) ? (res as WorkforceJob[]) : []);
+
+  return Array.isArray(jobs) ? jobs : [];
+}
+
+/** Owner/manager: list jobs for one property (hotel_id today). */
+export async function listPropertyJobs(params: {
+  propertyId: string;
+  token?: string;
+}): Promise<WorkforceJob[]> {
+  const search = new URLSearchParams();
+  search.set("mode", "property");
+  search.set("property_id", params.propertyId);
+  const qs = search.toString();
+
+  const headers = await getAuthHeaders(params.token);
+  const res = await req<any>(`/workforce-jobs?${qs}`, { headers });
+
+  const jobs =
+    (res?.jobs as WorkforceJob[]) ??
+    (res?.items as WorkforceJob[]) ??
+    (Array.isArray(res) ? (res as WorkforceJob[]) : []);
+
+  return Array.isArray(jobs) ? jobs : [];
+}
+
+/** Owner/manager: create or update a job. */
+export async function postJob(
+  job: Partial<WorkforceJob>,
+  token?: string
+): Promise<WorkforceJob> {
+  const headers = await getAuthHeaders(token);
+  const res = await req<any>("/workforce-jobs", {
+    method: "POST",
+    headers,
+    body: JSON.stringify(job),
+  });
+
+  const saved: WorkforceJob =
+    (res?.job as WorkforceJob) ??
+    (res?.data as WorkforceJob) ??
+    (res as WorkforceJob);
+
+  return saved;
+}
+
+/** Candidate: apply to a job. */
+export async function applyToJob(params: {
+  jobId: string;
+  message?: string;
+  expectedSalary?: number;
+  token?: string;
+}): Promise<WorkforceJobApplication> {
+  const headers = await getAuthHeaders(params.token);
+
+  const payload: any = {
+    job_id: params.jobId,
+  };
+  if (typeof params.expectedSalary === "number") {
+    payload.expected_salary = params.expectedSalary;
+  }
+  if (params.message) {
+    payload.message = params.message;
+  }
+
+  const res = await req<any>("/workforce-applications", {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  const app: WorkforceJobApplication =
+    (res?.application as WorkforceJobApplication) ??
+    (res?.data as WorkforceJobApplication) ??
+    (res as WorkforceJobApplication);
+
+  return app;
+}
+
+/** Candidate: list applications for the current user. */
+export async function listMyApplications(
+  token?: string
+): Promise<WorkforceJobApplication[]> {
+  const headers = await getAuthHeaders(token);
+  const res = await req<any>("/workforce-applications?mode=mine", {
+    headers,
+  });
+
+  const apps =
+    (res?.applications as WorkforceJobApplication[]) ??
+    (res?.items as WorkforceJobApplication[]) ??
+    (Array.isArray(res)
+      ? (res as WorkforceJobApplication[])
+      : []);
+
+  return Array.isArray(apps) ? apps : [];
+}
+
+/** Owner/manager: list applications for a single job. */
+export async function listJobApplications(params: {
+  jobId: string;
+  token?: string;
+}): Promise<WorkforceJobApplication[]> {
+  const search = new URLSearchParams();
+  search.set("mode", "job");
+  search.set("job_id", params.jobId);
+  const qs = search.toString();
+
+  const headers = await getAuthHeaders(params.token);
+  const res = await req<any>(`/workforce-applications?${qs}`, {
+    headers,
+  });
+
+  const apps =
+    (res?.applications as WorkforceJobApplication[]) ??
+    (res?.items as WorkforceJobApplication[]) ??
+    (Array.isArray(res)
+      ? (res as WorkforceJobApplication[])
+      : []);
+
+  return Array.isArray(apps) ? apps : [];
 }
 
 /* ============================================================================
@@ -1540,6 +1821,16 @@ export const api = {
   reviewOwnerApp,
   approveOwnerApp,
   rejectOwnerApp,
+
+  // workforce / labour beta
+  getMyWorkforceProfile,
+  saveMyWorkforceProfile,
+  listOpenJobs,
+  listPropertyJobs,
+  postJob,
+  applyToJob,
+  listMyApplications,
+  listJobApplications,
 };
 
 // ---------------- Owner – Occupancy & Revenue ----------------
@@ -1599,6 +1890,7 @@ export async function fetchOwnerOccupancy(
     `${API_URL}/owner/${encodeURIComponent(
       slug
     )}/occupancy?${params.toString()}`,
+
     {
       credentials: "include",
     }
@@ -1634,6 +1926,7 @@ export async function fetchOwnerRevenue(
     `${API_URL}/owner/${encodeURIComponent(
       slug
     )}/revenue?${params.toString()}`,
+
     {
       credentials: "include",
     }

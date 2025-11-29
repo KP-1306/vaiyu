@@ -101,6 +101,15 @@ type NpsSnapshot = {
   nps_30d: number | null;
 };
 
+type WorkforceJobSummary = {
+  id: string;
+  title?: string | null;
+  department?: string | null;
+  status?: string | null;
+  city?: string | null;
+  created_at?: string | null;
+};
+
 type DrawerKind = "pickup" | "opsBoard" | "rushRooms" | "vipList";
 type DrawerState = { kind: DrawerKind };
 
@@ -111,6 +120,7 @@ const HAS_REVENUE = import.meta.env.VITE_HAS_REVENUE === "true";
 const HAS_HRMS = import.meta.env.VITE_HAS_HRMS === "true";
 const HAS_PRICING = import.meta.env.VITE_HAS_PRICING === "true";
 const HAS_CALENDAR = import.meta.env.VITE_HAS_CALENDAR === "true";
+const HAS_WORKFORCE = import.meta.env.VITE_HAS_WORKFORCE === "true";
 
 /** ========= Tone helpers ========= */
 function toneClass(tone: "green" | "amber" | "red" | "grey") {
@@ -191,6 +201,10 @@ export default function OwnerDashboard() {
   const [eventsToday, setEventsToday] = useState<EventRow[] | null>(null);
   const [npsSnapshot, setNpsSnapshot] = useState<NpsSnapshot | null>(null);
 
+  // Workforce snapshot (owner view)
+  const [workforceJobs, setWorkforceJobs] = useState<WorkforceJobSummary[] | null>(null);
+  const [workforceLoading, setWorkforceLoading] = useState(false);
+
   // NEW: AI Ops Co-pilot state (heatmap + staffing recommendations)
   const [opsHeatmap, setOpsHeatmap] = useState<OpsHeatmapPoint[] | null>(null);
   const [staffingPlan, setStaffingPlan] = useState<StaffingPlanRow[] | null>(
@@ -219,6 +233,8 @@ export default function OwnerDashboard() {
     (async () => {
       setLoading(true);
       setAccessProblem(null);
+      setWorkforceJobs(null);
+      setWorkforceLoading(false);
 
       // 1) Hotel (RLS-gated)
       const { data: hotelRow, error: hErr } = await supabase
@@ -397,6 +413,35 @@ export default function OwnerDashboard() {
           if (alive) setNpsSnapshot(data && data[0] ? data[0] : null);
         } catch {
           if (alive) setNpsSnapshot(null);
+        }
+      }
+
+      // 8) Workforce snapshot (owner; optional)
+      if (HAS_WORKFORCE) {
+        try {
+          setWorkforceLoading(true);
+          const { data } = await supabase
+            .from("workforce_jobs")
+            .select("*")
+            .eq("hotel_id", hotelId)
+            .order("created_at", { ascending: false })
+            .limit(10);
+          if (alive) {
+            setWorkforceJobs((data as WorkforceJobSummary[]) ?? []);
+          }
+        } catch {
+          if (alive) {
+            setWorkforceJobs([]);
+          }
+        } finally {
+          if (alive) {
+            setWorkforceLoading(false);
+          }
+        }
+      } else {
+        if (alive) {
+          setWorkforceJobs(null);
+          setWorkforceLoading(false);
         }
       }
 
@@ -632,11 +677,18 @@ export default function OwnerDashboard() {
           <AttentionServicesCard orders={liveOrders} />
         </section>
 
-        {/* Staff & HR row */}
+        {/* Staff, HR & Workforce row */}
         <section className="grid gap-4 lg:grid-cols-3">
           <StaffPerformancePanel data={staffPerf} />
           <HrmsPanel data={hrms} slug={hotel.slug} />
-          <OwnerTasksPanel occPct={occPct} kpi={kpi} slug={hotel.slug} />
+          <div className="space-y-4">
+            <OwnerTasksPanel occPct={occPct} kpi={kpi} slug={hotel.slug} />
+            <OwnerWorkforcePanel
+              slug={hotel.slug}
+              jobs={workforceJobs}
+              loading={workforceLoading}
+            />
+          </div>
         </section>
 
         {/* AI Ops Co-pilot (new, additive) */}
@@ -1713,6 +1765,106 @@ function OwnerTasksPanel({
           <li key={i}>• {t}</li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function OwnerWorkforcePanel({
+  slug,
+  jobs,
+  loading,
+}: {
+  slug: string;
+  jobs: WorkforceJobSummary[] | null;
+  loading: boolean;
+}) {
+  const hasFeature = HAS_WORKFORCE;
+  const list = jobs ?? [];
+  const openJobs = list.filter((j) =>
+    (j.status || "open").toLowerCase().includes("open")
+  ).length;
+
+  if (!hasFeature) {
+    return (
+      <div className="rounded-xl border bg-white p-4 shadow-sm">
+        <SectionHeader
+          title="Local workforce (beta)"
+          desc="Once enabled, this shows open roles and local applicants for this property."
+        />
+        <div className="text-xs text-muted-foreground">
+          Workforce hiring beta is not enabled yet for this property. When
+          switched on, you’ll see open roles, applicants and shortlists here.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border bg-white p-4 shadow-sm">
+      <SectionHeader
+        title="Local workforce (beta)"
+        desc="Quick view of open roles and hiring load."
+        action={
+          <Link
+            to={`/owner/${slug}/workforce`}
+            className="text-xs underline text-slate-600"
+          >
+            Open Workforce
+          </Link>
+        }
+      />
+      {loading ? (
+        <div className="text-xs text-muted-foreground">Loading roles…</div>
+      ) : list.length === 0 ? (
+        <div className="text-xs text-muted-foreground">
+          No active roles yet. Create your first role in Workforce to start
+          receiving nearby applicants.
+        </div>
+      ) : (
+        <div className="space-y-2 text-xs text-slate-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-semibold text-slate-900">
+                {openJobs} open role{openJobs === 1 ? "" : "s"}
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                {list.length} total roles created for this property.
+              </div>
+            </div>
+          </div>
+          <ul className="space-y-1">
+            {list.slice(0, 3).map((j) => {
+              const status = (j.status || "open").toLowerCase();
+              const isOpen =
+                status.includes("open") || status === "draft";
+              return (
+                <li
+                  key={j.id}
+                  className="flex items-center justify-between rounded-lg bg-slate-50 px-2 py-1"
+                >
+                  <div>
+                    <div className="text-xs font-medium text-slate-900">
+                      {j.title || j.department || "Role"}
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      {(j.city || "").trim() || "Local"} ·{" "}
+                      {j.status || "Open"}
+                    </div>
+                  </div>
+                  <StatusBadge
+                    label={isOpen ? "Hiring" : "Closed"}
+                    tone={isOpen ? "green" : "grey"}
+                  />
+                </li>
+              );
+            })}
+          </ul>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Applicant counts and shortlisting actions will appear here in the
+            next update.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

@@ -127,7 +127,7 @@ const Logout = optionalFromGlob(
   )
 );
 
-// OwnerReputation
+// OwnerReputation (optional)
 const OwnerReputation = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
     "./routes/OwnerReputation.{tsx,jsx}"
@@ -265,6 +265,19 @@ const OwnerOccupancy = optionalFromGlob(
   )
 );
 
+// Guest-facing “Jobs at this hotel” page (optional, but we’ll add the real file)
+const HotelJobs = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/HotelJobs.{tsx,jsx}"
+  ),
+  () => (
+    <FallbackPage
+      title="Jobs at this hotel"
+      hint="Add web/src/routes/HotelJobs.tsx to show open roles for this property."
+    />
+  )
+);
+
 /* --------- Required routes ---------- */
 
 const GuestDashboard = lazy(() => import("./routes/GuestDashboard"));
@@ -272,7 +285,11 @@ const OwnerHome = lazy(() => import("./routes/OwnerHome"));
 const SignIn = lazy(() => import("./routes/SignIn"));
 const AuthCallback = lazy(() => import("./routes/AuthCallback"));
 const OwnerGuestProfile = lazy(() => import("./routes/OwnerGuestProfile"));
+
+// Ops board – uses existing OpsBoard.tsx (wraps Desk)
 const OpsBoard = lazy(() => import("./routes/OpsBoard"));
+
+// Revenue views – default + named exports from OwnerRevenue.tsx
 const OwnerRevenue = lazy(() => import("./routes/OwnerRevenue"));
 const OwnerADR = lazy(() =>
   import("./routes/OwnerRevenue").then((mod) => ({
@@ -284,9 +301,6 @@ const OwnerRevPAR = lazy(() =>
     default: mod.OwnerRevPAR,
   }))
 );
-
-// ✅ NEW: Jobs at this hotel (guest-facing)
-const HotelJobs = lazy(() => import("./routes/HotelJobs"));
 
 /* ---------------- App ---------------- */
 
@@ -304,7 +318,6 @@ export default function App() {
 
             {/* Core app areas */}
             <Route path="/guest" element={<GuestDashboard />} />
-            {/* Jobs at this hotel */}
             <Route path="/hotel/:slug/jobs" element={<HotelJobs />} />
 
             <Route
@@ -367,6 +380,7 @@ export default function App() {
             {/* Ops board – reuses Desk via OpsBoard */}
             <Route path="/ops" element={<OpsBoard />} />
 
+            {/* Owner workforce hub */}
             <Route
               path="/owner/:slug/workforce"
               element={<OwnerWorkforce />}
@@ -378,6 +392,7 @@ export default function App() {
               element={<BookingsCalendar />}
             />
 
+            {/* Workforce profile (guest/staff) */}
             <Route
               path="/workforce/profile"
               element={<WorkforceProfilePage />}

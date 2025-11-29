@@ -90,7 +90,6 @@ export default function OwnerSettings() {
       // ---- 1) Try Edge /owner-settings API if configured ----
       if (HAS_API_BASE) {
         try {
-          // Best-effort Supabase session → Bearer token for Edge function
           let authHeader: Record<string, string> = {};
           try {
             const { data } = await supabase.auth.getSession();
@@ -146,9 +145,7 @@ export default function OwnerSettings() {
       if (!hRaw) {
         const { data: hotelRow, error: hErr } = await supabase
           .from("hotels")
-          .select(
-            "id,slug,name,description,address,amenities,phone,email,logo_url,theme,reviews_policy",
-          )
+          .select("*") // robust: avoid column-mismatch errors
           .eq("slug", slug)
           .maybeSingle();
 
@@ -307,7 +304,6 @@ export default function OwnerSettings() {
         .map((s) => {
           const key = String(s.key || "").trim();
           const rawLabel = (s.label ?? "").toString().trim();
-          // Fallback: if label is blank but key exists, use key as label
           const label = rawLabel || key || "Service";
           const rawMinutes = s.sla_minutes;
           const slaMinutes =
@@ -321,7 +317,6 @@ export default function OwnerSettings() {
             active: !!s.active,
           };
         })
-        // Do not send completely blank rows (no key)
         .filter((s) => !!s.key);
 
       const body = {
@@ -343,7 +338,6 @@ export default function OwnerSettings() {
             require_consent: !!hotel.reviews_policy?.require_consent,
           },
         },
-        // keep old shape: services[] with "label" (now always non-null for valid rows)
         services: normalisedServices,
       };
 
@@ -402,7 +396,6 @@ export default function OwnerSettings() {
 
       // ---- 2) Fallback: write directly to Supabase if API not used / failed ----
       if (!savedViaApi) {
-        // Update hotel row
         const { error: hotelErr } = await supabase
           .from("hotels")
           .update({
@@ -424,12 +417,10 @@ export default function OwnerSettings() {
           );
         }
 
-        // Upsert services for this hotel
         const svcPayload =
           body.services?.map((s) => ({
             hotel_id: hotel.id,
             key: s.key,
-            // write both for safety – supports old `label` and newer `label_en`
             label: s.label,
             label_en: s.label,
             sla_minutes: s.sla_minutes,

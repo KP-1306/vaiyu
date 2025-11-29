@@ -334,6 +334,22 @@ export default function GuestDashboard() {
     ? diffDays(nextStay.check_in, nextStay.check_out)
     : 0;
 
+  // Jobs CTA URL for current stay (if we know the slug)
+  const jobsUrl = useMemo(() => {
+    if (!nextStay) return null;
+    const anyStay: any = nextStay;
+    const slug =
+      anyStay.hotel_slug ||
+      anyStay.slug ||
+      anyStay.hotel?.slug ||
+      anyStay.hotel?.tenant_slug ||
+      null;
+    if (typeof slug === "string" && slug.trim()) {
+      return `/hotel/${encodeURIComponent(slug)}/jobs`;
+    }
+    return null;
+  }, [nextStay]);
+
   // Spend analytics selection
   const currentYear = new Date().getFullYear();
   const spendByYearSorted = useMemo(
@@ -580,6 +596,16 @@ export default function GuestDashboard() {
                       onClick={() => setShowExplore(true)}
                     />
                     <QuickPill
+                      title={jobsUrl ? "Jobs at this hotel" : "Work in hotels"}
+                      text={
+                        jobsUrl
+                          ? "Apply for openings"
+                          : "Build my staff profile"
+                      }
+                      to={jobsUrl || "/workforce/profile"}
+                      variant="light"
+                    />
+                    <QuickPill
                       title="Scan QR to check-in"
                       text="Scan & Go"
                       to="/scan"
@@ -642,7 +668,9 @@ export default function GuestDashboard() {
             <StatBadge
               label="Rewards balance"
               value={fmtMoney(stats.totalCredits)}
-              sublabel={`${totalReferralCredits ? "Active credits" : "Invite friends to earn"}`}
+              sublabel={`${
+                totalReferralCredits ? "Active credits" : "Invite friends to earn"
+              }`}
               emoji="🎁"
             />
             <StatBadge
@@ -1082,7 +1110,10 @@ function CategoryBreakdown({
 }: {
   data: { label: string; value: number }[];
 }) {
-  if (!data.length) return <Empty small text="We’ll break down your categories here after your first stay." />;
+  if (!data.length)
+    return (
+      <Empty small text="We’ll break down your categories here after your first stay." />
+    );
   const total = data.reduce((a, d) => a + d.value, 0) || 1;
   return (
     <div className="space-y-2">
@@ -1315,7 +1346,11 @@ function ExploreStaysQuickAction({
       cityKey: "nainital",
       cityLabel: "Nainital · Uttarakhand",
       tag: "Lake view · Boutique",
-      highlights: ["Lake-facing rooms", "Breakfast included", "Early check-in on request"],
+      highlights: [
+        "Lake-facing rooms",
+        "Breakfast included",
+        "Early check-in on request",
+      ],
       startingFrom: "₹ 7,800 / night*",
     },
     {

@@ -5,6 +5,8 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Header from "./components/Header";
 import WorkforceProfilePage from "./routes/WorkforceProfile";
 import OwnerWorkforce from "./routes/OwnerWorkforce";
+import PublicJobs from "./routes/PublicJobs";
+
 
 /** Helper: optional lazy import from a literal glob + fallback */
 function optionalFromGlob<T extends React.ComponentType<any>>(
@@ -398,6 +400,9 @@ export default function App() {
               element={<WorkforceProfilePage />}
             />
 
+            <Route path="/jobs/:slug" element={<PublicJobs />} />
+
+            
             {/* Auth */}
             <Route path="/signin" element={<SignIn />} />
             <Route path="/auth/callback" element={<AuthCallback />} />

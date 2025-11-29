@@ -1744,6 +1744,11 @@ function OwnerTasksPanel({
   if (revenueToday > 0) {
     tasks.push("Check top 5 services driving revenue today.");
   }
+  if (HAS_WORKFORCE) {
+    tasks.push(
+      "Glance at open roles in Workforce to ensure staffing matches upcoming occupancy."
+    );
+  }
   tasks.push("Review any open low-rating stays and close the loop.");
 
   return (
@@ -1752,12 +1757,22 @@ function OwnerTasksPanel({
         title="Owner tasks for today"
         desc="2–3 nudges that keep the property ahead of the curve."
         action={
-          <Link
-            to="/owner"
-            className="text-xs underline text-slate-600"
-          >
-            View full owner hub
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              to="/owner"
+              className="text-xs underline text-slate-600"
+            >
+              Owner hub
+            </Link>
+            {HAS_WORKFORCE && (
+              <Link
+                to={`/owner/${slug}/workforce`}
+                className="text-xs underline text-emerald-700"
+              >
+                Jobs & hiring
+              </Link>
+            )}
+          </div>
         }
       />
       <ul className="space-y-1 text-xs text-slate-700">

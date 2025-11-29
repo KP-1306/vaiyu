@@ -4,6 +4,7 @@ import React, { Suspense, lazy } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import Header from "./components/Header";
 import WorkforceProfilePage from "./routes/WorkforceProfile";
+import OwnerWorkforce from "./routes/OwnerWorkforce";
 
 /** Helper: optional lazy import from a literal glob + fallback */
 function optionalFromGlob<T extends React.ComponentType<any>>(
@@ -366,6 +367,9 @@ export default function App() {
 
             {/* Ops board – reuses Desk via OpsBoard */}
             <Route path="/ops" element={<OpsBoard />} />
+
+            <Route path="/owner/:slug/workforce" element={<OwnerWorkforce />} />
+
 
             {/* Bookings calendar */}
             <Route

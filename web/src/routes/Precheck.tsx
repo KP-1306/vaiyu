@@ -186,6 +186,8 @@ export default function Precheck() {
           await (upsertGuestIdentityApi as any)({
             // keep it very forgiving; BE can map what it needs
             booking_code: effectiveCode,
+            // send BOTH for backwards + forwards compatibility
+            full_name: f.guestName,
             name: f.guestName,
             phone: f.phone,
             email: f.email || null,

@@ -1,6 +1,27 @@
 // web/src/components/BackHome.tsx
-import { useEffect, useMemo, useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+//
+// Smart "Back" pill used across the app.
+//
+// Behaviour:
+// - Hides itself on auth/landing pages.
+// - If used as <BackHome /> (no `to` prop):
+//     • On detail/inner pages (e.g. /owner/<slug>/settings, /desk/..., /ops/...)
+//       AND when the user navigated from within VAiyu (same origin),
+//       it prefers a real history back (navigate(-1)) so you return to the
+//       previous screen (e.g. hotel dashboard → settings → back → hotel dashboard).
+//     • Otherwise it falls back to your existing logic:
+//       - /owner/* → /owner
+//       - /guest* → /
+//       - other surfaces → role-based /owner or /guest via Supabase.
+// - If used as <BackHome to="/somewhere">, it ALWAYS goes to `to`.
+
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type MouseEvent,
+} from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
 /** Surfaces where the pill is relevant (matches exact or as prefix/) */
@@ -17,8 +38,8 @@ const APP_PREFIXES = [
   "/regcard",
   "/bill",
   "/admin",
-  "/ops",  
-  "/careers", // NEW: show Back home on careers page too
+  "/ops",
+  "/careers", // show Back pill on careers page too
 ];
 
 /** Pages where the pill should not be shown */
@@ -41,11 +62,31 @@ export default function BackHome({
   className = "",
 }: Props) {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
 
-  // --- Hooks first (no early returns before hooks) ---
+  // If caller passes `to`, we always respect it (no smart history).
   const forcedTo = to ?? null;
+
   const [autoTo, setAutoTo] = useState<string>(forcedTo ?? "/");
+  const [canHistoryBack, setCanHistoryBack] = useState(false);
+
   const shouldAuto = useMemo(() => forcedTo == null, [forcedTo]);
+
+  // Decide if we should *prefer* history.back() style navigation.
+  // We only enable this if the referrer is the same origin (user
+  // already inside VAiyu, not coming straight from email/WhatsApp).
+  useEffect(() => {
+    try {
+      const ref = document.referrer;
+      if (!ref) return;
+      const refUrl = new URL(ref);
+      if (refUrl.origin === window.location.origin) {
+        setCanHistoryBack(true);
+      }
+    } catch {
+      // best-effort only
+    }
+  }, []);
 
   useEffect(() => {
     // If the caller explicitly passed a `to`, always respect that.
@@ -62,8 +103,9 @@ export default function BackHome({
       return;
     }
 
-    // 1) Owner detail pages (/owner/DEMO1, /owner/settings, etc.)
-    //    → go back to the Owner console (/owner).
+    // 1) Owner detail pages (/owner/DEMO1, /owner/DEMO1/settings, etc.)
+    //    → default "home" is the Owner console (/owner).
+    //    (Smart history will still take you to the previous page when possible.)
     if (pathname.startsWith("/owner/")) {
       setAutoTo("/owner");
       return;
@@ -127,10 +169,42 @@ export default function BackHome({
   const isAppSurface = startsWithAny(pathname, APP_PREFIXES);
   if (hide || !isAppSurface) return null;
 
+  // Final destination if we DON'T use history.back()
+  const dest = forcedTo ?? autoTo;
+
+  // We only want smart "previous page" behaviour on nested/inner screens,
+  // not on root paths like "/" or "/owner" or "/guest".
+  const isDetailPage =
+    pathname.startsWith("/owner/") ||
+    pathname.startsWith("/desk") ||
+    pathname.startsWith("/hk") ||
+    pathname.startsWith("/maint") ||
+    pathname.startsWith("/grid") ||
+    pathname.startsWith("/ops") ||
+    pathname.startsWith("/stay") ||
+    pathname.startsWith("/menu") ||
+    pathname.startsWith("/precheck") ||
+    pathname.startsWith("/regcard") ||
+    pathname.startsWith("/bill");
+
+  function handleClick(e: MouseEvent<HTMLAnchorElement>) {
+    const hasExplicitTo = !!forcedTo;
+
+    const shouldUseHistory =
+      !hasExplicitTo && canHistoryBack && isDetailPage;
+
+    if (shouldUseHistory) {
+      e.preventDefault();
+      navigate(-1);
+    }
+    // otherwise, let NavLink navigate to `dest` as usual.
+  }
+
   return (
     <div className="fixed left-3 top-3 z-40">
       <NavLink
-        to={autoTo}
+        to={dest}
+        onClick={handleClick}
         className={`inline-flex items-center gap-2 rounded-xl border bg-white/95 px-3 py-2 text-sm shadow hover:bg-white ${className}`}
         aria-label={label}
       >

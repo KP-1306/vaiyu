@@ -103,9 +103,12 @@ export default function Regcard() {
       // 3) Best-effort: upsert Guest Identity so future flows can auto-fill
       try {
         const anyApi = apiLib as any;
+
         if (typeof anyApi.upsertGuestIdentity === "function") {
           await anyApi.upsertGuestIdentity({
             booking_code: bookingCode,
+            // send BOTH so it works with current + future backends
+            full_name: name,
             name,
             phone,
             // we only collect ID number here; email is optional/unknown on this page
@@ -115,13 +118,17 @@ export default function Regcard() {
           // Generic fallback via /guest-identity-upsert Edge Function / backend route
           await anyApi.apiUpsert("/guest-identity-upsert", {
             booking_code: bookingCode,
+            full_name: name,
             name,
             phone,
             id_number: idNo || null,
           });
         }
       } catch (giErr) {
-        console.warn("[Regcard] guest-identity upsert failed (non-blocking)", giErr);
+        console.warn(
+          "[Regcard] guest-identity upsert failed (non-blocking)",
+          giErr
+        );
       }
 
       // 4) Remember consent locally for better UX across pages
@@ -153,7 +160,9 @@ export default function Regcard() {
     <main className="max-w-lg mx-auto p-4 space-y-4">
       <header>
         <h1 className="text-xl font-semibold">Guest Registration</h1>
-        <div className="text-sm text-gray-600">Stay code: {bookingCode || "—"}</div>
+        <div className="text-sm text-gray-600">
+          Stay code: {bookingCode || "—"}
+        </div>
       </header>
 
       {identityLoading && (

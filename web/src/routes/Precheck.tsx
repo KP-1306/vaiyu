@@ -1,6 +1,33 @@
-import { useState } from "react";
-import { useParams } from "react-router-dom";
-import { precheck, referralApply } from "../lib/api";
+// web/src/routes/Precheck.tsx
+//
+// Guest pre check-in form.
+//
+// - Reads booking code from route (:code) or query (?code=)
+// - Auto-prefills from central Guest Identity (if available)
+// - Optional referral (VAiyu Account ID / phone / email)
+// - Sends a flexible payload to /precheck so BE can accept multiple shapes
+// - Best-effort upsert to guest-identity-upsert so future forms can auto-fill
+
+import type { FormEvent } from "react";
+import { useEffect, useState } from "react";
+import { useLocation, useParams } from "react-router-dom";
+import BackHome from "../components/BackHome";
+import {
+  precheck,
+  referralApply,
+  // we cast to any when calling so slight type mismatches won't break build
+  upsertGuestIdentity as upsertGuestIdentityApi,
+} from "../lib/api";
+import { useGuestIdentity } from "../hooks/useGuestIdentity";
+
+const ID_TYPES = [
+  "Aadhaar",
+  "Driving Licence",
+  "Passport",
+  "Voter ID",
+  "PAN",
+  "Other",
+];
 
 type Form = {
   guestName: string;
@@ -14,17 +41,48 @@ type Form = {
   paxKids: number;
   notes: string;
 
-  referral: string;         // NEW: Account ID or registered phone/email of referrer
-  referralType: "auto";     // we auto-detect: email/phone/else accountId
+  // Referral – Account ID or registered phone/email of referrer
+  referral: string;
+  referralType: "auto"; // we auto-detect email/phone/accountId
 };
 
+function useInitialBookingCode() {
+  const { code: codeParam } = useParams<{ code?: string }>();
+  const location = useLocation();
+  const search = new URLSearchParams(location.search);
+  const queryCode = search.get("code");
+
+  const raw = (codeParam || queryCode || "").trim();
+  return raw ? raw.toUpperCase() : "";
+}
+
+function buildReferralPayload(input: string) {
+  const v = input.trim();
+  if (!v) return null;
+
+  // Rudimentary detection: email vs phone vs accountId
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return { email: v };
+  if (/^\+?\d{10,15}$/.test(v)) return { phone: v };
+
+  // Fallback: treat as VAiyu account ID
+  return { accountId: v };
+}
+
 export default function Precheck() {
-  const { code: bookingCodeParam = "" } = useParams();
+  const bookingCode = useInitialBookingCode();
+  const bookingLabel = bookingCode || "DEMO";
+
+  // Guest Identity: we cast to any so we don't depend on exact hook typing
+  const gi: any = (useGuestIdentity as any)({ bookingCode });
+  const identity = gi?.identity;
+  const identityLoading = gi?.loading;
+  const identityError = gi?.error;
+
   const [f, setF] = useState<Form>({
     guestName: "",
     phone: "",
     email: "",
-    idType: "Aadhar",
+    idType: ID_TYPES[0], // default Aadhaar
     idNumber: "",
     arrivalDate: "",
     arrivalTime: "",
@@ -42,61 +100,125 @@ export default function Precheck() {
     setF((p) => ({ ...p, [k]: v }));
   }
 
-  function buildReferralPayload(input: string) {
-    const v = input.trim();
-    if (!v) return null;
-    // rudimentary detection
-    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return { email: v };
-    if (/^\+?\d{10,15}$/.test(v)) return { phone: v };
-    return { accountId: v };
-  }
+  // Auto-fill from central Guest Identity once it loads
+  useEffect(() => {
+    if (!identity) return;
 
-  async function submit(e: React.FormEvent) {
+    setF((prev) => ({
+      ...prev,
+      guestName:
+        prev.guestName ||
+        identity.name ||
+        identity.full_name ||
+        identity.display_name ||
+        "",
+      phone:
+        prev.phone ||
+        identity.phone ||
+        identity.primary_phone ||
+        identity.mobile ||
+        "",
+      email:
+        prev.email ||
+        identity.email ||
+        identity.primary_email ||
+        identity.secondary_email ||
+        "",
+      idType:
+        prev.idType ||
+        identity.id_type ||
+        identity.idType ||
+        ID_TYPES[0],
+      idNumber:
+        prev.idNumber ||
+        identity.id_number ||
+        identity.idNumber ||
+        "",
+    }));
+  }, [identity]);
+
+  async function submit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     setMsg("");
     setErr("");
 
-    const bookingCode = bookingCodeParam || "DEMO";
+    const effectiveCode = bookingCode || "DEMO";
 
-    // Payload mirrors your previous structure
-    const payload = {
-      hotel: "DEMO",
-      booking: bookingCode,
+    // Payload mirrors your previous structure but is flexible enough
+    // for the backend to evolve:
+    const payload: any = {
+      hotel: "DEMO", // optional; backend can ignore or map from booking
+      booking: effectiveCode,
       room_pref: "",
       guest: {
         name: f.guestName,
         phone: f.phone,
-        email: f.email,
+        email: f.email || null,
         id_type: f.idType,
         id_number: f.idNumber,
       },
       arrival: {
-        date: f.arrivalDate,
-        time: f.arrivalTime,
+        date: f.arrivalDate || null,
+        time: f.arrivalTime || null,
         adults: f.paxAdults,
         kids: f.paxKids,
       },
-      notes: f.notes,
+      notes: f.notes || null,
     };
+
+    // Optionally attach referral info into payload as a hint (doesn't
+    // replace the dedicated /referrals/apply call).
+    const refPayload = buildReferralPayload(f.referral);
+    if (refPayload) {
+      payload.referral = refPayload;
+    }
 
     try {
       // 1) If referral present, apply it against this booking
-      const refPayload = buildReferralPayload(f.referral);
       if (refPayload) {
-        await referralApply(bookingCode, refPayload);
+        await referralApply(effectiveCode, refPayload);
       }
 
-      // 2) Continue normal precheck
+      // 2) Best-effort: upsert Guest Identity so future forms can auto-fill
+      try {
+        if (typeof upsertGuestIdentityApi === "function") {
+          await (upsertGuestIdentityApi as any)({
+            // keep it very forgiving; BE can map what it needs
+            booking_code: effectiveCode,
+            name: f.guestName,
+            phone: f.phone,
+            email: f.email || null,
+            id_type: f.idType,
+            id_number: f.idNumber || null,
+          });
+        }
+      } catch (giErr) {
+        // We intentionally swallow Guest Identity errors so precheck
+        // itself is not blocked.
+        console.warn("[Precheck] guest-identity upsert failed", giErr);
+      }
+
+      // 3) Normal precheck flow
       await precheck(payload);
 
       setMsg("Pre-check-in submitted. We’ll be ready when you arrive!");
+      setErr("");
     } catch (e: any) {
       // Fallback: store locally so the desk can read it later
-      const key = `precheck:${bookingCode}:${Date.now()}`;
-      localStorage.setItem(key, JSON.stringify(payload));
-      setMsg("Saved locally (offline). Front desk can read this from the device.");
-      setErr(e?.message || "");
+      const key = `precheck:${effectiveCode}:${Date.now()}`;
+      try {
+        localStorage.setItem(key, JSON.stringify(payload));
+        setMsg(
+          "Saved locally (offline). Front desk can read this from this device if needed."
+        );
+      } catch {
+        // ignore localStorage failures
+        setMsg(
+          "We couldn’t reach the server. Please share your details with the front desk on arrival."
+        );
+      }
+      setErr(e?.message || "Something went wrong while submitting pre-check-in.");
     } finally {
       setBusy(false);
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -105,8 +227,23 @@ export default function Precheck() {
 
   return (
     <main className="max-w-xl mx-auto p-4">
+      <BackHome />
+
       <h1 className="text-xl font-semibold mb-1">Pre-check-in</h1>
-      <div className="text-sm text-gray-600 mb-3">Booking code: <b>{bookingCodeParam || 'DEMO'}</b></div>
+      <div className="text-sm text-gray-600 mb-2">
+        Booking code: <b>{bookingLabel}</b>
+      </div>
+
+      {identityLoading && (
+        <div className="mb-3 text-xs text-gray-500">
+          Loading your saved details…
+        </div>
+      )}
+      {identityError && (
+        <div className="mb-3 p-2 bg-amber-50 border border-amber-200 rounded text-amber-800 text-xs">
+          We couldn’t auto-fill your details this time. You can still continue.
+        </div>
+      )}
 
       {msg && (
         <div
@@ -125,7 +262,10 @@ export default function Precheck() {
         </div>
       )}
 
-      <form onSubmit={submit} className="space-y-3 bg-white p-3 rounded shadow">
+      <form
+        onSubmit={submit}
+        className="space-y-3 bg-white p-3 rounded shadow"
+      >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <label className="text-sm">
             Guest name
@@ -164,10 +304,11 @@ export default function Precheck() {
               value={f.idType}
               onChange={(e) => up("idType", e.target.value)}
             >
-              <option>Aadhar</option>
-              <option>PAN</option>
-              <option>Passport</option>
-              <option>Driving License</option>
+              {ID_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
             </select>
           </label>
 
@@ -207,7 +348,9 @@ export default function Precheck() {
               min={1}
               className="mt-1 border rounded w-full px-2 py-1"
               value={f.paxAdults}
-              onChange={(e) => up("paxAdults", Number(e.target.value))}
+              onChange={(e) =>
+                up("paxAdults", Number(e.target.value) || 1)
+              }
             />
           </label>
 
@@ -218,7 +361,9 @@ export default function Precheck() {
               min={0}
               className="mt-1 border rounded w-full px-2 py-1"
               value={f.paxKids}
-              onChange={(e) => up("paxKids", Number(e.target.value))}
+              onChange={(e) =>
+                up("paxKids", Number(e.target.value) || 0)
+              }
             />
           </label>
         </div>
@@ -234,9 +379,11 @@ export default function Precheck() {
           />
         </label>
 
-        {/* NEW: Referral (optional) */}
+        {/* Referral (optional) */}
         <div className="border rounded p-3 bg-gray-50">
-          <div className="text-[11px] text-gray-500">Referral (optional)</div>
+          <div className="text-[11px] text-gray-500">
+            Referral (optional)
+          </div>
           <label className="text-sm block">
             VAiyu Account ID / Registered Phone / Email
             <input
@@ -247,7 +394,8 @@ export default function Precheck() {
             />
           </label>
           <div className="text-[11px] text-gray-500 mt-1">
-            Credits are property-scoped; they’re issued to your referrer after your checkout.
+            Credits are property-scoped; they’re issued to your referrer
+            after your checkout.
           </div>
         </div>
 

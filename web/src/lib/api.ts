@@ -886,6 +886,27 @@ export async function listJobApplications(params: {
   return Array.isArray(apps) ? apps : [];
 }
 
+// --- Back-compat aliases for existing imports (WorkforceProfile.tsx) ---
+export async function fetchWorkforceProfile(
+  token?: string
+): Promise<WorkforceProfile | null> {
+  return getMyWorkforceProfile(token);
+}
+
+export async function upsertWorkforceProfile(
+  payload: Partial<WorkforceProfile>,
+  token?: string
+): Promise<WorkforceProfile> {
+  return saveMyWorkforceProfile(payload, token);
+}
+
+export async function listWorkforceJobs(
+  filters?: ListOpenJobsFilters
+): Promise<WorkforceJob[]> {
+  return listOpenJobs(filters);
+}
+
+
 /* ============================================================================
    --- Grid (VPP) ---
 ============================================================================ */

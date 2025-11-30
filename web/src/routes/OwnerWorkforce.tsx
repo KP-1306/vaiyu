@@ -66,6 +66,7 @@ type WorkforceApplicant = {
   stage?: string | null;
   rating?: number | null;
   notes?: string | null;
+  message?: string | null; // safe even if column not present – will just be undefined
   created_at?: string | null;
   updated_at?: string | null;
 };
@@ -174,6 +175,8 @@ export default function OwnerWorkforce() {
           title: row.role_name ?? row.title ?? "",
           priority: row.urgency ?? row.priority ?? "normal",
           shift_type: row.shift_notes ?? row.shift_type ?? "",
+          // Use job-specific city if present, otherwise fall back to property city for filters/UI
+          city: row.city ?? (hotelRow as Hotel).city ?? null,
         }));
 
         setJobs(mapped);
@@ -317,6 +320,7 @@ export default function OwnerWorkforce() {
       status: "open",
       priority: "normal",
       openings: 1,
+      city: hotel.city ?? undefined,
     });
     setSaveState({ status: "idle" });
   };
@@ -357,6 +361,7 @@ export default function OwnerWorkforce() {
 
     const payload: any = {
       hotel_id: hotel.id,
+      property_id: hotel.id, // keep hotel-based today, but future-ready for generic property OS
       department,
       role_name,
       status,
@@ -404,6 +409,7 @@ export default function OwnerWorkforce() {
           title: row.role_name ?? row.title ?? "",
           priority: row.urgency ?? row.priority ?? "normal",
           shift_type: row.shift_notes ?? row.shift_type ?? "",
+          city: row.city ?? hotel.city ?? null,
         };
 
         setJobs((prev) => [created, ...prev]);
@@ -446,6 +452,7 @@ export default function OwnerWorkforce() {
           title: row.role_name ?? row.title ?? "",
           priority: row.urgency ?? row.priority ?? "normal",
           shift_type: row.shift_notes ?? row.shift_type ?? "",
+          city: row.city ?? hotel.city ?? null,
         };
 
         setJobs((prev) =>
@@ -1210,6 +1217,11 @@ function ApplicantRow({
           <div className="mt-0.5 text-[10px] text-slate-500">
             {applicant.phone && <span>📞 {applicant.phone} </span>}
             {applicant.email && <span> · ✉️ {applicant.email}</span>}
+          </div>
+        )}
+        {applicant.message && (
+          <div className="mt-1 text-[10px] text-slate-600">
+            {applicant.message}
           </div>
         )}
         {applicant.notes && (

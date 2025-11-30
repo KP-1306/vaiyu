@@ -420,12 +420,15 @@ export default function OwnerDashboard() {
       if (HAS_WORKFORCE) {
         try {
           setWorkforceLoading(true);
-          const { data } = await supabase
-            .from("workforce_jobs")
-            .select("*")
-            .eq("hotel_id", hotelId)
-            .order("created_at", { ascending: false })
-            .limit(10);
+     
+
+const { data } = await supabase
+  .from("workforce_jobs")
+  .select("*")
+  .eq("property_id", hotelId)
+  .order("created_at", { ascending: false })
+  .limit(10);
+          
           if (alive) {
             setWorkforceJobs((data as WorkforceJobSummary[]) ?? []);
           }

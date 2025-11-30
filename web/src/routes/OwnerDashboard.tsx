@@ -416,19 +416,20 @@ export default function OwnerDashboard() {
         }
       }
 
-      // 8) Workforce snapshot (owner; optional)
+
+
+            // 8) Workforce snapshot (owner; optional)
       if (HAS_WORKFORCE) {
         try {
           setWorkforceLoading(true);
-     
 
-const { data } = await supabase
-  .from("workforce_jobs")
-  .select("*")
-  .eq("property_id", hotelId)
-  .order("created_at", { ascending: false })
-  .limit(10);
-          
+          const { data } = await supabase
+            .from("workforce_jobs")
+            .select("*")
+            .eq("property_id", hotelId)
+            .order("created_at", { ascending: false })
+            .limit(10);
+
           if (alive) {
             setWorkforceJobs((data as WorkforceJobSummary[]) ?? []);
           }
@@ -447,6 +448,8 @@ const { data } = await supabase
           setWorkforceLoading(false);
         }
       }
+
+      
 
       setLoading(false);
     })();

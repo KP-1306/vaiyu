@@ -8,7 +8,6 @@ import OwnerWorkforce from "./routes/OwnerWorkforce";
 import PublicJobs from "./routes/PublicJobs";
 import GuestWorkforceApply from "./routes/GuestWorkforceApply";
 
-
 /** Helper: optional lazy import from a literal glob + fallback */
 function optionalFromGlob<T extends React.ComponentType<any>>(
   globRecord: Record<string, () => Promise<{ default: T }>>,
@@ -91,7 +90,7 @@ const StaffHome = optionalFromGlob(
   )
 );
 
-// Settings (optional)
+// Settings (optional, global user settings)
 const Settings = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
     "./routes/Settings.{tsx,jsx}"
@@ -268,7 +267,7 @@ const OwnerOccupancy = optionalFromGlob(
   )
 );
 
-// Guest-facing “Jobs at this hotel” page (optional, but we’ll add the real file)
+// Guest-facing “Jobs at this hotel” page (optional)
 const HotelJobs = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
     "./routes/HotelJobs.{tsx,jsx}"
@@ -319,25 +318,21 @@ export default function App() {
                 <Route path="/" element={<Navigate to="/guest" replace />} /> */}
             <Route path="/" element={<MarketingHome />} />
 
-            {/* Core app areas */}
+            {/* Core guest app */}
             <Route path="/guest" element={<GuestDashboard />} />
             <Route path="/hotel/:slug/jobs" element={<HotelJobs />} />
 
+            {/* Guest workforce apply */}
+            <Route
+              path="/guest/:slug/jobs/:jobId/apply"
+              element={<GuestWorkforceApply />}
+            />
+
+            {/* Owner reputation & guest profile views */}
             <Route
               path="/owner/:slug/reputation"
               element={<OwnerReputation />}
             />
-
-
-            <Route
-  path="/guest/:slug/jobs/:jobId/apply"
-  element={<GuestWorkforceApply />}
-/>
-
-            
-            
-            {/* Owner views */}
-            {/* New canonical route with hotel slug + guestId */}
             <Route
               path="/owner/guest/:slug/:guestId"
               element={<OwnerGuestProfile />}
@@ -353,36 +348,30 @@ export default function App() {
             />
 
             {/* Revenue views */}
-            <Route
-              path="/owner/:slug/revenue"
-              element={<OwnerRevenue />}
-            />
-            <Route
-              path="/owner/:slug/revenue/adr"
-              element={<OwnerADR />}
-            />
+            <Route path="/owner/:slug/revenue" element={<OwnerRevenue />} />
+            <Route path="/owner/:slug/revenue/adr" element={<OwnerADR />} />
             <Route
               path="/owner/:slug/revenue/revpar"
               element={<OwnerRevPAR />}
             />
 
-            {/* Occupancy view (optional, uses OwnerOccupancy.tsx if present) */}
+            {/* Occupancy view (optional) */}
             <Route
               path="/owner/:slug/occupancy"
               element={<OwnerOccupancy />}
             />
 
             {/* HRMS + Pricing */}
+            <Route path="/owner/:slug/hrms" element={<OwnerHRMS />} />
+            <Route path="/owner/:slug/pricing" element={<OwnerPricing />} />
+
+            {/* Owner workforce hub (slug-based) */}
             <Route
-              path="/owner/:slug/hrms"
-              element={<OwnerHRMS />}
-            />
-            <Route
-              path="/owner/:slug/pricing"
-              element={<OwnerPricing />}
+              path="/owner/:slug/workforce"
+              element={<OwnerWorkforce />}
             />
 
-            {/* Catch-all owner console */}
+            {/* Catch-all owner console (nested routes inside OwnerHome) */}
             <Route path="/owner/*" element={<OwnerHome />} />
 
             {/* Staff */}
@@ -390,10 +379,6 @@ export default function App() {
 
             {/* Ops board – reuses Desk via OpsBoard */}
             <Route path="/ops" element={<OpsBoard />} />
-
-            {/* Owner workforce hub */}
-            <Route path="/owner/:slug/workforce" element={<OwnerWorkforce />} />
-
 
             {/* Bookings calendar */}
             <Route
@@ -407,9 +392,9 @@ export default function App() {
               element={<WorkforceProfilePage />}
             />
 
+            {/* Public jobs list (non-hotel specific) */}
             <Route path="/jobs/:slug" element={<PublicJobs />} />
 
-            
             {/* Auth */}
             <Route path="/signin" element={<SignIn />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
@@ -417,7 +402,7 @@ export default function App() {
             <Route path="/settings" element={<Settings />} />
             <Route path="/logout" element={<Logout />} />
 
-            {/* Marketing/Legal (optional) */}
+            {/* Marketing/Legal */}
             <Route path="/about" element={<AboutUs />} />
             <Route path="/about-ai" element={<AboutAI />} />
             <Route path="/contact" element={<Contact />} />
@@ -425,7 +410,7 @@ export default function App() {
             <Route path="/press" element={<Press />} />
             <Route path="/privacy" element={<Privacy />} />
 
-            {/* 404 */}
+            {/* 404 → send to guest dashboard */}
             <Route path="*" element={<Navigate to="/guest" replace />} />
           </Routes>
         </main>

@@ -29,18 +29,31 @@ type Hotel = {
 type WorkforceJob = {
   id: string;
   hotel_id: string;
-  title?: string | null;
+
+  // Core DB fields
   department?: string | null;
-  city?: string | null;
+  role_name?: string | null;
   status?: string | null;
-  priority?: string | null;
-  shift_type?: string | null;
-  salary_band?: string | null;
+  urgency?: string | null;
   openings?: number | null;
-  applicants_count?: number | null;
+  min_experience_years?: number | null;
+  max_experience_years?: number | null;
+  shift_notes?: string | null;
   notes?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  property_id?: string | null;
+  slug?: string | null;
+  is_published?: boolean | null;
+  published_at?: string | null;
+
+  // Friendly UI aliases (derived in frontend)
+  title?: string | null;
+  city?: string | null;
+  priority?: string | null;
+  shift_type?: string | null;
+  salary_band?: string | null;
+  applicants_count?: number | null;
 };
 
 type WorkforceApplicant = {
@@ -126,14 +139,44 @@ export default function OwnerWorkforce() {
       try {
         const { data, error } = await supabase
           .from("workforce_jobs")
-          .select("*")
-          .eq("hotel_id", hotelRow.id)
+          .select(
+            [
+              "id",
+              "hotel_id",
+              "department",
+              "role_name",
+              "status",
+              "urgency",
+              "openings",
+              "min_experience_years",
+              "max_experience_years",
+              "shift_notes",
+              "notes",
+              "created_at",
+              "updated_at",
+              "property_id",
+              "slug",
+              "is_published",
+              "published_at",
+            ].join(","),
+          )
+          .eq("hotel_id", (hotelRow as Hotel).id)
           .order("created_at", { ascending: false });
 
         if (error) throw error;
         if (!alive) return;
 
-        setJobs((data as WorkforceJob[]) ?? []);
+        const rows = (data ?? []) as any[];
+
+        // Map DB columns → UI-friendly aliases
+        const mapped: WorkforceJob[] = rows.map((row) => ({
+          ...row,
+          title: row.role_name ?? row.title ?? "",
+          priority: row.urgency ?? row.priority ?? "normal",
+          shift_type: row.shift_notes ?? row.shift_type ?? "",
+        }));
+
+        setJobs(mapped);
       } catch (e) {
         console.error("Error loading workforce_jobs", e);
         if (!alive) return;
@@ -298,20 +341,30 @@ export default function OwnerWorkforce() {
     e.preventDefault();
     if (!hotel) return;
 
-    const payload: Partial<WorkforceJob> = {
+    // Map UI fields → DB columns
+    const department =
+      (draft.department || "").trim() || "General";
+    const role_name =
+      (draft.title || "").trim() || "New role";
+    const status =
+      (draft.status || "open").trim() || "open";
+    const urgency =
+      (draft.priority || "normal").trim() || "normal";
+    const openings =
+      typeof draft.openings === "number" && !Number.isNaN(draft.openings)
+        ? draft.openings
+        : 1;
+
+    const payload: any = {
       hotel_id: hotel.id,
-      title: (draft.title || "").trim() || "New role",
-      department: (draft.department || "").trim() || null,
-      city: (draft.city || "").trim() || hotel.city || null,
-      status: (draft.status || "open").trim() || "open",
-      priority: (draft.priority || "normal").trim() || "normal",
-      shift_type: (draft.shift_type || "").trim() || null,
-      salary_band: (draft.salary_band || "").trim() || null,
-      openings:
-        typeof draft.openings === "number" && !Number.isNaN(draft.openings)
-          ? draft.openings
-          : 1,
+      department,
+      role_name,
+      status,
+      urgency,
+      openings,
+      shift_notes: (draft.shift_type || "").trim() || null,
       notes: (draft.notes || "").trim() || null,
+      // city / salary_band are UI-only for now – DB columns not created yet
     };
 
     setSaveState({ status: "saving" });
@@ -321,11 +374,38 @@ export default function OwnerWorkforce() {
         const { data, error } = await supabase
           .from("workforce_jobs")
           .insert(payload)
-          .select("*")
+          .select(
+            [
+              "id",
+              "hotel_id",
+              "department",
+              "role_name",
+              "status",
+              "urgency",
+              "openings",
+              "min_experience_years",
+              "max_experience_years",
+              "shift_notes",
+              "notes",
+              "created_at",
+              "updated_at",
+              "property_id",
+              "slug",
+              "is_published",
+              "published_at",
+            ].join(","),
+          )
           .maybeSingle();
         if (error) throw error;
 
-        const created = data as WorkforceJob;
+        const row = data as any;
+        const created: WorkforceJob = {
+          ...row,
+          title: row.role_name ?? row.title ?? "",
+          priority: row.urgency ?? row.priority ?? "normal",
+          shift_type: row.shift_notes ?? row.shift_type ?? "",
+        };
+
         setJobs((prev) => [created, ...prev]);
         setSelectedJobId(created.id);
         setMode("view");
@@ -336,11 +416,38 @@ export default function OwnerWorkforce() {
           .from("workforce_jobs")
           .update(payload)
           .eq("id", selectedJob.id)
-          .select("*")
+          .select(
+            [
+              "id",
+              "hotel_id",
+              "department",
+              "role_name",
+              "status",
+              "urgency",
+              "openings",
+              "min_experience_years",
+              "max_experience_years",
+              "shift_notes",
+              "notes",
+              "created_at",
+              "updated_at",
+              "property_id",
+              "slug",
+              "is_published",
+              "published_at",
+            ].join(","),
+          )
           .maybeSingle();
         if (error) throw error;
 
-        const updated = data as WorkforceJob;
+        const row = data as any;
+        const updated: WorkforceJob = {
+          ...row,
+          title: row.role_name ?? row.title ?? "",
+          priority: row.urgency ?? row.priority ?? "normal",
+          shift_type: row.shift_notes ?? row.shift_type ?? "",
+        };
+
         setJobs((prev) =>
           prev.map((j) => (j.id === updated.id ? updated : j)),
         );

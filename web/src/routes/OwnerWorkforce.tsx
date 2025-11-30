@@ -281,7 +281,7 @@ export default function OwnerWorkforce() {
       setApplicantsError(null);
       try {
         const { data, error } = await supabase
-          .from("workforce_applicants")
+          .from("workforce_applications")
           .select("*")
           .eq("job_id", selectedJob.id)
           .order("created_at", { ascending: false });
@@ -477,7 +477,7 @@ export default function OwnerWorkforce() {
   const updateApplicantStage = async (id: string, stage: string) => {
     try {
       const { error } = await supabase
-        .from("workforce_applicants")
+        .from("workforce_applications")
         .update({ stage })
         .eq("id", id);
       if (error) throw error;

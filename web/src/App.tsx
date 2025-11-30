@@ -383,10 +383,8 @@ export default function App() {
             <Route path="/ops" element={<OpsBoard />} />
 
             {/* Owner workforce hub */}
-            <Route
-              path="/owner/:slug/workforce"
-              element={<OwnerWorkforce />}
-            />
+            <Route path="/owner/:slug/workforce" element={<OwnerWorkforce />} />
+
 
             {/* Bookings calendar */}
             <Route

@@ -6,6 +6,7 @@ import Header from "./components/Header";
 import WorkforceProfilePage from "./routes/WorkforceProfile";
 import OwnerWorkforce from "./routes/OwnerWorkforce";
 import PublicJobs from "./routes/PublicJobs";
+import GuestWorkforceApply from "./routes/GuestWorkforceApply";
 
 
 /** Helper: optional lazy import from a literal glob + fallback */
@@ -327,6 +328,14 @@ export default function App() {
               element={<OwnerReputation />}
             />
 
+
+            <Route
+  path="/guest/:slug/jobs/:jobId/apply"
+  element={<GuestWorkforceApply />}
+/>
+
+            
+            
             {/* Owner views */}
             {/* New canonical route with hotel slug + guestId */}
             <Route

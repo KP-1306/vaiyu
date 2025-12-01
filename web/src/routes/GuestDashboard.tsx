@@ -34,7 +34,7 @@ export default function GuestDashboard() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [spendMode, setSpendMode] = useState<"this" | "last" | "all">("this");
-  const [showExplore, setShowExplore] = useState(false); // Explore stays overlay
+  const [showExplore, setShowExplore] = useState(false); // ⬅️ new: Explore stays overlay
 
   // Quick auth guard
   useEffect(() => {
@@ -56,16 +56,13 @@ export default function GuestDashboard() {
   /* ===== Types ===== */
   type Stay = {
     id: string;
-    hotel_id?: string | null; // used when building /stay links with ?hotelId=
+    hotel_id?: string | null; // NEW: used when building /stay links with ?hotelId=
     status?: string | null; // optional; backend may send claimed/ongoing/completed
     hotel: {
       name: string;
       city?: string;
       cover_url?: string | null;
       country?: string | null;
-      slug?: string | null;
-      tenant_slug?: string | null;
-      id?: string | null;
     };
     check_in: string;
     check_out: string;
@@ -276,7 +273,7 @@ export default function GuestDashboard() {
       totalCredits: totalReferralCredits,
       mostVisited,
       cityCount: cities.size,
-      countryCount: countries.size || (stays.data.length ? 1 : 0),
+      countryCount: countries.size || (stays.data.length ? 1 : 0), // default 1 country if you prefer
     };
   }, [stays.data, spend.data, totalReferralCredits]);
 
@@ -300,9 +297,8 @@ export default function GuestDashboard() {
       if (
         !map[key] ||
         new Date(r.created_at) > new Date(map[key].created_at)
-      ) {
+      )
         map[key] = r;
-      }
     }
     return map;
   }, [reviews.data]);
@@ -334,7 +330,7 @@ export default function GuestDashboard() {
 
   const countdown = useMemo(
     () => (nextStay ? getCountdown(nextStay.check_in) : null),
-    [nextStay],
+    [nextStay?.check_in],
   );
   const nextStayNights = nextStay
     ? diffDays(nextStay.check_in, nextStay.check_out)
@@ -868,7 +864,7 @@ export default function GuestDashboard() {
             </div>
           </section>
 
-          {/* Journey timeline */}
+          {/* Journey timeline + export */}
           <section className="rounded-2xl p-4 shadow bg-white border">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <div>
@@ -954,7 +950,7 @@ export default function GuestDashboard() {
             )}
           </section>
 
-          {/* Owner CTA */}
+          {/* Owner CTA – unchanged */}
           <section className="rounded-2xl p-4 shadow bg-white border">
             <div className="flex items-center justify-between">
               <div>
@@ -986,14 +982,15 @@ async function loadCard<J, T>(
   fetcher: () => Promise<J>,
   map: (j: J | null) => T,
   demo: () => T,
-  set: (next: AsyncData<T>) => void,
+  set: (next: any) => void,
   allowDemo: boolean,
 ) {
   set({ loading: true, source: "live", data: [] as unknown as T });
   try {
     const j = await fetcher();
     set({ loading: false, source: "live", data: map(j) });
-  } catch {
+  } catch (err) {
+    console.warn("[GuestDashboard] Card load failed:", err);
     if (allowDemo) {
       set({ loading: false, source: "preview", data: demo() });
     } else {
@@ -1034,17 +1031,12 @@ function getCountdown(checkIn: string) {
 }
 
 /** Build stay detail link, always passing hotelId when available */
-function buildStayLink(
-  stay: Pick<Stay, "id" | "hotel_id"> & {
-    hotel?: { id?: string | null } | null;
-    hotelId?: string | number | null;
-  },
-) {
+function buildStayLink(stay: { id: string; hotel_id?: string | null }) {
   const base = `/stay/${encodeURIComponent(stay.id)}`;
   const rawHotelId =
-    stay.hotel_id ??
-    stay.hotelId ??
-    stay.hotel?.id ??
+    (stay as any).hotel_id ??
+    (stay as any).hotelId ??
+    (stay as any).hotel?.id ??
     null;
 
   if (rawHotelId) {
@@ -1590,17 +1582,44 @@ function GiftIcon(props: React.SVGProps<SVGSVGElement>) {
 }
 
 /* ===== Small helpers ===== */
+
+// ✅ UPDATED: now sends Supabase access token as Authorization header
 async function jsonWithTimeout(url: string, ms = 5000) {
   const c = new AbortController();
   const t = setTimeout(() => c.abort(), ms);
   try {
-    const r = await fetch(url, { signal: c.signal, cache: "no-store" });
-    if (!r.ok) throw new Error(String(r.status));
+    // Attach current Supabase session token so Edge Functions know the user
+    let token: string | null = null;
+    try {
+      const { data } = await supabase.auth.getSession();
+      token = data?.session?.access_token ?? null;
+    } catch {
+      token = null;
+    }
+
+    const headers: HeadersInit = {};
+    if (token) {
+      (headers as any).Authorization = `Bearer ${token}`;
+    }
+
+    const r = await fetch(url, {
+      signal: c.signal,
+      cache: "no-store",
+      headers,
+    });
+
+    if (!r.ok) {
+      const body = await r.text().catch(() => "");
+      console.warn("[GuestDashboard] fetch failed:", url, r.status, body);
+      throw new Error(String(r.status));
+    }
+
     return r.json();
   } finally {
     clearTimeout(t);
   }
 }
+
 function fmtMoney(n?: number) {
   const v = Number.isFinite(Number(n)) ? Number(n) : 0;
   return `₹ ${v.toLocaleString()}`;

@@ -7,12 +7,19 @@ export type OwnerBriefInput = {
   /** ISO string or anything Date can parse; optional */
   date?: string;
   hotelName: string;
-  occupancyPct: number | null;
-  openTasks: number | null;
-  unhappyGuests: number | null;
-  slaOnTimePct: number | null;
-  todayRevenue: number | null;
-  openWorkforceRoles: number | null;
+  /** Optional city label for nicer copy (e.g. “Hotel Demo, Goa”) */
+  city?: string | null;
+
+  // KPIs – kept optional + nullable so callers can send nothing/null
+  occupancyPct?: number | null;
+  openTasks?: number | null;
+  unhappyGuests?: number | null;
+  slaOnTimePct?: number | null;
+  todayRevenue?: number | null;
+  openWorkforceRoles?: number | null;
+
+  /** Overdue requests (used only for tone; safe if omitted) */
+  overdueTasks?: number | null;
 };
 
 export type OwnerBriefOutput = {
@@ -22,6 +29,8 @@ export type OwnerBriefOutput = {
   textSummary: string;
   actions: string[];
 };
+
+export type OwnerHealthTone = "good" | "ok" | "bad";
 
 type ActionKey =
   | "call_unhappy_guests"
@@ -66,6 +75,10 @@ function formatInr(value: number | null): string | null {
   }
 }
 
+/**
+ * Internal score used for “healthy / okay / urgent” headline copy.
+ * Kept as-is so existing headlines don’t change dramatically.
+ */
 function computeStatusScore(args: {
   occupancyPct: number | null;
   slaOnTimePct: number | null;
@@ -89,6 +102,35 @@ function computeStatusScore(args: {
   if (openTasks > 5) score -= 1;
 
   return score;
+}
+
+/**
+ * Public helper for UI to decide emoji/colour.
+ * Uses the same score as the headlines + a small penalty for overdue tasks.
+ */
+export function computeOwnerHealthTone(
+  input: OwnerBriefInput
+): OwnerHealthTone {
+  const occupancyPct = clampPct(safeInt(input.occupancyPct));
+  const slaOnTimePct = clampPct(safeInt(input.slaOnTimePct));
+  const unhappyGuests = safeInt(input.unhappyGuests) ?? 0;
+  const openTasks = safeInt(input.openTasks) ?? 0;
+  const overdueTasks = safeInt(input.overdueTasks) ?? 0;
+
+  let score = computeStatusScore({
+    occupancyPct,
+    slaOnTimePct,
+    unhappyGuests,
+    openTasks,
+  });
+
+  if (overdueTasks > 0) {
+    score -= overdueTasks >= 5 ? 2 : 1;
+  }
+
+  if (score >= 1) return "good";
+  if (score <= -2) return "bad";
+  return "ok";
 }
 
 function getHeadlineAndCaption(
@@ -121,18 +163,24 @@ function getHeadlineAndCaption(
   if (score >= 1) {
     return {
       headline: "Hotel is healthy",
-      caption: `Overall the hotel looks stable and under control${dayPart ? ` this ${weekday}` : ""}.`,
+      caption: `Overall the hotel looks stable and under control${
+        dayPart ? ` this ${weekday}` : ""
+      }.`,
     };
   }
   if (score <= -2) {
     return {
       headline: "Needs urgent attention",
-      caption: `There are a few important issues that need quick attention${dayPart ? ` this ${weekday}` : ""}.`,
+      caption: `There are a few important issues that need quick attention${
+        dayPart ? ` this ${weekday}` : ""
+      }.`,
     };
   }
   return {
     headline: "Needs attention",
-    caption: `The hotel is okay overall but a few areas need your attention${dayPart ? ` this ${weekday}` : ""}.`,
+    caption: `The hotel is okay overall but a few areas need your attention${
+      dayPart ? ` this ${weekday}` : ""
+    }.`,
   };
 }
 
@@ -218,6 +266,8 @@ function renderActions(
 
 function buildEnglishBrief(input: OwnerBriefInput): OwnerBriefOutput {
   const hotelName = input.hotelName || "your hotel";
+  const city = input.city ?? null;
+  const hotelLabel = city ? `${hotelName}, ${city}` : hotelName;
   const weekday = getWeekdayLabel(input.date);
 
   const occupancyPct = clampPct(safeInt(input.occupancyPct));
@@ -245,11 +295,15 @@ function buildEnglishBrief(input: OwnerBriefInput): OwnerBriefOutput {
       : `Occupancy data is not available yet.`;
   const taskLine =
     openTasks > 0
-      ? `You have ${openTasks} open ${openTasks === 1 ? "task" : "tasks"} on the system.`
+      ? `You have ${openTasks} open ${
+          openTasks === 1 ? "task" : "tasks"
+        } on the system.`
       : `There are no pending tasks right now.`;
   const unhappyLine =
     unhappyGuests > 0
-      ? `There ${unhappyGuests === 1 ? "is" : "are"} ${unhappyGuests} unhappy ${unhappyGuests === 1 ? "guest" : "guests"} waiting for a callback or resolution.`
+      ? `There ${unhappyGuests === 1 ? "is" : "are"} ${unhappyGuests} unhappy ${
+          unhappyGuests === 1 ? "guest" : "guests"
+        } waiting for a callback or resolution.`
       : `No unhappy guests are flagged at the moment.`;
   const slaLine =
     slaOnTimePct !== null
@@ -263,8 +317,12 @@ function buildEnglishBrief(input: OwnerBriefInput): OwnerBriefOutput {
   const introDay = weekday ? `this ${weekday}` : "today";
 
   const speechTextLines = [
-    `Good morning. ${hotelName} is ${
-      score >= 1 ? "looking healthy" : score <= -2 ? "under some pressure" : "doing okay"
+    `Good morning. ${hotelLabel} is ${
+      score >= 1
+        ? "looking healthy"
+        : score <= -2
+        ? "under some pressure"
+        : "doing okay"
     } ${introDay}.`,
     taskLine,
     occLine,
@@ -298,7 +356,7 @@ function buildEnglishBrief(input: OwnerBriefInput): OwnerBriefOutput {
   }
 
   const textSummary =
-    `Today at ${hotelName}: ` +
+    `Today at ${hotelLabel}: ` +
     textSummaryParts.join(" · ") +
     (actions.length
       ? `. Key actions: ${actions.join(" ")}`
@@ -315,6 +373,8 @@ function buildEnglishBrief(input: OwnerBriefInput): OwnerBriefOutput {
 
 function buildHinglishBrief(input: OwnerBriefInput): OwnerBriefOutput {
   const hotelName = input.hotelName || "aapka hotel";
+  const city = input.city ?? null;
+  const hotelLabel = city ? `${hotelName}, ${city}` : hotelName;
   const weekday = getWeekdayLabel(input.date);
 
   const occupancyPct = clampPct(safeInt(input.occupancyPct));
@@ -360,8 +420,12 @@ function buildHinglishBrief(input: OwnerBriefInput): OwnerBriefOutput {
   const introDay = weekday ? `is ${weekday}` : "aaj";
 
   const speechTextLines = [
-    `Good morning. ${hotelName} ${introDay} overall ${
-      score >= 1 ? "kaafi healthy" : score <= -2 ? "thoda pressure mein" : "theek-thaak"
+    `Good morning. ${hotelLabel} ${introDay} overall ${
+      score >= 1
+        ? "kaafi healthy"
+        : score <= -2
+        ? "thoda pressure mein"
+        : "theek-thaak"
     } chal raha hai.`,
     taskLine,
     occLine,
@@ -395,7 +459,7 @@ function buildHinglishBrief(input: OwnerBriefInput): OwnerBriefOutput {
   }
 
   const textSummary =
-    `${hotelName} mein aaj ka snapshot: ` +
+    `${hotelLabel} mein aaj ka snapshot: ` +
     textSummaryParts.join(" · ") +
     (actions.length
       ? `. Important actions: ${actions.join(" ")}`

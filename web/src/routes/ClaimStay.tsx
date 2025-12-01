@@ -87,19 +87,54 @@ export default function ClaimStay() {
         throw new Error(res.error || "Could not verify OTP.");
       }
 
-      const bookingCode: string = res?.booking?.code || trimmedCode;
-      const hotelSlug: string | undefined = res?.booking?.hotel_slug;
+      // --- Robustly extract booking + hotel info from any response shape ---
+      const booking =
+        res?.booking ??
+        res?.data?.booking ??
+        res?.data ??
+        null;
 
-      // Prefer sending guest straight into their in-room menu if we know the booking
+      const bookingCode: string =
+        booking?.code ??
+        booking?.bookingCode ??
+        res?.bookingCode ??
+        res?.booking_code ??
+        trimmedCode;
+
+      // Prefer hotel_id when available (backend may use this for menu/services)
+      const hotelId: string | undefined =
+        booking?.hotel_id ??
+        res?.hotelId ??
+        res?.hotel_id ??
+        undefined;
+
+      const hotelSlug: string | undefined =
+        booking?.hotel_slug ??
+        booking?.hotelSlug ??
+        booking?.hotel?.slug ??
+        res?.hotelSlug ??
+        undefined;
+
+      // Prefer sending guest straight into their in-room menu.
       if (bookingCode) {
+        const search = new URLSearchParams();
+
+        // Keep existing behaviour: slug in `hotel` param (for current GuestMenu route).
+        if (hotelSlug) search.set("hotel", hotelSlug);
+
+        // NEW: also pass `hotelId` when backend returns it (future-proof).
+        if (hotelId) search.set("hotelId", hotelId);
+
+        const qs = search.toString();
         const menuPath = `/stay/${encodeURIComponent(bookingCode)}/menu${
-          hotelSlug ? `?hotel=${encodeURIComponent(hotelSlug)}` : ""
+          qs ? `?${qs}` : ""
         }`;
+
         navigate(menuPath, { replace: true });
         return;
       }
 
-      // Fallback: guest dashboard
+      // Fallback: guest dashboard (unchanged behaviour)
       navigate("/guest", { replace: true });
     } catch (e: any) {
       setErr(e?.message || "Could not verify OTP.");

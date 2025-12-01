@@ -1,7 +1,14 @@
 // web/src/App.tsx
 
 import React, { Suspense, lazy } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import {
+  Routes,
+  Route,
+  Navigate,
+  NavLink,
+  Outlet,
+  useParams,
+} from "react-router-dom";
 import Header from "./components/Header";
 import WorkforceProfilePage from "./routes/WorkforceProfile";
 import OwnerWorkforce from "./routes/OwnerWorkforce";
@@ -288,6 +295,9 @@ const SignIn = lazy(() => import("./routes/SignIn"));
 const AuthCallback = lazy(() => import("./routes/AuthCallback"));
 const OwnerGuestProfile = lazy(() => import("./routes/OwnerGuestProfile"));
 
+// Owner property dashboard
+const OwnerDashboard = lazy(() => import("./routes/OwnerDashboard"));
+
 // Ops board – uses existing OpsBoard.tsx (wraps Desk)
 const OpsBoard = lazy(() => import("./routes/OpsBoard"));
 
@@ -303,6 +313,115 @@ const OwnerRevPAR = lazy(() =>
     default: mod.OwnerRevPAR,
   }))
 );
+
+/* --------- Owner feature flags (for sidebar) ---------- */
+
+const HAS_REVENUE = import.meta.env.VITE_HAS_REVENUE === "true";
+const HAS_HRMS = import.meta.env.VITE_HAS_HRMS === "true";
+const HAS_CALENDAR = import.meta.env.VITE_HAS_CALENDAR === "true";
+const HAS_WORKFORCE =
+  import.meta.env.VITE_HAS_WORKFORCE === "false" ? false : true;
+
+/* --------- Owner layout + sidebar ---------- */
+
+type OwnerLayoutProps = {
+  children?: React.ReactNode;
+};
+
+/**
+ * OwnerLayout
+ * - Provides a left navigation rail for all property-specific owner pages.
+ * - Wraps individual routes (Dashboard, Revenue, HRMS, Workforce, etc.).
+ * - Does NOT change existing OwnerHome (/owner) behaviour.
+ */
+function OwnerLayout({ children }: OwnerLayoutProps) {
+  const { slug } = useParams();
+  const base =
+    (slug && slug.trim()) ? `/owner/${encodeURIComponent(slug.trim())}` : "/owner";
+
+  return (
+    <div className="owner-layout flex min-h-[calc(100vh-4rem)] bg-slate-50">
+      {/* Left nav – hidden on very small screens for now */}
+      <aside className="hidden w-56 shrink-0 border-r border-slate-200 bg-white/95 px-3 py-4 md:block">
+        <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+          Owner console
+        </div>
+        <OwnerSidebar basePath={base} />
+      </aside>
+      {/* Content area */}
+      <div className="flex-1 px-3 py-3 md:px-4 md:py-4 overflow-x-hidden">
+        {children ?? <Outlet />}
+      </div>
+    </div>
+  );
+}
+
+function OwnerSidebar({ basePath }: { basePath: string }) {
+  // Ensure no trailing slash
+  const base = basePath.replace(/\/+$/, "");
+
+  type Item = { label: string; to: string; feature?: "revenue" | "hrms" | "calendar" | "workforce" };
+  const items: Item[] = [
+    {
+      label: "Today’s dashboard",
+      to: `${base}/dashboard`,
+    },
+    {
+      label: "Rooms & occupancy",
+      to: `${base}/occupancy`,
+    },
+    HAS_REVENUE && {
+      label: "Revenue & forecast",
+      to: `${base}/revenue`,
+      feature: "revenue",
+    },
+    HAS_HRMS && {
+      label: "HR & attendance",
+      to: `${base}/hrms`,
+      feature: "hrms",
+    },
+    HAS_WORKFORCE && {
+      label: "Workforce & hiring",
+      to: `${base}/workforce`,
+      feature: "workforce",
+    },
+    {
+      label: "Reviews & reputation",
+      to: `${base}/reputation`,
+    },
+    HAS_CALENDAR && {
+      label: "Bookings calendar",
+      to: `${base}/bookings/calendar`,
+      feature: "calendar",
+    },
+    {
+      label: "Property settings",
+      to: `${base}/settings`,
+    },
+  ].filter(Boolean) as Item[];
+
+  return (
+    <nav className="space-y-1 text-sm">
+      {items.map((item) => (
+        <NavLink
+          key={item.to}
+          to={item.to}
+          className={({ isActive }) =>
+            [
+              "flex items-center justify-between rounded-xl px-3 py-2",
+              "text-[13px] transition-colors",
+              isActive
+                ? "bg-slate-900 text-slate-50"
+                : "text-slate-700 hover:bg-slate-100",
+            ].join(" ")
+          }
+        >
+          <span>{item.label}</span>
+        </NavLink>
+      ))}
+    </nav>
+  );
+}
 
 /* ---------------- App ---------------- */
 
@@ -338,35 +457,107 @@ export default function App() {
               element={<OwnerGuestProfile />}
             />
 
-            {/* Owner – slug-specific dashboards */}
+            {/* Owner – property-specific layout + pages */}
+            <Route
+              path="/owner/:slug/dashboard"
+              element={
+                <OwnerLayout>
+                  <OwnerDashboard />
+                </OwnerLayout>
+              }
+            />
             <Route
               path="/owner/:slug/reputation"
-              element={<OwnerReputation />}
+              element={
+                <OwnerLayout>
+                  <OwnerReputation />
+                </OwnerLayout>
+              }
             />
             <Route
               path="/owner/:slug/workforce"
-              element={<OwnerWorkforce />}
+              element={
+                <OwnerLayout>
+                  <OwnerWorkforce />
+                </OwnerLayout>
+              }
             />
             <Route
               path="/owner/:slug/revenue"
-              element={<OwnerRevenue />}
+              element={
+                <OwnerLayout>
+                  <OwnerRevenue />
+                </OwnerLayout>
+              }
             />
             <Route
               path="/owner/:slug/revenue/adr"
-              element={<OwnerADR />}
+              element={
+                <OwnerLayout>
+                  <OwnerADR />
+                </OwnerLayout>
+              }
             />
             <Route
               path="/owner/:slug/revenue/revpar"
-              element={<OwnerRevPAR />}
+              element={
+                <OwnerLayout>
+                  <OwnerRevPAR />
+                </OwnerLayout>
+              }
             />
             <Route
               path="/owner/:slug/occupancy"
-              element={<OwnerOccupancy />}
+              element={
+                <OwnerLayout>
+                  <OwnerOccupancy />
+                </OwnerLayout>
+              }
             />
-            <Route path="/owner/:slug/hrms" element={<OwnerHRMS />} />
-            <Route path="/owner/:slug/pricing" element={<OwnerPricing />} />
+            <Route
+              path="/owner/:slug/hrms"
+              element={
+                <OwnerLayout>
+                  <OwnerHRMS />
+                </OwnerLayout>
+              }
+            />
+            {/* Alias so /owner/:slug/hrms/attendance also works */}
+            <Route
+              path="/owner/:slug/hrms/attendance"
+              element={
+                <OwnerLayout>
+                  <OwnerHRMS />
+                </OwnerLayout>
+              }
+            />
+            <Route
+              path="/owner/:slug/pricing"
+              element={
+                <OwnerLayout>
+                  <OwnerPricing />
+                </OwnerLayout>
+              }
+            />
+            <Route
+              path="/owner/:slug/bookings/calendar"
+              element={
+                <OwnerLayout>
+                  <BookingsCalendar />
+                </OwnerLayout>
+              }
+            />
+            {/* Settings in property context – reuse Settings component */}
+            <Route
+              path="/owner/:slug/settings"
+              element={
+                <OwnerLayout>
+                  <Settings />
+                </OwnerLayout>
+              }
+            />
 
-            {/* Owner home / console */}
+            {/* Owner home / console (multi-property hub, unchanged) */}
             <Route path="/owner/:slug/*" element={<OwnerHome />} />
             <Route path="/owner" element={<OwnerHome />} />
 

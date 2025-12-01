@@ -1,3 +1,5 @@
+// web/src/routes/Menu.tsx
+
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import {
@@ -18,6 +20,7 @@ export default function Menu() {
   // hotelSlug from query:
   // - /menu?hotelSlug=TENANT1 (old links)
   // - /menu?hotel=TENANT1      (from Scan page, WhatsApp / microsite use-case)
+  // - /stay/BK-XXXX/menu?hotel=TENANT1 (stay menu after claim)
   const [searchParams] = useSearchParams();
   const hotelSlugFromQuery =
     searchParams.get("hotelSlug") ||
@@ -33,7 +36,9 @@ export default function Menu() {
   // Room picker + tiny toast
   const roomKey = useMemo(() => `room:${code}`, [code]);
   const [room, setRoom] = useState<string>(
-    () => (typeof window !== "undefined" ? localStorage.getItem(roomKey) : null) || "201"
+    () =>
+      (typeof window !== "undefined" ? localStorage.getItem(roomKey) : null) ||
+      "201",
   );
   const [toast, setToast] = useState<string>("");
   const [busy, setBusy] = useState<string>(""); // keeps the id of item being actioned
@@ -45,15 +50,20 @@ export default function Menu() {
 
     (async () => {
       try {
-        // Pass hotelSlugFromQuery so WhatsApp / microsite links see the right hotel's menu
+        // Pass hotelSlugFromQuery so WhatsApp / microsite / stay-menu links
+        // always hit the same menu API as QR flows (correct property identifier).
         const [svc, menu] = await Promise.all([
           getServices(hotelSlugFromQuery),
           getMenu(hotelSlugFromQuery),
         ]);
 
         if (!mounted) return;
-        setServices((svc as any)?.items || []);
-        setFood((menu as any)?.items || []);
+
+        const svcItems = normalizeServices(svc);
+        const foodItems = normalizeMenu(menu);
+
+        setServices(svcItems);
+        setFood(foodItems);
       } catch (e: any) {
         if (!mounted) return;
         setErr(e?.message || "Failed to load menu");
@@ -79,6 +89,7 @@ export default function Menu() {
 
   function showToast(msg: string) {
     setToast(msg);
+    if (typeof window === "undefined") return;
     window.setTimeout(() => setToast(""), 1500);
   }
 
@@ -113,7 +124,7 @@ export default function Menu() {
       if (id) {
         // deep-link to tracker if you have that route
         window.location.href = `/stay/${encodeURIComponent(
-          code!
+          code!,
         )}/requests/${id}`;
         return;
       }
@@ -299,4 +310,40 @@ export default function Menu() {
       )}
     </main>
   );
+}
+
+/**
+ * Normalize services API responses so this component works with:
+ * - { items: Service[] }
+ * - { services: Service[] }
+ * - { data: { items: Service[] } }
+ * - Service[]
+ */
+function normalizeServices(raw: any): Service[] {
+  if (!raw) return [];
+  const items =
+    (Array.isArray(raw?.items) && raw.items) ||
+    (Array.isArray(raw?.services) && raw.services) ||
+    (Array.isArray(raw?.data?.items) && raw.data.items) ||
+    (Array.isArray(raw) && raw) ||
+    [];
+  return items as Service[];
+}
+
+/**
+ * Normalize menu API responses so this component works with:
+ * - { items: FoodItem[] }
+ * - { menu: FoodItem[] }
+ * - { data: { items: FoodItem[] } }
+ * - FoodItem[]
+ */
+function normalizeMenu(raw: any): FoodItem[] {
+  if (!raw) return [];
+  const items =
+    (Array.isArray(raw?.items) && raw.items) ||
+    (Array.isArray(raw?.menu) && raw.menu) ||
+    (Array.isArray(raw?.data?.items) && raw.data.items) ||
+    (Array.isArray(raw) && raw) ||
+    [];
+  return items as FoodItem[];
 }

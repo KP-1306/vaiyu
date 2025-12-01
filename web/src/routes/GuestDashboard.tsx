@@ -27,6 +27,11 @@ function shouldUseDemo(): boolean {
 }
 const USE_DEMO = shouldUseDemo();
 
+/** Detect if API is pointing directly at Supabase Edge Functions */
+const IS_SUPABASE_EDGE = API.includes(".functions.supabase.co");
+/** Correct stays endpoint for both backends */
+const STAYS_ENDPOINT = IS_SUPABASE_EDGE ? "/me-stays" : "/me/stays";
+
 /* ======= TRAVEL COMMAND CENTER ======= */
 export default function GuestDashboard() {
   const nav = useNavigate();
@@ -187,8 +192,9 @@ export default function GuestDashboard() {
 
   /* ---- Card loads (resilient) ---- */
   useEffect(() => {
+    // ✅ uses /me-stays for Supabase Edge, /me/stays for old API
     loadCard(
-      () => jsonWithTimeout(`${API}/me/stays?limit=10`),
+      () => jsonWithTimeout(`${API}${STAYS_ENDPOINT}?limit=10`),
       (j: any) => (Array.isArray(j?.items) ? (j.items as Stay[]) : []),
       demoStays,
       setStays,
@@ -930,7 +936,7 @@ export default function GuestDashboard() {
                             Journey #{stays.data.length - idx}
                           </span>
                           {rv?.title && (
-                            <span className="px-2 py-0.5 rounded-full bg-amber-50 border border-amber-100">
+                            <span className="px-2 py-0.5 rounded-full bg-amber-50 border-amber-100">
                               “{rv.title}”
                             </span>
                           )}
@@ -989,8 +995,7 @@ async function loadCard<J, T>(
   try {
     const j = await fetcher();
     set({ loading: false, source: "live", data: map(j) });
-  } catch (err) {
-    console.warn("[GuestDashboard] Card load failed:", err);
+  } catch {
     if (allowDemo) {
       set({ loading: false, source: "preview", data: demo() });
     } else {
@@ -1582,44 +1587,17 @@ function GiftIcon(props: React.SVGProps<SVGSVGElement>) {
 }
 
 /* ===== Small helpers ===== */
-
-// ✅ UPDATED: now sends Supabase access token as Authorization header
 async function jsonWithTimeout(url: string, ms = 5000) {
   const c = new AbortController();
   const t = setTimeout(() => c.abort(), ms);
   try {
-    // Attach current Supabase session token so Edge Functions know the user
-    let token: string | null = null;
-    try {
-      const { data } = await supabase.auth.getSession();
-      token = data?.session?.access_token ?? null;
-    } catch {
-      token = null;
-    }
-
-    const headers: HeadersInit = {};
-    if (token) {
-      (headers as any).Authorization = `Bearer ${token}`;
-    }
-
-    const r = await fetch(url, {
-      signal: c.signal,
-      cache: "no-store",
-      headers,
-    });
-
-    if (!r.ok) {
-      const body = await r.text().catch(() => "");
-      console.warn("[GuestDashboard] fetch failed:", url, r.status, body);
-      throw new Error(String(r.status));
-    }
-
+    const r = await fetch(url, { signal: c.signal, cache: "no-store" });
+    if (!r.ok) throw new Error(String(r.status));
     return r.json();
   } finally {
     clearTimeout(t);
   }
 }
-
 function fmtMoney(n?: number) {
   const v = Number.isFinite(Number(n)) ? Number(n) : 0;
   return `₹ ${v.toLocaleString()}`;

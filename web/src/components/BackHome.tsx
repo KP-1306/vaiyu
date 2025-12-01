@@ -2,17 +2,18 @@
 //
 // Smart "Back" pill used across the app.
 //
-// New behaviour for OWNER area (three-step ladder):
+// OWNER area ladder:
 //   /owner/TENANT1/workforce → /owner/TENANT1
 //   /owner/TENANT1          → /owner
 //   /owner                  → /
 //
-// For other surfaces we keep your existing behaviour:
-//   /guest* → /
-//   desk/hk/maint/grid/ops/stay/menu/precheck/regcard/bill/admin
-//      → role-based /owner or /guest via Supabase.
+// OPS view fix (owner flow):
+//   /ops?hotelId=TENANT1    → /owner/TENANT1
 //
-// If used as <BackHome to="/somewhere">, it ALWAYS goes to `to`.
+// Other behaviour unchanged:
+//   /guest* → /
+//   other surfaces → role-based /owner or /guest via Supabase.
+//   If used as <BackHome to="/somewhere">, it ALWAYS goes to `to`.
 
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
@@ -55,7 +56,7 @@ export default function BackHome({
   label = "← Back home",
   className = "",
 }: Props) {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
 
   // If caller passes `to`, we always respect it.
   const forcedTo = to ?? null;
@@ -100,6 +101,22 @@ export default function BackHome({
       return;
     }
 
+    // OPS AREA: if hotelId is present, go back to that hotel's dashboard.
+    // Example: /ops?hotelId=TENANT1 → /owner/TENANT1
+    if (segments[0] === "ops") {
+      const params = new URLSearchParams(search);
+      const hotelId =
+        params.get("hotelId") ||
+        params.get("hotel") ||
+        params.get("propertyId");
+
+      if (hotelId) {
+        setAutoTo(`/owner/${hotelId}`);
+        return;
+      }
+      // If no hotelId, fall through to generic logic below.
+    }
+
     // GUEST AREA: always back to landing
     if (segments[0] === "guest") {
       setAutoTo("/");
@@ -107,6 +124,7 @@ export default function BackHome({
     }
 
     // ---------- Generic fallback: use auth + membership ----------
+
     let cancelled = false;
 
     (async () => {
@@ -143,7 +161,7 @@ export default function BackHome({
     return () => {
       cancelled = true;
     };
-  }, [shouldAuto, forcedTo, pathname]);
+  }, [shouldAuto, forcedTo, pathname, search]);
 
   // --- Decide visibility after hooks have run ---
   const hide = startsWithAny(pathname, HIDE_PREFIXES);

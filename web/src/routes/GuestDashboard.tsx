@@ -34,7 +34,7 @@ export default function GuestDashboard() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [spendMode, setSpendMode] = useState<"this" | "last" | "all">("this");
-  const [showExplore, setShowExplore] = useState(false); // ⬅️ new: Explore stays overlay
+  const [showExplore, setShowExplore] = useState(false); // Explore stays overlay
 
   // Quick auth guard
   useEffect(() => {
@@ -56,13 +56,16 @@ export default function GuestDashboard() {
   /* ===== Types ===== */
   type Stay = {
     id: string;
-    hotel_id?: string | null; // NEW: used when building /stay links with ?hotelId=
+    hotel_id?: string | null; // used when building /stay links with ?hotelId=
     status?: string | null; // optional; backend may send claimed/ongoing/completed
     hotel: {
       name: string;
       city?: string;
       cover_url?: string | null;
       country?: string | null;
+      slug?: string | null;
+      tenant_slug?: string | null;
+      id?: string | null;
     };
     check_in: string;
     check_out: string;
@@ -273,7 +276,7 @@ export default function GuestDashboard() {
       totalCredits: totalReferralCredits,
       mostVisited,
       cityCount: cities.size,
-      countryCount: countries.size || (stays.data.length ? 1 : 0), // default 1 country if you prefer
+      countryCount: countries.size || (stays.data.length ? 1 : 0),
     };
   }, [stays.data, spend.data, totalReferralCredits]);
 
@@ -297,8 +300,9 @@ export default function GuestDashboard() {
       if (
         !map[key] ||
         new Date(r.created_at) > new Date(map[key].created_at)
-      )
+      ) {
         map[key] = r;
+      }
     }
     return map;
   }, [reviews.data]);
@@ -330,7 +334,7 @@ export default function GuestDashboard() {
 
   const countdown = useMemo(
     () => (nextStay ? getCountdown(nextStay.check_in) : null),
-    [nextStay?.check_in],
+    [nextStay],
   );
   const nextStayNights = nextStay
     ? diffDays(nextStay.check_in, nextStay.check_out)
@@ -864,7 +868,7 @@ export default function GuestDashboard() {
             </div>
           </section>
 
-          {/* Journey timeline + export */}
+          {/* Journey timeline */}
           <section className="rounded-2xl p-4 shadow bg-white border">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <div>
@@ -950,7 +954,7 @@ export default function GuestDashboard() {
             )}
           </section>
 
-          {/* Owner CTA – unchanged */}
+          {/* Owner CTA */}
           <section className="rounded-2xl p-4 shadow bg-white border">
             <div className="flex items-center justify-between">
               <div>
@@ -982,7 +986,7 @@ async function loadCard<J, T>(
   fetcher: () => Promise<J>,
   map: (j: J | null) => T,
   demo: () => T,
-  set: (next: any) => void,
+  set: (next: AsyncData<T>) => void,
   allowDemo: boolean,
 ) {
   set({ loading: true, source: "live", data: [] as unknown as T });
@@ -1030,12 +1034,17 @@ function getCountdown(checkIn: string) {
 }
 
 /** Build stay detail link, always passing hotelId when available */
-function buildStayLink(stay: { id: string; hotel_id?: string | null }) {
+function buildStayLink(
+  stay: Pick<Stay, "id" | "hotel_id"> & {
+    hotel?: { id?: string | null } | null;
+    hotelId?: string | number | null;
+  },
+) {
   const base = `/stay/${encodeURIComponent(stay.id)}`;
   const rawHotelId =
-    (stay as any).hotel_id ??
-    (stay as any).hotelId ??
-    (stay as any).hotel?.id ??
+    stay.hotel_id ??
+    stay.hotelId ??
+    stay.hotel?.id ??
     null;
 
   if (rawHotelId) {

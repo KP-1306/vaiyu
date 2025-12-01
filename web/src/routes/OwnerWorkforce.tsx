@@ -1,6 +1,6 @@
 // web/src/routes/OwnerWorkforce.tsx
 // Owner Workforce – roles + applicants (beta)
-// Uses workforce_jobs + workforce_applicants if present, but degrades gracefully.
+// Uses workforce_jobs + workforce_applications if present, but degrades gracefully.
 
 import {
   useEffect,
@@ -291,11 +291,11 @@ export default function OwnerWorkforce() {
 
         setApplicants((data as WorkforceApplicant[]) ?? []);
       } catch (e) {
-        console.error("Error loading workforce_applicants", e);
+        console.error("Error loading workforce_applications", e);
         if (!alive) return;
         setApplicants([]);
         setApplicantsError(
-          "We couldn’t load applicants yet. Check that the workforce_applicants table exists.",
+          "We couldn’t load applicants yet. Check that the workforce_applications table exists.",
         );
       } finally {
         if (!alive) return;
@@ -569,7 +569,7 @@ export default function OwnerWorkforce() {
                     </code>{" "}
                     and{" "}
                     <code className="rounded bg-slate-100 px-1 text-[10px]">
-                      workforce_applicants
+                      workforce_applications
                     </code>{" "}
                     tables to exist.
                   </p>
@@ -581,8 +581,8 @@ export default function OwnerWorkforce() {
                     {hotel.name}
                   </span>
                   <span>
-                    {hotel.city ? `${hotel.city} · ` : ""}
-                    Property ID: {hotel.id.slice(0, 8)}…
+                    {hotel.city ? `${hotel.city} · ` : ""}Property ID:{" "}
+                    {hotel.id.slice(0, 8)}…
                   </span>
                   <span>
                     {openCount} open role{openCount === 1 ? "" : "s"} ·{" "}

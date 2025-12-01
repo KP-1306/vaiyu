@@ -6,9 +6,9 @@
 // - Hides itself on auth/landing pages.
 // - If used as <BackHome /> (no `to` prop):
 //     • On detail/inner pages (e.g. /owner/<slug>/settings, /desk/..., /ops/...)
-//       AND when the user navigated from within VAiyu (same origin),
+//       AND when the user has already navigated within VAiyu in this session,
 //       it prefers a real history back (navigate(-1)) so you return to the
-//       previous screen (e.g. hotel dashboard → settings → back → hotel dashboard).
+//       previous screen (e.g. hotel dashboard → workforce → back → hotel dashboard).
 //     • Otherwise it falls back to your existing logic:
 //       - /owner/* → /owner
 //       - /guest* → /
@@ -18,6 +18,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type MouseEvent,
 } from "react";
@@ -68,25 +69,25 @@ export default function BackHome({
   const forcedTo = to ?? null;
 
   const [autoTo, setAutoTo] = useState<string>(forcedTo ?? "/");
+
+  // Tracks whether we have at least one *internal* navigation in this SPA
+  // session. Once true, we know navigate(-1) will stay within VAiyu.
   const [canHistoryBack, setCanHistoryBack] = useState(false);
+  const previousPathRef = useRef<string | null>(null);
 
   const shouldAuto = useMemo(() => forcedTo == null, [forcedTo]);
 
-  // Decide if we should *prefer* history.back() style navigation.
-  // We only enable this if the referrer is the same origin (user
-  // already inside VAiyu, not coming straight from email/WhatsApp).
+  // Record previous pathname to decide if we can safely use navigate(-1)
   useEffect(() => {
-    try {
-      const ref = document.referrer;
-      if (!ref) return;
-      const refUrl = new URL(ref);
-      if (refUrl.origin === window.location.origin) {
-        setCanHistoryBack(true);
-      }
-    } catch {
-      // best-effort only
+    if (
+      previousPathRef.current &&
+      previousPathRef.current !== pathname
+    ) {
+      // We have seen at least one in-app route change
+      setCanHistoryBack(true);
     }
-  }, []);
+    previousPathRef.current = pathname;
+  }, [pathname]);
 
   useEffect(() => {
     // If the caller explicitly passed a `to`, always respect that.

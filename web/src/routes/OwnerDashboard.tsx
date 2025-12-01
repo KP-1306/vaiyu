@@ -1,6 +1,6 @@
 // web/src/routes/OwnerDashboard.tsx — ultra-premium owner dashboard
 // NOTE: All data fetching / Supabase / hooks logic is preserved;
-// we only add AI Ops Co-pilot (heatmap + staffing) and a sticky left sidebar
+// we only add AI Ops Co-pilot (heatmap + staffing) and light feature flags
 // so unfinished modules don’t send users to 404s.
 
 import {
@@ -603,172 +603,162 @@ export default function OwnerDashboard() {
   /** ======= Render ======= */
   return (
     <main className="min-h-screen bg-slate-50">
-      <div className="mx-auto max-w-7xl px-4 py-4 lg:px-6 lg:py-6">
-        <div className="grid gap-4 lg:grid-cols-[230px,minmax(0,1fr)] xl:grid-cols-[260px,minmax(0,1fr)]">
-          {/* Left: sticky sidebar navigation on desktop */}
-          <aside className="hidden lg:block">
-            <OwnerSidebarNav slug={hotel.slug} hotelId={hotel.id} />
-          </aside>
+      <div className="mx-auto max-w-7xl px-4 py-4 lg:px-6 lg:py-6 space-y-5">
+        {/* Top bar / identity */}
+        <OwnerTopBar
+          hotel={hotel}
+          slug={hotel.slug}
+          dateLabel={dateLabel}
+          timeLabel={timeLabel}
+        />
 
-          {/* Right: main dashboard content */}
-          <div className="space-y-5" id="top">
-            {/* Top bar / identity */}
-            <OwnerTopBar
-              hotel={hotel}
-              slug={hotel.slug}
-              dateLabel={dateLabel}
-              timeLabel={timeLabel}
+        {/* Owner spoken/text brief (new, additive) */}
+        <OwnerDailyBriefCard
+          language="hinglish"
+          date={today}
+          hotelName={hotel.name}
+          city={hotel.city}
+          occupancyPct={occPct}
+          openTasks={ordersTotal}
+          overdueTasks={ordersOverdue}
+          unhappyGuests={0}
+          slaOnTimePct={slaPct}
+          todayRevenue={revenueToday}
+          openWorkforceRoles={openWorkforceRoles}
+        />
+
+        {/* Hero: Today’s Pulse */}
+        <PulseStrip
+          hotelName={hotel.name}
+          city={hotel.city}
+          occPct={occPct}
+          occupied={occupied}
+          totalRooms={total}
+          arrivalsCount={arrivals.length}
+          departuresCount={departures.length}
+          revenueToday={revenueToday}
+          adr={adr}
+          revpar={revpar}
+          pickup7d={pickup7d}
+          slaPct={slaPct}
+          slaTone={slaToneLevel}
+          ordersTotal={ordersTotal}
+          ordersOverdue={ordersOverdue}
+          hrms={hrms}
+          npsScore={npsScore}
+          npsResponses={npsResponses}
+          vipCount={vipCount}
+          eventCount={eventsCount}
+          onOpenDrawer={(kind) => setDrawer({ kind })}
+        />
+
+        {/* Detail KPIs strip */}
+        <KpiStrip
+          slug={hotel.slug}
+          occPct={occPct}
+          occTone={occTone}
+          occupied={occupied}
+          total={total}
+          adr={adr}
+          revpar={revpar}
+          pickup7d={pickup7d}
+          slaPct={slaPct}
+          nightsOnBooks={nightsOnBooks}
+        />
+
+        {/* Middle section: Live Ops (L) + Performance (R) */}
+        <section className="grid gap-4 xl:grid-cols-3">
+          <div className="xl:col-span-2 space-y-4">
+            <LiveOpsColumn
+              arrivals={arrivals}
+              inhouse={inhouse}
+              departures={departures}
             />
-
-            {/* Owner spoken/text brief (new, additive) */}
-            <OwnerDailyBriefCard
-              language="hinglish"
-              date={today}
-              hotelName={hotel.name}
-              city={hotel.city}
-              occupancyPct={occPct}
-              openTasks={ordersTotal}
-              overdueTasks={ordersOverdue}
-              unhappyGuests={0}
-              slaOnTimePct={slaPct}
-              todayRevenue={revenueToday}
-              openWorkforceRoles={openWorkforceRoles}
-            />
-
-            {/* Hero: Today’s Pulse */}
-            <PulseStrip
-              hotelName={hotel.name}
-              city={hotel.city}
-              occPct={occPct}
-              occupied={occupied}
-              totalRooms={total}
-              arrivalsCount={arrivals.length}
-              departuresCount={departures.length}
-              revenueToday={revenueToday}
-              adr={adr}
-              revpar={revpar}
-              pickup7d={pickup7d}
-              slaPct={slaPct}
-              slaTone={slaToneLevel}
-              ordersTotal={ordersTotal}
-              ordersOverdue={ordersOverdue}
-              hrms={hrms}
-              npsScore={npsScore}
-              npsResponses={npsResponses}
-              vipCount={vipCount}
-              eventCount={eventsCount}
-              onOpenDrawer={(kind) => setDrawer({ kind })}
-            />
-
-            {/* Detail KPIs strip */}
-            <KpiStrip
-              slug={hotel.slug}
-              occPct={occPct}
-              occTone={occTone}
-              occupied={occupied}
-              total={total}
-              adr={adr}
-              revpar={revpar}
-              pickup7d={pickup7d}
-              slaPct={slaPct}
-              nightsOnBooks={nightsOnBooks}
-            />
-
-            {/* Middle section: Live Ops (L) + Performance (R) */}
-            <section className="grid gap-4 xl:grid-cols-3">
-              <div className="xl:col-span-2 space-y-4">
-                <LiveOpsColumn
-                  arrivals={arrivals}
-                  inhouse={inhouse}
-                  departures={departures}
-                />
-              </div>
-              <PerformanceColumn
-                slug={hotel.slug}
-                revenueToday={revenueToday}
-                adr={adr}
-                revpar={revpar}
-                pickup7d={pickup7d}
-                occPct={occPct}
-                kpi={kpi}
-                npsScore={npsScore}
-                npsResponses={npsResponses}
-                vipStays={vipStays}
-                eventsToday={eventsToday}
-              />
-            </section>
-
-            {/* Ops & SLA row */}
-            <section className="grid gap-4 lg:grid-cols-3">
-              <SlaCard targetMin={targetMin} orders={liveOrders} />
-              <LiveOrdersPanel
-                orders={liveOrders}
-                targetMin={targetMin}
-                hotelId={hotel.id} // keeps hotelId so /ops?hotelId=… works
-                className="lg:col-span-1"
-              />
-              <AttentionServicesCard orders={liveOrders} />
-            </section>
-
-            {/* Staff, HR & Workforce row */}
-            <section className="grid gap-4 lg:grid-cols-3">
-              <StaffPerformancePanel data={staffPerf} />
-              <HrmsPanel data={hrms} slug={hotel.slug} />
-              <div className="space-y-4">
-                <OwnerTasksPanel occPct={occPct} kpi={kpi} slug={hotel.slug} />
-                <OwnerWorkforcePanel
-                  slug={hotel.slug}
-                  jobs={workforceJobs}
-                  loading={workforceLoading}
-                />
-              </div>
-            </section>
-
-            {/* AI Ops Co-pilot (new, additive) */}
-            <AiOpsSection
-              hotelId={hotel.id}
-              heatmap={opsHeatmap}
-              staffingPlan={staffingPlan}
-              loading={opsLoading}
-            />
-
-            {/* AI usage */}
-            <section className="rounded-2xl border border-slate-100 bg-white/80 px-4 py-4 shadow-sm lg:px-5 lg:py-5">
-              <SectionHeader
-                title="AI helper usage"
-                desc="Track how much of your monthly AI budget this property has used."
-                action={
-                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
-                    Owner view
-                  </span>
-                }
-              />
-              <UsageMeter hotelId={hotel.id} />
-            </section>
-
-            {/* Outlook & Housekeeping */}
-            <section className="grid gap-4 lg:grid-cols-3">
-              <div className="lg:col-span-2">
-                <OccupancyHeatmap
-                  title="Booking curve (6-week view)"
-                  desc="See pacing vs target; add offers on soft nights."
-                />
-              </div>
-              <HousekeepingProgress
-                slug={hotel.slug}
-                readyPct={Math.min(occPct, 100)}
-              />
-            </section>
-
-            {/* Bottom “Today at a glance” strip */}
-            <TodayBottomStrip occPct={occPct} hrms={hrms} />
-
-            {/* Support footer */}
-            <footer className="pt-2">
-              <OwnerSupportFooter />
-            </footer>
           </div>
-        </div>
+          <PerformanceColumn
+            slug={hotel.slug}
+            revenueToday={revenueToday}
+            adr={adr}
+            revpar={revpar}
+            pickup7d={pickup7d}
+            occPct={occPct}
+            kpi={kpi}
+            npsScore={npsScore}
+            npsResponses={npsResponses}
+            vipStays={vipStays}
+            eventsToday={eventsToday}
+          />
+        </section>
+
+        {/* Ops & SLA row */}
+        <section className="grid gap-4 lg:grid-cols-3">
+          <SlaCard targetMin={targetMin} orders={liveOrders} />
+          <LiveOrdersPanel
+            orders={liveOrders}
+            targetMin={targetMin}
+            hotelId={hotel.id} // keeps hotelId so /ops?hotelId=… works
+            className="lg:col-span-1"
+          />
+          <AttentionServicesCard orders={liveOrders} />
+        </section>
+
+        {/* Staff, HR & Workforce row */}
+        <section className="grid gap-4 lg:grid-cols-3">
+          <StaffPerformancePanel data={staffPerf} />
+          <HrmsPanel data={hrms} slug={hotel.slug} />
+          <div className="space-y-4">
+            <OwnerTasksPanel occPct={occPct} kpi={kpi} slug={hotel.slug} />
+            <OwnerWorkforcePanel
+              slug={hotel.slug}
+              jobs={workforceJobs}
+              loading={workforceLoading}
+            />
+          </div>
+        </section>
+
+        {/* AI Ops Co-pilot (new, additive) */}
+        <AiOpsSection
+          hotelId={hotel.id}
+          heatmap={opsHeatmap}
+          staffingPlan={staffingPlan}
+          loading={opsLoading}
+        />
+
+        {/* AI usage */}
+        <section className="rounded-2xl border border-slate-100 bg-white/80 px-4 py-4 shadow-sm lg:px-5 lg:py-5">
+          <SectionHeader
+            title="AI helper usage"
+            desc="Track how much of your monthly AI budget this property has used."
+            action={
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
+                Owner view
+              </span>
+            }
+          />
+          <UsageMeter hotelId={hotel.id} />
+        </section>
+
+        {/* Outlook & Housekeeping */}
+        <section className="grid gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <OccupancyHeatmap
+              title="Booking curve (6-week view)"
+              desc="See pacing vs target; add offers on soft nights."
+            />
+          </div>
+          <HousekeepingProgress
+            slug={hotel.slug}
+            readyPct={Math.min(occPct, 100)}
+          />
+        </section>
+
+        {/* Bottom “Today at a glance” strip */}
+        <TodayBottomStrip occPct={occPct} hrms={hrms} />
+
+        {/* Support footer */}
+        <footer className="pt-2">
+          <OwnerSupportFooter />
+        </footer>
       </div>
 
       {/* One-touch Action Drawer (stub for now) */}
@@ -870,210 +860,6 @@ function OwnerTopBar({
   );
 }
 
-/** Sticky left sidebar (desktop only) */
-function OwnerSidebarNav({
-  slug,
-  hotelId,
-}: {
-  slug: string;
-  hotelId: string;
-}) {
-  const encodedSlug = encodeURIComponent(slug);
-  const opsHref = `/ops?hotelId=${encodeURIComponent(hotelId)}`;
-  const servicesHref = `/owner/services?slug=${encodedSlug}`;
-  const settingsHref = `/owner/${slug}/settings`;
-  const pricingHref = `/owner/${slug}/pricing`;
-
-  return (
-    <nav
-      className="sticky top-4 rounded-3xl border border-slate-100 bg-white/90 px-3 py-4 text-xs text-slate-700 shadow-sm shadow-slate-200/60"
-      aria-label="Owner dashboard navigation"
-    >
-      {/* Overview */}
-      <div className="mb-4">
-        <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-          Overview
-        </div>
-        <ul className="space-y-1">
-          <li>
-            <a
-              href="#pulse"
-              className="flex items-center gap-2 rounded-lg bg-slate-900/5 px-2 py-1.5 font-medium text-slate-900"
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              <span>Dashboard &amp; KPIs</span>
-            </a>
-          </li>
-          <li>
-            <a
-              href="#revenue-panel"
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
-            >
-              <span className="h-1 w-1 rounded-full bg-slate-300" />
-              <span>Revenue &amp; forecast</span>
-            </a>
-          </li>
-          <li>
-            <a
-              href="#rooms"
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
-            >
-              <span className="h-1 w-1 rounded-full bg-slate-300" />
-              <span>Rooms &amp; occupancy</span>
-            </a>
-          </li>
-        </ul>
-      </div>
-
-      {/* Operations */}
-      <div className="mb-4">
-        <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-          Operations
-        </div>
-        <ul className="space-y-1">
-          <li>
-            <a
-              href="#live-ops"
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
-            >
-              <span className="h-1 w-1 rounded-full bg-slate-300" />
-              <span>Live operations (today)</span>
-            </a>
-          </li>
-          <li>
-            <a
-              href="#live-orders"
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
-            >
-              <span className="h-1 w-1 rounded-full bg-slate-300" />
-              <span>Live requests &amp; orders</span>
-            </a>
-          </li>
-          <li>
-            <a
-              href="#housekeeping"
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
-            >
-              <span className="h-1 w-1 rounded-full bg-slate-300" />
-              <span>Housekeeping board</span>
-            </a>
-          </li>
-          <li>
-            <div className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-slate-400">
-              <span className="h-1 w-1 rounded-full bg-slate-200" />
-              <span>QRs &amp; guest entry</span>
-              <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-[10px]">
-                Soon
-              </span>
-            </div>
-          </li>
-          <li>
-            <a
-              href={servicesHref}
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
-            >
-              <span className="h-1 w-1 rounded-full bg-slate-300" />
-              <span>Menu &amp; services</span>
-            </a>
-          </li>
-          <li>
-            <a
-              href={opsHref}
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
-            >
-              <span className="h-1 w-1 rounded-full bg-slate-300" />
-              <span>Ops board</span>
-            </a>
-          </li>
-        </ul>
-      </div>
-
-      {/* People & HR */}
-      <div className="mb-4">
-        <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-          People &amp; HR
-        </div>
-        <ul className="space-y-1">
-          <li>
-            <a
-              href="#attendance"
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
-            >
-              <span className="h-1 w-1 rounded-full bg-slate-300" />
-              <span>Attendance snapshot</span>
-            </a>
-          </li>
-          <li>
-            {HAS_HRMS ? (
-              <a
-                href={`/owner/${slug}/hrms/attendance`}
-                className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
-              >
-                <span className="h-1 w-1 rounded-full bg-slate-300" />
-                <span>Attendance details</span>
-              </a>
-            ) : (
-              <div className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-slate-400">
-                <span className="h-1 w-1 rounded-full bg-slate-200" />
-                <span>Attendance details</span>
-                <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-[10px]">
-                  Soon
-                </span>
-              </div>
-            )}
-          </li>
-          <li>
-            <a
-              href="#workforce"
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
-            >
-              <span className="h-1 w-1 rounded-full bg-slate-300" />
-              <span>Local workforce</span>
-            </a>
-          </li>
-        </ul>
-      </div>
-
-      {/* Pricing & setup */}
-      <div>
-        <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-          Pricing &amp; setup
-        </div>
-        <ul className="space-y-1">
-          <li>
-            {HAS_PRICING ? (
-              <a
-                href={pricingHref}
-                className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
-              >
-                <span className="h-1 w-1 rounded-full bg-slate-300" />
-                <span>Pricing &amp; packages</span>
-              </a>
-            ) : (
-              <div className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-slate-400">
-                <span className="h-1 w-1 rounded-full bg-slate-200" />
-                <span>Pricing &amp; packages</span>
-                <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-[10px]">
-                  Soon
-                </span>
-              </div>
-            )}
-          </li>
-          <li>
-            <a
-              href={settingsHref}
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
-            >
-              <span className="h-1 w-1 rounded-full bg-slate-300" />
-              <span>Owner settings</span>
-            </a>
-          </li>
-        </ul>
-      </div>
-    </nav>
-  );
-}
-
 function PulseStrip({
   hotelName,
   city,
@@ -1123,10 +909,7 @@ function PulseStrip({
   const effectiveResponses = npsResponses ?? 0;
 
   return (
-    <section
-      id="pulse"
-      className="relative overflow-hidden rounded-3xl border border-sky-100 bg-gradient-to-r from-sky-50 via-slate-50 to-emerald-50 px-4 py-4 shadow-[0_20px_60px_rgba(15,23,42,0.12)] lg:px-6 lg:py-5"
-    >
+    <section className="relative overflow-hidden rounded-3xl border border-sky-100 bg-gradient-to-r from-sky-50 via-slate-50 to-emerald-50 px-4 py-4 shadow-[0_20px_60px_rgba(15,23,42,0.12)] lg:px-6 lg:py-5">
       <div className="absolute -right-24 -top-24 h-56 w-56 rounded-full bg-emerald-200/30 blur-3xl" />
       <div className="absolute -bottom-32 -left-20 h-64 w-64 rounded-full bg-sky-200/40 blur-3xl" />
       <div className="relative flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -1352,10 +1135,7 @@ function LiveOpsColumn({
   departures: StayRow[];
 }) {
   return (
-    <section
-      id="live-ops"
-      className="rounded-3xl border border-slate-100 bg-white/95 px-4 py-4 shadow-sm"
-    >
+    <section className="rounded-3xl border border-slate-100 bg-white/95 px-4 py-4 shadow-sm">
       <SectionHeader
         title="Live operations (today)"
         desc="Arrivals, in-house guests, and departures — your check-in/check-out timeline."
@@ -1418,7 +1198,7 @@ function PerformanceColumn({
   const responsesDisplay = npsResponses ?? 0;
 
   return (
-    <section className="space-y-4" id="revenue-panel">
+    <section className="space-y-4">
       <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
         <SectionHeader
           title="Revenue & forecast"
@@ -1730,7 +1510,7 @@ function SlaCard({
   const pct = total ? Math.round((onTime / total) * 100) : 100;
   const tone = slaTone(pct);
   return (
-    <div className="rounded-xl border bg-white p-4 shadow-sm" id="sla">
+    <div className="rounded-xl border bg-white p-4 shadow-sm">
       <SectionHeader
         title="On-time delivery (SLA)"
         desc="How fast we’re closing requests today. Keep the green bar growing."
@@ -1766,10 +1546,7 @@ function LiveOrdersPanel({
   className?: string;
 }) {
   return (
-    <div
-      className={`rounded-xl border bg-white p-4 shadow-sm ${className}`}
-      id="live-orders"
-    >
+    <div className={`rounded-xl border bg-white p-4 shadow-sm ${className}`}>
       <SectionHeader
         title="Live requests & orders"
         desc="What guests are asking for right now — jump in or assign to staff."
@@ -1908,7 +1685,7 @@ function StaffPerformancePanel({ data }: { data: StaffPerf[] | null }) {
 function HrmsPanel({ data, slug }: { data: HrmsSnapshot | null; slug: string }) {
   if (!data) {
     return (
-      <div className="rounded-xl border bg-white p-4 shadow-sm" id="attendance">
+      <div className="rounded-xl border bg-white p-4 shadow-sm">
         <SectionHeader
           title="Attendance snapshot"
           desc="Presence pattern over the last 30 days — spot gaps early."
@@ -1940,7 +1717,7 @@ function HrmsPanel({ data, slug }: { data: HrmsSnapshot | null; slug: string }) 
     staff_with_absence_7d,
   } = data;
   return (
-    <div className="rounded-xl border bg-white p-4 shadow-sm" id="attendance">
+    <div className="rounded-xl border bg-white p-4 shadow-sm">
       <SectionHeader
         title="Attendance snapshot"
         desc="Presence pattern over the last 30 days — spot gaps early."
@@ -2000,7 +1777,7 @@ function OwnerTasksPanel({
   tasks.push("Review any open low-rating stays and close the loop.");
 
   return (
-    <div className="rounded-xl border bg-white p-4 shadow-sm" id="owner-tasks">
+    <div className="rounded-xl border bg-white p-4 shadow-sm">
       <SectionHeader
         title="Owner tasks for today"
         desc="2–3 nudges that keep the property ahead of the curve."
@@ -2017,7 +1794,7 @@ function OwnerTasksPanel({
                 to={`/owner/${slug}/workforce`}
                 className="text-xs underline text-emerald-700"
               >
-                Jobs &amp; hiring
+                Jobs & hiring
               </Link>
             )}
           </div>
@@ -2049,7 +1826,7 @@ function OwnerWorkforcePanel({
 
   if (!hasFeature) {
     return (
-      <div className="rounded-xl border bg-white p-4 shadow-sm" id="workforce">
+      <div className="rounded-xl border bg-white p-4 shadow-sm">
         <SectionHeader
           title="Local workforce (beta)"
           desc="Once enabled, this shows open roles and local applicants for this property."
@@ -2063,7 +1840,7 @@ function OwnerWorkforcePanel({
   }
 
   return (
-    <div className="rounded-xl border bg-white p-4 shadow-sm" id="workforce">
+    <div className="rounded-xl border bg-white p-4 shadow-sm">
       <SectionHeader
         title="Local workforce (beta)"
         desc="Quick view of open roles and hiring load."
@@ -2349,13 +2126,17 @@ function AiOpsHeatmap({
 function OccupancyHeatmap({ title, desc }: { title: string; desc?: string }) {
   const weeks = 6;
   const days = 7;
+  // Local feature flag: avoid global HAS_CALENDAR reference
+  const calendarEnabled =
+    import.meta.env.VITE_HAS_CALENDAR === "true";
+
   return (
-    <div className="rounded-xl border bg-white p-4 shadow-sm" id="rooms">
+    <div className="rounded-xl border bg-white p-4 shadow-sm">
       <SectionHeader
         title={title}
         desc={desc}
         action={
-          HAS_CALENDAR ? (
+          calendarEnabled ? (
             <Link
               to="../bookings/calendar"
               className="text-sm underline"
@@ -2378,7 +2159,7 @@ function OccupancyHeatmap({ title, desc }: { title: string; desc?: string }) {
         ))}
       </div>
       <div className="mt-3 text-xs text-muted-foreground">
-        {HAS_CALENDAR
+        {calendarEnabled
           ? "Deeper calendar with real data coming next."
           : "Calendar / bookings module will plug in here once enabled."}
       </div>
@@ -2394,7 +2175,7 @@ function HousekeepingProgress({
   readyPct: number;
 }) {
   return (
-    <div className="rounded-xl border bg-white p-4 shadow-sm" id="housekeeping">
+    <div className="rounded-xl border bg-white p-4 shadow-sm">
       <SectionHeader
         title="Room readiness"
         desc="How many rooms are ready for check-in — and what’s blocking the rest."

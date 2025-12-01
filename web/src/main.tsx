@@ -20,7 +20,6 @@ const OwnerAccess = React.lazy(() => import("./routes/OwnerAccess"));
 const InviteAccept = React.lazy(() => import("./routes/InviteAccept"));
 const OwnerHomeRedirect = lazy(() => import("./routes/OwnerHomeRedirect"));
 
-
 // Kill stale SW + caches (keep disabled while debugging)
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.getRegistrations().then((regs) => {
@@ -124,6 +123,7 @@ const OwnerHousekeeping = lazy(() => import("./routes/OwnerHousekeeping"));
 const OwnerQRSheet = lazy(() => import("./routes/OwnerQRSheet"));
 const OwnerPricing = lazy(() => import("./routes/OwnerPricing"));
 const OwnerMenu = lazy(() => import("./routes/OwnerMenu")); // NEW
+const OwnerWorkforce = lazy(() => import("./routes/OwnerWorkforce")); // NEW (fix /owner/:slug/workforce)
 const AdminOps = lazy(() => import("./pages/AdminOps"));
 
 // ADR & RevPAR detail pages (from routes/OwnerRevenue.tsx)
@@ -505,8 +505,7 @@ const router = createBrowserRouter([
         ),
       },
 
-
-            // NEW: Bookings calendar routes (from Owner dashboard link)
+      // NEW: Bookings calendar routes (from Owner dashboard link)
       {
         path: "bookings/calendar",
         element: (
@@ -547,6 +546,15 @@ const router = createBrowserRouter([
         element: (
           <AuthGate>
             <OwnerRooms />
+          </AuthGate>
+        ),
+      },
+      // NEW: /owner/:slug/workforce (Workforce & hiring)
+      {
+        path: "owner/:slug/workforce",
+        element: (
+          <AuthGate>
+            <OwnerWorkforce />
           </AuthGate>
         ),
       },
@@ -636,9 +644,6 @@ const router = createBrowserRouter([
         ),
       },
 
-      
-      
-      
       // Owner legacy aliases (still work)
       {
         path: "owner/dashboard",

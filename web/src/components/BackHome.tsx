@@ -7,8 +7,10 @@
 //   /owner/TENANT1          → /owner
 //   /owner                  → /
 //
-// OPS view fix (owner flow):
+// OPS view (property-aware):
 //   /ops?hotelId=TENANT1    → /owner/TENANT1
+//   /ops?hotelId=<uuid>     → /owner/<slug mapped from uuid>
+//   (falls back to /owner if lookup fails)
 //
 // Other behaviour unchanged:
 //   /guest* → /
@@ -72,62 +74,99 @@ export default function BackHome({
     }
 
     const segments = pathname.split("/").filter(Boolean); // e.g. ["owner","TENANT1","workforce"]
-
-    // ---------- Path-specific overrides (no Supabase round-trip) ----------
-
-    // Careers page → always back to public landing.
-    if (pathname === "/careers") {
-      setAutoTo("/");
-      return;
-    }
-
-    // OWNER AREA: three-step ladder
-    if (segments[0] === "owner") {
-      // /owner
-      if (segments.length === 1) {
-        setAutoTo("/");
-        return;
-      }
-
-      // /owner/:slug  (hotel dashboard) → Owner console
-      if (segments.length === 2) {
-        setAutoTo("/owner");
-        return;
-      }
-
-      // /owner/:slug/anything...  (hotel sub-page) → hotel dashboard
-      // e.g. /owner/TENANT1/workforce → /owner/TENANT1
-      setAutoTo(`/owner/${segments[1]}`);
-      return;
-    }
-
-    // OPS AREA: if hotelId is present, go back to that hotel's dashboard.
-    // Example: /ops?hotelId=TENANT1 → /owner/TENANT1
-    if (segments[0] === "ops") {
-      const params = new URLSearchParams(search);
-      const hotelId =
-        params.get("hotelId") ||
-        params.get("hotel") ||
-        params.get("propertyId");
-
-      if (hotelId) {
-        setAutoTo(`/owner/${hotelId}`);
-        return;
-      }
-      // If no hotelId, fall through to generic logic below.
-    }
-
-    // GUEST AREA: always back to landing
-    if (segments[0] === "guest") {
-      setAutoTo("/");
-      return;
-    }
-
-    // ---------- Generic fallback: use auth + membership ----------
-
     let cancelled = false;
 
-    (async () => {
+    async function decide() {
+      // ---------- Path-specific overrides (no Supabase round-trip) ----------
+
+      // Careers page → always back to public landing.
+      if (pathname === "/careers") {
+        if (!cancelled) setAutoTo("/");
+        return;
+      }
+
+      // OWNER AREA: three-step ladder
+      if (segments[0] === "owner") {
+        // /owner
+        if (segments.length === 1) {
+          if (!cancelled) setAutoTo("/");
+          return;
+        }
+
+        // /owner/:slug  (hotel dashboard) → Owner console
+        if (segments.length === 2) {
+          if (!cancelled) setAutoTo("/owner");
+          return;
+        }
+
+        // /owner/:slug/anything...  (hotel sub-page) → hotel dashboard
+        // e.g. /owner/TENANT1/workforce → /owner/TENANT1
+        if (!cancelled) setAutoTo(`/owner/${segments[1]}`);
+        return;
+      }
+
+      // OPS AREA: if hotelId is present, try to go back to that hotel's dashboard.
+      // Handles both slug and UUID id.
+      if (segments[0] === "ops") {
+        try {
+          const params = new URLSearchParams(search);
+          const hotelId =
+            params.get("hotelId") ||
+            params.get("hotel") ||
+            params.get("propertyId");
+
+          if (!hotelId) {
+            // No context → fall back to Owner console.
+            if (!cancelled) setAutoTo("/owner");
+            return;
+          }
+
+          let slug: string | null = null;
+
+          // 1) Treat hotelId as slug
+          const { data: bySlug } = await supabase
+            .from("hotels")
+            .select("slug")
+            .eq("slug", hotelId)
+            .limit(1);
+
+          if (bySlug && bySlug.length > 0 && bySlug[0]?.slug) {
+            slug = bySlug[0].slug as string;
+          } else {
+            // 2) Treat hotelId as UUID id, map to slug
+            const { data: byId } = await supabase
+              .from("hotels")
+              .select("slug")
+              .eq("id", hotelId)
+              .limit(1);
+
+            if (byId && byId.length > 0 && byId[0]?.slug) {
+              slug = byId[0].slug as string;
+            }
+          }
+
+          if (!cancelled) {
+            if (slug) {
+              // /ops?hotelId=TENANT1 or UUID → /owner/TENANT1
+              setAutoTo(`/owner/${slug}`);
+            } else {
+              // Lookup failed → go to Owner console
+              setAutoTo("/owner");
+            }
+          }
+        } catch {
+          if (!cancelled) setAutoTo("/owner");
+        }
+        return;
+      }
+
+      // GUEST AREA: always back to landing
+      if (segments[0] === "guest") {
+        if (!cancelled) setAutoTo("/");
+        return;
+      }
+
+      // ---------- Generic fallback: use auth + membership ----------
       try {
         const { data } = await supabase.auth.getSession();
         const user = data?.session?.user;
@@ -152,11 +191,15 @@ export default function BackHome({
           (m: any) => m.role === "owner" || m.role === "manager",
         );
 
-        if (!cancelled) setAutoTo(hasOwnerRole ? "/owner" : "/guest");
+        if (!cancelled) {
+          setAutoTo(hasOwnerRole ? "/owner" : "/guest");
+        }
       } catch {
         if (!cancelled) setAutoTo("/guest");
       }
-    })();
+    }
+
+    void decide();
 
     return () => {
       cancelled = true;

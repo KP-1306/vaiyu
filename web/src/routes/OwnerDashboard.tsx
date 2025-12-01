@@ -114,13 +114,17 @@ type DrawerKind = "pickup" | "opsBoard" | "rushRooms" | "vipList";
 type DrawerState = { kind: DrawerKind };
 
 /** ========= Feature flags ========= */
+/** ========= Feature flags ========= */
 const HAS_FUNCS = import.meta.env.VITE_HAS_FUNCS === "true";
 // New: feature flags so unfinished modules don’t cause 404s
 const HAS_REVENUE = import.meta.env.VITE_HAS_REVENUE === "true";
 const HAS_HRMS = import.meta.env.VITE_HAS_HRMS === "true";
 const HAS_PRICING = import.meta.env.VITE_HAS_PRICING === "true";
 const HAS_CALENDAR = import.meta.env.VITE_HAS_CALENDAR === "true";
-const HAS_WORKFORCE = import.meta.env.VITE_HAS_WORKFORCE === "true";
+// ✅ Workforce ON by default unless explicitly disabled
+const HAS_WORKFORCE =
+  import.meta.env.VITE_HAS_WORKFORCE === "false" ? false : true;
+
 
 /** ========= Tone helpers ========= */
 function toneClass(tone: "green" | "amber" | "red" | "grey") {

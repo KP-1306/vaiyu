@@ -121,7 +121,7 @@ const HAS_REVENUE = import.meta.env.VITE_HAS_REVENUE === "true";
 const HAS_HRMS = import.meta.env.VITE_HAS_HRMS === "true";
 const HAS_PRICING = import.meta.env.VITE_HAS_PRICING === "true";
 const HAS_CALENDAR = import.meta.env.VITE_HAS_CALENDAR === "true";
-// ✅ Workforce ON by default unless explicitly disabled
+// Workforce ON by default unless explicitly disabled
 const HAS_WORKFORCE =
   import.meta.env.VITE_HAS_WORKFORCE === "false" ? false : true;
 
@@ -175,7 +175,7 @@ export default function OwnerDashboard() {
   const rawSlug = paramsHook.slug;
   const slug = normalizeSlug(rawSlug);
 
-  // ✅ Subscribe to tickets for this property and keep KPIs refreshed
+  // Subscribe to tickets for this property and keep KPIs refreshed
   useTicketsRealtime(slug);
 
   const [params] = useSearchParams();
@@ -208,7 +208,7 @@ export default function OwnerDashboard() {
   const [workforceJobs, setWorkforceJobs] = useState<WorkforceJobSummary[] | null>(null);
   const [workforceLoading, setWorkforceLoading] = useState(false);
 
-  // NEW: AI Ops Co-pilot state (heatmap + staffing recommendations)
+  // AI Ops Co-pilot state (heatmap + staffing recommendations)
   const [opsHeatmap, setOpsHeatmap] = useState<OpsHeatmapPoint[] | null>(null);
   const [staffingPlan, setStaffingPlan] = useState<StaffingPlanRow[] | null>(
     null
@@ -390,7 +390,7 @@ export default function OwnerDashboard() {
         } catch {
           if (alive) setHrms(null);
         }
-        // NEW: VIP arrivals
+        // VIP arrivals
         try {
           const { data } = await supabase.rpc("vip_arrivals_for_slug", {
             p_slug: slug,
@@ -399,7 +399,7 @@ export default function OwnerDashboard() {
         } catch {
           if (alive) setVipStays([]);
         }
-        // NEW: Events today
+        // Events today
         try {
           const { data } = await supabase.rpc("events_today_for_slug", {
             p_slug: slug,
@@ -408,7 +408,7 @@ export default function OwnerDashboard() {
         } catch {
           if (alive) setEventsToday([]);
         }
-        // NEW: NPS snapshot
+        // NPS snapshot
         try {
           const { data } = await supabase.rpc("owner_nps_for_slug", {
             p_slug: slug,
@@ -459,7 +459,7 @@ export default function OwnerDashboard() {
     };
   }, [slug, today]);
 
-  // NEW: AI Ops Co-pilot fetch (heatmap + staffing), purely additive
+  // AI Ops Co-pilot fetch (heatmap + staffing), purely additive
   useEffect(() => {
     if (!hotel?.id || !HAS_FUNCS) {
       // if functions are off, keep this section in "preview" mode
@@ -586,7 +586,7 @@ export default function OwnerDashboard() {
 
   const nightsOnBooks = occupied + pickup7d;
 
-  // NEW: derived VIP / events / NPS
+  // VIP / events / NPS
   const vipCount = vipStays?.length ?? 0;
   const eventsCount = eventsToday?.length ?? 0;
   const npsScore =
@@ -595,7 +595,7 @@ export default function OwnerDashboard() {
       : undefined;
   const npsResponses = npsSnapshot?.total_responses ?? 0;
 
-  // NEW: derived workforce open roles for daily brief
+  // derived workforce open roles for daily brief
   const openWorkforceRoles =
     (workforceJobs ?? []).filter((j) =>
       (j.status || "open").toLowerCase().includes("open")
@@ -618,8 +618,10 @@ export default function OwnerDashboard() {
           language="hinglish"
           date={today}
           hotelName={hotel.name}
+          city={hotel.city}
           occupancyPct={occPct}
           openTasks={ordersTotal}
+          overdueTasks={ordersOverdue}
           unhappyGuests={0}
           slaOnTimePct={slaPct}
           todayRevenue={revenueToday}
@@ -695,7 +697,7 @@ export default function OwnerDashboard() {
           <LiveOrdersPanel
             orders={liveOrders}
             targetMin={targetMin}
-            hotelId={hotel.id} // ✅ pass hotel.id so /ops?hotelId=… works
+            hotelId={hotel.id} // keeps hotelId so /ops?hotelId=… works
             className="lg:col-span-1"
           />
           <AttentionServicesCard orders={liveOrders} />

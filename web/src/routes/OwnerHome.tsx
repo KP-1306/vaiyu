@@ -40,32 +40,46 @@ export default function OwnerHome() {
   const [loading, setLoading] = useState(true);
   const [authUser, setAuthUser] = useState<any>(null);
 
+  // Always keep a non-empty slug for links/API
+  const resolvedSlug = slug || "demo";
+
   // Keep ?slug in the URL for refresh/share
   useEffect(() => {
     const next = new URLSearchParams(sp);
-    next.set("slug", slug);
+    next.set("slug", resolvedSlug);
     setSp(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug]);
+  }, [resolvedSlug]);
 
-  // Hydrate auth user (lightweight)
+  // Hydrate auth user (lightweight, with proper cleanup)
   useEffect(() => {
     let mounted = true;
-    (async () => {
-      const { data } = await supabase.auth
-        .getUser()
-        .catch(() => ({ data: { user: null } }));
-      if (!mounted) return;
-      setAuthUser(data?.user ?? null);
 
-      const { data: sub } = supabase.auth.onAuthStateChange((_evt, sess) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (_evt, sess) => {
         if (!mounted) return;
         setAuthUser(sess?.user ?? null);
+      }
+    );
+
+    supabase.auth
+      .getUser()
+      .then(({ data }) => {
+        if (!mounted) return;
+        setAuthUser(data?.user ?? null);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setAuthUser(null);
       });
-      return () => sub.subscription.unsubscribe();
-    })();
+
     return () => {
       mounted = false;
+      try {
+        authListener?.subscription?.unsubscribe();
+      } catch {
+        // ignore
+      }
     };
   }, []);
 
@@ -87,25 +101,30 @@ export default function OwnerHome() {
   // Fetch peek (API best-effort; safe demo fallback)
   useEffect(() => {
     let alive = true;
+    const activeSlug = resolvedSlug;
+
     (async () => {
       setLoading(true);
       try {
-        const r = await fetch(`${API}/owner/peek/${encodeURIComponent(slug)}`);
+        const r = await fetch(
+          `${API}/owner/peek/${encodeURIComponent(activeSlug)}`
+        );
         if (alive && r.ok) {
           setPeek(await r.json());
         } else if (alive) {
-          setPeek(demoPeek(slug));
+          setPeek(demoPeek(activeSlug));
         }
       } catch {
-        if (alive) setPeek(demoPeek(slug));
+        if (alive) setPeek(demoPeek(activeSlug));
       } finally {
         if (alive) setLoading(false);
       }
     })();
+
     return () => {
       alive = false;
     };
-  }, [slug]);
+  }, [resolvedSlug]);
 
   if (!allowed) {
     return (
@@ -133,7 +152,7 @@ export default function OwnerHome() {
             Owner Console
           </h1>
           <div className="text-sm text-gray-600">
-            {peek?.hotel?.name ?? slug}
+            {peek?.hotel?.name ?? resolvedSlug}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -146,7 +165,7 @@ export default function OwnerHome() {
             style={{ width: 160 }}
           />
           <Link
-            to={`/owner/settings?slug=${encodeURIComponent(slug)}`}
+            to={`/owner/settings?slug=${encodeURIComponent(resolvedSlug)}`}
             className="btn btn-light"
           >
             Settings
@@ -163,7 +182,11 @@ export default function OwnerHome() {
             className="grid md:grid-cols-2 gap-3"
             aria-label="Digest and usage"
           >
-            <OwnerDigestCard slug={slug} apiBase={API} className="mb-2" />
+            <OwnerDigestCard
+              slug={resolvedSlug}
+              apiBase={API}
+              className="mb-2"
+            />
             <UsageMeter />
           </section>
 
@@ -187,14 +210,14 @@ export default function OwnerHome() {
             <Tile
               title="Dashboard & KPIs"
               text="Trends, SLA hints, exports."
-              to={`/owner/dashboard?slug=${encodeURIComponent(slug)}`}
+              to={`/owner/${encodeURIComponent(resolvedSlug)}`}
               emoji="📈"
               cta="Open dashboard"
             />
             <Tile
               title="AI review moderation"
               text="Truth-anchored drafts, owner-approved."
-              to={`/owner/reviews?slug=${encodeURIComponent(slug)}`}
+              to={`/owner/reviews?slug=${encodeURIComponent(resolvedSlug)}`}
               emoji="📝"
               cta="Review drafts"
             />
@@ -202,7 +225,7 @@ export default function OwnerHome() {
             <Tile
               title="Reputation Radar"
               text="Correlate tickets, stays & reviews. Flag suspicious patterns early."
-              to={`/owner/${encodeURIComponent(slug)}/reputation`}
+              to={`/owner/${encodeURIComponent(resolvedSlug)}/reputation`}
               emoji="🛡️"
               cta="Open radar"
             />
@@ -211,35 +234,35 @@ export default function OwnerHome() {
               text={`Mode: ${
                 peek?.grid?.mode ?? "—"
               }. One-tap Shed/Restore in manual.`}
-              to={`/grid/devices?slug=${encodeURIComponent(slug)}`}
+              to={`/grid/devices?slug=${encodeURIComponent(resolvedSlug)}`}
               emoji="⚡"
               cta="Manage devices"
             />
             <Tile
               title="Grid: Events"
               text="Timeline, savings estimate, CSV."
-              to={`/grid/events?slug=${encodeURIComponent(slug)}`}
+              to={`/grid/events?slug=${encodeURIComponent(resolvedSlug)}`}
               emoji="📊"
               cta="View events"
             />
             <Tile
               title="Housekeeping"
               text="Live tickets with SSE (no refresh)."
-              to={`/hk?slug=${encodeURIComponent(slug)}`}
+              to={`/hk?slug=${encodeURIComponent(resolvedSlug)}`}
               emoji="🧽"
               cta="Open HK"
             />
             <Tile
               title="Front Desk"
               text="Requests, SLAs, routing."
-              to={`/desk?slug=${encodeURIComponent(slug)}`}
+              to={`/desk?slug=${encodeURIComponent(resolvedSlug)}`}
               emoji="🛎️"
               cta="Open desk"
             />
             <Tile
               title="Services (SLA)"
               text="Edit labels, SLA minutes, active."
-              to={`/owner/services?slug=${encodeURIComponent(slug)}`}
+              to={`/owner/services?slug=${encodeURIComponent(resolvedSlug)}`}
               emoji="🧩"
               cta="Open services"
             />
@@ -247,7 +270,9 @@ export default function OwnerHome() {
             <Tile
               title="Guest profiles"
               text="Unified timeline of stays, tickets, orders, reviews & credits (demo guest)."
-              to={`/owner/guest/demo-guest?slug=${encodeURIComponent(slug)}`}
+              to={`/owner/guest/demo-guest?slug=${encodeURIComponent(
+                resolvedSlug
+              )}`}
               emoji="👤"
               cta="Open demo guest"
             />
@@ -329,10 +354,11 @@ const Tile = memo(function Tile({
 
 /** --- Local helpers --- */
 function demoPeek(slug: string): Peek {
+  const safeSlug = slug || "demo";
   return {
     hotel: {
-      slug,
-      name: slug[0]?.toUpperCase() + slug.slice(1),
+      slug: safeSlug,
+      name: safeSlug[0]?.toUpperCase() + safeSlug.slice(1),
     },
     kpis: { tickets: 42, orders: 19, onTime: 36, late: 6, avgMins: 12 },
     grid: { mode: "manual", lastEventAt: null },

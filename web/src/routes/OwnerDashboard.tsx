@@ -21,6 +21,7 @@ import {
   type OpsHeatmapPoint,
   type StaffingPlanRow,
 } from "../lib/api";
+import OwnerDailyBriefCard from "../components/OwnerDailyBriefCard";
 
 /** ========= Types ========= */
 type Hotel = { id: string; name: string; slug: string; city: string | null };
@@ -114,7 +115,6 @@ type DrawerKind = "pickup" | "opsBoard" | "rushRooms" | "vipList";
 type DrawerState = { kind: DrawerKind };
 
 /** ========= Feature flags ========= */
-/** ========= Feature flags ========= */
 const HAS_FUNCS = import.meta.env.VITE_HAS_FUNCS === "true";
 // New: feature flags so unfinished modules don’t cause 404s
 const HAS_REVENUE = import.meta.env.VITE_HAS_REVENUE === "true";
@@ -124,7 +124,6 @@ const HAS_CALENDAR = import.meta.env.VITE_HAS_CALENDAR === "true";
 // ✅ Workforce ON by default unless explicitly disabled
 const HAS_WORKFORCE =
   import.meta.env.VITE_HAS_WORKFORCE === "false" ? false : true;
-
 
 /** ========= Tone helpers ========= */
 function toneClass(tone: "green" | "amber" | "red" | "grey") {
@@ -420,9 +419,7 @@ export default function OwnerDashboard() {
         }
       }
 
-
-
-            // 8) Workforce snapshot (owner; optional)
+      // 8) Workforce snapshot (owner; optional)
       if (HAS_WORKFORCE) {
         try {
           setWorkforceLoading(true);
@@ -452,8 +449,6 @@ export default function OwnerDashboard() {
           setWorkforceLoading(false);
         }
       }
-
-      
 
       setLoading(false);
     })();
@@ -600,6 +595,12 @@ export default function OwnerDashboard() {
       : undefined;
   const npsResponses = npsSnapshot?.total_responses ?? 0;
 
+  // NEW: derived workforce open roles for daily brief
+  const openWorkforceRoles =
+    (workforceJobs ?? []).filter((j) =>
+      (j.status || "open").toLowerCase().includes("open")
+    ).length;
+
   /** ======= Render ======= */
   return (
     <main className="min-h-screen bg-slate-50">
@@ -610,6 +611,19 @@ export default function OwnerDashboard() {
           slug={hotel.slug}
           dateLabel={dateLabel}
           timeLabel={timeLabel}
+        />
+
+        {/* Owner spoken/text brief (new, additive) */}
+        <OwnerDailyBriefCard
+          language="hinglish"
+          date={today}
+          hotelName={hotel.name}
+          occupancyPct={occPct}
+          openTasks={ordersTotal}
+          unhappyGuests={0}
+          slaOnTimePct={slaPct}
+          todayRevenue={revenueToday}
+          openWorkforceRoles={openWorkforceRoles}
         />
 
         {/* Hero: Today’s Pulse */}

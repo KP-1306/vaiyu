@@ -56,6 +56,8 @@ export default function GuestDashboard() {
   /* ===== Types ===== */
   type Stay = {
     id: string;
+    hotel_id?: string | null; // NEW: used when building /stay links with ?hotelId=
+    status?: string | null; // optional; backend may send claimed/ongoing/completed
     hotel: {
       name: string;
       city?: string;
@@ -547,7 +549,9 @@ export default function GuestDashboard() {
                       <div>
                         <div className="text-slate-500">Room type</div>
                         <div className="font-medium">
-                          {nextStay.room_type || mostBookedRoomType || "Standard room"}
+                          {nextStay.room_type ||
+                            mostBookedRoomType ||
+                            "Standard room"}
                         </div>
                       </div>
                       {typeof nextStay.bill_total === "number" && (
@@ -560,7 +564,7 @@ export default function GuestDashboard() {
                       )}
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <Link className="btn" to={`/stay/${nextStay.id}`}>
+                      <Link className="btn" to={buildStayLink(nextStay)}>
                         View stay details
                       </Link>
                       <Link
@@ -806,7 +810,7 @@ export default function GuestDashboard() {
                             </div>
                           </div>
                           <Link
-                            to={`/stay/${s.id}`}
+                            to={buildStayLink(s)}
                             className="text-[11px] underline shrink-0"
                           >
                             Details
@@ -870,18 +874,6 @@ export default function GuestDashboard() {
                 <h2 className="font-semibold text-sm md:text-base">
                   My journey — last 10 stays
                 </h2>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className="btn btn-light"
-                  onClick={() => window.print()}
-                >
-                  Export as PDF
-                </button>
-                <Link className="btn btn-light" to="/bills">
-                  Open annual report
-                </Link>
               </div>
             </div>
 
@@ -1037,6 +1029,23 @@ function getCountdown(checkIn: string) {
   return { days, hours, label: `Check-in in ${dd} days · ${hh} hrs` };
 }
 
+/** Build stay detail link, always passing hotelId when available */
+function buildStayLink(stay: { id: string; hotel_id?: string | null }) {
+  const base = `/stay/${encodeURIComponent(stay.id)}`;
+  const rawHotelId =
+    (stay as any).hotel_id ??
+    (stay as any).hotelId ??
+    (stay as any).hotel?.id ??
+    null;
+
+  if (rawHotelId) {
+    const params = new URLSearchParams();
+    params.set("hotelId", String(rawHotelId));
+    return `${base}?${params.toString()}`;
+  }
+  return base;
+}
+
 /** Build 12-month series even if backend only gives yearly total */
 function buildMonthlySeries(spend: {
   total: number;
@@ -1168,7 +1177,7 @@ const Card = memo(function Card({
 }) {
   return (
     <div className="rounded-2xl p-4 shadow bg-white border">
-      <div className="mb-2 flex items-center justify_between">
+      <div className="mb-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
           {icon ? <div className="text-gray-600">{icon}</div> : null}
           <div>
@@ -1644,6 +1653,7 @@ function demoStays(): any[] {
   return [
     {
       id: "s1",
+      hotel_id: "H1",
       hotel: {
         name: "Sunrise Suites",
         city: "Nainital",
@@ -1656,6 +1666,7 @@ function demoStays(): any[] {
     },
     {
       id: "s2",
+      hotel_id: "H2",
       hotel: {
         name: "Lakeside Inn",
         city: "Nainital",
@@ -1668,6 +1679,7 @@ function demoStays(): any[] {
     },
     {
       id: "s3",
+      hotel_id: "H3",
       hotel: {
         name: "Pine View",
         city: "Almora",
@@ -1680,6 +1692,7 @@ function demoStays(): any[] {
     },
     {
       id: "s4",
+      hotel_id: "H4",
       hotel: {
         name: "Cedar Ridge",
         city: "Ranikhet",

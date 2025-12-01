@@ -604,8 +604,6 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
     // Accept various possible field names from the client
     const rawCode =
       payload.code ??
-
-
       payload.booking_code ??
       payload.bookingCode ??
       payload.booking_id ??
@@ -1185,11 +1183,13 @@ export async function gridFetchSilentKillers(params: {
    Self-claim helper – "my stays"
 ============================================================================ */
 export async function myStays(
-  token: string
+  token?: string
 ): Promise<{ stays: Stay[]; items: Stay[] }> {
-  const res = await req<any>("/me/stays", {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  // Use shared auth helper so callers can either:
+  //  • pass an explicit token, OR
+  //  • rely on the current Supabase session.
+  const headers = await getAuthHeaders(token);
+  const res = await req<any>("/me/stays", { headers });
   const stays: Stay[] = res?.stays ?? res?.items ?? [];
   return { stays, items: stays };
 }
@@ -1370,12 +1370,17 @@ export async function setBookingConsent(code: string, reviews: boolean) {
    - Old/local backend:  `/menu/items`
 ============================================================================ */
 
-export async function getMenu(hotelSlug?: string) {
+export async function getMenu(hotelKey?: string) {
   let path = IS_SUPABASE_FUNCTIONS ? "/catalog_menu2" : "/menu/items";
 
-  if (hotelSlug) {
+  if (hotelKey) {
     const sep = path.includes("?") ? "&" : "?";
-    path += `${sep}hotelSlug=${encodeURIComponent(hotelSlug)}`;
+    // If this looks like a UUID, treat it as a hotel_id; otherwise it's a slug.
+    if (looksLikeUuid(hotelKey)) {
+      path += `${sep}hotelId=${encodeURIComponent(hotelKey)}`;
+    } else {
+      path += `${sep}hotelSlug=${encodeURIComponent(hotelKey)}`;
+    }
   }
 
   return req(path);
@@ -1633,6 +1638,17 @@ export async function checkout(data: {
   });
 }
 
+/**
+ * Convenience helper for guest flows:
+ * mark a stay as ended/completed via checkout.
+ */
+export async function endStay(
+  bookingCode: string,
+  autopost: boolean = true
+) {
+  return checkout({ bookingCode, autopost });
+}
+
 /* ============================================================================
    Reviews
 ============================================================================ */
@@ -1818,6 +1834,7 @@ export const api = {
   precheck,
   regcard,
   checkout,
+  endStay,
 
   // reviews
   listReviews,

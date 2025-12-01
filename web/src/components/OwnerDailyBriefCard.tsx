@@ -2,6 +2,7 @@
 import React, { useMemo, useState } from "react";
 import {
   buildOwnerDailyBrief,
+  computeOwnerHealthTone,
   type OwnerBriefLanguage,
   type OwnerBriefInput,
   type OwnerBriefOutput,
@@ -11,12 +12,19 @@ export type OwnerDailyBriefCardProps = {
   language?: OwnerBriefLanguage;
   date?: string;
   hotelName: string;
-  occupancyPct: number | null;
-  openTasks: number | null;
-  unhappyGuests: number | null;
-  slaOnTimePct: number | null;
-  todayRevenue: number | null;
-  openWorkforceRoles: number | null;
+  /** Optional city (for nicer copy + future use) */
+  city?: string | null;
+
+  // KPIs – all optional + nullable to keep callsites flexible
+  occupancyPct?: number | null;
+  openTasks?: number | null;
+  /** Overdue tickets – used for tone, but safe if omitted */
+  overdueTasks?: number | null;
+  unhappyGuests?: number | null;
+  slaOnTimePct?: number | null;
+  todayRevenue?: number | null;
+  openWorkforceRoles?: number | null;
+
   className?: string;
 };
 
@@ -25,6 +33,7 @@ export type OwnerDailyBriefCardProps = {
  *
  * UI wrapper around buildOwnerDailyBrief:
  * - Shows headline + short caption
+ * - Visual health pill (red / yellow / green) for low-literacy owners
  * - Buttons: Listen (TTS hook), Read text (expand), Send to WhatsApp
  * - Renders summary + actions when expanded
  */
@@ -35,47 +44,56 @@ export default function OwnerDailyBriefCard(
     language = "en",
     date,
     hotelName,
-    occupancyPct,
-    openTasks,
-    unhappyGuests,
-    slaOnTimePct,
-    todayRevenue,
-    openWorkforceRoles,
+    city = null,
+    occupancyPct = null,
+    openTasks = null,
+    overdueTasks = null,
+    unhappyGuests = null,
+    slaOnTimePct = null,
+    todayRevenue = null,
+    openWorkforceRoles = null,
     className = "",
   } = props;
 
   const [showDetails, setShowDetails] = useState(false);
 
-  const brief: OwnerBriefOutput = useMemo(
-    () =>
-      buildOwnerDailyBrief({
+  const { brief, tone }: { brief: OwnerBriefOutput; tone: "good" | "ok" | "bad" } =
+    useMemo(() => {
+      const input: OwnerBriefInput = {
         language,
         date,
         hotelName,
+        city,
         occupancyPct,
         openTasks,
+        overdueTasks,
         unhappyGuests,
         slaOnTimePct,
         todayRevenue,
         openWorkforceRoles,
-      } satisfies OwnerBriefInput),
-    [
+      };
+
+      return {
+        brief: buildOwnerDailyBrief(input),
+        tone: computeOwnerHealthTone(input),
+      };
+    }, [
       language,
       date,
       hotelName,
+      city,
       occupancyPct,
       openTasks,
+      overdueTasks,
       unhappyGuests,
       slaOnTimePct,
       todayRevenue,
       openWorkforceRoles,
-    ]
-  );
+    ]);
 
   const handleListenClick = () => {
     // Placeholder: your dev can plug in actual TTS here
     // e.g. call backend or browser speech API
-    // For now, we just log:
     // eslint-disable-next-line no-console
     console.log("[OwnerDailyBriefCard] Play TTS:", brief.speechText);
   };
@@ -104,6 +122,21 @@ export default function OwnerDailyBriefCard(
     return null;
   }, [date]);
 
+  // Simple visual status for low-literacy owners
+  const healthEmoji = tone === "good" ? "🟢" : tone === "ok" ? "🟡" : "🔴";
+  const healthLabel =
+    tone === "good"
+      ? language === "en"
+        ? "Healthy today"
+        : "Hotel healthy hai"
+      : tone === "ok"
+      ? language === "en"
+        ? "Needs attention"
+        : "Thoda dhyaan"
+      : language === "en"
+      ? "Urgent attention"
+      : "Urgent dhyaan";
+
   return (
     <section
       className={`owner-card owner-daily-brief-card ${className}`.trim()}
@@ -112,12 +145,26 @@ export default function OwnerDailyBriefCard(
         <div>
           <div className="owner-card-title">Today&apos;s brief</div>
           <div className="owner-card-subtitle">{brief.headline}</div>
-        </div>
-        {todayLabel && (
-          <div className="owner-card-meta">
-            <span className="owner-card-meta-pill">{todayLabel}</span>
+
+          {/* Visual health pill – easy red / yellow / green signal */}
+          <div className="owner-card-health">
+            <span
+              className="owner-card-health-emoji"
+              aria-hidden="true"
+            >
+              {healthEmoji}
+            </span>
+            <span className="owner-card-health-label">
+              {healthLabel}
+            </span>
           </div>
-        )}
+        </div>
+
+        <div className="owner-card-meta">
+          {todayLabel && (
+            <span className="owner-card-meta-pill">{todayLabel}</span>
+          )}
+        </div>
       </header>
 
       <p className="owner-card-caption">{brief.caption}</p>

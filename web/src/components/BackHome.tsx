@@ -12,8 +12,11 @@
 //   /ops?hotelId=<uuid>     → /owner/<slug mapped from uuid>
 //   (falls back to /owner if lookup fails)
 //
+// Guest-lens surfaces:
+//   /guest*                → /
+//   /stays, /stay/*        → /guest   (guest dashboard)
+//
 // Other behaviour unchanged:
-//   /guest* → /
 //   other surfaces → role-based /owner or /guest via Supabase.
 //   If used as <BackHome to="/somewhere">, it ALWAYS goes to `to`.
 
@@ -160,9 +163,17 @@ export default function BackHome({
         return;
       }
 
-      // GUEST AREA: always back to landing
+      // GUEST AREA root: /guest → public landing
       if (segments[0] === "guest") {
         if (!cancelled) setAutoTo("/");
+        return;
+      }
+
+      // STAYS / STAY detail pages (guest lens)
+      // /stays and /stay/:id should always return to guest dashboard,
+      // regardless of whether the logged-in user also has owner access.
+      if (segments[0] === "stays" || segments[0] === "stay") {
+        if (!cancelled) setAutoTo("/guest");
         return;
       }
 

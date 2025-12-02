@@ -20,7 +20,7 @@ type StayView = {
 
 const isUuid = (s: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    s
+    s,
   );
 
 export default function Stay() {
@@ -67,11 +67,10 @@ function StayDetails({ id }: { id: string }) {
 
       try {
         // Fetch from the same view used by the list page.
-        // IMPORTANT: no `.single()` / `.maybeSingle()` here – we take the first row in JS
         const { data, error } = await supabase
           .from("user_recent_stays")
           .select(
-            "id, hotel_id, hotel_name, city, cover_image_url, check_in, check_out, earned_paise, review_status"
+            "id, hotel_id, hotel_name, city, cover_image_url, check_in, check_out, earned_paise, review_status",
           )
           .eq("id", id);
 
@@ -132,7 +131,8 @@ function StayDetails({ id }: { id: string }) {
         <section className="mt-6 rounded-2xl border bg-white/90 shadow-sm p-6">
           <p className="text-sm text-gray-700">
             {error || "We couldn’t find that stay."} If you haven’t stayed with a
-            partner hotel yet, you’ll see your trips here once they’re available.
+            partner hotel yet, you’ll see your trips here once they’re
+            available.
           </p>
           <div className="mt-4 flex gap-2">
             <Link to="/stays" className="btn">
@@ -198,7 +198,6 @@ function StayDetails({ id }: { id: string }) {
  * QR / guest home for non-UUID `/stay/:code` links.
  * Canonical one-stop page for guests coming from QR / WhatsApp.
  */
-
 function QrStayHome({ code }: { code: string }) {
   const [searchParams] = useSearchParams();
 
@@ -206,13 +205,14 @@ function QrStayHome({ code }: { code: string }) {
   const hotelSlugParam =
     searchParams.get("hotel") || searchParams.get("hotelSlug") || "";
 
-  // Generic hotel key: prefer id, else slug
-  const hotelKey = hotelId || hotelSlugParam;
+  // Flags for which param we actually have
+  const hasHotelSlugParam = !!hotelSlugParam;
+  const hasHotelIdParam = !!hotelId;
 
-  const hotelLabel = hotelSlugParam
+  // Simple label from slug; if not present, fall back to generic text.
+  const hotelLabel = hasHotelSlugParam
     ? hotelSlugParam.replace(/[-_]+/g, " ")
     : "your VAiyu stay";
-
 
   // Build a WhatsApp share link for this canonical stay URL (best-effort),
   // preserving whichever hotel param was used.
@@ -220,8 +220,8 @@ function QrStayHome({ code }: { code: string }) {
     typeof window !== "undefined"
       ? (() => {
           let querySuffix = "";
-          if (hasHotelSlugParam && hotelSlug) {
-            querySuffix = `?hotel=${encodeURIComponent(hotelSlug)}`;
+          if (hasHotelSlugParam && hotelSlugParam) {
+            querySuffix = `?hotel=${encodeURIComponent(hotelSlugParam)}`;
           } else if (hasHotelIdParam && hotelId) {
             querySuffix = `?hotelId=${encodeURIComponent(hotelId)}`;
           }
@@ -262,8 +262,9 @@ function QrStayHome({ code }: { code: string }) {
         <div className="space-y-3">
           <StayQuickLinks
             stayCode={code}
-            hotelSlug={hotelSlug || undefined}
-            hotelId={hotelId || undefined}
+            // Forward slug or id so Menu.tsx can load the correct hotel config
+            hotelSlug={hasHotelSlugParam ? hotelSlugParam : undefined}
+            hotelId={hasHotelIdParam ? hotelId : undefined}
             openWhatsAppUrl={whatsAppUrl}
           />
 
@@ -276,8 +277,8 @@ function QrStayHome({ code }: { code: string }) {
               URL:{" "}
               <code>
                 /stay/{code}
-                {hasHotelSlugParam && hotelSlug
-                  ? `?hotel=${hotelSlug}`
+                {hasHotelSlugParam && hotelSlugParam
+                  ? `?hotel=${hotelSlugParam}`
                   : hasHotelIdParam && hotelId
                   ? `?hotelId=${hotelId}`
                   : ""}

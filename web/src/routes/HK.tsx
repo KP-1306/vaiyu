@@ -17,9 +17,10 @@ type Ticket = {
   sla_deadline?: string | null;
   is_overdue?: boolean;
   priority?: "low" | "normal" | "high" | "urgent" | string;
+  mins_remaining?: number | null; // from tickets_sla_status view
 };
 
-/** Map any backend status (Node or Supabase) into our UI status */
+/** Map backend status (Node or Supabase) into our UI status */
 function mapBackendStatusToUi(rawStatus: unknown): TicketStatus {
   const s = String(rawStatus ?? "").toLowerCase();
 
@@ -33,7 +34,7 @@ function mapBackendStatusToUi(rawStatus: unknown): TicketStatus {
     case "in-progress":
     case "in progress":
     case "paused":
-      // paused is still effectively "in progress" for HK UI
+      // paused still feels like "in progress" for HK UI
       return "InProgress";
     case "resolved":
     case "closed":
@@ -76,6 +77,13 @@ function normalizeTicket(raw: any): Ticket {
 
   const priority = raw.priority as Ticket["priority"];
 
+  const mins_remaining: number | null =
+    typeof raw.mins_remaining === "number"
+      ? raw.mins_remaining
+      : typeof raw.minutes_remaining === "number"
+      ? raw.minutes_remaining
+      : null;
+
   return {
     id,
     service_key,
@@ -87,6 +95,7 @@ function normalizeTicket(raw: any): Ticket {
     sla_deadline,
     is_overdue,
     priority,
+    mins_remaining,
   };
 }
 
@@ -150,6 +159,61 @@ export default function HK() {
     };
     return (
       <span className={`px-2 py-0.5 rounded text-xs ${map[s]}`}>{s}</span>
+    );
+  }
+
+  /** Tiny SLA chip: "5m left" / "Overdue by 3m" / "Within SLA" */
+  function renderSlaStatus(t: Ticket) {
+    // if we don't have any SLA data, hide chip
+    if (!t.sla_minutes && !t.sla_deadline && t.mins_remaining == null) {
+      return null;
+    }
+
+    // Completed tickets: show within/breached SLA based on is_overdue
+    if (t.status === "Done") {
+      if (t.is_overdue) {
+        return (
+          <span className="ml-2 inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-[11px] text-red-700">
+            SLA breached
+          </span>
+        );
+      }
+      return (
+        <span className="ml-2 inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700">
+          Within SLA
+        </span>
+      );
+    }
+
+    let text = "";
+
+    if (
+      typeof t.mins_remaining === "number" &&
+      !Number.isNaN(t.mins_remaining)
+    ) {
+      if (t.mins_remaining > 0) {
+        text = `~${t.mins_remaining}m left`;
+      } else if (t.mins_remaining < 0) {
+        text = `Overdue by ~${Math.abs(t.mins_remaining)}m`;
+      } else {
+        text = "Due now";
+      }
+    } else if (t.is_overdue) {
+      text = "Overdue";
+    }
+
+    if (!text) return null;
+
+    const isOverdue = text.toLowerCase().includes("overdue");
+
+    return (
+      <span
+        className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] ${
+          isOverdue ? "bg-red-50 text-red-700" : "bg-sky-50 text-sky-700"
+        }`}
+      >
+        {text}
+      </span>
     );
   }
 
@@ -217,8 +281,10 @@ export default function HK() {
               <div className="font-medium capitalize">
                 {t.service_key.replaceAll("_", " ")} • Room {t.room}
               </div>
-              <div className="text-xs text-gray-500">
-                #{t.id} • SLA {t.sla_minutes}m
+              <div className="text-xs text-gray-500 flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span>#{t.id}</span>
+                <span>• SLA {t.sla_minutes}m</span>
+                {renderSlaStatus(t)}
               </div>
             </div>
             <div className="flex items-center gap-2">

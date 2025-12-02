@@ -2,8 +2,16 @@
 export type StayQuickLinksProps = {
   /** Optional stay / booking code for deep-links like /stay/:code/menu. */
   stayCode?: string;
-  /** Optional hotel slug – can be used if you want to route via /scan?hotel=. */
+  /**
+   * Optional hotel slug – forwarded to the menu page as ?hotel=SLUG
+   * so that the correct property's services/food are loaded.
+   */
   hotelSlug?: string;
+  /**
+   * Optional hotel id (UUID or internal id) – forwarded to the menu page
+   * as ?hotelId=ID if no slug is provided.
+   */
+  hotelId?: string;
   /** Deep link for WhatsApp from Scan/OwnerSettings, if you want to reuse it. */
   openWhatsAppUrl?: string;
 
@@ -26,7 +34,7 @@ export type StayQuickLinksProps = {
  * Defaults are SAFE:
  *  - if callbacks are not provided, we fall back to simple
  *    window.location navigations using existing routes:
- *      • Services / Food → /stay/:code/menu (if stayCode)
+ *      • Services / Food → /stay/:code/menu?tab=...&hotel=...
  *      • Bill            → /bills
  *      • Checkout        → /checkout
  *      • Rewards         → /rewards
@@ -34,7 +42,8 @@ export type StayQuickLinksProps = {
  */
 export default function StayQuickLinks({
   stayCode,
-  hotelSlug, // reserved for future use
+  hotelSlug,
+  hotelId,
   openWhatsAppUrl,
   onOpenRoomServices,
   onOpenFoodAndBeverages,
@@ -48,27 +57,55 @@ export default function StayQuickLinks({
     ? `/stay/${encodeURIComponent(stayCode)}/menu`
     : "/menu";
 
+  /**
+   * Build a menu URL that:
+   *  - points to /stay/:code/menu (or /menu)
+   *  - sets the initial tab via ?tab=services|food
+   *  - forwards hotelSlug or hotelId so Menu.tsx can load the right config
+   */
+  function buildMenuHref(tab?: "services" | "food") {
+    const qs: string[] = [];
+
+    if (tab) {
+      qs.push(`tab=${encodeURIComponent(tab)}`);
+    }
+
+    if (hotelSlug) {
+      qs.push(`hotel=${encodeURIComponent(hotelSlug)}`);
+    } else if (hotelId) {
+      qs.push(`hotelId=${encodeURIComponent(hotelId)}`);
+    }
+
+    const query = qs.length ? `?${qs.join("&")}` : "";
+    return `${baseMenuPath}${query}`;
+  }
+
   function handleRoomServices() {
     if (onOpenRoomServices) return onOpenRoomServices();
-    safeNavigate(baseMenuPath);
+    safeNavigate(buildMenuHref("services"));
   }
+
   function handleFood() {
     if (onOpenFoodAndBeverages) return onOpenFoodAndBeverages();
-    // query param is ignored by current Menu.tsx but future-proofs tab selection
-    safeNavigate(`${baseMenuPath}?tab=food`);
+    // This ensures Food tile opens the menu on the Food tab.
+    safeNavigate(buildMenuHref("food"));
   }
+
   function handleBill() {
     if (onOpenBill) return onOpenBill();
     safeNavigate("/bills");
   }
+
   function handleCheckout() {
     if (onOpenCheckout) return onOpenCheckout();
     safeNavigate("/checkout");
   }
+
   function handleRewards() {
     if (onOpenRewards) return onOpenRewards();
     safeNavigate("/rewards");
   }
+
   function handleChat() {
     if (onOpenChat) return onOpenChat();
     if (openWhatsAppUrl) {
@@ -102,7 +139,7 @@ export default function StayQuickLinks({
         />
         <Tile
           icon="🍽️"
-          title="Food &amp; beverages"
+          title="Food & beverages"
           subtitle="Order from the hotel menu"
           onClick={handleFood}
         />
@@ -130,7 +167,7 @@ export default function StayQuickLinks({
         />
         <Tile
           icon="🎁"
-          title="Rewards &amp; offers"
+          title="Rewards & offers"
           subtitle="Use credits or vouchers"
           onClick={handleRewards}
         />

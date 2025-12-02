@@ -53,7 +53,7 @@ function StayDetails({ id }: { id: string }) {
   useEffect(() => {
     let alive = true;
 
-    (async () => {
+    async function loadStay() {
       setLoading(true);
       setError(null);
       setStay(null);
@@ -66,8 +66,7 @@ function StayDetails({ id }: { id: string }) {
       }
 
       try {
-        // 1) Preferred: view used by list page
-        const v = await supabase
+        const { data, error } = await supabase
           .from("user_recent_stays")
           .select(
             "id, hotel_id, hotel_name, city, cover_image_url, check_in, check_out, earned_paise, review_status"
@@ -77,63 +76,31 @@ function StayDetails({ id }: { id: string }) {
 
         if (!alive) return;
 
-        if (!v.error && v.data) {
-          setStay(v.data as StayView);
-          setLoading(false);
+        if (error) {
+          console.error("[StayDetails] user_recent_stays error", error);
+          setError("We couldn’t find that stay.");
+          setStay(null);
           return;
         }
 
-        // 2) Fallback: base stay + hydrate hotel
-        const s = await supabase
-          .from("stays")
-          .select(
-            "id, hotel_id, check_in, check_out, earned_paise, review_status"
-          )
-          .eq("id", id)
-          .maybeSingle();
-
-        if (!alive) return;
-
-        if (!s.error && s.data) {
-          const base = s.data as Partial<StayView>;
-          let hotel_name: string | null = null;
-          let city: string | null = null;
-          if (base.hotel_id) {
-            const h = await supabase
-              .from("hotels")
-              .select("name, city, cover_image_url")
-              .eq("id", base.hotel_id)
-              .maybeSingle();
-            if (!alive) return;
-            if (!h.error && h.data) {
-              hotel_name = (h.data as any).name ?? null;
-              city = (h.data as any).city ?? null;
-              (base as any).cover_image_url =
-                (h.data as any).cover_image_url ?? null;
-            }
-          }
-          setStay({
-            id: base.id as string,
-            hotel_id: base.hotel_id as string,
-            hotel_name,
-            city,
-            cover_image_url: (base as any).cover_image_url ?? null,
-            check_in: (base as any).check_in ?? null,
-            check_out: (base as any).check_out ?? null,
-            earned_paise: (base as any).earned_paise ?? 0,
-            review_status: (base as any).review_status ?? null,
-          });
-        } else {
+        if (!data) {
           setError("We couldn’t find that stay.");
+          setStay(null);
+          return;
         }
+
+        setStay(data as StayView);
       } catch (e: any) {
         if (!alive) return;
+        console.error("[StayDetails] unexpected error", e);
         setError(e?.message || "Something went wrong.");
+        setStay(null);
       } finally {
         if (alive) setLoading(false);
       }
-    })();
+    }
 
+    loadStay();
     return () => {
       alive = false;
     };

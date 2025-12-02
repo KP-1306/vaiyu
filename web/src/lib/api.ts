@@ -1402,6 +1402,18 @@ export async function getMenu(hotelKey?: string) {
 /* ============================================================================
    Tickets
 ============================================================================ */
+
+/**
+ * Create a guest/staff ticket.
+ *
+ * Supports multiple backend response shapes:
+ *   - { ticket: { id, ... } }
+ *   - { id: "…" }
+ *   - { ticketId: "…" }
+ *   - { data: { id: "…" } }
+ *
+ * Always returns an object with a stable `id` plus any extra fields.
+ */
 export async function createTicket(
   data: Json
 ): Promise<{ id: string } & Record<string, any>> {
@@ -1409,15 +1421,41 @@ export async function createTicket(
     method: "POST",
     body: JSON.stringify(data),
   });
-  const id = res?.id ?? res?.ticketId ?? res?.data?.id ?? null;
+
+  const ticket =
+    (res &&
+      typeof res === "object" &&
+      "ticket" in res &&
+      (res as any).ticket) ||
+    null;
+
+  const id =
+    ticket?.id ??
+    (res as any)?.id ??
+    (res as any)?.ticketId ??
+    (res as any)?.data?.id ??
+    null;
+
   if (!id) {
     return {
       id: demoId("tkt"),
       demo: true,
-      ...(typeof res === "object" ? res : {}),
+      ...(ticket && typeof ticket === "object"
+        ? ticket
+        : typeof res === "object"
+        ? res
+        : {}),
     };
   }
-  return { id: String(id), ...(typeof res === "object" ? res : {}) };
+
+  return {
+    id: String(id),
+    ...(ticket && typeof ticket === "object"
+      ? ticket
+      : typeof res === "object"
+      ? res
+      : {}),
+  };
 }
 
 /**
@@ -1430,9 +1468,26 @@ export async function listTickets(hotelId?: string) {
   return req(`/tickets${suffix}`);
 }
 
+/**
+ * Fetch a single ticket by id.
+ *
+ * Supabase Edge Functions:
+ *   GET /tickets/:id   → { ticket: {...} } or bare ticket row
+ *
+ * Legacy Node backend:
+ *   GET /ticket-get?id=:id  → bare ticket row
+ *
+ * We normalise both to return the ticket object directly.
+ */
 export async function getTicket(id: string) {
-  return req(`/tickets/${encodeURIComponent(id)}`);
+  const path = IS_SUPABASE_FUNCTIONS
+    ? `/tickets/${encodeURIComponent(id)}`
+    : `/ticket-get?id=${encodeURIComponent(id)}`;
+
+  const res = await req<any>(path);
+  return (res && (res.ticket ?? res)) || res;
 }
+
 export async function updateTicket(id: string, patch: Json) {
   return req(`/tickets/${encodeURIComponent(id)}`, {
     method: "PATCH",
@@ -1527,7 +1582,8 @@ export async function createOrder(
     method: "POST",
     body: JSON.stringify(data),
   });
-  const id = res?.id ?? res?.orderId ?? res?.data?.id ?? null;
+  const id =
+    (res as any)?.id ?? (res as any)?.orderId ?? (res as any)?.data?.id ?? null;
   if (!id) {
     return {
       id: demoId("ord"),

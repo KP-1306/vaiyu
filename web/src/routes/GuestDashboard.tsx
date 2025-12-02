@@ -32,6 +32,52 @@ const IS_SUPABASE_EDGE = API.includes(".functions.supabase.co");
 /** Correct stays endpoint for both backends */
 const STAYS_ENDPOINT = IS_SUPABASE_EDGE ? "/me-stays" : "/me/stays";
 
+/* ===== Shared types ===== */
+
+type Stay = {
+  id: string;
+  hotel_id?: string | null; // used for /stay link ?hotelId=
+  status?: string | null; // claimed / ongoing / completed etc.
+  hotel: {
+    name: string;
+    city?: string;
+    cover_url?: string | null;
+    country?: string | null;
+  };
+  check_in: string;
+  check_out: string;
+  bill_total?: number | null;
+  room_type?: string | null;
+  booking_code?: string | null;
+};
+
+type Review = {
+  id: string;
+  hotel: { name: string };
+  rating: number; // 1..5
+  title?: string | null;
+  created_at: string;
+  hotel_reply?: string | null;
+};
+
+type Spend = {
+  year: number;
+  total: number;
+  // Optional richer analytics if backend provides it later
+  monthly?: { month: number; total: number }[];
+  categories?: { room: number; dining: number; spa: number; other: number };
+};
+
+type Referral = {
+  id: string;
+  hotel: { name: string; city?: string };
+  credits: number;
+  referrals_count: number;
+};
+
+type Source = "live" | "preview";
+type AsyncData<T> = { loading: boolean; source: Source; data: T };
+
 /* ======= TRAVEL COMMAND CENTER ======= */
 export default function GuestDashboard() {
   const nav = useNavigate();
@@ -39,7 +85,7 @@ export default function GuestDashboard() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [spendMode, setSpendMode] = useState<"this" | "last" | "all">("this");
-  const [showExplore, setShowExplore] = useState(false); // ⬅️ new: Explore stays overlay
+  const [showExplore, setShowExplore] = useState(false); // ⬅️ Explore stays overlay
 
   // Quick auth guard
   useEffect(() => {
@@ -57,51 +103,6 @@ export default function GuestDashboard() {
       mounted = false;
     };
   }, []);
-
-  /* ===== Types ===== */
-  type Stay = {
-    id: string;
-    hotel_id?: string | null; // NEW: used when building /stay links with ?hotelId=
-    status?: string | null; // optional; backend may send claimed/ongoing/completed
-    hotel: {
-      name: string;
-      city?: string;
-      cover_url?: string | null;
-      country?: string | null;
-    };
-    check_in: string;
-    check_out: string;
-    bill_total?: number | null;
-    room_type?: string | null;
-    booking_code?: string | null;
-  };
-
-  type Review = {
-    id: string;
-    hotel: { name: string };
-    rating: number; // 1..5
-    title?: string | null;
-    created_at: string;
-    hotel_reply?: string | null;
-  };
-
-  type Spend = {
-    year: number;
-    total: number;
-    // Optional richer analytics if backend provides it later
-    monthly?: { month: number; total: number }[];
-    categories?: { room: number; dining: number; spa: number; other: number };
-  };
-
-  type Referral = {
-    id: string;
-    hotel: { name: string; city?: string };
-    credits: number;
-    referrals_count: number;
-  };
-
-  type Source = "live" | "preview";
-  type AsyncData<T> = { loading: boolean; source: Source; data: T };
 
   // auth/profile snapshot
   const [email, setEmail] = useState<string | null>(null);
@@ -192,15 +193,75 @@ export default function GuestDashboard() {
 
   /* ---- Card loads (resilient) ---- */
   useEffect(() => {
-    // ✅ uses /me-stays for Supabase Edge, /me/stays for old API
-    loadCard(
-      () => jsonWithTimeout(`${API}${STAYS_ENDPOINT}?limit=10`),
-      (j: any) => (Array.isArray(j?.items) ? (j.items as Stay[]) : []),
-      demoStays,
-      setStays,
-      USE_DEMO,
-    );
+    let cancelled = false;
 
+    // Stays: use /me-stays or /me/stays first, then fall back to user_recent_stays
+    async function loadStaysWithFallback() {
+      setStays({ loading: true, source: "live", data: [] as Stay[] });
+
+      // 1) Try API (Edge function or legacy backend)
+      try {
+        const j: any = await jsonWithTimeout(
+          `${API}${STAYS_ENDPOINT}?limit=10`,
+        );
+        const rawItems: any[] = Array.isArray(j?.items) ? j.items : [];
+        const items: Stay[] = rawItems.map(normalizeStayRow);
+
+        if (!cancelled) {
+          setStays({ loading: false, source: "live", data: items });
+        }
+        if (items.length) {
+          // We have real data, no need to fall back.
+          return;
+        }
+      } catch (err) {
+        console.warn(
+          "[GuestDashboard] me-stays API failed, falling back to view",
+          err,
+        );
+      }
+
+      // 2) Fallback: same view as /stays page
+      try {
+        const { data, error } = await supabase
+          .from("user_recent_stays")
+          .select("*")
+          .order("check_in", { ascending: false })
+          .limit(10);
+
+        if (error) throw error;
+
+        const items: Stay[] = (data ?? []).map(normalizeStayRow);
+
+        if (!cancelled) {
+          setStays({ loading: false, source: "live", data: items });
+        }
+      } catch (err) {
+        console.error(
+          "[GuestDashboard] fallback user_recent_stays failed",
+          err,
+        );
+        if (!cancelled) {
+          if (USE_DEMO) {
+            setStays({
+              loading: false,
+              source: "preview",
+              data: demoStays() as Stay[],
+            });
+          } else {
+            setStays({
+              loading: false,
+              source: "live",
+              data: [] as Stay[],
+            });
+          }
+        }
+      }
+    }
+
+    loadStaysWithFallback();
+
+    // Other cards keep using the generic loader
     loadCard(
       () => jsonWithTimeout(`${API}/me/reviews?limit=50`),
       (j: any) => (Array.isArray(j?.items) ? (j.items as Review[]) : []),
@@ -232,6 +293,10 @@ export default function GuestDashboard() {
       setReferrals,
       USE_DEMO,
     );
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const who = displayName || authName || email || "Guest";
@@ -279,7 +344,7 @@ export default function GuestDashboard() {
       totalCredits: totalReferralCredits,
       mostVisited,
       cityCount: cities.size,
-      countryCount: countries.size || (stays.data.length ? 1 : 0), // default 1 country if you prefer
+      countryCount: countries.size || (stays.data.length ? 1 : 0),
     };
   }, [stays.data, spend.data, totalReferralCredits]);
 
@@ -1006,6 +1071,58 @@ async function loadCard<J, T>(
 
 /* ===== Ad-hoc helpers ===== */
 
+function normalizeStayRow(row: any): Stay {
+  if (!row) {
+    return {
+      id: "",
+      booking_code: null,
+      hotel_id: null,
+      status: null,
+      hotel: {
+        name: "Unknown hotel",
+        city: undefined,
+        country: undefined,
+        cover_url: null,
+      },
+      check_in: "",
+      check_out: "",
+      bill_total: null,
+      room_type: null,
+    };
+  }
+
+  const bookingCode = row.booking_code ?? row.code ?? row.id ?? null;
+  const hotelName =
+    row.hotel_name ?? row.hotel?.name ?? row.name ?? "Unknown hotel";
+  const city =
+    row.city ?? row.hotel_city ?? row.hotel?.city ?? undefined;
+  const country =
+    row.country ?? row.hotel_country ?? row.hotel?.country ?? undefined;
+  const coverUrl =
+    row.cover_url ??
+    row.cover_image_url ??
+    row.hotel_cover_url ??
+    row.hotel?.cover_url ??
+    null;
+
+  return {
+    id: bookingCode || String(row.id),
+    booking_code: bookingCode,
+    hotel_id: row.hotel_id ?? row.hotel?.id ?? null,
+    status: row.status ?? null,
+    hotel: {
+      name: hotelName,
+      city,
+      country,
+      cover_url: coverUrl,
+    },
+    check_in: row.check_in,
+    check_out: row.check_out,
+    bill_total: row.bill_total ?? row.total_bill ?? null,
+    room_type: row.room_type ?? row.room ?? null,
+  };
+}
+
 function getMostBookedRoomType(stays: any[]): string | null {
   const counts: Record<string, number> = {};
   stays.forEach((s) => {
@@ -1594,7 +1711,7 @@ async function jsonWithTimeout(url: string, ms = 5000) {
   try {
     const headers: Record<string, string> = {};
 
-    // ✅ When using Supabase Edge Functions, send auth + apikey headers
+    // When using Supabase Edge Functions, send auth + apikey headers
     if (IS_SUPABASE_EDGE) {
       try {
         const {
@@ -1614,8 +1731,7 @@ async function jsonWithTimeout(url: string, ms = 5000) {
           headers["apikey"] = anonKey;
         }
       } catch {
-        // If we fail to get a session, we just fall back to unauthenticated;
-        // the function will return 401 and loadCard will handle it gracefully.
+        // If session fetch fails, we just call unauthenticated; API can return 401.
       }
     }
 

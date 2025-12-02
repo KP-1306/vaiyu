@@ -200,19 +200,31 @@ function StayDetails({ id }: { id: string }) {
  */
 function QrStayHome({ code }: { code: string }) {
   const [searchParams] = useSearchParams();
+
+  // Accept both ?hotel=<slug> and ?hotelId=<uuid>
   const hotelSlug = searchParams.get("hotel") || "";
+  const hotelId = searchParams.get("hotelId") || "";
+
+  const hasHotelSlugParam = searchParams.has("hotel");
+  const hasHotelIdParam = searchParams.has("hotelId");
 
   const hotelLabel = hotelSlug
     ? hotelSlug.replace(/[-_]+/g, " ")
     : "your VAiyu stay";
 
-  // Build a WhatsApp share link for this canonical stay URL (best-effort).
+  // Build a WhatsApp share link for this canonical stay URL (best-effort),
+  // preserving whichever hotel param was used.
   const whatsAppUrl =
     typeof window !== "undefined"
       ? (() => {
-          const basePath = `/stay/${encodeURIComponent(code)}${
-            hotelSlug ? `?hotel=${encodeURIComponent(hotelSlug)}` : ""
-          }`;
+          let querySuffix = "";
+          if (hasHotelSlugParam && hotelSlug) {
+            querySuffix = `?hotel=${encodeURIComponent(hotelSlug)}`;
+          } else if (hasHotelIdParam && hotelId) {
+            querySuffix = `?hotelId=${encodeURIComponent(hotelId)}`;
+          }
+
+          const basePath = `/stay/${encodeURIComponent(code)}${querySuffix}`;
           const fullUrl = `${window.location.origin || ""}${basePath}`;
           const textLines = [
             `Hi, this is my VAiyu stay link for ${hotelLabel}.`,
@@ -249,6 +261,7 @@ function QrStayHome({ code }: { code: string }) {
           <StayQuickLinks
             stayCode={code}
             hotelSlug={hotelSlug || undefined}
+            hotelId={hotelId || undefined}
             openWhatsAppUrl={whatsAppUrl}
           />
 
@@ -261,7 +274,11 @@ function QrStayHome({ code }: { code: string }) {
               URL:{" "}
               <code>
                 /stay/{code}
-                {hotelSlug ? `?hotel=${hotelSlug}` : ""}
+                {hasHotelSlugParam && hotelSlug
+                  ? `?hotel=${hotelSlug}`
+                  : hasHotelIdParam && hotelId
+                  ? `?hotelId=${hotelId}`
+                  : ""}
               </code>
             </p>
           </section>

@@ -125,17 +125,53 @@ export default function Menu() {
     );
   }
 
-  async function requestService(service_key: string) {
+  function looksLikeUuid(value: string | undefined | null): boolean {
+    if (!value) return false;
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      value
+    );
+  }
+
+  // ---------- SERVICES → TICKETS (with tracker redirect) ----------
+  async function requestService(service: Service) {
+    const service_key = service.key;
     const busyKey = `svc:${service_key}`;
     setBusy(busyKey);
+
     try {
-      // Send both keys for compatibility (backend/demo may expect either)
+      const hotelKey = hotelKeyFromQuery;
+      const isUuid = looksLikeUuid(hotelKey);
+
+      // Build a backward-compatible payload that works with:
+      // - Supabase Edge Function /tickets (hotelId | hotelSlug, serviceKey, bookingCode, room, source, priority)
+      // - Older Node/demo backends (booking, booking_code, service_key, key, label)
       const payload: any = {
+        // Hotel context
+        ...(hotelKey
+          ? isUuid
+            ? { hotelId: hotelKey }
+            : { hotelSlug: hotelKey }
+          : {}),
+
+        // Service identity (accept multiple shapes)
+        serviceKey: service_key,
         service_key,
-        service: service_key,
+        key: service_key,
+
+        // Human label for title (fallback to generic)
+        title: service.label_en || "Ticket",
+        label: service.label_en,
+        label_en: service.label_en,
+
+        // Guest context
         room,
+        bookingCode: code,
+        booking_code: code,
         booking: code,
+
+        // Meta
         source: "guest_menu",
+        priority: "normal",
         tenant: "guest",
       };
 
@@ -143,10 +179,9 @@ export default function Menu() {
       const id = extractTicketId(res);
 
       if (id) {
-        // deep-link to tracker if you have that route
-        window.location.href = `/stay/${encodeURIComponent(
-          code!
-        )}/requests/${id}`;
+        // Navigate to the RequestTracker route
+        // RequestTracker.tsx reads the ticket id from the last URL segment.
+        window.location.href = `/requestTracker/${encodeURIComponent(id)}`;
         return;
       }
 
@@ -158,12 +193,14 @@ export default function Menu() {
 
       throw new Error("Could not create request");
     } catch (e: any) {
+      console.error("[Menu] requestService error", e);
       alert(e?.message || "Could not create request");
     } finally {
-      setBusy("");
+      setBusy((current) => (current === busyKey ? "" : current));
     }
   }
 
+  // ---------- FOOD → ORDERS (unchanged behaviour) ----------
   async function addFood(item_key: string, displayName?: string) {
     const busyKey = `food:${item_key}`;
     setBusy(busyKey);
@@ -276,7 +313,7 @@ export default function Menu() {
                       </div>
                     </div>
                     <button
-                      onClick={() => requestService(it.key)}
+                      onClick={() => requestService(it)}
                       disabled={busy === busyKey}
                       className={`px-3 py-2 rounded text-white ${
                         busy === busyKey

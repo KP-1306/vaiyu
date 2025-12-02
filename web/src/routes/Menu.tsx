@@ -9,7 +9,6 @@ import {
   createOrder,
   isDemo,
 } from "../lib/api";
-import { supabase } from "../lib/supabase";
 
 type Service = { key: string; label_en: string; sla_minutes: number };
 type FoodItem = { item_key: string; name: string; base_price: number };
@@ -33,84 +32,37 @@ export default function Menu() {
     setTab(next);
   }, [searchParams]);
 
-  // hotel identifier from query:
-  // - /menu?hotelSlug=TENANT1  (old)
-  // - /menu?hotel=TENANT1      (scan / WhatsApp)
-  // - /stay/BK/menu?hotel=TENANT1
-  // - /stay/BK/menu?hotelId=<uuid>
-  const hotelSlugFromQuery =
-    searchParams.get("hotelSlug") || searchParams.get("hotel") || undefined;
-  const hotelIdFromQuery = searchParams.get("hotelId") || undefined;
-
-  // We always call getServices/getMenu with a *slug*.
-  // If only hotelId is present, resolve slug from hotels table.
-  const [resolvedHotelSlug, setResolvedHotelSlug] = useState<
-    string | undefined
-  >(hotelSlugFromQuery || undefined);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function resolveSlug() {
-      // If slug is explicitly in the URL, prefer that.
-      if (hotelSlugFromQuery) {
-        if (!cancelled) setResolvedHotelSlug(hotelSlugFromQuery);
-        return;
-      }
-
-      // No slug and no id → use default behaviour (demo / fallback hotel).
-      if (!hotelIdFromQuery) {
-        if (!cancelled) setResolvedHotelSlug(undefined);
-        return;
-      }
-
-      // We have a hotelId: resolve to slug.
-      try {
-        const { data, error } = await supabase
-          .from("hotels")
-          .select("slug")
-          .eq("id", hotelIdFromQuery)
-          .maybeSingle();
-
-        if (cancelled) return;
-
-        if (error) {
-          console.error("[Menu] failed to resolve hotel slug from id", error);
-          setResolvedHotelSlug(undefined);
-        } else {
-          setResolvedHotelSlug((data as any)?.slug ?? undefined);
-        }
-      } catch (e) {
-        if (!cancelled) {
-          console.error("[Menu] unexpected error resolving hotel slug", e);
-          setResolvedHotelSlug(undefined);
-        }
-      }
-    }
-
-    void resolveSlug();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [hotelSlugFromQuery, hotelIdFromQuery]);
+  // hotel identifier from query (generic key: id OR slug)
+  // - ?hotelId=<uuid>            (preferred from StayQuickLinks)
+  // - ?hotelSlug=TENANT1         (older pattern)
+  // - ?hotel=TENANT1             (scan / WhatsApp)
+  const hotelKeyFromQuery =
+    searchParams.get("hotelId") ||
+    searchParams.get("hotelSlug") ||
+    searchParams.get("hotel") ||
+    undefined;
 
   const [services, setServices] = useState<Service[]>([]);
   const [food, setFood] = useState<FoodItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  // Room picker + tiny toast
+  // Room picker + toast + busy indicator
   const roomKey = useMemo(() => `room:${code}`, [code]);
   const [room, setRoom] = useState<string>(
     () =>
       (typeof window !== "undefined" ? localStorage.getItem(roomKey) : null) ||
-      "201",
+      "201"
   );
   const [toast, setToast] = useState<string>("");
   const [busy, setBusy] = useState<string>(""); // keeps the id of item being actioned
 
-  // Load services + menu whenever the resolved hotel slug changes
+  // Tracks what the guest has added in this page (session only)
+  const [sessionOrderCounts, setSessionOrderCounts] = useState<
+    Record<string, number>
+  >({});
+
+  // Load services + menu whenever the hotel key changes
   useEffect(() => {
     let mounted = true;
     setLoading(true);
@@ -119,8 +71,8 @@ export default function Menu() {
     (async () => {
       try {
         const [svc, menu] = await Promise.all([
-          getServices(resolvedHotelSlug),
-          getMenu(resolvedHotelSlug),
+          getServices(hotelKeyFromQuery),
+          getMenu(hotelKeyFromQuery),
         ]);
 
         if (!mounted) return;
@@ -144,7 +96,7 @@ export default function Menu() {
     return () => {
       mounted = false;
     };
-  }, [resolvedHotelSlug]);
+  }, [hotelKeyFromQuery]);
 
   useEffect(() => {
     try {
@@ -193,7 +145,7 @@ export default function Menu() {
       if (id) {
         // deep-link to tracker if you have that route
         window.location.href = `/stay/${encodeURIComponent(
-          code!,
+          code!
         )}/requests/${id}`;
         return;
       }
@@ -212,7 +164,7 @@ export default function Menu() {
     }
   }
 
-  async function addFood(item_key: string) {
+  async function addFood(item_key: string, displayName?: string) {
     const busyKey = `food:${item_key}`;
     setBusy(busyKey);
     try {
@@ -222,12 +174,25 @@ export default function Menu() {
         booking: code,
         source: "guest_menu",
       });
-      if (res?.ok !== false) showToast("Added to order");
-      else throw new Error("Could not add item");
+
+      // Keep old behaviour: success unless explicitly ok === false
+      if (res?.ok === false) {
+        throw new Error("Could not add item");
+      }
+
+      // Toast with item name
+      showToast(`${displayName || "Item"} added to order`);
+
+      // Update in-page summary
+      setSessionOrderCounts((prev) => ({
+        ...prev,
+        [item_key]: (prev[item_key] || 0) + 1,
+      }));
     } catch (e: any) {
+      console.error("[Menu] addFood error", e);
       alert(e?.message || "Could not add item");
     } finally {
-      setBusy("");
+      setBusy((current) => (current === busyKey ? "" : current));
     }
   }
 
@@ -294,79 +259,116 @@ export default function Menu() {
       )}
 
       {!loading && !err && tab === "services" && (
-        services.length ? (
-          <ul className="space-y-3">
-            {services.map((it) => {
-              const busyKey = `svc:${it.key}`;
-              return (
-                <li
-                  key={it.key}
-                  className="p-3 bg-white rounded shadow flex justify-between items-center"
-                >
-                  <div>
-                    <div className="font-medium">{it.label_en}</div>
-                    <div className="text-xs text-gray-500">
-                      {it.sla_minutes} min SLA
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => requestService(it.key)}
-                    disabled={busy === busyKey}
-                    className={`px-3 py-2 rounded text-white ${
-                      busy === busyKey
-                        ? "bg-sky-300"
-                        : "bg-sky-600 hover:bg-sky-700"
-                    }`}
+        <>
+          {services.length ? (
+            <ul className="space-y-3">
+              {services.map((it) => {
+                const busyKey = `svc:${it.key}`;
+                return (
+                  <li
+                    key={it.key}
+                    className="p-3 bg-white rounded shadow flex justify-between items-center"
                   >
-                    {busy === busyKey ? "Requesting…" : "Request"}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <div className="text-gray-500">
-            No services available right now.
-          </div>
-        )
+                    <div>
+                      <div className="font-medium">{it.label_en}</div>
+                      <div className="text-xs text-gray-500">
+                        {it.sla_minutes} min SLA
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => requestService(it.key)}
+                      disabled={busy === busyKey}
+                      className={`px-3 py-2 rounded text-white ${
+                        busy === busyKey
+                          ? "bg-sky-300"
+                          : "bg-sky-600 hover:bg-sky-700"
+                      }`}
+                    >
+                      {busy === busyKey ? "Requesting…" : "Request"}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <div className="text-gray-500">
+              No services available right now.
+            </div>
+          )}
+        </>
       )}
 
       {!loading && !err && tab === "food" && (
-        food.length ? (
-          <ul className="space-y-3">
-            {food.map((it) => {
-              const busyKey = `food:${it.item_key}`;
-              return (
-                <li
-                  key={it.item_key}
-                  className="p-3 bg-white rounded shadow flex justify-between items-center"
-                >
-                  <div>
-                    <div className="font-medium">{it.name}</div>
-                    <div className="text-xs text-gray-500">
-                      ₹{it.base_price}
-                    </div>
+        <>
+          {food.length ? (
+            <>
+              <ul className="space-y-3">
+                {food.map((it) => {
+                  const busyKey = `food:${it.item_key}`;
+                  const addedCount = sessionOrderCounts[it.item_key] || 0;
+                  return (
+                    <li
+                      key={it.item_key}
+                      className="p-3 bg-white rounded shadow flex justify-between items-center"
+                    >
+                      <div>
+                        <div className="font-medium">{it.name}</div>
+                        <div className="text-xs text-gray-500">
+                          ₹{it.base_price}
+                        </div>
+                        {addedCount > 0 && (
+                          <div className="text-[11px] text-green-600 mt-0.5">
+                            Added ×{addedCount} in this session
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => addFood(it.item_key, it.name)}
+                        disabled={busy === busyKey}
+                        className={`px-3 py-2 rounded text-white ${
+                          busy === busyKey
+                            ? "bg-sky-300"
+                            : "bg-sky-600 hover:bg-sky-700"
+                        }`}
+                      >
+                        {busy === busyKey
+                          ? "Adding…"
+                          : addedCount > 0
+                          ? `Add more (${addedCount})`
+                          : "Add"}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              {Object.keys(sessionOrderCounts).length > 0 && (
+                <div className="mt-4 rounded-md border bg-gray-50 p-3 text-xs text-gray-700">
+                  <div className="font-medium mb-1">
+                    Your recent selections (this page)
                   </div>
-                  <button
-                    onClick={() => addFood(it.item_key)}
-                    disabled={busy === busyKey}
-                    className={`px-3 py-2 rounded text-white ${
-                      busy === busyKey
-                        ? "bg-sky-300"
-                        : "bg-sky-600 hover:bg-sky-700"
-                    }`}
-                  >
-                    {busy === busyKey ? "Adding…" : "Add"}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <div className="text-gray-500">
-            Food menu is unavailable at the moment.
-          </div>
-        )
+                  <ul className="list-disc pl-4 space-y-1">
+                    {food
+                      .filter((it) => sessionOrderCounts[it.item_key])
+                      .map((it) => (
+                        <li key={it.item_key}>
+                          {it.name} × {sessionOrderCounts[it.item_key]}
+                        </li>
+                      ))}
+                  </ul>
+                  <p className="mt-1 text-[11px] text-gray-500">
+                    The hotel team will confirm your order and add it to your
+                    bill.
+                  </p>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-gray-500">
+              Food menu is unavailable at the moment.
+            </div>
+          )}
+        </>
       )}
 
       {/* Tiny toast */}

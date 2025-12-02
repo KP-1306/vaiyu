@@ -1,15 +1,16 @@
 // web/src/components/guest/StayQuickLinks.tsx
+
 export type StayQuickLinksProps = {
   /** Optional stay / booking code for deep-links like /stay/:code/menu. */
   stayCode?: string;
   /**
-   * Optional hotel slug – forwarded to the menu page as ?hotel=SLUG
-   * so that the correct property's services/food are loaded.
+   * Optional hotel slug – forwarded to the menu page so that the correct
+   * property's services/food are loaded. Can be a slug OR an internal id.
    */
   hotelSlug?: string;
   /**
-   * Optional hotel id (UUID or internal id) – forwarded to the menu page
-   * as ?hotelId=ID if no slug is provided.
+   * Optional hotel id (UUID or internal id). If hotelSlug is not provided,
+   * this will be used as the generic hotel key.
    */
   hotelId?: string;
   /** Deep link for WhatsApp from Scan/OwnerSettings, if you want to reuse it. */
@@ -53,31 +54,32 @@ export default function StayQuickLinks({
   onOpenRewards,
   className,
 }: StayQuickLinksProps) {
-  const baseMenuPath = stayCode
-    ? `/stay/${encodeURIComponent(stayCode)}/menu`
-    : "/menu";
+  // Treat slug OR id as a single generic hotel key.
+  const hotelKey = (hotelSlug || hotelId || "").trim() || undefined;
+
+  // Base menu path: /stay/:code/menu or /menu, plus ?hotel=KEY when available.
+  const baseMenuPath = (() => {
+    const base = stayCode
+      ? `/stay/${encodeURIComponent(stayCode)}/menu`
+      : "/menu";
+
+    if (!hotelKey) return base;
+
+    const sep = base.includes("?") ? "&" : "?";
+    // Menu.tsx knows how to read ?hotel=... (slug or id).
+    return `${base}${sep}hotel=${encodeURIComponent(hotelKey)}`;
+  })();
 
   /**
    * Build a menu URL that:
    *  - points to /stay/:code/menu (or /menu)
    *  - sets the initial tab via ?tab=services|food
-   *  - forwards hotelSlug or hotelId so Menu.tsx can load the right config
+   *  - keeps the hotel key from baseMenuPath
    */
   function buildMenuHref(tab?: "services" | "food") {
-    const qs: string[] = [];
-
-    if (tab) {
-      qs.push(`tab=${encodeURIComponent(tab)}`);
-    }
-
-    if (hotelSlug) {
-      qs.push(`hotel=${encodeURIComponent(hotelSlug)}`);
-    } else if (hotelId) {
-      qs.push(`hotelId=${encodeURIComponent(hotelId)}`);
-    }
-
-    const query = qs.length ? `?${qs.join("&")}` : "";
-    return `${baseMenuPath}${query}`;
+    if (!tab) return baseMenuPath;
+    const sep = baseMenuPath.includes("?") ? "&" : "?";
+    return `${baseMenuPath}${sep}tab=${encodeURIComponent(tab)}`;
   }
 
   function handleRoomServices() {

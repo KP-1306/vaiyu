@@ -9,6 +9,7 @@ import {
   createOrder,
   isDemo,
 } from "../lib/api";
+import { supabase } from "../lib/supabase";
 
 type Service = { key: string; label_en: string; sla_minutes: number };
 type FoodItem = { item_key: string; name: string; base_price: number };
@@ -17,17 +18,83 @@ export default function Menu() {
   // booking code from route: /stay/:code/menu  (fallback to DEMO)
   const { code = "DEMO" } = useParams();
 
-  // hotelSlug from query:
-  // - /menu?hotelSlug=TENANT1 (old links)
-  // - /menu?hotel=TENANT1      (from Scan page, WhatsApp / microsite use-case)
-  // - /stay/BK-XXXX/menu?hotel=TENANT1 (stay menu after claim)
   const [searchParams] = useSearchParams();
-  const hotelSlugFromQuery =
-    searchParams.get("hotelSlug") ||
-    searchParams.get("hotel") ||
-    undefined;
 
-  const [tab, setTab] = useState<"food" | "services">("services");
+  // --- tab from query (?tab=services|food), default = services ---
+  const initialTabParam = (searchParams.get("tab") || "").toLowerCase();
+  const initialTab: "food" | "services" =
+    initialTabParam === "food" ? "food" : "services";
+  const [tab, setTab] = useState<"food" | "services">(initialTab);
+
+  // Keep tab in sync if URL query changes (e.g. user clicks different card)
+  useEffect(() => {
+    const q = (searchParams.get("tab") || "").toLowerCase();
+    const next: "food" | "services" = q === "food" ? "food" : "services";
+    setTab(next);
+  }, [searchParams]);
+
+  // hotel identifier from query:
+  // - /menu?hotelSlug=TENANT1  (old)
+  // - /menu?hotel=TENANT1      (scan / WhatsApp)
+  // - /stay/BK/menu?hotel=TENANT1
+  // - /stay/BK/menu?hotelId=<uuid>
+  const hotelSlugFromQuery =
+    searchParams.get("hotelSlug") || searchParams.get("hotel") || undefined;
+  const hotelIdFromQuery = searchParams.get("hotelId") || undefined;
+
+  // We always call getServices/getMenu with a *slug*.
+  // If only hotelId is present, resolve slug from hotels table.
+  const [resolvedHotelSlug, setResolvedHotelSlug] = useState<
+    string | undefined
+  >(hotelSlugFromQuery || undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function resolveSlug() {
+      // If slug is explicitly in the URL, prefer that.
+      if (hotelSlugFromQuery) {
+        if (!cancelled) setResolvedHotelSlug(hotelSlugFromQuery);
+        return;
+      }
+
+      // No slug and no id → use default behaviour (demo / fallback hotel).
+      if (!hotelIdFromQuery) {
+        if (!cancelled) setResolvedHotelSlug(undefined);
+        return;
+      }
+
+      // We have a hotelId: resolve to slug.
+      try {
+        const { data, error } = await supabase
+          .from("hotels")
+          .select("slug")
+          .eq("id", hotelIdFromQuery)
+          .maybeSingle();
+
+        if (cancelled) return;
+
+        if (error) {
+          console.error("[Menu] failed to resolve hotel slug from id", error);
+          setResolvedHotelSlug(undefined);
+        } else {
+          setResolvedHotelSlug((data as any)?.slug ?? undefined);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          console.error("[Menu] unexpected error resolving hotel slug", e);
+          setResolvedHotelSlug(undefined);
+        }
+      }
+    }
+
+    void resolveSlug();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hotelSlugFromQuery, hotelIdFromQuery]);
+
   const [services, setServices] = useState<Service[]>([]);
   const [food, setFood] = useState<FoodItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,6 +110,7 @@ export default function Menu() {
   const [toast, setToast] = useState<string>("");
   const [busy, setBusy] = useState<string>(""); // keeps the id of item being actioned
 
+  // Load services + menu whenever the resolved hotel slug changes
   useEffect(() => {
     let mounted = true;
     setLoading(true);
@@ -50,11 +118,9 @@ export default function Menu() {
 
     (async () => {
       try {
-        // Pass hotelSlugFromQuery so WhatsApp / microsite / stay-menu links
-        // always hit the same menu API as QR flows (correct property identifier).
         const [svc, menu] = await Promise.all([
-          getServices(hotelSlugFromQuery),
-          getMenu(hotelSlugFromQuery),
+          getServices(resolvedHotelSlug),
+          getMenu(resolvedHotelSlug),
         ]);
 
         if (!mounted) return;
@@ -66,7 +132,10 @@ export default function Menu() {
         setFood(foodItems);
       } catch (e: any) {
         if (!mounted) return;
+        console.error("[Menu] load error", e);
         setErr(e?.message || "Failed to load menu");
+        setServices([]);
+        setFood([]);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -75,7 +144,7 @@ export default function Menu() {
     return () => {
       mounted = false;
     };
-  }, [hotelSlugFromQuery]);
+  }, [resolvedHotelSlug]);
 
   useEffect(() => {
     try {
@@ -185,9 +254,7 @@ export default function Menu() {
           <button
             onClick={() => setTab("services")}
             className={`px-3 py-2 rounded ${
-              tab === "services"
-                ? "bg-sky-500 text-white"
-                : "bg-white shadow"
+              tab === "services" ? "bg-sky-500 text-white" : "bg-white shadow"
             }`}
           >
             Services

@@ -1211,54 +1211,53 @@ function looksLikeUuid(value: string | undefined | null): boolean {
   );
 }
 
-export async function getServices(hotelKey?: string) {
+
+export async function getServices(hotelKey?: string | null) {
   const s = supa();
-  const isId = looksLikeUuid(hotelKey);
+  const key = hotelKey || undefined;
+  const isId = key ? looksLikeUuid(key) : false;
 
-  // Use Supabase table when:
-  // - client is available AND
-  // - we either have no filter OR the filter looks like a hotel_id
-  if (s && (!hotelKey || isId)) {
+  // 1) Try direct Supabase read (good when we have hotel_id)
+  if (s && (!key || isId)) {
     try {
-      let query = s
-        .from("services")
-        .select("hotel_id,key,label_en,sla_minutes,active")
-        .order("key", { ascending: true });
+      let query = s.from("services").select(
+        "id, hotel_id, key, label, description, category, is_paid, sla_minutes, priority_weight, active"
+      );
 
-      if (hotelKey && isId) {
-        // filter by hotel_id (owner/staff views)
-        // @ts-ignore
-        query = query.eq("hotel_id", hotelKey);
+      if (key && isId) {
+        query = query.eq("hotel_id", key);
       }
 
-      // @ts-ignore
-      const { data, error } = await query;
+      const { data, error } = await query.order("priority_weight", {
+        ascending: false,
+      });
+
       if (error) throw error;
-      return { items: (data || []) as Service[] };
-    } catch {
-      // fall through to HTTP API
+
+      return {
+        items: (data || []).filter((row) => row.active !== false),
+      };
+    } catch (err) {
+      console.warn("getServices supabase failed, falling back to HTTP", err);
+      // fall through to HTTP
     }
   }
 
-  // HTTP path: used when:
-  // - Supabase client is not available, OR
-  // - we want to route via backend/Edge Functions.
-  // Accept BOTH hotel slug and hotel id, mirroring getMenu().
+  // 2) HTTP fallback – now supports both hotelId and hotelSlug
   let path = IS_SUPABASE_FUNCTIONS ? "/catalog-services" : "/catalog/services";
 
-  if (hotelKey) {
+  if (key) {
     const sep = path.includes("?") ? "&" : "?";
     if (isId) {
-      // treat as hotel_id
-      path += `${sep}hotelId=${encodeURIComponent(hotelKey)}`;
+      path += `${sep}hotelId=${encodeURIComponent(key)}`;
     } else {
-      // treat as hotel slug
-      path += `${sep}hotelSlug=${encodeURIComponent(hotelKey)}`;
+      path += `${sep}hotelSlug=${encodeURIComponent(key)}`;
     }
   }
 
   return req(path);
 }
+
 
 
 export async function saveServices(

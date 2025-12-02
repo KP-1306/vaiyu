@@ -361,6 +361,8 @@ export default function Stays() {
                       to={`/stay/${encodeURIComponent(
                         summary.upcomingStay.id
                       )}`}
+                      // NEW: pass stay row for instant render on details page
+                      state={{ stay: summary.upcomingStay }}
                       className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-teal-700 hover:text-teal-800"
                     >
                       View stay details <span>→</span>
@@ -385,7 +387,7 @@ export default function Stays() {
                 {summary.lastStay && (
                   <div className="text-[11px] text-gray-500 text-right">
                     Last stayed at{" "}
-                    <span className="font-medium text-gray-700">
+                      <span className="font-medium text-gray-700">
                       {summary.lastStay.hotel_name || "a partner hotel"}
                     </span>{" "}
                     • {formatStayDates(summary.lastStay)}
@@ -579,6 +581,8 @@ function StayCard({ row }: { row: StayRow }) {
   return (
     <Link
       to={`/stay/${encodeURIComponent(id)}`}
+      // NEW: pass full stay row so Stay page can use it immediately
+      state={{ stay: row }}
       className="group flex flex-col sm:flex-row gap-4 rounded-2xl border bg-white/90 hover:bg-slate-50 hover:shadow-md transition-all overflow-hidden"
     >
       <div className="sm:w-44 h-32 sm:h-28 flex-shrink-0 rounded-xl overflow-hidden bg-gray-100 relative">

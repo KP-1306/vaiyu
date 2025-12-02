@@ -53,7 +53,7 @@ function StayDetails({ id }: { id: string }) {
   useEffect(() => {
     let alive = true;
 
-    async function loadStay() {
+    (async () => {
       setLoading(true);
       setError(null);
       setStay(null);
@@ -66,13 +66,14 @@ function StayDetails({ id }: { id: string }) {
       }
 
       try {
+        // Fetch from the same view used by the list page.
+        // IMPORTANT: no `.single()` / `.maybeSingle()` here – we take the first row in JS
         const { data, error } = await supabase
           .from("user_recent_stays")
           .select(
             "id, hotel_id, hotel_name, city, cover_image_url, check_in, check_out, earned_paise, review_status"
           )
-          .eq("id", id)
-          .maybeSingle();
+          .eq("id", id);
 
         if (!alive) return;
 
@@ -83,13 +84,17 @@ function StayDetails({ id }: { id: string }) {
           return;
         }
 
-        if (!data) {
+        const row = (data && data.length > 0 ? data[0] : null) as
+          | StayView
+          | null;
+
+        if (!row) {
           setError("We couldn’t find that stay.");
           setStay(null);
           return;
         }
 
-        setStay(data as StayView);
+        setStay(row);
       } catch (e: any) {
         if (!alive) return;
         console.error("[StayDetails] unexpected error", e);
@@ -98,9 +103,8 @@ function StayDetails({ id }: { id: string }) {
       } finally {
         if (alive) setLoading(false);
       }
-    }
+    })();
 
-    loadStay();
     return () => {
       alive = false;
     };
@@ -123,7 +127,7 @@ function StayDetails({ id }: { id: string }) {
         </section>
       )}
 
-      {/* Not found / no data state */}
+      {/* Not found / error state */}
       {!loading && (error || !stay) && (
         <section className="mt-6 rounded-2xl border bg-white/90 shadow-sm p-6">
           <p className="text-sm text-gray-700">

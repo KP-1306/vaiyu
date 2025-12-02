@@ -2,7 +2,13 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import { listTickets, updateTicket, listOrders, updateOrder } from "../lib/api";
+import {
+  IS_SUPABASE_FUNCTIONS,
+  listTickets,
+  updateTicket,
+  listOrders,
+  updateOrder,
+} from "../lib/api";
 import { connectEvents } from "../lib/sse";
 import SEO from "../components/SEO";
 import { supabase } from "../lib/supabase";
@@ -11,18 +17,25 @@ import { supabase } from "../lib/supabase";
 // Types
 // ---------------------------------------------------------------------------
 
+type TicketStatus = "Requested" | "Accepted" | "InProgress" | "Done";
+
+type TicketPriority = "low" | "normal" | "high" | "urgent" | string;
+
 type Ticket = {
   id: string;
   service_key: string;
   room: string;
-  booking: string;
-  status: "Requested" | "Accepted" | "InProgress" | "Done";
+  booking?: string;
+  status: TicketStatus;
   created_at: string;
   accepted_at?: string;
   started_at?: string;
   done_at?: string;
   sla_minutes: number;
-  sla_deadline: string;
+  sla_deadline?: string | null;
+  is_overdue?: boolean;
+  priority?: TicketPriority;
+  mins_remaining?: number | null;
 };
 
 type Order = {
@@ -35,8 +48,175 @@ type Order = {
 };
 
 // ---------------------------------------------------------------------------
+// Helpers: status mapping + ticket normalisation
+// ---------------------------------------------------------------------------
+
+/** Map backend status (Node or Supabase) into our UI status */
+function mapBackendStatusToUi(rawStatus: unknown): TicketStatus {
+  const s = String(rawStatus ?? "").toLowerCase();
+
+  switch (s) {
+    case "new":
+    case "requested":
+      return "Requested";
+    case "accepted":
+      return "Accepted";
+    case "in_progress":
+    case "in-progress":
+    case "in progress":
+    case "paused":
+      // paused still feels like "in progress" for Desk UI
+      return "InProgress";
+    case "resolved":
+    case "closed":
+    case "done":
+      return "Done";
+    default:
+      return "Requested";
+  }
+}
+
+/** Normalise arbitrary ticket row into the UI Ticket type */
+function normalizeTicket(raw: any): Ticket {
+  const id = String(raw?.id ?? "");
+  const service_key = String(
+    raw?.service_key ?? raw?.key ?? raw?.service ?? "service"
+  ).trim();
+
+  const room = String(
+    raw?.room ?? raw?.room_number ?? raw?.roomNo ?? raw?.unit ?? "-"
+  ).trim();
+
+  const created_at: string =
+    raw?.created_at ?? raw?.inserted_at ?? raw?.created ?? new Date().toISOString();
+
+  const status = mapBackendStatusToUi(raw?.status);
+
+  const sla_minutes: number =
+    Number(
+      raw?.sla_minutes ??
+        raw?.sla_minutes_snapshot ??
+        raw?.sla ??
+        raw?.sla_mins
+    ) || 0;
+
+  const sla_deadline: string | null =
+    raw?.sla_deadline ?? raw?.due_at ?? raw?.deadline ?? null;
+
+  const booking =
+    raw?.booking ?? raw?.booking_code ?? raw?.code ?? raw?.stay_code ?? undefined;
+
+  const is_overdue =
+    typeof raw?.is_overdue === "boolean" ? raw.is_overdue : undefined;
+
+  const priority = raw?.priority as TicketPriority;
+
+  const mins_remaining: number | null =
+    typeof raw?.mins_remaining === "number"
+      ? raw.mins_remaining
+      : typeof raw?.minutes_remaining === "number"
+      ? raw.minutes_remaining
+      : null;
+
+  const accepted_at: string | undefined =
+    raw?.accepted_at ?? raw?.acceptedAt ?? raw?.acknowledged_at ?? undefined;
+
+  const started_at: string | undefined =
+    raw?.started_at ?? raw?.in_progress_at ?? undefined;
+
+  const done_at: string | undefined =
+    raw?.done_at ?? raw?.resolved_at ?? raw?.closed_at ?? undefined;
+
+  return {
+    id,
+    service_key,
+    room,
+    booking,
+    status,
+    created_at,
+    accepted_at,
+    started_at,
+    done_at,
+    sla_minutes,
+    sla_deadline,
+    is_overdue,
+    priority,
+    mins_remaining,
+  };
+}
+
+/** Translate a UI transition into a Supabase RPC action */
+function supabaseActionForTransition(
+  current: TicketStatus,
+  next: TicketStatus
+): string | null {
+  // new(Requested) -> accepted
+  if (current === "Requested" && next === "Accepted") return "accept";
+
+  // new/accepted -> in_progress
+  if (current === "Requested" && next === "InProgress") return "start";
+  if (current === "Accepted" && next === "InProgress") return "start";
+
+  // in_progress -> resolved (Done)
+  if (current === "InProgress" && next === "Done") return "resolve";
+
+  return null;
+}
+
+/** Tiny SLA chip: "5m left" / "Overdue by 3m" / "Within SLA" */
+function renderSlaStatus(t: Ticket) {
+  // no SLA data → hide
+  if (!t.sla_minutes && !t.sla_deadline && t.mins_remaining == null) {
+    return null;
+  }
+
+  // Completed tickets: show within/breached SLA based on is_overdue
+  if (t.status === "Done") {
+    if (t.is_overdue) {
+      return (
+        <span className="ml-2 inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-[11px] text-red-700">
+          SLA breached
+        </span>
+      );
+    }
+    return (
+      <span className="ml-2 inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700">
+        Within SLA
+      </span>
+    );
+  }
+
+  let text = "";
+
+  if (typeof t.mins_remaining === "number" && !Number.isNaN(t.mins_remaining)) {
+    if (t.mins_remaining > 0) {
+      text = `~${t.mins_remaining}m left`;
+    } else if (t.mins_remaining < 0) {
+      text = `Overdue by ~${Math.abs(t.mins_remaining)}m`;
+    } else {
+      text = "Due now";
+    }
+  } else if (t.is_overdue) {
+    text = "Overdue";
+  }
+
+  if (!text) return null;
+
+  const isOverdue = text.toLowerCase().includes("overdue");
+
+  return (
+    <span
+      className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] ${
+        isOverdue ? "bg-red-50 text-red-700" : "bg-sky-50 text-sky-700"
+      }`}
+    >
+      {text}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Hook: detect effective hotelId (from URL or hotel_members)
-//   – mirrors desk/Tickets.tsx so behaviour is consistent.
 // ---------------------------------------------------------------------------
 
 function useEffectiveHotelId() {
@@ -178,8 +358,21 @@ export default function Desk() {
         listOrders(hotelId),
       ]);
 
-      setTickets(((t as any)?.items || []) as Ticket[]);
-      setOrders(((o as any)?.items || []) as Order[]);
+      const rawTickets: any[] =
+        (Array.isArray((t as any)?.items) && (t as any).items) ||
+        (Array.isArray((t as any)?.tickets) && (t as any).tickets) ||
+        (Array.isArray(t as any) && (t as any)) ||
+        [];
+
+      setTickets(rawTickets.map(normalizeTicket));
+
+      const rawOrders: any[] =
+        (Array.isArray((o as any)?.items) && (o as any).items) ||
+        (Array.isArray((o as any)?.orders) && (o as any).orders) ||
+        (Array.isArray(o as any) && (o as any)) ||
+        [];
+
+      setOrders(rawOrders as Order[]);
     } catch (e: any) {
       setError(e?.message || "Failed to load");
     } finally {
@@ -194,17 +387,19 @@ export default function Desk() {
     const off = connectEvents({
       // tickets
       ticket_created: (e) => {
-        const t = (e as any)?.ticket as Ticket;
-        if (!t) return;
+        const raw = (e as any)?.ticket ?? e;
+        if (!raw) return;
+        const t = normalizeTicket(raw);
         setTickets((prev) =>
-          prev.find((x) => x.id === t.id) ? prev : [t, ...prev],
+          prev.find((x) => x.id === t.id) ? prev : [t, ...prev]
         );
       },
       ticket_updated: (e) => {
-        const t = (e as any)?.ticket as Ticket;
-        if (!t) return;
+        const raw = (e as any)?.ticket ?? e;
+        if (!raw) return;
+        const t = normalizeTicket(raw);
         setTickets((prev) =>
-          prev.map((x) => (x.id === t.id ? { ...x, ...t } : x)),
+          prev.map((x) => (x.id === t.id ? { ...x, ...t } : x))
         );
       },
 
@@ -213,14 +408,14 @@ export default function Desk() {
         const o = (e as any)?.order as Order;
         if (!o) return;
         setOrders((prev) =>
-          prev.find((x) => x.id === o.id) ? prev : [o, ...prev],
+          prev.find((x) => x.id === o.id) ? prev : [o, ...prev]
         );
       },
       order_updated: (e) => {
         const o = (e as any)?.order as Order;
         if (!o) return;
         setOrders((prev) =>
-          prev.map((x) => (x.id === o.id ? { ...x, ...o } : x)),
+          prev.map((x) => (x.id === o.id ? { ...x, ...o } : x))
         );
       },
     });
@@ -228,21 +423,42 @@ export default function Desk() {
     return () => off();
   }, [refresh]);
 
-  async function setTicketStatus(id: string, status: Ticket["status"]) {
+  async function setTicketStatus(
+    id: string,
+    nextStatus: TicketStatus,
+    currentStatus: TicketStatus
+  ) {
+    // optimistic UI
     setTickets((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, status } : t)),
+      prev.map((t) => (t.id === id ? { ...t, status: nextStatus } : t))
     );
+
     try {
-      await updateTicket(id, { status });
+      let payload: any;
+
+      if (IS_SUPABASE_FUNCTIONS) {
+        const action = supabaseActionForTransition(currentStatus, nextStatus);
+        if (!action) {
+          // illegal transition under Supabase rules – reload and bail
+          await refresh();
+          return;
+        }
+        payload = { action };
+      } else {
+        // Legacy Node backend: still expects direct status patch
+        payload = { status: nextStatus };
+      }
+
+      await updateTicket(id, payload);
     } catch {
       // revert on failure
-      refresh();
+      await refresh();
     }
   }
 
   async function setOrderStatus(id: string, status: string) {
     setOrders((prev) =>
-      prev.map((o) => (o.id === id ? { ...o, status } : o)),
+      prev.map((o) => (o.id === id ? { ...o, status } : o))
     );
     try {
       await updateOrder(id, { status });
@@ -358,10 +574,22 @@ export default function Desk() {
                         style={{
                           fontSize: 12,
                           color: "var(--muted)",
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: 4,
+                          alignItems: "center",
                         }}
                       >
-                        Booking: {t.booking} · SLA: {t.sla_minutes}m · Created{" "}
-                        {new Date(t.created_at).toLocaleTimeString()}
+                        <span>Booking: {t.booking ?? "—"}</span>
+                        <span>· SLA: {t.sla_minutes}m</span>
+                        <span>
+                          · Created{" "}
+                          {new Date(t.created_at).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                        {renderSlaStatus(t)}
                       </div>
                     </div>
                     <span className="badge">{t.status}</span>
@@ -378,7 +606,9 @@ export default function Desk() {
                     {t.status === "Requested" && (
                       <button
                         className="btn btn-light"
-                        onClick={() => setTicketStatus(t.id, "Accepted")}
+                        onClick={() =>
+                          setTicketStatus(t.id, "Accepted", t.status)
+                        }
                       >
                         Accept
                       </button>
@@ -387,15 +617,21 @@ export default function Desk() {
                       t.status === "Accepted") && (
                       <button
                         className="btn btn-light"
-                        onClick={() => setTicketStatus(t.id, "InProgress")}
+                        onClick={() =>
+                          setTicketStatus(t.id, "InProgress", t.status)
+                        }
                       >
                         Start
                       </button>
                     )}
-                    {t.status !== "Done" && (
+                    {(IS_SUPABASE_FUNCTIONS
+                      ? t.status === "InProgress"
+                      : t.status !== "Done") && (
                       <button
                         className="btn"
-                        onClick={() => setTicketStatus(t.id, "Done")}
+                        onClick={() =>
+                          setTicketStatus(t.id, "Done", t.status)
+                        }
                       >
                         Mark Done
                       </button>
@@ -449,8 +685,11 @@ export default function Desk() {
                           color: "var(--muted)",
                         }}
                       >
-                        {new Date(o.created_at).toLocaleTimeString()} ·{" "}
-                        {o.items?.length || 0} item(s)
+                        {new Date(o.created_at).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}{" "}
+                        · {o.items?.length || 0} item(s)
                       </div>
                     </div>
                     <span className="badge">{o.status}</span>

@@ -1202,6 +1202,8 @@ export async function myStays(
        • Supabase Edge:  /catalog-services?hotelSlug=...
        • Node backend:   /catalog/services?hotelSlug=...
 ============================================================================ */
+
+
 function looksLikeUuid(value: string | undefined | null): boolean {
   if (!value) return false;
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
@@ -1222,11 +1224,13 @@ export async function getServices(hotelKey?: string) {
         .from("services")
         .select("hotel_id,key,label_en,sla_minutes,active")
         .order("key", { ascending: true });
+
       if (hotelKey && isId) {
         // filter by hotel_id (owner/staff views)
         // @ts-ignore
         query = query.eq("hotel_id", hotelKey);
       }
+
       // @ts-ignore
       const { data, error } = await query;
       if (error) throw error;
@@ -1238,14 +1242,24 @@ export async function getServices(hotelKey?: string) {
 
   // HTTP path: used when:
   // - Supabase client is not available, OR
-  // - hotelKey looks like a slug (non-UUID), so we treat it as hotelSlug
+  // - we want to route via backend/Edge Functions.
+  // Accept BOTH hotel slug and hotel id, mirroring getMenu().
   let path = IS_SUPABASE_FUNCTIONS ? "/catalog-services" : "/catalog/services";
-  if (hotelKey && !isId) {
+
+  if (hotelKey) {
     const sep = path.includes("?") ? "&" : "?";
-    path += `${sep}hotelSlug=${encodeURIComponent(hotelKey)}`;
+    if (isId) {
+      // treat as hotel_id
+      path += `${sep}hotelId=${encodeURIComponent(hotelKey)}`;
+    } else {
+      // treat as hotel slug
+      path += `${sep}hotelSlug=${encodeURIComponent(hotelKey)}`;
+    }
   }
+
   return req(path);
 }
+
 
 export async function saveServices(
   items: Service[],

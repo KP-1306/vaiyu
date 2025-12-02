@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import Spinner from "../../components/Spinner";
+import SEO from "../../components/SEO";
 import { api, createTicket, updateTicket, getServices } from "../../lib/api";
 
 type TicketStatus =
@@ -48,7 +49,6 @@ type NewTicketPayload = {
   bookingCode?: string;
   priority: TicketPriority;
 };
-
 
 // ─────────────────────────────────────────────────────────────
 // Detect effective hotel (URL ?hotelId=… or ?id=… or first hotel_members row)
@@ -156,7 +156,6 @@ function useEffectiveHotelId() {
 
   return { hotelId, initialised, error };
 }
-
 
 // ─────────────────────────────────────────────────────────────
 // Small UI helpers
@@ -398,7 +397,7 @@ export default function DeskTickets() {
     error: servicesError,
   } = useQuery({
     queryKey: ["services_for_tickets", hotelId],
-    enabled: !!hotelId,
+    enabled: !!hotelId && initialised,
     queryFn: async () => {
       const res = await getServices(hotelId || undefined);
       return ((res as any)?.items || []) as ServiceRow[];
@@ -425,7 +424,7 @@ export default function DeskTickets() {
       priorityFilter,
       overdueFilter,
     ],
-    enabled: !!hotelId,
+    enabled: !!hotelId && initialised,
     queryFn: async () => {
       if (!hotelId) return [] as TicketRow[];
 
@@ -491,6 +490,7 @@ export default function DeskTickets() {
         details: newTicket.details?.trim() || undefined,
         source: "desk",
         bookingCode: newTicket.bookingCode?.trim() || undefined,
+        // We reuse "Room / Booking" input – safe to send into both fields.
         room: newTicket.bookingCode?.trim() || undefined,
         priority: newTicket.priority,
       } as any);
@@ -628,6 +628,7 @@ export default function DeskTickets() {
   if (!initialised) {
     return (
       <main className="p-4 sm:p-6">
+        <SEO title="Desk – Tickets" noIndex />
         <h1 className="text-xl font-semibold mb-4">Desk – Tickets</h1>
         <div className="mt-4">
           <Spinner label="Detecting your hotel…" />
@@ -639,6 +640,7 @@ export default function DeskTickets() {
   if (!hotelId) {
     return (
       <main className="p-4 sm:p-6">
+        <SEO title="Desk – Tickets" noIndex />
         <h1 className="text-xl font-semibold mb-2">Desk – Tickets</h1>
         <p className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
           {hotelError ||
@@ -650,6 +652,8 @@ export default function DeskTickets() {
 
   return (
     <main className="p-4 sm:p-6">
+      <SEO title="Desk – Tickets" noIndex />
+
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>

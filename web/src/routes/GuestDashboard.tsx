@@ -6,13 +6,6 @@ import { API } from "../lib/api";
 import AccountControls from "../components/AccountControls";
 import RewardsPill from "../components/guest/RewardsPill"; // quick rewards CTA
 
-// Detect if API is pointing to Supabase Edge Functions (functions/v1)
-const IS_SUPABASE_FUNCTIONS =
-  typeof API === "string" &&
-  (API.includes("supabase.co/functions/v1") ||
-    API.includes(".functions.supabase.co") ||
-    API.includes("localhost:54321/functions/v1"));
-
 /** Decide if demo preview should be allowed */
 function shouldUseDemo(): boolean {
   try {
@@ -34,13 +27,10 @@ function shouldUseDemo(): boolean {
 }
 const USE_DEMO = shouldUseDemo();
 
-/** Correct endpoints for both legacy API and Supabase Functions */
-const STAYS_ENDPOINT = IS_SUPABASE_FUNCTIONS ? "/me-stays" : "/me/stays";
-const REVIEWS_ENDPOINT = IS_SUPABASE_FUNCTIONS ? "/me-reviews" : "/me/reviews";
-const SPEND_ENDPOINT = IS_SUPABASE_FUNCTIONS ? "/me-spend" : "/me/spend";
-const REFERRALS_ENDPOINT = IS_SUPABASE_FUNCTIONS
-  ? "/me-referrals"
-  : "/me/referrals";
+/** Detect if API is pointing directly at Supabase Edge Functions */
+const IS_SUPABASE_EDGE = API.includes(".functions.supabase.co");
+/** Correct stays endpoint for both backends */
+const STAYS_ENDPOINT = IS_SUPABASE_EDGE ? "/me-stays" : "/me/stays";
 
 /* ======= TRAVEL COMMAND CENTER ======= */
 export default function GuestDashboard() {
@@ -202,7 +192,7 @@ export default function GuestDashboard() {
 
   /* ---- Card loads (resilient) ---- */
   useEffect(() => {
-    // ✅ uses /me-stays for Supabase Functions, /me/stays for old API
+    // ✅ uses /me-stays for Supabase Edge, /me/stays for old API
     loadCard(
       () => jsonWithTimeout(`${API}${STAYS_ENDPOINT}?limit=10`),
       (j: any) => (Array.isArray(j?.items) ? (j.items as Stay[]) : []),
@@ -212,7 +202,7 @@ export default function GuestDashboard() {
     );
 
     loadCard(
-      () => jsonWithTimeout(`${API}${REVIEWS_ENDPOINT}?limit=50`),
+      () => jsonWithTimeout(`${API}/me/reviews?limit=50`),
       (j: any) => (Array.isArray(j?.items) ? (j.items as Review[]) : []),
       demoReviews,
       setReviews,
@@ -220,7 +210,7 @@ export default function GuestDashboard() {
     );
 
     loadCard(
-      () => jsonWithTimeout(`${API}${SPEND_ENDPOINT}?years=5`),
+      () => jsonWithTimeout(`${API}/me/spend?years=5`),
       (j: any) =>
         Array.isArray(j?.items)
           ? (j.items as any[]).map((row) => ({
@@ -236,7 +226,7 @@ export default function GuestDashboard() {
     );
 
     loadCard(
-      () => jsonWithTimeout(`${API}${REFERRALS_ENDPOINT}`),
+      () => jsonWithTimeout(`${API}/me/referrals`),
       (j: any) => (Array.isArray(j?.items) ? (j.items as Referral[]) : []),
       demoReferrals,
       setReferrals,
@@ -1602,32 +1592,45 @@ async function jsonWithTimeout(url: string, ms = 5000) {
   const t = setTimeout(() => c.abort(), ms);
 
   try {
-    const init: RequestInit = {
-      signal: c.signal,
-      cache: "no-store",
-      headers: {},
-    };
+    const headers: Record<string, string> = {};
 
-    // Attach Supabase auth token when calling Edge Functions
-    if (IS_SUPABASE_FUNCTIONS) {
+    // ✅ When using Supabase Edge Functions, send auth + apikey headers
+    if (IS_SUPABASE_EDGE) {
       try {
-        const { data } = await supabase.auth.getSession();
-        const token = data.session?.access_token;
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        const token = session?.access_token;
         if (token) {
-          (init.headers as any).Authorization = `Bearer ${token}`;
+          headers["authorization"] = `Bearer ${token}`;
         }
-      } catch (err) {
-        console.warn("[GuestDashboard] Failed to get auth session", err);
+
+        const anonKey =
+          (import.meta as any).env?.VITE_SUPABASE_ANON_KEY as
+            | string
+            | undefined;
+        if (anonKey) {
+          headers["apikey"] = anonKey;
+        }
+      } catch {
+        // If we fail to get a session, we just fall back to unauthenticated;
+        // the function will return 401 and loadCard will handle it gracefully.
       }
     }
 
-    const r = await fetch(url, init);
+    const r = await fetch(url, {
+      signal: c.signal,
+      cache: "no-store",
+      headers,
+    });
     if (!r.ok) throw new Error(String(r.status));
     return r.json();
   } finally {
     clearTimeout(t);
   }
 }
+
 function fmtMoney(n?: number) {
   const v = Number.isFinite(Number(n)) ? Number(n) : 0;
   return `₹ ${v.toLocaleString()}`;

@@ -52,7 +52,7 @@ export default function Menu() {
   const [room, setRoom] = useState<string>(
     () =>
       (typeof window !== "undefined" ? localStorage.getItem(roomKey) : null) ||
-      "201"
+      "201",
   );
   const [toast, setToast] = useState<string>("");
   const [busy, setBusy] = useState<string>(""); // keeps the id of item being actioned
@@ -121,14 +121,8 @@ export default function Menu() {
       res?.id ??
       res?.data?.id ??
       res?.ticket_id ??
+      res?.ticketId ??
       undefined
-    );
-  }
-
-  function looksLikeUuid(value: string | undefined | null): boolean {
-    if (!value) return false;
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      value
     );
   }
 
@@ -139,19 +133,21 @@ export default function Menu() {
     setBusy(busyKey);
 
     try {
-      const hotelKey = hotelKeyFromQuery;
-      const isUuid = looksLikeUuid(hotelKey);
+      // Work out hotel from query explicitly:
+      // ?hotelId=... (UUID)  OR  ?hotelSlug=TENANT1 / ?hotel=TENANT1
+      const hotelIdFromQuery = searchParams.get("hotelId") || undefined;
+      const hotelSlugFromQuery =
+        (!hotelIdFromQuery &&
+          (searchParams.get("hotelSlug") || searchParams.get("hotel"))) ||
+        undefined;
 
       // Build a backward-compatible payload that works with:
       // - Supabase Edge Function /tickets (hotelId | hotelSlug, serviceKey, bookingCode, room, source, priority)
       // - Older Node/demo backends (booking, booking_code, service_key, key, label)
       const payload: any = {
         // Hotel context
-        ...(hotelKey
-          ? isUuid
-            ? { hotelId: hotelKey }
-            : { hotelSlug: hotelKey }
-          : {}),
+        hotelId: hotelIdFromQuery,
+        hotelSlugFromQuery,
 
         // Service identity (accept multiple shapes)
         serviceKey: service_key,

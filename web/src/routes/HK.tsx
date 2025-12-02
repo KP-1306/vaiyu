@@ -1,25 +1,125 @@
 // web/src/routes/HK.tsx
 import { useEffect, useMemo, useState } from "react";
-import { listTickets, updateTicket } from "../lib/api";
+import { IS_SUPABASE_FUNCTIONS, listTickets, updateTicket } from "../lib/api";
 import { connectEvents } from "../lib/sse";
 import SEO from "../components/SEO";
+
+type TicketStatus = "Requested" | "Accepted" | "InProgress" | "Done";
 
 type Ticket = {
   id: string;
   service_key: string;
   room: string;
-  status: "Requested" | "Accepted" | "InProgress" | "Done";
+  booking?: string;
+  status: TicketStatus;
   created_at: string;
   sla_minutes: number;
+  sla_deadline?: string | null;
+  is_overdue?: boolean;
+  priority?: "low" | "normal" | "high" | "urgent" | string;
 };
+
+/** Map any backend status (Node or Supabase) into our UI status */
+function mapBackendStatusToUi(rawStatus: unknown): TicketStatus {
+  const s = String(rawStatus ?? "").toLowerCase();
+
+  switch (s) {
+    case "new":
+    case "requested":
+      return "Requested";
+    case "accepted":
+      return "Accepted";
+    case "in_progress":
+    case "in-progress":
+    case "in progress":
+    case "paused":
+      // paused is still effectively "in progress" for HK UI
+      return "InProgress";
+    case "resolved":
+    case "closed":
+    case "done":
+      return "Done";
+    default:
+      return "Requested";
+  }
+}
+
+/** Normalise arbitrary ticket row into the UI Ticket type */
+function normalizeTicket(raw: any): Ticket {
+  const id = String(raw.id ?? "");
+  const service_key = String(
+    raw.service_key ?? raw.key ?? raw.service ?? "service"
+  ).trim();
+
+  const room = String(
+    raw.room ?? raw.room_number ?? raw.roomNo ?? raw.unit ?? "-"
+  ).trim();
+
+  const created_at: string =
+    raw.created_at ?? raw.inserted_at ?? raw.created ?? new Date().toISOString();
+
+  const status = mapBackendStatusToUi(raw.status);
+
+  const sla_minutes: number =
+    Number(
+      raw.sla_minutes ?? raw.sla_minutes_snapshot ?? raw.sla ?? raw.sla_mins
+    ) || 0;
+
+  const sla_deadline: string | null =
+    raw.sla_deadline ?? raw.due_at ?? raw.deadline ?? null;
+
+  const booking =
+    raw.booking ?? raw.booking_code ?? raw.code ?? raw.stay_code ?? undefined;
+
+  const is_overdue =
+    typeof raw.is_overdue === "boolean" ? raw.is_overdue : undefined;
+
+  const priority = raw.priority as Ticket["priority"];
+
+  return {
+    id,
+    service_key,
+    room,
+    booking,
+    status,
+    created_at,
+    sla_minutes,
+    sla_deadline,
+    is_overdue,
+    priority,
+  };
+}
+
+/** Translate a UI transition into a Supabase RPC action */
+function supabaseActionForTransition(
+  current: TicketStatus,
+  next: TicketStatus
+): string | null {
+  if (current === "Requested" && next === "Accepted") return "accept";
+  if (current === "Accepted" && next === "InProgress") return "start";
+  if (current === "InProgress" && next === "Done") return "resolve";
+  return null;
+}
 
 export default function HK() {
   const [items, setItems] = useState<Ticket[]>([]);
-  const [status, setFilter] = useState<"all" | Ticket["status"]>("all");
+  const [status, setFilter] = useState<"all" | TicketStatus>("all");
 
   async function load() {
-    const r = await listTickets();
-    setItems(((r as any).items || []) as Ticket[]);
+    try {
+      const r = await listTickets();
+
+      const rawItems: any[] =
+        (Array.isArray((r as any)?.items) && (r as any).items) ||
+        (Array.isArray((r as any)?.tickets) && (r as any).tickets) ||
+        (Array.isArray(r) && (r as any)) ||
+        [];
+
+      setItems(rawItems.map(normalizeTicket));
+    } catch (e) {
+      console.error("[HK] listTickets error", e);
+      setItems([]);
+    }
   }
 
   useEffect(() => {
@@ -36,36 +136,61 @@ export default function HK() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  <SEO title="Owner Home" noIndex />
-  
   const filtered = useMemo(
     () => (status === "all" ? items : items.filter((t) => t.status === status)),
     [items, status]
   );
 
-  function badge(s: Ticket["status"]) {
-    const map: Record<Ticket["status"], string> = {
+  function badge(s: TicketStatus) {
+    const map: Record<TicketStatus, string> = {
       Requested: "bg-gray-100 text-gray-800",
       Accepted: "bg-amber-100 text-amber-800",
       InProgress: "bg-sky-100 text-sky-800",
       Done: "bg-emerald-100 text-emerald-800",
     };
-    return <span className={`px-2 py-0.5 rounded text-xs ${map[s]}`}>{s}</span>;
+    return (
+      <span className={`px-2 py-0.5 rounded text-xs ${map[s]}`}>{s}</span>
+    );
   }
 
-  async function updateTicketStatus(id: string, next: Ticket["status"]) {
-    // optional: optimistic UI
-    setItems((prev) => prev.map((t) => (t.id === id ? { ...t, status: next } : t)));
+  async function updateTicketStatus(
+    id: string,
+    next: TicketStatus,
+    current: TicketStatus
+  ) {
+    // optimistic UI
+    setItems((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, status: next } : t))
+    );
+
     try {
-      await updateTicket(id, { status: next });
-    } catch {
-      // revert on error
-      load();
+      let payload: any;
+
+      if (IS_SUPABASE_FUNCTIONS) {
+        const action = supabaseActionForTransition(current, next);
+        if (!action) {
+          // unsupported transition: reload and bail
+          await load();
+          return;
+        }
+        payload = { action };
+      } else {
+        // Legacy Node backend: still expects direct status patch
+        payload = { status: next };
+      }
+
+      await updateTicket(id, payload);
+    } catch (e) {
+      console.error("[HK] updateTicketStatus error", e);
+      // revert by refetching
+      await load();
     }
   }
 
   return (
     <main className="max-w-3xl mx-auto p-4">
+      <SEO title="Housekeeping" noIndex />
+
       <div className="flex items-center justify-between mb-3">
         <h1 className="text-xl font-semibold">Housekeeping</h1>
         <select
@@ -100,7 +225,9 @@ export default function HK() {
               {badge(t.status)}
               {t.status === "Requested" && (
                 <button
-                  onClick={() => updateTicketStatus(t.id, "Accepted")}
+                  onClick={() =>
+                    updateTicketStatus(t.id, "Accepted", t.status)
+                  }
                   className="px-2 py-1 rounded bg-amber-600 text-white text-sm"
                 >
                   Accept
@@ -108,7 +235,9 @@ export default function HK() {
               )}
               {t.status === "Accepted" && (
                 <button
-                  onClick={() => updateTicketStatus(t.id, "InProgress")}
+                  onClick={() =>
+                    updateTicketStatus(t.id, "InProgress", t.status)
+                  }
                   className="px-2 py-1 rounded bg-sky-600 text-white text-sm"
                 >
                   Start
@@ -116,7 +245,7 @@ export default function HK() {
               )}
               {t.status === "InProgress" && (
                 <button
-                  onClick={() => updateTicketStatus(t.id, "Done")}
+                  onClick={() => updateTicketStatus(t.id, "Done", t.status)}
                   className="px-2 py-1 rounded bg-emerald-600 text-white text-sm"
                 >
                   Done

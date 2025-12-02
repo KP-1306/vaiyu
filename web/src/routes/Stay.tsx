@@ -198,19 +198,21 @@ function StayDetails({ id }: { id: string }) {
  * QR / guest home for non-UUID `/stay/:code` links.
  * Canonical one-stop page for guests coming from QR / WhatsApp.
  */
+
 function QrStayHome({ code }: { code: string }) {
   const [searchParams] = useSearchParams();
 
-  // Accept both ?hotel=<slug> and ?hotelId=<uuid>
-  const hotelSlug = searchParams.get("hotel") || "";
   const hotelId = searchParams.get("hotelId") || "";
+  const hotelSlugParam =
+    searchParams.get("hotel") || searchParams.get("hotelSlug") || "";
 
-  const hasHotelSlugParam = searchParams.has("hotel");
-  const hasHotelIdParam = searchParams.has("hotelId");
+  // Generic hotel key: prefer id, else slug
+  const hotelKey = hotelId || hotelSlugParam;
 
-  const hotelLabel = hotelSlug
-    ? hotelSlug.replace(/[-_]+/g, " ")
+  const hotelLabel = hotelSlugParam
+    ? hotelSlugParam.replace(/[-_]+/g, " ")
     : "your VAiyu stay";
+
 
   // Build a WhatsApp share link for this canonical stay URL (best-effort),
   // preserving whichever hotel param was used.

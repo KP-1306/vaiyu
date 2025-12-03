@@ -115,24 +115,15 @@ export default function Menu() {
   }
 
   // ---- Helpers that accept multiple API response shapes ----
-  function looksLikeUuid(value: string | undefined | null): boolean {
-    if (!value) return false;
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      value,
-    );
-  }
-
   function extractTicketId(res: any): string | undefined {
-    const candidate =
+    return (
       res?.ticket?.id ??
       res?.id ??
       res?.data?.id ??
       res?.ticket_id ??
-      undefined;
-
-    // Only treat a real UUID as a valid RequestTracker id
-    if (!looksLikeUuid(candidate)) return undefined;
-    return candidate;
+      res?.ticketId ??
+      undefined
+    );
   }
 
   // ---------- SERVICES → TICKETS (with tracker redirect) ----------
@@ -142,19 +133,21 @@ export default function Menu() {
     setBusy(busyKey);
 
     try {
-      const hotelKey = hotelKeyFromQuery;
-      const isUuid = looksLikeUuid(hotelKey);
+      // Work out hotel from query explicitly:
+      // ?hotelId=... (UUID)  OR  ?hotelSlug=TENANT1 / ?hotel=TENANT1
+      const hotelIdFromQuery = searchParams.get("hotelId") || undefined;
+      const hotelSlugFromQuery =
+        (!hotelIdFromQuery &&
+          (searchParams.get("hotelSlug") || searchParams.get("hotel"))) ||
+        undefined;
 
       // Build a backward-compatible payload that works with:
       // - Supabase Edge Function /tickets (hotelId | hotelSlug, serviceKey, bookingCode, room, source, priority)
       // - Older Node/demo backends (booking, booking_code, service_key, key, label)
       const payload: any = {
-        // Hotel context – match Desk/Owner flows
-        ...(hotelKey
-          ? isUuid
-            ? { hotelId: hotelKey }
-            : { hotelSlug: hotelKey }
-          : {}),
+        // Hotel context (extra fields are ignored by old backends)
+        hotelId: hotelIdFromQuery,
+        hotelSlugFromQuery,
 
         // Service identity (accept multiple shapes)
         serviceKey: service_key,
@@ -173,7 +166,8 @@ export default function Menu() {
         booking: code,
 
         // Meta
-        source: "guest_menu",
+        // IMPORTANT: must match Postgres enum ticket_source
+        source: "guest",
         priority: "normal",
         tenant: "guest",
       };
@@ -188,7 +182,7 @@ export default function Menu() {
         return;
       }
 
-      // If no ID but OK flag, just confirm (no tracker link)
+      // If no ID but OK flag, just confirm
       if (res?.ok) {
         showToast("Request placed");
         return;
@@ -212,7 +206,8 @@ export default function Menu() {
         item_key,
         qty: 1,
         booking: code,
-        source: "guest_menu",
+        // IMPORTANT: keep within orders.source enum as well
+        source: "guest",
       });
 
       // Keep old behaviour: success unless explicitly ok === false

@@ -295,7 +295,7 @@ const SignIn = lazy(() => import("./routes/SignIn"));
 const AuthCallback = lazy(() => import("./routes/AuthCallback"));
 const OwnerGuestProfile = lazy(() => import("./routes/OwnerGuestProfile"));
 
-// ✅ NEW: Request tracker page
+// Request tracker page
 const RequestTracker = lazy(() => import("./routes/RequestTracker"));
 
 // Owner property dashboard
@@ -450,7 +450,7 @@ export default function App() {
               element={<GuestWorkforceApply />}
             />
 
-            {/* ✅ NEW: Request tracker route */}
+            {/* Request tracker – guest SLA view */}
             <Route
               path="/requestTracker/:ticketId"
               element={<RequestTracker />}

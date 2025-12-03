@@ -432,31 +432,48 @@ function OwnerSidebar({ basePath }: { basePath: string }) {
   );
 }
 
-/* ---------------- App ---------------- */
+/* --------- Deep-link handler for /?from= & ?ticketId= ---------- */
 
-export default function App() {
+function useDeepLinkHandler() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Handle 404.html bootloader redirect: /index.html?from=/requestTracker/...
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    // Only handle deep-links when we land on the root
+    if (location.pathname !== "/") return;
 
     const params = new URLSearchParams(location.search);
     const from = params.get("from");
-    if (!from) return;
+    const ticketId = params.get("ticketId");
 
-    const handledKey = "va_from_redirect_handled";
-    const lastHandled = window.sessionStorage.getItem(handledKey);
-    if (lastHandled === from) return;
+    // 1) Direct ticketId query
+    if (ticketId) {
+      navigate(`/requestTracker/${encodeURIComponent(ticketId)}`, {
+        replace: true,
+      });
+      return;
+    }
 
-    window.sessionStorage.setItem(handledKey, from);
-    console.debug("[VAiyu_FE] App.fromRedirect", {
-      from,
-      current: location.pathname + location.search,
-    });
-    navigate(from, { replace: true });
-  }, [location, navigate]);
+    // 2) Bounce coming from 404.html -> "/?from=/requestTracker/…"
+    if (from) {
+      try {
+        const url = new URL(from, window.location.origin);
+        if (url.pathname.startsWith("/requestTracker/")) {
+          const target = url.pathname + (url.search || "") + (url.hash || "");
+          navigate(target, { replace: true });
+        }
+      } catch {
+        // ignore malformed URLs
+      }
+    }
+  }, [location.pathname, location.search, navigate]);
+}
+
+/* ---------------- App ---------------- */
+
+export default function App() {
+  // Handle deep-links from 404.html or direct /?ticketId= links
+  useDeepLinkHandler();
 
   return (
     <Suspense fallback={<PageSpinner />}>
@@ -475,7 +492,7 @@ export default function App() {
               element={<GuestWorkforceApply />}
             />
 
-            {/* ✅ Request tracker route – explicit ticketId param */}
+            {/* Request tracker route – explicit ticketId param */}
             <Route
               path="/requestTracker/:ticketId"
               element={<RequestTracker />}

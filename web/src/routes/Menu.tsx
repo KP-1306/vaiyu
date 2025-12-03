@@ -1,7 +1,7 @@
 // web/src/routes/Menu.tsx
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import {
   getServices,
   getMenu,
@@ -16,8 +16,8 @@ type FoodItem = { item_key: string; name: string; base_price: number };
 export default function Menu() {
   // booking code from route: /stay/:code/menu  (fallback to DEMO)
   const { code = "DEMO" } = useParams();
-
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   // --- tab from query (?tab=services|food), default = services ---
   const initialTabParam = (searchParams.get("tab") || "").toLowerCase();
@@ -52,7 +52,7 @@ export default function Menu() {
   const [room, setRoom] = useState<string>(
     () =>
       (typeof window !== "undefined" ? localStorage.getItem(roomKey) : null) ||
-      "201",
+      "201"
   );
   const [toast, setToast] = useState<string>("");
   const [busy, setBusy] = useState<string>(""); // keeps the id of item being actioned
@@ -129,7 +129,7 @@ export default function Menu() {
   function looksLikeUuid(value: string | undefined | null): boolean {
     if (!value) return false;
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      value,
+      value
     );
   }
 
@@ -140,11 +140,6 @@ export default function Menu() {
     setBusy(busyKey);
 
     try {
-      // Minimal guard: we must have a booking and room context
-      if (!code || !room) {
-        throw new Error("Missing booking or room");
-      }
-
       // Decide whether the hotel key is an ID or a slug.
       let hotelId: string | undefined;
       let hotelSlug: string | undefined;
@@ -171,9 +166,6 @@ export default function Menu() {
         label: service.label_en,
         label_en: service.label_en,
 
-        // Helpful human-readable details for staff
-        details: `Guest requested "${service.label_en || service_key}" from room ${room} via menu (booking ${code}).`,
-
         // Guest context
         room,
         bookingCode: code,
@@ -197,9 +189,8 @@ export default function Menu() {
       const id = extractTicketId(res);
 
       if (id) {
-        // Navigate to the RequestTracker route
-        // RequestTracker.tsx reads the ticket id from the last URL segment.
-        window.location.href = `/requestTracker/${encodeURIComponent(id)}`;
+        // ✅ Client-side navigation – avoids Netlify 404
+        navigate(`/requestTracker/${encodeURIComponent(id)}`);
         return;
       }
 

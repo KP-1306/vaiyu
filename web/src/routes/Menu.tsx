@@ -140,6 +140,11 @@ export default function Menu() {
     setBusy(busyKey);
 
     try {
+      // Minimal guard: we must have a booking and room context
+      if (!code || !room) {
+        throw new Error("Missing booking or room");
+      }
+
       // Decide whether the hotel key is an ID or a slug.
       let hotelId: string | undefined;
       let hotelSlug: string | undefined;
@@ -165,6 +170,9 @@ export default function Menu() {
         title: service.label_en || "Ticket",
         label: service.label_en,
         label_en: service.label_en,
+
+        // Helpful human-readable details for staff
+        details: `Guest requested "${service.label_en || service_key}" from room ${room} via menu (booking ${code}).`,
 
         // Guest context
         room,

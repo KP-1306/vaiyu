@@ -1,10 +1,13 @@
-<!-- web/public/404.html -->
 <!doctype html>
 <html>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Page not found | VAiyu</title>
+    <title>Page not found</title>
+    <meta name="va-debug" content="FOUR-OH-FOUR-v1" />
+    <script>
+      console.log("[VA_DEBUG] 404.html served for", window.location.pathname);
+    </script>
     <style>
       body {
         font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu,
@@ -25,54 +28,13 @@
         color: #145af2;
         text-decoration: none;
       }
-      .muted {
-        margin-top: 0.5rem;
-        font-size: 0.85rem;
-        color: #64748b;
-      }
     </style>
-
-    <script>
-      (function () {
-        try {
-          var pathname = window.location.pathname || "/";
-          var search = window.location.search || "";
-          var hash = window.location.hash || "";
-
-          // Original URL that caused the 404
-          var original = pathname + search + hash;
-
-          // Avoid loops if we're already on "/?from=..."
-          if (
-            pathname === "/" &&
-            search.indexOf("from=") !== -1
-          ) {
-            return;
-          }
-
-          var target = "/?from=" + encodeURIComponent(original);
-          window.location.replace(target);
-        } catch (e) {
-          // If anything goes wrong, we just show the fallback HTML below.
-        }
-      })();
-    </script>
   </head>
   <body>
     <div class="box">
       <h1>We can’t find that page</h1>
       <p>
-        Taking you back to the VAiyu app.
-        If nothing happens, try going <a href="/">home</a>.
-      </p>
-      <p class="muted">
-        Original path:
-        <script>
-          document.write(
-            (window.location.pathname || "") +
-              (window.location.search || "")
-          );
-        </script>
+        But the app is here. Try going <a href="/">home</a>.
       </p>
     </div>
   </body>

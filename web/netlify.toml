@@ -1,5 +1,3 @@
-# web/netlify.toml
-
 [build]
   command = "npm run build"
   publish = "dist"
@@ -19,18 +17,12 @@
     Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
     Content-Security-Policy = "default-src 'self'; connect-src 'self' https:; img-src 'self' data: https:; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:; frame-ancestors 'self'; base-uri 'self'"
 
-# Old links → new flow
+# ---------- Old links → new flow
 [[redirects]]
   from = "/welcome"
   to = "/guest"
   status = 301
   force = true
-
-# ✅ SPA rewrite JUST for requestTracker (more specific rule)
-[[redirects]]
-  from = "/requestTracker/*"
-  to = "/index.html"
-  status = 200
 
 # ---------- Observability proxy (MORE SPECIFIC; must come before /api/*)
 [[redirects]]
@@ -44,6 +36,13 @@
   to = "https://api.vaiyu.app/:splat"
   status = 200
   force = true
+
+# ---------- Request tracker deep links (***key fix***)
+# Any /requestTracker/<anything> should serve the SPA shell
+[[redirects]]
+  from = "/requestTracker/*"
+  to = "/index.html"
+  status = 200
 
 # ---------- SPA fallback (deep links load index.html)
 [[redirects]]

@@ -1,6 +1,6 @@
 // web/src/App.tsx
 
-import React, { Suspense, lazy } from "react";
+import React, { Suspense, lazy, useEffect } from "react";
 import {
   Routes,
   Route,
@@ -8,6 +8,8 @@ import {
   NavLink,
   Outlet,
   useParams,
+  useLocation,
+  useNavigate,
 } from "react-router-dom";
 import Header from "./components/Header";
 import WorkforceProfilePage from "./routes/WorkforceProfile";
@@ -433,6 +435,29 @@ function OwnerSidebar({ basePath }: { basePath: string }) {
 /* ---------------- App ---------------- */
 
 export default function App() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Handle 404.html bootloader redirect: /index.html?from=/requestTracker/...
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams(location.search);
+    const from = params.get("from");
+    if (!from) return;
+
+    const handledKey = "va_from_redirect_handled";
+    const lastHandled = window.sessionStorage.getItem(handledKey);
+    if (lastHandled === from) return;
+
+    window.sessionStorage.setItem(handledKey, from);
+    console.debug("[VAiyu_FE] App.fromRedirect", {
+      from,
+      current: location.pathname + location.search,
+    });
+    navigate(from, { replace: true });
+  }, [location, navigate]);
+
   return (
     <Suspense fallback={<PageSpinner />}>
       <div className="min-h-screen bg-white flex flex-col">

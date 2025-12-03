@@ -450,12 +450,11 @@ export default function App() {
               element={<GuestWorkforceApply />}
             />
 
-            {/* ✅ Request tracker route – catch *all* variants */}
-<Route
-  path="/requestTracker/*"
-  element={<RequestTracker />}
-/>
-
+            {/* ✅ Request tracker route – explicit ticketId param */}
+            <Route
+              path="/requestTracker/:ticketId"
+              element={<RequestTracker />}
+            />
 
             {/* Owner guest profile (canonical + legacy aliases) */}
             <Route
@@ -555,7 +554,7 @@ export default function App() {
             />
             <Route
               path="/owner/:slug/bookings/calendar"
-              element={
+              element{
                 <OwnerLayout>
                   <BookingsCalendar />
                 </OwnerLayout>

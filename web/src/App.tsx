@@ -554,7 +554,7 @@ export default function App() {
             />
             <Route
               path="/owner/:slug/bookings/calendar"
-              element{
+              element={
                 <OwnerLayout>
                   <BookingsCalendar />
                 </OwnerLayout>

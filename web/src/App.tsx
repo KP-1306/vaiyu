@@ -295,6 +295,9 @@ const SignIn = lazy(() => import("./routes/SignIn"));
 const AuthCallback = lazy(() => import("./routes/AuthCallback"));
 const OwnerGuestProfile = lazy(() => import("./routes/OwnerGuestProfile"));
 
+// NEW: Request tracker (guest ticket status)
+const RequestTracker = lazy(() => import("./routes/RequestTracker"));
+
 // Owner property dashboard
 const OwnerDashboard = lazy(() => import("./routes/OwnerDashboard"));
 
@@ -337,7 +340,7 @@ type OwnerLayoutProps = {
 function OwnerLayout({ children }: OwnerLayoutProps) {
   const { slug } = useParams();
   const base =
-    (slug && slug.trim()) ? `/owner/${encodeURIComponent(slug.trim())}` : "/owner";
+    slug && slug.trim() ? `/owner/${encodeURIComponent(slug.trim())}` : "/owner";
 
   return (
     <div className="owner-layout flex min-h-[calc(100vh-4rem)] bg-slate-50">
@@ -360,7 +363,11 @@ function OwnerSidebar({ basePath }: { basePath: string }) {
   // Ensure no trailing slash
   const base = basePath.replace(/\/+$/, "");
 
-  type Item = { label: string; to: string; feature?: "revenue" | "hrms" | "calendar" | "workforce" };
+  type Item = {
+    label: string;
+    to: string;
+    feature?: "revenue" | "hrms" | "calendar" | "workforce";
+  };
   const items: Item[] = [
     {
       label: "Today’s dashboard",
@@ -442,6 +449,9 @@ export default function App() {
               path="/guest/:slug/jobs/:jobId/apply"
               element={<GuestWorkforceApply />}
             />
+
+            {/* Request tracker (guest can open /requestTracker or /requestTracker/<ticketId>) */}
+            <Route path="/requestTracker/*" element={<RequestTracker />} />
 
             {/* Owner guest profile (canonical + legacy aliases) */}
             <Route

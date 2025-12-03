@@ -20,10 +20,20 @@ type Ticket = {
 };
 
 function usePathTicketId(): string | null {
-  const parts = (typeof window !== "undefined" ? window.location.pathname : "")
-    .split("/")
-    .filter(Boolean);
-  return parts[parts.length - 1] || null;
+  const path =
+    typeof window !== "undefined" ? window.location.pathname : "";
+  const parts = path.split("/").filter(Boolean);
+  const id = parts[parts.length - 1] || null;
+
+  if (typeof window !== "undefined") {
+    console.log("[VAiyu_FE] RequestTracker.usePathTicketId", {
+      path,
+      parts,
+      id,
+    });
+  }
+
+  return id;
 }
 
 function fmtTime(ts?: string) {
@@ -173,21 +183,38 @@ export default function RequestTracker() {
     ticket?.sla_deadline
   );
 
+  // Render-level debug
+  console.log("[VAiyu_FE] RequestTracker.render", {
+    id,
+    hasTicket: !!ticket,
+    err,
+    loading,
+  });
+
   async function load() {
-    if (!id) return;
+    if (!id) {
+      console.warn("[VAiyu_FE] RequestTracker.load: missing id");
+      return;
+    }
     try {
+      console.log("[VAiyu_FE] RequestTracker.load.start", { id });
       setLoading(true);
       const raw = await getTicket(id);
+      console.log("[VAiyu_FE] RequestTracker.load.raw", raw);
 
       const rawTicket = (raw as any)?.ticket ?? raw;
       if (!rawTicket) {
+        console.warn("[VAiyu_FE] RequestTracker.load: no ticket field", raw);
         throw new Error("Ticket not found");
       }
 
-      setTicket(normalizeTicket(rawTicket));
+      const normalized = normalizeTicket(rawTicket);
+      console.log("[VAiyu_FE] RequestTracker.load.normalized", normalized);
+
+      setTicket(normalized);
       setErr(null);
     } catch (e: any) {
-      console.error("[RequestTracker] load error", e);
+      console.error("[VAiyu_FE] RequestTracker.load error", e);
       setErr(e?.message || "Failed to load request");
       setTicket(null);
     } finally {

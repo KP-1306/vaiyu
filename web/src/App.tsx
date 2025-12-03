@@ -432,72 +432,71 @@ function OwnerSidebar({ basePath }: { basePath: string }) {
   );
 }
 
-/* --------- Deep-link handler for /?from= & ?ticketId= ---------- */
+/* --------- Deep-link handler for ticketId & from= ---------- */
 
 function useDeepLinkHandler() {
   const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Only handle deep-links when we land on the root
-    if (location.pathname !== "/") return;
-
     const params = new URLSearchParams(location.search);
-    const from = params.get("from");
     const ticketId = params.get("ticketId");
+    const from = params.get("from");
 
-    // 1) Direct ticketId query
+    // 1) Direct ticketId param, e.g. "/?ticketId=UUID"
     if (ticketId) {
+      console.debug("[VAiyu_FE] DeepLink: ticketId param detected", {
+        ticketId,
+        pathname: location.pathname,
+        search: location.search,
+      });
+
       navigate(`/requestTracker/${encodeURIComponent(ticketId)}`, {
         replace: true,
       });
       return;
     }
 
-    // 2) Bounce coming from 404.html -> "/?from=/requestTracker/…"
+    // 2) Bounce from 404.html: "/?from=/requestTracker/UUID"
     if (from) {
       try {
         const url = new URL(from, window.location.origin);
         if (url.pathname.startsWith("/requestTracker/")) {
-          const target = url.pathname + (url.search || "") + (url.hash || "");
-          navigate(target, { replace: true });
+          const id = url.pathname.split("/requestTracker/")[1] || "";
+          if (id) {
+            console.debug(
+              "[VAiyu_FE] DeepLink: from param for requestTracker",
+              {
+                from,
+                id,
+              }
+            );
+            navigate(`/requestTracker/${encodeURIComponent(id)}`, {
+              replace: true,
+            });
+          }
+        } else {
+          console.debug("[VAiyu_FE] DeepLink: from param (non-requestTracker)", {
+            from,
+          });
         }
-      } catch {
-        // ignore malformed URLs
+      } catch (err) {
+        console.warn("[VAiyu_FE] DeepLink: failed to parse 'from' param", err);
       }
     }
   }, [location.pathname, location.search, navigate]);
 }
 
-/* ---------- Global route logger (low-level debug) ---------- */
-
-function RouteLogger() {
-  const location = useLocation();
-
-  useEffect(() => {
-    if (import.meta.env.VITE_DEBUG_LOGS === "true") {
-      console.log("[VAiyu_FE] Route change", {
-        pathname: location.pathname,
-        search: location.search,
-      });
-    }
-  }, [location.pathname, location.search]);
-
-  return null;
-}
-
 /* ---------------- App ---------------- */
 
 export default function App() {
-  // Handle deep-links from 404.html or direct /?ticketId= links
+  // Handle deep-links from "/?ticketId=…" or "/?from=…"
   useDeepLinkHandler();
 
   return (
     <Suspense fallback={<PageSpinner />}>
       <div className="min-h-screen bg-white flex flex-col">
         <Header />
-        {/* Low-level router debug; safe in production when VITE_DEBUG_LOGS!=="true" */}
-        <RouteLogger />
         <main className="flex-1">
           <Routes>
             {/* Landing */}

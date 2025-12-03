@@ -450,11 +450,12 @@ export default function App() {
               element={<GuestWorkforceApply />}
             />
 
-            {/* Request tracker – guest SLA view */}
-            <Route
-              path="/requestTracker/:ticketId"
-              element={<RequestTracker />}
-            />
+            {/* ✅ Request tracker route – catch *all* variants */}
+<Route
+  path="/requestTracker/*"
+  element={<RequestTracker />}
+/>
+
 
             {/* Owner guest profile (canonical + legacy aliases) */}
             <Route

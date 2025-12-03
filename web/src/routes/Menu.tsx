@@ -9,6 +9,7 @@ import {
   createOrder,
   isDemo,
 } from "../lib/api";
+import { dbg, dbgError } from "../lib/debug";
 
 type Service = { key: string; label_en: string; sla_minutes: number };
 type FoodItem = { item_key: string; name: string; base_price: number };
@@ -139,6 +140,13 @@ export default function Menu() {
     const busyKey = `svc:${service_key}`;
     setBusy(busyKey);
 
+    dbg("Menu.requestService.start", {
+      service_key,
+      room,
+      bookingCode: code,
+      hotelKeyFromQuery,
+    });
+
     try {
       // Decide whether the hotel key is an ID or a slug.
       let hotelId: string | undefined;
@@ -185,23 +193,33 @@ export default function Menu() {
         payload.hotelSlug = hotelSlug;
       }
 
+      dbg("Menu.requestService.payload", payload);
+
       const res: any = await createTicket(payload);
+
+      dbg("Menu.requestService.response", res);
+
       const id = extractTicketId(res);
 
       if (id) {
+        const url = `/requestTracker/${encodeURIComponent(id)}`;
+        dbg("Menu.requestService.navigate", { id, url });
+
         // ✅ Client-side navigation – avoids Netlify 404
-        navigate(`/requestTracker/${encodeURIComponent(id)}`);
+        navigate(url);
         return;
       }
 
       // If no ID but OK flag, just confirm
       if (res?.ok) {
+        dbg("Menu.requestService.noIdButOk", res);
         showToast("Request placed");
         return;
       }
 
       throw new Error("Could not create request");
     } catch (e: any) {
+      dbgError("Menu.requestService.error", e);
       console.error("[Menu] requestService error", e);
       alert(e?.message || "Could not create request");
     } finally {

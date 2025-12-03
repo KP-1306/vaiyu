@@ -469,6 +469,23 @@ function useDeepLinkHandler() {
   }, [location.pathname, location.search, navigate]);
 }
 
+/* ---------- Global route logger (low-level debug) ---------- */
+
+function RouteLogger() {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (import.meta.env.VITE_DEBUG_LOGS === "true") {
+      console.log("[VAiyu_FE] Route change", {
+        pathname: location.pathname,
+        search: location.search,
+      });
+    }
+  }, [location.pathname, location.search]);
+
+  return null;
+}
+
 /* ---------------- App ---------------- */
 
 export default function App() {
@@ -479,6 +496,8 @@ export default function App() {
     <Suspense fallback={<PageSpinner />}>
       <div className="min-h-screen bg-white flex flex-col">
         <Header />
+        {/* Low-level router debug; safe in production when VITE_DEBUG_LOGS!=="true" */}
+        <RouteLogger />
         <main className="flex-1">
           <Routes>
             {/* Landing */}

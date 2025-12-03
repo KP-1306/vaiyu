@@ -115,15 +115,24 @@ export default function Menu() {
   }
 
   // ---- Helpers that accept multiple API response shapes ----
+  function looksLikeUuid(value: string | undefined | null): boolean {
+    if (!value) return false;
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      value,
+    );
+  }
+
   function extractTicketId(res: any): string | undefined {
-    return (
+    const candidate =
       res?.ticket?.id ??
       res?.id ??
       res?.data?.id ??
       res?.ticket_id ??
-      res?.ticketId ??
-      undefined
-    );
+      undefined;
+
+    // Only treat a real UUID as a valid RequestTracker id
+    if (!looksLikeUuid(candidate)) return undefined;
+    return candidate;
   }
 
   // ---------- SERVICES → TICKETS (with tracker redirect) ----------
@@ -133,21 +142,19 @@ export default function Menu() {
     setBusy(busyKey);
 
     try {
-      // Work out hotel from query explicitly:
-      // ?hotelId=... (UUID)  OR  ?hotelSlug=TENANT1 / ?hotel=TENANT1
-      const hotelIdFromQuery = searchParams.get("hotelId") || undefined;
-      const hotelSlugFromQuery =
-        (!hotelIdFromQuery &&
-          (searchParams.get("hotelSlug") || searchParams.get("hotel"))) ||
-        undefined;
+      const hotelKey = hotelKeyFromQuery;
+      const isUuid = looksLikeUuid(hotelKey);
 
       // Build a backward-compatible payload that works with:
       // - Supabase Edge Function /tickets (hotelId | hotelSlug, serviceKey, bookingCode, room, source, priority)
       // - Older Node/demo backends (booking, booking_code, service_key, key, label)
       const payload: any = {
-        // Hotel context
-        hotelId: hotelIdFromQuery,
-        hotelSlugFromQuery,
+        // Hotel context – match Desk/Owner flows
+        ...(hotelKey
+          ? isUuid
+            ? { hotelId: hotelKey }
+            : { hotelSlug: hotelKey }
+          : {}),
 
         // Service identity (accept multiple shapes)
         serviceKey: service_key,
@@ -181,7 +188,7 @@ export default function Menu() {
         return;
       }
 
-      // If no ID but OK flag, just confirm
+      // If no ID but OK flag, just confirm (no tracker link)
       if (res?.ok) {
         showToast("Request placed");
         return;

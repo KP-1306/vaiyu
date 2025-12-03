@@ -1,3 +1,5 @@
+# web/netlify.toml
+
 [build]
   command = "npm run build"
   publish = "dist"
@@ -24,6 +26,11 @@
   status = 301
   force = true
 
+# ✅ SPA rewrite JUST for requestTracker (more specific rule)
+[[redirects]]
+  from = "/requestTracker/*"
+  to = "/index.html"
+  status = 200
 
 # ---------- Observability proxy (MORE SPECIFIC; must come before /api/*)
 [[redirects]]

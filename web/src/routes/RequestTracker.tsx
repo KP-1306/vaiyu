@@ -195,11 +195,12 @@ export default function RequestTracker() {
     }
   }
 
+  // Simplified polling: always call load() on interval,
+  // avoid closing over a stale `ticket` value.
   useEffect(() => {
     load();
     const iv = setInterval(() => {
-      // Light polling until request is done
-      if (ticket?.status === "Done") return;
+      // Light polling so guest can see live status updates
       load();
     }, 3000);
     return () => clearInterval(iv);

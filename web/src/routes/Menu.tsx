@@ -35,7 +35,7 @@ export default function Menu() {
   // hotel identifier from query (generic key: id OR slug)
   // - ?hotelId=<uuid>            (preferred from StayQuickLinks)
   // - ?hotelSlug=TENANT1         (older pattern)
-  // - ?hotel=TENANT1             (scan / WhatsApp)
+  // - ?hotel=TENANT1|<uuid>      (scan / WhatsApp - may be slug or id)
   const hotelKeyFromQuery =
     searchParams.get("hotelId") ||
     searchParams.get("hotelSlug") ||
@@ -126,6 +126,13 @@ export default function Menu() {
     );
   }
 
+  function looksLikeUuid(value: string | undefined | null): boolean {
+    if (!value) return false;
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      value,
+    );
+  }
+
   // ---------- SERVICES → TICKETS (with tracker redirect) ----------
   async function requestService(service: Service) {
     const service_key = service.key;
@@ -133,22 +140,22 @@ export default function Menu() {
     setBusy(busyKey);
 
     try {
-      // Work out hotel from query explicitly:
-      // ?hotelId=... (UUID)  OR  ?hotelSlug=TENANT1 / ?hotel=TENANT1
-      const hotelIdFromQuery = searchParams.get("hotelId") || undefined;
-      const hotelSlugFromQuery =
-        (!hotelIdFromQuery &&
-          (searchParams.get("hotelSlug") || searchParams.get("hotel"))) ||
-        undefined;
+      // Decide whether the hotel key is an ID or a slug.
+      let hotelId: string | undefined;
+      let hotelSlug: string | undefined;
+
+      if (hotelKeyFromQuery) {
+        if (looksLikeUuid(hotelKeyFromQuery)) {
+          hotelId = hotelKeyFromQuery;
+        } else {
+          hotelSlug = hotelKeyFromQuery;
+        }
+      }
 
       // Build a backward-compatible payload that works with:
       // - Supabase Edge Function /tickets (hotelId | hotelSlug, serviceKey, bookingCode, room, source, priority)
       // - Older Node/demo backends (booking, booking_code, service_key, key, label)
       const payload: any = {
-        // Hotel context (extra fields are ignored by old backends)
-        hotelId: hotelIdFromQuery,
-        hotelSlugFromQuery,
-
         // Service identity (accept multiple shapes)
         serviceKey: service_key,
         service_key,
@@ -166,11 +173,17 @@ export default function Menu() {
         booking: code,
 
         // Meta
-        // IMPORTANT: must match Postgres enum ticket_source
-        source: "guest",
+        source: "guest", // valid value for ticket_source enum
         priority: "normal",
         tenant: "guest",
       };
+
+      if (hotelId) {
+        payload.hotelId = hotelId;
+      }
+      if (hotelSlug) {
+        payload.hotelSlug = hotelSlug;
+      }
 
       const res: any = await createTicket(payload);
       const id = extractTicketId(res);
@@ -206,8 +219,7 @@ export default function Menu() {
         item_key,
         qty: 1,
         booking: code,
-        // IMPORTANT: keep within orders.source enum as well
-        source: "guest",
+        source: "guest_menu",
       });
 
       // Keep old behaviour: success unless explicitly ok === false

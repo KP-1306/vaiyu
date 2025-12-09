@@ -78,6 +78,32 @@ async function getAuthHeaders(
   return {};
 }
 
+/**
+ * Merge auth headers with any caller-provided headers without clobbering them.
+ * If caller already set Authorization, we keep it.
+ */
+async function withAuth(
+  opts: RequestInit = {},
+  token?: string
+): Promise<RequestInit> {
+  const existing = (opts.headers as Record<string, string> | undefined) || {};
+  const hasAuth = Object.keys(existing).some(
+    (k) => k.toLowerCase() === "authorization"
+  );
+  if (hasAuth) return opts;
+
+  const authH = await getAuthHeaders(token);
+  if (!Object.keys(authH).length) return opts;
+
+  return {
+    ...opts,
+    headers: {
+      ...existing,
+      ...authH,
+    },
+  };
+}
+
 /* ============================================================================
    Types (lightweight)
 ============================================================================ */
@@ -304,8 +330,17 @@ function buildHeaders(opts: RequestInit): HeadersInit {
   const h: Record<string, string> =
     { ...(opts.headers as Record<string, string> | undefined) } || {};
   const hasBody = typeof opts.body !== "undefined";
+
+  // Only auto-set JSON content-type for plain object/string bodies.
+  // Avoid overriding for FormData/Blob/etc.
+  const bodyIsFormData =
+    typeof FormData !== "undefined" && opts.body instanceof FormData;
+  const bodyIsBlob = typeof Blob !== "undefined" && opts.body instanceof Blob;
+
   if (
     hasBody &&
+    !bodyIsFormData &&
+    !bodyIsBlob &&
     !Object.keys(h).some((k) => k.toLowerCase() === "content-type")
   ) {
     h["Content-Type"] = "application/json";
@@ -697,10 +732,10 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
 export async function getMyWorkforceProfile(
   token?: string
 ): Promise<WorkforceProfile | null> {
-  const headers = await getAuthHeaders(token);
-  const res = await req<any>("/workforce-profile", { headers }).catch(
-    () => null
-  );
+  const opts = await withAuth({} as RequestInit, token);
+  const res = await req<any>("/workforce-profile", {
+    headers: opts.headers,
+  }).catch(() => null);
   if (!res) return null;
 
   const profile: WorkforceProfile =
@@ -715,11 +750,18 @@ export async function saveMyWorkforceProfile(
   payload: Partial<WorkforceProfile>,
   token?: string
 ): Promise<WorkforceProfile> {
-  const headers = await getAuthHeaders(token);
+  const opts = await withAuth(
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+    token
+  );
+
   const res = await req<any>("/workforce-profile", {
     method: "POST",
-    headers,
-    body: JSON.stringify(payload),
+    headers: opts.headers,
+    body: opts.body,
   });
 
   const profile: WorkforceProfile =
@@ -767,8 +809,10 @@ export async function listPropertyJobs(params: {
   search.set("property_id", params.propertyId);
   const qs = search.toString();
 
-  const headers = await getAuthHeaders(params.token);
-  const res = await req<any>(`/workforce-jobs?${qs}`, { headers });
+  const opts = await withAuth({} as RequestInit, params.token);
+  const res = await req<any>(`/workforce-jobs?${qs}`, {
+    headers: opts.headers,
+  });
 
   const jobs =
     (res?.jobs as WorkforceJob[]) ??
@@ -782,11 +826,18 @@ export async function postJob(
   job: Partial<WorkforceJob>,
   token?: string
 ): Promise<WorkforceJob> {
-  const headers = await getAuthHeaders(token);
+  const opts = await withAuth(
+    {
+      method: "POST",
+      body: JSON.stringify(job),
+    },
+    token
+  );
+
   const res = await req<any>("/workforce-jobs", {
     method: "POST",
-    headers,
-    body: JSON.stringify(job),
+    headers: opts.headers,
+    body: opts.body,
   });
 
   const saved: WorkforceJob =
@@ -803,8 +854,6 @@ export async function applyToJob(params: {
   expectedSalary?: number;
   token?: string;
 }): Promise<WorkforceJobApplication> {
-  const headers = await getAuthHeaders(params.token);
-
   const payload: any = {
     job_id: params.jobId,
   };
@@ -815,10 +864,18 @@ export async function applyToJob(params: {
     payload.message = params.message;
   }
 
+  const opts = await withAuth(
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+    params.token
+  );
+
   const res = await req<any>("/workforce-applications", {
     method: "POST",
-    headers,
-    body: JSON.stringify(payload),
+    headers: opts.headers,
+    body: opts.body,
   });
 
   const app: WorkforceJobApplication =
@@ -832,9 +889,9 @@ export async function applyToJob(params: {
 export async function listMyApplications(
   token?: string
 ): Promise<WorkforceJobApplication[]> {
-  const headers = await getAuthHeaders(token);
+  const opts = await withAuth({} as RequestInit, token);
   const res = await req<any>("/workforce-applications?mode=mine", {
-    headers,
+    headers: opts.headers,
   });
 
   const apps =
@@ -854,9 +911,9 @@ export async function listJobApplications(params: {
   search.set("job_id", params.jobId);
   const qs = search.toString();
 
-  const headers = await getAuthHeaders(params.token);
+  const opts = await withAuth({} as RequestInit, params.token);
   const res = await req<any>(`/workforce-applications?${qs}`, {
-    headers,
+    headers: opts.headers,
   });
 
   const apps =
@@ -1150,8 +1207,8 @@ export async function gridFetchSilentKillers(params: {
 export async function myStays(
   token?: string
 ): Promise<{ stays: Stay[]; items: Stay[] }> {
-  const headers = await getAuthHeaders(token);
-  const res = await req<any>("/me/stays", { headers });
+  const opts = await withAuth({} as RequestInit, token);
+  const res = await req<any>("/me/stays", { headers: opts.headers });
   const stays: Stay[] = res?.stays ?? res?.items ?? [];
   return { stays, items: stays };
 }
@@ -1167,17 +1224,33 @@ function looksLikeUuid(value: string | undefined | null): boolean {
   );
 }
 
+/**
+ * Normalize a raw services row (from Supabase) into the lightweight Service
+ * shape expected by the UI + legacy flows.
+ */
+function normalizeServiceRow(row: any): Service {
+  const key = String(row?.key ?? "").trim();
+  const label =
+    String(row?.label_en ?? row?.label ?? row?.labelEn ?? "").trim() || key;
+
+  return {
+    key,
+    label_en: label,
+    sla_minutes: Number(row?.sla_minutes ?? row?.sla ?? 0) || 0,
+    active: row?.active ?? true,
+    hotel_id: row?.hotel_id ?? null,
+  };
+}
+
 export async function getServices(hotelKey?: string | null) {
   const s = supa();
   const key = hotelKey || undefined;
   const isId = key ? looksLikeUuid(key) : false;
 
-  // 1) Try direct Supabase read
+  // 1) Try direct Supabase read (hotel_id only; slug needs backend)
   if (s && (!key || isId)) {
     try {
-      let query = s.from("services").select(
-        "id, hotel_id, key, label, description, category, is_paid, sla_minutes, priority_weight, active"
-      );
+      let query: any = s.from("services").select("*");
 
       if (key && isId) {
         query = query.eq("hotel_id", key);
@@ -1189,16 +1262,19 @@ export async function getServices(hotelKey?: string | null) {
 
       if (error) throw error;
 
-      return {
-        items: (data || []).filter((row) => row.active !== false),
-      };
+      const items = (data || [])
+        .map(normalizeServiceRow)
+        .filter((row) => row.active !== false);
+
+      return { items };
     } catch (err) {
       console.warn("getServices supabase failed, falling back to HTTP", err);
     }
   }
 
   // 2) HTTP fallback
-  let path = IS_SUPABASE_FUNCTIONS ? "/catalog-services" : "/catalog/services";
+  // Prefer the canonical path used by Edge Functions.
+  let path = "/catalog/services";
 
   if (key) {
     const sep = path.includes("?") ? "&" : "?";
@@ -1212,6 +1288,53 @@ export async function getServices(hotelKey?: string | null) {
   return req(path);
 }
 
+async function upsertServicesSupabase(
+  s: SupabaseClient,
+  items: Service[],
+  fallbackHotelId?: string | null
+) {
+  const base = (items || []).map((r) => ({
+    hotel_id: r.hotel_id ?? fallbackHotelId ?? null,
+    key: String(r.key || "").trim(),
+    sla_minutes: Number(r.sla_minutes) || 0,
+    active: r.active ?? true,
+  }));
+
+  const labels = (items || []).map((r) =>
+    String(r.label_en || r.key || "").trim()
+  );
+
+  // Attempt 1: schema with label_en
+  try {
+    const payload = base.map((b, i) => ({
+      ...b,
+      label_en: labels[i],
+    }));
+    // @ts-ignore
+    const { error } = await s.from("services").upsert(payload, {
+      onConflict: "hotel_id,key",
+    });
+    if (error) throw error;
+    return { ok: true };
+  } catch (e: any) {
+    const msg = String(e?.message ?? "");
+    // Attempt 2: schema with label
+    if (msg.toLowerCase().includes("label_en")) {
+      const payload = base.map((b, i) => ({
+        ...b,
+        label: labels[i],
+      }));
+      // @ts-ignore
+      const { error } = await s.from("services").upsert(payload, {
+        onConflict: "hotel_id,key",
+      });
+      if (error) throw error;
+      return { ok: true };
+    }
+    throw e;
+  }
+}
+
 export async function saveServices(
   items: Service[],
   fallbackHotelId?: string | null
@@ -1219,25 +1342,15 @@ export async function saveServices(
   const s = supa();
   if (s) {
     try {
-      const payload = (items || []).map((r) => ({
-        hotel_id: r.hotel_id ?? fallbackHotelId ?? null,
-        key: String(r.key || "").trim(),
-        label_en: String(r.label_en || "").trim(),
-        sla_minutes: Number(r.sla_minutes) || 0,
-        active: r.active ?? true,
-      }));
-      // @ts-ignore
-      const { error } = await s
-        .from("services")
-        .upsert(payload, { onConflict: "hotel_id,key" });
-      if (error) throw error;
-      return { ok: true };
+      const res = await upsertServicesSupabase(s, items, fallbackHotelId);
+      if (res?.ok) return res;
     } catch {
       // fall through
     }
   }
 
-  const path = IS_SUPABASE_FUNCTIONS ? "/catalog-services" : "/catalog/services";
+  // Use canonical HTTP path (works for both Netlify proxy and Functions base).
+  const path = "/catalog/services";
 
   return req(path, {
     method: "POST",
@@ -1266,11 +1379,18 @@ export async function referralInit(
   token?: string,
   channel = "guest_dashboard"
 ) {
-  const headers = await getAuthHeaders(token);
+  const opts = await withAuth(
+    {
+      method: "POST",
+      body: JSON.stringify({ property, channel }),
+    },
+    token
+  );
+
   return req(`/referrals/init`, {
     method: "POST",
-    headers,
-    body: JSON.stringify({ property, channel }),
+    headers: opts.headers,
+    body: opts.body,
   });
 }
 
@@ -1290,23 +1410,30 @@ export async function referralApply(
 }
 
 export async function myCredits(
-  token: string
+  token?: string
 ): Promise<{ items: CreditBalance[]; total?: number }> {
-  const headers = await getAuthHeaders(token);
-  return req(`/credits/mine`, { headers });
+  const opts = await withAuth({} as RequestInit, token);
+  return req(`/credits/mine`, { headers: opts.headers });
 }
 
 export async function redeemCredits(
-  token: string,
+  token: string | undefined,
   property: string,
   amount: number,
   context?: any
 ) {
-  const headers = await getAuthHeaders(token);
+  const opts = await withAuth(
+    {
+      method: "POST",
+      body: JSON.stringify({ property, amount, context }),
+    },
+    token
+  );
+
   return req(`/credits/redeem`, {
     method: "POST",
-    headers,
-    body: JSON.stringify({ property, amount, context }),
+    headers: opts.headers,
+    body: opts.body,
   });
 }
 
@@ -1326,10 +1453,23 @@ export async function upsertHotel(payload: Json) {
 /* ============================================================================
    Consent
 ============================================================================ */
-export async function setBookingConsent(code: string, reviews: boolean) {
+export async function setBookingConsent(
+  code: string,
+  reviews: boolean,
+  token?: string
+) {
+  const opts = await withAuth(
+    {
+      method: "POST",
+      body: JSON.stringify({ reviews }),
+    },
+    token
+  );
+
   return req(`/booking/${encodeURIComponent(code)}/consent`, {
     method: "POST",
-    body: JSON.stringify({ reviews }),
+    headers: opts.headers,
+    body: opts.body,
   });
 }
 
@@ -1544,8 +1684,10 @@ export async function fetchGuestProfile(params: {
 export async function fetchGuestIdentity(
   token?: string
 ): Promise<GuestIdentity | null> {
-  const headers = await getAuthHeaders(token);
-  const res = await req<any>("/guest-identity", { headers }).catch(() => null);
+  const opts = await withAuth({} as RequestInit, token);
+  const res = await req<any>("/guest-identity", {
+    headers: opts.headers,
+  }).catch(() => null);
 
   if (!res) return null;
   if (res.ok === false) return null;
@@ -1563,12 +1705,18 @@ export async function upsertGuestIdentity(
   payload: Partial<GuestIdentity>,
   token?: string
 ): Promise<{ ok: boolean; identity?: GuestIdentity }> {
-  const headers = await getAuthHeaders(token);
+  const opts = await withAuth(
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+    token
+  );
 
   const res = await req<any>("/guest-identity-upsert", {
     method: "POST",
-    headers,
-    body: JSON.stringify(payload),
+    headers: opts.headers,
+    body: opts.body,
   });
 
   const identity =
@@ -1582,36 +1730,90 @@ export async function upsertGuestIdentity(
 /* ============================================================================
    Folio / Flows
 ============================================================================ */
-export async function getFolio() {
-  return req(`/folio`);
+export async function getFolio(token?: string) {
+  const opts = await withAuth({} as RequestInit, token);
+  return req(`/folio`, { headers: opts.headers });
 }
-export async function precheck(data: Json) {
+export async function precheck(data: Json, token?: string) {
+  const opts = await withAuth(
+    { method: "POST", body: JSON.stringify(data) },
+    token
+  );
   return req(`/precheck`, {
     method: "POST",
-    body: JSON.stringify(data),
+    headers: opts.headers,
+    body: opts.body,
   });
 }
-export async function regcard(data: Json) {
+export async function regcard(data: Json, token?: string) {
+  const opts = await withAuth(
+    { method: "POST", body: JSON.stringify(data) },
+    token
+  );
   return req(`/regcard`, {
     method: "POST",
-    body: JSON.stringify(data),
+    headers: opts.headers,
+    body: opts.body,
   });
 }
-export async function checkout(data: {
+
+/**
+ * Checkout payload normalizer:
+ * supports both camelCase and snake_case consumers on backend.
+ */
+function normalizeCheckoutPayload(data: {
   bookingCode?: string;
+  booking_code?: string;
   autopost?: boolean;
+  auto_post?: boolean;
 }) {
+  const bookingCode =
+    data.bookingCode ?? (data as any).booking_code ?? undefined;
+  const autopost =
+    typeof data.autopost === "boolean"
+      ? data.autopost
+      : typeof (data as any).auto_post === "boolean"
+      ? (data as any).auto_post
+      : undefined;
+
+  const payload: any = { ...data };
+  if (bookingCode) {
+    payload.bookingCode = bookingCode;
+    payload.booking_code = bookingCode;
+  }
+  if (typeof autopost === "boolean") {
+    payload.autopost = autopost;
+    payload.auto_post = autopost;
+  }
+  return payload;
+}
+
+export async function checkout(
+  data: { bookingCode?: string; autopost?: boolean },
+  token?: string
+) {
+  const payload = normalizeCheckoutPayload(data as any);
+  const opts = await withAuth(
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+    token
+  );
+
   return req(`/checkout`, {
     method: "POST",
-    body: JSON.stringify(data),
+    headers: opts.headers,
+    body: opts.body,
   });
 }
 
 export async function endStay(
   bookingCode: string,
-  autopost: boolean = true
+  autopost: boolean = true,
+  token?: string
 ) {
-  return checkout({ bookingCode, autopost });
+  return checkout({ bookingCode, autopost }, token);
 }
 
 /* ============================================================================
@@ -1689,9 +1891,11 @@ export async function fetchOwnerApps(
   status: OwnerApp["status"] = "pending",
   token?: string
 ): Promise<{ items: OwnerApp[] }> {
-  const headers = await getAuthHeaders(token);
+  const opts = await withAuth({} as RequestInit, token);
   const q = `?status=${encodeURIComponent(status)}`;
-  return req<{ items: OwnerApp[] }>(`/owner/apps${q}`, { headers });
+  return req<{ items: OwnerApp[] }>(`/owner/apps${q}`, {
+    headers: opts.headers,
+  });
 }
 
 export async function reviewOwnerApp(
@@ -1700,11 +1904,18 @@ export async function reviewOwnerApp(
   opts?: { review_notes?: string; rejected_reason?: string },
   token?: string
 ) {
-  const headers = await getAuthHeaders(token);
+  const authed = await withAuth(
+    {
+      method: "PATCH",
+      body: JSON.stringify({ action, ...opts }),
+    },
+    token
+  );
+
   return req<{ ok: boolean }>(`/owner/apps/${encodeURIComponent(id)}`, {
     method: "PATCH",
-    headers,
-    body: JSON.stringify({ action, ...opts }),
+    headers: authed.headers,
+    body: authed.body,
   });
 }
 
@@ -1890,12 +2101,15 @@ export type OwnerRevenueResponse = {
 };
 
 export async function fetchOwnerOccupancy(
-  slug: string
+  slug: string,
+  token?: string
 ): Promise<OwnerOccupancyResponse> {
   const params = new URLSearchParams({
     metric: "occupancy",
     slug,
   });
+
+  const auth = await getAuthHeaders(token);
 
   const res = await fetch(
     `${API_URL}/owner/${encodeURIComponent(
@@ -1903,6 +2117,7 @@ export async function fetchOwnerOccupancy(
     )}/occupancy?${params.toString()}`,
     {
       credentials: "include",
+      headers: Object.keys(auth).length ? auth : undefined,
     }
   );
 
@@ -1915,7 +2130,8 @@ export async function fetchOwnerOccupancy(
 
 export async function fetchOwnerRevenue(
   slug: string,
-  range: string = "30d"
+  range: string = "30d",
+  token?: string
 ): Promise<OwnerRevenueResponse> {
   const params = new URLSearchParams({
     metric: "revenue",
@@ -1923,10 +2139,13 @@ export async function fetchOwnerRevenue(
     range,
   });
 
+  const auth = await getAuthHeaders(token);
+
   const res = await fetch(
     `${API_URL}/owner/${encodeURIComponent(slug)}/revenue?${params.toString()}`,
     {
       credentials: "include",
+      headers: Object.keys(auth).length ? auth : undefined,
     }
   );
 

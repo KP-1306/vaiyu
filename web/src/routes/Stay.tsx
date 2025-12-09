@@ -1,4 +1,3 @@
-// web/src/routes/Stay.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -196,37 +195,109 @@ function StayDetails({ id }: { id: string }) {
 
 /**
  * QR / guest home for non-UUID `/stay/:code` links.
- * Canonical one-stop page for guests coming from QR / WhatsApp.
+ * Canonical one-stop page for guests coming from QR / WhatsApp
+ * AND from Guest Dashboard when it links by stay code.
  */
 function QrStayHome({ code }: { code: string }) {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const hotelId = searchParams.get("hotelId") || "";
-  const hotelSlugParam =
-    searchParams.get("hotel") || searchParams.get("hotelSlug") || "";
+  // Support multiple param names for robustness
+  const rawHotelId =
+    searchParams.get("hotelId") ||
+    searchParams.get("hotel_id") ||
+    searchParams.get("propertyId") ||
+    "";
 
-  // Flags for which param we actually have
-  const hasHotelSlugParam = !!hotelSlugParam;
-  const hasHotelIdParam = !!hotelId;
+  const rawSlug =
+    searchParams.get("hotel") ||
+    searchParams.get("hotelSlug") ||
+    searchParams.get("property") ||
+    searchParams.get("propertySlug") ||
+    "";
 
-  // Simple label from slug; if not present, fall back to generic text.
+  const hasHotelSlugParam = !!rawSlug;
+  const hasHotelIdParam = !!rawHotelId;
+
   const hotelLabel = hasHotelSlugParam
-    ? hotelSlugParam.replace(/[-_]+/g, " ")
+    ? rawSlug.replace(/[-_]+/g, " ")
     : "your VAiyu stay";
 
-  // Build a WhatsApp share link for this canonical stay URL (best-effort),
-  // preserving whichever hotel param was used.
+  /**
+   * 🔧 IMPORTANT FIX:
+   * Normalize the current /stay/:code URL so downstream tiles
+   * (especially Checkout) can read/forward booking + property context.
+   *
+   * This avoids needing guests to manually type property slug
+   * IF Checkout already supports any of these keys.
+   */
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    let changed = false;
+
+    // Always ensure bookingCode + code exist
+    if (!next.get("code")) {
+      next.set("code", code);
+      changed = true;
+    }
+    if (!next.get("bookingCode")) {
+      next.set("bookingCode", code);
+      changed = true;
+    }
+
+    // Preserve hotelId if we have it via any alias
+    if (rawHotelId && !next.get("hotelId")) {
+      next.set("hotelId", rawHotelId);
+      changed = true;
+    }
+
+    // If we have a slug in any form, add all aliases
+    if (rawSlug) {
+      const slugKeys = ["hotel", "hotelSlug", "property", "propertySlug"];
+      for (const k of slugKeys) {
+        if (!next.get(k)) {
+          next.set(k, rawSlug);
+          changed = true;
+        }
+      }
+    }
+
+    // Avoid infinite loops
+    const currentStr = searchParams.toString();
+    const nextStr = next.toString();
+
+    if (changed && nextStr !== currentStr) {
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code, rawHotelId, rawSlug, setSearchParams]);
+
+  // Build a canonical query for share links / hint text
+  const canonicalQuery = useMemo(() => {
+    const qp = new URLSearchParams();
+
+    // Booking identity
+    qp.set("code", code);
+    qp.set("bookingCode", code);
+
+    // Hotel identity
+    if (rawHotelId) qp.set("hotelId", rawHotelId);
+
+    if (rawSlug) {
+      qp.set("hotel", rawSlug);
+      qp.set("hotelSlug", rawSlug);
+      qp.set("property", rawSlug);
+      qp.set("propertySlug", rawSlug);
+    }
+
+    return qp;
+  }, [code, rawHotelId, rawSlug]);
+
   const whatsAppUrl =
     typeof window !== "undefined"
       ? (() => {
-          let querySuffix = "";
-          if (hasHotelSlugParam && hotelSlugParam) {
-            querySuffix = `?hotel=${encodeURIComponent(hotelSlugParam)}`;
-          } else if (hasHotelIdParam && hotelId) {
-            querySuffix = `?hotelId=${encodeURIComponent(hotelId)}`;
-          }
-
-          const basePath = `/stay/${encodeURIComponent(code)}${querySuffix}`;
+          const basePath = `/stay/${encodeURIComponent(code)}${
+            canonicalQuery.toString() ? `?${canonicalQuery.toString()}` : ""
+          }`;
           const fullUrl = `${window.location.origin || ""}${basePath}`;
           const textLines = [
             `Hi, this is my VAiyu stay link for ${hotelLabel}.`,
@@ -263,8 +334,8 @@ function QrStayHome({ code }: { code: string }) {
           <StayQuickLinks
             stayCode={code}
             // Forward slug or id so Menu.tsx can load the correct hotel config
-            hotelSlug={hasHotelSlugParam ? hotelSlugParam : undefined}
-            hotelId={hasHotelIdParam ? hotelId : undefined}
+            hotelSlug={hasHotelSlugParam ? rawSlug : undefined}
+            hotelId={hasHotelIdParam ? rawHotelId : undefined}
             openWhatsAppUrl={whatsAppUrl}
           />
 
@@ -277,10 +348,8 @@ function QrStayHome({ code }: { code: string }) {
               URL:{" "}
               <code>
                 /stay/{code}
-                {hasHotelSlugParam && hotelSlugParam
-                  ? `?hotel=${hotelSlugParam}`
-                  : hasHotelIdParam && hotelId
-                  ? `?hotelId=${hotelId}`
+                {canonicalQuery.toString()
+                  ? `?${canonicalQuery.toString()}`
                   : ""}
               </code>
             </p>

@@ -226,9 +226,6 @@ function QrStayHome({ code }: { code: string }) {
    * 🔧 IMPORTANT FIX:
    * Normalize the current /stay/:code URL so downstream tiles
    * (especially Checkout) can read/forward booking + property context.
-   *
-   * This avoids needing guests to manually type property slug
-   * IF Checkout already supports any of these keys.
    */
   useEffect(() => {
     const next = new URLSearchParams(searchParams);

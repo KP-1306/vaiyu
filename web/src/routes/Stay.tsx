@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import {
+  Link,
+  useParams,
+  useSearchParams,
+  useLocation,
+} from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import StayQuickLinks from "../components/guest/StayQuickLinks";
 import ChatPanel from "../components/chat/ChatPanel";
@@ -38,8 +43,13 @@ export default function Stay() {
 }
 
 function StayDetails({ id }: { id: string }) {
+  const location = useLocation();
+  const stateStay = (location.state as any)?.stay as Partial<StayView> | undefined;
+
   const [loading, setLoading] = useState(true);
-  const [stay, setStay] = useState<StayView | null>(null);
+  const [stay, setStay] = useState<StayView | null>(
+    stateStay && stateStay.id === id ? (stateStay as StayView) : null,
+  );
   const [error, setError] = useState<string | null>(null);
 
   const dates = useMemo(() => {
@@ -55,23 +65,23 @@ function StayDetails({ id }: { id: string }) {
     (async () => {
       setLoading(true);
       setError(null);
-      setStay(null);
 
       // Guard: if missing or not UUID, show friendly error.
       if (!id || !isUuid(id)) {
         setLoading(false);
         setError("We couldn’t find that stay.");
+        setStay(null);
         return;
       }
 
       try {
-        // Fetch from the same view used by the list page.
         const { data, error } = await supabase
           .from("user_recent_stays")
           .select(
             "id, hotel_id, hotel_name, city, cover_image_url, check_in, check_out, earned_paise, review_status",
           )
-          .eq("id", id);
+          .eq("id", id)
+          .maybeSingle();
 
         if (!alive) return;
 
@@ -82,17 +92,13 @@ function StayDetails({ id }: { id: string }) {
           return;
         }
 
-        const row = (data && data.length > 0 ? data[0] : null) as
-          | StayView
-          | null;
-
-        if (!row) {
+        if (!data) {
           setError("We couldn’t find that stay.");
           setStay(null);
           return;
         }
 
-        setStay(row);
+        setStay(data as StayView);
       } catch (e: any) {
         if (!alive) return;
         console.error("[StayDetails] unexpected error", e);
@@ -213,6 +219,7 @@ function QrStayHome({ code }: { code: string }) {
     searchParams.get("hotelSlug") ||
     searchParams.get("property") ||
     searchParams.get("propertySlug") ||
+    searchParams.get("slug") ||
     "";
 
   const hasHotelSlugParam = !!rawSlug;
@@ -223,9 +230,8 @@ function QrStayHome({ code }: { code: string }) {
     : "your VAiyu stay";
 
   /**
-   * 🔧 IMPORTANT FIX:
    * Normalize the current /stay/:code URL so downstream tiles
-   * (especially Checkout) can read/forward booking + property context.
+   * (especially Checkout/Menu) can read/forward booking + property context.
    */
   useEffect(() => {
     const next = new URLSearchParams(searchParams);
@@ -249,7 +255,7 @@ function QrStayHome({ code }: { code: string }) {
 
     // If we have a slug in any form, add all aliases
     if (rawSlug) {
-      const slugKeys = ["hotel", "hotelSlug", "property", "propertySlug"];
+      const slugKeys = ["hotel", "hotelSlug", "property", "propertySlug", "slug"];
       for (const k of slugKeys) {
         if (!next.get(k)) {
           next.set(k, rawSlug);
@@ -258,7 +264,6 @@ function QrStayHome({ code }: { code: string }) {
       }
     }
 
-    // Avoid infinite loops
     const currentStr = searchParams.toString();
     const nextStr = next.toString();
 
@@ -284,6 +289,7 @@ function QrStayHome({ code }: { code: string }) {
       qp.set("hotelSlug", rawSlug);
       qp.set("property", rawSlug);
       qp.set("propertySlug", rawSlug);
+      qp.set("slug", rawSlug);
     }
 
     return qp;
@@ -330,7 +336,6 @@ function QrStayHome({ code }: { code: string }) {
         <div className="space-y-3">
           <StayQuickLinks
             stayCode={code}
-            // Forward slug or id so Menu.tsx can load the correct hotel config
             hotelSlug={hasHotelSlugParam ? rawSlug : undefined}
             hotelId={hasHotelIdParam ? rawHotelId : undefined}
             openWhatsAppUrl={whatsAppUrl}

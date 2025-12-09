@@ -1,6 +1,4 @@
-// web/src/routes/Checkout.tsx
-
-import { useMemo, useState } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
 import { checkout, setBookingConsent, redeemCredits } from "../lib/api";
 
@@ -43,7 +41,7 @@ export default function Checkout() {
   const queryCode = pickFirst(
     searchParams.get("code"),
     searchParams.get("bookingCode"),
-    searchParams.get("booking_code")
+    searchParams.get("booking_code"),
   );
 
   const code = pickFirst(paramCode, queryCode);
@@ -55,13 +53,12 @@ export default function Checkout() {
   const [res, setRes] = useState<CheckoutResponse | null>(null);
 
   // Derive a best-effort property slug candidate from URL.
-  // We DO NOT try to convert hotelId → slug without a backend call.
   const propertyFromUrl = useMemo(() => {
     return pickFirst(
       searchParams.get("propertySlug"),
       searchParams.get("property"),
       searchParams.get("hotelSlug"),
-      searchParams.get("hotel")
+      searchParams.get("hotel"),
     );
   }, [searchParams]);
 
@@ -77,7 +74,7 @@ export default function Checkout() {
   const token =
     typeof window !== "undefined" ? localStorage.getItem(TOKEN_KEY) || "" : "";
 
-  async function onApplyCredits(e: React.FormEvent) {
+  async function onApplyCredits(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setCreditsMsg("");
     setErr(null);
@@ -96,26 +93,21 @@ export default function Checkout() {
     // IMPORTANT: credits are tied to a claimed stay/session.
     if (!token) {
       setErr(
-        "Your stay session is missing. Please claim your booking first, then try applying credits."
+        "Your stay session is missing. Please claim your booking first, then try applying credits.",
       );
       return;
     }
 
     try {
       setCreditsBusy(true);
-      const r = await redeemCredits(
-        token,
-        prop,
-        Math.floor(creditsAmount),
-        {
-          reason: "checkout",
-          bookingCode: code || undefined,
-        }
-      );
+      const r = await redeemCredits(token, prop, Math.floor(creditsAmount), {
+        reason: "checkout",
+        bookingCode: code || undefined,
+      });
       setCreditsMsg(
         `Applied ₹${Math.floor(creditsAmount)}. New balance: ₹${
           r?.newBalance ?? "—"
-        }`
+        }`,
       );
     } catch (e: any) {
       setErr(e?.message || "Failed to apply credits");
@@ -124,7 +116,7 @@ export default function Checkout() {
     }
   }
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!code) {
       setErr("Missing booking code in the URL.");

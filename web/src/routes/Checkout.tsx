@@ -1,357 +1,465 @@
-import { useMemo, useState, type FormEvent } from "react";
-import { useParams, useSearchParams, Link } from "react-router-dom";
-import { checkout, setBookingConsent, redeemCredits } from "../lib/api";
+// web/src/routes/Checkout.tsx
 
-type ApiReview = {
-  id: string;
-  rating: number;
-  title?: string;
-  body?: string;
-  created_at: string;
-  source: "guest" | "auto";
-  status: "pending" | "published" | "rejected" | "draft";
-  visibility: "public" | "private";
-};
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { supabase } from "../lib/supabase";
+import { API } from "../lib/api";
 
-type CheckoutResponse = {
-  ok: boolean;
-  invoice?: string;
-  review_link?: string;
-  note?: string;
-  review?: ApiReview; // auto-published
-  pending_review?: ApiReview; // created but needs approval
-};
+/**
+ * Robust query param reader
+ */
+function qp(locationSearch: string) {
+  return new URLSearchParams(locationSearch || "");
+}
 
-const TOKEN_KEY = "stay:token";
-
-function pickFirst(...values: Array<string | null | undefined>) {
-  for (const v of values) {
-    const s = (v ?? "").trim();
-    if (s) return s;
+function pickFirst(sp: URLSearchParams, keys: string[]) {
+  for (const k of keys) {
+    const v = sp.get(k);
+    if (v && String(v).trim()) return String(v).trim();
   }
   return "";
 }
 
-export default function Checkout() {
-  // Support both /checkout/:code and /checkout?code=...
-  const { code: paramCode = "" } = useParams();
-  const [searchParams] = useSearchParams();
+/**
+ * Try to read a stay/claim token from localStorage with multiple safe keys.
+ * We don't block the user purely based on this,
+ * but it helps keep legacy flows working.
+ */
+function readStayToken(code?: string) {
+  if (typeof localStorage === "undefined") return "";
+  const c = (code || "").trim().toUpperCase();
 
-  // Accept multiple aliases for robustness
-  const queryCode = pickFirst(
-    searchParams.get("code"),
-    searchParams.get("bookingCode"),
-    searchParams.get("booking_code"),
+  const keys = [
+    "vaiyu.stay.token",
+    "vaiyu.stayToken",
+    "stay_token",
+    "stayToken",
+    "vaiyu.claim.token",
+    "claim_token",
+    c ? `vaiyu.stay.${c}.token` : "",
+    c ? `stay:${c}:token` : "",
+  ].filter(Boolean);
+
+  for (const k of keys) {
+    const v = localStorage.getItem(k);
+    if (v && v.trim()) return v.trim();
+  }
+  return "";
+}
+
+type CreditBalance = {
+  property: string;
+  balance: number;
+  currency?: string;
+  expiresAt?: string | null;
+};
+
+export default function Checkout() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const sp = useMemo(() => qp(location.search), [location.search]);
+
+  const bookingCodeFromQP = useMemo(() => {
+    const raw =
+      pickFirst(sp, [
+        "bookingCode",
+        "booking_code",
+        "code",
+        "stayCode",
+        "stay_code",
+      ]) || "";
+    return raw.trim().toUpperCase();
+  }, [sp]);
+
+  const hotelIdFromQP = useMemo(
+    () => pickFirst(sp, ["hotelId", "hotel_id", "propertyId", "property_id"]),
+    [sp]
   );
 
-  const code = pickFirst(paramCode, queryCode);
+  const propertySlugFromQP = useMemo(
+    () =>
+      pickFirst(sp, [
+        "propertySlug",
+        "property_slug",
+        "hotelSlug",
+        "hotel_slug",
+        "property",
+        "slug",
+      ]),
+    [sp]
+  );
 
-  const [consent, setConsent] = useState<boolean>(true);
-  const [autopost, setAutopost] = useState<boolean>(true);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const [res, setRes] = useState<CheckoutResponse | null>(null);
+  const from = sp.get("from") || "";
 
-  // Derive a best-effort property slug candidate from URL.
-  const propertyFromUrl = useMemo(() => {
-    return pickFirst(
-      searchParams.get("propertySlug"),
-      searchParams.get("property"),
-      searchParams.get("hotelSlug"),
-      searchParams.get("hotel"),
-    );
-  }, [searchParams]);
+  const [bookingCode] = useState<string>(bookingCodeFromQP);
+  const [propertySlug, setPropertySlug] = useState<string>(
+    propertySlugFromQP || ""
+  );
+  const [propertyLocked, setPropertyLocked] = useState<boolean>(
+    !!propertySlugFromQP
+  );
 
-  // Credits UI
-  const [creditsProperty, setCreditsProperty] = useState<string>(() => {
-    return propertyFromUrl || "";
-  });
+  const [credits, setCredits] = useState<CreditBalance[]>([]);
+  const [loadingCredits, setLoadingCredits] = useState(false);
 
-  const [creditsAmount, setCreditsAmount] = useState<number>(0);
-  const [creditsMsg, setCreditsMsg] = useState<string>("");
-  const [creditsBusy, setCreditsBusy] = useState<boolean>(false);
+  const [amount, setAmount] = useState<number>(0);
+  const [applyMsg, setApplyMsg] = useState<string>("");
+  const [finishMsg, setFinishMsg] = useState<string>("");
 
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem(TOKEN_KEY) || "" : "";
+  const [consentReviews, setConsentReviews] = useState(true);
+  const [autoPublish, setAutoPublish] = useState(true);
 
-  async function onApplyCredits(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setCreditsMsg("");
-    setErr(null);
+  const didInitRef = useRef(false);
 
-    const prop = (creditsProperty || "").trim();
+  /**
+   * Resolve property slug:
+   * 1) QP propertySlug/hotelSlug
+   * 2) hotelId -> supabase hotels lookup
+   * 3) optional API fallback if you have it
+   */
+  useEffect(() => {
+    if (didInitRef.current) return;
+    didInitRef.current = true;
 
-    if (!prop) {
-      setErr("Please enter the property slug to apply credits.");
+    async function resolveSlug() {
+      // 1) if QP already has it
+      if (propertySlugFromQP) {
+        setPropertySlug(propertySlugFromQP);
+        setPropertyLocked(true);
+        return;
+      }
+
+      // 2) if hotelId is present, resolve via Supabase
+      if (hotelIdFromQP) {
+        try {
+          const { data, error } = await supabase
+            .from("hotels")
+            .select("slug")
+            .eq("id", hotelIdFromQP)
+            .maybeSingle();
+
+          if (!error && data?.slug) {
+            setPropertySlug(String(data.slug));
+            setPropertyLocked(true);
+            return;
+          }
+        } catch {
+          // ignore and fallback
+        }
+      }
+
+      // 3) Optional: if your API layer has helpers, try them
+      try {
+        const anyAPI = API as any;
+
+        if (bookingCodeFromQP && typeof anyAPI.getPropertySlugForBooking === "function") {
+          const slug = await anyAPI.getPropertySlugForBooking(bookingCodeFromQP);
+          if (slug) {
+            setPropertySlug(String(slug));
+            setPropertyLocked(true);
+            return;
+          }
+        }
+
+        if (bookingCodeFromQP && typeof anyAPI.getStayByCode === "function") {
+          const stay = await anyAPI.getStayByCode(bookingCodeFromQP);
+          const slug =
+            stay?.hotel_slug ??
+            stay?.hotelSlug ??
+            stay?.property_slug ??
+            stay?.propertySlug;
+          if (slug) {
+            setPropertySlug(String(slug));
+            setPropertyLocked(true);
+            return;
+          }
+        }
+      } catch {
+        // ignore
+      }
+
+      // final: leave editable but empty
+      setPropertyLocked(false);
+    }
+
+    resolveSlug();
+  }, [bookingCodeFromQP, bookingCodeFromQP, hotelIdFromQP, propertySlugFromQP]);
+
+  /**
+   * Load credits (if API supports it).
+   * We do this even if propertySlug isn't ready yet.
+   */
+  useEffect(() => {
+    let alive = true;
+    async function loadCredits() {
+      const anyAPI = API as any;
+      if (typeof anyAPI.myCredits !== "function") return;
+
+      setLoadingCredits(true);
+      try {
+        const res = await anyAPI.myCredits();
+        const items = (res?.items ?? res ?? []) as CreditBalance[];
+        if (alive) setCredits(Array.isArray(items) ? items : []);
+      } catch {
+        if (alive) setCredits([]);
+      } finally {
+        if (alive) setLoadingCredits(false);
+      }
+    }
+    loadCredits();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const availableForProperty = useMemo(() => {
+    const slug = (propertySlug || "").trim();
+    if (!slug) return 0;
+    const hit = credits.find((c) => c.property === slug);
+    return Math.max(0, Number(hit?.balance ?? 0) || 0);
+  }, [credits, propertySlug]);
+
+  function onAmountChange(v: string) {
+    const n = Math.max(0, Number(v) || 0);
+    // hard clamp so user can never exceed balance in UI
+    const safe = Math.min(n, availableForProperty || n);
+    setAmount(safe);
+    setApplyMsg("");
+  }
+
+  async function handleApplyCredits() {
+    setApplyMsg("");
+
+    const slug = (propertySlug || "").trim();
+    if (!bookingCode) {
+      setApplyMsg("⚠️ Booking code is missing.");
       return;
     }
-    if (creditsAmount <= 0) {
-      setErr("Enter a positive amount to redeem.");
+    if (!slug) {
+      setApplyMsg("⚠️ Property slug is missing.");
+      return;
+    }
+    if (amount <= 0) {
+      setApplyMsg("⚠️ Enter a valid amount.");
       return;
     }
 
-    // IMPORTANT: credits are tied to a claimed stay/session.
-    if (!token) {
-      setErr(
-        "Your stay session is missing. Please claim your booking first, then try applying credits.",
-      );
+    // If your old flow relied on a stay token, we try to surface it.
+    // But we do NOT hard-block purely on this (more tolerant UX).
+    const stayToken = readStayToken(bookingCode);
+
+    try {
+      const anyAPI = API as any;
+
+      if (typeof anyAPI.redeemCredits === "function") {
+        // Some implementations need token first arg, some don’t.
+        // We try both safely.
+        let res: any;
+
+        try {
+          res = await anyAPI.redeemCredits(stayToken, slug, amount, {
+            bookingCode,
+            from: "checkout",
+          });
+        } catch {
+          res = await anyAPI.redeemCredits(slug, amount, {
+            bookingCode,
+            from: "checkout",
+          });
+        }
+
+        const applied =
+          Number(res?.applied ?? res?.amount ?? amount) || amount;
+
+        setApplyMsg(`✅ Applied ₹${applied} credits.`);
+        // Optimistically reduce local balance
+        setCredits((prev) =>
+          prev.map((c) =>
+            c.property === slug
+              ? { ...c, balance: Math.max(0, (c.balance || 0) - applied) }
+              : c
+          )
+        );
+        setAmount(0);
+        return;
+      }
+
+      setApplyMsg("⚠️ Credits API is not available in this build.");
+    } catch (e: any) {
+      const msg = String(e?.message || "");
+      // Keep your original guidance but only when backend truly rejects
+      if (msg.toLowerCase().includes("claim")) {
+        setApplyMsg(
+          "⚠️ Your stay session is missing. Please claim your booking first, then try applying credits."
+        );
+      } else {
+        setApplyMsg(`⚠️ Could not apply credits. ${msg}`);
+      }
+    }
+  }
+
+  async function handleFinish() {
+    setFinishMsg("");
+
+    if (!bookingCode) {
+      setFinishMsg("⚠️ Booking code is missing.");
       return;
     }
 
     try {
-      setCreditsBusy(true);
-      const r = await redeemCredits(token, prop, Math.floor(creditsAmount), {
-        reason: "checkout",
-        bookingCode: code || undefined,
-      });
-      setCreditsMsg(
-        `Applied ₹${Math.floor(creditsAmount)}. New balance: ₹${
-          r?.newBalance ?? "—"
-        }`,
-      );
+      const anyAPI = API as any;
+
+      // Save consent if your API supports it
+      if (typeof anyAPI.setBookingConsent === "function") {
+        try {
+          await anyAPI.setBookingConsent(bookingCode, !!consentReviews);
+        } catch {
+          // non-fatal
+        }
+      }
+
+      // Run checkout
+      if (typeof anyAPI.checkout === "function") {
+        await anyAPI.checkout({
+          bookingCode,
+          code: bookingCode,
+          autopost: autoPublish,
+          propertySlug: propertySlug || undefined,
+          hotelId: hotelIdFromQP || undefined,
+        });
+      } else if (typeof anyAPI.endStay === "function") {
+        await anyAPI.endStay(bookingCode, autoPublish);
+      }
+
+      setFinishMsg("✅ Checkout completed.");
+
+      // Navigate back depending on your flow
+      if (from === "stay") {
+        navigate(`/stay/${encodeURIComponent(bookingCode)}`);
+      } else {
+        navigate("/guest");
+      }
     } catch (e: any) {
-      setErr(e?.message || "Failed to apply credits");
-    } finally {
-      setCreditsBusy(false);
+      setFinishMsg(`⚠️ Checkout failed. ${String(e?.message || "")}`);
     }
   }
-
-  async function onSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (!code) {
-      setErr("Missing booking code in the URL.");
-      return;
-    }
-
-    setBusy(true);
-    setErr(null);
-    setRes(null);
-
-    try {
-      // 1) Record consent preference
-      await setBookingConsent(code, consent);
-
-      // 2) Checkout (and optionally request auto publication)
-      const out = await checkout({ bookingCode: code, autopost });
-      setRes(out as CheckoutResponse);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } catch (e: any) {
-      setErr(e?.message || "Checkout failed");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const Published = res?.review;
-  const Pending = res?.pending_review;
-
-  const didAutofillProperty =
-    !!propertyFromUrl &&
-    !!creditsProperty &&
-    creditsProperty.trim() === propertyFromUrl.trim();
 
   return (
-    <main className="max-w-xl mx-auto p-4 space-y-4">
-      <header className="space-y-1">
-        <h1 className="text-xl font-semibold">Checkout</h1>
-        <div className="text-sm text-gray-600">
-          Booking code: <b>{code || "—"}</b>
+    <div className="page checkout-page">
+      <div className="page-inner">
+        <h1>Checkout</h1>
+
+        <div className="muted" style={{ marginBottom: 12 }}>
+          Booking code: <strong>{bookingCode || "—"}</strong>
         </div>
 
-        {!code && (
-          <div className="text-xs text-gray-500">
-            Tip: open checkout from your stay page or add{" "}
-            <code className="px-1 py-0.5 bg-gray-100 rounded">?code=...</code>
+        {/* Credits card */}
+        <div className="card" style={{ maxWidth: 520 }}>
+          <div className="card-title">Use credits</div>
+          <div className="muted">
+            Credits are property-scoped and reduce your F&amp;B/services bill.
           </div>
-        )}
-      </header>
 
-      {err && (
-        <div className="p-2 bg-amber-50 border border-amber-200 rounded text-amber-800">
-          ⚠️ {err}
-        </div>
-      )}
-
-      {res && (
-        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded text-emerald-800 space-y-2">
-          <div>Checkout completed.</div>
-          {res.invoice && (
-            <div>
-              Invoice:{" "}
-              <a
-                className="link"
-                href={res.invoice}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Download
-              </a>
-            </div>
-          )}
-          {res.review_link && (
-            <div>
-              Review link:{" "}
-              <a
-                className="link"
-                href={res.review_link}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Open
-              </a>
-            </div>
-          )}
-          {res.note && <div className="text-sm opacity-90">{res.note}</div>}
-        </div>
-      )}
-
-      {/* Auto-published result */}
-      {Published && (
-        <section className="card">
-          <div className="font-semibold">Published review</div>
-          <div className="text-sm text-gray-600">
-            Source: {Published.source.toUpperCase()}
-          </div>
-          <div className="mt-2">
-            {"⭐".repeat(Math.max(0, Math.min(5, Published.rating || 0)))}
-          </div>
-          {Published.title && (
-            <div className="mt-1 font-semibold">{Published.title}</div>
-          )}
-          {Published.body && (
-            <div className="mt-1 whitespace-pre-wrap">{Published.body}</div>
-          )}
-          <div className="mt-2 text-xs text-gray-500">
-            {new Date(Published.created_at).toLocaleString()} •{" "}
-            {Published.status}/{Published.visibility}
-          </div>
-        </section>
-      )}
-
-      {/* Pending result (needs approval) */}
-      {Pending && (
-        <section className="card">
-          <div className="font-semibold">
-            AI review created — pending approval
-          </div>
-          <div className="text-sm text-gray-600">
-            Source: {Pending.source.toUpperCase()}
-          </div>
-          <div className="mt-2">
-            {"⭐".repeat(Math.max(0, Math.min(5, Pending.rating || 0)))}
-          </div>
-          {Pending.title && (
-            <div className="mt-1 font-semibold">{Pending.title}</div>
-          )}
-          {Pending.body && (
-            <div className="mt-1 whitespace-pre-wrap">{Pending.body}</div>
-          )}
-          <div className="mt-2 text-xs text-gray-500">
-            {new Date(Pending.created_at).toLocaleString()} •{" "}
-            {Pending.status}/{Pending.visibility}
-          </div>
-        </section>
-      )}
-
-      {/* Use credits */}
-      <section className="bg-gray-50 p-4 rounded border space-y-2">
-        <div className="font-medium">Use credits</div>
-        <div className="text-xs text-gray-600">
-          Credits are property-scoped and reduce your F&amp;B/services bill.
-        </div>
-
-        <form onSubmit={onApplyCredits} className="mt-2 grid gap-2">
-          <label className="text-sm">
+          <label className="label" style={{ marginTop: 12 }}>
             Property slug
-            <input
-              className="mt-1 border rounded w-full px-2 py-1"
-              placeholder="e.g. sunrise"
-              value={creditsProperty}
-              onChange={(e) => setCreditsProperty(e.target.value)}
-            />
           </label>
+          <input
+            className="input"
+            placeholder="e.g. sunrise"
+            value={propertySlug}
+            onChange={(e) => {
+              setPropertySlug(e.target.value);
+              if (!propertySlugFromQP) setPropertyLocked(false);
+            }}
+            readOnly={propertyLocked}
+          />
 
-          <label className="text-sm">
+          <label className="label" style={{ marginTop: 12 }}>
             Amount (₹)
+          </label>
+          <input
+            className="input"
+            type="number"
+            min={0}
+            step={1}
+            value={amount}
+            onChange={(e) => onAmountChange(e.target.value)}
+            disabled={!propertySlug}
+          />
+
+          <div className="muted" style={{ marginTop: 6 }}>
+            Available:{" "}
+            <strong>
+              {loadingCredits ? "…" : `₹${availableForProperty}`}
+            </strong>
+          </div>
+
+          <div style={{ marginTop: 12 }}>
+            <button
+              className="btn"
+              onClick={handleApplyCredits}
+              disabled={!propertySlug || amount <= 0}
+            >
+              Apply credits
+            </button>
+          </div>
+
+          {applyMsg ? (
+            <div className="muted" style={{ marginTop: 10 }}>
+              {applyMsg}
+            </div>
+          ) : null}
+        </div>
+
+        {/* Review consent */}
+        <div style={{ marginTop: 18 }}>
+          <label className="checkbox">
             <input
-              type="number"
-              min={0}
-              className="mt-1 border rounded w-full px-2 py-1"
-              value={creditsAmount}
-              onChange={(e) => setCreditsAmount(Number(e.target.value))}
+              type="checkbox"
+              checked={consentReviews}
+              onChange={(e) => setConsentReviews(e.target.checked)}
             />
+            <span>
+              I consent to publishing a truthful, activity-anchored review for
+              this stay.
+            </span>
           </label>
 
-          <div className="flex items-center gap-2">
-            <button
-              disabled={creditsBusy || creditsAmount <= 0}
-              className="px-4 py-2 rounded border bg-white hover:bg-gray-50 disabled:opacity-60"
-            >
-              {creditsBusy ? "Applying…" : "Apply credits"}
-            </button>
-
-            {didAutofillProperty && (
-              <span className="text-[11px] text-gray-500">
-                Auto-detected property from your stay link.
-              </span>
-            )}
-          </div>
-        </form>
-
-        {creditsMsg && (
-          <div className="text-sm text-emerald-700">{creditsMsg}</div>
-        )}
-      </section>
-
-      {/* Finish checkout */}
-      <form onSubmit={onSubmit} className="bg-white p-4 rounded shadow space-y-3">
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={consent}
-            onChange={(e) => setConsent(e.target.checked)}
-          />
-          <span className="text-sm">
-            I consent to publishing a truthful, activity-anchored review for this
-            stay.
-          </span>
-        </label>
-
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={autopost}
-            onChange={(e) => setAutopost(e.target.checked)}
-          />
-          <span className="text-sm">
-            Auto-publish the AI-generated review if policy allows (else create a
-            pending draft).
-          </span>
-        </label>
-
-        <div className="pt-1 flex items-center gap-2">
-          <button
-            disabled={busy}
-            className="px-4 py-2 rounded bg-sky-600 text-white disabled:opacity-60"
-          >
-            {busy ? "Finishing…" : "Finish checkout"}
-          </button>
-
-          {code && (
-            <Link
-              to={`/stay/${encodeURIComponent(code)}`}
-              className="px-3 py-2 rounded border bg-white hover:bg-gray-50 text-sm"
-            >
-              Back to stay
-            </Link>
-          )}
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={autoPublish}
+              onChange={(e) => setAutoPublish(e.target.checked)}
+            />
+            <span>
+              Auto-publish the AI-generated review if policy allows (else create
+              a pending draft).
+            </span>
+          </label>
         </div>
-      </form>
 
-      <p className="text-xs text-gray-500">
-        Note: Auto-publish respects your hotel’s policy (activity threshold, late
-        SLA blocks, consent requirement).
-      </p>
-    </main>
+        {/* Actions */}
+        <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
+          <button className="btn btn-primary" onClick={handleFinish}>
+            Finish checkout
+          </button>
+          <Link className="btn" to={`/stay/${encodeURIComponent(bookingCode)}`}>
+            Back to stay
+          </Link>
+        </div>
+
+        {finishMsg ? (
+          <div className="muted" style={{ marginTop: 10 }}>
+            {finishMsg}
+          </div>
+        ) : null}
+
+        <div className="muted" style={{ marginTop: 16, fontSize: 12 }}>
+          Note: Auto-publish respects your hotel’s policy (activity threshold,
+          late SLA blocks, consent requirement).
+        </div>
+      </div>
+    </div>
   );
 }

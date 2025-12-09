@@ -1,5 +1,11 @@
 // web/src/routes/GuestDashboard.tsx
-import { useEffect, useMemo, useState, memo } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  memo,
+  type FormEvent,
+} from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { API } from "../lib/api";
@@ -29,8 +35,20 @@ const USE_DEMO = shouldUseDemo();
 
 /** Detect if API is pointing directly at Supabase Edge Functions */
 const IS_SUPABASE_EDGE = API.includes(".functions.supabase.co");
+
 /** Correct stays endpoint for both backends */
 const STAYS_ENDPOINT = IS_SUPABASE_EDGE ? "/me-stays" : "/me/stays";
+/** Alternate stays endpoint used as a fallback probe */
+const ALT_STAYS_ENDPOINT = IS_SUPABASE_EDGE ? "/me/stays" : "/me-stays";
+
+/** Safely parse API host for auth-header scoping */
+const API_HOST = (() => {
+  try {
+    return new URL(API).host;
+  } catch {
+    return null;
+  }
+})();
 
 /* ===== Shared types ===== */
 
@@ -197,9 +215,11 @@ export default function GuestDashboard() {
     async function loadStaysWithFallback() {
       setStays({ loading: true, source: "live", data: [] as Stay[] });
 
-      // 1) Try API (Edge function or legacy backend)
+      // 1) Try API primary endpoint
       try {
-        const j: any = await jsonWithTimeout(`${API}${STAYS_ENDPOINT}?limit=10`);
+        const j: any = await jsonWithTimeout(
+          `${API}${STAYS_ENDPOINT}?limit=10`,
+        );
         const rawItems: any[] = Array.isArray(j?.items) ? j.items : [];
         const items: Stay[] = rawItems.map(normalizeStayRow);
 
@@ -208,10 +228,24 @@ export default function GuestDashboard() {
         }
         if (items.length) return;
       } catch (err) {
-        console.warn(
-          "[GuestDashboard] me-stays API failed, fallback to view",
-          err,
-        );
+        // Try alternate endpoint (helps when backend routes differ)
+        try {
+          const j2: any = await jsonWithTimeout(
+            `${API}${ALT_STAYS_ENDPOINT}?limit=10`,
+          );
+          const rawItems2: any[] = Array.isArray(j2?.items) ? j2.items : [];
+          const items2: Stay[] = rawItems2.map(normalizeStayRow);
+
+          if (!cancelled) {
+            setStays({ loading: false, source: "live", data: items2 });
+          }
+          if (items2.length) return;
+        } catch (err2) {
+          console.warn(
+            "[GuestDashboard] me-stays API failed, fallback to view",
+            err2,
+          );
+        }
       }
 
       // 2) Fallback view
@@ -485,7 +519,7 @@ export default function GuestDashboard() {
 
   const recentTrips = stays.data.slice(0, 5);
 
-  function onSearchSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function onSearchSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const q = searchTerm.trim();
     if (!q) return;
@@ -991,7 +1025,10 @@ export default function GuestDashboard() {
                   })}
                 </div>
               ) : (
-                <Empty small text="No trips yet. Your recent journeys will appear here." />
+                <Empty
+                  small
+                  text="No trips yet. Your recent journeys will appear here."
+                />
               )}
             </div>
 
@@ -1192,7 +1229,7 @@ function normalizeStayRow(row: any): Stay {
     };
   }
 
-  const bookingCode = row.booking_code ?? row.code ?? row.id ?? null;
+  const bookingCode = row.booking_code ?? row.code ?? row.bookingCode ?? row.id ?? null;
   const hotelName = row.hotel_name ?? row.hotel?.name ?? row.name ?? "Unknown hotel";
   const city = row.city ?? row.hotel_city ?? row.hotel?.city ?? undefined;
   const country = row.country ?? row.hotel_country ?? row.hotel?.country ?? undefined;
@@ -1206,6 +1243,9 @@ function normalizeStayRow(row: any): Stay {
   const slug =
     row.hotel_slug ?? row.slug ?? row.hotel?.slug ?? row.hotel?.tenant_slug ?? null;
 
+  const checkIn = row.check_in ?? row.checkIn ?? row.start_at ?? row.startAt ?? "";
+  const checkOut = row.check_out ?? row.checkOut ?? row.end_at ?? row.endAt ?? "";
+
   return {
     id: bookingCode || String(row.id),
     booking_code: bookingCode,
@@ -1217,11 +1257,11 @@ function normalizeStayRow(row: any): Stay {
       country,
       cover_url: coverUrl,
       slug,
-      tenant_slug: row.hotel?.tenant_slug ?? null,
+      tenant_slug: row.hotel?.tenant_slug ?? row.tenant_slug ?? null,
     },
-    check_in: row.check_in,
-    check_out: row.check_out,
-    bill_total: row.bill_total ?? row.total_bill ?? null,
+    check_in: checkIn,
+    check_out: checkOut,
+    bill_total: row.bill_total ?? row.total_bill ?? row.amount ?? null,
     room_type: row.room_type ?? row.room ?? null,
   };
 }
@@ -1463,40 +1503,6 @@ function CategoryBreakdown({
 
 /* ===== Reusable UI ===== */
 
-const Card = memo(function Card({
-  title,
-  subtitle,
-  icon,
-  badge,
-  children,
-}: {
-  title: string;
-  subtitle?: string;
-  icon?: React.ReactNode;
-  badge?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-2xl p-4 shadow bg-white border">
-      <div className="mb-2 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {icon ? <div className="text-gray-600">{icon}</div> : null}
-          <div>
-            <div className="text-xs text-gray-500">{subtitle || ""}</div>
-            <div className="font-semibold">{title}</div>
-          </div>
-        </div>
-        {badge && (
-          <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 border text-gray-700">
-            {badge}
-          </span>
-        )}
-      </div>
-      <div>{children}</div>
-    </div>
-  );
-});
-
 /** Unified Guest-only button system (does not affect other routes) */
 function GuestButton({
   children,
@@ -1505,7 +1511,7 @@ function GuestButton({
   variant = "primary",
   className = "",
 }: {
-  children: React.ReactNode;
+  children: any;
   to?: string;
   onClick?: () => void;
   variant?: "primary" | "soft" | "ghost";
@@ -1965,18 +1971,17 @@ async function jsonWithTimeout(url: string, ms = 5000) {
   try {
     const headers: Record<string, string> = {};
 
-    // When using Supabase Edge Functions, send auth + apikey headers
-    if (IS_SUPABASE_EDGE) {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+    // Attach Supabase access token when calling our own APIs
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
 
-        const token = session?.access_token;
-        if (token) {
-          headers["authorization"] = `Bearer ${token}`;
-        }
+      if (token && shouldAttachAuthTo(url)) {
+        headers["authorization"] = `Bearer ${token}`;
+      }
 
+      // When using direct Supabase Edge host, apikey helps with some setups
+      if (IS_SUPABASE_EDGE && shouldAttachAuthTo(url)) {
         const anonKey =
           (import.meta as any).env?.VITE_SUPABASE_ANON_KEY as
             | string
@@ -1984,9 +1989,9 @@ async function jsonWithTimeout(url: string, ms = 5000) {
         if (anonKey) {
           headers["apikey"] = anonKey;
         }
-      } catch {
-        // ok
       }
+    } catch {
+      // ok
     }
 
     const r = await fetch(url, {
@@ -1999,6 +2004,24 @@ async function jsonWithTimeout(url: string, ms = 5000) {
   } finally {
     clearTimeout(t);
   }
+}
+
+function shouldAttachAuthTo(url: string) {
+  try {
+    const u = new URL(url, window.location.origin);
+
+    // Same-origin proxy (/api/*) should receive auth
+    if (u.host === window.location.host) return true;
+
+    // Explicit API host should receive auth
+    if (API_HOST && u.host === API_HOST) return true;
+
+    // Fallback heuristic for Supabase Functions host
+    if (u.host.includes(".functions.supabase.co")) return true;
+  } catch {
+    // ignore
+  }
+  return false;
 }
 
 function fmtMoney(n?: number) {

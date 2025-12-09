@@ -1227,7 +1227,8 @@ function normalizeStay(raw: any): Stay {
 
   const statusRaw =
     raw?.status ?? raw?.state ?? raw?.phase ?? raw?.booking_status ?? "upcoming";
-  const status = (String(statusRaw).toLowerCase() as Stay["status"]) || "upcoming";
+  const status =
+    (String(statusRaw).toLowerCase() as Stay["status"]) || "upcoming";
 
   const hotelSlug =
     raw?.hotel_slug ??
@@ -1248,7 +1249,8 @@ function normalizeStay(raw: any): Stay {
     raw?.property?.name ??
     undefined;
 
-  const checkIn = raw?.check_in ?? raw?.checkIn ?? raw?.check_in_at ?? raw?.checkInAt;
+  const checkIn =
+    raw?.check_in ?? raw?.checkIn ?? raw?.check_in_at ?? raw?.checkInAt;
   const checkOut =
     raw?.check_out ?? raw?.checkOut ?? raw?.check_out_at ?? raw?.checkOutAt;
 
@@ -1274,7 +1276,9 @@ export async function myStays(
     (Array.isArray(res) ? res : []) ??
     [];
 
-  const stays = Array.isArray(raw) ? raw.map(normalizeStay).filter(s => !!s.code) : [];
+  const stays = Array.isArray(raw)
+    ? raw.map(normalizeStay).filter((s) => !!s.code)
+    : [];
 
   return { stays, items: stays };
 }
@@ -1283,7 +1287,10 @@ export async function myStays(
  * Returns a matching stay by booking code from /me/stays.
  * Useful for auto-filling Checkout UI.
  */
-export async function getStayByCode(code: string, token?: string): Promise<Stay | null> {
+export async function getStayByCode(
+  code: string,
+  token?: string
+): Promise<Stay | null> {
   const safe = String(code || "").trim().toUpperCase();
   if (!safe) return null;
   const { stays } = await myStays(token).catch(() => ({ stays: [] as Stay[] }));
@@ -1314,16 +1321,43 @@ function looksLikeUuid(value: string | undefined | null): boolean {
   );
 }
 
+/** Normalizes unknown API shapes into a plain array */
+function unwrapItems<T = any>(res: any): T[] {
+  const v = res?.items ?? res?.services ?? res?.data ?? res;
+  return Array.isArray(v) ? (v as T[]) : [];
+}
+
+/** Ensure we always have label + label_en without dropping extra fields */
+function normalizeServiceRow(row: any): any {
+  const label = String(row?.label ?? row?.label_en ?? row?.name ?? "").trim();
+  const label_en = String(row?.label_en ?? label).trim();
+  const key = String(row?.key ?? "").trim();
+  const sla_minutes = Number(row?.sla_minutes) || 0;
+  const active = row?.active ?? true;
+
+  return {
+    ...row,
+    key,
+    label,
+    label_en,
+    sla_minutes,
+    active,
+  };
+}
+
 export async function getServices(hotelKey?: string | null) {
   const s = supa();
-  const key = hotelKey || undefined;
+  const key = (hotelKey ?? undefined) as string | undefined;
   const isId = key ? looksLikeUuid(key) : false;
 
   // 1) Try direct Supabase read
+  // Only safe when:
+  //  - no key (legacy/admin views), OR
+  //  - key is UUID hotel_id
   if (s && (!key || isId)) {
     try {
       let query = s.from("services").select(
-        "id, hotel_id, key, label, description, category, is_paid, sla_minutes, priority_weight, active"
+        "id, hotel_id, key, label, label_en, description, category, is_paid, sla_minutes, priority_weight, active"
       );
 
       if (key && isId) {
@@ -1336,9 +1370,11 @@ export async function getServices(hotelKey?: string | null) {
 
       if (error) throw error;
 
-      return {
-        items: (data || []).filter((row) => row.active !== false),
-      };
+      const items = (data || [])
+        .filter((row) => row?.active !== false)
+        .map(normalizeServiceRow);
+
+      return { items };
     } catch (err) {
       console.warn("getServices supabase failed, falling back to HTTP", err);
     }
@@ -1356,7 +1392,12 @@ export async function getServices(hotelKey?: string | null) {
     }
   }
 
-  return req(path);
+  const res = await req<any>(path);
+  const items = unwrapItems(res)
+    .filter((row) => row?.active !== false)
+    .map(normalizeServiceRow);
+
+  return { items };
 }
 
 export async function saveServices(
@@ -1366,17 +1407,24 @@ export async function saveServices(
   const s = supa();
   if (s) {
     try {
-      const payload = (items || []).map((r) => ({
-        hotel_id: r.hotel_id ?? fallbackHotelId ?? null,
-        key: String(r.key || "").trim(),
-        label_en: String(r.label_en || "").trim(),
-        sla_minutes: Number(r.sla_minutes) || 0,
-        active: r.active ?? true,
-      }));
+      const payload = (items || []).map((r) => {
+        const label = String((r as any).label_en || "").trim();
+        return {
+          hotel_id: (r as any).hotel_id ?? fallbackHotelId ?? null,
+          key: String((r as any).key || "").trim(),
+          // ✅ write both columns for schema safety
+          label,
+          label_en: label,
+          sla_minutes: Number((r as any).sla_minutes) || 0,
+          active: (r as any).active ?? true,
+        };
+      });
+
       // @ts-ignore
       const { error } = await s
         .from("services")
         .upsert(payload, { onConflict: "hotel_id,key" });
+
       if (error) throw error;
       return { ok: true };
     } catch {
@@ -1832,7 +1880,10 @@ export async function checkoutWithAutoContext(params: {
   autopost?: boolean;
 }) {
   const bookingCode = String(params.code || "").trim().toUpperCase();
-  const propertySlug = await getPropertySlugForBooking(bookingCode, params.token);
+  const propertySlug = await getPropertySlugForBooking(
+    bookingCode,
+    params.token
+  );
 
   return checkout({
     bookingCode,
@@ -1864,10 +1915,7 @@ export async function checkoutGuest(data: {
   return checkout(data);
 }
 
-export async function endStay(
-  bookingCode: string,
-  autopost: boolean = true
-) {
+export async function endStay(bookingCode: string, autopost: boolean = true) {
   return checkout({ bookingCode, autopost });
 }
 
@@ -1994,9 +2042,13 @@ export async function rejectOwnerApp(
 
 /* ============================================================================
    Catalog alias exports used historically
+   ✅ FIX: forward arguments instead of discarding them
 ============================================================================ */
-export const services = (..._args: any[]) => getServices();
-export const menu = (..._args: any[]) => getMenu();
+export const services = (...args: any[]) =>
+  getServices((args?.[0] as string | null | undefined) ?? undefined);
+
+export const menu = (...args: any[]) =>
+  getMenu((args?.[0] as string | undefined) ?? undefined);
 
 /* ============================================================================
    NEW: Checkout context helper

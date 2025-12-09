@@ -208,7 +208,10 @@ export default function GuestDashboard() {
         }
         if (items.length) return;
       } catch (err) {
-        console.warn("[GuestDashboard] me-stays API failed, fallback to view", err);
+        console.warn(
+          "[GuestDashboard] me-stays API failed, fallback to view",
+          err,
+        );
       }
 
       // 2) Fallback view
@@ -372,7 +375,10 @@ export default function GuestDashboard() {
         const t = new Date(s.check_in).getTime();
         return isFinite(t) && t >= now;
       })
-      .sort((a, b) => new Date(a.check_in).getTime() - new Date(b.check_in).getTime());
+      .sort(
+        (a, b) =>
+          new Date(a.check_in).getTime() - new Date(b.check_in).getTime(),
+      );
     return upcoming[0] || stays.data[0];
   }, [stays.data]);
 
@@ -380,7 +386,9 @@ export default function GuestDashboard() {
     () => (nextStay ? getCountdown(nextStay.check_in) : null),
     [nextStay?.check_in],
   );
-  const nextStayNights = nextStay ? diffDays(nextStay.check_in, nextStay.check_out) : 0;
+  const nextStayNights = nextStay
+    ? diffDays(nextStay.check_in, nextStay.check_out)
+    : 0;
 
   // Jobs CTA URL for current stay (if we know the slug)
   const jobsUrl = useMemo(() => {
@@ -436,13 +444,18 @@ export default function GuestDashboard() {
     nav(`/stays?query=${encodeURIComponent(q)}`);
   }
 
+  const expressCheckoutTo = useMemo(
+    () => buildCheckoutLink(nextStay),
+    [nextStay?.booking_code, nextStay?.id, nextStay?.hotel_id],
+  );
+
   // Premium sidebar nav (desktop)
   const sidebarNav = [
     { label: "Quick actions", to: "/guest", icon: "⚡" },
     { label: "Rewards & Vouchers", to: "/rewards", icon: "🎁" },
     { label: "Recent Trips", to: "/stays", icon: "🧳" },
     { label: "Travel Insights", to: "/stays", icon: "📈" },
-    { label: "Express Check Out", to: "/checkout", icon: "✅" },
+    { label: "Express Check Out", to: expressCheckoutTo, icon: "✅" },
   ];
 
   // Mobile bottom dock (small screens)
@@ -489,7 +502,8 @@ export default function GuestDashboard() {
           {/* Nav */}
           <nav className="px-3 py-3 space-y-1">
             {sidebarNav.map((item) => {
-              const active = location.pathname === item.to;
+              const itemPath = item.to.split("?")[0];
+              const active = location.pathname === itemPath;
               return (
                 <Link
                   key={item.to + item.label}
@@ -505,7 +519,9 @@ export default function GuestDashboard() {
                   <span
                     className={[
                       "text-sm w-5 grid place-items-center",
-                      active ? "opacity-100" : "opacity-80 group-hover:opacity-100",
+                      active
+                        ? "opacity-100"
+                        : "opacity-80 group-hover:opacity-100",
                     ].join(" ")}
                   >
                     {item.icon}
@@ -538,7 +554,9 @@ export default function GuestDashboard() {
               <div className="text-[11px] uppercase tracking-wide text-slate-500">
                 Travel Command Center
               </div>
-              <h1 className="text-xl md:text-2xl font-semibold">Guest Dashboard</h1>
+              <h1 className="text-xl md:text-2xl font-semibold">
+                Guest Dashboard
+              </h1>
             </div>
             <div className="flex items-center gap-3">
               <form
@@ -569,6 +587,71 @@ export default function GuestDashboard() {
             </div>
           </header>
 
+          {/* TOP PREMIUM ANALYTICS STRIP (NEW) */}
+          <section className="rounded-2xl bg-white border shadow-sm p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                  Spend & Rewards Analytics
+                </div>
+                <div className="text-sm font-semibold">
+                  {selectedYear
+                    ? `Year ${selectedYear.year} overview`
+                    : "Your travel analytics will appear here"}
+                </div>
+              </div>
+
+              <div className="inline-flex items-center gap-2">
+                <span className="text-[10px] text-slate-500">
+                  Points estimate
+                </span>
+                <span className="rounded-full bg-slate-900 text-white px-2.5 py-1 text-[10px] font-semibold">
+                  {tierPoints.toLocaleString()} pts
+                </span>
+                <Link
+                  to="/rewards"
+                  className="inline-flex items-center rounded-full border bg-white px-3 py-1 text-[10px] font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  View rewards
+                </Link>
+              </div>
+            </div>
+
+            <div className="mt-3">
+              {spend.loading ? (
+                <Skeleton lines={2} />
+              ) : !selectedYear ? (
+                <Empty
+                  small
+                  text="Complete your first stay to unlock monthly spend trends and category breakdowns."
+                />
+              ) : (
+                <div className="grid md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-3 items-center">
+                  <div className="rounded-xl bg-slate-50 border p-3">
+                    <div className="text-[10px] text-slate-500">
+                      Total spend (est.)
+                    </div>
+                    <div className="text-lg font-semibold">
+                      {fmtMoney(selectedYear.total)}
+                    </div>
+                    <div className="text-[10px] text-slate-500 mt-1">
+                      Avg / trip{" "}
+                      {stats.totalStays
+                        ? fmtMoney(Math.round(avgSpendPerTrip))
+                        : "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-slate-500 mb-1">
+                      Monthly spend snapshot
+                    </div>
+                    <MonthlyBars data={monthlySeries} />
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+
           {/* Hero band – Next stay + quick actions */}
           <section className="relative rounded-2xl p-5 bg-gradient-to-r from-sky-50 via-white to-indigo-50 border shadow-sm overflow-hidden">
             <Bubbles />
@@ -579,10 +662,14 @@ export default function GuestDashboard() {
                   <span className="inline-flex items-center rounded-full bg-white/80 px-2 py-0.5 border text-sky-700">
                     Next stay
                   </span>
-                  {countdown && <span className="text-slate-600">{countdown.label}</span>}
+                  {countdown && (
+                    <span className="text-slate-600">{countdown.label}</span>
+                  )}
                 </div>
 
-                <h2 className="text-lg md:text-xl font-semibold">{welcomeText}</h2>
+                <h2 className="text-lg md:text-xl font-semibold">
+                  {welcomeText}
+                </h2>
                 <p className="text-xs text-gray-600">
                   Your trips, spend and rewards in one place.
                 </p>
@@ -615,13 +702,16 @@ export default function GuestDashboard() {
                         <div className="text-slate-500">Dates</div>
                         <div className="font-medium">
                           {fmtRange(nextStay.check_in, nextStay.check_out)} ·{" "}
-                          {nextStayNights || 1} night{nextStayNights === 1 ? "" : "s"}
+                          {nextStayNights || 1} night
+                          {nextStayNights === 1 ? "" : "s"}
                         </div>
                       </div>
                       <div>
                         <div className="text-slate-500">Room type</div>
                         <div className="font-medium">
-                          {nextStay.room_type || mostBookedRoomType || "Standard room"}
+                          {nextStay.room_type ||
+                            mostBookedRoomType ||
+                            "Standard room"}
                         </div>
                       </div>
                       {typeof nextStay.bill_total === "number" && (
@@ -638,7 +728,10 @@ export default function GuestDashboard() {
                       <GuestButton to={buildStayLink(nextStay)} variant="primary">
                         View stay details
                       </GuestButton>
-                      <GuestButton to="/scan" variant="soft">
+                      <GuestButton to={expressCheckoutTo} variant="soft">
+                        Express checkout
+                      </GuestButton>
+                      <GuestButton to="/scan" variant="ghost">
                         Check-in guide
                       </GuestButton>
                     </div>
@@ -646,7 +739,8 @@ export default function GuestDashboard() {
                 ) : (
                   <div className="mt-3 rounded-2xl bg-white/70 border border-dashed p-4 text-sm text-slate-600">
                     No upcoming stays yet. Start your next journey with VAiyu —
-                    explore curated partner hotels and request a booking with one tap.
+                    explore curated partner hotels and request a booking with one
+                    tap.
                   </div>
                 )}
               </div>
@@ -705,6 +799,13 @@ export default function GuestDashboard() {
                       variant="light"
                       icon="🧾"
                     />
+                    <QuickPill
+                      title="Express check-out"
+                      text="Finish in seconds"
+                      to={expressCheckoutTo}
+                      variant="solid"
+                      icon="✅"
+                    />
                   </div>
                 </div>
               </div>
@@ -744,7 +845,9 @@ export default function GuestDashboard() {
             <StatBadge
               label="Rewards balance"
               value={fmtMoney(stats.totalCredits)}
-              sublabel={`${totalReferralCredits ? "Active credits" : "Invite friends to earn"}`}
+              sublabel={`${
+                totalReferralCredits ? "Active credits" : "Invite friends to earn"
+              }`}
               emoji="🎁"
             />
             <StatBadge
@@ -765,7 +868,9 @@ export default function GuestDashboard() {
                     Spend & Rewards Analytics
                   </div>
                   <div className="font-semibold text-sm">
-                    {selectedYear ? `Year ${selectedYear.year}` : "Waiting for your first stay"}
+                    {selectedYear
+                      ? `Year ${selectedYear.year}`
+                      : "Waiting for your first stay"}
                   </div>
                 </div>
 
@@ -778,7 +883,9 @@ export default function GuestDashboard() {
                     <button
                       key={tab.key}
                       type="button"
-                      onClick={() => setSpendMode(tab.key as "this" | "last" | "all")}
+                      onClick={() =>
+                        setSpendMode(tab.key as "this" | "last" | "all")
+                      }
                       className={`px-2.5 py-0.5 rounded-full ${
                         spendMode === tab.key
                           ? "bg-white shadow-sm text-slate-900"
@@ -801,11 +908,15 @@ export default function GuestDashboard() {
               ) : (
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
-                    <div className="text-xs text-slate-500 mb-1">Monthly spend (₹)</div>
+                    <div className="text-xs text-slate-500 mb-1">
+                      Monthly spend (₹)
+                    </div>
                     <MonthlyBars data={monthlySeries} />
                   </div>
                   <div>
-                    <div className="text-xs text-slate-500 mb-1">Spend by category</div>
+                    <div className="text-xs text-slate-500 mb-1">
+                      Spend by category
+                    </div>
                     <CategoryBreakdown data={categorySeries} />
                   </div>
                 </div>
@@ -855,7 +966,9 @@ export default function GuestDashboard() {
                             <div className="text-[11px] text-slate-500">
                               {fmtRange(s.check_in, s.check_out)} ·{" "}
                               {diffDays(s.check_in, s.check_out) || 1} night
-                              {diffDays(s.check_in, s.check_out) === 1 ? "" : "s"}
+                              {diffDays(s.check_in, s.check_out) === 1
+                                ? ""
+                                : "s"}
                             </div>
 
                             <div className="mt-1 flex flex-wrap gap-2 items-center">
@@ -877,39 +990,58 @@ export default function GuestDashboard() {
                             </div>
                           </div>
 
-                          <Link
-                            to={buildStayLink(s)}
-                            className="text-[11px] underline shrink-0"
-                          >
-                            Details
-                          </Link>
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            <Link
+                              to={buildStayLink(s)}
+                              className="text-[11px] underline"
+                            >
+                              Details
+                            </Link>
+                            <Link
+                              to={buildCheckoutLink(s)}
+                              className="text-[10px] text-slate-500 underline"
+                            >
+                              Checkout
+                            </Link>
+                          </div>
                         </div>
                       );
                     })}
                   </div>
                 ) : (
-                  <Empty small text="No trips yet. Your recent journeys will appear here." />
+                  <Empty
+                    small
+                    text="No trips yet. Your recent journeys will appear here."
+                  />
                 )}
               </div>
 
               {/* Travel insights */}
               <div>
-                <div className="text-xs text-slate-500 mb-2">Travel insights</div>
+                <div className="text-xs text-slate-500 mb-2">
+                  Travel insights
+                </div>
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <InsightCard
                     label="Avg spend / trip"
                     value={fmtMoney(Math.round(avgSpendPerTrip || 0))}
                     hint={
                       stats.totalStays
-                        ? `${stats.totalStays} trip${stats.totalStays === 1 ? "" : "s"} so far`
+                        ? `${stats.totalStays} trip${
+                            stats.totalStays === 1 ? "" : "s"
+                          } so far`
                         : "Will appear after your first stay"
                     }
                   />
                   <InsightCard
                     label="Typical length"
-                    value={typicalLength ? `${typicalLength.toFixed(1)} nights` : "—"}
+                    value={
+                      typicalLength ? `${typicalLength.toFixed(1)} nights` : "—"
+                    }
                     hint={
-                      stats.totalStays ? "Average across all stays" : "Book a stay to get insights"
+                      stats.totalStays
+                        ? "Average across all stays"
+                        : "Book a stay to get insights"
                     }
                   />
                   <InsightCard
@@ -952,12 +1084,16 @@ export default function GuestDashboard() {
                               {fmtDate(s.check_in)}
                             </div>
                             <div className="font-medium text-sm">
-                              {s.hotel.city ? `${s.hotel.city} · ${s.hotel.name}` : s.hotel.name}
+                              {s.hotel.city
+                                ? `${s.hotel.city} · ${s.hotel.name}`
+                                : s.hotel.name}
                             </div>
                             <div className="text-[11px] text-slate-500">
                               {diffDays(s.check_in, s.check_out) || 1} night
-                              {diffDays(s.check_in, s.check_out) === 1 ? "" : "s"} ·{" "}
-                              {fmtRange(s.check_in, s.check_out)}
+                              {diffDays(s.check_in, s.check_out) === 1
+                                ? ""
+                                : "s"}{" "}
+                              · {fmtRange(s.check_in, s.check_out)}
                             </div>
                           </div>
                           <div className="text-right text-[11px] space-y-1">
@@ -966,7 +1102,11 @@ export default function GuestDashboard() {
                                 {fmtMoney(Number(s.bill_total))}
                               </div>
                             )}
-                            {rv && <div className="text-amber-700">{stars(rv.rating)}</div>}
+                            {rv && (
+                              <div className="text-amber-700">
+                                {stars(rv.rating)}
+                              </div>
+                            )}
                             {credits > 0 && (
                               <div className="text-emerald-700">
                                 Credits: {fmtMoney(credits)}
@@ -989,6 +1129,18 @@ export default function GuestDashboard() {
                               Earned rewards here
                             </span>
                           )}
+                          <Link
+                            to={buildStayLink(s)}
+                            className="px-2 py-0.5 rounded-full bg-white border hover:bg-slate-50"
+                          >
+                            View
+                          </Link>
+                          <Link
+                            to={buildCheckoutLink(s)}
+                            className="px-2 py-0.5 rounded-full bg-white border hover:bg-slate-50"
+                          >
+                            Checkout
+                          </Link>
                         </div>
                       </div>
                     </li>
@@ -1022,7 +1174,10 @@ export default function GuestDashboard() {
       <MobileGuestDock items={bottomNav} />
 
       {/* Explore stays overlay */}
-      <ExploreStaysQuickAction open={showExplore} onClose={() => setShowExplore(false)} />
+      <ExploreStaysQuickAction
+        open={showExplore}
+        onClose={() => setShowExplore(false)}
+      />
     </main>
   );
 }
@@ -1133,18 +1288,83 @@ function getCountdown(checkIn: string) {
   return { days, hours, label: `Check-in in ${dd} days · ${hh} hrs` };
 }
 
-/** Build stay detail link, always passing hotelId when available */
-function buildStayLink(stay: { id: string; hotel_id?: string | null }) {
+/**
+ * Build stay detail link.
+ * ✅ Now carries:
+ *  - hotelId
+ *  - bookingCode
+ *  - code
+ *
+ * This fixes the path:
+ * View Stay Details → Checkout → empty booking code
+ * (because the Stay page can now read these params reliably).
+ */
+function buildStayLink(stay: {
+  id: string;
+  hotel_id?: string | null;
+  booking_code?: string | null;
+}) {
   const base = `/stay/${encodeURIComponent(stay.id)}`;
+
   const rawHotelId =
     (stay as any).hotel_id ?? (stay as any).hotelId ?? (stay as any).hotel?.id ?? null;
 
-  if (rawHotelId) {
+  const rawBooking =
+    (stay as any).booking_code ??
+    (stay as any).bookingCode ??
+    (stay as any).code ??
+    stay.id ??
+    null;
+
+  if (rawHotelId || rawBooking) {
     const params = new URLSearchParams();
-    params.set("hotelId", String(rawHotelId));
+    if (rawHotelId) params.set("hotelId", String(rawHotelId));
+
+    if (rawBooking) {
+      const code = String(rawBooking);
+      params.set("bookingCode", code);
+      params.set("code", code);
+    }
+
     return `${base}?${params.toString()}`;
   }
+
   return base;
+}
+
+/**
+ * Express checkout link.
+ * ✅ Always includes bookingCode + code when available.
+ * ✅ Also includes hotelId when known.
+ */
+function buildCheckoutLink(
+  stay?: Partial<Stay> & { hotelId?: string | null; bookingCode?: string | null; code?: string | null },
+) {
+  const base = "/checkout";
+  if (!stay) return base;
+
+  const rawHotelId =
+    (stay as any).hotel_id ?? (stay as any).hotelId ?? (stay as any).hotel?.id ?? null;
+
+  const rawBooking =
+    (stay as any).booking_code ??
+    (stay as any).bookingCode ??
+    (stay as any).code ??
+    (stay as any).id ??
+    null;
+
+  if (!rawHotelId && !rawBooking) return base;
+
+  const params = new URLSearchParams();
+  if (rawHotelId) params.set("hotelId", String(rawHotelId));
+
+  if (rawBooking) {
+    const code = String(rawBooking);
+    params.set("bookingCode", code);
+    params.set("code", code);
+  }
+
+  return `${base}?${params.toString()}`;
 }
 
 /** Build 12-month series even if backend only gives yearly total */
@@ -1232,7 +1452,11 @@ function CategoryBreakdown({
         {data.map((seg) => {
           const pct = (seg.value / total) * 100;
           return (
-            <div key={seg.label} className="h-full bg-slate-300" style={{ width: `${pct}%` }} />
+            <div
+              key={seg.label}
+              className="h-full bg-slate-300"
+              style={{ width: `${pct}%` }}
+            />
           );
         })}
       </div>
@@ -1459,13 +1683,19 @@ function getStayState(stay?: Stay): StayState {
   const ci = new Date(stay.check_in).getTime();
   const co = new Date(stay.check_out).getTime();
 
-  if (raw.includes("complete") || raw.includes("checked_out")) return "completed";
-  if (raw.includes("ongoing") || raw.includes("inhouse") || raw.includes("checked_in"))
+  if (raw.includes("complete") || raw.includes("checked_out"))
+    return "completed";
+  if (
+    raw.includes("ongoing") ||
+    raw.includes("inhouse") ||
+    raw.includes("checked_in")
+  )
     return "ongoing";
   if (raw.includes("claimed")) return "claimed";
 
   if (isFinite(ci) && ci > now) return "upcoming";
-  if (isFinite(ci) && isFinite(co) && ci <= now && co >= now) return "ongoing";
+  if (isFinite(ci) && isFinite(co) && ci <= now && co >= now)
+    return "ongoing";
   if (isFinite(co) && co < now) return "completed";
 
   return "unknown";
@@ -1721,7 +1951,8 @@ function ExploreStaysQuickAction({
                     {p.startingFrom}
                   </span>
                   <div className="text-[10px] text-slate-400">
-                    *Indicative rack rates. Final price will be confirmed on call.
+                    *Indicative rack rates. Final price will be confirmed on
+                    call.
                   </div>
                 </div>
                 <a
@@ -1739,7 +1970,8 @@ function ExploreStaysQuickAction({
 
         <div className="px-5 py-3 border-t bg-slate-50 text-[11px] text-slate-500 flex flex-wrap items-center justify-between gap-2">
           <span>
-            You will receive a confirmation from our concierge team before any booking is final.
+            You will receive a confirmation from our concierge team before any
+            booking is final.
           </span>
           <span>
             Online one-tap booking ·{" "}
@@ -1772,7 +2004,9 @@ async function jsonWithTimeout(url: string, ms = 5000) {
         }
 
         const anonKey =
-          (import.meta as any).env?.VITE_SUPABASE_ANON_KEY as string | undefined;
+          (import.meta as any).env?.VITE_SUPABASE_ANON_KEY as
+            | string
+            | undefined;
         if (anonKey) {
           headers["apikey"] = anonKey;
         }
@@ -1846,6 +2080,7 @@ function demoStays(): any[] {
       check_in: "2025-08-10T12:00:00Z",
       check_out: "2025-08-12T08:00:00Z",
       bill_total: 7420,
+      booking_code: "BK-SUN-0810",
     },
     {
       id: "s2",
@@ -1860,6 +2095,7 @@ function demoStays(): any[] {
       check_in: "2025-06-05T12:00:00Z",
       check_out: "2025-06-07T08:00:00Z",
       bill_total: 5810,
+      booking_code: "BK-LAKE-0605",
     },
     {
       id: "s3",
@@ -1874,6 +2110,7 @@ function demoStays(): any[] {
       check_in: "2025-04-01T12:00:00Z",
       check_out: "2025-04-03T08:00:00Z",
       bill_total: 3999,
+      booking_code: "BK-PINE-0401",
     },
     {
       id: "s4",
@@ -1886,6 +2123,7 @@ function demoStays(): any[] {
       },
       check_in: "2025-03-01T12:00:00Z",
       check_out: "2025-03-02T08:00:00Z",
+      booking_code: "BK-CEDAR-0301",
     },
   ];
 }

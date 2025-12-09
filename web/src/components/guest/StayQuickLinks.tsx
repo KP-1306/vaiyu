@@ -1,5 +1,3 @@
-// web/src/components/guest/StayQuickLinks.tsx
-
 export type StayQuickLinksProps = {
   /** Optional stay / booking code for deep-links like /stay/:code/menu. */
   stayCode?: string;
@@ -37,7 +35,7 @@ export type StayQuickLinksProps = {
  *    window.location navigations using existing routes:
  *      • Services / Food → /stay/:code/menu?tab=...&hotel=...
  *      • Bill            → /bills
- *      • Checkout        → /checkout
+ *      • Checkout        → /checkout?code=... (+ hotel/property context)
  *      • Rewards         → /rewards
  *      • Chat            → WhatsApp link if given, else no-op
  */
@@ -82,6 +80,41 @@ export default function StayQuickLinks({
     return `${baseMenuPath}${sep}tab=${encodeURIComponent(tab)}`;
   }
 
+  /**
+   * ✅ CRITICAL FIX:
+   * Build a Checkout URL that always carries booking context when possible.
+   *
+   * We set:
+   *  - code + bookingCode (same value)
+   *  - hotelId when available
+   *  - and if hotelSlug appears to be a slug, we provide
+   *    hotel/hotelSlug/property/propertySlug aliases for robust prefill.
+   */
+  function buildCheckoutHref() {
+    // If we do not have a stayCode, preserve old safe behaviour.
+    if (!stayCode) return "/checkout";
+
+    const qp = new URLSearchParams();
+    qp.set("code", stayCode);
+    qp.set("bookingCode", stayCode);
+    qp.set("from", "stay");
+
+    // Preserve hotelId
+    if (hotelId) qp.set("hotelId", hotelId);
+
+    // If a slug looks present, include all alias keys.
+    // NOTE: hotelSlug may sometimes be an id, but passing it as alias
+    // is safe because Checkout only uses these for prefill.
+    if (hotelSlug) {
+      qp.set("hotel", hotelSlug);
+      qp.set("hotelSlug", hotelSlug);
+      qp.set("property", hotelSlug);
+      qp.set("propertySlug", hotelSlug);
+    }
+
+    return `/checkout?${qp.toString()}`;
+  }
+
   function handleRoomServices() {
     if (onOpenRoomServices) return onOpenRoomServices();
     safeNavigate(buildMenuHref("services"));
@@ -89,7 +122,6 @@ export default function StayQuickLinks({
 
   function handleFood() {
     if (onOpenFoodAndBeverages) return onOpenFoodAndBeverages();
-    // This ensures Food tile opens the menu on the Food tab.
     safeNavigate(buildMenuHref("food"));
   }
 
@@ -100,7 +132,7 @@ export default function StayQuickLinks({
 
   function handleCheckout() {
     if (onOpenCheckout) return onOpenCheckout();
-    safeNavigate("/checkout");
+    safeNavigate(buildCheckoutHref());
   }
 
   function handleRewards() {

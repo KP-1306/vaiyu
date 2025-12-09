@@ -1,3 +1,5 @@
+// web/src/routes/Menu.tsx
+
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams, useNavigate, Link } from "react-router-dom";
 import {
@@ -60,6 +62,7 @@ export default function Menu() {
         searchParams.get("hotelId"),
         searchParams.get("hotel_id"),
         searchParams.get("propertyId"),
+        searchParams.get("property_id"),
       ),
     [searchParams],
   );
@@ -74,6 +77,12 @@ export default function Menu() {
         searchParams.get("slug"),
       ),
     [searchParams],
+  );
+
+  // A single stable key we can use for fetching
+  const propertyKey = useMemo(
+    () => pickFirst(hotelId, hotelSlug, stayCode),
+    [hotelId, hotelSlug, stayCode],
   );
 
   // Simple state for data
@@ -109,10 +118,20 @@ export default function Menu() {
       next.set("bookingCode", stayCode);
       changed = true;
     }
+    if (!next.get("from")) {
+      next.set("from", "stay");
+      changed = true;
+    }
+
     if (hotelId && !next.get("hotelId")) {
       next.set("hotelId", hotelId);
       changed = true;
     }
+    if (hotelId && !next.get("propertyId")) {
+      next.set("propertyId", hotelId);
+      changed = true;
+    }
+
     if (hotelSlug) {
       const keys = ["hotel", "hotelSlug", "property", "propertySlug", "slug"];
       for (const k of keys) {
@@ -134,6 +153,37 @@ export default function Menu() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stayCode, hotelId, hotelSlug, tab]);
 
+  /** Safe fetch helper that won't break older signatures */
+  async function safeGetServices() {
+    const ctx = { stayCode, hotelId, hotelSlug, propertyKey };
+    // Extra args are ignored in JS if the function doesn't accept them.
+    const primary = (await (getServices as any)(propertyKey, ctx)) as Service[];
+
+    if (Array.isArray(primary) && primary.length) return primary;
+
+    // Fallback: try stayCode specifically if propertyKey differs
+    if (propertyKey !== stayCode) {
+      const fallback = (await (getServices as any)(stayCode, ctx)) as Service[];
+      if (Array.isArray(fallback)) return fallback;
+    }
+
+    return Array.isArray(primary) ? primary : [];
+  }
+
+  async function safeGetMenu() {
+    const ctx = { stayCode, hotelId, hotelSlug, propertyKey };
+    const primary = (await (getMenu as any)(propertyKey, ctx)) as FoodItem[];
+
+    if (Array.isArray(primary) && primary.length) return primary;
+
+    if (propertyKey !== stayCode) {
+      const fallback = (await (getMenu as any)(stayCode, ctx)) as FoodItem[];
+      if (Array.isArray(fallback)) return fallback;
+    }
+
+    return Array.isArray(primary) ? primary : [];
+  }
+
   // Load services
   useEffect(() => {
     let alive = true;
@@ -152,14 +202,13 @@ export default function Menu() {
           return;
         }
 
-        // We don't assume signature; call with one arg only.
-        const items = (await (getServices as any)(stayCode)) as Service[];
+        const items = await safeGetServices();
         if (!alive) return;
 
         setServicesState({
           loading: false,
           error: null,
-          items: Array.isArray(items) ? items : [],
+          items,
         });
       } catch (e: any) {
         dbgError("[Menu] getServices failed", e);
@@ -175,7 +224,7 @@ export default function Menu() {
     return () => {
       alive = false;
     };
-  }, [stayCode]);
+  }, [stayCode, hotelId, hotelSlug, propertyKey]);
 
   // Load food
   useEffect(() => {
@@ -195,13 +244,13 @@ export default function Menu() {
           return;
         }
 
-        const items = (await (getMenu as any)(stayCode)) as FoodItem[];
+        const items = await safeGetMenu();
         if (!alive) return;
 
         setFoodState({
           loading: false,
           error: null,
-          items: Array.isArray(items) ? items : [],
+          items,
         });
       } catch (e: any) {
         dbgError("[Menu] getMenu failed", e);
@@ -217,7 +266,7 @@ export default function Menu() {
     return () => {
       alive = false;
     };
-  }, [stayCode]);
+  }, [stayCode, hotelId, hotelSlug, propertyKey]);
 
   function switchTab(next: "services" | "food") {
     setTab(next);
@@ -249,9 +298,16 @@ export default function Menu() {
         hotelId,
         hotel_id: hotelId,
         propertyId: hotelId,
+        property_id: hotelId,
+
         hotelSlug,
         hotel_slug: hotelSlug,
         propertySlug: hotelSlug,
+        property_slug: hotelSlug,
+
+        // generic fallback key
+        hotel: hotelSlug || hotelId,
+        property: hotelSlug || hotelId,
 
         source: "guest",
       };
@@ -316,9 +372,15 @@ export default function Menu() {
         hotelId,
         hotel_id: hotelId,
         propertyId: hotelId,
+        property_id: hotelId,
+
         hotelSlug,
         hotel_slug: hotelSlug,
         propertySlug: hotelSlug,
+        property_slug: hotelSlug,
+
+        hotel: hotelSlug || hotelId,
+        property: hotelSlug || hotelId,
 
         source: "guest",
         total: cartTotal,

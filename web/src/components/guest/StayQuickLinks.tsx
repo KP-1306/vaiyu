@@ -1,3 +1,5 @@
+// web/src/components/guest/StayQuickLinks.tsx
+
 export type StayQuickLinksProps = {
   /** Optional stay / booking code for deep-links like /stay/:code/menu. */
   stayCode?: string;
@@ -64,34 +66,16 @@ export default function StayQuickLinks({
     if (!hotelKey) return base;
 
     const sep = base.includes("?") ? "&" : "?";
-    // Menu.tsx knows how to read ?hotel=... (slug or id).
     return `${base}${sep}hotel=${encodeURIComponent(hotelKey)}`;
   })();
 
-  /**
-   * Build a menu URL that:
-   *  - points to /stay/:code/menu (or /menu)
-   *  - sets the initial tab via ?tab=services|food
-   *  - keeps the hotel key from baseMenuPath
-   */
   function buildMenuHref(tab?: "services" | "food") {
     if (!tab) return baseMenuPath;
     const sep = baseMenuPath.includes("?") ? "&" : "?";
     return `${baseMenuPath}${sep}tab=${encodeURIComponent(tab)}`;
   }
 
-  /**
-   * ✅ CRITICAL FIX:
-   * Build a Checkout URL that always carries booking context when possible.
-   *
-   * We set:
-   *  - code + bookingCode (same value)
-   *  - hotelId when available
-   *  - and if hotelSlug appears to be a slug, we provide
-   *    hotel/hotelSlug/property/propertySlug aliases for robust prefill.
-   */
   function buildCheckoutHref() {
-    // If we do not have a stayCode, preserve old safe behaviour.
     if (!stayCode) return "/checkout";
 
     const qp = new URLSearchParams();
@@ -99,12 +83,8 @@ export default function StayQuickLinks({
     qp.set("bookingCode", stayCode);
     qp.set("from", "stay");
 
-    // Preserve hotelId
     if (hotelId) qp.set("hotelId", hotelId);
 
-    // If a slug looks present, include all alias keys.
-    // NOTE: hotelSlug may sometimes be an id, but passing it as alias
-    // is safe because Checkout only uses these for prefill.
     if (hotelSlug) {
       qp.set("hotel", hotelSlug);
       qp.set("hotelSlug", hotelSlug);
@@ -245,6 +225,6 @@ function safeNavigate(href: string) {
       window.location.href = href;
     }
   } catch {
-    // ignore – we never want this to crash the page
+    // ignore
   }
 }

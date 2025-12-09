@@ -1,9 +1,7 @@
-// web/src/routes/GuestDashboard.tsx
 import {
   useEffect,
   useMemo,
   useState,
-  memo,
   type FormEvent,
 } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
@@ -634,7 +632,9 @@ export default function GuestDashboard() {
               <div className="text-[11px] uppercase tracking-wide text-slate-500">
                 Travel Command Center
               </div>
-              <h1 className="text-xl md:text-2xl font-semibold">Guest Dashboard</h1>
+              <h1 className="text-xl md:text-2xl font-semibold">
+                Guest Dashboard
+              </h1>
             </div>
             <div className="flex items-center gap-3">
               <form
@@ -680,7 +680,9 @@ export default function GuestDashboard() {
                   )}
                 </div>
 
-                <h2 className="text-lg md:text-xl font-semibold">{welcomeText}</h2>
+                <h2 className="text-lg md:text-xl font-semibold">
+                  {welcomeText}
+                </h2>
                 <p className="text-xs text-gray-600">
                   Your trips, spend and rewards in one place.
                 </p>
@@ -761,7 +763,7 @@ export default function GuestDashboard() {
 
               {/* Right – spend analytics + quick actions + rewards pill */}
               <div className="space-y-3">
-                {/* Spend & Rewards Analytics panel (matches design screenshot) */}
+                {/* Spend & Rewards Analytics panel */}
                 <section className="rounded-2xl bg-white border shadow-sm p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                     <div>
@@ -903,7 +905,7 @@ export default function GuestDashboard() {
             </div>
           </section>
 
-          {/* KPI strip – premium look */}
+          {/* KPI strip */}
           <section className="grid md:grid-cols-5 gap-3">
             <StatBadge
               label="Total stays"
@@ -1189,7 +1191,7 @@ async function loadCard<J, T>(
   fetcher: () => Promise<J>,
   map: (j: J | null) => T,
   demo: () => T,
-  set: (next: any) => void,
+  set: (next: AsyncData<T>) => void,
   allowDemo: boolean,
 ) {
   set({ loading: true, source: "live", data: [] as unknown as T });
@@ -1229,10 +1231,12 @@ function normalizeStayRow(row: any): Stay {
     };
   }
 
-  const bookingCode = row.booking_code ?? row.code ?? row.bookingCode ?? row.id ?? null;
+  const bookingCode =
+    row.booking_code ?? row.code ?? row.bookingCode ?? row.id ?? null;
   const hotelName = row.hotel_name ?? row.hotel?.name ?? row.name ?? "Unknown hotel";
   const city = row.city ?? row.hotel_city ?? row.hotel?.city ?? undefined;
-  const country = row.country ?? row.hotel_country ?? row.hotel?.country ?? undefined;
+  const country =
+    row.country ?? row.hotel_country ?? row.hotel?.country ?? undefined;
   const coverUrl =
     row.cover_url ??
     row.cover_image_url ??
@@ -1243,8 +1247,10 @@ function normalizeStayRow(row: any): Stay {
   const slug =
     row.hotel_slug ?? row.slug ?? row.hotel?.slug ?? row.hotel?.tenant_slug ?? null;
 
-  const checkIn = row.check_in ?? row.checkIn ?? row.start_at ?? row.startAt ?? "";
-  const checkOut = row.check_out ?? row.checkOut ?? row.end_at ?? row.endAt ?? "";
+  const checkIn =
+    row.check_in ?? row.checkIn ?? row.start_at ?? row.startAt ?? "";
+  const checkOut =
+    row.check_out ?? row.checkOut ?? row.end_at ?? row.endAt ?? "";
 
   return {
     id: bookingCode || String(row.id),
@@ -1671,7 +1677,11 @@ function getStayState(stay?: Stay): StayState {
   const co = new Date(stay.check_out).getTime();
 
   if (raw.includes("complete") || raw.includes("checked_out")) return "completed";
-  if (raw.includes("ongoing") || raw.includes("inhouse") || raw.includes("checked_in"))
+  if (
+    raw.includes("ongoing") ||
+    raw.includes("inhouse") ||
+    raw.includes("checked_in")
+  )
     return "ongoing";
   if (raw.includes("claimed")) return "claimed";
 

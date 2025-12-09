@@ -208,7 +208,10 @@ export default function GuestDashboard() {
         }
         if (items.length) return;
       } catch (err) {
-        console.warn("[GuestDashboard] me-stays API failed, fallback to view", err);
+        console.warn(
+          "[GuestDashboard] me-stays API failed, fallback to view",
+          err,
+        );
       }
 
       // 2) Fallback view
@@ -226,7 +229,10 @@ export default function GuestDashboard() {
           setStays({ loading: false, source: "live", data: items });
         }
       } catch (err) {
-        console.error("[GuestDashboard] fallback user_recent_stays failed", err);
+        console.error(
+          "[GuestDashboard] fallback user_recent_stays failed",
+          err,
+        );
         if (!cancelled) {
           if (USE_DEMO) {
             setStays({
@@ -301,16 +307,60 @@ export default function GuestDashboard() {
     0,
   );
 
+  // Derive spend per year/month from stays when /me/spend is not available
+  const derivedSpendFromStays: Spend[] = useMemo(() => {
+    if (!stays.data.length) return [];
+    const byYear: Record<
+      number,
+      { total: number; byMonth: Record<number, number> }
+    > = {};
+
+    stays.data.forEach((s) => {
+      const amount =
+        typeof s.bill_total === "number" ? Number(s.bill_total) : 0;
+      if (!amount) return;
+      const dt = new Date(s.check_in);
+      if (!isFinite(dt.getTime())) return;
+      const year = dt.getFullYear();
+      const month = dt.getMonth() + 1; // 1-12
+
+      if (!byYear[year]) {
+        byYear[year] = { total: 0, byMonth: {} };
+      }
+      byYear[year].total += amount;
+      byYear[year].byMonth[month] =
+        (byYear[year].byMonth[month] || 0) + amount;
+    });
+
+    return Object.entries(byYear)
+      .map(([yearStr, info]) => {
+        const year = Number(yearStr);
+        const monthly = Object.entries(info.byMonth)
+          .map(([m, total]) => ({
+            month: Number(m),
+            total: Number(total),
+          }))
+          .sort((a, b) => a.month - b.month);
+        return { year, total: info.total, monthly } as Spend;
+      })
+      .sort((a, b) => a.year - b.year);
+  }, [stays.data]);
+
   // Travel Stats (derived)
   const stats = useMemo(() => {
     const nights = stays.data.reduce(
       (n, s) => n + diffDays(s.check_in, s.check_out),
       0,
     );
-    const totalSpend = spend.data.reduce(
+
+    const spendSeries =
+      spend.data && spend.data.length ? spend.data : derivedSpendFromStays;
+
+    const totalSpend = spendSeries.reduce(
       (a, s) => a + Number(s.total || 0),
       0,
     );
+
     const countsByHotel: Record<string, number> = {};
     const cities = new Set<string>();
     const countries = new Set<string>();
@@ -320,7 +370,8 @@ export default function GuestDashboard() {
       if ((s.hotel as any).country) countries.add((s.hotel as any).country);
     });
     const mostVisited =
-      Object.entries(countsByHotel).sort((a, b) => b[1] - a[1])[0]?.[0] || "—";
+      Object.entries(countsByHotel).sort((a, b) => b[1] - a[1])[0]?.[0] ||
+      "—";
     return {
       totalStays: stays.data.length,
       nights,
@@ -330,7 +381,7 @@ export default function GuestDashboard() {
       cityCount: cities.size,
       countryCount: countries.size || (stays.data.length ? 1 : 0),
     };
-  }, [stays.data, spend.data, totalReferralCredits]);
+  }, [stays.data, spend.data, derivedSpendFromStays, totalReferralCredits]);
 
   const avgSpendPerTrip =
     stats.totalStays > 0 ? stats.totalSpend / stats.totalStays : 0;
@@ -404,10 +455,11 @@ export default function GuestDashboard() {
 
   // Spend analytics selection
   const currentYear = new Date().getFullYear();
-  const spendByYearSorted = useMemo(
-    () => spend.data.slice().sort((a, b) => a.year - b.year),
-    [spend.data],
-  );
+  const spendByYearSorted = useMemo(() => {
+    const source =
+      spend.data && spend.data.length ? spend.data : derivedSpendFromStays;
+    return source.slice().sort((a, b) => a.year - b.year);
+  }, [spend.data, derivedSpendFromStays]);
 
   const selectedYear = useMemo(() => {
     if (!spendByYearSorted.length) return null;
@@ -449,7 +501,7 @@ export default function GuestDashboard() {
 
   const stayState = getStayState(nextStay);
 
-  // NEW: Express checkout URL that carries booking + hotel + property slug
+  // Express checkout URL that carries booking + hotel + property slug
   const expressCheckoutUrl = useMemo(() => {
     if (!nextStay) return "/checkout";
     return buildCheckoutLink(nextStay);
@@ -579,71 +631,7 @@ export default function GuestDashboard() {
             </div>
           </header>
 
-          {/* ✅ NEW: Spend & Rewards Analytics at the TOP (above hero) */}
-          <section className="rounded-2xl bg-white border shadow-sm p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-              <div>
-                <div className="text-[10px] uppercase tracking-wide text-slate-500">
-                  Spend & Rewards Analytics
-                </div>
-                <div className="font-semibold text-sm">
-                  {selectedYear ? `Year ${selectedYear.year}` : "Your travel analytics"}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <div className="inline-flex rounded-full bg-slate-50 border px-1 py-0.5 text-[11px]">
-                  {[
-                    { key: "this", label: "This year" },
-                    { key: "last", label: "Last year" },
-                    { key: "all", label: "All time" },
-                  ].map((tab) => (
-                    <button
-                      key={tab.key}
-                      type="button"
-                      onClick={() => setSpendMode(tab.key as "this" | "last" | "all")}
-                      className={`px-2.5 py-0.5 rounded-full ${
-                        spendMode === tab.key
-                          ? "bg-white shadow-sm text-slate-900"
-                          : "text-slate-500"
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-
-                <Link
-                  to="/rewards"
-                  className="inline-flex items-center gap-1.5 rounded-full border bg-white px-3 py-1 text-[10px] font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  🎁 View rewards
-                </Link>
-              </div>
-            </div>
-
-            {spend.loading ? (
-              <Skeleton lines={4} />
-            ) : !selectedYear ? (
-              <Empty
-                small
-                text="Complete your first stay to unlock monthly spend trends and category breakdowns."
-              />
-            ) : (
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <div className="text-xs text-slate-500 mb-1">Monthly spend (₹)</div>
-                  <MonthlyBars data={monthlySeries} />
-                </div>
-                <div>
-                  <div className="text-xs text-slate-500 mb-1">Spend by category</div>
-                  <CategoryBreakdown data={categorySeries} />
-                </div>
-              </div>
-            )}
-          </section>
-
-          {/* Hero band – Next stay + quick actions */}
+          {/* Hero band – Next stay + analytics + quick actions */}
           <section className="relative rounded-2xl p-5 bg-gradient-to-r from-sky-50 via-white to-indigo-50 border shadow-sm overflow-hidden">
             <Bubbles />
             <div className="grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-6 relative">
@@ -680,7 +668,8 @@ export default function GuestDashboard() {
                         <div className="text-right text-[10px] text-slate-500">
                           Booking ID
                           <div className="font-mono text-[11px]">
-                            {getStayBookingCode(nextStay) || nextStay.id.slice(0, 8)}
+                            {getStayBookingCode(nextStay) ||
+                              nextStay.id.slice(0, 8)}
                           </div>
                         </div>
                       </div>
@@ -698,7 +687,9 @@ export default function GuestDashboard() {
                       <div>
                         <div className="text-slate-500">Room type</div>
                         <div className="font-medium">
-                          {nextStay.room_type || mostBookedRoomType || "Standard room"}
+                          {nextStay.room_type ||
+                            mostBookedRoomType ||
+                            "Standard room"}
                         </div>
                       </div>
                       {typeof nextStay.bill_total === "number" && (
@@ -728,72 +719,150 @@ export default function GuestDashboard() {
                 ) : (
                   <div className="mt-3 rounded-2xl bg-white/70 border border-dashed p-4 text-sm text-slate-600">
                     No upcoming stays yet. Start your next journey with VAiyu —
-                    explore curated partner hotels and request a booking with one tap.
+                    explore curated partner hotels and request a booking with one
+                    tap.
                   </div>
                 )}
               </div>
 
-              {/* Right – quick actions + rewards pill */}
+              {/* Right – spend analytics + quick actions + rewards pill */}
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-semibold text-slate-800">
-                    Service Request Console
+                {/* Spend & Rewards Analytics panel (matches design screenshot) */}
+                <section className="rounded-2xl bg-white border shadow-sm p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wide text-slate-500">
+                        Spend &amp; Rewards Analytics
+                      </div>
+                      <div className="font-semibold text-sm">
+                        {selectedYear
+                          ? `Year ${selectedYear.year}`
+                          : "Your travel analytics"}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <div className="inline-flex rounded-full bg-slate-50 border px-1 py-0.5 text-[11px]">
+                        {[
+                          { key: "this", label: "This year" },
+                          { key: "last", label: "Last year" },
+                          { key: "all", label: "All time" },
+                        ].map((tab) => (
+                          <button
+                            key={tab.key}
+                            type="button"
+                            onClick={() =>
+                              setSpendMode(tab.key as "this" | "last" | "all")
+                            }
+                            className={`px-2.5 py-0.5 rounded-full ${
+                              spendMode === tab.key
+                                ? "bg-white shadow-sm text-slate-900"
+                                : "text-slate-500"
+                            }`}
+                          >
+                            {tab.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      <Link
+                        to="/rewards"
+                        className="inline-flex items-center gap-1.5 rounded-full border bg-white px-3 py-1 text-[10px] font-semibold text-slate-700 hover:bg-slate-50"
+                      >
+                        🎁 View rewards
+                      </Link>
+                    </div>
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <RewardsPill />
+                  {spend.loading ? (
+                    <Skeleton lines={4} />
+                  ) : !selectedYear ? (
+                    <Empty
+                      small
+                      text="Complete your first stay to unlock monthly spend trends and category breakdowns."
+                    />
+                  ) : (
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-xs text-slate-500 mb-1">
+                          Monthly spend (₹)
+                        </div>
+                        <MonthlyBars data={monthlySeries} />
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-500 mb-1">
+                          Spend by category
+                        </div>
+                        <CategoryBreakdown data={categorySeries} />
+                      </div>
+                    </div>
+                  )}
+                </section>
 
-                  <div className="grid sm:grid-cols-2 gap-2">
-                    <QuickPill
-                      title="Book a new stay"
-                      text="Explore stays"
-                      variant="solid"
-                      icon="🏨"
-                      onClick={() => setShowExplore(true)}
-                    />
-                    <QuickPill
-                      title={jobsUrl ? "Jobs at this hotel" : "Work in hotels"}
-                      text={jobsUrl ? "Apply for openings" : "Build my staff profile"}
-                      to={jobsUrl || "/workforce/profile"}
-                      variant="light"
-                      icon="🧑‍🍳"
-                    />
-                    <QuickPill
-                      title="Scan QR to check-in"
-                      text="Scan & Go"
-                      to="/scan"
-                      variant="light"
-                      icon="📷"
-                    />
-                    <QuickPill
-                      title="Find my booking"
-                      text="Use booking code"
-                      to="/claim"
-                      variant="light"
-                      icon="🔎"
-                    />
-                    <QuickPill
-                      title="Rewards & vouchers"
-                      text="View & redeem"
-                      to="/rewards"
-                      variant="light"
-                      icon="🎁"
-                    />
-                    <QuickPill
-                      title="Download invoices"
-                      text="Bills & reports"
-                      to="/bills"
-                      variant="light"
-                      icon="🧾"
-                    />
-                    <QuickPill
-                      title="Express check-out"
-                      text="Finish in seconds"
-                      to={expressCheckoutUrl}
-                      variant="light"
-                      icon="✅"
-                    />
+                {/* Service Request Console + quick actions */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-semibold text-slate-800">
+                      Service Request Console
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <RewardsPill />
+
+                    <div className="grid sm:grid-cols-2 gap-2">
+                      <QuickPill
+                        title="Book a new stay"
+                        text="Explore stays"
+                        variant="solid"
+                        icon="🏨"
+                        onClick={() => setShowExplore(true)}
+                      />
+                      <QuickPill
+                        title={jobsUrl ? "Jobs at this hotel" : "Work in hotels"}
+                        text={
+                          jobsUrl ? "Apply for openings" : "Build my staff profile"
+                        }
+                        to={jobsUrl || "/workforce/profile"}
+                        variant="light"
+                        icon="🧑‍🍳"
+                      />
+                      <QuickPill
+                        title="Scan QR to check-in"
+                        text="Scan & Go"
+                        to="/scan"
+                        variant="light"
+                        icon="📷"
+                      />
+                      <QuickPill
+                        title="Find my booking"
+                        text="Use booking code"
+                        to="/claim"
+                        variant="light"
+                        icon="🔎"
+                      />
+                      <QuickPill
+                        title="Rewards & vouchers"
+                        text="View & redeem"
+                        to="/rewards"
+                        variant="light"
+                        icon="🎁"
+                      />
+                      <QuickPill
+                        title="Download invoices"
+                        text="Bills & reports"
+                        to="/bills"
+                        variant="light"
+                        icon="🧾"
+                      />
+                      <QuickPill
+                        title="Express check-out"
+                        text="Finish in seconds"
+                        to={expressCheckoutUrl}
+                        variant="light"
+                        icon="✅"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -833,7 +902,9 @@ export default function GuestDashboard() {
             <StatBadge
               label="Rewards balance"
               value={fmtMoney(stats.totalCredits)}
-              sublabel={`${totalReferralCredits ? "Active credits" : "Invite friends to earn"}`}
+              sublabel={`${
+                totalReferralCredits ? "Active credits" : "Invite friends to earn"
+              }`}
               emoji="🎁"
             />
             <StatBadge
@@ -933,7 +1004,9 @@ export default function GuestDashboard() {
                   value={fmtMoney(Math.round(avgSpendPerTrip || 0))}
                   hint={
                     stats.totalStays
-                      ? `${stats.totalStays} trip${stats.totalStays === 1 ? "" : "s"} so far`
+                      ? `${stats.totalStays} trip${
+                          stats.totalStays === 1 ? "" : "s"
+                        } so far`
                       : "Will appear after your first stay"
                   }
                 />
@@ -941,7 +1014,9 @@ export default function GuestDashboard() {
                   label="Typical length"
                   value={typicalLength ? `${typicalLength.toFixed(1)} nights` : "—"}
                   hint={
-                    stats.totalStays ? "Average across all stays" : "Book a stay to get insights"
+                    stats.totalStays
+                      ? "Average across all stays"
+                      : "Book a stay to get insights"
                   }
                 />
                 <InsightCard
@@ -952,8 +1027,8 @@ export default function GuestDashboard() {
               </div>
 
               <div className="rounded-xl border bg-slate-50/70 px-3 py-3 text-[11px] text-slate-600">
-                Your rewards are property-scoped. Express checkout will auto-carry your
-                booking + property context when available.
+                Your rewards are property-scoped. Express checkout will auto-carry
+                your booking + property context when available.
               </div>
             </div>
           </section>
@@ -1004,7 +1079,11 @@ export default function GuestDashboard() {
                                 {fmtMoney(Number(s.bill_total))}
                               </div>
                             )}
-                            {rv && <div className="text-amber-700">{stars(rv.rating)}</div>}
+                            {rv && (
+                              <div className="text-amber-700">
+                                {stars(rv.rating)}
+                              </div>
+                            )}
                             {credits > 0 && (
                               <div className="text-emerald-700">
                                 Credits: {fmtMoney(credits)}
@@ -1044,8 +1123,8 @@ export default function GuestDashboard() {
               <div>
                 <div className="font-semibold">Want to run a property?</div>
                 <div className="text-sm text-gray-600">
-                  Register your hotel to unlock the owner console: dashboards,
-                  SLAs, workflows and AI moderation.
+                  Register your hotel to unlock the owner console: dashboards, SLAs,
+                  workflows and AI moderation.
                 </div>
               </div>
               <GuestButton to="/owner/register" variant="primary">
@@ -1060,7 +1139,10 @@ export default function GuestDashboard() {
       <MobileGuestDock items={bottomNav} />
 
       {/* Explore stays overlay */}
-      <ExploreStaysQuickAction open={showExplore} onClose={() => setShowExplore(false)} />
+      <ExploreStaysQuickAction
+        open={showExplore}
+        onClose={() => setShowExplore(false)}
+      />
     </main>
   );
 }
@@ -1205,8 +1287,7 @@ function getCountdown(checkIn: string) {
 }
 
 /**
- * ✅ Build stay detail link with robust booking-code carry-forward.
- * This helps the Stay page forward to Checkout correctly without needing other edits.
+ * Build stay detail link with robust booking-code carry-forward.
  */
 function buildStayLink(stay: any) {
   const bookingCode = getStayBookingCode(stay);
@@ -1240,7 +1321,7 @@ function buildStayLink(stay: any) {
 }
 
 /**
- * ✅ Build checkout link that auto-carries booking + hotel + property slug
+ * Build checkout link that auto-carries booking + hotel + property slug
  */
 function buildCheckoutLink(stay: any) {
   const bookingCode = getStayBookingCode(stay);
@@ -1774,9 +1855,9 @@ function ExploreStaysQuickAction({
               Explore stays with VAiyu
             </h2>
             <p className="mt-1 text-xs text-slate-600 max-w-xl">
-              Right now we handle bookings with a human concierge. Pick a
-              property, share your dates and we’ll confirm the best available
-              rate over WhatsApp / email. Instant online booking is coming soon.
+              Right now we handle bookings with a human concierge. Pick a property,
+              share your dates and we’ll confirm the best available rate over
+              WhatsApp / email. Instant online booking is coming soon.
             </p>
           </div>
           <button
@@ -1863,8 +1944,8 @@ function ExploreStaysQuickAction({
 
         <div className="px-5 py-3 border-t bg-slate-50 text-[11px] text-slate-500 flex flex-wrap items-center justify-between gap-2">
           <span>
-            You will receive a confirmation from our concierge team before any booking
-            is final.
+            You will receive a confirmation from our concierge team before any
+            booking is final.
           </span>
           <span>
             Online one-tap booking ·{" "}

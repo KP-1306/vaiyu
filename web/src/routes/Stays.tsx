@@ -1,4 +1,3 @@
-// web/src/routes/Stays.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -115,7 +114,7 @@ export default function Stays() {
         const { data, error } = await supabase
           .from("user_recent_stays")
           .select(
-            "id, hotel_id, hotel_name, city, cover_image_url, check_in, check_out, earned_paise, review_status"
+            "id, hotel_id, hotel_name, city, cover_image_url, check_in, check_out, earned_paise, review_status",
           )
           .order("check_in", { ascending: false });
 
@@ -201,7 +200,7 @@ export default function Stays() {
       if (c) cities.add(c);
     }
     return Array.from(cities).sort((a, b) =>
-      a.localeCompare(b, undefined, { sensitivity: "base" })
+      a.localeCompare(b, undefined, { sensitivity: "base" }),
     );
   }, [rows]);
 
@@ -217,7 +216,7 @@ export default function Stays() {
       list = list.filter(
         (r) =>
           (r.city || "").trim().toLowerCase() ===
-          cityFilter.trim().toLowerCase()
+          cityFilter.trim().toLowerCase(),
       );
     }
 
@@ -336,9 +335,7 @@ export default function Stays() {
               {/* Next stay highlight */}
               <div className="min-w-[210px] max-w-xs rounded-xl bg-white/80 border border-slate-100 shadow-sm px-3 py-3 text-xs text-gray-700 flex flex-col justify-between">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold text-gray-800">
-                    Next stay
-                  </span>
+                  <span className="font-semibold text-gray-800">Next stay</span>
                   {summary.upcomingStay && (
                     <span className="rounded-full bg-emerald-50 border border-emerald-100 text-[10px] text-emerald-700 px-2 py-0.5">
                       Upcoming
@@ -359,9 +356,8 @@ export default function Stays() {
                     </div>
                     <Link
                       to={`/stay/${encodeURIComponent(
-                        summary.upcomingStay.id
+                        summary.upcomingStay.id,
                       )}`}
-                      // NEW: pass stay row for instant render on details page
                       state={{ stay: summary.upcomingStay }}
                       className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-teal-700 hover:text-teal-800"
                     >
@@ -387,7 +383,7 @@ export default function Stays() {
                 {summary.lastStay && (
                   <div className="text-[11px] text-gray-500 text-right">
                     Last stayed at{" "}
-                      <span className="font-medium text-gray-700">
+                    <span className="font-medium text-gray-700">
                       {summary.lastStay.hotel_name || "a partner hotel"}
                     </span>{" "}
                     • {formatStayDates(summary.lastStay)}
@@ -419,7 +415,7 @@ export default function Stays() {
                   value={statusFilter}
                   onChange={(v) =>
                     setStatusFilter(
-                      v as "all" | "upcoming" | "ongoing" | "completed"
+                      v as "all" | "upcoming" | "ongoing" | "completed",
                     )
                   }
                   options={[
@@ -450,7 +446,7 @@ export default function Stays() {
                   value={sortBy}
                   onChange={(v) =>
                     setSortBy(
-                      v as "newest" | "oldest" | "creditsHigh" | "creditsLow"
+                      v as "newest" | "oldest" | "creditsHigh" | "creditsLow",
                     )
                   }
                   options={[
@@ -581,7 +577,6 @@ function StayCard({ row }: { row: StayRow }) {
   return (
     <Link
       to={`/stay/${encodeURIComponent(id)}`}
-      // NEW: pass full stay row so Stay page can use it immediately
       state={{ stay: row }}
       className="group flex flex-col sm:flex-row gap-4 rounded-2xl border bg-white/90 hover:bg-slate-50 hover:shadow-md transition-all overflow-hidden"
     >

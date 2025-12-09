@@ -1,5 +1,3 @@
-// web/src/App.tsx
-
 import React, { Suspense, lazy, useEffect } from "react";
 import {
   Routes,
@@ -20,7 +18,7 @@ import GuestWorkforceApply from "./routes/GuestWorkforceApply";
 /** Helper: optional lazy import from a literal glob + fallback */
 function optionalFromGlob<T extends React.ComponentType<any>>(
   globRecord: Record<string, () => Promise<{ default: T }>>,
-  Fallback: T
+  Fallback: T,
 ) {
   const first = Object.values(globRecord)[0];
   if (first) {
@@ -81,217 +79,282 @@ const FallbackMarketing: React.FC = () => (
 // Marketing home (landing)
 const MarketingHome = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
-    "./routes/MarketingHome.{tsx,jsx}"
+    "./routes/MarketingHome.{tsx,jsx}",
   ),
-  FallbackMarketing
+  FallbackMarketing,
 );
 
 // Staff (optional)
 const StaffHome = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
-    "./routes/StaffHome.{tsx,jsx}"
+    "./routes/StaffHome.{tsx,jsx}",
   ),
   () => (
     <FallbackPage
       title="Staff workspace"
       hint="Add web/src/routes/StaffHome.tsx to enable this page."
     />
-  )
+  ),
 );
 
 // Settings (optional)
 const Settings = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
-    "./routes/Settings.{tsx,jsx}"
+    "./routes/Settings.{tsx,jsx}",
   ),
   () => (
     <FallbackPage
       title="Settings"
       hint="Add web/src/routes/Settings.tsx to enable this page."
     />
-  )
+  ),
 );
 
 // Profile (optional)
 const Profile = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
-    "./routes/Profile.{tsx,jsx}"
+    "./routes/Profile.{tsx,jsx}",
   ),
   () => (
     <FallbackPage
       title="Profile"
       hint="Add web/src/routes/Profile.tsx to enable this page."
     />
-  )
+  ),
 );
 
 // Logout (optional)
 const Logout = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
-    "./routes/Logout.{tsx,jsx}"
+    "./routes/Logout.{tsx,jsx}",
   ),
   () => (
     <FallbackPage
       title="Sign out"
       hint="Add web/src/routes/Logout.tsx to enable this page."
     />
-  )
+  ),
 );
 
 // OwnerReputation (optional)
 const OwnerReputation = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
-    "./routes/OwnerReputation.{tsx,jsx}"
+    "./routes/OwnerReputation.{tsx,jsx}",
   ),
   () => (
     <FallbackPage
       title="Reputation radar"
       hint="Add web/src/routes/OwnerReputation.tsx to enable this page."
     />
-  )
+  ),
 );
 
 // --- marketing/legal pages (optional, safe if missing) ---
 const AboutUs = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
-    "./routes/AboutUs.{tsx,jsx}"
+    "./routes/AboutUs.{tsx,jsx}",
   ),
   () => (
     <FallbackPage
       title="About VAiyu"
       hint="Add web/src/routes/AboutUs.tsx to enable this page."
     />
-  )
+  ),
 );
 
 const AboutAI = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
-    "./routes/AboutAI.{tsx,jsx}"
+    "./routes/AboutAI.{tsx,jsx}",
   ),
   () => (
     <FallbackPage
       title="How our AI works"
       hint="Add web/src/routes/AboutAI.tsx to enable this page."
     />
-  )
+  ),
 );
 
 const Contact = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
-    "./routes/Contact.{tsx,jsx}"
+    "./routes/Contact.{tsx,jsx}",
   ),
   () => (
     <FallbackPage
       title="Contact"
       hint="Add web/src/routes/Contact.tsx to enable this page."
     />
-  )
+  ),
 );
 
 const Careers = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
-    "./routes/Careers.{tsx,jsx}"
+    "./routes/Careers.{tsx,jsx}",
   ),
   () => (
     <FallbackPage
       title="Careers"
       hint="Add web/src/routes/Careers.tsx to enable this page."
     />
-  )
+  ),
 );
 
 const Press = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
-    "./routes/Press.{tsx,jsx}"
+    "./routes/Press.{tsx,jsx}",
   ),
   () => (
     <FallbackPage
       title="Press & Media"
       hint="Add web/src/routes/Press.tsx to enable this page."
     />
-  )
+  ),
 );
 
 const Privacy = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
-    "./routes/Privacy.{tsx,jsx}"
+    "./routes/Privacy.{tsx,jsx}",
   ),
   () => (
     <FallbackPage
       title="Privacy Policy"
       hint="Add web/src/routes/Privacy.tsx to enable this page."
     />
-  )
+  ),
 );
 
 // HRMS (optional)
 const OwnerHRMS = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
-    "./routes/OwnerHRMS.{tsx,jsx}"
+    "./routes/OwnerHRMS.{tsx,jsx}",
   ),
   () => (
     <FallbackPage
       title="HRMS"
       hint="Add web/src/routes/OwnerHRMS.tsx to enable this page."
     />
-  )
+  ),
 );
 
 // Bookings calendar (optional)
 const BookingsCalendar = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
-    "./routes/BookingsCalendar.{tsx,jsx}"
+    "./routes/BookingsCalendar.{tsx,jsx}",
   ),
   () => (
     <FallbackPage
       title="Bookings calendar"
       hint="Add web/src/routes/BookingsCalendar.tsx to enable this page."
     />
-  )
+  ),
 );
 
 // Owner pricing (optional)
 const OwnerPricing = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
-    "./routes/OwnerPricing.{tsx,jsx}"
+    "./routes/OwnerPricing.{tsx,jsx}",
   ),
   () => (
     <FallbackPage
       title="Pricing"
       hint="Add web/src/routes/OwnerPricing.tsx to enable this page."
     />
-  )
+  ),
 );
 
 // Owner occupancy (optional quick view)
 const OwnerOccupancy = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
-    "./routes/OwnerOccupancy.{tsx,jsx}"
+    "./routes/OwnerOccupancy.{tsx,jsx}",
   ),
   () => (
     <FallbackPage
       title="Occupancy"
       hint="Add web/src/routes/OwnerOccupancy.tsx to enable this page."
     />
-  )
+  ),
 );
 
 // Guest-facing “Jobs at this hotel” page (optional)
 const HotelJobs = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
-    "./routes/HotelJobs.{tsx,jsx}"
+    "./routes/HotelJobs.{tsx,jsx}",
   ),
   () => (
     <FallbackPage
       title="Jobs at this hotel"
       hint="Add web/src/routes/HotelJobs.tsx to show open roles for this property."
     />
-  )
+  ),
+);
+
+/* --------- Guest core secondary pages (optional-safe) ---------- */
+
+const Stays = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/Stays.{tsx,jsx}",
+  ),
+  () => (
+    <FallbackPage
+      title="My trips"
+      hint="Add web/src/routes/Stays.tsx to enable the stays list."
+    />
+  ),
+);
+
+const Bills = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/Bills.{tsx,jsx}",
+  ),
+  () => (
+    <FallbackPage
+      title="Bills & invoices"
+      hint="Add web/src/routes/Bills.tsx to enable invoices."
+    />
+  ),
+);
+
+const ClaimStay = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/ClaimStay.{tsx,jsx}",
+  ),
+  () => (
+    <FallbackPage
+      title="Claim booking"
+      hint="Add web/src/routes/ClaimStay.tsx to enable booking claim."
+    />
+  ),
+);
+
+const Scan = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/Scan.{tsx,jsx}",
+  ),
+  () => (
+    <FallbackPage
+      title="Scan"
+      hint="Add web/src/routes/Scan.tsx to enable QR check-in."
+    />
+  ),
+);
+
+const Rewards = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/Rewards.{tsx,jsx}",
+  ),
+  () => (
+    <FallbackPage
+      title="Rewards"
+      hint="Add web/src/routes/Rewards.tsx to enable rewards."
+    />
+  ),
 );
 
 /* --------- Required routes ---------- */
 
 const GuestDashboard = lazy(() => import("./routes/GuestDashboard"));
+const Stay = lazy(() => import("./routes/Stay"));
+const Checkout = lazy(() => import("./routes/Checkout"));
+
 const OwnerHome = lazy(() => import("./routes/OwnerHome"));
 const SignIn = lazy(() => import("./routes/SignIn"));
 const AuthCallback = lazy(() => import("./routes/AuthCallback"));
@@ -311,12 +374,12 @@ const OwnerRevenue = lazy(() => import("./routes/OwnerRevenue"));
 const OwnerADR = lazy(() =>
   import("./routes/OwnerRevenue").then((mod) => ({
     default: mod.OwnerADR,
-  }))
+  })),
 );
 const OwnerRevPAR = lazy(() =>
   import("./routes/OwnerRevenue").then((mod) => ({
     default: mod.OwnerRevPAR,
-  }))
+  })),
 );
 
 /* --------- Owner feature flags (for sidebar) ---------- */
@@ -469,7 +532,7 @@ function useDeepLinkHandler() {
               {
                 from,
                 id,
-              }
+              },
             );
             navigate(`/requestTracker/${encodeURIComponent(id)}`, {
               replace: true,
@@ -502,13 +565,51 @@ export default function App() {
             {/* Landing */}
             <Route path="/" element={<MarketingHome />} />
 
+            {/* Marketing / info (optional) */}
+            <Route path="/about" element={<AboutUs />} />
+            <Route path="/about-ai" element={<AboutAI />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/careers" element={<Careers />} />
+            <Route path="/press" element={<Press />} />
+            <Route path="/privacy" element={<Privacy />} />
+
+            {/* Auth */}
+            <Route path="/signin" element={<SignIn />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/logout" element={<Logout />} />
+
             {/* Guest core */}
             <Route path="/guest" element={<GuestDashboard />} />
+            <Route path="/stays" element={<Stays />} />
+            <Route path="/bills" element={<Bills />} />
+            <Route path="/claim" element={<ClaimStay />} />
+            <Route path="/scan" element={<Scan />} />
+            <Route path="/rewards" element={<Rewards />} />
+
+            {/* Stay + checkout */}
+            <Route path="/stay/:id" element={<Stay />} />
+            {/* Support both /checkout/:code and /checkout */}
+            <Route path="/checkout" element={<Checkout />} />
+            <Route path="/checkout/:code" element={<Checkout />} />
+
+            {/* Guest Jobs */}
             <Route path="/hotel/:slug/jobs" element={<HotelJobs />} />
             <Route
               path="/guest/:slug/jobs/:jobId/apply"
               element={<GuestWorkforceApply />}
             />
+
+            {/* Workforce public */}
+            <Route path="/workforce/profile" element={<WorkforceProfilePage />} />
+            <Route path="/workforce/jobs" element={<PublicJobs />} />
+            {/* alias */}
+            <Route path="/jobs" element={<PublicJobs />} />
+
+            {/* Staff (optional landing) */}
+            <Route path="/staff" element={<StaffHome />} />
+
+            {/* Ops board */}
+            <Route path="/ops" element={<OpsBoard />} />
 
             {/* Request tracker route – explicit ticketId param */}
             <Route
@@ -529,6 +630,9 @@ export default function App() {
               path="/owner/guest/:guestId"
               element={<OwnerGuestProfile />}
             />
+
+            {/* Owner home (property picker / hub) */}
+            <Route path="/owner" element={<OwnerHome />} />
 
             {/* Owner – property-specific layout + pages */}
             <Route
@@ -630,38 +734,23 @@ export default function App() {
               }
             />
 
-            {/* Owner home / console (multi-property hub, unchanged) */}
-            <Route path="/owner/:slug/*" element={<OwnerHome />} />
-            <Route path="/owner" element={<OwnerHome />} />
-
-            {/* Staff + Ops */}
-            <Route path="/staff" element={<StaffHome />} />
-            <Route path="/ops" element={<OpsBoard />} />
-
-            {/* Workforce profile (guest/staff) */}
-            <Route
-              path="/workforce/profile"
-              element={<WorkforceProfilePage />}
-            />
-            <Route path="/jobs/:slug" element={<PublicJobs />} />
-
-            {/* Auth */}
-            <Route path="/signin" element={<SignIn />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/profile" element={<Profile />} />
+            {/* Global settings/profile (non-property scoped) */}
             <Route path="/settings" element={<Settings />} />
-            <Route path="/logout" element={<Logout />} />
+            <Route path="/profile" element={<Profile />} />
 
-            {/* Marketing/Legal */}
-            <Route path="/about" element={<AboutUs />} />
-            <Route path="/about-ai" element={<AboutAI />} />
-            <Route path="/contact" element={<Contact />} />
-            <Route path="/careers" element={<Careers />} />
-            <Route path="/press" element={<Press />} />
-            <Route path="/privacy" element={<Privacy />} />
+            {/* Legacy safe redirects */}
+            <Route path="/guest/dashboard" element={<Navigate to="/guest" replace />} />
 
-            {/* Fallback – send anything unknown to guest home */}
-            <Route path="*" element={<Navigate to="/guest" replace />} />
+            {/* 404 */}
+            <Route
+              path="*"
+              element={
+                <FallbackPage
+                  title="Page not found"
+                  hint="The link may be outdated. Use the main navigation to continue."
+                />
+              }
+            />
           </Routes>
         </main>
       </div>

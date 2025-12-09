@@ -31,8 +31,15 @@ function shouldUseDemo(): boolean {
 }
 const USE_DEMO = shouldUseDemo();
 
-/** Detect if API is pointing directly at Supabase Edge Functions */
-const IS_SUPABASE_EDGE = API.includes(".functions.supabase.co");
+/**
+ * Detect if API is pointing directly at Supabase Edge Functions.
+ * Supports both:
+ *  1) https://xyz.functions.supabase.co
+ *  2) https://xyz.supabase.co/functions/v1
+ */
+const IS_SUPABASE_EDGE =
+  typeof API === "string" &&
+  (API.includes(".functions.supabase.co") || API.includes("/functions/v1"));
 
 /** Correct stays endpoint for both backends */
 const STAYS_ENDPOINT = IS_SUPABASE_EDGE ? "/me-stays" : "/me/stays";
@@ -322,8 +329,9 @@ export default function GuestDashboard() {
     };
   }, []);
 
-  const who = displayName || authName || email || "Guest";
-  const firstName = who.split(" ")[0];
+  const whoRaw = displayName || authName || email || "Guest";
+  const who = (typeof whoRaw === "string" ? whoRaw : "Guest").trim() || "Guest";
+  const firstName = who.split(" ")[0] || "Guest";
 
   const lastStay = stays.data[0];
   const welcomeText = useMemo(() => {
@@ -397,9 +405,10 @@ export default function GuestDashboard() {
     const cities = new Set<string>();
     const countries = new Set<string>();
     stays.data.forEach((s) => {
-      countsByHotel[s.hotel.name] = (countsByHotel[s.hotel.name] || 0) + 1;
-      if (s.hotel.city) cities.add(s.hotel.city);
-      if ((s.hotel as any).country) countries.add((s.hotel as any).country);
+      const hn = s?.hotel?.name || "Unknown";
+      countsByHotel[hn] = (countsByHotel[hn] || 0) + 1;
+      if (s.hotel?.city) cities.add(s.hotel.city);
+      if ((s.hotel as any)?.country) countries.add((s.hotel as any).country);
     });
     const mostVisited =
       Object.entries(countsByHotel).sort((a, b) => b[1] - a[1])[0]?.[0] ||
@@ -429,7 +438,8 @@ export default function GuestDashboard() {
   const reviewByHotel: Record<string, Review | undefined> = useMemo(() => {
     const map: Record<string, Review> = {};
     for (const r of reviews.data) {
-      const key = r.hotel.name.toLowerCase();
+      const key = (r?.hotel?.name || "").toLowerCase();
+      if (!key) continue;
       if (!map[key] || new Date(r.created_at) > new Date(map[key].created_at)) {
         map[key] = r;
       }
@@ -440,7 +450,8 @@ export default function GuestDashboard() {
   const creditsByHotel: Record<string, number> = useMemo(() => {
     const m: Record<string, number> = {};
     referrals.data.forEach((r) => {
-      const key = r.hotel.name.toLowerCase();
+      const key = (r?.hotel?.name || "").toLowerCase();
+      if (!key) return;
       m[key] = (m[key] || 0) + Number(r.credits || 0);
     });
     return m;
@@ -524,8 +535,9 @@ export default function GuestDashboard() {
     nav(`/stays?query=${encodeURIComponent(q)}`);
   }
 
-  const initials = (displayName || authName || email || "G")
+  const initials = who
     .split(" ")
+    .filter(Boolean)
     .map((p) => p[0])
     .join("")
     .slice(0, 2)
@@ -567,7 +579,7 @@ export default function GuestDashboard() {
           <div className="px-4 py-5 border-b border-white/10">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-white/10 border border-white/10 grid place-items-center text-xs font-semibold text-white">
-                {initials}
+                {initials || "G"}
               </div>
               <div className="min-w-0">
                 <div className="text-sm font-semibold truncate text-white">
@@ -705,7 +717,7 @@ export default function GuestDashboard() {
                           Booking ID
                           <div className="font-mono text-[11px]">
                             {getStayBookingCode(nextStay) ||
-                              nextStay.id.slice(0, 8)}
+                              (nextStay.id ? nextStay.id.slice(0, 8) : "—")}
                           </div>
                         </div>
                       </div>
@@ -977,9 +989,9 @@ export default function GuestDashboard() {
               ) : recentTrips.length ? (
                 <div className="space-y-2 text-xs">
                   {recentTrips.map((s) => {
-                    const key = s.hotel.name.toLowerCase();
-                    const rv = reviewByHotel[key];
-                    const credits = creditsByHotel[key] || 0;
+                    const key = (s?.hotel?.name || "").toLowerCase();
+                    const rv = key ? reviewByHotel[key] : undefined;
+                    const credits = key ? creditsByHotel[key] || 0 : 0;
 
                     return (
                       <div
@@ -1088,9 +1100,9 @@ export default function GuestDashboard() {
             ) : stays.data.length ? (
               <ol className="relative border-s border-slate-200 pl-4 space-y-4">
                 {stays.data.slice(0, 10).map((s, idx) => {
-                  const key = s.hotel.name.toLowerCase();
-                  const rv = reviewByHotel[key];
-                  const credits = creditsByHotel[key] || 0;
+                  const key = (s?.hotel?.name || "").toLowerCase();
+                  const rv = key ? reviewByHotel[key] : undefined;
+                  const credits = key ? creditsByHotel[key] || 0 : 0;
 
                   return (
                     <li key={s.id} className="relative">
@@ -1233,7 +1245,8 @@ function normalizeStayRow(row: any): Stay {
 
   const bookingCode =
     row.booking_code ?? row.code ?? row.bookingCode ?? row.id ?? null;
-  const hotelName = row.hotel_name ?? row.hotel?.name ?? row.name ?? "Unknown hotel";
+  const hotelName =
+    row.hotel_name ?? row.hotel?.name ?? row.name ?? "Unknown hotel";
   const city = row.city ?? row.hotel_city ?? row.hotel?.city ?? undefined;
   const country =
     row.country ?? row.hotel_country ?? row.hotel?.country ?? undefined;
@@ -1306,7 +1319,7 @@ function getStayPropertySlug(stay: any): string | null {
 function getMostBookedRoomType(stays: any[]): string | null {
   const counts: Record<string, number> = {};
   stays.forEach((s) => {
-    const rt = s.room_type as string | null;
+    const rt = s?.room_type as string | null;
     if (!rt) return;
     const key = rt.trim();
     if (!key) return;
@@ -1356,7 +1369,6 @@ function buildStayLink(stay: any) {
   }
 
   if (slug) {
-    // Provide multiple hints so downstream pages can read whichever key they expect
     params.set("propertySlug", slug);
     params.set("property", slug);
     params.set("hotelSlug", slug);

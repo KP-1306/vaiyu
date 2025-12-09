@@ -1,3 +1,5 @@
+// web/src/routes/Checkout.tsx
+
 import { useMemo, useState } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
 import { checkout, setBookingConsent, redeemCredits } from "../lib/api";
@@ -65,7 +67,6 @@ export default function Checkout() {
 
   // Credits UI
   const [creditsProperty, setCreditsProperty] = useState<string>(() => {
-    // New robust prefill from multiple keys, fallback to old behaviour.
     return propertyFromUrl || "";
   });
 
@@ -81,7 +82,9 @@ export default function Checkout() {
     setCreditsMsg("");
     setErr(null);
 
-    if (!creditsProperty) {
+    const prop = (creditsProperty || "").trim();
+
+    if (!prop) {
       setErr("Please enter the property slug to apply credits.");
       return;
     }
@@ -90,11 +93,19 @@ export default function Checkout() {
       return;
     }
 
+    // IMPORTANT: credits are tied to a claimed stay/session.
+    if (!token) {
+      setErr(
+        "Your stay session is missing. Please claim your booking first, then try applying credits."
+      );
+      return;
+    }
+
     try {
       setCreditsBusy(true);
       const r = await redeemCredits(
         token,
-        creditsProperty.trim(),
+        prop,
         Math.floor(creditsAmount),
         {
           reason: "checkout",
@@ -102,7 +113,9 @@ export default function Checkout() {
         }
       );
       setCreditsMsg(
-        `Applied ₹${creditsAmount}. New balance: ₹${r?.newBalance ?? "—"}`
+        `Applied ₹${Math.floor(creditsAmount)}. New balance: ₹${
+          r?.newBalance ?? "—"
+        }`
       );
     } catch (e: any) {
       setErr(e?.message || "Failed to apply credits");
@@ -139,6 +152,11 @@ export default function Checkout() {
 
   const Published = res?.review;
   const Pending = res?.pending_review;
+
+  const didAutofillProperty =
+    !!propertyFromUrl &&
+    !!creditsProperty &&
+    creditsProperty.trim() === propertyFromUrl.trim();
 
   return (
     <main className="max-w-xl mx-auto p-4 space-y-4">
@@ -202,7 +220,9 @@ export default function Checkout() {
           <div className="text-sm text-gray-600">
             Source: {Published.source.toUpperCase()}
           </div>
-          <div className="mt-2">{"⭐".repeat(Published.rating)}</div>
+          <div className="mt-2">
+            {"⭐".repeat(Math.max(0, Math.min(5, Published.rating || 0)))}
+          </div>
           {Published.title && (
             <div className="mt-1 font-semibold">{Published.title}</div>
           )}
@@ -219,11 +239,15 @@ export default function Checkout() {
       {/* Pending result (needs approval) */}
       {Pending && (
         <section className="card">
-          <div className="font-semibold">AI review created — pending approval</div>
+          <div className="font-semibold">
+            AI review created — pending approval
+          </div>
           <div className="text-sm text-gray-600">
             Source: {Pending.source.toUpperCase()}
           </div>
-          <div className="mt-2">{"⭐".repeat(Pending.rating)}</div>
+          <div className="mt-2">
+            {"⭐".repeat(Math.max(0, Math.min(5, Pending.rating || 0)))}
+          </div>
           {Pending.title && (
             <div className="mt-1 font-semibold">{Pending.title}</div>
           )}
@@ -274,7 +298,7 @@ export default function Checkout() {
               {creditsBusy ? "Applying…" : "Apply credits"}
             </button>
 
-            {!creditsProperty && propertyFromUrl && (
+            {didAutofillProperty && (
               <span className="text-[11px] text-gray-500">
                 Auto-detected property from your stay link.
               </span>

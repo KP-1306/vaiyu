@@ -40,6 +40,9 @@ export type StayQuickLinksProps = {
  *      • Checkout        → /checkout?code=... (+ hotel/property context)
  *      • Rewards         → /rewards
  *      • Chat            → WhatsApp link if given, else no-op
+ *
+ * This component also forwards multiple alias query params (hotel/hotelId/hotelSlug
+ * and property/propertyId/propertySlug) to reduce mismatches across old/new handlers.
  */
 export default function StayQuickLinks({
   stayCode,
@@ -54,42 +57,74 @@ export default function StayQuickLinks({
   onOpenRewards,
   className,
 }: StayQuickLinksProps) {
-  // Treat slug OR id as a single generic hotel key.
-  const hotelKey = (hotelSlug || hotelId || "").trim() || undefined;
+  const cleanStayCode = (stayCode || "").trim() || undefined;
+  const cleanHotelSlug = (hotelSlug || "").trim() || undefined;
+  const cleanHotelId = (hotelId || "").trim() || undefined;
 
-  // Base menu path: /stay/:code/menu or /menu, plus ?hotel=KEY when available.
-  const baseMenuPath = (() => {
-    const base = stayCode
-      ? `/stay/${encodeURIComponent(stayCode)}/menu`
+  // Treat slug OR id as a single generic hotel key (fallback).
+  const hotelKey = cleanHotelSlug || cleanHotelId;
+
+  /** Build menu href with robust alias forwarding. */
+  function buildMenuHref(tab?: "services" | "food") {
+    const base = cleanStayCode
+      ? `/stay/${encodeURIComponent(cleanStayCode)}/menu`
       : "/menu";
 
-    if (!hotelKey) return base;
+    const qp = new URLSearchParams();
 
-    const sep = base.includes("?") ? "&" : "?";
-    return `${base}${sep}hotel=${encodeURIComponent(hotelKey)}`;
-  })();
+    // Tab selection.
+    if (tab) qp.set("tab", tab);
 
-  function buildMenuHref(tab?: "services" | "food") {
-    if (!tab) return baseMenuPath;
-    const sep = baseMenuPath.includes("?") ? "&" : "?";
-    return `${baseMenuPath}${sep}tab=${encodeURIComponent(tab)}`;
+    // Stay context (safe for both /menu and /stay/:code/menu handlers).
+    if (cleanStayCode) {
+      qp.set("code", cleanStayCode);
+      qp.set("bookingCode", cleanStayCode);
+      qp.set("from", "stay");
+    }
+
+    // Hotel/property context aliases.
+    // Prefer slug where available, otherwise id/key.
+    if (cleanHotelSlug) {
+      qp.set("hotel", cleanHotelSlug);
+      qp.set("hotelSlug", cleanHotelSlug);
+      qp.set("property", cleanHotelSlug);
+      qp.set("propertySlug", cleanHotelSlug);
+    } else if (hotelKey) {
+      qp.set("hotel", hotelKey);
+      qp.set("property", hotelKey);
+    }
+
+    if (cleanHotelId) {
+      qp.set("hotelId", cleanHotelId);
+      qp.set("propertyId", cleanHotelId);
+    }
+
+    const qs = qp.toString();
+    return qs ? `${base}?${qs}` : base;
   }
 
   function buildCheckoutHref() {
-    if (!stayCode) return "/checkout";
+    if (!cleanStayCode) return "/checkout";
 
     const qp = new URLSearchParams();
-    qp.set("code", stayCode);
-    qp.set("bookingCode", stayCode);
+    qp.set("code", cleanStayCode);
+    qp.set("bookingCode", cleanStayCode);
     qp.set("from", "stay");
 
-    if (hotelId) qp.set("hotelId", hotelId);
+    if (cleanHotelId) {
+      qp.set("hotelId", cleanHotelId);
+      qp.set("propertyId", cleanHotelId);
+    }
 
-    if (hotelSlug) {
-      qp.set("hotel", hotelSlug);
-      qp.set("hotelSlug", hotelSlug);
-      qp.set("property", hotelSlug);
-      qp.set("propertySlug", hotelSlug);
+    if (cleanHotelSlug) {
+      qp.set("hotel", cleanHotelSlug);
+      qp.set("hotelSlug", cleanHotelSlug);
+      qp.set("property", cleanHotelSlug);
+      qp.set("propertySlug", cleanHotelSlug);
+    } else if (hotelKey) {
+      // Fallback for older handlers that only read `hotel`.
+      qp.set("hotel", hotelKey);
+      qp.set("property", hotelKey);
     }
 
     return `/checkout?${qp.toString()}`;
@@ -123,7 +158,11 @@ export default function StayQuickLinks({
   function handleChat() {
     if (onOpenChat) return onOpenChat();
     if (openWhatsAppUrl) {
-      window.open(openWhatsAppUrl, "_blank", "noreferrer");
+      try {
+        window.open(openWhatsAppUrl, "_blank", "noreferrer");
+      } catch {
+        // ignore
+      }
       return;
     }
     alert("Chat will appear here soon. For now, please call the front desk.");

@@ -4,7 +4,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { API } from "../lib/api";
 import AccountControls from "../components/AccountControls";
-import RewardsPill from "../components/guest/RewardsPill"; // quick rewards CTA
+import RewardsPill from "../components/guest/RewardsPill";
 
 /** Decide if demo preview should be allowed */
 function shouldUseDemo(): boolean {
@@ -36,13 +36,15 @@ const STAYS_ENDPOINT = IS_SUPABASE_EDGE ? "/me-stays" : "/me/stays";
 
 type Stay = {
   id: string;
-  hotel_id?: string | null; // used for /stay link ?hotelId=
-  status?: string | null; // claimed / ongoing / completed etc.
+  hotel_id?: string | null;
+  status?: string | null; // claimed / ongoing / completed / upcoming etc.
   hotel: {
     name: string;
     city?: string;
     cover_url?: string | null;
     country?: string | null;
+    slug?: string | null;
+    tenant_slug?: string | null;
   };
   check_in: string;
   check_out: string;
@@ -54,7 +56,7 @@ type Stay = {
 type Review = {
   id: string;
   hotel: { name: string };
-  rating: number; // 1..5
+  rating: number;
   title?: string | null;
   created_at: string;
   hotel_reply?: string | null;
@@ -63,7 +65,6 @@ type Review = {
 type Spend = {
   year: number;
   total: number;
-  // Optional richer analytics if backend provides it later
   monthly?: { month: number; total: number }[];
   categories?: { room: number; dining: number; spa: number; other: number };
 };
@@ -78,14 +79,14 @@ type Referral = {
 type Source = "live" | "preview";
 type AsyncData<T> = { loading: boolean; source: Source; data: T };
 
-/* ======= TRAVEL COMMAND CENTER ======= */
+/* ======= TRAVEL COMMAND CENTER (Premium) ======= */
 export default function GuestDashboard() {
   const nav = useNavigate();
   const location = useLocation();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [spendMode, setSpendMode] = useState<"this" | "last" | "all">("this");
-  const [showExplore, setShowExplore] = useState(false); // ⬅️ Explore stays overlay
+  const [showExplore, setShowExplore] = useState(false);
 
   // Quick auth guard
   useEffect(() => {
@@ -94,9 +95,7 @@ export default function GuestDashboard() {
       if (!mounted) return;
       if (!data.session) {
         const redirect = encodeURIComponent("/guest");
-        window.location.replace(
-          `/signin?intent=signin&redirect=${redirect}`,
-        );
+        window.location.replace(`/signin?intent=signin&redirect=${redirect}`);
       }
     });
     return () => {
@@ -195,33 +194,24 @@ export default function GuestDashboard() {
   useEffect(() => {
     let cancelled = false;
 
-    // Stays: use /me-stays or /me/stays first, then fall back to user_recent_stays
     async function loadStaysWithFallback() {
       setStays({ loading: true, source: "live", data: [] as Stay[] });
 
       // 1) Try API (Edge function or legacy backend)
       try {
-        const j: any = await jsonWithTimeout(
-          `${API}${STAYS_ENDPOINT}?limit=10`,
-        );
+        const j: any = await jsonWithTimeout(`${API}${STAYS_ENDPOINT}?limit=10`);
         const rawItems: any[] = Array.isArray(j?.items) ? j.items : [];
         const items: Stay[] = rawItems.map(normalizeStayRow);
 
         if (!cancelled) {
           setStays({ loading: false, source: "live", data: items });
         }
-        if (items.length) {
-          // We have real data, no need to fall back.
-          return;
-        }
+        if (items.length) return;
       } catch (err) {
-        console.warn(
-          "[GuestDashboard] me-stays API failed, falling back to view",
-          err,
-        );
+        console.warn("[GuestDashboard] me-stays API failed, fallback to view", err);
       }
 
-      // 2) Fallback: same view as /stays page
+      // 2) Fallback view
       try {
         const { data, error } = await supabase
           .from("user_recent_stays")
@@ -230,17 +220,13 @@ export default function GuestDashboard() {
           .limit(10);
 
         if (error) throw error;
-
         const items: Stay[] = (data ?? []).map(normalizeStayRow);
 
         if (!cancelled) {
           setStays({ loading: false, source: "live", data: items });
         }
       } catch (err) {
-        console.error(
-          "[GuestDashboard] fallback user_recent_stays failed",
-          err,
-        );
+        console.error("[GuestDashboard] fallback user_recent_stays failed", err);
         if (!cancelled) {
           if (USE_DEMO) {
             setStays({
@@ -261,7 +247,6 @@ export default function GuestDashboard() {
 
     loadStaysWithFallback();
 
-    // Other cards keep using the generic loader
     loadCard(
       () => jsonWithTimeout(`${API}/me/reviews?limit=50`),
       (j: any) => (Array.isArray(j?.items) ? (j.items as Review[]) : []),
@@ -335,8 +320,7 @@ export default function GuestDashboard() {
       if ((s.hotel as any).country) countries.add((s.hotel as any).country);
     });
     const mostVisited =
-      Object.entries(countsByHotel).sort((a, b) => b[1] - a[1])[0]?.[0] ||
-      "—";
+      Object.entries(countsByHotel).sort((a, b) => b[1] - a[1])[0]?.[0] || "—";
     return {
       totalStays: stays.data.length,
       nights,
@@ -355,21 +339,17 @@ export default function GuestDashboard() {
   const mostBookedRoomType = getMostBookedRoomType(stays.data);
 
   const tierPoints = useMemo(() => {
-    // Simple derivation: 10 pts per ₹100 spend + credits
     const fromSpend = stats.totalSpend / 100;
     return Math.round(fromSpend + totalReferralCredits);
   }, [stats.totalSpend, totalReferralCredits]);
 
-  // Join helpers for referrals + reviews
   const reviewByHotel: Record<string, Review | undefined> = useMemo(() => {
     const map: Record<string, Review> = {};
     for (const r of reviews.data) {
       const key = r.hotel.name.toLowerCase();
-      if (
-        !map[key] ||
-        new Date(r.created_at) > new Date(map[key].created_at)
-      )
+      if (!map[key] || new Date(r.created_at) > new Date(map[key].created_at)) {
         map[key] = r;
+      }
     }
     return map;
   }, [reviews.data]);
@@ -392,10 +372,7 @@ export default function GuestDashboard() {
         const t = new Date(s.check_in).getTime();
         return isFinite(t) && t >= now;
       })
-      .sort(
-        (a, b) =>
-          new Date(a.check_in).getTime() - new Date(b.check_in).getTime(),
-      );
+      .sort((a, b) => new Date(a.check_in).getTime() - new Date(b.check_in).getTime());
     return upcoming[0] || stays.data[0];
   }, [stays.data]);
 
@@ -403,9 +380,7 @@ export default function GuestDashboard() {
     () => (nextStay ? getCountdown(nextStay.check_in) : null),
     [nextStay?.check_in],
   );
-  const nextStayNights = nextStay
-    ? diffDays(nextStay.check_in, nextStay.check_out)
-    : 0;
+  const nextStayNights = nextStay ? diffDays(nextStay.check_in, nextStay.check_out) : 0;
 
   // Jobs CTA URL for current stay (if we know the slug)
   const jobsUrl = useMemo(() => {
@@ -440,7 +415,6 @@ export default function GuestDashboard() {
       const match = spendByYearSorted.find((s) => s.year === currentYear - 1);
       return match || spendByYearSorted[spendByYearSorted.length - 1];
     }
-    // "all" – show latest year as representative
     return spendByYearSorted[spendByYearSorted.length - 1];
   }, [spendByYearSorted, spendMode, currentYear]);
 
@@ -462,13 +436,22 @@ export default function GuestDashboard() {
     nav(`/stays?query=${encodeURIComponent(q)}`);
   }
 
+  // Premium sidebar nav (desktop)
   const sidebarNav = [
-    { label: "Dashboard", to: "/guest" },
-    { label: "Trips", to: "/stays" },
-    { label: "Rewards", to: "/rewards" },
-    { label: "Reports & bills", to: "/bills" },
-    { label: "Settings", to: "/profile" },
-    { label: "Help", to: "/contact" },
+    { label: "Quick actions", to: "/guest", icon: "⚡" },
+    { label: "Rewards & Vouchers", to: "/rewards", icon: "🎁" },
+    { label: "Recent Trips", to: "/stays", icon: "🧳" },
+    { label: "Travel Insights", to: "/stays", icon: "📈" },
+    { label: "Express Check Out", to: "/checkout", icon: "✅" },
+  ];
+
+  // Mobile bottom dock (small screens)
+  const bottomNav = [
+    { label: "Home", to: "/guest", icon: "🏠" },
+    { label: "Trips", to: "/stays", icon: "🧳" },
+    { label: "Rewards", to: "/rewards", icon: "🎁" },
+    { label: "Bills", to: "/bills", icon: "🧾" },
+    { label: "Help", to: "/contact", icon: "💬" },
   ];
 
   const initials = (displayName || authName || email || "G")
@@ -478,42 +461,58 @@ export default function GuestDashboard() {
     .slice(0, 2)
     .toUpperCase();
 
+  const stayState = getStayState(nextStay);
+
   return (
     <main className="min-h-screen bg-slate-50">
-      <div className="max-w-7xl mx-auto flex gap-4 px-4 py-4">
-        {/* Left sidebar – matches owner / finance feel */}
-        <aside className="hidden lg:flex flex-col w-64 bg-white border rounded-3xl shadow-sm">
-          <div className="px-4 py-5 border-b">
+      {/* Layout wrapper */}
+      <div className="max-w-7xl mx-auto flex gap-4 px-4 py-4 pb-24 lg:pb-4">
+        {/* Left sidebar (desktop only) */}
+        <aside className="hidden lg:flex flex-col w-64 rounded-3xl overflow-hidden border bg-slate-950 shadow-sm">
+          {/* User header */}
+          <div className="px-4 py-5 border-b border-white/10">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-sky-100 text-sky-700 grid place-items-center text-sm font-semibold">
+              <div className="w-10 h-10 rounded-full bg-white/10 border border-white/10 grid place-items-center text-xs font-semibold text-white">
                 {initials}
               </div>
               <div className="min-w-0">
-                <div className="text-sm font-semibold truncate">
+                <div className="text-sm font-semibold truncate text-white">
                   {displayName || firstName || "Guest"}
                 </div>
                 {email && (
-                  <div className="text-xs text-slate-500 truncate">{email}</div>
+                  <div className="text-xs text-slate-300 truncate">{email}</div>
                 )}
               </div>
             </div>
           </div>
-          <nav className="flex-1 px-2 py-3 space-y-1 text-sm">
+
+          {/* Nav */}
+          <nav className="px-3 py-3 space-y-1">
             {sidebarNav.map((item) => {
               const active = location.pathname === item.to;
               return (
                 <Link
-                  key={item.to}
+                  key={item.to + item.label}
                   to={item.to}
-                  className={`flex items-center justify-between rounded-xl px-3 py-2 ${
+                  className={[
+                    "group flex items-center gap-2 rounded-xl px-3 py-2",
+                    "text-[12px] transition",
                     active
-                      ? "bg-sky-50 text-sky-900 border border-sky-200 font-medium"
-                      : "text-slate-700 hover:bg-slate-50"
-                  }`}
+                      ? "bg-white text-slate-950 font-semibold shadow-sm"
+                      : "text-slate-200 hover:bg-white/10",
+                  ].join(" ")}
                 >
-                  <span>{item.label}</span>
+                  <span
+                    className={[
+                      "text-sm w-5 grid place-items-center",
+                      active ? "opacity-100" : "opacity-80 group-hover:opacity-100",
+                    ].join(" ")}
+                  >
+                    {item.icon}
+                  </span>
+                  <span className="flex-1">{item.label}</span>
                   {active && (
-                    <span className="text-[10px] uppercase tracking-wide text-sky-600">
+                    <span className="text-[9px] uppercase tracking-wide text-slate-600">
                       Now
                     </span>
                   )}
@@ -521,9 +520,11 @@ export default function GuestDashboard() {
               );
             })}
           </nav>
-          <div className="px-4 py-3 border-t text-xs text-slate-500">
+
+          {/* Footer help */}
+          <div className="mt-auto px-4 py-3 border-t border-white/10 text-xs text-slate-300">
             Need help?{" "}
-            <Link to="/contact" className="underline">
+            <Link to="/contact" className="underline text-white">
               Contact support
             </Link>
           </div>
@@ -537,9 +538,7 @@ export default function GuestDashboard() {
               <div className="text-[11px] uppercase tracking-wide text-slate-500">
                 Travel Command Center
               </div>
-              <h1 className="text-xl md:text-2xl font-semibold">
-                Guest Dashboard
-              </h1>
+              <h1 className="text-xl md:text-2xl font-semibold">Guest Dashboard</h1>
             </div>
             <div className="flex items-center gap-3">
               <form
@@ -559,9 +558,11 @@ export default function GuestDashboard() {
                   Go
                 </button>
               </form>
+
               <div className="rounded-full bg-gradient-to-r from-amber-100 to-orange-100 px-4 py-1.5 text-xs md:text-sm font-medium text-amber-900 shadow-sm">
                 Platinum · {tierPoints.toLocaleString()} pts
               </div>
+
               <div className="ml-1">
                 <AccountControls />
               </div>
@@ -578,22 +579,18 @@ export default function GuestDashboard() {
                   <span className="inline-flex items-center rounded-full bg-white/80 px-2 py-0.5 border text-sky-700">
                     Next stay
                   </span>
-                  {countdown && (
-                    <span className="text-slate-600">
-                      {countdown.label}
-                    </span>
-                  )}
+                  {countdown && <span className="text-slate-600">{countdown.label}</span>}
                 </div>
-                <h2 className="text-lg md:text-xl font-semibold">
-                  {welcomeText}
-                </h2>
+
+                <h2 className="text-lg md:text-xl font-semibold">{welcomeText}</h2>
                 <p className="text-xs text-gray-600">
                   Your trips, spend and rewards in one place.
                 </p>
 
                 {nextStay ? (
-                  <div className="mt-2 rounded-2xl bg-white/85 border shadow-sm p-4 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
+                  <div className="mt-2 rounded-2xl bg-white/90 border shadow-sm p-4 space-y-2">
+                    {/* Top row with status chip */}
+                    <div className="flex items-start justify-between gap-2">
                       <div>
                         <div className="text-xs text-slate-500">Hotel</div>
                         <div className="font-semibold">
@@ -601,28 +598,30 @@ export default function GuestDashboard() {
                           {nextStay.hotel.city ? `, ${nextStay.hotel.city}` : ""}
                         </div>
                       </div>
-                      <div className="text-right text-xs text-slate-500">
-                        Booking ID
-                        <div className="font-mono text-[11px]">
-                          {nextStay.booking_code || nextStay.id.slice(0, 8)}
+
+                      <div className="flex flex-col items-end gap-1">
+                        <StayStateChip state={stayState} />
+                        <div className="text-right text-[10px] text-slate-500">
+                          Booking ID
+                          <div className="font-mono text-[11px]">
+                            {nextStay.booking_code || nextStay.id.slice(0, 8)}
+                          </div>
                         </div>
                       </div>
                     </div>
+
                     <div className="flex flex-wrap items-center justify-between gap-2 text-xs mt-2">
                       <div>
                         <div className="text-slate-500">Dates</div>
                         <div className="font-medium">
                           {fmtRange(nextStay.check_in, nextStay.check_out)} ·{" "}
-                          {nextStayNights || 1} night
-                          {nextStayNights === 1 ? "" : "s"}
+                          {nextStayNights || 1} night{nextStayNights === 1 ? "" : "s"}
                         </div>
                       </div>
                       <div>
                         <div className="text-slate-500">Room type</div>
                         <div className="font-medium">
-                          {nextStay.room_type ||
-                            mostBookedRoomType ||
-                            "Standard room"}
+                          {nextStay.room_type || mostBookedRoomType || "Standard room"}
                         </div>
                       </div>
                       {typeof nextStay.bill_total === "number" && (
@@ -634,16 +633,14 @@ export default function GuestDashboard() {
                         </div>
                       )}
                     </div>
+
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <Link className="btn" to={buildStayLink(nextStay)}>
+                      <GuestButton to={buildStayLink(nextStay)} variant="primary">
                         View stay details
-                      </Link>
-                      <Link
-                        className="btn btn-light"
-                        to="/scan"
-                      >
+                      </GuestButton>
+                      <GuestButton to="/scan" variant="soft">
                         Check-in guide
-                      </Link>
+                      </GuestButton>
                     </div>
                   </div>
                 ) : (
@@ -658,51 +655,55 @@ export default function GuestDashboard() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="text-sm font-semibold text-slate-800">
-                    Quick actions
+                    Service Request Console
                   </div>
                 </div>
+
                 <div className="space-y-2">
                   <RewardsPill />
+
                   <div className="grid sm:grid-cols-2 gap-2">
                     <QuickPill
                       title="Book a new stay"
                       text="Explore stays"
                       variant="solid"
+                      icon="🏨"
                       onClick={() => setShowExplore(true)}
                     />
                     <QuickPill
                       title={jobsUrl ? "Jobs at this hotel" : "Work in hotels"}
-                      text={
-                        jobsUrl
-                          ? "Apply for openings"
-                          : "Build my staff profile"
-                      }
+                      text={jobsUrl ? "Apply for openings" : "Build my staff profile"}
                       to={jobsUrl || "/workforce/profile"}
                       variant="light"
+                      icon="🧑‍🍳"
                     />
                     <QuickPill
                       title="Scan QR to check-in"
                       text="Scan & Go"
                       to="/scan"
                       variant="light"
+                      icon="📷"
                     />
                     <QuickPill
                       title="Find my booking"
                       text="Use booking code"
                       to="/claim"
                       variant="light"
+                      icon="🔎"
                     />
                     <QuickPill
                       title="Rewards & vouchers"
                       text="View & redeem"
                       to="/rewards"
                       variant="light"
+                      icon="🎁"
                     />
                     <QuickPill
                       title="Download invoices"
                       text="Bills & reports"
                       to="/bills"
                       variant="light"
+                      icon="🧾"
                     />
                   </div>
                 </div>
@@ -743,9 +744,7 @@ export default function GuestDashboard() {
             <StatBadge
               label="Rewards balance"
               value={fmtMoney(stats.totalCredits)}
-              sublabel={`${
-                totalReferralCredits ? "Active credits" : "Invite friends to earn"
-              }`}
+              sublabel={`${totalReferralCredits ? "Active credits" : "Invite friends to earn"}`}
               emoji="🎁"
             />
             <StatBadge
@@ -766,11 +765,10 @@ export default function GuestDashboard() {
                     Spend & Rewards Analytics
                   </div>
                   <div className="font-semibold text-sm">
-                    {selectedYear
-                      ? `Year ${selectedYear.year}`
-                      : "Waiting for your first stay"}
+                    {selectedYear ? `Year ${selectedYear.year}` : "Waiting for your first stay"}
                   </div>
                 </div>
+
                 <div className="inline-flex rounded-full bg-slate-50 border px-1 py-0.5 text-[11px]">
                   {[
                     { key: "this", label: "This year" },
@@ -780,9 +778,7 @@ export default function GuestDashboard() {
                     <button
                       key={tab.key}
                       type="button"
-                      onClick={() =>
-                        setSpendMode(tab.key as "this" | "last" | "all")
-                      }
+                      onClick={() => setSpendMode(tab.key as "this" | "last" | "all")}
                       className={`px-2.5 py-0.5 rounded-full ${
                         spendMode === tab.key
                           ? "bg-white shadow-sm text-slate-900"
@@ -798,22 +794,18 @@ export default function GuestDashboard() {
               {spend.loading ? (
                 <Skeleton lines={5} />
               ) : !selectedYear ? (
-                <Empty small text="Once you complete a stay, we’ll start showing detailed spend and rewards analytics here." />
+                <Empty
+                  small
+                  text="Once you complete a stay, we’ll start showing detailed spend and rewards analytics here."
+                />
               ) : (
                 <div className="grid md:grid-cols-2 gap-4">
-                  {/* Monthly spend – simple column chart */}
                   <div>
-                    <div className="text-xs text-slate-500 mb-1">
-                      Monthly spend (₹)
-                    </div>
+                    <div className="text-xs text-slate-500 mb-1">Monthly spend (₹)</div>
                     <MonthlyBars data={monthlySeries} />
                   </div>
-
-                  {/* Category breakdown – stacked bars */}
                   <div>
-                    <div className="text-xs text-slate-500 mb-1">
-                      Spend by category
-                    </div>
+                    <div className="text-xs text-slate-500 mb-1">Spend by category</div>
                     <CategoryBreakdown data={categorySeries} />
                   </div>
                 </div>
@@ -826,17 +818,21 @@ export default function GuestDashboard() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <div>
-                    <div className="text-xs text-slate-500">
-                      Recent trips
-                    </div>
+                    <div className="text-xs text-slate-500">Recent trips</div>
                     <div className="font-semibold text-sm">
                       Last {Math.min(5, recentTrips.length)} stays
                     </div>
                   </div>
-                  <Link className="btn btn-light" to="/stays">
-                    View all
+
+                  <Link
+                    to="/stays"
+                    className="inline-flex items-center gap-1.5 rounded-full border bg-white px-3 py-1 text-[10px] font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    <span className="text-xs">🧳</span>
+                    View all trips
                   </Link>
                 </div>
+
                 {stays.loading ? (
                   <Skeleton lines={4} />
                 ) : recentTrips.length ? (
@@ -845,6 +841,7 @@ export default function GuestDashboard() {
                       const key = s.hotel.name.toLowerCase();
                       const rv = reviewByHotel[key];
                       const credits = creditsByHotel[key] || 0;
+
                       return (
                         <div
                           key={s.id}
@@ -858,10 +855,9 @@ export default function GuestDashboard() {
                             <div className="text-[11px] text-slate-500">
                               {fmtRange(s.check_in, s.check_out)} ·{" "}
                               {diffDays(s.check_in, s.check_out) || 1} night
-                              {diffDays(s.check_in, s.check_out) === 1
-                                ? ""
-                                : "s"}
+                              {diffDays(s.check_in, s.check_out) === 1 ? "" : "s"}
                             </div>
+
                             <div className="mt-1 flex flex-wrap gap-2 items-center">
                               {typeof s.bill_total === "number" && (
                                 <span className="text-[11px] text-slate-700">
@@ -880,6 +876,7 @@ export default function GuestDashboard() {
                               )}
                             </div>
                           </div>
+
                           <Link
                             to={buildStayLink(s)}
                             className="text-[11px] underline shrink-0"
@@ -897,32 +894,22 @@ export default function GuestDashboard() {
 
               {/* Travel insights */}
               <div>
-                <div className="text-xs text-slate-500 mb-2">
-                  Travel insights
-                </div>
+                <div className="text-xs text-slate-500 mb-2">Travel insights</div>
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <InsightCard
                     label="Avg spend / trip"
                     value={fmtMoney(Math.round(avgSpendPerTrip || 0))}
                     hint={
                       stats.totalStays
-                        ? `${stats.totalStays} trip${
-                            stats.totalStays === 1 ? "" : "s"
-                          } so far`
+                        ? `${stats.totalStays} trip${stats.totalStays === 1 ? "" : "s"} so far`
                         : "Will appear after your first stay"
                     }
                   />
                   <InsightCard
                     label="Typical length"
-                    value={
-                      typicalLength
-                        ? `${typicalLength.toFixed(1)} nights`
-                        : "—"
-                    }
+                    value={typicalLength ? `${typicalLength.toFixed(1)} nights` : "—"}
                     hint={
-                      stats.totalStays
-                        ? "Average across all stays"
-                        : "Book a stay to get insights"
+                      stats.totalStays ? "Average across all stays" : "Book a stay to get insights"
                     }
                   />
                   <InsightCard
@@ -935,13 +922,11 @@ export default function GuestDashboard() {
             </div>
           </section>
 
-          {/* Journey timeline + export */}
+          {/* Journey timeline */}
           <section className="rounded-2xl p-4 shadow bg-white border">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <div>
-                <div className="text-xs text-gray-500">
-                  Journey timeline
-                </div>
+                <div className="text-xs text-gray-500">Journey timeline</div>
                 <h2 className="font-semibold text-sm md:text-base">
                   My journey — last 10 stays
                 </h2>
@@ -956,6 +941,7 @@ export default function GuestDashboard() {
                   const key = s.hotel.name.toLowerCase();
                   const rv = reviewByHotel[key];
                   const credits = creditsByHotel[key] || 0;
+
                   return (
                     <li key={s.id} className="relative">
                       <span className="absolute -left-2.5 mt-1 w-3 h-3 rounded-full bg-sky-500 border-2 border-white shadow" />
@@ -966,16 +952,12 @@ export default function GuestDashboard() {
                               {fmtDate(s.check_in)}
                             </div>
                             <div className="font-medium text-sm">
-                              {s.hotel.city
-                                ? `${s.hotel.city} · ${s.hotel.name}`
-                                : s.hotel.name}
+                              {s.hotel.city ? `${s.hotel.city} · ${s.hotel.name}` : s.hotel.name}
                             </div>
                             <div className="text-[11px] text-slate-500">
                               {diffDays(s.check_in, s.check_out) || 1} night
-                              {diffDays(s.check_in, s.check_out) === 1
-                                ? ""
-                                : "s"}{" "}
-                              · {fmtRange(s.check_in, s.check_out)}
+                              {diffDays(s.check_in, s.check_out) === 1 ? "" : "s"} ·{" "}
+                              {fmtRange(s.check_in, s.check_out)}
                             </div>
                           </div>
                           <div className="text-right text-[11px] space-y-1">
@@ -984,11 +966,7 @@ export default function GuestDashboard() {
                                 {fmtMoney(Number(s.bill_total))}
                               </div>
                             )}
-                            {rv && (
-                              <div className="text-amber-700">
-                                {stars(rv.rating)}
-                              </div>
-                            )}
+                            {rv && <div className="text-amber-700">{stars(rv.rating)}</div>}
                             {credits > 0 && (
                               <div className="text-emerald-700">
                                 Credits: {fmtMoney(credits)}
@@ -996,6 +974,7 @@ export default function GuestDashboard() {
                             )}
                           </div>
                         </div>
+
                         <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-600">
                           <span className="px-2 py-0.5 rounded-full bg-sky-50 border border-sky-100">
                             Journey #{stays.data.length - idx}
@@ -1031,19 +1010,19 @@ export default function GuestDashboard() {
                   SLAs, workflows and AI moderation.
                 </div>
               </div>
-              <Link className="btn" to="/owner/register">
+              <GuestButton to="/owner/register" variant="primary">
                 Register your property
-              </Link>
+              </GuestButton>
             </div>
           </section>
         </div>
       </div>
 
-      {/* Premium Explore stays overlay for “Book a new stay” */}
-      <ExploreStaysQuickAction
-        open={showExplore}
-        onClose={() => setShowExplore(false)}
-      />
+      {/* Mobile bottom dock */}
+      <MobileGuestDock items={bottomNav} />
+
+      {/* Explore stays overlay */}
+      <ExploreStaysQuickAction open={showExplore} onClose={() => setShowExplore(false)} />
     </main>
   );
 }
@@ -1092,18 +1071,18 @@ function normalizeStayRow(row: any): Stay {
   }
 
   const bookingCode = row.booking_code ?? row.code ?? row.id ?? null;
-  const hotelName =
-    row.hotel_name ?? row.hotel?.name ?? row.name ?? "Unknown hotel";
-  const city =
-    row.city ?? row.hotel_city ?? row.hotel?.city ?? undefined;
-  const country =
-    row.country ?? row.hotel_country ?? row.hotel?.country ?? undefined;
+  const hotelName = row.hotel_name ?? row.hotel?.name ?? row.name ?? "Unknown hotel";
+  const city = row.city ?? row.hotel_city ?? row.hotel?.city ?? undefined;
+  const country = row.country ?? row.hotel_country ?? row.hotel?.country ?? undefined;
   const coverUrl =
     row.cover_url ??
     row.cover_image_url ??
     row.hotel_cover_url ??
     row.hotel?.cover_url ??
     null;
+
+  const slug =
+    row.hotel_slug ?? row.slug ?? row.hotel?.slug ?? row.hotel?.tenant_slug ?? null;
 
   return {
     id: bookingCode || String(row.id),
@@ -1115,6 +1094,8 @@ function normalizeStayRow(row: any): Stay {
       city,
       country,
       cover_url: coverUrl,
+      slug,
+      tenant_slug: row.hotel?.tenant_slug ?? null,
     },
     check_in: row.check_in,
     check_out: row.check_out,
@@ -1156,10 +1137,7 @@ function getCountdown(checkIn: string) {
 function buildStayLink(stay: { id: string; hotel_id?: string | null }) {
   const base = `/stay/${encodeURIComponent(stay.id)}`;
   const rawHotelId =
-    (stay as any).hotel_id ??
-    (stay as any).hotelId ??
-    (stay as any).hotel?.id ??
-    null;
+    (stay as any).hotel_id ?? (stay as any).hotelId ?? (stay as any).hotel?.id ?? null;
 
   if (rawHotelId) {
     const params = new URLSearchParams();
@@ -1181,7 +1159,6 @@ function buildMonthlySeries(spend: {
       return { label, value: Number(found?.total ?? 0) };
     });
   }
-  // Fallback: simple even split across 12 months
   const base = Math.floor(spend.total / 12);
   const remainder = spend.total - base * 12;
   return monthNames.map((label, idx) => ({
@@ -1203,7 +1180,6 @@ function buildCategorySeries(spend: {
       { label: "Other", value: Number(c.other || 0) },
     ];
   }
-  // Fallback heuristic split
   const total = spend.total || 0;
   return [
     { label: "Room", value: total * 0.65 },
@@ -1244,7 +1220,10 @@ function CategoryBreakdown({
 }) {
   if (!data.length)
     return (
-      <Empty small text="We’ll break down your categories here after your first stay." />
+      <Empty
+        small
+        text="We’ll break down your categories here after your first stay."
+      />
     );
   const total = data.reduce((a, d) => a + d.value, 0) || 1;
   return (
@@ -1253,11 +1232,7 @@ function CategoryBreakdown({
         {data.map((seg) => {
           const pct = (seg.value / total) * 100;
           return (
-            <div
-              key={seg.label}
-              className="h-full"
-              style={{ width: `${pct}%` }}
-            />
+            <div key={seg.label} className="h-full bg-slate-300" style={{ width: `${pct}%` }} />
           );
         })}
       </div>
@@ -1265,10 +1240,7 @@ function CategoryBreakdown({
         {data.map((seg) => {
           const pct = (seg.value / total) * 100;
           return (
-            <div
-              key={seg.label}
-              className="flex items-center justify-between"
-            >
+            <div key={seg.label} className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-slate-400" />
                 <span>{seg.label}</span>
@@ -1285,6 +1257,7 @@ function CategoryBreakdown({
 }
 
 /* ===== Reusable UI ===== */
+
 const Card = memo(function Card({
   title,
   subtitle,
@@ -1319,31 +1292,88 @@ const Card = memo(function Card({
   );
 });
 
+/** Unified Guest-only button system (does not affect other routes) */
+function GuestButton({
+  children,
+  to,
+  onClick,
+  variant = "primary",
+  className = "",
+}: {
+  children: React.ReactNode;
+  to?: string;
+  onClick?: () => void;
+  variant?: "primary" | "soft" | "ghost";
+  className?: string;
+}) {
+  const base =
+    "inline-flex items-center justify-center rounded-full px-4 py-2 text-[11px] font-semibold transition border";
+  const styles =
+    variant === "primary"
+      ? "bg-slate-900 text-white border-slate-900 hover:bg-slate-800"
+      : variant === "soft"
+      ? "bg-white text-slate-900 border-slate-200 hover:bg-slate-50"
+      : "bg-transparent text-slate-700 border-transparent hover:bg-slate-100";
+
+  if (to && !onClick) {
+    return (
+      <Link to={to} className={`${base} ${styles} ${className}`}>
+        {children}
+      </Link>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`${base} ${styles} ${className}`}
+    >
+      {children}
+    </button>
+  );
+}
+
 function QuickPill({
   title,
   text,
   to,
   onClick,
   variant = "solid",
+  icon,
 }: {
   title: string;
   text: string;
   to?: string;
   onClick?: () => void;
   variant?: "solid" | "light";
+  icon?: string;
 }) {
-  const baseClasses = `rounded-xl border px-3 py-3 flex flex-col justify-between text-xs ${
-    variant === "solid" ? "bg-white shadow-sm" : "bg-white/80"
-  }`;
+  const baseClasses = [
+    "rounded-xl border px-3 py-3 flex flex-col justify-between text-xs",
+    "min-h-[76px]",
+    variant === "solid"
+      ? "bg-white shadow-sm hover:shadow transition"
+      : "bg-white/80 hover:bg-white shadow-sm transition",
+  ].join(" ");
+
+  const inner = (
+    <>
+      <div className="flex items-center justify-between">
+        <div className="text-[11px] text-gray-500">{text}</div>
+        {icon ? <span className="text-sm">{icon}</span> : null}
+      </div>
+      <div className="font-semibold mt-0.5 text-slate-900 flex items-center justify-between gap-2">
+        <span>{title}</span>
+        <span className="text-gray-400">→</span>
+      </div>
+    </>
+  );
 
   if (to && !onClick) {
     return (
       <Link to={to} className={baseClasses}>
-        <div className="text-[11px] text-gray-500">{text}</div>
-        <div className="font-semibold mt-0.5 text-slate-900 flex items-center justify-between gap-2">
-          <span>{title}</span>
-          <span className="text-gray-500">→</span>
-        </div>
+        {inner}
       </Link>
     );
   }
@@ -1354,11 +1384,7 @@ function QuickPill({
       onClick={onClick}
       className={`${baseClasses} text-left w-full`}
     >
-      <div className="text-[11px] text-gray-500">{text}</div>
-      <div className="font-semibold mt-0.5 text-slate-900 flex items-center justify-between gap-2">
-        <span>{title}</span>
-        <span className="text-gray-500">→</span>
-      </div>
+      {inner}
     </button>
   );
 }
@@ -1375,12 +1401,12 @@ function StatBadge({
   emoji: string;
 }) {
   return (
-    <div className="rounded-xl border bg-white shadow-sm p-3 flex flex-col justify-between">
+    <div className="rounded-2xl border bg-gradient-to-br from-white to-slate-50 shadow-sm p-4 flex flex-col justify-between">
       <div className="flex items-center justify-between gap-2">
         <div className="text-xs text-gray-500">{label}</div>
         <div className="text-lg">{emoji}</div>
       </div>
-      <div className="mt-1 text-lg font-semibold">{value}</div>
+      <div className="mt-1 text-xl font-semibold tracking-tight">{value}</div>
       {sublabel && (
         <div className="mt-1 text-[11px] text-slate-500 leading-snug">
           {sublabel}
@@ -1412,40 +1438,135 @@ function InsightCard({
   );
 }
 
-function ReviewCard({ review }: { review: Review }) {
-  const vibe =
-    review.rating >= 5
-      ? "🎉"
-      : review.rating >= 4
-      ? "😊"
-      : review.rating >= 3
-      ? "🙂"
-      : review.rating >= 2
-      ? "😐"
-      : "😞";
-  return (
-    <div className="rounded-xl border p-3 bg-gradient-to-b from-white to-gray-50">
-      <div className="flex items-center justify-between">
-        <div className="font-medium truncate mr-2">{review.hotel.name}</div>
-        <div className="text-xs">
-          {stars(review.rating)} <span className="ml-1">{vibe}</span>
-        </div>
-      </div>
-      {review.title ? (
-        <div className="text-sm text-gray-700 mt-1">“{review.title}”</div>
-      ) : null}
-      <div className="text-xs text-gray-500 mt-2">
-        {fmtDate(review.created_at)}
-      </div>
-    </div>
-  );
-}
-
 function Bubbles() {
   return (
     <div aria-hidden className="absolute inset-0 pointer-events-none">
       <div className="absolute -top-8 -left-8 w-40 h-40 rounded-full bg-sky-100 blur-2xl opacity-70" />
       <div className="absolute -bottom-10 -right-10 w-44 h-44 rounded-full bg-indigo-100 blur-2xl opacity-80" />
+    </div>
+  );
+}
+
+/* ===== Stay State Chip (status dot + label) ===== */
+
+type StayState = "upcoming" | "ongoing" | "completed" | "claimed" | "unknown";
+
+function getStayState(stay?: Stay): StayState {
+  if (!stay) return "unknown";
+
+  const raw = String(stay.status ?? "").toLowerCase().trim();
+  const now = Date.now();
+  const ci = new Date(stay.check_in).getTime();
+  const co = new Date(stay.check_out).getTime();
+
+  if (raw.includes("complete") || raw.includes("checked_out")) return "completed";
+  if (raw.includes("ongoing") || raw.includes("inhouse") || raw.includes("checked_in"))
+    return "ongoing";
+  if (raw.includes("claimed")) return "claimed";
+
+  if (isFinite(ci) && ci > now) return "upcoming";
+  if (isFinite(ci) && isFinite(co) && ci <= now && co >= now) return "ongoing";
+  if (isFinite(co) && co < now) return "completed";
+
+  return "unknown";
+}
+
+function StayStateChip({ state }: { state: StayState }) {
+  const cfg: Record<
+    StayState,
+    { label: string; dot: string; bg: string; text: string; border: string }
+  > = {
+    upcoming: {
+      label: "Upcoming",
+      dot: "bg-sky-500",
+      bg: "bg-sky-50",
+      text: "text-sky-700",
+      border: "border-sky-200",
+    },
+    ongoing: {
+      label: "Ongoing",
+      dot: "bg-amber-500",
+      bg: "bg-amber-50",
+      text: "text-amber-800",
+      border: "border-amber-200",
+    },
+    completed: {
+      label: "Completed",
+      dot: "bg-emerald-500",
+      bg: "bg-emerald-50",
+      text: "text-emerald-800",
+      border: "border-emerald-200",
+    },
+    claimed: {
+      label: "Claimed",
+      dot: "bg-indigo-500",
+      bg: "bg-indigo-50",
+      text: "text-indigo-800",
+      border: "border-indigo-200",
+    },
+    unknown: {
+      label: "Trip",
+      dot: "bg-slate-400",
+      bg: "bg-slate-50",
+      text: "text-slate-700",
+      border: "border-slate-200",
+    },
+  };
+
+  const c = cfg[state];
+
+  return (
+    <span
+      className={[
+        "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5",
+        "text-[9px] font-semibold uppercase tracking-wide",
+        c.bg,
+        c.text,
+        c.border,
+      ].join(" ")}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
+      {c.label}
+    </span>
+  );
+}
+
+/* ===== Mobile bottom dock ===== */
+function MobileGuestDock({
+  items,
+}: {
+  items: { label: string; to: string; icon: string }[];
+}) {
+  const location = useLocation();
+  return (
+    <div className="lg:hidden fixed bottom-4 left-0 right-0 z-40 px-4">
+      <div className="mx-auto max-w-3xl rounded-2xl border bg-white shadow-lg">
+        <div className="grid grid-cols-5">
+          {items.map((i) => {
+            const active = location.pathname === i.to;
+            return (
+              <Link
+                key={i.to + i.label}
+                to={i.to}
+                className={[
+                  "py-2.5 px-1 flex flex-col items-center justify-center gap-1",
+                  "text-[9px] font-medium",
+                  active ? "text-slate-950" : "text-slate-500",
+                ].join(" ")}
+              >
+                <span className="text-base">{i.icon}</span>
+                <span className="leading-none">{i.label}</span>
+                <span
+                  className={[
+                    "h-0.5 w-6 rounded-full",
+                    active ? "bg-slate-900" : "bg-transparent",
+                  ].join(" ")}
+                />
+              </Link>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
@@ -1585,12 +1706,8 @@ function ExploreStaysQuickAction({
             >
               <div>
                 <div className="text-[11px] text-slate-500">{p.cityLabel}</div>
-                <div className="mt-0.5 font-semibold text-sm">
-                  {p.name}
-                </div>
-                <div className="mt-1 text-[11px] text-emerald-700">
-                  {p.tag}
-                </div>
+                <div className="mt-0.5 font-semibold text-sm">{p.name}</div>
+                <div className="mt-1 text-[11px] text-emerald-700">{p.tag}</div>
                 <ul className="mt-2 space-y-1 text-[11px] text-slate-600">
                   {p.highlights.map((h) => (
                     <li key={h}>• {h}</li>
@@ -1608,12 +1725,12 @@ function ExploreStaysQuickAction({
                   </div>
                 </div>
                 <a
-                  className="btn btn-light text-[11px] whitespace-nowrap"
+                  className="inline-flex items-center justify-center rounded-full border bg-white px-3 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-50"
                   href={`${mailBase}&body=${encodeURIComponent(
                     `I’d like to book: ${p.name} (${p.cityLabel}).\n\nPreferred dates:\nGuests:\nSpecial requests:\n\nPlease contact me on this number/email with availability and best rate.`,
                   )}`}
                 >
-                  Share details to book
+                  Share details
                 </a>
               </div>
             </div>
@@ -1631,75 +1748,6 @@ function ExploreStaysQuickAction({
         </div>
       </div>
     </div>
-  );
-}
-
-/* ===== Icons (kept for compatibility if needed) ===== */
-function CalendarIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="20"
-      height="20"
-      fill="none"
-      stroke="currentColor"
-      {...props}
-    >
-      <rect x="3" y="4" width="18" height="18" rx="2" />
-      <line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="8" y1="2" x2="8" y2="6" />
-      <line x1="3" y1="10" x2="21" y2="10" />
-    </svg>
-  );
-}
-function SuitcaseIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="20"
-      height="20"
-      fill="none"
-      stroke="currentColor"
-      {...props}
-    >
-      <rect x="3" y="7" width="18" height="13" rx="2" />
-      <rect x="8" y="3" width="8" height="4" rx="1" />
-    </svg>
-  );
-}
-function RupeeIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="20"
-      height="20"
-      fill="none"
-      stroke="currentColor"
-      {...props}
-    >
-      <text x="5" y="17" fontSize="14" fontFamily="system-ui">
-        ₹
-      </text>
-      <line x1="9" y1="8" x2="18" y2="8" />
-    </svg>
-  );
-}
-function GiftIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="20"
-      height="20"
-      fill="none"
-      stroke="currentColor"
-      {...props}
-    >
-      <rect x="3" y="8" width="18" height="12" rx="2" />
-      <path d="M3 12h18" />
-      <path d="M12 8v12" />
-      <path d="M7.5 8a2.5 2.5 0 1 1 5 0H7.5z" />
-      <path d="M11.5 8a2.5 2.5 0 1 1 5 0h-5z" />
-    </svg>
   );
 }
 
@@ -1724,14 +1772,12 @@ async function jsonWithTimeout(url: string, ms = 5000) {
         }
 
         const anonKey =
-          (import.meta as any).env?.VITE_SUPABASE_ANON_KEY as
-            | string
-            | undefined;
+          (import.meta as any).env?.VITE_SUPABASE_ANON_KEY as string | undefined;
         if (anonKey) {
           headers["apikey"] = anonKey;
         }
       } catch {
-        // If session fetch fails, we just call unauthenticated; API can return 401.
+        // ok
       }
     }
 
@@ -1776,25 +1822,6 @@ function Skeleton({ lines = 3 }: { lines?: number }) {
   );
 }
 
-/* ===== Copy referral link (unchanged) ===== */
-function copyReferral(hotelName: string) {
-  const base = location.origin;
-  const url = `${base}/refer?hotel=${encodeURIComponent(hotelName)}`;
-  navigator.clipboard?.writeText(url);
-  const id = "copied-referral";
-  let el = document.getElementById(id);
-  if (!el) {
-    el = document.createElement("div");
-    el.id = id;
-    el.className =
-      "fixed bottom-4 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-3 py-1.5 rounded-full opacity-0 transition-opacity";
-    document.body.appendChild(el);
-  }
-  el.textContent = "Referral link copied! Share the love ✨";
-  el.style.opacity = "1";
-  setTimeout(() => (el!.style.opacity = "0"), 1200);
-}
-
 function diffDays(a: string, b: string) {
   const A = new Date(a).getTime();
   const B = new Date(b).getTime();
@@ -1803,12 +1830,13 @@ function diffDays(a: string, b: string) {
   return Math.max(0, Math.round((B - A) / ONE));
 }
 
-/* ===== Demo fallbacks (used only if USE_DEMO is true) ===== */
+/* ===== Demo fallbacks ===== */
 function demoStays(): any[] {
   return [
     {
       id: "s1",
       hotel_id: "H1",
+      status: "completed",
       hotel: {
         name: "Sunrise Suites",
         city: "Nainital",
@@ -1822,6 +1850,7 @@ function demoStays(): any[] {
     {
       id: "s2",
       hotel_id: "H2",
+      status: "completed",
       hotel: {
         name: "Lakeside Inn",
         city: "Nainital",
@@ -1835,6 +1864,7 @@ function demoStays(): any[] {
     {
       id: "s3",
       hotel_id: "H3",
+      status: "completed",
       hotel: {
         name: "Pine View",
         city: "Almora",
@@ -1848,6 +1878,7 @@ function demoStays(): any[] {
     {
       id: "s4",
       hotel_id: "H4",
+      status: "completed",
       hotel: {
         name: "Cedar Ridge",
         city: "Ranikhet",

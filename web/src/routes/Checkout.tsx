@@ -54,6 +54,10 @@ type CreditBalance = {
   expiresAt?: string | null;
 };
 
+function clamp(n: number, min = 0, max = Number.POSITIVE_INFINITY) {
+  return Math.max(min, Math.min(max, n));
+}
+
 export default function Checkout() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -153,8 +157,13 @@ export default function Checkout() {
       try {
         const anyAPI = API as any;
 
-        if (bookingCodeFromQP && typeof anyAPI.getPropertySlugForBooking === "function") {
-          const slug = await anyAPI.getPropertySlugForBooking(bookingCodeFromQP);
+        if (
+          bookingCodeFromQP &&
+          typeof anyAPI.getPropertySlugForBooking === "function"
+        ) {
+          const slug = await anyAPI.getPropertySlugForBooking(
+            bookingCodeFromQP
+          );
           if (slug) {
             setPropertySlug(String(slug));
             setPropertyLocked(true);
@@ -162,7 +171,10 @@ export default function Checkout() {
           }
         }
 
-        if (bookingCodeFromQP && typeof anyAPI.getStayByCode === "function") {
+        if (
+          bookingCodeFromQP &&
+          typeof anyAPI.getStayByCode === "function"
+        ) {
           const stay = await anyAPI.getStayByCode(bookingCodeFromQP);
           const slug =
             stay?.hotel_slug ??
@@ -184,11 +196,10 @@ export default function Checkout() {
     }
 
     resolveSlug();
-  }, [bookingCodeFromQP, bookingCodeFromQP, hotelIdFromQP, propertySlugFromQP]);
+  }, [bookingCodeFromQP, hotelIdFromQP, propertySlugFromQP]);
 
   /**
    * Load credits (if API supports it).
-   * We do this even if propertySlug isn't ready yet.
    */
   useEffect(() => {
     let alive = true;
@@ -222,8 +233,7 @@ export default function Checkout() {
 
   function onAmountChange(v: string) {
     const n = Math.max(0, Number(v) || 0);
-    // hard clamp so user can never exceed balance in UI
-    const safe = Math.min(n, availableForProperty || n);
+    const safe = clamp(n, 0, availableForProperty || n);
     setAmount(safe);
     setApplyMsg("");
   }
@@ -245,16 +255,12 @@ export default function Checkout() {
       return;
     }
 
-    // If your old flow relied on a stay token, we try to surface it.
-    // But we do NOT hard-block purely on this (more tolerant UX).
     const stayToken = readStayToken(bookingCode);
 
     try {
       const anyAPI = API as any;
 
       if (typeof anyAPI.redeemCredits === "function") {
-        // Some implementations need token first arg, some don’t.
-        // We try both safely.
         let res: any;
 
         try {
@@ -273,7 +279,6 @@ export default function Checkout() {
           Number(res?.applied ?? res?.amount ?? amount) || amount;
 
         setApplyMsg(`✅ Applied ₹${applied} credits.`);
-        // Optimistically reduce local balance
         setCredits((prev) =>
           prev.map((c) =>
             c.property === slug
@@ -288,7 +293,6 @@ export default function Checkout() {
       setApplyMsg("⚠️ Credits API is not available in this build.");
     } catch (e: any) {
       const msg = String(e?.message || "");
-      // Keep your original guidance but only when backend truly rejects
       if (msg.toLowerCase().includes("claim")) {
         setApplyMsg(
           "⚠️ Your stay session is missing. Please claim your booking first, then try applying credits."
@@ -310,7 +314,6 @@ export default function Checkout() {
     try {
       const anyAPI = API as any;
 
-      // Save consent if your API supports it
       if (typeof anyAPI.setBookingConsent === "function") {
         try {
           await anyAPI.setBookingConsent(bookingCode, !!consentReviews);
@@ -319,7 +322,6 @@ export default function Checkout() {
         }
       }
 
-      // Run checkout
       if (typeof anyAPI.checkout === "function") {
         await anyAPI.checkout({
           bookingCode,
@@ -332,9 +334,8 @@ export default function Checkout() {
         await anyAPI.endStay(bookingCode, autoPublish);
       }
 
-      setFinishMsg("✅ Checkout completed.");
+      setFinishMsg("✅ Checkout completed. Thank you for staying with us!");
 
-      // Navigate back depending on your flow
       if (from === "stay") {
         navigate(`/stay/${encodeURIComponent(bookingCode)}`);
       } else {
@@ -345,119 +346,320 @@ export default function Checkout() {
     }
   }
 
+  // Simple “happy stay” message variants (no randomness across renders)
+  const farewell = useMemo(() => {
+    if (!bookingCode) return "Thank you for choosing us.";
+    return "We hope your stay was restful, easy, and full of good moments.";
+  }, [bookingCode]);
+
   return (
-    <div className="page checkout-page">
-      <div className="page-inner">
-        <h1>Checkout</h1>
+    <div
+      className="page checkout-page"
+      style={{
+        background:
+          "linear-gradient(180deg, rgba(20,90,242,0.06), rgba(20,90,242,0.0) 40%), linear-gradient(120deg, rgba(16,185,129,0.06), rgba(16,185,129,0.0) 35%)",
+      }}
+    >
+      <div
+        className="page-inner"
+        style={{
+          maxWidth: 1080,
+          display: "grid",
+          gridTemplateColumns: "1fr",
+          gap: 18,
+        }}
+      >
+        {/* Responsive two-column on wider screens */}
+        <style>{`
+          @media (min-width: 900px) {
+            .checkout-grid {
+              grid-template-columns: 1.05fr 0.95fr !important;
+              align-items: start;
+            }
+          }
+          .premium-card {
+            border-radius: 16px;
+            border: 1px solid rgba(0,0,0,0.06);
+            background: white;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+          }
+          .premium-soft {
+            border-radius: 16px;
+            border: 1px solid rgba(0,0,0,0.04);
+            background: linear-gradient(135deg, rgba(20,90,242,0.10), rgba(16,185,129,0.08));
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
+          }
+          .muted-mini {
+            opacity: 0.75;
+            font-size: 12px;
+          }
+          .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: rgba(0,0,0,0.05);
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+          }
+          .hero-emoji {
+            font-size: 30px;
+            line-height: 1;
+          }
+          .checkout-kicker {
+            font-size: 11px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            opacity: 0.65;
+            font-weight: 700;
+          }
+          .checkout-title {
+            font-size: 28px;
+            font-weight: 800;
+            margin: 6px 0 8px;
+          }
+          .checkout-sub {
+            opacity: 0.85;
+            line-height: 1.45;
+          }
+          .info-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+          }
+          .info-chip {
+            background: rgba(255,255,255,0.65);
+            border: 1px solid rgba(0,0,0,0.06);
+            padding: 8px 10px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 600;
+          }
+          .credits-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 10px;
+            background: rgba(16,185,129,0.10);
+            border: 1px solid rgba(16,185,129,0.20);
+            font-size: 11px;
+            font-weight: 700;
+          }
+          .btn-primary-premium {
+            background: linear-gradient(90deg, #145AF2, #0EA5E9);
+            color: white;
+            border: none;
+          }
+          .btn-primary-premium:disabled {
+            opacity: 0.55;
+          }
+        `}</style>
 
-        <div className="muted" style={{ marginBottom: 12 }}>
-          Booking code: <strong>{bookingCode || "—"}</strong>
-        </div>
-
-        {/* Credits card */}
-        <div className="card" style={{ maxWidth: 520 }}>
-          <div className="card-title">Use credits</div>
-          <div className="muted">
-            Credits are property-scoped and reduce your F&amp;B/services bill.
-          </div>
-
-          <label className="label" style={{ marginTop: 12 }}>
-            Property slug
-          </label>
-          <input
-            className="input"
-            placeholder="e.g. sunrise"
-            value={propertySlug}
-            onChange={(e) => {
-              setPropertySlug(e.target.value);
-              if (!propertySlugFromQP) setPropertyLocked(false);
-            }}
-            readOnly={propertyLocked}
-          />
-
-          <label className="label" style={{ marginTop: 12 }}>
-            Amount (₹)
-          </label>
-          <input
-            className="input"
-            type="number"
-            min={0}
-            step={1}
-            value={amount}
-            onChange={(e) => onAmountChange(e.target.value)}
-            disabled={!propertySlug}
-          />
-
-          <div className="muted" style={{ marginTop: 6 }}>
-            Available:{" "}
-            <strong>
-              {loadingCredits ? "…" : `₹${availableForProperty}`}
-            </strong>
-          </div>
-
-          <div style={{ marginTop: 12 }}>
-            <button
-              className="btn"
-              onClick={handleApplyCredits}
-              disabled={!propertySlug || amount <= 0}
-            >
-              Apply credits
-            </button>
-          </div>
-
-          {applyMsg ? (
-            <div className="muted" style={{ marginTop: 10 }}>
-              {applyMsg}
+        <div className="checkout-grid" style={{ display: "grid", gap: 18 }}>
+          {/* Left: Premium farewell / delight panel */}
+          <div className="premium-soft" style={{ padding: 22 }}>
+            <div className="pill">
+              <span className="hero-emoji">✨</span>
+              <span>Checkout &amp; Farewell</span>
             </div>
-          ) : null}
-        </div>
 
-        {/* Review consent */}
-        <div style={{ marginTop: 18 }}>
-          <label className="checkbox">
-            <input
-              type="checkbox"
-              checked={consentReviews}
-              onChange={(e) => setConsentReviews(e.target.checked)}
-            />
-            <span>
-              I consent to publishing a truthful, activity-anchored review for
-              this stay.
-            </span>
-          </label>
+            <div style={{ marginTop: 14 }}>
+              <div className="checkout-kicker">Thank you</div>
+              <div className="checkout-title">We loved hosting you</div>
+              <div className="checkout-sub">{farewell}</div>
+            </div>
 
-          <label className="checkbox">
-            <input
-              type="checkbox"
-              checked={autoPublish}
-              onChange={(e) => setAutoPublish(e.target.checked)}
-            />
-            <span>
-              Auto-publish the AI-generated review if policy allows (else create
-              a pending draft).
-            </span>
-          </label>
-        </div>
+            <div className="info-row">
+              <div className="info-chip">
+                Booking code: <strong>{bookingCode || "—"}</strong>
+              </div>
+              <div className="info-chip">
+                Property: <strong>{propertySlug || "—"}</strong>
+              </div>
+              <div className="info-chip">
+                Credits available:{" "}
+                <strong>
+                  {loadingCredits ? "…" : `₹${availableForProperty}`}
+                </strong>
+              </div>
+            </div>
 
-        {/* Actions */}
-        <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
-          <button className="btn btn-primary" onClick={handleFinish}>
-            Finish checkout
-          </button>
-          <Link className="btn" to={`/stay/${encodeURIComponent(bookingCode)}`}>
-            Back to stay
-          </Link>
-        </div>
+            <div
+              className="premium-card"
+              style={{
+                marginTop: 16,
+                padding: 16,
+                background:
+                  "linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,1))",
+              }}
+            >
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>
+                Before you go…
+              </div>
+              <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.5 }}>
+                <li>Your credits (if any) can be applied to this property.</li>
+                <li>We’ll keep your review respectful and policy-safe.</li>
+                <li>
+                  If something felt off, your feedback helps us fix it fast.
+                </li>
+              </ul>
+              <div className="muted-mini" style={{ marginTop: 8 }}>
+                This is a guest-friendly flow with safe fallbacks for demo and
+                live environments.
+              </div>
+            </div>
 
-        {finishMsg ? (
-          <div className="muted" style={{ marginTop: 10 }}>
-            {finishMsg}
+            <div style={{ marginTop: 18, display: "flex", gap: 10 }}>
+              <span className="credits-badge">🙂 Smooth checkout</span>
+              <span className="credits-badge">🌿 Hope you feel refreshed</span>
+              <span className="credits-badge">🤝 See you again</span>
+            </div>
           </div>
-        ) : null}
 
-        <div className="muted" style={{ marginTop: 16, fontSize: 12 }}>
-          Note: Auto-publish respects your hotel’s policy (activity threshold,
-          late SLA blocks, consent requirement).
+          {/* Right: Checkout form card */}
+          <div className="premium-card" style={{ padding: 22 }}>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <div>
+                <div className="checkout-kicker">Checkout</div>
+                <div style={{ fontSize: 20, fontWeight: 800 }}>
+                  Finalise your stay
+                </div>
+                <div className="muted" style={{ marginTop: 2 }}>
+                  Booking code is auto-linked for safety.
+                </div>
+              </div>
+              <div className="pill">Guest Flow</div>
+            </div>
+
+            {/* Credits block */}
+            <div
+              style={{
+                marginTop: 18,
+                padding: 16,
+                borderRadius: 14,
+                border: "1px solid rgba(0,0,0,0.06)",
+                background:
+                  "linear-gradient(135deg, rgba(20,90,242,0.05), rgba(16,185,129,0.04))",
+              }}
+            >
+              <div style={{ fontWeight: 800, marginBottom: 6 }}>
+                Use credits
+              </div>
+              <div className="muted">
+                Credits are property-scoped and reduce your F&amp;B/services
+                bill.
+              </div>
+
+              <label className="label" style={{ marginTop: 12 }}>
+                Property slug
+              </label>
+              <input
+                className="input"
+                placeholder="e.g. sunrise"
+                value={propertySlug}
+                onChange={(e) => {
+                  setPropertySlug(e.target.value);
+                  if (!propertySlugFromQP) setPropertyLocked(false);
+                }}
+                readOnly={propertyLocked}
+              />
+
+              <label className="label" style={{ marginTop: 12 }}>
+                Amount (₹)
+              </label>
+              <input
+                className="input"
+                type="number"
+                min={0}
+                step={1}
+                value={amount}
+                onChange={(e) => onAmountChange(e.target.value)}
+                disabled={!propertySlug}
+              />
+
+              <div className="muted" style={{ marginTop: 6 }}>
+                Available:{" "}
+                <strong>
+                  {loadingCredits ? "…" : `₹${availableForProperty}`}
+                </strong>
+              </div>
+
+              <div style={{ marginTop: 12 }}>
+                <button
+                  className="btn"
+                  onClick={handleApplyCredits}
+                  disabled={!propertySlug || amount <= 0}
+                >
+                  Apply credits
+                </button>
+              </div>
+
+              {applyMsg ? (
+                <div className="muted" style={{ marginTop: 10 }}>
+                  {applyMsg}
+                </div>
+              ) : null}
+            </div>
+
+            {/* Review consent */}
+            <div style={{ marginTop: 18 }}>
+              <label className="checkbox">
+                <input
+                  type="checkbox"
+                  checked={consentReviews}
+                  onChange={(e) => setConsentReviews(e.target.checked)}
+                />
+                <span>
+                  I consent to publishing a truthful, activity-anchored review
+                  for this stay.
+                </span>
+              </label>
+
+              <label className="checkbox">
+                <input
+                  type="checkbox"
+                  checked={autoPublish}
+                  onChange={(e) => setAutoPublish(e.target.checked)}
+                />
+                <span>
+                  Auto-publish the AI-generated review if policy allows (else
+                  create a pending draft).
+                </span>
+              </label>
+            </div>
+
+            {/* Actions */}
+            <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
+              <button
+                className="btn btn-primary btn-primary-premium"
+                onClick={handleFinish}
+              >
+                Finish checkout
+              </button>
+
+              <Link
+                className="btn"
+                to={`/stay/${encodeURIComponent(bookingCode)}`}
+              >
+                Back to stay
+              </Link>
+            </div>
+
+            {finishMsg ? (
+              <div className="muted" style={{ marginTop: 10 }}>
+                {finishMsg}
+              </div>
+            ) : null}
+
+            <div className="muted-mini" style={{ marginTop: 16 }}>
+              Note: Auto-publish respects your hotel’s policy (activity
+              threshold, late SLA blocks, consent requirement).
+            </div>
+          </div>
         </div>
       </div>
     </div>

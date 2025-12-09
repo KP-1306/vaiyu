@@ -1,5 +1,7 @@
 // web/src/lib/api.ts
 
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+
 // Base URL (set on Netlify as VITE_API_URL, e.g. https://your-api.example.com)
 export const API = import.meta.env.VITE_API_URL || "http://localhost:4000";
 export const API_URL = API; // back-compat
@@ -17,13 +19,11 @@ export const isDemo = () => DEMO_MODE;
    - Uses existing Supabase Auth session in the browser (magic link).
    - If env isn’t present or any call fails, we gracefully fall back to HTTP API.
 ============================================================================ */
-type MaybeSupa = {
-  from: ReturnType<typeof import("@supabase/supabase-js").createClient>["from"];
-} | null;
+
+type MaybeSupa = SupabaseClient | null;
 
 let _supa: MaybeSupa = null;
 function supa(): MaybeSupa {
-  // lazy init to avoid import cost if unused
   try {
     const url = (import.meta as any).env?.VITE_SUPABASE_URL as
       | string
@@ -31,12 +31,18 @@ function supa(): MaybeSupa {
     const anon = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY as
       | string
       | undefined;
+
     if (!url || !anon) return null;
     if (_supa) return _supa;
-    // dynamic import so this file still works without supabase-js at build time
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { createClient } = require("@supabase/supabase-js");
-    _supa = createClient(url, anon) as any;
+
+    _supa = createClient(url, anon, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
+    });
+
     return _supa;
   } catch {
     return null;
@@ -52,11 +58,12 @@ function supa(): MaybeSupa {
 async function getAuthHeaders(
   explicitToken?: string
 ): Promise<Record<string, string>> {
-  if (explicitToken) {
-    return { Authorization: `Bearer ${explicitToken}` };
+  const t = (explicitToken ?? "").trim();
+  if (t) {
+    return { Authorization: `Bearer ${t}` };
   }
 
-  const client = supa() as any;
+  const client = supa();
   if (!client?.auth?.getSession) return {};
 
   try {
@@ -581,10 +588,7 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
   }
 
   // Self-claim init (support both /claim/init and /claim-init)
-  if (
-    (p === "/claim/init" || p === "/claim-init") &&
-    method === "POST"
-  ) {
+  if ((p === "/claim/init" || p === "/claim-init") && method === "POST") {
     return {
       ok: true,
       method: "otp",
@@ -595,10 +599,7 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
   }
 
   // Self-claim verify (support both /claim/verify and /claim-verify)
-  if (
-    (p === "/claim/verify" || p === "/claim-verify") &&
-    method === "POST"
-  ) {
+  if ((p === "/claim/verify" || p === "/claim-verify") && method === "POST") {
     const payload = safeJson(opts.body) || {};
 
     // Accept various possible field names from the client
@@ -611,13 +612,13 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
 
     const bookingCode = rawCode
       ? String(rawCode).trim().toUpperCase()
-      : "ABC123"; // fallback demo code, only used if request body is empty
+      : "ABC123";
 
     return {
       ok: true,
       token: "demo-stay-token",
       booking: {
-        code: bookingCode, // echoes what the guest actually entered
+        code: bookingCode,
         guest_name: "Demo Guest",
         hotel_slug: demoHotel.slug,
       },
@@ -691,15 +692,8 @@ function demoFallback<T>(path: string, opts: RequestInit): T | undefined {
 
 /* ============================================================================
    Workforce / Labour Beta – helper APIs
-   Endpoints (Edge Functions / backend):
-   - GET/POST /workforce-profile
-   - GET      /workforce-jobs?mode=open|property&...
-   - POST     /workforce-jobs
-   - GET      /workforce-applications?mode=mine|job&...
-   - POST     /workforce-applications
 ============================================================================ */
 
-/** Get the current user’s workforce profile (or null if none). */
 export async function getMyWorkforceProfile(
   token?: string
 ): Promise<WorkforceProfile | null> {
@@ -717,7 +711,6 @@ export async function getMyWorkforceProfile(
   return profile || null;
 }
 
-/** Create or update the current user’s workforce profile. */
 export async function saveMyWorkforceProfile(
   payload: Partial<WorkforceProfile>,
   token?: string
@@ -744,7 +737,6 @@ export type ListOpenJobsFilters = {
   propertyType?: string;
 };
 
-/** Public: list open jobs (optionally filtered by city/state/role). */
 export async function listOpenJobs(
   filters?: ListOpenJobsFilters
 ): Promise<WorkforceJob[]> {
@@ -766,7 +758,6 @@ export async function listOpenJobs(
   return Array.isArray(jobs) ? jobs : [];
 }
 
-/** Owner/manager: list jobs for one property (hotel_id today). */
 export async function listPropertyJobs(params: {
   propertyId: string;
   token?: string;
@@ -787,7 +778,6 @@ export async function listPropertyJobs(params: {
   return Array.isArray(jobs) ? jobs : [];
 }
 
-/** Owner/manager: create or update a job. */
 export async function postJob(
   job: Partial<WorkforceJob>,
   token?: string
@@ -807,7 +797,6 @@ export async function postJob(
   return saved;
 }
 
-/** Candidate: apply to a job. */
 export async function applyToJob(params: {
   jobId: string;
   message?: string;
@@ -840,7 +829,6 @@ export async function applyToJob(params: {
   return app;
 }
 
-/** Candidate: list applications for the current user. */
 export async function listMyApplications(
   token?: string
 ): Promise<WorkforceJobApplication[]> {
@@ -852,14 +840,11 @@ export async function listMyApplications(
   const apps =
     (res?.applications as WorkforceJobApplication[]) ??
     (res?.items as WorkforceJobApplication[]) ??
-    (Array.isArray(res)
-      ? (res as WorkforceJobApplication[])
-      : []);
+    (Array.isArray(res) ? (res as WorkforceJobApplication[]) : []);
 
   return Array.isArray(apps) ? apps : [];
 }
 
-/** Owner/manager: list applications for a single job. */
 export async function listJobApplications(params: {
   jobId: string;
   token?: string;
@@ -877,9 +862,7 @@ export async function listJobApplications(params: {
   const apps =
     (res?.applications as WorkforceJobApplication[]) ??
     (res?.items as WorkforceJobApplication[]) ??
-    (Array.isArray(res)
-      ? (res as WorkforceJobApplication[])
-      : []);
+    (Array.isArray(res) ? (res as WorkforceJobApplication[]) : []);
 
   return Array.isArray(apps) ? apps : [];
 }
@@ -904,7 +887,6 @@ export async function listWorkforceJobs(
   return listOpenJobs(filters);
 }
 
-// Back-compat alias: old name used in WorkforceProfile.tsx
 export async function applyForWorkforceJob(params: {
   jobId: string;
   message?: string;
@@ -914,13 +896,11 @@ export async function applyForWorkforceJob(params: {
   return applyToJob(params);
 }
 
-// Back-compat alias: list my applications (candidate side)
 export async function listWorkforceApplications(
   token?: string
 ): Promise<WorkforceJobApplication[]> {
   return listMyApplications(token);
 }
-
 
 /* ============================================================================
    --- Grid (VPP) ---
@@ -998,9 +978,7 @@ export async function gridStartEvent(target_kw: number, playbook_id?: string) {
 }
 
 /* ============================================================================
-   Self-claim (guest attaches an existing booking)
-   - Uses Node routes (/claim/init,/claim/verify) OR
-     Supabase Functions (/claim-init,/claim-verify) based on API base.
+   Self-claim
 ============================================================================ */
 export async function claimInit(code: string, contact: string) {
   const path = IS_SUPABASE_FUNCTIONS ? "/claim-init" : "/claim/init";
@@ -1058,17 +1036,13 @@ export async function gridDeviceNudge(id: string) {
 }
 
 /* ============================================================================
-   Grid / Energy Coach – analytics helpers (using Supabase views where possible)
+   Grid / Energy Coach – analytics helpers
 ============================================================================ */
 
-/**
- * Fetch daily device energy for a hotel from the `grid_device_energy_daily` view.
- * Falls back to HTTP API `/grid/energy/device-daily` if Supabase client fails.
- */
 export async function gridFetchDeviceEnergyDaily(params: {
   hotelId: string;
-  from?: string; // YYYY-MM-DD
-  to?: string; // YYYY-MM-DD
+  from?: string;
+  to?: string;
 }): Promise<GridDeviceEnergyDaily[]> {
   const s = supa();
   if (s) {
@@ -1088,7 +1062,7 @@ export async function gridFetchDeviceEnergyDaily(params: {
       if (error) throw error;
       return (data || []) as GridDeviceEnergyDaily[];
     } catch {
-      // fall through to HTTP fallback
+      // fall through
     }
   }
 
@@ -1101,10 +1075,6 @@ export async function gridFetchDeviceEnergyDaily(params: {
   return req<GridDeviceEnergyDaily[]>(path);
 }
 
-/**
- * Fetch daily zone energy for a hotel from `grid_zone_energy_daily`.
- * Falls back to HTTP API `/grid/energy/zone-daily` if Supabase fails.
- */
 export async function gridFetchZoneEnergyDaily(params: {
   hotelId: string;
   from?: string;
@@ -1127,7 +1097,7 @@ export async function gridFetchZoneEnergyDaily(params: {
       if (error) throw error;
       return (data || []) as GridZoneEnergyDaily[];
     } catch {
-      // fall through to HTTP fallback
+      // fall through
     }
   }
 
@@ -1140,14 +1110,9 @@ export async function gridFetchZoneEnergyDaily(params: {
   return req<GridZoneEnergyDaily[]>(path);
 }
 
-/**
- * Fetch top-5 "silent killer" devices for a hotel from `grid_silent_killers_top5`.
- * Optional day filter (YYYY-MM-DD) narrows to a specific day.
- * Falls back to HTTP API `/grid/energy/silent-killers`.
- */
 export async function gridFetchSilentKillers(params: {
   hotelId: string;
-  day?: string; // YYYY-MM-DD
+  day?: string;
 }): Promise<GridSilentKiller[]> {
   const s = supa();
   if (s) {
@@ -1167,7 +1132,7 @@ export async function gridFetchSilentKillers(params: {
       if (error) throw error;
       return (data || []) as GridSilentKiller[];
     } catch {
-      // fall through to HTTP fallback
+      // fall through
     }
   }
 
@@ -1185,9 +1150,6 @@ export async function gridFetchSilentKillers(params: {
 export async function myStays(
   token?: string
 ): Promise<{ stays: Stay[]; items: Stay[] }> {
-  // Use shared auth helper so callers can either:
-  //  • pass an explicit token, OR
-  //  • rely on the current Supabase session.
   const headers = await getAuthHeaders(token);
   const res = await req<any>("/me/stays", { headers });
   const stays: Stay[] = res?.stays ?? res?.items ?? [];
@@ -1196,13 +1158,7 @@ export async function myStays(
 
 /* ============================================================================
    Owner: Services admin helpers
-   - First try Supabase (preferred), then fall back to your existing API.
-   - If the argument looks like a UUID => treat as hotel_id (Supabase table).
-   - If it looks like a slug => use HTTP API:
-       • Supabase Edge:  /catalog-services?hotelSlug=...
-       • Node backend:   /catalog/services?hotelSlug=...
 ============================================================================ */
-
 
 function looksLikeUuid(value: string | undefined | null): boolean {
   if (!value) return false;
@@ -1211,13 +1167,12 @@ function looksLikeUuid(value: string | undefined | null): boolean {
   );
 }
 
-
 export async function getServices(hotelKey?: string | null) {
   const s = supa();
   const key = hotelKey || undefined;
   const isId = key ? looksLikeUuid(key) : false;
 
-  // 1) Try direct Supabase read (good when we have hotel_id)
+  // 1) Try direct Supabase read
   if (s && (!key || isId)) {
     try {
       let query = s.from("services").select(
@@ -1239,11 +1194,10 @@ export async function getServices(hotelKey?: string | null) {
       };
     } catch (err) {
       console.warn("getServices supabase failed, falling back to HTTP", err);
-      // fall through to HTTP
     }
   }
 
-  // 2) HTTP fallback – now supports both hotelId and hotelSlug
+  // 2) HTTP fallback
   let path = IS_SUPABASE_FUNCTIONS ? "/catalog-services" : "/catalog/services";
 
   if (key) {
@@ -1257,8 +1211,6 @@ export async function getServices(hotelKey?: string | null) {
 
   return req(path);
 }
-
-
 
 export async function saveServices(
   items: Service[],
@@ -1281,10 +1233,13 @@ export async function saveServices(
       if (error) throw error;
       return { ok: true };
     } catch {
-      // fall through to HTTP API
+      // fall through
     }
   }
-  return req(`/catalog/services`, {
+
+  const path = IS_SUPABASE_FUNCTIONS ? "/catalog-services" : "/catalog/services";
+
+  return req(path, {
     method: "POST",
     body: JSON.stringify({ items }),
   });
@@ -1311,9 +1266,10 @@ export async function referralInit(
   token?: string,
   channel = "guest_dashboard"
 ) {
+  const headers = await getAuthHeaders(token);
   return req(`/referrals/init`, {
     method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    headers,
     body: JSON.stringify({ property, channel }),
   });
 }
@@ -1336,19 +1292,20 @@ export async function referralApply(
 export async function myCredits(
   token: string
 ): Promise<{ items: CreditBalance[]; total?: number }> {
-  return req(`/credits/mine`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const headers = await getAuthHeaders(token);
+  return req(`/credits/mine`, { headers });
 }
+
 export async function redeemCredits(
   token: string,
   property: string,
   amount: number,
   context?: any
 ) {
+  const headers = await getAuthHeaders(token);
   return req(`/credits/redeem`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
+    headers,
     body: JSON.stringify({ property, amount, context }),
   });
 }
@@ -1378,9 +1335,6 @@ export async function setBookingConsent(code: string, reviews: boolean) {
 
 /* ============================================================================
    Catalog
-   - getMenu detects Supabase Functions vs other backends.
-   - Supabase Functions: Edge Function `catalog_menu2`
-   - Old/local backend:  `/menu/items`
 ============================================================================ */
 
 export async function getMenu(hotelKey?: string) {
@@ -1388,7 +1342,6 @@ export async function getMenu(hotelKey?: string) {
 
   if (hotelKey) {
     const sep = path.includes("?") ? "&" : "?";
-    // If this looks like a UUID, treat it as a hotel_id; otherwise it's a slug.
     if (looksLikeUuid(hotelKey)) {
       path += `${sep}hotelId=${encodeURIComponent(hotelKey)}`;
     } else {
@@ -1403,17 +1356,6 @@ export async function getMenu(hotelKey?: string) {
    Tickets
 ============================================================================ */
 
-/**
- * Create a guest/staff ticket.
- *
- * Supports multiple backend response shapes:
- *   - { ticket: { id, ... } }
- *   - { id: "…" }
- *   - { ticketId: "…" }
- *   - { data: { id: "…" } }
- *
- * Always returns an object with a stable `id` plus any extra fields.
- */
 export async function createTicket(
   data: Json
 ): Promise<{ id: string } & Record<string, any>> {
@@ -1458,27 +1400,11 @@ export async function createTicket(
   };
 }
 
-/**
- * List tickets.
- * - If hotelId is provided, we append ?hotelId=… (used by Desk/front-desk views).
- * - If omitted, behaviour stays exactly as before (`GET /tickets`).
- */
 export async function listTickets(hotelId?: string) {
   const suffix = hotelId ? `?hotelId=${encodeURIComponent(hotelId)}` : "";
   return req(`/tickets${suffix}`);
 }
 
-/**
- * Fetch a single ticket by id.
- *
- * Supabase Edge Functions:
- *   GET /tickets/:id   → { ticket: {...} } or bare ticket row
- *
- * Legacy Node backend:
- *   GET /ticket-get?id=:id  → bare ticket row
- *
- * We normalise both to return the ticket object directly.
- */
 export async function getTicket(id: string) {
   const path = IS_SUPABASE_FUNCTIONS
     ? `/tickets/${encodeURIComponent(id)}`
@@ -1499,10 +1425,6 @@ export async function updateTicket(id: string, patch: Json) {
    AI Ops Co-pilot – Heatmap & Staffing Plan
 ============================================================================ */
 
-/**
- * Fetch aggregated ticket/SLA heatmap for a hotel (by zone × hour).
- * Expects the `ops-heatmap` Edge Function / backend route to be present.
- */
 export async function fetchOpsHeatmap(params: {
   hotelId: string;
   from?: string;
@@ -1517,13 +1439,9 @@ export async function fetchOpsHeatmap(params: {
   return req<OpsHeatmapPoint[]>(path);
 }
 
-/**
- * Fetch AI staffing plan recommendation for a given hotel + date.
- * Wraps the `staffing-plan` Edge Function / backend route.
- */
 export async function fetchStaffingPlan(params: {
   hotelId: string;
-  date: string; // YYYY-MM-DD
+  date: string;
 }) {
   const search = new URLSearchParams();
   search.set("hotelId", params.hotelId);
@@ -1537,18 +1455,11 @@ export async function fetchStaffingPlan(params: {
    Orders
 ============================================================================ */
 
-/**
- * Low-level helper that hits:
- *   - `/hotel-orders` on Supabase Functions
- *   - `/orders` elsewhere
- * and normalises the response into `{ items: [...] }` shape
- * (but preserves any other fields on the payload).
- */
 export async function fetchHotelOrders(params: {
   hotelId?: string;
   status?: "open" | "closed";
   limit?: number;
-  since?: string; // ISO timestamp
+  since?: string;
 }) {
   const search = new URLSearchParams();
   if (params.hotelId) search.set("hotelId", params.hotelId);
@@ -1564,7 +1475,6 @@ export async function fetchHotelOrders(params: {
 
   const res = await req<any>(path);
 
-  // Normalise multiple possible shapes into `{ items: [...] }`
   if (res && (Array.isArray(res.items) || Array.isArray(res.orders))) {
     const items = (res.items ?? res.orders) as any[];
     return { ...res, items };
@@ -1594,12 +1504,6 @@ export async function createOrder(
   return { id: String(id), ...(typeof res === "object" ? res : {}) };
 }
 
-/**
- * List orders.
- * - When pointing at Supabase Functions, we go via the new `hotel-orders`
- *   Edge Function (with optional `hotelId` filter).
- * - On other backends, we keep the old behaviour (`GET /orders`).
- */
 export async function listOrders(hotelId?: string) {
   return fetchHotelOrders({ hotelId });
 }
@@ -1613,7 +1517,6 @@ export async function updateOrder(id: string, patch: Json) {
 
 /* ============================================================================
    Guest Profile (Owner unified view)
-   - Supabase Edge Function: /guest-profile
 ============================================================================ */
 export async function fetchGuestProfile(params: {
   hotelId?: string;
@@ -1636,15 +1539,12 @@ export async function fetchGuestProfile(params: {
 }
 
 /* ============================================================================
-   Guest Identity (central profile across bookings)
-   - Edge functions:
-     GET  /guest-identity
-     POST /guest-identity-upsert
+   Guest Identity
 ============================================================================ */
 export async function fetchGuestIdentity(
   token?: string
 ): Promise<GuestIdentity | null> {
-  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+  const headers = await getAuthHeaders(token);
   const res = await req<any>("/guest-identity", { headers }).catch(() => null);
 
   if (!res) return null;
@@ -1663,7 +1563,7 @@ export async function upsertGuestIdentity(
   payload: Partial<GuestIdentity>,
   token?: string
 ): Promise<{ ok: boolean; identity?: GuestIdentity }> {
-  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+  const headers = await getAuthHeaders(token);
 
   const res = await req<any>("/guest-identity-upsert", {
     method: "POST",
@@ -1707,10 +1607,6 @@ export async function checkout(data: {
   });
 }
 
-/**
- * Convenience helper for guest flows:
- * mark a stay as ended/completed via checkout.
- */
 export async function endStay(
   bookingCode: string,
   autopost: boolean = true
@@ -1788,15 +1684,12 @@ export async function quickCheckin(data: { code: string; phone: string }) {
 
 /* ============================================================================
    NEW: Owner Applications – list + approve/reject
-   - Edge functions expected:
-     GET    /owner/apps?status=pending|approved|rejected
-     PATCH  /owner/apps/:id  { action: 'approve'|'reject', review_notes?, rejected_reason? }
 ============================================================================ */
 export async function fetchOwnerApps(
   status: OwnerApp["status"] = "pending",
   token?: string
 ): Promise<{ items: OwnerApp[] }> {
-  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+  const headers = await getAuthHeaders(token);
   const q = `?status=${encodeURIComponent(status)}`;
   return req<{ items: OwnerApp[] }>(`/owner/apps${q}`, { headers });
 }
@@ -1807,7 +1700,7 @@ export async function reviewOwnerApp(
   opts?: { review_notes?: string; rejected_reason?: string },
   token?: string
 ) {
-  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+  const headers = await getAuthHeaders(token);
   return req<{ ok: boolean }>(`/owner/apps/${encodeURIComponent(id)}`, {
     method: "PATCH",
     headers,
@@ -1815,7 +1708,6 @@ export async function reviewOwnerApp(
   });
 }
 
-// Convenience wrappers (to match existing imports in OwnerApplications.tsx)
 export async function approveOwnerApp(
   id: string,
   notes?: string,
@@ -1868,8 +1760,8 @@ export const api = {
   // catalog
   getServices,
   getMenu,
-  services: (..._args: any[]) => getServices(), // back-compat alias (ignores args as before)
-  menu: (..._args: any[]) => getMenu(), // back-compat alias (ignores args as before)
+  services: (..._args: any[]) => getServices(),
+  menu: (..._args: any[]) => getMenu(),
   saveServices,
   apiUpsert,
   apiDelete,
@@ -1966,7 +1858,7 @@ export type OwnerOccupancySnapshot = {
 };
 
 export type OwnerOccupancyPoint = {
-  day: string; // ISO date string, e.g. "2025-11-01"
+  day: string;
   occupancyPercent: number;
 };
 
@@ -1997,11 +1889,6 @@ export type OwnerRevenueResponse = {
   series: OwnerRevenuePoint[];
 };
 
-/**
- * Fetch owner occupancy (snapshot + 30-day history).
- * Calls the Edge Function with explicit metric + slug query params so routing
- * works whether you rely on URL segments or not.
- */
 export async function fetchOwnerOccupancy(
   slug: string
 ): Promise<OwnerOccupancyResponse> {
@@ -2014,7 +1901,6 @@ export async function fetchOwnerOccupancy(
     `${API_URL}/owner/${encodeURIComponent(
       slug
     )}/occupancy?${params.toString()}`,
-
     {
       credentials: "include",
     }
@@ -2027,15 +1913,6 @@ export async function fetchOwnerOccupancy(
   return res.json();
 }
 
-/**
- * Fetch owner revenue (summary + daily series).
- * Backend endpoint should:
- *  - Look up hotel_id from slug
- *  - Aggregate over owner_hotel_revenue_daily_split
- *  - Honor ?range=today|7d|30d etc.
- * We pass metric + slug explicitly so the Edge Function router can use either
- * path segments or query params.
- */
 export async function fetchOwnerRevenue(
   slug: string,
   range: string = "30d"
@@ -2047,10 +1924,7 @@ export async function fetchOwnerRevenue(
   });
 
   const res = await fetch(
-    `${API_URL}/owner/${encodeURIComponent(
-      slug
-    )}/revenue?${params.toString()}`,
-
+    `${API_URL}/owner/${encodeURIComponent(slug)}/revenue?${params.toString()}`,
     {
       credentials: "include",
     }

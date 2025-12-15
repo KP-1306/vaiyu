@@ -236,16 +236,29 @@ export default function Menu() {
 
   async function safeGetMenu() {
     const ctx = { stayCode, hotelId, hotelSlug, propertyKey };
-    const primary = (await (getMenu as any)(propertyKey, ctx)) as FoodItem[];
+    
+    console.log("[Menu] safeGetMenu - propertyKey:", propertyKey);
+    
+    const response = await (getMenu as any)(propertyKey, ctx);
+    
+    console.log("[Menu] getMenu response:", response);
+    
+    // Handle both {items: []} and direct [] responses
+    const primary = Array.isArray(response) ? response : (response?.items || []);
+    
+    console.log("[Menu] Extracted menu items array:", primary);
 
     if (Array.isArray(primary) && primary.length) return primary;
 
     if (propertyKey !== stayCode) {
-      const fallback = (await (getMenu as any)(stayCode, ctx)) as FoodItem[];
-      if (Array.isArray(fallback)) return fallback;
+      console.log("[Menu] Trying menu fallback with stayCode:", stayCode);
+      const fallbackResponse = await (getMenu as any)(stayCode, ctx);
+      const fallback = Array.isArray(fallbackResponse) ? fallbackResponse : (fallbackResponse?.items || []);
+      console.log("[Menu] Fallback menu items array:", fallback);
+      if (Array.isArray(fallback) && fallback.length) return fallback;
     }
 
-    return Array.isArray(primary) ? primary : [];
+    return [];
   }
 
   // Load services (only after stay lookup is done)

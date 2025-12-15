@@ -1556,14 +1556,50 @@ export async function setBookingConsent(code: string, reviews: boolean) {
 ============================================================================ */
 
 export async function getMenu(hotelKey?: string) {
+  const s = supa();
+  const key = hotelKey || undefined;
+  const isId = key ? looksLikeUuid(key) : false;
+
+  // 1) Try direct Supabase read
+  if (s && (!key || isId)) {
+    try {
+      let query = s.from("menu_items").select("*");
+
+      if (key && isId) {
+        query = query.eq("hotel_id", key);
+      }
+
+      const { data, error } = await query.order("name", { ascending: true });
+
+      if (error) throw error;
+
+      const items = (data || [])
+        .filter((row) => row.active !== false)
+        .map((row) => ({
+          item_key: row.item_key,
+          name: row.name,
+          base_price: row.base_price || 0,
+          category: row.category,
+          is_veg: row.is_veg,
+          active: row.active,
+        }));
+
+      console.log("[getMenu] Successfully fetched", items.length, "menu items");
+      return { items };
+    } catch (err) {
+      console.warn("getMenu supabase failed, falling back to HTTP", err);
+    }
+  }
+
+  // 2) HTTP fallback
   let path = IS_SUPABASE_FUNCTIONS ? "/catalog_menu2" : "/menu/items";
 
-  if (hotelKey) {
+  if (key) {
     const sep = path.includes("?") ? "&" : "?";
-    if (looksLikeUuid(hotelKey)) {
-      path += `${sep}hotelId=${encodeURIComponent(hotelKey)}`;
+    if (isId) {
+      path += `${sep}hotelId=${encodeURIComponent(key)}`;
     } else {
-      path += `${sep}hotelSlug=${encodeURIComponent(hotelKey)}`;
+      path += `${sep}hotelSlug=${encodeURIComponent(key)}`;
     }
   }
 
@@ -1814,6 +1850,54 @@ export async function fetchHotelOrders(params: {
 export async function createOrder(
   data: Json
 ): Promise<{ id: string } & Record<string, any>> {
+  const s = supa();
+  
+  // Try Supabase direct insert first
+  if (s) {
+    try {
+      const hotelId = (data as any).hotelId || (data as any).hotel_id || (data as any).propertyId;
+      const bookingCode = (data as any).bookingCode || (data as any).booking_code || (data as any).code;
+      const items = (data as any).items || [];
+      const total = (data as any).total || 0;
+      const source = (data as any).source || 'guest';
+      
+      // Create one row per item (orders table has item_key column)
+      const orderRows = items.map((item: any) => ({
+        hotel_id: hotelId,
+        booking_code: bookingCode,
+        item_key: item.item_key || item.itemKey,
+        qty: item.qty || item.quantity || 1,
+        price: item.price || 0,
+        status: 'open',
+      }));
+
+      console.log('[createOrder] Creating order rows via Supabase:', orderRows);
+
+      const { data: orders, error } = await s
+        .from("orders")
+        .insert(orderRows)
+        .select();
+
+      if (error) {
+        console.error('[createOrder] Supabase error:', error);
+        throw error;
+      }
+
+      if (orders && orders.length > 0) {
+        console.log('[createOrder] Orders created successfully:', orders.length, 'items');
+        // Return the first order ID (they're all part of the same order)
+        return {
+          id: orders[0].id,
+          items: orders,
+          total: total,
+        };
+      }
+    } catch (err) {
+      console.warn("[createOrder] Supabase failed, falling back to HTTP", err);
+    }
+  }
+
+  // Fallback to HTTP API
   const res = await req<any>(`/orders`, {
     method: "POST",
     body: JSON.stringify(data),

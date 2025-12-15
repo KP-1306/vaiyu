@@ -142,34 +142,65 @@ function OwnerMenuInner() {
     setOk(null);
 
     try {
-      const payload = items
-        .filter((i) => i.name.trim().length > 0)
-        .map((i) => {
+      const validItems = items.filter((i) => i.name.trim().length > 0);
+
+      if (validItems.length === 0) {
+        setError("No valid items to save.");
+        setSaving(false);
+        return;
+      }
+
+      // Separate existing items (with id) from new items (without id)
+      const existingItems = validItems.filter((i) => i.id);
+      const newItems = validItems.filter((i) => !i.id);
+
+      // Update existing items one by one
+      for (const item of existingItems) {
+        const priceNumber =
+          item.price === "" || item.price == null
+            ? 0
+            : Math.max(0, Number(item.price) || 0);
+
+        const { error: updateErr } = await supabase
+          .from("menu_items")
+          .update({
+            item_key: slugifyKey(item.name),
+            name: item.name.trim(),
+            category: item.category.trim() || "All-day",
+            base_price: priceNumber,
+            is_veg: !!item.isVeg,
+            active: !!item.active,
+          })
+          .eq("id", item.id);
+
+        if (updateErr) throw updateErr;
+      }
+
+      // Insert new items
+      if (newItems.length > 0) {
+        const newPayload = newItems.map((i) => {
           const priceNumber =
             i.price === "" || i.price == null
               ? 0
               : Math.max(0, Number(i.price) || 0);
 
-          const row: any = {
-            id: i.id,
+          return {
             hotel_id: hotel.id,
+            item_key: slugifyKey(i.name),
             name: i.name.trim(),
             category: i.category.trim() || "All-day",
             base_price: priceNumber,
             is_veg: !!i.isVeg,
             active: !!i.active,
-            item_key: slugifyKey(i.name),
           };
-
-          // If id is undefined, Supabase will insert; otherwise it will update
-          return row;
         });
 
-      const { error: upsertErr } = await supabase
-        .from("menu_items")
-        .upsert(payload, { onConflict: "id" });
+        const { error: insertErr } = await supabase
+          .from("menu_items")
+          .insert(newPayload);
 
-      if (upsertErr) throw upsertErr;
+        if (insertErr) throw insertErr;
+      }
 
       setOk("Food menu saved. Changes are live in the guest menu.");
 

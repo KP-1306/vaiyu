@@ -7,4 +7,9 @@ export default defineConfig({
   build: {
     sourcemap: true,   // <-- crucial: readable stacks in Prod
   },
+  server: {
+    host: true,
+    port: 8080,
+    allowedHosts: ["vaiyu.co.in", "www.vaiyu.co.in"],
+  },
 });

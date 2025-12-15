@@ -1370,7 +1370,7 @@ export async function getServices(hotelKey?: string | null) {
   if (s && (!key || isId)) {
     try {
       let query = s.from("services").select(
-        "id, hotel_id, key, label, description, category, is_paid, sla_minutes, priority_weight, active"
+        "id, hotel_id, key, label, sla_minutes, priority_weight, active"
       );
 
       if (key && isId) {
@@ -1383,9 +1383,19 @@ export async function getServices(hotelKey?: string | null) {
 
       if (error) throw error;
 
-      return {
-        items: (data || []).filter((row) => row.active !== false),
-      };
+      // Map the database response to match the Service type (label -> label_en)
+      const items = (data || [])
+        .filter((row) => row.active !== false)
+        .map((row) => ({
+          key: row.key,
+          label_en: row.label, // Map label to label_en
+          sla_minutes: row.sla_minutes || 0,
+          active: row.active,
+          hotel_id: row.hotel_id,
+        }));
+
+      console.log("[getServices] Successfully fetched", items.length, "services");
+      return { items };
     } catch (err) {
       console.warn("getServices supabase failed, falling back to HTTP", err);
     }
@@ -1567,6 +1577,48 @@ export async function getMenu(hotelKey?: string) {
 export async function createTicket(
   data: Json
 ): Promise<{ id: string } & Record<string, any>> {
+  const s = supa();
+  
+  // Try Supabase direct insert first
+  if (s) {
+    try {
+      const payload: any = {
+        hotel_id: (data as any).hotelId || (data as any).hotel_id || (data as any).propertyId,
+        booking_code: (data as any).bookingCode || (data as any).booking_code || (data as any).code,
+        service_key: (data as any).serviceKey || (data as any).service_key || (data as any).key,
+        title: (data as any).title || 'Service Request',
+        details: (data as any).details || (data as any).description,
+        source: (data as any).source || 'guest',
+        status: 'open',
+        created_at: new Date().toISOString(),
+      };
+
+      console.log('[createTicket] Creating ticket via Supabase:', payload);
+
+      const { data: ticket, error } = await s
+        .from("tickets")
+        .insert(payload)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('[createTicket] Supabase error:', error);
+        throw error;
+      }
+
+      if (ticket) {
+        console.log('[createTicket] Ticket created successfully:', ticket.id);
+        return {
+          id: ticket.id,
+          ...ticket,
+        };
+      }
+    } catch (err) {
+      console.warn("[createTicket] Supabase failed, falling back to HTTP", err);
+    }
+  }
+
+  // Fallback to HTTP API
   const res = await req<any>(`/tickets`, {
     method: "POST",
     body: JSON.stringify(data),
@@ -1609,6 +1661,32 @@ export async function createTicket(
 }
 
 export async function listTickets(hotelId?: string) {
+  const s = supa();
+  
+  // Try Supabase direct read first
+  if (s) {
+    try {
+      let query = s.from("tickets").select("*");
+      
+      if (hotelId) {
+        query = query.eq("hotel_id", hotelId);
+      }
+      
+      const { data, error } = await query.order("created_at", { ascending: false });
+      
+      if (error) {
+        console.error('[listTickets] Supabase error:', error);
+        throw error;
+      }
+      
+      console.log('[listTickets] Successfully fetched', data?.length || 0, 'tickets');
+      return { items: data || [] };
+    } catch (err) {
+      console.warn("[listTickets] Supabase failed, falling back to HTTP", err);
+    }
+  }
+  
+  // Fallback to HTTP API
   const suffix = hotelId ? `?hotelId=${encodeURIComponent(hotelId)}` : "";
   return req(`/tickets${suffix}`);
 }
@@ -1669,6 +1747,46 @@ export async function fetchHotelOrders(params: {
   limit?: number;
   since?: string;
 }) {
+  const s = supa();
+  
+  // Try Supabase direct read first
+  if (s) {
+    try {
+      let query = s.from("orders").select("*");
+      
+      if (params.hotelId) {
+        query = query.eq("hotel_id", params.hotelId);
+      }
+      
+      if (params.status) {
+        query = query.eq("status", params.status);
+      }
+      
+      if (params.since) {
+        query = query.gte("created_at", params.since);
+      }
+      
+      query = query.order("created_at", { ascending: false });
+      
+      if (params.limit) {
+        query = query.limit(params.limit);
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) {
+        console.error('[fetchHotelOrders] Supabase error:', error);
+        throw error;
+      }
+      
+      console.log('[fetchHotelOrders] Successfully fetched', data?.length || 0, 'orders');
+      return { items: data || [] };
+    } catch (err) {
+      console.warn("[fetchHotelOrders] Supabase failed, falling back to HTTP", err);
+    }
+  }
+  
+  // Fallback to HTTP API
   const search = new URLSearchParams();
   if (params.hotelId) search.set("hotelId", params.hotelId);
   if (params.status) search.set("status", params.status);

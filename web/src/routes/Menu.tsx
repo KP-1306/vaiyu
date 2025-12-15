@@ -79,10 +79,14 @@ export default function Menu() {
     [searchParams],
   );
 
+  // State to hold resolved hotel_id from stay lookup
+  const [resolvedHotelId, setResolvedHotelId] = useState<string | null>(null);
+  const [stayLookupDone, setStayLookupDone] = useState(false);
+
   // A single stable key we can use for fetching
   const propertyKey = useMemo(
-    () => pickFirst(hotelId, hotelSlug, stayCode),
-    [hotelId, hotelSlug, stayCode],
+    () => pickFirst(resolvedHotelId, hotelId, hotelSlug, stayCode),
+    [resolvedHotelId, hotelId, hotelSlug, stayCode],
   );
 
   // Simple state for data
@@ -104,6 +108,51 @@ export default function Menu() {
     () => Object.values(cart).reduce((a, b) => a + b, 0),
     [cart],
   );
+
+  // First, resolve stay code to hotel_id if needed
+  useEffect(() => {
+    let alive = true;
+
+    (async () => {
+      // If we already have hotelId from query params, no need to look up
+      if (hotelId) {
+        if (alive) {
+          setResolvedHotelId(hotelId);
+          setStayLookupDone(true);
+        }
+        return;
+      }
+
+      // If we have a stay code, look it up to get hotel_id
+      if (stayCode && stayCode !== "DEMO") {
+        try {
+          const { supabase } = await import("../lib/supabase");
+          
+          // Try to find the stay in the database
+          const { data, error } = await supabase
+            .from("stays")
+            .select("hotel_id, booking_code")
+            .or(`id.eq.${stayCode},booking_code.ilike.${stayCode}`)
+            .maybeSingle();
+
+          if (!alive) return;
+
+          if (data && data.hotel_id) {
+            dbg("[Menu] Resolved stay code to hotel_id:", data.hotel_id);
+            setResolvedHotelId(data.hotel_id);
+          }
+        } catch (e: any) {
+          dbgError("[Menu] Failed to resolve stay code:", e);
+        }
+      }
+
+      if (alive) setStayLookupDone(true);
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [stayCode, hotelId]);
 
   // Ensure URL always has core identity hints (helps downstream too)
   useEffect(() => {
@@ -156,18 +205,33 @@ export default function Menu() {
   /** Safe fetch helper that won't break older signatures */
   async function safeGetServices() {
     const ctx = { stayCode, hotelId, hotelSlug, propertyKey };
+    
+    console.log("[Menu] safeGetServices - propertyKey:", propertyKey);
+    console.log("[Menu] safeGetServices - hotelId:", hotelId);
+    console.log("[Menu] safeGetServices - resolvedHotelId:", resolvedHotelId);
+    
     // Extra args are ignored in JS if the function doesn't accept them.
-    const primary = (await (getServices as any)(propertyKey, ctx)) as Service[];
+    const response = await (getServices as any)(propertyKey, ctx);
+    
+    console.log("[Menu] getServices response:", response);
+
+    // Handle both {items: []} and direct [] responses
+    const primary = Array.isArray(response) ? response : (response?.items || []);
+    
+    console.log("[Menu] Extracted services array:", primary);
 
     if (Array.isArray(primary) && primary.length) return primary;
 
     // Fallback: try stayCode specifically if propertyKey differs
     if (propertyKey !== stayCode) {
-      const fallback = (await (getServices as any)(stayCode, ctx)) as Service[];
-      if (Array.isArray(fallback)) return fallback;
+      console.log("[Menu] Trying fallback with stayCode:", stayCode);
+      const fallbackResponse = await (getServices as any)(stayCode, ctx);
+      const fallback = Array.isArray(fallbackResponse) ? fallbackResponse : (fallbackResponse?.items || []);
+      console.log("[Menu] Fallback services array:", fallback);
+      if (Array.isArray(fallback) && fallback.length) return fallback;
     }
 
-    return Array.isArray(primary) ? primary : [];
+    return [];
   }
 
   async function safeGetMenu() {
@@ -184,8 +248,11 @@ export default function Menu() {
     return Array.isArray(primary) ? primary : [];
   }
 
-  // Load services
+  // Load services (only after stay lookup is done)
   useEffect(() => {
+    // Wait for stay lookup to complete
+    if (!stayLookupDone) return;
+
     let alive = true;
 
     (async () => {
@@ -224,10 +291,13 @@ export default function Menu() {
     return () => {
       alive = false;
     };
-  }, [stayCode, hotelId, hotelSlug, propertyKey]);
+  }, [stayCode, hotelId, hotelSlug, propertyKey, stayLookupDone, resolvedHotelId]);
 
-  // Load food
+  // Load food (only after stay lookup is done)
   useEffect(() => {
+    // Wait for stay lookup to complete
+    if (!stayLookupDone) return;
+
     let alive = true;
 
     (async () => {
@@ -266,7 +336,7 @@ export default function Menu() {
     return () => {
       alive = false;
     };
-  }, [stayCode, hotelId, hotelSlug, propertyKey]);
+  }, [stayCode, hotelId, hotelSlug, propertyKey, stayLookupDone, resolvedHotelId]);
 
   function switchTab(next: "services" | "food") {
     setTab(next);
@@ -277,7 +347,9 @@ export default function Menu() {
 
   async function requestService(svc: Service) {
     try {
-      dbg("[Menu] request service", svc.key, stayCode);
+      dbg(`[Menu] request service ${svc.key} for stay ${stayCode}`);
+
+      const effectiveHotelId = resolvedHotelId || hotelId;
 
       const payload = {
         // booking identity
@@ -295,10 +367,10 @@ export default function Menu() {
         details: `Guest requested: ${svc.label_en}`,
 
         // property hints
-        hotelId,
-        hotel_id: hotelId,
-        propertyId: hotelId,
-        property_id: hotelId,
+        hotelId: effectiveHotelId,
+        hotel_id: effectiveHotelId,
+        propertyId: effectiveHotelId,
+        property_id: effectiveHotelId,
 
         hotelSlug,
         hotel_slug: hotelSlug,
@@ -306,8 +378,8 @@ export default function Menu() {
         property_slug: hotelSlug,
 
         // generic fallback key
-        hotel: hotelSlug || hotelId,
-        property: hotelSlug || hotelId,
+        hotel: hotelSlug || effectiveHotelId,
+        property: hotelSlug || effectiveHotelId,
 
         source: "guest",
       };
@@ -353,7 +425,9 @@ export default function Menu() {
     if (!cartItems.length) return;
 
     try {
-      dbg("[Menu] place order", stayCode, cartItems);
+      dbg(`[Menu] place order for ${stayCode}`, cartItems);
+
+      const effectiveHotelId = resolvedHotelId || hotelId;
 
       const payload = {
         bookingCode: stayCode,
@@ -369,18 +443,18 @@ export default function Menu() {
         })),
 
         // property hints
-        hotelId,
-        hotel_id: hotelId,
-        propertyId: hotelId,
-        property_id: hotelId,
+        hotelId: effectiveHotelId,
+        hotel_id: effectiveHotelId,
+        propertyId: effectiveHotelId,
+        property_id: effectiveHotelId,
 
         hotelSlug,
         hotel_slug: hotelSlug,
         propertySlug: hotelSlug,
         property_slug: hotelSlug,
 
-        hotel: hotelSlug || hotelId,
-        property: hotelSlug || hotelId,
+        hotel: hotelSlug || effectiveHotelId,
+        property: hotelSlug || effectiveHotelId,
 
         source: "guest",
         total: cartTotal,

@@ -241,6 +241,30 @@ async function loadProfile(): Promise<{ data: ProfileRecord; source: "db" | "loc
     if (data) {
       const rec = normalizeFromDb(data as any);
 
+      // DERIVED: If profiles.full_name is empty, use user_metadata.full_name OR local cache
+      if ((!rec.full_name || rec.full_name.trim() === '') && user?.user_metadata) {
+        const userMetadata = user.user_metadata as Record<string, any>;
+        if (userMetadata.full_name) {
+          rec.full_name = userMetadata.full_name;
+        }
+      }
+      
+      // DERIVED: If profiles.phone is empty, use user_metadata.phone OR local cache
+      if ((!rec.phone || rec.phone.trim() === '') && user?.user_metadata) {
+        const userMetadata = user.user_metadata as Record<string, any>;
+        if (userMetadata.phone) {
+          rec.phone = userMetadata.phone;
+        }
+      }
+
+      // If still empty, try to get from local cache as fallback
+      if ((!rec.full_name || rec.full_name.trim() === '') && local?.full_name) {
+        rec.full_name = local.full_name;
+      }
+      if ((!rec.phone || rec.phone.trim() === '') && local?.phone) {
+        rec.phone = local.phone;
+      }
+
       // Derive avatar public URL if we have a path but not a URL
       if (!rec.profile_photo_url && rec.avatar_path) {
         const { data: pub } = supabase.storage.from("avatars").getPublicUrl(rec.avatar_path);
@@ -252,12 +276,12 @@ async function loadProfile(): Promise<{ data: ProfileRecord; source: "db" | "loc
       return { data: merged, source: "db" };
     }
 
-    // No row yet — prefill from auth & merge with any local cache
+    // No row yet — prefill from auth, local cache, or user_metadata
     const base: ProfileRecord = {
       ...EMPTY,
       email: user.email ?? "",
-      full_name: user.user_metadata?.full_name ?? "",
-      phone: user.user_metadata?.phone ?? "",
+      full_name: (user.user_metadata?.full_name as string) ?? (local?.full_name ?? ""),
+      phone: (user.user_metadata?.phone as string) ?? (local?.phone ?? ""),
     };
     const merged = mergeProfiles(base, local);
     safeWriteLocal(merged);
@@ -282,15 +306,24 @@ async function saveProfile(next: ProfileRecord): Promise<"db" | "local"> {
 
   try {
     const payload = normalizeToDb(user.id, next);
+    console.log("Attempting to save profile to DB:", payload);
+    
     const { error } = await supabase
       .from("profiles")
       .upsert(payload, { onConflict: "id" });
-    if (error) throw error;
+    
+    if (error) {
+      console.error("Failed to save profile to DB:", error);
+      throw error;
+    }
+    
+    console.log("Successfully saved profile to DB");
     safeWriteLocal(next);
     return "db";
-  } catch {
+  } catch (err) {
     // If DB write fails for any reason (missing columns / RLS),
     // keep at least the local copy so the user doesn't lose data.
+    console.warn("Falling back to local storage:", err);
     safeWriteLocal(next);
     return "local";
   }

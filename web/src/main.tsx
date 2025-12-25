@@ -23,13 +23,13 @@ const OwnerHomeRedirect = lazy(() => import("./routes/OwnerHomeRedirect"));
 // Kill stale SW + caches (keep disabled while debugging)
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.getRegistrations().then((regs) => {
-    for (const r of regs) r.unregister().catch(() => {});
+    for (const r of regs) r.unregister().catch(() => { });
   });
   (async () => {
     try {
       const keys = await caches.keys();
       await Promise.all(keys.map((k) => caches.delete(k)));
-    } catch {}
+    } catch { }
   })();
 }
 
@@ -110,6 +110,7 @@ const Desk = lazy(() => import("./routes/Desk"));
 const OpsBoard = lazy(() => import("./routes/OpsBoard"));
 const HK = lazy(() => import("./routes/HK"));
 const Maint = lazy(() => import("./routes/Maint"));
+const StaffTaskManager = lazy(() => import("./routes/StaffTaskManager"));
 // Desk Tickets view (Ops tickets + SLA board)
 const DeskTickets = lazy(() => import("./routes/desk/Tickets"));
 
@@ -161,7 +162,7 @@ function AuthBootstrap({ children }: { children: React.ReactNode }) {
 
     supabase.auth
       .getSession()
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => {
         if (!cancelled) setReady(true);
       });
@@ -179,7 +180,7 @@ function AuthBootstrap({ children }: { children: React.ReactNode }) {
       clearTimeout(t);
       try {
         sub.data.subscription.unsubscribe();
-      } catch {}
+      } catch { }
     };
   }, []);
 
@@ -501,6 +502,15 @@ const router = createBrowserRouter([
         element: (
           <AuthGate>
             <Maint />
+          </AuthGate>
+        ),
+      },
+      // Staff task manager
+      {
+        path: "staff",
+        element: (
+          <AuthGate>
+            <StaffTaskManager />
           </AuthGate>
         ),
       },

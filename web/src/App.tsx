@@ -84,18 +84,8 @@ const MarketingHome = optionalFromGlob(
   FallbackMarketing,
 );
 
-// Staff (optional)
-const StaffHome = optionalFromGlob(
-  import.meta.glob<{ default: React.ComponentType<any> }>(
-    "./routes/StaffHome.{tsx,jsx}",
-  ),
-  () => (
-    <FallbackPage
-      title="Staff workspace"
-      hint="Add web/src/routes/StaffHome.tsx to enable this page."
-    />
-  ),
-);
+// Staff task manager
+const StaffTaskManager = lazy(() => import("./routes/StaffTaskManager"));
 
 // Settings (optional)
 const Settings = optionalFromGlob(
@@ -605,8 +595,8 @@ export default function App() {
             {/* alias */}
             <Route path="/jobs" element={<PublicJobs />} />
 
-            {/* Staff (optional landing) */}
-            <Route path="/staff" element={<StaffHome />} />
+            {/* Staff task manager */}
+            <Route path="/staff" element={<StaffTaskManager />} />
 
             {/* Ops board */}
             <Route path="/ops" element={<OpsBoard />} />

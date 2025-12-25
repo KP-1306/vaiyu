@@ -11,7 +11,7 @@ import {
 } from "../lib/api";
 import { dbg, dbgError } from "../lib/debug";
 
-type Service = { key: string; label_en: string; sla_minutes: number };
+type Service = { key: string; label_en: string; sla_minutes: number; department_id: string };
 type FoodItem = { item_key: string; name: string; base_price: number };
 
 type LoadState<T> = {
@@ -81,6 +81,8 @@ export default function Menu() {
 
   // State to hold resolved hotel_id from stay lookup
   const [resolvedHotelId, setResolvedHotelId] = useState<string | null>(null);
+  const [resolvedRoomId, setResolvedRoomId] = useState<string | null>(null);
+  const [resolvedZoneId, setResolvedZoneId] = useState<string | null>(null);
   const [stayLookupDone, setStayLookupDone] = useState(false);
 
   // A single stable key we can use for fetching
@@ -127,11 +129,11 @@ export default function Menu() {
       if (stayCode && stayCode !== "DEMO") {
         try {
           const { supabase } = await import("../lib/supabase");
-          
+
           // Try to find the stay in the database
           const { data, error } = await supabase
             .from("stays")
-            .select("hotel_id, booking_code")
+            .select("hotel_id, booking_code, room_id, zone_id")
             .or(`id.eq.${stayCode},booking_code.ilike.${stayCode}`)
             .maybeSingle();
 
@@ -140,6 +142,8 @@ export default function Menu() {
           if (data && data.hotel_id) {
             dbg("[Menu] Resolved stay code to hotel_id:", data.hotel_id);
             setResolvedHotelId(data.hotel_id);
+            if (data.room_id) setResolvedRoomId(data.room_id);
+            if (data.zone_id) setResolvedZoneId(data.zone_id);
           }
         } catch (e: any) {
           dbgError("[Menu] Failed to resolve stay code:", e);
@@ -205,19 +209,19 @@ export default function Menu() {
   /** Safe fetch helper that won't break older signatures */
   async function safeGetServices() {
     const ctx = { stayCode, hotelId, hotelSlug, propertyKey };
-    
+
     console.log("[Menu] safeGetServices - propertyKey:", propertyKey);
     console.log("[Menu] safeGetServices - hotelId:", hotelId);
     console.log("[Menu] safeGetServices - resolvedHotelId:", resolvedHotelId);
-    
+
     // Extra args are ignored in JS if the function doesn't accept them.
     const response = await (getServices as any)(propertyKey, ctx);
-    
+
     console.log("[Menu] getServices response:", response);
 
     // Handle both {items: []} and direct [] responses
     const primary = Array.isArray(response) ? response : (response?.items || []);
-    
+
     console.log("[Menu] Extracted services array:", primary);
 
     if (Array.isArray(primary) && primary.length) return primary;
@@ -236,16 +240,16 @@ export default function Menu() {
 
   async function safeGetMenu() {
     const ctx = { stayCode, hotelId, hotelSlug, propertyKey };
-    
+
     console.log("[Menu] safeGetMenu - propertyKey:", propertyKey);
-    
+
     const response = await (getMenu as any)(propertyKey, ctx);
-    
+
     console.log("[Menu] getMenu response:", response);
-    
+
     // Handle both {items: []} and direct [] responses
     const primary = Array.isArray(response) ? response : (response?.items || []);
-    
+
     console.log("[Menu] Extracted menu items array:", primary);
 
     if (Array.isArray(primary) && primary.length) return primary;
@@ -274,9 +278,9 @@ export default function Menu() {
       try {
         if (isDemo()) {
           const demo: Service[] = [
-            { key: "housekeeping", label_en: "Housekeeping", sla_minutes: 20 },
-            { key: "linen", label_en: "Fresh linen", sla_minutes: 30 },
-            { key: "maintenance", label_en: "Maintenance", sla_minutes: 45 },
+            { key: "housekeeping", label_en: "Housekeeping", sla_minutes: 20, department_id: "00000000-0000-0000-0000-000000000000" },
+            { key: "linen", label_en: "Fresh linen", sla_minutes: 30, department_id: "00000000-0000-0000-0000-000000000000" },
+            { key: "maintenance", label_en: "Maintenance", sla_minutes: 45, department_id: "00000000-0000-0000-0000-000000000000" },
           ];
           if (alive) setServicesState({ loading: false, error: null, items: demo });
           return;
@@ -364,6 +368,11 @@ export default function Menu() {
 
       const effectiveHotelId = resolvedHotelId || hotelId;
 
+      if (!resolvedRoomId && !resolvedZoneId) {
+        alert("We could not verify your room location. Please rescan your room QR code or contact the front desk.");
+        return;
+      }
+
       const payload = {
         // booking identity
         bookingCode: stayCode,
@@ -372,8 +381,11 @@ export default function Menu() {
 
         // service identity
         serviceKey: svc.key,
-        service_key: svc.key,
-        key: svc.key,
+        departmentId: svc.department_id,
+
+        // location identity
+        roomId: resolvedRoomId,
+        zoneId: resolvedZoneId,
 
         // friendly title/details
         title: svc.label_en,
@@ -381,20 +393,9 @@ export default function Menu() {
 
         // property hints
         hotelId: effectiveHotelId,
-        hotel_id: effectiveHotelId,
-        propertyId: effectiveHotelId,
-        property_id: effectiveHotelId,
 
-        hotelSlug,
-        hotel_slug: hotelSlug,
-        propertySlug: hotelSlug,
-        property_slug: hotelSlug,
-
-        // generic fallback key
-        hotel: hotelSlug || effectiveHotelId,
-        property: hotelSlug || effectiveHotelId,
-
-        source: "guest",
+        source: "GUEST",
+        created_by_id: null
       };
 
       await (createTicket as any)(payload);
@@ -514,18 +515,16 @@ export default function Menu() {
         <button
           type="button"
           onClick={() => switchTab("services")}
-          className={`px-4 py-1.5 rounded-full ${
-            tab === "services" ? "bg-slate-900 text-white" : "text-slate-600"
-          }`}
+          className={`px-4 py-1.5 rounded-full ${tab === "services" ? "bg-slate-900 text-white" : "text-slate-600"
+            }`}
         >
           Services
         </button>
         <button
           type="button"
           onClick={() => switchTab("food")}
-          className={`px-4 py-1.5 rounded-full ${
-            tab === "food" ? "bg-slate-900 text-white" : "text-slate-600"
-          }`}
+          className={`px-4 py-1.5 rounded-full ${tab === "food" ? "bg-slate-900 text-white" : "text-slate-600"
+            }`}
         >
           Food
         </button>

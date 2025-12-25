@@ -40,6 +40,7 @@ type ServiceRow = {
   key: string;
   label_en?: string;
   sla_minutes: number;
+  department_id: string;
 };
 
 type NewTicketPayload = {
@@ -62,6 +63,7 @@ function useEffectiveHotelId() {
   const initialFromUrl = urlHotelId || urlId || null;
 
   const [hotelId, setHotelId] = useState<string | null>(initialFromUrl);
+  const [memberId, setMemberId] = useState<string | null>(null);
   const [initialised, setInitialised] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -108,8 +110,10 @@ function useEffectiveHotelId() {
 
         const { data, error: hmError } = await supabase
           .from("hotel_members")
-          .select("hotel_id")
+          .select("id, hotel_id")
           .eq("user_id", userId)
+          .eq("is_active", true)
+          .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
 
@@ -132,6 +136,7 @@ function useEffectiveHotelId() {
         if (cancelled) return;
 
         setHotelId(data.hotel_id);
+        setMemberId(data.id);
 
         const next = new URLSearchParams(searchParams);
         next.set("hotelId", data.hotel_id);
@@ -154,7 +159,7 @@ function useEffectiveHotelId() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlHotelId, urlId]);
 
-  return { hotelId, initialised, error };
+  return { hotelId, memberId, initialised, error };
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -326,7 +331,7 @@ function StatusBadge({ status }: { status: TicketStatus }) {
 // Main component – Desk Tickets board
 // ─────────────────────────────────────────────────────────────
 export default function DeskTickets() {
-  const { hotelId, initialised, error: hotelError } = useEffectiveHotelId();
+  const { hotelId, memberId, initialised, error: hotelError } = useEffectiveHotelId();
   const queryClient = useQueryClient();
 
   const [statusFilter, setStatusFilter] =
@@ -483,15 +488,17 @@ export default function DeskTickets() {
     setCreateError(null);
 
     try {
+      const selectedSvc = serviceByKey.get(newTicket.serviceKey);
+
       await createTicket({
         hotelId,
+        departmentId: selectedSvc?.department_id,
         serviceKey: newTicket.serviceKey,
         title: newTicket.title.trim(),
         details: newTicket.details?.trim() || undefined,
-        source: "desk",
+        source: "FRONT_DESK", // Using FRONT_DESK for desk creating tickets
+        created_by_id: memberId, // Accurate audit trail (Rule 6)
         bookingCode: newTicket.bookingCode?.trim() || undefined,
-        // We reuse "Room / Booking" input – safe to send into both fields.
-        room: newTicket.bookingCode?.trim() || undefined,
         priority: newTicket.priority,
       } as any);
 

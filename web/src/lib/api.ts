@@ -99,6 +99,7 @@ export type Service = {
   /** new, backward-compatible fields for editor/UI */
   active?: boolean;
   hotel_id?: string | null;
+  department_id?: string | null;
 };
 
 export type ReferralIdentifier = {
@@ -304,7 +305,7 @@ function withTimeout<T>(p: Promise<T>, ms = 10_000): Promise<T> {
 
 function buildHeaders(opts: RequestInit): HeadersInit {
   const h: Record<string, string> =
-    { ...(opts.headers as Record<string, string> | undefined) } || {};
+    { ...(opts.headers as Record<string, string>) };
 
   const hasBody = typeof opts.body !== "undefined";
   const isFormData =
@@ -448,8 +449,8 @@ function buildDemoUrl(path: string): URL {
     const prefix = API.startsWith("http")
       ? API
       : API.startsWith("/")
-      ? API
-      : `/${API}`;
+        ? API
+        : `/${API}`;
     return new URL(`${prefix}${path}`, base);
   }
 }
@@ -1370,7 +1371,7 @@ export async function getServices(hotelKey?: string | null) {
   if (s && (!key || isId)) {
     try {
       let query = s.from("services").select(
-        "id, hotel_id, key, label, sla_minutes, priority_weight, active"
+        "id, hotel_id, key, label, sla_minutes, priority_weight, active, department_id"
       );
 
       if (key && isId) {
@@ -1392,6 +1393,7 @@ export async function getServices(hotelKey?: string | null) {
           sla_minutes: row.sla_minutes || 0,
           active: row.active,
           hotel_id: row.hotel_id,
+          department_id: row.department_id,
         }));
 
       console.log("[getServices] Successfully fetched", items.length, "services");
@@ -1614,43 +1616,34 @@ export async function createTicket(
   data: Json
 ): Promise<{ id: string } & Record<string, any>> {
   const s = supa();
-  
-  // Try Supabase direct insert first
+
+  // Try Supabase RPC first
   if (s) {
     try {
       const payload: any = {
-        hotel_id: (data as any).hotelId || (data as any).hotel_id || (data as any).propertyId,
-        booking_code: (data as any).bookingCode || (data as any).booking_code || (data as any).code,
-        service_key: (data as any).serviceKey || (data as any).service_key || (data as any).key,
-        title: (data as any).title || 'Service Request',
-        details: (data as any).details || (data as any).description,
-        source: (data as any).source || 'guest',
-        status: 'open',
-        created_at: new Date().toISOString(),
+        p_hotel_id: (data as any).hotelId || (data as any).hotel_id || (data as any).propertyId || null,
+        p_department_id: (data as any).departmentId || (data as any).department_id || null,
+        p_room_id: (data as any).roomId || (data as any).room_id || null,
+        p_zone_id: (data as any).zoneId || (data as any).zone_id || null,
+        p_title: (data as any).title || 'Service Request',
+        p_description: (data as any).details || (data as any).description || null,
+        p_created_by_type: (data as any).source || (data as any).created_by_type || 'GUEST',
+        p_created_by_id: (data as any).created_by_id || null
       };
 
-      console.log('[createTicket] Creating ticket via Supabase:', payload);
+      console.log('[createTicket] Invoking RPC:', payload);
 
-      const { data: ticket, error } = await s
-        .from("tickets")
-        .insert(payload)
-        .select()
-        .single();
+      const { data: ticketId, error } = await s.rpc('create_service_request', payload);
 
       if (error) {
-        console.error('[createTicket] Supabase error:', error);
+        console.error('[createTicket] RPC error:', error);
         throw error;
       }
 
-      if (ticket) {
-        console.log('[createTicket] Ticket created successfully:', ticket.id);
-        return {
-          id: ticket.id,
-          ...ticket,
-        };
-      }
+      console.log('[createTicket] Ticket created successfully:', ticketId);
+      return { id: ticketId as string };
     } catch (err) {
-      console.warn("[createTicket] Supabase failed, falling back to HTTP", err);
+      console.warn("[createTicket] RPC failed, falling back to HTTP", err);
     }
   }
 
@@ -1681,8 +1674,8 @@ export async function createTicket(
       ...(ticket && typeof ticket === "object"
         ? ticket
         : typeof res === "object"
-        ? res
-        : {}),
+          ? res
+          : {}),
     };
   }
 
@@ -1691,37 +1684,50 @@ export async function createTicket(
     ...(ticket && typeof ticket === "object"
       ? ticket
       : typeof res === "object"
-      ? res
-      : {}),
+        ? res
+        : {}),
   };
 }
 
 export async function listTickets(hotelId?: string) {
   const s = supa();
-  
+
   // Try Supabase direct read first
   if (s) {
     try {
-      let query = s.from("tickets").select("*");
-      
+      // We join 'rooms' to get the number, and 'departments' for context.
+      // Note: hotel_id was added back to tickets table in a migration for simple filtering.
+      let query = s.from("tickets").select(`
+        *,
+        room:rooms(number),
+        department:departments(name, hotel_id)
+      `);
+
       if (hotelId) {
         query = query.eq("hotel_id", hotelId);
       }
-      
+
       const { data, error } = await query.order("created_at", { ascending: false });
-      
+
       if (error) {
         console.error('[listTickets] Supabase error:', error);
         throw error;
       }
-      
-      console.log('[listTickets] Successfully fetched', data?.length || 0, 'tickets');
-      return { items: data || [] };
+
+      // Flatten the room number for back-compat with normalizeTicket
+      const items = (data || []).map((t: any) => ({
+        ...t,
+        room_number: t.room?.number,
+        department_name: t.department?.name,
+      }));
+
+      console.log('[listTickets] Successfully fetched', items.length, 'tickets');
+      return { items };
     } catch (err) {
       console.warn("[listTickets] Supabase failed, falling back to HTTP", err);
     }
   }
-  
+
   // Fallback to HTTP API
   const suffix = hotelId ? `?hotelId=${encodeURIComponent(hotelId)}` : "";
   return req(`/tickets${suffix}`);
@@ -1741,6 +1747,38 @@ export async function updateTicket(id: string, patch: Json) {
     method: "PATCH",
     body: JSON.stringify(patch),
   });
+}
+
+export async function getSupervisorTaskHeader(ticketId: string) {
+  const s = supa();
+  if (!s) return null;
+  const { data, error } = await s
+    .from("v_supervisor_task_header")
+    .select("*")
+    .eq("ticket_id", ticketId)
+    .single();
+
+  if (error) {
+    console.error('[getSupervisorTaskHeader] error:', error);
+    return null;
+  }
+  return data;
+}
+
+export async function getTicketTimeline(ticketId: string) {
+  const s = supa();
+  if (!s) return [];
+  const { data, error } = await s
+    .from("v_ticket_timeline")
+    .select("*")
+    .eq("ticket_id", ticketId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error('[getTicketTimeline] error:', error);
+    return [];
+  }
+  return data || [];
 }
 
 /* ============================================================================
@@ -1784,44 +1822,44 @@ export async function fetchHotelOrders(params: {
   since?: string;
 }) {
   const s = supa();
-  
+
   // Try Supabase direct read first
   if (s) {
     try {
       let query = s.from("orders").select("*");
-      
+
       if (params.hotelId) {
         query = query.eq("hotel_id", params.hotelId);
       }
-      
+
       if (params.status) {
         query = query.eq("status", params.status);
       }
-      
+
       if (params.since) {
         query = query.gte("created_at", params.since);
       }
-      
+
       query = query.order("created_at", { ascending: false });
-      
+
       if (params.limit) {
         query = query.limit(params.limit);
       }
-      
+
       const { data, error } = await query;
-      
+
       if (error) {
         console.error('[fetchHotelOrders] Supabase error:', error);
         throw error;
       }
-      
+
       console.log('[fetchHotelOrders] Successfully fetched', data?.length || 0, 'orders');
       return { items: data || [] };
     } catch (err) {
       console.warn("[fetchHotelOrders] Supabase failed, falling back to HTTP", err);
     }
   }
-  
+
   // Fallback to HTTP API
   const search = new URLSearchParams();
   if (params.hotelId) search.set("hotelId", params.hotelId);
@@ -1851,7 +1889,7 @@ export async function createOrder(
   data: Json
 ): Promise<{ id: string } & Record<string, any>> {
   const s = supa();
-  
+
   // Try Supabase direct insert first
   if (s) {
     try {
@@ -1860,7 +1898,7 @@ export async function createOrder(
       const items = (data as any).items || [];
       const total = (data as any).total || 0;
       const source = (data as any).source || 'guest';
-      
+
       // Create one row per item (orders table has item_key column)
       const orderRows = items.map((item: any) => ({
         hotel_id: hotelId,
@@ -2516,4 +2554,70 @@ export async function fetchOwnerRevenue(
   }
 
   return res.json();
+}
+
+// ---------------------------------------------------------------------------
+// Rooms API
+// ---------------------------------------------------------------------------
+
+export type Room = {
+  id: string;
+  hotel_id: string;
+  // Support both schemas just in case, but prioritize 'number'/'floor'
+  floor_number?: number;
+  floor?: number;
+  room_number?: string;
+  number?: string;
+  status?: string;
+};
+
+export async function listRooms(hotelId: string): Promise<Room[]> {
+  console.log("[listRooms] called with hotelId:", hotelId);
+
+  // If we are using Edge Functions for everything, use the /rooms endpoint
+  if (IS_SUPABASE_FUNCTIONS) {
+    try {
+      console.log("[listRooms] fetching from Edge Function...");
+      const res = await req<{ items: Room[] }>(`/rooms?hotelId=${hotelId}`);
+      console.log("[listRooms] Edge Function response:", res);
+      return res.items || [];
+    } catch (e) {
+      console.warn("Failed to fetch rooms from API, falling back to direct/demo", e);
+    }
+  }
+
+  // Fallback / Direct DB access logic
+  const supaClient = supa();
+  if (supaClient) {
+    console.log("[listRooms] fetching from direct DB...");
+    const { data, error } = await supaClient
+      .from("rooms")
+      .select("*")
+      .eq("hotel_id", hotelId)
+      // Try ordering by standard columns if possible, but simpler to just fetch all
+      // The DB has 'floor' and 'number'.
+      .order("floor", { ascending: true })
+      .order("number", { ascending: true });
+
+    if (error) {
+      console.error("[listRooms] DB error:", error);
+      // It's possible the sorting failed if columns don't exist.
+      // If so, retry without sort? Or just accept the error.
+    } else {
+      console.log("[listRooms] DB data length:", data?.length);
+    }
+
+    if (data && data.length > 0) {
+      return data as Room[];
+    }
+  } else {
+    console.log("[listRooms] No Supabase client available for direct access");
+  }
+
+  // Fallback to demo/mock data if table empty or no client
+  if (isDemo()) {
+    return [];
+  }
+
+  return [];
 }

@@ -4,9 +4,9 @@ import { Navigate, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
 
-type Props = { children: ReactNode; allow?: Array<"owner"|"staff"|"viewer"> };
+type Props = { children: ReactNode; allow?: string[] };
 
-export default function AuthGate({ children, allow = ["owner","staff","viewer"] }: Props) {
+export default function AuthGate({ children, allow = ["owner", "staff", "viewer", "OWNER", "STAFF", "MANAGER"] }: Props) {
   const loc = useLocation();
   const { data: session } = useSessionQuery();
   const { data: role } = useRoleQuery(session?.user?.id);
@@ -36,10 +36,20 @@ function useRoleQuery(userId?: string) {
     queryKey: ["role", userId],
     enabled: !!userId,
     queryFn: async () => {
-      // a small view or RPC that returns { role }
-      const { data, error } = await supabase.from("v_user_roles").select("role").eq("user_id", userId!).limit(1).maybeSingle();
-      if (error) throw error;
-      return data?.role as "owner"|"staff"|"viewer"|undefined;
+      const { data, error } = await supabase
+        .from("hotel_members")
+        .select("role")
+        .eq("user_id", userId!)
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error fetching role:", error);
+        return null;
+      }
+
+      // Return the role or null if not found (React Query doesn't like undefined)
+      return (data?.role as "OWNER" | "MANAGER" | "STAFF" | "viewer") || null;
     },
   });
 }

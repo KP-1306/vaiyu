@@ -30,11 +30,10 @@ function mapBackendStatusToUi(rawStatus: unknown): TicketStatus {
       return "Requested";
     case "accepted":
       return "Accepted";
-    case "in_progress":
-    case "in-progress":
     case "in progress":
     case "paused":
-      // paused still feels like "in progress" for HK UI
+    case "blocked":
+      // paused/blocked still feels like "in progress" for HK UI
       return "InProgress";
     case "resolved":
     case "closed":
@@ -81,8 +80,8 @@ function normalizeTicket(raw: any): Ticket {
     typeof raw.mins_remaining === "number"
       ? raw.mins_remaining
       : typeof raw.minutes_remaining === "number"
-      ? raw.minutes_remaining
-      : null;
+        ? raw.minutes_remaining
+        : null;
 
   return {
     id,
@@ -208,9 +207,8 @@ export default function HK() {
 
     return (
       <span
-        className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] ${
-          isOverdue ? "bg-red-50 text-red-700" : "bg-sky-50 text-sky-700"
-        }`}
+        className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] ${isOverdue ? "bg-red-50 text-red-700" : "bg-sky-50 text-sky-700"
+          }`}
       >
         {text}
       </span>

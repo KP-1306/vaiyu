@@ -1,5 +1,11 @@
 /* OwnerServices.module.css */
 
+/* Main Container */
+.mainContainer {
+    padding-top: 3rem;
+}
+
+
 /* Outer shell (pill container) */
 .tabsShell {
     display: flex;
@@ -63,10 +69,11 @@
 /* SLA Summary Bar (no border) */
 .slaSummaryBar {
     padding: 12px 16px;
-    margin-top: 16px;
+    margin-top: 6px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .slaSummaryText {
@@ -86,7 +93,7 @@
     margin-top: 4px;
     background: #121726;
     border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 0px;
+    border-radius: 10px;
     overflow: hidden;
 }
 
@@ -106,14 +113,15 @@
 /* Table Header */
 .tableHeader {
     display: grid;
-    grid-template-columns: 1fr 200px 120px 100px 100px;
+    grid-template-columns: 200px 1fr 120px 100px 100px;
     gap: 16px;
     padding: 14px 16px;
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: #6B7280;
+    color: #e0e7f6;
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(211, 179, 179, 0.02);
 }
 
 .tableHeaderCenter {
@@ -123,9 +131,9 @@
 /* Service Row */
 .serviceRow {
     display: grid;
-    grid-template-columns: 1fr 200px 120px 100px 100px;
+    grid-template-columns: 200px 1fr 120px 100px 100px;
     gap: 16px;
-    padding: 12px 16px;
+    padding: 4px 16px;
     align-items: center;
     border-top: 1px solid rgba(255, 255, 255, 0.04);
     transition: background-color 0.2s ease;
@@ -164,6 +172,18 @@
     white-space: nowrap;
 }
 
+.slaInput {
+    width: 60px;
+    padding: 8px 12px;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    color: #E9ECF1;
+    font-size: 14px;
+    text-align: center;
+    cursor: not-allowed;
+}
+
 .slaValue {
     text-align: center;
     font-size: 14px;
@@ -199,6 +219,30 @@
 
 .deleteButton:hover {
     color: #EF4444;
+}
+
+/* Add from Common Services Button */
+.addServicesButton {
+    padding: 8px 14px;
+    font-size: 13px;
+    color: #9AA4BF;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.addServicesButton:hover {
+    color: #E9ECF1;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.addServicesButtonContainer {
+    padding: 8px 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    display: flex;
+    justify-content: flex-end;
 }
 
 /* Add from Common Services */

@@ -214,7 +214,7 @@ function CircularTimerView({ task, fetchedAt }: CircularTimerViewProps) {
         return Math.max(task.sla_remaining_seconds - elapsed, 0);
     });
 
-    // Tick every second (local countdown)
+    // Tick every second (local countdown) - runs for all RUNNING tasks (including NEW)
     useEffect(() => {
         const interval = setInterval(() => {
             setRemaining(prev => Math.max(prev - 1, 0));
@@ -269,27 +269,27 @@ function CircularTimerView({ task, fetchedAt }: CircularTimerViewProps) {
                 />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-1">
-                {task.sla_state === 'RUNNING' ? (
-                    // Only use local ticker for RUNNING tasks
+                {task.sla_state === 'NOT_STARTED' && (
+                    <>
+                        <div className="text-xs font-bold text-gray-500">Not</div>
+                        <div className="text-[9px] text-gray-500 uppercase">started</div>
+                    </>
+                )}
+
+                {(task.sla_state === 'BREACHED' || task.sla_state === 'UNKNOWN') && (
+                    <>
+                        <div className="text-xs font-bold text-red-500">SLA</div>
+                        <div className="text-[9px] text-red-500 uppercase">breached</div>
+                    </>
+                )}
+
+                {task.sla_state === 'RUNNING' && (
                     <>
                         <div className="text-sm font-bold">
                             {minutes}:{String(seconds).padStart(2, '0')}
                         </div>
                         <div className="text-[9px] text-gray-500 uppercase">
                             remaining
-                        </div>
-                    </>
-                ) : (
-                    // For BREACHED and NOT_STARTED, use server's label
-                    <>
-                        <div className={`text-base font-bold leading-tight ${task.sla_state === 'BREACHED' ? 'text-red-500' : ''}`}>
-                            {task.sla_label?.split(' ')[0] || '0'}
-                            <span className="text-[10px] ml-0.5 uppercase tracking-tighter">
-                                {task.sla_label?.split(' ')[1] || 'min'}
-                            </span>
-                        </div>
-                        <div className="text-[9px] text-gray-500 uppercase tracking-tighter">
-                            {task.sla_label?.split(' ').slice(2).join(' ')}
                         </div>
                     </>
                 )}

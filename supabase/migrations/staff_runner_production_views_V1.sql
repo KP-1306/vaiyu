@@ -32,14 +32,15 @@ SELECT
   CASE
     WHEN ss.sla_started_at IS NULL THEN 'NOT_STARTED'
     WHEN ss.breached = true THEN 'BREACHED'
-    WHEN ss.current_remaining_seconds > 0 THEN 'RUNNING'
+    WHEN ss.sla_started_at IS NOT NULL
+      THEN 'RUNNING'
     ELSE 'UNKNOWN'
   END AS sla_state,
 
   CASE
     WHEN ss.sla_started_at IS NULL THEN 'Not started'
     WHEN ss.breached = true THEN 'SLA breached'
-    WHEN ss.current_remaining_seconds > 0
+    WHEN ss.sla_started_at IS NOT NULL
       THEN CONCAT(CEIL(ss.current_remaining_seconds / 60.0), ' min remaining')
     ELSE NULL
   END AS sla_label,

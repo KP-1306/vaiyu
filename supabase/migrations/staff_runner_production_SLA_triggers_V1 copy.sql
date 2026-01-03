@@ -212,10 +212,9 @@ WITH updated AS (
         - ss.total_paused_seconds,
         0
       )
-  FROM tickets t
-  JOIN sla_policies sp
-    ON sp.department_id = t.service_department_id
+  FROM tickets t, sla_policies sp
   WHERE ss.ticket_id = t.id
+    AND sp.id = ss.sla_policy_id      -- ✅ moved here (Postgres-legal)
     AND ss.sla_started_at IS NOT NULL
     AND ss.breached = false
   RETURNING ss.ticket_id, current_remaining_seconds

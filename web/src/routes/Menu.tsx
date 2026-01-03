@@ -111,42 +111,48 @@ export default function Menu() {
     [cart],
   );
 
-  // First, resolve stay code to hotel_id if needed
+  // First, resolve stay code to hotel_id, room_id, and zone_id
   useEffect(() => {
     let alive = true;
 
     (async () => {
-      // If we already have hotelId from query params, no need to look up
-      if (hotelId) {
-        if (alive) {
-          setResolvedHotelId(hotelId);
-          setStayLookupDone(true);
-        }
-        return;
-      }
-
-      // If we have a stay code, look it up to get hotel_id
+      // If we have a stay code, look it up to get hotel_id, room_id, and zone_id
       if (stayCode && stayCode !== "DEMO") {
         try {
           const { supabase } = await import("../lib/supabase");
 
-          // Try to find the stay in the database
-          const { data, error } = await supabase
-            .from("stays")
-            .select("hotel_id, booking_code, room_id, zone_id")
-            .or(`id.eq.${stayCode},booking_code.ilike.${stayCode}`)
-            .maybeSingle();
+          // Get the authenticated user
+          const { data: { user } } = await supabase.auth.getUser();
 
-          if (!alive) return;
+          if (user && hotelId) {
+            // Query stays by guest_id for security
+            const { data, error } = await supabase
+              .from("stays")
+              .select("room_id")
+              .eq("guest_id", user.id)
+              .eq("hotel_id", hotelId)
+              .eq("is_active", true)
+              .maybeSingle();
 
-          if (data && data.hotel_id) {
-            dbg("[Menu] Resolved stay code to hotel_id:", data.hotel_id);
-            setResolvedHotelId(data.hotel_id);
-            if (data.room_id) setResolvedRoomId(data.room_id);
-            if (data.zone_id) setResolvedZoneId(data.zone_id);
+            if (!alive) return;
+
+            if (data) {
+              dbg("[Menu] Resolved stay:", data);
+              setResolvedHotelId(hotelId);
+              if (data.room_id) setResolvedRoomId(data.room_id);
+            } else if (error) {
+              dbgError("[Menu] Stay lookup error:", error);
+            }
+          } else {
+            dbgError("[Menu] Missing user or hotelId for stay lookup", { user: !!user, hotelId });
           }
         } catch (e: any) {
-          dbgError("[Menu] Failed to resolve stay code:", e);
+          dbgError("[Menu] Failed to resolve stay:", e);
+        }
+      } else if (hotelId) {
+        // If no stay code but we have hotelId from URL, just set it
+        if (alive) {
+          setResolvedHotelId(hotelId);
         }
       }
 

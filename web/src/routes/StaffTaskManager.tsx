@@ -1,15 +1,21 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { ticketService } from "../services/ticketService";
 import type { Ticket, StaffRunnerTicket, BlockReason, BlockReasonCode } from "../types/ticket";
 import { getSLAStatus, formatTimeRemaining, getSLAColor } from "../utils/sla";
 
+
 export default function StaffTaskManager() {
+    const [searchParams] = useSearchParams();
+    const hotelId = searchParams.get("hotel");
+
     const [newTasks, setNewTasks] = useState<StaffRunnerTicket[]>([]);
     const [inProgressTasks, setInProgressTasks] = useState<StaffRunnerTicket[]>([]);
     const [blockedTasks, setBlockedTasks] = useState<StaffRunnerTicket[]>([]);
     const [selectedTask, setSelectedTask] = useState<Ticket | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [fetchedAt, setFetchedAt] = useState<number>(Date.now());
 
     // Dynamic Reasons
     const [blockReasons, setBlockReasons] = useState<BlockReason[]>([]);
@@ -22,8 +28,15 @@ export default function StaffTaskManager() {
     const [tick, setTick] = useState(0);
 
     const fetchTasks = useCallback(async () => {
+        if (!hotelId) {
+            setError("Missing hotel context. Please access this page with ?hotel=<hotel-id>");
+            setLoading(false);
+            return;
+        }
+
         try {
-            const data = await ticketService.getStaffTasks();
+            const data = await ticketService.getStaffTasks(hotelId);
+            setFetchedAt(data.fetchedAt);
             setNewTasks(data.newTasks);
             setInProgressTasks(data.inProgress);
             setBlockedTasks(data.blocked);
@@ -33,7 +46,7 @@ export default function StaffTaskManager() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [hotelId]);
 
     const fetchReasons = useCallback(async () => {
         const reasons = await ticketService.getBlockReasons();
@@ -43,10 +56,9 @@ export default function StaffTaskManager() {
     useEffect(() => {
         fetchTasks();
         fetchReasons();
-        const subscription = ticketService.subscribeToTasks(() => fetchTasks());
-        const interval = setInterval(() => setTick(t => t + 1), 1000 * 10);
+        // Periodic re-sync every 60 seconds for SLA accuracy
+        const interval = setInterval(() => fetchTasks(), 60 * 1000);
         return () => {
-            subscription.unsubscribe();
             clearInterval(interval);
         };
     }, [fetchTasks, fetchReasons]);
@@ -80,6 +92,7 @@ export default function StaffTaskManager() {
                                 <TaskCard
                                     key={task.ticket_id}
                                     task={task}
+                                    fetchedAt={fetchedAt}
                                     variant="active"
                                     actions={
                                         <button
@@ -104,7 +117,7 @@ export default function StaffTaskManager() {
                     </h2>
                     <div className="space-y-4">
                         {inProgressTasks.map((task) => (
-                            <TaskCard key={task.ticket_id} task={task} variant="inProgress" actions={
+                            <TaskCard key={task.ticket_id} task={task} fetchedAt={fetchedAt} variant="inProgress" actions={
                                 <div className="grid grid-cols-2 gap-3">
                                     <button onClick={() => openModal(task, setShowCompleteModal)} className="bg-[#dcfce7] text-[#166534] py-3 rounded-xl font-bold text-xs tracking-wider hover:bg-[#bbf7d0] transition-colors">MARK COMPLETE</button>
                                     <button onClick={() => openModal(task, setShowBlockModal)} className="bg-white/5 text-gray-300 py-3 rounded-xl font-semibold text-xs tracking-wider hover:bg-white/10 transition-colors">BLOCK TASK</button>
@@ -121,7 +134,7 @@ export default function StaffTaskManager() {
                     </h2>
                     <div className="space-y-4">
                         {blockedTasks.map((task) => (
-                            <TaskCard key={task.ticket_id} task={task} variant="blocked" actions={
+                            <TaskCard key={task.ticket_id} task={task} fetchedAt={fetchedAt} variant="blocked" actions={
                                 <div className="grid grid-cols-2 gap-3">
                                     <button onClick={() => openModal(task, setShowUpdateStatusModal)} className="bg-red-600 text-white py-3 rounded-xl font-bold text-xs tracking-wider hover:bg-red-700 transition-colors">RESOLVE</button>
                                     <button onClick={async () => { await ticketService.pingSupervisor({ ticketId: task.ticket_id, note: 'Staff requested assistance' }); alert('Supervisor pinged successfully'); }} className="bg-white/5 text-gray-300 py-3 rounded-xl font-semibold text-xs tracking-wider hover:bg-white/10 transition-colors">PING SUPERVISOR</button>
@@ -140,8 +153,8 @@ export default function StaffTaskManager() {
     );
 }
 
-interface TaskCardProps { task: StaffRunnerTicket; variant: "active" | "inProgress" | "blocked"; actions: React.ReactNode; }
-function TaskCard({ task, variant, actions }: TaskCardProps) {
+interface TaskCardProps { task: StaffRunnerTicket; fetchedAt: number; variant: "active" | "inProgress" | "blocked"; actions: React.ReactNode; }
+function TaskCard({ task, fetchedAt, variant, actions }: TaskCardProps) {
     // Premium shadowing effect with radial gradients
     const styles = {
         active: {
@@ -185,45 +198,58 @@ function TaskCard({ task, variant, actions }: TaskCardProps) {
                     </div>
                     <p className="text-xs text-white/50 mt-1">{task.department_name}</p>
                 </div>
-                <CircularTimerView task={task} variant={variant} />
+                <CircularTimerView task={task} fetchedAt={fetchedAt} />
             </div>
             {actions}
         </div>
     );
 }
 
-interface CircularTimerViewProps { task: StaffRunnerTicket; variant: "active" | "inProgress" | "blocked"; }
-function CircularTimerView({ task }: CircularTimerViewProps) {
-    const remainingSecs = task.sla_remaining_seconds ?? 0;
+interface CircularTimerViewProps { task: StaffRunnerTicket; fetchedAt: number; }
+function CircularTimerView({ task, fetchedAt }: CircularTimerViewProps) {
+    // Initialize local remaining seconds from server snapshot
+    const [remaining, setRemaining] = useState<number>(() => {
+        if (task.sla_remaining_seconds == null) return 0;
+        const elapsed = Math.floor((Date.now() - fetchedAt) / 1000);
+        return Math.max(task.sla_remaining_seconds - elapsed, 0);
+    });
+
+    // Tick every second (local countdown)
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setRemaining(prev => Math.max(prev - 1, 0));
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, []);
+
+    // Re-sync when server snapshot changes
+    useEffect(() => {
+        if (task.sla_remaining_seconds == null) return;
+        const elapsed = Math.floor((Date.now() - fetchedAt) / 1000);
+        setRemaining(Math.max(task.sla_remaining_seconds - elapsed, 0));
+    }, [task.sla_remaining_seconds, fetchedAt]);
+
     const targetSecs = (task.sla_target_minutes ?? 60) * 60;
-    const percentLeft = Math.max(0, Math.min(100, (remainingSecs / targetSecs) * 100));
+    const percentLeft = Math.max(0, Math.min(100, (remaining / targetSecs) * 100));
     const circumference = 2 * Math.PI * 45;
 
-    let ringColor = "#4b5563"; // grey
+    let ringColor = "#4b5563";
     let strokeDasharray: string | number = circumference;
-    let strokeDashoffset = 0;
-    let animationClass = "";
+    let strokeDashoffset = circumference - (percentLeft / 100) * circumference;
 
-    switch (task.sla_state) {
-        case 'NOT_STARTED':
-            ringColor = "#4b5563";
-            strokeDasharray = "8, 4"; // grey-dashed
-            strokeDashoffset = 0;
-            break;
-        case 'RUNNING':
-            ringColor = "#22c55e"; // green-solid
-            strokeDasharray = circumference;
-            strokeDashoffset = circumference - (percentLeft / 100) * circumference;
-            break;
-        case 'BREACHED':
-            ringColor = "#ef4444"; // red-pulsing
-            strokeDasharray = circumference;
-            strokeDashoffset = 0;
-            animationClass = "animate-pulse";
-            break;
-        default:
-            ringColor = "#1f2937"; // dark
+    if (task.sla_state === 'BREACHED') {
+        ringColor = "#ef4444";
+        strokeDashoffset = 0;
+    } else if (task.sla_state === 'NOT_STARTED') {
+        strokeDasharray = "8, 4";
+        strokeDashoffset = 0;
+    } else {
+        ringColor = "#22c55e";
     }
+
+    const minutes = Math.floor(remaining / 60);
+    const seconds = remaining % 60;
 
     return (
         <div className="relative w-24 h-24 flex-shrink-0">
@@ -239,19 +265,34 @@ function CircularTimerView({ task }: CircularTimerViewProps) {
                     strokeDasharray={strokeDasharray}
                     strokeDashoffset={strokeDashoffset}
                     strokeLinecap="round"
-                    className={`transition-all duration-300 ${animationClass}`}
+                    className={task.sla_state === 'BREACHED' ? 'animate-pulse' : ''}
                 />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-1">
-                <div className={`text-base font-bold leading-tight ${task.sla_state === 'BREACHED' ? 'text-red-500' : ''}`}>
-                    {task.sla_label?.split(' ')[0] || '0'}
-                    <span className="text-[10px] ml-0.5 uppercase tracking-tighter">
-                        {task.sla_label?.split(' ')[1] || 'min'}
-                    </span>
-                </div>
-                <div className="text-[9px] text-gray-500 uppercase tracking-tighter">
-                    {task.sla_label?.split(' ').slice(2).join(' ')}
-                </div>
+                {task.sla_state === 'RUNNING' ? (
+                    // Only use local ticker for RUNNING tasks
+                    <>
+                        <div className="text-sm font-bold">
+                            {minutes}:{String(seconds).padStart(2, '0')}
+                        </div>
+                        <div className="text-[9px] text-gray-500 uppercase">
+                            remaining
+                        </div>
+                    </>
+                ) : (
+                    // For BREACHED and NOT_STARTED, use server's label
+                    <>
+                        <div className={`text-base font-bold leading-tight ${task.sla_state === 'BREACHED' ? 'text-red-500' : ''}`}>
+                            {task.sla_label?.split(' ')[0] || '0'}
+                            <span className="text-[10px] ml-0.5 uppercase tracking-tighter">
+                                {task.sla_label?.split(' ')[1] || 'min'}
+                            </span>
+                        </div>
+                        <div className="text-[9px] text-gray-500 uppercase tracking-tighter">
+                            {task.sla_label?.split(' ').slice(2).join(' ')}
+                        </div>
+                    </>
+                )}
             </div>
         </div>
     );
@@ -611,3 +652,4 @@ function Button({ children, onClick, disabled, variant }: { children: React.Reac
     const styles = variant === "primary" ? "bg-[#4a7cff] text-white hover:bg-[#3d6ae6]" : "bg-transparent text-white border border-white/10 hover:bg-white/5";
     return <button onClick={onClick} disabled={disabled} className={`${base} ${styles}`}>{children}</button>;
 }
+

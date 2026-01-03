@@ -11,7 +11,7 @@ export default function AuthGate({ children, allow = ["owner", "staff", "viewer"
   const { data: session } = useSessionQuery();
   const { data: role } = useRoleQuery(session?.user?.id);
 
-  if (!session) return <Navigate to={`/signin?redirect=${encodeURIComponent(loc.pathname)}`} replace />;
+  if (!session) return <Navigate to={`/signin?redirect=${encodeURIComponent(loc.pathname + loc.search)}`} replace />;
 
   if (role && !allow.includes(role)) {
     return <Navigate to="/" replace />;

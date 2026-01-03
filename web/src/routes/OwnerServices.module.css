@@ -5,71 +5,127 @@
     padding-top: 3rem;
 }
 
+/* Page Header */
+.pageHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
 
-/* Outer shell (pill container) */
+.pageTitle {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #E9ECF1;
+    letter-spacing: -0.025em;
+}
+
+.pageSubtitle {
+    font-size: 13px;
+    color: #9AA4BF;
+    margin-top: 0.25rem;
+}
+
+.headerActions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.manageButton {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    font-size: 13px;
+    color: #E9ECF1;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.manageButton:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.iconSmall {
+    width: 1rem;
+    height: 1rem;
+}
+
+/* Loading and Error States */
+.loadingContainer {
+    min-height: 100vh;
+    background: #0B0F1A;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.loadingText {
+    color: #9CA3AF;
+}
+
+.errorText {
+    color: #EF4444;
+}
+
+.contentWrapper {
+    max-width: 80rem;
+    margin: 0 auto;
+}
+
+/* Tabs Shell */
 .tabsShell {
     display: flex;
-
     gap: 5px;
-
     background: rgba(20, 28, 50, 0.7);
-    border: 0px solid rgba(255, 255, 255, 0.08);
-    border-radius: 0px;
-
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
-/* Each tab */
+/* Tab */
 .tab {
     position: relative;
     padding: 10px 18px;
-
     font-size: 14px;
     font-weight: 500;
     color: rgba(255, 255, 255, 0.65);
-
     background: rgba(255, 255, 255, 0.04);
     border: none;
-
     border-radius: 10px 10px 0 0;
     cursor: pointer;
-
     box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.05);
 }
 
-/* Remove divider on last tab */
 .tab:last-child {
     box-shadow: none;
 }
 
-/* Active tab */
 .active {
     color: #ffffff;
-
-    background: linear-gradient(180deg,
-            rgba(99, 102, 241, 0.18),
-            rgba(99, 102, 241, 0.06));
-
+    background: linear-gradient(180deg, rgba(99, 102, 241, 0.18), rgba(99, 102, 241, 0.06));
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
-/* Blue indicator INSIDE tab */
 .active::after {
     content: "";
     position: absolute;
     left: 14px;
     right: 14px;
     bottom: 4px;
-
     height: 2px;
     background: #5b73ff;
     border-radius: 2px;
 }
 
-/* SLA Summary Bar (no border) */
+/* SLA Summary Bar */
 .slaSummaryBar {
     padding: 12px 16px;
-    margin-top: 6px;
+    margin-top: 16px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -88,7 +144,7 @@
     letter-spacing: 0.05em;
 }
 
-/* Services Container (bordered box) */
+/* Services Container */
 .servicesContainer {
     margin-top: 4px;
     background: #121726;
@@ -221,7 +277,7 @@
     color: #EF4444;
 }
 
-/* Add from Common Services Button */
+/* Add Services Button */
 .addServicesButton {
     padding: 8px 14px;
     font-size: 13px;
@@ -245,84 +301,149 @@
     justify-content: flex-end;
 }
 
-/* Add from Common Services */
+/* Add from Common Services Section */
 .addServicesSection {
-    margin-top: 12px;
-    padding: 14px 16px;
+    margin-top: 0.75rem;
+    padding: 0.875rem 1rem;
     background: #0F1424;
     border: 1px dashed rgba(255, 255, 255, 0.08);
-    border-radius: 12px;
+    border-radius: 0.75rem;
 }
 
 .addServicesTitle {
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 600;
     color: #E9ECF1;
-    margin-bottom: 12px;
+    margin-bottom: 0.75rem;
 }
 
 .addServicesForm {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 0.75rem;
 }
 
 .addServicesInput {
     flex: 1;
-    height: 36px;
-    padding: 0 12px;
+    height: 2.25rem;
+    padding: 0 0.75rem;
     background: #121726;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 10px;
     color: #E9ECF1;
-    font-size: 14px;
+    font-size: 0.875rem;
 }
 
-.addServicesButton {
+.addServicesInput::placeholder {
+    color: #6B7280;
+}
+
+.addServicesInput:focus {
+    outline: 2px solid #4A7CFF;
+    outline-offset: 0px;
+}
+
+.slaOverrideInput {
+    width: 12rem;
+    height: 2.25rem;
+    padding: 0 0.75rem;
+    background: #121726;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    color: #E9ECF1;
+    font-size: 0.875rem;
+}
+
+.slaOverrideInput::placeholder {
+    color: #6B7280;
+}
+
+.slaOverrideInput:focus {
+    outline: 2px solid #4A7CFF;
+    outline-offset: 0px;
+}
+
+.minLabel {
+    font-size: 13px;
+    color: #9AA4BF;
+}
+
+.addServiceButton {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.875rem;
     background: #4A7CFF;
     color: white;
     border: none;
     border-radius: 10px;
-    padding: 8px 14px;
+    font-size: 0.875rem;
     font-weight: 600;
-    font-size: 13px;
     cursor: pointer;
     transition: background 0.2s ease;
 }
 
-.addServicesButton:hover {
+.addServiceButton:hover {
     background: #3D6FE6;
 }
 
 /* Warning Banner */
 .warningBanner {
-    margin-top: 16px;
-    padding: 14px 18px;
+    margin-top: 1rem;
+    padding: 0.875rem 1rem;
     background: #D4A574;
     border: 1px solid #B8935E;
-    border-radius: 12px;
+    border-radius: 0.75rem;
 }
 
-.warningText {
+.warningContent {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.warningIcon {
+    width: 1.25rem;
+    height: 1.25rem;
+    color: #8B6F47;
+    flex-shrink: 0;
+    margin-top: 0.125rem;
+}
+
+.warningTextContainer {
     font-size: 13px;
     color: #1a1a1a;
-    font-weight: 500;
+}
+
+.warningTitle {
+    font-weight: 600;
+}
+
+.warningDescription {
+    margin-top: 0.125rem;
 }
 
 /* Footer Actions */
 .footerActions {
+    margin-top: 1rem;
     display: flex;
+    align-items: center;
     justify-content: space-between;
-    margin-top: 16px;
+}
+
+.footerActionsRight {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
 }
 
 .cancelButton {
+    padding: 0.625rem 0.875rem;
     background: transparent;
     border: 1px solid rgba(255, 255, 255, 0.12);
     color: #E9ECF1;
     border-radius: 10px;
-    padding: 10px 14px;
-    font-size: 13px;
+    font-size: 0.875rem;
     cursor: pointer;
     transition: background 0.2s ease;
 }
@@ -332,19 +453,23 @@
 }
 
 .saveButton {
+    padding: 0.625rem 1rem;
     background: #4A7CFF;
     color: white;
     border: none;
-    border-radius: 12px;
-    padding: 10px 18px;
+    border-radius: 0.75rem;
+    font-size: 0.875rem;
     font-weight: 600;
-    font-size: 13px;
     cursor: pointer;
     transition: background 0.2s ease;
 }
 
 .saveButton:hover {
     background: #3D6FE6;
+}
+
+.saveButton:disabled {
+    opacity: 0.5;
 }
 
 .editDepartmentButton {

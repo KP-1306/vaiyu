@@ -215,16 +215,16 @@ export default function OwnerServices() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0B0F1A] flex items-center justify-center">
-        <div className="text-gray-400">Loading...</div>
+      <div className={styles.loadingContainer}>
+        <div className={styles.loadingText}>Loading...</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#0B0F1A] flex items-center justify-center">
-        <div className="text-red-500">Error: {error}</div>
+      <div className={styles.loadingContainer}>
+        <div className={styles.errorText}>Error: {error}</div>
       </div>
     );
   }
@@ -234,16 +234,16 @@ export default function OwnerServices() {
       <SEO title="Services & SLAs" noIndex />
       <OwnerGate roles={["owner", "manager"]}>
         <div className={`min-h-screen bg-gradient-to-b from-[#1A2040] via-[#0B0F1A] to-[#0B0F1A] text-white p-6 md:p-7 ${styles.mainContainer}`}>
-          <div className="max-w-7xl mx-auto">
+          <div className={styles.contentWrapper}>
             {/* Header */}
-            <div className="flex items-start justify-between mb-4">
+            <div className={styles.pageHeader}>
               <div>
-                <h1 className="text-xl font-semibold text-[#E9ECF1] tracking-tight">Services & SLAs</h1>
-                <p className="text-[13px] text-[#9AA4BF] mt-1">Manage guest services and response times</p>
+                <h1 className={styles.pageTitle}>Services & SLAs</h1>
+                <p className={styles.pageSubtitle}>Manage guest services and response times</p>
               </div>
-              <div className="flex items-center gap-3">
-                <button className="flex items-center gap-2 px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-[10px] text-[13px] text-[#E9ECF1] hover:bg-white/[0.08] transition-colors">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className={styles.headerActions}>
+                <button className={styles.manageButton}>
+                  <svg className={styles.iconSmall} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
@@ -251,9 +251,9 @@ export default function OwnerServices() {
                 </button>
                 <button
                   onClick={() => document.getElementById("custom-service-input")?.focus()}
-                  className="flex items-center gap-2 px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-[10px] text-[13px] text-[#E9ECF1] hover:bg-white/[0.08] transition-colors"
+                  className={styles.manageButton}
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className={styles.iconSmall} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
                   Add Service
@@ -367,9 +367,9 @@ export default function OwnerServices() {
             )}
 
             {/* Add from Common Services Section */}
-            <div className="mt-3 px-4 py-3.5 bg-[#0F1424] rounded-xl border border-dashed border-white/[0.08]">
-              <h3 className="text-sm font-semibold text-[#E9ECF1] mb-3">Add from Common Services</h3>
-              <div className="flex items-center gap-3">
+            <div className={styles.addServicesSection}>
+              <h3 className={styles.addServicesTitle}>Add from Common Services</h3>
+              <div className={styles.addServicesForm}>
                 <input
                   id="custom-service-input"
                   type="text"
@@ -377,21 +377,21 @@ export default function OwnerServices() {
                   onChange={(e) => setCustomServiceName(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleAddCustomService()}
                   placeholder="Service name"
-                  className="flex-1 h-9 px-3 bg-[#121726] border border-white/[0.08] rounded-[10px] text-[#E9ECF1] placeholder-[#6B7280] text-sm focus:outline-none focus:ring-2 focus:ring-[#4A7CFF]"
+                  className={styles.addServicesInput}
                 />
                 <input
                   type="number"
                   value={customServiceSLA}
                   onChange={(e) => setCustomServiceSLA(e.target.value)}
                   placeholder="SLA override (optional)"
-                  className="w-48 h-9 px-3 bg-[#121726] border border-white/[0.08] rounded-[10px] text-[#E9ECF1] placeholder-[#6B7280] text-sm focus:outline-none focus:ring-2 focus:ring-[#4A7CFF]"
+                  className={styles.slaOverrideInput}
                 />
-                <span className="text-[13px] text-[#9AA4BF]">min</span>
+                <span className={styles.minLabel}>min</span>
                 <button
                   onClick={handleAddCustomService}
-                  className="flex items-center gap-2 px-3.5 py-2 bg-[#4A7CFF] text-white rounded-[10px] text-sm font-semibold hover:bg-[#3D6FE6] transition-colors"
+                  className={styles.addServiceButton}
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className={styles.iconSmall} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
                   Add Service
@@ -400,34 +400,34 @@ export default function OwnerServices() {
             </div>
 
             {/* Warning Banner */}
-            <div className="mt-4 px-4 py-3.5 rounded-xl bg-[#D4A574] border border-[#B8935E]">
-              <div className="flex items-start gap-2">
-                <svg className="w-5 h-5 text-[#8B6F47] flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+            <div className={styles.warningBanner}>
+              <div className={styles.warningContent}>
+                <svg className={styles.warningIcon} fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                 </svg>
-                <div className="text-[13px] text-[#1a1a1a]">
-                  <div className="font-semibold">Changes apply to NEW tickets only</div>
-                  <div className="mt-0.5">Existing tickets will continue with their original SLA</div>
+                <div className={styles.warningTextContainer}>
+                  <div className={styles.warningTitle}>Changes apply to NEW tickets only</div>
+                  <div className={styles.warningDescription}>Existing tickets will continue with their original SLA</div>
                 </div>
               </div>
             </div>
 
             {/* Footer Actions */}
-            <div className="mt-4 flex items-center justify-between">
+            <div className={styles.footerActions}>
               <button
                 onClick={handleRevert}
-                className="px-3.5 py-2.5 bg-transparent border border-white/[0.12] text-[#E9ECF1] rounded-[10px] text-sm hover:bg-white/[0.04] transition-colors"
+                className={styles.cancelButton}
               >
                 Cancel
               </button>
-              <div className="flex items-center gap-3">
-                <button className="px-3.5 py-2.5 bg-transparent border border-white/[0.12] text-[#E9ECF1] rounded-[10px] text-sm hover:bg-white/[0.04] transition-colors">
+              <div className={styles.footerActionsRight}>
+                <button className={styles.cancelButton}>
                   Cancel
                 </button>
                 <button
                   onClick={handleSave}
                   disabled={saving}
-                  className="px-4 py-2.5 bg-[#4A7CFF] text-white rounded-xl text-sm font-semibold hover:bg-[#3D6FE6] transition-colors disabled:opacity-50"
+                  className={styles.saveButton}
                 >
                   {saving ? "Saving..." : "Save Settings"}
                 </button>

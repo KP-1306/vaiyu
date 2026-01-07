@@ -8,6 +8,8 @@ import EditServiceModal from "../components/EditServiceModal";
 import AddServiceModal from "../components/AddServiceModal";
 import AddServiceTemplateModal from "../components/AddServiceTemplateModal";
 import AddServiceSelectionModal from "../components/AddServiceSelectionModal";
+import AddDepartmentSelectionModal from "../components/AddDepartmentSelectionModal";
+import AddDepartmentTemplateModal from "../components/AddDepartmentTemplateModal";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../hooks/useAuth";
@@ -28,7 +30,11 @@ interface Department {
   id: string;
   code: string;
   name: string;
+  description?: string;
   is_active: boolean;
+  is_new?: boolean;
+  is_custom?: boolean;
+  template_id?: string;
   sla_policy?: {
     target_minutes: number;
     warn_minutes: number;
@@ -53,7 +59,10 @@ export default function OwnerServices() {
   const [customServiceName, setCustomServiceName] = useState("");
   const [customServiceSLA, setCustomServiceSLA] = useState("");
   const [customServiceActive, setCustomServiceActive] = useState(true);
+  const [showAddDepartmentSelectionModal, setShowAddDepartmentSelectionModal] = useState(false);
+  const [showAddDepartmentTemplateModal, setShowAddDepartmentTemplateModal] = useState(false);
 
+  // Department Management State
   const [editingSLADeptId, setEditingSLADeptId] = useState<string | null>(null);
   const editingDept = departments.find((d) => d.id === editingSLADeptId);
 
@@ -91,6 +100,7 @@ export default function OwnerServices() {
   const [showAddServiceModal, setShowAddServiceModal] = useState(false);
   const [showAddServiceTemplateModal, setShowAddServiceTemplateModal] = useState(false);
   const [showAddServiceSelectionModal, setShowAddServiceSelectionModal] = useState(false);
+  const [addServiceTemplateDeptId, setAddServiceTemplateDeptId] = useState<string | null>(null);
 
   // Confirmation dialog state
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -442,10 +452,62 @@ export default function OwnerServices() {
       const { data: hotel } = await supabase.from("hotels").select("id").eq("slug", hotelSlug).single();
       if (!hotel) throw new Error("Hotel not found");
 
-      // 1. Save all SLA changes
+      // 1. Handle New Departments
+      const newDepartments = departments.filter(d => d.is_new);
+      if (newDepartments.length > 0) {
+        // Insert Departments
+        const { error: deptError } = await supabase
+          .from("departments")
+          .insert(newDepartments.map(d => ({
+            id: d.id, // Use client-generated ID
+            hotel_id: hotel.id,
+            code: d.code,
+            name: d.name,
+            description: d.description || null,
+            is_active: d.is_active,
+            template_id: d.template_id || null,
+            is_custom: !d.template_id // false if template_id exists
+          })));
+
+        if (deptError) throw deptError;
+
+        // Insert Initial SLA Policies for New Departments
+        const slaPoliciesToInsert = newDepartments.map(d => {
+          // Merge defaults with any immediate edits in slaChanges
+          const changes = slaChanges[d.id] || {};
+          const defaults = d.sla_policy || {
+            target_minutes: 30,
+            warn_minutes: 5,
+            escalate_minutes: 25,
+            sla_start_trigger: 'ON_ASSIGN'
+          };
+
+          return {
+            department_id: d.id,
+            target_minutes: changes.target_minutes ?? defaults.target_minutes,
+            warn_minutes: changes.warn_minutes ?? defaults.warn_minutes,
+            escalate_minutes: changes.escalate_minutes ?? defaults.escalate_minutes,
+            sla_start_trigger: changes.sla_start_trigger ?? defaults.sla_start_trigger,
+            valid_from: new Date().toISOString(),
+            is_active: true
+          };
+        });
+
+        const { error: slaError } = await supabase
+          .from("sla_policies")
+          .insert(slaPoliciesToInsert);
+
+        if (slaError) throw slaError;
+      }
+
+      // 2. Save all SLA changes for EXISTING departments
+      // (Skip new departments since we just inserted them with mixed values)
       for (const [deptId, changes] of Object.entries(slaChanges)) {
         const dept = departments.find(d => d.id === deptId);
         if (!dept) continue;
+
+        // Skip if it was a new department (already handled above)
+        if (dept.is_new) continue;
 
         const slaData = {
           target_minutes: changes.target_minutes ?? dept.sla_policy?.target_minutes ?? 30,
@@ -465,7 +527,7 @@ export default function OwnerServices() {
         if (error) throw error;
       }
 
-      // 2. Save Service changes
+      // 3. Save Service changes
       const invalid = services.find((s) => !s.key.trim() || !s.label.trim());
       if (invalid) {
         showAlert('Validation Error', "All services must have a key and label", 'danger');
@@ -602,81 +664,107 @@ export default function OwnerServices() {
       .substring(0, 50); // Limit length
   };
 
-  const handleAddDepartment = async () => {
+
+  const handleAddDepartmentFromTemplate = async (selectedTemplates: any[]) => {
+    if (!hotelId) return;
+
+    try {
+      const newDepartments: Department[] = selectedTemplates.map(template => ({
+        id: self.crypto.randomUUID(),
+        code: template.code,
+        name: template.name,
+        description: template.description || undefined,
+        is_active: true,
+        is_new: true,
+        template_id: template.id,
+        sla_policy: {
+          target_minutes: template.default_target_minutes,
+          warn_minutes: template.default_warn_minutes,
+          escalate_minutes: template.default_escalate_minutes,
+          sla_start_trigger: template.default_sla_start_trigger
+        }
+      }));
+
+      setDepartments(prev => [...prev, ...newDepartments]);
+      setDirty(true);
+      setShowAddDepartmentTemplateModal(false);
+
+      // Auto-switch to the first new department so user sees it?
+      // Optional, but might be nice. For now, let's just add it.
+      if (newDepartments.length > 0 && !activeTab) {
+        setActiveTab(newDepartments[0].id);
+      }
+
+    } catch (err: any) {
+      console.error(err);
+      alert(`Failed to add departments: ${err.message}`);
+    }
+  };
+
+  const handleAddDepartment = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
     if (!hotelSlug || !newDepartmentName.trim()) {
       alert("Please enter department name");
       return;
     }
 
     try {
-      setSaving(true);
-      const { data: hotel } = await supabase.from("hotels").select("id").eq("slug", hotelSlug).single();
-      if (!hotel) throw new Error("Hotel not found");
-
       // Auto-generate code from name
       const generatedCode = generateDepartmentCode(newDepartmentName);
 
-      // Step 1: Insert new department
-      const { data: newDept, error: deptError } = await supabase
-        .from("departments")
-        .insert({
-          hotel_id: hotel.id,
-          code: generatedCode,
-          name: newDepartmentName,
-          description: newDepartmentDescription.trim() || null,
-          is_active: true,
-        })
-        .select()
-        .single();
+      const newDeptId = self.crypto.randomUUID();
 
-      if (deptError) throw deptError;
-
-      // Step 2: Get SLA values from the form (using temp ID)
-      const defaultSLA = slaChanges['new-dept-temp'] || {
-        target_minutes: 30,
-        warn_minutes: 20,
-        escalate_minutes: 20,
-        sla_start_trigger: 'ON_ASSIGN',
+      const newDept: Department = {
+        id: newDeptId,
+        code: generatedCode,
+        name: newDepartmentName,
+        description: newDepartmentDescription.trim() || undefined,
+        is_active: true,
+        is_new: true,
+        is_custom: true, // Explicitly mark as custom
+        template_id: undefined, // Explicitly undefined for custom
+        sla_policy: {
+          target_minutes: 30,
+          warn_minutes: 20,
+          escalate_minutes: 20,
+          sla_start_trigger: 'ON_ASSIGN',
+        }
       };
 
-      // Step 3: Insert SLA policy for the new department
-      const { data: slaData, error: slaError } = await supabase
-        .from("sla_policies")
-        .insert({
-          department_id: newDept.id,
-          target_minutes: defaultSLA.target_minutes,
-          warn_minutes: defaultSLA.warn_minutes,
-          escalate_minutes: defaultSLA.escalate_minutes,
-          sla_start_trigger: defaultSLA.sla_start_trigger,
-          valid_from: new Date().toISOString(),
-          valid_to: null,
-          is_active: true,
-        })
-        .select();
+      setDepartments(prev => [...prev, newDept]);
 
-      if (slaError) {
-        throw new Error(`Failed to create SLA: ${slaError.message}`);
+      // Handle any SLA overrides from the temporary state
+      if (slaChanges['new-dept-temp']) {
+        setSlaChanges(prev => ({
+          ...prev,
+          [newDeptId]: prev['new-dept-temp']
+        }));
       }
 
-      // Reset form and reload data
+      // Reset form
       setNewDepartmentName("");
       setNewDepartmentDescription("");
       setShowDescription(false);
       setShowAddDepartmentForm(false);
+
+      // Cleanup temp SLA state
       setSlaChanges(prev => {
         const { 'new-dept-temp': _, ...rest } = prev;
         return rest;
       });
-      await loadData();
 
-      // Auto-select the new department to show its SLA panel
-      setSelectedDeptId(newDept.id);
+      setDirty(true);
 
-      alert('Department added successfully!');
+      // Auto-select the new department in the modal settings, but NOT the main tab
+      setSelectedDeptId(newDeptId);
+
     } catch (err: any) {
+      console.error(err);
       alert(`Failed to add department: ${err.message}`);
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -737,7 +825,10 @@ export default function OwnerServices() {
               </div>
               <div className={styles.headerActions}>
                 <button
-                  onClick={() => setShowManageDepartmentsModal(true)}
+                  onClick={() => {
+                    setSelectedDeptId(null);
+                    setShowManageDepartmentsModal(true);
+                  }}
                   className={styles.manageButton}
                 >
                   <svg className={styles.iconSmall} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -908,7 +999,10 @@ export default function OwnerServices() {
                     <div className={styles.addServicesButtonContainer}>
                       <button
                         className={styles.addServicesButton}
-                        onClick={() => setShowAddServiceTemplateModal(true)}
+                        onClick={() => {
+                          setAddServiceTemplateDeptId(activeDept?.id || null);
+                          setShowAddServiceTemplateModal(true);
+                        }}
                         style={{ marginRight: '12px' }}
                       >
                         + Add from Service Templates
@@ -1285,12 +1379,7 @@ export default function OwnerServices() {
                     {!showAddDepartmentForm ? (
                       <button
                         className={styles.addDepartmentButton}
-                        onClick={() => {
-                          setShowAddDepartmentForm(true);
-                          // Create a temporary ID for the new department
-                          const tempId = 'new-dept-temp';
-                          setSelectedDeptId(tempId);
-                        }}
+                        onClick={() => setShowAddDepartmentSelectionModal(true)}
                       >
                         <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1464,6 +1553,7 @@ export default function OwnerServices() {
                                 });
                               }}
                               className={styles.cancelAddButton}
+                              type="button"
                             >
                               Cancel
                             </button>
@@ -1471,6 +1561,7 @@ export default function OwnerServices() {
                               onClick={handleAddDepartment}
                               disabled={saving || !newDepartmentName.trim()}
                               className={styles.confirmAddButton}
+                              type="button"
                             >
                               {saving ? 'Adding...' : 'Add Department'}
                             </button>
@@ -1539,12 +1630,38 @@ export default function OwnerServices() {
         onCancel={() => setConfirmDialog({ ...confirmDialog, isOpen: false })
         }
       />
+      {/* Department Selection Modal */}
+      <AddDepartmentSelectionModal
+        isOpen={showAddDepartmentSelectionModal}
+        onClose={() => setShowAddDepartmentSelectionModal(false)}
+        onSelectTemplate={() => {
+          setShowAddDepartmentSelectionModal(false);
+          setShowAddDepartmentTemplateModal(true);
+        }}
+        onSelectCustom={() => {
+          setShowAddDepartmentSelectionModal(false);
+          setShowAddDepartmentForm(true);
+          // Create a temporary ID for the new department
+          const tempId = 'new-dept-temp';
+          setSelectedDeptId(tempId);
+        }}
+      />
+
+      {/* Department Template Modal */}
+      <AddDepartmentTemplateModal
+        isOpen={showAddDepartmentTemplateModal}
+        onClose={() => setShowAddDepartmentTemplateModal(false)}
+        onAdd={handleAddDepartmentFromTemplate}
+        existingDepartmentNames={departments.map(d => d.name)}
+      />
+
       {/* Selection Modal */}
       <AddServiceSelectionModal
         isOpen={showAddServiceSelectionModal}
         onClose={() => setShowAddServiceSelectionModal(false)}
         onSelectTemplate={() => {
           setShowAddServiceSelectionModal(false);
+          setAddServiceTemplateDeptId(null); // Global context
           setShowAddServiceTemplateModal(true);
         }}
         onSelectCustom={() => {
@@ -1562,14 +1679,14 @@ export default function OwnerServices() {
         onSave={handleGlobalAddService}
       />
 
-      {/* Add From Template Modal */}
+      {/* Add Service From Template Modal */}
       <AddServiceTemplateModal
         isOpen={showAddServiceTemplateModal}
         departments={departments}
-        initialDepartmentId={activeTab}
+        initialDepartmentId={addServiceTemplateDeptId || undefined}
         existingServiceKeys={services.map(s => s.key)}
-        onClose={() => setShowAddServiceTemplateModal(false)}
         onSave={handleGlobalAddService}
+        onClose={() => setShowAddServiceTemplateModal(false)}
       />
     </>
   );

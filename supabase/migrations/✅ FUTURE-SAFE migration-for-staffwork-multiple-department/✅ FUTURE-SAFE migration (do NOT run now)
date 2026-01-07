@@ -1,0 +1,15 @@
+-- Step 1: Rename (only when needed)
+ALTER TABLE hotel_members
+RENAME COLUMN department_id TO primary_department_id;
+
+-- Step 2: Multi-department mapping
+CREATE TABLE staff_departments (
+  staff_id UUID REFERENCES hotel_members(id) ON DELETE CASCADE,
+  department_id UUID REFERENCES departments(id) ON DELETE CASCADE,
+  PRIMARY KEY (staff_id, department_id)
+);
+
+-- Step 3: Backfill primary department
+INSERT INTO staff_departments (staff_id, department_id)
+SELECT id, primary_department_id
+FROM hotel_members;

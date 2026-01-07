@@ -171,6 +171,23 @@ export default function AddServiceTemplateModal({
                                 className="w-full pl-10 pr-4 py-2 bg-[#121212] border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
                             />
                         </div>
+
+                        {/* Department Selector (Global Mode Only) */}
+                        {!initialDepartmentId && (
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm text-gray-400">Department:</span>
+                                <select
+                                    value={selectedDeptId}
+                                    onChange={(e) => setSelectedDeptId(e.target.value)}
+                                    className="bg-[#121212] border border-gray-700 rounded-lg text-white px-3 py-2 text-sm focus:outline-none max-w-[200px]"
+                                >
+                                    {departments.map((dept) => (
+                                        <option key={dept.id} value={dept.id}>{dept.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
                         <div className="flex items-center gap-2">
                             <span className="text-sm text-gray-400">Sort by:</span>
                             <select
@@ -183,22 +200,6 @@ export default function AddServiceTemplateModal({
                             </select>
                         </div>
                     </div>
-
-                    {/* Department Selector */}
-                    {!initialDepartmentId && (
-                        <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-300 mb-2">Department</label>
-                            <select
-                                value={selectedDeptId}
-                                onChange={(e) => setSelectedDeptId(e.target.value)}
-                                className="w-full px-4 py-2.5 bg-[#2a2a2a] border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                                {departments.map((dept) => (
-                                    <option key={dept.id} value={dept.id}>{dept.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
 
                     {/* List */}
                     <div className="border border-gray-800 rounded-lg overflow-hidden bg-[#121212] h-[300px] overflow-y-auto">

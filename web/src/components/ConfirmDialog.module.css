@@ -1,0 +1,163 @@
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    animation: fadeIn 0.15s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.dialog {
+    background: #1E293B;
+    border-radius: 12px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+    max-width: 440px;
+    width: 90%;
+    animation: slideUp 0.2s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.iconContainer {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.iconContainer svg {
+    width: 24px;
+    height: 24px;
+    stroke-width: 2;
+}
+
+.iconContainer.danger {
+    background: rgba(239, 68, 68, 0.15);
+    color: #EF4444;
+}
+
+.iconContainer.success {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10B981;
+}
+
+.iconContainer.primary {
+    background: rgba(74, 124, 255, 0.15);
+    color: #4A7CFF;
+}
+
+.title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #F1F5F9;
+    flex: 1;
+}
+
+.body {
+    padding: 20px 24px;
+}
+
+.message {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #CBD5E1;
+    white-space: pre-line;
+}
+
+.footer {
+    padding: 16px 24px 20px;
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+.cancelButton {
+    padding: 10px 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: #E2E8F0;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.cancelButton:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.confirmButton {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.confirmButton.primary {
+    background: #4A7CFF;
+}
+
+.confirmButton.primary:hover {
+    background: #3D6FE6;
+}
+
+.confirmButton.danger {
+    background: #EF4444;
+}
+
+.confirmButton.danger:hover {
+    background: #DC2626;
+}
+
+.confirmButton.success {
+    background: #10B981;
+}
+
+.confirmButton.success:hover {
+    background: #059669;
+}

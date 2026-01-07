@@ -32,8 +32,15 @@ export default function SLAPolicyModal({
     if (!isOpen) return null;
 
     const handleSave = () => {
-        onSave(policy);
-        onClose();
+        // Show confirmation dialog
+        const confirmed = window.confirm(
+            "This will apply to new tickets only.\n\nExisting tickets will continue with their original SLA. Do you want to proceed?"
+        );
+
+        if (confirmed) {
+            onSave(policy);
+            onClose();
+        }
     };
 
     return (

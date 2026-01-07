@@ -77,17 +77,21 @@
     margin: 0 auto;
 }
 
-/* Tabs Shell */
+/* Tabs Shell - Calmer, more spacious */
 .tabsShell {
     display: flex;
     gap: 5px;
     background: rgba(20, 28, 50, 0.7);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 14px;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    border: none;
+
+
+
+
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    padding-bottom: 0;
 }
 
-/* Tab */
+/* Tab - Primary domain navigation feel */
 .tab {
     position: relative;
     padding: 10px 18px;
@@ -99,6 +103,13 @@
     border-radius: 10px 10px 0 0;
     cursor: pointer;
     box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.05);
+}
+
+
+
+
+.tab:hover {
+    color: rgba(255, 255, 255, 0.8);
 }
 
 .tab:last-child {
@@ -122,81 +133,109 @@
     border-radius: 2px;
 }
 
-/* SLA Summary Bar */
+
+/* SLA Summary Bar - Enhanced as distinct header band */
 .slaSummaryBar {
-    padding: 12px 16px;
+    padding: 16px 20px;
     margin-top: 16px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(99, 102, 241, 0.04));
+    border-top: 2px solid rgba(99, 102, 241, 0.3);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .slaSummaryText {
     font-size: 13px;
-    color: #9AA4BF;
+    color: #B8C1E0;
+    font-weight: 500;
 }
 
 .slaSummaryLabel {
-    font-weight: 600;
-    color: #E9ECF1;
+    font-weight: 700;
+    font-size: 14px;
+    color: #FFFFFF;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.08em;
 }
 
-/* Services Container */
+/* Services Container - Elevated card with shadow */
 .servicesContainer {
-    margin-top: 4px;
-    background: #121726;
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 10px;
+    margin-top: 8px;
+    background: linear-gradient(180deg, rgba(18, 23, 38, 0.95), rgba(18, 23, 38, 1));
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
     overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 /* Section Header */
 .sectionHeader {
-    padding: 14px 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 16px 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
-.sectionTitle {
-    font-size: 14px;
-    font-weight: 600;
-    color: #E9ECF1;
-    text-transform: none;
+
+
+.showInactiveToggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #94A3B8;
+    cursor: pointer;
+    user-select: none;
 }
 
-/* Table Header */
+.showInactiveToggle input {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+    accent-color: #4A7CFF;
+}
+
+/* Table Header - Quieter, supportive */
 .tableHeader {
     display: grid;
     grid-template-columns: 200px 1fr 120px 100px 100px;
-    gap: 16px;
-    padding: 14px 16px;
-    font-size: 11px;
+    gap: 20px;
+    padding: 12px 20px;
+    font-size: 10px;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: #e0e7f6;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    background: rgba(211, 179, 179, 0.02);
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.45);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    background: rgba(255, 255, 255, 0.01);
 }
 
 .tableHeaderCenter {
     text-align: center;
 }
 
-/* Service Row */
+/* Service Row - Better vertical rhythm and hover elevation */
 .serviceRow {
     display: grid;
     grid-template-columns: 200px 1fr 120px 100px 100px;
-    gap: 16px;
-    padding: 4px 16px;
+    gap: 20px;
+    padding: 8px 20px;
     align-items: center;
     border-top: 1px solid rgba(255, 255, 255, 0.04);
-    transition: background-color 0.2s ease;
+    transition: all 0.2s ease;
 }
 
 .serviceRow:hover {
-    background: rgba(255, 255, 255, 0.02);
+    background: rgba(255, 255, 255, 0.03);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+    transform: translateY(-1px);
 }
 
 .serviceKey {
@@ -222,10 +261,27 @@
     cursor: not-allowed;
 }
 
-.slaOverride {
-    font-size: 12px;
-    color: #F59E0B;
-    white-space: nowrap;
+/* SLA Override Icon - Subtle, not noisy */
+.slaOverrideIcon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    margin-left: 6px;
+    color: #D97706;
+    opacity: 0.6;
+    cursor: help;
+    transition: opacity 0.2s ease;
+}
+
+.slaOverrideIcon:hover {
+    opacity: 1;
+}
+
+.slaOverrideIcon svg {
+    width: 14px;
+    height: 14px;
 }
 
 .slaInput {
@@ -237,7 +293,11 @@
     color: #E9ECF1;
     font-size: 14px;
     text-align: center;
+}
+
+.slaInput:disabled {
     cursor: not-allowed;
+    opacity: 0.5;
 }
 
 .slaValue {
@@ -251,30 +311,42 @@
     justify-content: center;
 }
 
+/* Action Buttons - Grouped with clear affordance */
 .actionButtons {
     display: flex;
     align-items: center;
-    gap: 8px;
-    opacity: 0.6;
+    gap: 12px;
+    opacity: 0;
     transition: opacity 0.2s ease;
+    padding: 4px 8px;
+    border-radius: 6px;
 }
 
-.actionButtons:hover {
+.serviceRow:hover .actionButtons {
     opacity: 1;
+    background: rgba(255, 255, 255, 0.04);
 }
 
 .actionButton {
-    padding: 4px;
+    padding: 6px;
     cursor: pointer;
-    transition: color 0.2s ease;
+    transition: all 0.2s ease;
+    border-radius: 4px;
+}
+
+.actionButton svg {
+    width: 18px;
+    height: 18px;
 }
 
 .editButton:hover {
     color: #4A7CFF;
+    background: rgba(74, 124, 255, 0.1);
 }
 
 .deleteButton:hover {
     color: #EF4444;
+    background: rgba(239, 68, 68, 0.1);
 }
 
 /* Add Services Button */
@@ -485,4 +557,742 @@
 
 .editDepartmentButton:hover {
     background: rgba(255, 255, 255, 0.08);
+}
+
+/* Confidence Signals - Info Icons & Tooltips */
+.infoIcon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    margin-left: 4px;
+    color: rgba(255, 255, 255, 0.35);
+    cursor: help;
+    transition: color 0.2s ease;
+}
+
+.infoIcon:hover {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.infoIcon svg {
+    width: 12px;
+    height: 12px;
+}
+
+/* Tooltip Container */
+.tooltipContainer {
+    position: relative;
+    display: inline-flex;
+}
+
+.tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-4px);
+    padding: 8px 12px;
+    background: rgba(18, 23, 38, 0.98);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    font-size: 12px;
+    color: #E9ECF1;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.tooltipContainer:hover .tooltip {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-8px);
+}
+
+.tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 4px solid transparent;
+    border-top-color: rgba(18, 23, 38, 0.98);
+}
+
+/* ========================================
+   MANAGE DEPARTMENTS MODAL
+   ======================================== */
+
+/* Modal Backdrop */
+.modalBackdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 200ms ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+/* Modal Container */
+.modalContainer {
+    width: 640px;
+    max-height: 85vh;
+    background: linear-gradient(180deg, rgba(18, 23, 38, 0.98), rgba(18, 23, 38, 1));
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+    animation: scaleIn 200ms ease-out;
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Modal Header */
+.modalHeader {
+    padding: 20px 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modalTitle {
+    font-size: 18px;
+    font-weight: 600;
+    color: #FFFFFF;
+}
+
+.modalClose {
+    padding: 8px;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    transition: color 0.2s ease;
+    background: none;
+    border: none;
+}
+
+.modalClose:hover {
+    color: #EF4444;
+}
+
+.modalClose svg {
+    width: 20px;
+    height: 20px;
+}
+
+/* Modal Body */
+.modalBody {
+    padding: 24px;
+    max-height: calc(85vh - 140px);
+    overflow-y: auto;
+}
+
+.modalBody::-webkit-scrollbar {
+    width: 8px;
+}
+
+.modalBody::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.modalBody::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+}
+
+.modalBody::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+/* Department List Section */
+.departmentListSection {
+    margin-bottom: 24px;
+}
+
+.sectionLabel {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 12px;
+}
+
+/* Department Row */
+.departmentRow {
+    padding: 12px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.departmentRow:hover {
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.departmentRow.active {
+    border-color: rgba(99, 102, 241, 0.6);
+    background: rgba(99, 102, 241, 0.08);
+    box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.3), 0 2px 8px rgba(99, 102, 241, 0.15);
+}
+
+.departmentRow.inactive {
+    opacity: 0.65;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.departmentRow.inactive .departmentName {
+    color: rgba(255, 255, 255, 0.4) !important;
+}
+
+.departmentRow.inactive:hover {
+    background: rgba(0, 0, 0, 0.25);
+}
+
+.departmentName {
+    font-size: 14px;
+    font-weight: 500;
+    color: #E9ECF1;
+    flex: 1;
+}
+
+.departmentNameInput {
+    background: transparent;
+    border: none;
+    font-size: 14px;
+    font-weight: 500;
+    color: #E9ECF1;
+    outline: none;
+    flex: 1;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.departmentNameInput:focus {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.departmentActions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.departmentSettingsButton {
+    padding: 6px;
+    color: rgba(255, 255, 255, 0.6);
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-radius: 4px;
+}
+
+.departmentSettingsButton:hover {
+    color: #4A7CFF;
+    background: rgba(74, 124, 255, 0.1);
+}
+
+.departmentSettingsButton:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    background: none;
+    color: inherit;
+}
+
+.departmentSettingsButton.active {
+    color: #4A7CFF;
+}
+
+.departmentArchiveButton {
+    padding: 6px;
+    color: rgba(255, 255, 255, 0.4);
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: color 0.2s ease, background 0.2s ease;
+    border-radius: 4px;
+    opacity: 0;
+}
+
+.departmentRow:hover .departmentArchiveButton,
+.departmentRow:focus-within .departmentArchiveButton {
+    opacity: 1;
+    transition: opacity 0s, color 0.2s ease, background 0.2s ease;
+}
+
+.departmentArchiveButton:hover,
+.departmentArchiveButton:focus-visible {
+    color: #F59E0B;
+    background: rgba(245, 158, 11, 0.08);
+    outline: none;
+}
+
+/* Reactivate Button */
+.departmentReactivateButton {
+    padding: 6px;
+    color: rgba(255, 255, 255, 0.4);
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: color 0.2s ease, background 0.2s ease;
+    border-radius: 4px;
+    opacity: 0;
+}
+
+.departmentRow:hover .departmentReactivateButton,
+.departmentRow:focus-within .departmentReactivateButton {
+    opacity: 1;
+    transition: opacity 0s, color 0.2s ease, background 0.2s ease;
+}
+
+.departmentReactivateButton:hover,
+.departmentReactivateButton:focus-visible {
+    color: #10B981;
+    background: rgba(16, 185, 129, 0.08);
+    outline: none;
+}
+
+/* Instant tooltip display - override browser default delay */
+.departmentReactivateButton[title]:hover::before,
+.departmentArchiveButton[title]:hover::before {
+    transition-delay: 0s !important;
+}
+
+/* Inactive Badge */
+.inactiveBadge {
+    padding: 2px 8px;
+    background: rgba(156, 163, 175, 0.2);
+    border: 1px solid rgba(156, 163, 175, 0.3);
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    color: #9CA3AF;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Add Department Button */
+.addDepartmentButton {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px dashed rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    background: none;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.addDepartmentButton:hover {
+    border-style: solid;
+    border-color: rgba(255, 255, 255, 0.3);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Add Department Form */
+.addDepartmentForm {
+    padding: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.02);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.addDepartmentForm input {
+    padding: 10px 12px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    color: #E9ECF1;
+    font-size: 14px;
+}
+
+.addDepartmentForm input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.addDepartmentForm input:focus {
+    outline: none;
+    border-color: #4A7CFF;
+    box-shadow: 0 0 0 2px rgba(74, 124, 255, 0.2);
+}
+
+.departmentCodeInput {
+    text-transform: uppercase;
+}
+
+.addDepartmentActions {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.cancelAddButton {
+    flex: 1;
+    padding: 8px 12px;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.cancelAddButton:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #E9ECF1;
+}
+
+.confirmAddButton {
+    flex: 1;
+    padding: 8px 12px;
+    background: #4A7CFF;
+    border: none;
+    border-radius: 6px;
+    color: white;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.confirmAddButton:hover:not(:disabled) {
+    background: #3D6FE6;
+}
+
+.confirmAddButton:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+    background: #4A7CFF;
+}
+
+/* Add Description Button */
+.addDescriptionButton {
+    padding: 8px 12px;
+    background: transparent;
+    border: 1px dashed rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-bottom: 12px;
+    width: 100%;
+    text-align: left;
+}
+
+.addDescriptionButton:hover {
+    border-color: rgba(255, 255, 255, 0.3);
+    color: rgba(255, 255, 255, 0.8);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* Description Textarea */
+.descriptionTextarea {
+    width: 100%;
+    padding: 10px 12px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    color: #E9ECF1;
+    font-size: 14px;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 60px;
+}
+
+.descriptionTextarea::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.descriptionTextarea:focus {
+    outline: none;
+    border-color: #4A7CFF;
+    box-shadow: 0 0 0 2px rgba(74, 124, 255, 0.2);
+}
+
+/* Code Preview */
+.codePreview {
+    padding: 10px 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    color: #9AA4BF;
+    font-size: 13px;
+    font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+    letter-spacing: 0.5px;
+}
+
+
+
+
+/* SLA Config Panel */
+.slaConfigPanel {
+    background: rgba(99, 102, 241, 0.05);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 12px;
+    padding: 16px;
+    margin-top: 12px;
+    margin-bottom: 12px;
+    animation: expandDown 200ms ease-out;
+}
+
+@keyframes expandDown {
+    from {
+        opacity: 0;
+        max-height: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+    }
+
+    to {
+        opacity: 1;
+        max-height: 500px;
+        padding-top: 16px;
+        padding-bottom: 16px;
+    }
+}
+
+.slaConfigTitle {
+    font-size: 13px;
+    font-weight: 600;
+    color: #B8C1E0;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.slaField {
+    margin-bottom: 16px;
+}
+
+.slaField:last-child {
+    margin-bottom: 0;
+}
+
+.slaFieldLabel {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #E9ECF1;
+    margin-bottom: 8px;
+}
+
+.slaFieldInput {
+    width: 100%;
+    padding: 10px 12px;
+    background: rgba(18, 23, 38, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    color: #E9ECF1;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.slaFieldInput:focus {
+    outline: 2px solid #4A7CFF;
+    outline-offset: 0px;
+    border-color: #4A7CFF;
+}
+
+.slaFieldSelect {
+    width: 100%;
+    padding: 10px 12px;
+    background: rgba(18, 23, 38, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    color: #E9ECF1;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.slaFieldSelect:focus {
+    outline: 2px solid #4A7CFF;
+    outline-offset: 0px;
+    border-color: #4A7CFF;
+}
+
+/* Modal Footer */
+.modalFooter {
+    padding: 16px 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.modalCancelButton {
+    padding: 10px 16px;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #E9ECF1;
+    border-radius: 10px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.modalCancelButton:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.modalSaveButton {
+    padding: 10px 20px;
+    background: #4A7CFF;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.modalSaveButton:hover {
+    background: #3D6FE6;
+}
+
+.inactiveService {
+    opacity: 0.5;
+    background-color: rgba(0, 0, 0, 0.2);
+}
+
+.inactiveService:hover {
+    opacity: 0.7;
+}
+
+.modalSaveButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Unsaved Changes Indicator */
+.unsavedChanges {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #F59E0B;
+    font-weight: 500;
+}
+
+.unsavedChanges svg {
+    height: 14px;
+}
+
+/* Inline Add Service Form - Responsive Flex Layout */
+.inlineAddServiceForm {
+    display: flex;
+    align-items: flex-start;
+    gap: 48px;
+    padding: 16px 0;
+    flex-wrap: wrap;
+}
+
+.serviceNameColumn {
+    width: 375px;
+    /* Increased width */
+    flex-shrink: 0;
+}
+
+.slaColumn {
+    flex-shrink: 0;
+}
+
+.availabilityColumn {
+    flex-shrink: 0;
+}
+
+.addButtonColumn {
+    flex: 1;
+    display: flex;
+    align-items: flex-end;
+    height: 64px;
+    padding-bottom: 20px;
+    min-width: 140px;
+}
+
+.fieldLabel {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: #9AA4BF;
+    font-weight: 500;
+}
+
+.helperText {
+    font-size: 12px;
+    color: #6B7280;
+    margin-top: 4px;
+    white-space: nowrap;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+    .inlineAddServiceForm {
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .serviceNameColumn,
+    .slaColumn,
+    .availabilityColumn,
+    .addButtonColumn {
+        width: 100%;
+        height: auto;
+        padding-bottom: 0;
+    }
+
+    .addButtonColumn {
+        margin-top: 12px;
+    }
+
+    .addServiceButton {
+        width: 100%;
+        justify-content: center;
+    }
 }

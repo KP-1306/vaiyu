@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 
 const STORAGE_KEY = 'owner:pin';
 
-export default function OwnerGate({ children }: { children: React.ReactNode }) {
+export default function OwnerGate({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
   // Read expected PIN from env (Netlify → Vite)
   const EXPECTED = useMemo(
     () => String(import.meta.env.VITE_OWNER_PIN || '').trim(),

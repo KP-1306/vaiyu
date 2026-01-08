@@ -1,6 +1,6 @@
 // web/src/routes/OwnerServices.tsx
 import { useEffect, useState, useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import OwnerGate from "../components/OwnerGate";
 import SEO from "../components/SEO";
 import SLAPolicyModal, { SLAPolicyData } from "../components/SLAPolicyModal";
@@ -815,806 +815,820 @@ export default function OwnerServices() {
     <>
       <SEO title="Services & SLAs" noIndex />
       <OwnerGate roles={["owner", "manager"]}>
-        <div className={`min-h-screen bg-gradient-to-b from-[#1A2040] via-[#0B0F1A] to-[#0B0F1A] text-white p-6 md:p-7 ${styles.mainContainer}`}>
-          <div className={styles.contentWrapper}>
-            {/* Header */}
-            <div className={styles.pageHeader}>
-              <div>
-                <h1 className={styles.pageTitle}>Services & SLAs</h1>
-                <p className={styles.pageSubtitle}>Manage guest services and response times</p>
-              </div>
-              <div className={styles.headerActions}>
-                <button
-                  onClick={() => {
-                    setSelectedDeptId(null);
-                    setShowManageDepartmentsModal(true);
-                  }}
-                  className={styles.manageButton}
-                >
-                  <svg className={styles.iconSmall} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  Manage Departments & SLAs
-                </button>
-                <button
-                  onClick={() => setShowAddServiceSelectionModal(true)}
-                  className={styles.manageButton}
-                >
-                  <svg className={styles.iconSmall} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Add Service
-                </button>
-              </div>
+        <div className="flex flex-col min-h-screen">
+          {/* Header / Breadcrumb */}
+          <header className="flex h-10 items-center border-b border-white/10 bg-[#1A2040] px-4 shadow-sm shrink-0">
+            <div className="flex items-center gap-2 text-xs">
+              <Link to={hotelSlug ? `/owner/${hotelSlug}` : '/owner'} className="font-medium text-slate-400 hover:text-white">
+                Dashboard
+              </Link>
+              <span className="text-slate-600">›</span>
+              <span className="font-semibold text-white">Services & SLAs</span>
             </div>
+          </header>
 
-            {/* Tabs */}
-            <div className={styles.tabsShell}>
-              {departments.map((dept) => (
-                <button
-                  key={dept.id}
-                  onClick={() => setActiveTab(dept.id)}
-                  className={`${styles.tab} ${activeTab === dept.id ? styles.active : ''}`}
-                >
-                  {dept.name}
-                </button>
-              ))}
-            </div>
-
-            {/* SLA Summary Bar - OUTSIDE bordered container */}
-            {activeDept?.sla_policy && (
-              <>
-                <div className={styles.slaSummaryBar}>
-                  <div className={styles.slaSummaryText}>
-                    <span className={styles.slaSummaryLabel}>{activeDept.name.toUpperCase()}</span>
-                    {" — "}
-                    SLA: {activeDept.sla_policy.target_minutes} min · Starts: {formatStartTrigger(activeDept.sla_policy.sla_start_trigger)} · Escalates: +
-                    {activeDept.sla_policy.escalate_minutes} min
-                  </div>
+          <div className={`flex-1 bg-gradient-to-b from-[#1A2040] via-[#0B0F1A] to-[#0B0F1A] text-white p-6 md:p-7 ${styles.mainContainer}`}>
+            <div className={styles.contentWrapper}>
+              {/* Header */}
+              <div className={styles.pageHeader}>
+                <div>
+                  <h1 className={styles.pageTitle}>Services & SLAs</h1>
+                  <p className={styles.pageSubtitle}>Manage guest services and response times</p>
+                </div>
+                <div className={styles.headerActions}>
                   <button
-                    onClick={() => setEditingSLADeptId(activeTab)}
-                    className={styles.editDepartmentButton}
+                    onClick={() => {
+                      setSelectedDeptId(null);
+                      setShowManageDepartmentsModal(true);
+                    }}
+                    className={styles.manageButton}
                   >
-                    Edit Department SLA
+                    <svg className={styles.iconSmall} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Manage Departments & SLAs
+                  </button>
+                  <button
+                    onClick={() => setShowAddServiceSelectionModal(true)}
+                    className={styles.manageButton}
+                  >
+                    <svg className={styles.iconSmall} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add Service
                   </button>
                 </div>
+              </div>
 
-                {/* Services Container - ONLY table with border */}
-                <div className={styles.servicesContainer}>
-
-                  {/* Section Header */}
-                  <div className={styles.sectionHeader}>
-                    <h2 className={styles.sectionTitle}>{activeDept?.name} Services</h2>
-                    <label className={styles.showInactiveToggle}>
-                      <input
-                        type="checkbox"
-                        checked={showInactiveServices}
-                        onChange={(e) => setShowInactiveServices(e.target.checked)}
-                      />
-                      Show inactive
-                    </label>
-                  </div>
-
-                  {/* Table Header */}
-                  <div className={styles.tableHeader}>
-                    <div>Key</div>
-                    <div></div>
-                    <div className={styles.tableHeaderCenter}>
-                      <span className={styles.tooltipContainer}>
-                        SLA (min)
-                        <span className={styles.infoIcon}>
-                          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        </span>
-                        <span className={styles.tooltip}>Service-level agreement: maximum response time</span>
-                      </span>
-                    </div>
-                    <div className={styles.tableHeaderCenter}>
-                      <span className={styles.tooltipContainer}>
-                        Active
-                        <span className={styles.infoIcon}>
-                          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        </span>
-                        <span className={styles.tooltip}>Inactive services won't appear for new tickets</span>
-                      </span>
-                    </div>
-                    <div></div>
-                  </div>
-
-                  {/* Service Rows */}
-                  {activeServices.map((service, index) => (
-                    <div key={service.id || index} className={`${styles.serviceRow} ${!service.active ? styles.inactiveService : ''}`}>
-                      <div className={styles.serviceKey}>{service.key}</div>
-                      <div className={styles.serviceLabelContainer}>
-                        <input
-                          type="text"
-                          value={service.label}
-                          readOnly
-                          className={styles.serviceLabelInput}
-                        />
-                        {service.sla_minutes !== activeDept?.sla_policy?.target_minutes && (
-                          <span className={styles.tooltipContainer}>
-                            <span className={styles.slaOverrideIcon}>
-                              <svg fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                              </svg>
-                            </span>
-                            <span className={styles.tooltip}>Custom SLA: {service.sla_minutes} min (overrides department default)</span>
-                          </span>
-                        )}
-                      </div>
-                      <div className={styles.slaValue}>
-                        <input
-                          type="number"
-                          value={service.sla_minutes}
-                          disabled={!service.active}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value);
-                            if (!isNaN(val) && val >= 0) {
-                              handleUpdateService(index, { sla_minutes: val });
-                            } else if (e.target.value === '') {
-                              // Allow clearing to type new number (handle logic potentially ?) or just keep 0
-                              // For now let's set 0 or keep old? Best to allow empty string in UI state but type is number
-                              // Since binding to number, empty string might cause issue.
-                              // Let's safe guard.
-                              handleUpdateService(index, { sla_minutes: 0 });
-                            }
-                          }}
-                          className={styles.slaInput}
-                        />
-                      </div>
-                      <div className={styles.activeToggleContainer}>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={service.active}
-                            onChange={(e) => handleUpdateService(index, { active: e.target.checked })}
-                            className="sr-only peer"
-                            title={service.active ? "Deactivate service" : "Activate service (won't appear for new tickets)"}
-                          />
-                          <div className="w-[38px] h-[22px] bg-gray-600 peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer peer-checked:after:translate-x-4 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:bg-[#4A7CFF]"></div>
-                        </label>
-                      </div>
-                      <div className={styles.actionButtons}>
-                        <button onClick={() => setEditingServiceIndex(index)} className={`${styles.actionButton} ${styles.editButton}`}>
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                          </svg>
-                        </button>
-                        <button onClick={() => handleDeleteService(service.id!)} className={`${styles.actionButton} ${styles.deleteButton}`}>
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* Add Service Button */}
-                  {!showAddServiceForm && (
-                    <div className={styles.addServicesButtonContainer}>
-                      <button
-                        className={styles.addServicesButton}
-                        onClick={() => {
-                          setAddServiceTemplateDeptId(activeDept?.id || null);
-                          setShowAddServiceTemplateModal(true);
-                        }}
-                        style={{ marginRight: '12px' }}
-                      >
-                        + Add from Service Templates
-                      </button>
-                      <button
-                        className={styles.addServicesButton}
-                        onClick={() => setShowAddServiceForm(true)}
-                      >
-                        + Create Custom Service
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-
-            {/* Add New Service Section */}
-            {showAddServiceForm && (
-              <div className={styles.addServicesSection}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <h3 className={styles.addServicesTitle} style={{ margin: 0 }}>Add New Service</h3>
+              {/* Tabs */}
+              <div className={styles.tabsShell}>
+                {departments.map((dept) => (
                   <button
-                    onClick={() => setShowAddServiceForm(false)}
-                    className={styles.cancelButton}
-                    style={{ background: 'none', border: 'none', color: '#9CA3AF', cursor: 'pointer', fontSize: '14px' }}
+                    key={dept.id}
+                    onClick={() => setActiveTab(dept.id)}
+                    className={`${styles.tab} ${activeTab === dept.id ? styles.active : ''}`}
                   >
-                    Cancel
+                    {dept.name}
                   </button>
-                </div>
-                <div className={styles.inlineAddServiceForm}>
+                ))}
+              </div>
 
-                  {/* Service Name Column */}
-                  <div className={styles.serviceNameColumn}>
-                    <label className={styles.fieldLabel}>
-                      Service Name
-                    </label>
-                    <input
-                      id="custom-service-input"
-                      type="text"
-                      value={customServiceName}
-                      onChange={(e) => setCustomServiceName(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleAddCustomService()}
-                      placeholder="e.g. Extra Pillow"
-                      className={styles.addServicesInput}
-                      style={{ width: '100%', marginBottom: 0 }}
-                      autoFocus
-                    />
-                  </div>
-
-                  {/* SLA Override Column */}
-                  <div className={styles.slaColumn}>
-                    <label className={styles.fieldLabel}>
-                      SLA Override
-                    </label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                      <input
-                        type="number"
-                        value={customServiceSLA}
-                        onChange={(e) => setCustomServiceSLA(e.target.value)}
-                        placeholder={activeDept?.sla_policy?.target_minutes?.toString() || "30"}
-                        className={styles.slaOverrideInput}
-                        style={{ width: '100px', marginBottom: 0, textAlign: 'center' }}
-                      />
-                      <span className={styles.minLabel}>min</span>
+              {/* SLA Summary Bar - OUTSIDE bordered container */}
+              {activeDept?.sla_policy && (
+                <>
+                  <div className={styles.slaSummaryBar}>
+                    <div className={styles.slaSummaryText}>
+                      <span className={styles.slaSummaryLabel}>{activeDept.name.toUpperCase()}</span>
+                      {" — "}
+                      SLA: {activeDept.sla_policy.target_minutes} min · Starts: {formatStartTrigger(activeDept.sla_policy.sla_start_trigger)} · Escalates: +
+                      {activeDept.sla_policy.escalate_minutes} min
                     </div>
-                    <div className={styles.helperText}>
-                      Default: {activeDept?.sla_policy?.target_minutes || 30}m · Effective: <span style={{ color: '#60A5FA' }}>{customServiceSLA ? customServiceSLA : (activeDept?.sla_policy?.target_minutes || 30)}m</span>
-                    </div>
-                  </div>
-
-                  {/* Active Toggle Column */}
-                  <div className={styles.availabilityColumn}>
-                    <label className={styles.fieldLabel}>
-                      Availability
-                    </label>
-                    <div style={{ display: 'flex', alignItems: 'center', height: '36px', marginBottom: '4px' }}>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={customServiceActive}
-                          onChange={(e) => setCustomServiceActive(e.target.checked)}
-                          className="sr-only peer"
-                        />
-                        <div className="w-[38px] h-[22px] bg-gray-600 peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer peer-checked:after:translate-x-4 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:bg-[#4A7CFF]"></div>
-                      </label>
-                    </div>
-                    <div className={styles.helperText}>
-                      {customServiceActive ? "Available immediately" : "Starts inactive"}
-                    </div>
-                  </div>
-
-                  {/* Add Button */}
-                  <div className={styles.addButtonColumn}>
                     <button
-                      onClick={handleAddCustomService}
-                      disabled={!customServiceName.trim()}
-                      className={styles.addServiceButton}
-                      style={{
-                        marginLeft: 'auto',
-                        opacity: !customServiceName.trim() ? 0.5 : 1,
-                        cursor: !customServiceName.trim() ? 'not-allowed' : 'pointer'
-                      }}
+                      onClick={() => setEditingSLADeptId(activeTab)}
+                      className={styles.editDepartmentButton}
                     >
-                      <svg className={styles.iconSmall} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                      Add Service
+                      Edit Department SLA
                     </button>
                   </div>
-                </div>
-              </div>
-            )}
 
-            {/* Warning Banner */}
-            <div className={styles.warningBanner}>
-              <div className={styles.warningContent}>
-                <svg className={styles.warningIcon} fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-                <div className={styles.warningTextContainer}>
-                  <div className={styles.warningTitle}>Changes apply to NEW tickets only</div>
-                  <div className={styles.warningDescription}>Existing tickets will continue with their original SLA</div>
-                </div>
-              </div>
-            </div>
+                  {/* Services Container - ONLY table with border */}
+                  <div className={styles.servicesContainer}>
 
-            {/* Footer Actions */}
-            <div className={styles.footerActions}>
-              <button
-                onClick={handleRevert}
-                className={styles.cancelButton}
-              >
-                Cancel
-              </button>
-              <div className={styles.footerActionsRight}>
-                <button className={styles.cancelButton}>
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className={styles.saveButton}
-                >
-                  {saving ? "Saving..." : "Save Settings"}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* SLA Policy Modal */}
-          {editingDept && (
-            <SLAPolicyModal
-              isOpen={editingSLADeptId !== null}
-              departmentName={editingDept.name}
-              initialPolicy={
-                editingDept.sla_policy || {
-                  target_minutes: 30,
-                  warn_minutes: 20,
-                  sla_start_trigger: "ON_ASSIGN",
-                  escalate_minutes: 10,
-                }
-              }
-              onSave={handleSaveSLAPolicy}
-              onClose={() => setEditingSLADeptId(null)}
-            />
-          )}
-
-          {/* Edit Service Modal */}
-          {editingService && (
-            <EditServiceModal
-              isOpen={editingServiceIndex !== null}
-              serviceName={editingService.label}
-              slaMinutes={editingService.sla_minutes}
-              departmentName={activeDept?.name || ""}
-              onSave={handleEditService}
-              onClose={() => setEditingServiceIndex(null)}
-            />
-          )}
-
-          {/* Manage Departments Modal */}
-          {showManageDepartmentsModal && (
-            <div className={styles.modalBackdrop} onClick={() => {
-              setShowManageDepartmentsModal(false);
-              setSlaChanges({});
-              setSelectedDeptId(null);
-            }}>
-              <div className={styles.modalContainer} onClick={(e) => e.stopPropagation()}>
-                {/* Modal Header */}
-                <div className={styles.modalHeader}>
-                  <h2 className={styles.modalTitle}>Manage Departments & SLAs</h2>
-                  <button
-                    className={styles.modalClose}
-                    onClick={() => {
-                      setShowManageDepartmentsModal(false);
-                      setSlaChanges({});
-                      setSelectedDeptId(null);
-                    }}
-                  >
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-
-                {/* Modal Body */}
-                <div className={styles.modalBody}>
-                  {/* Department List */}
-                  <div className={styles.departmentListSection}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                      <div className={styles.sectionLabel}>Departments</div>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'rgba(255, 255, 255, 0.7)', cursor: 'pointer' }}>
+                    {/* Section Header */}
+                    <div className={styles.sectionHeader}>
+                      <h2 className={styles.sectionTitle}>{activeDept?.name} Services</h2>
+                      <label className={styles.showInactiveToggle}>
                         <input
                           type="checkbox"
-                          checked={showInactiveDepartments}
-                          onChange={(e) => setShowInactiveDepartments(e.target.checked)}
-                          style={{ cursor: 'pointer' }}
+                          checked={showInactiveServices}
+                          onChange={(e) => setShowInactiveServices(e.target.checked)}
                         />
                         Show inactive
                       </label>
                     </div>
 
-                    {departments
-                      .filter(dept => showInactiveDepartments || dept.is_active)
-                      .map((dept) => (
-                        <div key={dept.id}>
-                          <div
-                            className={`${styles.departmentRow} ${selectedDeptId === dept.id ? styles.active : ''} ${!dept.is_active ? styles.inactive : ''}`}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-                              <div className={styles.departmentName}>
-                                {dept.name}
-                              </div>
-                              {!dept.is_active && (
-                                <span className={styles.inactiveBadge}>Inactive</span>
-                              )}
-                            </div>
+                    {/* Table Header */}
+                    <div className={styles.tableHeader}>
+                      <div>Key</div>
+                      <div></div>
+                      <div className={styles.tableHeaderCenter}>
+                        <span className={styles.tooltipContainer}>
+                          SLA (min)
+                          <span className={styles.infoIcon}>
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </span>
+                          <span className={styles.tooltip}>Service-level agreement: maximum response time</span>
+                        </span>
+                      </div>
+                      <div className={styles.tableHeaderCenter}>
+                        <span className={styles.tooltipContainer}>
+                          Active
+                          <span className={styles.infoIcon}>
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </span>
+                          <span className={styles.tooltip}>Inactive services won't appear for new tickets</span>
+                        </span>
+                      </div>
+                      <div></div>
+                    </div>
 
-                            <div className={styles.departmentActions}>
-                              <button
-                                className={`${styles.departmentSettingsButton} ${selectedDeptId === dept.id ? styles.active : ''}`}
-                                onClick={() => !dept.is_active ? null : setSelectedDeptId(selectedDeptId === dept.id ? null : dept.id)}
-                                disabled={!dept.is_active}
-                                title={!dept.is_active ? "Activate department to edit SLA settings" : "Configure SLA"}
-                              >
-                                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    {/* Service Rows */}
+                    {activeServices.map((service, index) => (
+                      <div key={service.id || index} className={`${styles.serviceRow} ${!service.active ? styles.inactiveService : ''}`}>
+                        <div className={styles.serviceKey}>{service.key}</div>
+                        <div className={styles.serviceLabelContainer}>
+                          <input
+                            type="text"
+                            value={service.label}
+                            readOnly
+                            className={styles.serviceLabelInput}
+                          />
+                          {service.sla_minutes !== activeDept?.sla_policy?.target_minutes && (
+                            <span className={styles.tooltipContainer}>
+                              <span className={styles.slaOverrideIcon}>
+                                <svg fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                                 </svg>
-                              </button>
-                              {dept.is_active ? (
-                                <button
-                                  className={styles.departmentArchiveButton}
-                                  onClick={() => handleArchiveDepartment(dept.id, dept.name)}
-                                  title="Archive department (hides from new tickets, preserves history)"
-                                >
-                                  <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                                  </svg>
-                                </button>
-                              ) : (
-                                <button
-                                  className={styles.departmentReactivateButton}
-                                  onClick={() => handleReactivateDepartment(dept.id, dept.name)}
-                                  title="Activate department"
-                                >
-                                  <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                </button>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* SLA Configuration Panel */}
-                          {selectedDeptId === dept.id && (
-                            <div className={styles.slaConfigPanel}>
-                              <div className={styles.slaConfigTitle}>SLA Configuration</div>
-
-                              {/* Target Time */}
-                              <div className={styles.slaField}>
-                                <label className={styles.slaFieldLabel}>
-                                  Target Time <span style={{ color: 'red' }}>*</span>
-                                  <span className={styles.tooltipContainer}>
-                                    <span className={styles.infoIcon}>
-                                      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                      </svg>
-                                    </span>
-                                    <span className={styles.tooltip}>Maximum time to complete service request</span>
-                                  </span>
-                                </label>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  value={slaChanges[dept.id]?.target_minutes ?? dept.sla_policy?.target_minutes ?? 30}
-                                  className={styles.slaFieldInput}
-                                  onChange={(e) => handleSLAChange(dept.id, 'target_minutes', e.target.value)}
-                                />
-                              </div>
-
-                              {/* Warning Threshold */}
-                              <div className={styles.slaField}>
-                                <label className={styles.slaFieldLabel}>
-                                  Warning Threshold <span style={{ color: 'red' }}>*</span>
-                                  <span className={styles.tooltipContainer}>
-                                    <span className={styles.infoIcon}>
-                                      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                      </svg>
-                                    </span>
-                                    <span className={styles.tooltip}>Time before SLA breach to show warning</span>
-                                  </span>
-                                </label>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  value={slaChanges[dept.id]?.warn_minutes ?? dept.sla_policy?.warn_minutes ?? 5}
-                                  className={styles.slaFieldInput}
-                                  onChange={(e) => handleSLAChange(dept.id, 'warn_minutes', e.target.value)}
-                                />
-                              </div>
-
-                              {/* Start Trigger */}
-                              <div className={styles.slaField}>
-                                <label className={styles.slaFieldLabel}>
-                                  Start Trigger
-                                  <span className={styles.tooltipContainer}>
-                                    <span className={styles.infoIcon}>
-                                      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                      </svg>
-                                    </span>
-                                    <span className={styles.tooltip}>When SLA timer starts counting</span>
-                                  </span>
-                                </label>
-                                <select
-                                  value={slaChanges[dept.id]?.sla_start_trigger ?? dept.sla_policy?.sla_start_trigger ?? 'ON_ASSIGN'}
-                                  className={styles.slaFieldSelect}
-                                  onChange={(e) => handleSLAChange(dept.id, 'sla_start_trigger', e.target.value)}
-                                >
-                                  <option value="ON_CREATE">On Create</option>
-                                  <option value="ON_ASSIGN">On Assign</option>
-                                  <option value="ON_ACCEPT">On Accept</option>
-                                </select>
-                              </div>
-
-                              {/* Escalate After */}
-                              <div className={styles.slaField}>
-                                <label className={styles.slaFieldLabel}>
-                                  Escalate After <span style={{ color: 'red' }}>*</span>
-                                  <span className={styles.tooltipContainer}>
-                                    <span className={styles.infoIcon}>
-                                      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                      </svg>
-                                    </span>
-                                    <span className={styles.tooltip}>Time before escalating to supervisor</span>
-                                  </span>
-                                </label>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  value={slaChanges[dept.id]?.escalate_minutes ?? dept.sla_policy?.escalate_minutes ?? 25}
-                                  className={styles.slaFieldInput}
-                                  onChange={(e) => handleSLAChange(dept.id, 'escalate_minutes', e.target.value)}
-                                />
-                              </div>
-                            </div>
+                              </span>
+                              <span className={styles.tooltip}>Custom SLA: {service.sla_minutes} min (overrides department default)</span>
+                            </span>
                           )}
                         </div>
-                      ))}
-
-                    {/* Add Department Button/Form */}
-                    {!showAddDepartmentForm ? (
-                      <button
-                        className={styles.addDepartmentButton}
-                        onClick={() => setShowAddDepartmentSelectionModal(true)}
-                      >
-                        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                        Add Department
-                      </button>
-                    ) : (
-                      <div>
-                        {/* New Department Row - Just shows it's selected */}
-                        <div className={`${styles.departmentRow} ${styles.active}`}>
-                          <div className={styles.departmentName}>New Department</div>
-                          <div className={styles.departmentActions}>
-                            <button
-                              className={`${styles.departmentSettingsButton} ${styles.active}`}
-                            >
-                              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              </svg>
-                            </button>
-                          </div>
+                        <div className={styles.slaValue}>
+                          <input
+                            type="number"
+                            value={service.sla_minutes}
+                            disabled={!service.active}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value);
+                              if (!isNaN(val) && val >= 0) {
+                                handleUpdateService(index, { sla_minutes: val });
+                              } else if (e.target.value === '') {
+                                // Allow clearing to type new number (handle logic potentially ?) or just keep 0
+                                // For now let's set 0 or keep old? Best to allow empty string in UI state but type is number
+                                // Since binding to number, empty string might cause issue.
+                                // Let's safe guard.
+                                handleUpdateService(index, { sla_minutes: 0 });
+                              }
+                            }}
+                            className={styles.slaInput}
+                          />
                         </div>
-
-                        {/* Configuration Panel for New Department */}
-                        <div className={styles.slaConfigPanel}>
-                          {/* Department Details Section */}
-                          <div className={styles.slaConfigTitle}>Department Details</div>
-
-                          {/* Department Name */}
-                          <div className={styles.slaField}>
-                            <label className={styles.slaFieldLabel}>Department Name <span style={{ color: 'red' }}>*</span></label>
+                        <div className={styles.activeToggleContainer}>
+                          <label className="relative inline-flex items-center cursor-pointer">
                             <input
-                              type="text"
-                              placeholder="e.g., Housekeeping"
-                              value={newDepartmentName}
-                              onChange={(e) => setNewDepartmentName(e.target.value)}
-                              className={styles.slaFieldInput}
-                              autoFocus
+                              type="checkbox"
+                              checked={service.active}
+                              onChange={(e) => handleUpdateService(index, { active: e.target.checked })}
+                              className="sr-only peer"
+                              title={service.active ? "Deactivate service" : "Activate service (won't appear for new tickets)"}
                             />
-                          </div>
-
-                          {/* Optional Description */}
-                          {!showDescription ? (
-                            <button
-                              onClick={() => setShowDescription(true)}
-                              className={styles.addDescriptionButton}
-                              type="button"
-                            >
-                              + Add description (optional)
-                            </button>
-                          ) : (
-                            <div className={styles.slaField}>
-                              <label className={styles.slaFieldLabel}>
-                                Description (optional)
-                              </label>
-                              <textarea
-                                placeholder="e.g., Handles all room cleaning and linen services"
-                                value={newDepartmentDescription}
-                                onChange={(e) => setNewDepartmentDescription(e.target.value)}
-                                className={styles.descriptionTextarea}
-                                rows={2}
-                              />
-                            </div>
-                          )}
-
-                          {/* SLA Configuration Section */}
-                          <div className={styles.slaConfigTitle} style={{ marginTop: '20px' }}>SLA Configuration</div>
-
-                          {/* Target Time */}
-                          <div className={styles.slaField}>
-                            <label className={styles.slaFieldLabel}>
-                              Target Time <span style={{ color: 'red' }}>*</span>
-                              <span className={styles.tooltipContainer}>
-                                <span className={styles.infoIcon}>
-                                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                </span>
-                                <span className={styles.tooltip}>Maximum time to complete service request</span>
-                              </span>
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={slaChanges['new-dept-temp']?.target_minutes ?? 30}
-                              className={styles.slaFieldInput}
-                              onChange={(e) => handleSLAChange('new-dept-temp', 'target_minutes', e.target.value)}
-                            />
-                          </div>
-
-                          {/* Warning Threshold */}
-                          <div className={styles.slaField}>
-                            <label className={styles.slaFieldLabel}>
-                              Warning Threshold <span style={{ color: 'red' }}>*</span>
-                              <span className={styles.tooltipContainer}>
-                                <span className={styles.infoIcon}>
-                                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                </span>
-                                <span className={styles.tooltip}>Time before SLA breach to show warning</span>
-                              </span>
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={slaChanges['new-dept-temp']?.warn_minutes ?? 20}
-                              className={styles.slaFieldInput}
-                              onChange={(e) => handleSLAChange('new-dept-temp', 'warn_minutes', e.target.value)}
-                            />
-                          </div>
-
-                          {/* Start Trigger */}
-                          <div className={styles.slaField}>
-                            <label className={styles.slaFieldLabel}>
-                              Start Trigger
-                              <span className={styles.tooltipContainer}>
-                                <span className={styles.infoIcon}>
-                                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                </span>
-                                <span className={styles.tooltip}>When SLA timer starts counting</span>
-                              </span>
-                            </label>
-                            <select
-                              value={slaChanges['new-dept-temp']?.sla_start_trigger ?? 'ON_ASSIGN'}
-                              className={styles.slaFieldSelect}
-                              onChange={(e) => handleSLAChange('new-dept-temp', 'sla_start_trigger', e.target.value)}
-                            >
-                              <option value="ON_CREATE">On Create</option>
-                              <option value="ON_ASSIGN">On Assign</option>
-                              <option value="ON_ACCEPT">On Accept</option>
-                            </select>
-                          </div>
-
-                          {/* Escalate After */}
-                          <div className={styles.slaField}>
-                            <label className={styles.slaFieldLabel}>
-                              Escalate After <span style={{ color: 'red' }}>*</span>
-                              <span className={styles.tooltipContainer}>
-                                <span className={styles.infoIcon}>
-                                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                </span>
-                                <span className={styles.tooltip}>Time before escalating to supervisor</span>
-                              </span>
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={slaChanges['new-dept-temp']?.escalate_minutes ?? 20}
-                              className={styles.slaFieldInput}
-                              onChange={(e) => handleSLAChange('new-dept-temp', 'escalate_minutes', e.target.value)}
-                            />
-                          </div>
-
-                          {/* Action Buttons */}
-                          <div className={styles.addDepartmentActions} style={{ marginTop: '16px' }}>
-                            <button
-                              onClick={() => {
-                                setShowAddDepartmentForm(false);
-                                setNewDepartmentName("");
-                                setNewDepartmentDescription("");
-                                setShowDescription(false);
-                                setSelectedDeptId(null);
-                                setSlaChanges(prev => {
-                                  const { 'new-dept-temp': _, ...rest } = prev;
-                                  return rest;
-                                });
-                              }}
-                              className={styles.cancelAddButton}
-                              type="button"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              onClick={handleAddDepartment}
-                              disabled={saving || !newDepartmentName.trim()}
-                              className={styles.confirmAddButton}
-                              type="button"
-                            >
-                              {saving ? 'Adding...' : 'Add Department'}
-                            </button>
-                          </div>
+                            <div className="w-[38px] h-[22px] bg-gray-600 peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer peer-checked:after:translate-x-4 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:bg-[#4A7CFF]"></div>
+                          </label>
                         </div>
+                        <div className={styles.actionButtons}>
+                          <button onClick={() => setEditingServiceIndex(index)} className={`${styles.actionButton} ${styles.editButton}`}>
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                          </button>
+                          <button onClick={() => handleDeleteService(service.id!)} className={`${styles.actionButton} ${styles.deleteButton}`}>
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Add Service Button */}
+                    {!showAddServiceForm && (
+                      <div className={styles.addServicesButtonContainer}>
+                        <button
+                          className={styles.addServicesButton}
+                          onClick={() => {
+                            setAddServiceTemplateDeptId(activeDept?.id || null);
+                            setShowAddServiceTemplateModal(true);
+                          }}
+                          style={{ marginRight: '12px' }}
+                        >
+                          + Add from Service Templates
+                        </button>
+                        <button
+                          className={styles.addServicesButton}
+                          onClick={() => setShowAddServiceForm(true)}
+                        >
+                          + Create Custom Service
+                        </button>
                       </div>
                     )}
                   </div>
-                </div>
+                </>
+              )}
 
-                {/* Modal Footer - Hidden when adding department */}
-                {!showAddDepartmentForm && (
-                  <div className={styles.modalFooter}>
-                    {hasUnsavedChanges && (
-                      <div className={styles.unsavedChanges}>
-                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                        Unsaved changes
-                      </div>
-                    )}
-                    <div style={{ flex: 1 }}></div>
+              {/* Add New Service Section */}
+              {showAddServiceForm && (
+                <div className={styles.addServicesSection}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <h3 className={styles.addServicesTitle} style={{ margin: 0 }}>Add New Service</h3>
                     <button
-                      className={styles.modalCancelButton}
+                      onClick={() => setShowAddServiceForm(false)}
+                      className={styles.cancelButton}
+                      style={{ background: 'none', border: 'none', color: '#9CA3AF', cursor: 'pointer', fontSize: '14px' }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <div className={styles.inlineAddServiceForm}>
+
+                    {/* Service Name Column */}
+                    <div className={styles.serviceNameColumn}>
+                      <label className={styles.fieldLabel}>
+                        Service Name
+                      </label>
+                      <input
+                        id="custom-service-input"
+                        type="text"
+                        value={customServiceName}
+                        onChange={(e) => setCustomServiceName(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleAddCustomService()}
+                        placeholder="e.g. Extra Pillow"
+                        className={styles.addServicesInput}
+                        style={{ width: '100%', marginBottom: 0 }}
+                        autoFocus
+                      />
+                    </div>
+
+                    {/* SLA Override Column */}
+                    <div className={styles.slaColumn}>
+                      <label className={styles.fieldLabel}>
+                        SLA Override
+                      </label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                        <input
+                          type="number"
+                          value={customServiceSLA}
+                          onChange={(e) => setCustomServiceSLA(e.target.value)}
+                          placeholder={activeDept?.sla_policy?.target_minutes?.toString() || "30"}
+                          className={styles.slaOverrideInput}
+                          style={{ width: '100px', marginBottom: 0, textAlign: 'center' }}
+                        />
+                        <span className={styles.minLabel}>min</span>
+                      </div>
+                      <div className={styles.helperText}>
+                        Default: {activeDept?.sla_policy?.target_minutes || 30}m · Effective: <span style={{ color: '#60A5FA' }}>{customServiceSLA ? customServiceSLA : (activeDept?.sla_policy?.target_minutes || 30)}m</span>
+                      </div>
+                    </div>
+
+                    {/* Active Toggle Column */}
+                    <div className={styles.availabilityColumn}>
+                      <label className={styles.fieldLabel}>
+                        Availability
+                      </label>
+                      <div style={{ display: 'flex', alignItems: 'center', height: '36px', marginBottom: '4px' }}>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={customServiceActive}
+                            onChange={(e) => setCustomServiceActive(e.target.checked)}
+                            className="sr-only peer"
+                          />
+                          <div className="w-[38px] h-[22px] bg-gray-600 peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer peer-checked:after:translate-x-4 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:bg-[#4A7CFF]"></div>
+                        </label>
+                      </div>
+                      <div className={styles.helperText}>
+                        {customServiceActive ? "Available immediately" : "Starts inactive"}
+                      </div>
+                    </div>
+
+                    {/* Add Button */}
+                    <div className={styles.addButtonColumn}>
+                      <button
+                        onClick={handleAddCustomService}
+                        disabled={!customServiceName.trim()}
+                        className={styles.addServiceButton}
+                        style={{
+                          marginLeft: 'auto',
+                          opacity: !customServiceName.trim() ? 0.5 : 1,
+                          cursor: !customServiceName.trim() ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        <svg className={styles.iconSmall} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add Service
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Warning Banner */}
+              <div className={styles.warningBanner}>
+                <div className={styles.warningContent}>
+                  <svg className={styles.warningIcon} fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  <div className={styles.warningTextContainer}>
+                    <div className={styles.warningTitle}>Changes apply to NEW tickets only</div>
+                    <div className={styles.warningDescription}>Existing tickets will continue with their original SLA</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer Actions */}
+              <div className={styles.footerActions}>
+                <button
+                  onClick={handleRevert}
+                  className={styles.cancelButton}
+                >
+                  Cancel
+                </button>
+                <div className={styles.footerActionsRight}>
+                  <button className={styles.cancelButton}>
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className={styles.saveButton}
+                  >
+                    {saving ? "Saving..." : "Save Settings"}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* SLA Policy Modal */}
+            {editingDept && (
+              <SLAPolicyModal
+                isOpen={editingSLADeptId !== null}
+                departmentName={editingDept.name}
+                initialPolicy={
+                  editingDept.sla_policy || {
+                    target_minutes: 30,
+                    warn_minutes: 20,
+                    sla_start_trigger: "ON_ASSIGN",
+                    escalate_minutes: 10,
+                  }
+                }
+                onSave={handleSaveSLAPolicy}
+                onClose={() => setEditingSLADeptId(null)}
+              />
+            )}
+
+            {/* Edit Service Modal */}
+            {editingService && (
+              <EditServiceModal
+                isOpen={editingServiceIndex !== null}
+                serviceName={editingService.label}
+                slaMinutes={editingService.sla_minutes}
+                departmentName={activeDept?.name || ""}
+                onSave={handleEditService}
+                onClose={() => setEditingServiceIndex(null)}
+              />
+            )}
+
+            {/* Manage Departments Modal */}
+            {showManageDepartmentsModal && (
+              <div className={styles.modalBackdrop} onClick={() => {
+                setShowManageDepartmentsModal(false);
+                setSlaChanges({});
+                setSelectedDeptId(null);
+              }}>
+                <div className={styles.modalContainer} onClick={(e) => e.stopPropagation()}>
+                  {/* Modal Header */}
+                  <div className={styles.modalHeader}>
+                    <h2 className={styles.modalTitle}>Manage Departments & SLAs</h2>
+                    <button
+                      className={styles.modalClose}
                       onClick={() => {
                         setShowManageDepartmentsModal(false);
                         setSlaChanges({});
                         setSelectedDeptId(null);
                       }}
                     >
-                      Cancel
-                    </button>
-                    <button
-                      className={styles.modalSaveButton}
-                      onClick={handleSaveManageDepartments}
-                      disabled={saving || !hasUnsavedChanges || hasInvalidChanges || (selectedDeptId ? departments.find(d => d.id === selectedDeptId)?.is_active === false : false)}
-                      title={
-                        selectedDeptId && departments.find(d => d.id === selectedDeptId)?.is_active === false
-                          ? "Cannot save changes while department is inactive"
-                          : hasInvalidChanges
-                            ? "Please fix invalid values (empty or negative) before saving"
-                            : !hasUnsavedChanges
-                              ? "No changes to save"
-                              : ""
-                      }
-                    >
-                      {saving ? 'Saving...' : 'Save Changes'}
+                      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
                     </button>
                   </div>
-                )}
+
+                  {/* Modal Body */}
+                  <div className={styles.modalBody}>
+                    {/* Department List */}
+                    <div className={styles.departmentListSection}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                        <div className={styles.sectionLabel}>Departments</div>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'rgba(255, 255, 255, 0.7)', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={showInactiveDepartments}
+                            onChange={(e) => setShowInactiveDepartments(e.target.checked)}
+                            style={{ cursor: 'pointer' }}
+                          />
+                          Show inactive
+                        </label>
+                      </div>
+
+                      {departments
+                        .filter(dept => showInactiveDepartments || dept.is_active)
+                        .map((dept) => (
+                          <div key={dept.id}>
+                            <div
+                              className={`${styles.departmentRow} ${selectedDeptId === dept.id ? styles.active : ''} ${!dept.is_active ? styles.inactive : ''}`}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                                <div className={styles.departmentName}>
+                                  {dept.name}
+                                </div>
+                                {!dept.is_active && (
+                                  <span className={styles.inactiveBadge}>Inactive</span>
+                                )}
+                              </div>
+
+                              <div className={styles.departmentActions}>
+                                <button
+                                  className={`${styles.departmentSettingsButton} ${selectedDeptId === dept.id ? styles.active : ''}`}
+                                  onClick={() => !dept.is_active ? null : setSelectedDeptId(selectedDeptId === dept.id ? null : dept.id)}
+                                  disabled={!dept.is_active}
+                                  title={!dept.is_active ? "Activate department to edit SLA settings" : "Configure SLA"}
+                                >
+                                  <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  </svg>
+                                </button>
+                                {dept.is_active ? (
+                                  <button
+                                    className={styles.departmentArchiveButton}
+                                    onClick={() => handleArchiveDepartment(dept.id, dept.name)}
+                                    title="Archive department (hides from new tickets, preserves history)"
+                                  >
+                                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                    </svg>
+                                  </button>
+                                ) : (
+                                  <button
+                                    className={styles.departmentReactivateButton}
+                                    onClick={() => handleReactivateDepartment(dept.id, dept.name)}
+                                    title="Activate department"
+                                  >
+                                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* SLA Configuration Panel */}
+                            {selectedDeptId === dept.id && (
+                              <div className={styles.slaConfigPanel}>
+                                <div className={styles.slaConfigTitle}>SLA Configuration</div>
+
+                                {/* Target Time */}
+                                <div className={styles.slaField}>
+                                  <label className={styles.slaFieldLabel}>
+                                    Target Time <span style={{ color: 'red' }}>*</span>
+                                    <span className={styles.tooltipContainer}>
+                                      <span className={styles.infoIcon}>
+                                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                      </span>
+                                      <span className={styles.tooltip}>Maximum time to complete service request</span>
+                                    </span>
+                                  </label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={slaChanges[dept.id]?.target_minutes ?? dept.sla_policy?.target_minutes ?? 30}
+                                    className={styles.slaFieldInput}
+                                    onChange={(e) => handleSLAChange(dept.id, 'target_minutes', e.target.value)}
+                                  />
+                                </div>
+
+                                {/* Warning Threshold */}
+                                <div className={styles.slaField}>
+                                  <label className={styles.slaFieldLabel}>
+                                    Warning Threshold <span style={{ color: 'red' }}>*</span>
+                                    <span className={styles.tooltipContainer}>
+                                      <span className={styles.infoIcon}>
+                                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                      </span>
+                                      <span className={styles.tooltip}>Time before SLA breach to show warning</span>
+                                    </span>
+                                  </label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={slaChanges[dept.id]?.warn_minutes ?? dept.sla_policy?.warn_minutes ?? 5}
+                                    className={styles.slaFieldInput}
+                                    onChange={(e) => handleSLAChange(dept.id, 'warn_minutes', e.target.value)}
+                                  />
+                                </div>
+
+                                {/* Start Trigger */}
+                                <div className={styles.slaField}>
+                                  <label className={styles.slaFieldLabel}>
+                                    Start Trigger
+                                    <span className={styles.tooltipContainer}>
+                                      <span className={styles.infoIcon}>
+                                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                      </span>
+                                      <span className={styles.tooltip}>When SLA timer starts counting</span>
+                                    </span>
+                                  </label>
+                                  <select
+                                    value={slaChanges[dept.id]?.sla_start_trigger ?? dept.sla_policy?.sla_start_trigger ?? 'ON_ASSIGN'}
+                                    className={styles.slaFieldSelect}
+                                    onChange={(e) => handleSLAChange(dept.id, 'sla_start_trigger', e.target.value)}
+                                  >
+                                    <option value="ON_CREATE">On Create</option>
+                                    <option value="ON_ASSIGN">On Assign</option>
+                                    <option value="ON_ACCEPT">On Accept</option>
+                                  </select>
+                                </div>
+
+                                {/* Escalate After */}
+                                <div className={styles.slaField}>
+                                  <label className={styles.slaFieldLabel}>
+                                    Escalate After <span style={{ color: 'red' }}>*</span>
+                                    <span className={styles.tooltipContainer}>
+                                      <span className={styles.infoIcon}>
+                                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                      </span>
+                                      <span className={styles.tooltip}>Time before escalating to supervisor</span>
+                                    </span>
+                                  </label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={slaChanges[dept.id]?.escalate_minutes ?? dept.sla_policy?.escalate_minutes ?? 25}
+                                    className={styles.slaFieldInput}
+                                    onChange={(e) => handleSLAChange(dept.id, 'escalate_minutes', e.target.value)}
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+
+                      {/* Add Department Button/Form */}
+                      {!showAddDepartmentForm ? (
+                        <button
+                          className={styles.addDepartmentButton}
+                          onClick={() => setShowAddDepartmentSelectionModal(true)}
+                        >
+                          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                          Add Department
+                        </button>
+                      ) : (
+                        <div>
+                          {/* New Department Row - Just shows it's selected */}
+                          <div className={`${styles.departmentRow} ${styles.active}`}>
+                            <div className={styles.departmentName}>New Department</div>
+                            <div className={styles.departmentActions}>
+                              <button
+                                className={`${styles.departmentSettingsButton} ${styles.active}`}
+                              >
+                                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Configuration Panel for New Department */}
+                          <div className={styles.slaConfigPanel}>
+                            {/* Department Details Section */}
+                            <div className={styles.slaConfigTitle}>Department Details</div>
+
+                            {/* Department Name */}
+                            <div className={styles.slaField}>
+                              <label className={styles.slaFieldLabel}>Department Name <span style={{ color: 'red' }}>*</span></label>
+                              <input
+                                type="text"
+                                placeholder="e.g., Housekeeping"
+                                value={newDepartmentName}
+                                onChange={(e) => setNewDepartmentName(e.target.value)}
+                                className={styles.slaFieldInput}
+                                autoFocus
+                              />
+                            </div>
+
+                            {/* Optional Description */}
+                            {!showDescription ? (
+                              <button
+                                onClick={() => setShowDescription(true)}
+                                className={styles.addDescriptionButton}
+                                type="button"
+                              >
+                                + Add description (optional)
+                              </button>
+                            ) : (
+                              <div className={styles.slaField}>
+                                <label className={styles.slaFieldLabel}>
+                                  Description (optional)
+                                </label>
+                                <textarea
+                                  placeholder="e.g., Handles all room cleaning and linen services"
+                                  value={newDepartmentDescription}
+                                  onChange={(e) => setNewDepartmentDescription(e.target.value)}
+                                  className={styles.descriptionTextarea}
+                                  rows={2}
+                                />
+                              </div>
+                            )}
+
+                            {/* SLA Configuration Section */}
+                            <div className={styles.slaConfigTitle} style={{ marginTop: '20px' }}>SLA Configuration</div>
+
+                            {/* Target Time */}
+                            <div className={styles.slaField}>
+                              <label className={styles.slaFieldLabel}>
+                                Target Time <span style={{ color: 'red' }}>*</span>
+                                <span className={styles.tooltipContainer}>
+                                  <span className={styles.infoIcon}>
+                                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                  </span>
+                                  <span className={styles.tooltip}>Maximum time to complete service request</span>
+                                </span>
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={slaChanges['new-dept-temp']?.target_minutes ?? 30}
+                                className={styles.slaFieldInput}
+                                onChange={(e) => handleSLAChange('new-dept-temp', 'target_minutes', e.target.value)}
+                              />
+                            </div>
+
+                            {/* Warning Threshold */}
+                            <div className={styles.slaField}>
+                              <label className={styles.slaFieldLabel}>
+                                Warning Threshold <span style={{ color: 'red' }}>*</span>
+                                <span className={styles.tooltipContainer}>
+                                  <span className={styles.infoIcon}>
+                                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                  </span>
+                                  <span className={styles.tooltip}>Time before SLA breach to show warning</span>
+                                </span>
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={slaChanges['new-dept-temp']?.warn_minutes ?? 20}
+                                className={styles.slaFieldInput}
+                                onChange={(e) => handleSLAChange('new-dept-temp', 'warn_minutes', e.target.value)}
+                              />
+                            </div>
+
+                            {/* Start Trigger */}
+                            <div className={styles.slaField}>
+                              <label className={styles.slaFieldLabel}>
+                                Start Trigger
+                                <span className={styles.tooltipContainer}>
+                                  <span className={styles.infoIcon}>
+                                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                  </span>
+                                  <span className={styles.tooltip}>When SLA timer starts counting</span>
+                                </span>
+                              </label>
+                              <select
+                                value={slaChanges['new-dept-temp']?.sla_start_trigger ?? 'ON_ASSIGN'}
+                                className={styles.slaFieldSelect}
+                                onChange={(e) => handleSLAChange('new-dept-temp', 'sla_start_trigger', e.target.value)}
+                              >
+                                <option value="ON_CREATE">On Create</option>
+                                <option value="ON_ASSIGN">On Assign</option>
+                                <option value="ON_ACCEPT">On Accept</option>
+                              </select>
+                            </div>
+
+                            {/* Escalate After */}
+                            <div className={styles.slaField}>
+                              <label className={styles.slaFieldLabel}>
+                                Escalate After <span style={{ color: 'red' }}>*</span>
+                                <span className={styles.tooltipContainer}>
+                                  <span className={styles.infoIcon}>
+                                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                  </span>
+                                  <span className={styles.tooltip}>Time before escalating to supervisor</span>
+                                </span>
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={slaChanges['new-dept-temp']?.escalate_minutes ?? 20}
+                                className={styles.slaFieldInput}
+                                onChange={(e) => handleSLAChange('new-dept-temp', 'escalate_minutes', e.target.value)}
+                              />
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className={styles.addDepartmentActions} style={{ marginTop: '16px' }}>
+                              <button
+                                onClick={() => {
+                                  setShowAddDepartmentForm(false);
+                                  setNewDepartmentName("");
+                                  setNewDepartmentDescription("");
+                                  setShowDescription(false);
+                                  setSelectedDeptId(null);
+                                  setSlaChanges(prev => {
+                                    const { 'new-dept-temp': _, ...rest } = prev;
+                                    return rest;
+                                  });
+                                }}
+                                className={styles.cancelAddButton}
+                                type="button"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                onClick={handleAddDepartment}
+                                disabled={saving || !newDepartmentName.trim()}
+                                className={styles.confirmAddButton}
+                                type="button"
+                              >
+                                {saving ? 'Adding...' : 'Add Department'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Modal Footer - Hidden when adding department */}
+                  {!showAddDepartmentForm && (
+                    <div className={styles.modalFooter}>
+                      {hasUnsavedChanges && (
+                        <div className={styles.unsavedChanges}>
+                          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                          Unsaved changes
+                        </div>
+                      )}
+                      <div style={{ flex: 1 }}></div>
+                      <button
+                        className={styles.modalCancelButton}
+                        onClick={() => {
+                          setShowManageDepartmentsModal(false);
+                          setSlaChanges({});
+                          setSelectedDeptId(null);
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        className={styles.modalSaveButton}
+                        onClick={handleSaveManageDepartments}
+                        disabled={saving || !hasUnsavedChanges || hasInvalidChanges || (selectedDeptId ? departments.find(d => d.id === selectedDeptId)?.is_active === false : false)}
+                        title={
+                          selectedDeptId && departments.find(d => d.id === selectedDeptId)?.is_active === false
+                            ? "Cannot save changes while department is inactive"
+                            : hasInvalidChanges
+                              ? "Please fix invalid values (empty or negative) before saving"
+                              : !hasUnsavedChanges
+                                ? "No changes to save"
+                                : ""
+                        }
+                      >
+                        {saving ? 'Saving...' : 'Save Changes'}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+
+          </div>
         </div>
       </OwnerGate >
 

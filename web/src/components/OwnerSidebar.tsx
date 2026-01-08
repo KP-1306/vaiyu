@@ -37,104 +37,110 @@ export default function OwnerSidebar({
       matchPrefix?: string;
     }[];
   }[] = [
-    {
-      label: "Overview",
-      items: [
-        {
-          to: `${base}`,
-          label: "Dashboard & KPIs",
-          hint: "Core performance view for this property.",
-          icon: "📊",
-          matchPrefix: `${base}`,
-        },
-        {
-          to: `${base}/revenue`,
-          label: "Revenue & forecast",
-          hint: "ADR, RevPAR and pick-up insights.",
-          icon: "💰",
-          matchPrefix: `${base}/revenue`,
-        },
-        {
-          to: `${base}/rooms`,
-          label: "Rooms & occupancy",
-          hint: "Inventory and occupancy snapshot.",
-          icon: "🛏️",
-          matchPrefix: `${base}/rooms`,
-        },
-      ],
-    },
-    {
-      label: "Operations",
-      items: [
-        {
-          to: `/ops?slug=${encodeURIComponent(resolvedSlug)}`,
-          label: "Live requests & orders",
-          hint: "Front desk, SLAs and routing.",
-          icon: "🛎️",
-          matchPrefix: "/ops",
-        },
-        {
-          to: `/hk?slug=${encodeURIComponent(resolvedSlug)}`,
-          label: "Housekeeping board",
-          hint: "Room cleaning and turn-down tickets.",
-          icon: "🧽",
-          matchPrefix: "/hk",
-        },
-        {
-          to: `${base}/qr`,
-          label: "QRs & guest entry",
-          hint: "Print codes for menu, requests and checkout.",
-          icon: "📱",
-          matchPrefix: `${base}/qr`,
-        },
-        {
-          to: `${base}/menu`,
-          label: "Menu & services",
-          hint: "Edit items, prices and SLAs.",
-          icon: "🍽️",
-          matchPrefix: `${base}/menu`,
-        },
-      ],
-    },
-    {
-      label: "People & HR",
-      items: [
-        {
-          to: `${base}/hrms`,
-          label: "Attendance snapshot",
-          hint: "Present, late and absent view (coming soon).",
-          icon: "👥",
-          matchPrefix: `${base}/hrms`,
-        },
-        {
-          to: `${base}/hrms/attendance`,
-          label: "Attendance details",
-          hint: "Per-staff timelines and trends (stub route).",
-          icon: "📅",
-          matchPrefix: `${base}/hrms/attendance`,
-        },
-      ],
-    },
-    {
-      label: "Pricing & setup",
-      items: [
-        {
-          to: `${base}/pricing`,
-          label: "Pricing & packages",
-          hint: "Experiment-friendly rate structure (stub).",
-          icon: "🏷️",
-          matchPrefix: `${base}/pricing`,
-        },
-        {
-          to: `/owner/settings?slug=${encodeURIComponent(resolvedSlug)}`,
-          label: "Owner settings",
-          hint: "Branding, services, access control.",
-          icon: "⚙️",
-          matchPrefix: "/owner/settings",
-        },
-      ],
-    },
-  ];
+      {
+        label: "Overview",
+        items: [
+          {
+            to: `${base}`,
+            label: "Dashboard & KPIs",
+            hint: "Core performance view for this property.",
+            icon: "📊",
+            matchPrefix: `${base}`,
+          },
+          {
+            to: `${base}/revenue`,
+            label: "Revenue & forecast",
+            hint: "ADR, RevPAR and pick-up insights.",
+            icon: "💰",
+            matchPrefix: `${base}/revenue`,
+          },
+          {
+            to: `${base}/rooms`,
+            label: "Rooms & occupancy",
+            hint: "Inventory and occupancy snapshot.",
+            icon: "🛏️",
+            matchPrefix: `${base}/rooms`,
+          },
+        ],
+      },
+      {
+        label: "Operations",
+        items: [
+          {
+            to: `/ops?slug=${encodeURIComponent(resolvedSlug)}`,
+            label: "Live requests & orders",
+            hint: "Front desk, SLAs and routing.",
+            icon: "🛎️",
+            matchPrefix: "/ops",
+          },
+          {
+            to: `/hk?slug=${encodeURIComponent(resolvedSlug)}`,
+            label: "Housekeeping board",
+            hint: "Room cleaning and turn-down tickets.",
+            icon: "🧽",
+            matchPrefix: "/hk",
+          },
+          {
+            to: `${base}/qr`,
+            label: "QRs & guest entry",
+            hint: "Print codes for menu, requests and checkout.",
+            icon: "📱",
+            matchPrefix: `${base}/qr`,
+          },
+          {
+            to: `${base}/menu`,
+            label: "Departments/Services & SLAs",
+            hint: "Add/Edit Departments/Services, and SLAs.",
+            icon: "🍽️",
+            matchPrefix: `${base}/menu`,
+          },
+          {
+            to: `${base}/staff-shifts`,
+            label: "Staff & Shifts",
+            hint: "Rosters, shifts, and attendance.",
+            icon: "busts_in_silhouette", // Using emoji or similar icon - will use emoji for consistency
+          },
+        ],
+      },
+      {
+        label: "People & HR",
+        items: [
+          {
+            to: `${base}/hrms`,
+            label: "Attendance snapshot",
+            hint: "Present, late and absent view (coming soon).",
+            icon: "👥",
+            matchPrefix: `${base}/hrms`,
+          },
+          {
+            to: `${base}/hrms/attendance`,
+            label: "Attendance details",
+            hint: "Per-staff timelines and trends (stub route).",
+            icon: "📅",
+            matchPrefix: `${base}/hrms/attendance`,
+          },
+        ],
+      },
+      {
+        label: "Pricing & setup",
+        items: [
+          {
+            to: `${base}/pricing`,
+            label: "Pricing & packages",
+            hint: "Experiment-friendly rate structure (stub).",
+            icon: "🏷️",
+            matchPrefix: `${base}/pricing`,
+          },
+          {
+            to: `/owner/settings?slug=${encodeURIComponent(resolvedSlug)}`,
+            label: "Owner settings",
+            hint: "Branding, services, access control.",
+            icon: "⚙️",
+            matchPrefix: "/owner/settings",
+          },
+        ],
+      },
+    ];
 
   const isItemActive = (to: string, matchPrefix?: string) => {
     const prefix = matchPrefix ?? to;

@@ -125,6 +125,7 @@ const OwnerQRSheet = lazy(() => import("./routes/OwnerQRSheet"));
 const OwnerPricing = lazy(() => import("./routes/OwnerPricing"));
 const OwnerMenu = lazy(() => import("./routes/OwnerMenu")); // NEW
 const OwnerWorkforce = lazy(() => import("./routes/OwnerWorkforce")); // NEW (fix /owner/:slug/workforce)
+const OwnerStaffShifts = lazy(() => import("./routes/OwnerStaffShifts")); // NEW
 const AdminOps = lazy(() => import("./pages/AdminOps"));
 
 // ADR & RevPAR detail pages (from routes/OwnerRevenue.tsx)
@@ -650,6 +651,15 @@ const router = createBrowserRouter([
         element: (
           <AuthGate>
             <OwnerMenu />
+          </AuthGate>
+        ),
+      },
+      // NEW: /owner/:slug/staff-shifts (Staff Roster)
+      {
+        path: "owner/:slug/staff-shifts",
+        element: (
+          <AuthGate>
+            <OwnerStaffShifts />
           </AuthGate>
         ),
       },

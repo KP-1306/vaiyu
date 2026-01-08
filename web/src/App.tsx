@@ -358,6 +358,7 @@ const OwnerDashboard = lazy(() => import("./routes/OwnerDashboard"));
 
 // Ops board – uses existing OpsBoard.tsx (wraps Desk)
 const OpsBoard = lazy(() => import("./routes/OpsBoard"));
+const OwnerStaffShifts = lazy(() => import("./routes/OwnerStaffShifts"));
 
 // Revenue views – default + named exports from OwnerRevenue.tsx
 const OwnerRevenue = lazy(() => import("./routes/OwnerRevenue"));
@@ -600,6 +601,16 @@ export default function App() {
 
             {/* Ops board */}
             <Route path="/ops" element={<OpsBoard />} />
+
+            {/* Staff & Shifts (new) */}
+            <Route
+              path="/owner/:slug/staff-shifts"
+              element={
+                <OwnerLayout>
+                  <OwnerStaffShifts />
+                </OwnerLayout>
+              }
+            />
 
             {/* Request tracker route – explicit ticketId param */}
             <Route

@@ -457,6 +457,54 @@ ON ticket_events (event_type);
 ALTER TABLE ticket_events
 ADD COLUMN resume_after TIMESTAMPTZ;
 
+ALTER TABLE ticket_events
+    ADD CONSTRAINT ticket_events_status_check
+        CHECK (
+            previous_status IS NULL
+                OR previous_status IN ('NEW','IN_PROGRESS','BLOCKED','COMPLETED','CANCELLED')
+            );
+
+
+
+ALTER TABLE public.ticket_events
+    ADD CONSTRAINT ticket_events_reason_code_fkey
+        FOREIGN KEY (reason_code)
+            REFERENCES public.block_reasons(code)
+            DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE public.ticket_events
+    ADD CONSTRAINT ticket_events_new_status_check
+        CHECK (
+            new_status IS NULL
+                OR new_status IN (
+                                  'NEW',
+                                  'IN_PROGRESS',
+                                  'BLOCKED',
+                                  'COMPLETED',
+                                  'CANCELLED'
+                )
+            );
+
+ALTER TABLE public.ticket_events
+DROP CONSTRAINT ticket_events_event_type_check;
+
+ALTER TABLE public.ticket_events
+    ADD CONSTRAINT ticket_events_event_type_check
+        CHECK (
+            event_type IN (
+                           'CREATED',
+                           'ASSIGNED',
+                           'REASSIGNED',
+                           'STARTED',
+                           'BLOCKED',
+                           'UNBLOCKED',
+                           'COMPLETED',
+                           'ESCALATED',
+                           'RESET',
+                           'REOPENED'
+                )
+            );
+
 -- ============================================================
 -- 1️⃣2️⃣ Block Reasons (global reference data)
 -- ============================================================

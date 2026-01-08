@@ -231,7 +231,7 @@ export default function OwnerDashboard() {
     }
 
     let alive = true;
-    let unsubscribe = () => {};
+    let unsubscribe = () => { };
 
     (async () => {
       setLoading(true);
@@ -974,8 +974,17 @@ function OwnerSidebarNav({
               className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
             >
               <span className="h-1 w-1 rounded-full bg-slate-300" />
-              <span>Menu &amp; services</span>
+              <span>Departments/Services &amp; SLAs</span>
             </a>
+          </li>
+          <li>
+            <Link
+              to={`/owner/${slug}/staff-shifts`}
+              className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
+            >
+              <span className="h-1 w-1 rounded-full bg-slate-300" />
+              <span>Staff &amp; Shifts</span>
+            </Link>
           </li>
           <li>
             <a
@@ -1181,8 +1190,8 @@ function PulseStrip({
               slaTone === "green"
                 ? "On track"
                 : slaTone === "amber"
-                ? "Watch"
-                : "Risk"
+                  ? "Watch"
+                  : "Risk"
             }
           />
           <PulseTile
@@ -1492,7 +1501,7 @@ function PerformanceColumn({
           desc="Today’s VIPs, long-stays and guests with open complaints."
         />
         {(!vipStays || vipStays.length === 0) &&
-        (!eventsToday || eventsToday.length === 0) ? (
+          (!eventsToday || eventsToday.length === 0) ? (
           <div className="text-sm text-slate-500">
             Connect your CRM / PMS VIP flags to see a live list here. For now,
             use the guest list to manage special attention manually.
@@ -1556,15 +1565,15 @@ function PerformanceColumn({
                           e.risk_status === "risk"
                             ? "Risk"
                             : e.risk_status === "check"
-                            ? "Check"
-                            : "OK"
+                              ? "Check"
+                              : "OK"
                         }
                         tone={
                           e.risk_status === "risk"
                             ? "red"
                             : e.risk_status === "check"
-                            ? "amber"
-                            : "green"
+                              ? "amber"
+                              : "green"
                         }
                       />
                     </li>
@@ -1635,10 +1644,10 @@ function KpiRow({
                       k.tone === "green"
                         ? "Healthy"
                         : k.tone === "amber"
-                        ? "Watch"
-                        : k.tone === "red"
-                        ? "Action"
-                        : "N/A"
+                          ? "Watch"
+                          : k.tone === "red"
+                            ? "Action"
+                            : "N/A"
                     }
                     tone={k.tone}
                   />
@@ -1695,8 +1704,8 @@ function PricingNudge({
     occupancy >= 80
       ? "Great momentum!"
       : occupancy >= 40
-      ? "Room to grow."
-      : "Let’s boost pick-up.";
+        ? "Room to grow."
+        : "Let’s boost pick-up.";
   return (
     <section className="mb-6 rounded-2xl border bg-gradient-to-r from-amber-50 to-white p-4">
       <SectionHeader
@@ -1738,13 +1747,12 @@ function SlaCard({
       />
       <div className="h-2 rounded-full bg-gray-100">
         <div
-          className={`h-2 rounded-full ${
-            tone === "green"
-              ? "bg-emerald-500"
-              : tone === "amber"
+          className={`h-2 rounded-full ${tone === "green"
+            ? "bg-emerald-500"
+            : tone === "amber"
               ? "bg-amber-500"
               : "bg-rose-500"
-          }`}
+            }`}
           style={{ width: `${pct}%` }}
         />
       </div>

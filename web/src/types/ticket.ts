@@ -128,8 +128,8 @@ export interface StaffRunnerTicket {
     sla_remaining_seconds: number | null;
     sla_breached: boolean | null;
     sla_label: string | null;
-    sla_state: 'NOT_STARTED' | 'RUNNING' | 'BREACHED' | 'UNKNOWN';
-    time_spent_seconds: number | null;
+    sla_state: 'NOT_STARTED' | 'RUNNING' | 'BREACHED' | 'PAUSED' | 'UNKNOWN';
+    active_work_seconds: number | null;
     blocked_seconds: number | null;
     requested_by: CreatedBy;
     allowed_actions: "ASSIGN" | "RESET_REASSIGN" | "NONE" | string;

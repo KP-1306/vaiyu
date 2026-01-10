@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
+import { supabase } from "../lib/supabase";
 import { ticketService } from "../services/ticketService";
 import type { Ticket, StaffRunnerTicket, BlockReason, BlockReasonCode, UnblockReason } from "../types/ticket";
 import { getSLAStatus, formatTimeRemaining, getSLAColor } from "../utils/sla";
@@ -57,12 +58,35 @@ export default function StaffTaskManager() {
     useEffect(() => {
         fetchTasks();
         fetchReasons();
-        // Periodic re-sync every 60 seconds for SLA accuracy
-        const interval = setInterval(() => fetchTasks(), 60 * 1000);
+
+        // 1. Periodic re-sync slightly faster (every 15s) as backup
+        const interval = setInterval(() => fetchTasks(), 15 * 1000);
+
+        // 2. REALTIME SUBSCRIPTION
+        // Listen for ANY change to tickets in this hotel
+        // This makes the board update instantly when Auto-Assign job runs
+        const channel = supabase
+            .channel('staff-board-realtime')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'tickets',
+                    filter: `hotel_id=eq.${hotelId}`
+                },
+                (payload) => {
+                    console.log('Realtime update received:', payload);
+                    fetchTasks();
+                }
+            )
+            .subscribe();
+
         return () => {
             clearInterval(interval);
+            supabase.removeChannel(channel);
         };
-    }, [fetchTasks, fetchReasons]);
+    }, [fetchTasks, fetchReasons, hotelId]);
 
     const openModal = async (ticketView: StaffRunnerTicket, setModal: (val: boolean) => void) => {
         try {
@@ -198,6 +222,15 @@ interface TaskCardProps {
     actions: React.ReactNode;
 }
 
+function formatContextTime(seconds: number): string {
+    if (seconds < 60) return "1 min";
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} min`;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}h ${mins}m`;
+}
+
 function TaskCard({ task, fetchedAt, variant, actions }: TaskCardProps) {
     // Premium shadowing effect with radial gradients
     const styles = {
@@ -240,7 +273,39 @@ function TaskCard({ task, fetchedAt, variant, actions }: TaskCardProps) {
                             {task.status === 'BLOCKED' ? 'Blocked' : (task.status === 'NEW' ? 'New task' : 'In progress')}
                         </p>
                     </div>
-                    <p className="text-xs text-white/50 mt-1">{task.department_name}</p>
+
+                    {/* Time Context Badge */}
+                    <div className="mt-3 flex items-center gap-2 text-xs font-medium opacity-80">
+                        {(() => {
+                            if (task.status === 'NEW') {
+                                const waitingSeconds = Math.floor((Date.now() - new Date(task.created_at).getTime()) / 1000);
+                                return (
+                                    <>
+                                        <span>⏳</span>
+                                        <span className="text-blue-200">Waiting for {formatContextTime(waitingSeconds)}</span>
+                                    </>
+                                );
+                            }
+                            if (task.status === 'IN_PROGRESS') {
+                                return (
+                                    <>
+                                        <span>⏱</span>
+                                        <span className="text-green-300">Working for {formatContextTime(task.active_work_seconds || 0)}</span>
+                                    </>
+                                );
+                            }
+                            if (task.status === 'BLOCKED') {
+                                return (
+                                    <>
+                                        <span>⏸</span>
+                                        <span className="text-red-300">Blocked for {formatContextTime(task.blocked_seconds || 0)}</span>
+                                    </>
+                                );
+                            }
+                        })()}
+                    </div>
+
+                    <p className="text-xs text-white/50 mt-2">{task.department_name}</p>
                 </div>
                 <CircularTimerView task={task} fetchedAt={fetchedAt} />
             </div>

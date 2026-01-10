@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ticketService } from "../services/ticketService";
-import type { Ticket, StaffRunnerTicket, BlockReason, BlockReasonCode } from "../types/ticket";
+import type { Ticket, StaffRunnerTicket, BlockReason, BlockReasonCode, UnblockReason } from "../types/ticket";
 import { getSLAStatus, formatTimeRemaining, getSLAColor } from "../utils/sla";
 
 
@@ -24,6 +24,7 @@ export default function StaffTaskManager() {
     const [showStartModal, setShowStartModal] = useState(false);
     const [showCompleteModal, setShowCompleteModal] = useState(false);
     const [showUpdateStatusModal, setShowUpdateStatusModal] = useState(false);
+    const [showResumeModal, setShowResumeModal] = useState(false);
 
     const [tick, setTick] = useState(0);
 
@@ -105,7 +106,8 @@ export default function StaffTaskManager() {
                                 />
                             ))
                         ) : (
-                            <div className="bg-[#1a1a1a] rounded-3xl p-8 text-center text-gray-500">No active tasks available</div>
+                            <div className="bg-[#1a1a1a] rounded-3xl p-8 text-center text-gray-500">No active tasks
+                                available</div>
                         )}
                     </div>
                 </section>
@@ -117,12 +119,19 @@ export default function StaffTaskManager() {
                     </h2>
                     <div className="space-y-4">
                         {inProgressTasks.map((task) => (
-                            <TaskCard key={task.ticket_id} task={task} fetchedAt={fetchedAt} variant="inProgress" actions={
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button onClick={() => openModal(task, setShowCompleteModal)} className="bg-[#dcfce7] text-[#166534] py-3 rounded-xl font-bold text-xs tracking-wider hover:bg-[#bbf7d0] transition-colors">MARK COMPLETE</button>
-                                    <button onClick={() => openModal(task, setShowBlockModal)} className="bg-white/5 text-gray-300 py-3 rounded-xl font-semibold text-xs tracking-wider hover:bg-white/10 transition-colors">BLOCK TASK</button>
-                                </div>
-                            } />
+                            <TaskCard key={task.ticket_id} task={task} fetchedAt={fetchedAt} variant="inProgress"
+                                actions={
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button onClick={() => openModal(task, setShowCompleteModal)}
+                                            className="bg-[#dcfce7] text-[#166534] py-3 rounded-xl font-bold text-xs tracking-wider hover:bg-[#bbf7d0] transition-colors">MARK
+                                            COMPLETE
+                                        </button>
+                                        <button onClick={() => openModal(task, setShowBlockModal)}
+                                            className="bg-white/5 text-gray-300 py-3 rounded-xl font-semibold text-xs tracking-wider hover:bg-white/10 transition-colors">BLOCK
+                                            TASK
+                                        </button>
+                                    </div>
+                                } />
                         ))}
                     </div>
                 </section>
@@ -135,9 +144,31 @@ export default function StaffTaskManager() {
                     <div className="space-y-4">
                         {blockedTasks.map((task) => (
                             <TaskCard key={task.ticket_id} task={task} fetchedAt={fetchedAt} variant="blocked" actions={
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button onClick={() => openModal(task, setShowUpdateStatusModal)} className="bg-red-600 text-white py-3 rounded-xl font-bold text-xs tracking-wider hover:bg-red-700 transition-colors">RESOLVE</button>
-                                    <button onClick={async () => { await ticketService.pingSupervisor({ ticketId: task.ticket_id, note: 'Staff requested assistance' }); alert('Supervisor pinged successfully'); }} className="bg-white/5 text-gray-300 py-3 rounded-xl font-semibold text-xs tracking-wider hover:bg-white/10 transition-colors">PING SUPERVISOR</button>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                    <button
+                                        onClick={() => openModal(task, setShowResumeModal)}
+                                        className="bg-green-600 text-white py-3 rounded-xl font-bold text-xs tracking-wider hover:bg-green-700 transition-colors"
+                                    >
+                                        Resume
+                                    </button>
+                                    <button
+                                        onClick={() => openModal(task, setShowUpdateStatusModal)}
+                                        className="bg-slate-700 text-gray-200 py-3 px-4 rounded-xl font-semibold text-xs tracking-wider hover:bg-slate-600 transition-colors"
+                                    >
+                                        Update Block
+                                    </button>
+                                    <button
+                                        onClick={async () => {
+                                            await ticketService.pingSupervisor({
+                                                ticketId: task.ticket_id,
+                                                note: 'Staff requested assistance'
+                                            });
+                                            alert('Supervisor pinged successfully');
+                                        }}
+                                        className="bg-transparent text-gray-400 py-3 px-4 rounded-xl font-semibold text-xs tracking-wider border border-slate-700 hover:bg-slate-800 hover:text-gray-200 transition-colors"
+                                    >
+                                        Request Supervisor
+                                    </button>
                                 </div>
                             } />
                         ))}
@@ -145,15 +176,28 @@ export default function StaffTaskManager() {
                 </section>
             </div>
 
-            {showStartModal && selectedTask && <StartTaskModal task={selectedTask} onClose={() => setShowStartModal(false)} />}
-            {showCompleteModal && selectedTask && <CompleteTaskModal task={selectedTask} onClose={() => setShowCompleteModal(false)} />}
-            {showBlockModal && selectedTask && <BlockTaskModal task={selectedTask} reasons={blockReasons} onClose={() => setShowBlockModal(false)} />}
-            {showUpdateStatusModal && selectedTask && <UpdateStatusModal task={selectedTask} reasons={blockReasons} onClose={() => setShowUpdateStatusModal(false)} />}
+            {showStartModal && selectedTask &&
+                <StartTaskModal task={selectedTask} onClose={() => setShowStartModal(false)} onSuccess={fetchTasks} />}
+            {showCompleteModal && selectedTask &&
+                <CompleteTaskModal task={selectedTask} onClose={() => setShowCompleteModal(false)}
+                    onSuccess={fetchTasks} />}
+            {showBlockModal && selectedTask &&
+                <BlockTaskModal task={selectedTask} reasons={blockReasons} onClose={() => setShowBlockModal(false)}
+                    onSuccess={fetchTasks} />}
+            {showUpdateStatusModal && selectedTask && <UpdateStatusModal task={selectedTask} reasons={blockReasons}
+                onClose={() => setShowUpdateStatusModal(false)} />}
+            {showResumeModal && selectedTask && <ResumeTaskModal task={selectedTask} onClose={() => setShowResumeModal(false)} onSuccess={fetchTasks} />}
         </div>
     );
 }
 
-interface TaskCardProps { task: StaffRunnerTicket; fetchedAt: number; variant: "active" | "inProgress" | "blocked"; actions: React.ReactNode; }
+interface TaskCardProps {
+    task: StaffRunnerTicket;
+    fetchedAt: number;
+    variant: "active" | "inProgress" | "blocked";
+    actions: React.ReactNode;
+}
+
 function TaskCard({ task, fetchedAt, variant, actions }: TaskCardProps) {
     // Premium shadowing effect with radial gradients
     const styles = {
@@ -205,7 +249,11 @@ function TaskCard({ task, fetchedAt, variant, actions }: TaskCardProps) {
     );
 }
 
-interface CircularTimerViewProps { task: StaffRunnerTicket; fetchedAt: number; }
+interface CircularTimerViewProps {
+    task: StaffRunnerTicket;
+    fetchedAt: number;
+}
+
 function CircularTimerView({ task, fetchedAt }: CircularTimerViewProps) {
     // Initialize local remaining seconds from server snapshot
     const [remaining, setRemaining] = useState<number>(() => {
@@ -244,6 +292,8 @@ function CircularTimerView({ task, fetchedAt }: CircularTimerViewProps) {
     } else if (task.sla_state === 'NOT_STARTED') {
         strokeDasharray = "8, 4";
         strokeDashoffset = 0;
+    } else if (task.sla_state === 'PAUSED') {
+        ringColor = "#eab308"; // Yellow-500
     } else {
         ringColor = "#22c55e";
     }
@@ -293,6 +343,13 @@ function CircularTimerView({ task, fetchedAt }: CircularTimerViewProps) {
                         </div>
                     </>
                 )}
+
+                {task.sla_state === 'PAUSED' && (
+                    <>
+                        <div className="text-xs font-bold text-yellow-500">SLA</div>
+                        <div className="text-[9px] text-yellow-500 uppercase">paused</div>
+                    </>
+                )}
             </div>
         </div>
     );
@@ -302,7 +359,7 @@ function CircularTimerView({ task, fetchedAt }: CircularTimerViewProps) {
 // MODALS
 // --------------------------------------------------------
 
-function StartTaskModal({ task, onClose }: { task: Ticket, onClose: () => void }) {
+function StartTaskModal({ task, onClose, onSuccess }: { task: Ticket, onClose: () => void, onSuccess?: () => void }) {
     const [note, setNote] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
     return (
@@ -313,16 +370,28 @@ function StartTaskModal({ task, onClose }: { task: Ticket, onClose: () => void }
             footer={
                 <div className="flex gap-3">
                     <Button onClick={onClose} variant="secondary">Cancel</Button>
-                    <Button onClick={async () => { setIsSubmitting(true); await ticketService.startTask({ ticketId: task.id, note }); onClose(); }} disabled={isSubmitting} variant="primary">{isSubmitting ? 'Starting...' : '▶ Start Task'}</Button>
+                    <Button onClick={async () => {
+                        setIsSubmitting(true);
+                        try {
+                            await ticketService.startTask({ ticketId: task.id, note });
+                            onSuccess?.();
+                            onClose();
+                        } catch (e: any) {
+                            alert(e.message);
+                            setIsSubmitting(false);
+                        }
+                    }} disabled={isSubmitting}
+                        variant="primary">{isSubmitting ? 'Starting...' : '▶ Start Task'}</Button>
                 </div>
             }
         >
-            <input type="text" placeholder="Add note (optional)" value={note} onChange={e => setNote(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 mb-6 focus:outline-none focus:border-white/20" />
+            <input type="text" placeholder="Add note (optional)" value={note} onChange={e => setNote(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 mb-6 focus:outline-none focus:border-white/20" />
         </ModalLayout>
     );
 }
 
-function CompleteTaskModal({ task, onClose }: { task: Ticket, onClose: () => void }) {
+function CompleteTaskModal({ task, onClose, onSuccess }: { task: Ticket, onClose: () => void, onSuccess?: () => void }) {
     const [note, setNote] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
     return (
@@ -333,11 +402,24 @@ function CompleteTaskModal({ task, onClose }: { task: Ticket, onClose: () => voi
             footer={
                 <div className="flex gap-3">
                     <Button onClick={onClose} variant="secondary">Cancel</Button>
-                    <Button onClick={async () => { setIsSubmitting(true); await ticketService.completeTask({ ticketId: task.id, note }); onClose(); }} disabled={isSubmitting} variant="primary">{isSubmitting ? 'Completing...' : '✓ Mark Complete'}</Button>
+                    <Button onClick={async () => {
+                        setIsSubmitting(true);
+                        try {
+                            await ticketService.completeTask({ ticketId: task.id, note });
+                            onSuccess?.();
+                            onClose();
+                        } catch (e: any) {
+                            alert(e.message);
+                            setIsSubmitting(false);
+                        }
+                    }} disabled={isSubmitting}
+                        variant="primary">{isSubmitting ? 'Completing...' : '✓ Mark Complete'}</Button>
                 </div>
             }
         >
-            <textarea placeholder="Add completion note (optional)" value={note} onChange={e => setNote(e.target.value)} rows={4} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 mb-6 resize-none focus:outline-none focus:border-white/20" />
+            <textarea placeholder="Add completion note (optional)" value={note} onChange={e => setNote(e.target.value)}
+                rows={4}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 mb-6 resize-none focus:outline-none focus:border-white/20" />
         </ModalLayout>
     );
 }
@@ -414,7 +496,12 @@ function ResumeTimePicker({ onUpdate }: { onUpdate: (date: Date) => void }) {
     );
 }
 
-function BlockTaskModal({ task, reasons, onClose }: { task: Ticket, reasons: BlockReason[], onClose: () => void }) {
+function BlockTaskModal({ task, reasons, onClose, onSuccess }: {
+    task: Ticket,
+    reasons: BlockReason[],
+    onClose: () => void,
+    onSuccess?: () => void
+}) {
     const [selectedReason, setSelectedReason] = useState<string>("");
     const [note, setNote] = useState("");
     const [resumeAfter, setResumeAfter] = useState<Date | null>(null);
@@ -434,8 +521,12 @@ function BlockTaskModal({ task, reasons, onClose }: { task: Ticket, reasons: Blo
                 note,
                 resumeAfter: resumeAfter?.toISOString()
             });
+            onSuccess?.();
             onClose();
-        } catch (e: any) { alert(e.message); setIsSubmitting(false); }
+        } catch (e: any) {
+            alert(e.message);
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -475,7 +566,7 @@ function BlockTaskModal({ task, reasons, onClose }: { task: Ticket, reasons: Blo
                     const showBox = reason.code === 'something_else';
 
                     return (
-                        <div key={reason.code} >
+                        <div key={reason.code}>
                             <button
                                 onClick={() => setSelectedReason(reason.code)}
                                 className={`w-full flex items-center gap-4 p-4 rounded-xl transition-all ${isSelected
@@ -513,35 +604,33 @@ function BlockTaskModal({ task, reasons, onClose }: { task: Ticket, reasons: Blo
 }
 
 function UpdateStatusModal({ task, reasons, onClose }: { task: Ticket, reasons: BlockReason[], onClose: () => void }) {
-    const [selectedStatus, setSelectedStatus] = useState<string>(task.block_reason_code || "");
+    const [selectedStatus, setSelectedStatus] = useState<string>(task.reason_code || "");
     const [note, setNote] = useState("");
     const [resumeAfter, setResumeAfter] = useState<Date | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isResuming, setIsResuming] = useState(false);
     const noteInputRef = useRef<HTMLInputElement>(null);
 
     const isSomethingElse = selectedStatus === 'something_else';
 
     // Validation:
     const canUpdateStatus = selectedStatus && (!isSomethingElse || note.trim().length > 0);
-    const canResume = !isSubmitting;
 
-    const handleUpdate = async (resume: boolean = false) => {
-        if (!resume && !canUpdateStatus) return;
+    const handleUpdate = async () => {
+        if (!canUpdateStatus) return;
 
         setIsSubmitting(true);
-        if (resume) setIsResuming(true);
-
         try {
-            await ticketService.updateBlockedStatus({
+            await ticketService.updateBlockTask({
                 ticketId: task.id,
                 reasonCode: selectedStatus as BlockReasonCode,
                 note,
-                resume,
                 resumeAfter: resumeAfter?.toISOString()
             });
             onClose();
-        } catch (e: any) { alert(e.message); setIsSubmitting(false); setIsResuming(false); }
+        } catch (e: any) {
+            alert(e.message);
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -563,11 +652,12 @@ function UpdateStatusModal({ task, reasons, onClose }: { task: Ticket, reasons: 
                         />
                     )}
                     <div className="flex gap-3">
-                        <Button onClick={() => handleUpdate(false)} disabled={!canUpdateStatus || isSubmitting} variant="secondary">
-                            {isSubmitting && !isResuming ? 'Updating...' : 'Update status'}
+                        <Button onClick={onClose} variant="secondary">
+                            Cancel
                         </Button>
-                        <Button onClick={() => handleUpdate(true)} disabled={!canResume} variant="primary">
-                            {isResuming ? 'Resuming...' : 'Ready to resume'}
+                        <Button onClick={handleUpdate} disabled={!canUpdateStatus || isSubmitting}
+                            variant="primary">
+                            {isSubmitting ? 'Updating...' : 'Update status'}
                         </Button>
                     </div>
                 </div>
@@ -617,16 +707,126 @@ function UpdateStatusModal({ task, reasons, onClose }: { task: Ticket, reasons: 
     );
 }
 
-// Reuseable Components
-function ModalLayout({ title, taskTitle, children, onClose, footer }: { title: string, taskTitle: string, children: React.ReactNode, onClose: () => void, footer?: React.ReactNode }) {
+// --------------------------------------------------------
+// RESUME MODAL
+// --------------------------------------------------------
+
+function ResumeTaskModal({ task, onClose, onSuccess }: { task: Ticket, onClose: () => void, onSuccess?: () => void }) {
+    const [reasons, setReasons] = useState<UnblockReason[]>([]);
+    const [selectedReason, setSelectedReason] = useState<string>("");
+    const [note, setNote] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [loadingReasons, setLoadingReasons] = useState(true);
+
+    useEffect(() => {
+        if (task.reason_code) {
+            ticketService.getCompatibleUnblockReasons(task.reason_code)
+                .then(r => {
+                    setReasons(r);
+                    setLoadingReasons(false);
+                })
+                .catch(() => {
+                    setLoadingReasons(false);
+                });
+        } else {
+            setLoadingReasons(false);
+        }
+    }, [task.reason_code]);
+
+    const handleResume = async () => {
+        if (!selectedReason && reasons.length > 0) return; // Must select if reasons exist
+        setIsSubmitting(true);
+        try {
+            await ticketService.unblockTask({
+                ticketId: task.id,
+                unblockReasonCode: selectedReason,
+                note
+            });
+            onSuccess?.();
+            onClose();
+        } catch (e: any) {
+            alert(e.message);
+            setIsSubmitting(false);
+        }
+    };
+
+    const isValid = reasons.length === 0 || selectedReason !== "";
+
     return (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-4">
-            <div className="bg-[#1a1a1a] rounded-3xl w-full max-w-lg overflow-hidden animate-slide-up flex flex-col max-h-[90vh]">
+        <ModalLayout
+            title="Resume Task"
+            taskTitle={task.title}
+            onClose={onClose}
+            footer={
+                <div className="flex flex-col gap-4">
+                    <input
+                        type="text"
+                        placeholder="Add note (optional)"
+                        value={note}
+                        onChange={(e) => setNote(e.target.value)}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white/20 text-sm"
+                    />
+                    <div className="flex gap-3">
+                        <Button onClick={onClose} variant="secondary">Cancel</Button>
+                        <Button onClick={handleResume} disabled={!isValid || isSubmitting} variant="primary">
+                            {isSubmitting ? 'Resuming...' : 'Confirm Resume'}
+                        </Button>
+                    </div>
+                </div>
+            }
+        >
+            <div className="space-y-4">
+                <p className="text-gray-400 text-sm">Select a reason for resuming this task:</p>
+                {loadingReasons ? (
+                    <div className="text-center py-4 text-gray-500">Loading reasons...</div>
+                ) : reasons.length > 0 ? (
+                    <div className="space-y-3">
+                        {reasons.map((reason) => (
+                            <button
+                                key={reason.code}
+                                onClick={() => setSelectedReason(reason.code)}
+                                className={`w-full flex items-center gap-4 p-4 rounded-xl transition-all ${selectedReason === reason.code
+                                    ? "bg-[#2f855a]/30 border-2 border-[#48bb78]"
+                                    : "bg-transparent border-2 border-white/5 hover:bg-white/5"
+                                    }`}
+                            >
+                                <span className="text-xl">{reason.icon || '✅'}</span>
+                                <div className="text-left">
+                                    <div className="text-base font-medium text-white">{reason.label}</div>
+                                    {reason.description && <div className="text-xs text-gray-400">{reason.description}</div>}
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-center py-4 bg-white/5 rounded-xl border border-white/10">
+                        <span className="text-gray-400">No specific unblock reasons required.</span>
+                    </div>
+                )}
+            </div>
+        </ModalLayout>
+    );
+}
+
+// Reuseable Components
+function ModalLayout({ title, taskTitle, children, onClose, footer }: {
+    title: string,
+    taskTitle: string,
+    children: React.ReactNode,
+    onClose: () => void,
+    footer?: React.ReactNode
+}) {
+    return (
+        <div
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-4">
+            <div
+                className="bg-[#1a1a1a] rounded-3xl w-full max-w-lg overflow-hidden animate-slide-up flex flex-col max-h-[90vh]">
                 {/* Header */}
                 <div className="p-6 border-b border-white/10 flex-shrink-0">
                     <div className="flex items-start justify-between mb-2">
                         <h2 className="text-2xl font-bold">{title}</h2>
-                        <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">✕</button>
+                        <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">✕
+                        </button>
                     </div>
                     <p className="text-sm text-gray-400">{taskTitle}</p>
                 </div>
@@ -647,7 +847,12 @@ function ModalLayout({ title, taskTitle, children, onClose, footer }: { title: s
     );
 }
 
-function Button({ children, onClick, disabled, variant }: { children: React.ReactNode, onClick: () => void, disabled?: boolean, variant: "primary" | "secondary" }) {
+function Button({ children, onClick, disabled, variant }: {
+    children: React.ReactNode,
+    onClick: () => void,
+    disabled?: boolean,
+    variant: "primary" | "secondary"
+}) {
     const base = "flex-1 py-4 rounded-xl font-semibold text-sm tracking-wider transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
     const styles = variant === "primary" ? "bg-[#4a7cff] text-white hover:bg-[#3d6ae6]" : "bg-transparent text-white border border-white/10 hover:bg-white/5";
     return <button onClick={onClick} disabled={disabled} className={`${base} ${styles}`}>{children}</button>;

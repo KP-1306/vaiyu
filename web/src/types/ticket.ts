@@ -14,7 +14,8 @@ export type TicketEventType =
     | "COMPLETED"
     | "ESCALATED"
     | "RESET"
-    | "PING_SUPERVISOR";
+    | "PING_SUPERVISOR"
+    | "BLOCK_UPDATED";
 
 export type ActorType = "STAFF" | "SYSTEM" | "GUEST" | "FRONT_DESK";
 
@@ -65,7 +66,7 @@ export interface Ticket {
     // Joined data
     sla_state?: TicketSLAState;
     department?: Department;
-    block_reason_code?: string | null;
+    reason_code?: string | null;
 }
 
 export interface TicketSLAState {
@@ -104,6 +105,13 @@ export interface BlockReason {
     is_active: boolean;
     icon?: string;
     requires_resume_time?: boolean;
+}
+
+export interface UnblockReason {
+    code: string;
+    label: string;
+    icon?: string;
+    description?: string;
 }
 
 // View Model for v_staff_runner_tickets
@@ -156,6 +164,12 @@ export interface UpdateStatusParams {
     note: string;
     resume?: boolean;
     resumeAfter?: string; // ISO Date string
+}
+
+export interface UnblockTaskParams {
+    ticketId: string;
+    unblockReasonCode: string; // The reason for unblocking
+    note?: string;
 }
 
 export interface PingSupervisorParams {

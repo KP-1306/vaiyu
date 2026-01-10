@@ -8,10 +8,14 @@ import type {
     CompleteTaskParams,
     BlockTaskParams,
     UpdateStatusParams,
+    UnblockTaskParams,
     PingSupervisorParams,
+
     StaffRunnerTicket,
-    BlockReason
+    BlockReason,
+    UnblockReason
 } from '../types/ticket';
+
 
 /**
  * Snapshot wrapper returned to UI.
@@ -180,99 +184,93 @@ export const ticketService = {
      * Task lifecycle actions
      * ============================================================ */
     async startTask({ ticketId, note }: StartTaskParams) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('Not authenticated');
-
-        const { data: member } = await supabase
-            .from('hotel_members')
-            .select('id')
-            .eq('user_id', user.id)
-            .single();
-
-        if (!member) throw new Error('Unauthorized');
-
-        const now = new Date().toISOString();
-
+        // Use RPC to bypass RLS and ensure atomic state transition
         const { data: ticket, error } = await supabase
-            .from('tickets')
-            .update({
-                status: 'IN_PROGRESS',
-                current_assignee_id: member.id,
-                updated_at: now
-            })
-            .eq('id', ticketId)
-            .select()
-            .single();
+            .rpc('start_task', {
+                p_ticket_id: ticketId,
+                p_comment: note
+            });
 
-        if (error) throw error;
-
-        await this.logEvent({
-            ticketId,
-            eventType: 'STARTED',
-            prevStatus: 'NEW',
-            newStatus: 'IN_PROGRESS',
-            comment: note
-        });
+        if (error) {
+            console.error('Start Task RPC Error:', error);
+            throw new Error(`Failed to start task: ${error.message}`);
+        }
 
         return ticket;
     },
 
     async completeTask({ ticketId, note }: CompleteTaskParams) {
-        const now = new Date().toISOString();
-
+        // Use RPC to bypass RLS and ensure atomic state transition
         const { data: ticket, error } = await supabase
-            .from('tickets')
-            .update({
-                status: 'COMPLETED',
-                completed_at: now,
-                updated_at: now
-            })
-            .eq('id', ticketId)
-            .select()
-            .single();
+            .rpc('complete_task', {
+                p_ticket_id: ticketId,
+                p_comment: note
+            });
 
-        if (error) throw error;
-
-        await this.logEvent({
-            ticketId,
-            eventType: 'COMPLETED',
-            prevStatus: 'IN_PROGRESS',
-            newStatus: 'COMPLETED',
-            comment: note
-        });
+        if (error) {
+            console.error('Complete Task RPC Error:', error);
+            throw new Error(`Failed to complete task: ${error.message}`);
+        }
 
         return ticket;
     },
 
     async blockTask({ ticketId, reasonCode, note, resumeAfter }: BlockTaskParams) {
-        const now = new Date().toISOString();
-
+        // Use RPC to bypass RLS and ensure atomic state transition
         const { data: ticket, error } = await supabase
-            .from('tickets')
-            .update({
-                status: 'BLOCKED',
-                reason_code: reasonCode,
-                updated_at: now
-            })
-            .eq('id', ticketId)
-            .select()
-            .single();
+            .rpc('block_task', {
+                p_ticket_id: ticketId,
+                p_reason_code: reasonCode,
+                p_comment: note,
+                p_resume_after: resumeAfter
+            });
 
-        if (error) throw error;
-
-        await this.logEvent({
-            ticketId,
-            eventType: 'BLOCKED',
-            prevStatus: 'IN_PROGRESS',
-            newStatus: 'BLOCKED',
-            reasonCode,
-            comment: note,
-            resumeAfter
-        });
+        if (error) {
+            console.error('Block Task RPC Error:', error);
+            throw new Error(`Failed to block task: ${error.message}`);
+        }
 
         return ticket;
     },
 
+    async unblockTask({ ticketId, unblockReasonCode, note }: UnblockTaskParams) {
+        // Use RPC to bypass RLS and ensure atomic state transition
+        const { data: ticket, error } = await supabase
+            .rpc('unblock_task', {
+                p_ticket_id: ticketId,
+                p_unblock_reason_code: unblockReasonCode,
+                p_comment: note
+            });
+
+        if (error) {
+            console.error('Unblock Task RPC Error:', error);
+            throw new Error(`Failed to unblock task: ${error.message}`);
+        }
+
+        return ticket;
+    },
+
+    async updateBlockTask({ ticketId, reasonCode, note, resumeAfter }: BlockTaskParams) {
+        // Re-using BlockTaskParams as it has same shape (ticketId, reasonCode, note, resumeAfter)
+        const { data: ticket, error } = await supabase
+            .rpc('update_block_task', {
+                p_ticket_id: ticketId,
+                p_reason_code: reasonCode,
+                p_comment: note,
+                p_resume_after: resumeAfter
+            });
+
+        if (error) {
+            console.error('Update Block Task RPC Error:', error);
+            throw new Error(`Failed to update block: ${error.message}`);
+        }
+
+        return ticket;
+    },
+
+    /**
+     * @deprecated Use unblockTask or updateBlockTask instead
+     */
     async updateBlockedStatus({ ticketId, reasonCode, note, resume, resumeAfter }: UpdateStatusParams) {
         const now = new Date().toISOString();
 
@@ -349,5 +347,30 @@ export const ticketService = {
         const somethingElse = reasons.find(r => r.code === 'something_else');
 
         return somethingElse ? [...others, somethingElse] : others;
+    },
+
+    async getCompatibleUnblockReasons(blockReasonCode: string): Promise<UnblockReason[]> {
+        // Fetch unblock reasons compatible with the specific block reason
+        // Join with definition table to get labels/icons
+        const { data, error } = await supabase
+            .from('block_unblock_compatibility')
+            .select(`
+                unblock_reason:unblock_reasons!inner (
+                    code,
+                    label,
+                    icon,
+                    description
+                )
+            `)
+            .eq('block_reason_code', blockReasonCode);
+
+        if (error) {
+            console.error('Error fetching compatible unblock reasons:', error);
+            return [];
+        }
+
+        // Map nested response to flat array
+        return data.map((item: any) => item.unblock_reason) as UnblockReason[];
     }
+
 };

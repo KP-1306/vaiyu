@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { ticketService } from "../services/ticketService";
 import type { Ticket, StaffRunnerTicket, BlockReason, BlockReasonCode, UnblockReason } from "../types/ticket";
@@ -7,8 +6,7 @@ import { getSLAStatus, formatTimeRemaining, getSLAColor } from "../utils/sla";
 
 
 export default function StaffTaskManager() {
-    const [searchParams] = useSearchParams();
-    const hotelId = searchParams.get("hotel");
+    const [hotelId, setHotelId] = useState<string | null>(null);
 
     const [newTasks, setNewTasks] = useState<StaffRunnerTicket[]>([]);
     const [inProgressTasks, setInProgressTasks] = useState<StaffRunnerTicket[]>([]);
@@ -30,11 +28,62 @@ export default function StaffTaskManager() {
 
     const [tick, setTick] = useState(0);
 
+    // Derive hotel_id from authenticated staff member
+    useEffect(() => {
+        async function fetchHotelContext() {
+            try {
+                console.log('[StaffTaskManager] Fetching hotel context...');
+                const { data: { user } } = await supabase.auth.getUser();
+                console.log('[StaffTaskManager] User:', user?.id);
+
+                if (!user) {
+                    setError('Not authenticated');
+                    setLoading(false);
+                    return;
+                }
+
+                // Get hotel_id from hotel_members via role tables
+                // Join: hotel_members -> hotel_member_roles -> hotel_roles
+                const { data: members, error: memberError } = await supabase
+                    .from('hotel_members')
+                    .select(`
+                        hotel_id,
+                        hotel_member_roles!inner (
+                            hotel_roles!inner (
+                                code
+                            )
+                        )
+                    `)
+                    .eq('user_id', user.id)
+                    .eq('is_active', true)
+                    .eq('hotel_member_roles.hotel_roles.code', 'STAFF')
+                    .eq('hotel_member_roles.hotel_roles.is_active', true);
+
+                console.log('[StaffTaskManager] Member query result:', { members, memberError });
+
+                if (memberError || !members || members.length === 0) {
+                    setError('Staff member not found or not active');
+                    setLoading(false);
+                    return;
+                }
+
+                // Take the first hotel (staff should only have one)
+                const hotelId = members[0].hotel_id;
+                console.log('[StaffTaskManager] Setting hotel_id:', hotelId);
+                setHotelId(hotelId);
+            } catch (err: any) {
+                console.error('[StaffTaskManager] Error fetching hotel context:', err);
+                setError(err.message);
+                setLoading(false);
+            }
+        }
+
+        fetchHotelContext();
+    }, []);
+
     const fetchTasks = useCallback(async () => {
         if (!hotelId) {
-            setError("Missing hotel context. Please access this page with ?hotel=<hotel-id>");
-            setLoading(false);
-            return;
+            return; // Wait for hotel context to load
         }
 
         try {
@@ -57,6 +106,9 @@ export default function StaffTaskManager() {
     }, []);
 
     useEffect(() => {
+        // Wait for hotel context to load
+        if (!hotelId) return;
+
         fetchTasks();
         fetchReasons();
 

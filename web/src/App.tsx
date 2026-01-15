@@ -343,6 +343,7 @@ const Rewards = optionalFromGlob(
 
 const GuestDashboard = lazy(() => import("./routes/GuestDashboard"));
 const Stay = lazy(() => import("./routes/Stay"));
+const MyRequests = lazy(() => import("./routes/MyRequests"));
 const Checkout = lazy(() => import("./routes/Checkout"));
 
 const OwnerHome = lazy(() => import("./routes/OwnerHome"));
@@ -579,6 +580,7 @@ export default function App() {
 
             {/* Stay + checkout */}
             <Route path="/stay/:id" element={<Stay />} />
+            <Route path="/stay/:code/requests" element={<MyRequests />} />
             {/* Support both /checkout/:code and /checkout */}
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/checkout/:code" element={<Checkout />} />

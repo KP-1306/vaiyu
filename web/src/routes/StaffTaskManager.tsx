@@ -26,6 +26,7 @@ export default function StaffTaskManager() {
     const [showCompleteModal, setShowCompleteModal] = useState(false);
     const [showUpdateStatusModal, setShowUpdateStatusModal] = useState(false);
     const [showResumeModal, setShowResumeModal] = useState(false);
+    const [showRequestSupervisorModal, setShowRequestSupervisorModal] = useState(false);
 
     const [tick, setTick] = useState(0);
 
@@ -182,13 +183,7 @@ export default function StaffTaskManager() {
                                         Update Block
                                     </button>
                                     <button
-                                        onClick={async () => {
-                                            await ticketService.pingSupervisor({
-                                                ticketId: task.ticket_id,
-                                                note: 'Staff requested assistance'
-                                            });
-                                            alert('Supervisor pinged successfully');
-                                        }}
+                                        onClick={() => openModal(task, setShowRequestSupervisorModal)}
                                         className="bg-transparent text-gray-400 py-3 px-4 rounded-xl font-semibold text-xs tracking-wider border border-slate-700 hover:bg-slate-800 hover:text-gray-200 transition-colors"
                                     >
                                         Request Supervisor
@@ -211,6 +206,7 @@ export default function StaffTaskManager() {
             {showUpdateStatusModal && selectedTask && <UpdateStatusModal task={selectedTask} reasons={blockReasons}
                 onClose={() => setShowUpdateStatusModal(false)} />}
             {showResumeModal && selectedTask && <ResumeTaskModal task={selectedTask} onClose={() => setShowResumeModal(false)} onSuccess={fetchTasks} />}
+            {showRequestSupervisorModal && selectedTask && <RequestSupervisorModal task={selectedTask} onClose={() => setShowRequestSupervisorModal(false)} />}
         </div>
     );
 }
@@ -255,22 +251,45 @@ function TaskCard({ task, fetchedAt, variant, actions }: TaskCardProps) {
     };
 
     const currentStyle = styles[variant];
+    const [showInfo, setShowInfo] = useState(false);
+
+
 
     return (
         <div
-            className={`${currentStyle.border} rounded-r-3xl rounded-l-md p-6 shadow-2xl transition-all hover:scale-[1.01]`}
+            className={`relative group ${currentStyle.border} rounded-r-3xl rounded-l-md p-6 shadow-2xl transition-all duration-200 hover:scale-[1.01] overflow-visible`}
             style={{ background: currentStyle.bgGlow }}
         >
+            {/* INFO ICON TRIGGER (Top Right) */}
+            <div
+                className="absolute top-2 right-2 z-40 cursor-pointer text-white/40 hover:text-white transition-colors p-[0.1rem]"
+                onMouseEnter={() => setShowInfo(true)}
+                onMouseLeave={() => setShowInfo(false)}
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                    <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm8.706-1.442c1.146-.573 2.437.463 2.126 1.706l-.709 2.836.042-.02a.75.75 0 01.67 1.34l-.04.022c-1.147.573-2.438-.463-2.127-1.706l.71-2.836-.042.02a.75.75 0 01-.671-1.34l.041-.022zM12 9a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
+                </svg>
+            </div>
+
+            {/* 1. LAYER: SUMMARY (Default Visible) */}
+            {/* MAIN CONTENT (Always Visible) */}
             <div className="flex items-start justify-between mb-6">
-                <div className="flex-1">
+                <div className="flex-1 pr-4">
                     {task.location_label && (
-                        <h2 className="text-2xl font-bold text-white mb-1">{task.location_label}</h2>
+                        <h2 className="text-2xl font-bold text-white mb-1 leading-tight">{task.location_label}</h2>
                     )}
-                    <h3 className="text-xl font-medium mb-3 text-white/90">{task.title}</h3>
+                    <h3 className="text-xl font-medium mb-3 text-white/90 leading-snug">{task.title}</h3>
                     <div className="flex items-center gap-2">
                         <div className={`w-2 h-2 rounded-full ${currentStyle.dot}`}></div>
-                        <p className={`text-sm ${currentStyle.text}`}>
-                            {task.status === 'BLOCKED' ? 'Blocked' : (task.status === 'NEW' ? 'New task' : 'In progress')}
+                        <p className={`text-sm ${currentStyle.text} font-medium tracking-wide`}>
+                            {task.status === 'BLOCKED' ? (
+                                task.reason_code === 'supervisor_approval' ? (
+                                    <span className="flex items-center gap-2">
+                                        WAITING FOR SUPERVISOR
+                                        <span className="animate-pulse w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                                    </span>
+                                ) : 'Blocked'
+                            ) : (task.status === 'NEW' ? 'New task' : 'In progress')}
                         </p>
                     </div>
 
@@ -305,14 +324,60 @@ function TaskCard({ task, fetchedAt, variant, actions }: TaskCardProps) {
                         })()}
                     </div>
 
-                    <p className="text-xs text-white/50 mt-2">{task.department_name}</p>
+                    <p className="text-xs text-white/50 mt-2 font-medium">{task.department_name}</p>
                 </div>
                 <CircularTimerView task={task} fetchedAt={fetchedAt} />
             </div>
-            {actions}
+
+            {/* DETAILS OVERLAY (Triggered by Icon) */}
+            <div
+                className={`
+                    absolute bottom-4 right-4 z-50 w-72 p-5 flex flex-col gap-3 rounded-2xl shadow-2xl border border-white/10
+                    bg-[#1a1a1a]/95 backdrop-blur-md transition-all duration-200 pointer-events-none transform origin-bottom-right
+                    ${showInfo ? 'opacity-100 scale-100 pointer-events-auto' : 'opacity-0 scale-95 translate-y-2'}
+                `}
+                onMouseEnter={() => setShowInfo(true)}
+                onMouseLeave={() => setShowInfo(false)}
+            >
+                <div>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Description</span>
+                    <p className="text-sm text-white/95 leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto custom-scrollbar">
+                        {task.description || "No specific details provided."}
+                    </p>
+                </div>
+
+                <div className="h-px bg-white/10 w-full my-1"></div>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Created</span>
+                        <div className="text-xs text-gray-300">
+                            {new Date(task.created_at).toLocaleString([], {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: false
+                            })}
+                        </div>
+                    </div>
+                    <div>
+                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Requestor</span>
+                        <div className="text-xs text-gray-300">
+                            {task.requested_by}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Actions always on top/bottom */}
+            <div className="relative z-30">
+                {actions}
+            </div>
         </div>
     );
 }
+
 
 interface CircularTimerViewProps {
     task: StaffRunnerTicket;
@@ -663,6 +728,56 @@ function BlockTaskModal({ task, reasons, onClose, onSuccess }: {
                         </div>
                     );
                 })}
+            </div>
+        </ModalLayout>
+    );
+}
+
+
+function RequestSupervisorModal({ task, onClose }: { task: Ticket, onClose: () => void }) {
+    const [note, setNote] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const handleRequest = async () => {
+        setIsSubmitting(true);
+        try {
+            await ticketService.requestSupervisor({
+                ticketId: task.id,
+                note
+            });
+            onClose();
+        } catch (e: any) {
+            alert(e.message);
+            setIsSubmitting(false);
+        }
+    };
+
+    return (
+        <ModalLayout
+            title="Request Supervisor"
+            taskTitle={task.title}
+            onClose={onClose}
+            footer={
+                <div className="flex flex-col gap-4">
+                    <div className="flex gap-3">
+                        <Button onClick={onClose} variant="secondary">Cancel</Button>
+                        <Button onClick={handleRequest} disabled={isSubmitting} variant="primary">
+                            {isSubmitting ? 'Requesting...' : 'Confirm Request'}
+                        </Button>
+                    </div>
+                </div>
+            }
+        >
+            <div className="space-y-4">
+                <p className="text-gray-400 text-sm">Please describe why you need supervisor assistance:</p>
+                <textarea
+                    placeholder="E.g. I cannot access the room..."
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    rows={3}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white/20 text-sm"
+                    autoFocus
+                />
             </div>
         </ModalLayout>
     );

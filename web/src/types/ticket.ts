@@ -136,8 +136,10 @@ export interface StaffRunnerTicket {
     location_label: string | null;
 
     // For UI compatibility where needed (optional fields usually joined)
+    reason_code?: string | null;
     block_reason_code?: string;
     room_id?: string;
+    description: string | null;
 }
 
 // API Parameter Types

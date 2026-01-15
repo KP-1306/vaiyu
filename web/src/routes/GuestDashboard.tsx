@@ -167,8 +167,8 @@ export default function GuestDashboard() {
       setEmail(u?.email ?? null);
       setAuthName(
         (u?.user_metadata?.name as string) ??
-          u?.user_metadata?.full_name ??
-          null,
+        u?.user_metadata?.full_name ??
+        null,
       );
 
       if (u?.id) {
@@ -189,8 +189,8 @@ export default function GuestDashboard() {
           setEmail(user?.email ?? null);
           setAuthName(
             (user?.user_metadata?.name as string) ??
-              user?.user_metadata?.full_name ??
-              null,
+            user?.user_metadata?.full_name ??
+            null,
           );
 
           if (user?.id) {
@@ -305,11 +305,11 @@ export default function GuestDashboard() {
       (j: any) =>
         Array.isArray(j?.items)
           ? (j.items as any[]).map((row) => ({
-              year: Number(row.year),
-              total: Number(row.total ?? row.sum ?? 0),
-              monthly: row.monthly ?? row.months ?? undefined,
-              categories: row.categories ?? undefined,
-            }))
+            year: Number(row.year),
+            total: Number(row.total ?? row.sum ?? 0),
+            monthly: row.monthly ?? row.months ?? undefined,
+            categories: row.categories ?? undefined,
+          }))
           : [],
       demoSpend,
       setSpend,
@@ -802,11 +802,10 @@ export default function GuestDashboard() {
                             onClick={() =>
                               setSpendMode(tab.key as "this" | "last" | "all")
                             }
-                            className={`px-2.5 py-0.5 rounded-full ${
-                              spendMode === tab.key
+                            className={`px-2.5 py-0.5 rounded-full ${spendMode === tab.key
                                 ? "bg-white shadow-sm text-slate-900"
                                 : "text-slate-500"
-                            }`}
+                              }`}
                           >
                             {tab.label}
                           </button>
@@ -924,9 +923,8 @@ export default function GuestDashboard() {
               value={String(stats.totalStays)}
               sublabel={
                 stats.totalStays
-                  ? `${stats.cityCount} cities · ${stats.countryCount} ${
-                      stats.countryCount === 1 ? "country" : "countries"
-                    }`
+                  ? `${stats.cityCount} cities · ${stats.countryCount} ${stats.countryCount === 1 ? "country" : "countries"
+                  }`
                   : "Your first trip awaits"
               }
               emoji="🧳"
@@ -950,9 +948,8 @@ export default function GuestDashboard() {
             <StatBadge
               label="Rewards balance"
               value={fmtMoney(stats.totalCredits)}
-              sublabel={`${
-                totalReferralCredits ? "Active credits" : "Invite friends to earn"
-              }`}
+              sublabel={`${totalReferralCredits ? "Active credits" : "Invite friends to earn"
+                }`}
               emoji="🎁"
             />
             <StatBadge
@@ -1055,9 +1052,8 @@ export default function GuestDashboard() {
                   value={fmtMoney(Math.round(avgSpendPerTrip || 0))}
                   hint={
                     stats.totalStays
-                      ? `${stats.totalStays} trip${
-                          stats.totalStays === 1 ? "" : "s"
-                        } so far`
+                      ? `${stats.totalStays} trip${stats.totalStays === 1 ? "" : "s"
+                      } so far`
                       : "Will appear after your first stay"
                   }
                 />
@@ -1350,7 +1346,6 @@ function getCountdown(checkIn: string) {
  */
 function buildStayLink(stay: any) {
   const bookingCode = getStayBookingCode(stay);
-  const hotelId = getStayHotelId(stay);
   const slug = getStayPropertySlug(stay);
 
   const idForPath =
@@ -1361,7 +1356,7 @@ function buildStayLink(stay: any) {
   const base = `/stay/${encodeURIComponent(idForPath)}`;
 
   const params = new URLSearchParams();
-  if (hotelId) params.set("hotelId", hotelId);
+  // Don't add hotelId - Stay page will derive it from stay code
 
   if (bookingCode) {
     params.set("bookingCode", bookingCode);
@@ -1541,8 +1536,8 @@ function GuestButton({
     variant === "primary"
       ? "bg-slate-900 text-white border-slate-900 hover:bg-slate-800"
       : variant === "soft"
-      ? "bg-white text-slate-900 border-slate-200 hover:bg-slate-50"
-      : "bg-transparent text-slate-700 border-transparent hover:bg-slate-100";
+        ? "bg-white text-slate-900 border-slate-200 hover:bg-slate-50"
+        : "bg-transparent text-slate-700 border-transparent hover:bg-slate-100";
 
   if (to && !onClick) {
     return (
@@ -1907,11 +1902,10 @@ function ExploreStaysQuickAction({
                   key={c.key}
                   type="button"
                   onClick={() => setCityFilter(c.key)}
-                  className={`px-2 py-0.5 rounded-full ${
-                    cityFilter === c.key
+                  className={`px-2 py-0.5 rounded-full ${cityFilter === c.key
                       ? "bg-white shadow-sm text-slate-900"
                       : "text-slate-500"
-                  }`}
+                    }`}
                 >
                   {c.label}
                 </button>
@@ -2006,8 +2000,8 @@ async function jsonWithTimeout(url: string, ms = 5000) {
       if (IS_SUPABASE_EDGE && shouldAttachAuthTo(url)) {
         const anonKey =
           (import.meta as any).env?.VITE_SUPABASE_ANON_KEY as
-            | string
-            | undefined;
+          | string
+          | undefined;
         if (anonKey) {
           headers["apikey"] = anonKey;
         }
@@ -2171,9 +2165,8 @@ function demoReferrals(): any[] {
 function Empty({ text, small }: { text: string; small?: boolean }) {
   return (
     <div
-      className={`rounded-lg border border-dashed ${
-        small ? "p-3 text-xs" : "p-6 text-sm"
-      } text-gray-600 bg-gray-50`}
+      className={`rounded-lg border border-dashed ${small ? "p-3 text-xs" : "p-6 text-sm"
+        } text-gray-600 bg-gray-50`}
     >
       {text}
     </div>

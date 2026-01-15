@@ -299,6 +299,21 @@ export const ticketService = {
         });
     },
 
+    async requestSupervisor({ ticketId, note }: PingSupervisorParams) {
+        const { data: result, error } = await supabase
+            .rpc('request_supervisor', {
+                p_ticket_id: ticketId,
+                p_comment: note
+            });
+
+        if (error) {
+            console.error('Request Supervisor RPC Error:', error);
+            throw new Error(`Failed to request supervisor: ${error.message}`);
+        }
+
+        return result;
+    },
+
     async pingSupervisor({ ticketId, note }: PingSupervisorParams) {
         await this.logEvent({
             ticketId,

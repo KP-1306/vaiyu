@@ -378,6 +378,15 @@ FOREIGN KEY (room_id)
 REFERENCES rooms(id)
 ON DELETE RESTRICT;
 
+ALTER TABLE tickets
+    ADD COLUMN stay_id UUID
+        REFERENCES stays(id)
+            ON DELETE RESTRICT;
+
+CREATE INDEX idx_tickets_stay
+    ON tickets (stay_id);
+
+
 
 -- ============================================================
 -- 🔟 Ticket SLA Runtime State
@@ -488,23 +497,16 @@ ALTER TABLE public.ticket_events
 ALTER TABLE public.ticket_events
 DROP CONSTRAINT ticket_events_event_type_check;
 
-ALTER TABLE public.ticket_events
+ALTER TABLE ticket_events
     ADD CONSTRAINT ticket_events_event_type_check
         CHECK (
             event_type IN (
-                           'CREATED',
-                           'ASSIGNED',
-                           'REASSIGNED',
-                           'STARTED',
-                           'BLOCKED',
-                           'UNBLOCKED',
-                           'COMPLETED',
-                           'ESCALATED',
-                           'RESET',
-                           'REOPENED'
+                           'CREATED','ASSIGNED','REASSIGNED','STARTED',
+                           'BLOCKED','UNBLOCKED','COMPLETED',
+                           'ESCALATED','RESET','REOPENED',
+                           'GUEST_COMMENT'
                 )
             );
-
 -- ============================================================
 -- 1️⃣2️⃣ Block Reasons (global reference data)
 -- ============================================================
@@ -527,6 +529,13 @@ ON block_reasons (is_active);
 ALTER TABLE block_reasons
 ADD COLUMN requires_resume_time BOOLEAN NOT NULL DEFAULT false;
 
+---stay
+ALTER TABLE stays
+    ADD COLUMN booking_code TEXT;
+
+CREATE UNIQUE INDEX stays_booking_code_unique
+    ON stays (booking_code)
+    WHERE booking_code IS NOT NULL;
 
 -- ============================================================
 -- END OF v1_production.sql

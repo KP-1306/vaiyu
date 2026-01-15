@@ -31,6 +31,9 @@ SELECT
   -- Status
   t.status,
 
+  -- Reason Code (Critical for Supervisor actions)
+  t.reason_code,
+
   -- Created time
   t.created_at
 

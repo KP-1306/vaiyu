@@ -224,6 +224,12 @@ export default function StayQuickLinks({
           subtitle="Use credits or vouchers"
           onClick={handleRewards}
         />
+        <Tile
+          icon="📋"
+          title="My requests"
+          subtitle="Track your service requests"
+          onClick={() => safeNavigate(`/stay/${cleanStayCode}/requests`)}
+        />
       </div>
     </section>
   );

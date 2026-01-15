@@ -14,11 +14,14 @@ import {
   updateTicket,
   getSupervisorTaskHeader,
   getTicketTimeline,
+  unblockTask,
+  reassignTask,
   IS_SUPABASE_FUNCTIONS,
   type Room,
 } from "../lib/api";
 import { connectEvents } from "../lib/sse";
 import { supabase } from "../lib/supabase";
+import { StaffPicker } from "../components/StaffPicker";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -43,6 +46,7 @@ type Ticket = {
   priority?: TicketPriority;
   mins_remaining?: number | null;
   assignee_name?: string;
+  reason_code?: string;
 };
 
 type Order = {
@@ -132,6 +136,7 @@ function normalizeTicket(raw: any): Ticket {
     assignee_name,
     priority: raw?.priority,
     mins_remaining,
+    reason_code: raw?.reason_code,
   };
 }
 
@@ -361,6 +366,10 @@ export default function OpsBoard() {
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
   const [loadingStaff, setLoadingStaff] = useState(true);
 
+  // Staff picker for reassignment
+  const [showStaffPicker, setShowStaffPicker] = useState(false);
+  const [reassignTicket, setReassignTicket] = useState<Ticket | null>(null);
+
   const refresh = useCallback(async () => {
     if (!hotelId) {
       console.log("OpsBoard: No hotelId yet");
@@ -484,7 +493,16 @@ export default function OpsBoard() {
         ticket_created: () => refresh(),
         ticket_updated: () => refresh(),
       });
-      return () => off();
+
+      // Auto-refresh polling every 10 seconds as fallback
+      const pollInterval = setInterval(() => {
+        refresh();
+      }, 10000); // 10 seconds
+
+      return () => {
+        off();
+        clearInterval(pollInterval);
+      };
     }
   }, [initialised, hotelId, refresh]);
 
@@ -525,6 +543,57 @@ export default function OpsBoard() {
   }, [selectedRoom, roomStateMap, filterStatus, activeTickets]);
 
   const handleTicketAction = async (t: Ticket, action: string) => {
+    // Handle supervisor approve action
+    if (action === 'approve') {
+      // Validation: ensure task is blocked with supervisor_approval
+      if (t.status !== 'Paused') {
+        alert('Cannot approve: Task is not blocked');
+        return;
+      }
+      if (t.reason_code !== 'supervisor_approval') {
+        alert('Cannot approve: Task is not waiting for supervisor approval');
+        return;
+      }
+
+      try {
+        // Optimistic update: remove from UI immediately
+        setTickets(prev => prev.filter(ticket => ticket.id !== t.id));
+
+        // Call unblock API with SUPERVISOR_APPROVED reason
+        await unblockTask(t.id, 'SUPERVISOR_APPROVED', 'Approved by supervisor');
+
+        // Success - refresh to get updated state
+        refresh();
+      } catch (error) {
+        console.error('Failed to approve task:', error);
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        alert(`Failed to approve task: ${errorMsg}\n\nPlease check the console for details.`);
+
+        // Revert optimistic update by refreshing
+        refresh();
+      }
+      return;
+    }
+
+    // Handle reassign action
+    if (action === 'reassign') {
+      // Validation: ensure task is blocked with supervisor_approval
+      if (t.status !== 'Paused') {
+        alert('Cannot reassign: Task is not blocked');
+        return;
+      }
+      if (t.reason_code !== 'supervisor_approval') {
+        alert('Cannot reassign: Task is not waiting for supervisor approval');
+        return;
+      }
+
+      // Show staff picker
+      setReassignTicket(t);
+      setShowStaffPicker(true);
+      return;
+    }
+
+    // Existing action handlers (start, resolve)
     let nextStatus: TicketStatus = t.status;
     let payload: any = {};
 
@@ -546,6 +615,41 @@ export default function OpsBoard() {
       refresh();
     } catch (e) {
       console.error(e);
+      refresh();
+    }
+  };
+
+  const handleReassign = async (newStaffId: string) => {
+    if (!reassignTicket || !hotelId) return;
+
+    try {
+      // Optimistic update: remove from UI immediately
+      setTickets(prev => prev.filter(t => t.id !== reassignTicket.id));
+      setShowStaffPicker(false);
+      setReassignTicket(null);
+
+      // Get current user ID (supervisor) - for now using a placeholder
+      // TODO: Get actual supervisor ID from auth context
+      const supervisorId = 'placeholder-supervisor-id';
+
+      // Call reassign API
+      await reassignTask(
+        reassignTicket.id,
+        newStaffId,
+        supervisorId,
+        'Reassigned by supervisor'
+      );
+
+      // Success - refresh to get updated state
+      refresh();
+    } catch (error) {
+      console.error('Failed to reassign task:', error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      alert(`Failed to reassign task: ${errorMsg}\n\nPlease check the console for details.`);
+
+      // Revert optimistic update by refreshing
+      setShowStaffPicker(false);
+      setReassignTicket(null);
       refresh();
     }
   };
@@ -649,184 +753,206 @@ export default function OpsBoard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8">
+      {/* Calculate supervisor tickets */}
+      {(() => {
+        const supervisorTickets = activeTickets.filter(t => t.reason_code === 'supervisor_approval' && t.status === 'Paused');
 
-        <div className="space-y-8">
-          {/* Room Grid Card */}
-          <div className="bg-[#0B0C10] border border-white/5 rounded-2xl p-8">
-            <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-6">Room Status</h2>
+        return (
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(400px,1fr)_300px_380px] gap-6">
 
-            <div className="flex justify-center">
-              {/* Dynamic Grid Layout */}
-              <div className="flex flex-col gap-2">
-                {floors.map(floor => (
-                  <div key={floor} className="flex gap-1 justify-center">
-                    {/* Only show rooms for this floor */}
-                    {rooms.filter(r => r.floor === floor).map(r => {
-                      const roomTickets = roomStateMap.get(r.number) || [];
+            <div className="space-y-8">
+              {/* Room Grid Card */}
+              <div className="bg-[#0B0C10] border border-white/5 rounded-2xl p-8">
+                <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-6">Room Status</h2>
 
-                      // Filter tickets based on current view to determine COLOR
-                      const relevantTickets = roomTickets.filter(t => {
-                        if (filterStatus === "All") return true;
-                        if (filterStatus === "New") return t.status === "Requested";
-                        if (filterStatus === "InProgress") return t.status === "InProgress" || t.status === "Accepted";
-                        if (filterStatus === "Blocked") return t.is_overdue || t.status === "Paused";
-                        return true;
-                      });
+                <div className="flex justify-center">
+                  {/* Dynamic Grid Layout */}
+                  <div className="flex flex-col gap-2">
+                    {floors.map(floor => (
+                      <div key={floor} className="flex gap-1 justify-center">
+                        {/* Only show rooms for this floor */}
+                        {rooms.filter(r => r.floor === floor).map(r => {
+                          const roomTickets = roomStateMap.get(r.number) || [];
 
-                      const primaryTicket = relevantTickets.length > 0 ? relevantTickets[0] : roomTickets[0];
-                      // Only show RED/BLOCKED if the RELEVANT tickets are blocked
-                      // (Unless filter is All, in which case any block in room makes it red)
-                      const isBlocked = relevantTickets.some(t => t.is_overdue || t.status === "Paused");
+                          // Filter tickets based on current view to determine COLOR
+                          const relevantTickets = roomTickets.filter(t => {
+                            if (filterStatus === "All") return true;
+                            if (filterStatus === "New") return t.status === "Requested";
+                            if (filterStatus === "InProgress") return t.status === "InProgress" || t.status === "Accepted";
+                            if (filterStatus === "Blocked") return t.is_overdue || t.status === "Paused";
+                            return true;
+                          });
 
-                      // Match check for dimming (still needed if we want to support dimming in future, or for logic consistency)
-                      const isMatch = relevantTickets.length > 0;
+                          const primaryTicket = relevantTickets.length > 0 ? relevantTickets[0] : roomTickets[0];
+                          // Only show RED/BLOCKED if the RELEVANT tickets are blocked
+                          // (Unless filter is All, in which case any block in room makes it red)
+                          const isBlocked = relevantTickets.some(t => t.is_overdue || t.status === "Paused");
 
-                      return (
-                        <RoomCell
-                          key={r.number}
-                          room={r.number}
-                          status={primaryTicket?.status || null}
-                          hasActiveTicket={!!roomTickets.length} // Keep bold if ANY ticket exists
-                          isBlocked={isBlocked}
-                          dimmed={!isMatch && filterStatus !== "All"} // Only dim if filter active and no match
-                          onClick={() => setSelectedRoom(r.number)}
-                        />
-                      );
-                    })}
+                          // Match check for dimming (still needed if we want to support dimming in future, or for logic consistency)
+                          const isMatch = relevantTickets.length > 0;
+
+                          return (
+                            <RoomCell
+                              key={r.number}
+                              room={r.number}
+                              status={primaryTicket?.status || null}
+                              hasActiveTicket={!!roomTickets.length} // Keep bold if ANY ticket exists
+                              isBlocked={isBlocked}
+                              dimmed={!isMatch && filterStatus !== "All"} // Only dim if filter active and no match
+                              onClick={() => setSelectedRoom(r.number)}
+                            />
+                          );
+                        })}
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
               </div>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Tasks At Risk */}
-            <div className="bg-[#0B0C10] border border-white/5 rounded-2xl p-6 min-h-[300px]">
-              <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-6">Tasks at Risk</h2>
-              <div className="space-y-4">
-                {tickets.filter(t => t.is_overdue && t.status !== "Done").slice(0, 5).map(t => (
-                  <div key={t.id} className="flex items-center gap-4 bg-[#111218] p-3 rounded-lg border border-white/5">
-                    <span className={`w-8 h-8 flex items-center justify-center rounded bg-red-500/10 text-red-500 font-bold text-xs`}>
-                      !
-                    </span>
-                    <div>
-                      <div className="text-white text-sm font-semibold">Room {t.room}</div>
-                      <div className="text-gray-500 text-xs">{t.service_key}</div>
-                    </div>
-                    <div className="ml-auto text-xs text-red-400 font-mono font-bold">
-                      {Math.abs(t.mins_remaining || 0)}m
-                    </div>
-                  </div>
-                ))}
-                {!tickets.some(t => t.is_overdue && t.status !== "Done") && (
-                  <div className="text-gray-700 text-xs italic">No overdue tasks.</div>
-                )}
-              </div>
-            </div>
-
-            {/* Staff Activity */}
-            <div className="bg-[#0B0C10] border border-white/5 rounded-2xl p-6 min-h-[300px]">
-              <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-6">Staff Activity</h2>
-              {loadingStaff ? (
-                <div className="text-gray-500 text-xs">Loading staff...</div>
-              ) : staffMembers.length === 0 ? (
-                <div className="text-gray-500 text-xs">No active staff found.</div>
-              ) : (
-                <div className="space-y-5">
-                  {staffMembers.map((staff, index) => {
-                    // Generate consistent colors for each staff member
-                    const colors = ["#ef4444", "#eab308", "#22c55e", "#3b82f6", "#8b5cf6", "#f97316"];
-                    const color = colors[index % colors.length];
-
-                    // Mock room count for now (you could calculate this from active tickets)
-                    const roomsAssigned = Math.floor(Math.random() * 8) + 1;
-
-                    return (
-                      <div key={staff.id}>
-                        <div className="flex justify-between text-xs mb-2 px-1">
-                          <span className="font-semibold text-gray-300">{staff.full_name}</span>
-                          <span className="text-gray-500 font-mono">{roomsAssigned} rooms</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Tasks At Risk */}
+                <div className="bg-[#0B0C10] border border-white/5 rounded-2xl p-6 min-h-[300px]">
+                  <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-6">Tasks at Risk</h2>
+                  <div className="space-y-4">
+                    {tickets.filter(t => t.is_overdue && t.status !== "Done").slice(0, 5).map(t => (
+                      <div key={t.id} className="flex items-center gap-4 bg-[#111218] p-3 rounded-lg border border-white/5">
+                        <span className={`w-8 h-8 flex items-center justify-center rounded bg-red-500/10 text-red-500 font-bold text-xs`}>
+                          !
+                        </span>
+                        <div>
+                          <div className="text-white text-sm font-semibold">Room {t.room}</div>
+                          <div className="text-gray-500 text-xs">{t.service_key}</div>
                         </div>
-                        <div className="h-1.5 w-full bg-[#1A1C25] rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full"
-                            style={{ width: `${(roomsAssigned / 10) * 100}%`, backgroundColor: color }}
-                          />
+                        <div className="ml-auto text-xs text-red-400 font-mono font-bold">
+                          {Math.abs(t.mins_remaining || 0)}m
                         </div>
                       </div>
-                    );
-                  })}
+                    ))}
+                    {!tickets.some(t => t.is_overdue && t.status !== "Done") && (
+                      <div className="text-gray-700 text-xs italic">No overdue tasks.</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Staff Activity */}
+                <div className="bg-[#0B0C10] border border-white/5 rounded-2xl p-6 min-h-[300px]">
+                  <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-6">Staff Activity</h2>
+                  {loadingStaff ? (
+                    <div className="text-gray-500 text-xs">Loading staff...</div>
+                  ) : staffMembers.length === 0 ? (
+                    <div className="text-gray-500 text-xs">No active staff found.</div>
+                  ) : (
+                    <div className="space-y-5">
+                      {staffMembers.map((staff, index) => {
+                        // Generate consistent colors for each staff member
+                        const colors = ["#ef4444", "#eab308", "#22c55e", "#3b82f6", "#8b5cf6", "#f97316"];
+                        const color = colors[index % colors.length];
+
+                        // Mock room count for now (you could calculate this from active tickets)
+                        const roomsAssigned = Math.floor(Math.random() * 8) + 1;
+
+                        return (
+                          <div key={staff.id}>
+                            <div className="flex justify-between text-xs mb-2 px-1">
+                              <span className="font-semibold text-gray-300">{staff.full_name}</span>
+                              <span className="text-gray-500 font-mono">{roomsAssigned} rooms</span>
+                            </div>
+                            <div className="h-1.5 w-full bg-[#1A1C25] rounded-full overflow-hidden">
+                              <div
+                                className="h-full rounded-full"
+                                style={{ width: `${(roomsAssigned / 10) * 100}%`, backgroundColor: color }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* ALERTS PANEL - MIDDLE COLUMN */}
+            <div className="bg-[#0B0C10] border border-red-900/40 rounded-2xl p-6 h-fit sticky top-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                  </div>
+                  <h2 className="text-sm font-bold text-red-400 uppercase tracking-widest">Alerts</h2>
+                </div>
+                <span className="text-[10px] text-red-300 font-mono bg-red-500/10 px-2 py-1 rounded">
+                  {supervisorTickets.length}
+                </span>
+              </div>
+
+              {supervisorTickets.length === 0 ? (
+                <div className="p-6 rounded-xl bg-white/5 border border-dashed border-white/10 text-center">
+                  <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-gray-500 mx-auto mb-2">
+                    ✓
+                  </div>
+                  <p className="text-gray-500 text-xs">No supervisor requests</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="bg-red-900/10 px-3 py-2 rounded-lg border border-red-900/20">
+                    <h3 className="text-[10px] font-bold text-red-300 uppercase tracking-widest mb-1">Waiting for Supervisor</h3>
+                    <div className="text-[10px] text-red-400/70">Requires immediate attention</div>
+                  </div>
+                  <div className="space-y-2">
+                    {supervisorTickets.map(t => (
+                      <div key={t.id} className="bg-[#111218] border border-red-900/20 rounded-lg p-3 hover:border-red-900/40 transition-colors cursor-pointer">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="text-xs font-semibold text-white">Room {t.room}</div>
+                          <div className="text-[10px] text-red-400 font-mono">{t.service_key}</div>
+                        </div>
+                        <div className="text-[10px] text-gray-500 mb-2">Reason: Supervisor approval</div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleTicketAction(t, 'approve')}
+                            className="flex-1 py-1.5 bg-green-900/30 hover:bg-green-900/50 text-green-400 text-[10px] font-bold uppercase rounded border border-green-500/30 transition"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => handleTicketAction(t, 'reassign')}
+                            className="flex-1 py-1.5 bg-[#1A1C25] hover:bg-white/10 text-gray-300 text-[10px] font-bold uppercase rounded border border-white/10 transition"
+                          >
+                            Reassign
+                          </button>
+                        </div>
+                      </div>
+                    ))}</div>
                 </div>
               )}
             </div>
-          </div>
-        </div>
 
-        <div className="bg-[#0B0C10] border border-white/5 rounded-2xl p-8 h-fit sticky top-6 w-[400px]">
-          <TaskDetailsPanel
-            roomNumber={selectedRoom}
-            filterStatus={filterStatus}
-            tickets={selectedRoomTickets}
-            onAction={handleTicketAction}
-          />
-        </div>
-
-        {/* Debug Info */}
-        <div className="fixed bottom-0 left-0 right-0 bg-red-900/90 text-white text-xs p-2 font-mono flex justify-between z-50">
-          <div>
-            <strong>DEBUG:</strong> Hotel ID: {hotelId || "NULL"} |
-            Rooms: {rooms.length} |
-            Source: {rooms === GENERATED_ROOMS ? "FALLBACK (Static)" : "DB (Dynamic)"}
-          </div>
-          <div>
-            API: {IS_SUPABASE_FUNCTIONS ? "Func" : "Direct"} |
-            Status: {filterStatus} |
-            Loading: {loadingRooms ? "Yes" : "No"}
-          </div>
-        </div>
-
-        {
-          !hotelId && initialised && (
-            <div className="fixed inset-0 z-40 bg-black/80 flex items-center justify-center">
-              <div className="bg-[#1A1C25] text-white p-8 rounded-xl max-w-md text-center border border-white/10 shadow-2xl">
-                <h2 className="text-xl font-medium mb-2 text-red-400">No Hotel ID Found</h2>
-                <p className="mb-4 text-gray-400 text-sm">Could not determine the hotel context.</p>
-
-                {(debugMsg || "") && (
-                  <div className="mb-4 text-xs text-yellow-500/80 font-mono bg-yellow-900/20 p-2 rounded">
-                    {debugMsg}
-                  </div>
-                )}
-
-                <div className="flex flex-col gap-3">
-                  <button
-                    onClick={() => setSearchParams({ hotelId: '139c6002-bdd7-4924-9db4-16f14e283d89' })}
-                    className="w-full py-3 bg-white text-black font-bold rounded-lg hover:bg-gray-200 transition"
-                  >
-                    Load Tenant1 (Demo)
-                  </button>
-
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Or paste Hotel ID here..."
-                      className="w-full bg-[#111218] border border-white/20 rounded px-3 py-2 text-sm text-white focus:border-blue-500 outline-none"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          const val = (e.target as HTMLInputElement).value.trim();
-                          if (val) setSearchParams({ hotelId: val });
-                        }
-                      }}
-                    />
-                  </div>
-                </div>
-                <p className="text-xs text-gray-600 mt-3">ID: 139c6002-bdd7-4924-9db4-16f14e283d89</p>
-              </div>
+            {/* GLOBAL TASKS PANEL - RIGHT COLUMN */}
+            <div className="bg-[#0B0C10] border border-white/5 rounded-2xl p-8 h-fit sticky top-6">
+              <TaskDetailsPanel
+                roomNumber={selectedRoom}
+                filterStatus={filterStatus}
+                tickets={selectedRoomTickets}
+                onAction={handleTicketAction}
+              />
             </div>
-          )
-        }
-      </div>
+          </div>
+        );
+      })()}
+
+  {/* Staff Picker Modal */}
+  {showStaffPicker && reassignTicket && hotelId && (
+    <StaffPicker
+      hotelId={hotelId}
+      currentAssigneeId={reassignTicket.assignee_id}
+      onSelect={handleReassign}
+      onCancel={() => {
+        setShowStaffPicker(false);
+        setReassignTicket(null);
+      }}
+    />
+  )}
     </div>
   );
 }

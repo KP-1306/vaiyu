@@ -100,6 +100,7 @@ export type Service = {
   active?: boolean;
   hotel_id?: string | null;
   department_id?: string | null;
+  department_name?: string | null;
 };
 
 export type ReferralIdentifier = {
@@ -1370,9 +1371,14 @@ export async function getServices(hotelKey?: string | null) {
   // 1) Try direct Supabase read
   if (s && (!key || isId)) {
     try {
-      let query = s.from("services").select(
-        "id, hotel_id, key, label, sla_minutes, priority_weight, active, department_id"
-      );
+      // Query: Active Services only + JOIN Active Departments only
+      let query = s
+        .from("services")
+        .select(
+          "id, hotel_id, key, label, sla_minutes, priority_weight, active, department_id, departments!inner(name, is_active)"
+        )
+        .eq("active", true)
+        .eq("departments.is_active", true);
 
       if (key && isId) {
         query = query.eq("hotel_id", key);
@@ -1386,6 +1392,7 @@ export async function getServices(hotelKey?: string | null) {
 
       // Map the database response to match the Service type (label -> label_en)
       const items = (data || [])
+        // JS filtering not strictly needed now but safe to keep
         .filter((row) => row.active !== false)
         .map((row) => ({
           key: row.key,
@@ -1394,6 +1401,8 @@ export async function getServices(hotelKey?: string | null) {
           active: row.active,
           hotel_id: row.hotel_id,
           department_id: row.department_id,
+          // @ts-ignore
+          department_name: row.departments?.name || "General",
         }));
 
       console.log("[getServices] Successfully fetched", items.length, "services");
@@ -1764,6 +1773,140 @@ export async function getSupervisorTaskHeader(ticketId: string) {
   }
   return data;
 }
+
+export async function unblockTask(
+  ticketId: string,
+  unblockReasonCode: string,
+  comment?: string
+) {
+  if (IS_SUPABASE_FUNCTIONS) {
+    return req(`/tickets/${encodeURIComponent(ticketId)}/unblock`, {
+      method: "POST",
+      body: JSON.stringify({ reason_code: unblockReasonCode, comment }),
+    });
+  }
+
+  // Direct Supabase RPC call
+  const s = supa();
+  if (!s) throw new Error("No Supabase client");
+
+  const { data, error } = await s.rpc("unblock_task", {
+    p_ticket_id: ticketId,
+    p_unblock_reason_code: unblockReasonCode,
+    p_comment: comment,
+  });
+
+  if (error) throw error;
+  return data;
+}
+
+export async function reassignTask(
+  ticketId: string,
+  newAssigneeId: string,
+  supervisorId: string,
+  comment?: string
+) {
+  if (IS_SUPABASE_FUNCTIONS) {
+    return req(`/tickets/${encodeURIComponent(ticketId)}/reassign`, {
+      method: "POST",
+      body: JSON.stringify({
+        new_assignee_id: newAssigneeId,
+        supervisor_id: supervisorId,
+        comment
+      }),
+    });
+  }
+
+  // Direct Supabase RPC call
+  const s = supa();
+  if (!s) throw new Error("No Supabase client");
+
+  const { data, error } = await s.rpc("reassign_task", {
+    p_ticket_id: ticketId,
+    p_new_assignee_id: newAssigneeId,
+    p_supervisor_id: supervisorId,
+    p_comment: comment,
+  });
+
+  if (error) throw error;
+  return data;
+}
+
+export async function getGuestTickets(stayCode: string) {
+  const s = supa();
+  if (!s) return [];
+
+  // v_guest_tickets is RLS-protected and automatically filters by auth.uid()
+  // No need to filter by stay_id - guest sees all their tickets
+  const { data, error } = await s
+    .from('v_guest_tickets')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function reopenTicket(
+  ticketId: string,
+  stayId: string,
+  reason?: string
+) {
+  const s = supa();
+  if (!s) throw new Error("No Supabase client");
+
+  const { data, error } = await s.rpc("reopen_ticket", {
+    p_ticket_id: ticketId,
+    p_stay_id: stayId,
+    p_reason: reason,
+  });
+
+  if (error) throw error;
+  return data;
+}
+
+export async function addGuestComment(
+  ticketId: string,
+  comment: string
+) {
+  const s = supa();
+  if (!s) throw new Error("No Supabase client");
+
+  const { data, error } = await s.rpc("add_guest_comment", {
+    p_ticket_id: ticketId,
+    p_comment: comment,
+  });
+
+  if (error) throw error;
+  return data;
+}
+
+export async function getTicketComments(ticketId: string) {
+  const s = supa();
+  if (!s) return [];
+
+  // Fetch guest-visible events: comments + curated system messages
+  const { data, error } = await s
+    .from('ticket_events')
+    .select('id, event_type, actor_type, comment, created_at, new_status, previous_status')
+    .eq('ticket_id', ticketId)
+    .in('event_type', [
+      'GUEST_COMMENT',
+      'STAFF_COMMENT',
+      'CREATED',
+      'STARTED',
+      'BLOCKED',
+      'UNBLOCKED',
+      'COMPLETED',
+      'CANCELLED',
+      'REOPENED'
+    ])
+    .order('created_at', { ascending: true });
+
+  if (error) throw error;
+  return data || [];
+}
+
 
 export async function getTicketTimeline(ticketId: string) {
   const s = supa();

@@ -8,10 +8,25 @@ import {
   createTicket,
   createOrder,
   isDemo,
+  type Service,
 } from "../lib/api";
 import { dbg, dbgError } from "../lib/debug";
 
-type Service = { key: string; label_en: string; sla_minutes: number; department_id: string };
+function getServiceIcon(key: string) {
+  const k = key.toLowerCase();
+  if (k.includes("clean") || k.includes("housekeeping") || k.includes("maid")) return "✨";
+  if (k.includes("towel") || k.includes("linen") || k.includes("pillow")) return "🌥️";
+  if (k.includes("water") || k.includes("plumb") || k.includes("leak") || k.includes("bath")) return "🚿";
+  if (k.includes("electric") || k.includes("light") || k.includes("power") || k.includes("socket")) return "💡";
+  if (k.includes("wifi") || k.includes("net") || k.includes("tv")) return "📶";
+  if (k.includes("food") || k.includes("dining") || k.includes("plate") || k.includes("cutlery")) return "🍽️";
+  if (k.includes("key") || k.includes("lock") || k.includes("access")) return "🔑";
+  if (k.includes("ac") || k.includes("heat") || k.includes("cool")) return "❄️";
+  if (k.includes("laundry") || k.includes("iron")) return "👕";
+  if (k.includes("maintenance") || k.includes("repair") || k.includes("fix")) return "🔧";
+  if (k.includes("garbage") || k.includes("trash") || k.includes("bin")) return "🗑️";
+  return "🛎️";
+}
 type FoodItem = { item_key: string; name: string; base_price: number };
 
 type LoadState<T> = {
@@ -86,9 +101,10 @@ export default function Menu() {
   const [stayLookupDone, setStayLookupDone] = useState(false);
 
   // A single stable key we can use for fetching
+  // When loading from stay code, MUST use resolvedHotelId (not stayCode)
   const propertyKey = useMemo(
-    () => pickFirst(resolvedHotelId, hotelId, hotelSlug, stayCode),
-    [resolvedHotelId, hotelId, hotelSlug, stayCode],
+    () => pickFirst(resolvedHotelId, hotelId, hotelSlug),
+    [resolvedHotelId, hotelId, hotelSlug],
   );
 
   // Simple state for data
@@ -124,27 +140,29 @@ export default function Menu() {
           // Get the authenticated user
           const { data: { user } } = await supabase.auth.getUser();
 
-          if (user && hotelId) {
-            // Query stays by guest_id for security
+          if (user) {
+            // Query stays by booking_code to get hotel_id, room_id, zone_id
             const { data, error } = await supabase
               .from("stays")
-              .select("room_id")
+              .select("hotel_id, room_id, zone_id")
               .eq("guest_id", user.id)
-              .eq("hotel_id", hotelId)
-              .eq("is_active", true)
+              .eq("booking_code", stayCode)
               .maybeSingle();
 
             if (!alive) return;
 
             if (data) {
               dbg("[Menu] Resolved stay:", data);
-              setResolvedHotelId(hotelId);
+              if (data.hotel_id) setResolvedHotelId(data.hotel_id);
               if (data.room_id) setResolvedRoomId(data.room_id);
+              if (data.zone_id) setResolvedZoneId(data.zone_id);
             } else if (error) {
               dbgError("[Menu] Stay lookup error:", error);
+            } else {
+              dbgError(`[Menu] No stay found for code: ${stayCode}`);
             }
           } else {
-            dbgError("[Menu] Missing user or hotelId for stay lookup", { user: !!user, hotelId });
+            dbgError("[Menu] No authenticated user for stay lookup");
           }
         } catch (e: any) {
           dbgError("[Menu] Failed to resolve stay:", e);
@@ -165,6 +183,7 @@ export default function Menu() {
   }, [stayCode, hotelId]);
 
   // Ensure URL always has core identity hints (helps downstream too)
+  // BUT: Don't add hotelId if it was derived from stay code (keep URLs clean)
   useEffect(() => {
     const next = new URLSearchParams(searchParams);
     let changed = false;
@@ -182,14 +201,9 @@ export default function Menu() {
       changed = true;
     }
 
-    if (hotelId && !next.get("hotelId")) {
-      next.set("hotelId", hotelId);
-      changed = true;
-    }
-    if (hotelId && !next.get("propertyId")) {
-      next.set("propertyId", hotelId);
-      changed = true;
-    }
+    // Only add hotelId/propertyId if they were in the original URL
+    // Don't pollute URL with derived hotelId from stay lookup
+    // (This keeps URLs clean and follows Google-architect principle)
 
     if (hotelSlug) {
       const keys = ["hotel", "hotelSlug", "property", "propertySlug", "slug"];
@@ -210,7 +224,7 @@ export default function Menu() {
       setSearchParams(next, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stayCode, hotelId, hotelSlug, tab]);
+  }, [stayCode, hotelSlug, tab]);
 
   /** Safe fetch helper that won't break older signatures */
   async function safeGetServices() {
@@ -284,9 +298,9 @@ export default function Menu() {
       try {
         if (isDemo()) {
           const demo: Service[] = [
-            { key: "housekeeping", label_en: "Housekeeping", sla_minutes: 20, department_id: "00000000-0000-0000-0000-000000000000" },
-            { key: "linen", label_en: "Fresh linen", sla_minutes: 30, department_id: "00000000-0000-0000-0000-000000000000" },
-            { key: "maintenance", label_en: "Maintenance", sla_minutes: 45, department_id: "00000000-0000-0000-0000-000000000000" },
+            { key: "housekeeping", label_en: "Housekeeping", sla_minutes: 20, department_id: "00000000-0000-0000-0000-000000000000", department_name: "Housekeeping" },
+            { key: "linen", label_en: "Fresh linen", sla_minutes: 30, department_id: "00000000-0000-0000-0000-000000000000", department_name: "Housekeeping" },
+            { key: "maintenance", label_en: "Maintenance", sla_minutes: 45, department_id: "00000000-0000-0000-0000-000000000000", department_name: "Maintenance" },
           ];
           if (alive) setServicesState({ loading: false, error: null, items: demo });
           return;
@@ -368,9 +382,17 @@ export default function Menu() {
     navigate({ search: nextQP.toString() }, { replace: true });
   }
 
-  async function requestService(svc: Service) {
+  const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState("All");
+
+  function requestService(svc: Service) {
+    setSelectedService(svc);
+  }
+
+  async function confirmRequest(data: { note: string; priority: string; locationType: string; publicLocation: string }) {
+    if (!selectedService) return;
     try {
-      dbg(`[Menu] request service ${svc.key} for stay ${stayCode}`);
+      dbg(`[Menu] request service ${selectedService.key} for stay ${stayCode}`);
 
       const effectiveHotelId = resolvedHotelId || hotelId;
 
@@ -379,6 +401,29 @@ export default function Menu() {
         return;
       }
 
+      // Construct rich details
+      // We want to avoid redundant info (Title already has service name).
+      // Just store the user's note directly.
+      let detailsParts = [];
+
+      if (data.locationType === 'public') {
+        detailsParts.push(`[Location: ${data.publicLocation || 'Public Area'}]`);
+      }
+
+      if (data.priority && data.priority === 'high') {
+        detailsParts.push(`[HIGH PRIORITY]`);
+      }
+
+      if (data.note.trim()) {
+        detailsParts.push(data.note.trim());
+      }
+
+      const details = detailsParts.join(" ");
+
+      // If location is public, we might want to clear the room_id so it's not misleading,
+      // OR keep it to link to the guest's stay but rely on the text description.
+      // For now, let's keep the room_id linked (so we know WHO asked), but the description clarifies WHERE.
+
       const payload = {
         // booking identity
         bookingCode: stayCode,
@@ -386,16 +431,16 @@ export default function Menu() {
         code: stayCode,
 
         // service identity
-        serviceKey: svc.key,
-        departmentId: svc.department_id,
+        serviceKey: selectedService.key,
+        departmentId: selectedService.department_id,
 
         // location identity
         roomId: resolvedRoomId,
         zoneId: resolvedZoneId,
 
         // friendly title/details
-        title: svc.label_en,
-        details: `Guest requested: ${svc.label_en}`,
+        title: selectedService.label_en,
+        details: details,
 
         // property hints
         hotelId: effectiveHotelId,
@@ -406,6 +451,7 @@ export default function Menu() {
 
       await (createTicket as any)(payload);
 
+      setSelectedService(null); // Close modal
       alert("Service request sent to the hotel team.");
     } catch (e: any) {
       dbgError("[Menu] createTicket failed", e);
@@ -491,14 +537,14 @@ export default function Menu() {
   }
 
   return (
-    <main className="max-w-5xl mx-auto p-6">
+    <main className="max-w-5xl mx-auto p-6 font-sans">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="text-xs text-gray-500">
             Stay code{" "}
             <code className="px-1 py-0.5 rounded bg-gray-100">{stayCode}</code>
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight">
+          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
             Room services &amp; menu
           </h1>
           <p className="text-sm text-gray-600 mt-1">
@@ -507,10 +553,10 @@ export default function Menu() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Link to={`/stay/${encodeURIComponent(stayCode)}`} className="btn btn-light">
+          <Link to={`/stay/${encodeURIComponent(stayCode)}`} className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors">
             Back to stay
           </Link>
-          <Link to="/guest" className="btn btn-light">
+          <Link to="/guest" className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors">
             Dashboard
           </Link>
         </div>
@@ -538,46 +584,121 @@ export default function Menu() {
 
       {/* Services tab */}
       {tab === "services" && (
-        <section className="mt-5 rounded-2xl border bg-white/90 shadow-sm p-4">
-          <div className="text-sm font-semibold">Hotel services</div>
-          <div className="text-xs text-gray-500 mt-1">
-            Tap a service to create a ticket with SLA-aware tracking.
+        <section className="mt-6 animate-fade-in-up">
+          <div className="flex items-center justify-between mb-4 px-1">
+            <div>
+              <div className="text-lg font-bold text-gray-900">Guest Services</div>
+              <div className="text-sm text-gray-500 mt-1">
+                Select a service to notify our team instantly.
+              </div>
+            </div>
+            <div className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-xs font-medium border border-blue-100 hidden sm:block">
+              Live updates
+            </div>
           </div>
 
           {servicesState.loading ? (
-            <div className="mt-3 space-y-2">
-              <div className="h-3 bg-gray-100 rounded animate-pulse" />
-              <div className="h-3 bg-gray-100 rounded animate-pulse" />
-              <div className="h-3 bg-gray-100 rounded animate-pulse" />
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="h-36 bg-gray-50 rounded-2xl animate-pulse border border-gray-100" />
+              ))}
             </div>
           ) : servicesState.error ? (
-            <div className="mt-3 text-sm text-amber-700">
+            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-100 text-amber-800 text-sm flex items-center gap-3">
+              <span className="text-xl">⚠️</span>
               {servicesState.error}
             </div>
           ) : servicesState.items.length ? (
-            <div className="mt-3 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {servicesState.items.map((s) => (
+            <div className="space-y-6 animate-fade-in">
+              {/* Department Filters */}
+              <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
                 <button
-                  key={s.key}
-                  type="button"
-                  onClick={() => requestService(s)}
-                  className="rounded-xl border bg-slate-50 hover:bg-slate-100 transition p-4 text-left"
+                  onClick={() => setSelectedCategory("All")}
+                  className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-bold transition-all ${selectedCategory === "All"
+                    ? "bg-gray-900 text-white shadow-md"
+                    : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+                    }`}
                 >
-                  <div className="text-xs text-gray-500">
-                    SLA ~ {s.sla_minutes} mins
-                  </div>
-                  <div className="text-sm font-semibold mt-0.5">
-                    {s.label_en}
-                  </div>
-                  <div className="mt-2 text-[11px] text-teal-700 font-medium">
-                    Request now →
-                  </div>
+                  All
                 </button>
-              ))}
+                {Array.from(new Set(servicesState.items.map(s => s.department_name || "General"))).sort().map(dept => (
+                  <button
+                    key={dept}
+                    onClick={() => setSelectedCategory(dept)}
+                    className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-bold transition-all ${selectedCategory === dept
+                      ? "bg-gray-900 text-white shadow-md"
+                      : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+                      }`}
+                  >
+                    {dept}
+                  </button>
+                ))}
+              </div>
+
+              {Object.entries(
+                servicesState.items.reduce((acc, s) => {
+                  const d = s.department_name || "General";
+                  if (!acc[d]) acc[d] = [];
+                  acc[d].push(s);
+                  return acc;
+                }, {} as Record<string, Service[]>)
+              )
+                .filter(([deptName]) => selectedCategory === "All" || deptName === selectedCategory)
+                .map(([deptName, deptServices]) => (
+                  <div key={deptName} className="animate-fade-in">
+                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 px-1">
+                      {deptName}
+                    </h3>
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {deptServices.map((s) => {
+                        const icon = getServiceIcon(s.key);
+                        return (
+                          <button
+                            key={s.key}
+                            type="button"
+                            onClick={() => requestService(s)}
+                            className="group relative flex flex-col items-start p-5 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-xl hover:border-blue-100 hover:-translate-y-1 transition-all duration-300 w-full text-left overflow-hidden h-[150px]"
+                          >
+                            {/* Background Gradient Effect on Hover */}
+                            <div className="absolute inset-0 bg-gradient-to-br from-blue-50/0 to-blue-50/0 group-hover:from-blue-50/50 group-hover:to-transparent transition-all duration-500" />
+
+                            <div className="relative w-full h-full flex flex-col justify-between">
+                              <div className="flex items-start justify-between w-full">
+                                <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-xl shadow-sm border border-gray-100 group-hover:bg-white group-hover:shadow-md transition-all duration-300">
+                                  {icon}
+                                </div>
+                                <div className="px-2 py-1 rounded-md bg-gray-50 border border-gray-100 text-[10px] font-bold text-gray-500 group-hover:bg-blue-50 group-hover:border-blue-100 group-hover:text-blue-600 transition-colors uppercase tracking-wide">
+                                  ~{s.sla_minutes}m
+                                </div>
+                              </div>
+
+                              <div className="mt-auto pt-4 w-full">
+                                <div className="flex items-center justify-between">
+                                  <div className="text-base font-bold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-1">
+                                    {s.label_en}
+                                  </div>
+                                </div>
+                                <div className="mt-3 flex items-center justify-between">
+                                  <span className="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 text-xs font-bold group-hover:bg-blue-600 group-hover:text-white transition-all shadow-sm">
+                                    Request
+                                  </span>
+                                  <span className="w-6 h-6 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
+                                    →
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
             </div>
           ) : (
-            <div className="mt-3 text-sm text-gray-600">
-              No services available for this property yet.
+            <div className="text-center py-12 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
+              <div className="text-4xl opacity-20 mb-3">📦</div>
+              <div className="text-sm text-gray-500 font-medium">No services available currently.</div>
             </div>
           )}
         </section>
@@ -586,59 +707,46 @@ export default function Menu() {
       {/* Food tab */}
       {tab === "food" && (
         <section className="mt-5 grid lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-4">
-          <div className="rounded-2xl border bg-white/90 shadow-sm p-4">
-            <div className="text-sm font-semibold">In-room dining</div>
-            <div className="text-xs text-gray-500 mt-1">
+          <div className="rounded-2xl border border-white/10 bg-white/5 shadow-sm p-4">
+            <div className="text-sm font-semibold text-white">In-room dining</div>
+            <div className="text-xs text-gray-400 mt-1">
               Add items to your cart and place an order.
             </div>
 
             {foodState.loading ? (
-              <div className="mt-3 space-y-2">
-                <div className="h-3 bg-gray-100 rounded animate-pulse" />
-                <div className="h-3 bg-gray-100 rounded animate-pulse" />
-                <div className="h-3 bg-gray-100 rounded animate-pulse" />
+              <div className="mt-4 space-y-3">
+                {[1, 2, 3].map(i => <div key={i} className="h-16 bg-gray-50 rounded-xl animate-pulse" />)}
               </div>
             ) : foodState.error ? (
-              <div className="mt-3 text-sm text-amber-700">{foodState.error}</div>
-            ) : foodState.items.length ? (
-              <div className="mt-3 grid sm:grid-cols-2 gap-3">
-                {foodState.items.map((it) => {
-                  const qty = cart[it.item_key] || 0;
+              <div className="mt-4 p-4 rounded-xl bg-red-50 text-red-600 text-sm">
+                {foodState.error}
+              </div>
+            ) : (
+              <div className="mt-4 space-y-2">
+                {foodState.items.map((item) => {
+                  const inCart = cart[item.item_key] || 0;
                   return (
-                    <div
-                      key={it.item_key}
-                      className="rounded-xl border bg-slate-50 p-3"
-                    >
-                      <div className="text-sm font-semibold">{it.name}</div>
-                      <div className="text-xs text-gray-500">
-                        ₹ {Number(it.base_price || 0).toLocaleString()}
+                    <div key={item.item_key} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
+                      <div>
+                        <div className="font-medium text-gray-900">{item.name}</div>
+                        <div className="text-xs text-gray-500">₹{item.base_price}</div>
                       </div>
-
-                      <div className="mt-3 flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => removeFromCart(it)}
-                          className="btn btn-light"
-                          disabled={!qty}
-                        >
-                          -
-                        </button>
-                        <div className="text-xs w-6 text-center">{qty}</div>
-                        <button
-                          type="button"
-                          onClick={() => addToCart(it)}
-                          className="btn"
-                        >
-                          +
-                        </button>
+                      <div className="flex items-center gap-3">
+                        {inCart > 0 ? (
+                          <>
+                            <button onClick={() => removeFromCart(item)} className="w-8 h-8 rounded-lg bg-white border shadow-sm flex items-center justify-center text-gray-600">-</button>
+                            <span className="text-sm font-mono w-4 text-center">{inCart}</span>
+                            <button onClick={() => addToCart(item)} className="w-8 h-8 rounded-lg bg-gray-900 text-white shadow-sm flex items-center justify-center">+</button>
+                          </>
+                        ) : (
+                          <button onClick={() => addToCart(item)} className="px-4 py-2 rounded-lg bg-white border shadow-sm text-xs font-semibold hover:bg-gray-50">
+                            Add
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
                 })}
-              </div>
-            ) : (
-              <div className="mt-3 text-sm text-gray-600">
-                No menu items available for this property yet.
               </div>
             )}
           </div>
@@ -682,7 +790,7 @@ export default function Menu() {
                 <button
                   type="button"
                   onClick={placeFoodOrder}
-                  className="mt-3 btn w-full"
+                  className="mt-3 btn w-full bg-slate-900 text-white py-2 rounded-lg hover:bg-slate-800"
                 >
                   Place order
                 </button>
@@ -691,6 +799,133 @@ export default function Menu() {
           </div>
         </section>
       )}
+      {/* Request Modal */}
+      {selectedService && (
+        <ServiceRequestModal
+          service={selectedService}
+          onClose={() => setSelectedService(null)}
+          onConfirm={confirmRequest}
+        />
+      )}
     </main>
+  );
+}
+
+function ServiceRequestModal({
+  service,
+  onClose,
+  onConfirm
+}: {
+  service: Service,
+  onClose: () => void,
+  onConfirm: (data: { note: string; priority: string; locationType: string; publicLocation: string }) => void
+}) {
+  const [note, setNote] = useState("");
+  const [priority, setPriority] = useState("normal");
+  const [locationType, setLocationType] = useState("room");
+  const [publicLocation, setPublicLocation] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    await onConfirm({ note, priority, locationType, publicLocation });
+    setSubmitting(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in"
+        onClick={onClose}
+      />
+      <div className="relative w-full max-w-sm bg-[#18181b] rounded-3xl shadow-2xl overflow-hidden animate-scale-up border border-white/10 text-white">
+
+        {/* Header */}
+        <div className="p-6 pb-4 border-b border-white/10 flex items-center justify-between bg-white/5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl">
+              {getServiceIcon(service.key)}
+            </div>
+            <div>
+              <h3 className="text-lg font-bold">{service.label_en}</h3>
+              <p className="text-xs text-blue-400 font-medium">SLA: ~{service.sla_minutes}m</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors text-xl">✕</button>
+        </div>
+
+        <div className="p-6 space-y-5">
+
+          {/* Location */}
+          <div>
+            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Location</label>
+            <div className="flex bg-white/5 rounded-xl p-1 mb-2">
+              <button
+                onClick={() => setLocationType("room")}
+                className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${locationType === "room" ? "bg-blue-600 text-white shadow-md" : "text-gray-400 hover:text-white"}`}
+              >
+                In Room
+              </button>
+              <button
+                onClick={() => setLocationType("public")}
+                className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${locationType === "public" ? "bg-blue-600 text-white shadow-md" : "text-gray-400 hover:text-white"}`}
+              >
+                Public Area
+              </button>
+            </div>
+
+            {locationType === "public" && (
+              <input
+                type="text"
+                value={publicLocation}
+                onChange={e => setPublicLocation(e.target.value)}
+                placeholder="e.g. Lobby, Poolside, Gym..."
+                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+              />
+            )}
+          </div>
+
+          {/* Priority */}
+          <div>
+            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Priority & Notes</label>
+            <div className="flex gap-2 mb-3">
+              {['low', 'normal', 'high'].map(p => (
+                <label key={p} className={`flex-1 cursor-pointer border rounded-xl px-3 py-2 flex items-center justify-center gap-2 transition-all ${priority === p
+                  ? (p === 'high' ? 'bg-red-500/10 border-red-500 text-red-500' : p === 'low' ? 'bg-green-500/10 border-green-500 text-green-500' : 'bg-blue-500/10 border-blue-500 text-blue-500')
+                  : 'border-white/10 bg-white/5 text-gray-400 hover:bg-white/10'}`}>
+                  <input type="radio" name="priority" value={p} checked={priority === p} onChange={() => setPriority(p)} className="hidden" />
+                  <span className={`w-2 h-2 rounded-full ${p === 'high' ? 'bg-red-500' : p === 'low' ? 'bg-green-500' : 'bg-blue-500'} ${priority === p ? 'ring-2 ring-offset-1 ring-offset-transparent ring-current' : ''}`} />
+                  <span className="capitalize text-xs font-bold">{p}</span>
+                </label>
+              ))}
+            </div>
+
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Enter additional details here..."
+              className="w-full h-24 p-3 rounded-xl bg-black/20 border border-white/10 text-sm text-white focus:outline-none focus:border-blue-500 transition-all resize-none placeholder-gray-600"
+            />
+          </div>
+
+          {/* Photo Placeholder */}
+          <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors text-sm w-fit">
+            <span>📷</span> Attach Photo
+          </button>
+
+        </div>
+
+        <div className="p-6 pt-2 flex gap-3">
+          <button
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="w-full py-4 rounded-xl bg-white text-black font-bold text-sm shadow-xl hover:bg-gray-200 active:transform active:scale-95 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+          >
+            {submitting ? "Sending Request..." : "Submit Request"}
+          </button>
+        </div>
+
+      </div>
+    </div>
   );
 }

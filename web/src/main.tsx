@@ -15,6 +15,7 @@ import OwnerApplications from "./routes/admin/OwnerApplications";
 const Scan = React.lazy(() => import("./routes/Scan"));
 const Stays = lazy(() => import("./routes/Stays"));
 const Stay = lazy(() => import("./routes/Stay"));
+const MyRequests = lazy(() => import("./routes/MyRequests"));
 const Bills = React.lazy(() => import("./routes/Bill"));
 const OwnerAccess = React.lazy(() => import("./routes/OwnerAccess"));
 const InviteAccept = React.lazy(() => import("./routes/InviteAccept"));
@@ -459,6 +460,7 @@ const router = createBrowserRouter([
       { path: "hotel/:slug/reviews", element: <HotelReviews /> },
       { path: "stays", element: <Stays /> },
       { path: "stay/:id", element: <Stay /> },
+      { path: "stay/:code/requests", element: <MyRequests /> },
       { path: "bills", element: <Bills /> },
 
       // Deep link

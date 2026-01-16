@@ -4,10 +4,12 @@ import { ticketService } from "../services/ticketService";
 import type { Ticket, StaffRunnerTicket, BlockReason, BlockReasonCode, UnblockReason } from "../types/ticket";
 import { getSLAStatus, formatTimeRemaining, getSLAColor } from "../utils/sla";
 import TicketDetailsDrawer from "../components/TicketDetailsDrawer";
+import { getStaffHistory } from "../lib/staffHistory";
 
 
 export default function StaffTaskManager() {
     const [hotelId, setHotelId] = useState<string | null>(null);
+    const [staffMemberId, setStaffMemberId] = useState<string | null>(null);
 
     const [newTasks, setNewTasks] = useState<StaffRunnerTicket[]>([]);
     const [inProgressTasks, setInProgressTasks] = useState<StaffRunnerTicket[]>([]);
@@ -33,6 +35,9 @@ export default function StaffTaskManager() {
     const [drawerTicket, setDrawerTicket] = useState<StaffRunnerTicket | null>(null);
     const [drawerOpen, setDrawerOpen] = useState(false);
 
+    // View state (Work Queue / History)
+    const [activeView, setActiveView] = useState<'queue' | 'history'>('queue');
+
     // Derive hotel_id from authenticated staff member
     useEffect(() => {
         async function fetchHotelContext() {
@@ -52,6 +57,7 @@ export default function StaffTaskManager() {
                 const { data: members, error: memberError } = await supabase
                     .from('hotel_members')
                     .select(`
+                        id,
                         hotel_id,
                         hotel_member_roles!inner (
                             hotel_roles!inner (
@@ -74,8 +80,10 @@ export default function StaffTaskManager() {
 
                 // Take the first hotel (staff should only have one)
                 const hotelId = members[0].hotel_id;
-                console.log('[StaffTaskManager] Setting hotel_id:', hotelId);
+                const staffMemberId = members[0].id;
+                console.log('[StaffTaskManager] Setting hotel_id:', hotelId, 'staffMemberId:', staffMemberId);
                 setHotelId(hotelId);
+                setStaffMemberId(staffMemberId);
             } catch (err: any) {
                 console.error('[StaffTaskManager] Error fetching hotel context:', err);
                 setError(err.message);
@@ -161,137 +169,176 @@ export default function StaffTaskManager() {
     return (
         <div className="min-h-screen bg-[#0a0a0a] text-white px-4 py-6">
             <div className="max-w-7xl mx-auto mb-8">
-                <h1 className="text-xl font-medium text-gray-500 uppercase tracking-widest px-2">WORK QUEUE</h1>
+                <h1 className="text-xl font-medium text-gray-500 uppercase tracking-widest px-2">
+                    {activeView === 'queue' ? 'WORK QUEUE' : 'HISTORY'}
+                </h1>
             </div>
-            <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <section>
-                    <h2 className="text-sm font-medium text-blue-500 uppercase tracking-wider mb-4 flex items-center gap-2 px-2">
-                        <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                        NEW
-                    </h2>
-                    <div className="space-y-4">
-                        {newTasks.length > 0 ? (
-                            newTasks.map((task) => (
+
+            {/* Tab Navigation */}
+            <div className="max-w-7xl mx-auto mb-6">
+                <div className="flex gap-2 border-b border-gray-700">
+                    <button
+                        onClick={() => setActiveView('queue')}
+                        className={`px-6 py-3 font-medium transition-colors ${activeView === 'queue'
+                            ? 'text-white border-b-2 border-blue-500'
+                            : 'text-gray-400 hover:text-gray-300'
+                            }`}
+                    >
+                        Work Queue
+                    </button>
+                    <button
+                        onClick={() => setActiveView('history')}
+                        className={`px-6 py-3 font-medium transition-colors ${activeView === 'history'
+                            ? 'text-white border-b-2 border-blue-500'
+                            : 'text-gray-400 hover:text-gray-300'
+                            }`}
+                    >
+                        History
+                    </button>
+                </div>
+            </div>
+
+            {/* Conditional Content */}
+            {activeView === 'queue' ? (
+                <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <section>
+                        <h2 className="text-sm font-medium text-blue-500 uppercase tracking-wider mb-4 flex items-center gap-2 px-2">
+                            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                            NEW
+                        </h2>
+                        <div className="space-y-4">
+                            {newTasks.length > 0 ? (
+                                newTasks.map((task) => (
+                                    <TaskCard
+                                        key={task.ticket_id}
+                                        task={task}
+                                        fetchedAt={fetchedAt}
+                                        variant="active"
+                                        onClick={() => {
+                                            setDrawerTicket(task);
+                                            setDrawerOpen(true);
+                                        }}
+                                        actions={
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    openModal(task, setShowStartModal);
+                                                }}
+                                                className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold text-sm tracking-wider hover:bg-blue-700 transition-colors"
+                                            >
+                                                START
+                                            </button>
+                                        }
+                                    />
+                                ))
+                            ) : (
+                                <div className="bg-[#1a1a1a] rounded-3xl p-8 text-center text-gray-500">No active tasks
+                                    available</div>
+                            )}
+                        </div>
+                    </section>
+
+                    <section>
+                        <h2 className="text-sm font-medium text-green-500 uppercase tracking-wider mb-4 flex items-center gap-2 px-2">
+                            <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                            IN PROGRESS
+                        </h2>
+                        <div className="space-y-4">
+                            {inProgressTasks.map((task) => (
                                 <TaskCard
                                     key={task.ticket_id}
                                     task={task}
                                     fetchedAt={fetchedAt}
-                                    variant="active"
+                                    variant="inProgress"
                                     onClick={() => {
                                         setDrawerTicket(task);
                                         setDrawerOpen(true);
                                     }}
                                     actions={
-                                        <button
-                                            onClick={(e) => {
+                                        <div className="flex gap-2">
+                                            <button onClick={(e) => {
                                                 e.stopPropagation();
-                                                openModal(task, setShowStartModal);
+                                                openModal(task, setShowCompleteModal);
                                             }}
-                                            className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold text-sm tracking-wider hover:bg-blue-700 transition-colors"
-                                        >
-                                            START
-                                        </button>
+                                                className="flex-1 bg-green-600 text-white py-3 rounded-xl font-medium hover:bg-green-700 transition-colors">
+                                                Complete
+                                            </button>
+                                            <button onClick={(e) => {
+                                                e.stopPropagation();
+                                                openModal(task, setShowBlockModal);
+                                            }}
+                                                className="flex-1 bg-gray-700 text-white py-3 rounded-xl font-medium hover:bg-gray-600 transition-colors">
+                                                Block
+                                            </button>
+                                        </div>
                                     }
                                 />
-                            ))
-                        ) : (
-                            <div className="bg-[#1a1a1a] rounded-3xl p-8 text-center text-gray-500">No active tasks
-                                available</div>
-                        )}
-                    </div>
-                </section>
+                            ))}
+                        </div>
+                    </section>
 
-                <section>
-                    <h2 className="text-sm font-medium text-green-500 uppercase tracking-wider mb-4 flex items-center gap-2 px-2">
-                        <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                        IN PROGRESS
-                    </h2>
-                    <div className="space-y-4">
-                        {inProgressTasks.map((task) => (
-                            <TaskCard
-                                key={task.ticket_id}
-                                task={task}
-                                fetchedAt={fetchedAt}
-                                variant="inProgress"
-                                onClick={() => {
-                                    setDrawerTicket(task);
-                                    setDrawerOpen(true);
-                                }}
-                                actions={
-                                    <div className="flex gap-2">
-                                        <button onClick={(e) => {
-                                            e.stopPropagation();
-                                            openModal(task, setShowCompleteModal);
-                                        }}
-                                            className="flex-1 bg-green-600 text-white py-3 rounded-xl font-medium hover:bg-green-700 transition-colors">
-                                            Complete
-                                        </button>
-                                        <button onClick={(e) => {
-                                            e.stopPropagation();
-                                            openModal(task, setShowBlockModal);
-                                        }}
-                                            className="flex-1 bg-gray-700 text-white py-3 rounded-xl font-medium hover:bg-gray-600 transition-colors">
-                                            Block
-                                        </button>
-                                    </div>
-                                }
-                            />
-                        ))}
-                    </div>
-                </section>
-
-                <section>
-                    <h2 className="text-sm font-medium text-red-500 uppercase tracking-wider mb-4 flex items-center gap-2 px-2">
-                        <span className="w-2 h-2 rounded-full bg-red-500"></span>
-                        BLOCKED
-                    </h2>
-                    <div className="space-y-4">
-                        {blockedTasks.map((task) => (
-                            <TaskCard
-                                key={task.ticket_id}
-                                task={task}
-                                fetchedAt={fetchedAt}
-                                variant="blocked"
-                                onClick={() => {
-                                    setDrawerTicket(task);
-                                    setDrawerOpen(true);
-                                }}
-                                actions={
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                openModal(task, setShowResumeModal);
-                                            }}
-                                            className="flex-1 bg-green-600 text-white py-3 rounded-xl font-medium hover:bg-green-700 transition-colors"
-                                        >
-                                            Resume
-                                        </button>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                openModal(task, setShowUpdateStatusModal);
-                                            }}
-                                            className="flex-1 bg-gray-700 text-white py-3 rounded-xl font-medium hover:bg-gray-600 transition-colors"
-                                        >
-                                            Update
-                                        </button>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                openModal(task, setShowRequestSupervisorModal);
-                                            }}
-                                            className="flex-1 bg-gray-700 text-white py-3 rounded-xl font-medium hover:bg-gray-600 transition-colors"
-                                        >
-                                            Supervisor
-                                        </button>
-                                    </div>
-                                }
-                            />
-                        ))}
-                    </div>
-                </section>
-            </div>
+                    <section>
+                        <h2 className="text-sm font-medium text-red-500 uppercase tracking-wider mb-4 flex items-center gap-2 px-2">
+                            <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                            BLOCKED
+                        </h2>
+                        <div className="space-y-4">
+                            {blockedTasks.map((task) => (
+                                <TaskCard
+                                    key={task.ticket_id}
+                                    task={task}
+                                    fetchedAt={fetchedAt}
+                                    variant="blocked"
+                                    onClick={() => {
+                                        setDrawerTicket(task);
+                                        setDrawerOpen(true);
+                                    }}
+                                    actions={
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    openModal(task, setShowResumeModal);
+                                                }}
+                                                className="flex-1 bg-green-600 text-white py-3 rounded-xl font-medium hover:bg-green-700 transition-colors"
+                                            >
+                                                Resume
+                                            </button>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    openModal(task, setShowUpdateStatusModal);
+                                                }}
+                                                className="flex-1 bg-gray-700 text-white py-3 rounded-xl font-medium hover:bg-gray-600 transition-colors"
+                                            >
+                                                Update
+                                            </button>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    openModal(task, setShowRequestSupervisorModal);
+                                                }}
+                                                className="flex-1 bg-gray-700 text-white py-3 rounded-xl font-medium hover:bg-gray-600 transition-colors"
+                                            >
+                                                Supervisor
+                                            </button>
+                                        </div>
+                                    }
+                                />
+                            ))}
+                        </div>
+                    </section>
+                </div>
+            ) : (
+                <HistoryView
+                    hotelId={hotelId}
+                    staffMemberId={staffMemberId}
+                    onTicketClick={(ticket) => {
+                        setDrawerTicket(ticket);
+                        setDrawerOpen(true);
+                    }}
+                />
+            )}
 
             {showStartModal && selectedTask &&
                 <StartTaskModal task={selectedTask} onClose={() => setShowStartModal(false)} onSuccess={fetchTasks} />}
@@ -1173,3 +1220,330 @@ function Button({ children, onClick, disabled, variant }: {
     return <button onClick={onClick} disabled={disabled} className={`${base} ${styles}`}>{children}</button>;
 }
 
+// HistoryView Component
+function HistoryView({
+    hotelId,
+    staffMemberId,
+    onTicketClick
+}: {
+    hotelId: string | null;
+    staffMemberId: string | null;
+    onTicketClick: (ticket: StaffRunnerTicket) => void;
+}) {
+    const [loading, setLoading] = useState(true);
+    const [activeView, setActiveView] = useState<'queue' | 'history'>('queue');
+    const [dateRange, setDateRange] = useState<'last7days' | 'last30days' | 'last90days' | 'last12months'>('last7days');
+    const [selectedMonth, setSelectedMonth] = useState<{ month: number, year: number } | null>(null);
+    const [statusFilter, setStatusFilter] = useState<'details' | 'COMPLETED' | 'CANCELLED' | 'all'>('COMPLETED'); // Default to COMPLETED
+    const [tickets, setTickets] = useState<StaffRunnerTicket[]>([]); // Displayed tickets
+    const [searchQuery, setSearchQuery] = useState('');
+
+    // Pagination State
+    const [cursorStack, setCursorStack] = useState<(any | null)[]>([null]); // History of cursors (Page 1 = [null])
+    const [nextCursor, setNextCursor] = useState<any | null>(null);
+    const [totalCount, setTotalCount] = useState(0);
+    const pageSize = 10;
+
+    const currentPage = cursorStack.length;
+    const totalPages = Math.ceil(totalCount / pageSize);
+
+    useEffect(() => {
+        if (hotelId && staffMemberId) {
+            // Reset pagination when filters change
+            setCursorStack([null]);
+            fetchHistory(null);
+        }
+    }, [hotelId, staffMemberId, dateRange, selectedMonth, statusFilter, searchQuery]);
+
+    const fetchHistory = async (cursor: any | null) => {
+        if (!hotelId || !staffMemberId) return;
+
+        setLoading(true);
+        try {
+            // Determine active status filter (fallback to COMPLETED if 'all' or 'details')
+            const activeStatus = (statusFilter === 'all' || statusFilter === 'details') ? 'COMPLETED' : statusFilter;
+
+            const response = await getStaffHistory(hotelId, staffMemberId, {
+                status: activeStatus,
+                dateRange: selectedMonth ? undefined : dateRange,
+                monthYear: selectedMonth || undefined,
+                searchQuery,
+                cursor,
+                limit: pageSize
+            });
+
+            // Handle response which is now an object
+            setTickets(response.tickets);
+            setNextCursor(response.nextCursor);
+            // Only update total count on first page fetch to avoid shrinking count due to cursor filter
+            if (!cursor) {
+                setTotalCount(response.totalCount);
+            }
+        } catch (error) {
+            console.error('Failed to fetch history:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleNextPage = () => {
+        if (nextCursor) {
+            setCursorStack([...cursorStack, nextCursor]);
+            fetchHistory(nextCursor);
+        }
+    };
+
+    const handlePrevPage = () => {
+        if (cursorStack.length > 1) {
+            const newStack = cursorStack.slice(0, -1);
+            setCursorStack(newStack);
+            fetchHistory(newStack[newStack.length - 1]);
+        }
+    };
+
+    // Calculate activity summary based on total count
+    // Actually the logic was "You completed X tasks". This usually implies "Total completed in range".
+    // If I filter by "CANCELLED", this message is weird. 
+    // I should probably fetch the "Activity Summary" (Completed Count) separately or assume the user stays on COMPLETED most of the time.
+    // For now, I'll rely on totalCount if status is COMPLETED. If status is CANCELLED, totalCount is cancelled count.
+    // The previous logic filtered allTickets. Now I only have paginated.
+    // I will just change the message to "Found {totalCount} tasks..." generic or keep "You completed" only when on COMPLETED tab.
+
+    const getDateRangeLabel = () => {
+        if (selectedMonth) {
+            return `in ${new Date(selectedMonth.year, selectedMonth.month).toLocaleString('default', { month: 'long', year: 'numeric' })}`;
+        }
+        switch (dateRange) {
+            case 'last7days': return 'the last 7 days';
+            case 'last30days': return 'the last 30 days';
+            case 'last90days': return 'the last 90 days';
+            case 'last12months': return 'the last 12 months';
+            default: return '';
+        }
+    };
+
+    const formatRelativeTime = (timestamp: string): string => {
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diffMs = now.getTime() - date.getTime();
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        if (diffMins < 60) return `${diffMins}m ago`;
+        if (diffHours < 24) return `${diffHours}h ago`;
+        if (diffDays === 0) return 'Today';
+        if (diffDays === 1) return 'Yesterday';
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    };
+
+    // Generate last 12 months for dropdown
+    const getLast12Months = () => {
+        const months = [];
+        const today = new Date();
+        for (let i = 0; i < 12; i++) {
+            const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+            months.push({
+                month: d.getMonth(),
+                year: d.getFullYear(),
+                label: d.toLocaleString('default', { month: 'long', year: 'numeric' })
+            });
+        }
+        return months;
+    };
+
+    return (
+        <div className="max-w-7xl mx-auto space-y-6 pb-20">
+            {/* Activity Summary - Only show counts for current filter */}
+            <div className="bg-gray-800 rounded-lg p-4 text-sm text-gray-300">
+                {statusFilter === 'COMPLETED'
+                    ? `You completed ${totalCount} tasks ${getDateRangeLabel()}`
+                    : `Found ${totalCount} ${statusFilter.toLowerCase()} tasks ${getDateRangeLabel()}`
+                }
+            </div>
+
+            {/* Search and Month Filter Row */}
+            <div className="flex gap-4">
+                <input
+                    type="text"
+                    placeholder="Search room number, service, or keyword..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="flex-1 px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                />
+
+                <div className="relative">
+                    <select
+                        value={selectedMonth ? JSON.stringify(selectedMonth) : ''}
+                        onChange={(e) => {
+                            if (e.target.value) {
+                                setSelectedMonth(JSON.parse(e.target.value));
+                            } else {
+                                setSelectedMonth(null);
+                            }
+                        }}
+                        className="appearance-none bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 pr-10 focus:outline-none focus:border-blue-500 min-w-[160px]"
+                    >
+                        <option value="">Select Month</option>
+                        {getLast12Months().map((m) => (
+                            <option key={`${m.year}-${m.month}`} value={JSON.stringify({ month: m.month, year: m.year })}>
+                                {m.label}
+                            </option>
+                        ))}
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            {/* Filters */}
+            <div className="flex justify-between items-center">
+                {/* Status Tabs */}
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => setStatusFilter('COMPLETED')}
+                        className={`px-4 py-2 rounded-lg transition-colors ${statusFilter === 'COMPLETED'
+                            ? 'bg-green-900 text-green-300'
+                            : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                            }`}
+                    >
+                        COMPLETED
+                    </button>
+                    <button
+                        onClick={() => setStatusFilter('CANCELLED')}
+                        className={`px-4 py-2 rounded-lg transition-colors ${statusFilter === 'CANCELLED'
+                            ? 'bg-red-900 text-red-300'
+                            : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                            }`}
+                    >
+                        CANCELLED
+                    </button>
+                </div>
+
+                {/* Date Range Tabs - Disable checking if month selected or clear month on click */}
+                <div className="flex gap-4 text-sm font-medium">
+                    <button
+                        onClick={() => { setDateRange('last7days'); setSelectedMonth(null); }}
+                        className={`transition-colors ${!selectedMonth && dateRange === 'last7days' ? 'text-blue-400' : 'text-gray-400 hover:text-gray-300'}`}
+                    >
+                        Last 7 Days
+                    </button>
+                    <button
+                        onClick={() => { setDateRange('last30days'); setSelectedMonth(null); }}
+                        className={`transition-colors ${!selectedMonth && dateRange === 'last30days' ? 'text-blue-400' : 'text-gray-400 hover:text-gray-300'}`}
+                    >
+                        Last 30 Days
+                    </button>
+                    <button
+                        onClick={() => { setDateRange('last90days'); setSelectedMonth(null); }}
+                        className={`transition-colors ${!selectedMonth && dateRange === 'last90days' ? 'text-blue-400' : 'text-gray-400 hover:text-gray-300'}`}
+                    >
+                        Last 90 Days
+                    </button>
+                    <button
+                        onClick={() => { setDateRange('last12months'); setSelectedMonth(null); }}
+                        className={`transition-colors ${!selectedMonth && dateRange === 'last12months' ? 'text-blue-400' : 'text-gray-400 hover:text-gray-300'}`}
+                    >
+                        Last 12 Months
+                    </button>
+                </div>
+            </div>
+
+            {/* Ticket List */}
+            {loading ? (
+                <div className="text-center text-gray-500 py-12">Loading...</div>
+            ) : tickets.length === 0 ? (
+                <div className="text-center text-gray-500 py-12">
+                    No {statusFilter !== 'all' ? statusFilter.toLowerCase() : ''} tickets found
+                </div>
+            ) : (
+                <div className="space-y-3">
+                    {tickets.map(ticket => {
+                        const isCompleted = ticket.status === 'COMPLETED';
+                        return (
+                            <div
+                                key={ticket.ticket_id}
+                                onClick={() => onTicketClick(ticket)}
+                                className="bg-gray-900 rounded-lg p-4 hover:bg-gray-800 cursor-pointer transition-colors"
+                            >
+                                <div className="flex items-start justify-between">
+                                    <div className="flex-1">
+                                        {/* Room + Icon */}
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <div className={`w-5 h-5 rounded-full flex items-center justify-center ${isCompleted ? 'bg-green-500' : 'bg-red-500'}`}>
+                                                {isCompleted ? (
+                                                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                                    </svg>
+                                                ) : (
+                                                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                                    </svg>
+                                                )}
+                                            </div>
+                                            <h3 className="font-semibold text-white">Room {(ticket as any).room_number || 'Unknown'}</h3>
+                                        </div>
+
+                                        {/* Service Description */}
+                                        <p className="text-gray-300 mb-1">{ticket.title}</p>
+                                        <p className="text-sm text-gray-500">{ticket.department_name}</p>
+
+                                        {/* Status Badge */}
+                                        <div className="mt-3 flex items-center gap-3">
+                                            <span className={`px-2 py-1 rounded text-xs font-medium ${isCompleted
+                                                ? 'bg-green-900/30 text-green-400'
+                                                : 'bg-red-900/30 text-red-400'
+                                                }`}>
+                                                {isCompleted ? '✓ Completed' : '✗ Cancelled'}
+                                            </span>
+                                            <span className="text-xs text-gray-500">
+                                                {formatRelativeTime((ticket as any).completed_at || ticket.created_at)}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Chevron */}
+                                    <svg className="w-5 h-5 text-gray-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+
+            {/* Pagination Controls */}
+            {(tickets.length > 0 || currentPage > 1) && (
+                <div className="flex justify-center items-center gap-6 pt-6 border-t border-gray-700">
+                    <button
+                        onClick={handlePrevPage}
+                        disabled={currentPage === 1}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${currentPage === 1
+                            ? 'text-gray-600 cursor-not-allowed'
+                            : 'text-gray-300 hover:bg-gray-800'}`}
+                    >
+                        ← Previous
+                    </button>
+
+                    <span className="text-sm text-gray-400">
+                        Page {currentPage} of {totalPages || 1}
+                    </span>
+
+                    <button
+                        onClick={handleNextPage}
+                        disabled={!nextCursor}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${!nextCursor
+                            ? 'text-gray-600 cursor-not-allowed'
+                            : 'text-gray-300 hover:bg-gray-800'}`}
+                    >
+                        Next →
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}

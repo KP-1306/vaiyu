@@ -504,7 +504,7 @@ ALTER TABLE ticket_events
                            'CREATED','ASSIGNED','REASSIGNED','STARTED',
                            'BLOCKED','UNBLOCKED','COMPLETED',
                            'ESCALATED','RESET','REOPENED',
-                           'COMMENT_ADDED'
+                           'COMMENT_ADDED','CANCELLED'
                 )
             );
 -- ============================================================

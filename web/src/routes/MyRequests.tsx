@@ -1,7 +1,7 @@
 // web/src/routes/MyRequests.tsx
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { getGuestTickets, reopenTicket, addGuestComment, getTicketComments, supa } from "../lib/api";
+import { getGuestTickets, reopenTicket, addGuestComment, getTicketComments, supa, getCancelReasons, cancelTicketByGuest } from "../lib/api";
 
 type GuestTicket = {
     id: string;
@@ -48,6 +48,12 @@ export default function MyRequests() {
     const [tickets, setTickets] = useState<GuestTicket[]>([]);
     const [loading, setLoading] = useState(true);
     const [reopening, setReopening] = useState<string | null>(null);
+    const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+    const [cancelTicketId, setCancelTicketId] = useState<string | null>(null);
+    const [cancelReasons, setCancelReasons] = useState<Array<{ code: string; label: string; description: string; icon: string }>>([]);
+    const [selectedCancelReason, setSelectedCancelReason] = useState('');
+    const [cancelComment, setCancelComment] = useState('');
+    const [cancelling, setCancelling] = useState<string | null>(null);
     const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
     const [commentText, setCommentText] = useState<Record<string, string>>({});
     const [submittingComment, setSubmittingComment] = useState<string | null>(null);
@@ -81,6 +87,51 @@ export default function MyRequests() {
             fetchTicketComments(newExpanded);
         }
     };
+
+    // Fetch cancel reasons on mount
+    useEffect(() => {
+        async function fetchCancelReasons() {
+            try {
+                const reasons = await getCancelReasons();
+                setCancelReasons(reasons);
+            } catch (error) {
+                console.error('Failed to fetch cancel reasons:', error);
+            }
+        }
+        fetchCancelReasons();
+    }, []);
+
+    const handleCancelClick = (ticketId: string) => {
+        setCancelTicketId(ticketId);
+        setSelectedCancelReason('');
+        setCancelComment('');
+        setCancelDialogOpen(true);
+    };
+
+    const confirmCancel = async () => {
+        if (!cancelTicketId || !selectedCancelReason) return;
+
+        try {
+            setCancelling(cancelTicketId);
+            await cancelTicketByGuest(cancelTicketId, selectedCancelReason, cancelComment || undefined);
+
+            // Refresh tickets
+            const data = await getGuestTickets(code!);
+            setTickets(data as GuestTicket[]);
+
+            // Close dialog
+            setCancelDialogOpen(false);
+            setSelectedCancelReason('');
+            setCancelComment('');
+            setCancelTicketId(null);
+        } catch (error: any) {
+            console.error('Failed to cancel ticket:', error);
+            alert(error.message || 'Failed to cancel request');
+        } finally {
+            setCancelling(null);
+        }
+    };
+
 
     useEffect(() => {
         if (!code) return;
@@ -251,6 +302,83 @@ export default function MyRequests() {
                 </div>
             )}
 
+            {/* Cancel Dialog */}
+            {cancelDialogOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+                        <h3 className="text-lg font-semibold mb-2">Cancel Request</h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                            Please select a reason for cancelling this request.
+                        </p>
+
+                        <div className="space-y-2 mb-4">
+                            {cancelReasons.map((reason) => (
+                                <button
+                                    key={reason.code}
+                                    onClick={() => setSelectedCancelReason(reason.code)}
+                                    className={`w-full p-4 rounded-lg border-2 text-left transition-all ${selectedCancelReason === reason.code
+                                        ? 'border-red-500 bg-red-50'
+                                        : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                                        }`}
+                                >
+                                    <div className="flex items-start gap-3">
+                                        <div className={`text-2xl ${selectedCancelReason === reason.code ? 'opacity-100' : 'opacity-60'
+                                            }`}>
+                                            {reason.icon === 'x-circle' && '⊗'}
+                                            {reason.icon === 'undo' && '↶'}
+                                            {(reason.icon === 'check-circle' || reason.icon === 'user-check') && '✓'}
+                                            {!['x-circle', 'undo', 'check-circle', 'user-check'].includes(reason.icon) && '•'}
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="font-medium text-gray-900">{reason.label}</div>
+                                            <div className="text-sm text-gray-600 mt-1">{reason.description}</div>
+                                        </div>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Additional notes (optional)
+                        </label>
+                        <textarea
+                            value={cancelComment}
+                            onChange={(e) => setCancelComment(e.target.value)}
+                            placeholder="Any additional information..."
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                            rows={3}
+                            maxLength={200}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                            {cancelComment.length}/200 characters
+                        </p>
+
+                        <div className="flex gap-3 mt-6">
+                            <button
+                                onClick={() => {
+                                    setCancelDialogOpen(false);
+                                    setSelectedCancelReason('');
+                                    setCancelComment('');
+                                    setCancelTicketId(null);
+                                }}
+                                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+                                disabled={cancelling !== null}
+                            >
+                                Back
+                            </button>
+                            <button
+                                onClick={confirmCancel}
+                                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+                                disabled={!selectedCancelReason || cancelling !== null}
+                            >
+                                {cancelling ? 'Cancelling...' : 'Cancel Request'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+
             <div className="flex items-center justify-between mb-6">
                 <h1 className="text-2xl font-semibold">My Service Requests</h1>
                 <Link
@@ -301,6 +429,8 @@ export default function MyRequests() {
                                         submittingComment={submittingComment === ticket.id}
                                         onReopen={null}
                                         reopening={false}
+                                        onCancel={handleCancelClick}
+                                        cancelling={cancelling === ticket.id}
                                     />
                                 ))}
                             </div>
@@ -328,6 +458,8 @@ export default function MyRequests() {
                                         submittingComment={false}
                                         onReopen={handleReopen}
                                         reopening={reopening === ticket.id}
+                                        onCancel={null}
+                                        cancelling={false}
                                     />
                                 ))}
                             </div>
@@ -376,7 +508,9 @@ function TicketCard({
     onSubmitComment,
     submittingComment,
     onReopen,
-    reopening
+    reopening,
+    onCancel,
+    cancelling
 }: {
     ticket: GuestTicket;
     expanded: boolean;
@@ -389,6 +523,8 @@ function TicketCard({
     submittingComment: boolean;
     onReopen: ((id: string) => void) | null;
     reopening: boolean;
+    onCancel: ((id: string) => void) | null;
+    cancelling: boolean;
 }) {
     const statusColors = {
         NEW: 'bg-blue-100 text-blue-800',
@@ -636,6 +772,23 @@ function TicketCard({
                             </div>
                         </div>
                     )}
+
+                    {/* Cancel button for NEW/IN_PROGRESS tickets */}
+                    {onCancel && (ticket.status === 'NEW' || ticket.status === 'IN_PROGRESS') && (
+                        <div className="mt-4 pt-3 border-t">
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onCancel(ticket.id);
+                                }}
+                                disabled={cancelling}
+                                className="text-sm text-red-600 hover:text-red-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {cancelling ? 'Cancelling...' : '✕ Cancel Request'}
+                            </button>
+                        </div>
+                    )}
+
 
                     {/* Reopen button for completed tickets */}
                     {onReopen && (

@@ -376,7 +376,7 @@ export default function TicketDetailsDrawer({
                         hour: '2-digit',
                         minute: '2-digit'
                     })}</div>
-                    <div>Requestor: {ticket.requested_by}</div>
+                    <div>Requestor: {typeof ticket.requested_by === 'object' ? (ticket.requested_by as any).name : ticket.requested_by}</div>
                     <div>Ticket ID: #{ticket.ticket_id.slice(0, 8)}</div>
                 </div>
             </div>

@@ -1865,6 +1865,40 @@ export async function reopenTicket(
   return data;
 }
 
+export async function getCancelReasons() {
+  const s = supa();
+  if (!s) throw new Error("No Supabase client");
+
+  const { data, error } = await s
+    .from("cancel_reasons")
+    .select("code, label, description, icon")
+    .eq("is_active", true)
+    .eq("allowed_for_guest", true)
+    .order("label");
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function cancelTicketByGuest(
+  ticketId: string,
+  reasonCode: string,
+  comment?: string
+) {
+  const s = supa();
+  if (!s) throw new Error("No Supabase client");
+
+  const { data, error } = await s.rpc("cancel_ticket_by_guest", {
+    p_ticket_id: ticketId,
+    p_reason_code: reasonCode,
+    p_comment: comment,
+  });
+
+  if (error) throw error;
+  return data;
+}
+
+
 export async function addGuestComment(
   ticketId: string,
   comment: string
@@ -1934,7 +1968,6 @@ export async function addStaffComment(ticketId: string, comment: string) {
   if (error) throw error;
   return data;
 }
-
 
 
 

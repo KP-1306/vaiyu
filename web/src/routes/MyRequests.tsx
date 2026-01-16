@@ -1,7 +1,7 @@
 // web/src/routes/MyRequests.tsx
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { getGuestTickets, reopenTicket, addGuestComment, getTicketComments } from "../lib/api";
+import { getGuestTickets, reopenTicket, addGuestComment, getTicketComments, supa } from "../lib/api";
 
 type GuestTicket = {
     id: string;
@@ -99,6 +99,31 @@ export default function MyRequests() {
         }
 
         fetchTickets();
+
+        // Set up realtime subscription for ticket updates
+        const s = supa();
+        if (!s) return;
+
+        const channel = s
+            .channel('guest-tickets-changes')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'tickets',
+                    filter: `stay_id=eq.${code}`
+                },
+                () => {
+                    // Refetch tickets when any change occurs
+                    fetchTickets();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            channel.unsubscribe();
+        };
     }, [code]);
 
     const handleReopen = async (ticketId: string) => {
@@ -461,8 +486,8 @@ function TicketCard({
 
                     {/* Activity Timeline - Curated system messages */}
                     {!loadingComments && comments.length > 0 && (() => {
-                        // System events (excluding GUEST_COMMENT)
-                        const systemEvents = comments.filter(event => event.event_type !== 'GUEST_COMMENT');
+                        // System events (excluding comments)
+                        const systemEvents = comments.filter(event => event.event_type !== 'COMMENT_ADDED');
                         const dedupedEvents = systemEvents.filter((event, index) => {
                             if (index === 0) return true;
 
@@ -533,8 +558,10 @@ function TicketCard({
 
                     {/* Conversation Timeline */}
                     {(() => {
-                        // Only show guest comments (not staff transition notes)
-                        const conversationComments = comments.filter(c => c.event_type === 'GUEST_COMMENT');
+                        // Show all comments (guest and staff)
+                        const conversationComments = comments.filter(c =>
+                            c.event_type === 'COMMENT_ADDED'
+                        );
 
                         if (conversationComments.length === 0) return null;
 

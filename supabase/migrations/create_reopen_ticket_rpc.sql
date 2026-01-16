@@ -17,6 +17,7 @@ DECLARE
   v_status TEXT;
   v_ticket_stay_id UUID;
   v_reopen_count INT;
+  v_guest_id UUID;
 BEGIN
   -- 1. Lock ticket row (concurrency-safe)
   SELECT
@@ -34,12 +35,13 @@ BEGIN
   END IF;
 
   -- 2. Security: stay must belong to authenticated guest
-  IF NOT EXISTS (
-    SELECT 1
-    FROM stays
-    WHERE id = p_stay_id
-      AND guest_id = auth.uid()
-  ) THEN
+  SELECT guest_id
+  INTO v_guest_id
+  FROM stays
+  WHERE id = p_stay_id
+    AND guest_id = auth.uid();
+
+  IF NOT FOUND THEN
     RAISE EXCEPTION 'Unauthorized reopen attempt';
   END IF;
 
@@ -78,6 +80,7 @@ BEGIN
   WHERE id = p_ticket_id;
 
   -- 7. Emit REOPENED event (audit-safe)
+  -- Use v_guest_id (domain actor) instead of auth.uid()
   INSERT INTO ticket_events (
     ticket_id,
     event_type,
@@ -93,7 +96,7 @@ BEGIN
     'COMPLETED',
     'NEW',
     'GUEST',
-    auth.uid(),
+    v_guest_id,  -- Domain actor (guests.id), not auth.uid()
     COALESCE(p_reason, 'Guest reopened completed request'),
     now()
   );

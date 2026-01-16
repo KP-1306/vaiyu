@@ -25,7 +25,7 @@ export const isDemo = () => DEMO_MODE;
 type MaybeSupa = SupabaseClient | null;
 
 let _supa: MaybeSupa = null;
-function supa(): MaybeSupa {
+export function supa(): MaybeSupa {
   try {
     const url = (import.meta as any).env?.VITE_SUPABASE_URL as
       | string
@@ -1891,8 +1891,7 @@ export async function getTicketComments(ticketId: string) {
     .select('id, event_type, actor_type, comment, created_at, new_status, previous_status')
     .eq('ticket_id', ticketId)
     .in('event_type', [
-      'GUEST_COMMENT',
-      'STAFF_COMMENT',
+      'COMMENT_ADDED',
       'CREATED',
       'STARTED',
       'BLOCKED',
@@ -1906,6 +1905,37 @@ export async function getTicketComments(ticketId: string) {
   if (error) throw error;
   return data || [];
 }
+
+// Get all ticket events for staff drawer (includes system events, comments, etc.)
+export async function getTicketEvents(ticketId: string) {
+  const s = supa();
+  if (!s) return [];
+
+  const { data, error } = await s
+    .from('ticket_events')
+    .select('id, event_type, actor_type, actor_id, comment, created_at, new_status, previous_status, reason_code')
+    .eq('ticket_id', ticketId)
+    .order('created_at', { ascending: true });
+
+  if (error) throw error;
+  return data || [];
+}
+
+// Add staff comment to ticket
+export async function addStaffComment(ticketId: string, comment: string) {
+  const s = supa();
+  if (!s) throw new Error('Not authenticated');
+
+  const { data, error } = await s.rpc('add_staff_comment', {
+    p_ticket_id: ticketId,
+    p_comment: comment
+  });
+
+  if (error) throw error;
+  return data;
+}
+
+
 
 
 export async function getTicketTimeline(ticketId: string) {

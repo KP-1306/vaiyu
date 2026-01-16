@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 import { ticketService } from "../services/ticketService";
 import type { Ticket, StaffRunnerTicket, BlockReason, BlockReasonCode, UnblockReason } from "../types/ticket";
 import { getSLAStatus, formatTimeRemaining, getSLAColor } from "../utils/sla";
+import TicketDetailsDrawer from "../components/TicketDetailsDrawer";
 
 
 export default function StaffTaskManager() {
@@ -27,6 +28,10 @@ export default function StaffTaskManager() {
     const [showRequestSupervisorModal, setShowRequestSupervisorModal] = useState(false);
 
     const [tick, setTick] = useState(0);
+
+    // Drawer state
+    const [drawerTicket, setDrawerTicket] = useState<StaffRunnerTicket | null>(null);
+    const [drawerOpen, setDrawerOpen] = useState(false);
 
     // Derive hotel_id from authenticated staff member
     useEffect(() => {
@@ -172,12 +177,19 @@ export default function StaffTaskManager() {
                                     task={task}
                                     fetchedAt={fetchedAt}
                                     variant="active"
+                                    onClick={() => {
+                                        setDrawerTicket(task);
+                                        setDrawerOpen(true);
+                                    }}
                                     actions={
                                         <button
-                                            onClick={() => openModal(task, setShowStartModal)}
-                                            className="w-full bg-[#1e293b] text-blue-400 py-4 rounded-2xl font-bold text-sm tracking-wider hover:bg-[#334155] transition-colors border border-blue-500/30"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                openModal(task, setShowStartModal);
+                                            }}
+                                            className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold text-sm tracking-wider hover:bg-blue-700 transition-colors"
                                         >
-                                            START TASK
+                                            START
                                         </button>
                                     }
                                 />
@@ -196,19 +208,34 @@ export default function StaffTaskManager() {
                     </h2>
                     <div className="space-y-4">
                         {inProgressTasks.map((task) => (
-                            <TaskCard key={task.ticket_id} task={task} fetchedAt={fetchedAt} variant="inProgress"
+                            <TaskCard
+                                key={task.ticket_id}
+                                task={task}
+                                fetchedAt={fetchedAt}
+                                variant="inProgress"
+                                onClick={() => {
+                                    setDrawerTicket(task);
+                                    setDrawerOpen(true);
+                                }}
                                 actions={
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <button onClick={() => openModal(task, setShowCompleteModal)}
-                                            className="bg-[#dcfce7] text-[#166534] py-3 rounded-xl font-bold text-xs tracking-wider hover:bg-[#bbf7d0] transition-colors">MARK
-                                            COMPLETE
+                                    <div className="flex gap-2">
+                                        <button onClick={(e) => {
+                                            e.stopPropagation();
+                                            openModal(task, setShowCompleteModal);
+                                        }}
+                                            className="flex-1 bg-green-600 text-white py-3 rounded-xl font-medium hover:bg-green-700 transition-colors">
+                                            Complete
                                         </button>
-                                        <button onClick={() => openModal(task, setShowBlockModal)}
-                                            className="bg-white/5 text-gray-300 py-3 rounded-xl font-semibold text-xs tracking-wider hover:bg-white/10 transition-colors">BLOCK
-                                            TASK
+                                        <button onClick={(e) => {
+                                            e.stopPropagation();
+                                            openModal(task, setShowBlockModal);
+                                        }}
+                                            className="flex-1 bg-gray-700 text-white py-3 rounded-xl font-medium hover:bg-gray-600 transition-colors">
+                                            Block
                                         </button>
                                     </div>
-                                } />
+                                }
+                            />
                         ))}
                     </div>
                 </section>
@@ -220,28 +247,47 @@ export default function StaffTaskManager() {
                     </h2>
                     <div className="space-y-4">
                         {blockedTasks.map((task) => (
-                            <TaskCard key={task.ticket_id} task={task} fetchedAt={fetchedAt} variant="blocked" actions={
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                    <button
-                                        onClick={() => openModal(task, setShowResumeModal)}
-                                        className="bg-green-600 text-white py-3 rounded-xl font-bold text-xs tracking-wider hover:bg-green-700 transition-colors"
-                                    >
-                                        Resume
-                                    </button>
-                                    <button
-                                        onClick={() => openModal(task, setShowUpdateStatusModal)}
-                                        className="bg-slate-700 text-gray-200 py-3 px-4 rounded-xl font-semibold text-xs tracking-wider hover:bg-slate-600 transition-colors"
-                                    >
-                                        Update Block
-                                    </button>
-                                    <button
-                                        onClick={() => openModal(task, setShowRequestSupervisorModal)}
-                                        className="bg-transparent text-gray-400 py-3 px-4 rounded-xl font-semibold text-xs tracking-wider border border-slate-700 hover:bg-slate-800 hover:text-gray-200 transition-colors"
-                                    >
-                                        Request Supervisor
-                                    </button>
-                                </div>
-                            } />
+                            <TaskCard
+                                key={task.ticket_id}
+                                task={task}
+                                fetchedAt={fetchedAt}
+                                variant="blocked"
+                                onClick={() => {
+                                    setDrawerTicket(task);
+                                    setDrawerOpen(true);
+                                }}
+                                actions={
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                openModal(task, setShowResumeModal);
+                                            }}
+                                            className="flex-1 bg-green-600 text-white py-3 rounded-xl font-medium hover:bg-green-700 transition-colors"
+                                        >
+                                            Resume
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                openModal(task, setShowUpdateStatusModal);
+                                            }}
+                                            className="flex-1 bg-gray-700 text-white py-3 rounded-xl font-medium hover:bg-gray-600 transition-colors"
+                                        >
+                                            Update
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                openModal(task, setShowRequestSupervisorModal);
+                                            }}
+                                            className="flex-1 bg-gray-700 text-white py-3 rounded-xl font-medium hover:bg-gray-600 transition-colors"
+                                        >
+                                            Supervisor
+                                        </button>
+                                    </div>
+                                }
+                            />
                         ))}
                     </div>
                 </section>
@@ -259,6 +305,41 @@ export default function StaffTaskManager() {
                 onClose={() => setShowUpdateStatusModal(false)} />}
             {showResumeModal && selectedTask && <ResumeTaskModal task={selectedTask} onClose={() => setShowResumeModal(false)} onSuccess={fetchTasks} />}
             {showRequestSupervisorModal && selectedTask && <RequestSupervisorModal task={selectedTask} onClose={() => setShowRequestSupervisorModal(false)} />}
+
+            {/* Ticket Details Drawer */}
+            <TicketDetailsDrawer
+                ticket={drawerTicket}
+                isOpen={drawerOpen}
+                onClose={() => {
+                    setDrawerOpen(false);
+                    setDrawerTicket(null);
+                }}
+                onStart={() => {
+                    if (drawerTicket) {
+                        openModal(drawerTicket, setShowStartModal);
+                    }
+                }}
+                onComplete={() => {
+                    if (drawerTicket) {
+                        openModal(drawerTicket, setShowCompleteModal);
+                    }
+                }}
+                onResume={() => {
+                    if (drawerTicket) {
+                        openModal(drawerTicket, setShowResumeModal);
+                    }
+                }}
+                onBlock={() => {
+                    if (drawerTicket) {
+                        openModal(drawerTicket, setShowBlockModal);
+                    }
+                }}
+                onRequestSupervisor={() => {
+                    if (drawerTicket) {
+                        openModal(drawerTicket, setShowRequestSupervisorModal);
+                    }
+                }}
+            />
         </div>
     );
 }
@@ -268,6 +349,7 @@ interface TaskCardProps {
     fetchedAt: number;
     variant: "active" | "inProgress" | "blocked";
     actions: React.ReactNode;
+    onClick?: () => void;
 }
 
 function formatContextTime(seconds: number): string {
@@ -279,7 +361,7 @@ function formatContextTime(seconds: number): string {
     return `${hours}h ${mins}m`;
 }
 
-function TaskCard({ task, fetchedAt, variant, actions }: TaskCardProps) {
+function TaskCard({ task, fetchedAt, variant, actions, onClick }: TaskCardProps) {
     // Premium shadowing effect with radial gradients
     const styles = {
         active: {
@@ -309,8 +391,9 @@ function TaskCard({ task, fetchedAt, variant, actions }: TaskCardProps) {
 
     return (
         <div
-            className={`relative group ${currentStyle.border} rounded-r-3xl rounded-l-md p-6 shadow-2xl transition-all duration-200 hover:scale-[1.01] overflow-visible`}
+            className={`relative group ${currentStyle.border} rounded-r-3xl rounded-l-md p-6 shadow-2xl transition-all duration-200 hover:scale-[1.01] overflow-visible cursor-pointer`}
             style={{ background: currentStyle.bgGlow }}
+            onClick={onClick}
         >
             {/* INFO ICON TRIGGER (Top Right) */}
             <div

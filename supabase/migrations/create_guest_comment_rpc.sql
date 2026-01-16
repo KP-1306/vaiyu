@@ -69,7 +69,7 @@ BEGIN
     RAISE EXCEPTION 'Please wait before sending another message';
   END IF;
 
-  -- 7. Insert GUEST_COMMENT event
+  -- 7. Insert COMMENT_ADDED event
   -- This does NOT change ticket status or affect SLA
   INSERT INTO ticket_events (
     ticket_id,
@@ -80,7 +80,7 @@ BEGIN
     created_at
   ) VALUES (
     p_ticket_id,
-    'GUEST_COMMENT',
+    'COMMENT_ADDED',
     'GUEST',
     auth.uid(),
     TRIM(p_comment),

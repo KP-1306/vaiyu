@@ -15,7 +15,8 @@ export type TicketEventType =
     | "ESCALATED"
     | "RESET"
     | "PING_SUPERVISOR"
-    | "BLOCK_UPDATED";
+    | "BLOCK_UPDATED"
+    | "COMMENT_ADDED";
 
 export type ActorType = "STAFF" | "SYSTEM" | "GUEST" | "FRONT_DESK";
 

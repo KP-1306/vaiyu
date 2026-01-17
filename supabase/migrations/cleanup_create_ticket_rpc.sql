@@ -7,13 +7,13 @@
 
 CREATE OR REPLACE FUNCTION create_service_request(
   p_hotel_id UUID,
-  p_department_id UUID,
   p_room_id UUID,
   p_zone_id UUID,
-  p_title TEXT,
+  p_service_id UUID,
   p_description TEXT,
   p_created_by_type TEXT,
-  p_created_by_id UUID  -- hotel_members.id for STAFF / FRONT_DESK, NULL for GUEST / SYSTEM
+  p_created_by_id UUID,  -- hotel_members.id for STAFF / FRONT_DESK, NULL for GUEST / SYSTEM
+  p_stay_id UUID DEFAULT NULL -- [NEW] Optional stay_id
 )
 RETURNS UUID
 LANGUAGE plpgsql
@@ -21,9 +21,11 @@ SECURITY DEFINER
 AS $$
 DECLARE
   v_ticket_id UUID;
+  v_service_title TEXT;
+  v_department_id UUID;
 BEGIN
   ----------------------------------------------------------------
-  -- 0️⃣ Input validation
+  -- 0️⃣ Input validation & Service Lookup
   ----------------------------------------------------------------
 
   -- Enforce location XOR rule
@@ -39,15 +41,26 @@ BEGIN
       'Invalid created_by_type: %', p_created_by_type;
   END IF;
 
-  -- Ensure active SLA policy exists
+  -- Lookup Service & Department
+  SELECT label, department_id
+  INTO v_service_title, v_department_id
+  FROM services
+  WHERE id = p_service_id
+    AND hotel_id = p_hotel_id;  -- Ensure service belongs to this hotel
+
+  IF v_service_title IS NULL THEN
+     RAISE EXCEPTION 'Service not found or invalid for this hotel (ID: %)', p_service_id;
+  END IF;
+
+  -- Ensure active SLA policy exists (for this department)
   IF NOT EXISTS (
     SELECT 1
     FROM sla_policies
-    WHERE department_id = p_department_id
+    WHERE department_id = v_department_id
       AND is_active = true
   ) THEN
     RAISE EXCEPTION
-      'No active SLA policy found for department %', p_department_id;
+      'No active SLA policy found for department %', v_department_id;
   END IF;
 
   ----------------------------------------------------------------
@@ -57,9 +70,11 @@ BEGIN
   INSERT INTO tickets (
     hotel_id,
     service_department_id,
+    service_id,             -- [NEW] Link to Services table
+    stay_id,                -- [NEW] Link to Stay
     room_id,
     zone_id,
-    title,
+    title,                  -- [SNAPSHOT] Copied from service label
     description,
     status,
     current_assignee_id,
@@ -68,10 +83,12 @@ BEGIN
   )
   VALUES (
     p_hotel_id,
-    p_department_id,
+    v_department_id,
+    p_service_id,
+    p_stay_id,              -- [NEW] Insert stay_id
     p_room_id,
     p_zone_id,
-    p_title,
+    v_service_title,
     p_description,
     'NEW',
     NULL, -- Always NULL (Job will handle assignment)
@@ -102,7 +119,7 @@ BEGIN
         THEN p_created_by_id
       ELSE NULL
     END,
-    'Service request created'
+    'Service request created: ' || v_service_title
   );
 
   ----------------------------------------------------------------
@@ -117,7 +134,7 @@ BEGIN
     v_ticket_id,
     sp.id
   FROM sla_policies sp
-  WHERE sp.department_id = p_department_id
+  WHERE sp.department_id = v_department_id
     AND sp.is_active = true
   LIMIT 1;
 
@@ -128,3 +145,7 @@ BEGIN
   RETURN v_ticket_id;
 END;
 $$;
+
+GRANT EXECUTE ON FUNCTION create_service_request(UUID, UUID, UUID, UUID, TEXT, TEXT, UUID, UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION create_service_request(UUID, UUID, UUID, UUID, TEXT, TEXT, UUID, UUID) TO service_role;
+GRANT EXECUTE ON FUNCTION create_service_request(UUID, UUID, UUID, UUID, TEXT, TEXT, UUID, UUID) TO anon;

@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { X, ChevronDown, ChevronRight } from 'lucide-react';
+import { X, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
 import type { StaffRunnerTicket } from '../types/ticket';
-import { getTicketEvents, addStaffComment } from '../lib/api';
+import { getTicketEvents, addStaffComment, requestSlaException, getSlaExceptionReasons } from '../lib/api';
 import { formatTimeRemaining, getSLAStatus, getSLAColor } from '../utils/sla';
+import StaffCancelTicketModal from './StaffCancelTicketModal';
+import { ticketService } from '../services/ticketService';
 
 interface TicketDetailsDrawerProps {
     ticket: StaffRunnerTicket | null;
@@ -13,6 +15,8 @@ interface TicketDetailsDrawerProps {
     onResume?: () => void;
     onBlock?: () => void;
     onRequestSupervisor?: () => void;
+    onCancel?: () => void;
+    onUpdate?: () => void; // Generic callback for non-status changes
 }
 
 interface TicketEvent {
@@ -27,6 +31,89 @@ interface TicketEvent {
     reason_code: string | null;
 }
 
+// Internal reusable mini-modal for comments
+function CommentActionModal({
+    isOpen,
+    title,
+    placeholder,
+    reasons = [],
+    onConfirm,
+    onClose
+}: {
+    isOpen: boolean;
+    title: string;
+    placeholder: string;
+    reasons?: { code: string; label: string }[];
+    onConfirm: (comment: string, reasonCode?: string) => Promise<void>;
+    onClose: () => void;
+}) {
+    const [comment, setComment] = useState('');
+    const [selectedReason, setSelectedReason] = useState(reasons.length > 0 ? '' : 'default');
+    const [submitting, setSubmitting] = useState(false);
+
+    if (!isOpen) return null;
+
+    const handleSubmit = async () => {
+        if (!comment.trim()) return;
+        if (reasons.length > 0 && !selectedReason) return;
+
+        try {
+            setSubmitting(true);
+            await onConfirm(comment, selectedReason);
+            setComment('');
+            setSelectedReason(reasons.length > 0 ? '' : 'default');
+            onClose();
+        } catch (e) {
+            console.error(e);
+            alert('Action failed. Please try again.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4">
+            <div className="bg-[#1A1C25] border border-white/10 rounded-xl max-w-sm w-full p-6 shadow-2xl">
+                <h3 className="text-lg font-bold text-white mb-4">{title}</h3>
+
+                {reasons.length > 0 && (
+                    <div className="mb-4">
+                        <label className="block text-xs font-medium text-gray-400 mb-1">Reason</label>
+                        <select
+                            value={selectedReason}
+                            onChange={e => setSelectedReason(e.target.value)}
+                            className="w-full bg-[#111218] border border-white/10 rounded-lg p-2 text-white text-sm focus:outline-none focus:border-blue-500"
+                        >
+                            <option value="">Select a reason...</option>
+                            {reasons.map(r => (
+                                <option key={r.code} value={r.code}>{r.label}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+
+                <textarea
+                    autoFocus
+                    className="w-full bg-[#111218] border border-white/10 rounded-lg p-3 text-white text-sm focus:outline-none focus:border-blue-500 min-h-[100px]"
+                    placeholder={placeholder}
+                    value={comment}
+                    onChange={e => setComment(e.target.value)}
+                />
+                <div className="flex justify-end gap-3 mt-4">
+                    <button onClick={onClose} className="px-4 py-2 text-gray-400 hover:text-white text-sm">Cancel</button>
+                    <button
+                        disabled={!comment.trim() || submitting || (reasons.length > 0 && !selectedReason)}
+                        onClick={handleSubmit}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {submitting ? 'Submitting...' : 'Confirm'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function TicketDetailsDrawer({
     ticket,
     isOpen,
@@ -35,7 +122,9 @@ export default function TicketDetailsDrawer({
     onComplete,
     onResume,
     onBlock,
-    onRequestSupervisor
+    onRequestSupervisor,
+    onCancel,
+    onUpdate
 }: TicketDetailsDrawerProps) {
     const [events, setEvents] = useState<TicketEvent[]>([]);
     const [loadingEvents, setLoadingEvents] = useState(false);
@@ -44,11 +133,37 @@ export default function TicketDetailsDrawer({
     const [newComment, setNewComment] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
+    // Modals
+    const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+    const [isSlaExceptionModalOpen, setIsSlaExceptionModalOpen] = useState(false);
+    const [isCancelSupervisorModalOpen, setIsCancelSupervisorModalOpen] = useState(false);
+
+    const [blockReasons, setBlockReasons] = useState<Record<string, string>>({});
+    const [cancelReasons, setCancelReasons] = useState<Record<string, string>>({});
+    const [exceptionReasons, setExceptionReasons] = useState<{ code: string, label: string }[]>([]);
+
     useEffect(() => {
         if (ticket && isOpen) {
             fetchEvents();
+            fetchReasons();
         }
     }, [ticket?.ticket_id, isOpen]);
+
+    const fetchReasons = async () => {
+        try {
+            const [bReasons, cReasons, eReasons] = await Promise.all([
+                ticketService.getBlockReasons(),
+                ticketService.getCancelReasons(),
+                getSlaExceptionReasons()
+            ]);
+
+            setBlockReasons(bReasons.reduce((acc, r) => ({ ...acc, [r.code]: r.label }), {}));
+            setCancelReasons(cReasons.reduce((acc, r) => ({ ...acc, [r.code]: r.label }), {}));
+            setExceptionReasons(eReasons);
+        } catch (e) {
+            console.error('Failed to fetch reasons:', e);
+        }
+    };
 
     const fetchEvents = async () => {
         if (!ticket) return;
@@ -80,6 +195,22 @@ export default function TicketDetailsDrawer({
         }
     };
 
+    const handleRequestSlaException = async (comment: string, reasonCode?: string) => {
+        if (!ticket || !reasonCode) return;
+        await requestSlaException(ticket.ticket_id, reasonCode, comment);
+        await fetchEvents(); // Update timeline
+        if (onUpdate) onUpdate(); // Refresh parent list status if needed
+    };
+
+    const handleCancelSupervisorRequest = async (comment: string) => {
+        if (!ticket) return;
+        // Dynamically import to avoid circular dependency if possible, or assume it's in api
+        const { cancelSupervisorRequest } = await import('../lib/api');
+        await cancelSupervisorRequest(ticket.ticket_id, comment);
+        await fetchEvents();
+        if (onUpdate) onUpdate();
+    };
+
     if (!isOpen || !ticket) return null;
 
     // Get latest block event
@@ -102,10 +233,21 @@ export default function TicketDetailsDrawer({
             case 'CREATED': return 'Ticket Created';
             case 'ASSIGNED': return 'Assigned to You';
             case 'STARTED': return 'Marked In Progress';
-            case 'BLOCKED': return event.comment || 'Blocked';
+            case 'BLOCKED':
+                return blockReasons[event.reason_code || '']
+                    ? `Blocked: ${blockReasons[event.reason_code || '']}`
+                    : 'Blocked';
+            case 'SUPERVISOR_REQUEST_CANCELLED': return 'Supervisor Request Cancelled';
             case 'UNBLOCKED': return 'Resumed';
             case 'COMPLETED': return 'Completed';
+            case 'CANCELLED':
+                return cancelReasons[event.reason_code || '']
+                    ? `Cancelled: ${cancelReasons[event.reason_code || '']}`
+                    : 'Cancelled';
             case 'SUPERVISOR_REQUESTED': return 'Supervisor Requested';
+            case 'SLA_EXCEPTION_REQUESTED': return 'SLA Exception Requested';
+            case 'SLA_EXCEPTION_GRANTED': return 'SLA Exception Granted';
+            case 'SUPERVISOR_REJECTED': return 'Supervisor Rejected Request';
             default: return event.event_type;
         }
     };
@@ -114,7 +256,7 @@ export default function TicketDetailsDrawer({
         if (event.actor_type === 'SYSTEM') return 'SYSTEM';
         if (event.actor_type === 'GUEST') return 'Guest';
         // TODO: Fetch staff name from actor_id
-        return 'You';
+        return event.actor_type === 'STAFF' ? 'You' : event.actor_type;
     };
 
     const statusColors: Record<string, string> = {
@@ -126,6 +268,16 @@ export default function TicketDetailsDrawer({
 
     const slaStatus = ticket.sla_state.toLowerCase();
     const slaColorClass = ticket.sla_breached ? 'text-red-500' : ticket.sla_state === 'PAUSED' ? 'text-yellow-500' : 'text-green-500';
+
+    // Check if SLA exception already requested
+    const hasPendingException = events.some(e => e.event_type === 'SLA_EXCEPTION_REQUESTED' &&
+        !events.some(later => later.created_at > e.created_at &&
+            (later.event_type === 'SLA_EXCEPTION_GRANTED' || later.event_type === 'SUPERVISOR_REJECTED')));
+
+    // Check if Supervisor Request is pending
+    const hasPendingSupervisorRequest = events.some(e => e.event_type === 'SUPERVISOR_REQUESTED' &&
+        !events.some(later => later.created_at > e.created_at &&
+            (later.event_type === 'SUPERVISOR_APPROVED' || later.event_type === 'SUPERVISOR_REJECTED' || later.event_type === 'SUPERVISOR_REQUEST_CANCELLED')));
 
     return (
         <>
@@ -197,7 +349,7 @@ export default function TicketDetailsDrawer({
 
                 {/* Actions Section - Standardized across all states */}
                 <div className="p-6 border-b border-gray-700">
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 flex-wrap">
                         {/* Primary action (state-dependent) */}
                         {ticket.status === 'NEW' && onStart && (
                             <button
@@ -251,7 +403,50 @@ export default function TicketDetailsDrawer({
                                 Supervisor
                             </button>
                         )}
+
+                        {/* Cancel Button: NEW and IN_PROGRESS */}
+                        {['NEW', 'IN_PROGRESS'].includes(ticket.status) && onCancel && (
+                            <button
+                                onClick={() => setIsCancelModalOpen(true)}
+                                className="px-4 py-2 border border-red-500/50 text-red-500 hover:bg-red-500/10 rounded-lg font-medium transition-colors"
+                            >
+                                Cancel
+                            </button>
+                        )}
                     </div>
+
+                    {/* Secondary Actions: SLA Exception */}
+                    {['IN_PROGRESS', 'BLOCKED'].includes(ticket.status) && !hasPendingException && (
+                        <div className="mt-4 pt-4 border-t border-gray-700">
+                            <button
+                                onClick={() => setIsSlaExceptionModalOpen(true)}
+                                className="flex items-center justify-center gap-2 w-full px-4 py-2 text-amber-500 border border-amber-900/30 hover:bg-amber-900/10 rounded-lg text-sm font-medium transition-colors"
+                            >
+                                <AlertTriangle size={14} />
+                                Request SLA Exception
+                            </button>
+                        </div>
+                    )}
+                    {hasPendingException && (
+                        <div className="mt-4 pt-4 border-t border-gray-700">
+                            <div className="flex items-center justify-center gap-2 w-full px-4 py-2 text-amber-500/70 bg-amber-900/10 rounded-lg text-sm font-medium border border-amber-900/10 mb-2">
+                                <AlertTriangle size={14} />
+                                SLA Exception Requested
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Supervisor Request Cancellation */}
+                    {hasPendingSupervisorRequest && (
+                        <div className="mt-2 pt-2 border-t border-gray-700">
+                            <button
+                                onClick={() => setIsCancelSupervisorModalOpen(true)}
+                                className="flex items-center justify-center gap-2 w-full px-4 py-2 text-gray-400 border border-gray-700/50 hover:bg-gray-800 rounded-lg text-sm font-medium transition-colors"
+                            >
+                                Cancel Supervisor Request
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Activity Timeline - Collapsible */}
@@ -281,8 +476,8 @@ export default function TicketDetailsDrawer({
                                                     <div>
                                                         <p className="text-sm font-medium">
                                                             {getEventMessage(event)}
-                                                            {event.event_type === 'BLOCKED' && event.comment && (
-                                                                <span className="text-red-400"> - {event.comment}</span>
+                                                            {['BLOCKED', 'CANCELLED', 'SLA_EXCEPTION_REQUESTED', 'SUPERVISOR_REJECTED', 'SLA_EXCEPTION_GRANTED'].includes(event.event_type) && event.comment && (
+                                                                <span className="text-gray-400"> - {event.comment}</span>
                                                             )}
                                                         </p>
                                                         <p className="text-xs text-gray-400">
@@ -380,6 +575,35 @@ export default function TicketDetailsDrawer({
                     <div>Ticket ID: #{ticket.ticket_id.slice(0, 8)}</div>
                 </div>
             </div>
+
+            {/* Modals */}
+            <StaffCancelTicketModal
+                isOpen={isCancelModalOpen}
+                onClose={() => setIsCancelModalOpen(false)}
+                onConfirm={() => {
+                    if (onCancel) onCancel();
+                    onClose(); // Close drawer on success
+                }}
+                ticketId={ticket.ticket_id}
+            />
+
+            <CommentActionModal
+                isOpen={isSlaExceptionModalOpen}
+                title="Request SLA Exception"
+                placeholder="Why do you need an exception? (Mandatory)"
+                reasons={exceptionReasons}
+                onClose={() => setIsSlaExceptionModalOpen(false)}
+                onConfirm={handleRequestSlaException}
+            />
+
+            <CommentActionModal
+                isOpen={isCancelSupervisorModalOpen}
+                title="Cancel Supervisor Request"
+                placeholder="Why are you cancelling this request? (Optional)"
+                reasons={[]}
+                onClose={() => setIsCancelSupervisorModalOpen(false)}
+                onConfirm={async (comment) => await handleCancelSupervisorRequest(comment)}
+            />
         </>
     );
 }

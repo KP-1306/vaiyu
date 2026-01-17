@@ -386,6 +386,7 @@ export default function StaffTaskManager() {
                         openModal(drawerTicket, setShowRequestSupervisorModal);
                     }
                 }}
+                onCancel={fetchTasks}
             />
         </div>
     );

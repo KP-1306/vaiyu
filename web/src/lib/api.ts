@@ -96,6 +96,7 @@ export type Service = {
   key: string;
   label_en: string;
   sla_minutes: number;
+  id?: string; // [NEW] Link to Services table
   /** new, backward-compatible fields for editor/UI */
   active?: boolean;
   hotel_id?: string | null;
@@ -1396,6 +1397,7 @@ export async function getServices(hotelKey?: string | null) {
         .filter((row) => row.active !== false)
         .map((row) => ({
           key: row.key,
+          id: row.id, // [NEW] Expose ID
           label_en: row.label, // Map label to label_en
           sla_minutes: row.sla_minutes || 0,
           active: row.active,
@@ -1631,10 +1633,11 @@ export async function createTicket(
     try {
       const payload: any = {
         p_hotel_id: (data as any).hotelId || (data as any).hotel_id || (data as any).propertyId || null,
-        p_department_id: (data as any).departmentId || (data as any).department_id || null,
+        p_stay_id: (data as any).stayId || (data as any).stay_id || null, // [NEW] Optional stay link
+        p_service_id: (data as any).serviceId || (data as any).service_id || null, // [NEW] Required
         p_room_id: (data as any).roomId || (data as any).room_id || null,
         p_zone_id: (data as any).zoneId || (data as any).zone_id || null,
-        p_title: (data as any).title || 'Service Request',
+        // Title and Department are now derived on backend from service_id
         p_description: (data as any).details || (data as any).description || null,
         p_created_by_type: (data as any).source || (data as any).created_by_type || 'GUEST',
         p_created_by_id: (data as any).created_by_id || null
@@ -1706,11 +1709,7 @@ export async function listTickets(hotelId?: string) {
     try {
       // We join 'rooms' to get the number, and 'departments' for context.
       // Note: hotel_id was added back to tickets table in a migration for simple filtering.
-      let query = s.from("tickets").select(`
-        *,
-        room:rooms(number),
-        department:departments(name, hotel_id)
-      `);
+      let query = s.from("v_ops_board_tickets").select(`*`);
 
       if (hotelId) {
         query = query.eq("hotel_id", hotelId);
@@ -1723,11 +1722,11 @@ export async function listTickets(hotelId?: string) {
         throw error;
       }
 
-      // Flatten the room number for back-compat with normalizeTicket
+      // v_ops_board_tickets already includes room_number and department_name
       const items = (data || []).map((t: any) => ({
         ...t,
-        room_number: t.room?.number,
-        department_name: t.department?.name,
+        room_number: t.room_number,
+        department_name: t.department_name,
       }));
 
       console.log('[listTickets] Successfully fetched', items.length, 'tickets');
@@ -1772,6 +1771,35 @@ export async function getSupervisorTaskHeader(ticketId: string) {
     return null;
   }
   return data;
+}
+
+// Cancel a pending supervisor request
+export async function cancelSupervisorRequest(ticketId: string, reason?: string) {
+  const s = supa();
+  if (!s) return;
+  const { error } = await s.rpc("cancel_supervisor_request", {
+    p_ticket_id: ticketId,
+    p_reason: reason
+  });
+  if (error) throw error;
+}
+
+
+
+// Block a task (optionally requesting supervisor if reason matches)
+export async function blockTask(
+  ticketId: string,
+  reasonCode: string,
+  comment?: string
+) {
+  const s = supa();
+  if (!s) return;
+  const { error } = await s.rpc("block_task", {
+    p_ticket_id: ticketId,
+    p_reason_code: reasonCode,
+    p_comment: comment
+  });
+  if (error) throw error;
 }
 
 export async function unblockTask(
@@ -2826,4 +2854,74 @@ export async function listRooms(hotelId: string): Promise<Room[]> {
   }
 
   return [];
+}
+
+// ============================================================================
+// RPC: Supervisor Decisions
+// ============================================================================
+
+export async function rejectSupervisorRequest(
+  ticketId: string,
+  comment: string
+) {
+  const s = supa();
+  if (!s) return { error: { message: "Not authenticated" } };
+
+  const { data, error } = await s.rpc("reject_supervisor_request", {
+    p_ticket_id: ticketId,
+    p_comment: comment,
+  });
+
+  if (error) throw error;
+  return data;
+}
+
+export async function grantSlaException(
+  ticketId: string,
+  comment: string
+) {
+  const s = supa();
+  if (!s) return { error: { message: "Not authenticated" } };
+
+  const { data, error } = await s.rpc("grant_sla_exception", {
+    p_ticket_id: ticketId,
+    p_comment: comment,
+  });
+
+  if (error) throw error;
+  return data;
+}
+
+export async function getSlaExceptionReasons() {
+  const s = supa();
+  if (!s) return [];
+  const { data, error } = await s
+    .from('sla_exception_reasons')
+    .select('*')
+    .eq('is_active', true)
+    .eq('allowed_for_staff', true);
+
+  if (error) {
+    console.error("Failed to load reasons", error);
+    return [];
+  }
+  return data;
+}
+
+export async function requestSlaException(
+  ticketId: string,
+  reasonCode: string,
+  comment: string
+) {
+  const s = supa();
+  if (!s) return { error: { message: "Not authenticated" } };
+
+  const { data, error } = await s.rpc("request_sla_exception", {
+    p_ticket_id: ticketId,
+    p_reason_code: reasonCode,
+    p_comment: comment,
+  });
+
+  if (error) throw error;
+  return data;
 }

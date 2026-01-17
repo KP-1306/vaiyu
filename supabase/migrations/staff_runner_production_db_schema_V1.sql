@@ -498,15 +498,44 @@ ALTER TABLE public.ticket_events
 DROP CONSTRAINT ticket_events_event_type_check;
 
 ALTER TABLE ticket_events
+DROP CONSTRAINT IF EXISTS ticket_events_event_type_check;
+
+ALTER TABLE ticket_events
     ADD CONSTRAINT ticket_events_event_type_check
         CHECK (
             event_type IN (
-                           'CREATED','ASSIGNED','REASSIGNED','STARTED',
-                           'BLOCKED','UNBLOCKED','COMPLETED',
-                           'ESCALATED','RESET','REOPENED',
-                           'COMMENT_ADDED','CANCELLED'
+                -- lifecycle
+                           'CREATED',
+                           'ASSIGNED',
+                           'REASSIGNED',
+                           'STARTED',
+                           'COMPLETED',
+                           'CANCELLED',
+                           'REOPENED',
+                           'RESET',
+
+                -- blocking
+                           'BLOCKED',
+                           'UNBLOCKED',
+
+                -- supervisor decision flow
+                           'SUPERVISOR_REQUESTED',
+                           'SUPERVISOR_APPROVED',
+                           'SUPERVISOR_REJECTED',
+
+                -- SLA exception flow
+                           'SLA_EXCEPTION_REQUESTED',
+                           'SLA_EXCEPTION_GRANTED',
+                           'SLA_EXCEPTION_REJECTED',
+
+                -- escalation (system-driven)
+                           'ESCALATED',
+
+                -- communication
+                           'COMMENT_ADDED'
                 )
             );
+
 -- ============================================================
 -- 1️⃣2️⃣ Block Reasons (global reference data)
 -- ============================================================

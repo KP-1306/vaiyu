@@ -1,10 +1,8 @@
-// web/src/routes/OpsBoard.tsx
 import {
   useEffect,
   useState,
   useMemo,
   useCallback,
-  useRef,
 } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
@@ -12,16 +10,16 @@ import {
   listOrders,
   listRooms,
   updateTicket,
-  getSupervisorTaskHeader,
-  getTicketTimeline,
   unblockTask,
   reassignTask,
+  rejectSupervisorRequest,
+  grantSlaException,
   IS_SUPABASE_FUNCTIONS,
-  type Room,
 } from "../lib/api";
 import { connectEvents } from "../lib/sse";
 import { supabase } from "../lib/supabase";
 import { StaffPicker } from "../components/StaffPicker";
+import TicketDetailsDrawer from "../components/TicketDetailsDrawer";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -46,7 +44,12 @@ type Ticket = {
   priority?: TicketPriority;
   mins_remaining?: number | null;
   assignee_name?: string;
+  assignee_id?: string;
   reason_code?: string;
+  needs_supervisor_action?: boolean;
+  supervisor_reason_code?: string;
+  supervisor_request_type?: string;
+  supervisor_requested_at?: string;
 };
 
 type Order = {
@@ -85,6 +88,7 @@ function mapBackendStatusToUi(rawStatus: unknown): TicketStatus {
       return "InProgress";
     case "paused":
     case "blocked":
+    case "supervisor_requested": // Map supervisor requests to Paused visually if needed, or InProgress
       return "Paused";
     case "resolved":
     case "closed":
@@ -95,15 +99,13 @@ function mapBackendStatusToUi(rawStatus: unknown): TicketStatus {
   }
 }
 
-
-
 function normalizeTicket(raw: any): Ticket {
   const id = String(raw?.id ?? "");
   const service_key = String(
-    raw?.service_key ?? raw?.key ?? raw?.service ?? "service"
+    raw?.service_key ?? raw?.title ?? raw?.key ?? raw?.service ?? "service"
   ).trim();
   const room = String(
-    raw?.room?.number ?? raw?.room_number ?? raw?.room ?? raw?.roomNo ?? raw?.unit ?? "-"
+    raw?.room_number ?? raw?.room?.number ?? raw?.room ?? raw?.roomNo ?? raw?.unit ?? "-"
   ).trim();
   const created_at =
     raw?.created_at ??
@@ -120,6 +122,8 @@ function normalizeTicket(raw: any): Ticket {
     ) || 0;
 
   const assignee_name = raw?.assignee?.name ?? raw?.assignee_name ?? undefined;
+  const assignee_id = raw?.assignee?.id ?? raw?.assignee_id ?? raw?.current_assignee_id ?? undefined;
+
   const mins_remaining = typeof raw?.mins_remaining === "number" ? raw.mins_remaining :
     typeof raw?.sla_remaining_seconds === "number" ? Math.floor(raw.sla_remaining_seconds / 60) :
       null;
@@ -134,9 +138,14 @@ function normalizeTicket(raw: any): Ticket {
     sla_minutes,
     is_overdue: typeof raw?.is_overdue === "boolean" ? raw.is_overdue : (mins_remaining !== null && mins_remaining < 0),
     assignee_name,
+    assignee_id,
     priority: raw?.priority,
     mins_remaining,
-    reason_code: raw?.reason_code,
+    reason_code: raw?.reason_code ?? raw?.primary_reason_code,
+    needs_supervisor_action: raw?.needs_supervisor_action,
+    supervisor_reason_code: raw?.supervisor_reason_code,
+    supervisor_request_type: raw?.supervisor_request_type,
+    supervisor_requested_at: raw?.supervisor_requested_at,
   };
 }
 
@@ -160,69 +169,21 @@ function useEffectiveHotelId() {
           setDebugMsg("No user logged in");
           return;
         }
-
-        const email = userRes.user.email || "";
-        setDebugMsg(`User: ${email}`);
-
-        // 1. Check membership (handle multiple rows by taking first)
         const { data: memberData } = await supabase
           .from("hotel_members")
           .select("hotel_id")
           .eq("user_id", userRes.user.id)
           .limit(1)
-          .maybeSingle(); // maybeSingle works fine with limit(1)
+          .maybeSingle();
 
-        let foundId = memberData?.hotel_id;
-        if (foundId) setDebugMsg(prev => prev + ` | Member: Found (${foundId.slice(0, 4)}...)`);
-        else setDebugMsg(prev => prev + ` | Member: None`);
-
-        // 2. Check slug match (email prefix == slug)
-        if (!foundId && email) {
-          const slug = email.split("@")[0];
-          const { data: slugData } = await supabase
-            .from("hotels")
-            .select("id")
-            .ilike("slug", slug)
-            .maybeSingle();
-          if (slugData) {
-            foundId = slugData.id;
-            setDebugMsg(prev => prev + ` | Slug: Found (${slug})`);
-          } else {
-            setDebugMsg(prev => prev + ` | Slug: No match for ${slug}`);
-          }
-        }
-
-        // 3. Check ownership (try/catch in case owner_id column missing)
-        if (!foundId) {
-          try {
-            const { data: ownerData } = await supabase
-              .from("hotels")
-              .select("id")
-              .eq("owner_id", userRes.user.id)
-              .limit(1)
-              .maybeSingle();
-
-            if (ownerData) {
-              foundId = ownerData.id;
-              setDebugMsg(prev => prev + ` | Owner: Found`);
-            } else {
-              setDebugMsg(prev => prev + ` | Owner: None`);
-            }
-          } catch (err: any) {
-            console.warn("Owner ID check failed", err);
-            setDebugMsg(prev => prev + ` | Owner Check Error: ${err.message || String(err)}`);
-          }
-        }
-
-        if (foundId) {
-          setHotelId(foundId);
+        if (memberData?.hotel_id) {
+          setHotelId(memberData.hotel_id);
           const next = new URLSearchParams(searchParams);
-          next.set("hotelId", foundId);
+          next.set("hotelId", memberData.hotel_id);
           setSearchParams(next, { replace: true });
         }
       } catch (e) {
         console.error(e);
-        setDebugMsg(prev => prev + " | Error " + String(e));
       } finally {
         setInitialised(true);
       }
@@ -233,28 +194,54 @@ function useEffectiveHotelId() {
 }
 
 // ---------------------------------------------------------------------------
-// Mock Data
-// ---------------------------------------------------------------------------
-
-const FLOORS = [1, 2, 3, 4, 5, 6, 9];
-const ROOMS_PER_FLOOR = 19;
-
-type RoomNode = {
-  number: string;
-  floor: number;
-  id?: string;
-};
-
-const GENERATED_ROOMS: RoomNode[] = FLOORS.flatMap((f) =>
-  Array.from({ length: ROOMS_PER_FLOOR }, (_, i) => ({
-    floor: f,
-    number: `${f}${String(i + 1).padStart(2, "0")}`,
-  }))
-);
-
-// ---------------------------------------------------------------------------
 // Components
 // ---------------------------------------------------------------------------
+
+// Simple Comment Modal Component
+function CommentModal({
+  isOpen,
+  title,
+  onSubmit,
+  onClose
+}: {
+  isOpen: boolean;
+  title: string;
+  onSubmit: (comment: string) => void;
+  onClose: () => void
+}) {
+  const [comment, setComment] = useState("");
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4">
+      <div className="bg-[#1A1C25] border border-white/10 rounded-xl max-w-sm w-full p-6 shadow-2xl">
+        <h3 className="text-lg font-bold text-white mb-4">{title}</h3>
+        <textarea
+          autoFocus
+          className="w-full bg-[#111218] border border-white/10 rounded-lg p-3 text-white text-sm focus:outline-none focus:border-blue-500 min-h-[100px]"
+          placeholder="Enter reason (mandatory)..."
+          value={comment}
+          onChange={e => setComment(e.target.value)}
+        />
+        <div className="flex justify-end gap-3 mt-4">
+          <button onClick={onClose} className="px-4 py-2 text-gray-400 hover:text-white text-sm">Cancel</button>
+          <button
+            disabled={!comment.trim()}
+            onClick={() => {
+              if (comment.trim()) {
+                onSubmit(comment);
+                setComment("");
+              }
+            }}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed">
+            Submit
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function StatusBlock({
   label,
@@ -267,224 +254,270 @@ function StatusBlock({
   count: number;
   colorClass: string;
   active: boolean;
-  onClick: () => void;
+  onClick?: () => void;
 }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`relative flex flex-col items-center justify-center rounded-lg px-2 py-3 min-w-[90px] transition-all
-        ${active ? "bg-[#1A1C25] ring-1 ring-white/10 translate-y-0.5" : "bg-[#111218] hover:bg-[#1A1C25]"}
-      `}
-    >
-      <h3 className="text-xs font-semibold text-gray-400 mb-1 uppercase tracking-wide">{label}</h3>
-      <span className="text-3xl font-bold text-white tracking-tight">{count}</span>
-      {/* Active Indicator Line */}
-      <div className={`absolute bottom-0 left-0 right-0 h-1 rounded-b-lg transition-opacity ${colorClass} ${active ? 'opacity-100' : 'opacity-40'}`}></div>
-    </button>
-  );
-}
-
-function RoomCell({
-  room,
-  status,
-  hasActiveTicket,
-  isBlocked,
-  dimmed,
-  onClick,
-}: {
-  room: string;
-  status: TicketStatus | "Clean" | null;
-  hasActiveTicket: boolean;
-  isBlocked?: boolean;
-  dimmed: boolean;
-  onClick: () => void;
-}) {
-  // Default (Inactive)
-  let bg = "#111218";
-  let text = "#4b5563"; // Gray 600 - darker for inactive
-  let border = "1px solid #1f2937";
-
-  // Active States logic (only apply if NOT dimmed/filtered out)
-  if (!dimmed) {
-    if (isBlocked) {
-      // Blocked/Overdue -> RED
-      bg = "#7f1d1d"; // Red 900
-      text = "#fca5a5"; // Red 300
-      border = "1px solid #ef4444"; // Red 500
-    } else if (status === "InProgress") {
-      // In Progress -> GREEN
-      bg = "#14532d"; // Green 900
-      text = "#86efac"; // Green 300
-      border = "1px solid #22c55e"; // Green 500
-    } else if (status === "Requested" || status === "Accepted") {
-      // New/Accepted -> BLUE (Cyan-ish)
-      bg = "#1e3a8a"; // Blue 900
-      text = "#93c5fd"; // Blue 300
-      border = "1px solid #3b82f6"; // Blue 500
-    }
-  }
-
   return (
     <div
       onClick={onClick}
-      className={`flex items-center justify-center text-[10px] font-mono rounded-sm cursor-pointer hover:brightness-125 transition-all
-        ${hasActiveTicket && !dimmed ? 'font-bold' : 'font-normal'}
+      className={`relative flex flex-col items-center justify-center rounded-xl px-4 py-3 min-w-[100px] transition-all cursor-pointer
+        ${active ? "bg-[#1A1C25] ring-1 ring-blue-500/50 scale-105" : "bg-[#111218] hover:bg-[#1A1C25] border border-white/5"}
       `}
-      style={{
-        width: 34,
-        height: 34,
-        backgroundColor: bg,
-        color: text,
-        border: border,
-        // User requested NO graying out/opacity changes
-      }}
     >
-      {room}
+      <div className="flex items-center gap-2 mb-1">
+        <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{label}</h3>
+        {active && <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>}
+      </div>
+      <span className={`text-2xl font-light text-white tracking-tight ${colorClass}`}>{count}</span>
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Main Component
-// ---------------------------------------------------------------------------
+function DecisionCard({ ticket, onAction, onClick }: { ticket: Ticket; onAction: (t: Ticket, action: string) => void; onClick: () => void }) {
+  // Use explicit request type if available, otherwise heuristic fallback including Blocked status
+  const isSupervisorReq = ticket.supervisor_request_type === 'SUPERVISOR_REQUESTED' ||
+    (!ticket.supervisor_request_type && ticket.supervisor_reason_code === 'supervisor_approval') ||
+    (ticket.status === 'Paused' && ticket.reason_code === 'supervisor_approval');
 
-// ... imports
+  // Use supervisor_reason_code if available, else check block reason
+  const reason = ticket.supervisor_reason_code === 'supervisor_approval' || (ticket.status === 'Paused' && ticket.reason_code === 'supervisor_approval')
+    ? 'Supervisor Approval'
+    : (ticket.supervisor_reason_code || ticket.reason_code || 'Attention Needed');
+
+  // Helper to safely format room number
+  const room = String(ticket.room || ticket.room_number || '-').trim();
+
+  return (
+    <div
+      onClick={onClick}
+      className="bg-[#111218] border border-red-900/30 rounded-lg p-4 relative group hover:border-red-900/50 transition-all cursor-pointer"
+    >
+      <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500 rounded-l-lg"></div>
+
+      <div className="flex justify-between items-start mb-3">
+        <div className="flex gap-4 items-center">
+          <span className="text-2xl font-light text-white w-12">{room}</span>
+          <div>
+            <div className="text-sm font-medium text-white mb-1">{(ticket.service_key || ticket.title || 'Task').replace(/_/g, ' ')}</div>
+            <div className="flex items-center gap-2">
+              {ticket.assignee_name && (
+                <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <span className="w-4 h-4 rounded-full bg-gray-800 flex items-center justify-center text-[8px]">👤</span>
+                  {ticket.assignee_name}
+                </div>
+              )}
+              {isSupervisorReq && (
+                <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[10px] uppercase font-bold tracking-wider border border-amber-500/20">
+                  Supervisor Requested
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="text-right">
+          <div className="flex items-center gap-1.5 justify-end mb-1">
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+            <span className="text-sm font-mono text-amber-400 font-bold">{Math.abs(ticket.mins_remaining || 0)}m</span>
+          </div>
+          <div className="text-[10px] text-red-500 font-bold uppercase tracking-wider">SLA Breached</div>
+        </div>
+      </div>
+
+      <div className="ml-16 py-2 px-3 bg-red-950/30 rounded border border-red-900/20 text-xs text-red-200 mb-4 flex gap-2 items-center">
+        <span className="text-red-500">⚠️</span>
+        Reason: {reason}
+      </div>
+
+      <div className="flex justify-end gap-3 ml-16" onClick={e => e.stopPropagation()}>
+        {isSupervisorReq ? (
+          <>
+            <button
+              onClick={() => onAction(ticket, 'reject')}
+              className="px-4 py-1.5 bg-[#1A1C25] border border-red-900/50 text-red-400 text-xs font-bold uppercase rounded hover:bg-red-900/20 transition-colors">
+              Reject
+            </button>
+            <button
+              onClick={() => onAction(ticket, 'reassign')}
+              className="px-4 py-1.5 bg-[#1A1C25] border border-gray-700 text-gray-300 text-xs font-bold uppercase rounded hover:bg-gray-800 transition-colors">
+              Reassign
+            </button>
+            <button
+              onClick={() => onAction(ticket, 'approve')}
+              className="px-4 py-1.5 bg-amber-500 text-black text-xs font-bold uppercase rounded hover:bg-amber-400 transition-colors">
+              Approve
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={() => onAction(ticket, 'reject')} // SLA Exception rejection uses same 'reject' action type but different backend RPC (handled in generic reject)
+              className="px-4 py-1.5 bg-[#1A1C25] border border-red-900/50 text-red-400 text-xs font-bold uppercase rounded hover:bg-red-900/20 transition-colors">
+              Reject
+            </button>
+            <button
+              onClick={() => onAction(ticket, 'exception')}
+              className="px-4 py-1.5 bg-[#1A1C25] border border-amber-900/50 text-amber-500 text-xs font-bold uppercase rounded hover:bg-amber-900/20 transition-colors">
+              Grant Exception
+            </button>
+            <button
+              onClick={() => onAction(ticket, 'resolve')}
+              className="px-4 py-1.5 bg-[#1A1C25] border border-gray-700 text-gray-300 text-xs font-bold uppercase rounded hover:bg-gray-800 transition-colors">
+              Manage
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function OversightCard({ ticket, onAction, onClick }: { ticket: Ticket; onAction: (t: Ticket, action: string) => void; onClick: () => void }) {
+  const isRisk = !ticket.is_overdue && (ticket.mins_remaining || 0) < 15;
+  const isBlocked = ticket.status === 'Paused';
+  const statusColor = isBlocked ? 'text-red-400' : isRisk ? 'text-amber-400' : 'text-red-500';
+  const borderColor = isBlocked ? 'border-red-900/30' : 'border-amber-900/30';
+  const label = isBlocked ? 'Blocked' : ticket.is_overdue ? 'SLA Breached' : 'At Risk';
+  const labelBg = isBlocked ? 'bg-red-950/50' : ticket.is_overdue ? 'bg-red-950/30' : 'bg-amber-950/30';
+
+  return (
+    <div
+      onClick={onClick}
+      className={`bg-[#111218] border ${borderColor} rounded-lg p-3 flex items-center gap-4 hover:bg-[#15161c] transition-colors group cursor-pointer`}
+    >
+      <div className="text-xl font-light text-gray-300 w-10 text-center">{ticket.room}</div>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex gap-1 mb-1">
+          {/* Compact Tags */}
+          <span className="px-1.5 py-0.5 bg-[#1A1C25] rounded text-[10px] text-blue-300 font-mono border border-blue-900/30">
+            {ticket.id.slice(0, 4)}
+          </span>
+        </div>
+        <div className="text-xs text-gray-500 truncate">{ticket.service_key}</div>
+      </div>
+
+      <div className="text-right flex flex-col items-end gap-1">
+        <div className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${labelBg} ${statusColor} border border-white/5`}>
+          {label}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ContextTaskCard({ ticket, onClick }: { ticket: Ticket; onClick: () => void }) {
+  const isNew = ticket.status === 'Requested';
+
+  return (
+    <div
+      onClick={onClick}
+      className="flex items-center gap-3 p-3 rounded-lg bg-[#111218] border border-white/5 hover:bg-[#1A1C25] cursor-pointer transition-colors"
+    >
+      <div className={`w-2 h-2 rounded-full ${isNew ? 'bg-blue-500' : 'bg-amber-500'}`}></div>
+      <div className="text-lg font-light text-white w-10">{ticket.room}</div>
+      <div className="flex-1 min-w-0">
+        <div className="text-xs font-medium text-gray-300 truncate">{ticket.service_key}</div>
+        <div className="text-[10px] text-gray-500">{ticket.assignee_name || 'Unassigned'}</div>
+      </div>
+      <div className="text-[10px] font-mono text-gray-600">{Math.floor(ticket.mins_remaining || 0)}m</div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
 
 export default function OpsBoard() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { hotelId, initialised, debugMsg } = useEffectiveHotelId();
+  const { hotelId, initialised } = useEffectiveHotelId();
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [rooms, setRooms] = useState<RoomNode[]>([]);
-  const [loadingRooms, setLoadingRooms] = useState(true);
-
-  const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
-  // Filter state
-  const [filterStatus, setFilterStatus] = useState<"All" | "New" | "InProgress" | "Blocked">("All");
-  // Staff data
+  const [rooms, setRooms] = useState<any[]>([]);
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
-  const [loadingStaff, setLoadingStaff] = useState(true);
 
-  // Staff picker for reassignment
+  // State
+  const [filterStatus, setFilterStatus] = useState<"All" | "New" | "InProgress" | "Blocked">("All");
+  const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null); // For Details Drawer
+
+  // Modals
   const [showStaffPicker, setShowStaffPicker] = useState(false);
   const [reassignTicket, setReassignTicket] = useState<Ticket | null>(null);
 
-  const refresh = useCallback(async () => {
-    if (!hotelId) {
-      console.log("OpsBoard: No hotelId yet");
-      return;
-    }
-    console.log("OpsBoard: Refreshing for hotelId:", hotelId);
+  const [commentAction, setCommentAction] = useState<{
+    isOpen: boolean;
+    type: 'reject' | 'exception' | null;
+    ticket: Ticket | null;
+  }>({ isOpen: false, type: null, ticket: null });
 
-    // Use allSettled so one failure doesn't break the whole dashboard
-    const [tRes, oRes, rRes] = await Promise.allSettled([
+  const refresh = useCallback(async () => {
+    if (!hotelId) return;
+    const [tRes, rRes] = await Promise.allSettled([
       listTickets(hotelId),
-      listOrders(hotelId),
       listRooms(hotelId)
     ]);
 
-    // 1. Tickets
     if (tRes.status === "fulfilled") {
-      const rawTickets = ((tRes.value as any).items || []) as any[];
-      setTickets(rawTickets.map(normalizeTicket));
-    } else {
-      console.error("OpsBoard: Failed to load tickets", tRes.reason);
+      setTickets(((tRes.value as any).items || []).map(normalizeTicket));
     }
-
-    // 2. Orders
-    if (oRes.status === "fulfilled") {
-      setOrders(((oRes.value as any).items || []) as any[]);
-    } else {
-      console.error("OpsBoard: Failed to load orders", oRes.reason);
-    }
-
-    // 3. Rooms
-    let loadedRooms: RoomNode[] = [];
     if (rRes.status === "fulfilled") {
-      const r = rRes.value as any[]; // strict typing might fail if not cast
+      const r = rRes.value as any[];
       if (r && r.length > 0) {
-        loadedRooms = r.map(x => ({
+        setRooms(r.map(x => ({
           number: x.number ?? x.room_number ?? "000",
           floor: x.floor ?? x.floor_number ?? 1,
           id: x.id
-        }));
+        })));
       }
-    } else {
-      console.error("OpsBoard: Failed to loading rooms", rRes.reason);
     }
-
-    // Fallback to generated if DB is empty or failed
-    if (loadedRooms.length > 0) {
-      setRooms(loadedRooms);
-    } else {
-      console.warn("OpsBoard: No rooms found, using generated fallback");
-      setRooms(GENERATED_ROOMS);
-    }
-
-    setLoadingRooms(false);
   }, [hotelId]);
 
-  // Fetch staff data
   useEffect(() => {
-    const loadStaff = async () => {
-      if (!hotelId) {
-        console.log("No hotelId provided");
-        setLoadingStaff(false);
-        return;
-      }
+    if (hotelId) {
+      refresh();
+      const loadStaff = async () => {
+        try {
+          // 1. Fetch hotel_members
+          const { data: members, error: mError } = await supabase
+            .from('hotel_members')
+            .select('*')
+            .eq('hotel_id', hotelId)
+            .eq('is_active', true);
 
-      console.log("OpsBoard: Loading staff for hotelId:", hotelId);
-      setLoadingStaff(true);
-      try {
-        // 1. Fetch hotel_members
-        const { data: members, error: mError } = await supabase
-          .from('hotel_members')
-          .select('*')
-          .eq('hotel_id', hotelId)
-          .eq('is_active', true);
+          if (mError || !members) {
+            console.error('Error fetching members', mError);
+            return;
+          }
 
-        if (mError) throw mError;
+          // 2. Fetch profiles manual join
+          const userIds = members.map(m => m.user_id).filter(Boolean);
+          let profiles: any[] = [];
 
-        // 2. Fetch profiles for these members
-        const userIds = (members || []).map(m => m.user_id).filter(Boolean);
-        let profilesData: any[] = [];
-        if (userIds.length > 0) {
-          const { data: pData } = await supabase
-            .from('profiles')
-            .select('id, full_name, phone')
-            .in('id', userIds);
-          profilesData = pData || [];
+          if (userIds.length > 0) {
+            const { data: pData } = await supabase
+              .from('profiles')
+              .select('id, full_name, phone')
+              .in('id', userIds);
+            profiles = pData || [];
+          }
+
+          // 3. Merge
+          const merged = members.map((m: any) => {
+            const p = profiles.find(x => x.id === m.user_id);
+            return {
+              ...m,
+              full_name: p?.full_name || 'Staff'
+            };
+          });
+
+          setStaffMembers(merged);
+        } catch (e) {
+          console.error('loadStaff failed', e);
         }
-
-        // 3. Merge
-        const profilesMap = new Map(profilesData.map(p => [p.id, p]));
-        const staffProcessed = (members || []).map(m => {
-          const p = profilesMap.get(m.user_id);
-          return {
-            id: m.id,
-            user_id: m.user_id,
-            role: m.role,
-            is_active: m.is_active,
-            created_at: m.created_at,
-            updated_at: m.updated_at,
-            full_name: p?.full_name || `Staff ${m.user_id?.slice(0, 8) || ''}`,
-            phone_number: p?.phone || null
-          };
-        });
-
-        setStaffMembers(staffProcessed);
-        console.log("OpsBoard: Successfully loaded", staffProcessed.length, "staff members");
-      } catch (e) {
-        console.error("OpsBoard: Error loading staff:", e);
-        setStaffMembers([]);
-      } finally {
-        setLoadingStaff(false);
-      }
-    };
-
-    loadStaff();
-  }, [hotelId]);
+      };
+      loadStaff();
+    }
+  }, [hotelId, refresh]);
 
   useEffect(() => {
     if (initialised && hotelId) {
@@ -493,683 +526,370 @@ export default function OpsBoard() {
         ticket_created: () => refresh(),
         ticket_updated: () => refresh(),
       });
-
-      // Auto-refresh polling every 10 seconds as fallback
-      const pollInterval = setInterval(() => {
-        refresh();
-      }, 10000); // 10 seconds
-
-      return () => {
-        off();
-        clearInterval(pollInterval);
-      };
+      const pollInterval = setInterval(refresh, 10000);
+      return () => { off(); clearInterval(pollInterval); };
     }
   }, [initialised, hotelId, refresh]);
 
-  // Derived state
+  // CATEGORIZATION LOGIC
   const activeTickets = tickets.filter(t => t.status !== "Done");
-  const newCount = activeTickets.filter(t => t.status === "Requested").length;
-  // InProgress now explicitly includes Accepted properly if we want, but definitely NOT Paused
-  const inProgressCount = activeTickets.filter(t => t.status === "InProgress" || t.status === "Accepted").length;
-  // Blocked = Overdue OR Paused
-  const blockedCount = activeTickets.filter(t => t.is_overdue || t.status === "Paused").length;
 
-  const roomStateMap = useMemo(() => {
-    const map = new Map<string, Ticket[]>();
+  // Decision: Waiting for supervisor approval (Using computed flag OR legacy block reason)
+  const decisionTickets = activeTickets.filter(t =>
+    t.needs_supervisor_action ||
+    (t.status === 'Paused' && t.reason_code === 'supervisor_approval')
+  );
+
+  const decisionIds = new Set(decisionTickets.map(t => t.id));
+
+  // Oversight: Blocked OR Breached OR At Risk (<15m) -- excluding decisions
+  const oversightTickets = activeTickets.filter(t => {
+    if (decisionIds.has(t.id)) return false;
+    if (t.status === 'Paused') return true;
+    if (t.is_overdue) return true;
+    if ((t.mins_remaining || 100) < 15) return true;
+    return false;
+  });
+
+  // Calculate staff load
+  const staffLoad = useMemo(() => {
+    const load: Record<string, number> = {};
     activeTickets.forEach(t => {
-      const r = t.room.trim();
-      if (!map.has(r)) map.set(r, []);
-      map.get(r)?.push(t);
+      if (t.assignee_id) {
+        load[t.assignee_id] = (load[t.assignee_id] || 0) + 1;
+      }
     });
-    return map;
-  }, [activeTickets]);
+    return staffMembers.map(s => ({
+      ...s,
+      taskCount: load[s.id] || 0
+    })).sort((a, b) => b.taskCount - a.taskCount);
+  }, [staffMembers, activeTickets]);
 
-  /* Decoupled: Room and Status filters now work independently */
+  // Context Tickets (Filtered View)
+  // When a filter is active (New/InProgress) OR Room selected, show matching tickets
+  // If "Blocked" is selected, oversight queue is already visible, but we can show full blocked list here too.
+  const contextTickets = useMemo(() => {
+    if (filterStatus === 'All' && !selectedRoom) return []; // Don't show anything contextually if no filter
 
-  const selectedRoomTickets = useMemo(() => {
-    // If a room is selected, show only that room's tickets.
-    // Otherwise, show all tickets (which will be filtered by status below).
-    let list = selectedRoom ? roomStateMap.get(selectedRoom) || [] : activeTickets;
-
-    // Apply the same filter logic to the panel list
-    if (filterStatus === "New") {
-      list = list.filter(t => t.status === "Requested");
-    } else if (filterStatus === "InProgress") {
-      list = list.filter(t => t.status === "InProgress" || t.status === "Accepted");
-    } else if (filterStatus === "Blocked") {
-      list = list.filter(t => t.is_overdue || t.status === "Paused");
+    let list = activeTickets;
+    if (selectedRoom) {
+      list = list.filter(t => t.room === selectedRoom);
     }
+
+    if (filterStatus === 'New') {
+      list = list.filter(t => t.status === 'Requested');
+    } else if (filterStatus === 'InProgress') {
+      list = list.filter(t => t.status === 'InProgress' || t.status === 'Accepted');
+    } else if (filterStatus === 'Blocked') {
+      list = list.filter(t => t.status === 'Paused' || t.is_overdue);
+    }
+
     return list;
-  }, [selectedRoom, roomStateMap, filterStatus, activeTickets]);
+  }, [activeTickets, filterStatus, selectedRoom]);
 
-  const handleTicketAction = async (t: Ticket, action: string) => {
-    // Handle supervisor approve action
+  const handleAction = async (t: Ticket, action: string) => {
     if (action === 'approve') {
-      // Validation: ensure task is blocked with supervisor_approval
-      if (t.status !== 'Paused') {
-        alert('Cannot approve: Task is not blocked');
-        return;
-      }
-      if (t.reason_code !== 'supervisor_approval') {
-        alert('Cannot approve: Task is not waiting for supervisor approval');
-        return;
-      }
-
-      try {
-        // Optimistic update: remove from UI immediately
-        setTickets(prev => prev.filter(ticket => ticket.id !== t.id));
-
-        // Call unblock API with SUPERVISOR_APPROVED reason
-        await unblockTask(t.id, 'SUPERVISOR_APPROVED', 'Approved by supervisor');
-
-        // Success - refresh to get updated state
-        refresh();
-      } catch (error) {
-        console.error('Failed to approve task:', error);
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        alert(`Failed to approve task: ${errorMsg}\n\nPlease check the console for details.`);
-
-        // Revert optimistic update by refreshing
-        refresh();
-      }
-      return;
-    }
-
-    // Handle reassign action
-    if (action === 'reassign') {
-      // Validation: ensure task is blocked with supervisor_approval
-      if (t.status !== 'Paused') {
-        alert('Cannot reassign: Task is not blocked');
-        return;
-      }
-      if (t.reason_code !== 'supervisor_approval') {
-        alert('Cannot reassign: Task is not waiting for supervisor approval');
-        return;
-      }
-
-      // Show staff picker
+      await unblockTask(t.id, 'SUPERVISOR_APPROVED', 'Approved');
+      refresh();
+    } else if (action === 'exception') {
+      setCommentAction({ isOpen: true, type: 'exception', ticket: t });
+    } else if (action === 'reassign') {
       setReassignTicket(t);
       setShowStaffPicker(true);
-      return;
-    }
-
-    // Existing action handlers (start, resolve)
-    let nextStatus: TicketStatus = t.status;
-    let payload: any = {};
-
-    if (action === "start") {
-      nextStatus = "InProgress";
-      payload = { action: "start" };
-      if (!IS_SUPABASE_FUNCTIONS) payload = { status: "InProgress" };
-    } else if (action === "resolve") {
-      nextStatus = "Done";
-      payload = { action: "resolve" };
-      if (!IS_SUPABASE_FUNCTIONS) payload = { status: "Done" };
-    }
-
-    // Optimistic update
-    setTickets(prev => prev.map(x => x.id === t.id ? { ...x, status: nextStatus } : x));
-
-    try {
-      await updateTicket(t.id, payload);
-      refresh();
-    } catch (e) {
-      console.error(e);
-      refresh();
+    } else {
+      console.log('Action', action, t.id);
     }
   };
 
-  const handleReassign = async (newStaffId: string) => {
-    if (!reassignTicket || !hotelId) return;
+  const handleCommentSubmit = async (comment: string) => {
+    const { type, ticket } = commentAction;
+    if (!ticket || !type) return;
 
     try {
-      // Optimistic update: remove from UI immediately
-      setTickets(prev => prev.filter(t => t.id !== reassignTicket.id));
-      setShowStaffPicker(false);
-      setReassignTicket(null);
-
-      // Get current user ID (supervisor) - for now using a placeholder
-      // TODO: Get actual supervisor ID from auth context
-      const supervisorId = 'placeholder-supervisor-id';
-
-      // Call reassign API
-      await reassignTask(
-        reassignTicket.id,
-        newStaffId,
-        supervisorId,
-        'Reassigned by supervisor'
-      );
-
-      // Success - refresh to get updated state
+      if (type === 'reject') {
+        await rejectSupervisorRequest(ticket.id, comment);
+      } else if (type === 'exception') {
+        await grantSlaException(ticket.id, comment);
+      }
       refresh();
-    } catch (error) {
-      console.error('Failed to reassign task:', error);
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      alert(`Failed to reassign task: ${errorMsg}\n\nPlease check the console for details.`);
-
-      // Revert optimistic update by refreshing
-      setShowStaffPicker(false);
-      setReassignTicket(null);
-      refresh();
+    } catch (e) {
+      console.error('Action failed', e);
+      alert('Action failed: ' + (e as any).message);
+    } finally {
+      setCommentAction({ isOpen: false, type: null, ticket: null });
     }
   };
 
   const handleFilterClick = (status: "All" | "New" | "InProgress" | "Blocked") => {
-    // Reset room filter when status filter is clicked
-    setSelectedRoom(null);
-
-    // Toggle off if clicking active
-    if (filterStatus === status && status !== "All") {
-      setFilterStatus("All");
+    // Toggle logic: if clicking existing active filter, clear it.
+    if (filterStatus === status && status !== 'All') {
+      setFilterStatus('All');
     } else {
       setFilterStatus(status);
     }
+    setSelectedRoom(null); // Reset room on status change
   };
-
-  // Determine if a room matches the current filter
-  const isRoomMatch = (roomNumber: string) => {
-    if (filterStatus === "All") return true;
-    const roomTickets = roomStateMap.get(roomNumber);
-    if (!roomTickets?.length) return false;
-
-    if (filterStatus === "New") return roomTickets.some(t => t.status === "Requested");
-    if (filterStatus === "InProgress") return roomTickets.some(t => t.status === "InProgress" || t.status === "Accepted");
-    if (filterStatus === "Blocked") return roomTickets.some(t => t.is_overdue || t.status === "Paused");
-    return false;
-  };
-
-  // Group rooms by floor for display
-  const floors = useMemo(() => {
-    const floorsMap = new Set<number>();
-    rooms.forEach(r => floorsMap.add(r.floor));
-    return Array.from(floorsMap).sort((a, b) => a - b);
-  }, [rooms]);
 
   return (
-    <div className="min-h-screen bg-[#050505] text-gray-200 font-sans p-8 pb-20">
-
-      {/* Header Area */}
-      <div className="flex flex-col xl:flex-row justify-between items-start gap-8 mb-10">
-
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-6">
-            <h1 className="text-2xl font-medium text-white tracking-wide">Vaiyu Residency</h1>
-            <button onClick={refresh} className="px-3 py-1 bg-white/5 hover:bg-white/10 text-[10px] uppercase tracking-wider rounded text-gray-400 transition">
-              {loadingRooms ? "Loading..." : "Sync"}
-            </button>
-          </div>
-
-          <div className="flex gap-10 text-xs font-mono">
-            <div>
-              <div className="text-gray-500 mb-1 uppercase tracking-wider text-[10px]">Rooms</div>
-              <div className="text-white text-3xl font-light">{rooms.length}</div>
+    <div className="min-h-screen bg-[#050505] text-gray-200 font-sans p-6 pb-20 overflow-x-hidden">
+      {/* HEADER KPI */}
+      <div className="flex flex-wrap items-center justify-between gap-6 mb-8">
+        <div>
+          <h1 className="text-xl font-medium text-white mb-1">Vaiyu Residency <span className="text-xs px-2 py-0.5 bg-white/10 rounded ml-2 text-gray-400">SYNC</span></h1>
+          <div className="flex gap-6 mt-4">
+            <div className="text-center">
+              <div className="text-xs text-gray-500 uppercase tracking-widest mb-1">Rooms</div>
+              <div className="text-2xl font-light text-white">{rooms.length}</div>
             </div>
-            <div>
-              <div className="text-gray-500 mb-1 uppercase tracking-wider text-[10px]">Active</div>
-              <div className="text-white text-3xl font-light">{activeTickets.length}</div>
-              <div className="text-gray-600 text-[10px]">Tasks</div>
+            <div className="text-center">
+              <div className="text-xs text-gray-500 uppercase tracking-widest mb-1">Active</div>
+              <div className="text-2xl font-light text-white">{activeTickets.length}</div>
+              <div className="text-[10px] text-red-500 font-bold mt-1">{decisionTickets.length} ALERTS</div>
             </div>
-            <div>
-              <div className="text-gray-500 mb-1 uppercase tracking-wider text-[10px]">Risk</div>
-              <div className="text-amber-400 text-3xl font-light">{blockedCount}</div>
-              <div className="text-amber-900/60 text-[10px] uppercase font-bold">Alerts</div>
-            </div>
-            <div>
-              <div className="text-gray-500 mb-1 uppercase tracking-wider text-[10px]">Avg Time</div>
-              <div className="text-white text-3xl font-light">7<span className="text-lg">m</span></div>
+            <div className="text-center">
+              <div className="text-xs text-gray-500 uppercase tracking-widest mb-1">Avg Time</div>
+              <div className="text-2xl font-light text-white">7m</div>
             </div>
           </div>
         </div>
 
-        <div className="flex gap-5">
+        <div className="flex gap-4">
           <StatusBlock
             label="New"
-            count={newCount}
-            colorClass="bg-blue-600"
-            active={filterStatus === "New"}
-            onClick={() => handleFilterClick("New")}
+            count={activeTickets.filter(t => t.status === 'Requested').length}
+            colorClass="text-blue-400"
+            active={filterStatus === 'New'}
+            onClick={() => handleFilterClick('New')}
           />
           <StatusBlock
             label="In Progress"
-            count={inProgressCount}
-            colorClass="bg-yellow-500"
-            active={filterStatus === "InProgress"}
-            onClick={() => handleFilterClick("InProgress")}
+            count={activeTickets.filter(t => t.status === 'InProgress' || t.status === 'Accepted').length}
+            colorClass="text-gray-400"
+            active={filterStatus === 'InProgress'}
+            onClick={() => handleFilterClick('InProgress')}
           />
           <StatusBlock
             label="Blocked"
-            count={blockedCount}
-            colorClass="bg-red-500"
-            active={filterStatus === "Blocked"}
-            onClick={() => handleFilterClick("Blocked")}
+            count={activeTickets.filter(t => t.status === 'Paused' || t.is_overdue).length}
+            colorClass="text-gray-400"
+            active={filterStatus === 'Blocked'}
+            onClick={() => handleFilterClick('Blocked')}
           />
           <StatusBlock
             label="At Risk"
-            count={0}
-            colorClass="bg-gray-600"
+            count={oversightTickets.length}
+            colorClass="text-amber-500"
             active={false}
             onClick={() => { }}
           />
         </div>
       </div>
 
-      {/* Calculate supervisor tickets */}
-      {(() => {
-        const supervisorTickets = activeTickets.filter(t => t.reason_code === 'supervisor_approval' && t.status === 'Paused');
+      {/* MAIN LAYOUT */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
-        return (
-          <div className="grid grid-cols-1 xl:grid-cols-[minmax(400px,1fr)_300px_380px] gap-6">
+        {/* LEFT COLUMN (Main) */}
+        <div className="lg:col-span-8 space-y-8">
 
-            <div className="space-y-8">
-              {/* Room Grid Card */}
-              <div className="bg-[#0B0C10] border border-white/5 rounded-2xl p-8">
-                <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-6">Room Status</h2>
-
-                <div className="flex justify-center">
-                  {/* Dynamic Grid Layout */}
-                  <div className="flex flex-col gap-2">
-                    {floors.map(floor => (
-                      <div key={floor} className="flex gap-1 justify-center">
-                        {/* Only show rooms for this floor */}
-                        {rooms.filter(r => r.floor === floor).map(r => {
-                          const roomTickets = roomStateMap.get(r.number) || [];
-
-                          // Filter tickets based on current view to determine COLOR
-                          const relevantTickets = roomTickets.filter(t => {
-                            if (filterStatus === "All") return true;
-                            if (filterStatus === "New") return t.status === "Requested";
-                            if (filterStatus === "InProgress") return t.status === "InProgress" || t.status === "Accepted";
-                            if (filterStatus === "Blocked") return t.is_overdue || t.status === "Paused";
-                            return true;
-                          });
-
-                          const primaryTicket = relevantTickets.length > 0 ? relevantTickets[0] : roomTickets[0];
-                          // Only show RED/BLOCKED if the RELEVANT tickets are blocked
-                          // (Unless filter is All, in which case any block in room makes it red)
-                          const isBlocked = relevantTickets.some(t => t.is_overdue || t.status === "Paused");
-
-                          // Match check for dimming (still needed if we want to support dimming in future, or for logic consistency)
-                          const isMatch = relevantTickets.length > 0;
-
-                          return (
-                            <RoomCell
-                              key={r.number}
-                              room={r.number}
-                              status={primaryTicket?.status || null}
-                              hasActiveTicket={!!roomTickets.length} // Keep bold if ANY ticket exists
-                              isBlocked={isBlocked}
-                              dimmed={!isMatch && filterStatus !== "All"} // Only dim if filter active and no match
-                              onClick={() => setSelectedRoom(r.number)}
-                            />
-                          );
-                        })}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Tasks At Risk */}
-                <div className="bg-[#0B0C10] border border-white/5 rounded-2xl p-6 min-h-[300px]">
-                  <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-6">Tasks at Risk</h2>
-                  <div className="space-y-4">
-                    {tickets.filter(t => t.is_overdue && t.status !== "Done").slice(0, 5).map(t => (
-                      <div key={t.id} className="flex items-center gap-4 bg-[#111218] p-3 rounded-lg border border-white/5">
-                        <span className={`w-8 h-8 flex items-center justify-center rounded bg-red-500/10 text-red-500 font-bold text-xs`}>
-                          !
-                        </span>
-                        <div>
-                          <div className="text-white text-sm font-semibold">Room {t.room}</div>
-                          <div className="text-gray-500 text-xs">{t.service_key}</div>
-                        </div>
-                        <div className="ml-auto text-xs text-red-400 font-mono font-bold">
-                          {Math.abs(t.mins_remaining || 0)}m
-                        </div>
-                      </div>
-                    ))}
-                    {!tickets.some(t => t.is_overdue && t.status !== "Done") && (
-                      <div className="text-gray-700 text-xs italic">No overdue tasks.</div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Staff Activity */}
-                <div className="bg-[#0B0C10] border border-white/5 rounded-2xl p-6 min-h-[300px]">
-                  <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-6">Staff Activity</h2>
-                  {loadingStaff ? (
-                    <div className="text-gray-500 text-xs">Loading staff...</div>
-                  ) : staffMembers.length === 0 ? (
-                    <div className="text-gray-500 text-xs">No active staff found.</div>
-                  ) : (
-                    <div className="space-y-5">
-                      {staffMembers.map((staff, index) => {
-                        // Generate consistent colors for each staff member
-                        const colors = ["#ef4444", "#eab308", "#22c55e", "#3b82f6", "#8b5cf6", "#f97316"];
-                        const color = colors[index % colors.length];
-
-                        // Mock room count for now (you could calculate this from active tickets)
-                        const roomsAssigned = Math.floor(Math.random() * 8) + 1;
-
-                        return (
-                          <div key={staff.id}>
-                            <div className="flex justify-between text-xs mb-2 px-1">
-                              <span className="font-semibold text-gray-300">{staff.full_name}</span>
-                              <span className="text-gray-500 font-mono">{roomsAssigned} rooms</span>
-                            </div>
-                            <div className="h-1.5 w-full bg-[#1A1C25] rounded-full overflow-hidden">
-                              <div
-                                className="h-full rounded-full"
-                                style={{ width: `${(roomsAssigned / 10) * 100}%`, backgroundColor: color }}
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
+          {/* 1. DECISION QUEUE (Needs Supervisor Action) */}
+          <section>
+            <div className="flex items-center gap-3 mb-4">
+              <span className="flex h-3 w-3 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+              </span>
+              <h2 className="text-sm font-bold text-gray-200 uppercase tracking-widest">Needs Supervisor Action</h2>
             </div>
 
-            {/* ALERTS PANEL - MIDDLE COLUMN */}
-            <div className="bg-[#0B0C10] border border-red-900/40 rounded-2xl p-6 h-fit sticky top-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="relative flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                  </div>
-                  <h2 className="text-sm font-bold text-red-400 uppercase tracking-widest">Alerts</h2>
-                </div>
-                <span className="text-[10px] text-red-300 font-mono bg-red-500/10 px-2 py-1 rounded">
-                  {supervisorTickets.length}
-                </span>
-              </div>
-
-              {supervisorTickets.length === 0 ? (
-                <div className="p-6 rounded-xl bg-white/5 border border-dashed border-white/10 text-center">
-                  <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-gray-500 mx-auto mb-2">
-                    ✓
-                  </div>
-                  <p className="text-gray-500 text-xs">No supervisor requests</p>
+            <div className="space-y-4">
+              {decisionTickets.length === 0 ? (
+                <div className="p-8 rounded-xl bg-[#0B0C10] border border-dashed border-white/5 text-center">
+                  <p className="text-gray-500 text-sm">No pending decisions. You're all caught up!</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  <div className="bg-red-900/10 px-3 py-2 rounded-lg border border-red-900/20">
-                    <h3 className="text-[10px] font-bold text-red-300 uppercase tracking-widest mb-1">Waiting for Supervisor</h3>
-                    <div className="text-[10px] text-red-400/70">Requires immediate attention</div>
+                decisionTickets.map(t => (
+                  <DecisionCard key={t.id} ticket={t} onAction={handleAction} onClick={() => setSelectedTicket(t)} />
+                ))
+              )}
+            </div>
+          </section>
+
+          {/* 4. STAFF LOAD */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Staff Load */}
+            <div className="bg-[#0B0C10] border border-white/5 rounded-2xl p-6 h-fit">
+              <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6">Staff Load Overview</h2>
+              <div className="space-y-4">
+                {staffLoad.map((staff, i) => (
+                  <div key={staff.id}>
+                    <div className="flex justify-between text-xs mb-2">
+                      <span className="text-gray-300 font-medium">{staff.full_name}</span>
+                      <span className="text-gray-500">{staff.taskCount} Tasks</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-[#1A1C25] rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${i === 0 ? 'bg-amber-500' : 'bg-green-600'}`}
+                        style={{ width: `${Math.min((staff.taskCount / 5) * 100, 100)}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    {supervisorTickets.map(t => (
-                      <div key={t.id} className="bg-[#111218] border border-red-900/20 rounded-lg p-3 hover:border-red-900/40 transition-colors cursor-pointer">
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="text-xs font-semibold text-white">Room {t.room}</div>
-                          <div className="text-[10px] text-red-400 font-mono">{t.service_key}</div>
-                        </div>
-                        <div className="text-[10px] text-gray-500 mb-2">Reason: Supervisor approval</div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleTicketAction(t, 'approve')}
-                            className="flex-1 py-1.5 bg-green-900/30 hover:bg-green-900/50 text-green-400 text-[10px] font-bold uppercase rounded border border-green-500/30 transition"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => handleTicketAction(t, 'reassign')}
-                            className="flex-1 py-1.5 bg-[#1A1C25] hover:bg-white/10 text-gray-300 text-[10px] font-bold uppercase rounded border border-white/10 transition"
-                          >
-                            Reassign
-                          </button>
-                        </div>
-                      </div>
-                    ))}</div>
+                ))}
+                {staffLoad.length === 0 && <div className="text-xs text-gray-600">No staff online</div>}
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* RIGHT COLUMN */}
+        <div className="lg:col-span-4 space-y-8">
+
+          {/* 2. OVERSIGHT QUEUE OR CONTEXT QUEUE */}
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              {filterStatus !== 'All' || selectedRoom ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-blue-500">🔍</span>
+                  <h2 className="text-sm font-bold text-gray-200 uppercase tracking-widest">
+                    {selectedRoom ? `Room ${selectedRoom}` : `${filterStatus} Tasks`}
+                  </h2>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-amber-500">⚠️</span>
+                  <h2 className="text-sm font-bold text-gray-200 uppercase tracking-widest">Blocked & At-Risk</h2>
                 </div>
               )}
+              {(filterStatus !== 'All' || selectedRoom) && (
+                <button onClick={() => { setFilterStatus('All'); setSelectedRoom(null); }} className="text-[10px] text-gray-500 hover:text-white uppercase">Clear</button>
+              )}
             </div>
 
-            {/* GLOBAL TASKS PANEL - RIGHT COLUMN */}
-            <div className="bg-[#0B0C10] border border-white/5 rounded-2xl p-8 h-fit sticky top-6">
-              <TaskDetailsPanel
-                roomNumber={selectedRoom}
-                filterStatus={filterStatus}
-                tickets={selectedRoomTickets}
-                onAction={handleTicketAction}
-              />
+            <div className="bg-[#0B0C10] border border-white/5 rounded-2xl p-4 min-h-[200px] space-y-2 max-h-[500px] overflow-y-auto custom-scrollbar">
+              {/* If Filter is active, show Context Tickets. Else show Oversight Tickets */}
+              {(filterStatus !== 'All' || selectedRoom) ? (
+                <>
+                  <div className="grid grid-cols-[40px_1fr_40px] gap-4 mb-2 px-2 text-[10px] font-bold text-gray-600 uppercase tracking-widest">
+                    <div>Room</div>
+                    <div>Task</div>
+                    <div className="text-right">SLA</div>
+                  </div>
+                  {contextTickets.length === 0 ? (
+                    <div className="text-center py-8 text-gray-600 text-xs">No active tasks match filter.</div>
+                  ) : (
+                    contextTickets.map(t => (
+                      <ContextTaskCard key={t.id} ticket={t} onClick={() => setSelectedTicket(t)} />
+                    ))
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="grid grid-cols-[40px_1fr_auto] gap-4 mb-2 px-2 text-[10px] font-bold text-gray-600 uppercase tracking-widest">
+                    <div>Room</div>
+                    <div>Issue</div>
+                    <div className="text-right">Status</div>
+                  </div>
+
+                  {oversightTickets.length === 0 ? (
+                    <div className="text-center py-8 text-gray-600 text-xs">No overdue or blocked items.</div>
+                  ) : (
+                    oversightTickets.map(t => (
+                      <OversightCard key={t.id} ticket={t} onAction={handleAction} onClick={() => setSelectedTicket(t)} />
+                    ))
+                  )}
+                </>
+              )}
             </div>
-          </div>
-        );
-      })()}
+          </section>
 
-  {/* Staff Picker Modal */}
-  {showStaffPicker && reassignTicket && hotelId && (
-    <StaffPicker
-      hotelId={hotelId}
-      currentAssigneeId={reassignTicket.assignee_id}
-      onSelect={handleReassign}
-      onCancel={() => {
-        setShowStaffPicker(false);
-        setReassignTicket(null);
-      }}
-    />
-  )}
-    </div>
-  );
-}
+          {/* 3. ROOM STATUS (Grid) */}
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 border border-gray-600 rounded-sm"></div>
+                <h2 className="text-sm font-bold text-gray-200 uppercase tracking-widest">Room Status</h2>
+              </div>
+            </div>
 
-/**
- * Redesigned Task Panel matching the high-fidelity dark UI.
- */
-function TaskDetailsPanel({
-  roomNumber,
-  filterStatus,
-  tickets,
-  onAction
-}: {
-  roomNumber: string | null;
-  filterStatus: "All" | "New" | "InProgress" | "Blocked";
-  tickets: Ticket[];
-  onAction: (t: Ticket, action: string) => void;
-}) {
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="text-lg font-bold text-white tracking-wide">
-          {roomNumber ? `Room ${roomNumber}` : (filterStatus === "All" ? "Global Tasks" : `${filterStatus} Tasks`)}
-        </h2>
-        <span className="text-[10px] font-mono text-gray-400 uppercase tracking-widest bg-white/5 px-2 py-1 rounded">
-          {tickets.length} total
-        </span>
+            <div className="bg-[#0B0C10] border border-white/5 rounded-2xl p-4">
+              <div className="grid grid-cols-6 gap-2">
+                {rooms.map(r => {
+                  // Determine status based on ticket map
+                  const occupied = activeTickets.some(t => t.room === r.number);
+                  const risk = oversightTickets.some(t => t.room === r.number);
+                  const decision = decisionTickets.some(t => t.room === r.number);
+                  const isSelected = selectedRoom === r.number;
+
+                  let bg = 'bg-[#1A1C25] text-gray-600 border-white/5';
+                  if (decision) bg = 'bg-red-500 text-white border-red-400';
+                  else if (risk) bg = 'bg-amber-500/20 text-amber-500 border-amber-500/50';
+                  else if (occupied) bg = 'bg-blue-600 text-white border-blue-400';
+
+                  // Selection overrides
+                  if (isSelected) bg = 'bg-white text-black border-white';
+
+                  return (
+                    <div
+                      key={r.number}
+                      onClick={() => {
+                        if (isSelected) setSelectedRoom(null);
+                        else {
+                          setSelectedRoom(r.number);
+                          setFilterStatus('All'); // Clearing status filter when selecting room usually makes more sense
+                        }
+                      }}
+                      className={`aspect-square flex items-center justify-center rounded text-[10px] font-mono border ${bg} cursor-pointer hover:brightness-110 transition-all`}
+                    >
+                      {r.number}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </section>
+
+        </div>
       </div>
 
-      {tickets.length === 0 && (
-        <div className="p-8 rounded-xl bg-white/5 border border-dashed border-white/10 text-center flex flex-col items-center justify-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-gray-500">
-            ✓
-          </div>
-          <p className="text-gray-500 text-xs">No active tasks in this view.</p>
-        </div>
+      <CommentModal
+        isOpen={commentAction.isOpen}
+        title={commentAction.type === 'reject' ? 'Reject Request' : 'Grant SLA Exception'}
+        onClose={() => setCommentAction({ isOpen: false, type: null, ticket: null })}
+        onSubmit={handleCommentSubmit}
+      />
+
+      {showStaffPicker && reassignTicket && hotelId && (
+        <StaffPicker
+          hotelId={hotelId}
+          currentAssigneeId={reassignTicket.assignee_id}
+          onSelect={async (sid) => {
+            await reassignTask(reassignTicket.id, sid, 'sup', 'Reassigned');
+            refresh();
+            setShowStaffPicker(false);
+          }}
+          onCancel={() => setShowStaffPicker(false)}
+        />
       )}
 
-      {tickets.map(t => (
-        <TaskItem key={t.id} t={t} onAction={onAction} />
-      ))}
-    </div>
-  );
-}
-
-/**
- * Individual Ticket Card that fetches its own dynamic details from views.
- */
-function TaskItem({ t, onAction }: { t: Ticket, onAction: (t: Ticket, action: string) => void }) {
-  const [header, setHeader] = useState<any>(null);
-  const [timeline, setTimeline] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      const [h, tl] = await Promise.all([
-        getSupervisorTaskHeader(t.id),
-        getTicketTimeline(t.id)
-      ]);
-      setHeader(h);
-      setTimeline(tl);
-      setLoading(false);
-    }
-    load();
-  }, [t.id]);
-
-  if (loading) {
-    return (
-      <div className="bg-[#121212] rounded-xl p-5 border border-white/5 shadow-xl animate-pulse">
-        <div className="h-4 bg-white/5 rounded w-1/2 mb-4"></div>
-        <div className="h-20 bg-white/5 rounded mb-4"></div>
-        <div className="h-10 bg-white/5 rounded"></div>
-      </div>
-    );
-  }
-
-  // Use view data if available, fallback to ticket data
-  const status = header?.status || t.status;
-  const taskType = header?.task_type || t.service_key;
-  const slaLabel = header?.sla_label || (t.mins_remaining ? `${t.mins_remaining} min left` : '12 min left');
-  const priority = header?.priority || t.priority || 'NORMAL';
-  const createdTime = header?.created_at ? new Date(header.created_at) : new Date(t.created_at);
-
-  const isBlocked = status === 'BLOCKED' || status === 'Paused' || t.is_overdue;
-  const isInProgress = status === 'IN_PROGRESS' || status === 'InProgress' || status === 'Accepted';
-  const isNew = status === 'NEW' || status === 'Requested';
-
-  let borderColor = "border-white/5";
-  let statusColor = "text-gray-400";
-  let statusIcon = "•";
-
-  if (isBlocked) {
-    borderColor = "border-red-500/30";
-    statusColor = "text-red-400";
-    statusIcon = "!";
-  } else if (isInProgress) {
-    borderColor = "border-amber-500/30";
-    statusColor = "text-amber-400";
-    statusIcon = "◷";
-  } else if (isNew) {
-    borderColor = "border-blue-500/30";
-    statusColor = "text-blue-400";
-    statusIcon = "■";
-  }
-
-  return (
-    <div className={`bg-[#121212] rounded-xl p-5 border ${borderColor} shadow-xl relative overflow-hidden group`}>
-
-      {/* Header: Status & Title */}
-      <div className="flex justify-between items-start mb-4">
-        <div>
-          <div className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wider mb-1 ${statusColor}`}>
-            <span className="text-lg leading-none">{statusIcon}</span>
-            <span>{status}</span>
-            <span className="text-gray-500 font-normal normal-case">
-              • Room {t.room} • {taskType}
-            </span>
-          </div>
-          <div className="text-xs text-gray-500">
-            Created {createdTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </div>
-        </div>
-        <div className="text-gray-600 hover:text-white cursor-pointer">•••</div>
-      </div>
-
-      {/* SLA / Warning Strip */}
-      <div className={`mb-4 px-3 py-2 rounded text-xs border ${isBlocked ? 'bg-red-500/10 border-red-500/20 text-red-400' :
-        isInProgress ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
-          'bg-blue-500/10 border-blue-500/20 text-blue-400'
-        }`}>
-        {slaLabel}
-      </div>
-
-      {/* Details Grid */}
-      <div className="space-y-4 border-t border-white/5 pt-4 mb-4">
-        <h4 className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-2">Task Details</h4>
-
-        <div className="grid grid-cols-[80px_1fr] gap-y-2 text-sm">
-          <div className="text-gray-600">Task Type</div>
-          <div className="text-gray-300 capitalize">{taskType.replace(/_/g, ' ')}</div>
-
-          <div className="text-gray-600">Request By</div>
-          <div className="text-gray-300">
-            {header?.requested_by_type || 'Guest'}
-            {header?.requested_by_name && (
-              <span className="text-gray-500 ml-1 italic">( {header.requested_by_name} )</span>
-            )}
-          </div>
-
-          <div className="text-gray-600">SLA</div>
-          <div className="text-gray-300">{slaLabel}</div>
-
-          <div className="text-gray-600">Priority</div>
-          <div className="text-gray-300 uppercase">{priority}</div>
-        </div>
-      </div>
-
-      {/* Timeline */}
-      <div className="space-y-4 border-t border-white/5 pt-4 mb-6">
-        <h4 className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-2">Task Timeline</h4>
-
-        <div className="space-y-4 pl-1">
-          {timeline.length > 0 ? timeline.map((event: any, i: number) => (
-            <div key={i} className="flex gap-4 relative">
-              {/* Vertical Line */}
-              {i !== timeline.length - 1 && (
-                <div className="absolute left-[2.2rem] top-5 bottom-[-1rem] w-px bg-white/10"></div>
-              )}
-              <div className="text-xs text-gray-500 font-mono w-8 text-right">
-                {new Date(event.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </div>
-              <div>
-                <div className="text-gray-300 text-xs font-semibold">{event.title}</div>
-                <div className="text-gray-600 text-[10px]">{event.description}</div>
-              </div>
-            </div>
-          )) : (
-            <div className="text-xs text-gray-600">No events recorded.</div>
-          )}
-        </div>
-      </div>
-
-      {/* Actions Footer */}
-      <div className="grid grid-cols-2 gap-2 mt-2">
-        {isNew ? (
-          <>
-            <button
-              onClick={() => onAction(t, 'start')}
-              className="py-2 bg-[#1A1C25] hover:bg-white/10 text-white text-xs font-bold uppercase rounded border border-white/10 transition"
-            >
-              Assign
-            </button>
-            <button className="py-2 bg-[#1A1C25] hover:bg-white/10 text-white text-xs font-bold uppercase rounded border border-white/10 transition">
-              Cancel
-            </button>
-          </>
-        ) : (
-          <>
-            <button className="py-2 bg-[#1A1C25] hover:bg-white/10 text-white text-xs font-bold uppercase rounded border border-white/10 transition">
-              Reset
-            </button>
-            {isInProgress ? (
-              <button
-                onClick={() => onAction(t, 'resolve')}
-                className="py-2 bg-green-900/40 hover:bg-green-900/60 text-green-400 border border-green-500/30 text-xs font-bold uppercase rounded transition"
-              >
-                Resolve
-              </button>
-            ) : (
-              <button className="py-2 bg-[#1A1C25] hover:bg-white/10 text-white text-xs font-bold uppercase rounded border border-white/10 transition">
-                Reassign
-              </button>
-            )}
-          </>
-        )}
-      </div>
+      {/* Ticket Details Drawer - Restored */}
+      <TicketDetailsDrawer
+        isOpen={!!selectedTicket}
+        onClose={() => setSelectedTicket(null)}
+        ticket={selectedTicket ? {
+          ...selectedTicket,
+          ticket_id: selectedTicket.id,
+          title: selectedTicket.service_key.replace(/_/g, ' '),
+          department_name: 'Service',
+          sla_state: selectedTicket.is_overdue ? 'BREACHED' : 'OK',
+          sla_breached: selectedTicket.is_overdue,
+          sla_label: (selectedTicket.mins_remaining || 0) + ' min',
+          requested_by: 'Guest'
+        } as any : null}
+        onStart={() => { if (selectedTicket) handleAction(selectedTicket, 'start'); }}
+        onComplete={() => { if (selectedTicket) handleAction(selectedTicket, 'resolve'); }}
+        onCancel={refresh}
+        onUpdate={refresh}
+      />
     </div>
   );
 }

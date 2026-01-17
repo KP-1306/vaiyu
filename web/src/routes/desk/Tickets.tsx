@@ -5,7 +5,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import Spinner from "../../components/Spinner";
 import SEO from "../../components/SEO";
-import { api, createTicket, updateTicket, getServices } from "../../lib/api";
+import {
+  api, createTicket, listRooms, // [NEW] Import listRooms
+  updateTicket, getServices
+} from "../../lib/api";
 
 type TicketStatus =
   | "new"
@@ -38,6 +41,7 @@ type TicketRow = {
 
 type ServiceRow = {
   key: string;
+  id: string; // [NEW] Link to Services table
   label_en?: string;
   sla_minutes: number;
   department_id: string;
@@ -415,6 +419,28 @@ export default function DeskTickets() {
     return map;
   }, [services]);
 
+  // [NEW] Load Rooms (to resolve room number -> ID for ticket creation)
+  const { data: rooms } = useQuery({
+    queryKey: ["rooms_list", hotelId],
+    enabled: !!hotelId && initialised,
+    queryFn: () => listRooms(hotelId!),
+  });
+
+  const roomByNumber = useMemo(() => {
+    const map = new Map<string, string>();
+    (rooms || []).forEach(r => {
+      // Map "101" -> uuid, "Room 101" -> uuid (normalize keys)
+      if (r.room_number) {
+        map.set(r.room_number.toLowerCase().trim(), r.id);
+        map.set(r.room_number.replace(/^room\s+/i, '').toLowerCase().trim(), r.id);
+      }
+      if (r.number) {
+        map.set(r.number.toLowerCase().trim(), r.id);
+      }
+    });
+    return map;
+  }, [rooms]);
+
   // Load tickets from Edge Function, fall back to direct view if needed
   const {
     data: tickets,
@@ -490,11 +516,22 @@ export default function DeskTickets() {
     try {
       const selectedSvc = serviceByKey.get(newTicket.serviceKey);
 
+      // [NEW] Resolve Room ID
+      const roomNumInput = newTicket.bookingCode?.trim() || "";
+      const resolvedRoomId = roomByNumber.get(roomNumInput.toLowerCase()) ||
+        roomByNumber.get(roomNumInput.replace(/^room\s+/i, '').toLowerCase());
+
+      if (!resolvedRoomId) {
+        setCreateError("Invalid room number. Please check and try again.");
+        return;
+      }
+
       await createTicket({
         hotelId,
-        departmentId: selectedSvc?.department_id,
+        serviceId: selectedSvc?.id, // [NEW] Pass Service ID
+        roomId: resolvedRoomId,     // [NEW] Pass Resolved Room ID (UUID)
         serviceKey: newTicket.serviceKey,
-        title: newTicket.title.trim(),
+        // Title is now derived from Service ID on backend (snapshot)
         details: newTicket.details?.trim() || undefined,
         source: "FRONT_DESK", // Using FRONT_DESK for desk creating tickets
         created_by_id: memberId, // Accurate audit trail (Rule 6)

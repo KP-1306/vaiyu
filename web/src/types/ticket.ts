@@ -185,3 +185,20 @@ export interface SLAStatus {
     isBreached: boolean;
     percentComplete: number;
 }
+
+export interface CancelReason {
+    code: string;
+    label: string;
+    description?: string;
+    requires_comment: boolean;
+    allowed_for_staff: boolean;
+    allowed_for_guest: boolean;
+    is_active: boolean;
+    icon?: string;
+}
+
+export interface CancelTicketParams {
+    ticketId: string;
+    reasonCode: string;
+    comment?: string;
+}

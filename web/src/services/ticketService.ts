@@ -13,7 +13,9 @@ import type {
 
     StaffRunnerTicket,
     BlockReason,
-    UnblockReason
+    UnblockReason,
+    CancelReason,
+    CancelTicketParams
 } from '../types/ticket';
 
 
@@ -386,6 +388,39 @@ export const ticketService = {
 
         // Map nested response to flat array
         return data.map((item: any) => item.unblock_reason) as UnblockReason[];
+    },
+
+    async getCancelReasons(): Promise<CancelReason[]> {
+        const { data, error } = await supabase
+            .from('cancel_reasons')
+            .select('*')
+            .eq('is_active', true)
+            .eq('allowed_for_staff', true)
+            .order('label');
+
+        if (error) {
+            console.error('Error fetching cancel reasons:', error);
+            return [];
+        }
+
+        return data as CancelReason[];
+    },
+
+    async cancelStaffTask({ ticketId, reasonCode, comment }: CancelTicketParams) {
+        // Use RPC to bypass RLS and ensure atomic state transition
+        const { data: result, error } = await supabase
+            .rpc('cancel_ticket_by_staff', {
+                p_ticket_id: ticketId,
+                p_reason_code: reasonCode,
+                p_comment: comment
+            });
+
+        if (error) {
+            console.error('Cancel Ticket RPC Error:', error);
+            throw new Error(`Failed to cancel ticket: ${error.message}`);
+        }
+
+        return result;
     }
 
 };

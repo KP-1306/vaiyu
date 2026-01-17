@@ -96,6 +96,7 @@ export default function Menu() {
 
   // State to hold resolved hotel_id from stay lookup
   const [resolvedHotelId, setResolvedHotelId] = useState<string | null>(null);
+  const [resolvedStayId, setResolvedStayId] = useState<string | null>(null);
   const [resolvedRoomId, setResolvedRoomId] = useState<string | null>(null);
   const [resolvedZoneId, setResolvedZoneId] = useState<string | null>(null);
   const [stayLookupDone, setStayLookupDone] = useState(false);
@@ -138,31 +139,23 @@ export default function Menu() {
           const { supabase } = await import("../lib/supabase");
 
           // Get the authenticated user
-          const { data: { user } } = await supabase.auth.getUser();
+          // Use secure RPC to resolve stay (bypassing RLS)
+          const { data, error } = await supabase
+            .rpc("resolve_stay_by_code", { p_code: stayCode })
+            .maybeSingle();
 
-          if (user) {
-            // Query stays by booking_code to get hotel_id, room_id, zone_id
-            const { data, error } = await supabase
-              .from("stays")
-              .select("hotel_id, room_id, zone_id")
-              .eq("guest_id", user.id)
-              .eq("booking_code", stayCode)
-              .maybeSingle();
+          if (!alive) return;
 
-            if (!alive) return;
-
-            if (data) {
-              dbg("[Menu] Resolved stay:", data);
-              if (data.hotel_id) setResolvedHotelId(data.hotel_id);
-              if (data.room_id) setResolvedRoomId(data.room_id);
-              if (data.zone_id) setResolvedZoneId(data.zone_id);
-            } else if (error) {
-              dbgError("[Menu] Stay lookup error:", error);
-            } else {
-              dbgError(`[Menu] No stay found for code: ${stayCode}`);
-            }
+          if (data) {
+            dbg("[Menu] Resolved stay via RPC:", data);
+            if (data.stay_id) setResolvedStayId(data.stay_id);
+            if (data.hotel_id) setResolvedHotelId(data.hotel_id);
+            if (data.room_id) setResolvedRoomId(data.room_id);
+            if (data.zone_id) setResolvedZoneId(data.zone_id);
+          } else if (error) {
+            dbgError("[Menu] Stay lookup RPC error:", error);
           } else {
-            dbgError("[Menu] No authenticated user for stay lookup");
+            dbgError(`[Menu] No stay found for code: ${stayCode}`);
           }
         } catch (e: any) {
           dbgError("[Menu] Failed to resolve stay:", e);
@@ -429,8 +422,10 @@ export default function Menu() {
         bookingCode: stayCode,
         booking_code: stayCode,
         code: stayCode,
+        stayId: resolvedStayId, // [NEW] Link to Stay
 
         // service identity
+        serviceId: selectedService.id, // [NEW] Required by backend
         serviceKey: selectedService.key,
         departmentId: selectedService.department_id,
 

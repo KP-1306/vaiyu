@@ -106,6 +106,12 @@ export default function StaffTaskManager() {
             setInProgressTasks(data.inProgress);
             setBlockedTasks(data.blocked);
             setError(null);
+
+            // DEBUG: Log SLA exception request status for all tasks
+            console.log('[DEBUG] SLA Exception Status from view:');
+            [...data.newTasks, ...data.inProgress, ...data.blocked].forEach(task => {
+                console.log(`  Ticket ${task.ticket_id}: status=${task.status}, sla_exception_request_status=${(task as any).sla_exception_request_status}, reason_code=${task.reason_code}`);
+            });
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -463,14 +469,51 @@ function TaskCard({ task, fetchedAt, variant, actions, onClick }: TaskCardProps)
                     )}
                     <h3 className="text-xl font-medium mb-3 text-white/90 leading-snug">{task.title}</h3>
                     <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${currentStyle.dot}`}></div>
-                        <p className={`text-sm ${currentStyle.text} font-medium tracking-wide`}>
-                            {task.status === 'BLOCKED' ? (
+                        {/* Only show dot when not showing custom status with icon */}
+                        {!((task.status === 'BLOCKED' && task.reason_code === 'supervisor_approval') ||
+                            (task as any).sla_exception_request_status
+                        ) && (
+                                <div className={`w-2 h-2 rounded-full ${currentStyle.dot}`}></div>
+                            )}
+                        <p className={`text-sm ${currentStyle.text} font-medium tracking-wide whitespace-nowrap`}>
+                            {/* SLA Exception status takes priority - shown for both BLOCKED and IN_PROGRESS */}
+                            {(task as any).sla_exception_request_status === 'PENDING' ? (
+                                <span className="flex items-center gap-1.5 text-blue-400">
+                                    <span>⏱️</span>
+                                    <span>SLA EXCEPTION REQUESTED</span>
+                                    <span className="animate-pulse w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                                </span>
+                            ) : (task as any).sla_exception_request_status === 'GRANTED' ? (
+                                <span className="flex items-center gap-1.5 text-green-400">
+                                    <span>✓</span>
+                                    <span>SLA EXEMPTED</span>
+                                </span>
+                            ) : (task as any).sla_exception_request_status === 'REJECTED' ? (
+                                <span className="flex items-center gap-1.5 text-orange-400">
+                                    <span>⚠️</span>
+                                    <span>SLA EXCEPTION DENIED</span>
+                                </span>
+                            ) : task.status === 'BLOCKED' ? (
                                 task.reason_code === 'supervisor_approval' ? (
-                                    <span className="flex items-center gap-2">
-                                        WAITING FOR SUPERVISOR
-                                        <span className="animate-pulse w-1.5 h-1.5 rounded-full bg-red-400"></span>
-                                    </span>
+                                    // Check supervisor decision status
+                                    (task as any).supervisor_decision_status === 'REJECTED' ? (
+                                        <span className="flex items-center gap-1.5 text-orange-400">
+                                            <span>⚠️</span>
+                                            <span>REJECTED</span>
+                                            <span className="text-xs text-orange-300/80">- Action Required</span>
+                                        </span>
+                                    ) : (task as any).supervisor_decision_status === 'APPROVED' ? (
+                                        <span className="flex items-center gap-1.5 text-green-400">
+                                            <span>✓</span>
+                                            <span>APPROVED</span>
+                                        </span>
+                                    ) : (
+                                        <span className="flex items-center gap-1.5">
+                                            <span className="w-2 h-2 rounded-full bg-red-400"></span>
+                                            <span>WAITING FOR SUPERVISOR</span>
+                                            <span className="animate-pulse w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                                        </span>
+                                    )
                                 ) : 'Blocked'
                             ) : (task.status === 'NEW' ? 'New task' : 'In progress')}
                         </p>
@@ -607,6 +650,9 @@ function CircularTimerView({ task, fetchedAt }: CircularTimerViewProps) {
         strokeDashoffset = 0;
     } else if (task.sla_state === 'PAUSED') {
         ringColor = "#eab308"; // Yellow-500
+    } else if (task.sla_state === 'EXEMPTED') {
+        ringColor = "#22c55e"; // Green-500
+        strokeDashoffset = 0; // Full circle
     } else {
         ringColor = "#22c55e";
     }
@@ -661,6 +707,18 @@ function CircularTimerView({ task, fetchedAt }: CircularTimerViewProps) {
                     <>
                         <div className="text-xs font-bold text-yellow-500">SLA</div>
                         <div className="text-[9px] text-yellow-500 uppercase">paused</div>
+                        {remaining > 0 && (
+                            <div className="text-[8px] text-yellow-400/70 mt-0.5">
+                                {Math.floor(remaining / 60)}m left
+                            </div>
+                        )}
+                    </>
+                )}
+
+                {task.sla_state === 'EXEMPTED' && (
+                    <>
+                        <div className="text-xs font-bold text-green-500">SLA</div>
+                        <div className="text-[9px] text-green-500 uppercase">exempted</div>
                     </>
                 )}
             </div>

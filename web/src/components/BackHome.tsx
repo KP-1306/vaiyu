@@ -43,7 +43,7 @@ const APP_PREFIXES = [
 ];
 
 /** Pages where the pill should not be shown */
-const HIDE_PREFIXES = ["/", "/signin", "/auth/callback"];
+const HIDE_PREFIXES = ["/", "/signin", "/auth/callback", "/ops"];
 
 function startsWithAny(path: string, prefixes: string[]) {
   return prefixes.some((p) => path === p || path.startsWith(p + "/"));
@@ -108,12 +108,15 @@ export default function BackHome({
         return;
       }
 
-      // OPS AREA: if hotelId is present, try to go back to that hotel's dashboard.
+      // OPS AREA: if slug or hotelId is present, try to go back to that hotel's dashboard.
       // Handles both slug and UUID id.
       if (segments[0] === "ops") {
         try {
           const params = new URLSearchParams(search);
+          // Check slug first (new pattern), then fall back to hotelId (legacy)
+          const slugParam = params.get("slug");
           const hotelId =
+            slugParam ||
             params.get("hotelId") ||
             params.get("hotel") ||
             params.get("propertyId");

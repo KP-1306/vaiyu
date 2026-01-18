@@ -142,12 +142,60 @@ export default function TicketDetailsDrawer({
     const [cancelReasons, setCancelReasons] = useState<Record<string, string>>({});
     const [exceptionReasons, setExceptionReasons] = useState<{ code: string, label: string }[]>([]);
 
+    // Staff workload for reassignment context
+    const [staffLoad, setStaffLoad] = useState<{ active_tasks: number; blocked_tasks: number; at_risk_tasks: number }>({
+        active_tasks: 0, blocked_tasks: 0, at_risk_tasks: 0
+    });
+
     useEffect(() => {
         if (ticket && isOpen) {
             fetchEvents();
             fetchReasons();
+            fetchStaffLoad();
         }
     }, [ticket?.ticket_id, isOpen]);
+
+    // Fetch staff load separately
+    const fetchStaffLoad = async () => {
+        let staffId = ticket?.assigned_staff_id || ticket?.assigned_user_id;
+
+        // If no assigned staff ID, get current user's hotel_members.id (staff ID)
+        if (!staffId) {
+            try {
+                const { supabase } = await import('../lib/supabase');
+                const { data: userData } = await supabase.auth.getUser();
+                if (userData?.user?.id) {
+                    // Get hotel_members.id (what getStaffLoad expects) from user_id
+                    const { data: memberData } = await supabase
+                        .from('hotel_members')
+                        .select('id')
+                        .eq('user_id', userData.user.id)
+                        .eq('is_active', true)
+                        .limit(1)
+                        .maybeSingle();
+
+                    if (memberData?.id) {
+                        staffId = memberData.id;
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to get current user staff ID', err);
+            }
+        }
+
+        if (!staffId) {
+            setStaffLoad({ active_tasks: 0, blocked_tasks: 0, at_risk_tasks: 0 });
+            return;
+        }
+
+        try {
+            const { getStaffLoad } = await import('../lib/api');
+            const load = await getStaffLoad(staffId);
+            setStaffLoad(load);
+        } catch (err) {
+            console.error('Failed to fetch staff load', err);
+        }
+    };
 
     const fetchReasons = async () => {
         try {
@@ -316,36 +364,254 @@ export default function TicketDetailsDrawer({
                         <div className="flex items-center gap-2">
                             <span className="text-gray-400">SLA:</span>
                             <span className={slaColorClass}>
-                                {ticket.sla_label || 'N/A'}
+                                {ticket.sla_state === 'PAUSED' && ticket.sla_remaining_seconds != null ? (
+                                    <>⏸ SLA paused ({Math.floor(ticket.sla_remaining_seconds / 60)}m remaining when resumed)</>
+                                ) : ticket.sla_state === 'EXEMPTED' ? (
+                                    <>✓ SLA exempted</>
+                                ) : (
+                                    ticket.sla_label || 'N/A'
+                                )}
                             </span>
                         </div>
                         <div className="flex items-center gap-2">
                             <span className="text-gray-400">ASSIGNED TO:</span>
-                            <span>You</span>
+                            <span>{ticket.assigned_to_name || 'You'}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Staff Workload Section - always show for assigned tickets */}
+                <div className="p-4 mx-4 mb-4 bg-gray-800/30 border border-gray-700/50 rounded-lg">
+                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
+                        Assigned Staff Workload
+                    </h4>
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-gray-300 font-medium">
+                            {(ticket.assigned_to_name || 'Y').charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                            <p className="text-white font-medium">{ticket.assigned_to_name || 'You'}</p>
+                            <p className="text-xs text-gray-400">Staff Member</p>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                        <div className="bg-gray-800/50 rounded p-2 text-center">
+                            <p className="text-lg font-bold text-green-400">{staffLoad.active_tasks}</p>
+                            <p className="text-[10px] text-gray-400 uppercase">Active</p>
+                        </div>
+                        <div className="bg-gray-800/50 rounded p-2 text-center">
+                            <p className="text-lg font-bold text-red-400">{staffLoad.blocked_tasks}</p>
+                            <p className="text-[10px] text-gray-400 uppercase">Blocked</p>
+                        </div>
+                        <div className="bg-gray-800/50 rounded p-2 text-center">
+                            <p className="text-lg font-bold text-amber-400">{staffLoad.at_risk_tasks}</p>
+                            <p className="text-[10px] text-gray-400 uppercase">At Risk</p>
                         </div>
                     </div>
                 </div>
 
                 {/* Current Block Section */}
-                {ticket.status === 'BLOCKED' && latestBlock && (
-                    <div className="p-6 bg-red-900 bg-opacity-20 border-b border-gray-700">
-                        <h3 className="text-sm font-semibold text-red-400 mb-3">🔴 CURRENT BLOCK</h3>
-                        <div className="space-y-2 text-sm">
-                            <div>
-                                <span className="text-gray-400">Reason: </span>
-                                <span>{latestBlock.comment || 'No reason provided'}</span>
+                {ticket.status === 'BLOCKED' && latestBlock && (() => {
+                    // Check if supervisor rejected this block
+                    const supervisorRejection = events
+                        .filter(e => e.event_type === 'SUPERVISOR_REJECTED' &&
+                            new Date(e.created_at) > new Date(latestBlock.created_at))
+                        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+
+                    const isSupervisorApprovalBlock = latestBlock.reason_code === 'supervisor_approval';
+
+                    if (supervisorRejection) {
+                        // Supervisor has rejected - show rejection info
+                        return (
+                            <div className="p-6 bg-orange-900 bg-opacity-20 border-b border-gray-700">
+                                <h3 className="text-sm font-semibold text-orange-400 mb-3">⚠️ SUPERVISOR REJECTED</h3>
+                                <div className="space-y-2 text-sm">
+                                    <div>
+                                        <span className="text-gray-400">Reason: </span>
+                                        <span>{supervisorRejection.comment || 'No reason provided'}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-400">Rejected by: </span>
+                                        <span>{getActorName(supervisorRejection)}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-400">Rejected at: </span>
+                                        <span>{new Date(supervisorRejection.created_at).toLocaleDateString('en-US', {
+                                            day: 'numeric',
+                                            month: 'short',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                        })}</span>
+                                    </div>
+                                    <div className="pt-2 mt-2 border-t border-orange-800/30">
+                                        <span className="text-orange-300 text-xs">
+                                            You must take action: Resume, Update block reason, or request supervisor again.
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
-                            <div>
-                                <span className="text-gray-400">Blocked by: </span>
-                                <span>{getActorName(latestBlock)}</span>
+                        );
+                    } else if (isSupervisorApprovalBlock) {
+                        // Waiting for supervisor decision
+                        return (
+                            <div className="p-6 bg-red-900 bg-opacity-20 border-b border-gray-700">
+                                <h3 className="text-sm font-semibold text-red-400 mb-3 flex items-center gap-2">
+                                    🔴 WAITING FOR SUPERVISOR
+                                    <span className="animate-pulse w-2 h-2 rounded-full bg-red-400"></span>
+                                </h3>
+                                <div className="space-y-2 text-sm">
+                                    <div>
+                                        <span className="text-gray-400">Requested: </span>
+                                        <span>Supervisor approval</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-400">Blocked by: </span>
+                                        <span>{getActorName(latestBlock)}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-400">Waiting since: </span>
+                                        <span>{formatDuration(blockedDuration)}</span>
+                                    </div>
+                                </div>
                             </div>
-                            <div>
-                                <span className="text-gray-400">Blocked since: </span>
-                                <span>{formatDuration(blockedDuration)}</span>
+                        );
+                    } else {
+                        // Regular block (not supervisor-related)
+                        return (
+                            <div className="p-6 bg-red-900 bg-opacity-20 border-b border-gray-700">
+                                <h3 className="text-sm font-semibold text-red-400 mb-3">🔴 CURRENT BLOCK</h3>
+                                <div className="space-y-2 text-sm">
+                                    <div>
+                                        <span className="text-gray-400">Reason: </span>
+                                        <span>{blockReasons[latestBlock.reason_code || ''] || latestBlock.comment || 'No reason provided'}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-400">Blocked by: </span>
+                                        <span>{getActorName(latestBlock)}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-400">Blocked since: </span>
+                                        <span>{formatDuration(blockedDuration)}</span>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    </div>
-                )}
+                        );
+                    }
+                })()}
+
+                {/* SLA Exception Request Status Section */}
+                {(() => {
+                    // Find the latest SLA exception request
+                    const latestSlaRequest = events
+                        .filter(e => e.event_type === 'SLA_EXCEPTION_REQUESTED')
+                        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+
+                    if (!latestSlaRequest) return null;
+
+                    // Check if there's a response to this request
+                    const responseEvent = events
+                        .filter(e =>
+                            (e.event_type === 'SLA_EXCEPTION_GRANTED' || e.event_type === 'SLA_EXCEPTION_REJECTED') &&
+                            new Date(e.created_at) > new Date(latestSlaRequest.created_at)
+                        )
+                        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+
+                    if (responseEvent?.event_type === 'SLA_EXCEPTION_GRANTED') {
+                        return (
+                            <div className="p-6 bg-green-900 bg-opacity-20 border-b border-gray-700">
+                                <h3 className="text-sm font-semibold text-green-400 mb-3">✓ SLA EXCEPTION GRANTED</h3>
+                                <div className="space-y-2 text-sm">
+                                    <div>
+                                        <span className="text-gray-400">Reason: </span>
+                                        <span>{responseEvent.comment || 'No reason provided'}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-400">Granted by: </span>
+                                        <span>{getActorName(responseEvent)}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-400">Granted at: </span>
+                                        <span>{new Date(responseEvent.created_at).toLocaleDateString('en-US', {
+                                            day: 'numeric',
+                                            month: 'short',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                        })}</span>
+                                    </div>
+                                    <div className="pt-2 mt-2 border-t border-green-800/30">
+                                        <span className="text-green-300 text-xs">
+                                            SLA is permanently exempted for this ticket.
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    } else if (responseEvent?.event_type === 'SLA_EXCEPTION_REJECTED') {
+                        return (
+                            <div className="p-6 bg-orange-900 bg-opacity-20 border-b border-gray-700">
+                                <h3 className="text-sm font-semibold text-orange-400 mb-3">⚠️ SLA EXCEPTION REJECTED</h3>
+                                <div className="space-y-2 text-sm">
+                                    <div>
+                                        <span className="text-gray-400">Reason: </span>
+                                        <span>{responseEvent.comment || 'No reason provided'}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-400">Rejected by: </span>
+                                        <span>{getActorName(responseEvent)}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-400">Rejected at: </span>
+                                        <span>{new Date(responseEvent.created_at).toLocaleDateString('en-US', {
+                                            day: 'numeric',
+                                            month: 'short',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                        })}</span>
+                                    </div>
+                                    <div className="pt-2 mt-2 border-t border-orange-800/30">
+                                        <span className="text-orange-300 text-xs">
+                                            SLA continues normally. You may request a new exception if needed.
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    } else {
+                        // Pending - show waiting status
+                        return (
+                            <div className="p-6 bg-blue-900 bg-opacity-20 border-b border-gray-700">
+                                <h3 className="text-sm font-semibold text-blue-400 mb-3 flex items-center gap-2">
+                                    ⏱️ SLA EXCEPTION REQUESTED
+                                    <span className="animate-pulse w-2 h-2 rounded-full bg-blue-400"></span>
+                                </h3>
+                                <div className="space-y-2 text-sm">
+                                    <div>
+                                        <span className="text-gray-400">Reason: </span>
+                                        <span>{latestSlaRequest.comment || 'No reason provided'}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-400">Requested by: </span>
+                                        <span>{getActorName(latestSlaRequest)}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-400">Requested at: </span>
+                                        <span>{new Date(latestSlaRequest.created_at).toLocaleDateString('en-US', {
+                                            day: 'numeric',
+                                            month: 'short',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                        })}</span>
+                                    </div>
+                                    <div className="pt-2 mt-2 border-t border-blue-800/30">
+                                        <span className="text-blue-300 text-xs">
+                                            Waiting for supervisor to grant or reject this exception request.
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    }
+                })()}
 
                 {/* Actions Section - Standardized across all states */}
                 <div className="p-6 border-b border-gray-700">
@@ -415,8 +681,8 @@ export default function TicketDetailsDrawer({
                         )}
                     </div>
 
-                    {/* Secondary Actions: SLA Exception */}
-                    {['IN_PROGRESS', 'BLOCKED'].includes(ticket.status) && !hasPendingException && (
+                    {/* Secondary Actions: SLA Exception - hide when already exempted */}
+                    {['IN_PROGRESS', 'BLOCKED'].includes(ticket.status) && !hasPendingException && ticket.sla_state !== 'EXEMPTED' && !ticket.sla_exception_granted && (
                         <div className="mt-4 pt-4 border-t border-gray-700">
                             <button
                                 onClick={() => setIsSlaExceptionModalOpen(true)}

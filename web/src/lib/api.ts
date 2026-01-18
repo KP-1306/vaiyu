@@ -2860,16 +2860,41 @@ export async function listRooms(hotelId: string): Promise<Room[]> {
 // RPC: Supervisor Decisions
 // ============================================================================
 
-export async function rejectSupervisorRequest(
+/**
+ * Reject a pending SLA exception request.
+ * Used when supervisor decides not to grant an SLA exception.
+ */
+export async function rejectSlaException(
   ticketId: string,
   comment: string
 ) {
   const s = supa();
   if (!s) return { error: { message: "Not authenticated" } };
 
-  const { data, error } = await s.rpc("reject_supervisor_request", {
+  const { data, error } = await s.rpc("reject_sla_exception", {
     p_ticket_id: ticketId,
     p_comment: comment,
+  });
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Reject a supervisor approval request on a BLOCKED ticket.
+ * Used when ticket is BLOCKED with reason_code = 'supervisor_approval'.
+ * Does NOT unblock the ticket - staff must decide next steps.
+ */
+export async function rejectSupervisorApproval(
+  ticketId: string,
+  comment?: string
+) {
+  const s = supa();
+  if (!s) return { error: { message: "Not authenticated" } };
+
+  const { data, error } = await s.rpc("reject_supervisor_approval", {
+    p_ticket_id: ticketId,
+    p_comment: comment || null,
   });
 
   if (error) throw error;
@@ -2890,6 +2915,41 @@ export async function grantSlaException(
 
   if (error) throw error;
   return data;
+
+}
+
+/**
+ * Get staff workload counts (active, blocked, at-risk tasks)
+ */
+export async function getStaffLoad(staffId: string): Promise<{
+  active_tasks: number;
+  blocked_tasks: number;
+  at_risk_tasks: number;
+}> {
+  const s = supa();
+  if (!s) return { active_tasks: 0, blocked_tasks: 0, at_risk_tasks: 0 };
+
+  // Query v_staff_runner_tickets to get task counts
+  const { data, error } = await s
+    .from('v_staff_runner_tickets')
+    .select('status, sla_state')
+    .eq('assigned_staff_id', staffId)
+    .not('status', 'in', '(COMPLETED,CANCELLED)');
+
+  if (error) {
+    console.error('Error fetching staff load:', error);
+    return { active_tasks: 0, blocked_tasks: 0, at_risk_tasks: 0 };
+  }
+
+  const tickets = data || [];
+  return {
+    active_tasks: tickets.filter(t => t.status === 'IN_PROGRESS').length,
+    blocked_tasks: tickets.filter(t => t.status === 'BLOCKED').length,
+    at_risk_tasks: tickets.filter(t =>
+      t.sla_state === 'BREACHED' ||
+      (t.status !== 'BLOCKED' && t.sla_state === 'RUNNING')
+    ).length,
+  };
 }
 
 export async function getSlaExceptionReasons() {

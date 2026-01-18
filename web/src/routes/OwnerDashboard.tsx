@@ -705,7 +705,7 @@ export default function OwnerDashboard() {
               <LiveOrdersPanel
                 orders={liveOrders}
                 targetMin={targetMin}
-                hotelId={hotel.id} // keeps hotelId so /ops?hotelId=… works
+                slug={hotel.slug}
                 className="lg:col-span-1"
               />
               <AttentionServicesCard orders={liveOrders} />
@@ -727,7 +727,7 @@ export default function OwnerDashboard() {
 
             {/* AI Ops Co-pilot (new, additive) */}
             <AiOpsSection
-              hotelId={hotel.id}
+              slug={hotel.slug}
               heatmap={opsHeatmap}
               staffingPlan={staffingPlan}
               loading={opsLoading}
@@ -880,7 +880,7 @@ function OwnerSidebarNav({
   hotelId: string;
 }) {
   const encodedSlug = encodeURIComponent(slug);
-  const opsHref = `/ops?hotelId=${encodeURIComponent(hotelId)}`;
+  const opsHref = `/ops?slug=${encodedSlug}`;
   const servicesHref = `/owner/services?slug=${encodedSlug}`;
   const settingsHref = `/owner/${slug}/settings`;
   const pricingHref = `/owner/${slug}/pricing`;
@@ -1766,12 +1766,12 @@ function SlaCard({
 function LiveOrdersPanel({
   orders,
   targetMin,
-  hotelId, // keeps the prop available for the link
+  slug,
   className = "",
 }: {
   orders: LiveOrder[];
   targetMin: number;
-  hotelId?: string | number;
+  slug?: string;
   className?: string;
 }) {
   return (
@@ -1785,8 +1785,8 @@ function LiveOrdersPanel({
         action={
           <Link
             to={
-              hotelId
-                ? `/ops?hotelId=${encodeURIComponent(String(hotelId))}`
+              slug
+                ? `/ops?slug=${encodeURIComponent(slug)}`
                 : "/ops"
             }
             className="text-sm underline"
@@ -2153,12 +2153,12 @@ function Metric({ label, value }: { label: string; value: string | number }) {
 /** ========= AI Ops Co-pilot section (new) ========= */
 
 function AiOpsSection({
-  hotelId,
+  slug,
   heatmap,
   staffingPlan,
   loading,
 }: {
-  hotelId: string;
+  slug: string;
   heatmap: OpsHeatmapPoint[] | null;
   staffingPlan: StaffingPlanRow[] | null;
   loading: boolean;
@@ -2178,8 +2178,8 @@ function AiOpsSection({
         action={
           <Link
             to={
-              hotelId
-                ? `/ops?hotelId=${encodeURIComponent(hotelId)}`
+              slug
+                ? `/ops?slug=${encodeURIComponent(slug)}`
                 : "/ops"
             }
             className="text-[11px] underline text-slate-700"

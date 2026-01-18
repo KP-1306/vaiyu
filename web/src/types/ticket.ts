@@ -129,7 +129,9 @@ export interface StaffRunnerTicket {
     sla_remaining_seconds: number | null;
     sla_breached: boolean | null;
     sla_label: string | null;
-    sla_state: 'NOT_STARTED' | 'RUNNING' | 'BREACHED' | 'PAUSED' | 'UNKNOWN';
+    sla_state: 'NOT_STARTED' | 'RUNNING' | 'BREACHED' | 'PAUSED' | 'EXEMPTED' | 'UNKNOWN';
+    sla_exception_granted?: boolean;
+    sla_exception_request_status?: 'PENDING' | 'GRANTED' | 'REJECTED' | null;
     active_work_seconds: number | null;
     blocked_seconds: number | null;
     requested_by: CreatedBy;

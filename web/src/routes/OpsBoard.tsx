@@ -4,7 +4,7 @@ import {
   useMemo,
   useCallback,
 } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import {
   listTickets,
   listOrders,
@@ -12,7 +12,8 @@ import {
   updateTicket,
   unblockTask,
   reassignTask,
-  rejectSupervisorRequest,
+  rejectSlaException,
+  rejectSupervisorApproval,
   grantSlaException,
   IS_SUPABASE_FUNCTIONS,
 } from "../lib/api";
@@ -20,6 +21,7 @@ import { connectEvents } from "../lib/sse";
 import { supabase } from "../lib/supabase";
 import { StaffPicker } from "../components/StaffPicker";
 import TicketDetailsDrawer from "../components/TicketDetailsDrawer";
+import SupervisorDecisionDrawer from "../components/SupervisorDecisionDrawer";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -32,6 +34,8 @@ type Ticket = {
   id: string;
   service_key: string;
   room: string;
+  room_number?: string;
+  title?: string;
   booking?: string;
   status: TicketStatus;
   created_at: string;
@@ -50,6 +54,7 @@ type Ticket = {
   supervisor_reason_code?: string;
   supervisor_request_type?: string;
   supervisor_requested_at?: string;
+  sla_state?: string;
 };
 
 type Order = {
@@ -93,6 +98,8 @@ function mapBackendStatusToUi(rawStatus: unknown): TicketStatus {
     case "resolved":
     case "closed":
     case "done":
+    case "completed":
+    case "cancelled":
       return "Done";
     default:
       return "Requested";
@@ -146,41 +153,61 @@ function normalizeTicket(raw: any): Ticket {
     supervisor_reason_code: raw?.supervisor_reason_code,
     supervisor_request_type: raw?.supervisor_request_type,
     supervisor_requested_at: raw?.supervisor_requested_at,
+    sla_state: raw?.sla_state,
   };
 }
 
 function useEffectiveHotelId() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const urlHotelId = searchParams.get("hotelId");
-  const [hotelId, setHotelId] = useState<string | null>(urlHotelId);
+  const urlSlug = searchParams.get("slug");
+  const [hotelId, setHotelId] = useState<string | null>(null);
+  const [hotelSlug, setHotelSlug] = useState<string | null>(urlSlug);
   const [initialised, setInitialised] = useState(false);
   const [debugMsg, setDebugMsg] = useState<string>("");
 
   useEffect(() => {
-    if (urlHotelId) {
-      setHotelId(urlHotelId);
-      setInitialised(true);
-      return;
-    }
     (async () => {
       try {
+        // If slug is in URL, look up hotel by slug
+        if (urlSlug) {
+          const { data: hotel } = await supabase
+            .from("hotels")
+            .select("id, slug")
+            .eq("slug", urlSlug)
+            .single();
+          if (hotel) {
+            setHotelId(hotel.id);
+            setHotelSlug(hotel.slug);
+          } else {
+            setDebugMsg("Hotel not found");
+          }
+          setInitialised(true);
+          return;
+        }
+
+        // No slug in URL - look up user's hotel
         const { data: userRes } = await supabase.auth.getUser();
         if (!userRes?.user) {
           setDebugMsg("No user logged in");
+          setInitialised(true);
           return;
         }
         const { data: memberData } = await supabase
           .from("hotel_members")
-          .select("hotel_id")
+          .select("hotel_id, hotels(slug)")
           .eq("user_id", userRes.user.id)
           .limit(1)
           .maybeSingle();
 
         if (memberData?.hotel_id) {
           setHotelId(memberData.hotel_id);
-          const next = new URLSearchParams(searchParams);
-          next.set("hotelId", memberData.hotel_id);
-          setSearchParams(next, { replace: true });
+          const slug = (memberData.hotels as any)?.slug;
+          if (slug) {
+            setHotelSlug(slug);
+            const next = new URLSearchParams(searchParams);
+            next.set("slug", slug);
+            setSearchParams(next, { replace: true });
+          }
         }
       } catch (e) {
         console.error(e);
@@ -188,9 +215,9 @@ function useEffectiveHotelId() {
         setInitialised(true);
       }
     })();
-  }, [searchParams]);
+  }, [urlSlug]);
 
-  return { hotelId, initialised, debugMsg };
+  return { hotelId, hotelSlug, initialised, debugMsg };
 }
 
 // ---------------------------------------------------------------------------
@@ -220,21 +247,18 @@ function CommentModal({
         <textarea
           autoFocus
           className="w-full bg-[#111218] border border-white/10 rounded-lg p-3 text-white text-sm focus:outline-none focus:border-blue-500 min-h-[100px]"
-          placeholder="Enter reason (mandatory)..."
+          placeholder="Enter reason (optional)..."
           value={comment}
           onChange={e => setComment(e.target.value)}
         />
         <div className="flex justify-end gap-3 mt-4">
           <button onClick={onClose} className="px-4 py-2 text-gray-400 hover:text-white text-sm">Cancel</button>
           <button
-            disabled={!comment.trim()}
             onClick={() => {
-              if (comment.trim()) {
-                onSubmit(comment);
-                setComment("");
-              }
+              onSubmit(comment);
+              setComment("");
             }}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed">
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium">
             Submit
           </button>
         </div>
@@ -246,37 +270,60 @@ function CommentModal({
 function StatusBlock({
   label,
   count,
-  colorClass,
   active,
   onClick,
 }: {
   label: string;
   count: number;
-  colorClass: string;
   active: boolean;
   onClick?: () => void;
 }) {
+  // Determine accent color based on label
+  const getAccentColor = () => {
+    switch (label) {
+      case 'New': return 'bg-blue-500';
+      case 'In Progress': return 'bg-green-500';
+      case 'Blocked': return 'bg-red-500';
+      case 'At Risk': return 'bg-amber-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getRingColor = () => {
+    switch (label) {
+      case 'New': return 'ring-blue-500/50';
+      case 'In Progress': return 'ring-green-500/50';
+      case 'Blocked': return 'ring-red-500/50';
+      case 'At Risk': return 'ring-amber-500/50';
+      default: return 'ring-gray-500/50';
+    }
+  };
+
   return (
     <div
       onClick={onClick}
-      className={`relative flex flex-col items-center justify-center rounded-xl px-4 py-3 min-w-[100px] transition-all cursor-pointer
-        ${active ? "bg-[#1A1C25] ring-1 ring-blue-500/50 scale-105" : "bg-[#111218] hover:bg-[#1A1C25] border border-white/5"}
+      className={`relative flex flex-col items-center justify-center rounded-xl px-4 py-3 min-w-[100px] transition-all cursor-pointer overflow-hidden
+        ${active ? `bg-[#1A1C25] ring-1 ${getRingColor()} scale-105` : "bg-[#111218] hover:bg-[#1A1C25] border border-white/5"}
       `}
     >
       <div className="flex items-center gap-2 mb-1">
+        <span className={`text-2xl font-light text-white tracking-tight`}>{count}</span>
         <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{label}</h3>
-        {active && <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>}
+        {active && <div className={`w-1.5 h-1.5 rounded-full ${getAccentColor()}`}></div>}
       </div>
-      <span className={`text-2xl font-light text-white tracking-tight ${colorClass}`}>{count}</span>
+      {/* Colored underline accent */}
+      <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${getAccentColor()}`}></div>
     </div>
   );
 }
 
 function DecisionCard({ ticket, onAction, onClick }: { ticket: Ticket; onAction: (t: Ticket, action: string) => void; onClick: () => void }) {
-  // Use explicit request type if available, otherwise heuristic fallback including Blocked status
+  // Distinguish between Supervisor Approval request and SLA Exception request
   const isSupervisorReq = ticket.supervisor_request_type === 'SUPERVISOR_REQUESTED' ||
     (!ticket.supervisor_request_type && ticket.supervisor_reason_code === 'supervisor_approval') ||
     (ticket.status === 'Paused' && ticket.reason_code === 'supervisor_approval');
+
+  const isSlaExceptionReq = ticket.supervisor_request_type === 'SLA_EXCEPTION_REQUESTED';
 
   // Use supervisor_reason_code if available, else check block reason
   const reason = ticket.supervisor_reason_code === 'supervisor_approval' || (ticket.status === 'Paused' && ticket.reason_code === 'supervisor_approval')
@@ -286,12 +333,19 @@ function DecisionCard({ ticket, onAction, onClick }: { ticket: Ticket; onAction:
   // Helper to safely format room number
   const room = String(ticket.room || ticket.room_number || '-').trim();
 
+  // Visual styling based on request type
+  const borderColor = isSlaExceptionReq ? 'border-blue-900/30 hover:border-blue-900/50' : 'border-amber-900/30 hover:border-amber-900/50';
+  const leftBarColor = isSlaExceptionReq ? 'bg-blue-500' : 'bg-amber-500';
+  const reasonBgColor = isSlaExceptionReq ? 'bg-blue-950/30 border-blue-900/20' : 'bg-amber-950/30 border-amber-900/20';
+  const reasonTextColor = isSlaExceptionReq ? 'text-blue-200' : 'text-amber-200';
+  const reasonIcon = isSlaExceptionReq ? '⏱️' : '🛑';
+
   return (
     <div
       onClick={onClick}
-      className="bg-[#111218] border border-red-900/30 rounded-lg p-4 relative group hover:border-red-900/50 transition-all cursor-pointer"
+      className={`bg-[#111218] border ${borderColor} rounded-lg p-4 relative group transition-all cursor-pointer`}
     >
-      <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500 rounded-l-lg"></div>
+      <div className={`absolute left-0 top-0 bottom-0 w-1 ${leftBarColor} rounded-l-lg`}></div>
 
       <div className="flex justify-between items-start mb-3">
         <div className="flex gap-4 items-center">
@@ -307,7 +361,12 @@ function DecisionCard({ ticket, onAction, onClick }: { ticket: Ticket; onAction:
               )}
               {isSupervisorReq && (
                 <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[10px] uppercase font-bold tracking-wider border border-amber-500/20">
-                  Supervisor Requested
+                  Supervisor Approval Requested
+                </span>
+              )}
+              {isSlaExceptionReq && (
+                <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px] uppercase font-bold tracking-wider border border-blue-500/20">
+                  SLA Exception Requested
                 </span>
               )}
             </div>
@@ -316,15 +375,30 @@ function DecisionCard({ ticket, onAction, onClick }: { ticket: Ticket; onAction:
 
         <div className="text-right">
           <div className="flex items-center gap-1.5 justify-end mb-1">
-            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-            <span className="text-sm font-mono text-amber-400 font-bold">{Math.abs(ticket.mins_remaining || 0)}m</span>
+            <span className={`w-2 h-2 rounded-full ${ticket.sla_state === 'BREACHED' || ticket.is_overdue ? 'bg-red-500' :
+              ticket.sla_state === 'PAUSED' || ticket.sla_state === 'EXEMPTED' ? 'bg-yellow-500' :
+                'bg-amber-500 animate-pulse'
+              }`}></span>
+            <span className={`text-sm font-mono font-bold ${ticket.sla_state === 'BREACHED' || ticket.is_overdue ? 'text-red-400' :
+              ticket.sla_state === 'PAUSED' || ticket.sla_state === 'EXEMPTED' ? 'text-yellow-400' :
+                'text-amber-400'
+              }`}>{Math.abs(ticket.mins_remaining || 0)}m</span>
           </div>
-          <div className="text-[10px] text-red-500 font-bold uppercase tracking-wider">SLA Breached</div>
+          <div className={`text-[10px] font-bold uppercase tracking-wider ${ticket.sla_state === 'EXEMPTED' ? 'text-green-500' :
+            ticket.sla_state === 'BREACHED' || ticket.is_overdue ? 'text-red-500' :
+              ticket.sla_state === 'PAUSED' ? 'text-yellow-500' :
+                'text-amber-500'
+            }`}>{
+              ticket.sla_state === 'EXEMPTED' ? 'SLA Exempted' :
+                ticket.sla_state === 'BREACHED' || ticket.is_overdue ? 'SLA Breached' :
+                  ticket.sla_state === 'PAUSED' ? 'SLA Paused' :
+                    'SLA Running'
+            }</div>
         </div>
       </div>
 
-      <div className="ml-16 py-2 px-3 bg-red-950/30 rounded border border-red-900/20 text-xs text-red-200 mb-4 flex gap-2 items-center">
-        <span className="text-red-500">⚠️</span>
+      <div className={`ml-16 py-2 px-3 ${reasonBgColor} rounded border text-xs ${reasonTextColor} mb-4 flex gap-2 items-center`}>
+        <span>{reasonIcon}</span>
         Reason: {reason}
       </div>
 
@@ -337,32 +411,37 @@ function DecisionCard({ ticket, onAction, onClick }: { ticket: Ticket; onAction:
               Reject
             </button>
             <button
+              onClick={() => onAction(ticket, 'approve')}
+              className="px-4 py-1.5 bg-green-600 text-white text-xs font-bold uppercase rounded hover:bg-green-500 transition-colors">
+              Approve
+            </button>
+            <button
               onClick={() => onAction(ticket, 'reassign')}
               className="px-4 py-1.5 bg-[#1A1C25] border border-gray-700 text-gray-300 text-xs font-bold uppercase rounded hover:bg-gray-800 transition-colors">
               Reassign
             </button>
             <button
-              onClick={() => onAction(ticket, 'approve')}
-              className="px-4 py-1.5 bg-amber-500 text-black text-xs font-bold uppercase rounded hover:bg-amber-400 transition-colors">
-              Approve
+              onClick={() => onAction(ticket, 'resolve')}
+              className="px-4 py-1.5 bg-[#1A1C25] border border-gray-700 text-gray-300 text-xs font-bold uppercase rounded hover:bg-gray-800 transition-colors">
+              Manage Ticket
             </button>
           </>
         ) : (
           <>
             <button
-              onClick={() => onAction(ticket, 'reject')} // SLA Exception rejection uses same 'reject' action type but different backend RPC (handled in generic reject)
+              onClick={() => onAction(ticket, 'reject')}
               className="px-4 py-1.5 bg-[#1A1C25] border border-red-900/50 text-red-400 text-xs font-bold uppercase rounded hover:bg-red-900/20 transition-colors">
-              Reject
+              Reject SLA Exception
             </button>
             <button
               onClick={() => onAction(ticket, 'exception')}
-              className="px-4 py-1.5 bg-[#1A1C25] border border-amber-900/50 text-amber-500 text-xs font-bold uppercase rounded hover:bg-amber-900/20 transition-colors">
-              Grant Exception
+              className="px-4 py-1.5 bg-green-600 text-white text-xs font-bold uppercase rounded hover:bg-green-500 transition-colors">
+              Grant SLA Exception
             </button>
             <button
               onClick={() => onAction(ticket, 'resolve')}
               className="px-4 py-1.5 bg-[#1A1C25] border border-gray-700 text-gray-300 text-xs font-bold uppercase rounded hover:bg-gray-800 transition-colors">
-              Manage
+              Manage Ticket
             </button>
           </>
         )}
@@ -372,9 +451,15 @@ function DecisionCard({ ticket, onAction, onClick }: { ticket: Ticket; onAction:
 }
 
 function OversightCard({ ticket, onAction, onClick }: { ticket: Ticket; onAction: (t: Ticket, action: string) => void; onClick: () => void }) {
-  const isRisk = !ticket.is_overdue && (ticket.mins_remaining || 0) < 15;
   const isBlocked = ticket.status === 'Paused';
-  const statusColor = isBlocked ? 'text-red-400' : isRisk ? 'text-amber-400' : 'text-red-500';
+
+  // Use canonical At Risk definition: remaining <= min(30, 25% of target SLA)
+  const targetSla = ticket.sla_minutes || 30;
+  const riskThreshold = Math.min(30, targetSla * 0.25);
+  const remaining = ticket.mins_remaining || 0;
+  const isAtRisk = !isBlocked && !ticket.is_overdue && remaining > 0 && remaining <= riskThreshold && ticket.sla_state !== 'EXEMPTED';
+
+  const statusColor = isBlocked ? 'text-red-400' : isAtRisk ? 'text-amber-400' : 'text-red-500';
   const borderColor = isBlocked ? 'border-red-900/30' : 'border-amber-900/30';
   const label = isBlocked ? 'Blocked' : ticket.is_overdue ? 'SLA Breached' : 'At Risk';
   const labelBg = isBlocked ? 'bg-red-950/50' : ticket.is_overdue ? 'bg-red-950/30' : 'bg-amber-950/30';
@@ -382,44 +467,154 @@ function OversightCard({ ticket, onAction, onClick }: { ticket: Ticket; onAction
   return (
     <div
       onClick={onClick}
-      className={`bg-[#111218] border ${borderColor} rounded-lg p-3 flex items-center gap-4 hover:bg-[#15161c] transition-colors group cursor-pointer`}
+      className={`bg-[#111218] border ${borderColor} rounded-lg p-3 hover:bg-[#15161c] transition-colors group cursor-pointer`}
     >
-      <div className="text-xl font-light text-gray-300 w-10 text-center">{ticket.room}</div>
+      <div className="flex items-center gap-4">
+        <div className="text-xl font-light text-gray-300 w-10 text-center">{ticket.room}</div>
 
-      <div className="flex-1 min-w-0">
-        <div className="flex gap-1 mb-1">
-          {/* Compact Tags */}
-          <span className="px-1.5 py-0.5 bg-[#1A1C25] rounded text-[10px] text-blue-300 font-mono border border-blue-900/30">
-            {ticket.id.slice(0, 4)}
-          </span>
+        <div className="flex-1 min-w-0">
+          <div className="flex gap-1 mb-1">
+            {/* Compact Tags */}
+            <span className="px-1.5 py-0.5 bg-[#1A1C25] rounded text-[10px] text-blue-300 font-mono border border-blue-900/30">
+              {ticket.id.slice(0, 4)}
+            </span>
+          </div>
+          <div className="text-xs text-gray-500 truncate">{ticket.service_key}</div>
+          {ticket.assignee_name && (
+            <div className="text-[10px] text-gray-600 mt-0.5">{ticket.assignee_name}</div>
+          )}
         </div>
-        <div className="text-xs text-gray-500 truncate">{ticket.service_key}</div>
+
+        <div className="text-right flex flex-col items-end gap-1">
+          <div className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${labelBg} ${statusColor} border border-white/5`}>
+            {label}
+          </div>
+        </div>
       </div>
 
-      <div className="text-right flex flex-col items-end gap-1">
-        <div className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${labelBg} ${statusColor} border border-white/5`}>
-          {label}
-        </div>
+      {/* Action Buttons - Right aligned */}
+      <div className="flex justify-end gap-2 mt-4 pt-3 border-t border-white/5">
+        {isAtRisk ? (
+          // AT RISK buttons: Reassign (primary), Prioritize, Manage
+          <>
+            <button
+              onClick={(e) => { e.stopPropagation(); onAction(ticket, 'reassign'); }}
+              className="px-4 py-1.5 bg-amber-500 text-black text-xs font-bold uppercase rounded hover:bg-amber-400 transition-colors"
+            >
+              Reassign
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onAction(ticket, 'prioritize'); }}
+              className="px-4 py-1.5 bg-[#1A1C25] border border-amber-900/50 text-amber-400 text-xs font-bold uppercase rounded hover:bg-amber-900/20 transition-colors"
+            >
+              Prioritize
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onAction(ticket, 'resolve'); }}
+              className="px-4 py-1.5 bg-[#1A1C25] border border-gray-700 text-gray-300 text-xs font-bold uppercase rounded hover:bg-gray-800 transition-colors"
+            >
+              Manage
+            </button>
+          </>
+        ) : isBlocked ? (
+          // BLOCKED buttons: Manage (primary), Reassign
+          <>
+            <button
+              onClick={(e) => { e.stopPropagation(); onAction(ticket, 'resolve'); }}
+              className="px-4 py-1.5 bg-red-500/20 border border-red-900/50 text-red-400 text-xs font-bold uppercase rounded hover:bg-red-900/30 transition-colors"
+            >
+              Manage Ticket
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onAction(ticket, 'reassign'); }}
+              className="px-4 py-1.5 bg-[#1A1C25] border border-gray-700 text-gray-300 text-xs font-bold uppercase rounded hover:bg-gray-800 transition-colors"
+            >
+              Reassign
+            </button>
+          </>
+        ) : (
+          // Breached or other: Reassign, Manage
+          <>
+            <button
+              onClick={(e) => { e.stopPropagation(); onAction(ticket, 'reassign'); }}
+              className="px-4 py-1.5 bg-[#1A1C25] border border-gray-700 text-gray-300 text-xs font-bold uppercase rounded hover:bg-gray-800 transition-colors"
+            >
+              Reassign
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onAction(ticket, 'resolve'); }}
+              className="px-4 py-1.5 bg-[#1A1C25] border border-gray-700 text-gray-300 text-xs font-bold uppercase rounded hover:bg-gray-800 transition-colors"
+            >
+              Manage
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
 }
 
-function ContextTaskCard({ ticket, onClick }: { ticket: Ticket; onClick: () => void }) {
+function ContextTaskCard({ ticket, onClick, onAction, filterType }: { ticket: Ticket; onClick: () => void; onAction: (t: Ticket, action: string) => void; filterType?: string }) {
   const isNew = ticket.status === 'Requested';
+  const isAtRisk = filterType === 'AtRisk';
 
   return (
     <div
       onClick={onClick}
-      className="flex items-center gap-3 p-3 rounded-lg bg-[#111218] border border-white/5 hover:bg-[#1A1C25] cursor-pointer transition-colors"
+      className="p-3 rounded-lg bg-[#111218] border border-white/5 hover:bg-[#1A1C25] cursor-pointer transition-colors"
     >
-      <div className={`w-2 h-2 rounded-full ${isNew ? 'bg-blue-500' : 'bg-amber-500'}`}></div>
-      <div className="text-lg font-light text-white w-10">{ticket.room}</div>
-      <div className="flex-1 min-w-0">
-        <div className="text-xs font-medium text-gray-300 truncate">{ticket.service_key}</div>
-        <div className="text-[10px] text-gray-500">{ticket.assignee_name || 'Unassigned'}</div>
+      <div className="flex items-center gap-3">
+        <div className={`w-2 h-2 rounded-full ${isAtRisk ? 'bg-amber-500' : isNew ? 'bg-blue-500' : 'bg-green-500'}`}></div>
+        <div className="text-lg font-light text-white w-10">{ticket.room}</div>
+        <div className="flex-1 min-w-0">
+          <div className="text-xs font-medium text-gray-300 truncate">{ticket.service_key}</div>
+          <div className="text-[10px] text-gray-500">{ticket.assignee_name || 'Unassigned'}</div>
+        </div>
+        <div className="text-[10px] font-mono text-gray-600">{Math.floor(ticket.mins_remaining || 0)}m</div>
       </div>
-      <div className="text-[10px] font-mono text-gray-600">{Math.floor(ticket.mins_remaining || 0)}m</div>
+
+      {/* Action Buttons - Context-aware */}
+      <div className="flex justify-end gap-2 mt-4 pt-3 border-t border-white/5">
+        {isAtRisk ? (
+          // AT RISK: Reassign (primary), Prioritize, Manage
+          <>
+            <button
+              onClick={(e) => { e.stopPropagation(); onAction(ticket, 'reassign'); }}
+              className="px-4 py-1.5 bg-amber-500 text-black text-xs font-bold uppercase rounded hover:bg-amber-400 transition-colors"
+            >
+              Reassign
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onAction(ticket, 'prioritize'); }}
+              className="px-4 py-1.5 bg-[#1A1C25] border border-amber-900/50 text-amber-400 text-xs font-bold uppercase rounded hover:bg-amber-900/20 transition-colors"
+            >
+              Prioritize
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onAction(ticket, 'resolve'); }}
+              className="px-4 py-1.5 bg-[#1A1C25] border border-gray-700 text-gray-300 text-xs font-bold uppercase rounded hover:bg-gray-800 transition-colors"
+            >
+              Manage
+            </button>
+          </>
+        ) : (
+          // NEW / IN PROGRESS: Reassign, Manage
+          <>
+            <button
+              onClick={(e) => { e.stopPropagation(); onAction(ticket, 'reassign'); }}
+              className="px-4 py-1.5 bg-[#1A1C25] border border-gray-700 text-gray-300 text-xs font-bold uppercase rounded hover:bg-gray-800 transition-colors"
+            >
+              Reassign
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onAction(ticket, 'resolve'); }}
+              className="px-4 py-1.5 bg-[#1A1C25] border border-gray-700 text-gray-300 text-xs font-bold uppercase rounded hover:bg-gray-800 transition-colors"
+            >
+              Manage
+            </button>
+          </>
+        )}
+      </div>
     </div>
   )
 }
@@ -430,19 +625,20 @@ function ContextTaskCard({ ticket, onClick }: { ticket: Ticket; onClick: () => v
 
 export default function OpsBoard() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { hotelId, initialised } = useEffectiveHotelId();
+  const { hotelId, hotelSlug, initialised } = useEffectiveHotelId();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
 
   // State
-  const [filterStatus, setFilterStatus] = useState<"All" | "New" | "InProgress" | "Blocked">("All");
+  const [filterStatus, setFilterStatus] = useState<"All" | "New" | "InProgress" | "Blocked" | "AtRisk">("All");
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null); // For Details Drawer
 
   // Modals
   const [showStaffPicker, setShowStaffPicker] = useState(false);
   const [reassignTicket, setReassignTicket] = useState<Ticket | null>(null);
+  const [supervisorDrawerTicket, setSupervisorDrawerTicket] = useState<Ticket | null>(null); // For Supervisor Decision Drawer
 
   const [commentAction, setCommentAction] = useState<{
     isOpen: boolean;
@@ -534,21 +730,57 @@ export default function OpsBoard() {
   // CATEGORIZATION LOGIC
   const activeTickets = tickets.filter(t => t.status !== "Done");
 
-  // Decision: Waiting for supervisor approval (Using computed flag OR legacy block reason)
+  // Decision: Waiting for supervisor approval (Using computed flag from DB view)
+  // Legacy fallback only applies if needs_supervisor_action is null/undefined (old data)
+  // When needs_supervisor_action is explicitly false, that means decision was made - exclude it!
   const decisionTickets = activeTickets.filter(t =>
-    t.needs_supervisor_action ||
-    (t.status === 'Paused' && t.reason_code === 'supervisor_approval')
+    t.needs_supervisor_action === true ||
+    (t.needs_supervisor_action == null && t.status === 'Paused' && t.reason_code === 'supervisor_approval')
   );
 
   const decisionIds = new Set(decisionTickets.map(t => t.id));
 
-  // Oversight: Blocked OR Breached OR At Risk (<15m) -- excluding decisions
+  // AT RISK Definition (canonical):
+  // - status IN (NEW, IN_PROGRESS, BLOCKED) → mapped to Requested, Accepted, InProgress, Paused
+  // - NOT in decision queue (no pending supervisor request)
+  // - NOT SLA exempted (sla_state !== 'EXEMPTED')
+  // - NOT SLA breached (sla_state !== 'BREACHED', is_overdue !== true)
+  // - sla_remaining_minutes > 0
+  // - sla_remaining_minutes <= risk_threshold (min(30, 25% of target SLA))
+  const atRiskTickets = activeTickets.filter(t => {
+    // Exclude tickets in decision queue
+    if (decisionIds.has(t.id)) return false;
+
+    // Must be in active status
+    const validStatus = ['Requested', 'Accepted', 'InProgress', 'Paused'].includes(t.status);
+    if (!validStatus) return false;
+
+    // Not exempted
+    if (t.sla_state === 'EXEMPTED') return false;
+
+    // Not breached (already too late)
+    if (t.sla_state === 'BREACHED' || t.is_overdue) return false;
+
+    // Must have positive remaining time
+    const remaining = t.mins_remaining;
+    if (remaining == null || remaining <= 0) return false;
+
+    // Calculate risk threshold: min(30, 25% of target SLA)
+    const targetSla = t.sla_minutes || 30;
+    const riskThreshold = Math.min(30, targetSla * 0.25);
+
+    // At risk if remaining is within threshold
+    return remaining <= riskThreshold;
+  });
+
+  // Oversight combines: Blocked (Paused) OR At Risk
+  // Excludes decision queue tickets
   const oversightTickets = activeTickets.filter(t => {
     if (decisionIds.has(t.id)) return false;
-    if (t.status === 'Paused') return true;
-    if (t.is_overdue) return true;
-    if ((t.mins_remaining || 100) < 15) return true;
-    return false;
+    // Blocked tickets (status = Paused, but not exempted/breached)
+    if (t.status === 'Paused' && t.sla_state !== 'EXEMPTED' && t.sla_state !== 'BREACHED') return true;
+    // At Risk tickets
+    return atRiskTickets.some(ar => ar.id === t.id);
   });
 
   // Calculate staff load
@@ -564,6 +796,23 @@ export default function OpsBoard() {
       taskCount: load[s.id] || 0
     })).sort((a, b) => b.taskCount - a.taskCount);
   }, [staffMembers, activeTickets]);
+
+  // Calculate average time for active tickets (time since creation in minutes)
+  const avgTimeMinutes = useMemo(() => {
+    const inProgressTickets = activeTickets.filter(t =>
+      t.status === 'InProgress' || t.status === 'Accepted'
+    );
+    if (inProgressTickets.length === 0) return 0;
+
+    const now = Date.now();
+    const totalMinutes = inProgressTickets.reduce((sum, t) => {
+      const createdAt = new Date(t.created_at).getTime();
+      const elapsedMs = now - createdAt;
+      return sum + Math.floor(elapsedMs / 60000); // Convert to minutes
+    }, 0);
+
+    return Math.round(totalMinutes / inProgressTickets.length);
+  }, [activeTickets]);
 
   // Context Tickets (Filtered View)
   // When a filter is active (New/InProgress) OR Room selected, show matching tickets
@@ -581,21 +830,47 @@ export default function OpsBoard() {
     } else if (filterStatus === 'InProgress') {
       list = list.filter(t => t.status === 'InProgress' || t.status === 'Accepted');
     } else if (filterStatus === 'Blocked') {
-      list = list.filter(t => t.status === 'Paused' || t.is_overdue);
+      list = list.filter(t => t.status === 'Paused' && !decisionIds.has(t.id) && t.sla_state !== 'EXEMPTED');
+    } else if (filterStatus === 'AtRisk') {
+      // Filter to only show at-risk tickets
+      const atRiskIds = new Set(atRiskTickets.map(t => t.id));
+      list = list.filter(t => atRiskIds.has(t.id));
     }
 
     return list;
-  }, [activeTickets, filterStatus, selectedRoom]);
+  }, [activeTickets, filterStatus, selectedRoom, atRiskTickets, decisionIds]);
 
   const handleAction = async (t: Ticket, action: string) => {
     if (action === 'approve') {
       await unblockTask(t.id, 'SUPERVISOR_APPROVED', 'Approved');
       refresh();
+    } else if (action === 'reject') {
+      // Open comment modal for rejection
+      setCommentAction({ isOpen: true, type: 'reject', ticket: t });
     } else if (action === 'exception') {
       setCommentAction({ isOpen: true, type: 'exception', ticket: t });
     } else if (action === 'reassign') {
       setReassignTicket(t);
       setShowStaffPicker(true);
+    } else if (action === 'prioritize') {
+      // TODO: Implement prioritize RPC (adjust priority_weight, reorder queue)
+      // For now, log and show feedback
+      console.log('Prioritize ticket:', t.id);
+      alert('Priority increased! (Backend implementation pending)');
+    } else if (action === 'resolve') {
+      // Open appropriate drawer based on ticket type
+      // Supervisor requests open SupervisorDecisionDrawer
+      // Other tickets open TicketDetailsDrawer
+      const isSupervisorRequest = t.needs_supervisor_action === true ||
+        t.supervisor_request_type === 'SLA_EXCEPTION_REQUESTED' ||
+        t.supervisor_request_type === 'SUPERVISOR_REQUESTED' ||
+        (t.status === 'Paused' && t.reason_code === 'supervisor_approval');
+
+      if (isSupervisorRequest) {
+        setSupervisorDrawerTicket(t);
+      } else {
+        setSelectedTicket(t); // Opens TicketDetailsDrawer
+      }
     } else {
       console.log('Action', action, t.id);
     }
@@ -607,7 +882,25 @@ export default function OpsBoard() {
 
     try {
       if (type === 'reject') {
-        await rejectSupervisorRequest(ticket.id, comment);
+        // Determine which reject RPC to call based on supervisor_request_type
+        // BLOCKED + supervisor_approval uses reject_supervisor_approval
+        // SLA_EXCEPTION_REQUESTED uses reject_sla_exception
+        const isSlaExceptionRequest =
+          ticket.supervisor_request_type === 'SLA_EXCEPTION_REQUESTED';
+
+        const isBlockedSupervisorApproval =
+          ticket.supervisor_request_type === 'BLOCKED_SUPERVISOR_APPROVAL' ||
+          (ticket.status === 'Paused' &&
+            (ticket.reason_code === 'supervisor_approval' || ticket.supervisor_reason_code === 'supervisor_approval'));
+
+        if (isSlaExceptionRequest) {
+          await rejectSlaException(ticket.id, comment);
+        } else if (isBlockedSupervisorApproval) {
+          await rejectSupervisorApproval(ticket.id, comment);
+        } else {
+          // Default to SLA exception if supervisor_request_type is not clear
+          await rejectSlaException(ticket.id, comment);
+        }
       } else if (type === 'exception') {
         await grantSlaException(ticket.id, comment);
       }
@@ -620,7 +913,7 @@ export default function OpsBoard() {
     }
   };
 
-  const handleFilterClick = (status: "All" | "New" | "InProgress" | "Blocked") => {
+  const handleFilterClick = (status: "All" | "New" | "InProgress" | "Blocked" | "AtRisk") => {
     // Toggle logic: if clicking existing active filter, clear it.
     if (filterStatus === status && status !== 'All') {
       setFilterStatus('All');
@@ -631,265 +924,335 @@ export default function OpsBoard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-gray-200 font-sans p-6 pb-20 overflow-x-hidden">
-      {/* HEADER KPI */}
-      <div className="flex flex-wrap items-center justify-between gap-6 mb-8">
-        <div>
-          <h1 className="text-xl font-medium text-white mb-1">Vaiyu Residency <span className="text-xs px-2 py-0.5 bg-white/10 rounded ml-2 text-gray-400">SYNC</span></h1>
-          <div className="flex gap-6 mt-4">
-            <div className="text-center">
-              <div className="text-xs text-gray-500 uppercase tracking-widest mb-1">Rooms</div>
-              <div className="text-2xl font-light text-white">{rooms.length}</div>
+    <div className="min-h-screen bg-[#050505] text-gray-200 font-sans overflow-x-hidden">
+      {/* Breadcrumb Header */}
+      <header className="flex h-10 items-center border-b border-white/10 bg-[#0B0B0B] px-6 shadow-sm shrink-0">
+        <div className="flex items-center gap-2 text-xs">
+          <Link to={hotelSlug ? `/owner/${hotelSlug}` : '/owner'} className="font-medium text-slate-400 hover:text-white">
+            Dashboard
+          </Link>
+          <span className="text-slate-600">›</span>
+          <span className="font-semibold text-white">Ops Board</span>
+        </div>
+      </header>
+
+      <div className="p-6 pb-20">
+        {/* HEADER KPI */}
+        <div className="flex flex-wrap items-center justify-between gap-6 mb-8">
+          <div>
+            <h1 className="text-xl font-medium text-white mb-1">Vaiyu Residency <span className="text-xs px-2 py-0.5 bg-white/10 rounded ml-2 text-gray-400">SYNC</span></h1>
+            <div className="flex gap-6 mt-4">
+              <div className="text-center">
+                <div className="text-xs text-gray-500 uppercase tracking-widest mb-1">Rooms</div>
+                <div className="text-2xl font-light text-white">{rooms.length}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-gray-500 uppercase tracking-widest mb-1">Active</div>
+                <div className="text-2xl font-light text-white">{activeTickets.length}</div>
+                <div className="text-[10px] text-red-500 font-bold mt-1">{decisionTickets.length} ALERTS</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-gray-500 uppercase tracking-widest mb-1">Avg Time</div>
+                <div className="text-2xl font-light text-white">{avgTimeMinutes > 0 ? `${avgTimeMinutes}m` : 'N/A'}</div>
+              </div>
             </div>
-            <div className="text-center">
-              <div className="text-xs text-gray-500 uppercase tracking-widest mb-1">Active</div>
-              <div className="text-2xl font-light text-white">{activeTickets.length}</div>
-              <div className="text-[10px] text-red-500 font-bold mt-1">{decisionTickets.length} ALERTS</div>
-            </div>
-            <div className="text-center">
-              <div className="text-xs text-gray-500 uppercase tracking-widest mb-1">Avg Time</div>
-              <div className="text-2xl font-light text-white">7m</div>
-            </div>
+          </div>
+
+          <div className="flex gap-4">
+            <StatusBlock
+              label="New"
+              count={activeTickets.filter(t => t.status === 'Requested').length}
+              active={filterStatus === 'New'}
+              onClick={() => handleFilterClick('New')}
+            />
+            <StatusBlock
+              label="In Progress"
+              count={activeTickets.filter(t => t.status === 'InProgress' || t.status === 'Accepted').length}
+              active={filterStatus === 'InProgress'}
+              onClick={() => handleFilterClick('InProgress')}
+            />
+            <StatusBlock
+              label="Blocked"
+              count={activeTickets.filter(t => t.status === 'Paused' && !decisionIds.has(t.id) && t.sla_state !== 'EXEMPTED').length}
+              active={filterStatus === 'Blocked'}
+              onClick={() => handleFilterClick('Blocked')}
+            />
+            <StatusBlock
+              label="At Risk"
+              count={atRiskTickets.length}
+              active={filterStatus === 'AtRisk'}
+              onClick={() => handleFilterClick('AtRisk')}
+            />
           </div>
         </div>
 
-        <div className="flex gap-4">
-          <StatusBlock
-            label="New"
-            count={activeTickets.filter(t => t.status === 'Requested').length}
-            colorClass="text-blue-400"
-            active={filterStatus === 'New'}
-            onClick={() => handleFilterClick('New')}
-          />
-          <StatusBlock
-            label="In Progress"
-            count={activeTickets.filter(t => t.status === 'InProgress' || t.status === 'Accepted').length}
-            colorClass="text-gray-400"
-            active={filterStatus === 'InProgress'}
-            onClick={() => handleFilterClick('InProgress')}
-          />
-          <StatusBlock
-            label="Blocked"
-            count={activeTickets.filter(t => t.status === 'Paused' || t.is_overdue).length}
-            colorClass="text-gray-400"
-            active={filterStatus === 'Blocked'}
-            onClick={() => handleFilterClick('Blocked')}
-          />
-          <StatusBlock
-            label="At Risk"
-            count={oversightTickets.length}
-            colorClass="text-amber-500"
-            active={false}
-            onClick={() => { }}
-          />
-        </div>
-      </div>
+        {/* MAIN LAYOUT */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
-      {/* MAIN LAYOUT */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* LEFT COLUMN (Main) */}
+          <div className="lg:col-span-8 space-y-8">
 
-        {/* LEFT COLUMN (Main) */}
-        <div className="lg:col-span-8 space-y-8">
+            {/* 1. DECISION QUEUE (Needs Supervisor Action) */}
+            <section>
+              <div className="flex items-center gap-3 mb-4">
+                <span className="flex h-3 w-3 relative">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                </span>
+                <h2 className="text-sm font-bold text-gray-200 uppercase tracking-widest">Needs Supervisor Action</h2>
+              </div>
 
-          {/* 1. DECISION QUEUE (Needs Supervisor Action) */}
-          <section>
-            <div className="flex items-center gap-3 mb-4">
-              <span className="flex h-3 w-3 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-              </span>
-              <h2 className="text-sm font-bold text-gray-200 uppercase tracking-widest">Needs Supervisor Action</h2>
-            </div>
-
-            <div className="space-y-4">
-              {decisionTickets.length === 0 ? (
-                <div className="p-8 rounded-xl bg-[#0B0C10] border border-dashed border-white/5 text-center">
-                  <p className="text-gray-500 text-sm">No pending decisions. You're all caught up!</p>
-                </div>
-              ) : (
-                decisionTickets.map(t => (
-                  <DecisionCard key={t.id} ticket={t} onAction={handleAction} onClick={() => setSelectedTicket(t)} />
-                ))
-              )}
-            </div>
-          </section>
-
-          {/* 4. STAFF LOAD */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Staff Load */}
-            <div className="bg-[#0B0C10] border border-white/5 rounded-2xl p-6 h-fit">
-              <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6">Staff Load Overview</h2>
               <div className="space-y-4">
+                {decisionTickets.length === 0 ? (
+                  <div className="p-8 rounded-xl bg-[#0B0C10] border border-dashed border-white/5 text-center">
+                    <p className="text-gray-500 text-sm">No pending decisions. You're all caught up!</p>
+                  </div>
+                ) : (
+                  decisionTickets.map(t => (
+                    <DecisionCard key={t.id} ticket={t} onAction={handleAction} onClick={() => setSelectedTicket(t)} />
+                  ))
+                )}
+              </div>
+            </section>
+
+            {/* 2. BLOCKED & AT-RISK (moved from right column) */}
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                {filterStatus !== 'All' || selectedRoom ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-blue-500">🔍</span>
+                    <h2 className="text-sm font-bold text-gray-200 uppercase tracking-widest">
+                      {selectedRoom ? `Room ${selectedRoom}` : `${filterStatus === 'AtRisk' ? 'At Risk' : filterStatus === 'InProgress' ? 'In Progress' : filterStatus} Tasks`}
+                    </h2>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="text-amber-500">⚠️</span>
+                    <h2 className="text-sm font-bold text-gray-200 uppercase tracking-widest">Blocked & At-Risk</h2>
+                  </div>
+                )}
+                {(filterStatus !== 'All' || selectedRoom) && (
+                  <button onClick={() => { setFilterStatus('All'); setSelectedRoom(null); }} className="text-[10px] text-gray-500 hover:text-white uppercase">Clear</button>
+                )}
+              </div>
+
+              <div className="bg-[#0B0C10] border border-white/5 rounded-2xl p-4 min-h-[200px] space-y-2 max-h-[500px] overflow-y-auto custom-scrollbar">
+                {/* If Filter is active, show Context Tickets. Else show Oversight Tickets */}
+                {(filterStatus !== 'All' || selectedRoom) ? (
+                  <>
+                    <div className="grid grid-cols-[40px_1fr_40px] gap-4 mb-2 px-2 text-[10px] font-bold text-gray-600 uppercase tracking-widest">
+                      <div>Room</div>
+                      <div>Task</div>
+                      <div className="text-right">SLA</div>
+                    </div>
+                    {contextTickets.length === 0 ? (
+                      <div className="text-center py-8 text-gray-600 text-xs">No active tasks match filter.</div>
+                    ) : (
+                      contextTickets.map(t => (
+                        <ContextTaskCard key={t.id} ticket={t} onClick={() => setSelectedTicket(t)} onAction={handleAction} filterType={filterStatus} />
+                      ))
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-[40px_1fr_auto] gap-4 mb-2 px-2 text-[10px] font-bold text-gray-600 uppercase tracking-widest">
+                      <div>Room</div>
+                      <div>Issue</div>
+                      <div className="text-right">Status</div>
+                    </div>
+
+                    {oversightTickets.length === 0 ? (
+                      <div className="text-center py-8 text-gray-600 text-xs">No overdue or blocked items.</div>
+                    ) : (
+                      oversightTickets.map(t => (
+                        <OversightCard key={t.id} ticket={t} onAction={handleAction} onClick={() => setSelectedTicket(t)} />
+                      ))
+                    )}
+                  </>
+                )}
+              </div>
+            </section>
+
+          </div>
+
+          {/* RIGHT COLUMN */}
+          <div className="lg:col-span-4 space-y-6">
+
+            {/* 1. OVERVIEW - Counts & Aggregates (NEW) */}
+            <section className="bg-[#0B0C10] border border-white/5 rounded-2xl p-4">
+              <h2 className="text-sm font-bold text-gray-200 uppercase tracking-widest mb-4">Overview</h2>
+
+              <div className="space-y-3">
+                {/* Automated Alerts */}
+                <div className="flex items-center justify-between py-2 border-b border-white/5">
+                  <span className="text-sm text-gray-300">Automated Alerts</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-400">{decisionTickets.length}</span>
+                    <span className="text-gray-600">›</span>
+                  </div>
+                </div>
+                <div
+                  className="flex items-center justify-between py-2 pl-4 cursor-pointer hover:bg-white/5 rounded transition-colors"
+                  onClick={() => { setFilterStatus('All'); setSelectedRoom(null); }}
+                >
+                  <span className="text-sm text-red-400">▲ {decisionTickets.length} Alerts</span>
+                  <span className="text-gray-600">›</span>
+                </div>
+
+                {/* Blocked Tickets */}
+                <div className="flex items-center justify-between py-2 border-b border-white/5">
+                  <span className="text-sm text-gray-300">Blocked Tickets</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-400">{activeTickets.filter(t => t.status === 'Paused').length}</span>
+                    <span className="text-gray-600">›</span>
+                  </div>
+                </div>
+                <div
+                  className="flex items-center justify-between py-2 pl-4 cursor-pointer hover:bg-white/5 rounded transition-colors"
+                  onClick={() => handleFilterClick('Blocked')}
+                >
+                  <span className="text-sm text-red-400">▲ {activeTickets.filter(t => t.status === 'Paused').length} Blocked</span>
+                  <span className="text-gray-600">›</span>
+                </div>
+
+                {/* At Risk Tickets */}
+                <div
+                  className="flex items-center justify-between py-2 cursor-pointer hover:bg-white/5 rounded transition-colors"
+                  onClick={() => { setFilterStatus('All'); setSelectedRoom(null); }}
+                >
+                  <span className="text-sm text-gray-300">At Risk Tickets</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-400">{atRiskTickets.length}</span>
+                    <span className="text-gray-600">›</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* 2. STAFF LOAD (moved from left) */}
+            <section className="bg-[#0B0C10] border border-white/5 rounded-2xl p-4">
+              <h2 className="text-sm font-bold text-gray-200 uppercase tracking-widest mb-4">Staff Load</h2>
+              <div className="space-y-3">
                 {staffLoad.map((staff, i) => (
-                  <div key={staff.id}>
-                    <div className="flex justify-between text-xs mb-2">
-                      <span className="text-gray-300 font-medium">{staff.full_name}</span>
-                      <span className="text-gray-500">{staff.taskCount} Tasks</span>
-                    </div>
-                    <div className="h-1.5 w-full bg-[#1A1C25] rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${i === 0 ? 'bg-amber-500' : 'bg-green-600'}`}
-                        style={{ width: `${Math.min((staff.taskCount / 5) * 100, 100)}%` }}
-                      />
-                    </div>
+                  <div key={staff.id} className="flex items-center justify-between py-1">
+                    <span className="text-sm text-gray-300">{staff.full_name}</span>
+                    <span className="text-sm text-gray-400">{staff.taskCount} Tasks</span>
                   </div>
                 ))}
                 {staffLoad.length === 0 && <div className="text-xs text-gray-600">No staff online</div>}
+                {staffLoad.length > 0 && (
+                  <div className="text-right">
+                    <span className="text-[10px] text-gray-500 hover:text-white cursor-pointer">View All ›</span>
+                  </div>
+                )}
               </div>
-            </div>
+            </section>
+
+            {/* 3. ROOM STATUS (Grid) */}
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 border border-gray-600 rounded-sm"></div>
+                  <h2 className="text-sm font-bold text-gray-200 uppercase tracking-widest">Room Status</h2>
+                </div>
+              </div>
+
+              <div className="bg-[#0B0C10] border border-white/5 rounded-2xl p-4">
+                <div className="grid grid-cols-6 gap-2">
+                  {rooms.map(r => {
+                    // Determine status based on ticket map
+                    const occupied = activeTickets.some(t => t.room === r.number);
+                    const risk = oversightTickets.some(t => t.room === r.number);
+                    const decision = decisionTickets.some(t => t.room === r.number);
+                    const isSelected = selectedRoom === r.number;
+
+                    let bg = 'bg-[#1A1C25] text-gray-600 border-white/5';
+                    if (decision) bg = 'bg-red-500 text-white border-red-400';
+                    else if (risk) bg = 'bg-amber-500/20 text-amber-500 border-amber-500/50';
+                    else if (occupied) bg = 'bg-blue-600 text-white border-blue-400';
+
+                    // Selection overrides
+                    if (isSelected) bg = 'bg-white text-black border-white';
+
+                    return (
+                      <div
+                        key={r.number}
+                        onClick={() => {
+                          if (isSelected) setSelectedRoom(null);
+                          else {
+                            setSelectedRoom(r.number);
+                            setFilterStatus('All'); // Clearing status filter when selecting room usually makes more sense
+                          }
+                        }}
+                        className={`aspect-square flex items-center justify-center rounded text-[10px] font-mono border ${bg} cursor-pointer hover:brightness-110 transition-all`}
+                      >
+                        {r.number}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </section>
+
           </div>
-
         </div>
 
-        {/* RIGHT COLUMN */}
-        <div className="lg:col-span-4 space-y-8">
-
-          {/* 2. OVERSIGHT QUEUE OR CONTEXT QUEUE */}
-          <section>
-            <div className="flex items-center justify-between mb-4">
-              {filterStatus !== 'All' || selectedRoom ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-blue-500">🔍</span>
-                  <h2 className="text-sm font-bold text-gray-200 uppercase tracking-widest">
-                    {selectedRoom ? `Room ${selectedRoom}` : `${filterStatus} Tasks`}
-                  </h2>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <span className="text-amber-500">⚠️</span>
-                  <h2 className="text-sm font-bold text-gray-200 uppercase tracking-widest">Blocked & At-Risk</h2>
-                </div>
-              )}
-              {(filterStatus !== 'All' || selectedRoom) && (
-                <button onClick={() => { setFilterStatus('All'); setSelectedRoom(null); }} className="text-[10px] text-gray-500 hover:text-white uppercase">Clear</button>
-              )}
-            </div>
-
-            <div className="bg-[#0B0C10] border border-white/5 rounded-2xl p-4 min-h-[200px] space-y-2 max-h-[500px] overflow-y-auto custom-scrollbar">
-              {/* If Filter is active, show Context Tickets. Else show Oversight Tickets */}
-              {(filterStatus !== 'All' || selectedRoom) ? (
-                <>
-                  <div className="grid grid-cols-[40px_1fr_40px] gap-4 mb-2 px-2 text-[10px] font-bold text-gray-600 uppercase tracking-widest">
-                    <div>Room</div>
-                    <div>Task</div>
-                    <div className="text-right">SLA</div>
-                  </div>
-                  {contextTickets.length === 0 ? (
-                    <div className="text-center py-8 text-gray-600 text-xs">No active tasks match filter.</div>
-                  ) : (
-                    contextTickets.map(t => (
-                      <ContextTaskCard key={t.id} ticket={t} onClick={() => setSelectedTicket(t)} />
-                    ))
-                  )}
-                </>
-              ) : (
-                <>
-                  <div className="grid grid-cols-[40px_1fr_auto] gap-4 mb-2 px-2 text-[10px] font-bold text-gray-600 uppercase tracking-widest">
-                    <div>Room</div>
-                    <div>Issue</div>
-                    <div className="text-right">Status</div>
-                  </div>
-
-                  {oversightTickets.length === 0 ? (
-                    <div className="text-center py-8 text-gray-600 text-xs">No overdue or blocked items.</div>
-                  ) : (
-                    oversightTickets.map(t => (
-                      <OversightCard key={t.id} ticket={t} onAction={handleAction} onClick={() => setSelectedTicket(t)} />
-                    ))
-                  )}
-                </>
-              )}
-            </div>
-          </section>
-
-          {/* 3. ROOM STATUS (Grid) */}
-          <section>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 border border-gray-600 rounded-sm"></div>
-                <h2 className="text-sm font-bold text-gray-200 uppercase tracking-widest">Room Status</h2>
-              </div>
-            </div>
-
-            <div className="bg-[#0B0C10] border border-white/5 rounded-2xl p-4">
-              <div className="grid grid-cols-6 gap-2">
-                {rooms.map(r => {
-                  // Determine status based on ticket map
-                  const occupied = activeTickets.some(t => t.room === r.number);
-                  const risk = oversightTickets.some(t => t.room === r.number);
-                  const decision = decisionTickets.some(t => t.room === r.number);
-                  const isSelected = selectedRoom === r.number;
-
-                  let bg = 'bg-[#1A1C25] text-gray-600 border-white/5';
-                  if (decision) bg = 'bg-red-500 text-white border-red-400';
-                  else if (risk) bg = 'bg-amber-500/20 text-amber-500 border-amber-500/50';
-                  else if (occupied) bg = 'bg-blue-600 text-white border-blue-400';
-
-                  // Selection overrides
-                  if (isSelected) bg = 'bg-white text-black border-white';
-
-                  return (
-                    <div
-                      key={r.number}
-                      onClick={() => {
-                        if (isSelected) setSelectedRoom(null);
-                        else {
-                          setSelectedRoom(r.number);
-                          setFilterStatus('All'); // Clearing status filter when selecting room usually makes more sense
-                        }
-                      }}
-                      className={`aspect-square flex items-center justify-center rounded text-[10px] font-mono border ${bg} cursor-pointer hover:brightness-110 transition-all`}
-                    >
-                      {r.number}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          </section>
-
-        </div>
-      </div>
-
-      <CommentModal
-        isOpen={commentAction.isOpen}
-        title={commentAction.type === 'reject' ? 'Reject Request' : 'Grant SLA Exception'}
-        onClose={() => setCommentAction({ isOpen: false, type: null, ticket: null })}
-        onSubmit={handleCommentSubmit}
-      />
-
-      {showStaffPicker && reassignTicket && hotelId && (
-        <StaffPicker
-          hotelId={hotelId}
-          currentAssigneeId={reassignTicket.assignee_id}
-          onSelect={async (sid) => {
-            await reassignTask(reassignTicket.id, sid, 'sup', 'Reassigned');
-            refresh();
-            setShowStaffPicker(false);
-          }}
-          onCancel={() => setShowStaffPicker(false)}
+        <CommentModal
+          isOpen={commentAction.isOpen}
+          title={commentAction.type === 'reject' ? 'Reject Request' : 'Grant SLA Exception'}
+          onClose={() => setCommentAction({ isOpen: false, type: null, ticket: null })}
+          onSubmit={handleCommentSubmit}
         />
-      )}
 
-      {/* Ticket Details Drawer - Restored */}
-      <TicketDetailsDrawer
-        isOpen={!!selectedTicket}
-        onClose={() => setSelectedTicket(null)}
-        ticket={selectedTicket ? {
-          ...selectedTicket,
-          ticket_id: selectedTicket.id,
-          title: selectedTicket.service_key.replace(/_/g, ' '),
-          department_name: 'Service',
-          sla_state: selectedTicket.is_overdue ? 'BREACHED' : 'OK',
-          sla_breached: selectedTicket.is_overdue,
-          sla_label: (selectedTicket.mins_remaining || 0) + ' min',
-          requested_by: 'Guest'
-        } as any : null}
-        onStart={() => { if (selectedTicket) handleAction(selectedTicket, 'start'); }}
-        onComplete={() => { if (selectedTicket) handleAction(selectedTicket, 'resolve'); }}
-        onCancel={refresh}
-        onUpdate={refresh}
-      />
+        {showStaffPicker && reassignTicket && hotelId && (
+          <StaffPicker
+            hotelId={hotelId}
+            currentAssigneeId={reassignTicket.assignee_id}
+            onSelect={async (sid) => {
+              await reassignTask(reassignTicket.id, sid, 'sup', 'Reassigned');
+              refresh();
+              setShowStaffPicker(false);
+            }}
+            onCancel={() => setShowStaffPicker(false)}
+          />
+        )}
+
+        {/* Ticket Details Drawer - Restored */}
+        <TicketDetailsDrawer
+          isOpen={!!selectedTicket}
+          onClose={() => setSelectedTicket(null)}
+          ticket={selectedTicket ? {
+            ...selectedTicket,
+            ticket_id: selectedTicket.id,
+            title: selectedTicket.service_key.replace(/_/g, ' '),
+            department_name: 'Service',
+            sla_state: selectedTicket.is_overdue ? 'BREACHED' : 'OK',
+            sla_breached: selectedTicket.is_overdue,
+            sla_label: (selectedTicket.mins_remaining || 0) + ' min',
+            requested_by: 'Guest',
+            // Map assignee fields for staff workload
+            assigned_staff_id: selectedTicket.assignee_id,
+            assigned_user_id: selectedTicket.assignee_id,
+            assigned_to_name: selectedTicket.assignee_name,
+          } as any : null}
+          onStart={() => { if (selectedTicket) handleAction(selectedTicket, 'start'); }}
+          onComplete={() => { if (selectedTicket) handleAction(selectedTicket, 'resolve'); }}
+          onCancel={refresh}
+          onUpdate={refresh}
+        />
+
+        {/* Supervisor Decision Drawer */}
+        <SupervisorDecisionDrawer
+          isOpen={!!supervisorDrawerTicket}
+          onClose={() => setSupervisorDrawerTicket(null)}
+          ticket={supervisorDrawerTicket}
+          onDecision={() => {
+            refresh();
+            setSupervisorDrawerTicket(null);
+          }}
+        />
+
+      </div>
     </div>
   );
 }

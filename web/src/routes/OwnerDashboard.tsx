@@ -21,7 +21,13 @@ import {
   type OpsHeatmapPoint,
   type StaffingPlanRow,
 } from "../lib/api";
+
 import OwnerDailyBriefCard from "../components/OwnerDailyBriefCard";
+import SlaPerformanceChart from "../components/analytics/SlaPerformanceChart";
+import TaskVolumeChart from "../components/analytics/TaskVolumeChart";
+import OccupancyTrendChart from "../components/analytics/OccupancyTrendChart";
+import RevenueTrendChart from "../components/analytics/RevenueTrendChart";
+import { getDashboardMetrics, type DashboardMetrics } from "../lib/dashboardApi";
 
 /** ========= Types ========= */
 type Hotel = { id: string; name: string; slug: string; city: string | null };
@@ -54,11 +60,13 @@ type LiveOrder = {
 };
 
 type StaffPerf = {
-  name: string;
-  orders_served: number;
-  avg_rating_30d: number | null;
+  staff_id: string;
+  display_name: string;
+  department_name: string;
+  role: string;
+  tickets_completed: number;
   avg_completion_min: number | null;
-  performance_score: number | null;
+  is_online: boolean;
 };
 
 type HrmsSnapshot = {
@@ -371,17 +379,88 @@ export default function OwnerDashboard() {
         .subscribe();
       unsubscribe = () => supabase.removeChannel(channel);
 
-      // 7) Optional RPCs
-      if (HAS_FUNCS) {
-        try {
-          const { data } = await supabase.rpc(
-            "best_staff_performance_for_slug",
-            { p_slug: slug }
-          );
-          if (alive) setStaffPerf(data ?? null);
-        } catch {
+      // 7a) Staff leaderboard - with proper role joins
+      try {
+        // Step 1: Get hotel members
+        const { data: staffData, error: staffError } = await supabase
+          .from("hotel_members")
+          .select(`id, role, is_active, user_id`)
+          .eq("hotel_id", hotelId)
+          .eq("is_active", true)
+          .order("created_at", { ascending: true });
+
+        console.log("Staff query response:", {
+          count: staffData?.length,
+          staffData,
+          staffError,
+          hotelId
+        });
+
+        if (staffError) {
+          console.error("Staff query error:", staffError);
           if (alive) setStaffPerf(null);
+        } else if (staffData && staffData.length > 0 && alive) {
+          const memberIds = staffData.map((s: any) => s.id);
+          const userIds = staffData.map((s: any) => s.user_id);
+
+          // Step 2: Get profiles for names
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("id, full_name")
+            .in("id", userIds);
+          const profileMap = new Map(profiles?.map((p: any) => [p.id, p.full_name]) || []);
+
+          // Step 3: Get hotel_member_roles for these members
+          const { data: memberRoles } = await supabase
+            .from("hotel_member_roles")
+            .select("hotel_member_id, role_id")
+            .in("hotel_member_id", memberIds);
+
+          // Step 4: Get hotel_roles for those role_ids
+          const roleIds = [...new Set(memberRoles?.map((mr: any) => mr.role_id) || [])];
+          const { data: hotelRoles } = await supabase
+            .from("hotel_roles")
+            .select("id, name, code")
+            .in("id", roleIds);
+          const roleMap = new Map(hotelRoles?.map((r: any) => [r.id, r.name]) || []);
+
+          // Step 5: Build member -> roles mapping
+          const memberRolesMap = new Map<string, string[]>();
+          memberRoles?.forEach((mr: any) => {
+            const roleName = roleMap.get(mr.role_id);
+            if (roleName) {
+              const existing = memberRolesMap.get(mr.hotel_member_id) || [];
+              existing.push(roleName);
+              memberRolesMap.set(mr.hotel_member_id, existing);
+            }
+          });
+
+          console.log("Roles mapping:", { profileMap, memberRolesMap });
+
+          // Step 6: Transform data
+          const transformed = staffData.map((s: any) => {
+            const roles = memberRolesMap.get(s.id) || [];
+            return {
+              staff_id: s.id,
+              display_name: profileMap.get(s.user_id) || `Staff ${s.id.slice(0, 8)}`,
+              department_name: roles.join(", ") || s.role, // Show all roles, fallback to basic role
+              role: s.role,
+              tickets_completed: 0,
+              avg_completion_min: null,
+              is_online: s.is_active,
+            };
+          });
+          setStaffPerf(transformed);
+        } else if (alive) {
+          setStaffPerf(null);
         }
+      } catch (e) {
+        console.error("Staff fetch error:", e);
+        if (alive) setStaffPerf(null);
+      }
+
+      // 7b) Optional RPCs
+      if (HAS_FUNCS && hotel) {
         try {
           const { data } = await supabase.rpc("hrms_snapshot_for_slug", {
             p_slug: slug,
@@ -460,6 +539,24 @@ export default function OwnerDashboard() {
   }, [slug, today]);
 
   // AI Ops Co-pilot fetch (heatmap + staffing), purely additive
+  /* New: Dashboard Analytics */
+  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadMetrics() {
+      if (!hotel?.id) return; // Use hotel?.id instead of hotelId if hotel is available
+      try {
+        const data = await getDashboardMetrics(hotel.id);
+        if (mounted) setMetrics(data);
+      } catch (err) {
+        console.error("Failed to load dashboard metrics", err);
+      }
+    }
+    loadMetrics();
+    return () => { mounted = false; };
+  }, [hotel?.id]); // Depend on hotel?.id
+
   useEffect(() => {
     if (!hotel?.id || !HAS_FUNCS) {
       // if functions are off, keep this section in "preview" mode
@@ -550,9 +647,15 @@ export default function OwnerDashboard() {
   }
 
   /** ======= KPI Calculations ======= */
-  const total = totalRooms;
-  const occupied = kpi?.occupied_today ?? 0;
-  const occPct = total ? Math.round((occupied / total) * 100) : 0;
+  const todayStats = metrics?.todayStats;
+
+  const total = todayStats?.totalRooms ?? totalRooms;
+  const occupied = todayStats?.occupied ?? (kpi?.occupied_today ?? 0);
+  const occPct = todayStats?.occupancyPct ?? (total ? Math.round((occupied / total) * 100) : 0);
+
+  const arrivalsCount = todayStats?.arrivals ?? arrivals.length;
+  const departuresCount = todayStats?.departures ?? departures.length;
+
   const revenueToday = kpi?.revenue_today ?? 0;
   const adr = occupied ? revenueToday / occupied : 0;
   const revpar = total ? (adr * occupied) / total : 0;
@@ -612,7 +715,7 @@ export default function OwnerDashboard() {
           </aside>
 
           {/* Right: main dashboard content */}
-          <div className="space-y-5" id="top">
+          <div className="space-y-3" id="top">
             {/* Top bar / identity */}
             <OwnerTopBar
               hotel={hotel}
@@ -621,30 +724,15 @@ export default function OwnerDashboard() {
               timeLabel={timeLabel}
             />
 
-            {/* Owner spoken/text brief (new, additive) */}
-            <OwnerDailyBriefCard
-              language="hinglish"
-              date={today}
-              hotelName={hotel.name}
-              city={hotel.city}
-              occupancyPct={occPct}
-              openTasks={ordersTotal}
-              overdueTasks={ordersOverdue}
-              unhappyGuests={0}
-              slaOnTimePct={slaPct}
-              todayRevenue={revenueToday}
-              openWorkforceRoles={openWorkforceRoles}
-            />
-
-            {/* Hero: Today’s Pulse */}
+            {/* Hero: Today's Pulse */}
             <PulseStrip
               hotelName={hotel.name}
               city={hotel.city}
               occPct={occPct}
               occupied={occupied}
               totalRooms={total}
-              arrivalsCount={arrivals.length}
-              departuresCount={departures.length}
+              arrivalsCount={arrivalsCount}
+              departuresCount={departuresCount}
               revenueToday={revenueToday}
               adr={adr}
               revpar={revpar}
@@ -659,31 +747,24 @@ export default function OwnerDashboard() {
               vipCount={vipCount}
               eventCount={eventsCount}
               onOpenDrawer={(kind) => setDrawer({ kind })}
-            />
-
-            {/* Detail KPIs strip */}
-            <KpiStrip
+              metrics={metrics}
               slug={hotel.slug}
-              occPct={occPct}
-              occTone={occTone}
-              occupied={occupied}
-              total={total}
-              adr={adr}
-              revpar={revpar}
-              pickup7d={pickup7d}
-              slaPct={slaPct}
-              nightsOnBooks={nightsOnBooks}
             />
 
-            {/* Middle section: Live Ops (L) + Performance (R) */}
-            <section className="grid gap-4 xl:grid-cols-3">
-              <div className="xl:col-span-2 space-y-4">
-                <LiveOpsColumn
-                  arrivals={arrivals}
-                  inhouse={inhouse}
-                  departures={departures}
-                />
-              </div>
+            {/* Ops & SLA row — moved up for priority */}
+            <section className="grid gap-3 lg:grid-cols-3">
+              <SlaCard targetMin={targetMin} orders={liveOrders} metrics={metrics} />
+              <LiveOrdersPanel
+                orders={liveOrders}
+                targetMin={targetMin}
+                slug={hotel.slug}
+                className="lg:col-span-1"
+              />
+              <AttentionServicesCard orders={liveOrders} />
+            </section>
+
+            {/* Live Ops (Arrivals/In-house/Departures) + Performance */}
+            <section className="grid gap-3 lg:grid-cols-2">
               <PerformanceColumn
                 slug={hotel.slug}
                 revenueToday={revenueToday}
@@ -696,26 +777,20 @@ export default function OwnerDashboard() {
                 npsResponses={npsResponses}
                 vipStays={vipStays}
                 eventsToday={eventsToday}
+                metrics={metrics}
               />
-            </section>
-
-            {/* Ops & SLA row */}
-            <section className="grid gap-4 lg:grid-cols-3">
-              <SlaCard targetMin={targetMin} orders={liveOrders} />
-              <LiveOrdersPanel
-                orders={liveOrders}
-                targetMin={targetMin}
-                slug={hotel.slug}
-                className="lg:col-span-1"
+              <LiveOpsColumn
+                arrivals={arrivals}
+                inhouse={inhouse}
+                departures={departures}
               />
-              <AttentionServicesCard orders={liveOrders} />
             </section>
 
             {/* Staff, HR & Workforce row */}
-            <section className="grid gap-4 lg:grid-cols-3">
+            <section className="grid gap-3 lg:grid-cols-3">
               <StaffPerformancePanel data={staffPerf} />
               <HrmsPanel data={hrms} slug={hotel.slug} />
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <OwnerTasksPanel occPct={occPct} kpi={kpi} slug={hotel.slug} />
                 <OwnerWorkforcePanel
                   slug={hotel.slug}
@@ -725,7 +800,21 @@ export default function OwnerDashboard() {
               </div>
             </section>
 
-            {/* AI Ops Co-pilot (new, additive) */}
+            {/* Outlook & Housekeeping */}
+            <section className="grid gap-3 lg:grid-cols-3">
+              <div className="lg:col-span-2">
+                <OccupancyHeatmap
+                  title="Booking curve (6-week view)"
+                  desc="See pacing vs target; add offers on soft nights."
+                />
+              </div>
+              <HousekeepingProgress
+                slug={hotel.slug}
+                readyPct={total > 0 ? Math.round(((total - occupied) / total) * 100) : 100}
+              />
+            </section>
+
+            {/* AI Ops Co-pilot */}
             <AiOpsSection
               slug={hotel.slug}
               heatmap={opsHeatmap}
@@ -734,7 +823,7 @@ export default function OwnerDashboard() {
             />
 
             {/* AI usage */}
-            <section className="rounded-2xl border border-slate-100 bg-white/80 px-4 py-4 shadow-sm lg:px-5 lg:py-5">
+            <section className="rounded-2xl border border-slate-100 bg-white/80 px-4 py-3 shadow-sm">
               <SectionHeader
                 title="AI helper usage"
                 desc="Track how much of your monthly AI budget this property has used."
@@ -747,25 +836,8 @@ export default function OwnerDashboard() {
               <UsageMeter hotelId={hotel.id} />
             </section>
 
-            {/* Outlook & Housekeeping */}
-            <section className="grid gap-4 lg:grid-cols-3">
-              <div className="lg:col-span-2">
-                <OccupancyHeatmap
-                  title="Booking curve (6-week view)"
-                  desc="See pacing vs target; add offers on soft nights."
-                />
-              </div>
-              <HousekeepingProgress
-                slug={hotel.slug}
-                readyPct={Math.min(occPct, 100)}
-              />
-            </section>
-
-            {/* Bottom “Today at a glance” strip */}
-            <TodayBottomStrip occPct={occPct} hrms={hrms} />
-
             {/* Support footer */}
-            <footer className="pt-2">
+            <footer className="pt-1">
               <OwnerSupportFooter />
             </footer>
           </div>
@@ -1106,7 +1178,10 @@ function PulseStrip({
   vipCount,
   eventCount,
   onOpenDrawer,
+  metrics,
+  slug,
 }: {
+  slug: string;
   hotelName: string;
   city: string | null;
   occPct: number;
@@ -1128,6 +1203,7 @@ function PulseStrip({
   vipCount: number;
   eventCount: number;
   onOpenDrawer: (kind: DrawerKind) => void;
+  metrics: DashboardMetrics | null;
 }) {
   const effectiveNps = typeof npsScore === "number" ? npsScore : 78;
   const effectiveResponses = npsResponses ?? 0;
@@ -1160,7 +1236,14 @@ function PulseStrip({
             secondary={`${occupied}/${totalRooms || 0} rooms · ${arrivalsCount} arrivals · ${departuresCount} departures`}
             badgeLabel="Action"
             badgeTone={occupancyTone(occPct)}
-          />
+          >
+            <div className="mt-3 border-t pt-2">
+              <div className="mb-1 text-[10px] font-medium text-slate-400">30-Day Trend</div>
+              <div className="h-16">
+                <OccupancyTrendChart data={metrics?.occupancyHistory || []} loading={!metrics} />
+              </div>
+            </div>
+          </PulseTile>
           <PulseTile
             label="Revenue snapshot"
             primary={`₹${revenueToday.toFixed(0)} today`}
@@ -1184,7 +1267,7 @@ function PulseStrip({
             primary={`${ordersTotal} open tasks`}
             secondary={`${ordersOverdue} overdue · SLA ${slaPct}%`}
             actionLabel="Open ops board"
-            onAction={() => onOpenDrawer("opsBoard")}
+            actionHref={`/ops?slug=${encodeURIComponent(slug)}`}
             badgeTone={slaTone}
             badgeLabel={
               slaTone === "green"
@@ -1225,7 +1308,9 @@ function PulseTile({
   badgeLabel,
   badgeTone = "grey",
   actionLabel,
+  actionHref,
   onAction,
+  children,
 }: {
   label: string;
   primary: string;
@@ -1233,7 +1318,9 @@ function PulseTile({
   badgeLabel?: string;
   badgeTone?: "green" | "amber" | "red" | "grey";
   actionLabel?: string;
+  actionHref?: string;
   onAction?: () => void;
+  children?: ReactNode;
 }) {
   return (
     <div className="relative flex flex-col justify-between rounded-2xl border border-slate-100 bg-white/90 p-3 shadow-sm shadow-slate-200/60 backdrop-blur-sm transition-shadow hover:shadow-lg">
@@ -1253,7 +1340,18 @@ function PulseTile({
           {secondary}
         </p>
       </div>
-      {actionLabel && onAction && (
+      {actionLabel && actionHref && (
+        <Link
+          to={actionHref}
+          className="mt-3 inline-flex items-center text-[11px] font-medium text-emerald-700 hover:text-emerald-800"
+        >
+          {actionLabel}
+          <span aria-hidden="true" className="ml-1">
+            →
+          </span>
+        </Link>
+      )}
+      {actionLabel && onAction && !actionHref && (
         <button
           type="button"
           onClick={onAction}
@@ -1265,6 +1363,7 @@ function PulseTile({
           </span>
         </button>
       )}
+      {children}
     </div>
   );
 }
@@ -1361,35 +1460,43 @@ function LiveOpsColumn({
   inhouse: StayRow[];
   departures: StayRow[];
 }) {
+  const allEmpty = arrivals.length === 0 && inhouse.length === 0 && departures.length === 0;
+
   return (
     <section
       id="live-ops"
-      className="rounded-3xl border border-slate-100 bg-white/95 px-4 py-4 shadow-sm"
+      className="rounded-2xl border border-slate-100 bg-white/95 px-3 py-3 shadow-sm"
     >
       <SectionHeader
         title="Live operations (today)"
-        desc="Arrivals, in-house guests, and departures — your check-in/check-out timeline."
+        desc={allEmpty ? "No guest movements today." : "Arrivals, in-house guests, and departures."}
       />
-      <div className="grid gap-3 md:grid-cols-3">
-        <Board
-          title="Arrivals"
-          desc="Who’s expected today — assign rooms in advance."
-          items={arrivals}
-          empty="No arrivals today."
-        />
-        <Board
-          title="In-house"
-          desc="Guests currently staying with you."
-          items={inhouse}
-          empty="No guests are currently in-house."
-        />
-        <Board
-          title="Departures"
-          desc="Who’s checking out — plan housekeeping turns."
-          items={departures}
-          empty="No departures today."
-        />
-      </div>
+      {allEmpty ? (
+        <div className="text-sm text-slate-400 py-2">
+          All guest boards are empty. Data will appear when stays are added.
+        </div>
+      ) : (
+        <div className="grid gap-2 md:grid-cols-3">
+          <Board
+            title="Arrivals"
+            desc="Expected today"
+            items={arrivals}
+            empty="None"
+          />
+          <Board
+            title="In-house"
+            desc="Currently staying"
+            items={inhouse}
+            empty="None"
+          />
+          <Board
+            title="Departures"
+            desc="Checking out"
+            items={departures}
+            empty="None"
+          />
+        </div>
+      )}
     </section>
   );
 }
@@ -1406,6 +1513,7 @@ function PerformanceColumn({
   npsResponses,
   vipStays,
   eventsToday,
+  metrics,
 }: {
   slug: string;
   revenueToday: number;
@@ -1418,6 +1526,7 @@ function PerformanceColumn({
   npsResponses?: number;
   vipStays: VipStay[] | null;
   eventsToday: EventRow[] | null;
+  metrics: DashboardMetrics | null;
 }) {
   const rating = kpi?.avg_rating_30d ?? null;
   const fallbackNps =
@@ -1428,161 +1537,92 @@ function PerformanceColumn({
   const responsesDisplay = npsResponses ?? 0;
 
   return (
-    <section className="space-y-4" id="revenue-panel">
-      <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+    <section className="space-y-3" id="revenue-panel">
+      {/* Revenue - compact card */}
+      <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
         <SectionHeader
           title="Revenue & forecast"
-          desc="Today vs budget and same day last year — simplified view."
+          desc="Today vs budget and same day last year."
           action={
             HAS_REVENUE ? (
               <Link
                 to={`/owner/${slug}/revenue`}
                 className="text-xs underline text-slate-700"
               >
-                Open revenue view
+                Open
               </Link>
             ) : null
           }
         />
-        <div className="text-2xl font-semibold text-slate-900">
-          ₹{revenueToday.toFixed(0)}
-        </div>
-        <div className="mt-1 text-xs text-slate-600">
-          ADR ₹{adr.toFixed(0)} · RevPAR ₹{revpar.toFixed(
-            0
-          )} · Pick-up 7d {pickup7d}
-        </div>
-        <div className="mt-3 h-24 rounded-xl bg-gradient-to-r from-sky-100 via-emerald-100 to-amber-100 p-2">
-          <div className="flex h-full items-end justify-between gap-1">
-            {[40, 60, 55, 80, 70, 65, 75].map((h, i) => (
-              <div
-                key={i}
-                className="w-3 rounded-t bg-emerald-500/80"
-                style={{ height: `${h}%` }}
-              />
-            ))}
-          </div>
-        </div>
-        <p className="mt-2 text-[11px] text-slate-500">
-          This mini-chart gives a feel for revenue trend; detailed pacing &amp;
-          segmentation live in the revenue module.
-        </p>
-      </div>
-
-      <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-        <SectionHeader
-          title="Guest feedback & sentiment"
-          desc="Live signal from ratings and feedback."
-        />
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between">
           <div>
-            <div className="text-lg font-semibold text-slate-900">
-              NPS ~{npsDisplay}
+            <div className="text-2xl font-semibold tracking-tight text-slate-900">
+              ₹{revenueToday.toFixed(0)}
             </div>
-            <div className="mt-1 text-xs text-slate-600">
-              {responsesDisplay > 0
-                ? `${responsesDisplay} responses in the last 30 days.`
-                : "Based on last 30 days’ ratings. Detailed case list in the feedback view."}
+            <div className="text-xs text-slate-600">
+              ADR ₹{adr.toFixed(0)} · RevPAR ₹{revpar.toFixed(0)} · Pick-up 7d {pickup7d}
             </div>
           </div>
-          <div className="flex h-14 w-14 items-center justify-center rounded-full border-4 border-emerald-400 bg-emerald-50 text-sm font-semibold text-emerald-700">
-            {rating ? rating.toFixed(1) : "4.7"}
+          <div className="w-48 h-16">
+            <RevenueTrendChart data={metrics?.revenueHistory || []} loading={!metrics} />
           </div>
-        </div>
-        <div className="mt-3 space-y-1 text-[11px] text-slate-600">
-          <div>• 3 low ratings in the last few hours.</div>
-          <div>• 2 open escalations waiting for call-back.</div>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+      {/* Task Demand - full width for 24 hours */}
+      <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
         <SectionHeader
-          title="VIP & special attention"
-          desc="Today’s VIPs, long-stays and guests with open complaints."
+          title="Task demand (24h)"
+          desc="Hourly volume of guest requests today."
         />
-        {(!vipStays || vipStays.length === 0) &&
-          (!eventsToday || eventsToday.length === 0) ? (
-          <div className="text-sm text-slate-500">
-            Connect your CRM / PMS VIP flags to see a live list here. For now,
-            use the guest list to manage special attention manually.
-          </div>
-        ) : (
-          <div className="space-y-3 text-xs text-slate-700">
-            {vipStays && vipStays.length > 0 && (
-              <div>
-                <div className="mb-1 font-semibold text-slate-900">
-                  VIP arrivals & attention stays
-                </div>
-                <ul className="space-y-1">
-                  {vipStays.slice(0, 4).map((v) => (
-                    <li
-                      key={v.stay_id}
-                      className="flex items-center justify-between rounded-lg bg-slate-50 px-2 py-1"
-                    >
-                      <div>
-                        <div className="font-medium">
-                          {v.room ? `Room ${v.room}` : "Unassigned room"}
-                        </div>
-                        <div className="text-[11px] text-slate-500">
-                          {fmt(v.check_in_start)} → {fmt(v.check_out_end)}
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {v.is_vip && (
-                          <StatusBadge label="VIP" tone="green" />
-                        )}
-                        {v.has_open_complaint && (
-                          <StatusBadge label="Complaint" tone="amber" />
-                        )}
-                        {v.needs_courtesy_call && (
-                          <StatusBadge label="Courtesy call" tone="grey" />
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+        <TaskVolumeChart data={metrics?.taskVolume || []} loading={!metrics} />
+      </div>
+
+      {/* NPS & VIP - side by side */}
+      <div className="grid gap-3 lg:grid-cols-2">
+        <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
+          <SectionHeader
+            title="Guest feedback"
+            desc="Live signal from ratings."
+          />
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-lg font-semibold text-slate-900">
+                NPS ~{npsDisplay}
               </div>
-            )}
-            {eventsToday && eventsToday.length > 0 && (
-              <div>
-                <div className="mb-1 mt-2 font-semibold text-slate-900">
-                  Events & banquets today
-                </div>
-                <ul className="space-y-1">
-                  {eventsToday.slice(0, 3).map((e) => (
-                    <li
-                      key={e.id}
-                      className="flex items-center justify-between rounded-lg bg-slate-50 px-2 py-1"
-                    >
-                      <div>
-                        <div className="font-medium">{e.name}</div>
-                        <div className="text-[11px] text-slate-500">
-                          {e.venue || "Venue TBC"} · {fmt(e.start_at)}
-                        </div>
-                      </div>
-                      <StatusBadge
-                        label={
-                          e.risk_status === "risk"
-                            ? "Risk"
-                            : e.risk_status === "check"
-                              ? "Check"
-                              : "OK"
-                        }
-                        tone={
-                          e.risk_status === "risk"
-                            ? "red"
-                            : e.risk_status === "check"
-                              ? "amber"
-                              : "green"
-                        }
-                      />
-                    </li>
-                  ))}
-                </ul>
+              <div className="text-xs text-slate-600">
+                {responsesDisplay > 0
+                  ? `${responsesDisplay} responses (30d)`
+                  : "Based on last 30 days' ratings."}
               </div>
-            )}
+            </div>
+            <div className="flex h-12 w-12 items-center justify-center rounded-full border-4 border-emerald-400 bg-emerald-50 text-sm font-semibold text-emerald-700">
+              {rating ? rating.toFixed(1) : "5.0"}
+            </div>
           </div>
-        )}
+        </div>
+
+        <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
+          <SectionHeader
+            title="VIP & special attention"
+            desc="Today's VIPs and guests with complaints."
+          />
+          {(!vipStays || vipStays.length === 0) &&
+            (!eventsToday || eventsToday.length === 0) ? (
+            <div className="text-xs text-slate-500">
+              Connect CRM / PMS VIP flags to see a live list.
+            </div>
+          ) : (
+            <div className="text-xs text-slate-700">
+              {vipStays && vipStays.length > 0 && (
+                <div>{vipStays.length} VIP arrivals today</div>
+              )}
+              {eventsToday && eventsToday.length > 0 && (
+                <div>{eventsToday.length} events today</div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </section>
   );
@@ -1600,7 +1640,7 @@ function SectionHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-3 flex items-start justify-between gap-4">
+    <div className="mb-2 flex items-start justify-between gap-3">
       <div>
         <h2 className="text-sm font-semibold tracking-tight text-slate-900">
           {title}
@@ -1731,13 +1771,37 @@ function PricingNudge({
 function SlaCard({
   targetMin,
   orders,
+  metrics,
 }: {
   targetMin: number;
   orders: LiveOrder[];
+  metrics: DashboardMetrics | null;
 }) {
-  const total = orders.length;
-  const onTime = orders.filter((o) => ageMin(o.created_at) <= targetMin).length;
-  const pct = total ? Math.round((onTime / total) * 100) : 100;
+  // Prefer "Completed Today" metrics for "On-time delivery" score
+  // Fallback to live orders (active) if metrics unavailable (though semantics differ)
+  const todayMetric = metrics?.slaPerformance?.[metrics.slaPerformance.length - 1];
+
+  let total = 0;
+  let onTime = 0;
+  let pct = 100;
+
+  if (todayMetric) {
+    total = todayMetric.total;
+    onTime = todayMetric.compliance ? Math.round((todayMetric.compliance / 100) * total) : 0;
+    // Recalculate distinct compliant count if needed or trust compliance %
+    // The metric object we built has 'compliance', 'breached', 'total'.
+    // compliant = total - breached (if strictly binary).
+    // Let's deduce compliant from breached for integer precision.
+    const breached = todayMetric.breached;
+    onTime = Math.max(0, total - breached);
+    pct = total > 0 ? Math.round((onTime / total) * 100) : 100;
+  } else {
+    // Legacy/Fallback: Active tickets status
+    total = orders.length;
+    onTime = orders.filter((o) => ageMin(o.created_at) <= targetMin).length;
+    pct = total ? Math.round((onTime / total) * 100) : 100;
+  }
+
   const tone = slaTone(pct);
   return (
     <div className="rounded-xl border bg-white p-4 shadow-sm" id="sla">
@@ -1756,8 +1820,14 @@ function SlaCard({
           style={{ width: `${pct}%` }}
         />
       </div>
-      <div className="mt-2 text-xs text-muted-foreground">
-        {onTime}/{total} orders on time — Target: {targetMin} min
+      <div className="mt-2 text-xs text-muted-foreground flex justify-between">
+        <span>{onTime}/{total} on time</span>
+        <span>{pct}% score</span>
+      </div>
+
+      <div className="mt-6 border-t pt-4">
+        <div className="mb-2 text-xs font-medium text-slate-600">7-Day Trend</div>
+        <SlaPerformanceChart data={metrics?.slaPerformance || []} loading={!metrics} />
       </div>
     </div>
   );
@@ -1797,35 +1867,47 @@ function LiveOrdersPanel({
       />
       {orders.length === 0 ? (
         <div className="text-sm text-muted-foreground">
-          No live requests right now — we’ll pop them here the moment something
-          arrives.
+          No live requests right now.
         </div>
       ) : (
-        <ul className="divide-y">
-          {orders.map((o) => {
-            const mins = ageMin(o.created_at);
-            const breach = mins > targetMin;
-            return (
-              <li
-                key={o.id}
-                className="flex items-center justify-between py-2"
+        <>
+          <ul className="divide-y">
+            {orders.slice(0, 5).map((o) => {
+              const mins = ageMin(o.created_at);
+              const breach = mins > targetMin;
+              return (
+                <li
+                  key={o.id}
+                  className="flex items-center justify-between py-1.5"
+                >
+                  <div>
+                    <div className="text-sm">
+                      #{o.id.slice(0, 8)} · {o.status}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Age: {mins} min
+                    </div>
+                  </div>
+                  <StatusBadge
+                    label={breach ? "SLA breach" : "On time"}
+                    tone={breach ? "red" : "green"}
+                  />
+                </li>
+              );
+            })}
+          </ul>
+          {orders.length > 5 && (
+            <div className="mt-2 text-xs text-slate-500">
+              +{orders.length - 5} more requests →{" "}
+              <Link
+                to={slug ? `/ops?slug=${encodeURIComponent(slug)}` : "/ops"}
+                className="underline text-emerald-700"
               >
-                <div>
-                  <div className="text-sm">
-                    #{o.id.slice(0, 8)} · {o.status}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Age: {mins} min
-                  </div>
-                </div>
-                <StatusBadge
-                  label={breach ? "SLA breach" : "On time"}
-                  tone={breach ? "red" : "green"}
-                />
-              </li>
-            );
-          })}
-        </ul>
+                View all
+              </Link>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -1872,42 +1954,51 @@ function AttentionServicesCard({ orders }: { orders: LiveOrder[] }) {
 
 function StaffPerformancePanel({ data }: { data: StaffPerf[] | null }) {
   return (
-    <div className="rounded-xl border bg-white p-4 shadow-sm">
+    <div className="rounded-xl border bg-white p-3 shadow-sm">
       <SectionHeader
         title="Staff leaderboard"
-        desc="Top performers by order volume, rating, and speed — celebrate wins and coach the rest."
+        desc="Staff members and their 30-day performance."
       />
       {!data || data.length === 0 ? (
         <div className="text-sm text-muted-foreground">
-          We need a bit more activity to rank fairly — check back after a few
-          days.
+          No staff members found. Add team members to see them here.
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-xs">
             <thead className="text-left text-muted-foreground">
               <tr>
-                <th className="py-1 pr-3">Name</th>
-                <th className="py-1 pr-3">Orders</th>
-                <th className="py-1 pr-3">Avg rating</th>
-                <th className="py-1 pr-3">Avg mins</th>
-                <th className="py-1 pr-3">Score</th>
+                <th className="py-1 pr-2">Name</th>
+                <th className="py-1 pr-2">Dept</th>
+                <th className="py-1 pr-2">Tasks</th>
+                <th className="py-1 pr-2">Avg min</th>
+                <th className="py-1">Status</th>
               </tr>
             </thead>
             <tbody>
-              {data.map((r) => (
-                <tr key={r.name} className="border-t">
-                  <td className="py-1 pr-3">{r.name}</td>
-                  <td className="py-1 pr-3">{r.orders_served ?? "—"}</td>
-                  <td className="py-1 pr-3">{r.avg_rating_30d ?? "—"}</td>
-                  <td className="py-1 pr-3">{r.avg_completion_min ?? "—"}</td>
-                  <td className="py-1 pr-3 font-medium">
-                    {r.performance_score ?? "—"}
+              {data.slice(0, 8).map((r) => (
+                <tr key={r.staff_id} className="border-t">
+                  <td className="py-1.5 pr-2 font-medium">{r.display_name}</td>
+                  <td className="py-1.5 pr-2 text-slate-500">{r.department_name}</td>
+                  <td className="py-1.5 pr-2">{r.tickets_completed}</td>
+                  <td className="py-1.5 pr-2">{r.avg_completion_min ?? "—"}</td>
+                  <td className="py-1.5">
+                    <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${r.is_online
+                      ? "bg-emerald-50 text-emerald-700"
+                      : "bg-slate-100 text-slate-500"
+                      }`}>
+                      {r.is_online ? "Active" : "Away"}
+                    </span>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          {data.length > 8 && (
+            <div className="mt-2 text-xs text-slate-500">
+              +{data.length - 8} more staff members
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -2441,12 +2532,12 @@ function Board({
   empty: string;
 }) {
   return (
-    <div className="rounded-xl border bg-white p-3 shadow-sm">
-      <SectionHeader title={title} desc={desc} />
+    <div className="rounded-lg border bg-white p-2 shadow-sm">
+      <div className="text-xs font-semibold text-slate-700 mb-1">{title}</div>
       {items.length === 0 ? (
-        <div className="text-sm text-muted-foreground">{empty}</div>
+        <div className="text-xs text-slate-400">{empty}</div>
       ) : (
-        <ul className="space-y-2">
+        <ul className="space-y-1">
           {items.map((s) => (
             <li key={s.id} className="rounded-lg border bg-slate-50 p-3 text-sm">
               <div className="flex items-center justify-between">

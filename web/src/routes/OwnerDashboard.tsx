@@ -978,6 +978,15 @@ function OwnerSidebarNav({
             </a>
           </li>
           <li>
+            <Link
+              to={`/owner/${slug}/analytics`}
+              className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50 text-emerald-800"
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              <span>Ops Analytics &amp; Reports</span>
+            </Link>
+          </li>
+          <li>
             <a
               href="#revenue-panel"
               className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"

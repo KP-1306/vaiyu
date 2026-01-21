@@ -9,6 +9,7 @@ import {
   createOrder,
   isDemo,
   type Service,
+  supa, // [NEW] for storage upload
 } from "../lib/api";
 import { dbg, dbgError } from "../lib/debug";
 
@@ -441,7 +442,8 @@ export default function Menu() {
         hotelId: effectiveHotelId,
 
         source: "GUEST",
-        created_by_id: null
+        created_by_id: null,
+        media_urls: (data as any).media_urls || [] // [NEW] Pass attachments
       };
 
       await (createTicket as any)(payload);
@@ -820,10 +822,52 @@ function ServiceRequestModal({
   const [locationType, setLocationType] = useState("room");
   const [publicLocation, setPublicLocation] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [mediaUrls, setMediaUrls] = useState<string[]>([]); // URLs from Supabase Storage
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploading(true);
+    try {
+      const s = supa();
+      if (!s) throw new Error("Upload client not available");
+
+      const newUrls: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const ext = file.name.split('.').pop();
+        const path = `temp/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+
+        const { error } = await s.storage
+          .from('ticket-attachments')
+          .upload(path, file);
+
+        if (error) throw error;
+
+        // Get public URL
+        const { data: { publicUrl } } = s.storage
+          .from('ticket-attachments')
+          .getPublicUrl(path);
+
+        newUrls.push(publicUrl);
+      }
+      setMediaUrls(prev => [...prev, ...newUrls]);
+    } catch (err: any) {
+      console.error("Upload failed", err);
+      alert("Failed to upload image: " + err.message);
+    } finally {
+      setUploading(false);
+      // Clear input so same file can be selected again
+      e.target.value = "";
+    }
+  };
 
   const handleSubmit = async () => {
     setSubmitting(true);
-    await onConfirm({ note, priority, locationType, publicLocation });
+    // Pass mediaUrls to confirm handler
+    await onConfirm({ note, priority, locationType, publicLocation, media_urls: mediaUrls } as any);
     setSubmitting(false);
   };
 
@@ -903,10 +947,43 @@ function ServiceRequestModal({
             />
           </div>
 
-          {/* Photo Placeholder */}
-          <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors text-sm w-fit">
-            <span>📷</span> Attach Photo
-          </button>
+          {/* Photo Attachments */}
+          <div>
+            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Attachments</label>
+            <div className="flex flex-wrap gap-2">
+              {/* Hidden File Input */}
+              <input
+                type="file"
+                id="file-upload"
+                multiple
+                accept="image/*,video/*"
+                className="hidden"
+                onChange={handleUpload}
+              />
+
+              {/* Upload Button */}
+              <label
+                htmlFor="file-upload"
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors text-sm cursor-pointer ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
+              >
+                <span>{uploading ? '⏳' : '📷'}</span>
+                {uploading ? 'Uploading...' : 'Attach Photo/Video'}
+              </label>
+
+              {/* Preview List */}
+              {mediaUrls.map((url, i) => (
+                <div key={i} className="relative group w-12 h-12 rounded-lg overflow-hidden border border-white/10">
+                  <img src={url} alt="Attachment" className="w-full h-full object-cover" />
+                  <button
+                    onClick={() => setMediaUrls(m => m.filter((_, idx) => idx !== i))}
+                    className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-bold"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
 
         </div>
 

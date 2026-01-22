@@ -104,6 +104,7 @@ export default function HeroCarousel({
                     alt={s.imgAlt || ""}
                     className="h-full w-full object-cover"
                     loading={idx === 0 ? "eager" : "lazy"}
+                    // @ts-ignore
                     fetchpriority={idx === 0 ? "high" : undefined}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/35 to-black/10" />

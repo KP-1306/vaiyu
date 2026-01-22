@@ -374,8 +374,12 @@ const OwnerRevPAR = lazy(() =>
   })),
 );
 
-// OwnerAnalytics imported statically at top to fix 404
-// const OwnerAnalytics = lazy(() => import("./routes/OwnerAnalytics"));
+// OwnerAnalytics
+const OwnerAnalyticsRoute = lazy(() => import("./routes/OwnerAnalytics"));
+// OpsManagerAnalytics
+const OpsManagerAnalytics = lazy(() => import("./routes/OpsManagerAnalytics"));
+
+// Owner feature flags (for sidebar)
 
 /* --------- Owner feature flags (for sidebar) ---------- */
 
@@ -614,6 +618,7 @@ export default function App() {
 
             {/* Ops board */}
             <Route path="/ops" element={<OpsBoard />} />
+            <Route path="/ops/analytics" element={<OpsManagerAnalytics />} />
 
             {/* Staff & Shifts (new) */}
             <Route
@@ -653,7 +658,7 @@ export default function App() {
               path="/owner/:slug/analytics"
               element={
                 <OwnerLayout>
-                  <OwnerAnalytics />
+                  <OwnerAnalyticsRoute />
                 </OwnerLayout>
               }
             />

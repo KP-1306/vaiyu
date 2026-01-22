@@ -19,7 +19,7 @@ export default function AIShowcase() {
               "Guides teams with predictive SLAs and precise nudges",
               "Owner-approved outputs — brand-safe by design",
             ]}
-            // cta removed intentionally
+          // cta removed intentionally
           />
         </div>
 
@@ -32,7 +32,7 @@ export default function AIShowcase() {
               "Predicts service risk; automates safely with audit trail",
               "Delivers measurable outcomes and ESG reporting",
             ]}
-         //   cta={{ label: "Learn the architecture", href: "#ai" }}
+          //   cta={{ label: "Learn the architecture", href: "#ai" }}
           />
           <Figure
             src="/illustrations/ai-os-banner.png"
@@ -69,7 +69,8 @@ function Figure({
           alt={alt}
           className="block w-full h-auto"
           loading={eager ? "eager" : "lazy"}
-          fetchPriority={eager ? "high" : "auto"}
+          // @ts-ignore
+          fetchpriority={eager ? "high" : "auto"}
           decoding="async"
           /* Big on desktop (~720px), full-width on mobile */
           sizes="(min-width: 1280px) 720px, (min-width: 1024px) 680px, 100vw"

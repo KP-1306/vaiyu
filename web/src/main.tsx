@@ -155,6 +155,7 @@ const BookingsCalendar = lazy(() => import("./routes/BookingsCalendar"));
 const NotFound = lazy(() => import("./routes/NotFound"));
 const RequestStatus = lazy(() => import("./pages/RequestStatus"));
 // const Welcome = lazy(() => import("./routes/Welcome"));
+const OpsManagerAnalytics = lazy(() => import("./routes/OpsManagerAnalytics"));
 
 // ================= Auth bootstrap gate (robust) =================
 function AuthBootstrap({ children }: { children: React.ReactNode }) {
@@ -482,6 +483,15 @@ const router = createBrowserRouter([
         element: (
           <AuthGate>
             <OpsBoard />
+          </AuthGate>
+        ),
+      },
+      // NEW: /ops/analytics → Ops Manager Dashboard
+      {
+        path: "ops/analytics",
+        element: (
+          <AuthGate>
+            <OpsManagerAnalytics />
           </AuthGate>
         ),
       },

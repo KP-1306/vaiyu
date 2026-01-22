@@ -226,7 +226,7 @@ RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
-  -- Only update breaches for tickets without SLA exception
+  -- Only update breaches for tickets without SLA exception that are NOT completed/cancelled
   UPDATE ticket_sla_state ss
   SET
     breached = true,
@@ -235,6 +235,7 @@ BEGIN
   JOIN sla_policies sp
     ON sp.department_id = t.service_department_id
   WHERE ss.ticket_id = t.id
+    AND t.status NOT IN ('COMPLETED', 'CANCELLED')
     AND ss.breached = false
     AND ss.sla_started_at IS NOT NULL
     AND ss.sla_paused_at IS NULL
@@ -253,6 +254,84 @@ BEGIN
     ) <= 0;
 END;
 $$;
+
+
+-- ============================================================
+-- 3a. Finalize SLA Trigger
+-- Use this to perform one final check when ticket is COMPLETED/CANCELLED
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION trg_finalize_sla_on_completion()
+RETURNS trigger AS $$
+DECLARE
+  v_started_at TIMESTAMPTZ;
+  v_total_paused INT;
+  v_is_breached BOOLEAN;
+  v_target_minutes INT;
+  v_elapsed INT;
+BEGIN
+  -- 1. Guard: Only run on transition to terminal status (Defensive)
+  IF NOT (
+    OLD.status IS DISTINCT FROM NEW.status
+    AND NEW.status IN ('COMPLETED', 'CANCELLED')
+  ) THEN
+    RETURN NEW;
+  END IF;
+
+  -- 2. Policy: CANCELLED tickets do not count toward SLA
+  IF NEW.status = 'CANCELLED' THEN
+    RETURN NEW;
+  END IF;
+
+  -- 3. Get SLA state
+  SELECT 
+    ss.sla_started_at, 
+    ss.total_paused_seconds, 
+    ss.breached,
+    sp.target_minutes
+  INTO 
+    v_started_at, 
+    v_total_paused, 
+    v_is_breached,
+    v_target_minutes
+  FROM ticket_sla_state ss
+  JOIN tickets t ON t.id = ss.ticket_id
+  JOIN sla_policies sp ON sp.department_id = t.service_department_id
+  WHERE ss.ticket_id = NEW.id;
+
+  -- 4. If SLA never started or already flagged, skip
+  IF v_started_at IS NULL OR v_is_breached THEN
+    RETURN NEW;
+  END IF;
+
+  -- 5. Check for exception granted
+  IF EXISTS (SELECT 1 FROM ticket_events WHERE ticket_id = NEW.id AND event_type = 'SLA_EXCEPTION_GRANTED') THEN
+    RETURN NEW;
+  END IF;
+
+  -- 6. Calculate final elapsed time at moment of closure
+  v_elapsed := EXTRACT(EPOCH FROM (clock_timestamp() - v_started_at))::INT - COALESCE(v_total_paused, 0);
+
+  -- 7. Mark breached if over limit
+  IF v_elapsed > (v_target_minutes * 60) THEN
+    UPDATE ticket_sla_state
+    SET 
+      breached = true,
+      breached_at = clock_timestamp()
+    WHERE ticket_id = NEW.id;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS finalize_sla_on_completion ON tickets;
+
+CREATE TRIGGER finalize_sla_on_completion
+AFTER UPDATE OF status ON tickets
+FOR EACH ROW
+WHEN (NEW.status IN ('COMPLETED', 'CANCELLED') AND OLD.status NOT IN ('COMPLETED', 'CANCELLED'))
+EXECUTE FUNCTION trg_finalize_sla_on_completion();
 
 
 -- ============================================================

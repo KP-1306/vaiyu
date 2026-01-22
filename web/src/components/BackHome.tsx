@@ -221,7 +221,7 @@ export default function BackHome({
   }, [shouldAuto, forcedTo, pathname, search]);
 
   // --- Decide visibility after hooks have run ---
-  const hide = startsWithAny(pathname, HIDE_PREFIXES) || pathname.endsWith("/staff-shifts") || pathname === "/owner/services";
+  const hide = startsWithAny(pathname, HIDE_PREFIXES) || pathname.endsWith("/staff-shifts") || pathname === "/owner/services" || pathname.endsWith("/analytics");
   const isAppSurface = startsWithAny(pathname, APP_PREFIXES);
   if (hide || !isAppSurface) return null;
 

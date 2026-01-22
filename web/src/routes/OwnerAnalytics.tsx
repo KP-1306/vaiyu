@@ -14,8 +14,10 @@ import {
     CartesianGrid,
     Legend,
     ComposedChart,
-    Line,
-    Area
+    Area,
+    AreaChart,
+    LineChart,
+    Line
 } from "recharts";
 import {
     AlertTriangle,
@@ -29,6 +31,9 @@ import {
     Users,
     Filter
 } from "lucide-react";
+import SLAExplanationDrawer, { ImpactRow } from "../components/SLAExplanationDrawer";
+import RiskExplanationDrawer, { RiskBreakdownRow } from "../components/RiskExplanationDrawer";
+import ActivityExplanationDrawer, { ActivityBreakdownRow } from "../components/ActivityExplanationDrawer";
 
 /** --- Types --- */
 type KpiSummary = {
@@ -65,6 +70,15 @@ type StaffPerfRow = {
     completed_within_sla: number;
     sla_success_rate: number | null;
 };
+
+type TicketActivityRow = {
+    hotel_id: string;
+    day: string;
+    created_count: number;
+    resolved_count: number;
+};
+
+
 
 /** --- Components --- */
 
@@ -141,8 +155,14 @@ function CustomTooltip({ active, payload }: any) {
 // Custom Tooltip for Daily Trend Bar Chart
 function DailyTrendTooltip({ active, payload, label }: any) {
     if (active && payload && payload.length) {
-        // Calculate total for percentage based on the visible bars
-        const total = payload.reduce((acc: number, entry: any) => acc + (Number(entry.value) || 0), 0);
+        // Deduplicate payload by dataKey to avoid counting/showing the same metric multiple times
+        // (e.g. 'completed_within_sla' is used by Bar, Area, and Line)
+        const uniquePayload = payload.filter((v: any, i: number, a: any[]) =>
+            a.findIndex((t: any) => t.dataKey === v.dataKey) === i
+        );
+
+        // Calculate total for percentage based on the unique metrics
+        const total = uniquePayload.reduce((acc: number, entry: any) => acc + (Number(entry.value) || 0), 0);
 
         return (
             <div className="bg-[#0f172a] border border-slate-700 p-3 rounded-lg shadow-xl z-50">
@@ -150,7 +170,7 @@ function DailyTrendTooltip({ active, payload, label }: any) {
                     {new Date(label).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                 </div>
                 <div className="flex flex-col gap-1.5">
-                    {payload.map((entry: any) => {
+                    {uniquePayload.map((entry: any) => {
                         // Map dataKey to Label
                         let name = "Unknown";
                         if (entry.dataKey === "completed_within_sla") name = "Completed";
@@ -158,12 +178,6 @@ function DailyTrendTooltip({ active, payload, label }: any) {
                         if (entry.dataKey === "sla_exempted") name = "Exempted";
 
                         const percent = total > 0 ? Math.round((entry.value / total) * 100) : 0;
-
-                        // Don't show line in tooltip if strictly duplicating bar data, 
-                        // but rechart payload order matches render order. 
-                        // Only show bars (which have fill). Line usually has stroke.
-                        // However, we want to see the values.
-                        // entry.color is usually the fill color for bars.
 
                         return (
                             <div key={entry.dataKey} className="flex items-center justify-between gap-6 text-xs">
@@ -196,9 +210,18 @@ export default function OwnerAnalytics() {
     const [breaches, setBreaches] = useState<BreachRow[]>([]);
     const [blocks, setBlocks] = useState<BlockReasonRow[]>([]);
     const [staff, setStaff] = useState<StaffPerfRow[]>([]);
+    const [activity, setActivity] = useState<TicketActivityRow[]>([]);
+    const [impact, setImpact] = useState<ImpactRow[]>([]);
+    const [risks, setRisks] = useState<RiskBreakdownRow[]>([]);
+    const [activityBreakdown, setActivityBreakdown] = useState<ActivityBreakdownRow[]>([]);
+
 
     // UI State
     const [timeRange, setTimeRange] = useState<'24h' | '7d'>('7d');
+    const [slaDrawerOpen, setSlaDrawerOpen] = useState(false);
+    const [riskDrawerOpen, setRiskDrawerOpen] = useState(false);
+    const [activityDrawerOpen, setActivityDrawerOpen] = useState(false);
+
 
     useEffect(() => {
         const rawSlug = slug;
@@ -214,12 +237,16 @@ export default function OwnerAnalytics() {
                 if (hotelErr) throw hotelErr;
                 if (!hotel) throw new Error(`Property not found (slug: ${curSlug})`);
 
-                const [kpiRes, trendRes, breachesRes, blockRes, staffRes] = await Promise.all([
+                const [kpiRes, trendRes, breachesRes, blockRes, staffRes, activityRes, impactRes, riskRes, activityBreakdownRes] = await Promise.all([
                     supabase.from("v_owner_kpi_summary").select("*").eq("hotel_id", hotel.id).maybeSingle(),
                     supabase.from("v_owner_sla_trend_daily").select("*").eq("hotel_id", hotel.id).order("day", { ascending: true }).limit(14),
                     supabase.from("v_owner_sla_breach_breakdown").select("*").eq("hotel_id", hotel.id).limit(10),
                     supabase.from("v_owner_block_reason_analysis").select("*").eq("hotel_id", hotel.id).limit(10),
                     supabase.from("v_owner_staff_performance").select("*").eq("hotel_id", hotel.id).order("completed_tasks", { ascending: false }).limit(6),
+                    supabase.from("v_owner_ticket_activity").select("*").eq("hotel_id", hotel.id).limit(14),
+                    supabase.from("v_owner_sla_impact_waterfall").select("*").eq("hotel_id", hotel.id),
+                    supabase.from("v_owner_at_risk_breakdown").select("*").eq("hotel_id", hotel.id),
+                    supabase.from("v_owner_activity_breakdown").select("*").eq("hotel_id", hotel.id),
                 ]);
 
                 if (mounted) {
@@ -228,6 +255,10 @@ export default function OwnerAnalytics() {
                     setBreaches(breachesRes.data || []);
                     setBlocks(blockRes.data || []);
                     setStaff(staffRes.data || []);
+                    setActivity(activityRes.data || []);
+                    setImpact(impactRes.data || []);
+                    setRisks(riskRes.data || []);
+                    setActivityBreakdown(activityBreakdownRes.data || []);
                 }
             } catch (err: any) {
                 if (mounted) setError(err.message);
@@ -293,9 +324,11 @@ export default function OwnerAnalytics() {
                     </div>
                 </div>
                 <div className="flex items-center gap-4">
-                    <Link to={`/owner/${slug}`} className="text-xs font-medium text-slate-400 hover:text-white transition">
-                        Dashboard
-                    </Link>
+                    <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+                        <Link to={`/owner/${slug}`} className="hover:text-white transition">Dashboard</Link>
+                        <span className="text-slate-600">/</span>
+                        <span className="text-slate-200">Owner Analytics</span>
+                    </div>
                     <div className="h-4 w-px bg-slate-800" />
                     <div className="flex items-center gap-2">
                         <div className="h-8 w-8 rounded-full bg-slate-800 grid place-items-center text-xs text-white">
@@ -309,21 +342,228 @@ export default function OwnerAnalytics() {
                 </div>
             </header>
 
-            {/* Top Stats Strip */}
-            <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6">
-                {[
-                    { label: "Active Tasks", value: active, color: "text-white" },
-                    { label: "At Risk", value: atRisk, color: "text-rose-400" },
-                    { label: "Breached Today", value: breachedTotal, color: "text-rose-500" },
-                    { label: "Compliance", value: `${dynamicCompliance}%`, color: dynamicCompliance > 90 ? "text-emerald-400" : "text-amber-400" },
-                    { label: "Staff Active", value: staff.length, color: "text-blue-400" },
-                    { label: "Avg Response", value: "11m", color: "text-slate-200" } // Mocked for now, view doesn't have it
-                ].map((s, i) => (
-                    <div key={i} className="flex flex-col justify-center rounded-xl bg-[#151A25] px-4 py-3 border border-slate-800/50">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">{s.label}</div>
-                        <div className={`text-xl font-bold ${s.color}`}>{s.value}</div>
+            {/* Top Stats Cards */}
+            <div className="mb-6 grid gap-4 grid-cols-2 lg:grid-cols-5">
+                {(
+                    [
+                        (() => {
+                            // 1. SLA Compliance
+                            const cur = trend.slice(-7);
+                            const prev = trend.length > 7 ? trend.slice(0, -7) : [];
+
+                            const calcComp = (arr: SlaTrendRow[]) => {
+                                const tot = arr.reduce((a, c) => a + c.completed_within_sla + c.breached_sla, 0);
+                                return tot > 0 ? (arr.reduce((a, c) => a + c.completed_within_sla, 0) / tot) * 100 : 0;
+                            };
+
+                            const curRate = calcComp(cur); // effectively dynamicCompliance for 7d
+                            const prevRate = prev.length ? calcComp(prev) : curRate;
+                            const diff = Math.round(curRate - prevRate);
+
+                            return {
+                                label: "SLA Compliance",
+                                value: `${Math.round(curRate)}%`,
+                                trend: diff,
+                                trendLabel: "vs Last Week",
+                                color: "text-emerald-500",
+                                isUpGood: true,
+                                onClick: () => setSlaDrawerOpen(true),
+                                cursor: 'cursor-pointer hover:bg-slate-800/50 transition'
+                            };
+                        })(),
+                        (() => {
+                            // 2. SLA Breach Rate
+                            const cur = trend.slice(-7);
+                            const prev = trend.length > 7 ? trend.slice(0, -7) : [];
+
+                            const calcBreach = (arr: SlaTrendRow[]) => {
+                                const tot = arr.reduce((a, c) => a + c.completed_within_sla + c.breached_sla, 0);
+                                return tot > 0 ? (arr.reduce((a, c) => a + c.breached_sla, 0) / tot) * 100 : 0;
+                            };
+
+                            const curRate = calcBreach(cur);
+                            const prevRate = prev.length ? calcBreach(prev) : curRate;
+                            const diff = Math.round(curRate - prevRate);
+
+                            return {
+                                label: "SLA Breach Rate",
+                                value: `${Math.round(curRate)}%`,
+                                trend: diff, // Positive diff means MORE breaches (bad)
+                                trendLabel: "vs Last Week",
+                                color: "text-rose-500",
+                                isUpGood: false,
+                                onClick: () => setSlaDrawerOpen(true),
+                                cursor: 'cursor-pointer hover:bg-slate-800/50 transition'
+                            };
+                        })(),
+                        {
+                            // 3. Tickets at Risk
+                            label: "Tickets at Risk",
+                            value: `${atRisk > 0 ? Math.round((atRisk / (kpi?.total_tickets || 1)) * 100) : 0}%`, // calculating % of active
+                            trend: 3,
+                            trendLabel: "",
+                            color: "text-amber-500",
+                            isUpGood: false,
+                            onClick: () => setRiskDrawerOpen(true),
+                            cursor: 'cursor-pointer hover:bg-slate-800/50 transition'
+                        },
+                        {
+                            // 4. Room Occupancy (Mock)
+                            label: "Room Occupancy",
+                            value: "78%",
+                            trend: 4,
+                            trendLabel: "",
+                            color: "text-emerald-500",
+                            isUpGood: true
+                        },
+                        {
+                            // 5. Guest Check-Ins (Mock)
+                            label: "Guest Check-Ins",
+                            value: "320",
+                            subValue: "Today",
+                            trend: -5,
+                            trendLabel: "vs Last Week",
+                            color: "text-white", // Value color
+                            isUpGood: true
+                        }
+                    ] as { label: string; value: string; subValue?: string; trend: number; trendLabel: string; color: string; isUpGood: boolean }[]
+                ).map((s, i) => (
+                    <div
+                        key={i}
+                        onClick={(s as any).onClick}
+                        className={`rounded-xl bg-[#151A25] p-4 border border-slate-800/50 shadow-sm flex flex-col justify-between ${(s as any).cursor || ''}`}
+                    >
+                        <div className="text-[12px] font-semibold text-slate-400 mb-2">{s.label}</div>
+                        <div className="flex items-end gap-2 mb-2">
+                            <div className={`text-3xl font-bold ${s.color}`}>{s.value}</div>
+                            {s.subValue && <div className="text-sm text-slate-500 font-medium mb-1.5">{s.subValue}</div>}
+                            <div className={`flex items-center gap-0.5 text-xs font-bold mb-1.5 ${s.trend === 0 ? 'text-slate-500' :
+                                (s.isUpGood ? (s.trend > 0 ? 'text-emerald-500' : 'text-rose-500') : (s.trend > 0 ? 'text-rose-500' : 'text-emerald-500'))
+                                }`}>
+                                {s.trend !== 0 && (s.trend > 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />)}
+                            </div>
+                        </div>
+                        <div className={`text-[11px] font-medium flex items-center gap-1.5 ${s.trend === 0 ? 'text-slate-500' :
+                            (s.isUpGood ? (s.trend > 0 ? 'text-emerald-500' : 'text-rose-500') : (s.trend > 0 ? 'text-rose-500' : 'text-emerald-500'))
+                            }`}>
+                            <span>{s.trend > 0 ? '+' : ''}{s.trend}%</span>
+                            <span className="text-slate-500 font-normal">{s.trendLabel}</span>
+                        </div>
                     </div>
                 ))}
+            </div>
+
+            {/* Mid-Level Dashboard (Activity, Occupancy, Risk Trend) */}
+            <div className="mb-6 grid gap-6 lg:grid-cols-3">
+                {/* 1. Activity Chart (Created vs Resolved) */}
+                <div
+                    onClick={() => setActivityDrawerOpen(true)}
+                    className="rounded-2xl bg-[#151A25] p-6 border border-slate-800/50 lg:col-span-2 relative cursor-pointer hover:border-blue-500/30 transition group"
+                >
+                    <div className="absolute top-4 right-4 text-slate-600 group-hover:text-blue-400 transition">
+                        <TrendingUp size={16} />
+                    </div>
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-semibold text-slate-200">Tickets Created vs Tickets Resolved</h3>
+                        <div className="hidden lg:flex items-center gap-2 text-xs text-slate-500">
+                            <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500"></div> Tickets Created</span>
+                            <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-500"></div> Tickets Resolved</span>
+                        </div>
+                    </div>
+                    <div className="h-[250px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={activity.slice(0, 14).reverse()} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                <defs>
+                                    <linearGradient id="colorCreated" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                                    </linearGradient>
+                                    <linearGradient id="colorResolved" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                                <XAxis
+                                    dataKey="day"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fill: '#64748b', fontSize: 10 }}
+                                    tickFormatter={(val) => new Date(val).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}
+                                />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10 }} />
+                                <Tooltip
+                                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }}
+                                    itemStyle={{ padding: 0 }}
+                                />
+                                <Area
+                                    type="monotone"
+                                    dataKey="created_count"
+                                    stroke="#3b82f6"
+                                    strokeWidth={3}
+                                    fillOpacity={1}
+                                    fill="url(#colorCreated)"
+                                    name="Created"
+                                />
+                                <Area
+                                    type="monotone"
+                                    dataKey="resolved_count"
+                                    stroke="#10b981"
+                                    strokeWidth={3}
+                                    fillOpacity={1}
+                                    fill="url(#colorResolved)"
+                                    name="Resolved"
+                                />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                {/* Right Column Metrics */}
+                <div className="grid gap-6">
+                    {/* 2. Tickets Per Occupied Room */}
+                    <div className="rounded-2xl bg-[#151A25] p-6 border border-slate-800/50 flex flex-col justify-between h-[140px]">
+                        <div>
+                            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Tickets Per Occupied Room</h3>
+                            <div className="mt-2 text-4xl font-bold text-slate-100 flex items-baseline gap-2">
+                                1.8
+                                <span className="text-xs font-bold text-rose-500 flex items-center gap-0.5">
+                                    <ArrowUpRight size={12} /> vs Average
+                                </span>
+                            </div>
+                        </div>
+                        {/* Mock Sparkbar/Decoration */}
+                        <div className="flex gap-1 h-1.5 mt-4 opacity-50">
+                            <div className="w-1/4 bg-slate-700 rounded-full"></div>
+                            <div className="w-1/2 bg-blue-500 rounded-full"></div>
+                            <div className="w-1/4 bg-slate-700 rounded-full"></div>
+                        </div>
+                    </div>
+
+                    {/* 3. At-Risk Tickets Trend */}
+                    <div className="rounded-2xl bg-[#151A25] p-6 border border-slate-800/50 flex flex-col justify-between h-[155px]">
+                        <div>
+                            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">At-Risk Tickets Trend</h3>
+                            <div className="mt-3 flex items-center gap-3">
+                                <div className="bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
+                                    <AlertTriangle className="text-amber-500" size={24} />
+                                </div>
+                                <div>
+                                    <div className="text-lg font-bold text-amber-500">Rising Risk</div>
+                                    <div className="text-[10px] text-slate-500">Last 7 Days</div>
+                                </div>
+                            </div>
+                        </div>
+                        {/* Mock Trend Line */}
+                        <div className="h-10 w-full mt-2">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={[{ val: 2 }, { val: 3 }, { val: 2 }, { val: 4 }, { val: 5 }, { val: 7 }, { val: 8 }]}>
+                                    <Line type="monotone" dataKey="val" stroke="#f59e0b" strokeWidth={2} dot={false} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {/* Main Grid: Overview (2/3) + Donut (1/3) */}
@@ -721,6 +961,27 @@ export default function OwnerAnalytics() {
                 </div>
 
             </div>
+
+            {/* Explanation Drawers */}
+            <SLAExplanationDrawer
+                isOpen={slaDrawerOpen}
+                onClose={() => setSlaDrawerOpen(false)}
+                impactData={impact}
+                trendData={trend}
+                currentCompliance={dynamicCompliance}
+            />
+
+            <RiskExplanationDrawer
+                isOpen={riskDrawerOpen}
+                onClose={() => setRiskDrawerOpen(false)}
+                riskData={risks}
+            />
+
+            <ActivityExplanationDrawer
+                isOpen={activityDrawerOpen}
+                onClose={() => setActivityDrawerOpen(false)}
+                activityData={activityBreakdown}
+            />
         </div>
     );
 }

@@ -74,6 +74,13 @@ export default function OwnerSidebar({
             matchPrefix: "/ops",
           },
           {
+            to: `/ops/analytics?slug=${encodeURIComponent(resolvedSlug)}`,
+            label: "Ops Manager Dashboard",
+            hint: "Breaches, risks and performance.",
+            icon: "📈",
+            matchPrefix: "/ops/analytics",
+          },
+          {
             to: `/hk?slug=${encodeURIComponent(resolvedSlug)}`,
             label: "Housekeeping board",
             hint: "Room cleaning and turn-down tickets.",

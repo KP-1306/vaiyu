@@ -1640,7 +1640,8 @@ export async function createTicket(
         // Title and Department are now derived on backend from service_id
         p_description: (data as any).details || (data as any).description || null,
         p_created_by_type: (data as any).source || (data as any).created_by_type || 'GUEST',
-        p_created_by_id: (data as any).created_by_id || null
+        p_created_by_id: (data as any).created_by_id || null,
+        p_media_urls: (data as any).media_urls || [] // [NEW] Attachments
       };
 
       console.log('[createTicket] Invoking RPC:', payload);

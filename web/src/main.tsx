@@ -127,6 +127,7 @@ const OwnerPricing = lazy(() => import("./routes/OwnerPricing"));
 const OwnerMenu = lazy(() => import("./routes/OwnerMenu")); // NEW
 const OwnerWorkforce = lazy(() => import("./routes/OwnerWorkforce")); // NEW (fix /owner/:slug/workforce)
 const OwnerStaffShifts = lazy(() => import("./routes/OwnerStaffShifts")); // NEW
+const OwnerAnalytics = lazy(() => import("./routes/OwnerAnalytics"));
 const AdminOps = lazy(() => import("./pages/AdminOps"));
 
 // ADR & RevPAR detail pages (from routes/OwnerRevenue.tsx)
@@ -154,6 +155,7 @@ const BookingsCalendar = lazy(() => import("./routes/BookingsCalendar"));
 const NotFound = lazy(() => import("./routes/NotFound"));
 const RequestStatus = lazy(() => import("./pages/RequestStatus"));
 // const Welcome = lazy(() => import("./routes/Welcome"));
+const OpsManagerAnalytics = lazy(() => import("./routes/OpsManagerAnalytics"));
 
 // ================= Auth bootstrap gate (robust) =================
 function AuthBootstrap({ children }: { children: React.ReactNode }) {
@@ -484,6 +486,15 @@ const router = createBrowserRouter([
           </AuthGate>
         ),
       },
+      // NEW: /ops/analytics → Ops Manager Dashboard
+      {
+        path: "ops/analytics",
+        element: (
+          <AuthGate>
+            <OpsManagerAnalytics />
+          </AuthGate>
+        ),
+      },
       {
         path: "desk/tickets",
         element: (
@@ -568,6 +579,15 @@ const router = createBrowserRouter([
         element: (
           <AuthGate>
             <OwnerWorkforce />
+          </AuthGate>
+        ),
+      },
+      // NEW: /owner/:slug/analytics (Ops Analytics)
+      {
+        path: "owner/:slug/analytics",
+        element: (
+          <AuthGate>
+            <OwnerAnalytics />
           </AuthGate>
         ),
       },

@@ -374,6 +374,9 @@ const OwnerRevPAR = lazy(() =>
   })),
 );
 
+// OwnerAnalytics imported statically at top to fix 404
+// const OwnerAnalytics = lazy(() => import("./routes/OwnerAnalytics"));
+
 /* --------- Owner feature flags (for sidebar) ---------- */
 
 const HAS_REVENUE = import.meta.env.VITE_HAS_REVENUE === "true";
@@ -463,6 +466,14 @@ function OwnerSidebar({ basePath }: { basePath: string }) {
       to: `${base}/settings`,
     },
   ].filter(Boolean) as Item[];
+
+  // Add Analytics link (inserted dynamically)
+  const analyticsItem: Item = {
+    label: "Ops & Analytics",
+    to: `${base}/analytics`,
+  };
+  // Insert after Dashboard
+  items.splice(1, 0, analyticsItem);
 
   return (
     <nav className="space-y-1 text-sm">
@@ -638,6 +649,14 @@ export default function App() {
             <Route path="/owner" element={<OwnerHome />} />
 
             {/* Owner – property-specific layout + pages */}
+            <Route
+              path="/owner/:slug/analytics"
+              element={
+                <OwnerLayout>
+                  <OwnerAnalytics />
+                </OwnerLayout>
+              }
+            />
             <Route
               path="/owner/:slug/dashboard"
               element={

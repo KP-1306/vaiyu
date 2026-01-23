@@ -729,18 +729,19 @@ export default function OwnerDashboard() {
   const avgRating30d = kpi?.avg_rating_30d ?? null;
 
   // “Avg response” (pilot-safe): attempt to read from metrics, else —
-  const avgResponseMin: number | null = useMemo(() => {
+  // IMPORTANT: Must not use hooks here (this block is below early returns).
+  const avgResponseMin: number | null = (() => {
     const last = slaSeries?.[slaSeries.length - 1];
     const v =
-      typeof last?.avg_minutes === "number"
-        ? last.avg_minutes
-        : typeof last?.avg_completion_min === "number"
-          ? last.avg_completion_min
-          : typeof last?.avg_response_min === "number"
-            ? last.avg_response_min
+      typeof (last as any)?.avg_minutes === "number"
+        ? (last as any).avg_minutes
+        : typeof (last as any)?.avg_completion_min === "number"
+          ? (last as any).avg_completion_min
+          : typeof (last as any)?.avg_response_min === "number"
+            ? (last as any).avg_response_min
             : null;
     return v == null || Number.isNaN(v) ? null : Math.round(v);
-  }, [slaSeries]);
+  })();
 
   // Guest satisfaction (pilot-safe): prefer NPS, else rating
   const guestPrimary =
@@ -891,7 +892,6 @@ export default function OwnerDashboard() {
                     </div>
                     <div className="mt-2 text-xs text-slate-400">
                       Overdue (&gt;{targetMin}m):{" "}
-
                       <span className="text-slate-200 font-medium">
                         {ordersOverdue}
                       </span>

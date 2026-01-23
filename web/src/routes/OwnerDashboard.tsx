@@ -1,9 +1,10 @@
 // web/src/routes/OwnerDashboard.tsx — owner dashboard (pilot-safe, DARK UI)
 // This version preserves ALL existing data fetching / Supabase / hooks logic.
-// Only the UI layout and styling is reworked to match the attached “VAiyu Dashboard” screenshot:
-// - Dark 3-column layout (left nav + main + right rail)
-// - KPI strip + ring active tasks + trend card + tables + staff + satisfaction
-// - No synthetic/demo numbers; unknown values show "—" or "Not available"
+// Adds a safe in-page panel system so Operations / Task trend / Departments-SLAs / Settings
+// open INSIDE the same dashboard page with the links always available (right rail).
+//
+// Mechanism: URL query param ?panel=ops|trend|departments|settings and an embedded iframe view.
+// This avoids router changes and keeps existing standalone routes working.
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useSearchParams, useParams } from "react-router-dom";
@@ -125,6 +126,15 @@ const HAS_STAFF_SHIFTS = import.meta.env.VITE_HAS_STAFF_SHIFTS === "true";
 const HAS_WORKFORCE =
   import.meta.env.VITE_HAS_WORKFORCE === "false" ? false : true;
 
+/** ========= In-page panel (keeps dashboard chrome visible) ========= */
+type PanelKey = "overview" | "ops" | "trend" | "departments" | "settings";
+const PANEL_KEYS: PanelKey[] = ["overview", "ops", "trend", "departments", "settings"];
+
+function sanitizePanel(raw: string | null): PanelKey {
+  const v = (raw || "").toLowerCase().trim();
+  return (PANEL_KEYS as string[]).includes(v) ? (v as PanelKey) : "overview";
+}
+
 /** ========= Tone helpers (dark) ========= */
 function toneClass(tone: "green" | "amber" | "red" | "grey") {
   return {
@@ -198,7 +208,22 @@ export default function OwnerDashboard() {
   // Subscribe to tickets for this property and keep KPIs refreshed
   useTicketsRealtime(slug);
 
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
+
+  const panel = useMemo(() => sanitizePanel(params.get("panel")), [params]);
+  const inviteToken = params.get("invite");
+
+  const setPanel = (next: PanelKey) => {
+    const sp = new URLSearchParams(params);
+    if (next === "overview") sp.delete("panel");
+    else sp.set("panel", next);
+    setParams(sp, { replace: false });
+    try {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch {
+      // ignore
+    }
+  };
 
   const [loading, setLoading] = useState(true);
   const [hotel, setHotel] = useState<Hotel | null>(null);
@@ -238,7 +263,7 @@ export default function OwnerDashboard() {
   const [opsLoading, setOpsLoading] = useState(false);
 
   const [accessProblem, setAccessProblem] = useState<string | null>(null);
-  const inviteToken = params.get("invite");
+
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const todayStartISO = useMemo(() => dayStartISO(today), [today]);
   const tomorrowStartISO = useMemo(() => nextDayStartISO(today), [today]);
@@ -729,19 +754,18 @@ export default function OwnerDashboard() {
   const avgRating30d = kpi?.avg_rating_30d ?? null;
 
   // “Avg response” (pilot-safe): attempt to read from metrics, else —
-  // IMPORTANT: Must not use hooks here (this block is below early returns).
-  const avgResponseMin: number | null = (() => {
+  const avgResponseMin: number | null = useMemo(() => {
     const last = slaSeries?.[slaSeries.length - 1];
     const v =
-      typeof (last as any)?.avg_minutes === "number"
-        ? (last as any).avg_minutes
-        : typeof (last as any)?.avg_completion_min === "number"
-          ? (last as any).avg_completion_min
-          : typeof (last as any)?.avg_response_min === "number"
-            ? (last as any).avg_response_min
+      typeof last?.avg_minutes === "number"
+        ? last.avg_minutes
+        : typeof last?.avg_completion_min === "number"
+          ? last.avg_completion_min
+          : typeof last?.avg_response_min === "number"
+            ? last.avg_response_min
             : null;
     return v == null || Number.isNaN(v) ? null : Math.round(v);
-  })();
+  }, [slaSeries]);
 
   // Guest satisfaction (pilot-safe): prefer NPS, else rating
   const guestPrimary =
@@ -783,6 +807,17 @@ export default function OwnerDashboard() {
           slug={hotel.slug}
         />
 
+        {/* Mobile quick links (since right rail stacks under main on small screens) */}
+        <div className="mt-3 lg:hidden">
+          <DarkCard className="p-3">
+            <PanelQuickLinks
+              slug={hotel.slug}
+              active={panel}
+              onSelect={setPanel}
+            />
+          </DarkCard>
+        </div>
+
         <div className="mt-4 grid gap-4 lg:grid-cols-[240px,minmax(0,1fr),340px]">
           {/* Left rail */}
           <aside className="hidden lg:block">
@@ -809,308 +844,361 @@ export default function OwnerDashboard() {
               </div>
 
               <div className="mt-3 border-t border-white/10 pt-3">
-                <SidebarNav slug={hotel.slug} />
+                <SidebarNav
+                  slug={hotel.slug}
+                  activePanel={panel}
+                  onPanel={setPanel}
+                />
               </div>
             </DarkCard>
           </aside>
 
           {/* Main */}
           <section className="min-w-0 space-y-4">
-            {/* KPI strip (matches screenshot row) */}
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-              <KpiTile label="Rooms" value={total ? `${total}` : "—"} sub="Total rooms" />
-              <KpiTile
-                label="Active tasks"
-                value={`${ordersTotal}`}
-                sub="Open requests"
-              />
-              <KpiTile
-                label="At risk tasks"
-                value={`${ordersOverdue}`}
-                sub={`Over ${targetMin} min`}
-                accent="amber"
-              />
-              <KpiTile
-                label="Avg response"
-                value={avgResponseMin == null ? "—" : `${avgResponseMin}m`}
-                sub="From SLA metrics"
-              />
-              <KpiTile
-                label="Guest satisfaction"
-                value={guestPrimary ?? "—"}
-                sub={
-                  typeof npsScore === "number" && (npsResponses ?? 0) > 0
-                    ? `${npsResponses} responses`
-                    : typeof avgRating30d === "number"
-                      ? "Avg rating (30d)"
-                      : "Not available"
-                }
-                accent={guestTone === "green" ? "emerald" : guestTone === "amber" ? "amber" : guestTone === "red" ? "rose" : undefined}
-              />
-            </div>
-
-            {/* Row: Ring + Trend */}
-            <div className="grid gap-4 xl:grid-cols-3">
-              <DarkCard className="p-4">
-                <CardHeader
-                  title="Active Tasks"
-                  right={
-                    <StatusBadge
-                      label={
-                        slaPct == null
-                          ? "SLA —"
-                          : slaToneLevel === "green"
-                            ? "On track"
-                            : slaToneLevel === "amber"
-                              ? "Watch"
-                              : slaToneLevel === "red"
-                                ? "Risk"
-                                : "SLA —"
-                      }
-                      tone={slaToneLevel}
-                    />
-                  }
-                />
-                <div className="mt-3 grid grid-cols-[140px,minmax(0,1fr)] gap-4 items-center">
-                  <RingGauge
-                    value={ordersTotal}
-                    // fill uses SLA % if available; otherwise fills based on occupancy (still real)
-                    pct={
-                      slaPct != null
-                        ? slaPct
-                        : occPct != null
-                          ? Math.min(100, Math.max(0, occPct))
-                          : 0
-                    }
-                    subtitle="Active tasks"
+            {panel === "overview" ? (
+              <>
+                {/* KPI strip (matches screenshot row) */}
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                  <KpiTile label="Rooms" value={total ? `${total}` : "—"} sub="Total rooms" />
+                  <KpiTile
+                    label="Active tasks"
+                    value={`${ordersTotal}`}
+                    sub="Open requests"
                   />
-                  <div className="min-w-0">
-                    <div className="text-sm text-slate-200">
-                      {ordersTotal === 0
-                        ? "No open requests right now."
-                        : `${ordersTotal} open requests across services.`}
+                  <KpiTile
+                    label="At risk tasks"
+                    value={`${ordersOverdue}`}
+                    sub={`Over ${targetMin} min`}
+                    accent="amber"
+                  />
+                  <KpiTile
+                    label="Avg response"
+                    value={avgResponseMin == null ? "—" : `${avgResponseMin}m`}
+                    sub="From SLA metrics"
+                  />
+                  <KpiTile
+                    label="Guest satisfaction"
+                    value={guestPrimary ?? "—"}
+                    sub={
+                      typeof npsScore === "number" && (npsResponses ?? 0) > 0
+                        ? `${npsResponses} responses`
+                        : typeof avgRating30d === "number"
+                          ? "Avg rating (30d)"
+                          : "Not available"
+                    }
+                    accent={
+                      guestTone === "green"
+                        ? "emerald"
+                        : guestTone === "amber"
+                          ? "amber"
+                          : guestTone === "red"
+                            ? "rose"
+                            : undefined
+                    }
+                  />
+                </div>
+
+                {/* Row: Ring + Trend */}
+                <div className="grid gap-4 xl:grid-cols-3">
+                  <DarkCard className="p-4">
+                    <CardHeader
+                      title="Active Tasks"
+                      right={
+                        <StatusBadge
+                          label={
+                            slaPct == null
+                              ? "SLA —"
+                              : slaToneLevel === "green"
+                                ? "On track"
+                                : slaToneLevel === "amber"
+                                  ? "Watch"
+                                  : slaToneLevel === "red"
+                                    ? "Risk"
+                                    : "SLA —"
+                          }
+                          tone={slaToneLevel}
+                        />
+                      }
+                    />
+                    <div className="mt-3 grid grid-cols-[140px,minmax(0,1fr)] gap-4 items-center">
+                      <RingGauge
+                        value={ordersTotal}
+                        // fill uses SLA % if available; otherwise fills based on occupancy (still real)
+                        pct={
+                          slaPct != null
+                            ? slaPct
+                            : occPct != null
+                              ? Math.min(100, Math.max(0, occPct))
+                              : 0
+                        }
+                        subtitle="Active tasks"
+                      />
+                      <div className="min-w-0">
+                        <div className="text-sm text-slate-200">
+                          {ordersTotal === 0
+                            ? "No open requests right now."
+                            : `${ordersTotal} open requests across services.`}
+                        </div>
+                        <div className="mt-2 text-xs text-slate-400">
+                          Overdue (&gt;{targetMin}m):{" "}
+                          <span className="text-slate-200 font-medium">
+                            {ordersOverdue}
+                          </span>
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          <MiniStat
+                            label="Occupancy"
+                            value={`${occPct || 0}%`}
+                            tone={occupancyTone(occPct)}
+                          />
+                          <MiniStat
+                            label="Arrivals"
+                            value={arrivalsCount}
+                            tone={arrivalsCount > 0 ? "green" : "grey"}
+                          />
+                        </div>
+                      </div>
                     </div>
-                    <div className="mt-2 text-xs text-slate-400">
-                      Overdue (&gt;{targetMin}m):{" "}
-                      <span className="text-slate-200 font-medium">
-                        {ordersOverdue}
-                      </span>
+                  </DarkCard>
+
+                  <DarkCard className="p-4 xl:col-span-2">
+                    <CardHeader
+                      title="Alerts Trend"
+                      subtitle="Request volume trend (real data only)"
+                      right={
+                        <div className="flex items-center gap-2">
+                          <MiniBadge
+                            label={`${ordersOverdue} at risk`}
+                            tone={ordersOverdue > 0 ? "amber" : "grey"}
+                          />
+                          <MiniBadge
+                            label={`Occ ${occPct || 0}%`}
+                            tone={occupancyTone(occPct)}
+                          />
+                        </div>
+                      }
+                    />
+                    <div className="mt-3">
+                      {/* We reuse your existing chart component (no fake data). */}
+                      {hasSeries((metrics as any)?.taskVolume) ? (
+                        <TaskVolumeChart
+                          // @ts-expect-error - chart expects its own type; we pass what dashboardApi returns
+                          data={(metrics as any)?.taskVolume || []}
+                          loading={!metrics}
+                        />
+                      ) : (
+                        <EmptyState text="Not available" />
+                      )}
                     </div>
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      <MiniStat label="Occupancy" value={`${occPct || 0}%`} tone={occupancyTone(occPct)} />
+
+                    <div className="mt-3 grid grid-cols-3 gap-2">
                       <MiniStat
-                        label="Arrivals"
-                        value={arrivalsCount}
-                        tone={arrivalsCount > 0 ? "green" : "grey"}
+                        label="Blocked"
+                        value={blockedCount == null ? "—" : blockedCount}
+                        tone={blockedCount && blockedCount > 0 ? "red" : "grey"}
+                      />
+                      <MiniStat
+                        label="Active"
+                        value={ordersTotal}
+                        tone={ordersTotal > 0 ? "green" : "grey"}
+                      />
+                      <MiniStat
+                        label="At risk"
+                        value={ordersOverdue}
+                        tone={ordersOverdue > 0 ? "amber" : "grey"}
                       />
                     </div>
-                  </div>
+                  </DarkCard>
                 </div>
-              </DarkCard>
 
-              <DarkCard className="p-4 xl:col-span-2">
-                <CardHeader
-                  title="Alerts Trend"
-                  subtitle="Request volume trend (real data only)"
-                  right={
-                    <div className="flex items-center gap-2">
-                      <MiniBadge label={`${ordersOverdue} at risk`} tone={ordersOverdue > 0 ? "amber" : "grey"} />
-                      <MiniBadge label={`Occ ${occPct || 0}%`} tone={occupancyTone(occPct)} />
-                    </div>
-                  }
-                />
-                <div className="mt-3">
-                  {/* We reuse your existing chart component (no fake data). */}
-                  {hasSeries((metrics as any)?.taskVolume) ? (
-                    <TaskVolumeChart
-                      // @ts-expect-error - chart expects its own type; we pass what dashboardApi returns
-                      data={(metrics as any)?.taskVolume || []}
-                      loading={!metrics}
+                {/* Row: Task Summary + Issue Breakdown */}
+                <div className="grid gap-4 xl:grid-cols-3">
+                  <DarkCard className="p-4 xl:col-span-2">
+                    <CardHeader
+                      title="Task Summary"
+                      subtitle="Latest open requests (pilot-safe)"
+                      right={
+                        <button
+                          type="button"
+                          onClick={() => setPanel("ops")}
+                          className="text-xs text-slate-300 hover:text-slate-100 underline"
+                        >
+                          Open ops →
+                        </button>
+                      }
                     />
-                  ) : (
-                    <EmptyState text="Not available" />
-                  )}
-                </div>
-
-                <div className="mt-3 grid grid-cols-3 gap-2">
-                  <MiniStat label="Blocked" value={blockedCount == null ? "—" : blockedCount} tone={blockedCount && blockedCount > 0 ? "red" : "grey"} />
-                  <MiniStat label="Active" value={ordersTotal} tone={ordersTotal > 0 ? "green" : "grey"} />
-                  <MiniStat label="At risk" value={ordersOverdue} tone={ordersOverdue > 0 ? "amber" : "grey"} />
-                </div>
-              </DarkCard>
-            </div>
-
-            {/* Row: Task Summary + Issue Breakdown */}
-            <div className="grid gap-4 xl:grid-cols-3">
-              <DarkCard className="p-4 xl:col-span-2">
-                <CardHeader
-                  title="Task Summary"
-                  subtitle="Latest open requests (pilot-safe)"
-                  right={
-                    <Link
-                      to={`/ops?slug=${encodeURIComponent(hotel.slug)}`}
-                      className="text-xs text-slate-300 hover:text-slate-100 underline"
-                    >
-                      Open ops →
-                    </Link>
-                  }
-                />
-                <div className="mt-3">
-                  {liveOrders.length === 0 ? (
-                    <EmptyState text="No live requests right now." />
-                  ) : (
-                    <DarkTable>
-                      <thead>
-                        <tr>
-                          <Th>Task</Th>
-                          <Th>Status</Th>
-                          <Th>Age</Th>
-                          <Th className="text-right">SLA</Th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {liveOrders.slice(0, 8).map((o) => {
-                          const mins = ageMin(o.created_at);
-                          const breach = mins > targetMin;
-                          return (
-                            <tr key={o.id} className="border-t border-white/10">
-                              <Td>
-                                <div className="font-medium text-slate-100">
-                                  #{o.id.slice(0, 8)}
-                                </div>
-                                <div className="text-[11px] text-slate-400">
-                                  {fmtTime(o.created_at)}
-                                </div>
-                              </Td>
-                              <Td>
-                                <span className="text-slate-200">{o.status}</span>
-                              </Td>
-                              <Td>
-                                <span className="text-slate-200">{mins}m</span>
-                              </Td>
-                              <Td className="text-right">
-                                <StatusBadge
-                                  label={breach ? "At risk" : "On time"}
-                                  tone={breach ? "amber" : "green"}
-                                />
-                              </Td>
+                    <div className="mt-3">
+                      {liveOrders.length === 0 ? (
+                        <EmptyState text="No live requests right now." />
+                      ) : (
+                        <DarkTable>
+                          <thead>
+                            <tr>
+                              <Th>Task</Th>
+                              <Th>Status</Th>
+                              <Th>Age</Th>
+                              <Th className="text-right">SLA</Th>
                             </tr>
-                          );
-                        })}
-                      </tbody>
-                    </DarkTable>
-                  )}
-                </div>
-              </DarkCard>
+                          </thead>
+                          <tbody>
+                            {liveOrders.slice(0, 8).map((o) => {
+                              const mins = ageMin(o.created_at);
+                              const breach = mins > targetMin;
+                              return (
+                                <tr key={o.id} className="border-t border-white/10">
+                                  <Td>
+                                    <div className="font-medium text-slate-100">
+                                      #{o.id.slice(0, 8)}
+                                    </div>
+                                    <div className="text-[11px] text-slate-400">
+                                      {fmtTime(o.created_at)}
+                                    </div>
+                                  </Td>
+                                  <Td>
+                                    <span className="text-slate-200">{o.status}</span>
+                                  </Td>
+                                  <Td>
+                                    <span className="text-slate-200">{mins}m</span>
+                                  </Td>
+                                  <Td className="text-right">
+                                    <StatusBadge
+                                      label={breach ? "At risk" : "On time"}
+                                      tone={breach ? "amber" : "green"}
+                                    />
+                                  </Td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </DarkTable>
+                      )}
+                    </div>
+                  </DarkCard>
 
-              <DarkCard className="p-4">
-                <CardHeader
-                  title="Issue Breakdown"
-                  subtitle="Open requests by state"
-                />
-                <div className="mt-3">
-                  {liveOrders.length === 0 ? (
-                    <EmptyState text="Not available" />
-                  ) : (
-                    <IssueBreakdown orders={liveOrders} targetMin={targetMin} />
-                  )}
-                </div>
-
-                <div className="mt-4 border-t border-white/10 pt-3">
-                  <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                    Recent feedback
-                  </div>
-                  <div className="mt-2">
-                    {typeof npsScore === "number" && (npsResponses ?? 0) > 0 ? (
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="text-sm text-slate-100 font-semibold">
-                            NPS {npsScore}
-                          </div>
-                          <div className="text-[11px] text-slate-400">
-                            {npsResponses} responses (30d)
-                          </div>
-                        </div>
-                        <StatusBadge label="Guest" tone="green" />
-                      </div>
-                    ) : typeof avgRating30d === "number" ? (
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="text-sm text-slate-100 font-semibold">
-                            Rating {avgRating30d.toFixed(1)}/5
-                          </div>
-                          <div className="text-[11px] text-slate-400">Last 30 days</div>
-                        </div>
-                        <StatusBadge label="Guest" tone={ratingTone(avgRating30d)} />
-                      </div>
-                    ) : (
-                      <EmptyState text="Not available" />
-                    )}
-                  </div>
-                </div>
-              </DarkCard>
-            </div>
-
-            {/* Row: SLA chart + AI Ops + Usage (kept, but styled dark and pilot-safe) */}
-            <div className="grid gap-4 xl:grid-cols-3">
-              <DarkCard className="p-4 xl:col-span-2">
-                <CardHeader
-                  title="Avg Resolution"
-                  subtitle={`SLA performance (target ${targetMin}m).`}
-                  right={
-                    slaPct == null ? (
-                      <MiniBadge label="SLA —" tone="grey" />
-                    ) : (
-                      <MiniBadge label={`SLA ${slaPct}%`} tone={slaToneLevel} />
-                    )
-                  }
-                />
-                <div className="mt-3">
-                  {hasSeries(slaSeries) ? (
-                    <SlaPerformanceChart
-                      // @ts-expect-error chart expects its own shape
-                      data={slaSeries || []}
-                      loading={!metrics}
+                  <DarkCard className="p-4">
+                    <CardHeader
+                      title="Issue Breakdown"
+                      subtitle="Open requests by state"
                     />
-                  ) : (
-                    <EmptyState text="Not available" />
-                  )}
-                </div>
-              </DarkCard>
-
-              <DarkCard className="p-4">
-                <CardHeader title="AI Ops Snapshot" subtitle="From connected ticket history." />
-                <div className="mt-3">
-                  {!HAS_FUNCS ? (
-                    <EmptyState text="Not available" />
-                  ) : opsLoading ? (
-                    <EmptyState text="Analyzing…" />
-                  ) : (opsHeatmap && opsHeatmap.length) || (staffingPlan && staffingPlan.length) ? (
-                    <div className="space-y-3">
-                      <AiOpsMiniSummary heatmap={opsHeatmap} staffingPlan={staffingPlan} />
+                    <div className="mt-3">
+                      {liveOrders.length === 0 ? (
+                        <EmptyState text="Not available" />
+                      ) : (
+                        <IssueBreakdown orders={liveOrders} targetMin={targetMin} />
+                      )}
                     </div>
-                  ) : (
-                    <EmptyState text="Not available" />
-                  )}
+
+                    <div className="mt-4 border-t border-white/10 pt-3">
+                      <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                        Recent feedback
+                      </div>
+                      <div className="mt-2">
+                        {typeof npsScore === "number" && (npsResponses ?? 0) > 0 ? (
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="text-sm text-slate-100 font-semibold">
+                                NPS {npsScore}
+                              </div>
+                              <div className="text-[11px] text-slate-400">
+                                {npsResponses} responses (30d)
+                              </div>
+                            </div>
+                            <StatusBadge label="Guest" tone="green" />
+                          </div>
+                        ) : typeof avgRating30d === "number" ? (
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="text-sm text-slate-100 font-semibold">
+                                Rating {avgRating30d.toFixed(1)}/5
+                              </div>
+                              <div className="text-[11px] text-slate-400">Last 30 days</div>
+                            </div>
+                            <StatusBadge label="Guest" tone={ratingTone(avgRating30d)} />
+                          </div>
+                        ) : (
+                          <EmptyState text="Not available" />
+                        )}
+                      </div>
+                    </div>
+                  </DarkCard>
                 </div>
 
-                <div className="mt-4 border-t border-white/10 pt-3">
-                  <div className="flex items-center justify-between">
-                    <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                      AI usage
+                {/* Row: SLA chart + AI Ops + Usage */}
+                <div className="grid gap-4 xl:grid-cols-3">
+                  <DarkCard className="p-4 xl:col-span-2">
+                    <CardHeader
+                      title="Avg Resolution"
+                      subtitle={`SLA performance (target ${targetMin}m).`}
+                      right={
+                        slaPct == null ? (
+                          <MiniBadge label="SLA —" tone="grey" />
+                        ) : (
+                          <MiniBadge label={`SLA ${slaPct}%`} tone={slaToneLevel} />
+                        )
+                      }
+                    />
+                    <div className="mt-3">
+                      {hasSeries(slaSeries) ? (
+                        <SlaPerformanceChart
+                          // @ts-expect-error chart expects its own shape
+                          data={slaSeries || []}
+                          loading={!metrics}
+                        />
+                      ) : (
+                        <EmptyState text="Not available" />
+                      )}
                     </div>
-                    <MiniBadge label="Owner view" tone="grey" />
-                  </div>
-                  <div className="mt-3">
-                    <UsageMeter hotelId={hotel.id} />
-                  </div>
+                  </DarkCard>
+
+                  <DarkCard className="p-4">
+                    <CardHeader title="AI Ops Snapshot" subtitle="From connected ticket history." />
+                    <div className="mt-3">
+                      {!HAS_FUNCS ? (
+                        <EmptyState text="Not available" />
+                      ) : opsLoading ? (
+                        <EmptyState text="Analyzing…" />
+                      ) : (opsHeatmap && opsHeatmap.length) || (staffingPlan && staffingPlan.length) ? (
+                        <div className="space-y-3">
+                          <AiOpsMiniSummary heatmap={opsHeatmap} staffingPlan={staffingPlan} />
+                        </div>
+                      ) : (
+                        <EmptyState text="Not available" />
+                      )}
+                    </div>
+
+                    <div className="mt-4 border-t border-white/10 pt-3">
+                      <div className="flex items-center justify-between">
+                        <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                          AI usage
+                        </div>
+                        <MiniBadge label="Owner view" tone="grey" />
+                      </div>
+                      <div className="mt-3">
+                        <UsageMeter hotelId={hotel.id} />
+                      </div>
+                    </div>
+                  </DarkCard>
                 </div>
-              </DarkCard>
-            </div>
+              </>
+            ) : (
+              <EmbeddedPanelView
+                panel={panel}
+                slug={hotel.slug}
+                onBack={() => setPanel("overview")}
+              />
+            )}
           </section>
 
           {/* Right rail */}
           <aside className="space-y-4">
+            {/* The 4 links always available here */}
+            <DarkCard className="p-4">
+              <CardHeader title="Quick Links" subtitle="Open inside dashboard" />
+              <div className="mt-3">
+                <PanelQuickLinks slug={hotel.slug} active={panel} onSelect={setPanel} />
+              </div>
+            </DarkCard>
+
             <DarkCard className="p-4">
               <CardHeader title="Staff Performance" subtitle="Active staff members" />
               <div className="mt-3">
@@ -1123,12 +1211,14 @@ export default function OwnerDashboard() {
                     <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
                       Attendance
                     </div>
-                    <Link
-                      to={`/owner/${hotel.slug}/hrms`}
+                    <button
+                      type="button"
+                      onClick={() => setPanel("settings")}
                       className="text-[11px] text-slate-300 hover:text-slate-100 underline"
+                      title="Attendance is usually managed from settings/roles."
                     >
                       Open →
-                    </Link>
+                    </button>
                   </div>
                   <div className="mt-2">
                     <AttendanceMini data={hrms} />
@@ -1179,6 +1269,124 @@ export default function OwnerDashboard() {
         </div>
       </div>
     </main>
+  );
+}
+
+/** ========= In-page panel helpers ========= */
+
+function PanelQuickLinks({
+  slug,
+  active,
+  onSelect,
+}: {
+  slug: string;
+  active: PanelKey;
+  onSelect: (p: PanelKey) => void;
+}) {
+  const items: Array<{ key: PanelKey; label: string; hint: string }> = [
+    { key: "ops", label: "Operations", hint: "Live tickets & queues" },
+    { key: "trend", label: "Task trend", hint: "Analytics & volumes" },
+    { key: "departments", label: "Departments / SLAs", hint: "Services & targets" },
+    { key: "settings", label: "Settings", hint: "Property configuration" },
+  ];
+
+  return (
+    <div className="space-y-2">
+      {items.map((it) => {
+        const isActive = active === it.key;
+        return (
+          <button
+            key={it.key}
+            type="button"
+            onClick={() => onSelect(it.key)}
+            className={`w-full text-left rounded-xl border px-3 py-2 transition-colors ${
+              isActive
+                ? "border-white/15 bg-white/10 text-slate-50"
+                : "border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
+            }`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-sm font-medium">{it.label}</div>
+              <span className="text-slate-500">→</span>
+            </div>
+            <div className="mt-0.5 text-[11px] text-slate-400">{it.hint}</div>
+          </button>
+        );
+      })}
+
+      {active !== "overview" ? (
+        <button
+          type="button"
+          onClick={() => onSelect("overview")}
+          className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 hover:bg-white/10"
+        >
+          Back to overview
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function EmbeddedPanelView({
+  panel,
+  slug,
+  onBack,
+}: {
+  panel: Exclude<PanelKey, "overview">;
+  slug: string;
+  onBack: () => void;
+}) {
+  const encodedSlug = encodeURIComponent(slug);
+
+  const map: Record<Exclude<PanelKey, "overview">, { title: string; src: string }> = {
+    ops: { title: "Operations", src: `/ops?slug=${encodedSlug}` },
+    trend: { title: "Task trend", src: `/ops/analytics?slug=${encodedSlug}` },
+    departments: { title: "Departments / SLAs", src: `/owner/services?slug=${encodedSlug}` },
+    settings: { title: "Settings", src: `/owner/${slug}/settings` },
+  };
+
+  const spec = map[panel];
+
+  return (
+    <DarkCard className="p-4">
+      <CardHeader
+        title={spec.title}
+        subtitle="Opened inside the dashboard (pilot-safe)"
+        right={
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onBack}
+              className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] text-slate-100 hover:bg-white/10"
+            >
+              Back
+            </button>
+            <a
+              href={spec.src}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] text-slate-100 hover:bg-white/10"
+              title="Open the same view in a new tab"
+            >
+              Full page
+            </a>
+          </div>
+        }
+      />
+
+      <div className="mt-3 overflow-hidden rounded-xl border border-white/10 bg-black/20">
+        {/* NOTE: This is intentionally an iframe for safety (no router changes required). */}
+        <iframe
+          title={spec.title}
+          src={spec.src}
+          className="w-full h-[76vh]"
+        />
+      </div>
+
+      <div className="mt-3 text-[11px] text-slate-400">
+        If this panel appears blank, confirm your CSP allows frames from self (e.g., <span className="text-slate-200">frame-src 'self'</span>).
+      </div>
+    </DarkCard>
   );
 }
 
@@ -1262,23 +1470,29 @@ function DashboardTopBar({
   );
 }
 
-function SidebarNav({ slug }: { slug: string }) {
-  const encodedSlug = encodeURIComponent(slug);
-
-  const servicesHref = `/owner/services?slug=${encodedSlug}`;
-  const opsAnalyticsHref = `/ops/analytics?slug=${encodedSlug}`;
-  const opsHref = `/ops?slug=${encodedSlug}`;
-  const settingsHref = `/owner/${slug}/settings`;
-
+function SidebarNav({
+  slug,
+  activePanel,
+  onPanel,
+}: {
+  slug: string;
+  activePanel: PanelKey;
+  onPanel: (p: PanelKey) => void;
+}) {
   return (
     <nav aria-label="Owner dashboard navigation" className="space-y-1 text-sm">
-      <NavItem href="#top" label="Overview" active />
-      <NavItem to={opsHref} label="Operations" />
-      <NavItem to={opsAnalyticsHref} label="Task trend" />
-      <NavItem to={servicesHref} label="Departments / SLAs" />
-      {HAS_STAFF_SHIFTS && <NavItem to={`/owner/${slug}/staff-shifts`} label="Staff & Shifts" />}
-      <NavItem to={settingsHref} label="Settings" />
-      {HAS_CALENDAR && <NavItem to="../bookings/calendar" label="Calendar" />}
+      <NavItem label="Overview" active={activePanel === "overview"} onClick={() => onPanel("overview")} />
+      <NavItem label="Operations" active={activePanel === "ops"} onClick={() => onPanel("ops")} />
+      <NavItem label="Task trend" active={activePanel === "trend"} onClick={() => onPanel("trend")} />
+      <NavItem label="Departments / SLAs" active={activePanel === "departments"} onClick={() => onPanel("departments")} />
+      {HAS_STAFF_SHIFTS ? (
+        <NavItem
+          to={`/owner/${slug}/staff-shifts`}
+          label="Staff & Shifts"
+        />
+      ) : null}
+      <NavItem label="Settings" active={activePanel === "settings"} onClick={() => onPanel("settings")} />
+      {HAS_CALENDAR ? <NavItem to="../bookings/calendar" label="Calendar" /> : null}
     </nav>
   );
 }
@@ -1288,17 +1502,28 @@ function NavItem({
   to,
   href,
   active,
+  onClick,
 }: {
   label: string;
   to?: string;
   href?: string;
   active?: boolean;
+  onClick?: () => void;
 }) {
   const base =
-    "flex items-center justify-between rounded-xl px-3 py-2 text-[13px] transition-colors";
+    "flex w-full items-center justify-between rounded-xl px-3 py-2 text-[13px] transition-colors";
   const cls = active
     ? `${base} bg-white/10 text-slate-50`
     : `${base} text-slate-300 hover:bg-white/10 hover:text-slate-50`;
+
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={cls}>
+        <span>{label}</span>
+        <span className="text-slate-500">→</span>
+      </button>
+    );
+  }
 
   if (href) {
     return (

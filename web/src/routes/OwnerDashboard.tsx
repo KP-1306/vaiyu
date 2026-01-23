@@ -3,12 +3,7 @@
 // we only add AI Ops Co-pilot (heatmap + staffing) and a sticky left sidebar
 // so unfinished modules don’t send users to 404s.
 
-import {
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useSearchParams, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Spinner from "../components/Spinner";
@@ -22,7 +17,6 @@ import {
   type StaffingPlanRow,
 } from "../lib/api";
 
-import OwnerDailyBriefCard from "../components/OwnerDailyBriefCard";
 import SlaPerformanceChart from "../components/analytics/SlaPerformanceChart";
 import TaskVolumeChart from "../components/analytics/TaskVolumeChart";
 import OccupancyTrendChart from "../components/analytics/OccupancyTrendChart";
@@ -57,6 +51,7 @@ type LiveOrder = {
   created_at: string;
   status: string;
   price: number | null;
+  closed_at?: string | null;
 };
 
 type StaffPerf = {
@@ -128,7 +123,8 @@ const HAS_FUNCS = import.meta.env.VITE_HAS_FUNCS === "true";
 const HAS_REVENUE = import.meta.env.VITE_HAS_REVENUE === "true";
 const HAS_HRMS = import.meta.env.VITE_HAS_HRMS === "true";
 const HAS_PRICING = import.meta.env.VITE_HAS_PRICING === "true";
-const HAS_CALENDAR = import.meta.env.VITE_HAS_CALENDAR === "true"; // NEW: calendar module flag
+const HAS_CALENDAR = import.meta.env.VITE_HAS_CALENDAR === "true"; // calendar module flag
+const HAS_STAFF_SHIFTS = import.meta.env.VITE_HAS_STAFF_SHIFTS === "true";
 // Workforce ON by default unless explicitly disabled
 const HAS_WORKFORCE =
   import.meta.env.VITE_HAS_WORKFORCE === "false" ? false : true;
@@ -213,7 +209,9 @@ export default function OwnerDashboard() {
   const [npsSnapshot, setNpsSnapshot] = useState<NpsSnapshot | null>(null);
 
   // Workforce snapshot (owner view)
-  const [workforceJobs, setWorkforceJobs] = useState<WorkforceJobSummary[] | null>(null);
+  const [workforceJobs, setWorkforceJobs] = useState<
+    WorkforceJobSummary[] | null
+  >(null);
   const [workforceLoading, setWorkforceLoading] = useState(false);
 
   // AI Ops Co-pilot state (heatmap + staffing recommendations)
@@ -226,6 +224,8 @@ export default function OwnerDashboard() {
   const [accessProblem, setAccessProblem] = useState<string | null>(null);
   const inviteToken = params.get("invite");
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const todayStartISO = useMemo(() => dayStartISO(today), [today]);
+  const tomorrowStartISO = useMemo(() => nextDayStartISO(today), [today]);
 
   // One-touch actions drawer
   const [drawer, setDrawer] = useState<DrawerState | null>(null);
@@ -239,7 +239,7 @@ export default function OwnerDashboard() {
     }
 
     let alive = true;
-    let unsubscribe = () => { };
+    let unsubscribe = () => {};
 
     (async () => {
       setLoading(true);
@@ -277,29 +277,30 @@ export default function OwnerDashboard() {
       // 2) Ops lists (non-blocking)
       try {
         const nowIso = new Date().toISOString();
-        const [{ data: arr }, { data: inh }, { data: dep }] = await Promise.all([
-          supabase
-            .from("stays")
-            .select("id,guest_id,check_in_start,check_out_end,status,room")
-            .eq("hotel_id", hotelId)
-            .gte("check_in_start", today)
-            .lt("check_in_start", nextDayISO(today))
-            .order("check_in_start", { ascending: true }),
-          supabase
-            .from("stays")
-            .select("id,guest_id,check_in_start,check_out_end,status,room")
-            .eq("hotel_id", hotelId)
-            .lte("check_in_start", nowIso)
-            .gte("check_out_end", nowIso)
-            .order("check_out_end", { ascending: true }),
-          supabase
-            .from("stays")
-            .select("id,guest_id,check_in_start,check_out_end,status,room")
-            .eq("hotel_id", hotelId)
-            .gte("check_out_end", today)
-            .lt("check_out_end", nextDayISO(today))
-            .order("check_out_end", { ascending: true }),
-        ]);
+        const [{ data: arr }, { data: inh }, { data: dep }] =
+          await Promise.all([
+            supabase
+              .from("stays")
+              .select("id,guest_id,check_in_start,check_out_end,status,room")
+              .eq("hotel_id", hotelId)
+              .gte("check_in_start", todayStartISO)
+              .lt("check_in_start", tomorrowStartISO)
+              .order("check_in_start", { ascending: true }),
+            supabase
+              .from("stays")
+              .select("id,guest_id,check_in_start,check_out_end,status,room")
+              .eq("hotel_id", hotelId)
+              .lte("check_in_start", nowIso)
+              .gte("check_out_end", nowIso)
+              .order("check_out_end", { ascending: true }),
+            supabase
+              .from("stays")
+              .select("id,guest_id,check_in_start,check_out_end,status,room")
+              .eq("hotel_id", hotelId)
+              .gte("check_out_end", todayStartISO)
+              .lt("check_out_end", tomorrowStartISO)
+              .order("check_out_end", { ascending: true }),
+          ]);
         if (!alive) return;
         setArrivals(arr || []);
         setInhouse(inh || []);
@@ -337,24 +338,42 @@ export default function OwnerDashboard() {
 
       // 5) SLA target + Live orders
       try {
-        const [{ data: sla }, { data: orders }] = await Promise.all([
-          supabase
-            .from("sla_targets")
-            .select("target_minutes")
-            .eq("hotel_id", hotelId)
-            .eq("key", "order_delivery_min")
-            .maybeSingle(),
-          supabase
+        const { data: sla } = await supabase
+          .from("sla_targets")
+          .select("target_minutes")
+          .eq("hotel_id", hotelId)
+          .eq("key", "order_delivery_min")
+          .maybeSingle();
+
+        let ordersData: any[] | null = null;
+
+        // Prefer closed_at IS NULL (prod-safe even if status enum differs)
+        const { data: orders1, error: oErr1 } = await supabase
+          .from("orders")
+          .select("id,created_at,status,price,closed_at")
+          .eq("hotel_id", hotelId)
+          .is("closed_at", null)
+          .order("created_at", { ascending: false })
+          .limit(50);
+
+        if (!oErr1) {
+          ordersData = orders1 || [];
+        } else {
+          // Compatibility fallback if closed_at isn't present in older schemas
+          const { data: orders2 } = await supabase
             .from("orders")
             .select("id,created_at,status,price")
             .eq("hotel_id", hotelId)
             .in("status", ["open", "preparing"])
             .order("created_at", { ascending: false })
-            .limit(50),
-        ]);
+            .limit(50);
+
+          ordersData = orders2 || [];
+        }
+
         if (!alive) return;
         setSlaTargetMin(sla?.target_minutes ?? 20);
-        setLiveOrders(orders || []);
+        setLiveOrders((ordersData as LiveOrder[]) || []);
       } catch {
         setSlaTargetMin(20);
         setLiveOrders([]);
@@ -389,15 +408,7 @@ export default function OwnerDashboard() {
           .eq("is_active", true)
           .order("created_at", { ascending: true });
 
-        console.log("Staff query response:", {
-          count: staffData?.length,
-          staffData,
-          staffError,
-          hotelId
-        });
-
         if (staffError) {
-          console.error("Staff query error:", staffError);
           if (alive) setStaffPerf(null);
         } else if (staffData && staffData.length > 0 && alive) {
           const memberIds = staffData.map((s: any) => s.id);
@@ -408,7 +419,9 @@ export default function OwnerDashboard() {
             .from("profiles")
             .select("id, full_name")
             .in("id", userIds);
-          const profileMap = new Map(profiles?.map((p: any) => [p.id, p.full_name]) || []);
+          const profileMap = new Map(
+            profiles?.map((p: any) => [p.id, p.full_name]) || []
+          );
 
           // Step 3: Get hotel_member_roles for these members
           const { data: memberRoles } = await supabase
@@ -417,12 +430,16 @@ export default function OwnerDashboard() {
             .in("hotel_member_id", memberIds);
 
           // Step 4: Get hotel_roles for those role_ids
-          const roleIds = [...new Set(memberRoles?.map((mr: any) => mr.role_id) || [])];
+          const roleIds = [
+            ...new Set(memberRoles?.map((mr: any) => mr.role_id) || []),
+          ];
           const { data: hotelRoles } = await supabase
             .from("hotel_roles")
             .select("id, name, code")
             .in("id", roleIds);
-          const roleMap = new Map(hotelRoles?.map((r: any) => [r.id, r.name]) || []);
+          const roleMap = new Map(
+            hotelRoles?.map((r: any) => [r.id, r.name]) || []
+          );
 
           // Step 5: Build member -> roles mapping
           const memberRolesMap = new Map<string, string[]>();
@@ -435,15 +452,14 @@ export default function OwnerDashboard() {
             }
           });
 
-          console.log("Roles mapping:", { profileMap, memberRolesMap });
-
           // Step 6: Transform data
-          const transformed = staffData.map((s: any) => {
+          const transformed: StaffPerf[] = staffData.map((s: any) => {
             const roles = memberRolesMap.get(s.id) || [];
             return {
               staff_id: s.id,
-              display_name: profileMap.get(s.user_id) || `Staff ${s.id.slice(0, 8)}`,
-              department_name: roles.join(", ") || s.role, // Show all roles, fallback to basic role
+              display_name:
+                profileMap.get(s.user_id) || `Staff ${s.id.slice(0, 8)}`,
+              department_name: roles.join(", ") || s.role, // all roles, fallback to base role
               role: s.role,
               tickets_completed: 0,
               avg_completion_min: null,
@@ -454,13 +470,13 @@ export default function OwnerDashboard() {
         } else if (alive) {
           setStaffPerf(null);
         }
-      } catch (e) {
-        console.error("Staff fetch error:", e);
+      } catch {
         if (alive) setStaffPerf(null);
       }
 
       // 7b) Optional RPCs
-      if (HAS_FUNCS && hotel) {
+      // IMPORTANT FIX: do not depend on `hotel` state here (it may not be updated yet)
+      if (HAS_FUNCS) {
         try {
           const { data } = await supabase.rpc("hrms_snapshot_for_slug", {
             p_slug: slug,
@@ -536,26 +552,28 @@ export default function OwnerDashboard() {
       alive = false;
       unsubscribe();
     };
-  }, [slug, today]);
+  }, [slug, todayStartISO, tomorrowStartISO]);
 
-  // AI Ops Co-pilot fetch (heatmap + staffing), purely additive
   /* New: Dashboard Analytics */
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
 
   useEffect(() => {
     let mounted = true;
     async function loadMetrics() {
-      if (!hotel?.id) return; // Use hotel?.id instead of hotelId if hotel is available
+      if (!hotel?.id) return;
       try {
         const data = await getDashboardMetrics(hotel.id);
         if (mounted) setMetrics(data);
       } catch (err) {
+        // keep dashboard usable; charts will render placeholders
         console.error("Failed to load dashboard metrics", err);
       }
     }
     loadMetrics();
-    return () => { mounted = false; };
-  }, [hotel?.id]); // Depend on hotel?.id
+    return () => {
+      mounted = false;
+    };
+  }, [hotel?.id]);
 
   useEffect(() => {
     if (!hotel?.id || !HAS_FUNCS) {
@@ -651,7 +669,9 @@ export default function OwnerDashboard() {
 
   const total = todayStats?.totalRooms ?? totalRooms;
   const occupied = todayStats?.occupied ?? (kpi?.occupied_today ?? 0);
-  const occPct = todayStats?.occupancyPct ?? (total ? Math.round((occupied / total) * 100) : 0);
+  const occPct =
+    todayStats?.occupancyPct ??
+    (total ? Math.round((occupied / total) * 100) : 0);
 
   const arrivalsCount = todayStats?.arrivals ?? arrivals.length;
   const departuresCount = todayStats?.departures ?? departures.length;
@@ -665,15 +685,11 @@ export default function OwnerDashboard() {
 
   const targetMin = slaTargetMin ?? 20;
   const ordersTotal = liveOrders.length;
-  const ordersOnTime = liveOrders.filter(
-    (o) => ageMin(o.created_at) <= targetMin
-  ).length;
-  const ordersOverdue = liveOrders.filter(
-    (o) => ageMin(o.created_at) > targetMin
-  ).length;
-  const slaPct = ordersTotal
-    ? Math.round((ordersOnTime / ordersTotal) * 100)
-    : 100;
+  const ordersOnTime = liveOrders.filter((o) => ageMin(o.created_at) <= targetMin)
+    .length;
+  const ordersOverdue = liveOrders.filter((o) => ageMin(o.created_at) > targetMin)
+    .length;
+  const slaPct = ordersTotal ? Math.round((ordersOnTime / ordersTotal) * 100) : 100;
   const slaToneLevel = slaTone(slaPct);
 
   const now = new Date();
@@ -699,10 +715,9 @@ export default function OwnerDashboard() {
   const npsResponses = npsSnapshot?.total_responses ?? 0;
 
   // derived workforce open roles for daily brief
-  const openWorkforceRoles =
-    (workforceJobs ?? []).filter((j) =>
-      (j.status || "open").toLowerCase().includes("open")
-    ).length;
+  const openWorkforceRoles = (workforceJobs ?? []).filter((j) =>
+    (j.status || "open").toLowerCase().includes("open")
+  ).length;
 
   /** ======= Render ======= */
   return (
@@ -711,7 +726,7 @@ export default function OwnerDashboard() {
         <div className="grid gap-4 lg:grid-cols-[230px,minmax(0,1fr)] xl:grid-cols-[260px,minmax(0,1fr)]">
           {/* Left: sticky sidebar navigation on desktop */}
           <aside className="hidden lg:block">
-            <OwnerSidebarNav slug={hotel.slug} hotelId={hotel.id} />
+            <OwnerSidebarNav slug={hotel.slug} />
           </aside>
 
           {/* Right: main dashboard content */}
@@ -810,7 +825,11 @@ export default function OwnerDashboard() {
               </div>
               <HousekeepingProgress
                 slug={hotel.slug}
-                readyPct={total > 0 ? Math.round(((total - occupied) / total) * 100) : 100}
+                readyPct={
+                  total > 0
+                    ? Math.round(((total - occupied) / total) * 100)
+                    : 100
+                }
               />
             </section>
 
@@ -865,7 +884,6 @@ function OwnerTopBar({
 }) {
   return (
     <header className="flex flex-col gap-3 rounded-3xl border border-slate-100 bg-white/90 px-3 py-3 shadow-sm shadow-slate-200/60 backdrop-blur-md lg:flex-row lg:items-center lg:justify-between">
-      {/* BackHome is rendered by layout; keep this space clean */}
       <div className="flex items-center gap-3">
         <div>
           <div className="flex items-center gap-2">
@@ -903,25 +921,16 @@ function OwnerTopBar({
         </div>
         <div className="flex items-center gap-2">
           {HAS_PRICING && (
-            <Link
-              to={`/owner/${slug}/pricing`}
-              className="btn btn-light h-8 text-xs"
-            >
+            <Link to={`/owner/${slug}/pricing`} className="btn btn-light h-8 text-xs">
               Open pricing
             </Link>
           )}
           {HAS_HRMS && (
-            <Link
-              to={`/owner/${slug}/hrms`}
-              className="btn btn-light h-8 text-xs"
-            >
+            <Link to={`/owner/${slug}/hrms`} className="btn btn-light h-8 text-xs">
               HRMS
             </Link>
           )}
-          <Link
-            to={`/owner/${slug}/settings`}
-            className="btn btn-light h-8 text-xs"
-          >
+          <Link to={`/owner/${slug}/settings`} className="btn btn-light h-8 text-xs">
             Settings
           </Link>
           <div className="flex items-center gap-2 rounded-full bg-slate-900 px-3 py-1">
@@ -929,9 +938,7 @@ function OwnerTopBar({
               EM
             </div>
             <div className="leading-tight">
-              <div className="text-xs font-medium text-slate-50">
-                Emma — GM
-              </div>
+              <div className="text-xs font-medium text-slate-50">Emma — GM</div>
               <div className="text-[10px] text-slate-300">
                 General Manager view
               </div>
@@ -944,16 +951,14 @@ function OwnerTopBar({
 }
 
 /** Sticky left sidebar (desktop only) */
-function OwnerSidebarNav({
-  slug,
-  hotelId,
-}: {
-  slug: string;
-  hotelId: string;
-}) {
+function OwnerSidebarNav({ slug }: { slug: string }) {
   const encodedSlug = encodeURIComponent(slug);
-  const opsHref = `/ops?slug=${encodedSlug}`;
+
+  // Keep these links EXACT (they’re the two “must not break” routes)
   const servicesHref = `/owner/services?slug=${encodedSlug}`;
+  const opsAnalyticsHref = `/ops/analytics?slug=${encodedSlug}`;
+
+  const opsHref = `/ops?slug=${encodedSlug}`;
   const settingsHref = `/owner/${slug}/settings`;
   const pricingHref = `/owner/${slug}/pricing`;
 
@@ -1033,7 +1038,7 @@ function OwnerSidebarNav({
           </li>
           <li>
             <Link
-              to={`/ops/analytics?slug=${encodedSlug}`}
+              to={opsAnalyticsHref}
               className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50 text-emerald-800"
             >
               <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
@@ -1059,31 +1064,41 @@ function OwnerSidebarNav({
             </div>
           </li>
           <li>
-            <a
-              href={servicesHref}
+            <Link
+              to={servicesHref}
               className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
             >
               <span className="h-1 w-1 rounded-full bg-slate-300" />
               <span>Departments/Services &amp; SLAs</span>
-            </a>
-          </li>
-          <li>
-            <Link
-              to={`/owner/${slug}/staff-shifts`}
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
-            >
-              <span className="h-1 w-1 rounded-full bg-slate-300" />
-              <span>Staff &amp; Shifts</span>
             </Link>
           </li>
           <li>
-            <a
-              href={opsHref}
+            {HAS_STAFF_SHIFTS ? (
+              <Link
+                to={`/owner/${slug}/staff-shifts`}
+                className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
+              >
+                <span className="h-1 w-1 rounded-full bg-slate-300" />
+                <span>Staff &amp; Shifts</span>
+              </Link>
+            ) : (
+              <div className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-slate-400">
+                <span className="h-1 w-1 rounded-full bg-slate-200" />
+                <span>Staff &amp; Shifts</span>
+                <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-[10px]">
+                  Soon
+                </span>
+              </div>
+            )}
+          </li>
+          <li>
+            <Link
+              to={opsHref}
               className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
             >
               <span className="h-1 w-1 rounded-full bg-slate-300" />
               <span>Ops board</span>
-            </a>
+            </Link>
           </li>
         </ul>
       </div>
@@ -1105,13 +1120,13 @@ function OwnerSidebarNav({
           </li>
           <li>
             {HAS_HRMS ? (
-              <a
-                href={`/owner/${slug}/hrms/attendance`}
+              <Link
+                to={`/owner/${slug}/hrms/attendance`}
                 className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
               >
                 <span className="h-1 w-1 rounded-full bg-slate-300" />
                 <span>Attendance details</span>
-              </a>
+              </Link>
             ) : (
               <div className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-slate-400">
                 <span className="h-1 w-1 rounded-full bg-slate-200" />
@@ -1142,13 +1157,13 @@ function OwnerSidebarNav({
         <ul className="space-y-1">
           <li>
             {HAS_PRICING ? (
-              <a
-                href={pricingHref}
+              <Link
+                to={pricingHref}
                 className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
               >
                 <span className="h-1 w-1 rounded-full bg-slate-300" />
                 <span>Pricing &amp; packages</span>
-              </a>
+              </Link>
             ) : (
               <div className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-slate-400">
                 <span className="h-1 w-1 rounded-full bg-slate-200" />
@@ -1160,13 +1175,13 @@ function OwnerSidebarNav({
             )}
           </li>
           <li>
-            <a
-              href={settingsHref}
+            <Link
+              to={settingsHref}
               className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
             >
               <span className="h-1 w-1 rounded-full bg-slate-300" />
               <span>Owner settings</span>
-            </a>
+            </Link>
           </li>
         </ul>
       </div>
@@ -1256,12 +1271,18 @@ function PulseStrip({
             badgeTone={occupancyTone(occPct)}
           >
             <div className="mt-3 border-t pt-2">
-              <div className="mb-1 text-[10px] font-medium text-slate-400">30-Day Trend</div>
+              <div className="mb-1 text-[10px] font-medium text-slate-400">
+                30-Day Trend
+              </div>
               <div className="h-16">
-                <OccupancyTrendChart data={metrics?.occupancyHistory || []} loading={!metrics} />
+                <OccupancyTrendChart
+                  data={metrics?.occupancyHistory || []}
+                  loading={!metrics}
+                />
               </div>
             </div>
           </PulseTile>
+
           <PulseTile
             label="Revenue snapshot"
             primary={`₹${revenueToday.toFixed(0)} today`}
@@ -1269,6 +1290,7 @@ function PulseStrip({
             actionLabel={HAS_REVENUE ? "View pickup" : undefined}
             onAction={HAS_REVENUE ? () => onOpenDrawer("pickup") : undefined}
           />
+
           <PulseTile
             label="Guest experience"
             primary={`NPS ~${effectiveNps}`}
@@ -1280,6 +1302,7 @@ function PulseStrip({
             badgeLabel="Guest"
             badgeTone="green"
           />
+
           <PulseTile
             label="Ops & service tickets"
             primary={`${ordersTotal} open tasks`}
@@ -1288,13 +1311,10 @@ function PulseStrip({
             actionHref={`/ops?slug=${encodeURIComponent(slug)}`}
             badgeTone={slaTone}
             badgeLabel={
-              slaTone === "green"
-                ? "On track"
-                : slaTone === "amber"
-                  ? "Watch"
-                  : "Risk"
+              slaTone === "green" ? "On track" : slaTone === "amber" ? "Watch" : "Risk"
             }
           />
+
           <PulseTile
             label="Housekeeping status"
             primary={`${Math.min(occPct, 100)}% rooms ready`}
@@ -1302,6 +1322,7 @@ function PulseStrip({
             actionLabel="Rush rooms"
             onAction={() => onOpenDrawer("rushRooms")}
           />
+
           <PulseTile
             label="Events & VIPs"
             primary={`${eventCount} events · ${vipCount} VIP arrivals`}
@@ -1344,19 +1365,11 @@ function PulseTile({
     <div className="relative flex flex-col justify-between rounded-2xl border border-slate-100 bg-white/90 p-3 shadow-sm shadow-slate-200/60 backdrop-blur-sm transition-shadow hover:shadow-lg">
       <div>
         <div className="flex items-center justify-between gap-2">
-          <div className="text-[11px] font-medium text-slate-500">
-            {label}
-          </div>
-          {badgeLabel && (
-            <StatusBadge label={badgeLabel} tone={badgeTone} />
-          )}
+          <div className="text-[11px] font-medium text-slate-500">{label}</div>
+          {badgeLabel && <StatusBadge label={badgeLabel} tone={badgeTone} />}
         </div>
-        <div className="mt-1 text-lg font-semibold text-slate-900">
-          {primary}
-        </div>
-        <p className="mt-1 text-[11px] leading-snug text-slate-500">
-          {secondary}
-        </p>
+        <div className="mt-1 text-lg font-semibold text-slate-900">{primary}</div>
+        <p className="mt-1 text-[11px] leading-snug text-slate-500">{secondary}</p>
       </div>
       {actionLabel && actionHref && (
         <Link
@@ -1386,89 +1399,6 @@ function PulseTile({
   );
 }
 
-function KpiStrip({
-  slug,
-  occPct,
-  occTone,
-  occupied,
-  total,
-  adr,
-  revpar,
-  pickup7d,
-  slaPct,
-  nightsOnBooks,
-}: {
-  slug: string;
-  occPct: number;
-  occTone: "green" | "amber" | "red" | "grey";
-  occupied: number;
-  total: number;
-  adr: number;
-  revpar: number;
-  pickup7d: number;
-  slaPct: number;
-  nightsOnBooks: number;
-}) {
-  return (
-    <section>
-      <SectionHeader
-        title="Detail KPIs"
-        desc="For owners who love the numbers — occupancy, revenue, SLA and on-books in one tight strip."
-      />
-      <KpiRow
-        items={[
-          {
-            label: "Occupancy",
-            value: `${occPct}%`,
-            sub: `${occupied}/${total} rooms · 60–80% is healthy`,
-            tone: occTone,
-            link: `/owner/${slug}/rooms`,
-            linkLabel: "See rooms",
-          },
-          {
-            label: "ADR (Average Daily Rate)",
-            value: `₹${adr.toFixed(0)}`,
-            sub: "Today’s average price per occupied room",
-            tone: "grey",
-            link: HAS_REVENUE ? `/owner/${slug}/revenue/adr` : undefined,
-            linkLabel: HAS_REVENUE ? "Open ADR" : undefined,
-          },
-          {
-            label: "RevPAR (Revenue Per Available Room)",
-            value: `₹${revpar.toFixed(0)}`,
-            sub: "Revenue ÷ total rooms (today)",
-            tone: "grey",
-            link: HAS_REVENUE ? `/owner/${slug}/revenue/revpar` : undefined,
-            linkLabel: HAS_REVENUE ? "Open RevPAR" : undefined,
-          },
-          {
-            label: "Pick-up (7 days)",
-            value: pickup7d,
-            sub: "New room nights added in the last week",
-            tone: "grey",
-            link: HAS_REVENUE
-              ? `/owner/${slug}/bookings/pickup?window=7d`
-              : undefined,
-            linkLabel: HAS_REVENUE ? "View pick-up" : undefined,
-          },
-          {
-            label: "SLA on-time",
-            value: `${slaPct}%`,
-            sub: "Orders closed within target time today",
-            tone: slaTone(slaPct),
-          },
-          {
-            label: "Nights on books (next 7d)",
-            value: nightsOnBooks,
-            sub: "Approx. rooms on the books vs new pick-up",
-            tone: "grey",
-          },
-        ]}
-      />
-    </section>
-  );
-}
-
 function LiveOpsColumn({
   arrivals,
   inhouse,
@@ -1478,7 +1408,8 @@ function LiveOpsColumn({
   inhouse: StayRow[];
   departures: StayRow[];
 }) {
-  const allEmpty = arrivals.length === 0 && inhouse.length === 0 && departures.length === 0;
+  const allEmpty =
+    arrivals.length === 0 && inhouse.length === 0 && departures.length === 0;
 
   return (
     <section
@@ -1487,7 +1418,9 @@ function LiveOpsColumn({
     >
       <SectionHeader
         title="Live operations (today)"
-        desc={allEmpty ? "No guest movements today." : "Arrivals, in-house guests, and departures."}
+        desc={
+          allEmpty ? "No guest movements today." : "Arrivals, in-house guests, and departures."
+        }
       />
       {allEmpty ? (
         <div className="text-sm text-slate-400 py-2">
@@ -1495,24 +1428,9 @@ function LiveOpsColumn({
         </div>
       ) : (
         <div className="grid gap-2 md:grid-cols-3">
-          <Board
-            title="Arrivals"
-            desc="Expected today"
-            items={arrivals}
-            empty="None"
-          />
-          <Board
-            title="In-house"
-            desc="Currently staying"
-            items={inhouse}
-            empty="None"
-          />
-          <Board
-            title="Departures"
-            desc="Checking out"
-            items={departures}
-            empty="None"
-          />
+          <Board title="Arrivals" desc="Expected today" items={arrivals} empty="None" />
+          <Board title="In-house" desc="Currently staying" items={inhouse} empty="None" />
+          <Board title="Departures" desc="Checking out" items={departures} empty="None" />
         </div>
       )}
     </section>
@@ -1548,9 +1466,7 @@ function PerformanceColumn({
 }) {
   const rating = kpi?.avg_rating_30d ?? null;
   const fallbackNps =
-    rating != null
-      ? Math.min(100, Math.max(0, Math.round(rating * 20)))
-      : 78;
+    rating != null ? Math.min(100, Math.max(0, Math.round(rating * 20))) : 78;
   const npsDisplay = typeof npsScore === "number" ? npsScore : fallbackNps;
   const responsesDisplay = npsResponses ?? 0;
 
@@ -1563,10 +1479,7 @@ function PerformanceColumn({
           desc="Today vs budget and same day last year."
           action={
             HAS_REVENUE ? (
-              <Link
-                to={`/owner/${slug}/revenue`}
-                className="text-xs underline text-slate-700"
-              >
+              <Link to={`/owner/${slug}/revenue`} className="text-xs underline text-slate-700">
                 Open
               </Link>
             ) : null
@@ -1578,7 +1491,8 @@ function PerformanceColumn({
               ₹{revenueToday.toFixed(0)}
             </div>
             <div className="text-xs text-slate-600">
-              ADR ₹{adr.toFixed(0)} · RevPAR ₹{revpar.toFixed(0)} · Pick-up 7d {pickup7d}
+              ADR ₹{adr.toFixed(0)} · RevPAR ₹{revpar.toFixed(0)} · Pick-up 7d{" "}
+              {pickup7d}
             </div>
           </div>
           <div className="w-48 h-16">
@@ -1589,20 +1503,14 @@ function PerformanceColumn({
 
       {/* Task Demand - full width for 24 hours */}
       <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
-        <SectionHeader
-          title="Task demand (24h)"
-          desc="Hourly volume of guest requests today."
-        />
+        <SectionHeader title="Task demand (24h)" desc="Hourly volume of guest requests today." />
         <TaskVolumeChart data={metrics?.taskVolume || []} loading={!metrics} />
       </div>
 
       {/* NPS & VIP - side by side */}
       <div className="grid gap-3 lg:grid-cols-2">
         <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
-          <SectionHeader
-            title="Guest feedback"
-            desc="Live signal from ratings."
-          />
+          <SectionHeader title="Guest feedback" desc="Live signal from ratings." />
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="text-lg font-semibold text-slate-900">
@@ -1625,19 +1533,14 @@ function PerformanceColumn({
             title="VIP & special attention"
             desc="Today's VIPs and guests with complaints."
           />
-          {(!vipStays || vipStays.length === 0) &&
-            (!eventsToday || eventsToday.length === 0) ? (
+          {(!vipStays || vipStays.length === 0) && (!eventsToday || eventsToday.length === 0) ? (
             <div className="text-xs text-slate-500">
               Connect CRM / PMS VIP flags to see a live list.
             </div>
           ) : (
             <div className="text-xs text-slate-700">
-              {vipStays && vipStays.length > 0 && (
-                <div>{vipStays.length} VIP arrivals today</div>
-              )}
-              {eventsToday && eventsToday.length > 0 && (
-                <div>{eventsToday.length} events today</div>
-              )}
+              {vipStays && vipStays.length > 0 && <div>{vipStays.length} VIP arrivals today</div>}
+              {eventsToday && eventsToday.length > 0 && <div>{eventsToday.length} events today</div>}
             </div>
           )}
         </div>
@@ -1663,126 +1566,10 @@ function SectionHeader({
         <h2 className="text-sm font-semibold tracking-tight text-slate-900">
           {title}
         </h2>
-        {desc && (
-          <p className="mt-0.5 text-xs text-muted-foreground">{desc}</p>
-        )}
+        {desc && <p className="mt-0.5 text-xs text-muted-foreground">{desc}</p>}
       </div>
       {action}
     </div>
-  );
-}
-
-function KpiRow({
-  items,
-}: {
-  items: {
-    label: string;
-    value: string | number;
-    sub?: string;
-    tone?: "green" | "amber" | "red" | "grey";
-    link?: string;
-    linkLabel?: string;
-  }[];
-}) {
-  return (
-    <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-      {items.map((k) => (
-        <div
-          key={k.label}
-          className="rounded-2xl border bg-white p-4 shadow-sm transition-shadow hover:shadow-lg"
-        >
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="text-xs text-muted-foreground">{k.label}</div>
-              <div className="mt-1 flex items-center gap-2 text-2xl font-semibold">
-                <span>{k.value}</span>
-                {k.tone && (
-                  <StatusBadge
-                    label={
-                      k.tone === "green"
-                        ? "Healthy"
-                        : k.tone === "amber"
-                          ? "Watch"
-                          : k.tone === "red"
-                            ? "Action"
-                            : "N/A"
-                    }
-                    tone={k.tone}
-                  />
-                )}
-              </div>
-              {k.sub ? (
-                <div className="mt-0.5 text-[11px] text-muted-foreground">
-                  {k.sub}
-                </div>
-              ) : null}
-              {k.link && (
-                <div className="mt-2">
-                  <Link to={k.link} className="text-[11px] underline">
-                    {k.linkLabel || "View details"}
-                  </Link>
-                </div>
-              )}
-            </div>
-            <MiniSparkline />
-          </div>
-        </div>
-      ))}
-    </section>
-  );
-}
-
-function MiniSparkline() {
-  return (
-    <div className="ml-4 mt-1 h-8 w-20 relative">
-      <div className="absolute inset-0 rounded bg-gradient-to-tr from-emerald-500 to-indigo-500 opacity-20" />
-      <div className="absolute bottom-0 left-0 right-0 flex items-end justify-between px-1">
-        {[4, 8, 3, 9, 6, 10, 7].map((h, i) => (
-          <div
-            key={i}
-            className="w-1.5 rounded-t bg-emerald-500"
-            style={{ height: `${h * 6}%` }}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function PricingNudge({
-  occupancy,
-  suggestion,
-  ctaTo,
-}: {
-  occupancy: number;
-  suggestion: string;
-  ctaTo: string;
-}) {
-  const tone =
-    occupancy >= 80
-      ? "Great momentum!"
-      : occupancy >= 40
-        ? "Room to grow."
-        : "Let’s boost pick-up.";
-  return (
-    <section className="mb-6 rounded-2xl border bg-gradient-to-r from-amber-50 to-white p-4">
-      <SectionHeader
-        title="Let’s boost tonight"
-        desc="Small price moves can lift pick-up. Try this nudge and watch RevPAR."
-        action={
-          HAS_PRICING ? (
-            <Link to={ctaTo} className="btn">
-              Open pricing
-            </Link>
-          ) : null
-        }
-      />
-      <p className="text-gray-800">{suggestion}</p>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Tip: Auto-pricing can do this for you and report the uplift.
-      </p>
-      <p className="mt-1 text-[11px] text-amber-700">{tone}</p>
-    </section>
   );
 }
 
@@ -1796,8 +1583,8 @@ function SlaCard({
   metrics: DashboardMetrics | null;
 }) {
   // Prefer "Completed Today" metrics for "On-time delivery" score
-  // Fallback to live orders (active) if metrics unavailable (though semantics differ)
-  const todayMetric = metrics?.slaPerformance?.[metrics.slaPerformance.length - 1];
+  const todayMetric =
+    metrics?.slaPerformance?.[metrics.slaPerformance.length - 1];
 
   let total = 0;
   let onTime = 0;
@@ -1805,22 +1592,18 @@ function SlaCard({
 
   if (todayMetric) {
     total = todayMetric.total;
-    onTime = todayMetric.compliance ? Math.round((todayMetric.compliance / 100) * total) : 0;
-    // Recalculate distinct compliant count if needed or trust compliance %
-    // The metric object we built has 'compliance', 'breached', 'total'.
-    // compliant = total - breached (if strictly binary).
-    // Let's deduce compliant from breached for integer precision.
     const breached = todayMetric.breached;
     onTime = Math.max(0, total - breached);
     pct = total > 0 ? Math.round((onTime / total) * 100) : 100;
   } else {
-    // Legacy/Fallback: Active tickets status
+    // Fallback: active orders as proxy
     total = orders.length;
     onTime = orders.filter((o) => ageMin(o.created_at) <= targetMin).length;
     pct = total ? Math.round((onTime / total) * 100) : 100;
   }
 
   const tone = slaTone(pct);
+
   return (
     <div className="rounded-xl border bg-white p-4 shadow-sm" id="sla">
       <SectionHeader
@@ -1829,17 +1612,16 @@ function SlaCard({
       />
       <div className="h-2 rounded-full bg-gray-100">
         <div
-          className={`h-2 rounded-full ${tone === "green"
-            ? "bg-emerald-500"
-            : tone === "amber"
-              ? "bg-amber-500"
-              : "bg-rose-500"
-            }`}
+          className={`h-2 rounded-full ${
+            tone === "green" ? "bg-emerald-500" : tone === "amber" ? "bg-amber-500" : "bg-rose-500"
+          }`}
           style={{ width: `${pct}%` }}
         />
       </div>
       <div className="mt-2 text-xs text-muted-foreground flex justify-between">
-        <span>{onTime}/{total} on time</span>
+        <span>
+          {onTime}/{total} on time
+        </span>
         <span>{pct}% score</span>
       </div>
 
@@ -1863,20 +1645,13 @@ function LiveOrdersPanel({
   className?: string;
 }) {
   return (
-    <div
-      className={`rounded-xl border bg-white p-4 shadow-sm ${className}`}
-      id="live-orders"
-    >
+    <div className={`rounded-xl border bg-white p-4 shadow-sm ${className}`} id="live-orders">
       <SectionHeader
         title="Live requests & orders"
         desc="What guests are asking for right now — jump in or assign to staff."
         action={
           <Link
-            to={
-              slug
-                ? `/ops?slug=${encodeURIComponent(slug)}`
-                : "/ops"
-            }
+            to={slug ? `/ops?slug=${encodeURIComponent(slug)}` : "/ops"}
             className="text-sm underline"
           >
             Open operations
@@ -1884,9 +1659,7 @@ function LiveOrdersPanel({
         }
       />
       {orders.length === 0 ? (
-        <div className="text-sm text-muted-foreground">
-          No live requests right now.
-        </div>
+        <div className="text-sm text-muted-foreground">No live requests right now.</div>
       ) : (
         <>
           <ul className="divide-y">
@@ -1894,22 +1667,14 @@ function LiveOrdersPanel({
               const mins = ageMin(o.created_at);
               const breach = mins > targetMin;
               return (
-                <li
-                  key={o.id}
-                  className="flex items-center justify-between py-1.5"
-                >
+                <li key={o.id} className="flex items-center justify-between py-1.5">
                   <div>
                     <div className="text-sm">
                       #{o.id.slice(0, 8)} · {o.status}
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      Age: {mins} min
-                    </div>
+                    <div className="text-xs text-muted-foreground">Age: {mins} min</div>
                   </div>
-                  <StatusBadge
-                    label={breach ? "SLA breach" : "On time"}
-                    tone={breach ? "red" : "green"}
-                  />
+                  <StatusBadge label={breach ? "SLA breach" : "On time"} tone={breach ? "red" : "green"} />
                 </li>
               );
             })}
@@ -1932,16 +1697,22 @@ function LiveOrdersPanel({
 }
 
 function AttentionServicesCard({ orders }: { orders: LiveOrder[] }) {
-  const newCount = orders.filter((o) => o.status === "open").length;
-  const inProgress = orders.filter((o) => o.status === "preparing").length;
-  const others = orders.length - newCount - inProgress;
+  const classify = (status: string) => {
+    const s = (status || "").toLowerCase();
+    const isNew = ["open", "new", "created", "requested"].some((k) => s.includes(k));
+    const isProgress = ["preparing", "in_progress", "accepted", "assigned", "working"].some((k) =>
+      s.includes(k)
+    );
+    return { isNew, isProgress };
+  };
+
+  const newCount = orders.filter((o) => classify(o.status).isNew).length;
+  const inProgress = orders.filter((o) => classify(o.status).isProgress).length;
+  const others = Math.max(0, orders.length - newCount - inProgress);
 
   return (
     <div className="rounded-xl border bg-white p-4 shadow-sm">
-      <SectionHeader
-        title="Services needing attention"
-        desc="Quick snapshot of today’s request load by status."
-      />
+      <SectionHeader title="Services needing attention" desc="Quick snapshot of today’s request load by status." />
       {orders.length === 0 ? (
         <div className="text-sm text-muted-foreground">
           We’ll show patterns here once more requests flow in.
@@ -1963,8 +1734,7 @@ function AttentionServicesCard({ orders }: { orders: LiveOrder[] }) {
         </ul>
       )}
       <p className="mt-2 text-[11px] text-muted-foreground">
-        In the next phase this will group by service type (in-room dining,
-        housekeeping, engineering, etc.).
+        In the next phase this will group by service type (in-room dining, housekeeping, engineering, etc.).
       </p>
     </div>
   );
@@ -1973,10 +1743,7 @@ function AttentionServicesCard({ orders }: { orders: LiveOrder[] }) {
 function StaffPerformancePanel({ data }: { data: StaffPerf[] | null }) {
   return (
     <div className="rounded-xl border bg-white p-3 shadow-sm">
-      <SectionHeader
-        title="Staff leaderboard"
-        desc="Staff members and their 30-day performance."
-      />
+      <SectionHeader title="Staff leaderboard" desc="Staff members and their 30-day performance." />
       {!data || data.length === 0 ? (
         <div className="text-sm text-muted-foreground">
           No staff members found. Add team members to see them here.
@@ -2001,10 +1768,11 @@ function StaffPerformancePanel({ data }: { data: StaffPerf[] | null }) {
                   <td className="py-1.5 pr-2">{r.tickets_completed}</td>
                   <td className="py-1.5 pr-2">{r.avg_completion_min ?? "—"}</td>
                   <td className="py-1.5">
-                    <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${r.is_online
-                      ? "bg-emerald-50 text-emerald-700"
-                      : "bg-slate-100 text-slate-500"
-                      }`}>
+                    <span
+                      className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                        r.is_online ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
                       {r.is_online ? "Active" : "Away"}
                     </span>
                   </td>
@@ -2012,11 +1780,7 @@ function StaffPerformancePanel({ data }: { data: StaffPerf[] | null }) {
               ))}
             </tbody>
           </table>
-          {data.length > 8 && (
-            <div className="mt-2 text-xs text-slate-500">
-              +{data.length - 8} more staff members
-            </div>
-          )}
+          {data.length > 8 && <div className="mt-2 text-xs text-slate-500">+{data.length - 8} more staff members</div>}
         </div>
       )}
     </div>
@@ -2032,22 +1796,19 @@ function HrmsPanel({ data, slug }: { data: HrmsSnapshot | null; slug: string }) 
           desc="Presence pattern over the last 30 days — spot gaps early."
           action={
             HAS_HRMS ? (
-              <Link
-                to={`/owner/${slug}/hrms`}
-                className="text-sm underline"
-              >
+              <Link to={`/owner/${slug}/hrms`} className="text-sm underline">
                 Open HRMS
               </Link>
             ) : null
           }
         />
         <div className="text-sm text-muted-foreground">
-          Not connected to HR yet. We’re using activity-based presence as a
-          proxy.
+          Not connected to HR yet. We’re using activity-based presence as a proxy.
         </div>
       </div>
     );
   }
+
   const {
     staff_total,
     present_today,
@@ -2057,6 +1818,7 @@ function HrmsPanel({ data, slug }: { data: HrmsSnapshot | null; slug: string }) 
     absences_7d,
     staff_with_absence_7d,
   } = data;
+
   return (
     <div className="rounded-xl border bg-white p-4 shadow-sm" id="attendance">
       <SectionHeader
@@ -2064,10 +1826,7 @@ function HrmsPanel({ data, slug }: { data: HrmsSnapshot | null; slug: string }) 
         desc="Presence pattern over the last 30 days — spot gaps early."
         action={
           HAS_HRMS ? (
-            <Link
-              to={`/owner/${slug}/hrms/attendance`}
-              className="text-sm underline"
-            >
+            <Link to={`/owner/${slug}/hrms/attendance`} className="text-sm underline">
               See details
             </Link>
           ) : null
@@ -2111,9 +1870,7 @@ function OwnerTasksPanel({
     tasks.push("Check top 5 services driving revenue today.");
   }
   if (HAS_WORKFORCE) {
-    tasks.push(
-      "Glance at open roles in Workforce to ensure staffing matches upcoming occupancy."
-    );
+    tasks.push("Glance at open roles in Workforce to ensure staffing matches upcoming occupancy.");
   }
   tasks.push("Review any open low-rating stays and close the loop.");
 
@@ -2124,17 +1881,11 @@ function OwnerTasksPanel({
         desc="2–3 nudges that keep the property ahead of the curve."
         action={
           <div className="flex items-center gap-3">
-            <Link
-              to="/owner"
-              className="text-xs underline text-slate-600"
-            >
+            <Link to="/owner" className="text-xs underline text-slate-600">
               Owner hub
             </Link>
             {HAS_WORKFORCE && (
-              <Link
-                to={`/owner/${slug}/workforce`}
-                className="text-xs underline text-emerald-700"
-              >
+              <Link to={`/owner/${slug}/workforce`} className="text-xs underline text-emerald-700">
                 Jobs &amp; hiring
               </Link>
             )}
@@ -2161,9 +1912,7 @@ function OwnerWorkforcePanel({
 }) {
   const hasFeature = HAS_WORKFORCE;
   const list = jobs ?? [];
-  const openJobs = list.filter((j) =>
-    (j.status || "open").toLowerCase().includes("open")
-  ).length;
+  const openJobs = list.filter((j) => (j.status || "open").toLowerCase().includes("open")).length;
 
   if (!hasFeature) {
     return (
@@ -2173,8 +1922,7 @@ function OwnerWorkforcePanel({
           desc="Once enabled, this shows open roles and local applicants for this property."
         />
         <div className="text-xs text-muted-foreground">
-          Workforce hiring beta is not enabled yet for this property. When
-          switched on, you’ll see open roles, applicants and shortlists here.
+          Workforce hiring beta is not enabled yet for this property. When switched on, you’ll see open roles, applicants and shortlists here.
         </div>
       </div>
     );
@@ -2186,10 +1934,7 @@ function OwnerWorkforcePanel({
         title="Local workforce (beta)"
         desc="Quick view of open roles and hiring load."
         action={
-          <Link
-            to={`/owner/${slug}/workforce`}
-            className="text-xs underline text-slate-600"
-          >
+          <Link to={`/owner/${slug}/workforce`} className="text-xs underline text-slate-600">
             Open Workforce
           </Link>
         }
@@ -2198,8 +1943,7 @@ function OwnerWorkforcePanel({
         <div className="text-xs text-muted-foreground">Loading roles…</div>
       ) : list.length === 0 ? (
         <div className="text-xs text-muted-foreground">
-          No active roles yet. Create your first role in Workforce to start
-          receiving nearby applicants.
+          No active roles yet. Create your first role in Workforce to start receiving nearby applicants.
         </div>
       ) : (
         <div className="space-y-2 text-xs text-slate-700">
@@ -2216,8 +1960,7 @@ function OwnerWorkforcePanel({
           <ul className="space-y-1">
             {list.slice(0, 3).map((j) => {
               const status = (j.status || "open").toLowerCase();
-              const isOpen =
-                status.includes("open") || status === "draft";
+              const isOpen = status.includes("open") || status === "draft";
               return (
                 <li
                   key={j.id}
@@ -2228,21 +1971,16 @@ function OwnerWorkforcePanel({
                       {j.title || j.department || "Role"}
                     </div>
                     <div className="text-[11px] text-slate-500">
-                      {(j.city || "").trim() || "Local"} ·{" "}
-                      {j.status || "Open"}
+                      {(j.city || "").trim() || "Local"} · {j.status || "Open"}
                     </div>
                   </div>
-                  <StatusBadge
-                    label={isOpen ? "Hiring" : "Closed"}
-                    tone={isOpen ? "green" : "grey"}
-                  />
+                  <StatusBadge label={isOpen ? "Hiring" : "Closed"} tone={isOpen ? "green" : "grey"} />
                 </li>
               );
             })}
           </ul>
           <p className="mt-1 text-[11px] text-muted-foreground">
-            Applicant counts and shortlisting actions will appear here in the
-            next update.
+            Applicant counts and shortlisting actions will appear here in the next update.
           </p>
         </div>
       )}
@@ -2286,11 +2024,7 @@ function AiOpsSection({
         }
         action={
           <Link
-            to={
-              slug
-                ? `/ops?slug=${encodeURIComponent(slug)}`
-                : "/ops"
-            }
+            to={slug ? `/ops?slug=${encodeURIComponent(slug)}` : "/ops"}
             className="text-[11px] underline text-slate-700"
           >
             Open ops view
@@ -2300,14 +2034,10 @@ function AiOpsSection({
       <div className="grid gap-4 md:grid-cols-5">
         <div className="space-y-2 text-xs text-slate-700 md:col-span-2">
           {loading ? (
-            <div className="text-xs text-slate-500">
-              Analyzing last 7 days of tickets…
-            </div>
+            <div className="text-xs text-slate-500">Analyzing last 7 days of tickets…</div>
           ) : hasPlan ? (
             <>
-              <div className="font-semibold text-slate-900">
-                Today’s suggested staffing bands
-              </div>
+              <div className="font-semibold text-slate-900">Today’s suggested staffing bands</div>
               <ul className="space-y-1">
                 {staffingPlan!.slice(0, 3).map((row) => (
                   <li
@@ -2315,38 +2045,27 @@ function AiOpsSection({
                     className="flex items-start justify-between gap-2 rounded-lg bg-slate-50 px-2 py-1"
                   >
                     <div>
-                      <div className="text-[11px] font-semibold text-slate-900">
-                        {row.department}
-                      </div>
+                      <div className="text-[11px] font-semibold text-slate-900">{row.department}</div>
                       <div className="text-[11px] text-slate-600">
-                        Recommend {row.recommended_count} staff (min{" "}
-                        {row.min_count}, max {row.max_count})
+                        Recommend {row.recommended_count} staff (min {row.min_count}, max {row.max_count})
                       </div>
-                      {row.reason && (
-                        <div className="mt-0.5 text-[10px] text-slate-500">
-                          {row.reason}
-                        </div>
-                      )}
+                      {row.reason && <div className="mt-0.5 text-[10px] text-slate-500">{row.reason}</div>}
                     </div>
                   </li>
                 ))}
               </ul>
               <p className="mt-2 text-[11px] text-slate-500">
-                These are soft suggestions only. Final rosters stay under your
-                HRMS / owner control.
+                These are soft suggestions only. Final rosters stay under your HRMS / owner control.
               </p>
             </>
           ) : (
             <div className="text-xs text-slate-600">
-              Once there’s enough recent ticket activity, this panel will
-              suggest headcount bands per department. For now, use your standard
-              roster and the HRMS attendance view.
+              Once there’s enough recent ticket activity, this panel will suggest headcount bands per department. For now, use your standard roster and the HRMS attendance view.
             </div>
           )}
           {HAS_FUNCS && hasHeatmap && (
             <p className="text-[11px] text-emerald-700">
-              Tip: Use this along with Ops board filters to smooth busy bands
-              before SLAs slip.
+              Tip: Use this along with Ops board filters to smooth busy bands before SLAs slip.
             </p>
           )}
         </div>
@@ -2376,20 +2095,14 @@ function AiOpsHeatmap({
       const zone = p.zone || "Other";
       const bucket = timeBucketFromISO(p.hour_bucket);
       if (!matrix[zone]) matrix[zone] = {};
-      matrix[zone][bucket] =
-        (matrix[zone][bucket] || 0) + (p.total_tickets ?? 0);
+      matrix[zone][bucket] = (matrix[zone][bucket] || 0) + (p.total_tickets ?? 0);
       zoneTotals[zone] = (zoneTotals[zone] || 0) + (p.total_tickets ?? 0);
     }
-    zones = Object.keys(zoneTotals).sort(
-      (a, b) => (zoneTotals[b] ?? 0) - (zoneTotals[a] ?? 0)
-    );
+    zones = Object.keys(zoneTotals).sort((a, b) => (zoneTotals[b] ?? 0) - (zoneTotals[a] ?? 0));
     zones = zones.slice(0, 4);
   } else {
-    // Fallback preview grid
     zones = ["Rooms", "F&B", "Front desk", "Engineering"];
-    for (const z of zones) {
-      matrix[z] = {};
-    }
+    for (const z of zones) matrix[z] = {};
   }
 
   let maxValue = 0;
@@ -2404,22 +2117,15 @@ function AiOpsHeatmap({
   return (
     <div className="space-y-2">
       <div className="text-[11px] text-slate-500">
-        {loading
-          ? "Analyzing last 7 days of requests…"
-          : "Darker cells ≈ more requests in that zone & time-band."}
+        {loading ? "Analyzing last 7 days of requests…" : "Darker cells ≈ more requests in that zone & time-band."}
       </div>
       <div className="overflow-x-auto rounded-xl border border-slate-100 bg-slate-50/60 p-2">
         <table className="w-full border-separate border-spacing-0 text-[11px]">
           <thead>
             <tr>
-              <th className="py-1 pr-2 text-left text-slate-500">
-                Zone / Time
-              </th>
+              <th className="py-1 pr-2 text-left text-slate-500">Zone / Time</th>
               {buckets.map((b) => (
-                <th
-                  key={b}
-                  className="px-1 py-1 text-center text-slate-500"
-                >
+                <th key={b} className="px-1 py-1 text-center text-slate-500">
                   {b}
                 </th>
               ))}
@@ -2455,8 +2161,7 @@ function AiOpsHeatmap({
         </table>
       </div>
       <p className="text-[11px] text-slate-500">
-        AI uses this pattern to suggest staffing and alert bands before SLAs
-        slip. Detailed board lives in Operations.
+        AI uses this pattern to suggest staffing and alert bands before SLAs slip. Detailed board lives in Operations.
       </p>
     </div>
   );
@@ -2474,10 +2179,7 @@ function OccupancyHeatmap({ title, desc }: { title: string; desc?: string }) {
         desc={desc}
         action={
           HAS_CALENDAR ? (
-            <Link
-              to="../bookings/calendar"
-              className="text-sm underline"
-            >
+            <Link to="../bookings/calendar" className="text-sm underline">
               Open calendar
             </Link>
           ) : null
@@ -2488,9 +2190,7 @@ function OccupancyHeatmap({ title, desc }: { title: string; desc?: string }) {
           <div
             key={i}
             className="aspect-square rounded-md bg-sky-50"
-            style={{
-              opacity: 0.6 + 0.4 * Math.sin((i % 7) / 7),
-            }}
+            style={{ opacity: 0.6 + 0.4 * Math.sin((i % 7) / 7) }}
             title="Occupancy placeholder"
           />
         ))}
@@ -2504,36 +2204,22 @@ function OccupancyHeatmap({ title, desc }: { title: string; desc?: string }) {
   );
 }
 
-function HousekeepingProgress({
-  slug,
-  readyPct,
-}: {
-  slug: string;
-  readyPct: number;
-}) {
+function HousekeepingProgress({ slug, readyPct }: { slug: string; readyPct: number }) {
   return (
     <div className="rounded-xl border bg-white p-4 shadow-sm" id="housekeeping">
       <SectionHeader
         title="Room readiness"
         desc="How many rooms are ready for check-in — and what’s blocking the rest."
         action={
-          <Link
-            to={`/owner/${slug}/housekeeping`}
-            className="text-sm underline"
-          >
+          <Link to={`/owner/${slug}/housekeeping`} className="text-sm underline">
             Open HK
           </Link>
         }
       />
       <div className="h-2 rounded-full bg-gray-100">
-        <div
-          className="h-2 rounded-full bg-emerald-500"
-          style={{ width: `${readyPct}%` }}
-        />
+        <div className="h-2 rounded-full bg-emerald-500" style={{ width: `${readyPct}%` }} />
       </div>
-      <div className="mt-2 text-xs text-muted-foreground">
-        {readyPct}% rooms ready
-      </div>
+      <div className="mt-2 text-xs text-muted-foreground">{readyPct}% rooms ready</div>
     </div>
   );
 }
@@ -2560,16 +2246,12 @@ function Board({
             <li key={s.id} className="rounded-lg border bg-slate-50 p-3 text-sm">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="font-medium">
-                    {s.room ? `Room ${s.room}` : "Unassigned room"}
-                  </div>
+                  <div className="font-medium">{s.room ? `Room ${s.room}` : "Unassigned room"}</div>
                   <div className="text-xs text-muted-foreground">
                     {fmt(s.check_in_start)} → {fmt(s.check_out_end)}
                   </div>
                 </div>
-                <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                  {s.status || "—"}
-                </div>
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">{s.status || "—"}</div>
               </div>
             </li>
           ))}
@@ -2579,52 +2261,13 @@ function Board({
   );
 }
 
-function TodayBottomStrip({
-  occPct,
-  hrms,
-}: {
-  occPct: number;
-  hrms: HrmsSnapshot | null;
-}) {
-  const staffingChip = hrms
-    ? `Front desk & teams at ${hrms.attendance_pct_today}% of planned strength.`
-    : "Staffing snapshot will appear once HRMS is connected.";
-  const riskChip =
-    occPct > 85
-      ? "High occupancy — watch SLAs & housekeeping turns."
-      : "Normal occupancy — focus on guest delight.";
-  const weatherChip =
-    "Weather: connect to local feed to see storms & flight delays.";
-
-  return (
-    <section className="rounded-2xl border border-slate-100 bg-white/90 px-4 py-3 shadow-sm">
-      <div className="flex flex-wrap gap-2 text-[11px] text-slate-700">
-        <Chip>{staffingChip}</Chip>
-        <Chip>{riskChip}</Chip>
-        <Chip>{weatherChip}</Chip>
-      </div>
-    </section>
-  );
-}
-
-function Chip({ children }: { children: ReactNode }) {
-  return (
-    <span className="rounded-full bg-slate-50 px-3 py-1 text-slate-700 ring-1 ring-slate-200">
-      {children}
-    </span>
-  );
-}
-
 function OwnerSupportFooter() {
   return (
     <div className="rounded-2xl border border-slate-100 bg-white px-4 py-4 shadow-sm flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <div className="font-medium text-slate-900">
-          Need help or want to improve results?
-        </div>
+        <div className="font-medium text-slate-900">Need help or want to improve results?</div>
         <div className="text-sm text-muted-foreground">
-          Our team can review your numbers and suggest quick wins tailored to
-          your property.
+          Our team can review your numbers and suggest quick wins tailored to your property.
         </div>
       </div>
       <a
@@ -2653,10 +2296,7 @@ function AccessHelp({
       <p className="mb-4 text-sm text-amber-900">{message}</p>
       <div className="flex flex-wrap gap-2">
         {hasValidSlug ? (
-          <Link
-            to={`/owner/access?slug=${encodeURIComponent(slug)}`}
-            className="btn"
-          >
+          <Link to={`/owner/access?slug=${encodeURIComponent(slug)}`} className="btn">
             Request Access
           </Link>
         ) : null}
@@ -2667,17 +2307,13 @@ function AccessHelp({
           Accept Invite
         </Link>
         {inviteToken ? (
-          <Link
-            to={`/invite/accept?code=${encodeURIComponent(inviteToken)}`}
-            className="btn btn-light"
-          >
+          <Link to={`/invite/accept?code=${encodeURIComponent(inviteToken)}`} className="btn btn-light">
             Accept via Code
           </Link>
         ) : null}
       </div>
       <p className="mt-3 text-xs text-amber-900">
-        Tip: If you received an email invite, open it on this device so we can
-        auto-fill your invite code.
+        Tip: If you received an email invite, open it on this device so we can auto-fill your invite code.
       </p>
     </div>
   );
@@ -2685,13 +2321,7 @@ function AccessHelp({
 
 /** ========= Action Drawer ========= */
 
-function ActionDrawer({
-  state,
-  onClose,
-}: {
-  state: DrawerState | null;
-  onClose: () => void;
-}) {
+function ActionDrawer({ state, onClose }: { state: DrawerState | null; onClose: () => void }) {
   if (!state) return null;
 
   let title = "";
@@ -2733,9 +2363,7 @@ function ActionDrawer({
             Close
           </button>
         </div>
-        <div className="flex-1 px-4 py-4 text-sm text-slate-700">
-          {body}
-        </div>
+        <div className="flex-1 px-4 py-4 text-sm text-slate-700">{body}</div>
       </div>
     </div>
   );
@@ -2747,11 +2375,18 @@ function fmt(ts: string | null) {
   const d = new Date(ts);
   return d.toLocaleString();
 }
-function nextDayISO(yyyy_mm_dd: string) {
-  const d = new Date(yyyy_mm_dd + "T00:00:00Z");
-  d.setUTCDate(d.getUTCDate() + 1);
-  return d.toISOString().slice(0, 10);
+
+function dayStartISO(yyyy_mm_dd: string) {
+  // UTC day boundary for consistent server comparisons
+  return `${yyyy_mm_dd}T00:00:00.000Z`;
 }
+
+function nextDayStartISO(yyyy_mm_dd: string) {
+  const d = new Date(`${yyyy_mm_dd}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString();
+}
+
 function timeBucketFromISO(iso: string): string {
   if (!iso) return "00–06";
   const d = new Date(iso);
@@ -2762,12 +2397,7 @@ function timeBucketFromISO(iso: string): string {
   if (h < 18) return "12–18";
   return "18–24";
 }
-function suggestedBump(occ: number) {
-  if (occ >= 90) return 1200;
-  if (occ >= 75) return 800;
-  if (occ >= 60) return 500;
-  return 300;
-}
+
 function ageMin(iso: string) {
   const ms = Date.now() - new Date(iso).getTime();
   return Math.max(0, Math.round(ms / 60000));

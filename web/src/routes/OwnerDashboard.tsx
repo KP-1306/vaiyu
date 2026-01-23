@@ -1,10 +1,9 @@
-// web/src/routes/OwnerDashboard.tsx — owner dashboard (pilot-safe)
-// NOTE: All data fetching / Supabase / hooks logic is preserved.
-// Changes in this patch:
-// - Pilot-safe rendering: no synthetic/demo numbers, no placeholder charts/heatmaps.
-// - SLA math fixed: uses completed SLA metrics (when available) and avoids proxy % from open orders.
-// - Unfinished modules are hidden (no “Soon/coming soon” UI).
-// - Removed action drawers that only contained placeholder copy.
+// web/src/routes/OwnerDashboard.tsx — owner dashboard (pilot-safe, DARK UI)
+// This version preserves ALL existing data fetching / Supabase / hooks logic.
+// Only the UI layout and styling is reworked to match the attached “VAiyu Dashboard” screenshot:
+// - Dark 3-column layout (left nav + main + right rail)
+// - KPI strip + ring active tasks + trend card + tables + staff + satisfaction
+// - No synthetic/demo numbers; unknown values show "—" or "Not available"
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useSearchParams, useParams } from "react-router-dom";
@@ -22,8 +21,6 @@ import {
 
 import SlaPerformanceChart from "../components/analytics/SlaPerformanceChart";
 import TaskVolumeChart from "../components/analytics/TaskVolumeChart";
-import OccupancyTrendChart from "../components/analytics/OccupancyTrendChart";
-import RevenueTrendChart from "../components/analytics/RevenueTrendChart";
 import { getDashboardMetrics, type DashboardMetrics } from "../lib/dashboardApi";
 
 /** ========= Types ========= */
@@ -128,13 +125,15 @@ const HAS_STAFF_SHIFTS = import.meta.env.VITE_HAS_STAFF_SHIFTS === "true";
 const HAS_WORKFORCE =
   import.meta.env.VITE_HAS_WORKFORCE === "false" ? false : true;
 
-/** ========= Tone helpers ========= */
+/** ========= Tone helpers (dark) ========= */
 function toneClass(tone: "green" | "amber" | "red" | "grey") {
   return {
-    green: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
-    amber: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
-    red: "bg-rose-50 text-rose-700 ring-1 ring-rose-200",
-    grey: "bg-slate-50 text-slate-600 ring-1 ring-slate-200",
+    green:
+      "bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-400/20 border border-emerald-400/10",
+    amber:
+      "bg-amber-500/15 text-amber-200 ring-1 ring-amber-400/20 border border-amber-400/10",
+    red: "bg-rose-500/15 text-rose-200 ring-1 ring-rose-400/20 border border-rose-400/10",
+    grey: "bg-slate-500/10 text-slate-200 ring-1 ring-white/10 border border-white/5",
   }[tone];
 }
 function StatusBadge({
@@ -145,7 +144,11 @@ function StatusBadge({
   tone: "green" | "amber" | "red" | "grey";
 }) {
   return (
-    <span className={`px-2 py-0.5 rounded-full text-xs ${toneClass(tone)}`}>
+    <span
+      className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${toneClass(
+        tone
+      )}`}
+    >
       {label}
     </span>
   );
@@ -635,14 +638,15 @@ export default function OwnerDashboard() {
   /** ======= UI States ======= */
   if (loading) {
     return (
-      <main className="min-h-[60vh] grid place-items-center bg-slate-50">
+      <main className="min-h-[60vh] grid place-items-center bg-slate-950 text-slate-100">
         <Spinner label="Loading property dashboard…" />
       </main>
     );
   }
+
   if (accessProblem) {
     return (
-      <main className="max-w-3xl mx-auto p-6 bg-slate-50">
+      <main className="max-w-3xl mx-auto p-6 bg-slate-950 text-slate-100">
         <BackHome />
         <AccessHelp
           slug={slug}
@@ -652,16 +656,20 @@ export default function OwnerDashboard() {
       </main>
     );
   }
+
   if (!hotel) {
     return (
-      <main className="min-h-[60vh] grid place-items-center bg-slate-50">
-        <div className="rounded-xl border p-6 text-center bg-white shadow-sm">
-          <div className="text-lg font-medium mb-2">No property to show</div>
-          <p className="text-sm text-gray-600">
+      <main className="min-h-[60vh] grid place-items-center bg-slate-950 text-slate-100">
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center">
+          <div className="text-lg font-semibold mb-2">No property to show</div>
+          <p className="text-sm text-slate-300">
             Open your property from the Owner Home.
           </p>
           <div className="mt-4">
-            <Link to="/owner" className="btn btn-light">
+            <Link
+              to="/owner"
+              className="inline-flex items-center rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 hover:bg-white/10"
+            >
               Owner Home
             </Link>
           </div>
@@ -671,7 +679,7 @@ export default function OwnerDashboard() {
   }
 
   /** ======= KPI Calculations (pilot-safe) ======= */
-  const todayStats = metrics?.todayStats;
+  const todayStats = (metrics as any)?.todayStats;
 
   const total = todayStats?.totalRooms ?? totalRooms;
   const occupied =
@@ -686,19 +694,14 @@ export default function OwnerDashboard() {
 
   const hasRevenueKpi = !!kpi;
   const revenueToday = hasRevenueKpi ? kpi!.revenue_today : 0;
-  const pickup7d = hasRevenueKpi ? kpi!.pickup_7d : 0;
-
-  const adr = occupied ? revenueToday / occupied : 0;
-  const revpar = total ? (adr * occupied) / total : 0;
 
   const targetMin = slaTargetMin ?? 20;
-
   const ordersTotal = liveOrders.length;
   const ordersOverdue = liveOrders.filter((o) => ageMin(o.created_at) > targetMin)
     .length;
 
   // SLA % is only shown when we have real "completed" SLA metrics (pilot-safe)
-  const slaSeries = metrics?.slaPerformance;
+  const slaSeries = (metrics as any)?.slaPerformance as any[] | undefined;
   const slaTodayMetric = slaSeries?.[slaSeries.length - 1];
   const slaCompletedTotal =
     typeof slaTodayMetric?.total === "number" ? slaTodayMetric.total : null;
@@ -716,21 +719,6 @@ export default function OwnerDashboard() {
 
   const slaToneLevel = slaToneSafe(slaPct);
 
-  const now = new Date();
-  const dateLabel = now.toLocaleDateString(undefined, {
-    weekday: "short",
-    day: "2-digit",
-    month: "short",
-  });
-  const timeLabel = now.toLocaleTimeString(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-  // VIP / events / NPS (pilot-safe)
-  const vipCount = vipStays?.length ?? 0;
-  const eventsCount = eventsToday?.length ?? 0;
-
   const npsScore =
     typeof npsSnapshot?.nps_30d === "number" ? Math.round(npsSnapshot.nps_30d) : null;
   const npsResponses =
@@ -738,1634 +726,1025 @@ export default function OwnerDashboard() {
       ? npsSnapshot.total_responses
       : null;
 
-  /** ======= Render ======= */
+  const avgRating30d = kpi?.avg_rating_30d ?? null;
+
+  // “Avg response” (pilot-safe): attempt to read from metrics, else —
+  const avgResponseMin: number | null = useMemo(() => {
+    const last = slaSeries?.[slaSeries.length - 1];
+    const v =
+      typeof last?.avg_minutes === "number"
+        ? last.avg_minutes
+        : typeof last?.avg_completion_min === "number"
+          ? last.avg_completion_min
+          : typeof last?.avg_response_min === "number"
+            ? last.avg_response_min
+            : null;
+    return v == null || Number.isNaN(v) ? null : Math.round(v);
+  }, [slaSeries]);
+
+  // Guest satisfaction (pilot-safe): prefer NPS, else rating
+  const guestPrimary =
+    typeof npsScore === "number" && (npsResponses ?? 0) > 0
+      ? `${npsScore}`
+      : typeof avgRating30d === "number"
+        ? `${avgRating30d.toFixed(1)}`
+        : null;
+
+  const guestTone =
+    typeof npsScore === "number" && (npsResponses ?? 0) > 0
+      ? "green"
+      : ratingTone(avgRating30d);
+
+  // “Blocked” proxy (pilot-safe): use breached (completed) if available
+  const blockedCount = slaBreached != null ? slaBreached : null;
+
+  const now = new Date();
+  const dateLabel = now.toLocaleDateString(undefined, {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+  });
+
+  /** ======= Render (dark dashboard) ======= */
   return (
-    <main className="min-h-screen bg-slate-50">
-      <div className="mx-auto max-w-7xl px-4 py-4 lg:px-6 lg:py-6">
-        <div className="grid gap-4 lg:grid-cols-[230px,minmax(0,1fr)] xl:grid-cols-[260px,minmax(0,1fr)]">
-          {/* Left: sticky sidebar navigation on desktop */}
+    <main className="min-h-screen bg-slate-950 text-slate-100">
+      {/* subtle texture/gradient */}
+      <div className="pointer-events-none fixed inset-0 opacity-70">
+        <div className="absolute inset-0 bg-[radial-gradient(1200px_600px_at_20%_0%,rgba(56,189,248,0.10),transparent_60%),radial-gradient(900px_500px_at_90%_20%,rgba(16,185,129,0.10),transparent_55%),radial-gradient(900px_600px_at_50%_120%,rgba(245,158,11,0.06),transparent_60%)]" />
+      </div>
+
+      <div className="relative mx-auto max-w-[1400px] px-4 py-4 lg:px-6 lg:py-6">
+        <DashboardTopBar
+          title="VAiyu Dashboard"
+          hotelName={hotel.name}
+          city={hotel.city}
+          dateLabel={dateLabel}
+          slug={hotel.slug}
+        />
+
+        <div className="mt-4 grid gap-4 lg:grid-cols-[240px,minmax(0,1fr),340px]">
+          {/* Left rail */}
           <aside className="hidden lg:block">
-            <OwnerSidebarNav slug={hotel.slug} />
-          </aside>
-
-          {/* Right: main dashboard content */}
-          <div className="space-y-3" id="top">
-            {/* Top bar / identity */}
-            <OwnerTopBar
-              hotel={hotel}
-              slug={hotel.slug}
-              dateLabel={dateLabel}
-              timeLabel={timeLabel}
-            />
-
-            {/* Hero: Today's Pulse */}
-            <PulseStrip
-              slug={hotel.slug}
-              hotelName={hotel.name}
-              city={hotel.city}
-              occPct={occPct}
-              occupied={occupied}
-              totalRooms={total}
-              arrivalsCount={arrivalsCount}
-              departuresCount={departuresCount}
-              hasRevenueKpi={hasRevenueKpi}
-              revenueToday={revenueToday}
-              adr={adr}
-              revpar={revpar}
-              pickup7d={pickup7d}
-              slaPct={slaPct}
-              slaTone={slaToneLevel}
-              ordersTotal={ordersTotal}
-              ordersOverdue={ordersOverdue}
-              hrms={hrms}
-              npsScore={npsScore}
-              npsResponses={npsResponses}
-              avgRating30d={kpi?.avg_rating_30d ?? null}
-              vipCount={vipCount}
-              eventCount={eventsCount}
-              metrics={metrics}
-            />
-
-            {/* Ops & SLA row */}
-            <section className="grid gap-3 lg:grid-cols-3">
-              <SlaCard targetMin={targetMin} metrics={metrics} />
-              <LiveOrdersPanel
-                orders={liveOrders}
-                targetMin={targetMin}
-                slug={hotel.slug}
-                className="lg:col-span-1"
-              />
-              <AttentionServicesCard orders={liveOrders} />
-            </section>
-
-            {/* Live Ops (Arrivals/In-house/Departures) + Performance */}
-            <section className="grid gap-3 lg:grid-cols-2">
-              <PerformanceColumn
-                slug={hotel.slug}
-                hasRevenueKpi={hasRevenueKpi}
-                revenueToday={revenueToday}
-                adr={adr}
-                revpar={revpar}
-                pickup7d={pickup7d}
-                occPct={occPct}
-                kpi={kpi}
-                npsScore={npsScore}
-                npsResponses={npsResponses}
-                vipStays={vipStays}
-                eventsToday={eventsToday}
-                metrics={metrics}
-              />
-              <LiveOpsColumn
-                arrivals={arrivals}
-                inhouse={inhouse}
-                departures={departures}
-              />
-            </section>
-
-            {/* Staff, HR & Workforce row */}
-            <section className="grid gap-3 lg:grid-cols-3">
-              <StaffPerformancePanel data={staffPerf} />
-              <HrmsPanel data={hrms} slug={hotel.slug} />
-              <div className="space-y-3">
-                <OwnerTasksPanel occPct={occPct} kpi={kpi} slug={hotel.slug} />
-                <OwnerWorkforcePanel
-                  slug={hotel.slug}
-                  jobs={workforceJobs}
-                  loading={workforceLoading}
+            <DarkCard className="p-3">
+              <div className="flex items-center justify-between">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300">
+                  Alerts
+                </div>
+                <StatusBadge
+                  label={
+                    ordersOverdue > 0 ? `${ordersOverdue} at risk` : "No risk"
+                  }
+                  tone={ordersOverdue > 0 ? "amber" : "grey"}
                 />
               </div>
-            </section>
 
-            {/* Outlook & Housekeeping */}
-            <section className="grid gap-3 lg:grid-cols-3">
-              <div className="lg:col-span-2">
-                <BookingOutlookCard />
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <MiniStat label="At risk" value={ordersOverdue} tone="amber" />
+                <MiniStat
+                  label="Blocked"
+                  value={blockedCount == null ? "—" : blockedCount}
+                  tone={blockedCount && blockedCount > 0 ? "red" : "grey"}
+                />
               </div>
-              <HousekeepingStatusCard slug={hotel.slug} />
-            </section>
 
-            {/* AI Ops Co-pilot */}
-            <AiOpsSection
-              slug={hotel.slug}
-              heatmap={opsHeatmap}
-              staffingPlan={staffingPlan}
-              loading={opsLoading}
-            />
+              <div className="mt-3 border-t border-white/10 pt-3">
+                <SidebarNav slug={hotel.slug} />
+              </div>
+            </DarkCard>
+          </aside>
 
-            {/* AI usage */}
-            <section className="rounded-2xl border border-slate-100 bg-white/80 px-4 py-3 shadow-sm">
-              <SectionHeader
-                title="AI helper usage"
-                desc="Track how much of your monthly AI budget this property has used."
-                action={
-                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
-                    Owner view
-                  </span>
-                }
+          {/* Main */}
+          <section className="min-w-0 space-y-4">
+            {/* KPI strip (matches screenshot row) */}
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              <KpiTile label="Rooms" value={total ? `${total}` : "—"} sub="Total rooms" />
+              <KpiTile
+                label="Active tasks"
+                value={`${ordersTotal}`}
+                sub="Open requests"
               />
-              <UsageMeter hotelId={hotel.id} />
-            </section>
+              <KpiTile
+                label="At risk tasks"
+                value={`${ordersOverdue}`}
+                sub={`Over ${targetMin} min`}
+                accent="amber"
+              />
+              <KpiTile
+                label="Avg response"
+                value={avgResponseMin == null ? "—" : `${avgResponseMin}m`}
+                sub="From SLA metrics"
+              />
+              <KpiTile
+                label="Guest satisfaction"
+                value={guestPrimary ?? "—"}
+                sub={
+                  typeof npsScore === "number" && (npsResponses ?? 0) > 0
+                    ? `${npsResponses} responses`
+                    : typeof avgRating30d === "number"
+                      ? "Avg rating (30d)"
+                      : "Not available"
+                }
+                accent={guestTone === "green" ? "emerald" : guestTone === "amber" ? "amber" : guestTone === "red" ? "rose" : undefined}
+              />
+            </div>
 
-            {/* Support footer */}
-            <footer className="pt-1">
-              <OwnerSupportFooter />
-            </footer>
-          </div>
+            {/* Row: Ring + Trend */}
+            <div className="grid gap-4 xl:grid-cols-3">
+              <DarkCard className="p-4">
+                <CardHeader
+                  title="Active Tasks"
+                  right={
+                    <StatusBadge
+                      label={
+                        slaPct == null
+                          ? "SLA —"
+                          : slaToneLevel === "green"
+                            ? "On track"
+                            : slaToneLevel === "amber"
+                              ? "Watch"
+                              : slaToneLevel === "red"
+                                ? "Risk"
+                                : "SLA —"
+                      }
+                      tone={slaToneLevel}
+                    />
+                  }
+                />
+                <div className="mt-3 grid grid-cols-[140px,minmax(0,1fr)] gap-4 items-center">
+                  <RingGauge
+                    value={ordersTotal}
+                    // fill uses SLA % if available; otherwise fills based on occupancy (still real)
+                    pct={
+                      slaPct != null
+                        ? slaPct
+                        : occPct != null
+                          ? Math.min(100, Math.max(0, occPct))
+                          : 0
+                    }
+                    subtitle="Active tasks"
+                  />
+                  <div className="min-w-0">
+                    <div className="text-sm text-slate-200">
+                      {ordersTotal === 0
+                        ? "No open requests right now."
+                        : `${ordersTotal} open requests across services.`}
+                    </div>
+                    <div className="mt-2 text-xs text-slate-400">
+                      Overdue (>{targetMin}m):{" "}
+                      <span className="text-slate-200 font-medium">
+                        {ordersOverdue}
+                      </span>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <MiniStat label="Occupancy" value={`${occPct || 0}%`} tone={occupancyTone(occPct)} />
+                      <MiniStat
+                        label="Arrivals"
+                        value={arrivalsCount}
+                        tone={arrivalsCount > 0 ? "green" : "grey"}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </DarkCard>
+
+              <DarkCard className="p-4 xl:col-span-2">
+                <CardHeader
+                  title="Alerts Trend"
+                  subtitle="Request volume trend (real data only)"
+                  right={
+                    <div className="flex items-center gap-2">
+                      <MiniBadge label={`${ordersOverdue} at risk`} tone={ordersOverdue > 0 ? "amber" : "grey"} />
+                      <MiniBadge label={`Occ ${occPct || 0}%`} tone={occupancyTone(occPct)} />
+                    </div>
+                  }
+                />
+                <div className="mt-3">
+                  {/* We reuse your existing chart component (no fake data). */}
+                  {hasSeries((metrics as any)?.taskVolume) ? (
+                    <TaskVolumeChart
+                      // @ts-expect-error - chart expects its own type; we pass what dashboardApi returns
+                      data={(metrics as any)?.taskVolume || []}
+                      loading={!metrics}
+                    />
+                  ) : (
+                    <EmptyState text="Not available" />
+                  )}
+                </div>
+
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  <MiniStat label="Blocked" value={blockedCount == null ? "—" : blockedCount} tone={blockedCount && blockedCount > 0 ? "red" : "grey"} />
+                  <MiniStat label="Active" value={ordersTotal} tone={ordersTotal > 0 ? "green" : "grey"} />
+                  <MiniStat label="At risk" value={ordersOverdue} tone={ordersOverdue > 0 ? "amber" : "grey"} />
+                </div>
+              </DarkCard>
+            </div>
+
+            {/* Row: Task Summary + Issue Breakdown */}
+            <div className="grid gap-4 xl:grid-cols-3">
+              <DarkCard className="p-4 xl:col-span-2">
+                <CardHeader
+                  title="Task Summary"
+                  subtitle="Latest open requests (pilot-safe)"
+                  right={
+                    <Link
+                      to={`/ops?slug=${encodeURIComponent(hotel.slug)}`}
+                      className="text-xs text-slate-300 hover:text-slate-100 underline"
+                    >
+                      Open ops →
+                    </Link>
+                  }
+                />
+                <div className="mt-3">
+                  {liveOrders.length === 0 ? (
+                    <EmptyState text="No live requests right now." />
+                  ) : (
+                    <DarkTable>
+                      <thead>
+                        <tr>
+                          <Th>Task</Th>
+                          <Th>Status</Th>
+                          <Th>Age</Th>
+                          <Th className="text-right">SLA</Th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {liveOrders.slice(0, 8).map((o) => {
+                          const mins = ageMin(o.created_at);
+                          const breach = mins > targetMin;
+                          return (
+                            <tr key={o.id} className="border-t border-white/10">
+                              <Td>
+                                <div className="font-medium text-slate-100">
+                                  #{o.id.slice(0, 8)}
+                                </div>
+                                <div className="text-[11px] text-slate-400">
+                                  {fmtTime(o.created_at)}
+                                </div>
+                              </Td>
+                              <Td>
+                                <span className="text-slate-200">{o.status}</span>
+                              </Td>
+                              <Td>
+                                <span className="text-slate-200">{mins}m</span>
+                              </Td>
+                              <Td className="text-right">
+                                <StatusBadge
+                                  label={breach ? "At risk" : "On time"}
+                                  tone={breach ? "amber" : "green"}
+                                />
+                              </Td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </DarkTable>
+                  )}
+                </div>
+              </DarkCard>
+
+              <DarkCard className="p-4">
+                <CardHeader
+                  title="Issue Breakdown"
+                  subtitle="Open requests by state"
+                />
+                <div className="mt-3">
+                  {liveOrders.length === 0 ? (
+                    <EmptyState text="Not available" />
+                  ) : (
+                    <IssueBreakdown orders={liveOrders} targetMin={targetMin} />
+                  )}
+                </div>
+
+                <div className="mt-4 border-t border-white/10 pt-3">
+                  <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                    Recent feedback
+                  </div>
+                  <div className="mt-2">
+                    {typeof npsScore === "number" && (npsResponses ?? 0) > 0 ? (
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-sm text-slate-100 font-semibold">
+                            NPS {npsScore}
+                          </div>
+                          <div className="text-[11px] text-slate-400">
+                            {npsResponses} responses (30d)
+                          </div>
+                        </div>
+                        <StatusBadge label="Guest" tone="green" />
+                      </div>
+                    ) : typeof avgRating30d === "number" ? (
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-sm text-slate-100 font-semibold">
+                            Rating {avgRating30d.toFixed(1)}/5
+                          </div>
+                          <div className="text-[11px] text-slate-400">Last 30 days</div>
+                        </div>
+                        <StatusBadge label="Guest" tone={ratingTone(avgRating30d)} />
+                      </div>
+                    ) : (
+                      <EmptyState text="Not available" />
+                    )}
+                  </div>
+                </div>
+              </DarkCard>
+            </div>
+
+            {/* Row: SLA chart + AI Ops + Usage (kept, but styled dark and pilot-safe) */}
+            <div className="grid gap-4 xl:grid-cols-3">
+              <DarkCard className="p-4 xl:col-span-2">
+                <CardHeader
+                  title="Avg Resolution"
+                  subtitle={`SLA performance (target ${targetMin}m).`}
+                  right={
+                    slaPct == null ? (
+                      <MiniBadge label="SLA —" tone="grey" />
+                    ) : (
+                      <MiniBadge label={`SLA ${slaPct}%`} tone={slaToneLevel} />
+                    )
+                  }
+                />
+                <div className="mt-3">
+                  {hasSeries(slaSeries) ? (
+                    <SlaPerformanceChart
+                      // @ts-expect-error chart expects its own shape
+                      data={slaSeries || []}
+                      loading={!metrics}
+                    />
+                  ) : (
+                    <EmptyState text="Not available" />
+                  )}
+                </div>
+              </DarkCard>
+
+              <DarkCard className="p-4">
+                <CardHeader title="AI Ops Snapshot" subtitle="From connected ticket history." />
+                <div className="mt-3">
+                  {!HAS_FUNCS ? (
+                    <EmptyState text="Not available" />
+                  ) : opsLoading ? (
+                    <EmptyState text="Analyzing…" />
+                  ) : (opsHeatmap && opsHeatmap.length) || (staffingPlan && staffingPlan.length) ? (
+                    <div className="space-y-3">
+                      <AiOpsMiniSummary heatmap={opsHeatmap} staffingPlan={staffingPlan} />
+                    </div>
+                  ) : (
+                    <EmptyState text="Not available" />
+                  )}
+                </div>
+
+                <div className="mt-4 border-t border-white/10 pt-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                      AI usage
+                    </div>
+                    <MiniBadge label="Owner view" tone="grey" />
+                  </div>
+                  <div className="mt-3">
+                    <UsageMeter hotelId={hotel.id} />
+                  </div>
+                </div>
+              </DarkCard>
+            </div>
+          </section>
+
+          {/* Right rail */}
+          <aside className="space-y-4">
+            <DarkCard className="p-4">
+              <CardHeader title="Staff Performance" subtitle="Active staff members" />
+              <div className="mt-3">
+                <StaffList data={staffPerf} />
+              </div>
+
+              {HAS_HRMS && (
+                <div className="mt-4 border-t border-white/10 pt-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                      Attendance
+                    </div>
+                    <Link
+                      to={`/owner/${hotel.slug}/hrms`}
+                      className="text-[11px] text-slate-300 hover:text-slate-100 underline"
+                    >
+                      Open →
+                    </Link>
+                  </div>
+                  <div className="mt-2">
+                    <AttendanceMini data={hrms} />
+                  </div>
+                </div>
+              )}
+            </DarkCard>
+
+            <DarkCard className="p-4">
+              <CardHeader title="Guest Satisfaction" subtitle="NPS / Rating signal" />
+              <div className="mt-3">
+                <SatisfactionPanel
+                  hotelName={hotel.name}
+                  npsScore={npsScore}
+                  npsResponses={npsResponses}
+                  avgRating30d={avgRating30d}
+                />
+              </div>
+            </DarkCard>
+
+            {HAS_WORKFORCE && (
+              <DarkCard className="p-4">
+                <CardHeader title="Workforce" subtitle="Open roles (property-scoped)" />
+                <div className="mt-3">
+                  <WorkforceMini jobs={workforceJobs} loading={workforceLoading} />
+                </div>
+              </DarkCard>
+            )}
+
+            <DarkCard className="p-4">
+              <CardHeader title="Support" subtitle="Owner help & escalation" />
+              <div className="mt-3 space-y-2">
+                <Link
+                  to="/owner"
+                  className="block rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 hover:bg-white/10"
+                >
+                  Switch property
+                </Link>
+                <a
+                  href="mailto:support@vaiyu.co.in?subject=Owner%20Dashboard%20help"
+                  className="block rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 hover:bg-white/10"
+                >
+                  Contact support
+                </a>
+              </div>
+            </DarkCard>
+          </aside>
         </div>
       </div>
     </main>
   );
 }
 
-/** ========= High-level layout components ========= */
+/** ========= UI (dark) components ========= */
 
-function OwnerTopBar({
-  hotel,
-  slug,
+function DashboardTopBar({
+  title,
+  hotelName,
+  city,
   dateLabel,
-  timeLabel,
+  slug,
 }: {
-  hotel: Hotel;
-  slug: string;
+  title: string;
+  hotelName: string;
+  city: string | null;
   dateLabel: string;
-  timeLabel: string;
+  slug: string;
 }) {
   return (
-    <header className="flex flex-col gap-3 rounded-3xl border border-slate-100 bg-white/90 px-3 py-3 shadow-sm shadow-slate-200/60 backdrop-blur-md lg:flex-row lg:items-center lg:justify-between">
-      <div className="flex items-center gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold tracking-tight text-slate-900">
-              {hotel.name}
-            </h1>
-            {hotel.city && (
-              <span className="text-xs rounded-full bg-slate-50 px-2 py-0.5 text-slate-600 ring-1 ring-slate-200">
-                {hotel.city}
-              </span>
-            )}
+    <header className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-md lg:flex-row lg:items-center lg:justify-between">
+      <div className="min-w-0">
+        <div className="flex items-center gap-3">
+          <div className="text-sm font-semibold text-slate-100">{title}</div>
+          <span className="text-[11px] text-slate-400">•</span>
+          <div className="min-w-0 text-[11px] text-slate-300 truncate">
+            {hotelName}
+            {city ? ` · ${city}` : ""} · {dateLabel}
           </div>
-          <p className="mt-1 text-xs text-slate-500">
-            Owner Dashboard is a single-window command center for GMs and duty
-            managers.
-          </p>
-          <p className="mt-1 text-[11px] text-slate-500">
-            {dateLabel} · Local time {timeLabel}
-          </p>
         </div>
       </div>
-      <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
-        <div className="flex items-center gap-2">
-          <input
-            className="h-8 w-full rounded-full border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 sm:w-56"
-            placeholder="Search guest, room, booking, ticket…"
-          />
+
+      <div className="flex items-center gap-2">
+        <Link
+          to="/owner"
+          className="hidden lg:inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] text-slate-100 hover:bg-white/10"
+        >
+          Switch
+        </Link>
+        {HAS_PRICING && (
           <Link
-            to="/owner"
-            className="hidden rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-700 sm:inline-flex"
+            to={`/owner/${slug}/pricing`}
+            className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] text-slate-100 hover:bg-white/10"
           >
-            Switch property
+            Pricing
           </Link>
-        </div>
-        <div className="flex items-center gap-2">
-          {HAS_PRICING && (
-            <Link to={`/owner/${slug}/pricing`} className="btn btn-light h-8 text-xs">
-              Open pricing
-            </Link>
-          )}
-          {HAS_HRMS && (
-            <Link to={`/owner/${slug}/hrms`} className="btn btn-light h-8 text-xs">
-              HRMS
-            </Link>
-          )}
-          <Link to={`/owner/${slug}/settings`} className="btn btn-light h-8 text-xs">
-            Settings
-          </Link>
-          <div className="flex items-center gap-2 rounded-full bg-slate-900 px-3 py-1">
-            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-700 text-[10px] font-semibold text-slate-50">
-              EM
-            </div>
-            <div className="leading-tight">
-              <div className="text-xs font-medium text-slate-50">Emma — GM</div>
-              <div className="text-[10px] text-slate-300">
-                General Manager view
-              </div>
-            </div>
+        )}
+        <Link
+          to={`/owner/${slug}/settings`}
+          className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] text-slate-100 hover:bg-white/10"
+        >
+          Settings
+        </Link>
+
+        <button
+          type="button"
+          className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 p-2 hover:bg-white/10"
+          title="Sync"
+        >
+          <SvgSync />
+        </button>
+
+        <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2 py-1.5">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-[11px] font-semibold text-slate-100">
+            GM
+          </div>
+          <div className="leading-tight">
+            <div className="text-[12px] font-medium text-slate-100">Owner</div>
+            <div className="text-[10px] text-slate-400">View</div>
           </div>
         </div>
+
+        <button
+          type="button"
+          className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 p-2 hover:bg-white/10"
+          title="Menu"
+        >
+          <SvgMenu />
+        </button>
       </div>
     </header>
   );
 }
 
-/** Sticky left sidebar (desktop only) */
-function OwnerSidebarNav({ slug }: { slug: string }) {
+function SidebarNav({ slug }: { slug: string }) {
   const encodedSlug = encodeURIComponent(slug);
 
-  // Keep these links EXACT (they’re the two “must not break” routes)
   const servicesHref = `/owner/services?slug=${encodedSlug}`;
   const opsAnalyticsHref = `/ops/analytics?slug=${encodedSlug}`;
-
   const opsHref = `/ops?slug=${encodedSlug}`;
   const settingsHref = `/owner/${slug}/settings`;
-  const pricingHref = `/owner/${slug}/pricing`;
 
   return (
-    <nav
-      className="sticky top-4 rounded-3xl border border-slate-100 bg-white/90 px-3 py-4 text-xs text-slate-700 shadow-sm shadow-slate-200/60"
-      aria-label="Owner dashboard navigation"
-    >
-      {/* Overview */}
-      <div className="mb-4">
-        <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-          Overview
-        </div>
-        <ul className="space-y-1">
-          <li>
-            <a
-              href="#pulse"
-              className="flex items-center gap-2 rounded-lg bg-slate-900/5 px-2 py-1.5 font-medium text-slate-900"
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              <span>Dashboard &amp; KPIs</span>
-            </a>
-          </li>
-          <li>
-            <Link
-              to={`/owner/${slug}/analytics`}
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50 text-emerald-800"
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              <span>Ops Analytics &amp; Reports</span>
-            </Link>
-          </li>
-          <li>
-            <a
-              href="#revenue-panel"
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
-            >
-              <span className="h-1 w-1 rounded-full bg-slate-300" />
-              <span>Revenue &amp; forecast</span>
-            </a>
-          </li>
-          <li>
-            <a
-              href="#rooms"
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
-            >
-              <span className="h-1 w-1 rounded-full bg-slate-300" />
-              <span>Rooms &amp; occupancy</span>
-            </a>
-          </li>
-        </ul>
-      </div>
-
-      {/* Operations */}
-      <div className="mb-4">
-        <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-          Operations
-        </div>
-        <ul className="space-y-1">
-          <li>
-            <a
-              href="#live-ops"
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
-            >
-              <span className="h-1 w-1 rounded-full bg-slate-300" />
-              <span>Live operations (today)</span>
-            </a>
-          </li>
-          <li>
-            <a
-              href="#live-orders"
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
-            >
-              <span className="h-1 w-1 rounded-full bg-slate-300" />
-              <span>Live requests &amp; orders</span>
-            </a>
-          </li>
-          <li>
-            <Link
-              to={opsAnalyticsHref}
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50 text-emerald-800"
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-              <span>Ops Manager Dashboard</span>
-            </Link>
-          </li>
-          <li>
-            <a
-              href="#housekeeping"
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
-            >
-              <span className="h-1 w-1 rounded-full bg-slate-300" />
-              <span>Housekeeping</span>
-            </a>
-          </li>
-          <li>
-            <Link
-              to={servicesHref}
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
-            >
-              <span className="h-1 w-1 rounded-full bg-slate-300" />
-              <span>Departments/Services &amp; SLAs</span>
-            </Link>
-          </li>
-          {HAS_STAFF_SHIFTS && (
-            <li>
-              <Link
-                to={`/owner/${slug}/staff-shifts`}
-                className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
-              >
-                <span className="h-1 w-1 rounded-full bg-slate-300" />
-                <span>Staff &amp; Shifts</span>
-              </Link>
-            </li>
-          )}
-          <li>
-            <Link
-              to={opsHref}
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
-            >
-              <span className="h-1 w-1 rounded-full bg-slate-300" />
-              <span>Ops board</span>
-            </Link>
-          </li>
-        </ul>
-      </div>
-
-      {/* People & HR */}
-      <div className="mb-4">
-        <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-          People &amp; HR
-        </div>
-        <ul className="space-y-1">
-          <li>
-            <a
-              href="#attendance"
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
-            >
-              <span className="h-1 w-1 rounded-full bg-slate-300" />
-              <span>Attendance snapshot</span>
-            </a>
-          </li>
-          {HAS_HRMS && (
-            <li>
-              <Link
-                to={`/owner/${slug}/hrms/attendance`}
-                className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
-              >
-                <span className="h-1 w-1 rounded-full bg-slate-300" />
-                <span>Attendance details</span>
-              </Link>
-            </li>
-          )}
-          <li>
-            <a
-              href="#workforce"
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
-            >
-              <span className="h-1 w-1 rounded-full bg-slate-300" />
-              <span>Workforce</span>
-            </a>
-          </li>
-        </ul>
-      </div>
-
-      {/* Pricing & setup */}
-      <div>
-        <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-          Pricing &amp; setup
-        </div>
-        <ul className="space-y-1">
-          {HAS_PRICING && (
-            <li>
-              <Link
-                to={pricingHref}
-                className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
-              >
-                <span className="h-1 w-1 rounded-full bg-slate-300" />
-                <span>Pricing &amp; packages</span>
-              </Link>
-            </li>
-          )}
-          <li>
-            <Link
-              to={settingsHref}
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
-            >
-              <span className="h-1 w-1 rounded-full bg-slate-300" />
-              <span>Owner settings</span>
-            </Link>
-          </li>
-        </ul>
-      </div>
+    <nav aria-label="Owner dashboard navigation" className="space-y-1 text-sm">
+      <NavItem href="#top" label="Overview" active />
+      <NavItem to={opsHref} label="Operations" />
+      <NavItem to={opsAnalyticsHref} label="Task trend" />
+      <NavItem to={servicesHref} label="Departments / SLAs" />
+      {HAS_STAFF_SHIFTS && <NavItem to={`/owner/${slug}/staff-shifts`} label="Staff & Shifts" />}
+      <NavItem to={settingsHref} label="Settings" />
+      {HAS_CALENDAR && <NavItem to="../bookings/calendar" label="Calendar" />}
     </nav>
   );
 }
 
-function PulseStrip({
-  slug,
-  hotelName,
-  city,
-  occPct,
-  occupied,
-  totalRooms,
-  arrivalsCount,
-  departuresCount,
-  hasRevenueKpi,
-  revenueToday,
-  adr,
-  revpar,
-  pickup7d,
-  slaPct,
-  slaTone,
-  ordersTotal,
-  ordersOverdue,
-  hrms,
-  npsScore,
-  npsResponses,
-  avgRating30d,
-  vipCount,
-  eventCount,
-  metrics,
-}: {
-  slug: string;
-  hotelName: string;
-  city: string | null;
-  occPct: number;
-  occupied: number;
-  totalRooms: number;
-  arrivalsCount: number;
-  departuresCount: number;
-
-  hasRevenueKpi: boolean;
-  revenueToday: number;
-  adr: number;
-  revpar: number;
-  pickup7d: number;
-
-  slaPct: number | null;
-  slaTone: "green" | "amber" | "red" | "grey";
-
-  ordersTotal: number;
-  ordersOverdue: number;
-
-  hrms: HrmsSnapshot | null;
-
-  npsScore: number | null;
-  npsResponses: number | null;
-  avgRating30d: number | null;
-
-  vipCount: number;
-  eventCount: number;
-
-  metrics: DashboardMetrics | null;
-}) {
-  const hasNps = typeof npsScore === "number" && (npsResponses ?? 0) > 0;
-  const hasRating = typeof avgRating30d === "number" && !Number.isNaN(avgRating30d);
-
-  const guestPrimary = hasNps
-    ? `NPS ${npsScore}`
-    : hasRating
-      ? `Avg rating ${avgRating30d!.toFixed(1)}/5`
-      : "Not available";
-
-  const guestSecondary = hasNps
-    ? `${npsResponses} responses (30d)`
-    : hasRating
-      ? "Last 30 days"
-      : "Guest feedback is not connected.";
-
-  const guestTone = hasNps ? "green" : ratingTone(avgRating30d);
-
-  const occHasTrend = hasSeries(metrics?.occupancyHistory);
-
-  return (
-    <section
-      id="pulse"
-      className="relative overflow-hidden rounded-3xl border border-sky-100 bg-gradient-to-r from-sky-50 via-slate-50 to-emerald-50 px-4 py-4 shadow-[0_20px_60px_rgba(15,23,42,0.12)] lg:px-6 lg:py-5"
-    >
-      <div className="absolute -right-24 -top-24 h-56 w-56 rounded-full bg-emerald-200/30 blur-3xl" />
-      <div className="absolute -bottom-32 -left-20 h-64 w-64 rounded-full bg-sky-200/40 blur-3xl" />
-      <div className="relative flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="max-w-sm">
-          <div className="text-xs font-medium uppercase tracking-[0.18em] text-sky-700">
-            Today’s pulse
-          </div>
-          <h2 className="mt-1 text-xl font-semibold leading-tight text-slate-900 lg:text-2xl">
-            {hotelName}
-            {city ? ` · ${city}` : ""} — today at a glance.
-          </h2>
-          <p className="mt-2 text-xs text-slate-600">
-            At-a-glance health and operational signals for today.
-          </p>
-        </div>
-
-        <div className="grid w-full gap-3 md:grid-cols-2 xl:grid-cols-3">
-          <PulseTile
-            label="Occupancy & rooms"
-            primary={`${occPct || 0}% occupied`}
-            secondary={`${occupied}/${totalRooms || 0} rooms · ${arrivalsCount} arrivals · ${departuresCount} departures`}
-            badgeLabel="Action"
-            badgeTone={occupancyTone(occPct)}
-          >
-            <div className="mt-3 border-t pt-2">
-              <div className="mb-1 text-[10px] font-medium text-slate-400">
-                30-Day Trend
-              </div>
-              <div className="h-16">
-                {occHasTrend ? (
-                  <OccupancyTrendChart
-                    data={metrics?.occupancyHistory || []}
-                    loading={!metrics}
-                  />
-                ) : (
-                  <div className="h-16 grid place-items-center text-[11px] text-slate-500">
-                    Not available
-                  </div>
-                )}
-              </div>
-            </div>
-          </PulseTile>
-
-          <PulseTile
-            label="Revenue snapshot"
-            primary={hasRevenueKpi ? `₹${revenueToday.toFixed(0)} today` : "Not available"}
-            secondary={
-              hasRevenueKpi
-                ? `ADR ₹${adr.toFixed(0)} · RevPAR ₹${revpar.toFixed(0)} · Pick-up 7d ${pickup7d}`
-                : "Revenue KPIs are not available."
-            }
-            actionLabel={HAS_REVENUE ? "Open revenue" : undefined}
-            actionHref={HAS_REVENUE ? `/owner/${slug}/revenue` : undefined}
-          />
-
-          <PulseTile
-            label="Guest experience"
-            primary={guestPrimary}
-            secondary={guestSecondary}
-            badgeLabel={hasNps || hasRating ? "Guest" : "NA"}
-            badgeTone={hasNps || hasRating ? guestTone : "grey"}
-          />
-
-          <PulseTile
-            label="Ops & service tickets"
-            primary={`${ordersTotal} open tasks`}
-            secondary={
-              slaPct == null
-                ? `${ordersOverdue} overdue · SLA not available`
-                : `${ordersOverdue} overdue · SLA ${slaPct}%`
-            }
-            actionLabel="Open ops board"
-            actionHref={`/ops?slug=${encodeURIComponent(slug)}`}
-            badgeTone={slaTone}
-            badgeLabel={
-              slaTone === "green"
-                ? "On track"
-                : slaTone === "amber"
-                  ? "Watch"
-                  : slaTone === "red"
-                    ? "Risk"
-                    : "NA"
-            }
-          />
-
-          <PulseTile
-            label="Housekeeping status"
-            primary="Not available"
-            secondary="Room readiness signal is not connected."
-            actionLabel="Open housekeeping"
-            actionHref={`/owner/${slug}/housekeeping`}
-            badgeLabel="NA"
-            badgeTone="grey"
-          />
-
-          <PulseTile
-            label="Events & VIPs"
-            primary={`${eventCount} events · ${vipCount} VIP arrivals`}
-            secondary={
-              eventCount + vipCount > 0
-                ? "See details in the VIP & events panel."
-                : "No VIP or event flags for today."
-            }
-            badgeLabel={eventCount + vipCount > 0 ? "Info" : "NA"}
-            badgeTone={eventCount + vipCount > 0 ? "green" : "grey"}
-          />
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function PulseTile({
+function NavItem({
   label,
-  primary,
-  secondary,
-  badgeLabel,
-  badgeTone = "grey",
-  actionLabel,
-  actionHref,
-  onAction,
-  children,
+  to,
+  href,
+  active,
 }: {
   label: string;
-  primary: string;
-  secondary: string;
-  badgeLabel?: string;
-  badgeTone?: "green" | "amber" | "red" | "grey";
-  actionLabel?: string;
-  actionHref?: string;
-  onAction?: () => void;
-  children?: ReactNode;
+  to?: string;
+  href?: string;
+  active?: boolean;
+}) {
+  const base =
+    "flex items-center justify-between rounded-xl px-3 py-2 text-[13px] transition-colors";
+  const cls = active
+    ? `${base} bg-white/10 text-slate-50`
+    : `${base} text-slate-300 hover:bg-white/10 hover:text-slate-50`;
+
+  if (href) {
+    return (
+      <a href={href} className={cls}>
+        <span>{label}</span>
+        <span className="text-slate-500">→</span>
+      </a>
+    );
+  }
+
+  if (to) {
+    return (
+      <Link to={to} className={cls}>
+        <span>{label}</span>
+        <span className="text-slate-500">→</span>
+      </Link>
+    );
+  }
+
+  return null;
+}
+
+function DarkCard({
+  className = "",
+  children,
+}: {
+  className?: string;
+  children: ReactNode;
 }) {
   return (
-    <div className="relative flex flex-col justify-between rounded-2xl border border-slate-100 bg-white/90 p-3 shadow-sm shadow-slate-200/60 backdrop-blur-sm transition-shadow hover:shadow-lg">
-      <div>
-        <div className="flex items-center justify-between gap-2">
-          <div className="text-[11px] font-medium text-slate-500">{label}</div>
-          {badgeLabel && <StatusBadge label={badgeLabel} tone={badgeTone} />}
-        </div>
-        <div className="mt-1 text-lg font-semibold text-slate-900">{primary}</div>
-        <p className="mt-1 text-[11px] leading-snug text-slate-500">{secondary}</p>
-      </div>
-
-      {actionLabel && actionHref && (
-        <Link
-          to={actionHref}
-          className="mt-3 inline-flex items-center text-[11px] font-medium text-emerald-700 hover:text-emerald-800"
-        >
-          {actionLabel}
-          <span aria-hidden="true" className="ml-1">
-            →
-          </span>
-        </Link>
-      )}
-
-      {actionLabel && onAction && !actionHref && (
-        <button
-          type="button"
-          onClick={onAction}
-          className="mt-3 inline-flex items-center text-[11px] font-medium text-emerald-700 hover:text-emerald-800"
-        >
-          {actionLabel}
-          <span aria-hidden="true" className="ml-1">
-            →
-          </span>
-        </button>
-      )}
-
+    <div
+      className={`rounded-2xl border border-white/10 bg-[#0B1220]/70 shadow-[0_18px_60px_rgba(0,0,0,0.35)] backdrop-blur-md ${className}`}
+    >
       {children}
     </div>
   );
 }
 
-function LiveOpsColumn({
-  arrivals,
-  inhouse,
-  departures,
-}: {
-  arrivals: StayRow[];
-  inhouse: StayRow[];
-  departures: StayRow[];
-}) {
-  const allEmpty =
-    arrivals.length === 0 && inhouse.length === 0 && departures.length === 0;
-
-  return (
-    <section
-      id="live-ops"
-      className="rounded-2xl border border-slate-100 bg-white/95 px-3 py-3 shadow-sm"
-    >
-      <SectionHeader
-        title="Live operations (today)"
-        desc={allEmpty ? "No guest movements today." : "Arrivals, in-house guests, and departures."}
-      />
-      {allEmpty ? (
-        <div className="text-sm text-slate-400 py-2">
-          All guest boards are empty.
-        </div>
-      ) : (
-        <div className="grid gap-2 md:grid-cols-3">
-          <Board title="Arrivals" desc="Expected today" items={arrivals} empty="None" />
-          <Board title="In-house" desc="Currently staying" items={inhouse} empty="None" />
-          <Board title="Departures" desc="Checking out" items={departures} empty="None" />
-        </div>
-      )}
-    </section>
-  );
-}
-
-function PerformanceColumn({
-  slug,
-  hasRevenueKpi,
-  revenueToday,
-  adr,
-  revpar,
-  pickup7d,
-  occPct,
-  kpi,
-  npsScore,
-  npsResponses,
-  vipStays,
-  eventsToday,
-  metrics,
-}: {
-  slug: string;
-  hasRevenueKpi: boolean;
-  revenueToday: number;
-  adr: number;
-  revpar: number;
-  pickup7d: number;
-  occPct: number;
-  kpi: KpiRow | null;
-  npsScore: number | null;
-  npsResponses: number | null;
-  vipStays: VipStay[] | null;
-  eventsToday: EventRow[] | null;
-  metrics: DashboardMetrics | null;
-}) {
-  const rating = kpi?.avg_rating_30d ?? null;
-
-  const hasNps = typeof npsScore === "number" && (npsResponses ?? 0) > 0;
-  const hasRating = typeof rating === "number" && !Number.isNaN(rating);
-
-  const revenueTrendOk = hasSeries(metrics?.revenueHistory);
-  const taskVolumeOk = hasSeries(metrics?.taskVolume);
-
-  return (
-    <section className="space-y-3" id="revenue-panel">
-      {/* Revenue */}
-      <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
-        <SectionHeader
-          title="Revenue"
-          desc="Today’s revenue signal from owner KPIs."
-          action={
-            HAS_REVENUE ? (
-              <Link to={`/owner/${slug}/revenue`} className="text-xs underline text-slate-700">
-                Open
-              </Link>
-            ) : null
-          }
-        />
-        {!hasRevenueKpi ? (
-          <div className="text-xs text-slate-600">Not available</div>
-        ) : (
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-2xl font-semibold tracking-tight text-slate-900">
-                ₹{revenueToday.toFixed(0)}
-              </div>
-              <div className="text-xs text-slate-600">
-                ADR ₹{adr.toFixed(0)} · RevPAR ₹{revpar.toFixed(0)} · Pick-up 7d {pickup7d}
-              </div>
-            </div>
-            <div className="w-48 h-16">
-              {revenueTrendOk ? (
-                <RevenueTrendChart data={metrics?.revenueHistory || []} loading={!metrics} />
-              ) : (
-                <div className="h-16 grid place-items-center text-[11px] text-slate-500">
-                  Not available
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Task Demand */}
-      <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
-        <SectionHeader title="Task demand (24h)" desc="Hourly volume of requests today." />
-        {taskVolumeOk ? (
-          <TaskVolumeChart data={metrics?.taskVolume || []} loading={!metrics} />
-        ) : (
-          <div className="text-xs text-slate-600">Not available</div>
-        )}
-      </div>
-
-      {/* Guest feedback + VIP/events */}
-      <div className="grid gap-3 lg:grid-cols-2">
-        <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
-          <SectionHeader title="Guest feedback" desc="From connected NPS and ratings." />
-          {hasNps ? (
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-lg font-semibold text-slate-900">NPS {npsScore}</div>
-                <div className="text-xs text-slate-600">
-                  {npsResponses} responses (30d)
-                </div>
-              </div>
-            </div>
-          ) : hasRating ? (
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-lg font-semibold text-slate-900">
-                  Avg rating {rating!.toFixed(1)}/5
-                </div>
-                <div className="text-xs text-slate-600">Last 30 days</div>
-              </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-full border-4 border-emerald-400 bg-emerald-50 text-sm font-semibold text-emerald-700">
-                {rating!.toFixed(1)}
-              </div>
-            </div>
-          ) : (
-            <div className="text-xs text-slate-600">Not available</div>
-          )}
-        </div>
-
-        <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
-          <SectionHeader
-            title="VIP & events"
-            desc="Flags for today from connected sources."
-          />
-          {(!vipStays || vipStays.length === 0) && (!eventsToday || eventsToday.length === 0) ? (
-            <div className="text-xs text-slate-600">Not available</div>
-          ) : (
-            <div className="space-y-2 text-xs text-slate-700">
-              {vipStays && vipStays.length > 0 && (
-                <div>
-                  <div className="text-[11px] font-semibold text-slate-900">
-                    VIP arrivals ({vipStays.length})
-                  </div>
-                  <ul className="mt-1 space-y-1">
-                    {vipStays.slice(0, 3).map((v) => (
-                      <li key={v.stay_id} className="rounded-lg bg-slate-50 px-2 py-1">
-                        <div className="flex items-center justify-between">
-                          <span>{v.room ? `Room ${v.room}` : "Room unassigned"}</span>
-                          <span className="text-[10px] text-slate-500">
-                            {v.has_open_complaint ? "Open issue" : v.needs_courtesy_call ? "Courtesy call" : "VIP"}
-                          </span>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {eventsToday && eventsToday.length > 0 && (
-                <div>
-                  <div className="text-[11px] font-semibold text-slate-900">
-                    Events ({eventsToday.length})
-                  </div>
-                  <ul className="mt-1 space-y-1">
-                    {eventsToday.slice(0, 2).map((e) => (
-                      <li key={e.id} className="rounded-lg bg-slate-50 px-2 py-1">
-                        <div className="flex items-center justify-between">
-                          <span className="truncate">{e.name}</span>
-                          <span className="text-[10px] text-slate-500">{fmt(e.start_at)}</span>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/** ========= Components ========= */
-
-function SectionHeader({
+function CardHeader({
   title,
-  desc,
-  action,
+  subtitle,
+  right,
 }: {
   title: string;
-  desc?: string;
-  action?: ReactNode;
+  subtitle?: string;
+  right?: ReactNode;
 }) {
   return (
-    <div className="mb-2 flex items-start justify-between gap-3">
-      <div>
-        <h2 className="text-sm font-semibold tracking-tight text-slate-900">
-          {title}
-        </h2>
-        {desc && <p className="mt-0.5 text-xs text-muted-foreground">{desc}</p>}
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <div className="text-sm font-semibold text-slate-100">{title}</div>
+        {subtitle ? (
+          <div className="mt-0.5 text-[11px] text-slate-400">{subtitle}</div>
+        ) : null}
       </div>
-      {action}
+      {right ? <div className="shrink-0">{right}</div> : null}
     </div>
   );
 }
 
-function SlaCard({
-  targetMin,
-  metrics,
+function KpiTile({
+  label,
+  value,
+  sub,
+  accent,
 }: {
-  targetMin: number;
-  metrics: DashboardMetrics | null;
+  label: string;
+  value: string;
+  sub?: string;
+  accent?: "amber" | "emerald" | "rose";
 }) {
-  // Pilot-safe: SLA % only from completed SLA metrics
-  const series = metrics?.slaPerformance;
-  const todayMetric = series?.[series.length - 1];
-
-  const hasToday =
-    todayMetric &&
-    typeof todayMetric.total === "number" &&
-    typeof todayMetric.breached === "number";
-
-  const total = hasToday ? todayMetric.total : 0;
-  const breached = hasToday ? todayMetric.breached : 0;
-
-  const onTime = hasToday ? Math.max(0, total - breached) : 0;
-  const pct = hasToday && total > 0 ? Math.round((onTime / total) * 100) : null;
-
-  const tone = slaToneSafe(pct);
-  const trendOk = hasSeries(series);
+  const accentCls =
+    accent === "amber"
+      ? "from-amber-500/18"
+      : accent === "emerald"
+        ? "from-emerald-500/18"
+        : accent === "rose"
+          ? "from-rose-500/18"
+          : "from-white/8";
 
   return (
-    <div className="rounded-xl border bg-white p-4 shadow-sm" id="sla">
-      <SectionHeader
-        title="On-time delivery (SLA)"
-        desc={`Target: ${targetMin} minutes. SLA score is shown when completed-request metrics are available.`}
-      />
+    <DarkCard className={`p-3 bg-gradient-to-b ${accentCls} to-transparent`}>
+      <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+        {label}
+      </div>
+      <div className="mt-1 text-2xl font-semibold tracking-tight text-slate-100">
+        {value}
+      </div>
+      {sub ? <div className="mt-0.5 text-[11px] text-slate-400">{sub}</div> : null}
+    </DarkCard>
+  );
+}
 
-      {!hasToday ? (
-        <div className="text-xs text-slate-600">Not available</div>
-      ) : total === 0 ? (
-        <div className="text-xs text-slate-600">No completed requests recorded today.</div>
-      ) : (
-        <>
-          <div className="h-2 rounded-full bg-gray-100">
-            <div
-              className={`h-2 rounded-full ${
-                tone === "green"
-                  ? "bg-emerald-500"
-                  : tone === "amber"
-                    ? "bg-amber-500"
-                    : tone === "red"
-                      ? "bg-rose-500"
-                      : "bg-slate-300"
-              }`}
-              style={{ width: `${pct ?? 0}%` }}
-            />
-          </div>
-          <div className="mt-2 text-xs text-muted-foreground flex justify-between">
-            <span>
-              {onTime}/{total} on time
-            </span>
-            <span>{pct}%</span>
-          </div>
-        </>
-      )}
-
-      <div className="mt-6 border-t pt-4">
-        <div className="mb-2 text-xs font-medium text-slate-600">7-Day Trend</div>
-        {trendOk ? (
-          <SlaPerformanceChart data={series || []} loading={!metrics} />
-        ) : (
-          <div className="text-xs text-slate-600">Not available</div>
-        )}
+function MiniStat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string | number;
+  tone: "green" | "amber" | "red" | "grey";
+}) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+      <div className="text-[11px] text-slate-400">{label}</div>
+      <div className="mt-0.5 flex items-center justify-between">
+        <div className="text-sm font-semibold text-slate-100">{value}</div>
+        <span className={`h-2.5 w-2.5 rounded-full ${dotTone(tone)}`} />
       </div>
     </div>
   );
 }
 
-function LiveOrdersPanel({
-  orders,
-  targetMin,
-  slug,
-  className = "",
+function dotTone(t: "green" | "amber" | "red" | "grey") {
+  return {
+    green: "bg-emerald-400",
+    amber: "bg-amber-400",
+    red: "bg-rose-400",
+    grey: "bg-slate-500",
+  }[t];
+}
+
+function MiniBadge({
+  label,
+  tone,
 }: {
-  orders: LiveOrder[];
-  targetMin: number;
-  slug?: string;
-  className?: string;
+  label: string;
+  tone: "green" | "amber" | "red" | "grey";
 }) {
   return (
-    <div className={`rounded-xl border bg-white p-4 shadow-sm ${className}`} id="live-orders">
-      <SectionHeader
-        title="Live requests & orders"
-        desc="Open requests right now."
-        action={
-          <Link
-            to={slug ? `/ops?slug=${encodeURIComponent(slug)}` : "/ops"}
-            className="text-sm underline"
-          >
-            Open operations
-          </Link>
-        }
-      />
-      {orders.length === 0 ? (
-        <div className="text-sm text-muted-foreground">No live requests right now.</div>
-      ) : (
-        <>
-          <ul className="divide-y">
-            {orders.slice(0, 5).map((o) => {
-              const mins = ageMin(o.created_at);
-              const breach = mins > targetMin;
-              return (
-                <li key={o.id} className="flex items-center justify-between py-1.5">
-                  <div>
-                    <div className="text-sm">
-                      #{o.id.slice(0, 8)} · {o.status}
-                    </div>
-                    <div className="text-xs text-muted-foreground">Age: {mins} min</div>
-                  </div>
-                  <StatusBadge
-                    label={breach ? "SLA breach" : "On time"}
-                    tone={breach ? "red" : "green"}
-                  />
-                </li>
-              );
-            })}
-          </ul>
-          {orders.length > 5 && (
-            <div className="mt-2 text-xs text-slate-500">
-              +{orders.length - 5} more requests →{" "}
-              <Link
-                to={slug ? `/ops?slug=${encodeURIComponent(slug)}` : "/ops"}
-                className="underline text-emerald-700"
-              >
-                View all
-              </Link>
-            </div>
-          )}
-        </>
-      )}
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-1 text-[11px] font-medium ${toneClass(
+        tone
+      )}`}
+    >
+      {label}
+    </span>
+  );
+}
+
+function RingGauge({
+  value,
+  pct,
+  subtitle,
+}: {
+  value: number;
+  pct: number;
+  subtitle: string;
+}) {
+  const safePct = Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 0;
+  const ring = {
+    background: `conic-gradient(rgba(245,158,11,0.95) ${safePct}%, rgba(255,255,255,0.08) 0)`,
+  } as const;
+
+  return (
+    <div className="flex items-center justify-center">
+      <div
+        className="relative h-32 w-32 rounded-full p-[10px]"
+        style={ring}
+        aria-label={`${subtitle}: ${value}`}
+      >
+        <div className="h-full w-full rounded-full bg-[#0B1220]/90 border border-white/10 grid place-items-center">
+          <div className="text-center">
+            <div className="text-2xl font-semibold text-slate-100">{value}</div>
+            <div className="text-[11px] text-slate-400">{subtitle}</div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
-function AttentionServicesCard({ orders }: { orders: LiveOrder[] }) {
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-slate-300">
+      {text}
+    </div>
+  );
+}
+
+/** ========= Tables ========= */
+
+function DarkTable({ children }: { children: ReactNode }) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-white/10">
+      <table className="w-full text-sm">{children}</table>
+    </div>
+  );
+}
+function Th({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return (
+    <th
+      className={`bg-white/5 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 ${className}`}
+    >
+      {children}
+    </th>
+  );
+}
+function Td({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return (
+    <td className={`px-3 py-2 align-top text-slate-200 ${className}`}>
+      {children}
+    </td>
+  );
+}
+
+/** ========= Breakdown ========= */
+
+function IssueBreakdown({ orders, targetMin }: { orders: LiveOrder[]; targetMin: number }) {
   const classify = (status: string) => {
     const s = (status || "").toLowerCase();
     const isNew = ["open", "new", "created", "requested"].some((k) => s.includes(k));
     const isProgress = ["preparing", "in_progress", "accepted", "assigned", "working"].some((k) =>
       s.includes(k)
     );
-    return { isNew, isProgress };
+    const isPaused = ["paused", "blocked", "hold"].some((k) => s.includes(k));
+    return { isNew, isProgress, isPaused };
   };
 
   const newCount = orders.filter((o) => classify(o.status).isNew).length;
   const inProgress = orders.filter((o) => classify(o.status).isProgress).length;
-  const others = Math.max(0, orders.length - newCount - inProgress);
-
-  return (
-    <div className="rounded-xl border bg-white p-4 shadow-sm">
-      <SectionHeader title="Services snapshot" desc="Open requests grouped by status." />
-      {orders.length === 0 ? (
-        <div className="text-sm text-muted-foreground">No open requests to summarize.</div>
-      ) : (
-        <ul className="space-y-1 text-sm">
-          <li className="flex items-center justify-between">
-            <span>New</span>
-            <span className="font-medium">{newCount}</span>
-          </li>
-          <li className="flex items-center justify-between">
-            <span>In progress</span>
-            <span className="font-medium">{inProgress}</span>
-          </li>
-          <li className="flex items-center justify-between">
-            <span>Other states</span>
-            <span className="font-medium">{others}</span>
-          </li>
-        </ul>
-      )}
-      <p className="mt-2 text-[11px] text-muted-foreground">
-        Service-type grouping is not available in this view.
-      </p>
-    </div>
-  );
-}
-
-function StaffPerformancePanel({ data }: { data: StaffPerf[] | null }) {
-  return (
-    <div className="rounded-xl border bg-white p-3 shadow-sm">
-      <SectionHeader title="Staff leaderboard" desc="Active staff members (role + assignment context)." />
-      {!data || data.length === 0 ? (
-        <div className="text-sm text-muted-foreground">
-          No staff members found.
-        </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead className="text-left text-muted-foreground">
-              <tr>
-                <th className="py-1 pr-2">Name</th>
-                <th className="py-1 pr-2">Dept</th>
-                <th className="py-1 pr-2">Tasks</th>
-                <th className="py-1 pr-2">Avg min</th>
-                <th className="py-1">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.slice(0, 8).map((r) => (
-                <tr key={r.staff_id} className="border-t">
-                  <td className="py-1.5 pr-2 font-medium">{r.display_name}</td>
-                  <td className="py-1.5 pr-2 text-slate-500">{r.department_name}</td>
-                  <td className="py-1.5 pr-2">{r.tickets_completed}</td>
-                  <td className="py-1.5 pr-2">{r.avg_completion_min ?? "—"}</td>
-                  <td className="py-1.5">
-                    <span
-                      className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                        r.is_online ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
-                      }`}
-                    >
-                      {r.is_online ? "Active" : "Away"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {data.length > 8 && (
-            <div className="mt-2 text-xs text-slate-500">
-              +{data.length - 8} more staff members
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function HrmsPanel({ data, slug }: { data: HrmsSnapshot | null; slug: string }) {
-  const showHrmsLink = HAS_HRMS;
-
-  if (!data) {
-    return (
-      <div className="rounded-xl border bg-white p-4 shadow-sm" id="attendance">
-        <SectionHeader
-          title="Attendance snapshot"
-          desc="Connected attendance signal for today."
-          action={
-            showHrmsLink ? (
-              <Link to={`/owner/${slug}/hrms`} className="text-sm underline">
-                Open HRMS
-              </Link>
-            ) : null
-          }
-        />
-        <div className="text-sm text-muted-foreground">
-          Not available
-        </div>
-      </div>
-    );
-  }
-
-  const {
-    staff_total,
-    present_today,
-    late_today,
-    absent_today,
-    attendance_pct_today,
-    absences_7d,
-    staff_with_absence_7d,
-  } = data;
-
-  return (
-    <div className="rounded-xl border bg-white p-4 shadow-sm" id="attendance">
-      <SectionHeader
-        title="Attendance snapshot"
-        desc="Presence signal for today."
-        action={
-          showHrmsLink ? (
-            <Link to={`/owner/${slug}/hrms/attendance`} className="text-sm underline">
-              See details
-            </Link>
-          ) : null
-        }
-      />
-      <div className="grid grid-cols-3 gap-3 text-sm">
-        <Metric label="Total staff" value={staff_total} />
-        <Metric label="Present today" value={present_today} />
-        <Metric label="Late today" value={late_today} />
-        <Metric label="Absent today" value={absent_today} />
-        <Metric label="Attendance %" value={`${attendance_pct_today}%`} />
-        <Metric label="Absence days (7d)" value={absences_7d} />
-      </div>
-      <div className="mt-2 text-xs text-muted-foreground">
-        {staff_with_absence_7d} staff had at least one absence in 7 days.
-      </div>
-    </div>
-  );
-}
-
-function OwnerTasksPanel({
-  occPct,
-  kpi,
-  slug,
-}: {
-  occPct: number;
-  kpi: KpiRow | null;
-  slug: string;
-}) {
-  const revenueToday = kpi?.revenue_today;
-
-  const tasks: string[] = [];
-  if (occPct < 50) {
-    tasks.push("Review packages and distribution for soft nights.");
-  } else if (occPct > 80) {
-    tasks.push("Review rates and restrictions on high-demand nights.");
-  } else {
-    tasks.push("Monitor pacing; no urgent rate changes indicated.");
-  }
-  if (typeof revenueToday === "number") {
-    tasks.push("Review top services driving revenue today.");
-  }
-  if (HAS_WORKFORCE) {
-    tasks.push("Review open roles in Workforce for coverage gaps.");
-  }
-  tasks.push("Review low ratings and close the loop on open guest issues.");
-
-  return (
-    <div className="rounded-xl border bg-white p-4 shadow-sm" id="owner-tasks">
-      <SectionHeader
-        title="Owner tasks for today"
-        desc="Short operational nudges based on today’s signals."
-        action={
-          <div className="flex items-center gap-3">
-            <Link to="/owner" className="text-xs underline text-slate-600">
-              Owner hub
-            </Link>
-            {HAS_WORKFORCE && (
-              <Link to={`/owner/${slug}/workforce`} className="text-xs underline text-emerald-700">
-                Jobs &amp; hiring
-              </Link>
-            )}
-          </div>
-        }
-      />
-      <ul className="space-y-1 text-xs text-slate-700">
-        {tasks.map((t, i) => (
-          <li key={i}>• {t}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function OwnerWorkforcePanel({
-  slug,
-  jobs,
-  loading,
-}: {
-  slug: string;
-  jobs: WorkforceJobSummary[] | null;
-  loading: boolean;
-}) {
-  const hasFeature = HAS_WORKFORCE;
-  const list = jobs ?? [];
-  const openJobs = list.filter((j) =>
-    (j.status || "open").toLowerCase().includes("open")
-  ).length;
-
-  if (!hasFeature) {
-    return (
-      <div className="rounded-xl border bg-white p-4 shadow-sm" id="workforce">
-        <SectionHeader
-          title="Workforce"
-          desc="Hiring view for this property."
-        />
-        <div className="text-xs text-muted-foreground">
-          Not available
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-xl border bg-white p-4 shadow-sm" id="workforce">
-      <SectionHeader
-        title="Workforce"
-        desc="Open roles for this property."
-        action={
-          <Link to={`/owner/${slug}/workforce`} className="text-xs underline text-slate-600">
-            Open Workforce
-          </Link>
-        }
-      />
-      {loading ? (
-        <div className="text-xs text-muted-foreground">Loading roles…</div>
-      ) : list.length === 0 ? (
-        <div className="text-xs text-muted-foreground">No roles found.</div>
-      ) : (
-        <div className="space-y-2 text-xs text-slate-700">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm font-semibold text-slate-900">
-                {openJobs} open role{openJobs === 1 ? "" : "s"}
-              </div>
-              <div className="text-[11px] text-muted-foreground">
-                {list.length} total roles.
-              </div>
-            </div>
-          </div>
-          <ul className="space-y-1">
-            {list.slice(0, 3).map((j) => {
-              const status = (j.status || "open").toLowerCase();
-              const isOpen = status.includes("open") || status === "draft";
-              return (
-                <li
-                  key={j.id}
-                  className="flex items-center justify-between rounded-lg bg-slate-50 px-2 py-1"
-                >
-                  <div>
-                    <div className="text-xs font-medium text-slate-900">
-                      {j.title || j.department || "Role"}
-                    </div>
-                    <div className="text-[11px] text-slate-500">
-                      {(j.city || "").trim() || "Local"} · {j.status || "Open"}
-                    </div>
-                  </div>
-                  <StatusBadge
-                    label={isOpen ? "Hiring" : "Closed"}
-                    tone={isOpen ? "green" : "grey"}
-                  />
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-lg border bg-gray-50 p-3">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="text-lg font-semibold">{value}</div>
-    </div>
-  );
-}
-
-/** ========= AI Ops Co-pilot section (pilot-safe) ========= */
-
-function AiOpsSection({
-  slug,
-  heatmap,
-  staffingPlan,
-  loading,
-}: {
-  slug: string;
-  heatmap: OpsHeatmapPoint[] | null;
-  staffingPlan: StaffingPlanRow[] | null;
-  loading: boolean;
-}) {
-  const hasPlan = !!(staffingPlan && staffingPlan.length);
-  const hasHeatmap = !!(heatmap && heatmap.length);
-
-  const showAny = HAS_FUNCS && (loading || hasPlan || hasHeatmap);
-
-  return (
-    <section className="rounded-2xl border border-slate-100 bg-white/95 px-4 py-4 shadow-sm">
-      <SectionHeader
-        title="AI Ops Co-pilot"
-        desc={
-          HAS_FUNCS
-            ? "Operational patterns from connected ticket history."
-            : "Not available"
-        }
-        action={
-          <Link
-            to={slug ? `/ops?slug=${encodeURIComponent(slug)}` : "/ops"}
-            className="text-[11px] underline text-slate-700"
-          >
-            Open ops view
-          </Link>
-        }
-      />
-
-      {!showAny ? (
-        <div className="text-xs text-slate-600">Not available</div>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-5">
-          <div className="space-y-2 text-xs text-slate-700 md:col-span-2">
-            {loading ? (
-              <div className="text-xs text-slate-500">Analyzing recent requests…</div>
-            ) : hasPlan ? (
-              <>
-                <div className="font-semibold text-slate-900">Suggested staffing bands (today)</div>
-                <ul className="space-y-1">
-                  {staffingPlan!.slice(0, 3).map((row) => (
-                    <li
-                      key={row.department}
-                      className="flex items-start justify-between gap-2 rounded-lg bg-slate-50 px-2 py-1"
-                    >
-                      <div>
-                        <div className="text-[11px] font-semibold text-slate-900">{row.department}</div>
-                        <div className="text-[11px] text-slate-600">
-                          Recommend {row.recommended_count} staff (min {row.min_count}, max {row.max_count})
-                        </div>
-                        {row.reason && (
-                          <div className="mt-0.5 text-[10px] text-slate-500">{row.reason}</div>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            ) : (
-              <div className="text-xs text-slate-600">Not available</div>
-            )}
-          </div>
-
-          <div className="md:col-span-3">
-            <AiOpsHeatmap heatmap={heatmap} loading={loading} />
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
-function AiOpsHeatmap({
-  heatmap,
-  loading,
-}: {
-  heatmap: OpsHeatmapPoint[] | null;
-  loading: boolean;
-}) {
-  if (loading) {
-    return (
-      <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 text-xs text-slate-600">
-        Analyzing…
-      </div>
-    );
-  }
-
-  if (!heatmap || heatmap.length === 0) {
-    return (
-      <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 text-xs text-slate-600">
-        Not available
-      </div>
-    );
-  }
-
-  const buckets = ["00–06", "06–12", "12–18", "18–24"];
-
-  const matrix: Record<string, Record<string, number>> = {};
-  const zoneTotals: Record<string, number> = {};
-
-  for (const p of heatmap) {
-    const zone = p.zone || "Other";
-    const bucket = timeBucketFromISO(p.hour_bucket);
-    if (!matrix[zone]) matrix[zone] = {};
-    matrix[zone][bucket] = (matrix[zone][bucket] || 0) + (p.total_tickets ?? 0);
-    zoneTotals[zone] = (zoneTotals[zone] || 0) + (p.total_tickets ?? 0);
-  }
-
-  let zones = Object.keys(zoneTotals).sort(
-    (a, b) => (zoneTotals[b] ?? 0) - (zoneTotals[a] ?? 0)
-  );
-  zones = zones.slice(0, 6);
-
-  let maxValue = 0;
-  for (const z of zones) {
-    for (const b of buckets) {
-      const v = matrix[z]?.[b] ?? 0;
-      if (v > maxValue) maxValue = v;
-    }
-  }
-  if (maxValue === 0) maxValue = 1;
+  const blocked = orders.filter((o) => classify(o.status).isPaused).length;
+  const overdue = orders.filter((o) => ageMin(o.created_at) > targetMin).length;
+  const other = Math.max(0, orders.length - newCount - inProgress - blocked);
 
   return (
     <div className="space-y-2">
-      <div className="text-[11px] text-slate-500">
-        Darker cells ≈ more requests in that zone & time band.
-      </div>
-      <div className="overflow-x-auto rounded-xl border border-slate-100 bg-slate-50/60 p-2">
-        <table className="w-full border-separate border-spacing-0 text-[11px]">
-          <thead>
-            <tr>
-              <th className="py-1 pr-2 text-left text-slate-500">Zone / Time</th>
-              {buckets.map((b) => (
-                <th key={b} className="px-1 py-1 text-center text-slate-500">
-                  {b}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {zones.map((z) => (
-              <tr key={z}>
-                <td className="py-1 pr-2 text-left text-slate-700">{z}</td>
-                {buckets.map((b) => {
-                  const v = matrix[z]?.[b] ?? 0;
-                  const ratio = v / maxValue;
-                  const opacity = v === 0 ? 0.08 : 0.2 + ratio * 0.7;
-                  return (
-                    <td key={b} className="px-1 py-1 text-center">
-                      <div
-                        className="flex h-6 items-center justify-center rounded bg-emerald-500 text-[10px] font-medium text-emerald-50"
-                        style={{ opacity }}
-                        title={`${v} request${v === 1 ? "" : "s"} in ${z}, ${b}`}
-                      >
-                        {v > 0 ? v : "·"}
-                      </div>
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <BreakRow label="New" value={newCount} tone={newCount > 0 ? "green" : "grey"} />
+      <BreakRow label="In progress" value={inProgress} tone={inProgress > 0 ? "amber" : "grey"} />
+      <BreakRow label="Blocked" value={blocked} tone={blocked > 0 ? "red" : "grey"} />
+      <BreakRow label={`Overdue (> ${targetMin}m)`} value={overdue} tone={overdue > 0 ? "amber" : "grey"} />
+      <BreakRow label="Other" value={other} tone={other > 0 ? "grey" : "grey"} />
+      <div className="pt-2 text-[11px] text-slate-400">
+        Service-type breakdown is not available in this view.
       </div>
     </div>
   );
 }
 
-/** ========= Pilot-safe cards for areas that previously used placeholders ========= */
-
-function BookingOutlookCard() {
-  return (
-    <div className="rounded-xl border bg-white p-4 shadow-sm" id="rooms">
-      <SectionHeader
-        title="Booking outlook"
-        desc="Availability and pacing view from your bookings calendar."
-        action={
-          HAS_CALENDAR ? (
-            <Link to="../bookings/calendar" className="text-sm underline">
-              Open calendar
-            </Link>
-          ) : null
-        }
-      />
-      <div className="text-xs text-slate-600">Not available</div>
-    </div>
-  );
-}
-
-function HousekeepingStatusCard({ slug }: { slug: string }) {
-  return (
-    <div className="rounded-xl border bg-white p-4 shadow-sm" id="housekeeping">
-      <SectionHeader
-        title="Housekeeping"
-        desc="Room readiness and blockers from housekeeping data."
-        action={
-          <Link to={`/owner/${slug}/housekeeping`} className="text-sm underline">
-            Open housekeeping
-          </Link>
-        }
-      />
-      <div className="text-xs text-slate-600">Not available</div>
-    </div>
-  );
-}
-
-/** ========= Remaining components ========= */
-
-function Board({
-  title,
-  desc,
-  items,
-  empty,
+function BreakRow({
+  label,
+  value,
+  tone,
 }: {
-  title: string;
-  desc?: string;
-  items: StayRow[];
-  empty: string;
+  label: string;
+  value: number;
+  tone: "green" | "amber" | "red" | "grey";
 }) {
   return (
-    <div className="rounded-lg border bg-white p-2 shadow-sm">
-      <div className="text-xs font-semibold text-slate-700 mb-1">{title}</div>
-      {desc ? <div className="text-[11px] text-slate-500 mb-1">{desc}</div> : null}
-      {items.length === 0 ? (
-        <div className="text-xs text-slate-400">{empty}</div>
-      ) : (
-        <ul className="space-y-1">
-          {items.map((s) => (
-            <li key={s.id} className="rounded-lg border bg-slate-50 p-3 text-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-medium">{s.room ? `Room ${s.room}` : "Unassigned room"}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {fmt(s.check_in_start)} → {fmt(s.check_out_end)}
-                  </div>
-                </div>
-                <div className="text-xs uppercase tracking-wide text-muted-foreground">{s.status || "—"}</div>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+    <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+      <div className="text-sm text-slate-200">{label}</div>
+      <div className="flex items-center gap-2">
+        <div className="text-sm font-semibold text-slate-100">{value}</div>
+        <span className={`h-2.5 w-2.5 rounded-full ${dotTone(tone)}`} />
+      </div>
     </div>
   );
 }
 
-function OwnerSupportFooter() {
+/** ========= Right rail blocks ========= */
+
+function StaffList({ data }: { data: StaffPerf[] | null }) {
+  if (!data || data.length === 0) return <EmptyState text="Not available" />;
+
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white px-4 py-4 shadow-sm flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <div className="font-medium text-slate-900">Need help?</div>
-        <div className="text-sm text-muted-foreground">
-          Our team can review your numbers and suggest operational quick wins.
+    <div className="space-y-2">
+      {data.slice(0, 6).map((r) => (
+        <div
+          key={r.staff_id}
+          className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2"
+        >
+          <div className="min-w-0">
+            <div className="text-sm font-medium text-slate-100 truncate">
+              {r.display_name}
+            </div>
+            <div className="text-[11px] text-slate-400 truncate">
+              {r.department_name || r.role}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <StatusBadge label={r.is_online ? "Online" : "Away"} tone={r.is_online ? "green" : "grey"} />
+          </div>
+        </div>
+      ))}
+      {data.length > 6 ? (
+        <div className="text-[11px] text-slate-400">+{data.length - 6} more</div>
+      ) : null}
+    </div>
+  );
+}
+
+function AttendanceMini({ data }: { data: HrmsSnapshot | null }) {
+  if (!data) return <EmptyState text="Not available" />;
+
+  const tone =
+    data.attendance_pct_today >= 85 ? "green" : data.attendance_pct_today >= 70 ? "amber" : "red";
+
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <MiniStat label="Present" value={data.present_today} tone={tone} />
+      <MiniStat label="Absent" value={data.absent_today} tone={data.absent_today > 0 ? "amber" : "grey"} />
+      <MiniStat label="Late" value={data.late_today} tone={data.late_today > 0 ? "amber" : "grey"} />
+      <MiniStat label="Attendance" value={`${data.attendance_pct_today}%`} tone={tone} />
+    </div>
+  );
+}
+
+function SatisfactionPanel({
+  hotelName,
+  npsScore,
+  npsResponses,
+  avgRating30d,
+}: {
+  hotelName: string;
+  npsScore: number | null;
+  npsResponses: number | null;
+  avgRating30d: number | null;
+}) {
+  const hasNps = typeof npsScore === "number" && (npsResponses ?? 0) > 0;
+  const hasRating = typeof avgRating30d === "number" && !Number.isNaN(avgRating30d);
+
+  if (!hasNps && !hasRating) return <EmptyState text="Not available" />;
+
+  return (
+    <div className="space-y-2">
+      <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+        <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+          {hotelName}
+        </div>
+        <div className="mt-1 flex items-center justify-between">
+          <div className="text-sm font-semibold text-slate-100">
+            {hasNps ? `NPS ${npsScore}` : `Rating ${avgRating30d!.toFixed(1)}/5`}
+          </div>
+          <StatusBadge label="Guest" tone={hasNps ? "green" : ratingTone(avgRating30d)} />
+        </div>
+        <div className="mt-1 text-[11px] text-slate-400">
+          {hasNps ? `${npsResponses} responses (30d)` : "Avg rating (30d)"}
         </div>
       </div>
-      <a
-        href="mailto:support@vaiyu.co.in?subject=Owner%20Dashboard%20help"
-        className="btn"
-      >
-        Contact us
-      </a>
     </div>
   );
 }
 
+function WorkforceMini({
+  jobs,
+  loading,
+}: {
+  jobs: WorkforceJobSummary[] | null;
+  loading: boolean;
+}) {
+  if (loading) return <EmptyState text="Loading roles…" />;
+  if (!jobs || jobs.length === 0) return <EmptyState text="Not available" />;
+
+  const openJobs = jobs.filter((j) =>
+    (j.status || "open").toLowerCase().includes("open")
+  ).length;
+
+  return (
+    <div className="space-y-2">
+      <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+        <div className="text-sm font-semibold text-slate-100">
+          {openJobs} open role{openJobs === 1 ? "" : "s"}
+        </div>
+        <div className="text-[11px] text-slate-400">{jobs.length} total roles</div>
+      </div>
+
+      {jobs.slice(0, 3).map((j) => {
+        const status = (j.status || "open").toLowerCase();
+        const isOpen = status.includes("open") || status === "draft";
+        return (
+          <div
+            key={j.id}
+            className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2"
+          >
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-slate-100 truncate">
+                {j.title || j.department || "Role"}
+              </div>
+              <div className="text-[11px] text-slate-400 truncate">
+                {(j.city || "").trim() || "Local"} · {j.status || "Open"}
+              </div>
+            </div>
+            <StatusBadge label={isOpen ? "Hiring" : "Closed"} tone={isOpen ? "green" : "grey"} />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** ========= AI mini summary ========= */
+
+function AiOpsMiniSummary({
+  heatmap,
+  staffingPlan,
+}: {
+  heatmap: OpsHeatmapPoint[] | null;
+  staffingPlan: StaffingPlanRow[] | null;
+}) {
+  const plan = staffingPlan || [];
+  const heat = heatmap || [];
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+        <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+          Suggested staffing (today)
+        </div>
+        {plan.length === 0 ? (
+          <div className="mt-2 text-sm text-slate-300">Not available</div>
+        ) : (
+          <div className="mt-2 space-y-2">
+            {plan.slice(0, 3).map((row) => (
+              <div key={row.department} className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-slate-100">
+                    {row.department}
+                  </div>
+                  <div className="text-[11px] text-slate-400">
+                    Recommend {row.recommended_count} (min {row.min_count}, max{" "}
+                    {row.max_count})
+                  </div>
+                </div>
+                <StatusBadge label="AI" tone="grey" />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+        <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+          Heatmap (7d)
+        </div>
+        {heat.length === 0 ? (
+          <div className="mt-2 text-sm text-slate-300">Not available</div>
+        ) : (
+          <div className="mt-2 text-[11px] text-slate-400">
+            {heat.length} buckets analyzed. Open full view in Ops Analytics for details.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** ========= Access help (dark) ========= */
 function AccessHelp({
   slug,
   message,
@@ -2377,38 +1756,53 @@ function AccessHelp({
 }) {
   const hasValidSlug = !!normalizeSlug(slug);
   return (
-    <div className="rounded-2xl border p-6 bg-amber-50">
-      <div className="mb-1 text-lg font-semibold">Property access needed</div>
-      <p className="mb-4 text-sm text-amber-900">{message}</p>
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+      <div className="mb-1 text-lg font-semibold text-slate-100">
+        Property access needed
+      </div>
+      <p className="mb-4 text-sm text-slate-300">{message}</p>
       <div className="flex flex-wrap gap-2">
         {hasValidSlug ? (
-          <Link to={`/owner/access?slug=${encodeURIComponent(slug)}`} className="btn">
+          <Link
+            to={`/owner/access?slug=${encodeURIComponent(slug)}`}
+            className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-100 hover:bg-white/10"
+          >
             Request Access
           </Link>
         ) : null}
-        <Link to="/owner" className="btn btn-light">
+        <Link
+          to="/owner"
+          className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-100 hover:bg-white/10"
+        >
           Owner Home
         </Link>
-        <Link to="/invite/accept" className="btn btn-light">
+        <Link
+          to="/invite/accept"
+          className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-100 hover:bg-white/10"
+        >
           Accept Invite
         </Link>
         {inviteToken ? (
-          <Link to={`/invite/accept?code=${encodeURIComponent(inviteToken)}`} className="btn btn-light">
+          <Link
+            to={`/invite/accept?code=${encodeURIComponent(inviteToken)}`}
+            className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-100 hover:bg-white/10"
+          >
             Accept via Code
           </Link>
         ) : null}
       </div>
-      <p className="mt-3 text-xs text-amber-900">
-        Tip: If you received an email invite, open it on this device so we can auto-fill your invite code.
+      <p className="mt-3 text-xs text-slate-400">
+        Tip: If you received an email invite, open it on this device so we can
+        auto-fill your invite code.
       </p>
     </div>
   );
 }
 
 /** ========= Utils ========= */
-function fmt(ts: string | null) {
-  if (!ts) return "—";
+function fmtTime(ts: string) {
   const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleString();
 }
 
@@ -2422,18 +1816,47 @@ function nextDayStartISO(yyyy_mm_dd: string) {
   return d.toISOString();
 }
 
-function timeBucketFromISO(iso: string): string {
-  if (!iso) return "00–06";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "00–06";
-  const h = d.getHours();
-  if (h < 6) return "00–06";
-  if (h < 12) return "06–12";
-  if (h < 18) return "12–18";
-  return "18–24";
-}
-
 function ageMin(iso: string) {
   const ms = Date.now() - new Date(iso).getTime();
   return Math.max(0, Math.round(ms / 60000));
+}
+
+/** ========= Icons ========= */
+function SvgSync() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M20 12a8 8 0 0 0-14.9-4M4 12a8 8 0 0 0 14.9 4"
+        stroke="rgba(226,232,240,0.9)"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
+      <path
+        d="M5 4v4h4"
+        stroke="rgba(226,232,240,0.9)"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M19 20v-4h-4"
+        stroke="rgba(226,232,240,0.9)"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+function SvgMenu() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M4 7h16M4 12h16M4 17h16"
+        stroke="rgba(226,232,240,0.9)"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
 }

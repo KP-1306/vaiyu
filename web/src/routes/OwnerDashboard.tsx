@@ -890,7 +890,8 @@ export default function OwnerDashboard() {
                         : `${ordersTotal} open requests across services.`}
                     </div>
                     <div className="mt-2 text-xs text-slate-400">
-                      Overdue (>{targetMin}m):{" "}
+                      Overdue (&gt;{targetMin}m):{" "}
+
                       <span className="text-slate-200 font-medium">
                         {ordersOverdue}
                       </span>

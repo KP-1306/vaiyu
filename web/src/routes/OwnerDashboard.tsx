@@ -1,7 +1,10 @@
-// web/src/routes/OwnerDashboard.tsx — ultra-premium owner dashboard
-// NOTE: All data fetching / Supabase / hooks logic is preserved;
-// we only add AI Ops Co-pilot (heatmap + staffing) and a sticky left sidebar
-// so unfinished modules don’t send users to 404s.
+// web/src/routes/OwnerDashboard.tsx — owner dashboard (pilot-safe)
+// NOTE: All data fetching / Supabase / hooks logic is preserved.
+// Changes in this patch:
+// - Pilot-safe rendering: no synthetic/demo numbers, no placeholder charts/heatmaps.
+// - SLA math fixed: uses completed SLA metrics (when available) and avoids proxy % from open orders.
+// - Unfinished modules are hidden (no “Soon/coming soon” UI).
+// - Removed action drawers that only contained placeholder copy.
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useSearchParams, useParams } from "react-router-dom";
@@ -114,16 +117,12 @@ type WorkforceJobSummary = {
   created_at?: string | null;
 };
 
-type DrawerKind = "pickup" | "opsBoard" | "rushRooms" | "vipList";
-type DrawerState = { kind: DrawerKind };
-
 /** ========= Feature flags ========= */
 const HAS_FUNCS = import.meta.env.VITE_HAS_FUNCS === "true";
-// New: feature flags so unfinished modules don’t cause 404s
 const HAS_REVENUE = import.meta.env.VITE_HAS_REVENUE === "true";
 const HAS_HRMS = import.meta.env.VITE_HAS_HRMS === "true";
 const HAS_PRICING = import.meta.env.VITE_HAS_PRICING === "true";
-const HAS_CALENDAR = import.meta.env.VITE_HAS_CALENDAR === "true"; // calendar module flag
+const HAS_CALENDAR = import.meta.env.VITE_HAS_CALENDAR === "true";
 const HAS_STAFF_SHIFTS = import.meta.env.VITE_HAS_STAFF_SHIFTS === "true";
 // Workforce ON by default unless explicitly disabled
 const HAS_WORKFORCE =
@@ -165,11 +164,25 @@ function slaTone(pctOnTime: number): "green" | "amber" | "red" {
   if (pctOnTime >= 70) return "amber";
   return "red";
 }
+function slaToneSafe(pct?: number | null): "green" | "amber" | "red" | "grey" {
+  if (pct == null || Number.isNaN(pct)) return "grey";
+  return slaTone(pct);
+}
+function ratingTone(avg?: number | null): "green" | "amber" | "red" | "grey" {
+  if (avg == null || Number.isNaN(avg)) return "grey";
+  if (avg >= 4.4) return "green";
+  if (avg >= 3.8) return "amber";
+  return "red";
+}
+
+function hasSeries<T>(arr?: T[] | null) {
+  return Array.isArray(arr) && arr.length > 0;
+}
 
 /** ========= Small helpers to sanitize slug ========= */
 function normalizeSlug(raw?: string) {
   const s = (raw || "").trim();
-  if (!s || s === ":slug") return ""; // treat placeholder as missing
+  if (!s || s === ":slug") return "";
   return s;
 }
 
@@ -226,9 +239,6 @@ export default function OwnerDashboard() {
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const todayStartISO = useMemo(() => dayStartISO(today), [today]);
   const tomorrowStartISO = useMemo(() => nextDayStartISO(today), [today]);
-
-  // One-touch actions drawer
-  const [drawer, setDrawer] = useState<DrawerState | null>(null);
 
   // Resolve slug → hotel + hydrate lists + start KPI subscription
   useEffect(() => {
@@ -400,7 +410,6 @@ export default function OwnerDashboard() {
 
       // 7a) Staff leaderboard - with proper role joins
       try {
-        // Step 1: Get hotel members
         const { data: staffData, error: staffError } = await supabase
           .from("hotel_members")
           .select(`id, role, is_active, user_id`)
@@ -414,7 +423,6 @@ export default function OwnerDashboard() {
           const memberIds = staffData.map((s: any) => s.id);
           const userIds = staffData.map((s: any) => s.user_id);
 
-          // Step 2: Get profiles for names
           const { data: profiles } = await supabase
             .from("profiles")
             .select("id, full_name")
@@ -423,13 +431,11 @@ export default function OwnerDashboard() {
             profiles?.map((p: any) => [p.id, p.full_name]) || []
           );
 
-          // Step 3: Get hotel_member_roles for these members
           const { data: memberRoles } = await supabase
             .from("hotel_member_roles")
             .select("hotel_member_id, role_id")
             .in("hotel_member_id", memberIds);
 
-          // Step 4: Get hotel_roles for those role_ids
           const roleIds = [
             ...new Set(memberRoles?.map((mr: any) => mr.role_id) || []),
           ];
@@ -441,7 +447,6 @@ export default function OwnerDashboard() {
             hotelRoles?.map((r: any) => [r.id, r.name]) || []
           );
 
-          // Step 5: Build member -> roles mapping
           const memberRolesMap = new Map<string, string[]>();
           memberRoles?.forEach((mr: any) => {
             const roleName = roleMap.get(mr.role_id);
@@ -452,14 +457,13 @@ export default function OwnerDashboard() {
             }
           });
 
-          // Step 6: Transform data
           const transformed: StaffPerf[] = staffData.map((s: any) => {
             const roles = memberRolesMap.get(s.id) || [];
             return {
               staff_id: s.id,
               display_name:
                 profileMap.get(s.user_id) || `Staff ${s.id.slice(0, 8)}`,
-              department_name: roles.join(", ") || s.role, // all roles, fallback to base role
+              department_name: roles.join(", ") || s.role,
               role: s.role,
               tickets_completed: 0,
               avg_completion_min: null,
@@ -475,7 +479,6 @@ export default function OwnerDashboard() {
       }
 
       // 7b) Optional RPCs
-      // IMPORTANT FIX: do not depend on `hotel` state here (it may not be updated yet)
       if (HAS_FUNCS) {
         try {
           const { data } = await supabase.rpc("hrms_snapshot_for_slug", {
@@ -485,7 +488,7 @@ export default function OwnerDashboard() {
         } catch {
           if (alive) setHrms(null);
         }
-        // VIP arrivals
+
         try {
           const { data } = await supabase.rpc("vip_arrivals_for_slug", {
             p_slug: slug,
@@ -494,7 +497,7 @@ export default function OwnerDashboard() {
         } catch {
           if (alive) setVipStays([]);
         }
-        // Events today
+
         try {
           const { data } = await supabase.rpc("events_today_for_slug", {
             p_slug: slug,
@@ -503,7 +506,7 @@ export default function OwnerDashboard() {
         } catch {
           if (alive) setEventsToday([]);
         }
-        // NPS snapshot
+
         try {
           const { data } = await supabase.rpc("owner_nps_for_slug", {
             p_slug: slug,
@@ -511,6 +514,13 @@ export default function OwnerDashboard() {
           if (alive) setNpsSnapshot(data && data[0] ? data[0] : null);
         } catch {
           if (alive) setNpsSnapshot(null);
+        }
+      } else {
+        if (alive) {
+          setHrms(null);
+          setVipStays(null);
+          setEventsToday(null);
+          setNpsSnapshot(null);
         }
       }
 
@@ -554,7 +564,7 @@ export default function OwnerDashboard() {
     };
   }, [slug, todayStartISO, tomorrowStartISO]);
 
-  /* New: Dashboard Analytics */
+  /* Dashboard Analytics */
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
 
   useEffect(() => {
@@ -565,7 +575,6 @@ export default function OwnerDashboard() {
         const data = await getDashboardMetrics(hotel.id);
         if (mounted) setMetrics(data);
       } catch (err) {
-        // keep dashboard usable; charts will render placeholders
         console.error("Failed to load dashboard metrics", err);
       }
     }
@@ -577,7 +586,6 @@ export default function OwnerDashboard() {
 
   useEffect(() => {
     if (!hotel?.id || !HAS_FUNCS) {
-      // if functions are off, keep this section in "preview" mode
       setOpsHeatmap(null);
       setStaffingPlan(null);
       return;
@@ -611,7 +619,6 @@ export default function OwnerDashboard() {
         setStaffingPlan(plan ?? []);
       } catch {
         if (!alive) return;
-        // degrade gracefully if backend route is not ready yet
         setOpsHeatmap([]);
         setStaffingPlan([]);
       } finally {
@@ -637,7 +644,6 @@ export default function OwnerDashboard() {
     return (
       <main className="max-w-3xl mx-auto p-6 bg-slate-50">
         <BackHome />
-        {/* pass only the sanitized slug so we never forward ':slug' */}
         <AccessHelp
           slug={slug}
           message={accessProblem}
@@ -664,33 +670,51 @@ export default function OwnerDashboard() {
     );
   }
 
-  /** ======= KPI Calculations ======= */
+  /** ======= KPI Calculations (pilot-safe) ======= */
   const todayStats = metrics?.todayStats;
 
   const total = todayStats?.totalRooms ?? totalRooms;
-  const occupied = todayStats?.occupied ?? (kpi?.occupied_today ?? 0);
-  const occPct =
-    todayStats?.occupancyPct ??
-    (total ? Math.round((occupied / total) * 100) : 0);
+  const occupied =
+    todayStats?.occupied ??
+    kpi?.occupied_today ??
+    (Array.isArray(inhouse) ? inhouse.length : 0);
+
+  const occPct = total ? Math.round((occupied / total) * 100) : 0;
 
   const arrivalsCount = todayStats?.arrivals ?? arrivals.length;
   const departuresCount = todayStats?.departures ?? departures.length;
 
-  const revenueToday = kpi?.revenue_today ?? 0;
+  const hasRevenueKpi = !!kpi;
+  const revenueToday = hasRevenueKpi ? kpi!.revenue_today : 0;
+  const pickup7d = hasRevenueKpi ? kpi!.pickup_7d : 0;
+
   const adr = occupied ? revenueToday / occupied : 0;
   const revpar = total ? (adr * occupied) / total : 0;
-  const pickup7d = kpi?.pickup_7d ?? 0;
-
-  const occTone = occupancyTone(occPct);
 
   const targetMin = slaTargetMin ?? 20;
+
   const ordersTotal = liveOrders.length;
-  const ordersOnTime = liveOrders.filter((o) => ageMin(o.created_at) <= targetMin)
-    .length;
   const ordersOverdue = liveOrders.filter((o) => ageMin(o.created_at) > targetMin)
     .length;
-  const slaPct = ordersTotal ? Math.round((ordersOnTime / ordersTotal) * 100) : 100;
-  const slaToneLevel = slaTone(slaPct);
+
+  // SLA % is only shown when we have real "completed" SLA metrics (pilot-safe)
+  const slaSeries = metrics?.slaPerformance;
+  const slaTodayMetric = slaSeries?.[slaSeries.length - 1];
+  const slaCompletedTotal =
+    typeof slaTodayMetric?.total === "number" ? slaTodayMetric.total : null;
+  const slaBreached =
+    typeof slaTodayMetric?.breached === "number" ? slaTodayMetric.breached : null;
+
+  const slaPct =
+    slaCompletedTotal != null &&
+    slaBreached != null &&
+    slaCompletedTotal > 0
+      ? Math.round(
+          (Math.max(0, slaCompletedTotal - slaBreached) / slaCompletedTotal) * 100
+        )
+      : null;
+
+  const slaToneLevel = slaToneSafe(slaPct);
 
   const now = new Date();
   const dateLabel = now.toLocaleDateString(undefined, {
@@ -703,21 +727,16 @@ export default function OwnerDashboard() {
     minute: "2-digit",
   });
 
-  const nightsOnBooks = occupied + pickup7d;
-
-  // VIP / events / NPS
+  // VIP / events / NPS (pilot-safe)
   const vipCount = vipStays?.length ?? 0;
   const eventsCount = eventsToday?.length ?? 0;
-  const npsScore =
-    typeof npsSnapshot?.nps_30d === "number"
-      ? Math.round(npsSnapshot.nps_30d)
-      : undefined;
-  const npsResponses = npsSnapshot?.total_responses ?? 0;
 
-  // derived workforce open roles for daily brief
-  const openWorkforceRoles = (workforceJobs ?? []).filter((j) =>
-    (j.status || "open").toLowerCase().includes("open")
-  ).length;
+  const npsScore =
+    typeof npsSnapshot?.nps_30d === "number" ? Math.round(npsSnapshot.nps_30d) : null;
+  const npsResponses =
+    typeof npsSnapshot?.total_responses === "number"
+      ? npsSnapshot.total_responses
+      : null;
 
   /** ======= Render ======= */
   return (
@@ -741,6 +760,7 @@ export default function OwnerDashboard() {
 
             {/* Hero: Today's Pulse */}
             <PulseStrip
+              slug={hotel.slug}
               hotelName={hotel.name}
               city={hotel.city}
               occPct={occPct}
@@ -748,6 +768,7 @@ export default function OwnerDashboard() {
               totalRooms={total}
               arrivalsCount={arrivalsCount}
               departuresCount={departuresCount}
+              hasRevenueKpi={hasRevenueKpi}
               revenueToday={revenueToday}
               adr={adr}
               revpar={revpar}
@@ -759,16 +780,15 @@ export default function OwnerDashboard() {
               hrms={hrms}
               npsScore={npsScore}
               npsResponses={npsResponses}
+              avgRating30d={kpi?.avg_rating_30d ?? null}
               vipCount={vipCount}
               eventCount={eventsCount}
-              onOpenDrawer={(kind) => setDrawer({ kind })}
               metrics={metrics}
-              slug={hotel.slug}
             />
 
-            {/* Ops & SLA row — moved up for priority */}
+            {/* Ops & SLA row */}
             <section className="grid gap-3 lg:grid-cols-3">
-              <SlaCard targetMin={targetMin} orders={liveOrders} metrics={metrics} />
+              <SlaCard targetMin={targetMin} metrics={metrics} />
               <LiveOrdersPanel
                 orders={liveOrders}
                 targetMin={targetMin}
@@ -782,6 +802,7 @@ export default function OwnerDashboard() {
             <section className="grid gap-3 lg:grid-cols-2">
               <PerformanceColumn
                 slug={hotel.slug}
+                hasRevenueKpi={hasRevenueKpi}
                 revenueToday={revenueToday}
                 adr={adr}
                 revpar={revpar}
@@ -818,19 +839,9 @@ export default function OwnerDashboard() {
             {/* Outlook & Housekeeping */}
             <section className="grid gap-3 lg:grid-cols-3">
               <div className="lg:col-span-2">
-                <OccupancyHeatmap
-                  title="Booking curve (6-week view)"
-                  desc="See pacing vs target; add offers on soft nights."
-                />
+                <BookingOutlookCard />
               </div>
-              <HousekeepingProgress
-                slug={hotel.slug}
-                readyPct={
-                  total > 0
-                    ? Math.round(((total - occupied) / total) * 100)
-                    : 100
-                }
-              />
+              <HousekeepingStatusCard slug={hotel.slug} />
             </section>
 
             {/* AI Ops Co-pilot */}
@@ -862,9 +873,6 @@ export default function OwnerDashboard() {
           </div>
         </div>
       </div>
-
-      {/* One-touch Action Drawer (stub for now) */}
-      <ActionDrawer state={drawer} onClose={() => setDrawer(null)} />
     </main>
   );
 }
@@ -898,8 +906,7 @@ function OwnerTopBar({
           </div>
           <p className="mt-1 text-xs text-slate-500">
             Owner Dashboard is a single-window command center for GMs and duty
-            managers. In under 10 seconds they see the hotel’s health; in 1–2
-            taps they can fix issues, reward staff, or protect revenue.
+            managers.
           </p>
           <p className="mt-1 text-[11px] text-slate-500">
             {dateLabel} · Local time {timeLabel}
@@ -1051,17 +1058,8 @@ function OwnerSidebarNav({ slug }: { slug: string }) {
               className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
             >
               <span className="h-1 w-1 rounded-full bg-slate-300" />
-              <span>Housekeeping board</span>
+              <span>Housekeeping</span>
             </a>
-          </li>
-          <li>
-            <div className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-slate-400">
-              <span className="h-1 w-1 rounded-full bg-slate-200" />
-              <span>QRs &amp; guest entry</span>
-              <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-[10px]">
-                Soon
-              </span>
-            </div>
           </li>
           <li>
             <Link
@@ -1072,8 +1070,8 @@ function OwnerSidebarNav({ slug }: { slug: string }) {
               <span>Departments/Services &amp; SLAs</span>
             </Link>
           </li>
-          <li>
-            {HAS_STAFF_SHIFTS ? (
+          {HAS_STAFF_SHIFTS && (
+            <li>
               <Link
                 to={`/owner/${slug}/staff-shifts`}
                 className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
@@ -1081,16 +1079,8 @@ function OwnerSidebarNav({ slug }: { slug: string }) {
                 <span className="h-1 w-1 rounded-full bg-slate-300" />
                 <span>Staff &amp; Shifts</span>
               </Link>
-            ) : (
-              <div className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-slate-400">
-                <span className="h-1 w-1 rounded-full bg-slate-200" />
-                <span>Staff &amp; Shifts</span>
-                <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-[10px]">
-                  Soon
-                </span>
-              </div>
-            )}
-          </li>
+            </li>
+          )}
           <li>
             <Link
               to={opsHref}
@@ -1118,8 +1108,8 @@ function OwnerSidebarNav({ slug }: { slug: string }) {
               <span>Attendance snapshot</span>
             </a>
           </li>
-          <li>
-            {HAS_HRMS ? (
+          {HAS_HRMS && (
+            <li>
               <Link
                 to={`/owner/${slug}/hrms/attendance`}
                 className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
@@ -1127,23 +1117,15 @@ function OwnerSidebarNav({ slug }: { slug: string }) {
                 <span className="h-1 w-1 rounded-full bg-slate-300" />
                 <span>Attendance details</span>
               </Link>
-            ) : (
-              <div className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-slate-400">
-                <span className="h-1 w-1 rounded-full bg-slate-200" />
-                <span>Attendance details</span>
-                <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-[10px]">
-                  Soon
-                </span>
-              </div>
-            )}
-          </li>
+            </li>
+          )}
           <li>
             <a
               href="#workforce"
               className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
             >
               <span className="h-1 w-1 rounded-full bg-slate-300" />
-              <span>Local workforce</span>
+              <span>Workforce</span>
             </a>
           </li>
         </ul>
@@ -1155,8 +1137,8 @@ function OwnerSidebarNav({ slug }: { slug: string }) {
           Pricing &amp; setup
         </div>
         <ul className="space-y-1">
-          <li>
-            {HAS_PRICING ? (
+          {HAS_PRICING && (
+            <li>
               <Link
                 to={pricingHref}
                 className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
@@ -1164,16 +1146,8 @@ function OwnerSidebarNav({ slug }: { slug: string }) {
                 <span className="h-1 w-1 rounded-full bg-slate-300" />
                 <span>Pricing &amp; packages</span>
               </Link>
-            ) : (
-              <div className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-slate-400">
-                <span className="h-1 w-1 rounded-full bg-slate-200" />
-                <span>Pricing &amp; packages</span>
-                <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-[10px]">
-                  Soon
-                </span>
-              </div>
-            )}
-          </li>
+            </li>
+          )}
           <li>
             <Link
               to={settingsHref}
@@ -1190,6 +1164,7 @@ function OwnerSidebarNav({ slug }: { slug: string }) {
 }
 
 function PulseStrip({
+  slug,
   hotelName,
   city,
   occPct,
@@ -1197,6 +1172,7 @@ function PulseStrip({
   totalRooms,
   arrivalsCount,
   departuresCount,
+  hasRevenueKpi,
   revenueToday,
   adr,
   revpar,
@@ -1208,11 +1184,10 @@ function PulseStrip({
   hrms,
   npsScore,
   npsResponses,
+  avgRating30d,
   vipCount,
   eventCount,
-  onOpenDrawer,
   metrics,
-  slug,
 }: {
   slug: string;
   hotelName: string;
@@ -1222,24 +1197,48 @@ function PulseStrip({
   totalRooms: number;
   arrivalsCount: number;
   departuresCount: number;
+
+  hasRevenueKpi: boolean;
   revenueToday: number;
   adr: number;
   revpar: number;
   pickup7d: number;
-  slaPct: number;
-  slaTone: "green" | "amber" | "red";
+
+  slaPct: number | null;
+  slaTone: "green" | "amber" | "red" | "grey";
+
   ordersTotal: number;
   ordersOverdue: number;
+
   hrms: HrmsSnapshot | null;
-  npsScore?: number;
-  npsResponses?: number;
+
+  npsScore: number | null;
+  npsResponses: number | null;
+  avgRating30d: number | null;
+
   vipCount: number;
   eventCount: number;
-  onOpenDrawer: (kind: DrawerKind) => void;
+
   metrics: DashboardMetrics | null;
 }) {
-  const effectiveNps = typeof npsScore === "number" ? npsScore : 78;
-  const effectiveResponses = npsResponses ?? 0;
+  const hasNps = typeof npsScore === "number" && (npsResponses ?? 0) > 0;
+  const hasRating = typeof avgRating30d === "number" && !Number.isNaN(avgRating30d);
+
+  const guestPrimary = hasNps
+    ? `NPS ${npsScore}`
+    : hasRating
+      ? `Avg rating ${avgRating30d!.toFixed(1)}/5`
+      : "Not available";
+
+  const guestSecondary = hasNps
+    ? `${npsResponses} responses (30d)`
+    : hasRating
+      ? "Last 30 days"
+      : "Guest feedback is not connected.";
+
+  const guestTone = hasNps ? "green" : ratingTone(avgRating30d);
+
+  const occHasTrend = hasSeries(metrics?.occupancyHistory);
 
   return (
     <section
@@ -1258,10 +1257,10 @@ function PulseStrip({
             {city ? ` · ${city}` : ""} — today at a glance.
           </h2>
           <p className="mt-2 text-xs text-slate-600">
-            At-a-glance health, one-touch fixes, zero hunting. Everything that
-            matters today lives on this screen.
+            At-a-glance health and operational signals for today.
           </p>
         </div>
+
         <div className="grid w-full gap-3 md:grid-cols-2 xl:grid-cols-3">
           <PulseTile
             label="Occupancy & rooms"
@@ -1275,52 +1274,70 @@ function PulseStrip({
                 30-Day Trend
               </div>
               <div className="h-16">
-                <OccupancyTrendChart
-                  data={metrics?.occupancyHistory || []}
-                  loading={!metrics}
-                />
+                {occHasTrend ? (
+                  <OccupancyTrendChart
+                    data={metrics?.occupancyHistory || []}
+                    loading={!metrics}
+                  />
+                ) : (
+                  <div className="h-16 grid place-items-center text-[11px] text-slate-500">
+                    Not available
+                  </div>
+                )}
               </div>
             </div>
           </PulseTile>
 
           <PulseTile
             label="Revenue snapshot"
-            primary={`₹${revenueToday.toFixed(0)} today`}
-            secondary={`ADR ₹${adr.toFixed(0)} · RevPAR ₹${revpar.toFixed(0)}`}
-            actionLabel={HAS_REVENUE ? "View pickup" : undefined}
-            onAction={HAS_REVENUE ? () => onOpenDrawer("pickup") : undefined}
+            primary={hasRevenueKpi ? `₹${revenueToday.toFixed(0)} today` : "Not available"}
+            secondary={
+              hasRevenueKpi
+                ? `ADR ₹${adr.toFixed(0)} · RevPAR ₹${revpar.toFixed(0)} · Pick-up 7d ${pickup7d}`
+                : "Revenue KPIs are not available."
+            }
+            actionLabel={HAS_REVENUE ? "Open revenue" : undefined}
+            actionHref={HAS_REVENUE ? `/owner/${slug}/revenue` : undefined}
           />
 
           <PulseTile
             label="Guest experience"
-            primary={`NPS ~${effectiveNps}`}
-            secondary={
-              effectiveResponses > 0
-                ? `${effectiveResponses} responses (last 30 days)`
-                : "Live rating & escalations"
-            }
-            badgeLabel="Guest"
-            badgeTone="green"
+            primary={guestPrimary}
+            secondary={guestSecondary}
+            badgeLabel={hasNps || hasRating ? "Guest" : "NA"}
+            badgeTone={hasNps || hasRating ? guestTone : "grey"}
           />
 
           <PulseTile
             label="Ops & service tickets"
             primary={`${ordersTotal} open tasks`}
-            secondary={`${ordersOverdue} overdue · SLA ${slaPct}%`}
+            secondary={
+              slaPct == null
+                ? `${ordersOverdue} overdue · SLA not available`
+                : `${ordersOverdue} overdue · SLA ${slaPct}%`
+            }
             actionLabel="Open ops board"
             actionHref={`/ops?slug=${encodeURIComponent(slug)}`}
             badgeTone={slaTone}
             badgeLabel={
-              slaTone === "green" ? "On track" : slaTone === "amber" ? "Watch" : "Risk"
+              slaTone === "green"
+                ? "On track"
+                : slaTone === "amber"
+                  ? "Watch"
+                  : slaTone === "red"
+                    ? "Risk"
+                    : "NA"
             }
           />
 
           <PulseTile
             label="Housekeeping status"
-            primary={`${Math.min(occPct, 100)}% rooms ready`}
-            secondary={`Based on today’s occupancy; detailed HK board in Housekeeping`}
-            actionLabel="Rush rooms"
-            onAction={() => onOpenDrawer("rushRooms")}
+            primary="Not available"
+            secondary="Room readiness signal is not connected."
+            actionLabel="Open housekeeping"
+            actionHref={`/owner/${slug}/housekeeping`}
+            badgeLabel="NA"
+            badgeTone="grey"
           />
 
           <PulseTile
@@ -1328,11 +1345,11 @@ function PulseStrip({
             primary={`${eventCount} events · ${vipCount} VIP arrivals`}
             secondary={
               eventCount + vipCount > 0
-                ? "Tap to see today’s VIPs & events."
-                : "Connect events & VIP list to see early alerts."
+                ? "See details in the VIP & events panel."
+                : "No VIP or event flags for today."
             }
-            actionLabel="View VIP list"
-            onAction={() => onOpenDrawer("vipList")}
+            badgeLabel={eventCount + vipCount > 0 ? "Info" : "NA"}
+            badgeTone={eventCount + vipCount > 0 ? "green" : "grey"}
           />
         </div>
       </div>
@@ -1371,6 +1388,7 @@ function PulseTile({
         <div className="mt-1 text-lg font-semibold text-slate-900">{primary}</div>
         <p className="mt-1 text-[11px] leading-snug text-slate-500">{secondary}</p>
       </div>
+
       {actionLabel && actionHref && (
         <Link
           to={actionHref}
@@ -1382,6 +1400,7 @@ function PulseTile({
           </span>
         </Link>
       )}
+
       {actionLabel && onAction && !actionHref && (
         <button
           type="button"
@@ -1394,6 +1413,7 @@ function PulseTile({
           </span>
         </button>
       )}
+
       {children}
     </div>
   );
@@ -1418,13 +1438,11 @@ function LiveOpsColumn({
     >
       <SectionHeader
         title="Live operations (today)"
-        desc={
-          allEmpty ? "No guest movements today." : "Arrivals, in-house guests, and departures."
-        }
+        desc={allEmpty ? "No guest movements today." : "Arrivals, in-house guests, and departures."}
       />
       {allEmpty ? (
         <div className="text-sm text-slate-400 py-2">
-          All guest boards are empty. Data will appear when stays are added.
+          All guest boards are empty.
         </div>
       ) : (
         <div className="grid gap-2 md:grid-cols-3">
@@ -1439,6 +1457,7 @@ function LiveOpsColumn({
 
 function PerformanceColumn({
   slug,
+  hasRevenueKpi,
   revenueToday,
   adr,
   revpar,
@@ -1452,31 +1471,34 @@ function PerformanceColumn({
   metrics,
 }: {
   slug: string;
+  hasRevenueKpi: boolean;
   revenueToday: number;
   adr: number;
   revpar: number;
   pickup7d: number;
   occPct: number;
   kpi: KpiRow | null;
-  npsScore?: number;
-  npsResponses?: number;
+  npsScore: number | null;
+  npsResponses: number | null;
   vipStays: VipStay[] | null;
   eventsToday: EventRow[] | null;
   metrics: DashboardMetrics | null;
 }) {
   const rating = kpi?.avg_rating_30d ?? null;
-  const fallbackNps =
-    rating != null ? Math.min(100, Math.max(0, Math.round(rating * 20))) : 78;
-  const npsDisplay = typeof npsScore === "number" ? npsScore : fallbackNps;
-  const responsesDisplay = npsResponses ?? 0;
+
+  const hasNps = typeof npsScore === "number" && (npsResponses ?? 0) > 0;
+  const hasRating = typeof rating === "number" && !Number.isNaN(rating);
+
+  const revenueTrendOk = hasSeries(metrics?.revenueHistory);
+  const taskVolumeOk = hasSeries(metrics?.taskVolume);
 
   return (
     <section className="space-y-3" id="revenue-panel">
-      {/* Revenue - compact card */}
+      {/* Revenue */}
       <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
         <SectionHeader
-          title="Revenue & forecast"
-          desc="Today vs budget and same day last year."
+          title="Revenue"
+          desc="Today’s revenue signal from owner KPIs."
           action={
             HAS_REVENUE ? (
               <Link to={`/owner/${slug}/revenue`} className="text-xs underline text-slate-700">
@@ -1485,62 +1507,116 @@ function PerformanceColumn({
             ) : null
           }
         />
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-2xl font-semibold tracking-tight text-slate-900">
-              ₹{revenueToday.toFixed(0)}
-            </div>
-            <div className="text-xs text-slate-600">
-              ADR ₹{adr.toFixed(0)} · RevPAR ₹{revpar.toFixed(0)} · Pick-up 7d{" "}
-              {pickup7d}
-            </div>
-          </div>
-          <div className="w-48 h-16">
-            <RevenueTrendChart data={metrics?.revenueHistory || []} loading={!metrics} />
-          </div>
-        </div>
-      </div>
-
-      {/* Task Demand - full width for 24 hours */}
-      <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
-        <SectionHeader title="Task demand (24h)" desc="Hourly volume of guest requests today." />
-        <TaskVolumeChart data={metrics?.taskVolume || []} loading={!metrics} />
-      </div>
-
-      {/* NPS & VIP - side by side */}
-      <div className="grid gap-3 lg:grid-cols-2">
-        <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
-          <SectionHeader title="Guest feedback" desc="Live signal from ratings." />
-          <div className="flex items-center justify-between gap-3">
+        {!hasRevenueKpi ? (
+          <div className="text-xs text-slate-600">Not available</div>
+        ) : (
+          <div className="flex items-center justify-between">
             <div>
-              <div className="text-lg font-semibold text-slate-900">
-                NPS ~{npsDisplay}
+              <div className="text-2xl font-semibold tracking-tight text-slate-900">
+                ₹{revenueToday.toFixed(0)}
               </div>
               <div className="text-xs text-slate-600">
-                {responsesDisplay > 0
-                  ? `${responsesDisplay} responses (30d)`
-                  : "Based on last 30 days' ratings."}
+                ADR ₹{adr.toFixed(0)} · RevPAR ₹{revpar.toFixed(0)} · Pick-up 7d {pickup7d}
               </div>
             </div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-full border-4 border-emerald-400 bg-emerald-50 text-sm font-semibold text-emerald-700">
-              {rating ? rating.toFixed(1) : "5.0"}
+            <div className="w-48 h-16">
+              {revenueTrendOk ? (
+                <RevenueTrendChart data={metrics?.revenueHistory || []} loading={!metrics} />
+              ) : (
+                <div className="h-16 grid place-items-center text-[11px] text-slate-500">
+                  Not available
+                </div>
+              )}
             </div>
           </div>
+        )}
+      </div>
+
+      {/* Task Demand */}
+      <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
+        <SectionHeader title="Task demand (24h)" desc="Hourly volume of requests today." />
+        {taskVolumeOk ? (
+          <TaskVolumeChart data={metrics?.taskVolume || []} loading={!metrics} />
+        ) : (
+          <div className="text-xs text-slate-600">Not available</div>
+        )}
+      </div>
+
+      {/* Guest feedback + VIP/events */}
+      <div className="grid gap-3 lg:grid-cols-2">
+        <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
+          <SectionHeader title="Guest feedback" desc="From connected NPS and ratings." />
+          {hasNps ? (
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-lg font-semibold text-slate-900">NPS {npsScore}</div>
+                <div className="text-xs text-slate-600">
+                  {npsResponses} responses (30d)
+                </div>
+              </div>
+            </div>
+          ) : hasRating ? (
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-lg font-semibold text-slate-900">
+                  Avg rating {rating!.toFixed(1)}/5
+                </div>
+                <div className="text-xs text-slate-600">Last 30 days</div>
+              </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-full border-4 border-emerald-400 bg-emerald-50 text-sm font-semibold text-emerald-700">
+                {rating!.toFixed(1)}
+              </div>
+            </div>
+          ) : (
+            <div className="text-xs text-slate-600">Not available</div>
+          )}
         </div>
 
         <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
           <SectionHeader
-            title="VIP & special attention"
-            desc="Today's VIPs and guests with complaints."
+            title="VIP & events"
+            desc="Flags for today from connected sources."
           />
           {(!vipStays || vipStays.length === 0) && (!eventsToday || eventsToday.length === 0) ? (
-            <div className="text-xs text-slate-500">
-              Connect CRM / PMS VIP flags to see a live list.
-            </div>
+            <div className="text-xs text-slate-600">Not available</div>
           ) : (
-            <div className="text-xs text-slate-700">
-              {vipStays && vipStays.length > 0 && <div>{vipStays.length} VIP arrivals today</div>}
-              {eventsToday && eventsToday.length > 0 && <div>{eventsToday.length} events today</div>}
+            <div className="space-y-2 text-xs text-slate-700">
+              {vipStays && vipStays.length > 0 && (
+                <div>
+                  <div className="text-[11px] font-semibold text-slate-900">
+                    VIP arrivals ({vipStays.length})
+                  </div>
+                  <ul className="mt-1 space-y-1">
+                    {vipStays.slice(0, 3).map((v) => (
+                      <li key={v.stay_id} className="rounded-lg bg-slate-50 px-2 py-1">
+                        <div className="flex items-center justify-between">
+                          <span>{v.room ? `Room ${v.room}` : "Room unassigned"}</span>
+                          <span className="text-[10px] text-slate-500">
+                            {v.has_open_complaint ? "Open issue" : v.needs_courtesy_call ? "Courtesy call" : "VIP"}
+                          </span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {eventsToday && eventsToday.length > 0 && (
+                <div>
+                  <div className="text-[11px] font-semibold text-slate-900">
+                    Events ({eventsToday.length})
+                  </div>
+                  <ul className="mt-1 space-y-1">
+                    {eventsToday.slice(0, 2).map((e) => (
+                      <li key={e.id} className="rounded-lg bg-slate-50 px-2 py-1">
+                        <div className="flex items-center justify-between">
+                          <span className="truncate">{e.name}</span>
+                          <span className="text-[10px] text-slate-500">{fmt(e.start_at)}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1549,7 +1625,7 @@ function PerformanceColumn({
   );
 }
 
-/** ========= Components (mostly existing, lightly tweaked) ========= */
+/** ========= Components ========= */
 
 function SectionHeader({
   title,
@@ -1575,59 +1651,72 @@ function SectionHeader({
 
 function SlaCard({
   targetMin,
-  orders,
   metrics,
 }: {
   targetMin: number;
-  orders: LiveOrder[];
   metrics: DashboardMetrics | null;
 }) {
-  // Prefer "Completed Today" metrics for "On-time delivery" score
-  const todayMetric =
-    metrics?.slaPerformance?.[metrics.slaPerformance.length - 1];
+  // Pilot-safe: SLA % only from completed SLA metrics
+  const series = metrics?.slaPerformance;
+  const todayMetric = series?.[series.length - 1];
 
-  let total = 0;
-  let onTime = 0;
-  let pct = 100;
+  const hasToday =
+    todayMetric &&
+    typeof todayMetric.total === "number" &&
+    typeof todayMetric.breached === "number";
 
-  if (todayMetric) {
-    total = todayMetric.total;
-    const breached = todayMetric.breached;
-    onTime = Math.max(0, total - breached);
-    pct = total > 0 ? Math.round((onTime / total) * 100) : 100;
-  } else {
-    // Fallback: active orders as proxy
-    total = orders.length;
-    onTime = orders.filter((o) => ageMin(o.created_at) <= targetMin).length;
-    pct = total ? Math.round((onTime / total) * 100) : 100;
-  }
+  const total = hasToday ? todayMetric.total : 0;
+  const breached = hasToday ? todayMetric.breached : 0;
 
-  const tone = slaTone(pct);
+  const onTime = hasToday ? Math.max(0, total - breached) : 0;
+  const pct = hasToday && total > 0 ? Math.round((onTime / total) * 100) : null;
+
+  const tone = slaToneSafe(pct);
+  const trendOk = hasSeries(series);
 
   return (
     <div className="rounded-xl border bg-white p-4 shadow-sm" id="sla">
       <SectionHeader
         title="On-time delivery (SLA)"
-        desc="How fast we’re closing requests today. Keep the green bar growing."
+        desc={`Target: ${targetMin} minutes. SLA score is shown when completed-request metrics are available.`}
       />
-      <div className="h-2 rounded-full bg-gray-100">
-        <div
-          className={`h-2 rounded-full ${
-            tone === "green" ? "bg-emerald-500" : tone === "amber" ? "bg-amber-500" : "bg-rose-500"
-          }`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <div className="mt-2 text-xs text-muted-foreground flex justify-between">
-        <span>
-          {onTime}/{total} on time
-        </span>
-        <span>{pct}% score</span>
-      </div>
+
+      {!hasToday ? (
+        <div className="text-xs text-slate-600">Not available</div>
+      ) : total === 0 ? (
+        <div className="text-xs text-slate-600">No completed requests recorded today.</div>
+      ) : (
+        <>
+          <div className="h-2 rounded-full bg-gray-100">
+            <div
+              className={`h-2 rounded-full ${
+                tone === "green"
+                  ? "bg-emerald-500"
+                  : tone === "amber"
+                    ? "bg-amber-500"
+                    : tone === "red"
+                      ? "bg-rose-500"
+                      : "bg-slate-300"
+              }`}
+              style={{ width: `${pct ?? 0}%` }}
+            />
+          </div>
+          <div className="mt-2 text-xs text-muted-foreground flex justify-between">
+            <span>
+              {onTime}/{total} on time
+            </span>
+            <span>{pct}%</span>
+          </div>
+        </>
+      )}
 
       <div className="mt-6 border-t pt-4">
         <div className="mb-2 text-xs font-medium text-slate-600">7-Day Trend</div>
-        <SlaPerformanceChart data={metrics?.slaPerformance || []} loading={!metrics} />
+        {trendOk ? (
+          <SlaPerformanceChart data={series || []} loading={!metrics} />
+        ) : (
+          <div className="text-xs text-slate-600">Not available</div>
+        )}
       </div>
     </div>
   );
@@ -1648,7 +1737,7 @@ function LiveOrdersPanel({
     <div className={`rounded-xl border bg-white p-4 shadow-sm ${className}`} id="live-orders">
       <SectionHeader
         title="Live requests & orders"
-        desc="What guests are asking for right now — jump in or assign to staff."
+        desc="Open requests right now."
         action={
           <Link
             to={slug ? `/ops?slug=${encodeURIComponent(slug)}` : "/ops"}
@@ -1674,7 +1763,10 @@ function LiveOrdersPanel({
                     </div>
                     <div className="text-xs text-muted-foreground">Age: {mins} min</div>
                   </div>
-                  <StatusBadge label={breach ? "SLA breach" : "On time"} tone={breach ? "red" : "green"} />
+                  <StatusBadge
+                    label={breach ? "SLA breach" : "On time"}
+                    tone={breach ? "red" : "green"}
+                  />
                 </li>
               );
             })}
@@ -1712,11 +1804,9 @@ function AttentionServicesCard({ orders }: { orders: LiveOrder[] }) {
 
   return (
     <div className="rounded-xl border bg-white p-4 shadow-sm">
-      <SectionHeader title="Services needing attention" desc="Quick snapshot of today’s request load by status." />
+      <SectionHeader title="Services snapshot" desc="Open requests grouped by status." />
       {orders.length === 0 ? (
-        <div className="text-sm text-muted-foreground">
-          We’ll show patterns here once more requests flow in.
-        </div>
+        <div className="text-sm text-muted-foreground">No open requests to summarize.</div>
       ) : (
         <ul className="space-y-1 text-sm">
           <li className="flex items-center justify-between">
@@ -1734,7 +1824,7 @@ function AttentionServicesCard({ orders }: { orders: LiveOrder[] }) {
         </ul>
       )}
       <p className="mt-2 text-[11px] text-muted-foreground">
-        In the next phase this will group by service type (in-room dining, housekeeping, engineering, etc.).
+        Service-type grouping is not available in this view.
       </p>
     </div>
   );
@@ -1743,10 +1833,10 @@ function AttentionServicesCard({ orders }: { orders: LiveOrder[] }) {
 function StaffPerformancePanel({ data }: { data: StaffPerf[] | null }) {
   return (
     <div className="rounded-xl border bg-white p-3 shadow-sm">
-      <SectionHeader title="Staff leaderboard" desc="Staff members and their 30-day performance." />
+      <SectionHeader title="Staff leaderboard" desc="Active staff members (role + assignment context)." />
       {!data || data.length === 0 ? (
         <div className="text-sm text-muted-foreground">
-          No staff members found. Add team members to see them here.
+          No staff members found.
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -1780,7 +1870,11 @@ function StaffPerformancePanel({ data }: { data: StaffPerf[] | null }) {
               ))}
             </tbody>
           </table>
-          {data.length > 8 && <div className="mt-2 text-xs text-slate-500">+{data.length - 8} more staff members</div>}
+          {data.length > 8 && (
+            <div className="mt-2 text-xs text-slate-500">
+              +{data.length - 8} more staff members
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -1788,14 +1882,16 @@ function StaffPerformancePanel({ data }: { data: StaffPerf[] | null }) {
 }
 
 function HrmsPanel({ data, slug }: { data: HrmsSnapshot | null; slug: string }) {
+  const showHrmsLink = HAS_HRMS;
+
   if (!data) {
     return (
       <div className="rounded-xl border bg-white p-4 shadow-sm" id="attendance">
         <SectionHeader
           title="Attendance snapshot"
-          desc="Presence pattern over the last 30 days — spot gaps early."
+          desc="Connected attendance signal for today."
           action={
-            HAS_HRMS ? (
+            showHrmsLink ? (
               <Link to={`/owner/${slug}/hrms`} className="text-sm underline">
                 Open HRMS
               </Link>
@@ -1803,7 +1899,7 @@ function HrmsPanel({ data, slug }: { data: HrmsSnapshot | null; slug: string }) 
           }
         />
         <div className="text-sm text-muted-foreground">
-          Not connected to HR yet. We’re using activity-based presence as a proxy.
+          Not available
         </div>
       </div>
     );
@@ -1823,9 +1919,9 @@ function HrmsPanel({ data, slug }: { data: HrmsSnapshot | null; slug: string }) 
     <div className="rounded-xl border bg-white p-4 shadow-sm" id="attendance">
       <SectionHeader
         title="Attendance snapshot"
-        desc="Presence pattern over the last 30 days — spot gaps early."
+        desc="Presence signal for today."
         action={
-          HAS_HRMS ? (
+          showHrmsLink ? (
             <Link to={`/owner/${slug}/hrms/attendance`} className="text-sm underline">
               See details
             </Link>
@@ -1856,29 +1952,29 @@ function OwnerTasksPanel({
   kpi: KpiRow | null;
   slug: string;
 }) {
-  const revenueToday = kpi?.revenue_today ?? 0;
+  const revenueToday = kpi?.revenue_today;
 
   const tasks: string[] = [];
   if (occPct < 50) {
-    tasks.push("Review weekend packages and push soft nights.");
+    tasks.push("Review packages and distribution for soft nights.");
   } else if (occPct > 80) {
-    tasks.push("Increase rates slightly on high-demand nights.");
+    tasks.push("Review rates and restrictions on high-demand nights.");
   } else {
-    tasks.push("Monitor pacing; no urgent changes needed.");
+    tasks.push("Monitor pacing; no urgent rate changes indicated.");
   }
-  if (revenueToday > 0) {
-    tasks.push("Check top 5 services driving revenue today.");
+  if (typeof revenueToday === "number") {
+    tasks.push("Review top services driving revenue today.");
   }
   if (HAS_WORKFORCE) {
-    tasks.push("Glance at open roles in Workforce to ensure staffing matches upcoming occupancy.");
+    tasks.push("Review open roles in Workforce for coverage gaps.");
   }
-  tasks.push("Review any open low-rating stays and close the loop.");
+  tasks.push("Review low ratings and close the loop on open guest issues.");
 
   return (
     <div className="rounded-xl border bg-white p-4 shadow-sm" id="owner-tasks">
       <SectionHeader
         title="Owner tasks for today"
-        desc="2–3 nudges that keep the property ahead of the curve."
+        desc="Short operational nudges based on today’s signals."
         action={
           <div className="flex items-center gap-3">
             <Link to="/owner" className="text-xs underline text-slate-600">
@@ -1912,17 +2008,19 @@ function OwnerWorkforcePanel({
 }) {
   const hasFeature = HAS_WORKFORCE;
   const list = jobs ?? [];
-  const openJobs = list.filter((j) => (j.status || "open").toLowerCase().includes("open")).length;
+  const openJobs = list.filter((j) =>
+    (j.status || "open").toLowerCase().includes("open")
+  ).length;
 
   if (!hasFeature) {
     return (
       <div className="rounded-xl border bg-white p-4 shadow-sm" id="workforce">
         <SectionHeader
-          title="Local workforce (beta)"
-          desc="Once enabled, this shows open roles and local applicants for this property."
+          title="Workforce"
+          desc="Hiring view for this property."
         />
         <div className="text-xs text-muted-foreground">
-          Workforce hiring beta is not enabled yet for this property. When switched on, you’ll see open roles, applicants and shortlists here.
+          Not available
         </div>
       </div>
     );
@@ -1931,8 +2029,8 @@ function OwnerWorkforcePanel({
   return (
     <div className="rounded-xl border bg-white p-4 shadow-sm" id="workforce">
       <SectionHeader
-        title="Local workforce (beta)"
-        desc="Quick view of open roles and hiring load."
+        title="Workforce"
+        desc="Open roles for this property."
         action={
           <Link to={`/owner/${slug}/workforce`} className="text-xs underline text-slate-600">
             Open Workforce
@@ -1942,9 +2040,7 @@ function OwnerWorkforcePanel({
       {loading ? (
         <div className="text-xs text-muted-foreground">Loading roles…</div>
       ) : list.length === 0 ? (
-        <div className="text-xs text-muted-foreground">
-          No active roles yet. Create your first role in Workforce to start receiving nearby applicants.
-        </div>
+        <div className="text-xs text-muted-foreground">No roles found.</div>
       ) : (
         <div className="space-y-2 text-xs text-slate-700">
           <div className="flex items-center justify-between">
@@ -1953,7 +2049,7 @@ function OwnerWorkforcePanel({
                 {openJobs} open role{openJobs === 1 ? "" : "s"}
               </div>
               <div className="text-[11px] text-muted-foreground">
-                {list.length} total roles created for this property.
+                {list.length} total roles.
               </div>
             </div>
           </div>
@@ -1974,14 +2070,14 @@ function OwnerWorkforcePanel({
                       {(j.city || "").trim() || "Local"} · {j.status || "Open"}
                     </div>
                   </div>
-                  <StatusBadge label={isOpen ? "Hiring" : "Closed"} tone={isOpen ? "green" : "grey"} />
+                  <StatusBadge
+                    label={isOpen ? "Hiring" : "Closed"}
+                    tone={isOpen ? "green" : "grey"}
+                  />
                 </li>
               );
             })}
           </ul>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Applicant counts and shortlisting actions will appear here in the next update.
-          </p>
         </div>
       )}
     </div>
@@ -1997,7 +2093,7 @@ function Metric({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-/** ========= AI Ops Co-pilot section (new) ========= */
+/** ========= AI Ops Co-pilot section (pilot-safe) ========= */
 
 function AiOpsSection({
   slug,
@@ -2013,14 +2109,16 @@ function AiOpsSection({
   const hasPlan = !!(staffingPlan && staffingPlan.length);
   const hasHeatmap = !!(heatmap && heatmap.length);
 
+  const showAny = HAS_FUNCS && (loading || hasPlan || hasHeatmap);
+
   return (
     <section className="rounded-2xl border border-slate-100 bg-white/95 px-4 py-4 shadow-sm">
       <SectionHeader
-        title="AI Ops Co-pilot (beta)"
+        title="AI Ops Co-pilot"
         desc={
           HAS_FUNCS
-            ? "Early-warning on overload and staffing risk, based on last 7 days of tickets."
-            : "Turn on Supabase Functions to let VAiyu suggest staffing and highlight risky hours automatically."
+            ? "Operational patterns from connected ticket history."
+            : "Not available"
         }
         action={
           <Link
@@ -2031,48 +2129,46 @@ function AiOpsSection({
           </Link>
         }
       />
-      <div className="grid gap-4 md:grid-cols-5">
-        <div className="space-y-2 text-xs text-slate-700 md:col-span-2">
-          {loading ? (
-            <div className="text-xs text-slate-500">Analyzing last 7 days of tickets…</div>
-          ) : hasPlan ? (
-            <>
-              <div className="font-semibold text-slate-900">Today’s suggested staffing bands</div>
-              <ul className="space-y-1">
-                {staffingPlan!.slice(0, 3).map((row) => (
-                  <li
-                    key={row.department}
-                    className="flex items-start justify-between gap-2 rounded-lg bg-slate-50 px-2 py-1"
-                  >
-                    <div>
-                      <div className="text-[11px] font-semibold text-slate-900">{row.department}</div>
-                      <div className="text-[11px] text-slate-600">
-                        Recommend {row.recommended_count} staff (min {row.min_count}, max {row.max_count})
+
+      {!showAny ? (
+        <div className="text-xs text-slate-600">Not available</div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-5">
+          <div className="space-y-2 text-xs text-slate-700 md:col-span-2">
+            {loading ? (
+              <div className="text-xs text-slate-500">Analyzing recent requests…</div>
+            ) : hasPlan ? (
+              <>
+                <div className="font-semibold text-slate-900">Suggested staffing bands (today)</div>
+                <ul className="space-y-1">
+                  {staffingPlan!.slice(0, 3).map((row) => (
+                    <li
+                      key={row.department}
+                      className="flex items-start justify-between gap-2 rounded-lg bg-slate-50 px-2 py-1"
+                    >
+                      <div>
+                        <div className="text-[11px] font-semibold text-slate-900">{row.department}</div>
+                        <div className="text-[11px] text-slate-600">
+                          Recommend {row.recommended_count} staff (min {row.min_count}, max {row.max_count})
+                        </div>
+                        {row.reason && (
+                          <div className="mt-0.5 text-[10px] text-slate-500">{row.reason}</div>
+                        )}
                       </div>
-                      {row.reason && <div className="mt-0.5 text-[10px] text-slate-500">{row.reason}</div>}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-2 text-[11px] text-slate-500">
-                These are soft suggestions only. Final rosters stay under your HRMS / owner control.
-              </p>
-            </>
-          ) : (
-            <div className="text-xs text-slate-600">
-              Once there’s enough recent ticket activity, this panel will suggest headcount bands per department. For now, use your standard roster and the HRMS attendance view.
-            </div>
-          )}
-          {HAS_FUNCS && hasHeatmap && (
-            <p className="text-[11px] text-emerald-700">
-              Tip: Use this along with Ops board filters to smooth busy bands before SLAs slip.
-            </p>
-          )}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <div className="text-xs text-slate-600">Not available</div>
+            )}
+          </div>
+
+          <div className="md:col-span-3">
+            <AiOpsHeatmap heatmap={heatmap} loading={loading} />
+          </div>
         </div>
-        <div className="md:col-span-3">
-          <AiOpsHeatmap heatmap={heatmap} loading={loading} />
-        </div>
-      </div>
+      )}
     </section>
   );
 }
@@ -2084,26 +2180,39 @@ function AiOpsHeatmap({
   heatmap: OpsHeatmapPoint[] | null;
   loading: boolean;
 }) {
+  if (loading) {
+    return (
+      <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 text-xs text-slate-600">
+        Analyzing…
+      </div>
+    );
+  }
+
+  if (!heatmap || heatmap.length === 0) {
+    return (
+      <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 text-xs text-slate-600">
+        Not available
+      </div>
+    );
+  }
+
   const buckets = ["00–06", "06–12", "12–18", "18–24"];
 
-  let zones: string[] = [];
   const matrix: Record<string, Record<string, number>> = {};
+  const zoneTotals: Record<string, number> = {};
 
-  if (heatmap && heatmap.length > 0) {
-    const zoneTotals: Record<string, number> = {};
-    for (const p of heatmap) {
-      const zone = p.zone || "Other";
-      const bucket = timeBucketFromISO(p.hour_bucket);
-      if (!matrix[zone]) matrix[zone] = {};
-      matrix[zone][bucket] = (matrix[zone][bucket] || 0) + (p.total_tickets ?? 0);
-      zoneTotals[zone] = (zoneTotals[zone] || 0) + (p.total_tickets ?? 0);
-    }
-    zones = Object.keys(zoneTotals).sort((a, b) => (zoneTotals[b] ?? 0) - (zoneTotals[a] ?? 0));
-    zones = zones.slice(0, 4);
-  } else {
-    zones = ["Rooms", "F&B", "Front desk", "Engineering"];
-    for (const z of zones) matrix[z] = {};
+  for (const p of heatmap) {
+    const zone = p.zone || "Other";
+    const bucket = timeBucketFromISO(p.hour_bucket);
+    if (!matrix[zone]) matrix[zone] = {};
+    matrix[zone][bucket] = (matrix[zone][bucket] || 0) + (p.total_tickets ?? 0);
+    zoneTotals[zone] = (zoneTotals[zone] || 0) + (p.total_tickets ?? 0);
   }
+
+  let zones = Object.keys(zoneTotals).sort(
+    (a, b) => (zoneTotals[b] ?? 0) - (zoneTotals[a] ?? 0)
+  );
+  zones = zones.slice(0, 6);
 
   let maxValue = 0;
   for (const z of zones) {
@@ -2117,7 +2226,7 @@ function AiOpsHeatmap({
   return (
     <div className="space-y-2">
       <div className="text-[11px] text-slate-500">
-        {loading ? "Analyzing last 7 days of requests…" : "Darker cells ≈ more requests in that zone & time-band."}
+        Darker cells ≈ more requests in that zone & time band.
       </div>
       <div className="overflow-x-auto rounded-xl border border-slate-100 bg-slate-50/60 p-2">
         <table className="w-full border-separate border-spacing-0 text-[11px]">
@@ -2144,11 +2253,7 @@ function AiOpsHeatmap({
                       <div
                         className="flex h-6 items-center justify-center rounded bg-emerald-500 text-[10px] font-medium text-emerald-50"
                         style={{ opacity }}
-                        title={
-                          v > 0
-                            ? `${v} request${v === 1 ? "" : "s"} in ${z}, ${b}`
-                            : `No data yet in ${z}, ${b}`
-                        }
+                        title={`${v} request${v === 1 ? "" : "s"} in ${z}, ${b}`}
                       >
                         {v > 0 ? v : "·"}
                       </div>
@@ -2160,23 +2265,18 @@ function AiOpsHeatmap({
           </tbody>
         </table>
       </div>
-      <p className="text-[11px] text-slate-500">
-        AI uses this pattern to suggest staffing and alert bands before SLAs slip. Detailed board lives in Operations.
-      </p>
     </div>
   );
 }
 
-/** ========= Remaining components ========= */
+/** ========= Pilot-safe cards for areas that previously used placeholders ========= */
 
-function OccupancyHeatmap({ title, desc }: { title: string; desc?: string }) {
-  const weeks = 6;
-  const days = 7;
+function BookingOutlookCard() {
   return (
     <div className="rounded-xl border bg-white p-4 shadow-sm" id="rooms">
       <SectionHeader
-        title={title}
-        desc={desc}
+        title="Booking outlook"
+        desc="Availability and pacing view from your bookings calendar."
         action={
           HAS_CALENDAR ? (
             <Link to="../bookings/calendar" className="text-sm underline">
@@ -2185,44 +2285,29 @@ function OccupancyHeatmap({ title, desc }: { title: string; desc?: string }) {
           ) : null
         }
       />
-      <div className="grid grid-cols-7 gap-1">
-        {Array.from({ length: weeks * days }).map((_, i) => (
-          <div
-            key={i}
-            className="aspect-square rounded-md bg-sky-50"
-            style={{ opacity: 0.6 + 0.4 * Math.sin((i % 7) / 7) }}
-            title="Occupancy placeholder"
-          />
-        ))}
-      </div>
-      <div className="mt-3 text-xs text-muted-foreground">
-        {HAS_CALENDAR
-          ? "Deeper calendar with real data coming next."
-          : "Calendar / bookings module will plug in here once enabled."}
-      </div>
+      <div className="text-xs text-slate-600">Not available</div>
     </div>
   );
 }
 
-function HousekeepingProgress({ slug, readyPct }: { slug: string; readyPct: number }) {
+function HousekeepingStatusCard({ slug }: { slug: string }) {
   return (
     <div className="rounded-xl border bg-white p-4 shadow-sm" id="housekeeping">
       <SectionHeader
-        title="Room readiness"
-        desc="How many rooms are ready for check-in — and what’s blocking the rest."
+        title="Housekeeping"
+        desc="Room readiness and blockers from housekeeping data."
         action={
           <Link to={`/owner/${slug}/housekeeping`} className="text-sm underline">
-            Open HK
+            Open housekeeping
           </Link>
         }
       />
-      <div className="h-2 rounded-full bg-gray-100">
-        <div className="h-2 rounded-full bg-emerald-500" style={{ width: `${readyPct}%` }} />
-      </div>
-      <div className="mt-2 text-xs text-muted-foreground">{readyPct}% rooms ready</div>
+      <div className="text-xs text-slate-600">Not available</div>
     </div>
   );
 }
+
+/** ========= Remaining components ========= */
 
 function Board({
   title,
@@ -2238,6 +2323,7 @@ function Board({
   return (
     <div className="rounded-lg border bg-white p-2 shadow-sm">
       <div className="text-xs font-semibold text-slate-700 mb-1">{title}</div>
+      {desc ? <div className="text-[11px] text-slate-500 mb-1">{desc}</div> : null}
       {items.length === 0 ? (
         <div className="text-xs text-slate-400">{empty}</div>
       ) : (
@@ -2265,9 +2351,9 @@ function OwnerSupportFooter() {
   return (
     <div className="rounded-2xl border border-slate-100 bg-white px-4 py-4 shadow-sm flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <div className="font-medium text-slate-900">Need help or want to improve results?</div>
+        <div className="font-medium text-slate-900">Need help?</div>
         <div className="text-sm text-muted-foreground">
-          Our team can review your numbers and suggest quick wins tailored to your property.
+          Our team can review your numbers and suggest operational quick wins.
         </div>
       </div>
       <a
@@ -2319,56 +2405,6 @@ function AccessHelp({
   );
 }
 
-/** ========= Action Drawer ========= */
-
-function ActionDrawer({ state, onClose }: { state: DrawerState | null; onClose: () => void }) {
-  if (!state) return null;
-
-  let title = "";
-  let body = "";
-
-  switch (state.kind) {
-    case "pickup":
-      title = "Revenue pickup — coming soon";
-      body =
-        "This drawer will show a compact pick-up chart with today vs budget and last year. For now, open the Revenue view for full details.";
-      break;
-    case "opsBoard":
-      title = "Ops board — one-touch actions";
-      body =
-        "Soon you’ll be able to see all open tickets here and escalate, assign or resolve them in one or two taps. For now, use the Operations board.";
-      break;
-    case "rushRooms":
-      title = "Prioritise rush rooms";
-      body =
-        "In the next phase, this will let you mark a set of rooms as Rush clean and notify Housekeeping instantly.";
-      break;
-    case "vipList":
-      title = "VIP & special attention list";
-      body =
-        "Connect your CRM/PMS VIP tags to show VIP arrivals, long-stays and guests with open complaints here.";
-      break;
-  }
-
-  return (
-    <div className="fixed inset-0 z-30 flex justify-end bg-black/30">
-      <div className="flex h-full w-full max-w-md flex-col border-l border-slate-200 bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-          <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
-          <button
-            type="button"
-            className="text-xs text-slate-500 hover:text-slate-700"
-            onClick={onClose}
-          >
-            Close
-          </button>
-        </div>
-        <div className="flex-1 px-4 py-4 text-sm text-slate-700">{body}</div>
-      </div>
-    </div>
-  );
-}
-
 /** ========= Utils ========= */
 function fmt(ts: string | null) {
   if (!ts) return "—";
@@ -2377,7 +2413,6 @@ function fmt(ts: string | null) {
 }
 
 function dayStartISO(yyyy_mm_dd: string) {
-  // UTC day boundary for consistent server comparisons
   return `${yyyy_mm_dd}T00:00:00.000Z`;
 }
 

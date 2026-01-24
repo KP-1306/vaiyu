@@ -3,7 +3,7 @@
 // Only UI is rebuilt to match the approved premium dark dashboard image.
 // No synthetic numbers: unknown values render as "—" / "Not available".
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { API } from "../lib/api";
@@ -308,7 +308,6 @@ export default function GuestDashboard() {
   const lastStay = stays.data[0];
   const welcomeText = useMemo(() => {
     if (stays.source === "live" && lastStay?.hotel) {
-      const city = lastStay.hotel.city ? ` in ${lastStay.hotel.city}` : "";
       return `Welcome back, ${firstName}.`;
     }
     return `Welcome back, ${firstName}.`;
@@ -381,8 +380,6 @@ export default function GuestDashboard() {
     };
   }, [stays.data, spend.data, derivedSpendFromStays, totalReferralCredits]);
 
-  const avgSpendPerTrip = stats.totalStays > 0 ? stats.totalSpend / stats.totalStays : 0;
-  const typicalLength = stats.totalStays > 0 ? stats.nights / stats.totalStays : 0;
   const mostBookedRoomType = getMostBookedRoomType(stays.data);
 
   const tierPoints = useMemo(() => {
@@ -515,15 +512,15 @@ export default function GuestDashboard() {
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
-      {/* Premium background */}
-      <div className="pointer-events-none fixed inset-0 opacity-80">
-        <div className="absolute inset-0 bg-[radial-gradient(1200px_700px_at_15%_0%,rgba(56,189,248,0.16),transparent_55%),radial-gradient(900px_560px_at_90%_15%,rgba(16,185,129,0.14),transparent_55%),radial-gradient(900px_640px_at_50%_120%,rgba(245,158,11,0.08),transparent_60%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(2,6,23,0.0),rgba(2,6,23,0.65))]" />
+      {/* Premium background (10% brighter + calmer, premium blue+green) */}
+      <div className="pointer-events-none fixed inset-0 opacity-90">
+        <div className="absolute inset-0 bg-[radial-gradient(1200px_700px_at_14%_0%,rgba(59,130,246,0.22),transparent_58%),radial-gradient(900px_560px_at_88%_18%,rgba(16,185,129,0.20),transparent_56%),radial-gradient(900px_640px_at_50%_120%,rgba(34,211,238,0.15),transparent_62%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(2,6,23,0.0),rgba(2,6,23,0.72))]" />
       </div>
 
       <div className="relative mx-auto max-w-[1400px] px-4 py-4 lg:px-6 lg:py-6">
         {/* Top bar */}
-        <header className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-md lg:flex-row lg:items-center lg:justify-between">
+        <header className="flex flex-col gap-3 rounded-2xl border border-sky-200/10 bg-sky-400/6 px-4 py-3 backdrop-blur-md lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
             <div className="text-[13px] font-semibold tracking-tight text-slate-100">
               VAiyu Guest Dashboard
@@ -536,7 +533,7 @@ export default function GuestDashboard() {
           <div className="flex items-center gap-2">
             <form
               onSubmit={onSearchSubmit}
-              className="hidden lg:flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-2"
+              className="hidden lg:flex items-center rounded-full border border-sky-200/10 bg-sky-400/5 px-3 py-2"
             >
               <input
                 className="w-[360px] bg-transparent text-[13px] text-slate-100 placeholder:text-slate-400 outline-none"
@@ -546,13 +543,13 @@ export default function GuestDashboard() {
               />
               <button
                 type="submit"
-                className="ml-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] font-semibold text-slate-100 hover:bg-white/10"
+                className="ml-2 rounded-full border border-sky-200/10 bg-sky-400/6 px-3 py-1.5 text-[12px] font-semibold text-slate-100 hover:bg-sky-400/10"
               >
                 Search
               </button>
             </form>
 
-            <div className="hidden sm:flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2">
+            <div className="hidden sm:flex items-center gap-2 rounded-full border border-sky-200/10 bg-sky-400/5 px-3 py-2">
               <span className="text-[12px] text-slate-300">Platinum</span>
               <span className="text-[12px] font-semibold text-slate-100">·</span>
               <span className="text-[12px] font-semibold text-slate-100">
@@ -560,8 +557,8 @@ export default function GuestDashboard() {
               </span>
             </div>
 
-            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2 py-1.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-[12px] font-semibold">
+            <div className="flex items-center gap-2 rounded-full border border-sky-200/10 bg-sky-400/5 px-2 py-1.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-400/12 text-[12px] font-semibold">
                 {initials || "G"}
               </div>
               <div className="hidden sm:block leading-tight">
@@ -590,9 +587,9 @@ export default function GuestDashboard() {
                 </span>
               </div>
 
-              <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 p-3">
+              <div className="mt-3 rounded-2xl border border-sky-200/10 bg-sky-400/5 p-3">
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-white/10 border border-white/10 grid place-items-center text-[12px] font-semibold">
+                  <div className="h-10 w-10 rounded-full bg-sky-400/12 border border-sky-200/10 grid place-items-center text-[12px] font-semibold">
                     {initials || "G"}
                   </div>
                   <div className="min-w-0">
@@ -617,8 +614,8 @@ export default function GuestDashboard() {
                         "flex items-center justify-between rounded-xl px-3 py-2.5 transition",
                         "border border-transparent",
                         active
-                          ? "bg-white/10 text-slate-50 border-white/10"
-                          : "text-slate-300 hover:bg-white/8 hover:text-slate-50",
+                          ? "bg-sky-400/12 text-slate-50 border-sky-200/12"
+                          : "text-slate-300 hover:bg-sky-400/8 hover:text-slate-50",
                       ].join(" ")}
                     >
                       <div className="flex items-center gap-2">
@@ -633,35 +630,15 @@ export default function GuestDashboard() {
                 })}
               </nav>
 
-              <div className="mt-4 border-t border-white/10 pt-4">
+              <div className="mt-4 border-t border-sky-200/10 pt-4">
                 <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
                   Quick actions
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-2">
-                  <MiniAction
-                    label="Scan QR"
-                    to="/scan"
-                    hint="Check-in"
-                    icon="⌁"
-                  />
-                  <MiniAction
-                    label="Find booking"
-                    to="/claim"
-                    hint="Code"
-                    icon="⌕"
-                  />
-                  <MiniAction
-                    label="Rewards"
-                    to="/rewards"
-                    hint="Wallet"
-                    icon="✶"
-                  />
-                  <MiniAction
-                    label="Bills"
-                    to="/bills"
-                    hint="Invoices"
-                    icon="⌁"
-                  />
+                  <MiniAction label="Scan QR" to="/scan" hint="Check-in" icon="⌁" />
+                  <MiniAction label="Find booking" to="/claim" hint="Code" icon="⌕" />
+                  <MiniAction label="Rewards" to="/rewards" hint="Wallet" icon="✶" />
+                  <MiniAction label="Bills" to="/bills" hint="Invoices" icon="⌁" />
                 </div>
               </div>
             </GlassCard>
@@ -687,7 +664,7 @@ export default function GuestDashboard() {
               </div>
 
               {nextStay ? (
-                <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="mt-3 rounded-2xl border border-sky-200/10 bg-sky-400/5 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="text-[13px] font-semibold text-slate-100 truncate">
@@ -699,9 +676,7 @@ export default function GuestDashboard() {
                           {getStayBookingCode(nextStay) ||
                             (nextStay.id ? nextStay.id.slice(0, 8) : "—")}
                         </span>
-                        {nextStay.hotel.city ? (
-                          <span className="text-slate-500"> · </span>
-                        ) : null}
+                        {nextStay.hotel.city ? <span className="text-slate-500"> · </span> : null}
                         {nextStay.hotel.city ? (
                           <span className="text-slate-300">{nextStay.hotel.city}</span>
                         ) : null}
@@ -733,7 +708,7 @@ export default function GuestDashboard() {
                   </div>
                 </div>
               ) : (
-                <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-[13px] text-slate-300">
+                <div className="mt-3 rounded-2xl border border-sky-200/10 bg-sky-400/5 p-4 text-[13px] text-slate-300">
                   Not available
                 </div>
               )}
@@ -773,7 +748,7 @@ export default function GuestDashboard() {
                   <ServiceRow name="Laundry" value="Not available" />
                 </div>
 
-                <div className="mt-4 border-t border-white/10 pt-4">
+                <div className="mt-4 border-t border-sky-200/10 pt-4">
                   <div className="text-[12px] font-semibold text-slate-100">
                     Quick actions
                   </div>
@@ -817,14 +792,14 @@ export default function GuestDashboard() {
                   <RewardsPill />
                 </div>
 
-                <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="mt-3 rounded-2xl border border-sky-200/10 bg-sky-400/5 p-4">
                   <div className="text-[12px] text-slate-400">
                     Progress to next perk
                   </div>
-                  <div className="mt-2 h-2 rounded-full bg-white/10">
+                  <div className="mt-2 h-2 rounded-full bg-sky-400/10">
                     {/* Pilot-safe: if no spend/rewards data, keep subtle baseline */}
                     <div
-                      className="h-2 rounded-full bg-gradient-to-r from-sky-400/80 to-emerald-400/80"
+                      className="h-2 rounded-full bg-gradient-to-r from-blue-400/80 via-cyan-400/70 to-emerald-400/75"
                       style={{
                         width: `${Math.min(100, Math.max(6, stats.totalStays ? 22 : 6))}%`,
                       }}
@@ -842,7 +817,7 @@ export default function GuestDashboard() {
                 </div>
 
                 {/* Spend analytics (kept, premium dark) */}
-                <div className="mt-4 border-t border-white/10 pt-4">
+                <div className="mt-4 border-t border-sky-200/10 pt-4">
                   <div className="flex items-center justify-between gap-2">
                     <div>
                       <div className="text-[12px] text-slate-400">Guest Insights</div>
@@ -850,7 +825,7 @@ export default function GuestDashboard() {
                         Travel analytics
                       </div>
                     </div>
-                    <div className="inline-flex rounded-full border border-white/10 bg-white/5 p-1 text-[12px]">
+                    <div className="inline-flex rounded-full border border-sky-200/10 bg-sky-400/5 p-1 text-[12px]">
                       {[
                         { key: "this", label: "This year" },
                         { key: "last", label: "Last year" },
@@ -863,7 +838,7 @@ export default function GuestDashboard() {
                           className={[
                             "rounded-full px-3 py-1 transition",
                             spendMode === tab.key
-                              ? "bg-white/10 text-slate-100"
+                              ? "bg-sky-400/12 text-slate-100"
                               : "text-slate-400 hover:text-slate-200",
                           ].join(" ")}
                         >
@@ -925,7 +900,7 @@ export default function GuestDashboard() {
                       return (
                         <div
                           key={s.id}
-                          className="rounded-2xl border border-white/10 bg-white/5 p-3"
+                          className="rounded-2xl border border-sky-200/10 bg-sky-400/5 p-3"
                         >
                           <div className="text-[13px] font-semibold text-slate-100 truncate">
                             {s.hotel.name}
@@ -1017,14 +992,14 @@ export default function GuestDashboard() {
               <div className="mt-3 space-y-2">
                 <Link
                   to="/contact"
-                  className="block rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-[13px] font-semibold text-slate-100 hover:bg-white/10"
+                  className="block rounded-xl border border-sky-200/10 bg-sky-400/5 px-3 py-2.5 text-[13px] font-semibold text-slate-100 hover:bg-sky-400/10"
                 >
                   Contact support
                 </Link>
                 <button
                   type="button"
                   onClick={() => setShowExplore(true)}
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-left text-[13px] font-semibold text-slate-100 hover:bg-white/10"
+                  className="w-full rounded-xl border border-sky-200/10 bg-sky-400/5 px-3 py-2.5 text-left text-[13px] font-semibold text-slate-100 hover:bg-sky-400/10"
                 >
                   Explore stays
                 </button>
@@ -1057,7 +1032,8 @@ function GlassCard({
   return (
     <div
       className={[
-        "rounded-2xl border border-white/10 bg-[#0B1220]/70",
+        // Cooler + calmer base with premium blue tint (10% brighter vs before)
+        "rounded-2xl border border-sky-200/10 bg-[#071427]/72",
         "shadow-[0_18px_60px_rgba(0,0,0,0.40)] backdrop-blur-md",
         className,
       ].join(" ")}
@@ -1076,10 +1052,10 @@ function StatusPill({
 }) {
   const cls =
     tone === "emerald"
-      ? "bg-emerald-400/15 text-emerald-200 border-emerald-400/20"
+      ? "bg-emerald-300/16 text-emerald-100 border-emerald-300/22"
       : tone === "amber"
-        ? "bg-amber-400/15 text-amber-200 border-amber-400/20"
-        : "bg-white/5 text-slate-200 border-white/10";
+        ? "bg-amber-300/16 text-amber-100 border-amber-300/22"
+        : "bg-sky-400/8 text-slate-200 border-sky-200/10";
   return (
     <span
       className={[
@@ -1107,7 +1083,7 @@ function KpiCard({ label, value, sub }: { label: string; value: string; sub?: st
 
 function ServiceRow({ name, value }: { name: string; value: string }) {
   return (
-    <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
+    <div className="flex items-center justify-between rounded-xl border border-sky-200/10 bg-sky-400/5 px-3 py-2.5">
       <div className="text-[13px] font-medium text-slate-100">{name}</div>
       <div className="text-[12px] text-slate-400">{value}</div>
     </div>
@@ -1128,7 +1104,7 @@ function QuickTile({
   onClick?: () => void;
 }) {
   const inner = (
-    <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3 hover:bg-white/10 transition">
+    <div className="rounded-xl border border-sky-200/10 bg-sky-400/5 px-3 py-3 hover:bg-sky-400/10 transition">
       <div className="flex items-center justify-between gap-2">
         <div className="text-[12px] text-slate-400">{subtitle}</div>
         <div className="text-[14px]">{icon}</div>
@@ -1150,7 +1126,7 @@ function QuickTile({
 
 function InsightBox({ title, subtitle }: { title: string; subtitle: string }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
+    <div className="rounded-xl border border-sky-200/10 bg-sky-400/5 px-3 py-3">
       <div className="text-[13px] font-semibold text-slate-100">{title}</div>
       <div className="mt-0.5 text-[12px] text-slate-400">{subtitle}</div>
     </div>
@@ -1171,7 +1147,7 @@ function MiniAction({
   return (
     <Link
       to={to}
-      className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 hover:bg-white/10 transition"
+      className="rounded-xl border border-sky-200/10 bg-sky-400/5 px-3 py-2.5 hover:bg-sky-400/10 transition"
     >
       <div className="flex items-center justify-between">
         <div className="text-[12px] font-semibold text-slate-100">{label}</div>
@@ -1186,7 +1162,7 @@ function PrimaryBtn({ to, children }: { to: string; children: ReactNode }) {
   return (
     <Link
       to={to}
-      className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/10 px-4 py-2 text-[13px] font-semibold text-slate-100 hover:bg-white/15"
+      className="inline-flex items-center justify-center rounded-full border border-sky-300/20 bg-sky-400/10 px-4 py-2 text-[13px] font-semibold text-slate-100 hover:bg-sky-400/14"
     >
       {children}
     </Link>
@@ -1197,7 +1173,7 @@ function SecondaryBtn({ to, children }: { to: string; children: ReactNode }) {
   return (
     <Link
       to={to}
-      className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[13px] font-semibold text-slate-100 hover:bg-white/10"
+      className="inline-flex items-center justify-center rounded-full border border-sky-200/10 bg-sky-400/6 px-4 py-2 text-[13px] font-semibold text-slate-100 hover:bg-sky-400/10"
     >
       {children}
     </Link>
@@ -1208,7 +1184,7 @@ function AccentBtn({ to, children }: { to: string; children: ReactNode }) {
   return (
     <Link
       to={to}
-      className="inline-flex items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-[13px] font-semibold text-emerald-100 hover:bg-emerald-400/14"
+      className="inline-flex items-center justify-center rounded-full border border-emerald-300/25 bg-emerald-300/12 px-4 py-2 text-[13px] font-semibold text-emerald-50 hover:bg-emerald-300/18"
     >
       {children}
     </Link>
@@ -1217,7 +1193,7 @@ function AccentBtn({ to, children }: { to: string; children: ReactNode }) {
 
 function DarkEmpty({ text }: { text: string }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-[13px] text-slate-300">
+    <div className="rounded-2xl border border-sky-200/10 bg-sky-400/5 p-4 text-[13px] text-slate-300">
       {text}
     </div>
   );
@@ -1227,7 +1203,7 @@ function DarkSkeleton({ lines = 3 }: { lines?: number }) {
   return (
     <div className="space-y-2">
       {Array.from({ length: lines }).map((_, i) => (
-        <div key={i} className="h-3 rounded bg-white/10 animate-pulse" />
+        <div key={i} className="h-3 rounded bg-sky-400/10 animate-pulse" />
       ))}
     </div>
   );
@@ -1241,13 +1217,13 @@ function MonthlyBarsDark({ data }: { data: { label: string; value: number }[] })
   if (!data.length) return <DarkEmpty text="Not available" />;
   const max = Math.max(1, ...data.map((d) => d.value));
   return (
-    <div className="h-24 rounded-2xl border border-white/10 bg-white/5 px-3 py-3 flex items-end gap-1">
+    <div className="h-24 rounded-2xl border border-sky-200/10 bg-sky-400/5 px-3 py-3 flex items-end gap-1">
       {data.map((m) => {
         const h = Math.max(4, Math.round((m.value / max) * 64));
         return (
           <div key={m.label} className="flex flex-col items-center flex-1">
             <div
-              className="w-2 rounded-full bg-gradient-to-b from-sky-300/70 to-emerald-300/60"
+              className="w-2 rounded-full bg-gradient-to-b from-blue-300/85 via-cyan-300/75 to-emerald-300/75"
               style={{ height: h }}
               title={`${m.label}: ${fmtMoney(Math.round(m.value))}`}
             />
@@ -1264,15 +1240,15 @@ function CategoryBreakdownDark({ data }: { data: { label: string; value: number 
   const total = data.reduce((a, d) => a + d.value, 0) || 1;
 
   const colors = [
-    "bg-sky-300/70",
-    "bg-emerald-300/70",
-    "bg-amber-300/70",
-    "bg-rose-300/60",
+    "bg-blue-300/78",
+    "bg-cyan-300/78",
+    "bg-emerald-300/78",
+    "bg-teal-300/74",
   ];
 
   return (
     <div className="space-y-2">
-      <div className="w-full h-3 rounded-full bg-white/10 overflow-hidden flex border border-white/10">
+      <div className="w-full h-3 rounded-full bg-sky-400/10 overflow-hidden flex border border-sky-200/10">
         {data.map((seg, idx) => {
           const pct = (seg.value / total) * 100;
           return (
@@ -1351,7 +1327,7 @@ function MobileGuestDock({ items }: { items: { label: string; to: string; icon: 
   const location = useLocation();
   return (
     <div className="lg:hidden fixed bottom-4 left-0 right-0 z-40 px-4">
-      <div className="mx-auto max-w-3xl rounded-2xl border border-white/10 bg-[#0B1220]/80 backdrop-blur-md shadow-[0_18px_60px_rgba(0,0,0,0.45)]">
+      <div className="mx-auto max-w-3xl rounded-2xl border border-sky-200/10 bg-[#071427]/86 backdrop-blur-md shadow-[0_18px_60px_rgba(0,0,0,0.45)]">
         <div className="grid grid-cols-5">
           {items.map((i) => {
             const active = location.pathname === i.to;
@@ -1370,7 +1346,7 @@ function MobileGuestDock({ items }: { items: { label: string; to: string; icon: 
                 <span
                   className={[
                     "h-0.5 w-8 rounded-full",
-                    active ? "bg-slate-100" : "bg-transparent",
+                    active ? "bg-cyan-200/85" : "bg-transparent",
                   ].join(" ")}
                 />
               </Link>
@@ -1424,7 +1400,8 @@ function ExploreStaysQuickAction({ open, onClose }: { open: boolean; onClose: ()
     { key: "delhi", label: "Delhi NCR" },
   ];
 
-  const filtered = cityFilter === "all" ? properties : properties.filter((p) => p.cityKey === cityFilter);
+  const filtered =
+    cityFilter === "all" ? properties : properties.filter((p) => p.cityKey === cityFilter);
 
   const mailBase =
     "mailto:support@vaiyu.co.in?subject=" + encodeURIComponent("VAiyu booking interest");

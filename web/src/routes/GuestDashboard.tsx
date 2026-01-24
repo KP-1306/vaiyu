@@ -1094,7 +1094,8 @@ function ServiceRow({ name, value }: { name: string; value: string }) {
   return (
     <div className="flex items-center justify-between rounded-xl border border-sky-200/10 bg-sky-400/5 px-3 py-2.5">
       <div className="text-[13px] font-medium text-slate-100">{name}</div>
-      <div className="text-[12px] text-slate-400">{value}</div>
+      <div className="text-[12px] text-slate-300">{value}</div>
+
     </div>
   );
 }

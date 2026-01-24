@@ -8,10 +8,17 @@
 --          Maps closely to v_ops_board_tickets but with
 --          legacy column names/structure from V1.
 -- ============================================================
+
+DROP VIEW IF EXISTS v_staff_runner_tickets;
+
 CREATE OR REPLACE VIEW v_staff_runner_tickets AS
 SELECT
     t.id                                  AS ticket_id,
-    COALESCE(CONCAT('Room ', r.number), z.name) AS location_label,
+    CASE 
+        WHEN r.number IS NOT NULL THEN CONCAT('Room ', r.number)
+        WHEN z.name IS NOT NULL THEN z.name
+        ELSE 'Unknown Location'
+    END                                   AS location_label,
     r.number                              AS room_number,
     r.floor                               AS room_floor,
     z.id                                 AS zone_id,
@@ -93,10 +100,8 @@ SELECT
         WHEN t.status = 'BLOCKED' THEN 'UNBLOCK'
         ELSE 'NONE'
     END AS allowed_actions,
-
-    -- =========================================================================
-    -- Supervisor decision status for BLOCKED + supervisor_approval tickets
-    -- =========================================================================
+    
+    -- Supervisor decision logic
     CASE
         WHEN t.status = 'BLOCKED' AND t.reason_code = 'supervisor_approval' THEN
             COALESCE(

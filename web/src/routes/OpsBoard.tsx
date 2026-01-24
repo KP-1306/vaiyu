@@ -112,7 +112,7 @@ function normalizeTicket(raw: any): Ticket {
     raw?.service_key ?? raw?.title ?? raw?.key ?? raw?.service ?? "service"
   ).trim();
   const room = String(
-    raw?.room_number ?? raw?.room?.number ?? raw?.room ?? raw?.roomNo ?? raw?.unit ?? "-"
+    raw?.location_label ?? raw?.room_number ?? raw?.room?.number ?? raw?.room ?? raw?.roomNo ?? raw?.unit ?? "-"
   ).trim();
   const created_at =
     raw?.created_at ??
@@ -162,6 +162,7 @@ function useEffectiveHotelId() {
   const urlSlug = searchParams.get("slug");
   const [hotelId, setHotelId] = useState<string | null>(null);
   const [hotelSlug, setHotelSlug] = useState<string | null>(urlSlug);
+  const [hotelName, setHotelName] = useState<string | null>(null);
   const [initialised, setInitialised] = useState(false);
   const [debugMsg, setDebugMsg] = useState<string>("");
 
@@ -172,12 +173,13 @@ function useEffectiveHotelId() {
         if (urlSlug) {
           const { data: hotel } = await supabase
             .from("hotels")
-            .select("id, slug")
+            .select("id, slug, name")
             .eq("slug", urlSlug)
             .single();
           if (hotel) {
             setHotelId(hotel.id);
             setHotelSlug(hotel.slug);
+            setHotelName(hotel.name);
           } else {
             setDebugMsg("Hotel not found");
           }
@@ -194,18 +196,19 @@ function useEffectiveHotelId() {
         }
         const { data: memberData } = await supabase
           .from("hotel_members")
-          .select("hotel_id, hotels(slug)")
+          .select("hotel_id, hotels(slug, name)")
           .eq("user_id", userRes.user.id)
           .limit(1)
           .maybeSingle();
 
         if (memberData?.hotel_id) {
           setHotelId(memberData.hotel_id);
-          const slug = (memberData.hotels as any)?.slug;
-          if (slug) {
-            setHotelSlug(slug);
+          const h = (memberData.hotels as any);
+          if (h?.slug) {
+            setHotelSlug(h.slug);
+            setHotelName(h.name);
             const next = new URLSearchParams(searchParams);
-            next.set("slug", slug);
+            next.set("slug", h.slug);
             setSearchParams(next, { replace: true });
           }
         }
@@ -217,7 +220,7 @@ function useEffectiveHotelId() {
     })();
   }, [urlSlug]);
 
-  return { hotelId, hotelSlug, initialised, debugMsg };
+  return { hotelId, hotelSlug, hotelName, initialised, debugMsg };
 }
 
 // ---------------------------------------------------------------------------
@@ -554,23 +557,56 @@ function OversightCard({ ticket, onAction, onClick }: { ticket: Ticket; onAction
   );
 }
 
-function ContextTaskCard({ ticket, onClick, onAction, filterType }: { ticket: Ticket; onClick: () => void; onAction: (t: Ticket, action: string) => void; filterType?: string }) {
+// MAPPING
+const BLOCK_REASON_LABELS: Record<string, string> = {
+  guest_inside: "Guest Inside",
+  room_locked: "Room Locked",
+  supplies_unavailable: "Supplies Unavailable",
+  waiting_maintenance: "Waiting for Maintenance",
+  supervisor_approval: "Supervisor Approval",
+  shift_ended: "Shift Ended",
+  something_else: "Other",
+  GUEST_REQUESTED_LATER: "Guest Requested Later"
+};
+
+function ContextTaskCard({ ticket, onClick, onAction, filterType, assigneeName }: { ticket: Ticket; onClick: () => void; onAction: (t: Ticket, action: string) => void; filterType?: string; assigneeName?: string }) {
   const isNew = ticket.status === 'Requested';
   const isAtRisk = filterType === 'AtRisk';
+
+  const isBlocked = ticket.status === 'Paused';
+  // Reason text for blocked tickets - use readable label
+  let reasonText = null;
+  if (isBlocked) {
+    const code = ticket.supervisor_reason_code || ticket.reason_code || 'Blocked';
+    reasonText = BLOCK_REASON_LABELS[code] || code.replace(/_/g, ' ');
+  }
+
+  // Use provided fallback name or ticket name
+  const displayName = assigneeName || ticket.assignee_name || 'Unassigned';
 
   return (
     <div
       onClick={onClick}
-      className="p-3 rounded-lg bg-[#111218] border border-white/5 hover:bg-[#1A1C25] cursor-pointer transition-colors"
+      className={`p-3 rounded-lg bg-[#111218] border border-white/5 hover:bg-[#1A1C25] cursor-pointer transition-colors ${isBlocked ? 'border-red-500/20' : ''}`}
     >
       <div className="flex items-center gap-3">
-        <div className={`w-2 h-2 rounded-full ${isAtRisk ? 'bg-amber-500' : isNew ? 'bg-blue-500' : 'bg-green-500'}`}></div>
-        <div className="text-lg font-light text-white w-10">{ticket.room}</div>
+        <div className={`w-2 h-2 rounded-full shrink-0 ${isAtRisk ? 'bg-amber-500' : isBlocked ? 'bg-red-500' : isNew ? 'bg-blue-500' : 'bg-green-500'}`}></div>
+        <div className="text-lg font-light text-white w-14 text-center shrink-0 leading-none">{ticket.room}</div>
         <div className="flex-1 min-w-0">
-          <div className="text-xs font-medium text-gray-300 truncate">{ticket.service_key}</div>
-          <div className="text-[10px] text-gray-500">{ticket.assignee_name || 'Unassigned'}</div>
+          <div className="text-sm font-medium text-gray-200 truncate">{ticket.service_key.replace(/_/g, ' ')}</div>
+          <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="w-4 h-4 rounded-full bg-white/10 flex items-center justify-center text-[8px] text-gray-400">👤</span>
+              <span className="text-xs text-gray-400 truncate max-w-[100px]">{displayName}</span>
+            </div>
+            {reasonText && (
+              <div className="text-[10px] text-red-400 font-bold px-1.5 py-0.5 bg-red-950/40 rounded border border-red-900/40 whitespace-nowrap">
+                {reasonText}
+              </div>
+            )}
+          </div>
         </div>
-        <div className="text-[10px] font-mono text-gray-600">{Math.floor(ticket.mins_remaining || 0)}m</div>
+        <div className="text-xs font-mono font-medium text-gray-500 shrink-0">{Math.floor(ticket.mins_remaining || 0)}m</div>
       </div>
 
       {/* Action Buttons - Context-aware */}
@@ -625,7 +661,7 @@ function ContextTaskCard({ ticket, onClick, onAction, filterType }: { ticket: Ti
 
 export default function OpsBoard() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { hotelId, hotelSlug, initialised } = useEffectiveHotelId();
+  const { hotelId, hotelSlug, hotelName, initialised } = useEffectiveHotelId();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
@@ -645,6 +681,9 @@ export default function OpsBoard() {
     type: 'reject' | 'exception' | null;
     ticket: Ticket | null;
   }>({ isOpen: false, type: null, ticket: null });
+
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('connected');
 
   const refresh = useCallback(async () => {
     if (!hotelId) return;
@@ -666,6 +705,7 @@ export default function OpsBoard() {
         })));
       }
     }
+    setLastUpdated(new Date());
   }, [hotelId]);
 
   useEffect(() => {
@@ -718,12 +758,27 @@ export default function OpsBoard() {
   useEffect(() => {
     if (initialised && hotelId) {
       refresh();
-      const off = connectEvents({
-        ticket_created: () => refresh(),
-        ticket_updated: () => refresh(),
+
+      let cleanupSSE: (() => void) | undefined;
+
+      // Get token for SSE
+      supabase.auth.getSession().then(({ data }) => {
+        const token = data.session?.access_token;
+        cleanupSSE = connectEvents({
+          ticket_created: () => refresh(),
+          ticket_updated: () => refresh(),
+        }, {
+          onStatusChange: (s) => setConnectionStatus(s),
+          token
+        });
       });
+
       const pollInterval = setInterval(refresh, 10000);
-      return () => { off(); clearInterval(pollInterval); };
+
+      return () => {
+        if (cleanupSSE) cleanupSSE();
+        clearInterval(pollInterval);
+      };
     }
   }, [initialised, hotelId, refresh]);
 
@@ -765,9 +820,8 @@ export default function OpsBoard() {
     const remaining = t.mins_remaining;
     if (remaining == null || remaining <= 0) return false;
 
-    // Calculate risk threshold: min(30, 25% of target SLA)
-    const targetSla = t.sla_minutes || 30;
-    const riskThreshold = Math.min(30, targetSla * 0.25);
+    // Calculate risk threshold (server-side provided or fallback)
+    const riskThreshold = (t as any).risk_threshold_minutes ?? Math.min(30, (t.sla_minutes || 30) * 0.25);
 
     // At risk if remaining is within threshold
     return remaining <= riskThreshold;
@@ -940,7 +994,23 @@ export default function OpsBoard() {
         {/* HEADER KPI */}
         <div className="flex flex-wrap items-center justify-between gap-6 mb-8">
           <div>
-            <h1 className="text-xl font-medium text-white mb-1">Vaiyu Residency <span className="text-xs px-2 py-0.5 bg-white/10 rounded ml-2 text-gray-400">SYNC</span></h1>
+            <div className="flex items-center gap-4 mb-1">
+              <h1 className="text-xl font-medium text-white">{hotelName || 'Loading...'}</h1>
+              <div className="flex items-center gap-2 px-3 py-1 bg-[#11131A] border border-white/5 rounded-full">
+                <div className={`w-1.5 h-1.5 rounded-full ${connectionStatus === 'connected' ? 'bg-emerald-500 animate-pulse' :
+                  connectionStatus === 'connecting' ? 'bg-amber-500 animate-pulse' :
+                    'bg-red-500'
+                  } transition-colors`}></div>
+                <span className={`text-xs font-medium ${connectionStatus === 'connected' ? 'text-emerald-500' :
+                  connectionStatus === 'connecting' ? 'text-amber-500' :
+                    'text-red-500'
+                  } transition-colors`}>
+                  {connectionStatus === 'connected' ? `Updated: ${lastUpdated.toLocaleTimeString('en-GB', { hour12: false })}` :
+                    connectionStatus === 'connecting' ? 'Reconnecting...' :
+                      'Disconnected'}
+                </span>
+              </div>
+            </div>
             <div className="flex gap-6 mt-4">
               <div className="text-center">
                 <div className="text-xs text-gray-500 uppercase tracking-widest mb-1">Rooms</div>
@@ -1049,7 +1119,14 @@ export default function OpsBoard() {
                       <div className="text-center py-8 text-gray-600 text-xs">No active tasks match filter.</div>
                     ) : (
                       contextTickets.map(t => (
-                        <ContextTaskCard key={t.id} ticket={t} onClick={() => setSelectedTicket(t)} onAction={handleAction} filterType={filterStatus} />
+                        <ContextTaskCard
+                          key={t.id}
+                          ticket={t}
+                          onClick={() => setSelectedTicket(t)}
+                          onAction={handleAction}
+                          filterType={filterStatus}
+                          assigneeName={staffMembers.find(s => s.id === t.assignee_id)?.full_name}
+                        />
                       ))
                     )}
                   </>
@@ -1161,9 +1238,10 @@ export default function OpsBoard() {
                 <div className="grid grid-cols-6 gap-2">
                   {rooms.map(r => {
                     // Determine status based on ticket map
-                    const occupied = activeTickets.some(t => t.room === r.number);
-                    const risk = oversightTickets.some(t => t.room === r.number);
-                    const decision = decisionTickets.some(t => t.room === r.number);
+                    // Fix: Match if room number appears in the location label (or exact match)
+                    const occupied = activeTickets.some(t => t.room === r.number || t.room.includes(` ${r.number}`));
+                    const risk = oversightTickets.some(t => t.room === r.number || t.room.includes(` ${r.number}`));
+                    const decision = decisionTickets.some(t => t.room === r.number || t.room.includes(` ${r.number}`));
                     const isSelected = selectedRoom === r.number;
 
                     let bg = 'bg-[#1A1C25] text-gray-600 border-white/5';

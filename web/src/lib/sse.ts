@@ -1,65 +1,52 @@
 // web/src/lib/sse.ts
-
-// Resolve API base from environment (Netlify > Vite)
-const API_BASE = import.meta.env.VITE_API_URL || '';
+import { supabase } from './supabase';
 
 export type SSEHandlers = Partial<Record<string, (payload?: any) => void>>;
 export type SSEOptions = {
-  /** Custom SSE path if your endpoint isn't /events */
-  path?: string;
-  /** Pass cookies/credentials if your API needs them */
-  withCredentials?: boolean;
+  path?: string; // Ignored in Supabase Realtime implementation
+  withCredentials?: boolean; // Ignored
+  token?: string; // Ignored (supabase client handles auth)
+  onStatusChange?: (status: 'connected' | 'disconnected' | 'connecting') => void;
 };
 
 /**
- * Connect to the server-sent events endpoint and attach named handlers.
- * Returns a cleanup function to close the connection.
- *
- * Usage:
- *   const off = connectEvents({
- *     ticket_created: () => reloadTickets(),
- *     order_updated: () => reloadOrders(),
- *   });
- *   // later: off();
+ * Connect to Supabase Realtime for ticket updates.
+ * Replaces legacy EventSource implementation.
  */
 export function connectEvents(handlers: SSEHandlers, opts?: SSEOptions) {
-  if (!API_BASE) {
-    // no-op in dev if API not configured
-    return () => {};
-  }
+  opts?.onStatusChange?.('connecting');
 
-  const path = opts?.path ?? '/events';
-  const es = new EventSource(`${API_BASE}${path}`, {
-    withCredentials: !!opts?.withCredentials,
-  });
-
-  // Attach named event listeners
-  for (const [name, fn] of Object.entries(handlers)) {
-    if (!fn) continue;
-    es.addEventListener(name, (ev: MessageEvent) => {
-      try {
-        const data = JSON.parse((ev as MessageEvent).data);
-        fn(data);
-      } catch {
-        // ignore parse errors
+  const channel = supabase
+    .channel('ops-board-changes')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'tickets' },
+      (payload) => {
+        handlers.ticket_created?.(payload.new);
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'tickets' },
+      (payload) => {
+        handlers.ticket_updated?.(payload.new);
+      }
+    )
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        opts?.onStatusChange?.('connected');
+      } else if (status === 'CHANNEL_ERROR') {
+        opts?.onStatusChange?.('disconnected');
+      } else if (status === 'TIMED_OUT') {
+        opts?.onStatusChange?.('disconnected');
+      } else {
+        // 'CLOSED' or 'AWAITING_OPEN'
+        opts?.onStatusChange?.('connecting');
       }
     });
-  }
 
-  // Optional lifecycle events (safe to ignore)
-  es.addEventListener('hello', () => {
-    // first-connect handshake from server
-  });
-  es.addEventListener('ping', () => {
-    // keepalive from server
-  });
-
-  // Network hiccups auto-reconnect by default; no custom retry timer needed.
-  es.onerror = () => {
-    // Swallow; browsers auto-retry EventSource connections.
-    // You can add console.debug here if you want visibility.
+  // Return cleanup function
+  return () => {
+    supabase.removeChannel(channel);
   };
-
-  // Return cleanup
-  return () => es.close();
 }

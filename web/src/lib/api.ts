@@ -1641,7 +1641,8 @@ export async function createTicket(
         p_description: (data as any).details || (data as any).description || null,
         p_created_by_type: (data as any).source || (data as any).created_by_type || 'GUEST',
         p_created_by_id: (data as any).created_by_id || null,
-        p_media_urls: (data as any).media_urls || [] // [NEW] Attachments
+        p_media_urls: (data as any).media_urls || [], // [NEW] Attachments
+        p_priority: (data as any).priority || 'normal' // [NEW] Structured priority
       };
 
       console.log('[createTicket] Invoking RPC:', payload);
@@ -1730,7 +1731,7 @@ export async function listTickets(hotelId?: string) {
         department_name: t.department_name,
       }));
 
-      console.log('[listTickets] Successfully fetched', items.length, 'tickets');
+      // console.log('[listTickets] Successfully fetched', items.length, 'tickets');
       return { items };
     } catch (err) {
       console.warn("[listTickets] Supabase failed, falling back to HTTP", err);
@@ -2088,7 +2089,7 @@ export async function fetchHotelOrders(params: {
         throw error;
       }
 
-      console.log('[fetchHotelOrders] Successfully fetched', data?.length || 0, 'orders');
+      // console.log('[fetchHotelOrders] Successfully fetched', data?.length || 0, 'orders');
       return { items: data || [] };
     } catch (err) {
       console.warn("[fetchHotelOrders] Supabase failed, falling back to HTTP", err);
@@ -2144,7 +2145,7 @@ export async function createOrder(
         status: 'open',
       }));
 
-      console.log('[createOrder] Creating order rows via Supabase:', orderRows);
+      // console.log('[createOrder] Creating order rows via Supabase:', orderRows);
 
       const { data: orders, error } = await s
         .from("orders")
@@ -2157,7 +2158,7 @@ export async function createOrder(
       }
 
       if (orders && orders.length > 0) {
-        console.log('[createOrder] Orders created successfully:', orders.length, 'items');
+        // console.log('[createOrder] Orders created successfully:', orders.length, 'items');
         // Return the first order ID (they're all part of the same order)
         return {
           id: orders[0].id,
@@ -2807,14 +2808,14 @@ export type Room = {
 };
 
 export async function listRooms(hotelId: string): Promise<Room[]> {
-  console.log("[listRooms] called with hotelId:", hotelId);
+  // console.log("[listRooms] called with hotelId:", hotelId);
 
   // If we are using Edge Functions for everything, use the /rooms endpoint
   if (IS_SUPABASE_FUNCTIONS) {
     try {
-      console.log("[listRooms] fetching from Edge Function...");
+      // console.log("[listRooms] fetching from Edge Function...");
       const res = await req<{ items: Room[] }>(`/rooms?hotelId=${hotelId}`);
-      console.log("[listRooms] Edge Function response:", res);
+      // console.log("[listRooms] Edge Function response:", res);
       return res.items || [];
     } catch (e) {
       console.warn("Failed to fetch rooms from API, falling back to direct/demo", e);
@@ -2824,7 +2825,7 @@ export async function listRooms(hotelId: string): Promise<Room[]> {
   // Fallback / Direct DB access logic
   const supaClient = supa();
   if (supaClient) {
-    console.log("[listRooms] fetching from direct DB...");
+    // console.log("[listRooms] fetching from direct DB...");
     const { data, error } = await supaClient
       .from("rooms")
       .select("*")
@@ -2839,14 +2840,14 @@ export async function listRooms(hotelId: string): Promise<Room[]> {
       // It's possible the sorting failed if columns don't exist.
       // If so, retry without sort? Or just accept the error.
     } else {
-      console.log("[listRooms] DB data length:", data?.length);
+      // console.log("[listRooms] DB data length:", data?.length);
     }
 
     if (data && data.length > 0) {
       return data as Room[];
     }
   } else {
-    console.log("[listRooms] No Supabase client available for direct access");
+    // console.log("[listRooms] No Supabase client available for direct access");
   }
 
   // Fallback to demo/mock data if table empty or no client

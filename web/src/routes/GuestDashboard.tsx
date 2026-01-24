@@ -549,7 +549,8 @@ export default function GuestDashboard() {
               </button>
             </form>
 
-            <div className="hidden sm:flex items-center gap-2 rounded-full border border-sky-200/10 bg-sky-400/5 px-3 py-2">
+            <div className="hidden sm:flex items-center gap-2 rounded-full border border-sky-200/10 bg-sky-400/5 px-3 py-1.5">
+
               <span className="text-[12px] text-slate-300">Platinum</span>
               <span className="text-[12px] font-semibold text-slate-100">·</span>
               <span className="text-[12px] font-semibold text-slate-100">
@@ -644,8 +645,14 @@ export default function GuestDashboard() {
             </GlassCard>
           </aside>
 
+          
           {/* Main */}
-          <section className="min-w-0 space-y-4">
+<section className="min-w-0 space-y-4 relative">
+  {/* Center-only premium glow (scoped to main column) */}
+  <div className="pointer-events-none absolute -inset-6 rounded-[28px]
+    bg-[radial-gradient(700px_420px_at_50%_0%,rgba(59,130,246,0.16),transparent_66%),radial-gradient(700px_420px_at_55%_10%,rgba(16,185,129,0.12),transparent_70%)]" />
+  <div className="relative">
+
             {/* Next stay card */}
             <GlassCard className="p-4">
               <div className="flex items-start justify-between gap-3">
@@ -957,7 +964,9 @@ export default function GuestDashboard() {
                 <PrimaryBtn to="/owner/register">Register your property</PrimaryBtn>
               </div>
             </GlassCard>
+                    </div>
           </section>
+
 
           {/* Right rail */}
           <aside className="space-y-4">
@@ -1162,12 +1171,13 @@ function PrimaryBtn({ to, children }: { to: string; children: ReactNode }) {
   return (
     <Link
       to={to}
-      className="inline-flex items-center justify-center rounded-full border border-sky-300/20 bg-sky-400/10 px-4 py-2 text-[13px] font-semibold text-slate-100 hover:bg-sky-400/14"
+      className="inline-flex items-center justify-center rounded-full border border-sky-300/25 bg-sky-400/18 px-4 py-2 text-[13px] font-semibold text-white hover:bg-sky-400/26 transition"
     >
       {children}
     </Link>
   );
 }
+
 
 function SecondaryBtn({ to, children }: { to: string; children: ReactNode }) {
   return (
@@ -1184,12 +1194,13 @@ function AccentBtn({ to, children }: { to: string; children: ReactNode }) {
   return (
     <Link
       to={to}
-      className="inline-flex items-center justify-center rounded-full border border-emerald-300/25 bg-emerald-300/12 px-4 py-2 text-[13px] font-semibold text-emerald-50 hover:bg-emerald-300/18"
+      className="inline-flex items-center justify-center rounded-full border border-emerald-300/25 bg-emerald-300/16 px-4 py-2 text-[13px] font-semibold text-emerald-50 hover:bg-emerald-300/26 transition"
     >
       {children}
     </Link>
   );
 }
+
 
 function DarkEmpty({ text }: { text: string }) {
   return (

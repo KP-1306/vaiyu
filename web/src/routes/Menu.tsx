@@ -12,6 +12,8 @@ import {
   supa, // [NEW] for storage upload
 } from "../lib/api";
 import { dbg, dbgError } from "../lib/debug";
+import { X, Bell, Camera, AlertCircle, Utensils, Wrench, HelpCircle, Brush, ArrowDownRight } from "lucide-react";
+import { CustomZoneSelect } from "../components/CustomZoneSelect";
 
 function getServiceIcon(key: string) {
   const k = key.toLowerCase();
@@ -400,14 +402,6 @@ export default function Menu() {
       // Just store the user's note directly.
       let detailsParts = [];
 
-      if (data.locationType === 'public') {
-        detailsParts.push(`[Location: ${data.publicLocation || 'Public Area'}]`);
-      }
-
-      if (data.priority && data.priority === 'high') {
-        detailsParts.push(`[HIGH PRIORITY]`);
-      }
-
       if (data.note.trim()) {
         detailsParts.push(data.note.trim());
       }
@@ -431,8 +425,8 @@ export default function Menu() {
         departmentId: selectedService.department_id,
 
         // location identity
-        roomId: resolvedRoomId,
-        zoneId: resolvedZoneId,
+        roomId: data.locationType === 'public' ? null : resolvedRoomId, // Clear room if public
+        zoneId: data.locationType === 'public' ? data.zoneId : null,    // Set zone if public
 
         // friendly title/details
         title: selectedService.label_en,
@@ -440,6 +434,7 @@ export default function Menu() {
 
         // property hints
         hotelId: effectiveHotelId,
+        priority: data.priority, // [NEW] Pass structured priority
 
         source: "GUEST",
         created_by_id: null,
@@ -800,6 +795,7 @@ export default function Menu() {
       {selectedService && (
         <ServiceRequestModal
           service={selectedService}
+          hotelId={resolvedHotelId || hotelId}
           onClose={() => setSelectedService(null)}
           onConfirm={confirmRequest}
         />
@@ -808,22 +804,76 @@ export default function Menu() {
   );
 }
 
+type HotelZone = {
+  id: string;
+  name: string;
+  zone_type: string;
+  floor: number | null;
+}
+
 function ServiceRequestModal({
   service,
+  hotelId,
   onClose,
   onConfirm
 }: {
   service: Service,
+  hotelId: string | null,
   onClose: () => void,
-  onConfirm: (data: { note: string; priority: string; locationType: string; publicLocation: string }) => void
+  onConfirm: (data: { note: string; priority: string; locationType: string; publicLocation: string; zoneId?: string }) => void
 }) {
   const [note, setNote] = useState("");
   const [priority, setPriority] = useState("normal");
-  const [locationType, setLocationType] = useState("room");
-  const [publicLocation, setPublicLocation] = useState("");
+  const [locationType, setLocationType] = useState("room"); // 'room' | 'public'
+  const [publicLocation, setPublicLocation] = useState(""); // For legacy or fallback text
+  const [selectedZoneId, setSelectedZoneId] = useState(""); // For structured zone
+
+  const [zones, setZones] = useState<HotelZone[]>([]);
+  const [loadingZones, setLoadingZones] = useState(false);
+
+  // Fetch zones on mount
+  useEffect(() => {
+    if (!hotelId) return;
+
+    (async () => {
+      setLoadingZones(true);
+      const { supabase } = await import("../lib/supabase");
+
+      const { data, error } = await supabase
+        .from('hotel_zones')
+        .select('id, name, zone_type, floor')
+        .eq('hotel_id', hotelId)
+        .eq('is_active', true)
+        // Order by simple columns first to avoid complex ORDER BY syntax issues if index missing
+        .order('zone_type', { ascending: true })
+        .order('name', { ascending: true });
+
+      if (data) {
+        // Custom sort in JS to match precise grouping requirements (Postgres "Case When" via JS)
+        const sorted = data.sort((a, b) => {
+          const typeOrder: Record<string, number> = {
+            'FACILITY': 1,
+            'CORRIDOR': 2,
+            'OUTDOOR': 3,
+            'BACK_OF_HOUSE': 4,
+            'HOTEL_WIDE': 5
+          };
+          const rankA = typeOrder[a.zone_type] || 6;
+          const rankB = typeOrder[b.zone_type] || 6;
+
+          if (rankA !== rankB) return rankA - rankB;
+          if (a.floor !== b.floor) return (a.floor || 0) - (b.floor || 0);
+          return a.name.localeCompare(b.name);
+        });
+        setZones(sorted);
+      }
+      setLoadingZones(false);
+    })();
+  }, [hotelId]);
+
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [mediaUrls, setMediaUrls] = useState<string[]>([]); // URLs from Supabase Storage
+  const [mediaUrls, setMediaUrls] = useState<string[]>([]);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -846,7 +896,6 @@ function ServiceRequestModal({
 
         if (error) throw error;
 
-        // Get public URL
         const { data: { publicUrl } } = s.storage
           .from('ticket-attachments')
           .getPublicUrl(path);
@@ -859,99 +908,176 @@ function ServiceRequestModal({
       alert("Failed to upload image: " + err.message);
     } finally {
       setUploading(false);
-      // Clear input so same file can be selected again
       e.target.value = "";
     }
   };
 
   const handleSubmit = async () => {
+    if (!note.trim()) {
+      alert("Please describe what you need.");
+      return;
+    }
+
+    // Force selection of zone if public
+    if (locationType === 'public' && !selectedZoneId) {
+      alert("Please select a valid area/zone.");
+      return;
+    }
+
     setSubmitting(true);
-    // Pass mediaUrls to confirm handler
-    await onConfirm({ note, priority, locationType, publicLocation, media_urls: mediaUrls } as any);
+
+    // Find zone name to pass as friendly "publicLocation" text for description fallback
+    const zoneName = zones.find(z => z.id === selectedZoneId)?.name || "";
+
+    await onConfirm({
+      note,
+      priority,
+      locationType,
+      publicLocation: zoneName,
+      zoneId: selectedZoneId,
+      media_urls: mediaUrls
+    } as any);
     setSubmitting(false);
   };
+
+  // Helper to group zones for Select
+  const groupedZones = useMemo(() => {
+    const groups: Record<string, HotelZone[]> = {};
+    zones.forEach(z => {
+      const type = z.zone_type.replace(/_/g, ' ');
+      if (!groups[type]) groups[type] = [];
+      groups[type].push(z);
+    });
+    return groups;
+  }, [zones]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in"
+        className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-fade-in"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-sm bg-[#18181b] rounded-3xl shadow-2xl overflow-hidden animate-scale-up border border-white/10 text-white">
+      <div className="relative w-full max-w-sm bg-[#18181b] rounded-3xl shadow-2xl overflow-y-auto max-h-[90vh] animate-scale-up border border-white/10 text-white scrollbar-hide">
 
         {/* Header */}
-        <div className="p-6 pb-4 border-b border-white/10 flex items-center justify-between bg-white/5">
+        <div className="p-5 border-b border-white/10 flex items-center justify-between bg-white/5 sticky top-0 z-10 backdrop-blur-md">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl">
-              {getServiceIcon(service.key)}
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/20 flex items-center justify-center text-amber-500 border border-amber-500/30">
+              <Bell size={20} />
             </div>
             <div>
-              <h3 className="text-lg font-bold">{service.label_en}</h3>
-              <p className="text-xs text-blue-400 font-medium">SLA: ~{service.sla_minutes}m</p>
+              <h3 className="text-lg font-bold text-white">Guest Request</h3>
+              <p className="text-xs text-gray-400 font-medium flex items-center gap-1">
+                {service.label_en} <span className="opacity-50">•</span> ~{service.sla_minutes} min
+              </p>
             </div>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors text-xl">✕</button>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+          >
+            <X size={18} />
+          </button>
         </div>
 
-        <div className="p-6 space-y-5">
+        <div className="p-5 space-y-6">
 
-          {/* Location */}
+          {/* 1. Description */}
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Location</label>
-            <div className="flex bg-white/5 rounded-xl p-1 mb-2">
+            <label className="block text-sm font-medium text-white mb-2">
+              What do you need? <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Describe the issue or request in your own words&#10;Example: 'Water leaking near bathroom sink'"
+              className="w-full h-32 p-4 rounded-xl bg-[#27272a] border border-white/10 text-sm text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all resize-none placeholder-gray-500"
+              autoFocus
+            />
+          </div>
+
+          {/* 3. Location */}
+          <div>
+            <label className="block text-sm font-medium text-white mb-2">Location</label>
+            <div className="flex bg-[#27272a] rounded-lg p-1 border border-white/5">
               <button
                 onClick={() => setLocationType("room")}
-                className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${locationType === "room" ? "bg-blue-600 text-white shadow-md" : "text-gray-400 hover:text-white"}`}
+                className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${locationType === "room"
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "text-gray-400 hover:text-white"
+                  }`}
               >
                 In Room
               </button>
               <button
                 onClick={() => setLocationType("public")}
-                className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${locationType === "public" ? "bg-blue-600 text-white shadow-md" : "text-gray-400 hover:text-white"}`}
+                className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${locationType === "public"
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "text-gray-400 hover:text-white"
+                  }`}
               >
                 Public Area
               </button>
             </div>
 
             {locationType === "public" && (
-              <input
-                type="text"
-                value={publicLocation}
-                onChange={e => setPublicLocation(e.target.value)}
-                placeholder="e.g. Lobby, Poolside, Gym..."
-                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
-              />
+              <div className="mt-3 animate-fade-in-down">
+                <label className="text-xs text-gray-400 mb-1.5 block">Select Area <span className="text-red-500">*</span></label>
+
+                {loadingZones ? (
+                  <div className="w-full bg-[#27272a] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-gray-500">
+                    Loading areas...
+                  </div>
+                ) : (
+                  <CustomZoneSelect
+                    value={selectedZoneId}
+                    onChange={setSelectedZoneId}
+                    groupedZones={groupedZones}
+                  />
+                )}
+
+                <p className="text-[10px] text-gray-500 mt-2">
+                  Staff will be dispatched to this specific zone.
+                </p>
+              </div>
             )}
           </div>
 
-          {/* Priority */}
+          {/* 4. Priority */}
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Priority & Notes</label>
-            <div className="flex gap-2 mb-3">
-              {['low', 'normal', 'high'].map(p => (
-                <label key={p} className={`flex-1 cursor-pointer border rounded-xl px-3 py-2 flex items-center justify-center gap-2 transition-all ${priority === p
-                  ? (p === 'high' ? 'bg-red-500/10 border-red-500 text-red-500' : p === 'low' ? 'bg-green-500/10 border-green-500 text-green-500' : 'bg-blue-500/10 border-blue-500 text-blue-500')
-                  : 'border-white/10 bg-white/5 text-gray-400 hover:bg-white/10'}`}>
-                  <input type="radio" name="priority" value={p} checked={priority === p} onChange={() => setPriority(p)} className="hidden" />
-                  <span className={`w-2 h-2 rounded-full ${p === 'high' ? 'bg-red-500' : p === 'low' ? 'bg-green-500' : 'bg-blue-500'} ${priority === p ? 'ring-2 ring-offset-1 ring-offset-transparent ring-current' : ''}`} />
-                  <span className="capitalize text-xs font-bold">{p}</span>
+            <label className="block text-sm font-medium text-white mb-2">Priority</label>
+            <div className="flex gap-3">
+              {[
+                { id: 'low', label: 'Low', color: 'bg-green-500' },
+                { id: 'normal', label: 'Normal', color: 'bg-blue-500' },
+                { id: 'high', label: 'High', color: 'bg-red-500' }
+              ].map((p) => (
+                <label
+                  key={p.id}
+                  className={`flex-1 cursor-pointer rounded-xl px-2 py-3 flex items-center justify-center gap-2 transition-all border ${priority === p.id
+                    ? "bg-[#27272a] border-white/20"
+                    : "bg-transparent border-white/10 text-gray-500 hover:bg-[#27272a]"
+                    }`}
+                >
+                  <input
+                    type="radio"
+                    name="priority"
+                    value={p.id}
+                    checked={priority === p.id}
+                    onChange={() => setPriority(p.id)}
+                    className="hidden"
+                  />
+                  <span className={`w-2.5 h-2.5 rounded-full ${p.color} ${priority === p.id ? 'ring-2 ring-offset-2 ring-offset-[#18181b] ring-current' : 'opacity-50'}`} />
+                  <span className={`text-sm font-medium ${priority === p.id ? 'text-white' : ''}`}>{p.label}</span>
                 </label>
               ))}
             </div>
-
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Enter additional details here..."
-              className="w-full h-24 p-3 rounded-xl bg-black/20 border border-white/10 text-sm text-white focus:outline-none focus:border-blue-500 transition-all resize-none placeholder-gray-600"
-            />
           </div>
 
-          {/* Photo Attachments */}
+          {/* 5. Attachments */}
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Attachments</label>
+            <label className="block text-sm font-medium text-white mb-2">Attachments</label>
             <div className="flex flex-wrap gap-2">
-              {/* Hidden File Input */}
               <input
                 type="file"
                 id="file-upload"
@@ -960,40 +1086,47 @@ function ServiceRequestModal({
                 className="hidden"
                 onChange={handleUpload}
               />
-
-              {/* Upload Button */}
               <label
                 htmlFor="file-upload"
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors text-sm cursor-pointer ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
+                className={`flex items-center gap-2 px-4 py-3 rounded-xl border border-white/10 bg-[#27272a] text-gray-300 hover:text-white hover:bg-[#3f3f46] transition-colors text-sm font-medium cursor-pointer w-full justify-center ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
               >
-                <span>{uploading ? '⏳' : '📷'}</span>
-                {uploading ? 'Uploading...' : 'Attach Photo/Video'}
+                <Camera size={16} />
+                <span>{uploading ? 'Uploading...' : 'Attach Photo/Video'}</span>
               </label>
 
-              {/* Preview List */}
-              {mediaUrls.map((url, i) => (
-                <div key={i} className="relative group w-12 h-12 rounded-lg overflow-hidden border border-white/10">
-                  <img src={url} alt="Attachment" className="w-full h-full object-cover" />
-                  <button
-                    onClick={() => setMediaUrls(m => m.filter((_, idx) => idx !== i))}
-                    className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-bold"
-                  >
-                    ✕
-                  </button>
+              {mediaUrls.length > 0 && (
+                <div className="grid grid-cols-4 gap-2 w-full mt-2">
+                  {mediaUrls.map((url, i) => (
+                    <div key={i} className="relative group aspect-square rounded-lg overflow-hidden border border-white/10 bg-black">
+                      <img src={url} alt="Attachment" className="w-full h-full object-cover" />
+                      <button
+                        onClick={() => setMediaUrls(m => m.filter((_, idx) => idx !== i))}
+                        className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
+            <p className="text-xs text-gray-500 mt-2">Helps us resolve faster</p>
           </div>
 
         </div>
 
-        <div className="p-6 pt-2 flex gap-3">
+        {/* Footer */}
+        <div className="p-5 pt-2 bg-[#18181b] sticky bottom-0 z-10 border-t border-white/5">
           <button
             onClick={handleSubmit}
-            disabled={submitting}
-            className="w-full py-4 rounded-xl bg-white text-black font-bold text-sm shadow-xl hover:bg-gray-200 active:transform active:scale-95 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+            disabled={submitting || (locationType === 'public' && !selectedZoneId)}
+            className="w-full py-3.5 rounded-xl bg-[#3b82f6] hover:bg-blue-600 text-white font-bold text-sm shadow-lg hover:shadow-blue-900/20 active:transform active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            {submitting ? "Sending Request..." : "Submit Request"}
+            {submitting ? (
+              <span>Sending...</span>
+            ) : (
+              <span>Submit Request</span>
+            )}
           </button>
         </div>
 

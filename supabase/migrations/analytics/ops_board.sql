@@ -2,6 +2,9 @@
 -- OPERATIONS BOARD VIEW
 -- ============================================================
 
+-- Drop first to allow column changes
+DROP VIEW IF EXISTS v_ops_board_tickets CASCADE;
+
 CREATE OR REPLACE VIEW v_ops_board_tickets AS
 SELECT
   ---------------------------------------------------------------------------
@@ -29,6 +32,10 @@ SELECT
   t.status,
   CAST(NULL AS text)           AS priority,
   t.current_assignee_id        AS assignee_id,
+  
+  -- ASSIGNEE NAME (New Join)
+  COALESCE(p.full_name, 'Unassigned') AS assignee_name,
+
   t.created_by_type,
   t.created_by_id,
   t.created_at,
@@ -49,6 +56,19 @@ SELECT
     THEN (ss.current_remaining_seconds / 60)::int
     ELSE NULL
   END                          AS mins_remaining,
+
+  -- RISK THRESHOLD (Dynamic)
+  COALESCE(
+    LEAST(
+      srp.max_risk_minutes,
+      GREATEST(
+        srp.min_risk_minutes,
+        (sp.target_minutes * srp.risk_percent / 100.0)
+      )
+    ),
+    -- Fallback if no policy found (Default: 30% or 30 mins logic roughly)
+    LEAST(30, sp.target_minutes * 0.25)
+  )::numeric                   AS risk_threshold_minutes,
 
   ---------------------------------------------------------------------------
   -- Supervisor decision context (UNIFIED DETECTION)
@@ -87,6 +107,13 @@ SELECT
   r.number                     AS room_number,
   d.name                       AS department_name,
 
+  -- LOCATION LABEL (Fix: Fallback to Zone Name)
+  CASE 
+      WHEN r.number IS NOT NULL THEN CONCAT('Room ', r.number)
+      WHEN z.name IS NOT NULL THEN z.name
+      ELSE 'Unknown Location'
+  END                          AS location_label,
+
   ---------------------------------------------------------------------------
   -- SLA Exception Status (New)
   ---------------------------------------------------------------------------
@@ -111,13 +138,29 @@ LEFT JOIN services s
 LEFT JOIN rooms r
   ON r.id = t.room_id
 
+-- Zone (New Join)
+LEFT JOIN hotel_zones z
+  ON z.id = t.zone_id
+
 LEFT JOIN departments d
   ON d.id = s.department_id
+
+-- Assignee Profile (New Join)
+LEFT JOIN hotel_members hm
+  ON hm.id = t.current_assignee_id
+LEFT JOIN profiles p
+  ON p.id = hm.user_id
 
 -- SLA policy
 LEFT JOIN sla_policies sp
   ON sp.department_id = s.department_id
  AND sp.is_active = true
+
+-- SLA RISK POLICY (New)
+LEFT JOIN sla_risk_policies srp
+  ON srp.department_id = s.department_id
+ AND srp.hotel_id = t.hotel_id
+ AND srp.is_active = true
 
 -- SLA runtime state
 LEFT JOIN ticket_sla_state ss

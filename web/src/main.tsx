@@ -446,6 +446,7 @@ const router = createBrowserRouter([
       { path: "menu", element: <Menu /> },
       { path: "stay/:code/menu", element: <Menu /> },
       { path: "requestTracker", element: <RequestTracker /> },
+      { path: "track/:displayId", element: <RequestTracker /> },
       { path: "bill", element: <Bill /> },
       { path: "precheck/:code", element: <Precheck /> },
       { path: "regcard", element: <Regcard /> },

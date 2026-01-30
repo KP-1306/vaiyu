@@ -4,12 +4,13 @@
 
 -- 1. Service Templates (System Source of Truth)
 -- ============================================================
-CREATE TABLE IF NOT EXISTS service_templates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   code TEXT NOT NULL UNIQUE,
   label TEXT NOT NULL,
   default_department_code TEXT NOT NULL,
   default_sla_minutes INT NOT NULL CHECK (default_sla_minutes > 0),
+  description_en TEXT,
+  requires_description BOOLEAN NOT NULL DEFAULT false,
   is_system_default BOOLEAN NOT NULL DEFAULT true,
   is_active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -24,20 +25,22 @@ BEFORE UPDATE ON service_templates
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- Seed Data
-INSERT INTO service_templates (code, label, default_department_code, default_sla_minutes) VALUES
-('room_cleaning', 'Room Cleaning', 'HOUSEKEEPING', 45),
-('extra_towels', 'Extra Towels', 'HOUSEKEEPING', 20),
-('laundry', 'Laundry', 'HOUSEKEEPING', 60),
-('turn_down_service', 'Turn Down Service', 'HOUSEKEEPING', 30),
-('maintenance_ac', 'AC – Not Cooling', 'MAINTENANCE', 30),
-('maintenance_plumbing', 'Bathroom / Plumbing Issue', 'MAINTENANCE', 40),
-('maintenance_electric', 'Electrical Issue', 'MAINTENANCE', 25),
-('room_service', 'Room Service', 'KITCHEN', 30),
-('missing_cutlery', 'Missing Cutlery', 'KITCHEN', 15),
-('food_delay', 'Food Delivery Delay', 'KITCHEN', 20),
-('late_checkout', 'Late Checkout Request', 'FRONT_DESK', 10),
-('key_card_issue', 'Key Card Issue', 'FRONT_DESK', 5)
-ON CONFLICT (code) DO NOTHING;
+INSERT INTO service_templates (code, label, default_department_code, default_sla_minutes, description_en, requires_description) VALUES
+('room_cleaning', 'Room Cleaning', 'HOUSEKEEPING', 45, 'Schedule a full room cleaning service.', true),
+('extra_towels', 'Extra Towels', 'HOUSEKEEPING', 20, 'Fresh towels, toiletries, and bathroom supplies.', false),
+('laundry', 'Laundry', 'HOUSEKEEPING', 60, 'Request laundry pickup or ironing services.', true),
+('turn_down_service', 'Turn Down Service', 'HOUSEKEEPING', 30, 'Request evening turn down service.', true),
+('maintenance_ac', 'AC – Not Cooling', 'MAINTENANCE', 30, 'Report AC or heating issues.', true),
+('maintenance_plumbing', 'Bathroom / Plumbing Issue', 'MAINTENANCE', 40, 'Report plumbing issues like leaks or clogs.', true),
+('maintenance_electric', 'Electrical Issue', 'MAINTENANCE', 25, 'Report issues with lights or power.', true),
+('room_service', 'Room Service', 'KITCHEN', 30, 'Order food and drinks to your room.', false),
+('missing_cutlery', 'Missing Cutlery', 'KITCHEN', 15, 'Request cutlery, plates, or glasses.', false),
+('food_delay', 'Food Delivery Delay', 'KITCHEN', 20, 'Report a delay in your food order.', false),
+('late_checkout', 'Late Checkout Request', 'FRONT_DESK', 10, 'Request a late checkout extensions.', false),
+('key_card_issue', 'Key Card Issue', 'FRONT_DESK', 5, 'Get help with key cards or room access.', false)
+ON CONFLICT (code) DO UPDATE SET
+  description_en = EXCLUDED.description_en,
+  requires_description = EXCLUDED.requires_description;
 
 
 -- 2. Services (Hotel Instances)
@@ -49,6 +52,8 @@ CREATE TABLE IF NOT EXISTS services (
   label TEXT NOT NULL,
   label_en TEXT,
   description TEXT,
+  description_en TEXT,
+  requires_description BOOLEAN DEFAULT false,
   
   department_id UUID REFERENCES departments(id),
   template_id UUID REFERENCES service_templates(id),

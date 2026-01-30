@@ -630,9 +630,9 @@ export default function App() {
               }
             />
 
-            {/* Request tracker route – explicit ticketId param */}
+            {/* Request tracker route – friendly displayId param */}
             <Route
-              path="/requestTracker/:ticketId"
+              path="/track/:displayId"
               element={<RequestTracker />}
             />
 

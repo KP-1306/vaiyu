@@ -118,6 +118,7 @@ export interface UnblockReason {
 // View Model for v_staff_runner_tickets
 export interface StaffRunnerTicket {
     ticket_id: string;
+    display_id?: string;
     title: string;
     status: TicketStatus;
     department_name: string;

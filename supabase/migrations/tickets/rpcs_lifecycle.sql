@@ -721,25 +721,48 @@ GRANT EXECUTE ON FUNCTION reassign_task TO authenticated;
 
 -- ============================================================
 -- RPC: reopen_ticket
--- Guest reopens a completed ticket
+-- Purpose:
+--   Allows a guest to reopen a COMPLETED ticket.
+--
+-- Semantics:
+--   • Reopen = new execution lifecycle of the SAME ticket
+--   • Assignment is deferred to auto-assign job
+--   • SLA is fully reset and restarts on ON_ASSIGN
+--
+-- Guarantees:
+--   • Concurrency-safe
+--   • Auth-safe (guest only)
+--   • Event-driven (no hidden state)
+--   • SLA model remains derived
 -- ============================================================
+
 CREATE OR REPLACE FUNCTION reopen_ticket(
   p_ticket_id UUID,
-  p_stay_id UUID,
-  p_reason TEXT DEFAULT NULL
+  p_stay_id   UUID,
+  p_reason    TEXT DEFAULT NULL
 ) RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-  v_status TEXT;
-  v_ticket_stay_id UUID;
-  v_reopen_count INT;
-  v_guest_id UUID;
+  v_status         TEXT;   -- current ticket status (must be COMPLETED)
+  v_ticket_stay_id UUID;   -- stay_id associated with the ticket
+  v_reopen_count   INT;    -- derived reopen count (from events)
 BEGIN
-  -- 1. Lock ticket row
-  SELECT status, stay_id
-  INTO v_status, v_ticket_stay_id
+  -- ------------------------------------------------------------
+  -- 1. Lock ticket row (HARD concurrency boundary)
+  --
+  -- Why:
+  --   • Prevent double reopen
+  --   • Prevent reopen racing with auto-assign
+  --   • Prevent reopen racing with supervisor/cron logic
+  -- ------------------------------------------------------------
+  SELECT
+    status,
+    stay_id
+  INTO
+    v_status,
+    v_ticket_stay_id
   FROM tickets
   WHERE id = p_ticket_id
   FOR UPDATE;
@@ -748,50 +771,142 @@ BEGIN
     RAISE EXCEPTION 'Ticket not found: %', p_ticket_id;
   END IF;
 
-  -- 2. Security: stay must belong to authenticated guest
-  SELECT guest_id INTO v_guest_id
-  FROM stays
-  WHERE id = p_stay_id AND guest_id = auth.uid();
-
-  IF NOT FOUND THEN
+  -- ------------------------------------------------------------
+  -- 2. Security check: stay must belong to authenticated guest
+  --
+  -- Why:
+  --   • Prevent guest from reopening another guest’s ticket
+  --   • Do NOT trust frontend-supplied stay_id
+  -- ------------------------------------------------------------
+  IF NOT EXISTS (
+    SELECT 1
+    FROM stays
+    WHERE id = p_stay_id
+      AND guest_id = auth.uid()
+  ) THEN
     RAISE EXCEPTION 'Unauthorized reopen attempt';
   END IF;
 
-  -- 3. Integrity: ticket must belong to this stay
+  -- ------------------------------------------------------------
+  -- 3. Data integrity: ticket must belong to this stay
+  --
+  -- Why:
+  --   • Prevent cross-stay reopening
+  --   • Protect against parameter tampering
+  -- ------------------------------------------------------------
   IF v_ticket_stay_id != p_stay_id THEN
     RAISE EXCEPTION 'Ticket does not belong to this stay';
   END IF;
 
-  -- 4. Only COMPLETED tickets can be reopened
+  -- ------------------------------------------------------------
+  -- 4. Lifecycle rule: only COMPLETED tickets can be reopened
+  --
+  -- Why:
+  --   • Reopen means "redo completed work"
+  --   • Other states (NEW / IN_PROGRESS / BLOCKED) are invalid
+  -- ------------------------------------------------------------
   IF v_status != 'COMPLETED' THEN
-    RAISE EXCEPTION 'Can only reopen completed tickets (current status: %)', v_status;
+    RAISE EXCEPTION
+      'Can only reopen completed tickets (current status: %)',
+      v_status;
   END IF;
 
-  -- 5. Abuse protection
-  SELECT COUNT(*) INTO v_reopen_count
+  -- ------------------------------------------------------------
+  -- 5. Abuse protection: limit reopen attempts
+  --
+  -- Why:
+  --   • Prevent infinite reopen loops
+  --   • Counter is derived from immutable events
+  --   • No stored counters (event-driven truth)
+  -- ------------------------------------------------------------
+  SELECT COUNT(*)
+  INTO v_reopen_count
   FROM ticket_events
-  WHERE ticket_id = p_ticket_id AND event_type = 'REOPENED';
+  WHERE ticket_id = p_ticket_id
+    AND event_type = 'REOPENED';
 
   IF v_reopen_count >= 2 THEN
-    RAISE EXCEPTION 'Ticket has been reopened too many times (max allowed: 2)';
+    RAISE EXCEPTION
+      'Ticket has been reopened too many times (max allowed: 2)';
   END IF;
 
-  -- 6. Reset ticket
+  -- ------------------------------------------------------------
+  -- 6. Lock SLA state row
+  --
+  -- Why:
+  --   • Prevent race with auto-assign job
+  --   • Prevent SLA cron from reading partial state
+  --   • Keep SLA reset + reopen atomic
+  -- ------------------------------------------------------------
+  PERFORM 1
+  FROM ticket_sla_state
+  WHERE ticket_id = p_ticket_id
+  FOR UPDATE;
+
+  -- ------------------------------------------------------------
+  -- 7. Reset ticket workflow (NEW execution lifecycle)
+  --
+  -- Why:
+  --   • Status NEW → auto-assign will pick it up
+  --   • Assignee cleared → force fresh ownership
+  --   • completed_at cleared → ticket is no longer terminal
+  -- ------------------------------------------------------------
   UPDATE tickets
   SET
-    status = 'NEW',
-    current_assignee_id = NULL,
-    reason_code = NULL,
-    completed_at = NULL,
-    updated_at = now()
+    status               = 'NEW',
+    current_assignee_id  = NULL,
+    reason_code          = NULL,
+    completed_at         = NULL,
+    updated_at           = now()
   WHERE id = p_ticket_id;
 
-  -- 7. Emit REOPENED event
+  -- ------------------------------------------------------------
+  -- 8. Reset SLA anchors (NEW SLA instance)
+  --
+  -- Why:
+  --   • Reopen is NOT resume
+  --   • Old SLA time must never leak
+  --   • SLA will start ON_ASSIGN via trigger
+  --
+  -- IMPORTANT:
+  --   • No SLA math here
+  --   • Only anchor reset (derived model)
+  -- ------------------------------------------------------------
+  UPDATE ticket_sla_state
+  SET
+    sla_started_at        = NULL,
+    sla_paused_at         = NULL,
+    sla_resumed_at        = NULL,
+    total_paused_seconds = 0,
+    pause_count           = 0,
+    breached              = false,
+    breached_at           = NULL
+  WHERE ticket_id = p_ticket_id;
+
+  -- ------------------------------------------------------------
+  -- 9. Emit REOPENED event (single source of truth)
+  --
+  -- Why:
+  --   • Audit trail
+  --   • Reopen count derivation
+  --   • UI & views depend on events, not state mutation
+  -- ------------------------------------------------------------
   INSERT INTO ticket_events (
-    ticket_id, event_type, previous_status, new_status, actor_type, actor_id, comment, created_at
+    ticket_id,
+    event_type,
+    previous_status,
+    new_status,
+    actor_type,
+    comment,
+    created_at
   ) VALUES (
-    p_ticket_id, 'REOPENED', 'COMPLETED', 'NEW', 'GUEST', v_guest_id,
-    COALESCE(p_reason, 'Guest reopened completed request'), now()
+    p_ticket_id,
+    'REOPENED',
+    v_status,
+    'NEW',
+    'GUEST',
+    COALESCE(p_reason, 'Guest reopened completed request'),
+    now()
   );
 
   RETURN jsonb_build_object(
@@ -802,6 +917,8 @@ BEGIN
   );
 END;
 $$;
+
+GRANT EXECUTE ON FUNCTION reopen_ticket(UUID, UUID, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION reopen_ticket TO authenticated;
 
 

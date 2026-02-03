@@ -17,7 +17,8 @@ DROP VIEW IF EXISTS v_staff_runner_tickets;
 CREATE OR REPLACE VIEW v_staff_runner_tickets AS
 SELECT
     t.id                                  AS ticket_id,
-    COALESCE(CONCAT('Room ', r.number), z.name) AS location_label,
+    t.display_id                         AS display_id,
+    CASE WHEN r.number IS NOT NULL THEN CONCAT('Room ', r.number) ELSE z.name END AS location_label,
     r.number                              AS room_number,
     r.floor                               AS room_floor,
     z.id                                 AS zone_id,

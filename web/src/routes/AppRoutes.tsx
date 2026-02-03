@@ -8,6 +8,7 @@ import OwnerRoomDetail from './OwnerRoomDetail';
 import { OwnerADR, OwnerRevPAR } from './OwnerRevenue';
 import OwnerPickup from './OwnerPickup';
 import OwnerBookingsCalendar from './OwnerBookingsCalendar';
+import FoodOrderTracker from './FoodOrderTracker';
 
 // Optional: a tiny 404 component so unknown routes don’t white-screen
 function NotFound() {
@@ -39,6 +40,9 @@ export default function AppRoutes() {
       {/* Bookings */}
       <Route path="/owner/:slug/bookings/pickup" element={<OwnerPickup />} />
       <Route path="/owner/:slug/bookings/calendar" element={<OwnerBookingsCalendar />} />
+
+      {/* Food Order Tracking */}
+      <Route path="/track-order/:id" element={<FoodOrderTracker />} />
 
       {/* Catch-all */}
       <Route path="*" element={<NotFound />} />

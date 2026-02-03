@@ -377,7 +377,25 @@ export default function TicketDetailsDrawer({
                             <span className="text-gray-400">ASSIGNED TO:</span>
                             <span>{ticket.assigned_to_name || 'You'}</span>
                         </div>
+                        {ticket.location_label && (
+                            <div className="flex items-center gap-2">
+                                <span className="text-gray-400">LOCATION:</span>
+                                <span>{ticket.location_label}</span>
+                            </div>
+                        )}
                     </div>
+
+                    {/* Request Details Section */}
+                    {ticket.description && (
+                        <div className="mt-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700/50">
+                            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+                                Request Details
+                            </h4>
+                            <p className="text-sm text-gray-200 whitespace-pre-wrap">
+                                {ticket.description}
+                            </p>
+                        </div>
+                    )}
                 </div>
 
                 {/* Staff Workload Section - always show for assigned tickets */}
@@ -838,7 +856,7 @@ export default function TicketDetailsDrawer({
                         minute: '2-digit'
                     })}</div>
                     <div>Requestor: {typeof ticket.requested_by === 'object' ? (ticket.requested_by as any).name : ticket.requested_by}</div>
-                    <div>Ticket ID: #{ticket.ticket_id.slice(0, 8)}</div>
+                    <div>Ticket ID: #{ticket.display_id || ticket.ticket_id.slice(0, 8)}</div>
                 </div>
             </div>
 

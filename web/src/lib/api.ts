@@ -102,6 +102,8 @@ export type Service = {
   hotel_id?: string | null;
   department_id?: string | null;
   department_name?: string | null;
+  description_en?: string; // [NEW] Description
+  requires_description?: boolean; // [NEW] If true, user must provide details
 };
 
 export type ReferralIdentifier = {
@@ -1376,7 +1378,7 @@ export async function getServices(hotelKey?: string | null) {
       let query = s
         .from("services")
         .select(
-          "id, hotel_id, key, label, sla_minutes, priority_weight, active, department_id, departments!inner(name, is_active)"
+          "id, hotel_id, key, label, sla_minutes, priority_weight, active, department_id, description_en, requires_description, departments!inner(name, is_active)"
         )
         .eq("active", true)
         .eq("departments.is_active", true);
@@ -1403,6 +1405,8 @@ export async function getServices(hotelKey?: string | null) {
           active: row.active,
           hotel_id: row.hotel_id,
           department_id: row.department_id,
+          description_en: row.description_en, // [NEW]
+          requires_description: row.requires_description, // [NEW]
           // @ts-ignore
           department_name: row.departments?.name || "General",
         }));
@@ -1589,12 +1593,16 @@ export async function getMenu(hotelKey?: string) {
       const items = (data || [])
         .filter((row) => row.active !== false)
         .map((row) => ({
+          id: row.id, // [NEW] UUID needed for orders
           item_key: row.item_key,
           name: row.name,
-          base_price: row.base_price || 0,
+          base_price: row.price || row.base_price || 0, // [FIX] map DB 'price' column to frontend 'base_price'
+          category_id: row.category_id, // [NEW] for filtering
           category: row.category,
           is_veg: row.is_veg,
           active: row.active,
+          metadata: row.metadata, // [NEW] for images/dietary
+          availability: row.availability, // [NEW] for time checks
         }));
 
       console.log("[getMenu] Successfully fetched", items.length, "menu items");
@@ -1647,15 +1655,22 @@ export async function createTicket(
 
       console.log('[createTicket] Invoking RPC:', payload);
 
-      const { data: ticketId, error } = await s.rpc('create_service_request', payload);
+      const { data: res, error } = await s.rpc('create_service_request', payload);
 
       if (error) {
         console.error('[createTicket] RPC error:', error);
         throw error;
       }
 
-      console.log('[createTicket] Ticket created successfully:', ticketId);
-      return { id: ticketId as string };
+      console.log('[createTicket] RPC response:', res);
+
+      // Handle both new JSON return ({ id, display_id }) and legacy UUID
+      const val = res as any;
+      if (val && typeof val === 'object') {
+        return { id: val.id, ...val };
+      }
+
+      return { id: val as string };
     } catch (err) {
       console.warn("[createTicket] RPC failed, falling back to HTTP", err);
     }
@@ -1866,11 +1881,25 @@ export async function getGuestTickets(stayCode: string) {
   const s = supa();
   if (!s) return [];
 
-  // v_guest_tickets is RLS-protected and automatically filters by auth.uid()
-  // No need to filter by stay_id - guest sees all their tickets
+  // Filter by stay code to only show tickets for the current stay
   const { data, error } = await s
     .from('v_guest_tickets')
     .select('*')
+    .eq('booking_code', stayCode)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getGuestFoodOrders(stayCode: string) {
+  const s = supa();
+  if (!s) return [];
+
+  const { data, error } = await s
+    .from('v_guest_food_orders')
+    .select('*')
+    .eq('booking_code', stayCode)
     .order('created_at', { ascending: false });
 
   if (error) throw error;
@@ -2986,4 +3015,56 @@ export async function requestSlaException(
 
   if (error) throw error;
   return data;
+}
+
+/**
+ * Create a specialized Food Order (RPC).
+ * Enforces strict logic:
+ * - Status: CREATED
+ * - No assignments yet
+ * - No SLA yet
+ */
+export async function createFoodOrder(payload: {
+  hotelId: string;
+  stayId: string;
+  roomId: string;
+  items: {
+    menu_item_id: string; // The UUID
+    name: string;
+    qty: number;
+    unit_price: number;
+    modifiers?: any;
+  }[];
+  special_instructions?: string | null;
+}) {
+  const s = supa();
+  if (!s) throw new Error("Supabase client not available");
+
+  // Validate inputs
+  if (!payload.hotelId || !payload.stayId || !payload.roomId) {
+    throw new Error("Missing required order context (Stay/Room)");
+  }
+  if (!payload.items || payload.items.length === 0) {
+    throw new Error("No items in order");
+  }
+
+  // Call RPC
+  // p_hotel_id, p_stay_id, p_room_id, p_items, p_total_amount, p_special_instructions
+  const totalAmount = payload.items.reduce((sum, item) => sum + (item.unit_price * item.qty), 0);
+
+  const { data, error } = await s.rpc("create_food_order", {
+    p_hotel_id: payload.hotelId,
+    p_stay_id: payload.stayId,
+    p_room_id: payload.roomId,
+    p_items: payload.items,
+    p_total_amount: totalAmount,
+    p_special_instructions: payload.special_instructions || null
+  });
+
+  if (error) {
+    console.error("[createFoodOrder] RPC failed:", error);
+    throw error;
+  }
+
+  return data; // returns order_id (UUID)
 }

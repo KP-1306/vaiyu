@@ -96,8 +96,9 @@ const OwnerRegister = lazy(() => import("./routes/OwnerRegister"));
 
 // Guest / Journey
 const Hotel = lazy(() => import("./routes/Hotel"));
-const Menu = lazy(() => import("./routes/Menu"));
+const FoodMenu = lazy(() => import("./routes/FoodMenu"));
 const RequestTracker = lazy(() => import("./routes/RequestTracker"));
+const FoodOrderTracker = lazy(() => import("./routes/FoodOrderTracker"));
 const Bill = lazy(() => import("./routes/Bill"));
 const Precheck = lazy(() => import("./routes/Precheck"));
 const Regcard = lazy(() => import("./routes/Regcard"));
@@ -111,6 +112,7 @@ const Desk = lazy(() => import("./routes/Desk"));
 const OpsBoard = lazy(() => import("./routes/OpsBoard"));
 const HK = lazy(() => import("./routes/HK"));
 const Maint = lazy(() => import("./routes/Maint"));
+const KitchenDashboard = lazy(() => import("./routes/KitchenDashboard"));
 const StaffTaskManager = lazy(() => import("./routes/StaffTaskManager"));
 // Desk Tickets view (Ops tickets + SLA board)
 const DeskTickets = lazy(() => import("./routes/desk/Tickets"));
@@ -443,9 +445,11 @@ const router = createBrowserRouter([
       // Guest / Journey
       { path: "scan", element: <Scan /> },
       { path: "hotel/:slug", element: <Hotel /> },
-      { path: "menu", element: <Menu /> },
-      { path: "stay/:code/menu", element: <Menu /> },
+      { path: "menu", element: <FoodMenu /> },
+      { path: "stay/:code/menu", element: <FoodMenu /> },
       { path: "requestTracker", element: <RequestTracker /> },
+      { path: "track/:displayId", element: <RequestTracker /> },
+      { path: "track-order/:id", element: <FoodOrderTracker /> },
       { path: "bill", element: <Bill /> },
       { path: "precheck/:code", element: <Precheck /> },
       { path: "regcard", element: <Regcard /> },
@@ -516,6 +520,15 @@ const router = createBrowserRouter([
         element: (
           <AuthGate>
             <Maint />
+          </AuthGate>
+        ),
+      },
+      // Kitchen Dashboard
+      {
+        path: "kitchen",
+        element: (
+          <AuthGate>
+            <KitchenDashboard />
           </AuthGate>
         ),
       },

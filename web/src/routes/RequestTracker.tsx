@@ -1,408 +1,678 @@
-// web/src/routes/RequestTracker.tsx
 
-import { useEffect, useMemo, useState } from "react";
-import { getTicket } from "../lib/api";
+import { useEffect, useState, useRef } from "react";
+import { useParams, Link } from "react-router-dom";
+import { supabase } from "../lib/supabase";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Clock,
+  ChevronRight,
+  Loader2,
+  XCircle,
+  Camera,
+  Edit2,
+  FileText,
+  Hash,
+  MessageSquare,
+  Send,
+  RefreshCcw
+} from "lucide-react";
+import { getTicketComments, reopenTicket } from "../lib/api";
 
-type TicketStatus = "Requested" | "Accepted" | "InProgress" | "Done";
-
-type Ticket = {
+type TrackerData = {
   id: string;
-  service_key: string;
-  room: string;
-  booking: string;
-  status: TicketStatus;
+  stay_id: string;
+  booking_code?: string;
+  display_id: string;
+  status: string;
+  current_assignee_id?: string;
   created_at: string;
-  accepted_at?: string;
-  started_at?: string;
-  done_at?: string;
-  sla_minutes: number;
-  sla_deadline?: string; // ISO
+  completed_at?: string;
+  description: string;
+  sla_started_at?: string;
+  service: {
+    label: string;
+    sla_minutes: number;
+    description_en?: string;
+  };
+  room?: {
+    number: string;
+  };
+  zone?: {
+    id: string;
+    name: string;
+  };
+  attachments: {
+    file_path: string;
+    created_at: string;
+  }[];
 };
 
-function usePathTicketId(): string | null {
-  const path =
-    typeof window !== "undefined" ? window.location.pathname : "";
-  const parts = path.split("/").filter(Boolean);
-  const id = parts[parts.length - 1] || null;
+export default function RequestTracker() {
+  const { displayId } = useParams();
+  const [data, setData] = useState<TrackerData | null>(null);
+  const [comments, setComments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [commentText, setCommentText] = useState("");
+  const [submittingComment, setSubmittingComment] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showReopenModal, setShowReopenModal] = useState(false);
+  const [reopenReason, setReopenReason] = useState("");
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [now, setNow] = useState(new Date());
 
-  if (typeof window !== "undefined") {
-    console.log("[VAiyu_FE] RequestTracker.usePathTicketId", {
-      path,
-      parts,
-      id,
-    });
-  }
-
-  return id;
-}
-
-function fmtTime(ts?: string) {
-  if (!ts) return "--:--";
-  try {
-    const d = new Date(ts);
-    if (isNaN(d.getTime())) return "--:--";
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  } catch {
-    return "--:--";
-  }
-}
-
-function useCountdown(deadlineISO?: string) {
-  const [now, setNow] = useState(Date.now());
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
   }, []);
 
-  const ms = useMemo(() => {
-    if (!deadlineISO) return 0;
-    const delta = new Date(deadlineISO).getTime() - now;
-    return Math.max(0, delta);
-  }, [deadlineISO, now]);
-
-  const mm = Math.floor(ms / 60000);
-  const ss = Math.floor((ms % 60000) / 1000);
-  return { ms, text: `${mm}:${String(ss).padStart(2, "0")}` };
-}
-
-const steps: { key: TicketStatus; label: string; icon: string }[] = [
-  { key: "Requested", label: "Requested", icon: "📨" },
-  { key: "Accepted", label: "Accepted", icon: "✅" },
-  { key: "InProgress", label: "In progress", icon: "🧹" },
-  { key: "Done", label: "Done", icon: "🎉" },
-];
-
-// ---- Normalizers so we can support old + new backends ----
-
-function normalizeStatus(rawStatus: any): TicketStatus {
-  if (!rawStatus) return "Requested";
-  const s = String(rawStatus);
-
-  // If backend already returns display statuses, just use them
-  if (
-    s === "Requested" ||
-    s === "Accepted" ||
-    s === "InProgress" ||
-    s === "Done"
-  ) {
-    return s as TicketStatus;
-  }
-
-  // Map DB statuses (new / accepted / in_progress / paused / resolved / closed)
-  const lower = s.toLowerCase();
-  if (lower === "new") return "Requested";
-  if (lower === "accepted") return "Accepted";
-  if (lower === "in_progress" || lower === "paused") return "InProgress";
-  if (lower === "resolved" || lower === "closed") return "Done";
-
-  return "Requested";
-}
-
-function normalizeTicket(rawInput: any): Ticket {
-  const raw = rawInput ?? {};
-
-  const id = String(raw.id ?? "");
-  const service_key =
-    String(
-      raw.service_key ?? raw.serviceKey ?? raw.key ?? raw.service ?? "service"
-    ) || "service";
-
-  const room = String(
-    raw.room ?? raw.room_number ?? raw.roomNo ?? raw.room_no ?? "--"
-  );
-
-  const booking = String(
-    raw.booking ??
-      raw.booking_code ??
-      raw.bookingCode ??
-      raw.stay_code ??
-      raw.stayCode ??
-      "DEMO"
-  );
-
-  const status = normalizeStatus(raw.status);
-
-  const created_at =
-    raw.created_at ??
-    raw.requested_at ??
-    raw.inserted_at ??
-    raw.createdAt ??
-    new Date().toISOString();
-
-  const accepted_at =
-    raw.accepted_at ?? raw.acceptedAt ?? raw.acknowledged_at ?? undefined;
-
-  const started_at =
-    raw.started_at ?? raw.in_progress_at ?? raw.startedAt ?? undefined;
-
-  const done_at =
-    raw.done_at ??
-    raw.resolved_at ??
-    raw.closed_at ??
-    raw.completed_at ??
-    raw.doneAt ??
-    undefined;
-
-  const sla_minutes =
-    Number(
-      raw.sla_minutes ??
-        raw.sla_minutes_snapshot ??
-        raw.sla ??
-        raw.sla_mins ??
-        20
-    ) || 20;
-
-  const sla_deadline: string | undefined =
-    raw.sla_deadline ??
-    raw.slaDeadline ??
-    raw.due_at ??
-    raw.dueAt ??
-    undefined;
-
-  return {
-    id,
-    service_key,
-    room,
-    booking,
-    status,
-    created_at: String(created_at),
-    accepted_at: accepted_at ? String(accepted_at) : undefined,
-    started_at: started_at ? String(started_at) : undefined,
-    done_at: done_at ? String(done_at) : undefined,
-    sla_minutes,
-    sla_deadline: sla_deadline ? String(sla_deadline) : undefined,
-  };
-}
-
-export default function RequestTracker() {
-  const id = usePathTicketId();
-  const [ticket, setTicket] = useState<Ticket | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const { ms: remainingMs, text: remainingText } = useCountdown(
-    ticket?.sla_deadline
-  );
-
-  // Render-level debug
-  console.log("[VAiyu_FE] RequestTracker.render", {
-    id,
-    hasTicket: !!ticket,
-    err,
-    loading,
-  });
-
-  async function load() {
-    if (!id) {
-      console.warn("[VAiyu_FE] RequestTracker.load: missing id");
-      return;
-    }
+  const fetchTicket = async () => {
+    if (!displayId) return;
     try {
-      console.log("[VAiyu_FE] RequestTracker.load.start", { id });
-      setLoading(true);
-      const raw = await getTicket(id);
-      console.log("[VAiyu_FE] RequestTracker.load.raw", raw);
+      const { data: ticket, error } = await supabase
+        .rpc('get_ticket_details', { p_display_id: displayId });
 
-      const rawTicket = (raw as any)?.ticket ?? raw;
-      if (!rawTicket) {
-        console.warn("[VAiyu_FE] RequestTracker.load: no ticket field", raw);
-        throw new Error("Ticket not found");
+      if (error) throw error;
+      if (!ticket) throw new Error("Ticket not found");
+
+      setData(ticket as any);
+
+      // Fetch comments too
+      if (ticket) {
+        const msgs = await getTicketComments((ticket as any).id);
+        setComments(msgs);
       }
-
-      const normalized = normalizeTicket(rawTicket);
-      console.log("[VAiyu_FE] RequestTracker.load.normalized", normalized);
-
-      setTicket(normalized);
-      setErr(null);
-    } catch (e: any) {
-      console.error("[VAiyu_FE] RequestTracker.load error", e);
-      setErr(e?.message || "Failed to load request");
-      setTicket(null);
+    } catch (err: any) {
+      console.error("Error fetching ticket:", err);
+      setError("Could not load request details.");
     } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    fetchTicket();
+    const interval = setInterval(fetchTicket, 10000);
+    return () => clearInterval(interval);
+  }, [displayId]);
+
+  const handlePhotoUpload = async (e: any) => {
+    const file = e.target.files?.[0];
+    if (!file || !data) return;
+
+    setUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${data.display_id}/${Date.now()}.${fileExt}`;
+      const filePath = `tickets/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('ticket-attachments')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { error: rpcError } = await supabase
+        .rpc('guest_update_ticket', {
+          p_display_id: data.display_id,
+          p_media_urls: [filePath]
+        });
+
+      if (rpcError) throw rpcError;
+
+      await fetchTicket();
+    } catch (error: any) {
+      console.error("Upload failed", error);
+      alert("Failed to upload photo.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleSendComment = async () => {
+    if (!data || !commentText.trim()) return;
+    setSubmittingComment(true);
+    try {
+      const { error } = await supabase
+        .rpc('guest_update_ticket', {
+          p_display_id: data.display_id,
+          p_details: commentText.trim()
+        });
+
+      if (error) throw error;
+      setCommentText("");
+      await fetchTicket();
+    } catch (err) {
+      console.error("Comment failed", err);
+      alert("Failed to send message.");
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+
+
+  const handleReopen = () => {
+    setReopenReason("");
+    setShowReopenModal(true);
+  };
+
+  const submitReopen = async () => {
+    if (!data) return;
+
+    setLoading(true);
+    try {
+      await reopenTicket(data.id, data.stay_id, reopenReason);
+      await fetchTicket();
+      setShowReopenModal(false);
+    } catch (err: any) {
+      console.error("Reopen failed", err);
+      alert(err.message || "Failed to reopen ticket");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitDetails = async (details: string) => {
+    if (!data) return;
+    setIsUpdating(true);
+    try {
+      const { error } = await supabase
+        .rpc('guest_update_ticket', {
+          p_display_id: data.display_id,
+          p_details: details
+        });
+
+      if (error) throw error;
+      await fetchTicket();
+      setShowDetailsModal(false);
+    } catch (err) {
+      console.error("Update failed", err);
+      alert("Failed to update details.");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#020202] flex items-center justify-center text-zinc-500">
+        <Loader2 className="animate-spin" />
+      </div>
+    );
   }
 
-  // Simplified polling: always call load() on interval,
-  // avoid closing over a stale `ticket` value.
-  useEffect(() => {
-    load();
-    const iv = setInterval(() => {
-      // Light polling so guest can see live status updates
-      load();
-    }, 3000);
-    return () => clearInterval(iv);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  if (error || !data) {
+    return (
+      <div className="min-h-screen bg-[#020202] flex flex-col items-center justify-center p-6 text-center">
+        <XCircle className="w-12 h-12 text-red-500 mb-4" />
+        <h2 className="text-white text-lg font-bold">Request not found</h2>
+        <p className="text-zinc-500 mt-2">{error || "We couldn't locate this request."}</p>
+        <Link to="/guest" className="mt-8 px-6 py-3 bg-white text-black font-bold rounded-full">
+          Back to Dashboard
+        </Link>
+      </div>
+    );
+  }
 
-  const progressIndex = useMemo(() => {
-    if (!ticket) return 0;
-    const map: Record<TicketStatus, number> = {
-      Requested: 0,
-      Accepted: 1,
-      InProgress: 2,
-      Done: 3,
-    };
-    return map[ticket.status] ?? 0;
-  }, [ticket]);
+  // Calculate ETA & Timer Logic
+  const createdTime = new Date(data.created_at);
+  const slaMinutes = data.service?.sla_minutes || 30;
+  const targetMs = slaMinutes * 60000;
 
-  const pct = (progressIndex / (steps.length - 1)) * 100;
+  let expectedTime: Date;
+  let diffMs = targetMs;
+  let percentLeft = 100;
 
-  const bookingCodeForBack = ticket?.booking || "DEMO";
+  if (data.sla_started_at) {
+    // Started: Fixed Deadline
+    const startTime = new Date(data.sla_started_at);
+    expectedTime = new Date(startTime.getTime() + targetMs);
+    diffMs = expectedTime.getTime() - now.getTime();
+
+    // Circular Progress
+    percentLeft = Math.max(0, (diffMs / targetMs) * 100);
+    if (diffMs < 0) percentLeft = 100; // Breached (Full Red)
+  } else {
+    // Not Started: Sliding Deadline (Now + SLA)
+    expectedTime = new Date(now.getTime() + targetMs);
+    // diffMs remains full duration (static)
+    // percentLeft remains 100 (static)
+  }
+
+  const diffMins = Math.ceil(diffMs / 60000);
+  const isBreached = diffMs < 0;
+
+  // Ring Style
+  const circumference = 2 * Math.PI * 45;
+  const strokeDashoffset = circumference - (percentLeft / 100) * circumference;
+
+  // Status Logic
+  // Ticket workflow: NEW (unassigned) -> NEW (assigned) -> IN_PROGRESS -> COMPLETED
+  // current_assignee_id determines if assigned
+  const isAssigned = !!data.current_assignee_id;
+  const isInProgress = ["IN_PROGRESS", "BLOCKED"].includes(data.status);
+  const isCompleted = data.status === "COMPLETED";
+
+  const steps = [
+    { label: "Submitted", time: createdTime, active: true, completed: true },
+    {
+      label: "Assigning to Team",
+      active: true,
+      completed: isAssigned || isInProgress || isCompleted
+    },
+    {
+      label: "Staff on the way",
+      active: isInProgress || isCompleted,
+      completed: isCompleted
+    },
+    {
+      label: "Completed",
+      active: isCompleted,
+      completed: isCompleted
+    }
+  ];
 
   return (
-    <main className="max-w-xl mx-auto p-4">
-      {/* Header */}
-      <div className="flex items-start justify-between mb-4">
-        <div>
-          <div className="text-xs text-gray-500">
-            Request tracker • #{id ?? "--"}
+    <main className="min-h-screen bg-[#0b1120] font-sans pb-24 text-slate-200 selection:bg-blue-500/30">
+      {/* Background */}
+      <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900/40 via-[#0b1120] to-[#0b1120] z-0" />
+
+      <div className="relative z-10 max-w-lg mx-auto p-4 sm:p-6">
+        {/* Header */}
+        <header className="flex items-center gap-4 mb-8">
+          <Link to={`/stay/${sessionStorage.getItem('vaiyu:stay_code') || data.booking_code || data.stay_id}/requests`} className="w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center border border-slate-700/50 hover:bg-slate-700 transition-colors">
+            <ArrowLeft size={18} className="text-white" />
+          </Link>
+          <h1 className="text-lg font-bold text-white">Your Request</h1>
+        </header>
+
+        {/* Status Hero */}
+        <div className="text-center mb-8 animate-fade-in-up">
+          <div className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center border-4 mb-4 shadow-2xl relative overflow-hidden ${['COMPLETED', 'RESOLVED', 'CLOSED'].includes(data.status)
+            ? 'bg-emerald-500/10 border-emerald-500 text-emerald-500'
+            : isBreached
+              ? 'bg-amber-500/10 border-transparent text-amber-500'
+              : 'bg-blue-500/10 border-transparent text-blue-500'
+            }`}>
+            {['COMPLETED', 'RESOLVED', 'CLOSED'].includes(data.status)
+              ? <CheckCircle2 size={32} />
+              : isBreached
+                ? (
+                  <>
+                    {/* Spinning Ring Amber */}
+                    <div className="absolute inset-0 rounded-full border-4 border-amber-500/30" />
+                    <div className="absolute inset-0 rounded-full border-4 border-t-amber-500 animate-spin" />
+                    {/* Static Text */}
+                    <span className="relative z-10 text-[10px] font-black uppercase tracking-widest">Delayed</span>
+                  </>
+                )
+                : (
+                  <>
+                    {/* Spinning Ring Blue */}
+                    <div className="absolute inset-0 rounded-full border-4 border-blue-500/30" />
+                    <div className="absolute inset-0 rounded-full border-4 border-t-blue-500 animate-spin" />
+                    {/* Static Text */}
+                    <span className="relative z-10 text-[10px] font-black uppercase tracking-widest">On Time</span>
+                  </>
+                )
+            }
           </div>
-          <h1 className="text-xl font-semibold">
-            {ticket
-              ? `${ticket.service_key.replaceAll("_", " ")} — Room ${
-                  ticket.room
-                }`
-              : "Loading…"}
-          </h1>
+          <h2 className="text-2xl font-bold text-white mb-1">
+            {['COMPLETED', 'RESOLVED', 'CLOSED'].includes(data.status)
+              ? "Request Completed"
+              : "Your request is in progress"
+            }
+          </h2>
+          <p className="text-slate-500 text-sm">
+            {['COMPLETED', 'RESOLVED', 'CLOSED'].includes(data.status)
+              ? <span>Your request has been completed by our team.<br />Wishing you a wonderful stay. ✨</span>
+              : isBreached
+                ? <span className="text-amber-500/80">Sorry for the delay.<br />We are working to resolve this as quickly as possible.</span>
+                : "Our team is preparing to assist you."
+            }
+          </p>
         </div>
 
-        {/* Status chip */}
-        {ticket && (
-          <span
-            className={`px-2 py-1 rounded text-white text-sm ${
-              ticket.status === "Done"
-                ? "bg-emerald-600"
-                : ticket.status === "InProgress"
-                ? "bg-sky-600"
-                : ticket.status === "Accepted"
-                ? "bg-amber-600"
-                : "bg-gray-600"
-            }`}
-          >
-            {ticket.status}
-          </span>
-        )}
-      </div>
+        {/* ETA Card */}
+        {data.status !== 'CANCELLED' && (
+          <div className="bg-slate-900/40 border border-slate-800/60 backdrop-blur-md rounded-3xl p-6 mb-6 animate-fade-in-up animation-delay-100 flex items-center justify-between relative overflow-hidden shadow-xl">
+            {/* Text Left */}
+            <div className="z-10">
+              <div className="flex items-center gap-2 text-slate-400 text-sm mb-2">
+                <Clock size={16} />
+                <span>{data.completed_at ? "SERVICE DELIVERED IN" : "ESTIMATED RESPONSE TIME"}</span>
+              </div>
 
-      {/* SLA card */}
-      {ticket && (
-        <section className="bg-white rounded shadow p-3 mb-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm text-gray-500">SLA</div>
-              <div className="text-base font-medium">
-                {ticket.sla_minutes} minutes
+              {data.completed_at ? (
+                <div className="text-3xl font-bold text-white font-mono mb-1">
+                  {Math.max(1, Math.ceil((new Date(data.completed_at).getTime() - new Date(data.created_at).getTime()) / 60000))} min
+                </div>
+              ) : (
+                <div className="text-3xl font-bold text-white font-mono mb-1">
+                  {expectedTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}
+                </div>
+              )}
+
+              {/* Status Label */}
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                {data.completed_at
+                  ? "Completed"
+                  : data.sla_started_at
+                    ? (isBreached ? "SLA Breached" : "On Schedule")
+                    : "Not Started (Assigning...)"}
               </div>
             </div>
-            {ticket.status !== "Done" ? (
-              <div
-                className={`text-right ${
-                  remainingMs === 0 ? "text-red-600" : ""
-                }`}
-              >
-                <div className="text-sm text-gray-500">Time left</div>
-                <div className="text-xl font-semibold">{remainingText}</div>
+
+            {/* Circular Timer Right */}
+            <div className="relative w-24 h-24 flex-shrink-0 z-10">
+              <svg className="transform -rotate-90 w-24 h-24">
+                <circle cx="48" cy="48" r="45" stroke="rgba(255,255,255,0.05)" strokeWidth="6" fill="none" />
+                <circle
+                  cx="48"
+                  cy="48"
+                  r="45"
+                  stroke={data.completed_at ? "#10b981" : isBreached ? "#ef4444" : "#3b82f6"}
+                  strokeWidth="6"
+                  fill="none"
+                  strokeDasharray={circumference}
+                  strokeDashoffset={data.completed_at ? 0 : strokeDashoffset}
+                  strokeLinecap="round"
+                  className={data.completed_at ? '' : isBreached ? 'animate-pulse' : 'transition-all duration-1000 ease-linear'}
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                {data.completed_at ? (
+                  <div className="text-emerald-500">
+                    <CheckCircle2 size={24} />
+                  </div>
+                ) : data.sla_started_at ? (
+                  <>
+                    <div className={`text-lg font-bold font-mono ${isBreached ? 'text-red-500' : 'text-blue-500'}`}>
+                      {isBreached ? `+${Math.abs(diffMins)}` : `${diffMins}`}
+                    </div>
+                    <div className={`text-[10px] uppercase font-bold ${isBreached ? 'text-red-500' : 'text-blue-500'}`}>
+                      {isBreached ? 'Min Late' : 'Min Left'}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-lg font-bold font-mono text-zinc-500">
+                      {slaMinutes}
+                    </div>
+                    <div className="text-[10px] uppercase font-bold text-zinc-500">
+                      Min
+                    </div>
+                  </>
+                )}
               </div>
-            ) : (
-              <div className="text-right text-emerald-600">
-                <div className="text-sm text-gray-500">Completed</div>
-                <div className="text-xl font-semibold">🎉</div>
+            </div>
+
+            {/* Decor */}
+            <div className={`absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl -z-10 ${data.completed_at ? 'bg-emerald-500/5' : 'bg-blue-500/5'}`}></div>
+          </div>
+        )}
+
+        {/* Summary Details */}
+        <div className="bg-slate-900/40 border border-slate-800/60 rounded-3xl overflow-hidden mb-6 animate-fade-in-up animation-delay-200">
+          <div className="p-4 border-b border-slate-800/60 flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Request Summary</span>
+          </div>
+
+          <div className="p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-xl shadow-inner">✨</div>
+                <div>
+                  <div className="text-white font-bold">{data.service?.label}</div>
+                  <div className="text-xs text-slate-500">{data.zone?.name || (data.room ? `Room ${data.room.number}` : "Public Area")}</div>
+                </div>
+              </div>
+              <ChevronRight size={16} className="text-slate-600" />
+            </div>
+
+            <div className="h-px bg-white/5" />
+
+            <div className="flex items-center gap-3 text-sm text-zinc-400">
+              <Hash size={14} className="text-zinc-600" />
+              <span>Request ID: <span className="text-zinc-300 font-mono">#{data.display_id}</span></span>
+            </div>
+
+            {data.description && (
+              <div className="flex items-center gap-3 text-sm text-zinc-400">
+                <FileText size={14} className="text-zinc-600" />
+                <span>Notes: <span className="text-zinc-300 italic">"{data.description}"</span></span>
               </div>
             )}
           </div>
+        </div>
 
-          {/* progress bar */}
-          <div className="mt-3">
-            <div className="h-2 w-full bg-gray-200 rounded">
-              <div
-                className={`h-2 rounded ${
-                  ticket.status === "Done" ? "bg-emerald-500" : "bg-sky-500"
-                }`}
-                style={{ width: `${pct}%` }}
+        {/* Timeline */}
+        <div className="bg-slate-900/40 border border-slate-800/60 rounded-3xl p-6 mb-8 animate-fade-in-up animation-delay-300">
+          <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-6">Status Updates</div>
+          <div className="relative pl-2 space-y-8">
+            {/* Vertical Line */}
+            <div className="absolute left-[15px] top-2 bottom-2 w-0.5 bg-zinc-800 rounded-full" />
+
+            {steps.map((step, i) => (
+              <div key={i} className={`relative flex items-start gap-4 ${step.active ? 'opacity-100' : 'opacity-40'}`}>
+                <div className={`relative z-10 w-8 h-8 rounded-full border-4 flex items-center justify-center shrink-0 transition-all duration-500 ${step.completed ? 'bg-blue-500 border-blue-500 text-white' : step.active ? 'bg-[#0b1120] border-blue-500 animate-pulse' : 'bg-[#0b1120] border-slate-700'}`}>
+                  {step.completed && <CheckCircle2 size={14} />}
+                  {!step.completed && step.active && <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />}
+                </div>
+                <div className="pt-1">
+                  <div className={`text-sm font-bold ${step.active ? 'text-white' : 'text-zinc-500'}`}>{step.label}</div>
+                  {step.time && <div className="text-xs text-zinc-500 mt-0.5">Today • {step.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Conversation / Comments */}
+        {comments.length > 0 && (
+          <div className="bg-slate-900/40 border border-slate-800/60 rounded-3xl p-6 mb-8 animate-fade-in-up animation-delay-300">
+            <div className="flex items-center gap-2 mb-6">
+              <MessageSquare size={14} className="text-slate-500" />
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Conversation</span>
+            </div>
+
+            <div className="space-y-4">
+              {comments.filter(c => c.event_type === 'COMMENT_ADDED').map((c, index, arr) => {
+                const date = new Date(c.created_at);
+                const prevDate = index > 0 ? new Date(arr[index - 1].created_at) : null;
+                const showDate = !prevDate || date.toDateString() !== prevDate.toDateString();
+
+                const isGuest = c.actor_type === 'GUEST';
+
+                // Helper for grouping labels
+                const getDayLabel = (d: Date) => {
+                  const now = new Date();
+                  if (d.toDateString() === now.toDateString()) return 'Today';
+                  const yesterday = new Date(now);
+                  yesterday.setDate(now.getDate() - 1);
+                  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+                  return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                };
+
+                return (
+                  <div key={c.id}>
+                    {showDate && (
+                      <div className="flex justify-center my-4">
+                        <span className="text-[10px] bg-slate-800/50 text-slate-500 px-3 py-1 rounded-full border border-slate-700/50">
+                          {getDayLabel(date)}
+                        </span>
+                      </div>
+                    )}
+                    <div className={`flex ${isGuest ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed relative ${isGuest
+                        ? 'bg-blue-600/20 text-blue-100 rounded-tr-sm border border-blue-500/20'
+                        : 'bg-slate-800/80 text-slate-300 rounded-tl-sm border border-slate-700'
+                        }`}>
+                        {c.comment}
+                        <div className={`text-[10px] mt-1 text-right opacity-60 ${isGuest ? 'text-blue-200' : 'text-slate-400'}`}>
+                          {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Input Area */}
+            {data && !['COMPLETED', 'RESOLVED', 'CLOSED', 'CANCELLED'].includes(data.status) && (
+              <div className="mt-6 pt-4 border-t border-slate-800/60 flex items-center gap-2">
+                <input
+                  type="text"
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  placeholder="Type a message..."
+                  className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/50 transition-all"
+                  onKeyDown={(e) => e.key === 'Enter' && handleSendComment()}
+                />
+                <button
+                  onClick={handleSendComment}
+                  disabled={!commentText.trim() || submittingComment}
+                  className="p-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {submittingComment ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        {['COMPLETED', 'RESOLVED', 'CLOSED', 'CANCELLED'].includes(data.status) ? (
+          <button
+            onClick={handleReopen}
+            className="w-full bg-slate-800 border border-slate-700 hover:bg-slate-700 text-white py-4 rounded-xl text-sm font-bold transition-all shadow-lg flex items-center justify-center gap-2"
+          >
+            <RefreshCcw size={18} /> Reopen Request
+          </button>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <button
+                onClick={() => setShowDetailsModal(true)}
+                className="flex items-center justify-center gap-2 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-white py-3.5 rounded-xl text-sm font-bold transition-all shadow-lg"
+              >
+                <Edit2 size={16} /> Add More Details
+              </button>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center justify-center gap-2 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-white py-3.5 rounded-xl text-sm font-bold transition-all disabled:opacity-50 shadow-lg"
+              >
+                {uploading ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
+                {uploading ? "Uploading..." : "Add Photo"}
+              </button>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handlePhotoUpload}
+                hidden
+                accept="image/*"
               />
             </div>
-            <div className="flex justify-between text-xs mt-2 text-gray-600">
-              {steps.map((s, i) => (
-                <div key={s.key} className="flex flex-col items-center">
-                  <div
-                    className={`w-6 h-6 flex items-center justify-center rounded-full border ${
-                      i <= progressIndex
-                        ? "bg-sky-600 text-white border-sky-600"
-                        : "bg-white border-gray-300"
-                    }`}
-                    title={s.label}
-                  >
-                    <span className="text-sm">{s.icon}</span>
-                  </div>
-                  <div className="mt-1">{s.label}</div>
-                </div>
+
+            <button
+              onClick={() => setShowCancelModal(true)}
+              className="w-full bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20 py-3.5 rounded-xl text-sm font-bold transition-all"
+            >
+              Cancel Request
+            </button>
+          </>
+        )}
+
+        {/* Attachments List */}
+        {data.attachments && data.attachments.length > 0 && (
+          <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-4 mb-6">
+            <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">Posted Photos</div>
+            <div className="flex gap-3 overflow-x-auto pb-2">
+              {data.attachments.map((file, idx) => (
+                <a key={idx} href={supabase.storage.from('ticket-attachments').getPublicUrl(file.file_path).data.publicUrl} target="_blank" rel="noreferrer" className="block shrink-0">
+                  <img src={supabase.storage.from('ticket-attachments').getPublicUrl(file.file_path).data.publicUrl} alt="attachment" className="w-20 h-20 rounded-lg object-cover border border-white/10" />
+                </a>
               ))}
             </div>
           </div>
-        </section>
+        )}
+
+      </div>
+      {/* Add Details Modal */}
+      {showDetailsModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-lg bg-[#1a1a1a] rounded-t-3xl sm:rounded-3xl border border-white/10 p-6 space-y-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-bold text-white">Add Details</h3>
+              <button onClick={() => setShowDetailsModal(false)} className="p-2 bg-zinc-800 rounded-full text-zinc-400 hover:text-white">
+                <XCircle size={20} />
+              </button>
+            </div>
+
+            <textarea
+              className="w-full h-32 bg-zinc-900/50 border border-white/10 rounded-xl p-4 text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition-colors resize-none"
+              placeholder="Add more context or details..."
+              id="details-input"
+            />
+
+            <button
+              onClick={() => {
+                const val = (document.getElementById('details-input') as HTMLTextAreaElement).value;
+                submitDetails(val);
+              }}
+              disabled={isUpdating}
+              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isUpdating ? <Loader2 size={18} className="animate-spin" /> : "Submit Update"}
+            </button>
+          </div>
+        </div>
       )}
 
-      {/* Timeline */}
-      <section className="bg-white rounded shadow p-3">
-        <div className="font-semibold mb-2">Timeline</div>
 
-        {loading && !ticket && (
-          <div className="text-gray-500">Loading…</div>
-        )}
-        {err && !ticket && <div className="text-red-600">{err}</div>}
+      {/* Reopen Modal */}
+      {
+        showReopenModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+            <div className="w-full max-w-md bg-[#1a1a1a] rounded-3xl border border-white/10 p-6 space-y-4 shadow-2xl">
+              <div>
+                <h3 className="text-xl font-bold text-white mb-1">Reopen Request</h3>
+                <p className="text-zinc-400 text-sm">This will reopen the request for the staff.</p>
+              </div>
 
-        {ticket && (
-          <ul className="text-sm">
-            <li className="flex gap-2 items-center">
-              <span>📨</span>
-              <span className="w-28 text-gray-600">Requested</span>
-              <span className="font-medium">
-                {fmtTime(ticket.created_at)}
-              </span>
-            </li>
-            {ticket.accepted_at && (
-              <li className="flex gap-2 items-center">
-                <span>✅</span>
-                <span className="w-28 text-gray-600">Accepted</span>
-                <span className="font-medium">
-                  {fmtTime(ticket.accepted_at)}
-                </span>
-              </li>
-            )}
-            {ticket.started_at && (
-              <li className="flex gap-2 items-center">
-                <span>🧹</span>
-                <span className="w-28 text-gray-600">In progress</span>
-                <span className="font-medium">
-                  {fmtTime(ticket.started_at)}
-                </span>
-              </li>
-            )}
-            {ticket.done_at && (
-              <li className="flex gap-2 items-center">
-                <span>🎉</span>
-                <span className="w-28 text-gray-600">Done</span>
-                <span className="font-medium">
-                  {fmtTime(ticket.done_at)}
-                </span>
-              </li>
-            )}
-          </ul>
-        )}
-      </section>
+              <textarea
+                className="w-full h-24 bg-zinc-900/50 border border-white/10 rounded-xl p-4 text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500 transition-colors resize-none"
+                placeholder="Reason (optional)..."
+                value={reopenReason}
+                onChange={(e) => setReopenReason(e.target.value)}
+              />
 
-      {/* Back links */}
-      <div className="mt-4 flex items-center gap-3 text-sm">
-        <a
-          href={`/stay/${encodeURIComponent(bookingCodeForBack)}/menu`}
-          className="underline"
-        >
-          ← Back to menu
-        </a>
-        <a href="/hk" className="underline">
-          Open Housekeeping
-        </a>
-      </div>
-    </main>
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  onClick={() => setShowReopenModal(false)}
+                  className="flex-1 py-3.5 rounded-xl text-zinc-400 font-bold hover:bg-white/5 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitReopen}
+                  disabled={loading}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-emerald-900/20 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {loading ? <Loader2 size={18} className="animate-spin" /> : "Confirm"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+    </main >
   );
 }

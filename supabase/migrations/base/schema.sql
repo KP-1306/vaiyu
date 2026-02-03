@@ -320,8 +320,12 @@ WHERE is_active = true;
 -- 9️⃣ Tickets (core work unit)
 -- ============================================================
 
+CREATE SEQUENCE IF NOT EXISTS ticket_display_id_seq START 1000;
+
 CREATE TABLE tickets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+  display_id TEXT UNIQUE,
 
   service_department_id UUID NOT NULL
     REFERENCES departments(id) ON DELETE RESTRICT,
@@ -333,6 +337,9 @@ CREATE TABLE tickets (
 
   status TEXT NOT NULL
     CHECK (status IN ('NEW','IN_PROGRESS','BLOCKED','COMPLETED','CANCELLED')),
+
+  priority TEXT DEFAULT 'NORMAL'
+    CHECK (priority IN ('LOW','NORMAL','HIGH','URGENT')),
 
   current_assignee_id UUID
     REFERENCES hotel_members(id),
@@ -354,8 +361,26 @@ BEFORE UPDATE ON tickets
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
+CREATE OR REPLACE FUNCTION generate_ticket_display_id()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.display_id IS NULL OR NEW.display_id = '' THEN
+    NEW.display_id := 'REQ-' || nextval('ticket_display_id_seq');
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_set_ticket_display_id
+BEFORE INSERT ON tickets
+FOR EACH ROW
+EXECUTE FUNCTION generate_ticket_display_id();
+
 CREATE INDEX idx_tickets_status
 ON tickets (status);
+
+CREATE UNIQUE INDEX idx_tickets_display_id
+ON tickets (display_id);
 
 CREATE INDEX idx_tickets_assignee
 ON tickets (current_assignee_id)
@@ -565,6 +590,242 @@ ALTER TABLE stays
 CREATE UNIQUE INDEX stays_booking_code_unique
     ON stays (booking_code)
     WHERE booking_code IS NOT NULL;
+
+-- ============================================================
+-- 1️⃣3️⃣ Ticket Attachments
+-- ============================================================
+
+-- 1. Create Schema (ticket_attachments)
+CREATE TABLE IF NOT EXISTS ticket_attachments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  ticket_id UUID NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+  file_path TEXT NOT NULL,
+  file_type TEXT,
+  file_size BIGINT,
+  uploaded_by UUID REFERENCES auth.users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE ticket_attachments ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public read access to ticket attachments' AND tablename = 'ticket_attachments') THEN
+    CREATE POLICY "Public read access to ticket attachments" ON ticket_attachments FOR SELECT USING (true);
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Authenticated users can upload attachments' AND tablename = 'ticket_attachments') THEN
+    CREATE POLICY "Authenticated users can upload attachments" ON ticket_attachments FOR INSERT TO authenticated WITH CHECK (true);
+  END IF;
+  
+   -- Explicit grant for anon (guest)
+  GRANT INSERT, SELECT ON ticket_attachments TO anon;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_ticket_attachments_ticket_id ON ticket_attachments(ticket_id);
+
+-- 2. Create Storage Bucket (Ticket Attachments)
+INSERT INTO storage.buckets (id, name, public, avif_autodetection, file_size_limit, allowed_mime_types)
+VALUES (
+  'ticket-attachments',
+  'ticket-attachments',
+  true, -- PUBLIC bucket
+  false,
+  10485760, -- 10MB limit
+  '{image/*,video/*}' -- Allow images and videos
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- Storage Policies
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public Access' AND tablename = 'objects') THEN
+    CREATE POLICY "Public Access" ON storage.objects FOR SELECT USING ( bucket_id = 'ticket-attachments' );
+  END IF;
+  
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Authenticated Upload' AND tablename = 'objects') THEN
+    CREATE POLICY "Authenticated Upload" ON storage.objects FOR INSERT TO authenticated WITH CHECK ( bucket_id = 'ticket-attachments' );
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Owner Delete' AND tablename = 'objects') THEN
+    CREATE POLICY "Owner Delete" ON storage.objects FOR DELETE TO authenticated USING ( bucket_id = 'ticket-attachments' AND auth.uid() = owner );
+  END IF;
+END $$;
+
+
+-- ============================================================
+-- 1️⃣4️⃣ RPC: Create Service Request
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION create_service_request(
+  p_hotel_id UUID,
+  p_room_id UUID,
+  p_zone_id UUID,
+  p_service_id UUID,
+  p_description TEXT,
+  p_created_by_type TEXT,
+  p_created_by_id UUID,
+  p_stay_id UUID DEFAULT NULL,
+  p_media_urls JSONB DEFAULT '[]'::jsonb,
+  p_priority TEXT DEFAULT 'NORMAL'
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_ticket_id UUID;
+  v_display_id TEXT;
+  v_service_title TEXT;
+  v_department_id UUID;
+  v_url TEXT;
+  v_final_priority TEXT;
+BEGIN
+  ----------------------------------------------------------------
+  -- 0️⃣ Input validation & Service Lookup
+  ----------------------------------------------------------------
+  -- Enforce location XOR rule
+  IF (p_room_id IS NULL AND p_zone_id IS NULL)
+     OR (p_room_id IS NOT NULL AND p_zone_id IS NOT NULL) THEN
+    RAISE EXCEPTION 'Exactly one of room_id or zone_id must be provided';
+  END IF;
+
+  -- Validate creator type
+  IF p_created_by_type NOT IN ('GUEST','STAFF','FRONT_DESK','SYSTEM') THEN
+    RAISE EXCEPTION 'Invalid created_by_type: %', p_created_by_type;
+  END IF;
+  
+  -- Validate & Normalize priority (Handle Case Insensitivity)
+  v_final_priority := UPPER(p_priority);
+  IF v_final_priority NOT IN ('LOW', 'NORMAL', 'HIGH', 'URGENT') THEN
+     v_final_priority := 'NORMAL'; -- Fallback safety
+  END IF;
+
+  -- Lookup Service & Department
+  SELECT label, department_id INTO v_service_title, v_department_id
+  FROM services WHERE id = p_service_id AND hotel_id = p_hotel_id;
+
+  IF v_service_title IS NULL THEN
+     RAISE EXCEPTION 'Service not found or invalid for this hotel (ID: %)', p_service_id;
+  END IF;
+
+  -- Ensure active SLA policy exists
+  IF NOT EXISTS (SELECT 1 FROM sla_policies WHERE department_id = v_department_id AND is_active = true) THEN
+    RAISE EXCEPTION 'No active SLA policy found for department %', v_department_id;
+  END IF;
+
+  ----------------------------------------------------------------
+  -- 1️⃣ Create ticket
+  ----------------------------------------------------------------
+  INSERT INTO tickets (
+    hotel_id, service_department_id, service_id, stay_id, room_id, zone_id, 
+    title, description, status, current_assignee_id, created_by_type, created_by_id, priority
+  ) VALUES (
+    p_hotel_id, v_department_id, p_service_id, p_stay_id, p_room_id, p_zone_id, 
+    v_service_title, p_description, 'NEW', NULL, p_created_by_type, p_created_by_id, v_final_priority
+  ) RETURNING id, display_id INTO v_ticket_id, v_display_id;
+
+  ----------------------------------------------------------------
+  -- 1️⃣(b) Insert Attachments
+  ----------------------------------------------------------------
+  IF p_media_urls IS NOT NULL AND jsonb_array_length(p_media_urls) > 0 THEN
+    FOR v_url IN SELECT value::text FROM jsonb_array_elements_text(p_media_urls)
+    LOOP
+      v_url := trim(both '"' from v_url);
+      INSERT INTO ticket_attachments (ticket_id, file_path, uploaded_by)
+      VALUES (
+        v_ticket_id, v_url, 
+        CASE 
+          WHEN p_created_by_type IN ('STAFF', 'FRONT_DESK') AND p_created_by_id IS NOT NULL 
+          THEN (SELECT user_id FROM hotel_members WHERE id = p_created_by_id)
+          ELSE auth.uid() 
+        END
+      );
+    END LOOP;
+  END IF;
+
+  ----------------------------------------------------------------
+  -- 2️⃣ Audit: CREATED event
+  ----------------------------------------------------------------
+  INSERT INTO ticket_events (
+    ticket_id, event_type, new_status, actor_type, actor_id, comment
+  ) VALUES (
+    v_ticket_id, 'CREATED', 'NEW', p_created_by_type,
+    CASE WHEN p_created_by_type IN ('STAFF','FRONT_DESK') THEN p_created_by_id ELSE NULL END,
+    'Service request created: ' || v_service_title
+  );
+
+  ----------------------------------------------------------------
+  -- 3️⃣ Initialize SLA runtime state
+  ----------------------------------------------------------------
+  INSERT INTO ticket_sla_state (ticket_id, sla_policy_id)
+  SELECT v_ticket_id, sp.id
+  FROM sla_policies sp
+  WHERE sp.department_id = v_department_id AND sp.is_active = true
+  LIMIT 1;
+
+  RETURN jsonb_build_object(
+    'id', v_ticket_id,
+    'display_id', v_display_id
+  );
+END;
+$$;
+
+-- Grant permissions (Update signature grantees)
+GRANT EXECUTE ON FUNCTION create_service_request(UUID, UUID, UUID, UUID, TEXT, TEXT, UUID, UUID, JSONB, TEXT) TO anon;
+GRANT EXECUTE ON FUNCTION create_service_request(UUID, UUID, UUID, UUID, TEXT, TEXT, UUID, UUID, JSONB, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION create_service_request(UUID, UUID, UUID, UUID, TEXT, TEXT, UUID, UUID, JSONB, TEXT) TO service_role;
+
+-- ============================================================
+-- 1️⃣5️⃣ RPC: Get Ticket Details (Public Tracker)
+-- ============================================================
+CREATE OR REPLACE FUNCTION get_ticket_details(p_display_id TEXT)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_result JSONB;
+BEGIN
+  SELECT jsonb_build_object(
+    'id', t.id,
+    'display_id', t.display_id,
+    'status', t.status,
+    'created_at', t.created_at,
+    'completed_at', t.completed_at,
+    'description', t.description,
+    'stay_id', t.stay_id,
+    'current_assignee_id', t.current_assignee_id,
+    'booking_code', st.booking_code,
+    'sla_started_at', tss.sla_started_at,
+    'service', jsonb_build_object(
+      'label', s.label,
+      'sla_minutes', s.sla_minutes,
+      'description_en', s.description_en
+    ),
+    'room', CASE WHEN r.id IS NOT NULL THEN jsonb_build_object('number', r.number) ELSE null END,
+    'zone', CASE WHEN z.id IS NOT NULL THEN jsonb_build_object('id', z.id, 'name', z.name) ELSE null END,
+    'attachments', (
+       SELECT coalesce(jsonb_agg(jsonb_build_object('file_path', file_path, 'created_at', created_at)), '[]'::jsonb)
+       FROM ticket_attachments ta
+       WHERE ta.ticket_id = t.id
+    )
+  ) INTO v_result
+  FROM tickets t
+  JOIN services s ON s.id = t.service_id
+  LEFT JOIN stays st ON st.id = t.stay_id
+  LEFT JOIN rooms r ON r.id = t.room_id
+  LEFT JOIN hotel_zones z ON z.id = t.zone_id
+  LEFT JOIN ticket_sla_state tss ON tss.ticket_id = t.id
+  WHERE t.display_id = p_display_id;
+
+  RETURN v_result;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION get_ticket_details(TEXT) TO anon;
+GRANT EXECUTE ON FUNCTION get_ticket_details(TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION get_ticket_details(TEXT) TO service_role;
 
 -- ============================================================
 -- END OF v1_production.sql

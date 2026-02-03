@@ -22,8 +22,10 @@ import { getTicketComments, reopenTicket } from "../lib/api";
 type TrackerData = {
   id: string;
   stay_id: string;
+  booking_code?: string;
   display_id: string;
   status: string;
+  current_assignee_id?: string;
   created_at: string;
   completed_at?: string;
   description: string;
@@ -35,6 +37,10 @@ type TrackerData = {
   };
   room?: {
     number: string;
+  };
+  zone?: {
+    id: string;
+    name: string;
   };
   attachments: {
     file_path: string;
@@ -246,23 +252,28 @@ export default function RequestTracker() {
   const strokeDashoffset = circumference - (percentLeft / 100) * circumference;
 
   // Status Logic
-  // Mapping: OPEN -> Submitted/Assigning, IN_PROGRESS -> Staff on way, RESOLVED/CLOSED -> Completed
+  // Ticket workflow: NEW (unassigned) -> NEW (assigned) -> IN_PROGRESS -> COMPLETED
+  // current_assignee_id determines if assigned
+  const isAssigned = !!data.current_assignee_id;
+  const isInProgress = ["IN_PROGRESS", "BLOCKED"].includes(data.status);
+  const isCompleted = data.status === "COMPLETED";
+
   const steps = [
     { label: "Submitted", time: createdTime, active: true, completed: true },
     {
       label: "Assigning to Team",
       active: true,
-      completed: ["ACCEPTED", "IN_PROGRESS", "COMPLETED", "RESOLVED", "CLOSED"].includes(data.status)
+      completed: isAssigned || isInProgress || isCompleted
     },
     {
       label: "Staff on the way",
-      active: ["ACCEPTED", "IN_PROGRESS", "COMPLETED", "RESOLVED", "CLOSED"].includes(data.status),
-      completed: ["COMPLETED", "RESOLVED", "CLOSED"].includes(data.status)
+      active: isInProgress || isCompleted,
+      completed: isCompleted
     },
     {
       label: "Completed",
-      active: ["COMPLETED", "RESOLVED", "CLOSED"].includes(data.status),
-      completed: ["COMPLETED", "RESOLVED", "CLOSED"].includes(data.status)
+      active: isCompleted,
+      completed: isCompleted
     }
   ];
 
@@ -274,7 +285,7 @@ export default function RequestTracker() {
       <div className="relative z-10 max-w-lg mx-auto p-4 sm:p-6">
         {/* Header */}
         <header className="flex items-center gap-4 mb-8">
-          <Link to={`/stay/${data.id.split('-')[0]}/requests`} className="w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center border border-slate-700/50 hover:bg-slate-700 transition-colors">
+          <Link to={`/stay/${sessionStorage.getItem('vaiyu:stay_code') || data.booking_code || data.stay_id}/requests`} className="w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center border border-slate-700/50 hover:bg-slate-700 transition-colors">
             <ArrowLeft size={18} className="text-white" />
           </Link>
           <h1 className="text-lg font-bold text-white">Your Request</h1>
@@ -283,10 +294,10 @@ export default function RequestTracker() {
         {/* Status Hero */}
         <div className="text-center mb-8 animate-fade-in-up">
           <div className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center border-4 mb-4 shadow-2xl relative overflow-hidden ${['COMPLETED', 'RESOLVED', 'CLOSED'].includes(data.status)
-              ? 'bg-emerald-500/10 border-emerald-500 text-emerald-500'
-              : isBreached
-                ? 'bg-amber-500/10 border-transparent text-amber-500'
-                : 'bg-blue-500/10 border-transparent text-blue-500'
+            ? 'bg-emerald-500/10 border-emerald-500 text-emerald-500'
+            : isBreached
+              ? 'bg-amber-500/10 border-transparent text-amber-500'
+              : 'bg-blue-500/10 border-transparent text-blue-500'
             }`}>
             {['COMPLETED', 'RESOLVED', 'CLOSED'].includes(data.status)
               ? <CheckCircle2 size={32} />
@@ -418,7 +429,7 @@ export default function RequestTracker() {
                 <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-xl shadow-inner">✨</div>
                 <div>
                   <div className="text-white font-bold">{data.service?.label}</div>
-                  <div className="text-xs text-slate-500">{data.room ? `Room ${data.room.number}` : "Public Area"}</div>
+                  <div className="text-xs text-slate-500">{data.zone?.name || (data.room ? `Room ${data.room.number}` : "Public Area")}</div>
                 </div>
               </div>
               <ChevronRight size={16} className="text-slate-600" />

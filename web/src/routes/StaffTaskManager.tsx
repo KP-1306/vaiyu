@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { ticketService } from "../services/ticketService";
 import type { Ticket, StaffRunnerTicket, BlockReason, BlockReasonCode, UnblockReason } from "../types/ticket";
@@ -6,6 +6,33 @@ import { getSLAStatus, formatTimeRemaining, getSLAColor } from "../utils/sla";
 import TicketDetailsDrawer from "../components/TicketDetailsDrawer";
 import { getStaffHistory } from "../lib/staffHistory";
 
+// Helper: Play a simple notification sound (Success/Chime)
+const playNotificationSound = () => {
+    try {
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioContext) return;
+
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        // Nice "Ding" sound
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+        osc.frequency.exponentialRampToValueAtTime(130.81, ctx.currentTime + 0.5); // Drop to C3
+
+        gain.gain.setValueAtTime(0.5, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+
+        osc.start();
+        osc.stop(ctx.currentTime + 0.5);
+    } catch (e) {
+        console.error("Audio play failed", e);
+    }
+};
 
 export default function StaffTaskManager() {
     const [hotelId, setHotelId] = useState<string | null>(null);
@@ -37,6 +64,30 @@ export default function StaffTaskManager() {
 
     // View state (Work Queue / History)
     const [activeView, setActiveView] = useState<'queue' | 'history'>('queue');
+
+    // NEW TICKET ALARM STATE
+    const [alarmActive, setAlarmActive] = useState(false);
+    const alarmRef = React.useRef<NodeJS.Timeout | null>(null);
+    const prevNewTaskCountRef = useRef<number>(0);
+    const hasInitialLoadedRef = useRef<boolean>(false); // Skip alarm on first load
+
+    // Stop alarm on any interaction
+    const stopAlarm = () => {
+        if (alarmRef.current) {
+            clearInterval(alarmRef.current);
+            alarmRef.current = null;
+        }
+        setAlarmActive(false);
+    };
+
+    // Global click listener to stop alarm
+    useEffect(() => {
+        const handleInteraction = () => {
+            if (alarmActive) stopAlarm();
+        };
+        window.addEventListener('click', handleInteraction);
+        return () => window.removeEventListener('click', handleInteraction);
+    }, [alarmActive]);
 
     // Derive hotel_id from authenticated staff member
     useEffect(() => {
@@ -102,6 +153,27 @@ export default function StaffTaskManager() {
         try {
             const data = await ticketService.getStaffTasks(hotelId);
             setFetchedAt(data.fetchedAt);
+
+            // TRIGGER ALARM: Only after initial load, if newTasks count increased
+            const prevCount = prevNewTaskCountRef.current;
+            const newCount = data.newTasks.length;
+
+            // Skip alarm on first load, only trigger on subsequent increases
+            if (hasInitialLoadedRef.current && newCount > prevCount) {
+                // Start looping alarm
+                if (!alarmRef.current) {
+                    playNotificationSound(); // Play once immediately
+                    setAlarmActive(true);
+                    alarmRef.current = setInterval(() => {
+                        playNotificationSound();
+                    }, 3000); // Loop every 3 seconds
+                }
+            }
+
+            // Mark initial load complete and update count
+            hasInitialLoadedRef.current = true;
+            prevNewTaskCountRef.current = newCount;
+
             setNewTasks(data.newTasks);
             setInProgressTasks(data.inProgress);
             setBlockedTasks(data.blocked);
@@ -149,6 +221,7 @@ export default function StaffTaskManager() {
                 },
                 (payload) => {
                     console.log('Realtime update received:', payload);
+                    // Alarm is now triggered in fetchTasks when newTasks count increases
                     fetchTasks();
                 }
             )
@@ -174,6 +247,15 @@ export default function StaffTaskManager() {
 
     return (
         <div className="min-h-screen bg-[#0a0a0a] text-white px-4 py-6">
+            {/* NEW TASK ALERT OVERLAY */}
+            {alarmActive && (
+                <div onClick={stopAlarm} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm cursor-pointer animate-pulse">
+                    <div className="bg-blue-600 text-white px-8 py-6 rounded-2xl shadow-2xl border-4 border-white text-3xl font-bold uppercase tracking-widest flex flex-col items-center gap-4">
+                        <span>🔔 New Task Assigned!</span>
+                        <span className="text-sm font-normal normal-case opacity-80">(Click anywhere to acknowledge)</span>
+                    </div>
+                </div>
+            )}
             <div className="max-w-7xl mx-auto mb-8">
                 <h1 className="text-xl font-medium text-gray-500 uppercase tracking-widest px-2">
                     {activeView === 'queue' ? 'WORK QUEUE' : 'HISTORY'}

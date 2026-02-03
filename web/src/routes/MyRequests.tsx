@@ -1,7 +1,7 @@
 // web/src/routes/MyRequests.tsx
 import { useEffect, useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
-import { getGuestTickets, reopenTicket, addGuestComment, getTicketComments, supa, getCancelReasons, cancelTicketByGuest } from "../lib/api";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
+import { getGuestTickets, reopenTicket, addGuestComment, getTicketComments, supa, getCancelReasons, cancelTicketByGuest, getGuestFoodOrders } from "../lib/api";
 
 type GuestTicket = {
     id: string;
@@ -21,6 +21,23 @@ type GuestTicket = {
     location_label: string | null;
     sla_minutes?: number;
     sla_started_at?: string;
+};
+
+type GuestFoodOrder = {
+    order_id: string;
+    display_id: string;
+    status: string;
+    created_at: string;
+    updated_at: string;
+    total_amount: number;
+    currency: string;
+    room_number?: string;
+    items: { name: string; quantity: number; price: number }[];
+    total_items: number;
+    sla_target_at?: string;
+    sla_minutes_remaining?: number;
+    sla_breached?: boolean;
+    special_instructions?: string;
 };
 
 // Build menu menu link with stay context - Menu will derive hotel_id from stay code
@@ -66,13 +83,28 @@ export default function MyRequests() {
     const [reopenTicketId, setReopenTicketId] = useState<string | null>(null);
     const [reopenReason, setReopenReason] = useState('');
     const [trackId, setTrackId] = useState('');
+    const [searchParams] = useSearchParams();
     const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
+    const [mainTab, setMainTab] = useState<'services' | 'food'>(
+        (searchParams.get('tab') as 'services' | 'food') || 'services'
+    );
+    const [foodOrders, setFoodOrders] = useState<GuestFoodOrder[]>([]);
+    const [loadingFood, setLoadingFood] = useState(false);
     const navigate = useNavigate();
 
     const handleTrack = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!trackId.trim()) return;
-        navigate(`/track/${trackId.trim()}`);
+        const id = trackId.trim().toUpperCase();
+        if (!id) return;
+
+        // Route based on prefix
+        if (id.startsWith('ORD-')) {
+            // Food order - navigate to food order tracking
+            navigate(`/track-order/${id}`);
+        } else {
+            // Default to ticket tracking (works for REQ- or raw IDs)
+            navigate(`/track/${id}`);
+        }
     };
 
     // Fetch comments when ticket is expanded
@@ -147,6 +179,8 @@ export default function MyRequests() {
 
     useEffect(() => {
         if (!code) return;
+        // Save stay code to session for tracking pages
+        try { sessionStorage.setItem('vaiyu:stay_code', code); } catch { }
 
         async function fetchTickets() {
             if (!code) return;
@@ -188,6 +222,49 @@ export default function MyRequests() {
             channel.unsubscribe();
         };
     }, [code]);
+
+    // Fetch food orders when on food tab
+    useEffect(() => {
+        if (!code || mainTab !== 'food') return;
+
+        async function fetchFoodOrders() {
+            if (!code) return;
+            try {
+                setLoadingFood(true);
+                const data = await getGuestFoodOrders(code);
+                setFoodOrders(data as GuestFoodOrder[]);
+            } catch (error) {
+                console.error('Failed to fetch food orders:', error);
+            } finally {
+                setLoadingFood(false);
+            }
+        }
+
+        fetchFoodOrders();
+
+        // Set up realtime subscription for food order updates
+        const s = supa();
+        if (!s) return;
+
+        const channel = s
+            .channel('guest-food-orders-changes')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'food_orders'
+                },
+                () => {
+                    fetchFoodOrders();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            channel.unsubscribe();
+        };
+    }, [code, mainTab]);
 
     const handleReopen = async (ticketId: string) => {
         setReopenTicketId(ticketId);
@@ -415,7 +492,7 @@ export default function MyRequests() {
                             </div>
                             <input
                                 type="text"
-                                placeholder="Enter Request # to track (e.g. REQ-1047)"
+                                placeholder="Search by Request / Order ID (REQ-1047, ORD-3321)"
                                 value={trackId}
                                 onChange={(e) => setTrackId(e.target.value)}
                                 className="w-full bg-black/40 border border-white/10 rounded-2xl pl-12 pr-32 py-4 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all shadow-xl"
@@ -434,134 +511,195 @@ export default function MyRequests() {
                     </form>
                 </div>
 
-                {/* Tabs */}
-                {tickets.length > 0 && (
-                    <div className="flex p-1 bg-white/5 rounded-xl mb-6 backdrop-blur-md border border-white/5">
+                {/* Main Tab Switcher: Services | Food & Beverages */}
+                <div className="relative mb-6">
+                    {/* Gradient border effect */}
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-emerald-500/30 via-blue-500/20 to-amber-500/30 blur-sm" />
+                    <div className="relative flex p-1.5 bg-slate-900/95 rounded-2xl border border-white/10">
                         <button
-                            onClick={() => setActiveTab('active')}
-                            className={`flex-1 py-3 rounded-lg text-sm font-medium transition-all duration-300 relative overflow-hidden ${activeTab === 'active'
-                                ? 'text-white shadow-lg shadow-black/20'
-                                : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
+                            onClick={() => setMainTab('services')}
+                            className={`flex-1 py-4 px-6 rounded-xl text-base font-semibold transition-all duration-300 flex items-center justify-center gap-3 ${mainTab === 'services'
+                                ? 'text-white bg-gradient-to-r from-emerald-500 to-teal-600 shadow-lg shadow-emerald-900/40 border-t border-white/20'
+                                : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
                                 }`}
                         >
-                            {activeTab === 'active' && (
-                                <div className="absolute inset-0 bg-zinc-800 rounded-lg -z-10 animate-in fade-in zoom-in-95 duration-200" />
+                            <span className="text-lg">🛎️</span>
+                            <span>Services</span>
+                            {tickets.length > 0 && (
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${mainTab === 'services' ? 'bg-white/20 text-white' : 'bg-white/10 text-zinc-400'}`}>
+                                    {tickets.length}
+                                </span>
                             )}
-                            <span className="relative z-10 flex items-center justify-center gap-2">
-                                Active
-                                {activeTickets.length > 0 && (
-                                    <span className={`px-2 py-0.5 rounded-full text-[10px] ${activeTab === 'active' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/10 text-zinc-500'}`}>
-                                        {activeTickets.length}
-                                    </span>
-                                )}
-                            </span>
                         </button>
                         <button
-                            onClick={() => setActiveTab('history')}
-                            className={`flex-1 py-3 rounded-lg text-sm font-medium transition-all duration-300 relative overflow-hidden ${activeTab === 'history'
-                                ? 'text-white shadow-lg shadow-black/20'
-                                : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
+                            onClick={() => setMainTab('food')}
+                            className={`flex-1 py-4 px-6 rounded-xl text-base font-semibold transition-all duration-300 flex items-center justify-center gap-3 ${mainTab === 'food'
+                                ? 'text-white bg-gradient-to-r from-orange-500 to-rose-600 shadow-lg shadow-orange-900/40 border-t border-white/20'
+                                : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
                                 }`}
                         >
-                            {activeTab === 'history' && (
-                                <div className="absolute inset-0 bg-zinc-800 rounded-lg -z-10 animate-in fade-in zoom-in-95 duration-200" />
+                            <span className="text-lg">🍽️</span>
+                            <span>Food & Beverages</span>
+                            {foodOrders.length > 0 && (
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${mainTab === 'food' ? 'bg-white/20 text-white' : 'bg-white/10 text-zinc-400'}`}>
+                                    {foodOrders.length}
+                                </span>
                             )}
-                            <span className="relative z-10 flex items-center justify-center gap-2">
-                                History
-                                {completedTickets.length > 0 && (
-                                    <span className={`px-2 py-0.5 rounded-full text-[10px] ${activeTab === 'history' ? 'bg-zinc-700 text-zinc-300' : 'bg-white/10 text-zinc-500'}`}>
-                                        {completedTickets.length}
-                                    </span>
-                                )}
-                            </span>
                         </button>
                     </div>
+                </div>
+
+                {/* Services Tab Content */}
+                {mainTab === 'services' && (
+                    <>
+                        {/* Active/History Sub-tabs */}
+                        {tickets.length > 0 && (
+                            <div className="flex p-1 bg-white/[0.03] rounded-2xl mb-6 border border-white/5 max-w-sm mx-auto">
+                                <button
+                                    onClick={() => setActiveTab('active')}
+                                    className={`flex-1 py-2 px-4 rounded-xl text-xs font-bold transition-all duration-300 relative flex items-center justify-center gap-2 ${activeTab === 'active'
+                                        ? 'text-indigo-400 bg-indigo-500/10 border border-indigo-500/20'
+                                        : 'text-zinc-500 hover:text-zinc-400 hover:bg-white/5'
+                                        }`}
+                                >
+                                    <span className="relative z-10 uppercase tracking-wider">Active</span>
+                                    {activeTickets.length > 0 && (
+                                        <span className={`px-1.5 py-0.5 rounded-full text-[9px] ${activeTab === 'active' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-white/5 text-zinc-600'}`}>
+                                            {activeTickets.length}
+                                        </span>
+                                    )}
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('history')}
+                                    className={`flex-1 py-2 px-4 rounded-xl text-xs font-bold transition-all duration-300 relative flex items-center justify-center gap-2 ${activeTab === 'history'
+                                        ? 'text-slate-200 bg-white/10 border border-white/10'
+                                        : 'text-zinc-500 hover:text-zinc-400 hover:bg-white/5'
+                                        }`}
+                                >
+                                    <span className="relative z-10 uppercase tracking-wider">History</span>
+                                    {completedTickets.length > 0 && (
+                                        <span className={`px-1.5 py-0.5 rounded-full text-[9px] ${activeTab === 'history' ? 'bg-white/10 text-slate-300' : 'bg-white/5 text-zinc-600'}`}>
+                                            {completedTickets.length}
+                                        </span>
+                                    )}
+                                </button>
+                            </div>
+                        )}
+
+                        {loading ? (
+                            <div className="space-y-4">
+                                {[1, 2].map(i => <div key={i} className="h-40 bg-white/5 rounded-3xl animate-pulse" />)}
+                            </div>
+                        ) : tickets.length === 0 ? (
+                            <div className="text-center py-20 rounded-3xl border border-dashed border-white/10 bg-white/5">
+                                <div className="text-4xl mb-4 opacity-50">🛎️</div>
+                                <p className="text-zinc-400 mb-6">No requests yet.</p>
+                                <Link
+                                    to={code ? buildMenuLink(code) : '/menu'}
+                                    className="inline-flex px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full font-medium transition-all shadow-lg shadow-emerald-900/40"
+                                >
+                                    New Request
+                                </Link>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                {/* Active Requests Tab */}
+                                {activeTab === 'active' && (
+                                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                        {activeTickets.length > 0 ? (
+                                            activeTickets.map(ticket => (
+                                                <TicketCard
+                                                    key={ticket.id}
+                                                    ticket={ticket}
+                                                    expanded={expandedTicket === ticket.id}
+                                                    onToggleExpand={() => handleToggleExpand(ticket.id)}
+                                                    comments={ticketComments[ticket.id] || []}
+                                                    loadingComments={loadingComments === ticket.id}
+                                                    commentText={commentText[ticket.id] || ''}
+                                                    onCommentChange={(text) => setCommentText(prev => ({
+                                                        ...prev,
+                                                        [ticket.id]: text
+                                                    }))}
+                                                    onSubmitComment={() => handleAddComment(ticket.id)}
+                                                    submittingComment={submittingComment === ticket.id}
+                                                    onReopen={null}
+                                                    reopening={false}
+                                                    onCancel={handleCancelClick}
+                                                    cancelling={cancelling === ticket.id}
+                                                />
+                                            ))
+                                        ) : (
+                                            <div className="text-center py-12 text-zinc-500">
+                                                <div className="text-2xl mb-2 opacity-50">✨</div>
+                                                <p>No active requests</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* History Requests Tab */}
+                                {activeTab === 'history' && (
+                                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                        {completedTickets.length > 0 ? (
+                                            <div className="space-y-4 opacity-100">
+                                                {completedTickets.map(ticket => (
+                                                    <TicketCard
+                                                        key={ticket.id}
+                                                        ticket={ticket}
+                                                        expanded={expandedTicket === ticket.id}
+                                                        onToggleExpand={() => handleToggleExpand(ticket.id)}
+                                                        comments={ticketComments[ticket.id] || []}
+                                                        loadingComments={loadingComments === ticket.id}
+                                                        commentText=""
+                                                        onCommentChange={() => { }}
+                                                        onSubmitComment={() => { }}
+                                                        submittingComment={false}
+                                                        onReopen={handleReopen}
+                                                        reopening={reopening === ticket.id}
+                                                        onCancel={null}
+                                                        cancelling={false}
+                                                    />
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="text-center py-12 text-zinc-500">
+                                                <div className="text-2xl mb-2 opacity-50">📜</div>
+                                                <p>No history yet</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </>
                 )}
 
-                {loading ? (
-                    <div className="space-y-4">
-                        {[1, 2].map(i => <div key={i} className="h-40 bg-white/5 rounded-3xl animate-pulse" />)}
-                    </div>
-                ) : tickets.length === 0 ? (
-                    <div className="text-center py-20 rounded-3xl border border-dashed border-white/10 bg-white/5">
-                        <div className="text-4xl mb-4 opacity-50">🛎️</div>
-                        <p className="text-zinc-400 mb-6">No requests yet.</p>
-                        <Link
-                            to={code ? buildMenuLink(code) : '/menu'}
-                            className="inline-flex px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full font-medium transition-all shadow-lg shadow-emerald-900/40"
-                        >
-                            New Request
-                        </Link>
-                    </div>
-                ) : (
-                    <div className="space-y-4">
-                        {/* Active Requests Tab */}
-                        {activeTab === 'active' && (
-                            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                {activeTickets.length > 0 ? (
-                                    activeTickets.map(ticket => (
-                                        <TicketCard
-                                            key={ticket.id}
-                                            ticket={ticket}
-                                            expanded={expandedTicket === ticket.id}
-                                            onToggleExpand={() => handleToggleExpand(ticket.id)}
-                                            comments={ticketComments[ticket.id] || []}
-                                            loadingComments={loadingComments === ticket.id}
-                                            commentText={commentText[ticket.id] || ''}
-                                            onCommentChange={(text) => setCommentText(prev => ({
-                                                ...prev,
-                                                [ticket.id]: text
-                                            }))}
-                                            onSubmitComment={() => handleAddComment(ticket.id)}
-                                            submittingComment={submittingComment === ticket.id}
-                                            onReopen={null}
-                                            reopening={false}
-                                            onCancel={handleCancelClick}
-                                            cancelling={cancelling === ticket.id}
-                                        />
-                                    ))
-                                ) : (
-                                    <div className="text-center py-12 text-zinc-500">
-                                        <div className="text-2xl mb-2 opacity-50">✨</div>
-                                        <p>No active requests</p>
-                                    </div>
-                                )}
+                {/* Food & Beverages Tab Content */}
+                {mainTab === 'food' && (
+                    <>
+                        {loadingFood ? (
+                            <div className="space-y-4">
+                                {[1, 2].map(i => <div key={i} className="h-32 bg-white/5 rounded-3xl animate-pulse" />)}
+                            </div>
+                        ) : foodOrders.length === 0 ? (
+                            <div className="text-center py-20 rounded-3xl border border-dashed border-white/10 bg-white/5">
+                                <div className="text-4xl mb-4 opacity-50">🍽️</div>
+                                <p className="text-zinc-400 mb-6">No food orders yet.</p>
+                                <Link
+                                    to={code ? `/stay/${code}/menu?tab=food` : '/menu?tab=food'}
+                                    className="inline-flex px-6 py-3 bg-amber-600 hover:bg-amber-500 text-white rounded-full font-medium transition-all shadow-lg shadow-amber-900/40"
+                                >
+                                    Order Food
+                                </Link>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                {foodOrders.map(order => (
+                                    <FoodOrderCard key={order.order_id} order={order} />
+                                ))}
                             </div>
                         )}
-
-                        {/* History Requests Tab */}
-                        {activeTab === 'history' && (
-                            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                {completedTickets.length > 0 ? (
-                                    <div className="space-y-4 opacity-100">
-                                        {completedTickets.map(ticket => (
-                                            <TicketCard
-                                                key={ticket.id}
-                                                ticket={ticket}
-                                                expanded={expandedTicket === ticket.id}
-                                                onToggleExpand={() => handleToggleExpand(ticket.id)}
-                                                comments={ticketComments[ticket.id] || []}
-                                                loadingComments={loadingComments === ticket.id}
-                                                commentText=""
-                                                onCommentChange={() => { }}
-                                                onSubmitComment={() => { }}
-                                                submittingComment={false}
-                                                onReopen={handleReopen}
-                                                reopening={reopening === ticket.id}
-                                                onCancel={null}
-                                                cancelling={false}
-                                            />
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-12 text-zinc-500">
-                                        <div className="text-2xl mb-2 opacity-50">📜</div>
-                                        <p>No history yet</p>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
+                    </>
                 )}
             </div>
         </main>
@@ -821,6 +959,54 @@ function TicketCard({
                         </div>
                     </div>
                 </div>
+
+                {/* Tracking Action Bar (Always visible, distinct from expansion) */}
+                <div className="mt-2 px-5 pb-4">
+                    <Link
+                        to={`/track/${ticket.display_id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-full flex items-center justify-between px-4 py-3 rounded-2xl bg-white/[0.04] border border-white/5 hover:bg-white/[0.08] hover:border-emerald-500/30 transition-all group/track"
+                    >
+                        <span className="text-xs font-medium text-zinc-400 group-hover/track:text-emerald-400 transition-colors">
+                            Track detailed progress & conversation
+                        </span>
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
+                            Track <span className="text-lg leading-none transform group-hover/track:translate-x-1 transition-transform">→</span>
+                        </div>
+                    </Link>
+                </div>
+
+                {/* Structural Expansion Handle */}
+                <div className={`
+                    mt-auto border-t transition-all duration-300 cursor-pointer
+                    ${expanded
+                        ? 'border-emerald-500/40 bg-emerald-500/10'
+                        : 'border-white/10 bg-gradient-to-r from-white/[0.02] to-white/[0.04] hover:from-white/[0.04] hover:to-white/[0.06]'}
+                `}>
+                    <div className="flex items-center justify-between px-5 py-4">
+                        <span className={`
+                            text-[11px] font-black uppercase tracking-[0.2em] transition-colors duration-300
+                            ${expanded ? 'text-emerald-400' : 'text-zinc-400'}
+                        `}>
+                            {expanded ? 'Close Details' : '↓  Quick Details & Chat  ↓'}
+                        </span>
+                        <div className={`
+                            flex items-center justify-center w-7 h-7 rounded-full transition-all duration-300
+                            ${expanded
+                                ? 'bg-emerald-500/30 rotate-180 shadow-[0_0_12px_rgba(16,185,129,0.4)]'
+                                : 'bg-emerald-500/10 border border-emerald-500/20 shadow-[0_0_8px_rgba(16,185,129,0.15)]'}
+                        `}>
+                            <svg
+                                className={`w-4 h-4 ${expanded ? 'text-emerald-400' : 'text-emerald-500/70'}`}
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                            >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {/* Expanded Content */}
@@ -974,5 +1160,94 @@ function TicketCard({
                 </div>
             )}
         </div>
+    );
+}
+
+// Food Order Card Component
+function FoodOrderCard({ order }: { order: GuestFoodOrder }) {
+    const statusConfig: Record<string, { bg: string; text: string; label: string }> = {
+        CREATED: { bg: 'bg-blue-500/10', text: 'text-blue-400', label: 'Pending' },
+        ACCEPTED: { bg: 'bg-emerald-500/10', text: 'text-emerald-400', label: 'Accepted' },
+        PREPARING: { bg: 'bg-amber-500/10', text: 'text-amber-400', label: 'Preparing' },
+        READY: { bg: 'bg-purple-500/10', text: 'text-purple-400', label: 'Ready' },
+        DELIVERED: { bg: 'bg-zinc-500/10', text: 'text-zinc-400', label: 'Delivered' },
+        CANCELLED: { bg: 'bg-red-500/10', text: 'text-red-400', label: 'Cancelled' },
+    };
+
+    const config = statusConfig[order.status] || statusConfig.CREATED;
+
+    const timeAgo = (dateStr: string) => {
+        const date = new Date(dateStr);
+        const now = new Date();
+        const diffMs = now.getTime() - date.getTime();
+        const diffMins = Math.floor(diffMs / 60000);
+        if (diffMins < 60) return `${diffMins}m ago`;
+        const diffHours = Math.floor(diffMins / 60);
+        if (diffHours < 24) return `${diffHours}h ago`;
+        return `${Math.floor(diffHours / 24)}d ago`;
+    };
+
+    // Format items summary
+    const itemsSummary = order.items?.slice(0, 2).map(i => `${i.quantity}x ${i.name}`).join(', ') || 'No items';
+    const moreItems = order.total_items > 2 ? ` +${order.total_items - 2} more` : '';
+
+    return (
+        <Link
+            to={`/track-order/${order.display_id}`}
+            className="block rounded-3xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.05] hover:border-white/10 transition-all duration-300 overflow-hidden group"
+        >
+            {/* Main Content */}
+            <div className="p-5">
+                <div className="flex items-center gap-4">
+                    {/* Icon */}
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-500/10 flex items-center justify-center text-2xl flex-shrink-0 border border-amber-500/10">
+                        🍽️
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                            <h3 className="font-semibold text-zinc-100 text-[15px]">
+                                Order {order.display_id}
+                            </h3>
+                            <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide border ${config.bg} ${config.text} border-current/20`}>
+                                {config.label}
+                            </span>
+                        </div>
+
+                        <p className="text-sm text-zinc-400 truncate">
+                            {itemsSummary}{moreItems}
+                        </p>
+
+                        <div className="flex items-center gap-3 mt-2 text-xs text-zinc-500">
+                            <span>₹{order.total_amount?.toFixed(0) || '0'}</span>
+                            <span>•</span>
+                            <span>{order.room_number ? `Room ${order.room_number}` : 'No room'}</span>
+                            <span>•</span>
+                            <span>{timeAgo(order.created_at)}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Navigation Handle */}
+            <div className="border-t border-white/10 bg-gradient-to-r from-white/[0.02] to-white/[0.04] group-hover:from-white/[0.04] group-hover:to-white/[0.06] transition-all duration-300">
+                <div className="flex items-center justify-between px-5 py-4">
+                    <span className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-400 group-hover:text-amber-400 transition-colors">
+                        →  Track Order Details  →
+                    </span>
+                    <div className="flex items-center justify-center w-7 h-7 rounded-full bg-amber-500/10 border border-amber-500/20 shadow-[0_0_8px_rgba(245,158,11,0.15)] group-hover:shadow-[0_0_12px_rgba(245,158,11,0.3)] transition-all duration-300">
+                        <svg
+                            className="w-4 h-4 text-amber-500/70 group-hover:text-amber-400 transition-colors"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                        >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </Link>
     );
 }

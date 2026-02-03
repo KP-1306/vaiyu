@@ -792,17 +792,31 @@ BEGIN
     'display_id', t.display_id,
     'status', t.status,
     'created_at', t.created_at,
+    'completed_at', t.completed_at,
     'description', t.description,
+    'stay_id', t.stay_id,
+    'current_assignee_id', t.current_assignee_id,
+    'booking_code', st.booking_code,
+    'sla_started_at', tss.sla_started_at,
     'service', jsonb_build_object(
       'label', s.label,
       'sla_minutes', s.sla_minutes,
       'description_en', s.description_en
     ),
-    'room', CASE WHEN r.id IS NOT NULL THEN jsonb_build_object('number', r.number) ELSE null END
+    'room', CASE WHEN r.id IS NOT NULL THEN jsonb_build_object('number', r.number) ELSE null END,
+    'zone', CASE WHEN z.id IS NOT NULL THEN jsonb_build_object('id', z.id, 'name', z.name) ELSE null END,
+    'attachments', (
+       SELECT coalesce(jsonb_agg(jsonb_build_object('file_path', file_path, 'created_at', created_at)), '[]'::jsonb)
+       FROM ticket_attachments ta
+       WHERE ta.ticket_id = t.id
+    )
   ) INTO v_result
   FROM tickets t
   JOIN services s ON s.id = t.service_id
+  LEFT JOIN stays st ON st.id = t.stay_id
   LEFT JOIN rooms r ON r.id = t.room_id
+  LEFT JOIN hotel_zones z ON z.id = t.zone_id
+  LEFT JOIN ticket_sla_state tss ON tss.ticket_id = t.id
   WHERE t.display_id = p_display_id;
 
   RETURN v_result;

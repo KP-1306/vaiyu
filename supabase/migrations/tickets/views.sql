@@ -38,10 +38,7 @@ SELECT
   s.sla_minutes,                  -- Added for frontend timer
   tss.sla_started_at,             -- Added for frontend timer
   z.name AS zone_name,
-  COALESCE(
-    CONCAT('Room ', r.number),
-    z.name
-  ) AS location_label,
+  CASE WHEN t.zone_id IS NOT NULL THEN z.name ELSE CONCAT('Room ', r.number) END AS location_label,
   st.booking_code      -- Added for filtering by stay code
 FROM tickets t
 JOIN stays st ON st.id = t.stay_id AND st.guest_id = auth.uid()
@@ -50,7 +47,6 @@ LEFT JOIN ticket_sla_state tss ON tss.ticket_id = t.id -- Get SLA state
 LEFT JOIN rooms r ON r.id = st.room_id
 LEFT JOIN hotel_zones z ON z.id = t.zone_id
 WHERE t.status IN ('NEW','IN_PROGRESS','BLOCKED','COMPLETED','CANCELLED')
-ORDER BY t.created_at DESC;
 ORDER BY t.created_at DESC;
 
 GRANT SELECT ON v_guest_tickets TO authenticated;

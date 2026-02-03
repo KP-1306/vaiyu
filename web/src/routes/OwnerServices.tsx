@@ -11,6 +11,7 @@ import AddServiceSelectionModal from "../components/AddServiceSelectionModal";
 import AddDepartmentSelectionModal from "../components/AddDepartmentSelectionModal";
 import AddDepartmentTemplateModal from "../components/AddDepartmentTemplateModal";
 import ConfirmDialog from "../components/ConfirmDialog";
+import OwnerMenuManagement from "../components/OwnerMenuManagement";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../hooks/useAuth";
 import styles from "./OwnerServices.module.css";
@@ -51,6 +52,7 @@ export default function OwnerServices() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [activeTab, setActiveTab] = useState<string>("");
+  const [activeSubTab, setActiveSubTab] = useState<'services' | 'menu'>('services');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -271,6 +273,11 @@ export default function OwnerServices() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Reset sub-tab when department changes
+  useEffect(() => {
+    setActiveSubTab('services');
+  }, [activeTab]);
 
   const activeServices = services.filter((s) => s.department_id === activeTab && (showInactiveServices || s.active));
   const editingService = editingServiceIndex !== null ? activeServices[editingServiceIndex] : null;
@@ -892,142 +899,184 @@ export default function OwnerServices() {
                     </button>
                   </div>
 
-                  {/* Services Container - ONLY table with border */}
-                  <div className={styles.servicesContainer}>
-
-                    {/* Section Header */}
-                    <div className={styles.sectionHeader}>
-                      <h2 className={styles.sectionTitle}>{activeDept?.name} Services</h2>
-                      <label className={styles.showInactiveToggle}>
-                        <input
-                          type="checkbox"
-                          checked={showInactiveServices}
-                          onChange={(e) => setShowInactiveServices(e.target.checked)}
-                        />
-                        Show inactive
-                      </label>
+                  {/* KITCHEN SUB-TABS */}
+                  {activeDept && (activeDept.code === 'KITCHEN' || /kitchen|food|restaurant/i.test(activeDept.name)) && (
+                    <div style={{ display: 'flex', gap: '24px', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0' }}>
+                      <button
+                        onClick={() => setActiveSubTab('services')}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: '8px 4px',
+                          color: activeSubTab === 'services' ? '#60A5FA' : 'rgba(255,255,255,0.6)',
+                          borderBottom: activeSubTab === 'services' ? '2px solid #60A5FA' : '2px solid transparent',
+                          cursor: 'pointer',
+                          fontWeight: 500,
+                          fontSize: '14px'
+                        }}
+                      >
+                        Services & SLAs
+                      </button>
+                      <button
+                        onClick={() => setActiveSubTab('menu')}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: '8px 4px',
+                          color: activeSubTab === 'menu' ? '#60A5FA' : 'rgba(255,255,255,0.6)',
+                          borderBottom: activeSubTab === 'menu' ? '2px solid #60A5FA' : '2px solid transparent',
+                          cursor: 'pointer',
+                          fontWeight: 500,
+                          fontSize: '14px'
+                        }}
+                      >
+                        Menu & Food Items
+                      </button>
                     </div>
+                  )}
 
-                    {/* Table Header */}
-                    <div className={styles.tableHeader}>
-                      <div>Key</div>
-                      <div></div>
-                      <div className={styles.tableHeaderCenter}>
-                        <span className={styles.tooltipContainer}>
-                          SLA (min)
-                          <span className={styles.infoIcon}>
-                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          </span>
-                          <span className={styles.tooltip}>Service-level agreement: maximum response time</span>
-                        </span>
-                      </div>
-                      <div className={styles.tableHeaderCenter}>
-                        <span className={styles.tooltipContainer}>
-                          Active
-                          <span className={styles.infoIcon}>
-                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          </span>
-                          <span className={styles.tooltip}>Inactive services won't appear for new tickets</span>
-                        </span>
-                      </div>
-                      <div></div>
+                  {activeSubTab === 'menu' && (activeDept.code === 'KITCHEN' || /kitchen|food|restaurant/i.test(activeDept.name)) ? (
+                    <div>
+                      <OwnerMenuManagement hotelId={hotelId!} />
                     </div>
+                  ) : (
+                    /* Services Container - ONLY table with border */
+                    <div className={styles.servicesContainer}>
 
-                    {/* Service Rows */}
-                    {activeServices.map((service, index) => (
-                      <div key={service.id || index} className={`${styles.serviceRow} ${!service.active ? styles.inactiveService : ''}`}>
-                        <div className={styles.serviceKey}>{service.key}</div>
-                        <div className={styles.serviceLabelContainer}>
+                      {/* Section Header */}
+                      <div className={styles.sectionHeader}>
+                        <h2 className={styles.sectionTitle}>{activeDept?.name} Services</h2>
+                        <label className={styles.showInactiveToggle}>
                           <input
-                            type="text"
-                            value={service.label}
-                            readOnly
-                            className={styles.serviceLabelInput}
+                            type="checkbox"
+                            checked={showInactiveServices}
+                            onChange={(e) => setShowInactiveServices(e.target.checked)}
                           />
-                          {service.sla_minutes !== activeDept?.sla_policy?.target_minutes && (
-                            <span className={styles.tooltipContainer}>
-                              <span className={styles.slaOverrideIcon}>
-                                <svg fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                                </svg>
-                              </span>
-                              <span className={styles.tooltip}>Custom SLA: {service.sla_minutes} min (overrides department default)</span>
+                          Show inactive
+                        </label>
+                      </div>
+
+                      {/* Table Header */}
+                      <div className={styles.tableHeader}>
+                        <div>Key</div>
+                        <div></div>
+                        <div className={styles.tableHeaderCenter}>
+                          <span className={styles.tooltipContainer}>
+                            SLA (min)
+                            <span className={styles.infoIcon}>
+                              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
                             </span>
-                          )}
+                            <span className={styles.tooltip}>Service-level agreement: maximum response time</span>
+                          </span>
                         </div>
-                        <div className={styles.slaValue}>
-                          <input
-                            type="number"
-                            value={service.sla_minutes}
-                            disabled={!service.active}
-                            onChange={(e) => {
-                              const val = parseInt(e.target.value);
-                              if (!isNaN(val) && val >= 0) {
-                                handleUpdateService(index, { sla_minutes: val });
-                              } else if (e.target.value === '') {
-                                // Allow clearing to type new number (handle logic potentially ?) or just keep 0
-                                // For now let's set 0 or keep old? Best to allow empty string in UI state but type is number
-                                // Since binding to number, empty string might cause issue.
-                                // Let's safe guard.
-                                handleUpdateService(index, { sla_minutes: 0 });
-                              }
-                            }}
-                            className={styles.slaInput}
-                          />
+                        <div className={styles.tableHeaderCenter}>
+                          <span className={styles.tooltipContainer}>
+                            Active
+                            <span className={styles.infoIcon}>
+                              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </span>
+                            <span className={styles.tooltip}>Inactive services won't appear for new tickets</span>
+                          </span>
                         </div>
-                        <div className={styles.activeToggleContainer}>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={service.active}
-                              onChange={(e) => handleUpdateService(index, { active: e.target.checked })}
-                              className="sr-only peer"
-                              title={service.active ? "Deactivate service" : "Activate service (won't appear for new tickets)"}
-                            />
-                            <div className="w-[38px] h-[22px] bg-gray-600 peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer peer-checked:after:translate-x-4 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:bg-[#4A7CFF]"></div>
-                          </label>
-                        </div>
-                        <div className={styles.actionButtons}>
-                          <button onClick={() => setEditingServiceIndex(index)} className={`${styles.actionButton} ${styles.editButton}`}>
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                            </svg>
-                          </button>
-                          <button onClick={() => handleDeleteService(service.id!)} className={`${styles.actionButton} ${styles.deleteButton}`}>
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </div>
+                        <div></div>
                       </div>
-                    ))}
 
-                    {/* Add Service Button */}
-                    {!showAddServiceForm && (
-                      <div className={styles.addServicesButtonContainer}>
-                        <button
-                          className={styles.addServicesButton}
-                          onClick={() => {
-                            setAddServiceTemplateDeptId(activeDept?.id || null);
-                            setShowAddServiceTemplateModal(true);
-                          }}
-                          style={{ marginRight: '12px' }}
-                        >
-                          + Add from Service Templates
-                        </button>
-                        <button
-                          className={styles.addServicesButton}
-                          onClick={() => setShowAddServiceForm(true)}
-                        >
-                          + Create Custom Service
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                      {/* Service Rows */}
+                      {activeServices.map((service, index) => (
+                        <div key={service.id || index} className={`${styles.serviceRow} ${!service.active ? styles.inactiveService : ''}`}>
+                          <div className={styles.serviceKey}>{service.key}</div>
+                          <div className={styles.serviceLabelContainer}>
+                            <input
+                              type="text"
+                              value={service.label}
+                              readOnly
+                              className={styles.serviceLabelInput}
+                            />
+                            {service.sla_minutes !== activeDept?.sla_policy?.target_minutes && (
+                              <span className={styles.tooltipContainer}>
+                                <span className={styles.slaOverrideIcon}>
+                                  <svg fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                  </svg>
+                                </span>
+                                <span className={styles.tooltip}>Custom SLA: {service.sla_minutes} min (overrides department default)</span>
+                              </span>
+                            )}
+                          </div>
+                          <div className={styles.slaValue}>
+                            <input
+                              type="number"
+                              value={service.sla_minutes}
+                              disabled={!service.active}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value);
+                                if (!isNaN(val) && val >= 0) {
+                                  handleUpdateService(index, { sla_minutes: val });
+                                } else if (e.target.value === '') {
+                                  // Allow clearing to type new number (handle logic potentially ?) or just keep 0
+                                  // For now let's set 0 or keep old? Best to allow empty string in UI state but type is number
+                                  // Since binding to number, empty string might cause issue.
+                                  // Let's safe guard.
+                                  handleUpdateService(index, { sla_minutes: 0 });
+                                }
+                              }}
+                              className={styles.slaInput}
+                            />
+                          </div>
+                          <div className={styles.activeToggleContainer}>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={service.active}
+                                onChange={(e) => handleUpdateService(index, { active: e.target.checked })}
+                                className="sr-only peer"
+                                title={service.active ? "Deactivate service" : "Activate service (won't appear for new tickets)"}
+                              />
+                              <div className="w-[38px] h-[22px] bg-gray-600 peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer peer-checked:after:translate-x-4 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:bg-[#4A7CFF]"></div>
+                            </label>
+                          </div>
+                          <div className={styles.actionButtons}>
+                            <button onClick={() => setEditingServiceIndex(index)} className={`${styles.actionButton} ${styles.editButton}`}>
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                              </svg>
+                            </button>
+                            <button onClick={() => handleDeleteService(service.id!)} className={`${styles.actionButton} ${styles.deleteButton}`}>
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Add Service Button */}
+                      {!showAddServiceForm && (
+                        <div className={styles.addServicesButtonContainer}>
+                          <button
+                            className={styles.addServicesButton}
+                            onClick={() => {
+                              setAddServiceTemplateDeptId(activeDept?.id || null);
+                              setShowAddServiceTemplateModal(true);
+                            }}
+                            style={{ marginRight: '12px' }}
+                          >
+                            + Add from Service Templates
+                          </button>
+                          <button
+                            className={styles.addServicesButton}
+                            onClick={() => setShowAddServiceForm(true)}
+                          >
+                            + Create Custom Service
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </>
               )}
 

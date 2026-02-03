@@ -1593,12 +1593,16 @@ export async function getMenu(hotelKey?: string) {
       const items = (data || [])
         .filter((row) => row.active !== false)
         .map((row) => ({
+          id: row.id, // [NEW] UUID needed for orders
           item_key: row.item_key,
           name: row.name,
-          base_price: row.base_price || 0,
+          base_price: row.price || row.base_price || 0, // [FIX] map DB 'price' column to frontend 'base_price'
+          category_id: row.category_id, // [NEW] for filtering
           category: row.category,
           is_veg: row.is_veg,
           active: row.active,
+          metadata: row.metadata, // [NEW] for images/dietary
+          availability: row.availability, // [NEW] for time checks
         }));
 
       console.log("[getMenu] Successfully fetched", items.length, "menu items");
@@ -1880,6 +1884,20 @@ export async function getGuestTickets(stayCode: string) {
   // Filter by stay code to only show tickets for the current stay
   const { data, error } = await s
     .from('v_guest_tickets')
+    .select('*')
+    .eq('booking_code', stayCode)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getGuestFoodOrders(stayCode: string) {
+  const s = supa();
+  if (!s) return [];
+
+  const { data, error } = await s
+    .from('v_guest_food_orders')
     .select('*')
     .eq('booking_code', stayCode)
     .order('created_at', { ascending: false });
@@ -2997,4 +3015,56 @@ export async function requestSlaException(
 
   if (error) throw error;
   return data;
+}
+
+/**
+ * Create a specialized Food Order (RPC).
+ * Enforces strict logic:
+ * - Status: CREATED
+ * - No assignments yet
+ * - No SLA yet
+ */
+export async function createFoodOrder(payload: {
+  hotelId: string;
+  stayId: string;
+  roomId: string;
+  items: {
+    menu_item_id: string; // The UUID
+    name: string;
+    qty: number;
+    unit_price: number;
+    modifiers?: any;
+  }[];
+  special_instructions?: string | null;
+}) {
+  const s = supa();
+  if (!s) throw new Error("Supabase client not available");
+
+  // Validate inputs
+  if (!payload.hotelId || !payload.stayId || !payload.roomId) {
+    throw new Error("Missing required order context (Stay/Room)");
+  }
+  if (!payload.items || payload.items.length === 0) {
+    throw new Error("No items in order");
+  }
+
+  // Call RPC
+  // p_hotel_id, p_stay_id, p_room_id, p_items, p_total_amount, p_special_instructions
+  const totalAmount = payload.items.reduce((sum, item) => sum + (item.unit_price * item.qty), 0);
+
+  const { data, error } = await s.rpc("create_food_order", {
+    p_hotel_id: payload.hotelId,
+    p_stay_id: payload.stayId,
+    p_room_id: payload.roomId,
+    p_items: payload.items,
+    p_total_amount: totalAmount,
+    p_special_instructions: payload.special_instructions || null
+  });
+
+  if (error) {
+    console.error("[createFoodOrder] RPC failed:", error);
+    throw error;
+  }
+
+  return data; // returns order_id (UUID)
 }

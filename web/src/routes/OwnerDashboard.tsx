@@ -271,7 +271,7 @@ export default function OwnerDashboard() {
     }
 
     let alive = true;
-    let unsubscribe = () => {};
+    let unsubscribe = () => { };
 
     (async () => {
       setLoading(true);
@@ -729,11 +729,11 @@ export default function OwnerDashboard() {
 
   const slaPct =
     slaCompletedTotal != null &&
-    slaBreached != null &&
-    slaCompletedTotal > 0
+      slaBreached != null &&
+      slaCompletedTotal > 0
       ? Math.round(
-          (Math.max(0, slaCompletedTotal - slaBreached) / slaCompletedTotal) * 100
-        )
+        (Math.max(0, slaCompletedTotal - slaBreached) / slaCompletedTotal) * 100
+      )
       : null;
 
   const slaToneLevel = slaToneSafe(slaPct);
@@ -930,7 +930,7 @@ export default function OwnerDashboard() {
                   {/* We reuse your existing chart component (no fake data). */}
                   {hasSeries((metrics as any)?.taskVolume) ? (
                     <TaskVolumeChart
-                      // @ts-expect-error - chart expects its own type; we pass what dashboardApi returns
+
                       data={(metrics as any)?.taskVolume || []}
                       loading={!metrics}
                     />
@@ -1075,7 +1075,7 @@ export default function OwnerDashboard() {
                 <div className="mt-3">
                   {hasSeries(slaSeries) ? (
                     <SlaPerformanceChart
-                      // @ts-expect-error chart expects its own shape
+
                       data={slaSeries || []}
                       loading={!metrics}
                     />
@@ -1282,6 +1282,7 @@ function SidebarNav({ slug }: { slug: string }) {
       <NavItem href="#top" label="Overview" active />
       <NavItem to={opsHref} label="Operations" />
       <NavItem to={opsAnalyticsHref} label="Task trend" />
+      <NavItem to={`/owner/${slug}/payments`} label="Payments & Ledger" />
       <NavItem to={servicesHref} label="Departments / SLAs" />
       {HAS_STAFF_SHIFTS && <NavItem to={`/owner/${slug}/staff-shifts`} label="Staff & Shifts" />}
       <NavItem to={settingsHref} label="Settings" />

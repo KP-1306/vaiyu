@@ -97,6 +97,7 @@ const OwnerRegister = lazy(() => import("./routes/OwnerRegister"));
 // Guest / Journey
 const Hotel = lazy(() => import("./routes/Hotel"));
 const FoodMenu = lazy(() => import("./routes/FoodMenu"));
+const GuestOrderHistory = lazy(() => import("./routes/GuestOrderHistory"));
 const RequestTracker = lazy(() => import("./routes/RequestTracker"));
 const FoodOrderTracker = lazy(() => import("./routes/FoodOrderTracker"));
 const Bill = lazy(() => import("./routes/Bill"));
@@ -130,6 +131,7 @@ const OwnerMenu = lazy(() => import("./routes/OwnerMenu")); // NEW
 const OwnerWorkforce = lazy(() => import("./routes/OwnerWorkforce")); // NEW (fix /owner/:slug/workforce)
 const OwnerStaffShifts = lazy(() => import("./routes/OwnerStaffShifts")); // NEW
 const OwnerAnalytics = lazy(() => import("./routes/OwnerAnalytics"));
+const OwnerPayments = lazy(() => import("./routes/OwnerPayments")); // NEW
 const AdminOps = lazy(() => import("./pages/AdminOps"));
 
 // ADR & RevPAR detail pages (from routes/OwnerRevenue.tsx)
@@ -447,6 +449,8 @@ const router = createBrowserRouter([
       { path: "hotel/:slug", element: <Hotel /> },
       { path: "menu", element: <FoodMenu /> },
       { path: "stay/:code/menu", element: <FoodMenu /> },
+      { path: "stay/:code/orders", element: <GuestOrderHistory /> },
+      { path: "stay/:code/orders/:id", element: <FoodOrderTracker /> },
       { path: "requestTracker", element: <RequestTracker /> },
       { path: "track/:displayId", element: <RequestTracker /> },
       { path: "track-order/:id", element: <FoodOrderTracker /> },
@@ -601,6 +605,15 @@ const router = createBrowserRouter([
         element: (
           <AuthGate>
             <OwnerAnalytics />
+          </AuthGate>
+        ),
+      },
+      // NEW: /owner/:slug/payments (Payments & Ledger)
+      {
+        path: "owner/:slug/payments",
+        element: (
+          <AuthGate>
+            <OwnerPayments />
           </AuthGate>
         ),
       },

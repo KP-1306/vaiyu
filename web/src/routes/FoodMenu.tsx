@@ -15,7 +15,7 @@ import { dbg, dbgError } from "../lib/debug";
 import {
   Search, ShoppingBag, Plus, Minus, X, Info, Filter, Clock, AlertCircle, ArrowDownRight,
   Leaf, Utensils, Coffee, Sun, Moon, Wine, CupSoda, Percent, Cake, IceCream, Pizza, Sandwich, Soup,
-  Bell, Camera, Wrench
+  Bell, Camera, Wrench, Receipt
 } from "lucide-react";
 import { CustomZoneSelect } from "../components/CustomZoneSelect";
 
@@ -489,6 +489,10 @@ export default function FoodMenu() {
           </div>
 
           <div className="flex gap-3">
+            <Link to={`/stay/${encodeURIComponent(stayCode)}/orders`} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 text-sm font-medium transition-colors border border-white/5">
+              <Receipt size={16} />
+              My Orders
+            </Link>
             <Link to={`/stay/${encodeURIComponent(stayCode)}`} className="px-4 py-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 text-sm font-medium transition-colors border border-white/5">
               Back to Stay
             </Link>

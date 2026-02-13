@@ -53,7 +53,7 @@ async function audit(svc: SupabaseClient, row: {
     meta: row.meta ?? null,
     ip: row.ip ?? null,
     ua: row.ua ?? null,
-  }).catch(() => {});
+  }).catch(() => { });
 }
 
 /* ---------- server ---------- */
@@ -65,7 +65,7 @@ serve(async (req) => {
 
   try {
     const anon = supabaseAnon(req);
-    const svc  = supabaseService();
+    const svc = supabaseService();
 
     // Auth
     const user = await requireUser(anon);
@@ -100,6 +100,9 @@ serve(async (req) => {
         const patch: Record<string, unknown> = {};
         if (typeof body.hotel.name === "string" && body.hotel.name.trim().length > 1) {
           patch.name = body.hotel.name.trim();
+        }
+        if (typeof body.hotel.upi_id === "string") {
+          patch.upi_id = body.hotel.upi_id.trim();
         }
         if (Object.keys(patch).length > 0) {
           const { error } = await svc.from("hotels").update(patch).eq("id", hotel.id);

@@ -1,193 +1,254 @@
 // web/src/components/chat/ChatPanel.tsx
-import { useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { supabase } from "../../lib/supabase";
 
 export type ChatMessage = {
   id: string;
-  /**
-   * "guest" or "staff" or a more specific label
-   * (we render guest messages on the right, staff on the left).
-   */
-  author: "guest" | "staff" | string;
+  author_role: "guest" | "staff";
   body: string;
-  /** ISO string or Date – we only display local time. */
-  at: string | Date;
+  created_at: string;
 };
 
 export type ChatPanelProps = {
-  /** Optional stay / booking code for context. */
-  stayCode?: string;
-  /** Optional hotel name, used in headings. */
+  /** The verified stay UUID (must match RLS or be verified by token) */
+  stayId: string;
+  /** Display label for context */
   hotelName?: string | null;
-  /** Prefetched messages, if you already have a thread. */
-  messages?: ChatMessage[];
-  /**
-   * Called when guest sends a new message.
-   * You can persist it to Supabase, etc.
-   */
-  onSend?: (body: string) => Promise<void> | void;
-  /**
-   * If provided, we show a secondary CTA to continue
-   * the conversation on WhatsApp (deep link or wa.me).
-   */
+  /** Optional code for display */
+  stayCode?: string;
+  /** WhatsApp deep link as fallback */
   openWhatsAppUrl?: string;
-  /** Customise container classes when embedding inside a card. */
   className?: string;
 };
 
-/**
- * UI-only chat panel for the unified stay page.
- *
- * This component intentionally does NOT fetch or persist data by itself.
- * It just renders:
- *  - header with context,
- *  - scrollable message list (from props),
- *  - send box that calls onSend(body),
- *  - optional "Open WhatsApp" action.
- *
- * That keeps current behaviour safe and lets us plug in a real
- * chat backend later without breaking the QR journey.
- */
 export default function ChatPanel({
-  stayCode,
+  stayId,
   hotelName,
-  messages,
-  onSend,
+  stayCode,
   openWhatsAppUrl,
   className,
 }: ChatPanelProps) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
-  const [busy, setBusy] = useState(false);
-  const hasMessages = (messages?.length ?? 0) > 0;
+  const [sending, setSending] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // 1. Load initial history & Subscribe to Realtime
+  useEffect(() => {
+    if (!stayId) return;
+
+    let channel: any = null;
+
+    async function loadHistory() {
+      const { data, error } = await supabase
+        .from("chat_messages")
+        .select("*")
+        .eq("stay_id", stayId)
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        console.error("Failed to load chat history:", error);
+      } else if (data) {
+        setMessages(data as ChatMessage[]);
+      }
+    }
+
+    function subscribe() {
+      channel = supabase
+        .channel(`stay-chat:${stayId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "chat_messages",
+            filter: `stay_id=eq.${stayId}`,
+          },
+          (payload) => {
+            const newMsg = payload.new as ChatMessage;
+            setMessages((prev) => {
+              // Dedupe just in case
+              if (prev.some(m => m.id === newMsg.id)) return prev;
+              return [...prev, newMsg];
+            });
+          }
+        )
+        .subscribe();
+    }
+
+    loadHistory().then(subscribe);
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [stayId]);
+
+  // 2. Auto-scroll to bottom
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
 
   async function handleSend(e?: React.FormEvent) {
     if (e) e.preventDefault();
-    if (!input.trim()) return;
     const body = input.trim();
-    setBusy(true);
-    try {
-      if (onSend) {
-        await onSend(body);
-      } else {
-        // For now, just log – no-op; we don't mutate messages here
-        console.log("[ChatPanel] onSend not wired. Message:", body);
-      }
-      setInput("");
-    } catch (err) {
-      console.error("[ChatPanel] send failed:", err);
-      alert("We couldn't send your message. Please try again.");
-    } finally {
-      setBusy(false);
+    if (!body) return;
+
+    if (!stayId) {
+      console.warn("[ChatPanel] Missing stayId. Cannot send.");
+      // alert("Chat is connecting... please wait a moment."); 
+      // Better UX: just return or show a toast. For debugging, let's log.
+      return;
     }
+
+    // Optimistic update
+    const tempId = crypto.randomUUID();
+    const optimisticMsg: ChatMessage = {
+      id: tempId,
+      author_role: "guest",
+      body,
+      created_at: new Date().toISOString(),
+    };
+
+    setMessages((prev) => [...prev, optimisticMsg]);
+    setInput("");
+    setSending(true);
+
+    try {
+      // We rely on the backend finding the hotel_id from the stay_id or RLS defaults, 
+      // but if we need to be explicit, we'd need to fetch the stay first.
+      // However, for this UI-first pass, we'll try a direct insert. 
+      // If it fails due to null hotel_id, we'll need to fetch it.
+
+      const { error } = await supabase.from("chat_messages").insert({
+        stay_id: stayId,
+        // We fetch the hotel_id dynamically if needed, or rely on a trigger.
+        // For now, let's fetch it to be safe.
+        hotel_id: (await getHotelId(stayId)),
+        author_role: "guest",
+        body,
+      });
+
+      if (error) throw error;
+    } catch (err) {
+      console.error("Failed to send:", err);
+      // Rollback optimistic? For now, simple alert or ignore as it might just be a duplicate.
+    } finally {
+      setSending(false);
+    }
+  }
+
+  // Helper to get hotel_id if not passed (though we prefer props)
+  async function getHotelId(sId: string) {
+    const { data } = await supabase.from('stays').select('hotel_id').eq('id', sId).single();
+    return data?.hotel_id;
   }
 
   return (
     <section
       id="stay-chat"
       className={
-        "rounded-2xl border bg-white/90 shadow-sm p-4 flex flex-col gap-3 " +
+        "flex flex-col gap-3 rounded-[2rem] border border-slate-700/50 bg-[#1e293b] p-4 shadow-2xl " +
         (className || "")
       }
     >
-      <header className="flex items-center justify-between gap-2">
+      <header className="flex items-center justify-between gap-2 px-1">
         <div>
-          <h2 className="text-lg font-semibold">Chat with front desk</h2>
-          <p className="text-xs text-gray-600 mt-1">
-            Ask for housekeeping, late checkout or anything else. For emergencies,
-            please call the front desk directly.
-          </p>
+          <h2 className="text-lg font-semibold text-white">Chat with front desk</h2>
+          <div className="text-[11px] text-slate-400">
+            {hotelName} {stayCode && <span>• {stayCode}</span>}
+          </div>
         </div>
         {openWhatsAppUrl && (
           <a
             href={openWhatsAppUrl}
             target="_blank"
             rel="noreferrer"
-            className="btn btn-light !py-1.5 !px-3 text-xs"
+            className="rounded-full bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-700 transition-colors"
           >
-            Open WhatsApp
+            WhatsApp
           </a>
         )}
       </header>
 
-      <div className="text-[11px] text-gray-500">
-        {hotelName && <span className="font-medium">{hotelName}</span>}
-        {hotelName && stayCode && <span> • </span>}
-        {stayCode && <span>Stay code: {stayCode}</span>}
-      </div>
-
-      <div className="flex-1 min-h-[160px] max-h-64 border rounded-xl bg-slate-50/80 p-2 overflow-y-auto">
-        {hasMessages ? (
-          <ul className="space-y-1.5 text-xs">
-            {messages!.map((m) => {
-              const isGuest = m.author === "guest";
-              const time =
-                typeof m.at === "string"
-                  ? new Date(m.at)
-                  : m.at instanceof Date
-                  ? m.at
-                  : null;
-              const timeLabel = time
-                ? time.toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })
-                : "";
-
-              return (
-                <li
-                  key={m.id}
-                  className={
-                    "flex " + (isGuest ? "justify-end" : "justify-start")
-                  }
+      {/* Messages Area */}
+      <div
+        ref={scrollRef}
+        className="flex-1 min-h-[200px] max-h-[400px] space-y-3 overflow-y-auto p-2 scrollbar-hide"
+      >
+        {messages.length > 0 ? (
+          messages.map((m) => {
+            const isGuest = m.author_role === "guest";
+            return (
+              <div
+                key={m.id}
+                className={`flex w-full ${isGuest ? "justify-end" : "justify-start"}`}
+              >
+                <div
+                  className={`max-w-[85%] px-4 py-2.5 shadow-sm text-sm whitespace-pre-wrap break-words ${isGuest
+                    ? "bg-blue-600 text-white rounded-[1.25rem] rounded-tr-sm"
+                    : "bg-slate-700 text-slate-100 rounded-[1.25rem] rounded-tl-sm"
+                    }`}
                 >
-                  <div
-                    className={
-                      "max-w-[80%] rounded-2xl px-3 py-1.5 shadow-sm " +
-                      (isGuest
-                        ? "bg-sky-500 text-white rounded-br-sm"
-                        : "bg-white text-gray-900 rounded-bl-sm")
-                    }
-                  >
-                    <div className="text-[10px] opacity-75 mb-0.5">
-                      {m.author === "guest"
-                        ? "You"
-                        : typeof m.author === "string"
-                        ? m.author
-                        : "Staff"}
-                      {timeLabel && <span className="ml-1">• {timeLabel}</span>}
-                    </div>
-                    <div className="whitespace-pre-wrap break-words">
-                      {m.body}
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                  {m.body}
+                </div>
+              </div>
+            );
+          })
         ) : (
-          <div className="h-full grid place-items-center text-[11px] text-gray-500 px-4 text-center">
-            <div>
-              No messages yet.
-              <br />
-              Send us a note below and the front desk will reply here.
-            </div>
+          <div className="flex h-full flex-col items-center justify-center text-center text-slate-500 opacity-60">
+            <svg
+              className="mb-2 h-8 w-8 text-slate-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+              />
+            </svg>
+            <p className="text-xs">
+              No messages yet.<br />
+              Start the conversation below.
+            </p>
           </div>
         )}
       </div>
 
-      <form onSubmit={handleSend} className="flex items-end gap-2 pt-1">
-        <textarea
-          className="flex-1 rounded-xl border px-3 py-2 text-sm resize-none min-h-[44px] max-h-24"
-          placeholder="Type your message…"
+      {/* Input Area */}
+      <form onSubmit={handleSend} className="relative flex items-center gap-2 pt-1">
+        <input
+          type="text"
+          className="flex-1 rounded-full border border-slate-700 bg-slate-900/80 px-4 py-3 text-sm text-white placeholder-slate-500 shadow-inner focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          placeholder="Message front desk..."
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          disabled={busy}
+          disabled={sending}
         />
         <button
           type="submit"
-          className="btn"
-          disabled={busy || !input.trim()}
+          disabled={sending || !input.trim()}
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg transition-all hover:bg-blue-500 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100"
         >
-          {busy ? "Sending…" : "Send"}
+          {sending ? (
+            <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+          ) : (
+            <svg
+              className="h-4 w-4 translate-x-0.5" // visual optic center
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 12h14M12 5l7 7-7 7" />
+            </svg>
+          )}
         </button>
       </form>
     </section>

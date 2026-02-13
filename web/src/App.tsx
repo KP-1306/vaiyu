@@ -354,6 +354,16 @@ const OwnerGuestProfile = lazy(() => import("./routes/OwnerGuestProfile"));
 // Request tracker page
 const RequestTracker = lazy(() => import("./routes/RequestTracker"));
 
+// GuestNew - Premium Guest Experience
+const GuestNewLayout = lazy(() => import("./routes/guestnew/GuestNewLayout"));
+const GuestNewHome = lazy(() => import("./routes/guestnew/GuestNewHome"));
+const GuestNewTrips = lazy(() => import("./routes/guestnew/GuestNewTrips"));
+const GuestNewStayDetails = lazy(() => import("./routes/guestnew/GuestNewStayDetails"));
+const GuestNewRequestService = lazy(() => import("./routes/guestnew/GuestNewRequestService"));
+const GuestNewCheckout = lazy(() => import("./routes/guestnew/GuestNewCheckout"));
+const GuestNewRewards = lazy(() => import("./routes/guestnew/GuestNewRewards"));
+const GuestNewSupport = lazy(() => import("./routes/guestnew/GuestNewSupport"));
+
 // Owner property dashboard
 const OwnerDashboard = lazy(() => import("./routes/OwnerDashboard"));
 
@@ -379,6 +389,11 @@ const OwnerRevPAR = lazy(() =>
 const OwnerAnalyticsRoute = lazy(() => import("./routes/OwnerAnalytics"));
 // OpsManagerAnalytics
 const OpsManagerAnalytics = lazy(() => import("./routes/OpsManagerAnalytics"));
+
+// Import Bookings
+// Import Bookings
+const ImportBookings = lazy(() => import("./routes/ImportBookings"));
+
 
 // Owner feature flags (for sidebar)
 
@@ -441,6 +456,10 @@ function OwnerSidebar({ basePath }: { basePath: string }) {
     {
       label: "Rooms & occupancy",
       to: `${base}/occupancy`,
+    },
+    {
+      label: "Import bookings",
+      to: `${base}/import-bookings`,
     },
     HAS_REVENUE && {
       label: "Revenue & forecast",
@@ -588,6 +607,18 @@ export default function App() {
 
             {/* Guest core */}
             <Route path="/guest" element={<GuestDashboard />} />
+
+            {/* GuestNew - Premium Guest Experience */}
+            <Route path="/guestnew/*" element={<GuestNewLayout />}>
+              <Route index element={<GuestNewHome />} />
+              <Route path="trips" element={<GuestNewTrips />} />
+              <Route path="stay/:id" element={<GuestNewStayDetails />} />
+              <Route path="request-service" element={<GuestNewRequestService />} />
+              <Route path="checkout" element={<GuestNewCheckout />} />
+              <Route path="rewards" element={<GuestNewRewards />} />
+              <Route path="support" element={<GuestNewSupport />} />
+            </Route>
+
             <Route path="/stays" element={<Stays />} />
             <Route path="/bills" element={<Bills />} />
             <Route path="/claim" element={<ClaimStay />} />
@@ -764,6 +795,8 @@ export default function App() {
                 </OwnerLayout>
               }
             />
+
+
 
             {/* Global settings/profile (non-property scoped) */}
             <Route path="/settings" element={<Settings />} />

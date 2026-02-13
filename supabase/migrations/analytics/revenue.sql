@@ -28,13 +28,13 @@ rooms_sold_by_day AS (
       gs.d::date AS day
     FROM stays s
     CROSS JOIN LATERAL generate_series(
-      date_trunc('day', s.check_in_start)::date,
-      (date_trunc('day', s.check_out_end) - interval '1 day')::date,
+      date_trunc('day', s.scheduled_checkin_at)::date,
+      (date_trunc('day', s.scheduled_checkout_at) - interval '1 day')::date,
       interval '1 day'
     ) gs(d)
     WHERE
-      s.check_in_start IS NOT NULL
-      AND s.check_out_end IS NOT NULL
+      s.scheduled_checkin_at IS NOT NULL
+      AND s.scheduled_checkout_at IS NOT NULL
   ) se
   GROUP BY se.hotel_id, se.day
 ),

@@ -43,7 +43,7 @@ const APP_PREFIXES = [
 ];
 
 /** Pages where the pill should not be shown */
-const HIDE_PREFIXES = ["/", "/signin", "/auth/callback", "/ops"];
+const HIDE_PREFIXES = ["/", "/signin", "/auth/callback", "/ops", "/owner", "/stay", "/guest"];
 
 function startsWithAny(path: string, prefixes: string[]) {
   return prefixes.some((p) => path === p || path.startsWith(p + "/"));

@@ -33,6 +33,7 @@ type Hotel = {
   logo_url?: string;
   theme?: Theme;
   reviews_policy?: ReviewsPolicy;
+  upi_id?: string;
 };
 
 type Service = {
@@ -116,8 +117,8 @@ export default function OwnerSettings() {
             svcsRaw = Array.isArray(data?.services)
               ? data.services
               : Array.isArray(data?.services?.items)
-              ? data.services.items
-              : [];
+                ? data.services.items
+                : [];
           } else if (r.status === 404 || r.status === 405) {
             // Endpoint not wired yet – log & fall through to Supabase
             console.warn(
@@ -129,8 +130,8 @@ export default function OwnerSettings() {
             const data: any = await r.json().catch(() => null);
             throw new Error(
               data?.error ||
-                data?.message ||
-                `Failed to load settings (HTTP ${r.status})`,
+              data?.message ||
+              `Failed to load settings (HTTP ${r.status})`,
             );
           }
         } catch (apiErr) {
@@ -200,6 +201,7 @@ export default function OwnerSettings() {
         theme: { brand: themeBrand, mode: themeMode },
         reviews_policy:
           sRaw.review_policy || hRaw.reviews_policy || defaultPolicy,
+        upi_id: hRaw.upi_id || "",
       };
 
       const normalizedServices: Service[] = svcsRaw.map((svc) => ({
@@ -213,8 +215,8 @@ export default function OwnerSettings() {
           typeof svc.sla_minutes === "number"
             ? svc.sla_minutes
             : typeof svc.sla === "number"
-            ? svc.sla
-            : null,
+              ? svc.sla
+              : null,
         active:
           typeof svc.active === "boolean"
             ? svc.active
@@ -337,6 +339,7 @@ export default function OwnerSettings() {
             ),
             require_consent: !!hotel.reviews_policy?.require_consent,
           },
+          upi_id: hotel.upi_id?.trim(),
         },
         services: normalisedServices,
       };
@@ -382,8 +385,8 @@ export default function OwnerSettings() {
           } else {
             throw new Error(
               data?.error ||
-                data?.message ||
-                `Failed to save settings (HTTP ${r.status})`,
+              data?.message ||
+              `Failed to save settings (HTTP ${r.status})`,
             );
           }
         } catch (apiErr) {
@@ -408,6 +411,7 @@ export default function OwnerSettings() {
             logo_url: body.hotel.logo_url || null,
             theme: body.hotel.theme,
             reviews_policy: body.hotel.reviews_policy,
+            upi_id: body.hotel.upi_id || null,
           })
           .eq("id", hotel.id);
 
@@ -467,6 +471,11 @@ export default function OwnerSettings() {
       <SEO title="Owner Settings" noIndex />
       <OwnerGate>
         <main className="max-w-5xl mx-auto p-4 space-y-4">
+          <div className="flex items-center gap-2 text-xs font-medium text-slate-500 mb-2">
+            <Link to={hotel?.slug ? `/owner/${hotel.slug}` : '/owner'} className="hover:text-amber-600 transition">Dashboard</Link>
+            <span className="text-slate-300">/</span>
+            <span className="text-slate-700">Settings</span>
+          </div>
           <header className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 className="text-xl font-semibold">Owner Settings</h1>
@@ -799,6 +808,43 @@ export default function OwnerSettings() {
                   </div>
                 </div>
 
+                {/* UPI / Payment Settings */}
+                <section className="bg-white rounded shadow p-4 space-y-3">
+                  <div className="font-semibold">Payments & UPI</div>
+                  <div className="grid md:grid-cols-2 gap-3 items-start">
+                    <div>
+                      <label className="text-sm">
+                        UPI ID / VPA
+                        <input
+                          className="mt-1 input w-full"
+                          value={hotel.upi_id || ""}
+                          onChange={(e) => patchHotel("upi_id", e.target.value)}
+                          placeholder="e.g. business@upi"
+                        />
+                      </label>
+                      <p className="text-xs text-gray-500 mt-1">
+                        This UPI ID will be used to generate payment QR codes for guest bills.
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-center justify-center p-4 border rounded bg-gray-50">
+                      {hotel.upi_id ? (
+                        <>
+                          <img
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(
+                              `upi://pay?pa=${hotel.upi_id}&pn=${encodeURIComponent(hotel.name)}&cu=INR`
+                            )}`}
+                            alt="UPI QR Preview"
+                            className="w-32 h-32"
+                          />
+                          <span className="text-xs text-green-600 mt-2 font-medium">Preview</span>
+                        </>
+                      ) : (
+                        <span className="text-xs text-gray-400 italic">Enter UPI ID to see QR preview</span>
+                      )}
+                    </div>
+                  </div>
+                </section>
+
                 <div className="overflow-auto mt-3">
                   <table className="min-w-[720px] w-full text-sm border">
                     <thead className="bg-gray-50">
@@ -846,11 +892,11 @@ export default function OwnerSettings() {
                                     e.target.value === ""
                                       ? null
                                       : Math.max(
-                                          1,
-                                          Math.trunc(
-                                            Number(e.target.value) || 1,
-                                          ),
+                                        1,
+                                        Math.trunc(
+                                          Number(e.target.value) || 1,
                                         ),
+                                      ),
                                 })
                               }
                             />

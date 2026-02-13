@@ -176,11 +176,11 @@ BEGIN
     FROM date_series ds
     LEFT JOIN stays s ON 
       s.hotel_id = p_hotel_id
-      -- Logic: Stay is active if check_in <= date AND check_out > date (Standard hotel logic)
+      -- Logic: Stay is active if scheduled_checkin <= date AND scheduled_checkout > date (Standard hotel logic)
       -- Using TZ conversion to ensure date boundaries match
-      AND s.check_in_start < (ds.day_ts + interval '1 day') AT TIME ZONE p_timezone
-      AND s.check_out_end > ds.day_ts AT TIME ZONE p_timezone
-      AND s.status IN ('arriving', 'inhouse', 'departed') -- active stays only
+      AND s.scheduled_checkin_at < (ds.day_ts + interval '1 day') AT TIME ZONE p_timezone
+      AND s.scheduled_checkout_at > ds.day_ts AT TIME ZONE p_timezone
+      AND s.status IN ('arriving', 'inhouse', 'checked_out') -- active/recent stays only
     GROUP BY 1
   )
   SELECT
@@ -285,16 +285,16 @@ BEGIN
   RETURN QUERY
   SELECT
     count(*) FILTER (
-        WHERE check_in_start >= (v_today_start AT TIME ZONE p_timezone)
-        AND check_in_start < (v_next_day_start AT TIME ZONE p_timezone)
+        WHERE scheduled_checkin_at >= (v_today_start AT TIME ZONE p_timezone)
+        AND scheduled_checkin_at < (v_next_day_start AT TIME ZONE p_timezone)
     ) as arrivals,
     count(*) FILTER (
-        WHERE check_out_end >= (v_today_start AT TIME ZONE p_timezone)
-        AND check_out_end < (v_next_day_start AT TIME ZONE p_timezone)
+        WHERE scheduled_checkout_at >= (v_today_start AT TIME ZONE p_timezone)
+        AND scheduled_checkout_at < (v_next_day_start AT TIME ZONE p_timezone)
     ) as departures
   FROM stays
   WHERE hotel_id = p_hotel_id
-  AND status IN ('arriving', 'inhouse', 'departed'); -- active stays only
+  AND status IN ('arriving', 'inhouse', 'checked_out'); -- active/recent stays only
 END;
 $$;
 

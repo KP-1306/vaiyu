@@ -84,7 +84,7 @@ export default function TaskVolumeChart({ data, loading }: Props) {
                     />
                     <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                         {chartData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill="#3b82f6" fillOpacity={0.8} />
+                            <Cell key={`cell-${index}`} fill="#3b82f6" />
                         ))}
                     </Bar>
                 </BarChart>

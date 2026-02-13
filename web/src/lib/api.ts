@@ -94,7 +94,8 @@ export type Stay = {
 
 export type Service = {
   key: string;
-  label_en: string;
+  label?: string; // [NEW] Primary label from services table
+  label_en?: string; // [NEW] Optional English label
   sla_minutes: number;
   id?: string; // [NEW] Link to Services table
   /** new, backward-compatible fields for editor/UI */
@@ -1400,7 +1401,8 @@ export async function getServices(hotelKey?: string | null) {
         .map((row) => ({
           key: row.key,
           id: row.id, // [NEW] Expose ID
-          label_en: row.label, // Map label to label_en
+          label: row.label, // [NEW] Primary label
+          label_en: row.label, // Map label to label_en for backwards compatibility
           sla_minutes: row.sla_minutes || 0,
           active: row.active,
           hotel_id: row.hotel_id,
@@ -1566,6 +1568,29 @@ export async function setBookingConsent(code: string, reviews: boolean) {
     method: "POST",
     body: JSON.stringify({ reviews }),
   });
+}
+
+/* ============================================================================
+   Pre-Check-In (Token-Based Guest Self-Service)
+============================================================================ */
+
+export async function validatePrecheckinToken(token: string) {
+  const s = supa();
+  if (!s) throw new Error("Supabase not available");
+  const { data, error } = await s.rpc("validate_precheckin_token", { p_token: token });
+  if (error) throw error;
+  return data as any;
+}
+
+export async function submitPrecheckin(token: string, data: Record<string, any>) {
+  const s = supa();
+  if (!s) throw new Error("Supabase not available");
+  const { data: result, error } = await s.rpc("submit_precheckin", {
+    p_token: token,
+    p_data: data,
+  });
+  if (error) throw error;
+  return result as any;
 }
 
 /* ============================================================================

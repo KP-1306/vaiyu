@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-import BackHome from "../components/BackHome";
+
 import Spinner from "../components/Spinner";
 
 type Hotel = {
@@ -133,7 +133,6 @@ export default function OwnerHousekeeping() {
   if (error) {
     return (
       <main className="max-w-3xl mx-auto p-6">
-        <BackHome />
         <div className="rounded-xl border p-6 bg-rose-50 text-rose-900">
           <div className="font-semibold mb-1">Can’t load Housekeeping</div>
           <div className="text-sm">{error}</div>
@@ -161,7 +160,11 @@ export default function OwnerHousekeeping() {
 
   return (
     <main className="max-w-6xl mx-auto p-6">
-      <BackHome />
+      <div className="flex items-center gap-2 text-xs font-medium text-slate-500 mb-2">
+        <Link to={`/owner/${hotel.slug}`} className="hover:text-amber-600 transition">Dashboard</Link>
+        <span className="text-slate-300">/</span>
+        <span className="text-slate-700">Housekeeping</span>
+      </div>
 
       <header className="mb-5 flex items-center justify-between gap-4">
         <div>
@@ -297,10 +300,10 @@ function StatusBadge({ status, compact }: { status: string; compact?: boolean })
     status === "occupied"
       ? "border-gray-900 text-gray-900"
       : status === "vacant"
-      ? "border-emerald-600 text-emerald-700"
-      : status === "ooo"
-      ? "border-rose-600 text-rose-700"
-      : "border-gray-300 text-gray-500";
+        ? "border-emerald-600 text-emerald-700"
+        : status === "ooo"
+          ? "border-rose-600 text-rose-700"
+          : "border-gray-300 text-gray-500";
   return <span className={`${base} ${cls} ${compact ? "" : "uppercase tracking-wide"}`}>{label}</span>;
 }
 

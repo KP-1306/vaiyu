@@ -1,0 +1,296 @@
+/* ──────────────────────────────────────────────
+   Step 3: Pre-Check-In — Success Screen Styles
+   ────────────────────────────────────────────── */
+
+.step3-page {
+    min-height: 100vh;
+    background-color: #0d0b08;
+    position: relative;
+    overflow: hidden;
+    font-family: system-ui, -apple-system, sans-serif;
+    display: flex;
+    flex-direction: column;
+    padding: 2rem 1.25rem;
+    align-items: center;
+}
+
+/* ── Success Icon ── */
+.step3-success-icon-wrapper {
+    position: relative;
+    width: 6.5rem;
+    height: 6.5rem;
+    margin-bottom: 1.5rem;
+    margin-top: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.step3-success-glow {
+    position: absolute;
+    inset: -25px;
+    background: radial-gradient(circle, rgba(212, 175, 55, 0.25), transparent 70%);
+    border-radius: 9999px;
+    filter: blur(15px);
+    pointer-events: none;
+}
+
+.step3-success-circle {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    border-radius: 9999px;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 25px rgba(212, 175, 55, 0.2);
+    border: 4px solid #d4af37;
+}
+
+.step3-success-check {
+    width: 3.5rem;
+    height: 3.5rem;
+    color: #d4af37;
+    stroke-width: 3;
+}
+
+/* ── Headings ── */
+.step3-hero-title {
+    color: #ffffff;
+    font-size: 1.875rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.02em;
+    text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    text-align: center;
+}
+
+.step3-hero-subtitle {
+    color: #9ca3af;
+    font-size: 0.9375rem;
+    text-align: center;
+    max-width: 18rem;
+    line-height: 1.5;
+    margin-bottom: 2.5rem;
+}
+
+/* ── Booking Details Card ── */
+.step3-card {
+    background-color: #18181b;
+    /* Slate-black tone */
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    border-radius: 1.25rem;
+    padding: 1.5rem;
+    width: 100%;
+    max-width: 22rem;
+    /* Slightly narrower to match proportion */
+    box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.7);
+    margin-bottom: 2rem;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Geometric Gold Arcs Overlay */
+.step3-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at 100% 0%, transparent 60%, rgba(212, 175, 55, 0.08) 61%, rgba(212, 175, 55, 0.08) 62%, transparent 63%),
+        radial-gradient(circle at 0% 100%, transparent 60%, rgba(212, 175, 55, 0.08) 61%, rgba(212, 175, 55, 0.08) 62%, transparent 63%);
+    pointer-events: none;
+}
+
+.step3-card-header {
+    color: #ffd700;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 1.25rem;
+    display: block;
+    opacity: 0.9;
+}
+
+/* Grid layout for details */
+.step3-details-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+}
+
+.step3-detail-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.step3-detail-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #9ca3af;
+    /* Grey label */
+    white-space: nowrap;
+}
+
+.step3-detail-icon {
+    width: 1rem;
+    height: 1rem;
+    color: #d4af37;
+    flex-shrink: 0;
+}
+
+.step3-detail-value {
+    color: #fceea7;
+    /* Bright gold value */
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ── QR Code Section ── */
+.step3-qr-section {
+    margin-top: 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    padding-top: 1.5rem;
+    position: relative;
+}
+
+/* Decorative divider line with fade */
+.step3-qr-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 10%;
+    right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.3), transparent);
+}
+
+.step3-qr-box {
+    background-color: #ffffff;
+    padding: 0.625rem;
+    border-radius: 1rem;
+    border: 3px solid #d4af37;
+    box-shadow: 0 0 30px rgba(212, 175, 55, 0.15);
+}
+
+.step3-qr-placeholder {
+    width: 7rem;
+    height: 7rem;
+    display: block;
+    mix-blend-mode: multiply;
+}
+
+/* Real-looking QR pattern CSS */
+.step3-qr-css {
+    width: 100%;
+    height: 100%;
+    background-image:
+        linear-gradient(45deg, #000 25%, transparent 25%, transparent 75%, #000 75%),
+        linear-gradient(45deg, #000 25%, transparent 25%, transparent 75%, #000 75%);
+    background-position: 0 0, 10px 10px;
+    background-size: 20px 20px;
+    opacity: 0.9;
+}
+
+.step3-qr-text {
+    color: #d4af37;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    opacity: 0.9;
+}
+
+/* ── Quick Tips ── */
+.step3-tips-section {
+    width: 100%;
+    max-width: 24rem;
+    margin-bottom: 2rem;
+    padding-left: 0.5rem;
+}
+
+.step3-tips-header {
+    color: #8b7030;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 1rem;
+    display: block;
+}
+
+.step3-tip-row {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    margin-bottom: 0.875rem;
+}
+
+.step3-tip-icon {
+    width: 1.125rem;
+    height: 1.125rem;
+    color: #d4af37;
+}
+
+.step3-tip-text {
+    color: #d1d5db;
+    font-size: 0.9375rem;
+    font-weight: 400;
+}
+
+/* ── Buttons ── */
+.step3-actions {
+    width: 100%;
+    max-width: 24rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.step3-btn-primary {
+    width: 100%;
+    padding: 1rem;
+    border-radius: 1rem;
+    border: none;
+    background: linear-gradient(to right, #b8942d, #fceea7, #b8942d);
+    background-size: 200% auto;
+    color: #0d0b08;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    box-shadow: 0 4px 25px rgba(212, 175, 55, 0.3);
+    transition: all 0.3s;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.step3-btn-primary:active {
+    transform: scale(0.98);
+}
+
+.step3-btn-secondary {
+    width: 100%;
+    padding: 1rem;
+    border-radius: 1rem;
+    border: 1px solid #d4af37;
+    background: transparent;
+    color: #d4af37;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.2s;
+    text-align: center;
+}
+
+.step3-btn-secondary:active {
+    background-color: rgba(212, 175, 55, 0.1);
+}

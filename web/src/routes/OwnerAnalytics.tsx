@@ -29,7 +29,8 @@ import {
     ArrowUpRight,
     ArrowDownRight,
     Users,
-    Filter
+    Filter,
+    LayoutDashboard
 } from "lucide-react";
 import SLAExplanationDrawer, { ImpactRow } from "../components/SLAExplanationDrawer";
 import RiskExplanationDrawer, { RiskBreakdownRow } from "../components/RiskExplanationDrawer";
@@ -313,34 +314,43 @@ export default function OwnerAnalytics() {
     return (
         <div className="min-h-screen bg-[#0B0E14] p-4 text-slate-200 font-sans selection:bg-emerald-500/30">
             {/* Header / Top Nav */}
-            <header className="mb-6 flex items-center justify-between rounded-2xl bg-[#151A25] px-6 py-4 border border-slate-800/50">
-                <div className="flex items-center gap-4">
-                    <div className="h-8 w-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                        <TrendingUp size={18} />
-                    </div>
-                    <div>
-                        <h1 className="text-lg font-bold text-white tracking-tight">Vaiyu Dashboard</h1>
-                        <div className="text-xs text-slate-500">Real-time Operations Intelligence</div>
-                    </div>
+            {/* Header / Top Nav - Aligned with Ops Manager */}
+            <div className="mb-6">
+                <div className="flex items-center gap-2 text-xs font-medium text-slate-400 mb-2">
+                    <Link to={slug ? `/owner/${slug}` : '/owner'} className="hover:text-white transition">Dashboard</Link>
+                    <span className="text-slate-600">/</span>
+                    <span className="text-slate-200">Owner Analytics</span>
                 </div>
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
-                        <Link to={`/owner/${slug}`} className="hover:text-white transition">Dashboard</Link>
-                        <span className="text-slate-600">/</span>
-                        <span className="text-slate-200">Owner Analytics</span>
-                    </div>
-                    <div className="h-4 w-px bg-slate-800" />
-                    <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded-full bg-slate-800 grid place-items-center text-xs text-white">
-                            OW
+
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
+                            <LayoutDashboard size={20} />
                         </div>
-                        <div className="text-xs text-slate-300">
-                            <div className="font-medium text-white">Owner View</div>
-                            <div className="text-[10px] text-slate-500">Super Admin</div>
+                        <div>
+                            <h1 className="text-2xl font-bold text-white tracking-tight">Owner Analytics Dashboard</h1>
+                            <div className="flex items-center gap-2 text-xs text-slate-500">
+                                <span>Real-time Operations Intelligence</span>
+                                <span className="h-1 w-1 rounded-full bg-slate-700"></span>
+                                <span className="text-emerald-500 font-medium">Live</span>
+                            </div>
                         </div>
                     </div>
+
+                    <div className="flex items-center gap-4">
+                        <div className="h-8 w-px bg-slate-800" />
+                        <div className="flex items-center gap-2">
+                            <div className="h-8 w-8 rounded-full bg-slate-800 grid place-items-center text-xs text-white border border-slate-700">
+                                OW
+                            </div>
+                            <div className="text-xs text-slate-300">
+                                <div className="font-medium text-white">Owner View</div>
+                                <div className="text-[10px] text-slate-500">Super Admin</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </header>
+            </div>
 
             {/* Top Stats Cards */}
             <div className="mb-6 grid gap-4 grid-cols-2 lg:grid-cols-5">

@@ -9,9 +9,19 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useSearchParams, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Spinner from "../components/Spinner";
-import BackHome from "../components/BackHome";
+
 import { useTicketsRealtime } from "../hooks/useTicketsRealtime";
 import UsageMeter from "../components/UsageMeter";
+import {
+  Users,
+  Filter,
+  LayoutDashboard,
+  BedDouble,
+  Clock,
+  UserCheck,
+  MessageSquare,
+  AlertTriangle
+} from "lucide-react";
 import {
   fetchOpsHeatmap,
   fetchStaffingPlan,
@@ -271,7 +281,7 @@ export default function OwnerDashboard() {
     }
 
     let alive = true;
-    let unsubscribe = () => {};
+    let unsubscribe = () => { };
 
     (async () => {
       setLoading(true);
@@ -666,7 +676,7 @@ export default function OwnerDashboard() {
   if (accessProblem) {
     return (
       <main className="max-w-3xl mx-auto p-6 bg-slate-950 text-slate-100">
-        <BackHome />
+
         <AccessHelp
           slug={slug}
           message={accessProblem}
@@ -729,11 +739,11 @@ export default function OwnerDashboard() {
 
   const slaPct =
     slaCompletedTotal != null &&
-    slaBreached != null &&
-    slaCompletedTotal > 0
+      slaBreached != null &&
+      slaCompletedTotal > 0
       ? Math.round(
-          (Math.max(0, slaCompletedTotal - slaBreached) / slaCompletedTotal) * 100
-        )
+        (Math.max(0, slaCompletedTotal - slaBreached) / slaCompletedTotal) * 100
+      )
       : null;
 
   const slaToneLevel = slaToneSafe(slaPct);
@@ -776,10 +786,15 @@ export default function OwnerDashboard() {
   /** ======= Render (dark dashboard) ======= */
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
-      {/* subtle texture/gradient */}
-      <div className="pointer-events-none fixed inset-0 opacity-70">
-        <div className="absolute inset-0 bg-[radial-gradient(1200px_600px_at_20%_0%,rgba(56,189,248,0.10),transparent_60%),radial-gradient(900px_500px_at_90%_20%,rgba(16,185,129,0.10),transparent_55%),radial-gradient(900px_600px_at_50%_120%,rgba(245,158,11,0.06),transparent_60%)]" />
+      {/* Breadcrumb Header */}
+      <div className="flex items-center gap-2 px-6 py-2 text-xs font-medium text-slate-500 bg-[#0B0B0B] border-b border-white/10 sticky top-0 z-50">
+        <Link to="/owner" className="hover:text-amber-500 transition-colors">Owner Console</Link>
+        <span className="text-slate-600">/</span>
+        <span className="text-slate-200">Dashboard</span>
       </div>
+
+      {/* Solid Slate Background - No Gradients */}
+
 
       <div className="relative mx-auto max-w-[1400px] px-4 py-4 lg:px-6 lg:py-6">
         <DashboardTopBar
@@ -825,22 +840,25 @@ export default function OwnerDashboard() {
           <section className="min-w-0 space-y-4">
             {/* KPI strip (matches screenshot row) */}
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-              <KpiTile label="Rooms" value={total ? `${total}` : "—"} sub="Total rooms" />
+              <KpiTile label="Rooms" value={total ? `${total}` : "—"} sub="Total rooms" icon={BedDouble} />
               <KpiTile
                 label="Active tasks"
                 value={`${ordersTotal}`}
                 sub="Open requests"
+                icon={Clock}
               />
               <KpiTile
                 label="At risk tasks"
                 value={`${ordersOverdue}`}
                 sub={`Over ${targetMin} min`}
                 accent="amber"
+                icon={AlertTriangle}
               />
               <KpiTile
                 label="Avg response"
                 value={avgResponseMin == null ? "—" : `${avgResponseMin}m`}
                 sub="From SLA metrics"
+                icon={LayoutDashboard}
               />
               <KpiTile
                 label="Guest satisfaction"
@@ -853,6 +871,7 @@ export default function OwnerDashboard() {
                       : "Not available"
                 }
                 accent={guestTone === "green" ? "emerald" : guestTone === "amber" ? "amber" : guestTone === "red" ? "rose" : undefined}
+                icon={MessageSquare}
               />
             </div>
 
@@ -930,7 +949,7 @@ export default function OwnerDashboard() {
                   {/* We reuse your existing chart component (no fake data). */}
                   {hasSeries((metrics as any)?.taskVolume) ? (
                     <TaskVolumeChart
-                      // @ts-expect-error - chart expects its own type; we pass what dashboardApi returns
+
                       data={(metrics as any)?.taskVolume || []}
                       loading={!metrics}
                     />
@@ -1075,7 +1094,7 @@ export default function OwnerDashboard() {
                 <div className="mt-3">
                   {hasSeries(slaSeries) ? (
                     <SlaPerformanceChart
-                      // @ts-expect-error chart expects its own shape
+
                       data={slaSeries || []}
                       loading={!metrics}
                     />
@@ -1280,10 +1299,15 @@ function SidebarNav({ slug }: { slug: string }) {
   return (
     <nav aria-label="Owner dashboard navigation" className="space-y-1 text-sm">
       <NavItem href="#top" label="Overview" active />
-      <NavItem to={opsHref} label="Operations" />
-      <NavItem to={opsAnalyticsHref} label="Task trend" />
-      <NavItem to={servicesHref} label="Departments / SLAs" />
-      {HAS_STAFF_SHIFTS && <NavItem to={`/owner/${slug}/staff-shifts`} label="Staff & Shifts" />}
+      <NavItem to={`/owner/${slug}/analytics`} label="Owner Analytics" />
+      <NavItem to={`/owner/${slug}/payments`} label="Payments & Ledger" />
+      <NavItem to={opsAnalyticsHref} label="Ops Manager Dashboard" />
+      <NavItem to={servicesHref} label="Departments/Services & SLAs" />
+      <NavItem to={`/owner/${slug}/staff-shifts`} label="Staff & Shifts" />
+      <NavItem to={opsHref} label="Supervisor Board" />
+      <NavItem to="/staff" label="Staff App (Services)" />
+      <NavItem to="/kitchen" label="Kitchen View" />
+      <NavItem to={`/owner/${slug}/import-bookings`} label="Import Bookings" />
       <NavItem to={settingsHref} label="Settings" />
       {HAS_CALENDAR && <NavItem to="../bookings/calendar" label="Calendar" />}
     </nav>
@@ -1304,14 +1328,14 @@ function NavItem({
   const base =
     "flex items-center justify-between rounded-xl px-3 py-2 text-[13px] transition-colors";
   const cls = active
-    ? `${base} bg-white/10 text-slate-50`
-    : `${base} text-slate-300 hover:bg-white/10 hover:text-slate-50`;
+    ? `${base} bg-slate-800 text-emerald-400 font-medium border border-slate-700`
+    : `${base} text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 border border-transparent`;
 
   if (href) {
     return (
       <a href={href} className={cls}>
         <span>{label}</span>
-        <span className="text-slate-500">→</span>
+        <span className="text-slate-600 group-hover:text-slate-400 transition-colors">→</span>
       </a>
     );
   }
@@ -1319,14 +1343,16 @@ function NavItem({
   if (to) {
     return (
       <Link to={to} className={cls}>
-        <span>{label}</span>
-        <span className="text-slate-500">→</span>
+        <span className={active ? "ml-0" : ""}>{label}</span>
+        {active && <span className="text-emerald-500">→</span>}
       </Link>
     );
   }
 
   return null;
 }
+
+// --- Components ---
 
 function DarkCard({
   className = "",
@@ -1337,7 +1363,7 @@ function DarkCard({
 }) {
   return (
     <div
-      className={`rounded-2xl border border-white/10 bg-[#0B1220]/70 shadow-[0_18px_60px_rgba(0,0,0,0.35)] backdrop-blur-md ${className}`}
+      className={`rounded-xl border border-slate-700 bg-[#1e293b] shadow-sm ${className}`}
     >
       {children}
     </div>
@@ -1354,9 +1380,9 @@ function CardHeader({
   right?: ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-3">
+    <div className="flex items-start justify-between gap-3 mb-2">
       <div className="min-w-0">
-        <div className="text-sm font-semibold text-slate-100">{title}</div>
+        <div className="text-sm font-semibold text-slate-200 uppercase tracking-wide">{title}</div>
         {subtitle ? (
           <div className="mt-0.5 text-[11px] text-slate-400">{subtitle}</div>
         ) : null}
@@ -1371,31 +1397,27 @@ function KpiTile({
   value,
   sub,
   accent,
+  icon: Icon
 }: {
   label: string;
   value: string;
   sub?: string;
   accent?: "amber" | "emerald" | "rose";
+  icon?: any;
 }) {
-  const accentCls =
-    accent === "amber"
-      ? "from-amber-500/18"
-      : accent === "emerald"
-        ? "from-emerald-500/18"
-        : accent === "rose"
-          ? "from-rose-500/18"
-          : "from-white/8";
-
   return (
-    <DarkCard className={`p-3 bg-gradient-to-b ${accentCls} to-transparent`}>
-      <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-        {label}
+    <div className="bg-[#1e293b] p-5 rounded-xl border border-slate-700 shadow-sm flex flex-col justify-between h-full hover:border-slate-600 transition-colors">
+      <div className="flex justify-between items-start mb-2">
+        <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{label}</h3>
+        {Icon && <Icon size={16} className="text-slate-500" />}
       </div>
-      <div className="mt-1 text-2xl font-semibold tracking-tight text-slate-100">
-        {value}
+
+      <div className="flex items-baseline gap-2 mt-auto">
+        <span className="text-3xl font-bold text-white tracking-tight">{value}</span>
       </div>
-      {sub ? <div className="mt-0.5 text-[11px] text-slate-400">{sub}</div> : null}
-    </DarkCard>
+
+      {sub && <div className="mt-2 text-[11px] font-medium text-slate-500">{sub}</div>}
+    </div>
   );
 }
 
@@ -1409,11 +1431,11 @@ function MiniStat({
   tone: "green" | "amber" | "red" | "grey";
 }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
-      <div className="text-[11px] text-slate-400">{label}</div>
-      <div className="mt-0.5 flex items-center justify-between">
-        <div className="text-sm font-semibold text-slate-100">{value}</div>
-        <span className={`h-2.5 w-2.5 rounded-full ${dotTone(tone)}`} />
+    <div className="rounded-lg border border-slate-700 bg-[#0f172a] px-3 py-2">
+      <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">{label}</div>
+      <div className="flex items-center justify-between">
+        <div className="text-sm font-bold text-slate-200">{value}</div>
+        <div className={`h-2 w-2 rounded-full ${dotTone(tone)}`} />
       </div>
     </div>
   );

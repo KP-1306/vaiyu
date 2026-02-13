@@ -37,7 +37,7 @@ export default function OwnerStaffShifts() {
                         Dashboard
                     </Link>
                     <span className="text-slate-300">›</span>
-                    <span className="font-semibold text-slate-900">Staff Roster</span>
+                    <span className="font-semibold text-slate-900">Staff & Shifts</span>
                 </div>
             </header>
 

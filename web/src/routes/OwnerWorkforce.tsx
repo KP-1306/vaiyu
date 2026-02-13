@@ -12,7 +12,7 @@ import {
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Spinner from "../components/Spinner";
-import BackHome from "../components/BackHome";
+
 import OwnerGate from "../components/OwnerGate";
 import SEO from "../components/SEO";
 
@@ -516,7 +516,7 @@ export default function OwnerWorkforce() {
         <SEO title="Local workforce" noIndex />
         <OwnerGate>
           <main className="max-w-3xl mx-auto p-6 bg-slate-50">
-            <BackHome />
+
             <div className="mt-4 rounded-2xl border bg-white p-6 shadow-sm">
               <div className="mb-2 text-lg font-semibold">
                 Workforce not available
@@ -543,7 +543,12 @@ export default function OwnerWorkforce() {
       <OwnerGate>
         <main className="min-h-screen bg-slate-50">
           <div className="mx-auto max-w-7xl space-y-5 px-4 py-4 lg:px-6 lg:py-6">
-            <BackHome />
+            {/* Breadcrumb */}
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-500 mb-2">
+              <Link to={hotel && hotel.slug ? `/owner/${hotel.slug}` : '/owner'} className="hover:text-emerald-700 transition">Dashboard</Link>
+              <span className="text-slate-300">/</span>
+              <span className="text-slate-700">Workforce</span>
+            </div>
 
             {/* Top header */}
             <header className="flex flex-col gap-3 rounded-3xl border border-slate-100 bg-white/90 px-4 py-4 shadow-sm shadow-slate-200/60 lg:flex-row lg:items-center lg:justify-between">
@@ -657,11 +662,11 @@ export default function OwnerWorkforce() {
                             const status = (job.status || "open").toLowerCase();
                             const tone =
                               status.includes("closed") ||
-                              status.includes("filled")
+                                status.includes("filled")
                                 ? ("grey" as const)
                                 : status.includes("paused")
-                                ? ("amber" as const)
-                                : ("green" as const);
+                                  ? ("amber" as const)
+                                  : ("green" as const);
                             const applicantsCount =
                               job.applicants_count ??
                               applicantsCountFallback(job.id, applicants);
@@ -669,9 +674,8 @@ export default function OwnerWorkforce() {
                             return (
                               <tr
                                 key={job.id}
-                                className={`cursor-pointer border-t text-[11px] transition-colors hover:bg-slate-50 ${
-                                  isSelected ? "bg-sky-50/60" : ""
-                                }`}
+                                className={`cursor-pointer border-t text-[11px] transition-colors hover:bg-slate-50 ${isSelected ? "bg-sky-50/60" : ""
+                                  }`}
                                 onClick={() => {
                                   setSelectedJobId(job.id);
                                   setMode("view");
@@ -1067,8 +1071,8 @@ function RoleForm({
           {isSaving
             ? "Saving…"
             : mode === "create"
-            ? "Create role"
-            : "Save changes"}
+              ? "Create role"
+              : "Save changes"}
         </button>
       </div>
     </form>
@@ -1095,8 +1099,8 @@ function RoleDetail({
     status.includes("closed") || status.includes("filled")
       ? ("grey" as const)
       : status.includes("paused")
-      ? ("amber" as const)
-      : ("green" as const);
+        ? ("amber" as const)
+        : ("green" as const);
 
   return (
     <div className="space-y-3 text-xs text-slate-700">
@@ -1126,8 +1130,8 @@ function RoleDetail({
               job.priority === "urgent"
                 ? "red"
                 : job.priority === "high"
-                ? "amber"
-                : "grey"
+                  ? "amber"
+                  : "grey"
             }
           />
         )}
@@ -1198,10 +1202,10 @@ function ApplicantRow({
     stage === "hired"
       ? "green"
       : stage === "shortlisted"
-      ? "amber"
-      : stage === "rejected"
-      ? "red"
-      : "grey";
+        ? "amber"
+        : stage === "rejected"
+          ? "red"
+          : "grey";
 
   return (
     <div className="flex items-start justify-between gap-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-[11px]">

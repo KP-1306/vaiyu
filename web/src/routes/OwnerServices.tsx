@@ -830,7 +830,7 @@ export default function OwnerServices() {
                 Dashboard
               </Link>
               <span className="text-slate-600">›</span>
-              <span className="font-semibold text-white">Services & SLAs</span>
+              <span className="font-semibold text-white">Departments/Services & SLAs</span>
             </div>
           </header>
 

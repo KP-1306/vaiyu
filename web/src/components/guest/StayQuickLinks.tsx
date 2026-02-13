@@ -142,7 +142,12 @@ export default function StayQuickLinks({
 
   function handleBill() {
     if (onOpenBill) return onOpenBill();
-    safeNavigate("/bills");
+    // User requested direct link to /stay/:code/orders for bills
+    if (cleanStayCode) {
+      safeNavigate(`/stay/${cleanStayCode}/orders`);
+    } else {
+      safeNavigate("/bills");
+    }
   }
 
   function handleCheckout() {
@@ -172,64 +177,52 @@ export default function StayQuickLinks({
     <section
       id="stay-quick-links"
       className={
-        "rounded-2xl border bg-white/95 shadow-sm p-4 space-y-3 " +
+        "space-y-4 " +
         (className || "")
       }
     >
-      <header>
-        <h2 className="text-lg font-semibold">What would you like to do?</h2>
-        <p className="text-xs text-gray-600 mt-1">
-          All key actions for this stay in one place. Tap a tile to continue.
-        </p>
-      </header>
-
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pt-1">
-        <Tile
-          icon="🧹"
-          title="Room services"
-          subtitle="Housekeeping, amenities, laundry"
-          onClick={handleRoomServices}
-        />
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <Tile
           icon="🍽️"
-          title="Food & beverages"
-          subtitle="Order from the hotel menu"
-          onClick={handleFood}
+          title="Order & Services"
+          subtitle="Food, amenities, laundry & more"
+          onClick={handleFood} // Using handleFood which routes to /menu, serving both purposes
         />
         <Tile
           icon="💬"
-          title="Chat with front desk"
+          title="Front Desk"
           subtitle={
             openWhatsAppUrl
-              ? "In-app or via WhatsApp"
-              : "Ask anything about your stay"
+              ? "Chat on WhatsApp"
+              : "Ask us anything"
           }
           onClick={handleChat}
         />
         <Tile
           icon="📄"
           title="My bill"
-          subtitle="Review charges for this stay"
+          subtitle="Review your charges"
           onClick={handleBill}
         />
         <Tile
           icon="🚪"
           title="Checkout"
-          subtitle="Plan your checkout time"
+          subtitle="Plan your departure"
           onClick={handleCheckout}
         />
         <Tile
           icon="🎁"
-          title="Rewards & offers"
-          subtitle="Use credits or vouchers"
+          title="Rewards"
+          subtitle="Credits & vouchers"
           onClick={handleRewards}
         />
         <Tile
           icon="📋"
           title="My requests"
-          subtitle="Track your service requests"
+          subtitle="Track service status"
           onClick={() => safeNavigate(`/stay/${cleanStayCode}/requests`)}
         />
+        {/* Placeholder for layout balance if needed, or we can just leave it as grid fills naturally */}
       </div>
     </section>
   );
@@ -247,17 +240,20 @@ function Tile({ icon, title, subtitle, onClick }: TileProps) {
     <button
       type="button"
       onClick={onClick}
-      className="group flex flex-col items-start justify-between rounded-2xl border bg-slate-50/80 hover:bg-sky-50 hover:border-sky-200 transition-colors px-3 py-3 text-left h-full"
+      className="group relative flex flex-col items-start justify-between rounded-xl border border-slate-800 bg-[#1e293b] p-4 text-left transition-all duration-200 hover:border-slate-600 hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.98] h-full"
     >
-      <div className="flex items-center gap-2">
-        <span className="text-xl leading-none">{icon}</span>
-        <span className="font-semibold text-sm">{title}</span>
+      {/* Hover Highlight */}
+      <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+
+      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-slate-900/50 text-2xl shadow-inner border border-slate-700/50">
+        {icon}
       </div>
-      <div className="mt-1 text-[11px] text-gray-600 group-hover:text-gray-700">
-        {subtitle}
-      </div>
-      <div className="mt-2 text-[10px] text-sky-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-        Tap to continue →
+
+      <div>
+        <div className="font-semibold text-slate-100 group-hover:text-white transition-colors">{title}</div>
+        <div className="mt-1 text-[11px] font-medium text-slate-500 group-hover:text-slate-400 transition-colors leading-tight">
+          {subtitle}
+        </div>
       </div>
     </button>
   );

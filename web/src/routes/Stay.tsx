@@ -115,35 +115,35 @@ function StayDetails({ id }: { id: string }) {
   }, [id]);
 
   return (
-    <main className="max-w-3xl mx-auto p-6">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold">Stay details</h1>
-        <Link to="/stays" className="btn btn-light">
+    <main className="max-w-3xl mx-auto p-6 min-h-screen bg-slate-950 text-slate-200">
+      <div className="flex items-center justify-between gap-2 mb-6">
+        <h1 className="text-2xl font-bold text-white">Stay details</h1>
+        <Link to="/stays" className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">
           Back to all stays
         </Link>
       </div>
 
       {/* Loading skeleton */}
       {loading && (
-        <section className="mt-6 rounded-2xl border bg-white/90 shadow-sm p-6">
-          <div className="h-4 w-56 bg-gray-200 rounded mb-3" />
-          <div className="h-24 w-full bg-gray-100 rounded" />
+        <section className="rounded-2xl border border-slate-800 bg-[#1e293b] p-6 shadow-sm">
+          <div className="h-4 w-56 bg-slate-700/50 rounded mb-3 animate-pulse" />
+          <div className="h-24 w-full bg-slate-800/50 rounded animate-pulse" />
         </section>
       )}
 
       {/* Not found / error state */}
       {!loading && (error || !stay) && (
-        <section className="mt-6 rounded-2xl border bg-white/90 shadow-sm p-6">
-          <p className="text-sm text-gray-700">
+        <section className="rounded-2xl border border-slate-800 bg-[#1e293b] p-6 shadow-sm">
+          <p className="text-sm text-slate-400">
             {error || "We couldn’t find that stay."} If you haven’t stayed with a
             partner hotel yet, you’ll see your trips here once they’re
             available.
           </p>
           <div className="mt-4 flex gap-2">
-            <Link to="/stays" className="btn">
+            <Link to="/stays" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 transition-colors">
               Browse all stays
             </Link>
-            <Link to="/guest" className="btn btn-light">
+            <Link to="/guest" className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">
               Back to dashboard
             </Link>
           </div>
@@ -152,43 +152,44 @@ function StayDetails({ id }: { id: string }) {
 
       {/* Happy path */}
       {!loading && stay && (
-        <section className="mt-6 rounded-2xl border bg-white/90 shadow-sm overflow-hidden">
+        <section className="rounded-2xl border border-slate-800 bg-[#1e293b] shadow-sm overflow-hidden">
           <div className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold">
+                <h2 className="text-lg font-bold text-white">
                   {stay.hotel_name ?? "Partner hotel"}
                 </h2>
-                <p className="text-sm text-gray-500">{stay.city ?? ""}</p>
+                <p className="text-sm text-slate-500">{stay.city ?? ""}</p>
               </div>
             </div>
 
             <div className="mt-4 grid gap-2 text-sm">
               <div>
-                <span className="text-gray-500">Dates:</span>{" "}
-                {dates?.ci || dates?.co
-                  ? `${dates?.ci ? dates.ci.toLocaleDateString() : "—"} → ${
-                      dates?.co ? dates.co.toLocaleDateString() : "—"
+                <span className="text-slate-500">Dates:</span>{" "}
+                <span className="text-slate-300">
+                  {dates?.ci || dates?.co
+                    ? `${dates?.ci ? dates.ci.toLocaleDateString() : "—"} → ${dates?.co ? dates.co.toLocaleDateString() : "—"
                     }`
-                  : "Coming soon"}
+                    : "Coming soon"}
+                </span>
               </div>
               <div>
-                <span className="text-gray-500">Credits:</span>{" "}
-                ₹{(((stay.earned_paise ?? 0) as number) / 100).toFixed(2)}
+                <span className="text-slate-500">Credits:</span>{" "}
+                <span className="text-emerald-400 font-medium">₹{(((stay.earned_paise ?? 0) as number) / 100).toFixed(2)}</span>
               </div>
               {stay.review_status && (
                 <div>
-                  <span className="text-gray-500">Review:</span>{" "}
-                  {stay.review_status}
+                  <span className="text-slate-500">Review:</span>{" "}
+                  <span className="text-slate-300">{stay.review_status}</span>
                 </div>
               )}
             </div>
 
-            <div className="mt-6">
-              <Link to="/stays" className="btn">
+            <div className="mt-6 flex flex-wrap gap-2">
+              <Link to="/stays" className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">
                 Back to all stays
               </Link>
-              <Link to="/guest" className="btn btn-light ml-2">
+              <Link to="/guest" className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors">
                 Back to dashboard
               </Link>
             </div>
@@ -205,29 +206,62 @@ function StayDetails({ id }: { id: string }) {
  * AND from Guest Dashboard when it links by stay code.
  */
 function QrStayHome({ code }: { code: string }) {
+  // Normalize code (uppercase to match DB)
+  const normalizedCode = code.toUpperCase();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Support multiple param names for robustness
-  const rawHotelId =
-    searchParams.get("hotelId") ||
-    searchParams.get("hotel_id") ||
-    searchParams.get("propertyId") ||
-    "";
+  // Extract special params as before
+  const hotelSlug = searchParams.get("hotel") || searchParams.get("hotelSlug") || searchParams.get("property") || searchParams.get("propertySlug");
+  const hotelId = searchParams.get("hotelId") || searchParams.get("propertyId");
 
-  const rawSlug =
-    searchParams.get("hotel") ||
-    searchParams.get("hotelSlug") ||
-    searchParams.get("property") ||
-    searchParams.get("propertySlug") ||
-    searchParams.get("slug") ||
-    "";
-
+  // Restore variables needed for downstream effects (fixes "rawHotelId undefined" error)
+  const rawHotelId = hotelId || "";
+  const rawSlug = hotelSlug || "";
   const hasHotelSlugParam = !!rawSlug;
   const hasHotelIdParam = !!rawHotelId;
 
+  // Optimistic label if we have slug
   const hotelLabel = hasHotelSlugParam
     ? rawSlug.replace(/[-_]+/g, " ")
+      .replace(/\b\w/g, c => c.toUpperCase()) // Capitalize Words
     : "your VAiyu stay";
+
+  // We need to resolve the `stayId` (UUID) to enable real-time chat.
+  // The code is just a string (booking code), multiple stays might share it (technically) 
+  // but usually it's unique enough or we find the active one.
+  const [stayUUID, setStayUUID] = useState<string>("");
+  const [fetchedHotelName, setFetchedHotelName] = useState<string>("");
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      // Try to find the stay by booking code
+      // We'll limit to active/future stays or just sort by checks_in_at desc
+      const { data, error } = await supabase
+        .from("stays")
+        .select("id, hotel:hotels(label)")
+        .ilike("booking_code", normalizedCode)
+        .order("check_in_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (alive && data) {
+        console.log("[Stay] Resolved stayUUID:", data.id);
+        setStayUUID(data.id);
+        if (data.hotel && typeof data.hotel !== 'string' && !Array.isArray(data.hotel)) {
+          // @ts-ignore
+          setFetchedHotelName(data.hotel.label);
+        }
+      } else {
+        console.warn("[Stay] could not find stay by code:", normalizedCode);
+      }
+    })();
+    return () => { alive = false; };
+  }, [normalizedCode]);
+
+  // Use the name from params if available (faster), or fallback to DB fetch
+  const displayHotelName = fetchedHotelName || "your VAiyu stay";
+
 
   /**
    * Normalize the current /stay/:code URL so downstream tiles
@@ -298,74 +332,71 @@ function QrStayHome({ code }: { code: string }) {
   const whatsAppUrl =
     typeof window !== "undefined"
       ? (() => {
-          const basePath = `/stay/${encodeURIComponent(code)}${
-            canonicalQuery.toString() ? `?${canonicalQuery.toString()}` : ""
+        const basePath = `/stay/${encodeURIComponent(code)}${canonicalQuery.toString() ? `?${canonicalQuery.toString()}` : ""
           }`;
-          const fullUrl = `${window.location.origin || ""}${basePath}`;
-          const textLines = [
-            `Hi, this is my VAiyu stay link for ${hotelLabel}.`,
-            "",
-            fullUrl,
-          ];
-          const text = encodeURIComponent(textLines.join("\n"));
-          return `https://wa.me/?text=${text}`;
-        })()
+        const fullUrl = `${window.location.origin || ""}${basePath}`;
+        const textLines = [
+          `Hi, this is my VAiyu stay link for ${hotelLabel}.`,
+          "",
+          fullUrl,
+        ];
+        const text = encodeURIComponent(textLines.join("\n"));
+        return `https://wa.me/?text=${text}`;
+      })()
       : undefined;
 
   return (
-    <main className="max-w-5xl mx-auto p-6">
-      <header className="mb-4 space-y-1">
-        <p className="text-xs uppercase tracking-wide text-gray-500">
-          Your stay link
-        </p>
-        <h1 className="text-2xl font-semibold">
-          Your stay at{" "}
-          <span className="text-teal-700 font-semibold">{hotelLabel}</span>
-        </h1>
-        <p className="text-sm text-gray-600">
-          From this one page you can reach room services, food &amp; beverages,
-          chat, your bill, checkout and rewards for this stay.
-        </p>
-        <p className="text-xs text-gray-500">
-          Stay code:{" "}
-          <code className="rounded bg-gray-100 px-1 py-0.5">{code}</code>
-        </p>
-      </header>
+    <main className="min-h-screen bg-slate-950 px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-5xl">
+        <header className="mb-6 space-y-1">
+          {/* Breadcrumbs */}
+          <nav className="flex items-center gap-2 text-sm text-slate-500 mb-4">
+            <Link to="/guest" className="hover:text-slate-300 transition-colors">Home</Link>
+            <span className="text-slate-700">/</span>
+            <span className="text-slate-300 font-medium">Stay</span>
+          </nav>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)] items-start">
-        <div className="space-y-3">
-          <StayQuickLinks
-            stayCode={code}
-            hotelSlug={hasHotelSlugParam ? rawSlug : undefined}
-            hotelId={hasHotelIdParam ? rawHotelId : undefined}
-            openWhatsAppUrl={whatsAppUrl}
-          />
+          <div className="flex items-center justify-between">
+            <div className="rounded-full bg-slate-900/50 px-2.5 py-1 text-[10px] font-medium text-slate-500 border border-slate-800">
+              Code: <span className="text-slate-300 font-mono text-xs">{code}</span>
+            </div>
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+            Your stay at{" "}
+            <span className="text-emerald-400">{hotelLabel}</span>
+          </h1>
+          <p className="max-w-2xl text-sm text-slate-400">
+            Welcome. Tap a tile below to access services, order food, or contact the front desk.
+          </p>
+        </header>
 
-          <section className="rounded-xl bg-gray-50 p-3 text-xs text-gray-600">
-            <p>
-              Tip: you can bookmark this page or save it inside a WhatsApp chat
-              — the same link will keep working for this stay.
-            </p>
-            <p className="mt-1 text-[10px] text-gray-400">
-              URL:{" "}
-              <code>
-                /stay/{code}
-                {canonicalQuery.toString()
-                  ? `?${canonicalQuery.toString()}`
-                  : ""}
-              </code>
-            </p>
-          </section>
-        </div>
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)] items-start">
+          <div className="space-y-6">
+            <StayQuickLinks
+              stayCode={code}
+              hotelSlug={hasHotelSlugParam ? rawSlug : undefined}
+              hotelId={hasHotelIdParam ? rawHotelId : undefined}
+              openWhatsAppUrl={whatsAppUrl}
+            />
 
-        <div className="space-y-3">
-          <ChatPanel
-            stayCode={code}
-            hotelName={hotelLabel}
-            messages={[]}
-            openWhatsAppUrl={whatsAppUrl}
-          />
-          <StayWalletPanel hotelName={hotelLabel} />
+            <section className="rounded-xl border border-dashed border-slate-700 bg-slate-900/30 p-4 text-xs text-slate-500">
+              <p>
+                <span className="font-semibold text-slate-400">Tip:</span> Bookmark this page or keep the link in WhatsApp
+                — it's your personal key for this stay.
+              </p>
+            </section>
+          </div>
+
+          <div className="space-y-6">
+            <ChatPanel
+              stayId={stayUUID}
+              stayCode={normalizedCode}
+              hotelName={displayHotelName}
+              messages={[]}
+              openWhatsAppUrl={whatsAppUrl}
+            />
+            <StayWalletPanel hotelName={hotelLabel} />
+          </div>
         </div>
       </div>
     </main>

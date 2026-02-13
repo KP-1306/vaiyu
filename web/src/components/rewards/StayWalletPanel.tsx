@@ -31,20 +31,20 @@ export default function StayWalletPanel({
     <section
       id="stay-wallet"
       className={
-        "rounded-2xl border bg-white/90 shadow-sm p-4 space-y-3 " +
+        "rounded-2xl border border-slate-800 bg-[#1e293b] shadow-sm p-4 space-y-3 " +
         (className || "")
       }
     >
       <header className="flex items-center justify-between gap-2">
         <div>
-          <h2 className="text-lg font-semibold">Rewards &amp; offers</h2>
-          <p className="text-xs text-gray-600 mt-1">
+          <h2 className="text-lg font-semibold text-white">Rewards &amp; offers</h2>
+          <p className="text-xs text-slate-400 mt-1">
             Track and redeem credits for this property while you&apos;re in-house.
           </p>
         </div>
       </header>
 
-      <div className="border-t pt-3">
+      <div className="border-t border-slate-700/50 pt-3">
         <RewardsWallet
           context="stay"
           hotelId={hotelId}

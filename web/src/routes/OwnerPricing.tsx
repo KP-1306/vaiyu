@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-import BackHome from "../components/BackHome";
+
 
 type Hotel = {
   id: string;
@@ -77,7 +77,6 @@ export default function OwnerPricing() {
   if (errorText) {
     return (
       <main className="max-w-3xl mx-auto p-6">
-        <BackHome />
         <div className="mt-4 rounded-xl border bg-rose-50 px-6 py-4 text-rose-900">
           <div className="font-semibold mb-1">Can’t open pricing</div>
           <p className="text-sm">{errorText}</p>
@@ -98,7 +97,11 @@ export default function OwnerPricing() {
 
   return (
     <main className="max-w-6xl mx-auto p-6">
-      <BackHome />
+      <div className="flex items-center gap-2 text-xs font-medium text-slate-500 mb-2">
+        <Link to={slug ? `/owner/${slug}` : '/owner'} className="hover:text-amber-600 transition">Dashboard</Link>
+        <span className="text-slate-300">/</span>
+        <span className="text-slate-700">Pricing</span>
+      </div>
 
       <header className="mb-4 flex items-center justify-between gap-3">
         <div>

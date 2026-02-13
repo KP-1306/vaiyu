@@ -8,8 +8,9 @@ DO $$ BEGIN
   CREATE TYPE stay_status AS ENUM (
     'arriving',
     'inhouse',
-    'departed',
+    'reserved',
     'cancelled',
+    'checked_out',
     'no_show'
   );
 EXCEPTION
@@ -28,8 +29,10 @@ CREATE TABLE IF NOT EXISTS stays (
   source TEXT NOT NULL DEFAULT 'walk_in' CHECK (source IN ('walk_in', 'pms_sync', 'manual')),
   status stay_status NOT NULL DEFAULT 'arriving',
   
-  check_in_start TIMESTAMPTZ NOT NULL DEFAULT now(),
-  check_out_end TIMESTAMPTZ,
+  scheduled_checkin_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  scheduled_checkout_at TIMESTAMPTZ,
+  actual_checkin_at TIMESTAMPTZ,
+  actual_checkout_at TIMESTAMPTZ,
   
   booking_code TEXT,
   
@@ -47,7 +50,7 @@ CREATE TABLE IF NOT EXISTS stays (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
   CONSTRAINT stay_checkout_after_checkin CHECK (
-    check_out_end IS NULL OR check_out_end > check_in_start
+    scheduled_checkout_at IS NULL OR scheduled_checkout_at > scheduled_checkin_at
   )
 );
 
@@ -58,9 +61,10 @@ ON stays (booking_code) WHERE booking_code IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS stays_unique_open 
 ON stays (guest_id, hotel_id) WHERE status IN ('arriving', 'inhouse');
 
-CREATE INDEX IF NOT EXISTS stays_lookup_idx ON stays (guest_id, hotel_id, status, check_in_start);
+CREATE INDEX IF NOT EXISTS stays_guest_active_idx ON stays (guest_id, status, scheduled_checkin_at);
+CREATE INDEX IF NOT EXISTS stays_hotel_status_idx ON stays (hotel_id, status, scheduled_checkin_at);
 CREATE INDEX IF NOT EXISTS stays_guest_id_idx ON stays (guest_id);
-CREATE INDEX IF NOT EXISTS stays_check_in_start_idx ON stays (check_in_start);
+CREATE INDEX IF NOT EXISTS stays_checkin_partition_idx ON stays (scheduled_checkin_at);
 CREATE INDEX IF NOT EXISTS stays_room_id_idx ON stays (room_id);
 
 -- Triggers (Standard)

@@ -1,0 +1,387 @@
+/* ──────────────────────────────────────────────
+   Step 2: Identity Verification — Styles
+   ────────────────────────────────────────────── */
+
+/* ── Page Layout ── */
+.step2-page {
+    min-height: 100vh;
+    background-color: #0d0b08;
+    padding: 1.25rem 1.25rem;
+    position: relative;
+    overflow: hidden;
+    font-family: system-ui, -apple-system, sans-serif;
+    display: flex;
+    flex-direction: column;
+}
+
+.step2-page-glow {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    translate: -50% 0;
+    width: 120%;
+    height: 350px;
+    background: radial-gradient(ellipse, rgba(212, 175, 55, 0.04), transparent);
+    filter: blur(80px);
+    border-radius: 9999px;
+    pointer-events: none;
+}
+
+.step2-container {
+    max-width: 28rem;
+    margin: 0 auto;
+    width: 100%;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    z-index: 10;
+    gap: 1rem;
+}
+
+/* ── Step Header ── */
+.step2-header-text {
+    text-align: center;
+    color: #d4af37;
+    font-size: 0.875rem;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    font-style: italic;
+}
+
+/* ── Progress Bar ── */
+.step2-progress-track {
+    width: 100%;
+    height: 6px;
+    background-color: #1c1a16;
+    border-radius: 9999px;
+    overflow: hidden;
+}
+
+.step2-progress-fill {
+    height: 100%;
+    width: 66.66%;
+    background: linear-gradient(to right, #d4af37, #c5a028);
+    border-radius: 9999px;
+}
+
+/* ── Title Row with Shield ── */
+.step2-title-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding-top: 0.25rem;
+}
+
+.step2-shield-wrapper {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.step2-shield-glow {
+    position: absolute;
+    inset: -12px;
+    background: radial-gradient(circle, rgba(212, 175, 55, 0.35), transparent 65%);
+    border-radius: 9999px;
+    pointer-events: none;
+}
+
+.step2-shield-box {
+    position: relative;
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 0.75rem;
+    background-color: rgba(212, 175, 55, 0.1);
+    border: 1px solid rgba(212, 175, 55, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 15px rgba(212, 175, 55, 0.15);
+}
+
+.step2-shield-box svg {
+    width: 2.5rem;
+    height: 2.5rem;
+    color: #d4af37;
+}
+
+.step2-title {
+    color: #ffffff;
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+/* ── Dropdown Select ── */
+.step2-select-wrapper {
+    position: relative;
+}
+
+.step2-select {
+    width: 100%;
+    background-color: #141210;
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    border-radius: 0.75rem;
+    padding: 0.875rem 1rem;
+    padding-right: 2.5rem;
+    color: #ffffff;
+    font-size: 0.875rem;
+    outline: none;
+    appearance: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.step2-select:focus {
+    border-color: #d4af37;
+    box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.3);
+}
+
+.step2-select-arrow {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    translate: 0 -50%;
+    width: 1rem;
+    height: 1rem;
+    color: #d4af37;
+    pointer-events: none;
+}
+
+/* ── ID Number Input ── */
+.step2-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.step2-input-label {
+    color: #d4af37;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    padding-left: 0.125rem;
+}
+
+.step2-input {
+    width: 100%;
+    background-color: transparent;
+    border: none;
+    border-bottom: 1px solid #2c2820;
+    padding: 0.625rem 0.25rem;
+    color: #ffffff;
+    font-size: 1rem;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    letter-spacing: 0.15em;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.step2-input::placeholder {
+    color: #4a4030;
+}
+
+.step2-input:focus {
+    border-bottom-color: #d4af37;
+}
+
+/* ── Capture Buttons ── */
+.step2-capture-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding-top: 0.25rem;
+}
+
+.step2-capture-btn {
+    width: 100%;
+    border-radius: 1rem;
+    border: 2px dashed rgba(139, 118, 48, 0.55);
+    background-color: #1e1a12;
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+}
+
+.step2-capture-btn:hover {
+    background-color: #231e14;
+    border-color: rgba(212, 175, 55, 0.55);
+    box-shadow: 0 0 15px rgba(212, 175, 55, 0.06);
+}
+
+.step2-capture-btn.captured {
+    border-style: solid;
+    border-color: rgba(212, 175, 55, 0.55);
+    background-color: #231e14;
+    box-shadow: 0 0 20px rgba(212, 175, 55, 0.08);
+}
+
+/* ── Icon Box inside Capture Button ── */
+.step2-icon-box {
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 0.75rem;
+    border: 2px solid rgba(139, 118, 48, 0.65);
+    background-color: #14110a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-shadow: 0 0 12px rgba(212, 175, 55, 0.08);
+}
+
+.step2-capture-btn:hover .step2-icon-box {
+    border-color: rgba(212, 175, 55, 0.55);
+    box-shadow: 0 0 18px rgba(212, 175, 55, 0.12);
+}
+
+.step2-capture-btn.captured .step2-icon-box {
+    border-color: rgba(212, 175, 55, 0.65);
+    box-shadow: 0 0 20px rgba(212, 175, 55, 0.15);
+}
+
+.step2-icon-box svg {
+    width: 2.5rem;
+    height: 2.5rem;
+    color: #d4af37;
+    stroke-width: 1.75;
+    filter: drop-shadow(0 0 4px rgba(212, 175, 55, 0.3));
+}
+
+/* ── Capture Button Text ── */
+.step2-capture-title {
+    color: #d4af37;
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+}
+
+.step2-capture-subtitle {
+    color: #7a756a;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    margin-top: 0.125rem;
+}
+
+.step2-capture-btn.captured .step2-capture-subtitle {
+    color: rgba(212, 175, 55, 0.6);
+}
+
+/* ── Encryption Notice ── */
+.step2-encrypt-notice {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    color: rgba(212, 175, 55, 0.5);
+    font-size: 0.6875rem;
+    font-style: italic;
+    letter-spacing: 0.04em;
+    padding: 0.25rem 0;
+}
+
+.step2-encrypt-notice svg {
+    width: 0.75rem;
+    height: 0.75rem;
+}
+
+/* ── Submit Button ── */
+.step2-submit-btn {
+    width: 100%;
+    padding: 0.875rem 0;
+    border-radius: 0.75rem;
+    border: none;
+    background: linear-gradient(to right, #b8942d, #d4af37, #b8942d);
+    color: #000000;
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: all 0.2s;
+    box-shadow: 0 4px 20px rgba(212, 175, 55, 0.15);
+}
+
+.step2-submit-btn:hover {
+    box-shadow: 0 6px 30px rgba(212, 175, 55, 0.25);
+}
+
+.step2-submit-btn:active {
+    transform: scale(0.99);
+}
+
+.step2-submit-btn:disabled {
+    opacity: 0.4;
+    filter: grayscale(1);
+    box-shadow: none;
+    cursor: not-allowed;
+}
+
+.step2-submit-btn svg {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+/* ── Error Toast ── */
+.step2-error-toast {
+    position: fixed;
+    bottom: 6rem;
+    left: 50%;
+    translate: -50% 0;
+    width: 90%;
+    max-width: 24rem;
+    background-color: #1c1c1e;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: 1rem;
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    z-index: 50;
+    box-shadow: 0 25px 50px -12px rgba(239, 68, 68, 0.1);
+    animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        translate: -50% 20px;
+    }
+
+    to {
+        opacity: 1;
+        translate: -50% 0;
+    }
+}
+
+.step2-error-icon {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 9999px;
+    background-color: rgba(239, 68, 68, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.step2-error-icon svg {
+    width: 1rem;
+    height: 1rem;
+    color: #f87171;
+}
+
+.step2-error-text {
+    color: #f87171;
+    font-size: 0.875rem;
+    font-weight: 500;
+}

@@ -15,7 +15,10 @@ import { dbg, dbgError } from "../lib/debug";
 import {
   Search, ShoppingBag, Plus, Minus, X, Info, Filter, Clock, AlertCircle, ArrowDownRight,
   Leaf, Utensils, Coffee, Sun, Moon, Wine, CupSoda, Percent, Cake, IceCream, Pizza, Sandwich, Soup,
-  Bell, Camera, Wrench, Receipt
+  Bell, Camera, Wrench, Receipt, Check,
+  // Service icons
+  Sparkles, Droplets, Lightbulb, Wifi, Key, Snowflake, Shirt, Trash2, BedDouble, Headphones,
+  type LucideIcon
 } from "lucide-react";
 import { CustomZoneSelect } from "../components/CustomZoneSelect";
 
@@ -36,20 +39,21 @@ function getCategoryIcon(name: string) {
   return Utensils;
 }
 
-function getServiceIcon(key: string) {
+function getServiceIcon(key: string): LucideIcon {
   const k = key.toLowerCase();
-  if (k.includes("clean") || k.includes("housekeeping") || k.includes("maid")) return "✨";
-  if (k.includes("towel") || k.includes("linen") || k.includes("pillow")) return "🌥️";
-  if (k.includes("water") || k.includes("plumb") || k.includes("leak") || k.includes("bath")) return "🚿";
-  if (k.includes("electric") || k.includes("light") || k.includes("power") || k.includes("socket")) return "💡";
-  if (k.includes("wifi") || k.includes("net") || k.includes("tv")) return "📶";
-  if (k.includes("food") || k.includes("dining") || k.includes("plate") || k.includes("cutlery")) return "🍽️";
-  if (k.includes("key") || k.includes("lock") || k.includes("access")) return "🔑";
-  if (k.includes("ac") || k.includes("heat") || k.includes("cool")) return "❄️";
-  if (k.includes("laundry") || k.includes("iron")) return "👕";
-  if (k.includes("maintenance") || k.includes("repair") || k.includes("fix")) return "🔧";
-  if (k.includes("garbage") || k.includes("trash") || k.includes("bin")) return "🗑️";
-  return "🛎️";
+  if (k.includes("clean") || k.includes("housekeeping") || k.includes("maid")) return Sparkles;
+  if (k.includes("towel") || k.includes("linen") || k.includes("pillow") || k.includes("bed")) return BedDouble;
+  if (k.includes("water") || k.includes("plumb") || k.includes("leak") || k.includes("bath")) return Droplets;
+  if (k.includes("electric") || k.includes("light") || k.includes("power") || k.includes("socket")) return Lightbulb;
+  if (k.includes("wifi") || k.includes("net") || k.includes("tv")) return Wifi;
+  if (k.includes("food") || k.includes("dining") || k.includes("plate") || k.includes("cutlery") || k.includes("room_service")) return Utensils;
+  if (k.includes("key") || k.includes("lock") || k.includes("access")) return Key;
+  if (k.includes("ac") || k.includes("heat") || k.includes("cool")) return Snowflake;
+  if (k.includes("laundry") || k.includes("iron")) return Shirt;
+  if (k.includes("maintenance") || k.includes("repair") || k.includes("fix")) return Wrench;
+  if (k.includes("garbage") || k.includes("trash") || k.includes("bin")) return Trash2;
+  if (k.includes("concierge") || k.includes("help") || k.includes("support")) return Headphones;
+  return Bell;
 }
 
 type FoodItem = {
@@ -95,6 +99,57 @@ function pickFirst(...vals: Array<string | null | undefined>) {
   }
   return "";
 }
+
+// --- Premium UX Utilities ---
+const triggerHaptic = () => {
+  try {
+    if ('vibrate' in navigator) navigator.vibrate(10);
+  } catch (e) { /* silent fail */ }
+};
+
+// CSS Keyframes injected once
+const injectAnimationStyles = () => {
+  if (document.getElementById('menu-animations')) return;
+  const style = document.createElement('style');
+  style.id = 'menu-animations';
+  style.textContent = `
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes slideInRight {
+      from { opacity: 0; transform: translateX(20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes cartBounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-4px); }
+    }
+    @keyframes toastSlide {
+      0% { opacity: 0; transform: translateY(10px) scale(0.95); }
+      10% { opacity: 1; transform: translateY(0) scale(1); }
+      90% { opacity: 1; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(-10px) scale(0.95); }
+    }
+    .shimmer-skeleton {
+      background: linear-gradient(90deg, #1c1916 25%, #2a2520 50%, #1c1916 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite ease-in-out;
+    }
+    .stagger-item {
+      opacity: 0;
+      animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .toast-notification {
+      animation: toastSlide 2.5s ease forwards;
+    }
+  `;
+  document.head.appendChild(style);
+};
 
 export default function FoodMenu() {
   const { code: routeCode = "DEMO" } = useParams();
@@ -193,6 +248,21 @@ export default function FoodMenu() {
     [cart],
   );
   const [specialInstructions, setSpecialInstructions] = useState("");
+
+  // --- Toast Notification State ---
+  const [toast, setToast] = useState<{ message: string; key: number } | null>(null);
+
+  // --- Inject Animation Styles on Mount ---
+  useEffect(() => {
+    injectAnimationStyles();
+  }, []);
+
+  // --- Auto-clear toast after animation ---
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 2500);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   // --- Resolve Stay ---
   useEffect(() => {
@@ -335,6 +405,8 @@ export default function FoodMenu() {
   // --- Cart Actions (Food) ---
   const addToCart = (item: FoodItem) => {
     setCart(prev => ({ ...prev, [item.item_key]: (prev[item.item_key] || 0) + 1 }));
+    triggerHaptic();
+    setToast({ message: `${item.name} added`, key: Date.now() });
   };
 
   const removeFromCart = (item: FoodItem) => {
@@ -431,7 +503,7 @@ export default function FoodMenu() {
         roomId: data.locationType === 'public' ? null : resolvedRoomId,
         zoneId: data.locationType === 'public' ? data.zoneId : null,
 
-        title: selectedService.label_en,
+        title: selectedService.label_en || selectedService.label || selectedService.key,
         details: details,
         hotelId: effectiveHotelId,
         priority: data.priority,
@@ -460,11 +532,12 @@ export default function FoodMenu() {
 
   // --- RENDER ---
   return (
-    <div className="min-h-screen bg-[#0f111a] text-slate-200 font-sans selection:bg-indigo-500/30 pb-20">
-      {/* Background Mesh (Retaining the look user liked) */}
+    <div className="min-h-screen bg-[#0a0a0c] text-[#f5f3ef] font-sans selection:bg-amber-500/30 pb-20">
+      {/* Background Mesh (Gold Premium Theme) */}
       <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-indigo-900/20 rounded-full blur-[128px]" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-900/10 rounded-full blur-[128px]" />
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-amber-900/15 rounded-full blur-[128px]" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-amber-800/10 rounded-full blur-[128px]" />
+        <div className="absolute top-1/2 right-1/3 w-64 h-64 bg-amber-700/5 rounded-full blur-[100px]" />
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -474,49 +547,49 @@ export default function FoodMenu() {
           <div>
             {/* Breadcrumb */}
             <nav className="flex items-center gap-2 text-sm mb-3">
-              <Link to={`/stay/${encodeURIComponent(stayCode)}`} className="text-slate-400 hover:text-white transition-colors">Stay</Link>
-              <span className="text-slate-600">›</span>
-              <span className="text-indigo-400 font-medium">Room Service</span>
+              <Link to={`/stay/${encodeURIComponent(stayCode)}`} className="text-[#b8b3a8] hover:text-white transition-colors">Stay</Link>
+              <span className="text-[#7a756a]">›</span>
+              <span className="text-[#d4af37] font-medium">Room Service</span>
             </nav>
             <div className="flex items-center gap-3 mb-2">
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-white/5 border border-white/5 text-slate-400">
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#d4af37]/10 border border-[#d4af37]/20 text-[#d4af37]">
                 {stayCode}
               </span>
-              {resolvedRoomId && <span className="text-xs text-indigo-400 font-medium">Room Verified</span>}
+              {resolvedRoomId && <span className="text-xs text-[#d4af37] font-medium">Room Verified</span>}
             </div>
             <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">Room Service</h1>
-            <p className="text-slate-500 mt-1 max-w-md">Experience exceptional dining and hospitality, delivered directly to your room.</p>
+            <p className="text-[#b8b3a8] mt-1 max-w-md">Experience exceptional dining and hospitality, delivered directly to your room.</p>
           </div>
 
           <div className="flex gap-3">
-            <Link to={`/stay/${encodeURIComponent(stayCode)}/orders`} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 text-sm font-medium transition-colors border border-white/5">
+            <Link to={`/stay/${encodeURIComponent(stayCode)}/orders`} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#141210]/80 hover:bg-[#1c1916] text-sm font-medium transition-colors border border-[#d4af37]/10">
               <Receipt size={16} />
               My Orders
             </Link>
-            <Link to={`/stay/${encodeURIComponent(stayCode)}`} className="px-4 py-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 text-sm font-medium transition-colors border border-white/5">
+            <Link to={`/stay/${encodeURIComponent(stayCode)}`} className="px-4 py-2 rounded-lg bg-[#141210]/80 hover:bg-[#1c1916] text-sm font-medium transition-colors border border-[#d4af37]/10">
               Back to Stay
             </Link>
-            <Link to="/guest" className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors shadow-lg shadow-indigo-500/20">
+            <Link to="/guest" className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#d4af37] to-[#b8942d] hover:from-[#e9c55a] hover:to-[#d4af37] text-black text-sm font-medium transition-colors shadow-lg shadow-[#d4af37]/20">
               Dashboard
             </Link>
           </div>
         </header>
 
         {/* Tabs */}
-        <div className="flex items-center gap-8 border-b border-white/10 mb-8">
+        <div className="flex items-center gap-8 border-b border-[#d4af37]/12 mb-8">
           <button
             onClick={() => setTab("food")}
-            className={`pb-4 text-sm font-medium transition-all relative ${tab === 'food' ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
+            className={`pb-4 text-sm font-medium transition-all relative ${tab === 'food' ? 'text-white' : 'text-[#b8b3a8] hover:text-white'}`}
           >
             In-Room Dining
-            {tab === 'food' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500 rounded-t-full" />}
+            {tab === 'food' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[#d4af37] to-[#b8942d] rounded-t-full" />}
           </button>
           <button
             onClick={() => setTab("services")}
-            className={`pb-4 text-sm font-medium transition-all relative ${tab === 'services' ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
+            className={`pb-4 text-sm font-medium transition-all relative ${tab === 'services' ? 'text-white' : 'text-[#b8b3a8] hover:text-white'}`}
           >
             Services & Amenities
-            {tab === 'services' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500 rounded-t-full" />}
+            {tab === 'services' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[#d4af37] to-[#b8942d] rounded-t-full" />}
           </button>
         </div>
 
@@ -529,14 +602,14 @@ export default function FoodMenu() {
             <div className="space-y-6">
 
               {/* Controls: Search & Filters */}
-              <div className="bg-[#161b2c] border border-white/5 rounded-2xl p-4 space-y-4">
+              <div className="bg-[#141210]/85 border border-[#d4af37]/12 rounded-2xl p-4 space-y-4 backdrop-blur-sm">
                 {/* Search */}
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7a756a]" />
                   <input
                     type="text"
                     placeholder="Search menu items..."
-                    className="w-full bg-[#0b0e14] border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500/50 transition-colors"
+                    className="w-full bg-[#0a0a0c] border border-[#d4af37]/12 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-[#7a756a] focus:outline-none focus:border-[#d4af37]/40 transition-colors"
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                   />
@@ -556,11 +629,11 @@ export default function FoodMenu() {
                     <button
                       onClick={() => setSelectedCategory("All")}
                       className={`group flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border ${selectedCategory === "All"
-                        ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/20'
-                        : 'bg-[#1a2035] border-white/5 text-slate-400 hover:text-white hover:bg-[#232942] hover:border-white/10'
+                        ? 'bg-gradient-to-r from-[#d4af37] to-[#b8942d] border-[#d4af37]/50 text-black shadow-lg shadow-[#d4af37]/20'
+                        : 'bg-[#141210] border-[#d4af37]/12 text-[#b8b3a8] hover:text-white hover:bg-[#1c1916] hover:border-[#d4af37]/25'
                         }`}
                     >
-                      <Utensils size={14} className={selectedCategory === "All" ? "text-white" : "text-slate-500 group-hover:text-white transition-colors"} />
+                      <Utensils size={14} className={selectedCategory === "All" ? "text-black" : "text-[#7a756a] group-hover:text-white transition-colors"} />
                       All Items
                     </button>
 
@@ -572,11 +645,11 @@ export default function FoodMenu() {
                           key={cat.id}
                           onClick={() => setSelectedCategory(cat.id)}
                           className={`group flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border ${isActive
-                            ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/20'
-                            : 'bg-[#1a2035] border-white/5 text-slate-400 hover:text-white hover:bg-[#232942] hover:border-white/10'
+                            ? 'bg-gradient-to-r from-[#d4af37] to-[#b8942d] border-[#d4af37]/50 text-black shadow-lg shadow-[#d4af37]/20'
+                            : 'bg-[#141210] border-[#d4af37]/12 text-[#b8b3a8] hover:text-white hover:bg-[#1c1916] hover:border-[#d4af37]/25'
                             }`}
                         >
-                          <Icon size={14} className={isActive ? "text-white" : "text-slate-500 group-hover:text-white transition-colors"} />
+                          <Icon size={14} className={isActive ? "text-black" : "text-[#7a756a] group-hover:text-white transition-colors"} />
                           {cat.name}
                         </button>
                       );
@@ -587,20 +660,24 @@ export default function FoodMenu() {
 
               {/* Items Grid */}
               <div className="grid sm:grid-cols-2 gap-4">
-                {filteredFood.map(item => {
+                {filteredFood.map((item, index) => {
                   const inCart = cart[item.item_key] || 0;
                   const meta = item.metadata || {};
                   const isVeg = item.is_veg || meta.veg;
 
                   return (
-                    <div key={item.item_key} className="group bg-[#161b2c] border border-white/5 rounded-2xl p-4 flex gap-4 transition-all hover:border-white/10 hover:shadow-xl hover:shadow-black/20">
-                      {/* Image Thumbnail */}
-                      <div className="w-24 h-24 flex-shrink-0 rounded-xl bg-[#0b0e14] border border-white/5 overflow-hidden relative">
+                    <div
+                      key={item.item_key}
+                      className="stagger-item group bg-[#141210]/85 border border-[#d4af37]/12 rounded-2xl p-4 flex gap-4 transition-all duration-300 hover:border-[#d4af37]/35 hover:shadow-xl hover:shadow-[#d4af37]/8 hover:scale-[1.02] backdrop-blur-sm cursor-pointer"
+                      style={{ animationDelay: `${index * 80}ms` }}
+                    >
+                      {/* Photo-Forward Image */}
+                      <div className="w-28 h-28 flex-shrink-0 rounded-xl bg-gradient-to-br from-[#1c1916] to-[#0a0a0c] border border-[#d4af37]/12 overflow-hidden relative">
                         {meta.image_url ? (
-                          <img src={meta.image_url} alt={item.name} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                          <img src={meta.image_url} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-slate-700">
-                            <Utensils key="u-icon" size={20} />
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#d4af37]/10 to-transparent">
+                            <Utensils key="u-icon" size={28} className="text-[#d4af37]/30" />
                           </div>
                         )}
                       </div>
@@ -608,29 +685,29 @@ export default function FoodMenu() {
                       <div className="flex-1 flex flex-col">
                         <div className="flex items-start justify-between">
                           <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <div className={`w-3 h-3 rounded-sm border ${isVeg ? 'border-green-500' : 'border-red-500'} flex items-center justify-center`}>
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <div className={`w-3.5 h-3.5 rounded-sm border-2 ${isVeg ? 'border-green-500' : 'border-red-500'} flex items-center justify-center`}>
                                 <div className={`w-1.5 h-1.5 rounded-full ${isVeg ? 'bg-green-500' : 'bg-red-500'}`} />
                               </div>
-                              {meta.jain && <span className="text-[10px] bg-amber-500/10 text-amber-500 px-1.5 rounded border border-amber-500/20">Jain</span>}
-                              {meta.vegan && <span className="text-[10px] bg-emerald-500/10 text-emerald-500 px-1.5 rounded border border-emerald-500/20">Vegan</span>}
+                              {meta.jain && <span className="text-[10px] bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded border border-amber-500/20">Jain</span>}
+                              {meta.vegan && <span className="text-[10px] bg-emerald-500/10 text-emerald-500 px-1.5 py-0.5 rounded border border-emerald-500/20">Vegan</span>}
                             </div>
-                            <h3 className="font-semibold text-white leading-tight mb-1">{item.name}</h3>
-                            <div className="text-indigo-300 font-mono text-sm font-bold">₹{item.base_price || 0}</div>
+                            <h3 className="font-semibold text-white leading-tight mb-1 group-hover:text-[#f5f3ef] transition-colors">{item.name}</h3>
+                            <div className="text-[#d4af37] font-mono text-base font-bold">₹{item.base_price || 0}</div>
                           </div>
                         </div>
 
-                        <div className="mt-auto pt-4 flex justify-end">
+                        <div className="mt-auto pt-3 flex justify-end">
                           {inCart > 0 ? (
-                            <div className="flex items-center bg-[#0b0e14] rounded-lg border border-white/10 p-1 shadow-sm">
-                              <button onClick={() => removeFromCart(item)} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white transition-colors">-</button>
-                              <span className="w-6 text-center text-sm font-bold text-white">{inCart}</span>
-                              <button onClick={() => addToCart(item)} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white transition-colors">+</button>
+                            <div className="flex items-center bg-[#0a0a0c] rounded-lg border border-[#d4af37]/20 p-1 shadow-sm">
+                              <button onClick={() => removeFromCart(item)} className="w-8 h-8 flex items-center justify-center text-[#d4af37] hover:text-[#e9c55a] transition-colors active:scale-95">-</button>
+                              <span className="w-7 text-center text-sm font-bold text-white">{inCart}</span>
+                              <button onClick={() => addToCart(item)} className="w-8 h-8 flex items-center justify-center text-[#d4af37] hover:text-[#e9c55a] transition-colors active:scale-95">+</button>
                             </div>
                           ) : (
                             <button
                               onClick={() => addToCart(item)}
-                              className="px-4 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs font-bold uppercase tracking-wider text-slate-300 hover:bg-white/10 hover:text-white transition-all shadow-sm"
+                              className="px-5 py-2 rounded-lg bg-gradient-to-r from-[#d4af37]/20 to-[#d4af37]/10 border border-[#d4af37]/25 text-xs font-bold uppercase tracking-wider text-[#d4af37] hover:from-[#d4af37]/30 hover:to-[#d4af37]/15 hover:border-[#d4af37]/40 transition-all shadow-sm active:scale-95"
                             >
                               Add
                             </button>
@@ -651,62 +728,68 @@ export default function FoodMenu() {
 
             {/* Right: Cart Sidebar (Sticky) */}
             <div className="lg:sticky lg:top-8">
-              <div className="bg-[#161b2c] border border-white/5 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100vh-6rem)]">
-                <div className="p-5 border-b border-white/5 bg-[#1a2035] flex items-center justify-between sticky top-0 z-10">
+              <div className="bg-[#141210]/90 border border-[#d4af37]/15 rounded-2xl shadow-2xl shadow-black/30 overflow-hidden flex flex-col max-h-[calc(100vh-6rem)] backdrop-blur-md">
+                <div className="p-5 border-b border-[#d4af37]/12 bg-[#1c1916]/80 flex items-center justify-between sticky top-0 z-10">
                   <div className="flex items-center gap-2">
-                    <ShoppingBag size={18} className="text-indigo-400" />
+                    <ShoppingBag size={18} className="text-[#d4af37]" />
                     <h3 className="font-bold text-white">Current Order</h3>
                   </div>
-                  <span className="bg-[#0b0e14] text-slate-400 text-xs font-mono px-2 py-1 rounded border border-white/5">
+                  <span className="bg-[#0a0a0c] text-[#b8b3a8] text-xs font-mono px-2 py-1 rounded border border-[#d4af37]/12">
                     {cartCount} Items
                   </span>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[200px]">
                   {cartItems.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-48 text-slate-600">
-                      <ShoppingBag size={32} className="opacity-20 mb-2" />
-                      <div className="text-sm">Your cart is empty</div>
+                    <div className="flex flex-col items-center justify-center h-48 text-[#7a756a]">
+                      <div className="relative">
+                        <ShoppingBag size={40} className="opacity-15 mb-3" style={{ animation: 'cartBounce 2s ease-in-out infinite' }} />
+                        <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#d4af37]/20 flex items-center justify-center">
+                          <Plus size={10} className="text-[#d4af37]/50" />
+                        </div>
+                      </div>
+                      <div className="text-sm font-medium">Your cart is empty</div>
+                      <div className="text-xs mt-1 opacity-60">Add items from the menu</div>
                     </div>
                   ) : (
                     cartItems.map(({ item, qty }) => (
                       <div key={item.item_key} className="flex items-start justify-between group">
                         <div className="flex-1 pr-4">
-                          <div className="text-sm font-medium text-slate-200">{item.name}</div>
-                          <div className="text-xs text-slate-500 mt-1">₹{item.base_price} x {qty}</div>
+                          <div className="text-sm font-medium text-[#f5f3ef]">{item.name}</div>
+                          <div className="text-xs text-[#7a756a] mt-1">₹{item.base_price} x {qty}</div>
                         </div>
-                        <div className="flex items-center gap-2 bg-[#0b0e14] rounded px-1 border border-white/5">
-                          <button onClick={() => removeFromCart(item)} className="p-1 text-slate-500 hover:text-red-400"><Minus size={12} /></button>
-                          <span className="text-xs font-mono w-3 text-center">{qty}</span>
-                          <button onClick={() => addToCart(item)} className="p-1 text-slate-500 hover:text-green-400"><Plus size={12} /></button>
+                        <div className="flex items-center gap-2 bg-[#0a0a0c] rounded px-1 border border-[#d4af37]/12">
+                          <button onClick={() => removeFromCart(item)} className="p-1 text-[#7a756a] hover:text-red-400"><Minus size={12} /></button>
+                          <span className="text-xs font-mono w-3 text-center text-white">{qty}</span>
+                          <button onClick={() => addToCart(item)} className="p-1 text-[#7a756a] hover:text-[#d4af37]"><Plus size={12} /></button>
                         </div>
                       </div>
                     ))
                   )}
                 </div>
 
-                <div className="p-5 border-t border-white/5 bg-[#0b0e14]">
+                <div className="p-5 border-t border-[#d4af37]/12 bg-[#0a0a0c]">
                   <div className="flex justify-between items-center mb-4">
-                    <span className="text-slate-400 text-sm">Total Amount</span>
-                    <span className="text-xl font-bold text-white font-mono">₹{cartTotal}</span>
+                    <span className="text-[#b8b3a8] text-sm">Total Amount</span>
+                    <span className="text-xl font-bold text-[#d4af37] font-mono">₹{cartTotal}</span>
                   </div>
 
                   {/* Special Instructions Input */}
                   <div className="mb-4">
-                    <label className="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider">
+                    <label className="block text-xs font-bold text-[#b8b3a8] mb-1 uppercase tracking-wider">
                       Special Instructions (Optional)
                     </label>
                     <textarea
                       value={specialInstructions}
                       onChange={(e) => setSpecialInstructions(e.target.value)}
                       placeholder="e.g. Less spicy, no onions, deliver after 9 PM..."
-                      className="w-full bg-[#161b2c] border border-white/10 rounded-lg p-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 resize-none h-20"
+                      className="w-full bg-[#141210] border border-[#d4af37]/12 rounded-lg p-2 text-sm text-white placeholder-[#7a756a] focus:outline-none focus:border-[#d4af37]/40 resize-none h-20"
                     />
                   </div>
                   <button
                     onClick={placeOrder}
                     disabled={cartItems.length === 0}
-                    className="w-full py-3 bg-white text-black font-bold rounded-xl hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-white/10"
+                    className="w-full py-3 bg-gradient-to-r from-[#d4af37] to-[#b8942d] text-black font-bold rounded-xl hover:from-[#e9c55a] hover:to-[#d4af37] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-[#d4af37]/20"
                   >
                     PLACE REQUEST
                   </button>
@@ -723,7 +806,7 @@ export default function FoodMenu() {
 
             {servicesState.loading ? (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {[1, 2, 3].map(i => <div key={i} className="h-32 bg-[#161b2c] animate-pulse rounded-2xl" />)}
+                {[1, 2, 3].map(i => <div key={i} className="h-32 shimmer-skeleton rounded-2xl" />)}
               </div>
             ) : (
               <>
@@ -731,7 +814,7 @@ export default function FoodMenu() {
                 <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar mb-6">
                   <button
                     onClick={() => setServiceCategory("All")}
-                    className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${serviceCategory === "All" ? 'bg-indigo-600 text-white' : 'bg-[#161b2c] text-slate-400 border border-white/5'}`}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${serviceCategory === "All" ? 'bg-gradient-to-r from-[#d4af37] to-[#b8942d] text-black shadow-lg shadow-[#d4af37]/20' : 'bg-[#141210] text-[#b8b3a8] border border-[#d4af37]/12'}`}
                   >
                     All Types
                   </button>
@@ -739,7 +822,7 @@ export default function FoodMenu() {
                     <button
                       key={dept}
                       onClick={() => setServiceCategory(dept)}
-                      className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${serviceCategory === dept ? 'bg-indigo-600 text-white' : 'bg-[#161b2c] text-slate-400 border border-white/5'}`}
+                      className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${serviceCategory === dept ? 'bg-gradient-to-r from-[#d4af37] to-[#b8942d] text-black shadow-lg shadow-[#d4af37]/20' : 'bg-[#141210] text-[#b8b3a8] border border-[#d4af37]/12'}`}
                     >
                       {dept}
                     </button>
@@ -749,24 +832,32 @@ export default function FoodMenu() {
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
                   {servicesState.items
                     .filter(s => serviceCategory === "All" || (s.department_name || "General") === serviceCategory)
-                    .map(s => (
+                    .map((s, sIndex) => (
                       <button
                         key={s.key}
                         onClick={() => requestService(s)}
-                        className="group relative p-6 rounded-2xl bg-[#161b2c] border border-white/5 text-left hover:border-indigo-500/30 hover:bg-[#1a2035] transition-all hover:shadow-xl hover:shadow-black/20"
+                        className="stagger-item group relative p-6 rounded-2xl bg-[#141210]/85 border border-[#d4af37]/12 text-left hover:border-[#d4af37]/40 hover:bg-[#1c1916] transition-all duration-300 hover:shadow-xl hover:shadow-[#d4af37]/8 hover:scale-[1.02] active:scale-[0.98] backdrop-blur-sm cursor-pointer"
+                        style={{ animationDelay: `${sIndex * 100}ms` }}
                       >
                         <div className="flex justify-between items-start mb-4">
-                          <span className="text-3xl filter grayscale group-hover:grayscale-0 transition-all">{getServiceIcon(s.key)}</span>
-                          <span className="px-2 py-1 rounded text-[10px] font-bold bg-[#0b0e14] text-slate-500 border border-white/5">
+                          {(() => {
+                            const ServiceIcon = getServiceIcon(s.key);
+                            return (
+                              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#d4af37]/20 to-[#d4af37]/5 border border-[#d4af37]/20 flex items-center justify-center group-hover:from-[#d4af37]/30 group-hover:to-[#d4af37]/10 group-hover:border-[#d4af37]/40 transition-all">
+                                <ServiceIcon size={24} className="text-[#d4af37]/70 group-hover:text-[#d4af37] transition-colors" />
+                              </div>
+                            );
+                          })()}
+                          <span className="px-2 py-1 rounded text-[10px] font-bold bg-[#0a0a0c] text-[#b8b3a8] border border-[#d4af37]/12">
                             {s.sla_minutes}m
                           </span>
                         </div>
-                        <h3 className="font-bold text-white mb-1 group-hover:text-indigo-400 transition-colors">{s.label_en}</h3>
-                        <p className="text-xs text-slate-500 line-clamp-2 mb-4">{s.description_en || "Request this service to your room."}</p>
+                        <h3 className="font-bold text-white mb-1 group-hover:text-[#d4af37] transition-colors">{s.label_en || s.label || s.key}</h3>
+                        <p className="text-xs text-[#7a756a] line-clamp-2 mb-4">{s.description_en || "Request this service to your room."}</p>
 
                         <div className="flex items-center gap-2 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
-                          <span className="text-xs font-bold text-indigo-400 underline underline-offset-4 decoration-indigo-500/30">Request</span>
-                          <ArrowDownRight size={14} className="text-indigo-400" />
+                          <span className="text-xs font-bold text-[#d4af37] underline underline-offset-4 decoration-[#d4af37]/30">Request</span>
+                          <ArrowDownRight size={14} className="text-[#d4af37]" />
                         </div>
                       </button>
                     ))}
@@ -787,6 +878,19 @@ export default function FoodMenu() {
           />
         )}
 
+        {/* Toast Notification */}
+        {toast && (
+          <div
+            key={toast.key}
+            className="toast-notification fixed bottom-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-3 rounded-xl bg-[#1c1916] border border-[#d4af37]/30 shadow-2xl shadow-black/50"
+          >
+            <div className="w-5 h-5 rounded-full bg-[#d4af37]/20 flex items-center justify-center">
+              <Check size={12} className="text-[#d4af37]" />
+            </div>
+            <span className="text-sm font-medium text-white">{toast.message}</span>
+          </div>
+        )}
+
       </div>
     </div>
   );
@@ -798,7 +902,7 @@ function FilterButton({ active, onClick, children, color, border, bg }: any) {
       onClick={onClick}
       className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider border transition-all ${active
         ? `${bg} ${color} ${border}`
-        : 'bg-[#0b0e14] text-slate-500 border-white/10 hover:border-white/20'
+        : 'bg-[#0a0a0c] text-[#7a756a] border-[#d4af37]/12 hover:border-[#d4af37]/25'
         }`}
     >
       {children}
@@ -924,7 +1028,7 @@ function ServiceRequestModal({
             </div>
             <div>
               <h3 className="text-lg font-bold text-white">Guest Request</h3>
-              <p className="text-xs text-gray-400 font-medium">{service.label_en}</p>
+              <p className="text-xs text-gray-400 font-medium">{service.label_en || service.label || service.key}</p>
             </div>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors">

@@ -1,0 +1,180 @@
+✅ Final, production-grade solution (recommended)
+1️⃣ Introduce service_locations (core abstraction)
+CREATE TABLE service_locations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+  hotel_id UUID NOT NULL REFERENCES hotels(id) ON DELETE CASCADE,
+
+  -- Type of location
+  location_type TEXT NOT NULL CHECK (
+    location_type IN (
+      'ROOM',
+      'ZONE',
+      'FACILITY',
+      'HOTEL_WIDE'
+    )
+  ),
+
+  -- Human label shown in UI
+  label TEXT NOT NULL, -- "Lobby", "Swimming Pool", "Floor 2 Corridor"
+
+  -- Optional references
+  room_id UUID REFERENCES rooms(id),
+  zone_id UUID REFERENCES hotel_zones(id),
+
+  is_active BOOLEAN NOT NULL DEFAULT true,
+
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+  -- Guards
+  CHECK (
+    (location_type = 'ROOM' AND room_id IS NOT NULL)
+    OR
+    (location_type = 'ZONE' AND zone_id IS NOT NULL)
+    OR
+    (location_type IN ('FACILITY','HOTEL_WIDE'))
+  )
+);
+
+Examples:
+location_typelabelroom_idzone_idROOMRoom 210✅❌FACILITYLobby❌❌FACILITYSwimming Pool❌❌ZONEFloor 3 Corridor❌✅HOTEL_WIDEEntire Hotel❌❌
+
+2️⃣ Tickets reference service_location_id (not room directly)
+ALTER TABLE tickets
+ADD COLUMN service_location_id UUID
+REFERENCES service_locations(id);
+
+💡 Important
+
+
+room_id becomes optional / derived
+
+
+UI uses service_locations.label
+
+
+
+3️⃣ Services (what can be requested) stay separate
+You already have (or should have):
+service_templates (
+  code,
+  label,
+  default_department,
+  default_sla_minutes,
+  applies_to -- ROOM / FACILITY / ZONE / HOTEL
+)
+
+Example:
+codelabelapplies_toCLEAN_ROOMRoom CleaningROOMCLEAN_LOBBYLobby CleaningFACILITYPOOL_CLEANPool CleaningFACILITYCORRIDOR_CLEANCorridor CleaningZONE
+This ensures:
+
+
+You don’t accidentally assign room-only services to lobby
+
+
+UI filters correctly
+
+
+
+4️⃣ Staff Runner / Supervisor views (no explosion)
+Your existing view becomes more powerful, not more complex:
+COALESCE(
+  CONCAT('Room ', r.number),
+  sl.label
+) AS location_label
+
+So UI shows:
+
+
+Room 101
+
+
+Lobby
+
+
+Swimming Pool
+
+
+Floor 2 Corridor
+
+
+No branching logic. Clean.
+
+5️⃣ Assignment logic stays intact ✅
+Auto-assign job already checks:
+
+
+hotel
+
+
+department
+
+
+zone (soft/hard)
+
+
+Now:
+
+
+Facility tasks → no room, optional zone
+
+
+Pool tasks → can have zone = “Outdoor”
+
+
+Lobby → zone = “Ground Floor”
+
+
+Nothing breaks.
+
+6️⃣ SLA logic stays untouched ✅
+This is key:
+
+
+SLA is tied to ticket
+
+
+Ticket lifecycle unchanged
+
+
+Block / unblock / resume unchanged
+
+
+You don’t need:
+
+
+New SLA tables
+
+
+New cron jobs
+
+
+New triggers
+
+
+
+🧠 Why this is architecturally correct
+ConcernWhy this worksExtensibilityNew locations without schema changeUI clarityOne label everywhereSLA correctnessSame engineAssignmentSame jobAnalyticsClean dimensionsAvoids hacksNo fake rooms
+This is enterprise-grade, not MVP-grade.
+
+Final verdict
+✔ Yes, lobby / pool / corridor should NOT go into rooms
+✔ Yes, they should be first-class service locations
+✔ No, do not special-case tickets
+✔ This fits perfectly with everything we designed in Vaiyu so far
+If you want next:
+
+
+Migration script
+
+
+UI examples for lobby/pool tickets
+
+
+How service_templates.applies_to should be enforced
+
+
+Owner dashboard aggregation using locations
+
+
+Say the word.

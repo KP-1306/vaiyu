@@ -61,7 +61,7 @@ CREATE TABLE hotel_members (
   user_id UUID NOT NULL,
 
   role TEXT NOT NULL
-    CHECK (role IN ('OWNER','MANAGER','STAFF')),
+    CHECK (role IN ('OWNER','MANAGER','STAFF','DEVICE')),
 
   department_id UUID NOT NULL
     REFERENCES departments(id),

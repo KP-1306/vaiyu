@@ -471,6 +471,11 @@ export default function OwnerSettings() {
       <SEO title="Owner Settings" noIndex />
       <OwnerGate>
         <main className="max-w-5xl mx-auto p-4 space-y-4">
+          <div className="flex items-center gap-2 text-xs font-medium text-slate-500 mb-2">
+            <Link to={hotel?.slug ? `/owner/${hotel.slug}` : '/owner'} className="hover:text-amber-600 transition">Dashboard</Link>
+            <span className="text-slate-300">/</span>
+            <span className="text-slate-700">Settings</span>
+          </div>
           <header className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 className="text-xl font-semibold">Owner Settings</h1>

@@ -102,11 +102,36 @@ const RequestTracker = lazy(() => import("./routes/RequestTracker"));
 const FoodOrderTracker = lazy(() => import("./routes/FoodOrderTracker"));
 const Bill = lazy(() => import("./routes/Bill"));
 const Precheck = lazy(() => import("./routes/Precheck"));
+const PreCheckin = lazy(() => import("./routes/PreCheckin"));
 const Regcard = lazy(() => import("./routes/Regcard"));
 const ClaimStay = lazy(() => import("./routes/ClaimStay"));
 const Checkout = lazy(() => import("./routes/Checkout"));
 const GuestDashboard = lazy(() => import("./routes/GuestDashboard"));
 const HotelReviews = lazy(() => import("./routes/HotelReviews"));
+
+// GuestNew - Premium Guest Experience
+const GuestNewLayout = lazy(() => import("./routes/guestnew/GuestNewLayout"));
+const GuestNewHome = lazy(() => import("./routes/guestnew/GuestNewHome"));
+const GuestNewTrips = lazy(() => import("./routes/guestnew/GuestNewTrips"));
+const GuestNewStayDetails = lazy(() => import("./routes/guestnew/GuestNewStayDetails"));
+const GuestNewRequestService = lazy(() => import("./routes/guestnew/GuestNewRequestService"));
+const GuestNewCheckout = lazy(() => import("./routes/guestnew/GuestNewCheckout"));
+const GuestNewRewards = lazy(() => import("./routes/guestnew/GuestNewRewards"));
+const GuestNewSupport = lazy(() => import("./routes/guestnew/GuestNewSupport"));
+const GuestNewBills = lazy(() => import("./routes/guestnew/GuestNewBills"));
+
+// Guest Check-In (Kiosk)
+const CheckInLayout = lazy(() => import("./routes/checkin/CheckInLayout"));
+const CheckInHome = lazy(() => import("./routes/checkin/CheckInHome"));
+const BookingLookup = lazy(() => import("./routes/checkin/BookingLookup"));
+const BookingDetails = lazy(() => import("./routes/checkin/BookingDetails"));
+const GuestKYC = lazy(() => import("./routes/checkin/GuestKYC"));
+const RoomAssignment = lazy(() => import("./routes/checkin/RoomAssignment"));
+const PaymentDeposit = lazy(() => import("./routes/checkin/PaymentDeposit"));
+const CheckInSuccess = lazy(() => import("./routes/checkin/CheckInSuccess"));
+const WalkInDetails = lazy(() => import("./routes/checkin/WalkInDetails"));
+const Availability = lazy(() => import("./routes/checkin/Availability"));
+const WalkInPayment = lazy(() => import("./routes/checkin/WalkInPayment"));
 
 // Staff / Ops
 const Desk = lazy(() => import("./routes/Desk"));
@@ -132,6 +157,7 @@ const OwnerWorkforce = lazy(() => import("./routes/OwnerWorkforce")); // NEW (fi
 const OwnerStaffShifts = lazy(() => import("./routes/OwnerStaffShifts")); // NEW
 const OwnerAnalytics = lazy(() => import("./routes/OwnerAnalytics"));
 const OwnerPayments = lazy(() => import("./routes/OwnerPayments")); // NEW
+const ImportBookings = lazy(() => import("./routes/ImportBookings")); // NEW
 const AdminOps = lazy(() => import("./pages/AdminOps"));
 
 // ADR & RevPAR detail pages (from routes/OwnerRevenue.tsx)
@@ -456,6 +482,7 @@ const router = createBrowserRouter([
       { path: "track-order/:id", element: <FoodOrderTracker /> },
       { path: "bill", element: <Bill /> },
       { path: "precheck/:code", element: <Precheck /> },
+      { path: "precheckin/:token", element: <PreCheckin /> },
       { path: "regcard", element: <Regcard /> },
       { path: "claim", element: <ClaimStay /> },
       { path: "checkout", element: <Checkout /> },
@@ -466,6 +493,40 @@ const router = createBrowserRouter([
             <GuestDashboard />
           </AuthGate>
         ),
+      },
+
+      // Guest Check-In System (Kiosk/Tablet)
+      {
+        path: "checkin",
+        element: <CheckInLayout />,
+        children: [
+          { index: true, element: <CheckInHome /> },
+          { path: "booking", element: <BookingLookup /> },
+          { path: "details", element: <BookingDetails /> },
+          { path: "kyc", element: <GuestKYC /> },
+          { path: "room-assignment", element: <RoomAssignment /> },
+          { path: "payment", element: <PaymentDeposit /> },
+          { path: "success", element: <CheckInSuccess /> },
+          { path: "walkin", element: <WalkInDetails /> },
+          { path: "availability", element: <Availability /> },
+          { path: "walkin-payment", element: <WalkInPayment /> },
+        ],
+      },
+
+      // GuestNew - Premium Guest Experience
+      {
+        path: "guestnew",
+        element: <GuestNewLayout />,
+        children: [
+          { index: true, element: <GuestNewHome /> },
+          { path: "trips", element: <GuestNewTrips /> },
+          { path: "stay/:id", element: <GuestNewStayDetails /> },
+          { path: "request-service", element: <GuestNewRequestService /> },
+          { path: "checkout", element: <GuestNewCheckout /> },
+          { path: "rewards", element: <GuestNewRewards /> },
+          { path: "support", element: <GuestNewSupport /> },
+          { path: "bills", element: <GuestNewBills /> },
+        ],
       },
       { path: "hotel/:slug/reviews", element: <HotelReviews /> },
       { path: "stays", element: <Stays /> },
@@ -711,6 +772,15 @@ const router = createBrowserRouter([
           </AuthGate>
         ),
       },
+      // NEW: /owner/:slug/import-bookings
+      {
+        path: "owner/:slug/import-bookings",
+        element: (
+          <AuthGate>
+            <ImportBookings />
+          </AuthGate>
+        ),
+      },
 
       // Owner legacy aliases (still work)
       {
@@ -861,10 +931,19 @@ const router = createBrowserRouter([
 ]);
 
 // ================= Mount =================
+// ================= Mount =================
 const rootEl = document.getElementById("root");
 if (!rootEl) throw new Error("Root element #root not found in index.html");
 
-createRoot(rootEl).render(
+// Prevent double-mount in dev HMR
+let root: any = (rootEl as any)._reactRootContainer;
+
+if (!root) {
+  root = createRoot(rootEl);
+  (rootEl as any)._reactRootContainer = root;
+}
+
+root.render(
   <StrictMode>
     <GlobalErrorBoundary>
       <ThemeProvider>

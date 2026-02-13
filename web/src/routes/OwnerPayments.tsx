@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import OwnerGate from "../components/OwnerGate";
 import { Plus, IndianRupee, Search, Calendar, Filter, X, ArrowUpRight, ArrowDownLeft, Info } from "lucide-react";
@@ -138,200 +138,240 @@ export default function OwnerPayments() {
         }
     };
 
-    const stats = {
-        collected: payments.filter(p => p.type === 'PAYMENT').reduce((sum, p) => sum + p.amount, 0),
-        charges: payments.filter(p => p.type === 'CHARGE').reduce((sum, p) => sum + p.amount, 0)
-    };
+    const totalCollections = payments
+        .filter(p => p.type === 'PAYMENT' && p.status === 'COMPLETED')
+        .reduce((sum, p) => sum + p.amount, 0);
+
+    const totalCharges = payments
+        .filter(p => p.type === 'CHARGE')
+        .reduce((sum, p) => sum + p.amount, 0);
+
+    const netBalance = totalCharges - totalCollections;
 
     return (
-        <OwnerGate>
-            <div className="p-6 max-w-7xl mx-auto space-y-6">
-                <div className="flex justify-between items-center">
-                    <div>
-                        <h1 className="text-2xl font-bold text-slate-800">Payments & Ledger</h1>
-                        <p className="text-slate-500">Track charges, payments, and financial logs.</p>
+        <OwnerGate slug={slug}>
+            <div className="min-h-screen bg-slate-950 text-slate-100">
+                <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-8">
+                        <div>
+                            <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
+                                <Link to={`/owner/${slug}`} className="hover:text-slate-300 transition-colors">Dashboard</Link>
+                                <span>/</span>
+                                <span className="text-slate-300">Payments & Ledger</span>
+                            </div>
+                            <h1 className="text-2xl font-bold text-white tracking-tight">Payments & Ledger</h1>
+                            <p className="mt-1 text-sm text-slate-400">Track charges, payments, and financial logs.</p>
+                        </div>
+                        <button
+                            onClick={() => setShowAddModal(true)}
+                            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-900"
+                        >
+                            <Plus size={16} />
+                            Add Transaction
+                        </button>
                     </div>
-                    <button
-                        onClick={() => setShowAddModal(true)}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors"
-                    >
-                        <Plus size={18} /> Add Transaction
-                    </button>
-                </div>
 
-                {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-                        <div className="text-sm font-medium text-slate-500 mb-1">Total Collections</div>
-                        <div className="text-2xl font-bold text-emerald-600 flex items-center">
-                            <IndianRupee size={20} /> {stats.collected.toLocaleString('en-IN')}
+                    {/* Stats Cards */}
+                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-3 mb-8">
+                        <div className="overflow-hidden rounded-xl bg-[#1e293b] border border-slate-700 shadow-sm p-5">
+                            <dt className="truncate text-sm font-medium text-slate-400 uppercase tracking-wide">Total Collections</dt>
+                            <dd className="mt-2 text-3xl font-bold tracking-tight text-white flex items-baseline gap-1">
+                                <span className="text-xl text-slate-500">₹</span>
+                                {totalCollections.toLocaleString()}
+                            </dd>
+                        </div>
+                        <div className="overflow-hidden rounded-xl bg-[#1e293b] border border-slate-700 shadow-sm p-5">
+                            <dt className="truncate text-sm font-medium text-slate-400 uppercase tracking-wide">Total Charges Posted</dt>
+                            <dd className="mt-2 text-3xl font-bold tracking-tight text-white flex items-baseline gap-1">
+                                <span className="text-xl text-slate-500">₹</span>
+                                {totalCharges.toLocaleString()}
+                            </dd>
+                        </div>
+                        <div className="overflow-hidden rounded-xl bg-[#1e293b] border border-slate-700 shadow-sm p-5">
+                            <dt className="truncate text-sm font-medium text-slate-400 uppercase tracking-wide">Net Balance (Due)</dt>
+                            <dd className="mt-2 text-3xl font-bold tracking-tight text-white flex items-baseline gap-1">
+                                <span className="text-xl text-slate-500">₹</span>
+                                {netBalance.toLocaleString()}
+                            </dd>
                         </div>
                     </div>
-                    <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-                        <div className="text-sm font-medium text-slate-500 mb-1">Total Charges Posted</div>
-                        <div className="text-2xl font-bold text-red-600 flex items-center">
-                            <IndianRupee size={20} /> {stats.charges.toLocaleString('en-IN')}
-                        </div>
-                    </div>
-                    <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-                        <div className="text-sm font-medium text-slate-500 mb-1">Net Balance (Due)</div>
-                        <div className="text-2xl font-bold text-slate-800 flex items-center">
-                            <IndianRupee size={20} /> {(stats.charges - stats.collected).toLocaleString('en-IN')}
-                        </div>
-                    </div>
-                </div>
 
-                {/* Payments Table */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-50 border-b border-slate-200">
-                                <tr>
-                                    <th className="px-6 py-4 font-medium text-slate-600">Date</th>
-                                    <th className="px-6 py-4 font-medium text-slate-600">Room</th>
-                                    <th className="px-6 py-4 font-medium text-slate-600">Guest</th>
-                                    <th className="px-6 py-4 font-medium text-slate-600">Details</th>
-                                    <th className="px-6 py-4 font-medium text-slate-600 text-right">Amount</th>
-                                    <th className="px-6 py-4 font-medium text-slate-600 text-right">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {loading ? (
-                                    <tr><td colSpan={6} className="px-6 py-8 text-center text-slate-500">Loading records...</td></tr>
-                                ) : payments.length === 0 ? (
-                                    <tr><td colSpan={6} className="px-6 py-8 text-center text-slate-500">No transactions found.</td></tr>
-                                ) : (
-                                    payments.map((p) => (
-                                        <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                                            <td className="px-6 py-4 text-slate-600">
-                                                {new Date(p.created_at).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                            </td>
-                                            <td className="px-6 py-4 font-medium text-slate-800">
-                                                {p.stay?.room?.number || 'N/A'}
-                                            </td>
-                                            <td className="px-6 py-4 text-slate-600">
-                                                {p.stay?.guest?.full_name || 'Unknown'}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-2">
-                                                    {p.type === 'PAYMENT' ? (
-                                                        <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-xs font-medium flex items-center gap-1">
-                                                            <ArrowDownLeft size={10} /> Received
-                                                        </span>
-                                                    ) : p.type === 'CHARGE' ? (
-                                                        <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs font-medium flex items-center gap-1">
-                                                            <ArrowUpRight size={10} /> Charge
-                                                        </span>
-                                                    ) : (
-                                                        <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-xs font-medium flex items-center gap-1">
-                                                            <Info size={10} /> Info
-                                                        </span>
-                                                    )}
-                                                    <span className="text-slate-500">{p.method?.replace('_', ' ')}</span>
-                                                    {p.notes && <span className="text-slate-400 italic text-xs">- {p.notes}</span>}
-                                                </div>
-                                            </td>
-                                            <td className={`px-6 py-4 font-medium text-right ${p.type === 'PAYMENT' ? 'text-emerald-600' : 'text-red-600'}`}>
-                                                {p.type === 'PAYMENT' ? '+' : '-'}
-                                                {p.amount.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <span className="bg-green-50 text-green-700 border border-green-200 px-2 py-1 rounded-full text-xs font-medium">
-                                                    {p.status}
-                                                </span>
+                    {/* Transactions Table */}
+                    <div className="overflow-hidden rounded-xl bg-[#1e293b] border border-slate-700 shadow-sm">
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-slate-700/50">
+                                <thead className="bg-[#0f172a]">
+                                    <tr>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Date</th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Room</th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Guest</th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Details</th>
+                                        <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Amount</th>
+                                        <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-700/50 bg-[#1e293b]">
+                                    {loading ? (
+                                        <tr>
+                                            <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-400">
+                                                Loading transactions...
                                             </td>
                                         </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
+                                    ) : payments.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-500">
+                                                No transactions found.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        payments.map((payment) => (
+                                            <tr key={payment.id} className="hover:bg-slate-800/50 transition-colors">
+                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-300">
+                                                    {new Date(payment.created_at).toLocaleDateString()}
+                                                    <div className="text-xs text-slate-500">{new Date(payment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                                                </td>
+                                                <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-white">
+                                                    {payment.stay?.room?.number || '—'}
+                                                </td>
+                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-300">
+                                                    {payment.stay?.guest?.full_name || 'Unknown'}
+                                                </td>
+                                                <td className="px-6 py-4 text-sm text-slate-300">
+                                                    <div className="flex items-center gap-2">
+                                                        {payment.type === 'CHARGE' ? (
+                                                            <span className="inline-flex items-center rounded-full bg-slate-800 px-2 py-0.5 text-xs font-medium text-slate-400 border border-slate-700">Charge</span>
+                                                        ) : (
+                                                            <span className="inline-flex items-center rounded-full bg-emerald-900/30 px-2 py-0.5 text-xs font-medium text-emerald-400 border border-emerald-900/50">Payment</span>
+                                                        )}
+                                                        <span className="truncate max-w-[200px]">{payment.notes || payment.method}</span>
+                                                    </div>
+                                                </td>
+                                                <td className={`whitespace-nowrap px-6 py-4 text-right text-sm font-semibold ${payment.type === 'PAYMENT' ? 'text-emerald-400' : 'text-slate-200'
+                                                    }`}>
+                                                    {payment.type === 'PAYMENT' ? '+' : ''}₹{payment.amount.toLocaleString()}
+                                                </td>
+                                                <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
+                                                    <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${payment.status === 'COMPLETED' ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-900/50' :
+                                                            payment.status === 'PENDING' ? 'bg-amber-900/30 text-amber-400 border border-amber-900/50' :
+                                                                'bg-rose-900/30 text-rose-400 border border-rose-900/50'
+                                                        }`}>
+                                                        {payment.status}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
                 {/* Add Transaction Modal */}
                 {showAddModal && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-                        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-                            <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-xl font-bold text-slate-800">New Transaction</h2>
-                                <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600">
-                                    <X size={20} />
-                                </button>
+                    <div className="fixed inset-0 z-50 overflow-y-auto">
+                        <div className="flex min-h-screen items-end justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+                            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+                                <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={() => setShowAddModal(false)}></div>
                             </div>
 
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Room Number *</label>
-                                    <input
-                                        type="text"
-                                        value={roomNumber}
-                                        onChange={e => setRoomNumber(e.target.value)}
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        placeholder="e.g. 101"
-                                    />
-                                    <p className="text-xs text-slate-500 mt-1">Must have an active stay (Checked In).</p>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
-                                        <select
-                                            value={type}
-                                            onChange={(e: any) => setType(e.target.value)}
-                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        >
-                                            <option value="PAYMENT">Payment (Credit)</option>
-                                            <option value="CHARGE">Charge (Debit)</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">Amount (₹) *</label>
-                                        <input
-                                            type="number"
-                                            value={amount}
-                                            onChange={e => setAmount(e.target.value)}
-                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                            placeholder="0.00"
-                                        />
-                                    </div>
-                                </div>
-                                {type === 'PAYMENT' && (
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">Method</label>
-                                        <select
-                                            value={method}
-                                            onChange={e => setMethod(e.target.value)}
-                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        >
-                                            <option value="CASH">Cash</option>
-                                            <option value="UPI">UPI</option>
-                                            <option value="CARD">Card</option>
-                                            <option value="OTHER">Other</option>
-                                        </select>
-                                    </div>
-                                )}
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Notes</label>
-                                    <textarea
-                                        value={notes}
-                                        onChange={e => setNotes(e.target.value)}
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 h-20"
-                                        placeholder="e.g. Laundry, Mini Bar, Deposit..."
-                                    />
-                                </div>
+                            <span className="hidden sm:inline-block sm:h-screen sm:align-middle" aria-hidden="true">&#8203;</span>
 
-                                {error && (
-                                    <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg">
-                                        {error}
-                                    </div>
-                                )}
+                            <div className="inline-block transform overflow-hidden rounded-xl bg-[#1e293b] border border-slate-700 text-left align-bottom shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:align-middle">
+                                <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                                    <div className="sm:flex sm:items-start">
+                                        <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                                            <h3 className="text-lg font-medium leading-6 text-white" id="modal-title">Add New Transaction</h3>
+                                            <div className="mt-4 space-y-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-300">Room Number</label>
+                                                    <input
+                                                        type="text"
+                                                        value={roomNumber}
+                                                        onChange={(e) => setRoomNumber(e.target.value)}
+                                                        className="mt-1 block w-full rounded-lg border-slate-600 bg-slate-800 text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm placeholder-slate-500"
+                                                        placeholder="e.g. 101"
+                                                    />
+                                                </div>
 
-                                <button
-                                    onClick={handleAddTransaction}
-                                    disabled={submitting}
-                                    className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
-                                >
-                                    {submitting ? 'Processing...' : 'Save Transaction'}
-                                </button>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-300">Type</label>
+                                                        <select
+                                                            value={type}
+                                                            onChange={(e) => setType(e.target.value as any)}
+                                                            className="mt-1 block w-full rounded-lg border-slate-600 bg-slate-800 text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                                        >
+                                                            <option value="PAYMENT">Payment (Credit)</option>
+                                                            <option value="CHARGE">Charge (Debit)</option>
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-300">Amount (₹)</label>
+                                                        <input
+                                                            type="number"
+                                                            value={amount}
+                                                            onChange={(e) => setAmount(e.target.value)}
+                                                            className="mt-1 block w-full rounded-lg border-slate-600 bg-slate-800 text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm placeholder-slate-500"
+                                                            placeholder="0.00"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {type === 'PAYMENT' && (
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-300">Method</label>
+                                                        <select
+                                                            value={method}
+                                                            onChange={(e) => setMethod(e.target.value)}
+                                                            className="mt-1 block w-full rounded-lg border-slate-600 bg-slate-800 text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                                        >
+                                                            <option value="CASH">Cash</option>
+                                                            <option value="UPI">UPI</option>
+                                                            <option value="CARD">Card</option>
+                                                            <option value="OTHER">Other</option>
+                                                        </select>
+                                                    </div>
+                                                )}
+
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-300">Notes / Details</label>
+                                                    <input
+                                                        type="text"
+                                                        value={notes}
+                                                        onChange={(e) => setNotes(e.target.value)}
+                                                        className="mt-1 block w-full rounded-lg border-slate-600 bg-slate-800 text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm placeholder-slate-500"
+                                                        placeholder="Optional description..."
+                                                    />
+                                                </div>
+
+                                                {error && (
+                                                    <div className="rounded-md bg-rose-900/30 p-2 text-sm text-rose-300 border border-rose-900/50">
+                                                        {error}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="bg-[#0f172a] px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+                                    <button
+                                        type="button"
+                                        onClick={handleAddTransaction}
+                                        disabled={submitting}
+                                        className="inline-flex w-full justify-center rounded-lg border border-transparent bg-blue-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-900 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
+                                    >
+                                        {submitting ? 'Saving...' : 'Save Transaction'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAddModal(false)}
+                                        className="mt-3 inline-flex w-full justify-center rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-base font-medium text-slate-300 shadow-sm hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 focus:ring-offset-slate-900 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>

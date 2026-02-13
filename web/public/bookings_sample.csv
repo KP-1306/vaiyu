@@ -1,0 +1,14 @@
+Booking Reference,Guest Name,Phone,Email,Checkin Date,Checkout Date,Room Type,Room Number,Adults,Children,Special Requests
+ORD-001,John Doe,+15551234567,john@example.com,2026-03-25,2026-03-30,Deluxe,101,2,0,Late check-in
+ORD-002,Jane Smith,+15559876543,jane@example.com,2026-03-26,2026-03-28,Standard,102,1,0,
+ORD-003,Bob Jones,+15551112222,,2026-03-27,2026-03-29,Suite,,2,2,Crib needed
+
+# Invalid rows below (for testing)
+
+ORD-004,Mike Brown,,mike@example.com,2026-03-28,2026-03-30,Deluxe,103,2,0,Missing phone
+ORD-005,Sarah Lee,+15550000000,sarah@example.com,2026-03-30,2026-03-28,Standard,104,1,0,Checkout before checkin
+ORD-006,Invalid Room,+15553334444,room@example.com,2026-03-26,2026-03-29,UnknownType,105,1,0,Invalid room type
+ORD-007,Invalid Phone,ABCDE,invalid@example.com,2026-03-26,2026-03-29,Suite,106,1,0,Invalid phone format
+ORD-008,Missing Booking,+15557778888,test@example.com,2026-03-26,2026-03-29,Deluxe,107,1,0,
+ORD-009,Negative Guests,+15559990000,neg@example.com,2026-03-26,2026-03-29,Standard,108,-1,0,Invalid adults
+ORD-010,Past Date,+15556667777,past@example.com,2020-01-01,2020-01-03,Suite,109,1,0,Past arrival

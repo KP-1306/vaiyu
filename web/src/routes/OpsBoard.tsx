@@ -986,7 +986,7 @@ export default function OpsBoard() {
             Dashboard
           </Link>
           <span className="text-slate-600">›</span>
-          <span className="font-semibold text-white">Ops Board</span>
+          <span className="font-semibold text-white">Supervisor Board</span>
         </div>
       </header>
 

@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import {
     Bar,
@@ -293,6 +293,11 @@ export default function OpsManagerAnalytics() {
 
     return (
         <div className="min-h-screen bg-[#0f172a] text-slate-200 p-6 lg:p-8 font-sans">
+            <div className="mb-4 flex items-center gap-2 text-xs font-medium text-slate-400">
+                <Link to={`/owner/${slug}`} className="hover:text-white transition">Dashboard</Link>
+                <span className="text-slate-600">/</span>
+                <span className="text-slate-200">Ops Manager</span>
+            </div>
             <header className="mb-8 flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-3">

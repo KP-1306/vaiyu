@@ -1,14 +1,23 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight, Search, Loader2 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { CheckInStepper } from "../../components/CheckInStepper";
 
 export default function BookingLookup() {
     const navigate = useNavigate();
-    const [query, setQuery] = useState("");
+    const [searchParams] = useSearchParams();
+    const [query, setQuery] = useState(searchParams.get("code") || "");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Auto-search if code is present in URL
+    useEffect(() => {
+        const code = searchParams.get("code");
+        if (code) {
+            handleSearch();
+        }
+    }, []);
 
     async function handleSearch(e?: React.FormEvent) {
         if (e) e.preventDefault();
@@ -37,18 +46,13 @@ export default function BookingLookup() {
             // Let's fetch ANY booking matching the code for now, but the RPC requires hotel_id.
             // I'll add a temporary "demo" hotel ID or fetch the first one.
 
-            // Fetch the specific demo hotel 'TENANT1' so the search finds the booking 'TESTSTAY1'
-            // In a real kiosk setup, this ID would come from device config or URL.
-            const { data: hotelData } = await supabase
-                .from("hotels")
-                .select("id")
-                .eq("slug", "TENANT1") // Hardcode for demo/testing stability
-                .maybeSingle();
+            // const { data: hotelData } = await supabase
+            //     .from("hotels")
+            //     .select("id")
+            //     .eq("slug", "TENANT1")
+            //     .maybeSingle();
 
-            // Fallback for safety if TENANT1 missing
-            const hotelId = hotelData?.id || "139c6002-bdd7-4924-9db4-16f14e283d89";
-
-            if (!hotelId) throw new Error("Hotel configuration missing");
+            const hotelId = null; // hotelData?.id || null; // Force global search for now
 
             const { data, error: rpcError } = await supabase.rpc("search_booking", {
                 p_query: query,

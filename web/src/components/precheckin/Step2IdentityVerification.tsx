@@ -34,7 +34,11 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
     const handleFileChange = (e: ChangeEvent<HTMLInputElement>, field: 'front_captured' | 'back_uploaded') => {
         const file = e.target.files?.[0];
         if (file) {
-            setIdForm({ ...idForm, [field]: true });
+            setIdForm({
+                ...idForm,
+                [field]: true,
+                [field === 'front_captured' ? 'front_file' : 'back_file']: file
+            });
         }
     };
 
@@ -86,7 +90,13 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
                     <input
                         type="text"
                         value={idForm.id_number}
-                        onChange={(e) => setIdForm({ ...idForm, id_number: e.target.value })}
+                        onChange={(e) => {
+                            let val = e.target.value;
+                            if (idForm.id_type === "aadhaar") {
+                                val = val.replace(/\D/g, "").slice(0, 12);
+                            }
+                            setIdForm({ ...idForm, id_number: val });
+                        }}
                         className="step2-input"
                         placeholder={selectedIdType.placeholder}
                     />
@@ -107,8 +117,13 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
                     <button
                         onClick={handleFrontClick}
                         className={`step2-capture-btn ${idForm.front_captured ? "captured" : ""}`}
+                        style={{
+                            backgroundImage: idForm.front_file ? `url(${URL.createObjectURL(idForm.front_file)})` : 'none',
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center'
+                        }}
                     >
-                        <div className="step2-icon-box">
+                        <div className={`step2-icon-box ${idForm.front_file ? "has-preview" : ""}`}>
                             {idForm.front_captured ? <Check /> : (
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
@@ -116,12 +131,20 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
                                 </svg>
                             )}
                         </div>
-                        <div>
+                        <div className={`${idForm.front_file ? "bg-black/60 backdrop-blur-sm p-2 rounded-lg" : ""}`}>
                             <div className="step2-capture-title">
-                                {idForm.front_captured ? "Front Side Captured" : "Capture Front Side"}
+                                {idForm.front_file
+                                    ? "Front Side Captured"
+                                    : idForm.front_captured
+                                        ? "Front Side Saved"
+                                        : "Capture Front Side"}
                             </div>
                             <div className="step2-capture-subtitle">
-                                {idForm.front_captured ? "Tap to retake" : "(Required)"}
+                                {idForm.front_file
+                                    ? "Tap to retake"
+                                    : idForm.front_captured
+                                        ? "Document on file • Tap to replace"
+                                        : "(Required)"}
                             </div>
                         </div>
                     </button>
@@ -138,8 +161,13 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
                     <button
                         onClick={handleBackClick}
                         className={`step2-capture-btn ${idForm.back_uploaded ? "captured" : ""}`}
+                        style={{
+                            backgroundImage: idForm.back_file ? `url(${URL.createObjectURL(idForm.back_file)})` : 'none',
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center'
+                        }}
                     >
-                        <div className="step2-icon-box">
+                        <div className={`step2-icon-box ${idForm.back_file ? "has-preview" : ""}`}>
                             {idForm.back_uploaded ? <Check /> : (
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -148,12 +176,20 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
                                 </svg>
                             )}
                         </div>
-                        <div>
+                        <div className={`${idForm.back_file ? "bg-black/60 backdrop-blur-sm p-2 rounded-lg" : ""}`}>
                             <div className="step2-capture-title">
-                                {idForm.back_uploaded ? "Back Side Uploaded" : "Upload Back Side"}
+                                {idForm.back_file
+                                    ? "Back Side Uploaded"
+                                    : idForm.back_uploaded
+                                        ? "Back Side Saved"
+                                        : "Upload Back Side"}
                             </div>
                             <div className="step2-capture-subtitle">
-                                {idForm.back_uploaded ? "Tap to change" : "(Optional)"}
+                                {idForm.back_file
+                                    ? "Tap to change"
+                                    : idForm.back_uploaded
+                                        ? "Document on file • Tap to replace"
+                                        : "(Optional)"}
                             </div>
                         </div>
                     </button>
@@ -168,7 +204,13 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
                 {/* Submit */}
                 <button
                     disabled={submitting || !idForm.id_number || !idForm.front_captured}
-                    onClick={handleSubmit}
+                    onClick={() => {
+                        if (idForm.id_type === "aadhaar" && idForm.id_number.length !== 12) {
+                            alert("Please enter a valid 12-digit Aadhaar number");
+                            return;
+                        }
+                        handleSubmit();
+                    }}
                     className="step2-submit-btn"
                 >
                     {submitting ? (

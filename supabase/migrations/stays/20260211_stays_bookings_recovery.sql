@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS stays (
   CONSTRAINT stays_actual_time_order CHECK (
       (actual_checkin_at IS NULL) OR (actual_checkout_at IS NULL) OR (actual_checkout_at > actual_checkin_at)
   ),
-  CONSTRAINT stays_source_check CHECK (source IN ('walk_in', 'pms_sync', 'manual'))
+  CONSTRAINT stays_source_check CHECK (source IN ('walk_in', 'pms_sync', 'manual', 'arrival_checkin'))
 );
 
 -- 2b. Sync Columns (If table existed but was missing columns)

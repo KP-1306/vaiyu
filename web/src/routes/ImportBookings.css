@@ -1,0 +1,112 @@
+/* ImportBookings.css */
+
+/* --- Layout & Backgrounds --- */
+.ib-container {
+    @apply min-h-screen bg-slate-900 text-slate-100 font-sans selection:bg-indigo-500/30 p-8;
+}
+
+.ib-header {
+    @apply mx-auto max-w-6xl mb-8 flex items-end justify-between;
+}
+
+.ib-title {
+    @apply text-2xl font-bold text-white;
+}
+
+.ib-subtitle {
+    @apply text-slate-400 mt-1;
+}
+
+.ib-hotel-badge {
+    @apply font-medium text-slate-200 ml-2 bg-slate-800 px-3 py-1 rounded border border-slate-700 shadow-lg shadow-black/20;
+}
+
+/* --- Cards --- */
+.ib-card {
+    @apply bg-slate-800/50 backdrop-blur-md rounded-2xl border border-white/10 shadow-xl p-8 transition-all hover:border-indigo-500/30;
+}
+
+.ib-card-header {
+    @apply flex items-center gap-4 mb-6;
+}
+
+.ib-card-title {
+    @apply text-xl font-bold text-white;
+}
+
+/* --- Upload Zone --- */
+.ib-upload-label {
+    @apply flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-xl cursor-pointer transition-all duration-300 relative overflow-hidden;
+}
+
+.ib-upload-label-active {
+    @apply border-emerald-500/50 bg-emerald-500/5;
+}
+
+.ib-upload-label-inactive {
+    @apply border-slate-600 hover:border-indigo-400 bg-slate-900/30 hover:bg-slate-900/50;
+}
+
+.ib-upload-content {
+    @apply flex flex-col items-center justify-center z-10 w-full pt-5 pb-6 text-center;
+}
+
+/* --- Tables --- */
+.ib-table-container {
+    @apply overflow-hidden rounded-xl border border-white/10 mb-8 bg-slate-900/30;
+}
+
+.ib-table {
+    @apply w-full text-left text-sm;
+}
+
+.ib-thead {
+    @apply bg-slate-900/80 text-slate-400 border-b border-white/5 backdrop-blur-sm;
+}
+
+.ib-th {
+    @apply px-6 py-4 font-bold uppercase tracking-wider text-xs;
+}
+
+.ib-tr {
+    @apply hover:bg-indigo-500/5 transition-colors;
+}
+
+.ib-td {
+    @apply px-6 py-4;
+}
+
+/* --- Inputs & Selects --- */
+.ib-select {
+    @apply w-full rounded-lg border-none text-sm shadow-lg py-2.5 pl-3 pr-8 focus:ring-2 focus:ring-indigo-500 transition-all cursor-pointer font-medium appearance-none bg-slate-700/50 text-slate-400 hover:bg-slate-700;
+}
+
+.ib-select-active {
+    @apply bg-indigo-500/20 text-indigo-300;
+}
+
+/* --- Buttons --- */
+.ib-btn-primary {
+    @apply px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-bold shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 flex items-center gap-2 transition-all hover:translate-y-[-1px];
+}
+
+.ib-btn-secondary {
+    @apply px-6 py-2.5 bg-transparent border border-white/10 text-slate-400 rounded-lg text-sm font-medium hover:bg-white/5 hover:text-white hover:border-white/20 transition-all;
+}
+
+.ib-btn-refresh {
+    @apply px-4 py-2 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-lg text-sm font-bold hover:bg-indigo-500/20 transition-all shadow-sm flex items-center gap-2;
+}
+
+/* --- Status Badges --- */
+.ib-badge-valid {
+    @apply text-emerald-400 flex items-center gap-1.5;
+}
+
+.ib-badge-error {
+    @apply text-red-400 flex items-center gap-1.5;
+}
+
+.ib-btn-error {
+    @apply px-6 py-2.5 bg-red-600/20 border border-red-500/40 text-red-400 rounded-lg text-sm font-bold hover:bg-red-600/30 hover:text-red-300 hover:border-red-400/60 transition-all flex items-center gap-2 shadow-lg shadow-red-500/10;
+}

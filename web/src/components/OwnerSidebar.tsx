@@ -48,6 +48,13 @@ export default function OwnerSidebar({
             matchPrefix: `${base}`,
           },
           {
+            to: `${base}/arrivals`,
+            label: "Guest Arrivals",
+            hint: "Today's expected check-ins and walk-ins.",
+            icon: "🛬",
+            matchPrefix: `${base}/arrivals`,
+          },
+          {
             to: `${base}/revenue`,
             label: "Revenue & forecast",
             hint: "ADR, RevPAR and pick-up insights.",

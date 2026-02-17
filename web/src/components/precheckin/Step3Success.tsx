@@ -1,16 +1,18 @@
 import { Check, Calendar, BedDouble, FileText, MapPin, Phone, MessageSquare } from "lucide-react";
+import QRCode from "react-qr-code";
 import "./Step3Success.css";
 
 interface Step3Props {
     booking: any;
     checkinFormatted: string;
     checkinTime: string;
+    token?: string;
 }
 
-export function Step3Success({ booking, checkinFormatted, checkinTime }: Step3Props) {
+export function Step3Success({ booking, checkinFormatted, checkinTime, token }: Step3Props) {
     // Helper for "Add to Calendar"
     const addToCalendar = () => {
-        const start = booking.checkin_date ? new Date(booking.checkin_date) : new Date();
+        const start = booking.scheduled_checkin_at ? new Date(booking.scheduled_checkin_at) : new Date();
         const title = `Check-in: ${booking.hotel_name || "Hotel"}`;
         const icsContent = [
             "BEGIN:VCALENDAR",
@@ -89,8 +91,20 @@ export function Step3Success({ booking, checkinFormatted, checkinTime }: Step3Pr
                 {/* QR Code Section */}
                 <div className="step3-qr-section">
                     <div className="step3-qr-box">
-                        <div className="step3-qr-placeholder">
-                            <div className="step3-qr-css" />
+                        <div className="step3-qr-container">
+                            {token || booking.qr_url ? (
+                                <QRCode
+                                    value={booking.qr_url || `https://staff.vaiyu.app/checkin?tkn=${token}`}
+                                    size={160}
+                                    bgColor="#ffffff"
+                                    fgColor="#000000"
+                                    level="M"
+                                />
+                            ) : (
+                                <div className="step3-qr-placeholder">
+                                    <div className="step3-qr-css" />
+                                </div>
+                            )}
                         </div>
                     </div>
                     <span className="step3-qr-text">Show at reception</span>

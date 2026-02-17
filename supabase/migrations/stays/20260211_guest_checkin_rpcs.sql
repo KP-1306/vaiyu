@@ -114,7 +114,7 @@ BEGIN
       RETURN jsonb_build_object('stay_id', v_stay_id, 'status', 'ALREADY_CHECKED_IN');
   END IF;
   
-  IF v_booking.status NOT IN ('CREATED', 'CONFIRMED') THEN
+  IF v_booking.status NOT IN ('CREATED', 'CONFIRMED', 'PRE_CHECKED_IN') THEN
     RAISE EXCEPTION 'Booking status % is not eligible for check-in', v_booking.status;
   END IF;
 
@@ -234,11 +234,19 @@ BEGIN
   UPDATE bookings
   SET status = 'CHECKED_IN'
   WHERE id = p_booking_id
-  AND status IN ('CREATED','CONFIRMED');
+  AND status IN ('CREATED','CONFIRMED','PRE_CHECKED_IN');
 
   IF NOT FOUND THEN
      RAISE EXCEPTION 'Booking state changed concurrently during check-in';
   END IF;
+
+  -- 4b. Persist Room Assignment to booking_rooms (Source of Truth)
+  UPDATE booking_rooms
+  SET room_id = p_room_id,
+      status = 'checked_in',
+      updated_at = now()
+  WHERE booking_id = p_booking_id
+  AND room_seq = 1;
 
   -- 5. Log Event (Standardized)
   INSERT INTO checkin_events (stay_id, event_type, actor_id, meta)
@@ -261,6 +269,10 @@ $$;
 
 GRANT EXECUTE ON FUNCTION process_checkin(UUID, JSONB, UUID, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION process_checkin(UUID, JSONB, UUID, UUID) TO service_role;
+
+
+-- Moved to 20260217_create_walkin_v2.sql to handle checked_in_at dependency
+-- CREATE OR REPLACE FUNCTION process_checkin_v2(...)
 
 
 -- 3. Create Walk-in (Booking First)

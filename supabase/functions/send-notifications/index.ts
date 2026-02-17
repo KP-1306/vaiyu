@@ -1,23 +1,32 @@
-
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { createClient } from "npm:@supabase/supabase-js";
 import { Resend } from "npm:resend";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Headers":
+        "authorization, x-client-info, apikey, content-type",
 };
 
 // Env vars
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const SUPABASE_SERVICE_ROLE_KEY =
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const WHATSAPP_TOKEN = Deno.env.get("WHATSAPP_TOKEN") ?? "";
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
 const resend = new Resend(RESEND_API_KEY);
 
-// Helper: Send WhatsApp
-async function sendWhatsAppText(phoneNumberId: string, to: string, body: string) {
+const MAX_RUNTIME_MS = 50_000; // keep below edge timeout (60s)
+const LOOP_DELAY_MS = 300; // slightly longer for external API rate limits
+const BATCH_SIZE = 50;
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+async function sendWhatsAppText(
+    phoneNumberId: string,
+    to: string,
+    body: string
+) {
     if (!WHATSAPP_TOKEN) {
         console.warn("Skipping WhatsApp: WHATSAPP_TOKEN not set");
         return;
@@ -44,8 +53,12 @@ async function sendWhatsAppText(phoneNumberId: string, to: string, body: string)
     }
 }
 
-// Helper: Send Email
-async function sendEmail(from: string, to: string, subject: string, html: string) {
+async function sendEmail(
+    from: string,
+    to: string,
+    subject: string,
+    html: string
+) {
     if (!RESEND_API_KEY) {
         console.error("Resend API Key missing");
         throw new Error("notification_send_failed");
@@ -59,30 +72,42 @@ async function sendEmail(from: string, to: string, subject: string, html: string
 
     if (error) {
         console.error("Resend Error:", error);
-        throw new Error("notification_send_failed");
+        throw new Error(`Resend Error: ${JSON.stringify(error)}`);
     }
     return data;
 }
 
-// Formatters
-async function formatWhatsAppMessage(template: string, payload: any, guestName: string) {
+// ─── Formatters ─────────────────────────────────────────────────────────────
+
+async function formatWhatsAppMessage(
+    template: string,
+    payload: any,
+    guestName: string
+) {
     const link = payload.link || "https://vaiyu.co.in";
     const guest = guestName || "Valued Guest";
 
-    if (template === 'precheckin_link') {
+    if (template === "precheckin_link") {
         return `Hello ${guest}, please complete your pre-checkin here: ${link}`;
     }
-    if (template === 'precheckin_reminder_1') {
+    if (template === "precheckin_reminder_1") {
         return `Hi ${guest}, your stay is coming up tomorrow! Complete pre-checkin to save time: ${link}`;
     }
-    if (template === 'precheckin_reminder_2') {
+    if (template === "precheckin_reminder_2") {
         return `Good morning ${guest}! We look forward to welcoming you today. Quick pre-checkin: ${link}`;
     }
     return `Notification: ${JSON.stringify(payload)}`;
 }
 
-async function formatEmailMessage(template: string, payload: any, guestName: string, hotelName: string) {
-    const link = payload.link || `https://vaiyu.co.in/precheckin/${payload.token || ''}`;
+async function formatEmailMessage(
+    template: string,
+    payload: any,
+    guestName: string,
+    hotelName: string
+) {
+    const link =
+        payload.link ||
+        `https://vaiyu.co.in/precheckin/${payload.token || ""}`;
     const guest = guestName || "Valued Guest";
     const hotel = hotelName || "Hotel";
 
@@ -105,7 +130,7 @@ async function formatEmailMessage(template: string, payload: any, guestName: str
           <tr>
             <td style="background:linear-gradient(135deg,#5b8cff,#7f53ff);color:#ffffff;padding:28px;text-align:center;">
               <h1 style="margin:0;font-size:26px;">Welcome to Your Upcoming Stay</h1>
-              <p style="margin-top:8px;font-size:15px;opacity:0.9;">Let’s make your arrival smooth and effortless</p>
+              <p style="margin-top:8px;font-size:15px;opacity:0.9;">Let's make your arrival smooth and effortless</p>
             </td>
           </tr>
           <!-- Content -->
@@ -143,7 +168,7 @@ async function formatEmailMessage(template: string, payload: any, guestName: str
 </html>
     `;
 
-    if (template === 'precheckin_link') {
+    if (template === "precheckin_link") {
         subject = "Complete your Pre-checkin";
         body = `
             ${commonHeader}
@@ -155,8 +180,7 @@ async function formatEmailMessage(template: string, payload: any, guestName: str
               </p>
             ${commonFooter}
         `;
-    }
-    else if (template === 'precheckin_reminder_1') {
+    } else if (template === "precheckin_reminder_1") {
         subject = "Your Stay Starts Tomorrow!";
         body = `
             ${commonHeader}
@@ -167,8 +191,7 @@ async function formatEmailMessage(template: string, payload: any, guestName: str
               </p>
             ${commonFooter}
         `;
-    }
-    else if (template === 'precheckin_reminder_2') {
+    } else if (template === "precheckin_reminder_2") {
         subject = `Welcome to ${hotel}!`;
         body = `
             ${commonHeader}
@@ -185,123 +208,150 @@ async function formatEmailMessage(template: string, payload: any, guestName: str
     return { subject, html: body };
 }
 
-serve(async (req) => {
+// ─── Main Worker (Loop-Drain Pattern) ───────────────────────────────────────
+
+Deno.serve(async (req) => {
+    console.log(`Incoming request: ${req.method} ${req.url}`);
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }
 
+    const start = Date.now();
+    let totalProcessed = 0;
+    const allResults: any[] = [];
+
     try {
         const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-        // 1. Fetch pending notifications
-        const { data: notifications, error: fetchErr } = await supabase.rpc("fetch_pending_notifications", { p_limit: 50 });
+        while (Date.now() - start < MAX_RUNTIME_MS) {
+            // 1. Claim batch of notifications atomically
+            const { data: notifications, error: fetchErr } = await supabase.rpc(
+                "claim_pending_notifications",
+                { p_limit: BATCH_SIZE }
+            );
 
-        if (fetchErr) throw fetchErr;
+            if (fetchErr) {
+                console.error("Claim error:", fetchErr);
+                break;
+            }
 
-        if (!notifications || notifications.length === 0) {
-            return new Response(JSON.stringify({ processed: 0 }), {
+            // Queue empty → exit cleanly
+            if (!notifications || notifications.length === 0) {
+                console.log("Notification queue empty, exiting after", totalProcessed);
+                break;
+            }
+
+            // 2. Process each notification
+            for (const notif of notifications) {
+                try {
+                    const { guest_name } = notif.payload || {};
+
+                    // Get Booking & Hotel details for contact info
+                    const { data: booking, error: bookingErr } = await supabase
+                        .from("bookings")
+                        .select(
+                            `
+              phone,
+              email,
+              guest_name,
+              hotels ( id, name, wa_phone_number_id, email )
+            `
+                        )
+                        .eq("id", notif.booking_id)
+                        .single();
+
+                    if (bookingErr || !booking) throw new Error("Booking not found");
+
+                    const hotel = booking.hotels;
+                    const actualGuestName = guest_name || booking.guest_name;
+
+                    // Send based on channel
+                    if (notif.channel === "whatsapp") {
+                        if (!hotel?.wa_phone_number_id)
+                            throw new Error("Hotel WhatsApp ID not configured");
+                        if (!booking.phone) throw new Error("Guest phone missing");
+
+                        const message = await formatWhatsAppMessage(
+                            notif.template_code,
+                            notif.payload,
+                            actualGuestName
+                        );
+                        await sendWhatsAppText(
+                            hotel.wa_phone_number_id,
+                            booking.phone,
+                            message
+                        );
+                    } else if (notif.channel === "email") {
+                        if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY not set");
+                        if (!booking.email) throw new Error("Guest email missing");
+
+                        const { subject, html } = await formatEmailMessage(
+                            notif.template_code,
+                            notif.payload,
+                            actualGuestName,
+                            hotel.name || "Hotel"
+                        );
+
+                        // DEV MODE: Use onboarding@resend.dev until domain is verified
+                        const from = "onboarding@resend.dev";
+
+                        /* PROD MODE (Once domain verified):
+                        const from = hotel?.email
+                            ? `${hotel.name || 'Hotel'} <${hotel.email}>`
+                            : "Vaiyu <stays@vaiyu.co.in>";
+                        */
+
+                        const recipient = (booking.email || "").trim().toLowerCase();
+                        console.log(
+                            `[Email] Sending to: "${recipient}" for booking ${notif.booking_id}`
+                        );
+
+                        await sendEmail(from, recipient, subject, html);
+                    } else {
+                        throw new Error(`Unsupported channel: ${notif.channel}`);
+                    }
+
+                    // Success → mark sent via RPC
+                    await supabase.rpc("mark_notification_sent", { p_id: notif.id });
+
+                    totalProcessed++;
+                    allResults.push({ id: notif.id, status: "sent" });
+                } catch (err: any) {
+                    console.error(`Failed notification ${notif.id}:`, err);
+
+                    // Failure → mark failed via RPC (handles retry count + backoff)
+                    await supabase.rpc("mark_notification_failed", {
+                        p_id: notif.id,
+                        p_error: err.message,
+                    });
+
+                    allResults.push({
+                        id: notif.id,
+                        status: "pending",
+                        error: err.message,
+                    });
+                }
+            }
+
+            // 3. Breathing gap to prevent external API rate limit issues
+            await new Promise((r) => setTimeout(r, LOOP_DELAY_MS));
+        }
+
+        return new Response(
+            JSON.stringify({ success: true, processed: totalProcessed, results: allResults }),
+            {
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
                 status: 200,
-            });
-        }
-
-        let processed = 0;
-        const results = [];
-
-        for (const notif of notifications) {
-            try {
-                // Update to processing
-                await supabase.from("notification_queue")
-                    .update({ status: "processing" })
-                    .eq("id", notif.id);
-
-                // Fetch Payload details
-                const { guest_name } = notif.payload || {};
-
-                // Get Booking & Hotel details for contact info
-                const { data: booking, error: bookingErr } = await supabase
-                    .from("bookings")
-                    .select(`
-                        phone, 
-                        email, 
-                        guest_name,
-                        hotels ( id, name, wa_phone_number_id, email )
-                    `)
-                    .eq("id", notif.booking_id)
-                    .single();
-
-                if (bookingErr || !booking) throw new Error("Booking not found");
-
-                const hotel = booking.hotels;
-                // If guest name missing in payload, use booking
-                const actualGuestName = guest_name || booking.guest_name;
-
-                // Send based on channel
-                if (notif.channel === "whatsapp") {
-                    if (!hotel?.wa_phone_number_id) throw new Error("Hotel WhatsApp ID not configured");
-                    if (!booking.phone) throw new Error("Guest phone missing");
-
-                    const message = await formatWhatsAppMessage(notif.template_code, notif.payload, actualGuestName);
-                    await sendWhatsAppText(hotel.wa_phone_number_id, booking.phone, message);
-                }
-                else if (notif.channel === "email") {
-                    if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY not set");
-                    if (!booking.email) throw new Error("Guest email missing");
-
-                    const { subject, html } = await formatEmailMessage(notif.template_code, notif.payload, actualGuestName, hotel.name || 'Hotel');
-
-                    // Sender Logic
-                    // DEV MODE: Use onboarding@resend.dev until domain is verified
-                    const from = "onboarding@resend.dev";
-
-                    /* PROD MODE (Once domain verified):
-                    const from = hotel?.email
-                        ? `${hotel.name || 'Hotel'} <${hotel.email}>`
-                        : "Vaiyu <stays@vaiyu.co.in>";
-                    */
-
-                    await sendEmail(from, booking.email, subject, html);
-                }
-                else {
-                    throw new Error(`Unsupported channel: ${notif.channel}`);
-                }
-
-                // Success
-                await supabase.from("notification_queue")
-                    .update({
-                        status: "sent",
-                        sent_at: new Date().toISOString()
-                    })
-                    .eq("id", notif.id);
-
-                processed++;
-                results.push({ id: notif.id, status: "sent" });
-
-            } catch (err: any) {
-                console.error(`Failed to process notification ${notif.id}:`, err);
-
-                await supabase.from("notification_queue")
-                    .update({
-                        status: "pending",
-                        error_message: err.message,
-                        retry_count: (notif.retry_count || 0) + 1,
-                        next_attempt_at: new Date(Date.now() + 5 * 60 * 1000).toISOString()
-                    })
-                    .eq("id", notif.id);
-
-                results.push({ id: notif.id, status: "pending", error: err.message });
             }
-        }
-
-        return new Response(JSON.stringify({ processed, results }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-            status: 200,
-        });
-
+        );
     } catch (error: any) {
-        return new Response(JSON.stringify({ error: error.message }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-            status: 400,
-        });
+        console.error("Worker global error:", error);
+        return new Response(
+            JSON.stringify({ success: false, error: error.message, processed: totalProcessed }),
+            {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+                status: 200,
+            }
+        );
     }
 });

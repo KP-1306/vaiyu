@@ -10,12 +10,12 @@ import {
     Loader2,
     Download,
     RefreshCw,
+    Save,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { parseBookingCSV, BookingCSVRow, normalizePhone } from "../utils/csvParser";
 import { generateErrorExcel } from "../utils/excelGenerator";
-
-// ... lines 15-278 ...
+import "./ImportBookings.css";
 
 /* --- Types --- */
 type ImportStep = "UPLOAD_AND_MAP" | "PREVIEW" | "PROCESSING" | "COMPLETED";
@@ -54,6 +54,9 @@ export default function ImportBookings() {
     const [file, setFile] = useState<File | null>(null);
     const [csvData, setCsvData] = useState<BookingCSVRow[]>([]);
     const [mappings, setMappings] = useState<Record<string, string>>({});
+    const [savedMappings, setSavedMappings] = useState<Record<string, string>>({});
+    const [mappingSaved, setMappingSaved] = useState(false);
+    const [savingMapping, setSavingMapping] = useState(false);
     const [validationResults, setValidationResults] = useState<ValidationResult[]>([]);
     const [isProcessing, setIsProcessing] = useState(false);
 
@@ -69,17 +72,24 @@ export default function ImportBookings() {
 
     // DB Fields definition
     const DB_FIELDS = [
+        { label: "Hotel Slug", value: "hotel_slug", required: false },
         { label: "Booking Reference", value: "booking_reference", required: true },
+        { label: "Booking Status", value: "booking_status", required: false },
         { label: "Guest Name", value: "guest_name", required: true },
-        { label: "Phone Number", value: "phone", required: false },
-        { label: "Email", value: "email", required: false },
+        { label: "Phone Number", value: "guest_phone", required: false },
+        { label: "Email", value: "guest_email", required: false },
         { label: "Check-In Date", value: "checkin_date", required: true },
         { label: "Check-Out Date", value: "checkout_date", required: true },
         { label: "Room Number", value: "room_number", required: false },
-        { label: "Room Type", value: "room_type", required: false },
+        { label: "Room Type", value: "room_type_name", required: false },
         { label: "Adults", value: "adults", required: false },
         { label: "Children", value: "children", required: false },
         { label: "Special Requests", value: "special_requests", required: false },
+        { label: "Room Sequence", value: "room_seq", required: false },
+        { label: "Guest Sequence", value: "guest_seq", required: false },
+        { label: "Primary Guest Flag", value: "primary_guest_flag", required: false },
+        { label: "Rate Plan", value: "rate_plan", required: false },
+        { label: "Total Amount", value: "total_amount", required: false },
     ];
 
     // Fetch hotel and lookup data
@@ -91,6 +101,7 @@ export default function ImportBookings() {
                     setHotelId(data.id);
                     setHotelName(data.name);
                     fetchLookups(data.id);
+                    loadSavedMapping(data.id);
                 } else {
                     console.error("Hotel not found", error);
                 }
@@ -150,6 +161,85 @@ export default function ImportBookings() {
         }
     };
 
+    // Helper: Generate mappings from headers
+    const generateMappings = (headers: string[]) => {
+        const suggested: Record<string, string> = {};
+        headers.forEach(h => {
+            const lower = h.toLowerCase().trim();
+            const clean = lower.replace(/[\s_]+/g, "");
+
+            // 1. Exact matches (priority)
+            if (lower === "hotel_slug" || lower === "hotelslug") suggested[h] = "hotel_slug";
+            else if (lower === "booking_reference" || lower === "bookingref" || lower === "bookingid") suggested[h] = "booking_reference";
+            else if (lower === "booking_status" || lower === "status") suggested[h] = "booking_status";
+            else if (lower === "room_type_name" || lower === "roomtype" || lower === "roomtypename") suggested[h] = "room_type_name";
+            else if (lower === "room_number" || lower === "roomno" || lower === "room") suggested[h] = "room_number";
+            else if (lower === "room_seq" || lower === "roomseq") suggested[h] = "room_seq";
+            else if (lower === "guest_seq" || lower === "guestseq") suggested[h] = "guest_seq";
+            else if (lower === "primary_guest_flag" || lower === "primaryguest" || lower === "isprimary") suggested[h] = "primary_guest_flag";
+            else if (lower === "rate_plan" || lower === "rate") suggested[h] = "rate_plan";
+            else if (lower === "total_amount" || lower === "amount" || lower === "total") suggested[h] = "total_amount";
+
+            // 2. Fuzzy/Heuristic matches (fallback)
+            else if (clean.includes("guest") && clean.includes("name")) suggested[h] = "guest_name";
+            else if (clean.includes("phone") || clean.includes("mobile")) suggested[h] = "guest_phone";
+            else if (clean.includes("email")) suggested[h] = "guest_email";
+            else if (clean.includes("checkin") || clean.includes("arrival")) suggested[h] = "checkin_date";
+            else if (clean.includes("checkout") || clean.includes("departure")) suggested[h] = "checkout_date";
+            else if (clean.includes("adult")) suggested[h] = "adults";
+            else if (clean.includes("child")) suggested[h] = "children";
+            else if (clean.includes("special") || clean.includes("request")) suggested[h] = "special_requests";
+        });
+        return suggested;
+    };
+
+    // --- Save/Load Mapping ---
+    const loadSavedMapping = async (hId: string) => {
+        const { data } = await supabase
+            .from("hotel_import_mappings")
+            .select("csv_column, vaiyu_field")
+            .eq("hotel_id", hId)
+            .eq("mapping_name", "default");
+
+        if (data && data.length > 0) {
+            const saved: Record<string, string> = {};
+            data.forEach((row: any) => { saved[row.csv_column] = row.vaiyu_field; });
+            setSavedMappings(saved);
+        }
+    };
+
+    const saveMapping = async () => {
+        if (!hotelId || savingMapping) return;
+        const entries = Object.entries(mappings).filter(([, v]) => v);
+        if (entries.length === 0) return;
+
+        setSavingMapping(true);
+
+        // Delete old mapping for this hotel, then insert new
+        await supabase
+            .from("hotel_import_mappings")
+            .delete()
+            .eq("hotel_id", hotelId)
+            .eq("mapping_name", "default");
+
+        const rows = entries.map(([csvCol, vaiyuField]) => ({
+            hotel_id: hotelId,
+            mapping_name: "default",
+            csv_column: csvCol,
+            vaiyu_field: vaiyuField,
+        }));
+
+        const { error } = await supabase.from("hotel_import_mappings").insert(rows);
+        setSavingMapping(false);
+        if (error) {
+            console.error("Save mapping error:", error);
+        } else {
+            setSavedMappings({ ...mappings });
+            setMappingSaved(true);
+            setTimeout(() => setMappingSaved(false), 2000);
+        }
+    };
+
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement> | File) => {
         const uploadedFile = e instanceof File ? e : e.target.files?.[0];
         if (!uploadedFile) return;
@@ -158,26 +248,22 @@ export default function ImportBookings() {
         try {
             const result = await parseBookingCSV(uploadedFile);
             setCsvData(result.data);
-            if (Object.keys(mappings).length === 0) {
-                // Auto-suggest
-                const suggested: Record<string, string> = {};
-                const headers = result.meta.fields || [];
+            const headers = result.meta.fields || [];
+
+            // Priority: apply saved mapping if columns match, else auto-suggest
+            if (Object.keys(savedMappings).length > 0) {
+                const applied: Record<string, string> = {};
                 headers.forEach(h => {
-                    const lower = h.toLowerCase().replace(/_/g, "");
-                    // Simple heuristic mapping
-                    if (lower.includes("guest") || lower.includes("name")) suggested[h] = "guest_name";
-                    else if (lower.includes("phone") || lower.includes("mobile")) suggested[h] = "phone";
-                    else if (lower.includes("email")) suggested[h] = "email";
-                    else if (lower.includes("checkin") || lower.includes("arrival")) suggested[h] = "checkin_date";
-                    else if (lower.includes("checkout") || lower.includes("departure")) suggested[h] = "checkout_date";
-                    else if (lower.includes("room") && lower.includes("type")) suggested[h] = "room_type";
-                    else if (lower.includes("room")) suggested[h] = "room_number";
-                    else if (lower.includes("ref") || lower.includes("id")) suggested[h] = "booking_reference";
-                    else if (lower.includes("adult")) suggested[h] = "adults";
-                    else if (lower.includes("child")) suggested[h] = "children";
-                    else if (lower.includes("special") || lower.includes("request")) suggested[h] = "special_requests";
+                    if (savedMappings[h]) applied[h] = savedMappings[h];
                 });
-                setMappings(suggested);
+                // If at least half the columns matched saved mapping, use it
+                if (Object.keys(applied).length >= Math.min(headers.length, Object.keys(savedMappings).length) * 0.5) {
+                    setMappings(applied);
+                } else {
+                    setMappings(generateMappings(headers));
+                }
+            } else if (Object.keys(mappings).length === 0) {
+                setMappings(generateMappings(headers));
             }
         } catch (err) {
             alert("Error parsing CSV: " + err);
@@ -186,22 +272,8 @@ export default function ImportBookings() {
 
     const autoSuggestMapping = () => {
         if (!csvData.length) return;
-        const suggested: Record<string, string> = {};
         const headers = Object.keys(csvData[0]);
-        headers.forEach(h => {
-            const lower = h.toLowerCase().replace(/_/g, "");
-            if (lower.includes("guest") || lower.includes("name")) suggested[h] = "guest_name";
-            else if (lower.includes("phone") || lower.includes("mobile")) suggested[h] = "phone";
-            else if (lower.includes("email")) suggested[h] = "email";
-            else if (lower.includes("checkin") || lower.includes("arrival")) suggested[h] = "checkin_date";
-            else if (lower.includes("checkout") || lower.includes("departure")) suggested[h] = "checkout_date";
-            else if (lower.includes("room") && lower.includes("type")) suggested[h] = "room_type";
-            else if (lower.includes("room")) suggested[h] = "room_number";
-            else if (lower.includes("ref") || lower.includes("id")) suggested[h] = "booking_reference";
-            else if (lower.includes("adult")) suggested[h] = "adults";
-            else if (lower.includes("child")) suggested[h] = "children";
-            else if (lower.includes("special") || lower.includes("request")) suggested[h] = "special_requests";
-        });
+        const suggested = generateMappings(headers);
         setMappings(suggested);
     };
 
@@ -222,15 +294,23 @@ export default function ImportBookings() {
 
             // Extract Fields via Mapping
             parsed.booking_reference = getVal("booking_reference");
+            parsed.booking_status = getVal("booking_status");
             parsed.guest_name = getVal("guest_name");
-            parsed.email = getVal("email");
+            parsed.guest_email = getVal("guest_email");
+            parsed.guest_phone = getVal("guest_phone");
             parsed.checkin_date = getVal("checkin_date");
             parsed.checkout_date = getVal("checkout_date");
-            parsed.room_type = getVal("room_type");
+            parsed.room_type_name = getVal("room_type_name");
             parsed.room_number = getVal("room_number");
             parsed.adults = getVal("adults");
             parsed.children = getVal("children");
             parsed.special_requests = getVal("special_requests");
+            parsed.room_seq = getVal("room_seq");
+            parsed.guest_seq = getVal("guest_seq");
+            parsed.primary_guest_flag = getVal("primary_guest_flag");
+            parsed.rate_plan = getVal("rate_plan");
+            parsed.total_amount = getVal("total_amount");
+            parsed.hotel_slug = getVal("hotel_slug");
 
             // --- Validators ---
 
@@ -259,25 +339,43 @@ export default function ImportBookings() {
             }
 
             // 3. Contact Info (Phone OR Email)
-            const rawPhone = getVal("phone");
-            const rawEmail = getVal("email");
+            // Note: For multi-room bookings, only primary guest needs contact info usually.
+            // But we validate row-level here. 
+            // IMPROVEMENT: If primary_guest_flag is set, enforce contact.
+
+            const rawPhone = parsed.guest_phone;
+            const rawEmail = parsed.guest_email;
+            const isPrimary = parsed.primary_guest_flag === "true" || parsed.primary_guest_flag === "1" || parsed.primary_guest_flag === "yes";
 
             if (!rawPhone && !rawEmail) {
-                errors.push("Missing Contact (Phone or Email)");
-                fieldErrors["phone"] = true;
-                fieldErrors["email"] = true;
+                // If primary_guest_flag is mapped, only enforce contact for primary guests.
+                // If NOT mapped (legacy), enforce for everyone to be safe.
+                const hasPrimaryFlagMapped = Object.values(mappings).includes("primary_guest_flag");
+
+                if (hasPrimaryFlagMapped) {
+                    if (isPrimary) {
+                        errors.push("Missing Contact (Phone or Email)");
+                        fieldErrors["guest_phone"] = true; // Mark phone as missing
+                        // fieldErrors["guest_email"] = true; // Mark email as missing (optional if phone exists)
+                    }
+                } else {
+                    // Legacy: Require contact for everyone
+                    errors.push("Missing Contact (Phone or Email)");
+                    fieldErrors["guest_phone"] = true;
+                    fieldErrors["guest_email"] = true;
+                }
             }
 
             if (rawPhone) {
                 parsed.phone = normalizePhone(rawPhone);
-                if (parsed.phone.length < 5) { errors.push("Invalid Phone"); fieldErrors["phone"] = true; }
+                if (parsed.phone.length < 5) { errors.push("Invalid Phone"); fieldErrors["guest_phone"] = true; }
             }
 
             if (rawEmail) {
                 // Basic email regex
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                 if (!emailRegex.test(rawEmail)) {
-                    errors.push("Invalid Email"); fieldErrors["email"] = true;
+                    errors.push("Invalid Email"); fieldErrors["guest_email"] = true;
                 }
             }
 
@@ -297,6 +395,36 @@ export default function ImportBookings() {
 
             return { row, originalIndex: idx, isValid: errors.length === 0, errors, fieldErrors, parsed };
         });
+
+        // 5. Group Validation (Booking Level)
+        const bookingGroups: Record<string, boolean> = {};
+        results.forEach(r => {
+            if (r.parsed.booking_reference) {
+                if (r.parsed.primary_guest_flag === "true" || r.parsed.primary_guest_flag === "1" || r.parsed.primary_guest_flag === "yes") {
+                    bookingGroups[r.parsed.booking_reference] = true;
+                }
+            }
+        });
+
+        // If 'primary_guest_flag' column exists map-wise, ensure at least one primary per booking
+        const hasPrimaryFlagMapped = Object.values(mappings).includes("primary_guest_flag");
+        if (hasPrimaryFlagMapped) {
+            results.forEach(r => {
+                if (r.parsed.booking_reference && !bookingGroups[r.parsed.booking_reference]) {
+                    // No primary guest found for this booking ref
+                    // r.errors.push("No Primary Guest for this Booking");
+                    // r.isValid = false; 
+                    // Actually, let's just warn or assume first row is primary if none set?
+                    // User requirement: "Validate that for each booking_reference, there is at least one row with primary_guest_flag=true"
+                    // We will mark it invalid for now to enforce data quality
+                    // But we only do this if this specific row is the first one for the booking? 
+                    // Or just mark all rows invalid? Marking all is safer.
+                    r.isValid = false;
+                    r.errors.push("Booking missing Primary Guest flag");
+                }
+            });
+        }
+
         setValidationResults(results);
         setStep("PREVIEW");
     };
@@ -304,8 +432,30 @@ export default function ImportBookings() {
     const executeImport = async () => {
         if (!hotelId || !file) return;
         setIsProcessing(true);
+
+        // Build CSV from only valid rows
+        const validRows = validationResults.filter(r => r.isValid);
+        if (validRows.length === 0) {
+            setIsProcessing(false);
+            return;
+        }
+
+        const headers = Object.keys(validRows[0].row);
+        const csvLines = [
+            headers.join(","),
+            ...validRows.map(r => headers.map(h => {
+                const val = String((r.row as any)[h] ?? "");
+                // Escape values containing commas, quotes, or newlines
+                return val.includes(",") || val.includes('"') || val.includes("\n")
+                    ? `"${val.replace(/"/g, '""')}"`
+                    : val;
+            }).join(","))
+        ];
+        const csvBlob = new Blob([csvLines.join("\n")], { type: "text/csv" });
+        const filteredFile = new File([csvBlob], file.name, { type: "text/csv" });
+
         const formData = new FormData();
-        formData.append("file", file);
+        formData.append("file", filteredFile);
         formData.append("hotel_id", hotelId);
         formData.append("mappings", JSON.stringify(mappings));
 
@@ -331,17 +481,27 @@ export default function ImportBookings() {
                         body: {}
                     });
 
-                    if (workerErr) console.error("Worker Error:", workerErr);
+                    if (workerErr) {
+                        console.warn("Worker Invocation Warning:", workerErr);
+                        // Don't throw, let DB polling handle status. Recursion stops here.
+                        return;
+                    }
 
-                    // If rows were processed, trigger again immediately (Recursive Loop)
-                    if (res && res.processed > 0) {
-                        console.log(`Processed ${res.processed} rows. Continuing...`);
+                    console.log("Worker Response Payload:", res);
+
+                    // Normalize count (handle both old and new keys for safety)
+                    const count = (res?.processed !== undefined) ? res.processed : (res?.processed_groups || 0);
+
+                    // If rows were processed (success or error), trigger again immediately (Recursive Loop)
+                    // NOTE: UI progress is driven by DB polling (batchStats), not this response.
+                    if (count > 0) {
+                        console.log(`Worker processed ${count} items. Continuing recursion...`);
                         await triggerWorker();
                     } else {
                         console.log("Worker finished batch or no pending rows.");
                     }
                 } catch (e) {
-                    console.error("Worker Trigger Failed:", e);
+                    console.error("Worker Trigger Failed (Recursion Stopped):", e);
                 }
             };
 
@@ -355,9 +515,21 @@ export default function ImportBookings() {
     };
 
     const downloadTemplate = () => {
+        const headers = "hotel_slug,booking_reference,booking_status,checkin_date,checkout_date,room_seq,room_type_name,room_number,adults,children,guest_seq,guest_name,guest_phone,guest_email,primary_guest_flag";
+        const rows = [
+            "TENANT1,BKG10021,CONFIRMED,2026-03-10,2026-03-12,1,Deluxe,401,2,0,1,Ajit Kumar Singh,,ajitkumarpes@email.com,true",
+            "TENANT1,BKG10021,CONFIRMED,2026-03-10,2026-03-12,1,Deluxe,401,2,0,2,Rahul Singh,,,",
+            "TENANT1,BKG10021,CONFIRMED,2026-03-10,2026-03-12,2,Suite,601,2,1,1,Priya Singh,,,",
+            "TENANT1,BKG10045,CONFIRMED,2026-03-15,2026-03-17,1,Deluxe,405,1,0,1,Ramesh Patel,,ajitsan@email.com,true",
+            "TENANT1,BKG10046,CANCELLED,2026-03-20,2026-03-21,1,Standard,305,1,0,1,Sneha Sharma,,singhajit.br@email.com,true"
+        ];
+
+        const csvContent = [headers, ...rows].join("\n");
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
-        link.href = "/bookings_sample.csv";
-        link.download = "bookings_sample.csv";
+        link.href = url;
+        link.setAttribute("download", "bookings_sample.csv");
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -409,79 +581,80 @@ export default function ImportBookings() {
         };
 
         return (
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col h-[70vh] animate-in fade-in zoom-in-95 duration-300">
+            <div className="ib-card flex flex-col h-[70vh] animate-in fade-in zoom-in-95 duration-300">
                 {/* Header */}
-                <div className="border-b border-slate-100 px-8 py-5 flex items-center justify-between">
+                <div className="ib-card-header border-b border-white/10 px-8 py-5 justify-between">
                     <div className="flex items-center gap-2">
-                        <h3 className="text-lg font-bold text-slate-800">Previewing {validationResults.length} of {validationResults.length} Rows</h3>
-                        <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                        <h3 className="ib-card-title text-lg">Previewing {validationResults.length} of {validationResults.length} Rows</h3>
+                        <span className="w-2 h-2 rounded-full bg-indigo-500 shadow-custom shadow-indigo-500/50"></span>
                     </div>
-                    <button onClick={() => setStep("UPLOAD_AND_MAP")} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors">
+                    <button onClick={() => setStep("UPLOAD_AND_MAP")} className="p-2 hover:bg-white/5 rounded-full text-slate-400 hover:text-white transition-colors">
                         <X size={24} />
                     </button>
                 </div>
 
                 {/* Table */}
                 <div className="flex-1 overflow-auto">
-                    <table className="w-full text-left text-sm whitespace-nowrap">
-                        <thead className="bg-white text-slate-500 sticky top-0 z-10 font-bold border-b border-slate-200 shadow-sm">
+                    <table className="ib-table whitespace-nowrap">
+                        <thead className="ib-thead sticky top-0 z-10">
                             <tr>
-                                <th className="px-6 py-4">Guest Name</th>
-                                <th className="px-6 py-4">Phone Number</th>
-                                <th className="px-6 py-4">Check-In Date</th>
-                                <th className="px-6 py-4">Check-Out Date</th>
-                                <th className="px-6 py-4">Room Type</th>
-                                <th className="px-6 py-4">Adults</th>
-                                <th className="px-6 py-4">Children</th>
-                                <th className="px-6 py-4">Status</th>
+                                <th className="ib-th">Guest Name</th>
+                                <th className="ib-th">Phone Number</th>
+                                <th className="ib-th">Check-In Date</th>
+                                <th className="ib-th">Check-Out Date</th>
+                                <th className="ib-th">Room Type</th>
+                                <th className="ib-th">Adults</th>
+                                <th className="ib-th">Children</th>
+                                <th className="ib-th">Status</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody className="divide-y divide-white/5">
                             {validationResults.map((res, i) => (
-                                <tr key={i} className="hover:bg-slate-50 transition-colors">
+                                <tr key={i} className="ib-tr">
                                     {/* Guest Name */}
-                                    <td className={`px-6 py-4 font-semibold text-slate-700 ${res.fieldErrors["guest_name"] ? "bg-red-50/70 text-red-500 italic" : ""}`}>
+                                    <td className={`ib-td font-semibold text-white ${res.fieldErrors["guest_name"] ? "bg-red-500/10 text-red-400 italic" : ""}`}>
                                         {res.fieldErrors["guest_name"] ? "Missing" : (res.parsed.guest_name || "-")}
                                     </td>
 
                                     {/* Phone */}
-                                    <td className={`px-6 py-4 font-medium ${res.fieldErrors["phone"] ? "bg-red-50/70 text-red-500 italic" : "text-slate-600"}`}>
-                                        {res.fieldErrors["phone"] ? "Missing" : (maskPhone(res.parsed.phone) || "-")}
+                                    <td className={`ib-td font-medium ${res.fieldErrors["guest_phone"] ? "bg-red-500/10 text-red-400 italic" : "text-slate-400"}`}>
+                                        {res.fieldErrors["guest_phone"] ? "Missing" : (maskPhone(res.parsed.phone) || "-")}
                                     </td>
 
                                     {/* Check-In */}
-                                    <td className={`px-6 py-4 ${res.fieldErrors["checkin_date"] ? "bg-red-50/70 text-red-500 italic" : "text-slate-600"}`}>
+                                    <td className={`ib-td ${res.fieldErrors["checkin_date"] ? "bg-red-500/10 text-red-400 italic" : "text-slate-300"}`}>
                                         {res.fieldErrors["checkin_date"] ? "Missing" : (res.parsed.checkin_date || "-")}
                                     </td>
 
                                     {/* Check-Out */}
-                                    <td className={`px-6 py-4 ${res.fieldErrors["checkout_date"] ? "bg-red-50/70 text-red-500 italic" : "text-slate-600"}`}>
+                                    <td className={`ib-td ${res.fieldErrors["checkout_date"] ? "bg-red-500/10 text-red-400 italic" : "text-slate-300"}`}>
                                         {res.fieldErrors["checkout_date"] ? "Missing" : (res.parsed.checkout_date || "-")}
                                     </td>
 
                                     {/* Room Type */}
-                                    <td className="px-6 py-4 text-slate-600">
-                                        {/* Fallback to room number if room type not mapped/parsed, strictly logic based on mappings would be better but this works for display */}
-                                        {res.parsed.room_type || res.parsed.room_number || "Standard"}
+                                    <td className="ib-td text-slate-400">
+                                        {res.parsed.room_type_name || res.parsed.room_number || "Standard"}
                                     </td>
 
                                     {/* Adults */}
-                                    <td className={`px-6 py-4 ${res.fieldErrors["adults"] ? "bg-red-50/70 text-red-500 font-bold" : "text-slate-600"}`}>
+                                    <td className={`ib-td ${res.fieldErrors["adults"] ? "bg-red-500/10 text-red-400 font-bold" : "text-slate-400"}`}>
                                         {res.parsed.adults}
                                     </td>
 
                                     {/* Children */}
-                                    <td className="px-6 py-4 text-slate-600">
+                                    <td className="ib-td text-slate-400">
                                         {res.parsed.children}
                                     </td>
 
                                     {/* Status */}
-                                    <td className="px-6 py-4 font-bold">
+                                    <td className="ib-td font-bold">
                                         {res.isValid ? (
-                                            <span className="text-green-500">Valid</span>
+                                            <span className="ib-badge-valid">
+                                                <CheckCircle size={14} /> Valid
+                                            </span>
                                         ) : (
-                                            <span className="text-red-500 flex items-center gap-1">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span> Error
+                                            <span className="ib-badge-error">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span> Error
                                             </span>
                                         )}
                                     </td>
@@ -492,29 +665,29 @@ export default function ImportBookings() {
                 </div>
 
                 {/* Footer */}
-                <div className="border-t border-slate-100 px-8 py-5 bg-white flex items-center justify-between">
-                    <div className="flex items-center gap-6 text-sm font-semibold">
-                        <div className="flex items-center gap-2 text-green-600">
-                            <span className="w-2.5 h-2.5 rounded-full bg-green-500"></span>
+                <div className="border-t border-white/10 px-8 py-5 bg-slate-800 flex items-center justify-between rounded-b-xl">
+                    <div className="flex items-center gap-6 text-sm font-medium">
+                        <div className="ib-badge-valid">
+                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-custom shadow-emerald-500/50"></span>
                             {validCount} Valid
                         </div>
-                        <div className="flex items-center gap-2 text-red-500">
-                            <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
-                            {errorCount} Errors
+                        <div className="ib-badge-error">
+                            <span className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-custom shadow-red-500/50"></span>
+                            {errorCount} With Errors
                         </div>
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <button onClick={() => setStep("UPLOAD_AND_MAP")} className="px-5 py-2.5 border border-slate-300 rounded-lg text-slate-600 font-semibold hover:bg-slate-50 transition-colors">
+                        <button onClick={() => setStep("UPLOAD_AND_MAP")} className="ib-btn-secondary">
                             Back
                         </button>
-                        <button onClick={downloadErrorFile} disabled={errorCount === 0} className="px-5 py-2.5 border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg font-semibold disabled:opacity-50 transition-colors">
-                            Download Error File
+                        <button onClick={downloadErrorFile} disabled={errorCount === 0} className="ib-btn-error">
+                            <Download size={16} /> Download Error File
                         </button>
                         <button
                             onClick={executeImport}
                             disabled={isProcessing || validCount === 0}
-                            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow-sm shadow-blue-200 disabled:opacity-50 disabled:shadow-none transition-all flex items-center gap-2"
+                            className="ib-btn-primary"
                         >
                             {isProcessing ? <Loader2 className="animate-spin" size={18} /> : "Import Valid Rows"}
                         </button>
@@ -525,231 +698,266 @@ export default function ImportBookings() {
     }
 
     return (
-        <div className="mx-auto max-w-6xl px-4 py-8">
-            {/* --- Header --- */}
-            <div className="mb-8 flex items-end justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Import Arrivals / Reservations</h1>
-                    <p className="text-slate-500 mt-1">Select Hotel: <span className="font-medium text-slate-700 ml-2 bg-white px-3 py-1 rounded border border-slate-200">{hotelName || "Loading..."}</span></p>
+        <div className="ib-container">
+            <div className="mx-auto max-w-6xl">
+                {/* --- Header --- */}
+                <div className="ib-header">
+                    <div>
+                        <h1 className="ib-title">Import Arrivals / Reservations</h1>
+                        <p className="ib-subtitle text-sm">Select Hotel: <span className="ib-hotel-badge">{hotelName || "Loading..."}</span></p>
+                    </div>
+                    {step === "UPLOAD_AND_MAP" && (
+                        <button onClick={downloadTemplate} className="text-sm text-indigo-400 font-medium hover:text-indigo-300 transition-colors hover:underline flex items-center gap-1">
+                            <Download size={16} /> Download Template
+                        </button>
+                    )}
                 </div>
+
+                {/* --- Step: Processing / Completed --- */}
+                {(step === "PROCESSING" || step === "COMPLETED") && (
+                    <div className="ib-card max-w-xl mx-auto text-center animate-in fade-in zoom-in-95 duration-500">
+                        {step === "PROCESSING" ? (
+                            <div className="flex flex-col items-center">
+                                <div className="relative mb-6">
+                                    <div className="w-16 h-16 bg-indigo-500/20 rounded-full flex items-center justify-center animate-pulse">
+                                        <Loader2 className="animate-spin text-indigo-400" size={32} />
+                                    </div>
+                                </div>
+                                <h2 className="ib-card-title text-2xl mb-2">Processing Import...</h2>
+                                <p className="text-slate-400 mb-8 max-w-xs mx-auto text-sm">Synchronizing your guest data with the secure database.</p>
+
+                                <div className="w-full bg-slate-700/50 rounded-full h-3 mb-6 overflow-hidden relative border border-white/5">
+                                    <div
+                                        className="bg-indigo-500 h-full transition-all duration-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]"
+                                        style={{ width: `${batchStats.total > 0 ? ((batchStats.imported + batchStats.errors) / batchStats.total) * 100 : 5}%` }}
+                                    />
+                                </div>
+                                <div className="flex justify-center gap-8 text-sm font-medium">
+                                    <div className="text-slate-300">Total: <b className="text-white ml-1">{batchStats.total}</b></div>
+                                    <div className="text-emerald-400">Imported: <b className="ml-1">{batchStats.imported}</b></div>
+                                    <div className="text-red-400">Errors: <b className="ml-1">{batchStats.errors}</b></div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center">
+                                <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 shadow-xl ring-4 ring-white/5
+                                     ${batchStats.errors > 0 ? "bg-amber-500/20 text-amber-500" : "bg-emerald-500/20 text-emerald-500"}`}>
+                                    {batchStats.errors > 0 ? <AlertTriangle size={36} /> : <CheckCircle size={36} />}
+                                </div>
+                                <h2 className="text-2xl font-bold text-white mb-2">Import Completed</h2>
+                                <p className="text-slate-400 mb-8 max-w-sm mx-auto">
+                                    {batchStats.errors > 0
+                                        ? "Some rows failed to import. Download the report to view details."
+                                        : "All rows were successfully imported."}
+                                </p>
+
+                                <div className="flex gap-4 mb-8 text-sm bg-white/5 p-3 rounded-lg border border-white/5">
+                                    <span className="px-2 text-slate-300">Total: <b className="text-white ml-1">{batchStats.total}</b></span>
+                                    <span className="w-px h-4 bg-white/10 my-auto"></span>
+                                    <span className="px-2 text-emerald-400">Success: <b className="ml-1">{batchStats.imported}</b></span>
+                                    <span className="w-px h-4 bg-white/10 my-auto"></span>
+                                    <span className="px-2 text-red-400">Errors: <b className="ml-1">{batchStats.errors}</b></span>
+                                </div>
+
+                                <div className="flex gap-3">
+                                    <button onClick={() => window.location.reload()} className="ib-btn-secondary">
+                                        Import Another File
+                                    </button>
+                                    {batchStats.errors > 0 && (
+                                        <button
+                                            onClick={async () => {
+                                                if (!batchId) return;
+                                                const { data: errRows } = await supabase
+                                                    .from("import_rows")
+                                                    .select("row_data, error_message, status")
+                                                    .eq("batch_id", batchId)
+                                                    .eq("status", "error");
+
+                                                if (errRows && errRows.length > 0) {
+                                                    const exportData = errRows.map(r => ({
+                                                        row: r.row_data,
+                                                        isValid: false,
+                                                        errors: [r.error_message || "Unknown Error"],
+                                                        fieldErrors: {},
+                                                        mappings: {}
+                                                    }));
+                                                    try {
+                                                        const blob = await generateErrorExcel(exportData);
+                                                        const url = URL.createObjectURL(blob);
+                                                        const link = document.createElement("a");
+                                                        link.href = url;
+                                                        link.download = `import_report_${batchId}.xlsx`;
+                                                        document.body.appendChild(link);
+                                                        link.click();
+                                                        document.body.removeChild(link);
+                                                    } catch (e) {
+                                                        alert("Failed to generate report");
+                                                    }
+                                                }
+                                            }}
+                                            className="ib-btn-primary bg-amber-500 hover:bg-amber-400 shadow-amber-500/20"
+                                        >
+                                            <Download size={18} /> Download Report
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* --- Step: Preview --- */}
+                {step === "PREVIEW" && renderPreview()}
+
+                {/* --- Step: Upload & Map (Stacked Layout) --- */}
                 {step === "UPLOAD_AND_MAP" && (
-                    <button onClick={downloadTemplate} className="text-sm text-blue-600 font-medium hover:underline flex items-center gap-1">
-                        <Download size={16} /> Download Template
-                    </button>
+                    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+
+                        {/* Section 1: Upload */}
+                        <div className="ib-card group">
+                            <label
+                                onDragOver={handleDragOver}
+                                onDrop={handleDrop}
+                                className={`ib-upload-label ${file ? 'ib-upload-label-active' : 'ib-upload-label-inactive'}`}
+                            >
+                                <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/0 via-indigo-500/0 to-indigo-500/0 opacity-0 group-hover:opacity-10 transition-opacity duration-500 pointer-events-none" />
+
+                                <div className="ib-upload-content">
+                                    {file ? (
+                                        <>
+                                            <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-emerald-500/10 scale-100 transition-transform duration-300">
+                                                <FileSpreadsheet size={32} />
+                                            </div>
+                                            <p className="text-lg font-bold text-white mb-1">{file.name}</p>
+                                            <p className="text-sm text-emerald-400 font-medium mb-4 flex items-center gap-1.5"><CheckCircle size={14} /> Ready to parse ({(file.size / 1024).toFixed(1)} KB)</p>
+                                            <span className="text-xs text-slate-400 hover:text-white transition-colors border-b border-dashed border-slate-500 hover:border-white cursor-pointer">Click to change file</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="w-16 h-16 bg-slate-700/50 text-slate-400 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:text-indigo-400 group-hover:bg-slate-700 transition-all duration-300 shadow-lg">
+                                                <UploadCloud size={32} />
+                                            </div>
+                                            <p className="mb-2 text-lg text-slate-200 font-semibold">Drag & Drop your PMS Export File</p>
+                                            <p className="text-sm text-slate-500 mb-6">Supports .CSV or .XLSX</p>
+                                            <div className="ib-btn-primary">
+                                                Upload File
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                                <input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
+                            </label>
+
+                            <div className="flex items-center justify-between mt-6">
+                                <button onClick={downloadTemplate} className="text-sm text-slate-400 font-medium hover:text-white transition-colors flex items-center gap-2 group/link">
+                                    <div className="p-1.5 rounded-md bg-slate-700/50 group-hover/link:bg-slate-700 text-slate-400 group-hover/link:text-white transition-colors"><Download size={14} /></div>
+                                    Download Template
+                                </button>
+                                {file && (
+                                    <span className="text-sm text-indigo-400 font-bold flex items-center gap-1 animate-pulse">
+                                        Next: Map Columns <ChevronRight size={16} />
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Section 2: Map Columns */}
+                        {file && (
+                            <div className="ib-card text-left">
+                                <div className="mb-6 border-b border-white/5 pb-4">
+                                    <h2 className="ib-card-title">Map Columns to Vaiyu Fields</h2>
+                                    <p className="text-slate-400 mt-1 text-sm">Match the columns from your file to the system fields.</p>
+                                </div>
+
+                                <div className="flex gap-3 mb-6">
+                                    <button
+                                        onClick={autoSuggestMapping}
+                                        className="ib-btn-refresh"
+                                    >
+                                        <RefreshCw size={14} /> Auto-Suggest Mapping
+                                    </button>
+                                    {(() => {
+                                        const hasMappings = Object.values(mappings).filter(Boolean).length > 0;
+                                        const mappingsChanged = hasMappings && JSON.stringify(
+                                            Object.fromEntries(Object.entries(mappings).filter(([, v]) => v).sort())
+                                        ) !== JSON.stringify(
+                                            Object.fromEntries(Object.entries(savedMappings).filter(([, v]) => v).sort())
+                                        );
+                                        return (
+                                            <button
+                                                onClick={saveMapping}
+                                                disabled={savingMapping || mappingSaved || !mappingsChanged}
+                                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${mappingSaved
+                                                    ? "bg-emerald-500/20 border border-emerald-500/40 text-emerald-400"
+                                                    : "bg-white/10 border border-white/20 text-slate-300 hover:bg-white/20 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    }`}
+                                            >
+                                                {savingMapping ? <Loader2 size={14} className="animate-spin" /> : mappingSaved ? <CheckCircle size={14} /> : <Save size={14} />}
+                                                {savingMapping ? "Saving..." : mappingSaved ? "Saved!" : !mappingsChanged && hasMappings ? "Mapping Saved" : "Save Mapping"}
+                                            </button>
+                                        );
+                                    })()}
+                                </div>
+
+                                <div className="ib-table-container">
+                                    <table className="ib-table">
+                                        <thead className="ib-thead">
+                                            <tr>
+                                                <th className="ib-th w-1/3">Your CSV Column</th>
+                                                <th className="ib-th w-1/3">Vaiyu Field <span className="text-indigo-400 font-normal ml-1">(Select)</span></th>
+                                                <th className="ib-th w-1/3">Sample Data</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-white/5 bg-slate-800/20">
+                                            {csvData.length > 0 ? (
+                                                Object.keys(csvData[0]).map((header) => (
+                                                    <tr key={header} className="ib-tr group">
+                                                        <td className="ib-td font-medium text-slate-300 group-hover:text-white transition-colors">{header}</td>
+                                                        <td className="ib-td">
+                                                            <div className="relative">
+                                                                <select
+                                                                    className={`ib-select ${mappings[header] ? 'ib-select-active' : ''}`}
+                                                                    value={mappings[header] || ""}
+                                                                    onChange={(e) => handleMappingChange(header, e.target.value)}
+                                                                >
+                                                                    <option value="" className="text-slate-500 bg-slate-800">-- Ignore --</option>
+                                                                    {DB_FIELDS.map(f => (
+                                                                        <option key={f.value} value={f.value} className="text-slate-200 bg-slate-800">{f.label} {f.required ? "*" : ""}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+                                                        </td>
+                                                        <td className="ib-td text-slate-500 truncate max-w-xs font-mono text-xs group-hover:text-slate-400 transition-colors">
+                                                            {csvData[0][header]}
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            ) : (
+                                                <tr><td colSpan={3} className="p-8 text-center text-slate-400">Processing...</td></tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div className="flex justify-end gap-3 pt-6 border-t border-white/10">
+                                    <button
+                                        onClick={() => setFile(null)}
+                                        className="ib-btn-secondary"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={runValidation}
+                                        className="ib-btn-primary"
+                                    >
+                                        Confirm & Preview <ChevronRight size={16} />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 )}
             </div>
-
-            {/* --- Step: Processing / Completed --- */}
-            {(step === "PROCESSING" || step === "COMPLETED") && (
-                <div className="max-w-xl mx-auto bg-white rounded-xl border border-slate-200 shadow-sm p-8 text-center">
-                    {step === "PROCESSING" ? (
-                        <div className="flex flex-col items-center">
-                            <Loader2 className="animate-spin text-blue-600 mb-4" size={48} />
-                            <h2 className="text-xl font-semibold mb-2">Processing Import...</h2>
-                            <p className="text-slate-500 mb-6">Your file is being processed in the background.</p>
-
-                            <div className="w-full bg-slate-100 rounded-full h-4 mb-4 overflow-hidden relative">
-                                {/* Indeterminate or Progress */}
-                                <div
-                                    className="bg-blue-600 h-full transition-all duration-500"
-                                    style={{ width: `${batchStats.total > 0 ? ((batchStats.imported + batchStats.errors) / batchStats.total) * 100 : 5}%` }}
-                                />
-                            </div>
-                            <div className="flex gap-8 text-sm text-slate-600">
-                                <span>Total: <b>{batchStats.total}</b></span>
-                                <span className="text-green-600">Imported: <b>{batchStats.imported}</b></span>
-                                <span className="text-red-600">Errors: <b>{batchStats.errors}</b></span>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="flex flex-col items-center">
-                            <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${batchStats.errors > 0 ? "bg-orange-100 text-orange-600" : "bg-green-100 text-green-600"}`}>
-                                {batchStats.errors > 0 ? <AlertTriangle size={32} /> : <CheckCircle size={32} />}
-                            </div>
-                            <h2 className="text-xl font-semibold mb-2">Import Completed</h2>
-                            <p className="text-slate-500 mb-6">
-                                {batchStats.errors > 0
-                                    ? "Some rows failed to import. Download the report to view details."
-                                    : "All rows were successfully imported."}
-                            </p>
-
-                            <div className="flex gap-4 mb-6 text-sm">
-                                <span className="px-3 py-1 bg-slate-100 rounded-full">Total: {batchStats.total}</span>
-                                <span className="px-3 py-1 bg-green-50 text-green-700 rounded-full">Success: {batchStats.imported}</span>
-                                <span className="px-3 py-1 bg-red-50 text-red-700 rounded-full font-bold">Errors: {batchStats.errors}</span>
-                            </div>
-
-                            <div className="flex gap-3">
-                                <button onClick={() => window.location.reload()} className="px-6 py-2 border border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-slate-50 transition-colors">
-                                    Import Another File
-                                </button>
-                                {batchStats.errors > 0 && (
-                                    <button
-                                        onClick={async () => {
-                                            if (!batchId) return;
-                                            const { data: errRows } = await supabase
-                                                .from("import_rows")
-                                                .select("row_data, error_message, status")
-                                                .eq("batch_id", batchId)
-                                                .eq("status", "error");
-
-                                            if (errRows && errRows.length > 0) {
-                                                const exportData = errRows.map(r => ({
-                                                    row: r.row_data,
-                                                    isValid: false,
-                                                    errors: [r.error_message || "Unknown Error"],
-                                                    fieldErrors: {},
-                                                    mappings: {} // No mapping context needed for backend errors, just show the message
-                                                }));
-                                                try {
-                                                    const blob = await generateErrorExcel(exportData);
-                                                    const url = URL.createObjectURL(blob);
-                                                    const link = document.createElement("a");
-                                                    link.href = url;
-                                                    link.download = `import_report_${batchId}.xlsx`;
-                                                    document.body.appendChild(link);
-                                                    link.click();
-                                                    document.body.removeChild(link);
-                                                } catch (e) {
-                                                    alert("Failed to generate report");
-                                                }
-                                            }
-                                        }}
-                                        className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 shadow-sm flex items-center gap-2"
-                                    >
-                                        <Download size={18} /> Download Report
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* --- Step: Preview --- */}
-            {step === "PREVIEW" && renderPreview()}
-
-            {/* --- Step: Upload & Map (Stacked Layout) --- */}
-            {step === "UPLOAD_AND_MAP" && (
-                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-
-                    {/* Section 1: Upload */}
-                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-8">
-                        <label
-                            onDragOver={handleDragOver}
-                            onDrop={handleDrop}
-                            className={`flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-xl cursor-pointer transition-all duration-200 group
-                                ${file ? 'border-blue-300 bg-blue-50/30' : 'border-slate-300 bg-slate-50 hover:bg-slate-100 hover:border-slate-400'}`}
-                        >
-                            <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
-                                {file ? (
-                                    <>
-                                        <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4 shadow-sm">
-                                            <FileSpreadsheet size={32} />
-                                        </div>
-                                        <p className="text-lg font-medium text-slate-900">{file.name}</p>
-                                        <p className="text-sm text-slate-500 mb-4">{(file.size / 1024).toFixed(1)} KB</p>
-                                        <span className="text-xs text-blue-600 font-semibold hover:underline">Click to change file</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <UploadCloud className="w-16 h-16 mb-4 text-slate-300 group-hover:text-slate-400 transition-colors" />
-                                        <p className="mb-2 text-lg text-slate-600 font-medium">Drag & Drop your PMS Export File (.CSV or .XLSX)</p>
-                                        <p className="text-sm text-slate-400 mb-6">- or -</p>
-                                        <div className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-semibold shadow-sm hover:bg-blue-700 transition-colors">
-                                            Upload File
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                            <input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
-                        </label>
-
-                        <div className="flex items-center justify-between mt-4">
-                            <button onClick={downloadTemplate} className="text-sm text-blue-600 font-medium hover:underline flex items-center gap-1">
-                                <Download size={16} /> Download Template
-                            </button>
-                            {file && (
-                                <span className="text-sm text-blue-600 font-medium flex items-center gap-1 animate-pulse">
-                                    Next: Map Columns <ChevronRight size={16} />
-                                </span>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Section 2: Map Columns */}
-                    {file && (
-                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-8 animation-fade-in text-left">
-                            <div className="mb-6">
-                                <h2 className="text-xl font-bold text-slate-900">Map Columns to Vaiyu Fields</h2>
-                                <p className="text-slate-500 mt-1">Match the columns from your file to the system fields.</p>
-                            </div>
-
-                            <div className="flex gap-3 mb-6">
-                                <button
-                                    onClick={autoSuggestMapping}
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 shadow-sm transition-colors"
-                                >
-                                    Auto-Suggest Mapping
-                                </button>
-                                <button className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors">
-                                    Save Mapping
-                                </button>
-                            </div>
-
-                            <div className="overflow-hidden rounded-lg border border-slate-200 mb-8">
-                                <table className="w-full text-left text-sm">
-                                    <thead className="bg-slate-50 border-b border-slate-200">
-                                        <tr>
-                                            <th className="px-6 py-4 font-semibold text-slate-600 w-1/3">Your CSV Column</th>
-                                            <th className="px-6 py-4 font-semibold text-slate-600 w-1/3">Vaiyu Field <span className="text-blue-600 font-normal">(Select Field)</span></th>
-                                            <th className="px-6 py-4 font-semibold text-slate-600 w-1/3">Sample Data</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100 bg-white">
-                                        {csvData.length > 0 ? (
-                                            Object.keys(csvData[0]).map((header) => (
-                                                <tr key={header} className="hover:bg-slate-50 transition-colors">
-                                                    <td className="px-6 py-4 font-medium text-slate-700">{header}</td>
-                                                    <td className="px-6 py-4">
-                                                        <select
-                                                            className="w-full rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-blue-500 shadow-sm py-2"
-                                                            value={mappings[header] || ""}
-                                                            onChange={(e) => handleMappingChange(header, e.target.value)}
-                                                        >
-                                                            <option value="">-- Ignore --</option>
-                                                            {DB_FIELDS.map(f => (
-                                                                <option key={f.value} value={f.value}>{f.label} {f.required ? "*" : ""}</option>
-                                                            ))}
-                                                        </select>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-slate-500 truncate max-w-xs">
-                                                        {csvData[0][header]}
-                                                    </td>
-                                                </tr>
-                                            ))
-                                        ) : (
-                                            <tr><td colSpan={3} className="p-8 text-center text-slate-400">Processing...</td></tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-                                <button className="px-6 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 shadow-sm transition-colors">
-                                    Back
-                                </button>
-                                <button
-                                    onClick={runValidation}
-                                    className="px-6 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 shadow-sm flex items-center gap-2 transition-colors"
-                                >
-                                    Confirm & Preview <ChevronRight size={16} />
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            )}
         </div>
     );
 }

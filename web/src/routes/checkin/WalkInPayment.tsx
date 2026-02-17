@@ -16,11 +16,11 @@ export default function WalkInPayment() {
     const navigate = useNavigate();
     const location = useLocation();
 
-    // Receive Full Context from Availability Step
     const {
         guestDetails,
         stayDetails,
-        selectedRoomId,
+        roomSelections,  // [{room_id, room_type_id}] from Availability
+        selectedRoomId,  // legacy single-room fallback
         pricing,
         roomNumber,
         roomType,
@@ -47,17 +47,18 @@ export default function WalkInPayment() {
 
             if (!hotelId) throw new Error("Hotel ID missing");
 
-            // 2. Create Walk-In Booking & Stay via RPC
-            // Using the NEW signature with date/pax details
-            const { data, error } = await supabase.rpc("create_walkin", {
+            // 2. Create Walk-In via v2 RPC (multi-room aware)
+            const selections = roomSelections || [{ room_id: selectedRoomId, room_type_id: null }];
+
+            const { data, error } = await supabase.rpc("create_walkin_v2", {
                 p_hotel_id: hotelId,
                 p_guest_details: guestDetails,
-                p_room_id: selectedRoomId,
+                p_room_selections: selections,
                 p_checkin_date: stayDetails.checkin_date,
                 p_checkout_date: stayDetails.checkout_date,
                 p_adults: stayDetails.adults,
                 p_children: stayDetails.children,
-                p_actor_id: null // Kiosk
+                p_actor_id: null
             });
 
             if (error) throw error;
@@ -68,7 +69,8 @@ export default function WalkInPayment() {
             navigate("../success", {
                 state: {
                     roomNumber: roomNumber || "Assigned",
-                    bookingCode: data.booking_code
+                    bookingCode: data.booking_code,
+                    roomsCount: selections.length
                 }
             });
 

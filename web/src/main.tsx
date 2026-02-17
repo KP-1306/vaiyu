@@ -146,6 +146,7 @@ const DeskTickets = lazy(() => import("./routes/desk/Tickets"));
 // Owner / Admin
 const Owner = lazy(() => import("./routes/Owner"));
 const OwnerDashboard = lazy(() => import("./routes/OwnerDashboard"));
+const OwnerArrivals = lazy(() => import("./routes/OwnerArrivals"));
 const OwnerSettings = lazy(() => import("./routes/OwnerSettings"));
 const OwnerServices = lazy(() => import("./routes/OwnerServices"));
 const OwnerReviews = lazy(() => import("./routes/OwnerReviews"));
@@ -498,7 +499,9 @@ const router = createBrowserRouter([
       // Guest Check-In System (Kiosk/Tablet)
       {
         path: "checkin",
-        element: <CheckInLayout />,
+        element: (
+          <CheckInLayout />
+        ),
         children: [
           { index: true, element: <CheckInHome /> },
           { path: "booking", element: <BookingLookup /> },
@@ -640,6 +643,14 @@ const router = createBrowserRouter([
         element: (
           <AuthGate>
             <OwnerDashboard />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/:slug/arrivals",
+        element: (
+          <AuthGate>
+            <OwnerArrivals />
           </AuthGate>
         ),
       },

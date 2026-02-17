@@ -87,7 +87,10 @@ CREATE TABLE IF NOT EXISTS guest_id_documents (
   rejection_reason TEXT,
   
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+  -- Ensure one document per type per guest
+  CONSTRAINT uq_guest_id_doc_type UNIQUE (guest_id, document_type)
 );
 
 -- Critical: Ensure guest_id exists in guest_id_documents if table already existed without it

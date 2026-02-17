@@ -16,7 +16,10 @@ Deno.serve(async (req) => {
     }
 
     try {
-        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const supabase = createClient(
+            Deno.env.get("SUPABASE_URL")!,
+            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+        );
 
         // Call the RPC to generate reminders
         const { error } = await supabase.rpc("generate_precheckin_reminders");

@@ -31,8 +31,9 @@ import {
     BedDouble,
     QrCode,
     Key,
+    X,
 } from "lucide-react";
-import { validatePrecheckinToken, submitPrecheckin } from "../lib/api";
+import { validatePrecheckinToken, submitPrecheckin, supa, lookupGuestProfile } from "../lib/api";
 import { Step2IdentityVerification } from "../components/precheckin/Step2IdentityVerification";
 import { Step3Success } from "../components/precheckin/Step3Success";
 
@@ -47,13 +48,19 @@ interface BookingInfo {
     guest_name?: string;
     phone?: string;
     email?: string;
-    checkin_date?: string;
-    checkout_date?: string;
+    scheduled_checkin_at?: string;
+    scheduled_checkout_at?: string;
     booking_status?: string;
     hotel_id?: string;
     hotel_name?: string;
     room_type?: string;
     room_price?: number;
+    adults?: number;
+    children?: number;
+    rooms_total?: number;
+    qr_url?: string;
+    nationality?: string;
+    address?: string;
 }
 
 interface GuestForm {
@@ -70,6 +77,10 @@ interface IdForm {
     id_number: string;
     front_captured: boolean;
     back_uploaded: boolean;
+    front_file?: File;
+    back_file?: File;
+    front_image_url?: string;
+    back_image_url?: string;
 }
 
 const ID_TYPES = [
@@ -110,6 +121,74 @@ export default function PreCheckin() {
         back_uploaded: false,
     });
 
+    // Add Guest Modal State
+    const [isAddGuestModalOpen, setIsAddGuestModalOpen] = useState(false);
+    const [tempGuest, setTempGuest] = useState<{ name: string; type: string; age?: string }>({
+        name: "",
+        type: "Adult",
+        age: "",
+    });
+
+    // ─── Guest Lookup Logic ────────────────────────────────────
+    const [lookupLoading, setLookupLoading] = useState(false);
+    const [lookupSource, setLookupSource] = useState<"mobile" | "email" | null>(null);
+    const [emailConflictGuest, setEmailConflictGuest] = useState<any>(null); // Guest found via email but mobile mismatch
+
+    // Helper to autofill
+    const autofillGuest = (guest: any, source: "mobile" | "email") => {
+        setGuestForm(prev => ({
+            ...prev,
+            guest_name: guest.full_name || prev.guest_name,
+            nationality: guest.nationality || prev.nationality,
+            address: guest.address || prev.address,
+        }));
+        setLookupSource(source);
+    };
+
+    const handleMobileBlur = async () => {
+        if (!booking?.hotel_id || !guestForm.phone || guestForm.phone.length < 10) return;
+        if (lookupSource === "mobile") return; // Already looked up
+
+        setLookupLoading(true);
+        try {
+            const res = await lookupGuestProfile(booking.hotel_id, guestForm.phone);
+            if (res.found && res.match_type === 'mobile' && res.guest) {
+                autofillGuest(res.guest, 'mobile');
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLookupLoading(false);
+        }
+    };
+
+    const handleEmailBlur = async () => {
+        if (!booking?.hotel_id || !guestForm.email || !guestForm.phone) return;
+        if (lookupSource === "mobile") return; // Mobile match takes precedence
+
+        setLookupLoading(true);
+        try {
+            const res = await lookupGuestProfile(booking.hotel_id, guestForm.phone, guestForm.email);
+            if (res.found && res.match_type === 'email' && res.guest) {
+                // Check conflict
+                const storedMobile = res.guest.mobile?.replace(/[^0-9]/g, '');
+                const currentMobile = guestForm.phone.replace(/[^0-9]/g, '');
+
+                if (storedMobile && storedMobile !== currentMobile) {
+                    // Conflict!
+                    setEmailConflictGuest(res.guest);
+                } else {
+                    // No conflict (or mobile matches), safe to autofill
+                    autofillGuest(res.guest, 'email');
+                }
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLookupLoading(false);
+        }
+    };
+
     // ─── Token Validation ──────────────────────────────────────
     useEffect(() => {
         if (!token) {
@@ -129,7 +208,20 @@ export default function PreCheckin() {
                         guest_name: result.guest_name || "",
                         phone: result.phone || "",
                         email: result.email || "",
+                        nationality: result.nationality || "Indian",
+                        address: result.address || "",
                     }));
+
+                    if (result.identity_proof) {
+                        setIdForm({
+                            id_type: result.identity_proof.type || "aadhaar",
+                            id_number: result.identity_proof.number || "",
+                            front_captured: !!result.identity_proof.front_image,
+                            back_uploaded: !!result.identity_proof.back_image,
+                            front_image_url: result.identity_proof.front_image,
+                            back_image_url: result.identity_proof.back_image,
+                        });
+                    }
                 }
             } catch (err: any) {
                 setBooking({ valid: false, error: err.message || "Failed to validate token" });
@@ -141,29 +233,29 @@ export default function PreCheckin() {
 
     // ─── Formatted dates ──────────────────────────────────────
     const checkinFormatted = useMemo(() => {
-        if (!booking?.checkin_date) return "";
-        const d = new Date(booking.checkin_date);
+        if (!booking?.scheduled_checkin_at) return "";
+        const d = new Date(booking.scheduled_checkin_at);
         return d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
-    }, [booking?.checkin_date]);
+    }, [booking?.scheduled_checkin_at]);
 
     const checkoutFormatted = useMemo(() => {
-        if (!booking?.checkout_date) return "";
-        const d = new Date(booking.checkout_date);
+        if (!booking?.scheduled_checkout_at) return "";
+        const d = new Date(booking.scheduled_checkout_at);
         return d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
-    }, [booking?.checkout_date]);
+    }, [booking?.scheduled_checkout_at]);
 
     const checkinTime = useMemo(() => {
-        if (!booking?.checkin_date) return "2:00 PM";
-        const d = new Date(booking.checkin_date);
+        if (!booking?.scheduled_checkin_at) return "2:00 PM";
+        const d = new Date(booking.scheduled_checkin_at);
         return d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true });
-    }, [booking?.checkin_date]);
+    }, [booking?.scheduled_checkin_at]);
 
     const nights = useMemo(() => {
-        if (!booking?.checkin_date || !booking?.checkout_date) return 0;
-        const ci = new Date(booking.checkin_date);
-        const co = new Date(booking.checkout_date);
+        if (!booking?.scheduled_checkin_at || !booking?.scheduled_checkout_at) return 0;
+        const ci = new Date(booking.scheduled_checkin_at);
+        const co = new Date(booking.scheduled_checkout_at);
         return Math.max(1, Math.ceil((co.getTime() - ci.getTime()) / (1000 * 60 * 60 * 24)));
-    }, [booking?.checkin_date, booking?.checkout_date]);
+    }, [booking?.scheduled_checkin_at, booking?.scheduled_checkout_at]);
 
     // ─── Submit Handler ────────────────────────────────────────
     const handleSubmit = async () => {
@@ -172,6 +264,42 @@ export default function PreCheckin() {
         setSubmitError("");
 
         try {
+            // 1. Upload images if present
+            let frontUrl = "";
+            let backUrl = "";
+
+            const supabase = supa();
+
+            if (idForm.front_file && supabase) {
+                const fileExt = idForm.front_file.name.split('.').pop();
+                const fileName = `${booking?.booking_id}/front_${Date.now()}.${fileExt}`;
+                const { data, error: uploadError } = await supabase.storage
+                    .from('identity_proofs')
+                    .upload(fileName, idForm.front_file);
+
+                if (uploadError) {
+                    console.error("Front image upload failed:", uploadError);
+                    // Allow continuing even if upload fails? Maybe stricter is better.
+                    // throw new Error("Failed to upload front image");
+                } else {
+                    frontUrl = data.path; // Store path, not public URL
+                }
+            }
+
+            if (idForm.back_file && supabase) {
+                const fileExt = idForm.back_file.name.split('.').pop();
+                const fileName = `${booking?.booking_id}/back_${Date.now()}.${fileExt}`;
+                const { data, error: uploadError } = await supabase.storage
+                    .from('identity_proofs')
+                    .upload(fileName, idForm.back_file);
+
+                if (uploadError) {
+                    console.error("Back image upload failed:", uploadError);
+                } else {
+                    backUrl = data.path; // Store path, not public URL
+                }
+            }
+
             const payload = {
                 guest_name: guestForm.guest_name,
                 phone: guestForm.phone,
@@ -183,11 +311,15 @@ export default function PreCheckin() {
                 id_number: idForm.id_number,
                 front_captured: idForm.front_captured,
                 back_uploaded: idForm.back_uploaded,
+                front_image_url: frontUrl || idForm.front_image_url,
+                back_image_url: backUrl || idForm.back_image_url,
             };
 
             const result = await submitPrecheckin(token, payload);
 
             if (result?.success) {
+                // Merge the result (which contains qr_url) into the booking state
+                setBooking(prev => prev ? { ...prev, ...result } : result);
                 setStep(3); // Success
             } else {
                 setSubmitError(result?.error || "Submission failed");
@@ -343,7 +475,10 @@ export default function PreCheckin() {
                                         <Users className="h-4 w-4" /> Guests
                                     </div>
                                     <div className="text-[#fceea7] font-bold text-sm">
-                                        2 Adults, 1 Child
+                                        {booking.rooms_total && booking.rooms_total > 1 ? (
+                                            <span className="mr-2">{booking.rooms_total} Rooms |</span>
+                                        ) : null}
+                                        {booking.adults || 0} Adult{booking.adults !== 1 ? 's' : ''}, {booking.children || 0} Child{booking.children !== 1 ? 'ren' : ''}
                                     </div>
                                 </div>
                             </div>
@@ -399,6 +534,53 @@ export default function PreCheckin() {
     if (step === 1) {
         return (
             <div className="min-h-screen bg-black px-5 py-8 font-sans">
+                {/* Conflict Modal */}
+                {emailConflictGuest && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                        <div className="bg-[#1c1c1e] w-full max-w-sm rounded-2xl border border-[#d4af37]/30 shadow-2xl p-6 space-y-6">
+                            <div className="space-y-2 text-center">
+                                <div className="mx-auto w-12 h-12 rounded-full bg-[#d4af37]/10 flex items-center justify-center mb-2">
+                                    <User className="h-6 w-6 text-[#d4af37]" />
+                                </div>
+                                <h3 className="text-white text-lg font-bold">Existing Guest Found</h3>
+                                <p className="text-[#8e8e93] text-xs leading-relaxed">
+                                    We found a guest profile associated with <strong>{guestForm.email}</strong>.
+                                    <br />Do you want to use the saved details?
+                                </p>
+                            </div>
+
+                            <div className="bg-[#2c2c2e]/50 rounded-xl p-3 text-xs space-y-1 border border-white/5">
+                                <div className="flex justify-between">
+                                    <span className="text-[#8e8e93]">Name:</span>
+                                    <span className="text-white font-medium">{emailConflictGuest.full_name}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-[#8e8e93]">Saved Mobile:</span>
+                                    <span className="text-white font-medium">{emailConflictGuest.mobile || 'N/A'}</span>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setEmailConflictGuest(null)} // Cancel
+                                    className="flex-1 py-3 rounded-xl border border-[#3a3a3c] text-[#8e8e93] text-sm font-semibold hover:bg-[#2c2c2e] transition-colors"
+                                >
+                                    No, Keep Mine
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        autofillGuest(emailConflictGuest, 'email');
+                                        setEmailConflictGuest(null);
+                                    }}
+                                    className="flex-1 py-3 rounded-xl bg-[#d4af37] text-black text-sm font-bold hover:bg-[#b8942d] transition-colors"
+                                >
+                                    Yes, Autofill
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <div className="max-w-md mx-auto space-y-8">
                     {/* Header / Progress */}
                     <div className="space-y-4">
@@ -419,6 +601,34 @@ export default function PreCheckin() {
                     {/* Primary Guest Section */}
                     <div className="space-y-4">
                         <h2 className="text-[#d4af37] text-base font-semibold text-left">Primary Guest</h2>
+
+                        {/* Autofill Banner */}
+                        {lookupSource && (
+                            <div className="bg-[#1c1c1e]/50 border border-[#d4af37]/20 rounded-xl p-3 flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+                                <div className="mt-0.5">
+                                    <div className="w-4 h-4 rounded-full bg-[#d4af37]/10 flex items-center justify-center">
+                                        <Check className="w-3 h-3 text-[#d4af37]" />
+                                    </div>
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-[#fceea7] text-xs font-medium">
+                                        Details loaded from previous stay
+                                    </p>
+                                    <p className="text-[#7a756a] text-[10px]">
+                                        Matched via {lookupSource === "mobile" ? "mobile number" : "email address"}
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        setLookupSource(null);
+                                        setGuestForm(prev => ({ ...prev, address: "", nationality: "Indian" })); // Clear filled? Or just hide banner?
+                                    }}
+                                    className="text-[#7a756a] hover:text-white"
+                                >
+                                    <X className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+                        )}
 
                         {/* Full Name */}
                         <div className="bg-[#1c1c1e] rounded-2xl border border-[#d4af37]/30 px-4 py-3 relative flex items-center justify-between">
@@ -442,19 +652,16 @@ export default function PreCheckin() {
                                 <input
                                     type="tel"
                                     value={guestForm.phone}
-                                    onChange={(e) => setGuestForm({ ...guestForm, phone: e.target.value })}
+                                    onChange={(e) => {
+                                        const val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                                        setGuestForm({ ...guestForm, phone: val });
+                                    }}
+                                    onBlur={handleMobileBlur}
                                     className="w-full bg-transparent text-white text-base font-medium outline-none placeholder-[#3a3a3c]"
-                                    placeholder="+91 98765 43210"
+                                    placeholder="9876543210"
                                 />
                             </div>
-                            {guestForm.phone && (
-                                <div className="flex items-center gap-1 bg-[#2c4a34] px-2 py-1 rounded-md">
-                                    <div className="w-3 h-3 rounded-full bg-[#4cd964] flex items-center justify-center">
-                                        <Check className="h-2 w-2 text-black" />
-                                    </div>
-                                    <span className="text-[#4cd964] text-xs font-medium">Verified</span>
-                                </div>
-                            )}
+                            {lookupLoading && <Loader2 className="h-4 w-4 animate-spin text-[#d4af37]" />}
                         </div>
 
                         {/* Email */}
@@ -464,6 +671,7 @@ export default function PreCheckin() {
                                 type="email"
                                 value={guestForm.email}
                                 onChange={(e) => setGuestForm({ ...guestForm, email: e.target.value })}
+                                onBlur={handleEmailBlur}
                                 className="w-full bg-transparent text-white text-base font-medium outline-none placeholder-[#3a3a3c]"
                                 placeholder="email@example.com"
                             />
@@ -514,27 +722,20 @@ export default function PreCheckin() {
                                     <button
                                         className="flex items-center gap-1 text-[#d4af37] text-xs font-medium"
                                         onClick={() => {
-                                            // In a real app this would open a modal, for now we remove to simplify
                                             const updated = [...guestForm.additional_guests];
                                             updated.splice(i, 1);
                                             setGuestForm({ ...guestForm, additional_guests: updated });
                                         }}
                                     >
-                                        <Edit2 className="h-3 w-3" /> Edit
+                                        <X className="h-3 w-3" /> Remove
                                     </button>
                                 </div>
                             ))}
 
                             <button
                                 onClick={() => {
-                                    const name = prompt("Guest name:");
-                                    if (!name) return;
-                                    const type = prompt("Type (Adult/Child):", "Adult") || "Adult";
-                                    const age = type === "Child" ? parseInt(prompt("Age:") || "0") : undefined;
-                                    setGuestForm({
-                                        ...guestForm,
-                                        additional_guests: [...guestForm.additional_guests, { name, type, age }],
-                                    });
+                                    setTempGuest({ name: "", type: "Adult", age: "" });
+                                    setIsAddGuestModalOpen(true);
                                 }}
                                 className="w-full flex items-center justify-center gap-2 text-[#d4af37] text-sm font-semibold pt-2"
                             >
@@ -542,6 +743,96 @@ export default function PreCheckin() {
                             </button>
                         </div>
                     </div>
+
+                    {/* Add Guest Modal */}
+                    {isAddGuestModalOpen && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                            <div className="bg-[#1c1c1e] w-full max-w-sm rounded-2xl border border-[#d4af37]/30 shadow-2xl p-6 space-y-6 animate-in fade-in zoom-in duration-200">
+                                <div className="space-y-1 text-center">
+                                    <h3 className="text-white text-lg font-bold">Add Guest</h3>
+                                    <p className="text-[#8e8e93] text-xs">Enter details for the additional guest</p>
+                                </div>
+
+                                <div className="space-y-4">
+                                    {/* Name Input */}
+                                    <div className="space-y-1.5">
+                                        <label className="text-[#8e8e93] text-xs font-medium ml-1">Full Name</label>
+                                        <input
+                                            type="text"
+                                            value={tempGuest.name}
+                                            onChange={(e) => setTempGuest({ ...tempGuest, name: e.target.value })}
+                                            className="w-full bg-[#2c2c2e] text-white text-sm px-4 py-3 rounded-xl border border-[#3a3a3c] focus:border-[#d4af37] focus:outline-none transition-colors"
+                                            placeholder="Guest Name"
+                                            autoFocus
+                                        />
+                                    </div>
+
+                                    {/* Type Selection */}
+                                    <div className="space-y-1.5">
+                                        <label className="text-[#8e8e93] text-xs font-medium ml-1">Guest Type</label>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {["Adult", "Child"].map((type) => (
+                                                <button
+                                                    key={type}
+                                                    onClick={() => setTempGuest({ ...tempGuest, type })}
+                                                    className={`py-2.5 rounded-xl text-sm font-medium border transition-all ${tempGuest.type === type
+                                                        ? "bg-[#d4af37]/10 border-[#d4af37] text-[#d4af37]"
+                                                        : "bg-[#2c2c2e] border-[#3a3a3c] text-[#8e8e93] hover:bg-[#3a3a3c]"
+                                                        }`}
+                                                >
+                                                    {type}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Age Input (Child Only) */}
+                                    {tempGuest.type === "Child" && (
+                                        <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
+                                            <label className="text-[#8e8e93] text-xs font-medium ml-1">Age</label>
+                                            <input
+                                                type="number"
+                                                value={tempGuest.age}
+                                                onChange={(e) => setTempGuest({ ...tempGuest, age: e.target.value })}
+                                                className="w-full bg-[#2c2c2e] text-white text-sm px-4 py-3 rounded-xl border border-[#3a3a3c] focus:border-[#d4af37] focus:outline-none transition-colors"
+                                                placeholder="Age (e.g. 5)"
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex gap-3 pt-2">
+                                    <button
+                                        onClick={() => setIsAddGuestModalOpen(false)}
+                                        className="flex-1 py-3 rounded-xl border border-[#3a3a3c] text-[#8e8e93] text-sm font-semibold hover:bg-[#2c2c2e] transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            if (!tempGuest.name.trim()) return;
+                                            setGuestForm({
+                                                ...guestForm,
+                                                additional_guests: [
+                                                    ...guestForm.additional_guests,
+                                                    {
+                                                        name: tempGuest.name,
+                                                        type: tempGuest.type,
+                                                        age: tempGuest.age ? parseInt(tempGuest.age) : undefined
+                                                    }
+                                                ]
+                                            });
+                                            setIsAddGuestModalOpen(false);
+                                        }}
+                                        disabled={!tempGuest.name.trim()}
+                                        className="flex-1 py-3 rounded-xl bg-[#d4af37] text-black text-sm font-bold hover:bg-[#b8942d] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        Add Guest
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Footer Button */}
                     <div className="pt-4">
@@ -551,9 +842,13 @@ export default function PreCheckin() {
                                     alert("Please fill in name and phone number");
                                     return;
                                 }
+                                if (guestForm.phone.length !== 10) {
+                                    alert("Please enter a valid 10-digit mobile number");
+                                    return;
+                                }
                                 setStep(2);
                             }}
-                            className="w-full py-4 rounded-full bg-gradient-to-r from-[#d4af37] to-[#b8942d] text-black font-bold text-lg shadow-[0_4px_20px_rgba(212,175,55,0.3)] hover:opacity-90 transition-opacity"
+                            className="w-full py-4 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b8942d] text-black font-bold text-lg shadow-lg shadow-[#d4af37]/20 hover:shadow-[#d4af37]/40 transition-all duration-300"
                         >
                             Continue to ID Verification
                         </button>
@@ -584,6 +879,7 @@ export default function PreCheckin() {
                 booking={booking}
                 checkinFormatted={checkinFormatted}
                 checkinTime={checkinTime}
+                token={token}
             />
         );
     }

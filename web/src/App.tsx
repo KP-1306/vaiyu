@@ -366,6 +366,7 @@ const GuestNewSupport = lazy(() => import("./routes/guestnew/GuestNewSupport"));
 
 // Owner property dashboard
 const OwnerDashboard = lazy(() => import("./routes/OwnerDashboard"));
+const OwnerArrivals = lazy(() => import("./routes/OwnerArrivals"));
 
 // Ops board – uses existing OpsBoard.tsx (wraps Desk)
 const OpsBoard = lazy(() => import("./routes/OpsBoard"));
@@ -452,6 +453,10 @@ function OwnerSidebar({ basePath }: { basePath: string }) {
     {
       label: "Today’s dashboard",
       to: `${base}/dashboard`,
+    },
+    {
+      label: "Guest Arrivals",
+      to: `${base}/arrivals`,
     },
     {
       label: "Rooms & occupancy",
@@ -702,6 +707,14 @@ export default function App() {
               element={
                 <OwnerLayout>
                   <OwnerDashboard />
+                </OwnerLayout>
+              }
+            />
+            <Route
+              path="/owner/:slug/arrivals"
+              element={
+                <OwnerLayout>
+                  <OwnerArrivals />
                 </OwnerLayout>
               }
             />

@@ -1,19 +1,25 @@
 import Papa from "papaparse";
 
 export interface BookingCSVRow {
+    hotel_slug?: string;
     booking_reference: string;
-    hotel_id?: string;
+    booking_status?: string;
     guest_name: string;
-    phone: string;
-    email?: string;
+    guest_phone: string;
+    guest_email?: string;
     checkin_date: string;
     checkout_date: string;
     room_number?: string;
-    room_type?: string; // Text from CSV
+    room_type_name?: string;
     adults?: string;
     children?: string;
     booking_source?: string;
     special_requests?: string;
+    room_seq?: string;
+    guest_seq?: string;
+    primary_guest_flag?: string;
+    rate_plan?: string;
+    total_amount?: string;
     [key: string]: string | undefined;
 }
 
@@ -26,7 +32,7 @@ export interface ParseResult {
 const REQUIRED_COLUMNS = [
     "booking_reference",
     "guest_name",
-    "phone",
+    "guest_phone",
     "checkin_date",
     "checkout_date",
 ];

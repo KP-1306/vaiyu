@@ -290,6 +290,38 @@ export type WorkforceJobApplication = {
 };
 
 /* ============================================================================
+   Guest Lookup Helper
+   ============================================================================ */
+export async function lookupGuestProfile(
+  hotelId: string,
+  mobile: string,
+  email?: string
+): Promise<{ found: boolean; match_type?: 'mobile' | 'email'; guest?: any }> {
+  const opts = {
+    method: "POST",
+    body: JSON.stringify({ p_hotel_id: hotelId, p_mobile: mobile, p_email: email }),
+    headers: { "Content-Type": "application/json" }
+  };
+
+  // Try RPC first
+  try {
+    const client = supa();
+    if (client) {
+      const { data, error } = await client.rpc("lookup_guest_profile", {
+        p_hotel_id: hotelId,
+        p_mobile: mobile,
+        p_email: email
+      });
+      if (!error) return data;
+    }
+  } catch {
+    // Fallback to HTTP if RPC fails/unavailable
+  }
+
+  return req("/guest-lookup", opts).catch(() => ({ found: false }));
+}
+
+/* ============================================================================
    HTTP helpers
 ============================================================================ */
 function withTimeout<T>(p: Promise<T>, ms = 10_000): Promise<T> {

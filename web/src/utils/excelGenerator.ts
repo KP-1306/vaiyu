@@ -14,10 +14,10 @@ export const generateErrorExcel = async (results: ValidationExportResult[]): Pro
 
     if (results.length === 0) return new Blob([]);
 
-    // Headers: CSV Columns + Status + Details
+    // Headers: CSV Columns + Status + Right Cause
     const firstRow = results[0].row;
     const csvHeaders = Object.keys(firstRow);
-    const headers = [...csvHeaders, "Validation Status", "Error Details"];
+    const headers = [...csvHeaders, "Validation Status", "Right Cause"];
 
     // Add Header Row
     const headerRow = worksheet.addRow(headers);

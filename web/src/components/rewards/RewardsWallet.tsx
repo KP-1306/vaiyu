@@ -246,8 +246,8 @@ export default function RewardsWallet({
         ) {
           throw new Error(
             "We couldn’t create the voucher because the server has two versions of ‘claim_rewards’. " +
-              "Please keep a single version (prefer bigint/int8) or add an alias ‘claim_rewards_int8’. " +
-              "Nothing was deducted."
+            "Please keep a single version (prefer bigint/int8) or add an alias ‘claim_rewards_int8’. " +
+            "Nothing was deducted."
           );
         }
         throw new Error(msg);
@@ -494,13 +494,13 @@ export default function RewardsWallet({
                             className={cx(
                               "px-2 py-0.5 rounded text-xs",
                               v.status === "active" &&
-                                "bg-emerald-100 text-emerald-800",
+                              "bg-emerald-100 text-emerald-800",
                               v.status === "redeemed" &&
-                                "bg-blue-100 text-blue-800",
+                              "bg-blue-100 text-blue-800",
                               v.status === "expired" &&
-                                "bg-amber-100 text-amber-800",
+                              "bg-amber-100 text-amber-800",
                               v.status === "cancelled" &&
-                                "bg-gray-200 text-gray-700"
+                              "bg-gray-200 text-gray-700"
                             )}
                           >
                             {v.status}

@@ -4,24 +4,40 @@
 
 CREATE TABLE IF NOT EXISTS payments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  
-  -- Links to context
-  stay_id UUID NOT NULL REFERENCES stays(id) ON DELETE CASCADE,
-  
-  -- Transaction details
-  amount NUMERIC(10,2) NOT NULL,
-  type TEXT NOT NULL CHECK (type IN ('CHARGE', 'PAYMENT', 'INFO')),
-  method TEXT CHECK (method IN ('UPI', 'CASH', 'CARD', 'ROOM_CHARGE', 'OTHER')),
-  
-  -- Status flow
-  status TEXT NOT NULL DEFAULT 'COMPLETED' CHECK (status IN ('PENDING', 'COMPLETED', 'FAILED')),
-  
-  -- Metadata
+
+    hotel_id UUID NOT NULL REFERENCES hotels(id),
+    booking_id UUID NOT NULL REFERENCES bookings(id),
+    folio_id UUID REFERENCES folios(id),
+
+    amount NUMERIC(12,2) NOT NULL,
+    currency TEXT DEFAULT 'INR',
+
+    method TEXT NOT NULL CHECK (
+        method IN (
+            'CASH',
+            'UPI',
+            'CARD',
+            'BANK_TRANSFER',
+            'WALLET',
+            'OTHER'
+        )
+    ),
+
+    status TEXT NOT NULL DEFAULT 'COMPLETED' CHECK (
+        status IN (
+            'PENDING',
+            'COMPLETED',
+            'FAILED',
+            'REFUNDED'
+        )
+    ),
+
+    reference_id TEXT,
   notes TEXT,
-  reference_id UUID, -- Optional link to food_orders or other entities
-  
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+
+    collected_by UUID,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 -- Trigger for updated_at
@@ -32,29 +48,28 @@ FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 -- RLS
 ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 
--- Policy 1: Staff/Owners can manage payments for their hotel's stays
+-- Policy 1: Staff/Owners can manage payments for their hotel
 CREATE POLICY "Staff manage payments" ON payments
 FOR ALL
 TO authenticated
 USING (
   EXISTS (
-    SELECT 1 FROM stays s
-    JOIN rooms r ON s.room_id = r.id
-    JOIN hotel_members hm ON hm.hotel_id = r.hotel_id
-    WHERE s.id = payments.stay_id
+    SELECT 1 FROM bookings b
+    JOIN hotel_members hm ON hm.hotel_id = b.hotel_id
+    WHERE b.id = payments.booking_id
     AND hm.user_id = auth.uid()
   )
 );
-
+DROP POLICY if exists "Guests view own payments" ON payments;
 -- Policy 2: Guests can view their own payments
 CREATE POLICY "Guests view own payments" ON payments
 FOR SELECT
 TO authenticated
 USING (
   EXISTS (
-    SELECT 1 FROM stays s
-    WHERE s.id = payments.stay_id
-    AND s.guest_id = auth.uid()
+    SELECT 1 FROM bookings b
+    WHERE b.id = payments.booking_id
+    AND b.guest_id = auth.uid()
   )
 );
 
@@ -80,10 +95,35 @@ USING (
 -- But it's what exists. I will match it for `payments` SELECT only, to ensure the frontend works without auth issues.
 -- Ideally we fix both later to check `booking_code` via a join, but `stays` RLS might block that join if not careful.
 
-CREATE POLICY "Public view payments" ON payments
-FOR SELECT
-TO anon, authenticated
-USING (true);
+DROP POLICY if exists "Public view payments" ON payments;
 
 -- Enable Realtime
 ALTER PUBLICATION supabase_realtime ADD TABLE payments;
+
+CREATE TABLE folio_entries (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    hotel_id UUID NOT NULL REFERENCES hotels(id),
+    booking_id UUID NOT NULL REFERENCES bookings(id),
+    folio_id UUID NOT NULL REFERENCES folios(id),
+
+    entry_type TEXT NOT NULL CHECK (
+        entry_type IN (
+            'ROOM_CHARGE',
+            'FOOD_CHARGE',
+            'SERVICE_CHARGE',
+            'TAX',
+            'PAYMENT',
+            'REFUND',
+            'ADJUSTMENT'
+        )
+    ),
+
+    amount NUMERIC(12,2) NOT NULL,
+    description TEXT,
+    reference_id UUID,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_folio_entries_booking ON folio_entries(booking_id);
+CREATE INDEX idx_folio_entries_folio ON folio_entries(folio_id);

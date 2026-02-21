@@ -12,7 +12,7 @@ export default function PublicLanding() {
 
         <div className="mt-5 flex flex-wrap gap-3">
           <Link className="btn" to="/signin">Sign in</Link>
-          <Link className="btn btn-light" to="/guest">Explore guest portal</Link>
+          <Link className="btn btn-light" to="/guestold">Explore guest portal</Link>
           <Link className="btn btn-light" to="/owner/register">Register your property</Link>
         </div>
       </section>

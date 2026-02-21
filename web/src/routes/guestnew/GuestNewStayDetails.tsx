@@ -273,7 +273,7 @@ export default function GuestNewStayDetails() {
         return (
             <div className="gn-container" style={{ paddingTop: "2rem" }}>
                 <div className="gn-page-title">Stay not found</div>
-                <Link to="/guestnew/trips" className="gn-btn gn-btn--secondary" style={{ marginTop: "1rem" }}>
+                <Link to="/guest/trips" className="gn-btn gn-btn--secondary" style={{ marginTop: "1rem" }}>
                     Back to trips
                 </Link>
             </div>
@@ -284,7 +284,7 @@ export default function GuestNewStayDetails() {
         <div className="gn-container">
             {/* Breadcrumb Navigation */}
             <div className="gn-breadcrumb">
-                <Link to="/guestnew/bills" className="gn-breadcrumb__link">
+                <Link to="/guest/bills" className="gn-breadcrumb__link">
                     ← Bills
                 </Link>
                 <span className="gn-breadcrumb__sep">/</span>
@@ -439,7 +439,7 @@ export default function GuestNewStayDetails() {
             <div className="gn-section">
                 <h3 className="gn-section-title">Need assistance?</h3>
                 <div className="gn-support-options">
-                    <Link to="/guestnew/support" className="gn-card gn-support-option">
+                    <Link to="/guest/support" className="gn-card gn-support-option">
                         <div className="gn-support-option__icon">💬</div>
                         <div className="gn-support-option__text">
                             <div className="gn-support-option__title">Chat with Us</div>

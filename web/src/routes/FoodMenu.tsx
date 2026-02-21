@@ -547,7 +547,7 @@ export default function FoodMenu() {
           <div>
             {/* Breadcrumb */}
             <nav className="flex items-center gap-2 text-sm mb-3">
-              <Link to={`/stay/${encodeURIComponent(stayCode)}`} className="text-[#b8b3a8] hover:text-white transition-colors">Stay</Link>
+              <Link to="/guest" className="text-[#b8b3a8] hover:text-white transition-colors">Guest</Link>
               <span className="text-[#7a756a]">›</span>
               <span className="text-[#d4af37] font-medium">Room Service</span>
             </nav>
@@ -566,8 +566,8 @@ export default function FoodMenu() {
               <Receipt size={16} />
               My Orders
             </Link>
-            <Link to={`/stay/${encodeURIComponent(stayCode)}`} className="px-4 py-2 rounded-lg bg-[#141210]/80 hover:bg-[#1c1916] text-sm font-medium transition-colors border border-[#d4af37]/10">
-              Back to Stay
+            <Link to="/guest" className="px-4 py-2 rounded-lg bg-[#141210]/80 hover:bg-[#1c1916] text-sm font-medium transition-colors border border-[#d4af37]/10">
+              Back to Guest
             </Link>
             <Link to="/guest" className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#d4af37] to-[#b8942d] hover:from-[#e9c55a] hover:to-[#d4af37] text-black text-sm font-medium transition-colors shadow-lg shadow-[#d4af37]/20">
               Dashboard

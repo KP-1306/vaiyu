@@ -67,7 +67,7 @@ export default function HomeOrApp() {
       <section className="p-4 border rounded-xl bg-white/60">
         <p className="text-gray-700">
           Use the top links or go directly to{" "}
-          <a className="text-blue-700 underline" href="/guest">
+          <a className="text-blue-700 underline" href="/guestold">
             Guest Dashboard
           </a>.
         </p>

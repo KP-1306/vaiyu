@@ -8,3 +8,4 @@ export { default as GuestNewCheckout } from "./GuestNewCheckout";
 export { default as GuestNewRewards } from "./GuestNewRewards";
 export { default as GuestNewSupport } from "./GuestNewSupport";
 export { default as GuestNewBills } from "./GuestNewBills";
+export { default as GuestReviewScreen } from "./GuestReviewScreen";

@@ -452,13 +452,13 @@ export default function MyRequests() {
                     {/* Breadcrumbs */}
                     <nav className="flex items-center text-sm text-zinc-500 mb-4 animate-in fade-in slide-in-from-left-4 duration-500">
                         <Link
-                            to={`/stay/${code}`}
+                            to="/guest"
                             className="hover:text-emerald-400 transition-colors flex items-center gap-1"
                         >
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                             </svg>
-                            Home
+                            Guest
                         </Link>
                         <span className="mx-2 opacity-50">/</span>
                         <span className="text-zinc-200 font-medium">Requests</span>
@@ -470,7 +470,7 @@ export default function MyRequests() {
                             <p className="text-sm text-zinc-500 mt-1">Track and manage your service requests</p>
                         </div>
                         <Link
-                            to={`/stay/${code}`}
+                            to="/guest"
                             className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-zinc-400 hover:bg-white/10 hover:text-white transition-all"
                         >
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

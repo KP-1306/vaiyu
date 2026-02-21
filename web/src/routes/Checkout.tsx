@@ -339,7 +339,7 @@ export default function Checkout() {
       if (from === "stay") {
         navigate(`/stay/${encodeURIComponent(bookingCode)}`);
       } else {
-        navigate("/guest");
+        navigate("/guestold");
       }
     } catch (e: any) {
       setFinishMsg(`⚠️ Checkout failed. ${String(e?.message || "")}`);

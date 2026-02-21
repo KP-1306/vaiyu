@@ -367,6 +367,18 @@ export default function PreCheckin() {
                             Completed on {new Date(booking.completed_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                         </p>
                     )}
+
+                    {booking?.error === "Pre-check-in already completed" && (
+                        <div className="pt-4">
+                            <a
+                                href="/guest"
+                                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#d4af37] text-black font-bold text-sm hover:bg-[#b8942d] transition-colors"
+                            >
+                                Go to Stay Portal
+                                <ChevronRight className="h-4 w-4" />
+                            </a>
+                        </div>
+                    )}
                 </div>
             </div>
         );

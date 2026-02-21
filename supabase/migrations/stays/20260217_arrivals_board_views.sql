@@ -43,14 +43,14 @@ ALTER TABLE guests ADD COLUMN IF NOT EXISTS loyalty_tier TEXT DEFAULT 'standard'
 
 -- ── 2. New Enterprise Tables (Stubs & Logs) ──
 
--- Folios Table
+-- Folios Table (Updated to hotel-scoped accounting)
 CREATE TABLE IF NOT EXISTS folios (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id UUID NOT NULL REFERENCES hotels(id),
     booking_id UUID REFERENCES bookings(id),
-    total_amount NUMERIC DEFAULT 0,
-    paid_amount NUMERIC DEFAULT 0,
-    currency TEXT DEFAULT 'USD',
-    created_at TIMESTAMPTZ DEFAULT now()
+    status TEXT DEFAULT 'OPEN', -- OPEN, CLOSED
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 -- Housekeeping Tasks Table
@@ -121,6 +121,7 @@ CREATE OR REPLACE VIEW v_arrival_operational_state AS
 WITH room_states AS (
     SELECT
         br.booking_id,
+        STRING_AGG(r.number, ', ') AS room_numbers,
         COUNT(*) AS rooms_total,
         COUNT(*) FILTER (WHERE br.status = 'checked_in') AS rooms_checked_in,
         COUNT(*) FILTER (WHERE br.room_id IS NULL) AS rooms_unassigned,
@@ -143,6 +144,7 @@ SELECT
     b.status AS booking_status,
     b.scheduled_checkin_at,
     b.scheduled_checkout_at,
+    rs.room_numbers,
     COALESCE(rs.rooms_total, 0) as rooms_total,
     COALESCE(rs.rooms_checked_in, 0) as rooms_checked_in,
     COALESCE(rs.rooms_unassigned, 0) as rooms_unassigned,
@@ -150,7 +152,13 @@ SELECT
     COALESCE(rs.rooms_clean, 0) as rooms_clean,
     COALESCE(ss.inhouse_count, 0) AS inhouse_rooms,
     CASE
-        WHEN COALESCE(rs.rooms_checked_in, 0) = COALESCE(rs.rooms_total, 0) AND COALESCE(rs.rooms_total, 0) > 0 THEN 'ARRIVED'
+        -- 1. OVERRIDE: Booking is strictly already checked in
+        WHEN b.status = 'CHECKED_IN' THEN 'CHECKED_IN'
+        WHEN b.status = 'PARTIALLY_CHECKED_IN' THEN 'PARTIALLY_ARRIVED'
+        
+        -- 2. OPERATIONAL STATE
+        WHEN COALESCE(rs.rooms_total, 0) = 0 THEN 'NO_ROOMS'
+        WHEN COALESCE(rs.rooms_checked_in, 0) = COALESCE(rs.rooms_total, 0) AND COALESCE(rs.rooms_total, 0) > 0 THEN 'CHECKED_IN'
         WHEN COALESCE(rs.rooms_checked_in, 0) > 0 THEN 'PARTIALLY_ARRIVED'
         WHEN COALESCE(rs.rooms_dirty, 0) > 0 THEN 'WAITING_HOUSEKEEPING'
         WHEN COALESCE(rs.rooms_unassigned, 0) > 0 THEN 'WAITING_ROOM_ASSIGNMENT'
@@ -162,9 +170,13 @@ SELECT
         ELSE false
     END AS rooms_ready_for_arrival,
     CASE
-        WHEN COALESCE(rs.rooms_checked_in, 0) = COALESCE(rs.rooms_total, 0) AND COALESCE(rs.rooms_total, 0) > 0 THEN 'NONE'
+        -- Edge: No rooms or already checked in
+        WHEN COALESCE(rs.rooms_total, 0) = 0 OR COALESCE(rs.rooms_checked_in, 0) = COALESCE(rs.rooms_total, 0) THEN 'NONE'
+        
+        -- Blocker: Housekeeping
         WHEN COALESCE(rs.rooms_dirty, 0) > 0 THEN 'WAIT_HOUSEKEEPING'
-        WHEN COALESCE(rs.rooms_unassigned, 0) > 0 THEN 'ASSIGN_ROOM'
+        
+        -- Default to Check-In (Even if unassigned, flow handles it)
         ELSE 'CHECKIN'
     END AS primary_action
 FROM bookings b
@@ -190,6 +202,7 @@ SELECT
     b.phone,
     b.scheduled_checkin_at,
     b.scheduled_checkout_at,
+    b.room_numbers,
     b.rooms_total,
     b.rooms_checked_in,
     b.rooms_unassigned,
@@ -212,16 +225,22 @@ LEFT JOIN timers t ON t.booking_id = b.booking_id;
 
 -- ── 5. Enterprise Data Contract Views ──
 
--- Payment Status Layer
+-- Payment Status Layer (Updated to use folio_entries ledger)
 CREATE OR REPLACE VIEW v_arrival_payment_state AS
 SELECT
     b.id AS booking_id,
-    COALESCE(SUM(f.total_amount),0) AS total_amount,
-    COALESCE(SUM(f.paid_amount),0) AS paid_amount,
-    COALESCE(SUM(f.total_amount - f.paid_amount),0) AS pending_amount,
-    CASE WHEN COALESCE(SUM(f.total_amount - f.paid_amount),0) > 0 THEN true ELSE false END AS payment_pending
+    COALESCE(SUM(fe.amount) FILTER (WHERE fe.entry_type IN ('ROOM_CHARGE', 'FOOD_CHARGE', 'SERVICE_CHARGE', 'TAX')), 0) AS total_amount,
+    COALESCE(SUM(fe.amount) FILTER (WHERE fe.entry_type IN ('PAYMENT')), 0) - COALESCE(SUM(fe.amount) FILTER (WHERE fe.entry_type IN ('REFUND')), 0) AS paid_amount,
+    (COALESCE(SUM(fe.amount) FILTER (WHERE fe.entry_type IN ('ROOM_CHARGE', 'FOOD_CHARGE', 'SERVICE_CHARGE', 'TAX')), 0) - 
+     (COALESCE(SUM(fe.amount) FILTER (WHERE fe.entry_type IN ('PAYMENT')), 0) - COALESCE(SUM(fe.amount) FILTER (WHERE fe.entry_type IN ('REFUND')), 0))) AS pending_amount,
+    CASE 
+        WHEN (COALESCE(SUM(fe.amount) FILTER (WHERE fe.entry_type IN ('ROOM_CHARGE', 'FOOD_CHARGE', 'SERVICE_CHARGE', 'TAX')), 0) - 
+             (COALESCE(SUM(fe.amount) FILTER (WHERE fe.entry_type IN ('PAYMENT')), 0) - COALESCE(SUM(fe.amount) FILTER (WHERE fe.entry_type IN ('REFUND')), 0))) > 0 
+        THEN true 
+        ELSE false 
+    END AS payment_pending
 FROM bookings b
-LEFT JOIN folios f ON f.booking_id = b.id
+LEFT JOIN folio_entries fe ON fe.booking_id = b.id
 GROUP BY b.id;
 
 -- Guest / Booking Labels Layer
@@ -275,7 +294,7 @@ CREATE OR REPLACE VIEW v_arrival_dashboard_summary AS
 SELECT
     hotel_id,
     COUNT(*) AS total_arrivals,
-    COUNT(*) FILTER (WHERE arrival_operational_state IN ('ARRIVED', 'PARTIALLY_ARRIVED')) AS arrived,
+    COUNT(*) FILTER (WHERE arrival_operational_state IN ('CHECKED_IN', 'PARTIALLY_ARRIVED')) AS arrived,
     COUNT(*) FILTER (WHERE rooms_ready_for_arrival) AS ready_to_checkin,
     COUNT(*) FILTER (WHERE arrival_operational_state='WAITING_ROOM_ASSIGNMENT') AS waiting_room_assignment,
     COUNT(*) FILTER (WHERE payment_pending) AS payment_pending,

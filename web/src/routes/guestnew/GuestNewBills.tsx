@@ -329,7 +329,7 @@ export default function GuestNewBills() {
                         filteredStays.map((stay) => (
                             <Link
                                 key={stay.id}
-                                to={`/guestnew/stay/${stay.booking_code || stay.id}`}
+                                to={`/guest/stay/${stay.booking_code || stay.id}`}
                                 className="gn-bill-row"
                             >
                                 <div className="gn-bill-row__main">
@@ -363,7 +363,7 @@ export default function GuestNewBills() {
                         groupedOrders.map((group) => (
                             <Link
                                 key={group.booking_code}
-                                to={`/guestnew/stay/${group.booking_code}`}
+                                to={`/guest/stay/${group.booking_code}`}
                                 className="gn-bill-row"
                             >
                                 <div className="gn-bill-row__main">

@@ -10,7 +10,7 @@ export default function GuestGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getSession();
-      if (!data.session) return nav("/signin?redirect=%2Fguest", { replace:true });
+      if (!data.session) return nav("/signin?redirect=%2Fguestold", { replace:true });
       setOk(true);
     })();
   }, [nav]);

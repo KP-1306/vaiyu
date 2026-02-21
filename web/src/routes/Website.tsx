@@ -157,15 +157,15 @@ export default function Website() {
       <section className="py-14 bg-white">
         <div className="mx-auto max-w-6xl px-6">
           <h2 className="text-2xl font-semibold">FAQ</h2>
-        <div className="mt-6 grid md:grid-cols-2 gap-4">
+          <div className="mt-6 grid md:grid-cols-2 gap-4">
             <Faq q="Can we publish reviews without guest consent?"
-                 a="No. Even in auto mode, consent is required before publishing. We only create drafts/pending items otherwise." />
+              a="No. Even in auto mode, consent is required before publishing. We only create drafts/pending items otherwise." />
             <Faq q="Does this need an app store install?"
-                 a="No. It’s a PWA. Share a link; guests can add it to their home screen." />
+              a="No. It’s a PWA. Share a link; guests can add it to their home screen." />
             <Faq q="Will this work offline?"
-                 a="Yes—the shell loads offline; network actions queue/retry when back online." />
+              a="Yes—the shell loads offline; network actions queue/retry when back online." />
             <Faq q="Can we theme it?"
-                 a="Yes—set brand color & mode in Owner → Policies & Theme." />
+              a="Yes—set brand color & mode in Owner → Policies & Theme." />
           </div>
         </div>
       </section>

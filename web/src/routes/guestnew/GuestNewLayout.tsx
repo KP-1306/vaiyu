@@ -3,6 +3,7 @@ import { Outlet, NavLink, useLocation, Link } from "react-router-dom";
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "../../lib/supabase";
 import "./guestnew.css";
+import AccountControls from "../../components/AccountControls";
 
 type NavItem = {
     label: string;
@@ -11,10 +12,10 @@ type NavItem = {
 };
 
 const bottomNavItems: NavItem[] = [
-    { label: "Home", to: "/guestnew", icon: "🏠" },
-    { label: "Trips", to: "/guestnew/trips", icon: "🧳" },
-    { label: "Rewards", to: "/guestnew/rewards", icon: "🎁" },
-    { label: "Support", to: "/guestnew/support", icon: "❓" },
+    { label: "Home", to: "/guest", icon: "🏠" },
+    { label: "Trips", to: "/guest/trips", icon: "🧳" },
+    { label: "Rewards", to: "/guest/rewards", icon: "🎁" },
+    { label: "Support", to: "/guest/support", icon: "❓" },
 ];
 
 export default function GuestNewLayout() {
@@ -35,7 +36,7 @@ export default function GuestNewLayout() {
             if (!mounted) return;
 
             if (!data.session) {
-                const redirect = encodeURIComponent("/guestnew");
+                const redirect = encodeURIComponent("/guest");
                 window.location.replace(`/signin?intent=signin&redirect=${redirect}`);
                 return;
             }
@@ -81,7 +82,7 @@ export default function GuestNewLayout() {
         <div className="guestnew">
             {/* Header */}
             <header className="gn-header">
-                <Link to="/guestnew" className="gn-header__logo">
+                <Link to="/guest" className="gn-header__logo">
                     <img src="/brand/vaiyu-logo.png" alt="Vaiyu" />
                     <span>Vaiyu</span>
                 </Link>
@@ -108,8 +109,13 @@ export default function GuestNewLayout() {
                         🔔
                     </button>
 
-                    {/* Avatar */}
-                    <div className="gn-header__avatar">{initials}</div>
+                    {/* Avatar Dropdown */}
+                    <div style={{ marginLeft: "12px", zIndex: 50, position: 'relative' }}>
+                        <AccountControls
+                            theme="dark"
+                            buttonClassName="h-10 w-10 bg-[#dbae67] text-black text-sm font-bold hover:bg-[#e5bc7d]"
+                        />
+                    </div>
                 </div>
             </header>
 
@@ -120,7 +126,7 @@ export default function GuestNewLayout() {
 
             {/* Floating Support Button */}
             <div className="gn-floating-support">
-                <Link to="/guestnew/support" className="gn-floating-support__btn">
+                <Link to="/guest/support" className="gn-floating-support__btn">
                     💬 <span>Support</span> <span>›</span>
                 </Link>
             </div>
@@ -130,8 +136,8 @@ export default function GuestNewLayout() {
                 <div className="gn-bottom-nav__inner">
                     {bottomNavItems.map((item) => {
                         const isActive =
-                            item.to === "/guestnew"
-                                ? location.pathname === "/guestnew"
+                            item.to === "/guest"
+                                ? location.pathname === "/guest"
                                 : location.pathname.startsWith(item.to);
 
                         return (

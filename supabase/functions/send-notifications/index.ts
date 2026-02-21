@@ -138,19 +138,7 @@ async function formatEmailMessage(
             <td style="padding:32px;text-align:center;color:#333;">
     `;
 
-    const commonFooter = `
-              <!-- CTA Button -->
-              <a href="${link}" 
-                 style="display:inline-block;padding:16px 36px;background:linear-gradient(135deg,#ff7a18,#ffb347);
-                 color:#ffffff;text-decoration:none;font-weight:bold;border-radius:50px;
-                 font-size:16px;box-shadow:0 4px 12px rgba(255,122,24,0.35);">
-                 Complete Pre-Check-in
-              </a>
-
-              <p style="margin-top:28px;font-size:13px;color:#777;">
-                If the button does not work, copy and paste this link:<br>
-                <span style="color:#5b8cff;">${link}</span>
-              </p>
+    const commonFooterSimple = `
             </td>
           </tr>
           <!-- Footer -->
@@ -168,6 +156,21 @@ async function formatEmailMessage(
 </html>
     `;
 
+    const precheckinCTA = `
+              <!-- CTA Button -->
+              <a href="${link}" 
+                 style="display:inline-block;padding:16px 36px;background:linear-gradient(135deg,#ff7a18,#ffb347);
+                 color:#ffffff;text-decoration:none;font-weight:bold;border-radius:50px;
+                 font-size:16px;box-shadow:0 4px 12px rgba(255,122,24,0.35);">
+                 Complete Pre-Check-in
+              </a>
+
+              <p style="margin-top:28px;font-size:13px;color:#777;">
+                If the button does not work, copy and paste this link:<br>
+                <span style="color:#5b8cff;">${link}</span>
+              </p>
+    `;
+
     if (template === "precheckin_link") {
         subject = "Complete your Pre-checkin";
         body = `
@@ -178,7 +181,8 @@ async function formatEmailMessage(
                 Save time at reception by completing your pre-check-in before arrival.
                 It takes less than a minute.
               </p>
-            ${commonFooter}
+            ${precheckinCTA}
+            ${commonFooterSimple}
         `;
     } else if (template === "precheckin_reminder_1") {
         subject = "Your Stay Starts Tomorrow!";
@@ -189,7 +193,8 @@ async function formatEmailMessage(
                 Dear <strong>${guest}</strong>,<br>
                 We're excited to see you soon. <br>To ensure a seamless arrival, please complete your pre-check-in now. It only takes a moment.
               </p>
-            ${commonFooter}
+            ${precheckinCTA}
+            ${commonFooterSimple}
         `;
     } else if (template === "precheckin_reminder_2") {
         subject = `Welcome to ${hotel}!`;
@@ -201,12 +206,52 @@ async function formatEmailMessage(
                 We are looking forward to welcoming you today.<br>
                 Skip the paperwork at the front desk by completing your pre-check-in below.
               </p>
-            ${commonFooter}
+            ${precheckinCTA}
+            ${commonFooterSimple}
+        `;
+    }
+
+    if (template === "precheckin_completed_access") {
+        subject = "Your Check-In Is Confirmed – Access Your Stay Portal";
+        body = `
+            ${commonHeader}
+              <h2 style="margin-top:0;">Your Check-In Is Confirmed</h2>
+              <p style="font-size:16px;line-height:1.6;margin-bottom:28px;">
+                Hi <strong>${guest}</strong>,<br>
+                Your pre-check-in for ${hotel} is confirmed.
+                We’re excited to welcome you.
+              </p>
+              
+              <div style="background:#f8f9fa; border-left: 4px solid #d4a574; padding: 15px; margin-bottom: 25px; border-radius: 4px;">
+                  <strong>You can now securely access your Stay Portal to:</strong>
+                  <ul style="margin: 10px 0 0 0; padding-left: 20px; color: #555;">
+                      <li>View and download invoices</li>
+                      <li>Access your digital room key (when available)</li>
+                      <li>Request services after arrival</li>
+                      <li>Manage your stay from any device</li>
+                  </ul>
+              </div>
+
+              <div style="text-align: center; margin: 30px 0;">
+                  <a href="${link}" 
+                     style="display:inline-block;padding:16px 36px;background:#1a1a1a;
+                     color:#d4a574;text-decoration:none;font-weight:bold;border-radius:8px;
+                     font-size:16px;box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+                     Access My Stay Portal
+                  </a>
+                  <p style="margin-top:15px;font-size:12px;color:#999;">
+                    (This link will verify your email automatically — no password required.)
+                  </p>
+              </div>
+
+              ${commonFooterSimple}
         `;
     }
 
     return { subject, html: body };
 }
+
+
 
 // ─── Main Worker (Loop-Drain Pattern) ───────────────────────────────────────
 
@@ -285,13 +330,6 @@ Deno.serve(async (req) => {
                         if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY not set");
                         if (!booking.email) throw new Error("Guest email missing");
 
-                        const { subject, html } = await formatEmailMessage(
-                            notif.template_code,
-                            notif.payload,
-                            actualGuestName,
-                            hotel.name || "Hotel"
-                        );
-
                         // DEV MODE: Use onboarding@resend.dev until domain is verified
                         const from = "onboarding@resend.dev";
 
@@ -302,6 +340,36 @@ Deno.serve(async (req) => {
                         */
 
                         const recipient = (booking.email || "").trim().toLowerCase();
+
+                        // Special Handling: Magic Link for Pre-Checkin Completion
+                        if (notif.template_code === 'precheckin_completed_access') {
+                            console.log("Generating Magic Link for", recipient);
+                            const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+                                type: 'magiclink',
+                                email: recipient,
+                                options: {
+                                    redirectTo: 'https://vaiyu.co.in/guest'
+                                }
+                            });
+
+                            if (linkError) {
+                                console.error("Magic Link Error:", linkError);
+                                throw new Error("Failed to generate magic link");
+                            }
+
+                            if (linkData?.properties?.action_link) {
+                                // OVERRIDE payload link with the magic link
+                                notif.payload = { ...notif.payload, link: linkData.properties.action_link };
+                            }
+                        }
+
+                        const { subject, html } = await formatEmailMessage(
+                            notif.template_code,
+                            notif.payload,
+                            actualGuestName,
+                            hotel.name || "Hotel"
+                        );
+
                         console.log(
                             `[Email] Sending to: "${recipient}" for booking ${notif.booking_id}`
                         );

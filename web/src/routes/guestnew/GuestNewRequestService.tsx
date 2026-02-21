@@ -58,7 +58,7 @@ export default function GuestNewRequestService() {
 
         // Navigate back after showing success
         setTimeout(() => {
-            navigate("/guestnew");
+            navigate("/guest");
         }, 2000);
     };
 
@@ -94,7 +94,7 @@ export default function GuestNewRequestService() {
         <div className="gn-container">
             {/* Header */}
             <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1.5rem" }}>
-                <Link to="/guestnew" className="gn-btn gn-btn--icon gn-btn--secondary">
+                <Link to="/guest" className="gn-btn gn-btn--icon gn-btn--secondary">
                     ←
                 </Link>
                 <h1 className="gn-page-title" style={{ marginBottom: 0 }}>

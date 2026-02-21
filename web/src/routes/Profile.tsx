@@ -248,7 +248,7 @@ async function loadProfile(): Promise<{ data: ProfileRecord; source: "db" | "loc
           rec.full_name = userMetadata.full_name;
         }
       }
-      
+
       // DERIVED: If profiles.phone is empty, use user_metadata.phone OR local cache
       if ((!rec.phone || rec.phone.trim() === '') && user?.user_metadata) {
         const userMetadata = user.user_metadata as Record<string, any>;
@@ -307,16 +307,16 @@ async function saveProfile(next: ProfileRecord): Promise<"db" | "local"> {
   try {
     const payload = normalizeToDb(user.id, next);
     console.log("Attempting to save profile to DB:", payload);
-    
+
     const { error } = await supabase
       .from("profiles")
       .upsert(payload, { onConflict: "id" });
-    
+
     if (error) {
       console.error("Failed to save profile to DB:", error);
       throw error;
     }
-    
+
     console.log("Successfully saved profile to DB");
     safeWriteLocal(next);
     return "db";
@@ -1100,9 +1100,8 @@ function Field({
       ) : (
         <input
           id={id}
-          className={`rounded-lg border px-3 py-2 text-sm outline-none focus:ring ${
-            error ? "border-red-500" : "border-gray-300"
-          }`}
+          className={`rounded-lg border px-3 py-2 text-sm outline-none focus:ring ${error ? "border-red-500" : "border-gray-300"
+            }`}
           value={value}
           onChange={(e) => onChange?.(e.target.value)}
           placeholder={placeholder}

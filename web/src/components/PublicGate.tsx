@@ -12,7 +12,7 @@ export default function PublicGate({ children }: { children: React.ReactNode }) 
   const navigate = useNavigate();
 
   useEffect(() => {
-    let unsub = () => {};
+    let unsub = () => { };
     (async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session) {

@@ -31,7 +31,7 @@ const cases: Case[] = [
     badge: "New",
     body:
       "Guests refer friends using VAiyu Account ID / registered phone / email. Credits are issued after the friend’s checkout and are property-scoped—redeem on F&B and services.",
-    cta: { label: "See my credits", to: "/guest" },
+    cta: { label: "See my credits", to: "/guestold" },
     extra: (
       <p className="text-[11px] text-gray-500 mt-1">
         Anti-abuse: no self-referrals; credit only after completion; per-property caps & expiry.

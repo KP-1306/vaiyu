@@ -255,7 +255,7 @@ export default function GuestNewTrips() {
                         return (
                             <Link
                                 key={stay.id}
-                                to={`/guestnew/stay/${stay.id}`}
+                                to={`/guest/stay/${stay.id}`}
                                 className="gn-card gn-trip-row"
                             >
                                 <div className="gn-trip-row__icon">🏨</div>

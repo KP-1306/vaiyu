@@ -231,9 +231,8 @@ export default function OwnerHome() {
             />
             <Tile
               title="Grid: Devices"
-              text={`Mode: ${
-                peek?.grid?.mode ?? "—"
-              }. One-tap Shed/Restore in manual.`}
+              text={`Mode: ${peek?.grid?.mode ?? "—"
+                }. One-tap Shed/Restore in manual.`}
               to={`/grid/devices?slug=${encodeURIComponent(resolvedSlug)}`}
               emoji="⚡"
               cta="Manage devices"

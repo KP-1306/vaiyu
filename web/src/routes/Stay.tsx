@@ -351,7 +351,7 @@ function QrStayHome({ code }: { code: string }) {
         <header className="mb-6 space-y-1">
           {/* Breadcrumbs */}
           <nav className="flex items-center gap-2 text-sm text-slate-500 mb-4">
-            <Link to="/guest" className="hover:text-slate-300 transition-colors">Home</Link>
+            <Link to="/guest" className="hover:text-slate-300 transition-colors">Guest</Link>
             <span className="text-slate-700">/</span>
             <span className="text-slate-300 font-medium">Stay</span>
           </nav>

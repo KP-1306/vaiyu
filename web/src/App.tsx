@@ -363,6 +363,7 @@ const GuestNewRequestService = lazy(() => import("./routes/guestnew/GuestNewRequ
 const GuestNewCheckout = lazy(() => import("./routes/guestnew/GuestNewCheckout"));
 const GuestNewRewards = lazy(() => import("./routes/guestnew/GuestNewRewards"));
 const GuestNewSupport = lazy(() => import("./routes/guestnew/GuestNewSupport"));
+const GuestReviewScreen = lazy(() => import("./routes/guestnew/GuestReviewScreen"));
 
 // Owner property dashboard
 const OwnerDashboard = lazy(() => import("./routes/OwnerDashboard"));
@@ -614,7 +615,7 @@ export default function App() {
             <Route path="/guest" element={<GuestDashboard />} />
 
             {/* GuestNew - Premium Guest Experience */}
-            <Route path="/guestnew/*" element={<GuestNewLayout />}>
+            <Route path="/guest/*" element={<GuestNewLayout />}>
               <Route index element={<GuestNewHome />} />
               <Route path="trips" element={<GuestNewTrips />} />
               <Route path="stay/:id" element={<GuestNewStayDetails />} />
@@ -622,6 +623,7 @@ export default function App() {
               <Route path="checkout" element={<GuestNewCheckout />} />
               <Route path="rewards" element={<GuestNewRewards />} />
               <Route path="support" element={<GuestNewSupport />} />
+              <Route path="review/:id" element={<GuestReviewScreen />} />
             </Route>
 
             <Route path="/stays" element={<Stays />} />
@@ -640,7 +642,7 @@ export default function App() {
             {/* Guest Jobs */}
             <Route path="/hotel/:slug/jobs" element={<HotelJobs />} />
             <Route
-              path="/guest/:slug/jobs/:jobId/apply"
+              path="/guestold/:slug/jobs/:jobId/apply"
               element={<GuestWorkforceApply />}
             />
 

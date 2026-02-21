@@ -117,10 +117,10 @@ export default function GuestNewSupport() {
                 <h3 className="gn-section-title">Frequently Asked</h3>
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                     {[
-                        { q: "How do I request early check-in?", a: "/guestnew/request-service" },
-                        { q: "What's included in my stay?", a: "/guestnew/trips" },
-                        { q: "How do I download my invoice?", a: "/guestnew/trips" },
-                        { q: "How do I redeem my rewards?", a: "/guestnew/rewards" },
+                        { q: "How do I request early check-in?", a: "/guest/request-service" },
+                        { q: "What's included in my stay?", a: "/guest/trips" },
+                        { q: "How do I download my invoice?", a: "/guest/trips" },
+                        { q: "How do I redeem my rewards?", a: "/guest/rewards" },
                     ].map((faq, i) => (
                         <Link
                             key={i}

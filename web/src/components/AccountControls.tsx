@@ -31,8 +31,12 @@ function useOnClickOutside(
 
 export default function AccountControls({
   className = "",
+  buttonClassName = "h-8 w-8 bg-slate-800 text-white hover:bg-slate-700 ring-slate-300",
+  theme = "light"
 }: {
   className?: string;
+  buttonClassName?: string;
+  theme?: "light" | "dark";
 }) {
   const nav = useNavigate();
 
@@ -94,8 +98,7 @@ export default function AccountControls({
     // Keep redirect to /guest for sign-in, same as before
     return (
       <Link
-        to="/signin?intent=signin&redirect=/guest"
-        className={`rounded-full bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 ${className}`}
+        to="/signin?intent=signin&redirect=/guest" className={`rounded-full bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 ${className}`}
       >
         Sign in
       </Link>
@@ -106,7 +109,7 @@ export default function AccountControls({
     <div ref={menuRef} className={`relative ${className}`}>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-800 text-white outline-none ring-slate-300 hover:bg-slate-700 focus:ring"
+        className={`flex items-center justify-center rounded-full outline-none focus:ring ${buttonClassName}`}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Account menu"
@@ -118,23 +121,27 @@ export default function AccountControls({
         <div
           role="menu"
           // z-50 keeps the menu above large dashboard panels
-          className="absolute right-0 mt-2 w-64 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg z-50"
+          className={`absolute right-0 mt-2 w-64 overflow-hidden rounded-xl border shadow-lg z-50 ${theme === "dark"
+              ? "bg-[#1A1A1A] border-white/10"
+              : "bg-white border-slate-200"
+            }`}
         >
           {/* Signed in as */}
-          <div className="px-4 py-3 text-xs text-slate-600">
-            <div className="font-medium text-slate-900">
+          <div className={`px-4 py-3 text-xs ${theme === "dark" ? "text-white/60" : "text-slate-600"}`}>
+            <div className={`font-medium ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
               {email.split("@")[0]}
             </div>
-            <div className="truncate text-slate-500">{email}</div>
+            <div className={`truncate ${theme === "dark" ? "text-white/40" : "text-slate-500"}`}>{email}</div>
           </div>
 
-          <div className="h-px bg-slate-200" />
+          <div className={`h-px ${theme === "dark" ? "bg-white/10" : "bg-slate-200"}`} />
 
           {/* Destinations */}
           <div className="py-1">
             <MenuLink
-              to="/guest"
+              to="/guest/trips"
               label="My trips"
+              theme={theme}
               onChoose={() => setOpen(false)}
             />
             {(memberships || [])
@@ -147,6 +154,7 @@ export default function AccountControls({
                   key={`${m.hotelSlug}-${idx}`}
                   to={`/owner/${m.hotelSlug}`}
                   label={`Owner @ ${m.hotelName || m.hotelSlug}`}
+                  theme={theme}
                   onChoose={() => setOpen(false)}
                 />
               ))}
@@ -154,23 +162,25 @@ export default function AccountControls({
               <MenuLink
                 to="/staff"
                 label="Staff workspace"
+                theme={theme}
                 onChoose={() => setOpen(false)}
               />
             )}
           </div>
 
-          <div className="h-px bg-slate-200" />
+          <div className={`h-px ${theme === "dark" ? "bg-white/10" : "bg-slate-200"}`} />
 
           {/* Settings (combined) */}
           <div className="py-1">
             <MenuLink
               to="/profile"
               label="Profile & settings"
+              theme={theme}
               onChoose={() => setOpen(false)}
             />
           </div>
 
-          <div className="h-px bg-slate-200" />
+          <div className={`h-px ${theme === "dark" ? "bg-white/10" : "bg-slate-200"}`} />
 
           {/* Sign out */}
           <button
@@ -186,7 +196,10 @@ export default function AccountControls({
                 nav("/", { replace: true });
               }
             }}
-            className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+            className={`block w-full px-4 py-2 text-left text-sm ${theme === "dark"
+                ? "text-red-400 hover:bg-red-500/10"
+                : "text-red-600 hover:bg-red-50"
+              }`}
           >
             Sign out
           </button>
@@ -199,17 +212,22 @@ export default function AccountControls({
 function MenuLink({
   to,
   label,
+  theme = "light",
   onChoose,
 }: {
   to: string;
   label: string;
+  theme?: "light" | "dark";
   onChoose?: () => void;
 }) {
   return (
     <Link
       to={to}
       onClick={onChoose}
-      className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+      className={`block px-4 py-2 text-sm ${theme === "dark"
+          ? "text-white/90 hover:bg-white/10"
+          : "text-slate-700 hover:bg-slate-50"
+        }`}
       role="menuitem"
     >
       {label}

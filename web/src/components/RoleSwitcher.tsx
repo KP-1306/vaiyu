@@ -4,7 +4,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
 export default function RoleSwitcher() {
-  const [propsIManage, setPropsIManage] = useState<{slug:string; name:string}[]>([]);
+  const [propsIManage, setPropsIManage] = useState<{ slug: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const nav = useNavigate();
   const loc = useLocation();
@@ -19,7 +19,7 @@ export default function RoleSwitcher() {
         .eq("user_id", user.user.id);
 
       const items = (rows || [])
-        .map((r:any) => r.properties)
+        .map((r: any) => r.properties)
         .filter(Boolean);
 
       setPropsIManage(items);
@@ -30,7 +30,7 @@ export default function RoleSwitcher() {
   // Optional: if user is in owner area but has no properties anymore → push to /welcome
   useEffect(() => {
     if (!loading && loc.pathname.startsWith("/owner") && propsIManage.length === 0) {
-    nav("/owner/register", { replace: true });
+      nav("/owner/register", { replace: true });
     }
   }, [loading, propsIManage.length, loc.pathname, nav]);
 

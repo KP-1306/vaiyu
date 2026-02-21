@@ -126,9 +126,8 @@ export default function ClaimStay() {
         if (hotelId) search.set("hotelId", hotelId);
 
         const qs = search.toString();
-        const menuPath = `/stay/${encodeURIComponent(bookingCode)}/menu${
-          qs ? `?${qs}` : ""
-        }`;
+        const menuPath = `/stay/${encodeURIComponent(bookingCode)}/menu${qs ? `?${qs}` : ""
+          }`;
 
         navigate(menuPath, { replace: true });
         return;

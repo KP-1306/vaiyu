@@ -488,7 +488,7 @@ const router = createBrowserRouter([
       { path: "claim", element: <ClaimStay /> },
       { path: "checkout", element: <Checkout /> },
       {
-        path: "guest",
+        path: "guestold",
         element: (
           <AuthGate>
             <GuestDashboard />
@@ -518,7 +518,7 @@ const router = createBrowserRouter([
 
       // GuestNew - Premium Guest Experience
       {
-        path: "guestnew",
+        path: "guest",
         element: <GuestNewLayout />,
         children: [
           { index: true, element: <GuestNewHome /> },

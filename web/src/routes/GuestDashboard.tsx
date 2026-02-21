@@ -117,7 +117,7 @@ export default function GuestDashboard() {
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
       if (!data.session) {
-        const redirect = encodeURIComponent("/guest");
+        const redirect = encodeURIComponent("/guestold");
         window.location.replace(`/signin?intent=signin&redirect=${redirect}`);
       }
     });
@@ -493,7 +493,7 @@ export default function GuestDashboard() {
 
   // Premium sidebar nav (desktop)
   const sidebarNav = [
-    { label: "Overview", to: "/guest", icon: "⌂" },
+    { label: "Overview", to: "/guestold", icon: "⌂" },
     { label: "Service requests", to: "/requestTracker", icon: "⚡" },
     { label: "Rewards & vouchers", to: "/rewards", icon: "🎁" },
     { label: "Trips", to: "/stays", icon: "🧳" },
@@ -503,7 +503,7 @@ export default function GuestDashboard() {
 
   // Mobile bottom dock (small screens)
   const bottomNav = [
-    { label: "Home", to: "/guest", icon: "🏠" },
+    { label: "Home", to: "/guestold", icon: "🏠" },
     { label: "Trips", to: "/stays", icon: "🧳" },
     { label: "Rewards", to: "/rewards", icon: "🎁" },
     { label: "Bills", to: "/bills", icon: "🧾" },

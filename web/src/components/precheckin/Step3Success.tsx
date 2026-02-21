@@ -128,7 +128,14 @@ export function Step3Success({ booking, checkinFormatted, checkinTime, token }: 
 
             {/* Actions */}
             <div className="step3-actions">
-                <button onClick={addToCalendar} className="step3-btn-primary">
+                <button
+                    onClick={() => window.location.href = "/guest"}
+                    className="step3-btn-primary"
+                    style={{ background: "#d4af37", color: "black", marginBottom: "12px" }}
+                >
+                    Go to Stay Portal
+                </button>
+                <button onClick={addToCalendar} className="step3-btn-secondary">
                     Add to Calendar
                 </button>
                 <button onClick={() => window.location.href = "/"} className="step3-btn-secondary">

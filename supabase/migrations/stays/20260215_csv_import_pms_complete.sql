@@ -1164,7 +1164,7 @@ CREATE TABLE IF NOT EXISTS public.guest_user_map (
     guest_id uuid NOT NULL REFERENCES public.guests(id) ON DELETE CASCADE,
     hotel_id uuid NOT NULL, -- Multi-tenant safety
     created_at timestamptz DEFAULT now(),
-    CONSTRAINT guest_user_map_pkey PRIMARY KEY (user_id)
+    CONSTRAINT guest_user_map_pkey PRIMARY KEY (user_id,hotel_id)
 );
 
 -- Index for fast guest lookup

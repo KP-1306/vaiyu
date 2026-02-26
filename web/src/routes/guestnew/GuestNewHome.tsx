@@ -214,6 +214,53 @@ export default function GuestNewHome() {
     const [foodOrders, setFoodOrders] = useState<any[]>([]);
     const [grandTotal, setGrandTotal] = useState(0);
 
+    const handleActionClick = (e: React.MouseEvent, action: 'request_service' | 'track_requests' | 'checkout' | 'call_reception') => {
+        if (!currentStay) {
+            e.preventDefault();
+            alert("No stay available.");
+            return;
+        }
+
+        const statusLower = (currentStay.status || "").toLowerCase();
+        const isPast = ["checked_out", "cancelled", "no_show"].includes(statusLower);
+        const isUpcoming = ["arriving", "expected", "confirmed"].includes(statusLower);
+
+        switch (action) {
+            case 'request_service':
+                if (isUpcoming) {
+                    e.preventDefault();
+                    alert("You can request services after you check-in to your room. We look forward to welcoming you!");
+                } else if (isPast) {
+                    e.preventDefault();
+                    alert("This stay has already concluded.");
+                }
+                break;
+            case 'track_requests':
+                if (isUpcoming) {
+                    e.preventDefault();
+                    alert("You have no requests to track for an upcoming stay.");
+                }
+                // Past stays CAN track requests (to view history)
+                break;
+            case 'checkout':
+                if (isUpcoming) {
+                    e.preventDefault();
+                    alert("Express checkout is available during your stay.");
+                } else if (isPast) {
+                    e.preventDefault();
+                    alert("This stay has already concluded.");
+                }
+                break;
+            case 'call_reception':
+                if (isPast) {
+                    e.preventDefault();
+                    alert("This stay has already concluded.");
+                }
+                // allow upcoming stays to call reception
+                break;
+        }
+    };
+
     // Format currency
     const formatCurrency = (amount: number | null | undefined) => {
         if (!amount && amount !== 0) return "—";
@@ -498,7 +545,7 @@ export default function GuestNewHome() {
 
             {/* Action Grid (Colorful Buttons) */}
             <div className="gn-action-grid">
-                <Link to={`/stay/${currentStay?.booking_code || 'DEMO'}/menu?tab=services&code=${currentStay?.booking_code || 'DEMO'}`} className="gn-action-btn gn-action-btn--teal">
+                <Link to={`/stay/${currentStay?.booking_code || 'DEMO'}/menu?tab=services&code=${currentStay?.booking_code || 'DEMO'}`} onClick={(e) => handleActionClick(e, 'request_service')} className={`gn-action-btn gn-action-btn--teal ${!currentStay || ["arriving", "expected", "confirmed", "checked_out", "cancelled", "no_show"].includes((currentStay.status || "").toLowerCase()) ? 'opacity-50' : ''}`}>
                     <div className="gn-action-btn__icon">🛎️</div>
                     <div className="gn-action-btn__content">
                         <span className="gn-action-btn__title">Request Service</span>
@@ -506,8 +553,7 @@ export default function GuestNewHome() {
                     </div>
                 </Link>
 
-                <Link to={`/stay/${currentStay?.booking_code || 'DEMO'}/requests`} className="gn-action-btn gn-action-btn--blue">
-
+                <Link to={`/stay/${currentStay?.booking_code || 'DEMO'}/requests`} onClick={(e) => handleActionClick(e, 'track_requests')} className={`gn-action-btn gn-action-btn--blue ${!currentStay || ["arriving", "expected", "confirmed"].includes((currentStay.status || "").toLowerCase()) ? 'opacity-50' : ''}`}>
                     <div className="gn-action-btn__icon">📊</div>
                     <div className="gn-action-btn__content">
                         <span className="gn-action-btn__title">Track Requests</span>
@@ -515,7 +561,7 @@ export default function GuestNewHome() {
                     </div>
                 </Link>
 
-                <Link to="/contact" className="gn-action-btn gn-action-btn--gold">
+                <Link to="/contact" onClick={(e) => handleActionClick(e, 'call_reception')} className={`gn-action-btn gn-action-btn--gold ${!currentStay || ["checked_out", "cancelled", "no_show"].includes((currentStay.status || "").toLowerCase()) ? 'opacity-50' : ''}`}>
                     <div className="gn-action-btn__icon">📞</div>
                     <div className="gn-action-btn__content">
                         <span className="gn-action-btn__title">Call Reception</span>
@@ -523,7 +569,7 @@ export default function GuestNewHome() {
                     </div>
                 </Link>
 
-                <Link to="/guest/checkout" className="gn-action-btn gn-action-btn--dark">
+                <Link to="/guest/checkout" onClick={(e) => handleActionClick(e, 'checkout')} className={`gn-action-btn gn-action-btn--dark ${!currentStay || ["arriving", "expected", "confirmed", "checked_out", "cancelled", "no_show"].includes((currentStay.status || "").toLowerCase()) ? 'opacity-50' : ''}`}>
                     <div className="gn-action-btn__icon">✔️</div>
                     <div className="gn-action-btn__content">
                         <span className="gn-action-btn__title">Checkout</span>

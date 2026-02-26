@@ -193,6 +193,7 @@ export async function consumeAuthFromUrl(): Promise<boolean> {
       const rt = h.get("refresh_token");
       if (at && rt) {
         await supabase.auth.setSession({ access_token: at, refresh_token: rt });
+        await supabase.rpc("link_auth_user_to_guest");
         history.replaceState({}, "", url.pathname + url.search); // clean hash
         return true;
       }
@@ -207,6 +208,7 @@ export async function consumeAuthFromUrl(): Promise<boolean> {
       } catch {
         await (supabase.auth as any).exchangeCodeForSession({ code });
       }
+      await supabase.rpc("link_auth_user_to_guest");
       url.searchParams.delete("code");
       history.replaceState({}, "", url.pathname + (url.search ? `?${url.searchParams}` : ""));
       return true;
@@ -217,6 +219,7 @@ export async function consumeAuthFromUrl(): Promise<boolean> {
     const qrt = url.searchParams.get("refresh_token");
     if (qat && qrt) {
       await supabase.auth.setSession({ access_token: qat, refresh_token: qrt });
+      await supabase.rpc("link_auth_user_to_guest");
       url.searchParams.delete("access_token");
       url.searchParams.delete("refresh_token");
       history.replaceState({}, "", url.pathname + (url.search ? `?${url.searchParams}` : ""));

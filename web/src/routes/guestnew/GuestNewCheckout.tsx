@@ -23,6 +23,7 @@ type Stay = {
     room_number?: string;
     guests?: number;
     booking_code?: string;
+    status?: string;
 };
 
 export default function GuestNewCheckout() {
@@ -33,6 +34,7 @@ export default function GuestNewCheckout() {
     const [processing, setProcessing] = useState(false);
     const [completed, setCompleted] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
 
     // Fetch stay & user profile
     useEffect(() => {
@@ -59,7 +61,7 @@ export default function GuestNewCheckout() {
                     const now = new Date();
 
                     let active = stays.find((s: any) =>
-                        ["inhouse", "checked_in", "partially_arrived"].includes(s.status?.toLowerCase() || "")
+                        ["inhouse", "checked_in", "partially_arrived", "checkout_requested"].includes(s.status?.toLowerCase() || "")
                     );
 
                     if (!active) {
@@ -78,7 +80,7 @@ export default function GuestNewCheckout() {
                     // Fetch the booking_id directly from the stays table since it's not in the view
                     const { data: stayRow } = await supabase
                         .from('stays')
-                        .select('booking_id')
+                        .select('booking_id, status')
                         .eq('id', active.id)
                         .single();
 
@@ -97,8 +99,13 @@ export default function GuestNewCheckout() {
                         city_tax: active.city_tax || 0,
                         room_number: active.room_number || "402",
                         guests: active.guests || 2,
-                        booking_code: active.booking_code
+                        booking_code: active.booking_code,
+                        status: stayRow?.status
                     });
+
+                    if (stayRow?.status === 'checkout_requested') {
+                        setCompleted(true);
+                    }
                 }
             } catch (err) {
                 console.error("[GuestNewCheckout] Error:", err);
@@ -109,31 +116,44 @@ export default function GuestNewCheckout() {
         return () => { mounted = false; };
     }, []);
 
-    // Fetch dynamic bill details (Food Orders, etc.)
+    // Fetch Ledger Metrics & Payment Breakdown
+    const [priorPayments, setPriorPayments] = useState(0);
     const [foodTotal, setFoodTotal] = useState(0);
-    useEffect(() => {
-        if (!stay?.booking_code) return;
-        (async () => {
-            console.log("Fetching orders for booking_code:", stay.booking_code);
-            const { data: orders, error } = await supabase
-                .from("v_guest_food_orders")
-                .select("total_amount, status")
-                .eq("booking_code", stay.booking_code);
+    const [paymentBreakdown, setPaymentBreakdown] = useState<{ method: string; amount: number }[]>([]);
 
-            if (error) {
-                console.error("Error fetching orders:", error);
+    useEffect(() => {
+        if (!stay?.booking_id) return;
+        (async () => {
+            // 1. Fetch consolidated ledger totals
+            const { data } = await supabase
+                .from("v_arrival_payment_state")
+                .select("paid_amount, total_amount")
+                .eq("booking_id", stay.booking_id)
+                .single();
+            if (data) {
+                setPriorPayments(data.paid_amount || 0);
+                // Currently all charges hit the "foodTotal" bucket in the UI for simplicity
+                setFoodTotal(data.total_amount || 0);
             }
 
-            if (orders) {
-                console.log("Orders found for checkout:", orders);
-                // Sum up non-cancelled orders (exactly like GuestNewHome.tsx line 291)
-                const total = orders
-                    .filter(o => o.status !== 'cancelled' && o.status !== 'rejected')
-                    .reduce((sum, o) => sum + (o.total_amount || 0), 0);
-                setFoodTotal(total);
+            // Fetch payment breakdown
+            const { data: paymentsData } = await supabase
+                .from("payments")
+                .select("amount, method, status")
+                .eq("booking_id", stay.booking_id)
+                .eq("status", "COMPLETED");
+
+            if (paymentsData) {
+                const breakdown = paymentsData.reduce((acc, curr) => {
+                    const method = curr.method || 'OTHER';
+                    acc[method] = (acc[method] || 0) + Number(curr.amount);
+                    return acc;
+                }, {} as Record<string, number>);
+
+                setPaymentBreakdown(Object.entries(breakdown).map(([method, amount]) => ({ method, amount })));
             }
         })();
-    }, [stay?.booking_code]);
+    }, [stay?.booking_id]);
 
     // Format currency
     const formatCurrency = (amount: number | null | undefined) => {
@@ -167,11 +187,8 @@ export default function GuestNewCheckout() {
         setError(null);
 
         try {
-            const { data, error: rpcError } = await supabase.rpc('checkout_stay', {
-                p_hotel_id: stay.hotel_id,
-                p_booking_id: stay.booking_id,
-                p_stay_id: stay.id,
-                p_force: false
+            const { data, error: rpcError } = await supabase.rpc('request_checkout', {
+                p_booking_id: stay.booking_id
             });
 
             if (rpcError) throw rpcError;
@@ -198,9 +215,9 @@ export default function GuestNewCheckout() {
         return (
             <div className="gn-checkout-page flex items-center justify-center">
                 <div className="gn-glass-card p-12 text-center max-w-md">
-                    <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6 text-green-400 text-4xl">✓</div>
-                    <h2 className="gn-serif text-3xl text-white mb-2">Checkout Complete</h2>
-                    <p className="text-white/60 mb-8">Thank you for staying with us.</p>
+                    <div className="w-20 h-20 bg-amber-500/20 rounded-full flex items-center justify-center mx-auto mb-6 text-amber-400 text-4xl">⏳</div>
+                    <h2 className="gn-serif text-3xl text-white mb-2">Checkout Requested</h2>
+                    <p className="text-white/60 mb-8">The front desk has been notified. Thank you for staying with us.</p>
                     <button onClick={() => navigate("/guest")} className="gn-btn-gold w-full py-4">Return Home</button>
                 </div>
             </div>
@@ -217,11 +234,7 @@ export default function GuestNewCheckout() {
 
     // Total calculation
     const total = roomCharges + taxes + roomService + lateCheckout;
-
-    // Mock Prior Payments logic for demo (or 0 if you want pure dynamic)
-    // To make "Balance Due" look realistic, let's assume a deposit was made if total is high, else 0.
-    const priorPayments = 0;
-    const balanceDue = total - priorPayments;
+    const balanceDue = Math.max(0, total - priorPayments);
 
     return (
         <div className="gn-checkout-page">
@@ -347,18 +360,19 @@ export default function GuestNewCheckout() {
                                     <span>Prior Payments</span>
                                     <span className="text-white font-medium">{formatCurrency(priorPayments)}</span>
                                 </div>
-                                <div className="flex justify-between text-white/60 text-sm">
-                                    <div className="flex items-center gap-2">
-                                        <CreditCard className="w-4 h-4" />
-                                        <span>Visa 1234</span>
+                                {paymentBreakdown.length > 0 && (
+                                    <div className="space-y-3 pt-1">
+                                        {paymentBreakdown.map((b) => (
+                                            <div key={b.method} className="flex justify-between text-white/40 text-sm pl-4 relative before:content-[''] before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-2 before:h-[1px] before:bg-white/20">
+                                                <div className="flex items-center gap-2">
+                                                    {b.method === 'CARD' && <CreditCard className="w-4 h-4" />}
+                                                    <span className="capitalize">{b.method.toLowerCase().replace('_', ' ')}</span>
+                                                </div>
+                                                <span className="text-white/60">{formatCurrency(b.amount)}</span>
+                                            </div>
+                                        ))}
                                     </div>
-                                    {/* Mock payment for display structure */}
-                                    <span className="text-white font-medium">{formatCurrency(priorPayments > 0 ? 500 : 0)}</span>
-                                </div>
-                                <div className="flex justify-between text-white/60 text-sm">
-                                    <span>Cash</span>
-                                    <span className="text-white font-medium">{formatCurrency(priorPayments > 500 ? 225 : 0)}</span>
-                                </div>
+                                )}
                             </div>
 
                             <div className="border-t border-white/10 py-6 mb-6">
@@ -378,26 +392,55 @@ export default function GuestNewCheckout() {
                                     </div>
                                 )}
 
-                                <button className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 py-4 px-6 rounded-lg flex items-center justify-between group transition-all">
-                                    <div className="flex items-center gap-3">
-                                        <CreditCard className="w-5 h-5 text-[#C5A065]" />
-                                        <span className="font-medium">Settle Balance</span>
-                                    </div>
-                                    <ChevronRight className="w-5 h-5 opacity-50 group-hover:translate-x-1 transition-transform" />
-                                </button>
+                                <div className="relative group">
+                                    <button
+                                        type="button"
+                                        className="w-full bg-white/5 border border-white/10 py-4 px-6 rounded-lg flex items-center justify-between transition-all group hover:bg-white/10 text-white cursor-pointer"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <CreditCard className="w-5 h-5 text-[#C5A065]" />
+                                            <span className="font-medium">Settle Balance</span>
+                                        </div>
+                                        <ChevronRight className="w-5 h-5 opacity-50 group-hover:translate-x-1 transition-transform" />
+                                    </button>
 
-                                <button
-                                    onClick={handleCheckout}
-                                    disabled={processing}
-                                    className="w-full bg-gradient-to-r from-[#8E713C] to-[#C5A065] text-white py-4 px-6 rounded-lg font-medium shadow-lg shadow-[#C5A065]/20 flex items-center justify-center gap-2 hover:brightness-110 active:scale-[0.98] transition-all"
-                                >
-                                    {processing ? "Processing..." : (
-                                        <>
-                                            <Check className="w-5 h-5" />
-                                            <span>Confirm Checkout</span>
-                                        </>
+                                    <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-3 w-64 bg-black/90 p-3 rounded-lg text-xs leading-relaxed text-center text-white/90 border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-xl">
+                                        Online payments are not available yet. Please contact the front desk to settle your balance.
+                                        {/* Little triangle arrow pointing down */}
+                                        <div className="absolute left-1/2 -translate-x-1/2 top-full w-2 h-2 bg-black/90 border-r border-b border-white/10 rotate-45 -mt-1"></div>
+                                    </div>
+                                </div>
+
+                                <div className="text-center mt-3">
+                                    <button
+                                        onClick={() => {
+                                            if (balanceDue > 0) {
+                                                setShowPaymentModal(true);
+                                            } else {
+                                                handleCheckout();
+                                            }
+                                        }}
+                                        disabled={processing || balanceDue > 0}
+                                        className={`w-full py-4 px-6 rounded-lg font-medium flex items-center justify-center gap-2 transition-all ${balanceDue > 0
+                                            ? 'bg-[#2A241F] text-white/40 cursor-not-allowed border border-white/5'
+                                            : 'bg-gradient-to-r from-[#8E713C] to-[#C5A065] text-white shadow-lg shadow-[#C5A065]/20 hover:brightness-110 active:scale-[0.98]'
+                                            }`}
+                                    >
+                                        {processing ? "Processing..." : (
+                                            <>
+                                                <Check className="w-5 h-5" />
+                                                <span>Request Checkout</span>
+                                            </>
+                                        )}
+                                    </button>
+
+                                    {balanceDue > 0 && (
+                                        <p className="text-sm mt-4 flex items-center justify-center gap-2 animate-in fade-in duration-300" style={{ color: '#A68A64' }}>
+                                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#A68A64', opacity: 0.8 }}></span>
+                                            Please settle your balance to enable checkout
+                                        </p>
                                     )}
-                                </button>
+                                </div>
                             </div>
                         </div>
 

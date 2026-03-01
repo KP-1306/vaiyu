@@ -86,7 +86,7 @@ CREATE TABLE IF NOT EXISTS arrival_events (
     details JSONB DEFAULT '{}'::jsonb,
     performed_by UUID, -- auth.uid()
     created_at TIMESTAMPTZ DEFAULT now(),
-    CONSTRAINT arrival_events_type_check CHECK (event_type IN ('STATUS_CHANGE', 'ROOM_ASSIGNED', 'ROOM_UNASSIGNED', 'ROOM_REASSIGNED', 'CHECKIN', 'CANCEL', 'NO_SHOW'))
+    CONSTRAINT arrival_events_type_check CHECK (event_type IN ('STATUS_CHANGE', 'ROOM_ASSIGNED', 'ROOM_UNASSIGNED', 'ROOM_REASSIGNED', 'CHECKIN', 'CHECKOUT', 'CHECKOUT_REQUESTED', 'CANCEL', 'NO_SHOW'))
 );
 
 -- Enable RLS
@@ -116,6 +116,12 @@ CREATE INDEX IF NOT EXISTS idx_bookings_arrival_status ON bookings(hotel_id, sta
 
 -- ── 4. Core Views: Arrival Engine ──
 
+-- Explicit clean-up in reverse order of dependency to avoid using CASCADE
+DROP VIEW IF EXISTS v_arrival_dashboard_summary;
+DROP VIEW IF EXISTS v_arrival_dashboard_rows;
+DROP VIEW IF EXISTS v_owner_arrivals_dashboard;
+DROP VIEW IF EXISTS v_arrival_operational_state;
+
 -- Foundation View: Calculates operational readiness
 CREATE OR REPLACE VIEW v_arrival_operational_state AS
 WITH room_states AS (
@@ -132,7 +138,10 @@ WITH room_states AS (
     GROUP BY br.booking_id
 ),
 stay_states AS (
-    SELECT booking_id, COUNT(*) FILTER (WHERE status = 'inhouse') AS inhouse_count
+    SELECT booking_id, 
+           COUNT(*) FILTER (WHERE status = 'inhouse') AS inhouse_count,
+        COUNT(*) FILTER (WHERE status = 'checkout_requested') AS checkout_requested_count,
+        MAX(id::text) FILTER (WHERE status IN ('inhouse', 'checkout_requested'))::uuid AS active_stay_id
     FROM stays GROUP BY booking_id
 )
 SELECT
@@ -151,10 +160,13 @@ SELECT
     COALESCE(rs.rooms_dirty, 0) as rooms_dirty,
     COALESCE(rs.rooms_clean, 0) as rooms_clean,
     COALESCE(ss.inhouse_count, 0) AS inhouse_rooms,
+    ss.active_stay_id,
     CASE
         -- 1. OVERRIDE: Booking is strictly already checked in
-        WHEN b.status = 'CHECKED_IN' THEN 'CHECKED_IN'
+        WHEN COALESCE(ss.checkout_requested_count, 0) > 0 THEN 'CHECKOUT_REQUESTED'
+        WHEN b.status IN ('CHECKED_IN', 'checked_in') THEN 'CHECKED_IN'
         WHEN b.status = 'PARTIALLY_CHECKED_IN' THEN 'PARTIALLY_ARRIVED'
+        WHEN b.status IN ('CHECKED_OUT', 'checked_out') THEN 'CHECKED_OUT' -- Safety mapping for dashboard exclusion logic if needed
         
         -- 2. OPERATIONAL STATE
         WHEN COALESCE(rs.rooms_total, 0) = 0 THEN 'NO_ROOMS'
@@ -186,7 +198,6 @@ WHERE b.status IN ('CREATED', 'CONFIRMED', 'PRE_CHECKED_IN', 'PARTIALLY_CHECKED_
 AND b.status NOT IN ('CANCELLED', 'NO_SHOW');
 
 -- UI-Facing View: Adds Urgency & Formatting
-DROP VIEW IF EXISTS v_owner_arrivals_dashboard CASCADE;
 CREATE OR REPLACE VIEW v_owner_arrivals_dashboard AS
 WITH base AS ( SELECT * FROM v_arrival_operational_state ),
 timers AS (
@@ -209,6 +220,7 @@ SELECT
     b.rooms_dirty,
     b.rooms_clean,
     b.inhouse_rooms,
+    b.active_stay_id,
     b.arrival_operational_state,
     b.rooms_ready_for_arrival,
     b.primary_action,
@@ -229,16 +241,22 @@ LEFT JOIN timers t ON t.booking_id = b.booking_id;
 CREATE OR REPLACE VIEW v_arrival_payment_state AS
 SELECT
     b.id AS booking_id,
-    COALESCE(SUM(fe.amount) FILTER (WHERE fe.entry_type IN ('ROOM_CHARGE', 'FOOD_CHARGE', 'SERVICE_CHARGE', 'TAX')), 0) AS total_amount,
-    COALESCE(SUM(fe.amount) FILTER (WHERE fe.entry_type IN ('PAYMENT')), 0) - COALESCE(SUM(fe.amount) FILTER (WHERE fe.entry_type IN ('REFUND')), 0) AS paid_amount,
-    (COALESCE(SUM(fe.amount) FILTER (WHERE fe.entry_type IN ('ROOM_CHARGE', 'FOOD_CHARGE', 'SERVICE_CHARGE', 'TAX')), 0) - 
-     (COALESCE(SUM(fe.amount) FILTER (WHERE fe.entry_type IN ('PAYMENT')), 0) - COALESCE(SUM(fe.amount) FILTER (WHERE fe.entry_type IN ('REFUND')), 0))) AS pending_amount,
+    
+    -- Sum of all positive charges
+    COALESCE(SUM(fe.amount) FILTER (WHERE fe.amount > 0), 0) AS total_amount,
+    
+    -- Sum of all payments (they are stored as negative, so ABS() for display)
+    COALESCE(SUM(ABS(fe.amount)) FILTER (WHERE fe.amount < 0), 0) AS paid_amount,
+    
+    -- The actual ledger balance is simply the sum of all entries
+    COALESCE(SUM(fe.amount), 0) AS pending_amount,
+    
+    -- True if balance > 0
     CASE 
-        WHEN (COALESCE(SUM(fe.amount) FILTER (WHERE fe.entry_type IN ('ROOM_CHARGE', 'FOOD_CHARGE', 'SERVICE_CHARGE', 'TAX')), 0) - 
-             (COALESCE(SUM(fe.amount) FILTER (WHERE fe.entry_type IN ('PAYMENT')), 0) - COALESCE(SUM(fe.amount) FILTER (WHERE fe.entry_type IN ('REFUND')), 0))) > 0 
-        THEN true 
+        WHEN COALESCE(SUM(fe.amount), 0) > 0 THEN true 
         ELSE false 
     END AS payment_pending
+
 FROM bookings b
 LEFT JOIN folio_entries fe ON fe.booking_id = b.id
 GROUP BY b.id;
@@ -276,7 +294,9 @@ SELECT
     COALESCE(p.pending_amount, 0) as pending_amount,
     l.arrival_badge,
     COALESCE(l.vip_flag, false) as vip_flag,
-    hk.cleaning_minutes_remaining
+    hk.cleaning_minutes_remaining,
+    COALESCE(p.total_amount, 0) as total_amount,
+    COALESCE(p.paid_amount, 0) as paid_amount
 FROM v_owner_arrivals_dashboard a
 LEFT JOIN v_arrival_payment_state p ON p.booking_id = a.booking_id
 LEFT JOIN v_arrival_guest_labels l ON l.booking_id = a.booking_id

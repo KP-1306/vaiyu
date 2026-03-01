@@ -1300,6 +1300,7 @@ function SidebarNav({ slug }: { slug: string }) {
     <nav aria-label="Owner dashboard navigation" className="space-y-1 text-sm">
       <NavItem href="#top" label="Overview" active />
       <NavItem to={`/owner/${slug}/arrivals`} label="Guest Arrivals" />
+      <NavItem to={`/owner/${slug}/housekeeping`} label="Housekeeping" />
       <NavItem to={`/owner/${slug}/analytics`} label="Owner Analytics" />
       <NavItem to={`/owner/${slug}/payments`} label="Payments & Ledger" />
       <NavItem to={opsAnalyticsHref} label="Ops Manager Dashboard" />

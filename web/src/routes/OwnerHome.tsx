@@ -246,10 +246,10 @@ export default function OwnerHome() {
             />
             <Tile
               title="Housekeeping"
-              text="Live tickets with SSE (no refresh)."
-              to={`/hk?slug=${encodeURIComponent(resolvedSlug)}`}
-              emoji="🧽"
-              cta="Open HK"
+              text="Enterprise-grade room status & task management."
+              to={`/owner/${encodeURIComponent(resolvedSlug)}/housekeeping`}
+              emoji="🧹"
+              cta="Open board"
             />
             <Tile
               title="Front Desk"

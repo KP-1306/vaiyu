@@ -42,7 +42,7 @@ interface OperationalArrival {
     rooms_dirty: number;
     rooms_clean: number;
     inhouse_rooms: number;
-    arrival_operational_state: "CHECKED_IN" | "PARTIALLY_ARRIVED" | "WAITING_HOUSEKEEPING" | "WAITING_ROOM_ASSIGNMENT" | "READY_TO_CHECKIN" | "EXPECTED" | "NO_ROOMS";
+    arrival_operational_state: "CHECKED_IN" | "PARTIALLY_ARRIVED" | "WAITING_HOUSEKEEPING" | "WAITING_ROOM_ASSIGNMENT" | "READY_TO_CHECKIN" | "EXPECTED" | "NO_ROOMS" | "CHECKOUT_REQUESTED";
     rooms_ready_for_arrival: boolean;
     primary_action: "CHECKIN" | "ASSIGN_ROOM" | "WAIT_HOUSEKEEPING" | "NONE";
     minutes_since_scheduled_arrival: number | null;
@@ -51,11 +51,14 @@ interface OperationalArrival {
     // New Enterprise Fields
     payment_pending: boolean;
     pending_amount: number;
+    total_amount: number;
+    paid_amount: number;
     arrival_badge: "VIP" | "OTA" | "DIRECT";
     vip_flag: boolean;
     cleaning_minutes_remaining: number | null;
     room_type_ids: string[];
     room_numbers: string | null;
+    active_stay_id?: string | null;
 }
 
 type DateFilter = "TODAY" | "TOMORROW" | "LATE" | "CUSTOM" | "ALL";
@@ -92,6 +95,13 @@ const StatusBadge = ({ state, urgency }: { state: string, urgency: string }) => 
     if (state === "ARRIVED") return (
         <SimpleTooltip content="Arrived (Waiting): The guest has arrived at the property and is waiting for their check-in process to complete.">
             <span className={`${baseClasses} bg-orange-50 text-orange-700 border-orange-200`}>Arrived, Waiting...</span>
+        </SimpleTooltip>
+    );
+    if (state === "CHECKOUT_REQUESTED") return (
+        <SimpleTooltip content="Checkout Requested: The guest has requested to check out. Review folios and approve.">
+            <span className={`${baseClasses} bg-amber-100 text-amber-700 border-amber-200 font-bold gap-1.5`}>
+                Checkout Requested
+            </span>
         </SimpleTooltip>
     );
     if (state === "PARTIALLY_ARRIVED") return (
@@ -173,6 +183,32 @@ export default function OwnerArrivals() {
     // Room Type State
     const [roomTypes, setRoomTypes] = useState<{ id: string, name: string }[]>([]);
     const [roomTypeFilter, setRoomTypeFilter] = useState<string | null>(null);
+
+    // Approval State
+    const [approvingCheckout, setApprovingCheckout] = useState<string | null>(null);
+
+    const handleApproveCheckout = async (row: OperationalArrival) => {
+        if (!row.active_stay_id) return;
+        setApprovingCheckout(row.booking_id);
+        try {
+            const { error } = await supabase.rpc('checkout_stay', {
+                p_hotel_id: row.hotel_id,
+                p_booking_id: row.booking_id,
+                p_stay_id: row.active_stay_id,
+                p_force: row.pending_amount === 0
+            });
+            if (error) {
+                console.error("Error approving checkout:", error);
+                alert("Failed to approve checkout: " + error.message);
+            } else {
+                alert(`Checkout successfully approved for Room ${row.room_numbers || "Unassigned"}.`);
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setApprovingCheckout(null);
+        }
+    };
 
     // Fetch Room Types
     useEffect(() => {
@@ -257,8 +293,9 @@ export default function OwnerArrivals() {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, fetchDashboard)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_rooms' }, fetchDashboard)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'stays' }, fetchDashboard)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms' }, fetchDashboard) // Added rooms for HK updates
-            // Listen to enterprise tables too if needed, but core triggers cover most
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms' }, fetchDashboard)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, fetchDashboard)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'folio_entries' }, fetchDashboard)
             .subscribe();
 
         return () => { supabase.removeChannel(subscription); };
@@ -349,6 +386,30 @@ export default function OwnerArrivals() {
 
     if (loading) return <div className="p-8 text-center text-gray-500">Loading Dashboard...</div>;
 
+    const getFormattedDateHeader = () => {
+        const today = new Date();
+        const formatter = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' });
+
+        if (dateFilter === "TODAY") {
+            return formatter.format(today);
+        } else if (dateFilter === "TOMORROW") {
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            return formatter.format(tomorrow);
+        } else if (dateFilter === "LATE") {
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            return `Before ${formatter.format(today)}`;
+        } else if (dateFilter === "CUSTOM") {
+            if (customFromDate && customToDate) {
+                return `${formatter.format(new Date(customFromDate))} - ${formatter.format(new Date(customToDate))}`;
+            }
+            return "Custom Range";
+        } else {
+            return "All Dates";
+        }
+    };
+
     return (
         <div className="min-h-screen bg-gray-50 p-6 space-y-5 font-sans">
 
@@ -356,7 +417,7 @@ export default function OwnerArrivals() {
             <div className="flex justify-between items-center bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2 tracking-tight">
-                        Morning Arrivals <span className="text-gray-400 font-normal">– {dateFilter === "TODAY" ? "Today" : dateFilter === "TOMORROW" ? "Tomorrow" : dateFilter === "LATE" ? "Late" : "Custom"}</span>
+                        Morning Arrivals <span className="text-gray-400 font-normal">– {getFormattedDateHeader()}</span>
                     </h1>
                 </div>
 
@@ -405,11 +466,22 @@ export default function OwnerArrivals() {
                                 className="bg-transparent text-sm font-semibold text-gray-700 py-1.5 pl-3 pr-8 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer hover:text-indigo-600 transition-colors"
                                 style={{ backgroundImage: 'none' }}
                             >
-                                <option value="TODAY">Today</option>
-                                <option value="TOMORROW">Tomorrow</option>
-                                <option value="LATE">Late Arrivals</option>
-                                <option value="CUSTOM">Custom Range</option>
-                                <option value="ALL">All Dates</option>
+                                {(() => {
+                                    const today = new Date();
+                                    const tomorrow = new Date(today);
+                                    tomorrow.setDate(tomorrow.getDate() + 1);
+                                    const formatter = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' });
+
+                                    return (
+                                        <>
+                                            <option value="TODAY">Today ({formatter.format(today)})</option>
+                                            <option value="TOMORROW">Tomorrow ({formatter.format(tomorrow)})</option>
+                                            <option value="LATE">Late (Before {formatter.format(today)})</option>
+                                            <option value="CUSTOM">Custom Range</option>
+                                            <option value="ALL">All Dates</option>
+                                        </>
+                                    );
+                                })()}
                             </select>
                             {/* Custom Chevron since we removed default arrow */}
                             <ChevronDown className="w-3 h-3 text-gray-400 -ml-6 mr-2 pointer-events-none" />
@@ -580,174 +652,222 @@ export default function OwnerArrivals() {
             </div>
 
             {/* Table */}
-            <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50 border-b border-gray-200">
-                        <tr>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Guest</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Booking Ref</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Arrival Time</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Rooms / Guests</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Room</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Room Ready</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Balance</th>
-                            <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                        {paginatedRows.map(row => (
-                            <tr key={row.booking_id} className="hover:bg-blue-50/30 transition group">
-                                {/* Guest */}
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="flex items-center">
-                                        <div className="h-10 w-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 font-bold text-sm shadow-sm relative">
-                                            {row.guest_name.charAt(0)}
-                                            {/* VIP Badge on Avatar */}
-                                            {row.vip_flag && (
-                                                <div className="absolute -top-1 -right-1 bg-purple-600 text-white text-[9px] font-bold px-1 rounded-full border border-white">
-                                                    VIP
+            <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
+                <div className="overflow-x-auto w-full">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Guest</th>
+                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Booking Ref</th>
+                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Arrival Time</th>
+                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Rooms / Guests</th>
+                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Room</th>
+                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Room Ready</th>
+                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Balance</th>
+                                <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider sticky right-0 bg-gray-50 shadow-[-4px_0_10px_-4px_rgba(0,0,0,0.1)] z-10 w-48">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {paginatedRows.map(row => (
+                                <tr key={row.booking_id} className="hover:bg-blue-50/30 transition group">
+                                    {/* Guest */}
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="flex items-center">
+                                            <div className="h-10 w-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 font-bold text-sm shadow-sm relative">
+                                                {row.guest_name.charAt(0)}
+                                                {/* VIP Badge on Avatar */}
+                                                {row.vip_flag && (
+                                                    <div className="absolute -top-1 -right-1 bg-purple-600 text-white text-[9px] font-bold px-1 rounded-full border border-white">
+                                                        VIP
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="ml-3">
+                                                <div className="text-sm font-bold text-gray-900">{row.guest_name}</div>
+                                                {/* Badges */}
+                                                <div className="flex gap-1.5 mt-1">
+                                                    {row.arrival_badge === "VIP" && (
+                                                        <span className="bg-purple-50 text-purple-600 border border-purple-100 text-[10px] font-bold px-1.5 py-0.5 rounded">
+                                                            VIP
+                                                        </span>
+                                                    )}
+                                                    {row.arrival_badge === "OTA" && (
+                                                        <span className="bg-blue-50 text-blue-600 border border-blue-100 text-[10px] font-bold px-1.5 py-0.5 rounded">
+                                                            OTA
+                                                        </span>
+                                                    )}
+                                                    {row.urgency_level === "CRITICAL" && (
+                                                        <span className="bg-red-50 text-red-600 border border-red-100 text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1">
+                                                            <AlertCircle className="w-2.5 h-2.5" /> Late
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    {/* Booking Ref */}
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <span className="text-blue-600 font-semibold text-sm cursor-pointer hover:underline">
+                                            {row.booking_code}
+                                        </span>
+                                    </td>
+
+                                    {/* Arrival Time */}
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="text-sm font-medium text-gray-900">
+                                            {dateFilter === "TODAY" || dateFilter === "TOMORROW" ? (
+                                                new Date(row.scheduled_checkin_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                            ) : (
+                                                <div className="flex items-center gap-1.5">
+                                                    <span>{new Date(row.scheduled_checkin_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
+                                                    <span className="text-gray-400">•</span>
+                                                    <span className="text-amber-600">{new Date(row.scheduled_checkin_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                                 </div>
                                             )}
                                         </div>
-                                        <div className="ml-3">
-                                            <div className="text-sm font-bold text-gray-900">{row.guest_name}</div>
-                                            {/* Badges */}
-                                            <div className="flex gap-1.5 mt-1">
-                                                {row.arrival_badge === "VIP" && (
-                                                    <span className="bg-purple-50 text-purple-600 border border-purple-100 text-[10px] font-bold px-1.5 py-0.5 rounded">
-                                                        VIP
-                                                    </span>
-                                                )}
-                                                {row.arrival_badge === "OTA" && (
-                                                    <span className="bg-blue-50 text-blue-600 border border-blue-100 text-[10px] font-bold px-1.5 py-0.5 rounded">
-                                                        OTA
-                                                    </span>
-                                                )}
-                                                {row.urgency_level === "CRITICAL" && (
-                                                    <span className="bg-red-50 text-red-600 border border-red-100 text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1">
-                                                        <AlertCircle className="w-2.5 h-2.5" /> Late
-                                                    </span>
-                                                )}
+                                    </td>
+
+                                    {/* Rooms / Guests */}
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="inline-flex items-center gap-3 text-sm text-gray-700 bg-gray-50 px-2.5 py-1.5 rounded-lg border border-gray-200 shadow-sm">
+                                            <div className="flex items-center gap-1.5 font-medium">
+                                                {row.rooms_total} <Bed className="w-3.5 h-3.5 text-gray-400" />
+                                            </div>
+                                            <span className="text-gray-300">|</span>
+                                            <div className="flex items-center gap-1.5 font-medium">
+                                                {row.rooms_total * 2} <Users className="w-3.5 h-3.5 text-gray-400" />
                                             </div>
                                         </div>
-                                    </div>
-                                </td>
+                                    </td>
 
-                                {/* Booking Ref */}
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <span className="text-blue-600 font-semibold text-sm cursor-pointer hover:underline">
-                                        {row.booking_code}
-                                    </span>
-                                </td>
+                                    {/* Status */}
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <StatusBadge state={row.arrival_operational_state} urgency={row.urgency_level} />
+                                    </td>
 
-                                {/* Arrival Time */}
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="text-sm font-medium text-gray-900">
-                                        {new Date(row.scheduled_checkin_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    </div>
-                                </td>
-
-                                {/* Rooms / Guests */}
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="inline-flex items-center gap-3 text-sm text-gray-700 bg-gray-50 px-2.5 py-1.5 rounded-lg border border-gray-200 shadow-sm">
-                                        <div className="flex items-center gap-1.5 font-medium">
-                                            {row.rooms_total} <Bed className="w-3.5 h-3.5 text-gray-400" />
-                                        </div>
-                                        <span className="text-gray-300">|</span>
-                                        <div className="flex items-center gap-1.5 font-medium">
-                                            {row.rooms_total * 2} <Users className="w-3.5 h-3.5 text-gray-400" />
-                                        </div>
-                                    </div>
-                                </td>
-
-                                {/* Status */}
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <StatusBadge state={row.arrival_operational_state} urgency={row.urgency_level} />
-                                </td>
-
-                                {/* Room */}
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    {row.room_numbers ? (
-                                        <span className="text-gray-900 font-medium text-sm">{row.room_numbers}</span>
-                                    ) : (
-                                        <span className="text-gray-400 text-sm">—</span>
-                                    )}
-                                </td>
-
-                                {/* Room Ready - The Button Look + HK ETA */}
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="flex flex-col gap-1 items-start">
-                                        <RoomReadyBadge
-                                            clean={row.rooms_clean}
-                                            dirty={row.rooms_dirty}
-                                            inspected={0}
-                                            total={row.rooms_total}
-                                        />
-                                        {/* HK ETA Badge */}
-                                        {row.cleaning_minutes_remaining !== null && row.rooms_dirty > 0 && (
-                                            <span className="text-[10px] font-medium text-cyan-600 bg-cyan-50 px-1.5 py-0.5 rounded border border-cyan-100 flex items-center gap-1">
-                                                Cleaning - {Math.round(row.cleaning_minutes_remaining)}m left
-                                            </span>
+                                    {/* Room */}
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        {row.room_numbers ? (
+                                            <span className="text-gray-900 font-medium text-sm">{row.room_numbers}</span>
+                                        ) : (
+                                            <span className="text-gray-400 text-sm">—</span>
                                         )}
-                                        {/* Fallback mock for demo if no data */}
-                                        {row.rooms_dirty > 0 && row.cleaning_minutes_remaining === null && (
-                                            <span className="text-[10px] font-medium text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100 flex items-center gap-1">
-                                                Cleaning...
-                                            </span>
-                                        )}
-                                    </div>
-                                </td>
+                                    </td>
 
-                                {/* Balance */}
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    {row.pending_amount > 0 ? (
-                                        <div className="bg-[#5c2423] text-[#e37e7b] border border-[#a6403d] px-2 py-1 rounded text-xs font-bold tracking-wide inline-flex items-center">
-                                            ₹ {row.pending_amount.toLocaleString('en-IN')} Due
+                                    {/* Room Ready - The Button Look + HK ETA */}
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="flex flex-col gap-1 items-start">
+                                            <RoomReadyBadge
+                                                clean={row.rooms_clean}
+                                                dirty={row.rooms_dirty}
+                                                inspected={0}
+                                                total={row.rooms_total}
+                                            />
+                                            {/* HK ETA Badge */}
+                                            {row.cleaning_minutes_remaining !== null && row.rooms_dirty > 0 && (
+                                                <span className="text-[10px] font-medium text-cyan-600 bg-cyan-50 px-1.5 py-0.5 rounded border border-cyan-100 flex items-center gap-1">
+                                                    Cleaning - {Math.round(row.cleaning_minutes_remaining)}m left
+                                                </span>
+                                            )}
+                                            {/* Fallback mock for demo if no data */}
+                                            {row.rooms_dirty > 0 && row.cleaning_minutes_remaining === null && (
+                                                <span className="text-[10px] font-medium text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100 flex items-center gap-1">
+                                                    Cleaning...
+                                                </span>
+                                            )}
                                         </div>
-                                    ) : (
-                                        <span className="text-gray-400 text-sm font-medium">—</span>
-                                    )}
-                                </td>
+                                    </td>
 
-                                {/* Actions */}
-                                <td className="px-6 py-4 whitespace-nowrap text-right">
-                                    <div className="flex items-center justify-end gap-2">
+                                    {/* Balance */}
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="flex flex-col gap-1 items-start">
+                                            {(row.pending_amount || 0) <= 0 && (row.total_amount || 0) > 0 ? (
+                                                <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wide inline-flex items-center gap-1.5 shadow-sm">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div> PAID
+                                                </span>
+                                            ) : (row.pending_amount || 0) > 0 && (row.paid_amount || 0) > 0 ? (
+                                                <span className="bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wide inline-flex items-center gap-1.5 shadow-sm">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500"></div> PARTIAL
+                                                    <span className="ml-1 opacity-80 font-semibold">– ₹{(row.pending_amount || 0).toLocaleString('en-IN')} Due</span>
+                                                </span>
+                                            ) : (row.pending_amount || 0) > 0 ? (
+                                                <span className="bg-red-50 text-red-700 border border-red-200 px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wide inline-flex items-center gap-1.5 shadow-sm">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></div> UNPAID
+                                                    <span className="ml-1 opacity-80 font-semibold">– ₹{(row.pending_amount || 0).toLocaleString('en-IN')} Due</span>
+                                                </span>
+                                            ) : (
+                                                <span className="text-gray-400 text-sm font-medium">—</span>
+                                            )}
 
-                                        <button
-                                            onClick={() => setSelectedFolioArrival(row)}
-                                            className={`${row.pending_amount > 0 ? "bg-gradient-to-br from-[#CD955B] to-[#AD763D] text-white shadow-md border-transparent hover:shadow-lg" : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"} px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap`}
-                                        >
-                                            {row.pending_amount > 0 ? "Collect Payment" : "Settle / Folio"}
-                                        </button>
+                                            {((row.pending_amount || 0) > 0 || (row.total_amount || 0) > 0) && (
+                                                <div className="text-[10px] text-gray-500 font-medium ml-0.5">
+                                                    {(row.paid_amount || 0) > 0 ? `₹${(row.paid_amount || 0).toLocaleString('en-IN')} paid` : `Total ₹${(row.total_amount || 0).toLocaleString('en-IN')}`}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </td>
 
-                                        {row.primary_action === "CHECKIN" && (
+                                    {/* Actions */}
+                                    <td className="px-6 py-4 whitespace-nowrap text-right sticky right-0 bg-white group-hover:bg-blue-50/30 shadow-[-4px_0_10px_-4px_rgba(0,0,0,0.05)] z-10 transition-colors">
+                                        <div className="flex items-center justify-end gap-2">
+
                                             <button
-                                                onClick={() => navigate(`/checkin/booking?code=${row.booking_code}`)}
-                                                className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-emerald-700 shadow-sm transition-all flex items-center gap-2"
+                                                onClick={() => setSelectedFolioArrival(row)}
+                                                className={`${row.pending_amount > 0 ? "bg-gradient-to-br from-[#CD955B] to-[#AD763D] text-white shadow-md border-transparent hover:shadow-lg" : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"} px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap`}
                                             >
-                                                <CheckCircle2 className="w-3.5 h-3.5" /> Check-In
+                                                {row.pending_amount > 0 ? "Collect Payment" : "Folio"}
                                             </button>
-                                        )}
-                                        {row.primary_action === "WAIT_HOUSEKEEPING" && (
-                                            <button className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-all flex items-center gap-2">
-                                                <RefreshCw className="w-3.5 h-3.5" /> Check Room
+
+                                            {row.arrival_operational_state === "CHECKOUT_REQUESTED" && row.pending_amount === 0 && (
+                                                <button
+                                                    onClick={() => handleApproveCheckout(row)}
+                                                    disabled={approvingCheckout === row.booking_id}
+                                                    className="bg-emerald-600 text-white shadow-md border-transparent hover:bg-emerald-700 px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap disabled:opacity-50"
+                                                >
+                                                    {approvingCheckout === row.booking_id ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                                                    Approve Checkout
+                                                </button>
+                                            )}
+
+                                            {(row.booking_status === "CHECKED_IN" || row.booking_status === "PARTIALLY_ARRIVED") && row.arrival_operational_state !== "CHECKOUT_REQUESTED" && row.pending_amount === 0 && (
+                                                <button
+                                                    onClick={() => navigate(`/checkout/${row.booking_code}`)}
+                                                    className="bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200 px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap"
+                                                >
+                                                    <ArrowRight className="w-3.5 h-3.5" /> Force Checkout
+                                                </button>
+                                            )}
+
+                                            {row.primary_action === "CHECKIN" && (
+                                                <button
+                                                    onClick={() => navigate(`/checkin/booking?code=${row.booking_code}`)}
+                                                    className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-emerald-700 shadow-sm transition-all flex items-center gap-2"
+                                                >
+                                                    <CheckCircle2 className="w-3.5 h-3.5" /> <span className="hidden xl:inline">Check-In</span>
+                                                </button>
+                                            )}
+                                            {row.primary_action === "WAIT_HOUSEKEEPING" && (
+                                                <button className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-all flex items-center gap-2">
+                                                    <RefreshCw className="w-3.5 h-3.5" /> <span className="hidden xl:inline">Check Room</span>
+                                                </button>
+                                            )}
+                                            {row.primary_action === "ASSIGN_ROOM" && (
+                                                <button className="bg-amber-50 text-amber-700 border border-amber-200 px-4 py-2 rounded-lg text-xs font-bold hover:bg-amber-100 transition-all flex items-center gap-2">
+                                                    <KeyRound className="w-3.5 h-3.5" /> <span className="hidden xl:inline">Assign</span>
+                                                </button>
+                                            )}
+                                            <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                                                <MoreVertical className="w-4 h-4" />
                                             </button>
-                                        )}
-                                        {row.primary_action === "ASSIGN_ROOM" && (
-                                            <button className="bg-amber-50 text-amber-700 border border-amber-200 px-4 py-2 rounded-lg text-xs font-bold hover:bg-amber-100 transition-all flex items-center gap-2">
-                                                <KeyRound className="w-3.5 h-3.5" /> Assign
-                                            </button>
-                                        )}
-                                        <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
-                                            <MoreVertical className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
 
                 {/* Pagination Footer */}
                 <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between">

@@ -1,7 +1,8 @@
-// GuestNewHome.tsx — Premium Guest Home Screen (Main Entry)
 import { Link } from "react-router-dom";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, ReactNode } from "react";
 import { supabase } from "../../lib/supabase";
+import { SimpleTooltip } from "../../components/SimpleTooltip";
+import "./guestnew.css";
 
 type Stay = {
     id: string;
@@ -11,7 +12,9 @@ type Stay = {
         name: string;
         city?: string;
         slug?: string | null;
-        phone?: string;
+        phone?: string | null;
+        whatsapp?: string | null;
+        email?: string | null;
     };
     check_in: string;
     check_out: string;
@@ -23,6 +26,14 @@ type Stay = {
     room_charge?: number | null;
     city_tax?: number | null;
     guests?: number;
+};
+
+// Helper for Tooltips
+const ConditionalTooltip = ({ children, content, condition }: { children: ReactNode, content: string, condition: boolean }) => {
+    if (condition) {
+        return <SimpleTooltip content={content}>{children}</SimpleTooltip>;
+    }
+    return <>{children}</>;
 };
 
 export default function GuestNewHome() {
@@ -44,7 +55,7 @@ export default function GuestNewHome() {
     useEffect(() => {
         let mounted = true;
 
-        (async () => {
+        const loadData = async () => {
             try {
                 const { data: sessionData } = await supabase.auth.getSession();
                 const user = sessionData.session?.user;
@@ -86,7 +97,9 @@ export default function GuestNewHome() {
                                     name: s.hotel_name || s.hotel?.name || "Hotel",
                                     city: s.hotel_city || s.hotel?.city,
                                     slug: s.hotel_slug || s.hotel?.slug,
-                                    phone: s.hotel_phone || "+91 177 234 5678",
+                                    phone: s.hotel_phone || s.hotel?.phone,
+                                    whatsapp: s.hotel_whatsapp || s.hotel?.wa_display_number,
+                                    email: s.hotel_email || s.hotel?.email,
                                 },
                                 check_in: s.check_in,
                                 check_out: s.check_out,
@@ -105,7 +118,7 @@ export default function GuestNewHome() {
 
                         // 1. Prioritize active stays
                         let active = stays.find((s: any) =>
-                            ["inhouse", "checked_in", "partially_arrived"].includes(s.status?.toLowerCase() || "")
+                            ["inhouse", "checked_in", "partially_arrived", "checkout_requested"].includes(s.status?.toLowerCase() || "")
                         );
 
                         // 2. Fallback to upcoming stay
@@ -129,7 +142,9 @@ export default function GuestNewHome() {
                                     name: active.hotel_name || active.hotel?.name || "Hotel",
                                     city: active.hotel_city || active.hotel?.city,
                                     slug: active.hotel_slug || active.hotel?.slug,
-                                    phone: active.hotel_phone || "+91 177 234 5678",
+                                    phone: active.hotel_phone || active.hotel?.phone,
+                                    whatsapp: active.hotel_whatsapp || active.hotel?.wa_display_number,
+                                    email: active.hotel_email || active.hotel?.email,
                                 },
                                 check_in: active.check_in,
                                 check_out: active.check_out,
@@ -152,7 +167,9 @@ export default function GuestNewHome() {
                                     name: mostRecent.hotel_name || mostRecent.hotel?.name || "Hotel Demo One",
                                     city: mostRecent.hotel_city || mostRecent.hotel?.city,
                                     slug: mostRecent.hotel_slug || mostRecent.hotel?.slug,
-                                    phone: mostRecent.hotel_phone || "+91 177 234 5678",
+                                    phone: mostRecent.hotel_phone || mostRecent.hotel?.phone,
+                                    whatsapp: mostRecent.hotel_whatsapp || mostRecent.hotel?.wa_display_number,
+                                    email: mostRecent.hotel_email || mostRecent.hotel?.email,
                                 },
                                 check_in: mostRecent.check_in,
                                 check_out: mostRecent.check_out,
@@ -172,10 +189,20 @@ export default function GuestNewHome() {
             } finally {
                 if (mounted) setLoading(false);
             }
-        })();
+        };
+
+        loadData();
+
+        // Subscribe to realtime updates for stays and bookings
+        const subscription = supabase
+            .channel('guest_home_stays')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'stays' }, loadData)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, loadData)
+            .subscribe();
 
         return () => {
             mounted = false;
+            supabase.removeChannel(subscription);
         };
     }, []);
 
@@ -213,8 +240,10 @@ export default function GuestNewHome() {
     const [folioItems, setFolioItems] = useState<any[]>([]);
     const [foodOrders, setFoodOrders] = useState<any[]>([]);
     const [grandTotal, setGrandTotal] = useState(0);
+    const [ledgerPaid, setLedgerPaid] = useState(0);
+    const [ledgerTotalState, setLedgerTotalState] = useState(0);
 
-    const handleActionClick = (e: React.MouseEvent, action: 'request_service' | 'track_requests' | 'checkout' | 'call_reception') => {
+    const handleActionClick = (e: React.MouseEvent, action: 'request_service' | 'track_requests' | 'checkout' | 'call_reception' | 'whatsapp_reception' | 'email_reception') => {
         if (!currentStay) {
             e.preventDefault();
             alert("No stay available.");
@@ -249,9 +278,14 @@ export default function GuestNewHome() {
                 } else if (isPast) {
                     e.preventDefault();
                     alert("This stay has already concluded.");
+                } else if (statusLower === 'checkout_requested') {
+                    e.preventDefault();
+                    alert("Your checkout request is already pending approval. Thank you!");
                 }
                 break;
             case 'call_reception':
+            case 'whatsapp_reception':
+            case 'email_reception':
                 if (isPast) {
                     e.preventDefault();
                     alert("This stay has already concluded.");
@@ -306,8 +340,10 @@ export default function GuestNewHome() {
                     .eq("booking_code", currentStay.booking_code)
                     .order("created_at", { ascending: false });
 
-                // Store orders for invoice
-                if (orders) setFoodOrders(orders);
+                // Store orders for invoice (filter to completed/delivered only)
+                if (orders) {
+                    setFoodOrders(orders.filter((o: any) => ['delivered', 'completed', 'ready'].includes(o.status?.toLowerCase())));
+                }
 
                 const recentOrders = (orders || []).slice(0, 5);
 
@@ -333,30 +369,55 @@ export default function GuestNewHome() {
 
                 setRecentRequests(combined);
 
-                // Calculate Live Folio
+                // Calculate Live Folio using Enterprise Ledger View
                 const items = [];
-                let total = 0;
+                let ledgerTotal = 0;
+                let paidAmount = 0;
+
+                // Fetch booking_id from stays table since the recent stays view doesn't have it
+                const { data: stayData } = await supabase
+                    .from("stays")
+                    .select("booking_id")
+                    .eq("id", currentStay.id)
+                    .single();
+
+                if (stayData?.booking_id) {
+                    // Fetch consolidated ledger totals directly
+                    const { data: ledger } = await supabase
+                        .from("v_arrival_payment_state")
+                        .select("total_amount, paid_amount")
+                        .eq("booking_id", stayData.booking_id)
+                        .single();
+
+                    if (ledger) {
+                        ledgerTotal = ledger.total_amount || 0;
+                        paidAmount = ledger.paid_amount || 0;
+                    }
+                }
 
                 // Room Charges
                 if (currentStay.room_type) {
-                    // Use bill_total as room charges if available, otherwise 0
                     const roomCharge = currentStay.bill_total || 0;
                     items.push({ label: `Room Charges (${currentStay.room_type})`, amount: roomCharge });
-                    total += roomCharge;
                 }
 
-                // Food & Dining (from ALL orders, regardless of status for now, or filter if needed)
-                // Filter out cancelled orders? Usually yes.
-                const validOrders = (orders || []).filter((o: any) => o.status !== 'cancelled' && o.status !== 'rejected');
-                const foodTotal = validOrders.reduce((sum: number, o: any) => sum + (o.total_amount || 0), 0);
+                // Push consolidated food/service charges based on ledger
+                // (Subtracting assumed room charges to get the remainders for the UI breakdown)
+                const roomChargeBase = currentStay.bill_total || 0;
+                const dynamicCharges = Math.max(0, ledgerTotal - roomChargeBase);
+                if (dynamicCharges > 0) {
+                    items.push({ label: 'Food & Dining (Ledger)', amount: dynamicCharges });
+                }
 
-                if (foodTotal > 0) {
-                    items.push({ label: 'Food & Dining', amount: foodTotal });
-                    total += foodTotal;
+                if (paidAmount > 0) {
+                    items.push({ label: 'Payments Received', amount: -paidAmount });
                 }
 
                 setFolioItems(items);
-                setGrandTotal(total);
+                setLedgerPaid(paidAmount || 0);
+                setLedgerTotalState(ledgerTotal || 0);
+                // "Current Total" in Live Folio implies Outstanding Balance realistically
+                setGrandTotal(Math.max(0, ledgerTotal - paidAmount));
 
             } catch (err) {
                 console.error("Error fetching dashboard details:", err);
@@ -483,8 +544,18 @@ export default function GuestNewHome() {
     </div>
     ` : ""}
     
+    <div class="section" style="border-top: 2px solid #333; margin-top: 15px; padding-top: 10px;">
+        <div class="row" style="font-weight: 600; font-size: 16px;"><span>Total Charges</span><span>${formatCurrency(ledgerTotalState)}</span></div>
+    </div>
+
+    ${ledgerPaid > 0 ? `
     <div class="section">
-        <div class="row total"><span>Grand Total</span><span>${formatCurrency(grandTotal)}</span></div>
+        <div class="row" style="color: #4CAF50; font-weight: 600; font-size: 16px;"><span>Payments Received</span><span>-${formatCurrency(ledgerPaid)}</span></div>
+    </div>
+    ` : ""}
+    
+    <div class="section">
+        <div class="row" style="font-weight: 700; font-size: 18px; margin-top: 5px;"><span>Balance Due</span><span>${formatCurrency(grandTotal)}</span></div>
     </div>
     
     <div class="footer">
@@ -530,10 +601,11 @@ export default function GuestNewHome() {
                                 Room <span>{currentStay.room_number || currentStay.room_type || "—"}</span>
                             </div>
                             <div className="gn-status-item gn-status-item--highlight">
-                                <span>▶</span> {currentStay.status === 'inhouse' ? 'Checked-In' : 'Upcoming'}
+                                <span>▶</span> {["checkout_requested"].includes(currentStay.status?.toLowerCase() || "") ? 'Checkout Requested' : (currentStay.status?.toLowerCase() === 'inhouse' || currentStay.status?.toLowerCase() === 'checked_in') ? 'Checked-In' : 'Upcoming'}
                             </div>
                             <div className="gn-status-item">
-                                Check-Out: <span>{new Date(currentStay.check_out).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - 11:00 AM</span>
+                                {["arriving", "expected", "confirmed"].includes((currentStay.status || "").toLowerCase()) ? 'Check-In' : 'Check-Out'}:
+                                <span> {new Date(["arriving", "expected", "confirmed"].includes((currentStay.status || "").toLowerCase()) ? currentStay.check_in : currentStay.check_out).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - 11:00 AM</span>
                             </div>
                             <div className="gn-status-item" style={{ flex: 1, justifyContent: 'flex-end', borderRight: 'none' }}>
                                 Outstanding: <span>{formatCurrency(grandTotal)}</span>
@@ -545,37 +617,47 @@ export default function GuestNewHome() {
 
             {/* Action Grid (Colorful Buttons) */}
             <div className="gn-action-grid">
-                <Link to={`/stay/${currentStay?.booking_code || 'DEMO'}/menu?tab=services&code=${currentStay?.booking_code || 'DEMO'}`} onClick={(e) => handleActionClick(e, 'request_service')} className={`gn-action-btn gn-action-btn--teal ${!currentStay || ["arriving", "expected", "confirmed", "checked_out", "cancelled", "no_show"].includes((currentStay.status || "").toLowerCase()) ? 'opacity-50' : ''}`}>
-                    <div className="gn-action-btn__icon">🛎️</div>
-                    <div className="gn-action-btn__content">
-                        <span className="gn-action-btn__title">Request Service</span>
-                        <span className="gn-action-btn__subtitle">Dining & Amenities</span>
-                    </div>
-                </Link>
+                <ConditionalTooltip content="Available after you check-in to your room!" condition={!currentStay || ["arriving", "expected", "confirmed", "checked_out", "cancelled", "no_show"].includes((currentStay.status || "").toLowerCase())}>
+                    <Link to={`/stay/${currentStay?.booking_code || 'DEMO'}/menu?tab=services&code=${currentStay?.booking_code || 'DEMO'}`} onClick={(e) => handleActionClick(e, 'request_service')} className={`gn-action-btn gn-action-btn--teal ${!currentStay || ["arriving", "expected", "confirmed", "checked_out", "cancelled", "no_show"].includes((currentStay.status || "").toLowerCase()) ? 'gn-action-btn--disabled' : ''}`}>
+                        <div className="gn-action-btn__icon">🛎️</div>
+                        <div className="gn-action-btn__content">
+                            <span className="gn-action-btn__title">Request Service</span>
+                            <span className="gn-action-btn__subtitle">Dining & Amenities</span>
+                        </div>
+                    </Link>
+                </ConditionalTooltip>
 
-                <Link to={`/stay/${currentStay?.booking_code || 'DEMO'}/requests`} onClick={(e) => handleActionClick(e, 'track_requests')} className={`gn-action-btn gn-action-btn--blue ${!currentStay || ["arriving", "expected", "confirmed"].includes((currentStay.status || "").toLowerCase()) ? 'opacity-50' : ''}`}>
-                    <div className="gn-action-btn__icon">📊</div>
-                    <div className="gn-action-btn__content">
-                        <span className="gn-action-btn__title">Track Requests</span>
-                        <span className="gn-action-btn__subtitle">Check Status</span>
-                    </div>
-                </Link>
+                <ConditionalTooltip content="Tracking becomes available once you've made a request!" condition={!currentStay || ["arriving", "expected", "confirmed"].includes((currentStay.status || "").toLowerCase())}>
+                    <Link to={`/stay/${currentStay?.booking_code || 'DEMO'}/requests`} onClick={(e) => handleActionClick(e, 'track_requests')} className={`gn-action-btn gn-action-btn--blue ${!currentStay || ["arriving", "expected", "confirmed"].includes((currentStay.status || "").toLowerCase()) ? 'gn-action-btn--disabled' : ''}`}>
+                        <div className="gn-action-btn__icon">📊</div>
+                        <div className="gn-action-btn__content">
+                            <span className="gn-action-btn__title">Track Requests</span>
+                            <span className="gn-action-btn__subtitle">Check Status</span>
+                        </div>
+                    </Link>
+                </ConditionalTooltip>
 
-                <Link to="/contact" onClick={(e) => handleActionClick(e, 'call_reception')} className={`gn-action-btn gn-action-btn--gold ${!currentStay || ["checked_out", "cancelled", "no_show"].includes((currentStay.status || "").toLowerCase()) ? 'opacity-50' : ''}`}>
+                <Link
+                    to={currentStay?.hotel?.phone ? `tel:${currentStay.hotel.phone}` : "/contact"}
+                    onClick={(e) => handleActionClick(e, 'call_reception')}
+                    className={`gn-action-btn gn-action-btn--gold ${!currentStay || ["checked_out", "cancelled", "no_show"].includes((currentStay.status || "").toLowerCase()) ? 'gn-action-btn--disabled' : ''}`}
+                >
                     <div className="gn-action-btn__icon">📞</div>
                     <div className="gn-action-btn__content">
                         <span className="gn-action-btn__title">Call Reception</span>
-                        <span className="gn-action-btn__subtitle">Guest Services</span>
+                        <span className="gn-action-btn__subtitle">{currentStay?.hotel?.phone || "Guest Services"}</span>
                     </div>
                 </Link>
 
-                <Link to="/guest/checkout" onClick={(e) => handleActionClick(e, 'checkout')} className={`gn-action-btn gn-action-btn--dark ${!currentStay || ["arriving", "expected", "confirmed", "checked_out", "cancelled", "no_show"].includes((currentStay.status || "").toLowerCase()) ? 'opacity-50' : ''}`}>
-                    <div className="gn-action-btn__icon">✔️</div>
-                    <div className="gn-action-btn__content">
-                        <span className="gn-action-btn__title">Checkout</span>
-                        <span className="gn-action-btn__subtitle">Express Exit</span>
-                    </div>
-                </Link>
+                <ConditionalTooltip content="Express checkout is available during your active stay." condition={!currentStay || ["arriving", "expected", "confirmed", "checked_out", "cancelled", "no_show"].includes((currentStay.status || "").toLowerCase())}>
+                    <Link to="/guest/checkout" onClick={(e) => handleActionClick(e, 'checkout')} className={`gn-action-btn gn-action-btn--dark ${!currentStay || ["arriving", "expected", "confirmed", "checked_out", "cancelled", "no_show"].includes((currentStay.status || "").toLowerCase()) ? 'gn-action-btn--disabled' : ''}`}>
+                        <div className="gn-action-btn__icon">✔️</div>
+                        <div className="gn-action-btn__content">
+                            <span className="gn-action-btn__title">Checkout</span>
+                            <span className="gn-action-btn__subtitle">Express Exit</span>
+                        </div>
+                    </Link>
+                </ConditionalTooltip>
             </div>
 
             {/* Main Content Split (Requests + Folio) */}
@@ -612,6 +694,42 @@ export default function GuestNewHome() {
                                 No active requests at the moment.
                             </div>
                         )}
+                    </div>
+
+                    {/* Quick Contact Options */}
+                    <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border-subtle)' }}>
+                        <h4 style={{ marginBottom: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Contact Us</h4>
+                        <div className="gn-support-grid">
+                            {currentStay?.hotel?.phone && (
+                                <a href={`tel:${currentStay.hotel.phone}`} className="gn-support-card">
+                                    <div className="gn-support-card__icon">📞</div>
+                                    <div className="gn-support-card__content">
+                                        <div className="gn-support-card__title">Call Guest Services</div>
+                                        <div className="gn-support-card__value">{currentStay.hotel.phone}</div>
+                                    </div>
+                                </a>
+                            )}
+
+                            {currentStay?.hotel?.whatsapp && (
+                                <a href={`https://wa.me/${currentStay.hotel.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="gn-support-card">
+                                    <div className="gn-support-card__icon">💬</div>
+                                    <div className="gn-support-card__content">
+                                        <div className="gn-support-card__title">WhatsApp Us</div>
+                                        <div className="gn-support-card__value">{currentStay.hotel.whatsapp}</div>
+                                    </div>
+                                </a>
+                            )}
+
+                            {currentStay?.hotel?.email && (
+                                <a href={`mailto:${currentStay.hotel.email}`} className="gn-support-card">
+                                    <div className="gn-support-card__icon">✉️</div>
+                                    <div className="gn-support-card__content">
+                                        <div className="gn-support-card__title">Email Front Desk</div>
+                                        <div className="gn-support-card__value">{currentStay.hotel.email}</div>
+                                    </div>
+                                </a>
+                            )}
+                        </div>
                     </div>
                 </div>
 

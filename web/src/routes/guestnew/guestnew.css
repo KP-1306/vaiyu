@@ -454,6 +454,12 @@
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
+.gn-action-btn--disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    filter: grayscale(0.5);
+}
+
 /* Specific Gradients */
 /* 1. Request Service - Green/Teal */
 .gn-action-btn--teal {
@@ -1805,4 +1811,59 @@
 .gn-google-link:hover {
     background: rgba(66, 133, 244, 0.25);
     transform: translateX(4px);
+}
+
+/* ─── Support Section (Contact Cards) ───────────────────────────────────── */
+.gn-support-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-md);
+}
+
+.gn-support-card {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-md);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.gn-support-card:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--border-gold);
+    transform: translateY(-2px);
+}
+
+.gn-support-card__icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(212, 175, 55, 0.1);
+    border-radius: var(--radius-md);
+    font-size: 1.25rem;
+}
+
+.gn-support-card__content {
+    display: flex;
+    flex-direction: column;
+}
+
+.gn-support-card__title {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 2px;
+}
+
+.gn-support-card__value {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
 }

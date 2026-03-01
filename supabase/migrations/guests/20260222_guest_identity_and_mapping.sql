@@ -151,6 +151,10 @@ CREATE INDEX IF NOT EXISTS idx_guest_user_map_guest_id ON public.guest_user_map(
 CREATE INDEX IF NOT EXISTS idx_stays_guest_id ON public.stays(guest_id);
 CREATE INDEX IF NOT EXISTS idx_stay_guests_guest_id ON public.stay_guests(guest_id);
 
+-- Explicit covering indices for OR EXISTS dashboard join performance
+CREATE INDEX IF NOT EXISTS idx_stay_guests_stay_guest ON public.stay_guests(stay_id, guest_id);
+CREATE INDEX IF NOT EXISTS idx_stays_guest_id_id ON public.stays(guest_id, id);
+
 -- Performance indices for RLS scalability
 CREATE INDEX IF NOT EXISTS idx_stays_hotel_id ON public.stays(hotel_id);
 CREATE INDEX IF NOT EXISTS idx_hotel_members_user_hotel ON public.hotel_members(user_id, hotel_id);
@@ -596,8 +600,7 @@ LEFT JOIN LATERAL (
  SELECT COUNT(*) AS total_items, COALESCE(jsonb_agg(jsonb_build_object('name', item_name, 'quantity', quantity, 'price', total_price)) FILTER (WHERE id IS NOT NULL), '[]'::jsonb) AS items
  FROM public.food_order_items WHERE food_order_id = fo.id
 ) items ON true
-WHERE fo.created_at >= now() - interval '7 days'
-AND (
+WHERE (
  st.guest_id = public.current_guest_id() OR
  EXISTS (SELECT 1 FROM public.stay_guests sg WHERE sg.stay_id = st.id AND sg.guest_id = public.current_guest_id())
 )

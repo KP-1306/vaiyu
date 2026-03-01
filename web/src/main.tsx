@@ -119,6 +119,7 @@ const GuestNewCheckout = lazy(() => import("./routes/guestnew/GuestNewCheckout")
 const GuestNewRewards = lazy(() => import("./routes/guestnew/GuestNewRewards"));
 const GuestNewSupport = lazy(() => import("./routes/guestnew/GuestNewSupport"));
 const GuestNewBills = lazy(() => import("./routes/guestnew/GuestNewBills"));
+const GuestReviewScreen = lazy(() => import("./routes/guestnew/GuestReviewScreen"));
 
 // Guest Check-In (Kiosk)
 const CheckInLayout = lazy(() => import("./routes/checkin/CheckInLayout"));
@@ -529,6 +530,7 @@ const router = createBrowserRouter([
           { path: "rewards", element: <GuestNewRewards /> },
           { path: "support", element: <GuestNewSupport /> },
           { path: "bills", element: <GuestNewBills /> },
+          { path: "review/:id", element: <GuestReviewScreen /> },
         ],
       },
       { path: "hotel/:slug/reviews", element: <HotelReviews /> },

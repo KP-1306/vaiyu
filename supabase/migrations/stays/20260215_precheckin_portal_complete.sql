@@ -103,13 +103,13 @@ ALTER TABLE public.bookings
 DROP CONSTRAINT IF EXISTS bookings_status_check;
 ALTER TABLE public.bookings
 ADD CONSTRAINT bookings_status_check
-CHECK (status IN ('CREATED', 'CONFIRMED', 'PRE_CHECKED_IN', 'CHECKED_IN', 'CANCELLED', 'NO_SHOW', 'COMPLETED'));
+CHECK (status IN ('CREATED', 'CONFIRMED', 'PRE_CHECKED_IN', 'CHECKED_IN', 'CANCELLED', 'NO_SHOW', 'COMPLETED', 'checked_out'));
 
 ALTER TABLE public.booking_rooms
 DROP CONSTRAINT IF EXISTS booking_rooms_status_check;
 ALTER TABLE public.booking_rooms
 ADD CONSTRAINT booking_rooms_status_check
-CHECK (status IN ('reserved', 'pre_checked_in', 'checked_in', 'cancelled'));
+CHECK (status IN ('reserved', 'pre_checked_in', 'checked_in', 'cancelled', 'checked_out'));
 
 -- 3b. Add updated_at to booking_rooms
 ALTER TABLE public.booking_rooms

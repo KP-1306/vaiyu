@@ -55,6 +55,13 @@ export default function OwnerSidebar({
             matchPrefix: `${base}/arrivals`,
           },
           {
+            to: `${base}/housekeeping`,
+            label: "Housekeeping",
+            hint: "Room cleaning status and task management.",
+            icon: "🧹",
+            matchPrefix: `${base}/housekeeping`,
+          },
+          {
             to: `${base}/revenue`,
             label: "Revenue & forecast",
             hint: "ADR, RevPAR and pick-up insights.",

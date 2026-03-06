@@ -3,40 +3,6 @@
 
 -- ── 1. Schema Updates & Supporting Tables ──
 
--- Create Enum Type (Idempotent)
-DO $$ BEGIN
-    CREATE TYPE housekeeping_status_enum AS ENUM ('clean', 'dirty', 'pickup', 'inspected', 'out_of_order');
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
-
--- Safer ENUM conversion logic
-ALTER TABLE rooms ADD COLUMN IF NOT EXISTS housekeeping_status TEXT;
-ALTER TABLE rooms ALTER COLUMN housekeeping_status DROP DEFAULT;
-UPDATE rooms SET housekeeping_status = 'clean' WHERE housekeeping_status IS NULL;
-
-DO $$ 
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 
-        FROM information_schema.columns 
-        WHERE table_name='rooms' 
-        AND column_name='housekeeping_status' 
-        AND udt_name='housekeeping_status_enum'
-    ) THEN
-        ALTER TABLE rooms 
-        ALTER COLUMN housekeeping_status TYPE housekeeping_status_enum 
-        USING COALESCE(housekeeping_status::text, 'clean')::housekeeping_status_enum;
-    END IF;
-END $$;
-
-ALTER TABLE rooms ALTER COLUMN housekeeping_status SET DEFAULT 'clean'::housekeeping_status_enum;
-ALTER TABLE rooms ALTER COLUMN housekeeping_status SET NOT NULL;
-ALTER TABLE rooms DROP CONSTRAINT IF EXISTS rooms_housekeeping_status_check;
-
--- Ensure index for housekeeping status
-CREATE INDEX IF NOT EXISTS idx_rooms_hk_status ON rooms(housekeeping_status);
-
 -- Ensure Guest table has VIP/Loyalty columns
 ALTER TABLE guests ADD COLUMN IF NOT EXISTS vip_flag BOOLEAN DEFAULT false;
 ALTER TABLE guests ADD COLUMN IF NOT EXISTS loyalty_tier TEXT DEFAULT 'standard';
@@ -332,24 +298,6 @@ GRANT SELECT ON v_arrival_dashboard_rows TO authenticated, service_role;
 GRANT SELECT ON v_arrival_dashboard_summary TO authenticated, service_role;
 
 -- ── 6. Triggers & Functions ──
-
--- Log Housekeeping Changes
-CREATE OR REPLACE FUNCTION log_housekeeping_change()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF (OLD.housekeeping_status IS DISTINCT FROM NEW.housekeeping_status) THEN
-        INSERT INTO housekeeping_events (hotel_id, room_id, old_status, new_status, changed_by)
-        VALUES (NEW.hotel_id, NEW.id, OLD.housekeeping_status, NEW.housekeeping_status, COALESCE(auth.uid(), NULL));
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-DROP TRIGGER IF EXISTS trg_log_housekeeping_change ON rooms;
-CREATE TRIGGER trg_log_housekeeping_change
-AFTER UPDATE ON rooms
-FOR EACH ROW
-EXECUTE FUNCTION log_housekeeping_change();
 
 -- Log Booking Status Changes
 CREATE OR REPLACE FUNCTION log_booking_status_change()

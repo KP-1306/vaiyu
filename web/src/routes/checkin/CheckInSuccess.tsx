@@ -1,5 +1,5 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
     CheckCircle,
     Wifi,
@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 
 export default function CheckInSuccess() {
+    const location = useLocation();
+
     return (
         <div className="mx-auto max-w-xl text-center space-y-10 py-10">
             <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-green-100">
@@ -41,7 +43,7 @@ export default function CheckInSuccess() {
 
             <div className="pt-8">
                 <Link
-                    to="/checkin"
+                    to={{ pathname: "/checkin", search: location.search }}
                     className="inline-flex rounded-2xl bg-slate-900 px-8 py-4 text-base font-semibold text-white hover:bg-slate-800 transition-all"
                 >
                     Back to Home

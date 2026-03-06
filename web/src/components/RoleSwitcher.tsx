@@ -14,12 +14,12 @@ export default function RoleSwitcher() {
       const { data: user } = await supabase.auth.getUser();
       if (!user?.user) { setLoading(false); return; }
       const { data: rows } = await supabase
-        .from("property_members")
-        .select("properties(slug,name)")
+        .from("hotel_members")
+        .select("hotels(slug,name)")
         .eq("user_id", user.user.id);
 
       const items = (rows || [])
-        .map((r: any) => r.properties)
+        .map((r: any) => r.hotels)
         .filter(Boolean);
 
       setPropsIManage(items);

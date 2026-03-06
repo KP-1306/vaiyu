@@ -11,6 +11,9 @@ import {
     Download,
     RefreshCw,
     Save,
+    Plus,
+    Trash2,
+    PenLine,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { parseBookingCSV, BookingCSVRow, normalizePhone } from "../utils/csvParser";
@@ -46,11 +49,27 @@ interface ValidationResult {
     };
 }
 
+interface ManualRow {
+    id: string;
+    booking_reference: string;
+    guest_name: string;
+    guest_phone: string;
+    guest_email: string;
+    checkin_date: string;
+    checkout_date: string;
+    room_type_name: string;
+    room_number: string;
+    adults: string;
+    children: string;
+    special_requests: string;
+}
+
 export default function ImportBookings() {
     const { slug } = useParams<{ slug: string }>();
 
     // State
     const [step, setStep] = useState<ImportStep>("UPLOAD_AND_MAP");
+    const [entryMode, setEntryMode] = useState<"csv" | "manual">("csv");
     const [file, setFile] = useState<File | null>(null);
     const [csvData, setCsvData] = useState<BookingCSVRow[]>([]);
     const [mappings, setMappings] = useState<Record<string, string>>({});
@@ -59,6 +78,25 @@ export default function ImportBookings() {
     const [savingMapping, setSavingMapping] = useState(false);
     const [validationResults, setValidationResults] = useState<ValidationResult[]>([]);
     const [isProcessing, setIsProcessing] = useState(false);
+
+    // Manual entry rows
+    const today = new Date().toISOString().split("T")[0];
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+    const makeRow = (): ManualRow => ({
+        id: crypto.randomUUID(),
+        booking_reference: `WLK-${Date.now().toString(36).toUpperCase()}`,
+        guest_name: "",
+        guest_phone: "",
+        guest_email: "",
+        checkin_date: today,
+        checkout_date: tomorrow,
+        room_type_name: "",
+        room_number: "",
+        adults: "1",
+        children: "0",
+        special_requests: "",
+    });
+    const [manualRows, setManualRows] = useState<ManualRow[]>([makeRow()]);
 
     // Server-side State
     const [batchId, setBatchId] = useState<string | null>(null);
@@ -430,7 +468,8 @@ export default function ImportBookings() {
     };
 
     const executeImport = async () => {
-        if (!hotelId || !file) return;
+        if (!hotelId) return;
+        if (entryMode === "csv" && !file) return;
         setIsProcessing(true);
 
         // Build CSV from only valid rows
@@ -452,7 +491,8 @@ export default function ImportBookings() {
             }).join(","))
         ];
         const csvBlob = new Blob([csvLines.join("\n")], { type: "text/csv" });
-        const filteredFile = new File([csvBlob], file.name, { type: "text/csv" });
+        const fileName = entryMode === "manual" ? "manual_entry.csv" : (file?.name || "import.csv");
+        const filteredFile = new File([csvBlob], fileName, { type: "text/csv" });
 
         const formData = new FormData();
         formData.append("file", filteredFile);
@@ -564,6 +604,90 @@ export default function ImportBookings() {
             console.error("Error generating Excel:", err);
             alert("Failed to generate Excel file.");
         }
+    };
+
+    /* --- Manual Entry Helpers --- */
+    const updateManualRow = (id: string, field: keyof ManualRow, value: string) => {
+        setManualRows(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r));
+    };
+
+    const addManualRow = () => setManualRows(prev => [...prev, makeRow()]);
+
+    const removeManualRow = (id: string) => {
+        setManualRows(prev => prev.length <= 1 ? prev : prev.filter(r => r.id !== id));
+    };
+
+    const runManualValidation = () => {
+        // Convert ManualRow[] → BookingCSVRow[] with identity mapping
+        const identityMapping: Record<string, string> = {
+            hotel_slug: "hotel_slug",
+            booking_reference: "booking_reference",
+            booking_status: "booking_status",
+            guest_name: "guest_name",
+            guest_phone: "guest_phone",
+            guest_email: "guest_email",
+            checkin_date: "checkin_date",
+            checkout_date: "checkout_date",
+            room_type_name: "room_type_name",
+            room_number: "room_number",
+            adults: "adults",
+            children: "children",
+            special_requests: "special_requests",
+            primary_guest_flag: "primary_guest_flag",
+        };
+
+        const csvRows: BookingCSVRow[] = manualRows.map(r => ({
+            hotel_slug: slug || "",
+            booking_reference: r.booking_reference,
+            booking_status: "CONFIRMED",
+            guest_name: r.guest_name,
+            guest_phone: r.guest_phone,
+            guest_email: r.guest_email,
+            checkin_date: r.checkin_date,
+            checkout_date: r.checkout_date,
+            room_type_name: r.room_type_name,
+            room_number: r.room_number,
+            adults: r.adults,
+            children: r.children,
+            special_requests: r.special_requests,
+            primary_guest_flag: "true",
+        } as any));
+
+        setCsvData(csvRows);
+        setMappings(identityMapping);
+        // Small timeout to let state update, then run validation
+        setTimeout(() => {
+            // Re-run validation with the identity mapping and csvData
+            const results: ValidationResult[] = csvRows.map((row, idx) => {
+                const errors: string[] = [];
+                const fieldErrors: Record<string, boolean> = {};
+                const parsed: any = { ...row };
+
+                if (!parsed.booking_reference) { errors.push("Missing Booking Ref"); fieldErrors["booking_reference"] = true; }
+                if (!parsed.guest_name) { errors.push("Missing Guest Name"); fieldErrors["guest_name"] = true; }
+                if (!parsed.checkin_date) { errors.push("Missing Check-in"); fieldErrors["checkin_date"] = true; }
+                else if (isNaN(Date.parse(parsed.checkin_date))) { errors.push("Invalid Check-in Date"); fieldErrors["checkin_date"] = true; }
+                if (!parsed.checkout_date) { errors.push("Missing Check-out"); fieldErrors["checkout_date"] = true; }
+                else if (isNaN(Date.parse(parsed.checkout_date))) { errors.push("Invalid Check-out Date"); fieldErrors["checkout_date"] = true; }
+                if (parsed.checkin_date && parsed.checkout_date && !fieldErrors["checkin_date"] && !fieldErrors["checkout_date"]) {
+                    if (new Date(parsed.checkin_date) >= new Date(parsed.checkout_date)) {
+                        errors.push("Check-out must be after Check-in"); fieldErrors["checkout_date"] = true;
+                    }
+                }
+                if (!parsed.guest_phone && !parsed.guest_email) {
+                    errors.push("Missing Contact (Phone or Email)"); fieldErrors["guest_phone"] = true;
+                }
+                if (parsed.guest_phone) {
+                    parsed.phone = normalizePhone(parsed.guest_phone);
+                    if (parsed.phone.length < 5) { errors.push("Invalid Phone"); fieldErrors["guest_phone"] = true; }
+                }
+
+                return { row, originalIndex: idx, isValid: errors.length === 0, errors, fieldErrors, parsed };
+            });
+
+            setValidationResults(results);
+            setStep("PREVIEW");
+        }, 50);
     };
 
     /* --- Render Helper: Preview --- */
@@ -813,144 +937,341 @@ export default function ImportBookings() {
                 {step === "UPLOAD_AND_MAP" && (
                     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
-                        {/* Section 1: Upload */}
-                        <div className="ib-card group">
-                            <label
-                                onDragOver={handleDragOver}
-                                onDrop={handleDrop}
-                                className={`ib-upload-label ${file ? 'ib-upload-label-active' : 'ib-upload-label-inactive'}`}
+                        {/* ── Tab Switcher ── */}
+                        <div className="flex items-center gap-1 p-1 bg-slate-800/80 border border-white/10 rounded-xl w-fit backdrop-blur-sm">
+                            <button
+                                onClick={() => setEntryMode("csv")}
+                                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${entryMode === "csv"
+                                    ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30"
+                                    : "text-slate-400 hover:text-white hover:bg-white/5"
+                                    }`}
                             >
-                                <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/0 via-indigo-500/0 to-indigo-500/0 opacity-0 group-hover:opacity-10 transition-opacity duration-500 pointer-events-none" />
-
-                                <div className="ib-upload-content">
-                                    {file ? (
-                                        <>
-                                            <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-emerald-500/10 scale-100 transition-transform duration-300">
-                                                <FileSpreadsheet size={32} />
-                                            </div>
-                                            <p className="text-lg font-bold text-white mb-1">{file.name}</p>
-                                            <p className="text-sm text-emerald-400 font-medium mb-4 flex items-center gap-1.5"><CheckCircle size={14} /> Ready to parse ({(file.size / 1024).toFixed(1)} KB)</p>
-                                            <span className="text-xs text-slate-400 hover:text-white transition-colors border-b border-dashed border-slate-500 hover:border-white cursor-pointer">Click to change file</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <div className="w-16 h-16 bg-slate-700/50 text-slate-400 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:text-indigo-400 group-hover:bg-slate-700 transition-all duration-300 shadow-lg">
-                                                <UploadCloud size={32} />
-                                            </div>
-                                            <p className="mb-2 text-lg text-slate-200 font-semibold">Drag & Drop your PMS Export File</p>
-                                            <p className="text-sm text-slate-500 mb-6">Supports .CSV or .XLSX</p>
-                                            <div className="ib-btn-primary">
-                                                Upload File
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
-                                <input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
-                            </label>
-
-                            <div className="flex items-center justify-between mt-6">
-                                <button onClick={downloadTemplate} className="text-sm text-slate-400 font-medium hover:text-white transition-colors flex items-center gap-2 group/link">
-                                    <div className="p-1.5 rounded-md bg-slate-700/50 group-hover/link:bg-slate-700 text-slate-400 group-hover/link:text-white transition-colors"><Download size={14} /></div>
-                                    Download Template
-                                </button>
-                                {file && (
-                                    <span className="text-sm text-indigo-400 font-bold flex items-center gap-1 animate-pulse">
-                                        Next: Map Columns <ChevronRight size={16} />
-                                    </span>
-                                )}
-                            </div>
+                                <UploadCloud size={16} /> Upload CSV
+                            </button>
+                            <button
+                                onClick={() => setEntryMode("manual")}
+                                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${entryMode === "manual"
+                                    ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30"
+                                    : "text-slate-400 hover:text-white hover:bg-white/5"
+                                    }`}
+                            >
+                                <PenLine size={16} /> Quick Entry
+                            </button>
                         </div>
 
-                        {/* Section 2: Map Columns */}
-                        {file && (
+                        {/* ── CSV Mode ── */}
+                        {entryMode === "csv" && (
+                            <>
+                                {/* Section 1: Upload */}
+                                <div className="ib-card group">
+                                    <label
+                                        onDragOver={handleDragOver}
+                                        onDrop={handleDrop}
+                                        className={`ib-upload-label ${file ? 'ib-upload-label-active' : 'ib-upload-label-inactive'}`}
+                                    >
+                                        <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/0 via-indigo-500/0 to-indigo-500/0 opacity-0 group-hover:opacity-10 transition-opacity duration-500 pointer-events-none" />
+
+                                        <div className="ib-upload-content">
+                                            {file ? (
+                                                <>
+                                                    <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-emerald-500/10 scale-100 transition-transform duration-300">
+                                                        <FileSpreadsheet size={32} />
+                                                    </div>
+                                                    <p className="text-lg font-bold text-white mb-1">{file.name}</p>
+                                                    <p className="text-sm text-emerald-400 font-medium mb-4 flex items-center gap-1.5"><CheckCircle size={14} /> Ready to parse ({(file.size / 1024).toFixed(1)} KB)</p>
+                                                    <span className="text-xs text-slate-400 hover:text-white transition-colors border-b border-dashed border-slate-500 hover:border-white cursor-pointer">Click to change file</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div className="w-16 h-16 bg-slate-700/50 text-slate-400 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:text-indigo-400 group-hover:bg-slate-700 transition-all duration-300 shadow-lg">
+                                                        <UploadCloud size={32} />
+                                                    </div>
+                                                    <p className="mb-2 text-lg text-slate-200 font-semibold">Drag & Drop your PMS Export File</p>
+                                                    <p className="text-sm text-slate-500 mb-6">Supports .CSV or .XLSX</p>
+                                                    <div className="ib-btn-primary">
+                                                        Upload File
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+                                        <input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
+                                    </label>
+
+                                    <div className="flex items-center justify-between mt-6">
+                                        <button onClick={downloadTemplate} className="text-sm text-slate-400 font-medium hover:text-white transition-colors flex items-center gap-2 group/link">
+                                            <div className="p-1.5 rounded-md bg-slate-700/50 group-hover/link:bg-slate-700 text-slate-400 group-hover/link:text-white transition-colors"><Download size={14} /></div>
+                                            Download Template
+                                        </button>
+                                        {file && (
+                                            <span className="text-sm text-indigo-400 font-bold flex items-center gap-1 animate-pulse">
+                                                Next: Map Columns <ChevronRight size={16} />
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Section 2: Map Columns */}
+                                {file && (
+                                    <div className="ib-card text-left">
+                                        <div className="mb-6 border-b border-white/5 pb-4">
+                                            <h2 className="ib-card-title">Map Columns to Vaiyu Fields</h2>
+                                            <p className="text-slate-400 mt-1 text-sm">Match the columns from your file to the system fields.</p>
+                                        </div>
+
+                                        <div className="flex gap-3 mb-6">
+                                            <button
+                                                onClick={autoSuggestMapping}
+                                                className="ib-btn-refresh"
+                                            >
+                                                <RefreshCw size={14} /> Auto-Suggest Mapping
+                                            </button>
+                                            {(() => {
+                                                const hasMappings = Object.values(mappings).filter(Boolean).length > 0;
+                                                const mappingsChanged = hasMappings && JSON.stringify(
+                                                    Object.fromEntries(Object.entries(mappings).filter(([, v]) => v).sort())
+                                                ) !== JSON.stringify(
+                                                    Object.fromEntries(Object.entries(savedMappings).filter(([, v]) => v).sort())
+                                                );
+                                                return (
+                                                    <button
+                                                        onClick={saveMapping}
+                                                        disabled={savingMapping || mappingSaved || !mappingsChanged}
+                                                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${mappingSaved
+                                                            ? "bg-emerald-500/20 border border-emerald-500/40 text-emerald-400"
+                                                            : "bg-white/10 border border-white/20 text-slate-300 hover:bg-white/20 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            }`}
+                                                    >
+                                                        {savingMapping ? <Loader2 size={14} className="animate-spin" /> : mappingSaved ? <CheckCircle size={14} /> : <Save size={14} />}
+                                                        {savingMapping ? "Saving..." : mappingSaved ? "Saved!" : !mappingsChanged && hasMappings ? "Mapping Saved" : "Save Mapping"}
+                                                    </button>
+                                                );
+                                            })()}
+                                        </div>
+
+                                        <div className="ib-table-container">
+                                            <table className="ib-table">
+                                                <thead className="ib-thead">
+                                                    <tr>
+                                                        <th className="ib-th w-1/3">Your CSV Column</th>
+                                                        <th className="ib-th w-1/3">Vaiyu Field <span className="text-indigo-400 font-normal ml-1">(Select)</span></th>
+                                                        <th className="ib-th w-1/3">Sample Data</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-white/5 bg-slate-800/20">
+                                                    {csvData.length > 0 ? (
+                                                        Object.keys(csvData[0]).map((header) => (
+                                                            <tr key={header} className="ib-tr group">
+                                                                <td className="ib-td font-medium text-slate-300 group-hover:text-white transition-colors">{header}</td>
+                                                                <td className="ib-td">
+                                                                    <div className="relative">
+                                                                        <select
+                                                                            className={`ib-select ${mappings[header] ? 'ib-select-active' : ''}`}
+                                                                            value={mappings[header] || ""}
+                                                                            onChange={(e) => handleMappingChange(header, e.target.value)}
+                                                                        >
+                                                                            <option value="" className="text-slate-500 bg-slate-800">-- Ignore --</option>
+                                                                            {DB_FIELDS.map(f => (
+                                                                                <option key={f.value} value={f.value} className="text-slate-200 bg-slate-800">{f.label} {f.required ? "*" : ""}</option>
+                                                                            ))}
+                                                                        </select>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="ib-td text-slate-500 truncate max-w-xs font-mono text-xs group-hover:text-slate-400 transition-colors">
+                                                                    {csvData[0][header]}
+                                                                </td>
+                                                            </tr>
+                                                        ))
+                                                    ) : (
+                                                        <tr><td colSpan={3} className="p-8 text-center text-slate-400">Processing...</td></tr>
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        <div className="flex justify-end gap-3 pt-6 border-t border-white/10">
+                                            <button
+                                                onClick={() => setFile(null)}
+                                                className="ib-btn-secondary"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                onClick={runValidation}
+                                                className="ib-btn-primary"
+                                            >
+                                                Confirm & Preview <ChevronRight size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
+
+                        {/* ── Manual Quick Entry Mode ── */}
+                        {entryMode === "manual" && (
                             <div className="ib-card text-left">
                                 <div className="mb-6 border-b border-white/5 pb-4">
-                                    <h2 className="ib-card-title">Map Columns to Vaiyu Fields</h2>
-                                    <p className="text-slate-400 mt-1 text-sm">Match the columns from your file to the system fields.</p>
+                                    <div className="flex items-center justify-between flex-wrap gap-3">
+                                        <div>
+                                            <h2 className="ib-card-title flex items-center gap-2">
+                                                <PenLine size={18} className="text-indigo-400" /> Quick Entry
+                                            </h2>
+                                            <p className="text-slate-400 mt-1 text-sm">
+                                                Add bookings manually. Hotel: <span className="text-indigo-400 font-semibold">{slug}</span> · Status: <span className="text-emerald-400 font-semibold">CONFIRMED</span>
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-xs text-slate-500">
+                                            <span className="px-2 py-1 bg-white/5 rounded-md border border-white/10">{manualRows.length} {manualRows.length === 1 ? "booking" : "bookings"}</span>
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <div className="flex gap-3 mb-6">
-                                    <button
-                                        onClick={autoSuggestMapping}
-                                        className="ib-btn-refresh"
+                                {/* ── Booking Cards ── */}
+                                <div className="space-y-4">
+                                    {manualRows.map((row, idx) => (
+                                        <div key={row.id} className="relative bg-white/[0.02] border border-white/10 rounded-xl p-4 sm:p-5 hover:border-indigo-500/30 transition-colors group/card">
+                                            {/* Card Header */}
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 text-[10px] font-bold flex items-center justify-center">{idx + 1}</span>
+                                                    <span className="text-xs text-slate-500 font-medium">Booking #{idx + 1}</span>
+                                                </div>
+                                                <button onClick={() => removeManualRow(row.id)}
+                                                    disabled={manualRows.length <= 1}
+                                                    className="p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition disabled:opacity-20 disabled:cursor-not-allowed"
+                                                    title="Remove booking"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
+
+                                            {/* Fields Grid — 2 cols mobile, 3 cols tablet, 4 cols desktop */}
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                                                {/* Booking Ref */}
+                                                <div className="flex flex-col gap-1">
+                                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Booking Ref <span className="text-red-400">*</span></label>
+                                                    <input type="text" value={row.booking_reference}
+                                                        onChange={e => updateManualRow(row.id, "booking_reference", e.target.value)}
+                                                        className="w-full bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 outline-none transition"
+                                                        placeholder="WLK-001"
+                                                    />
+                                                </div>
+
+                                                {/* Guest Name */}
+                                                <div className="flex flex-col gap-1">
+                                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Guest Name <span className="text-red-400">*</span></label>
+                                                    <input type="text" value={row.guest_name}
+                                                        onChange={e => updateManualRow(row.id, "guest_name", e.target.value)}
+                                                        className="w-full bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 outline-none transition"
+                                                        placeholder="Full Name"
+                                                    />
+                                                </div>
+
+                                                {/* Phone */}
+                                                <div className="flex flex-col gap-1">
+                                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Phone</label>
+                                                    <input type="tel" value={row.guest_phone}
+                                                        onChange={e => updateManualRow(row.id, "guest_phone", e.target.value)}
+                                                        className="w-full bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 outline-none transition"
+                                                        placeholder="+91 98765 43210"
+                                                    />
+                                                </div>
+
+                                                {/* Email */}
+                                                <div className="flex flex-col gap-1">
+                                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Email</label>
+                                                    <input type="email" value={row.guest_email}
+                                                        onChange={e => updateManualRow(row.id, "guest_email", e.target.value)}
+                                                        className="w-full bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 outline-none transition"
+                                                        placeholder="guest@email.com"
+                                                    />
+                                                </div>
+
+                                                {/* Check-In */}
+                                                <div className="flex flex-col gap-1">
+                                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Check-In <span className="text-red-400">*</span></label>
+                                                    <input type="date" value={row.checkin_date}
+                                                        onChange={e => updateManualRow(row.id, "checkin_date", e.target.value)}
+                                                        className="w-full bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 outline-none transition [color-scheme:dark]"
+                                                    />
+                                                </div>
+
+                                                {/* Check-Out */}
+                                                <div className="flex flex-col gap-1">
+                                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Check-Out <span className="text-red-400">*</span></label>
+                                                    <input type="date" value={row.checkout_date}
+                                                        onChange={e => updateManualRow(row.id, "checkout_date", e.target.value)}
+                                                        className="w-full bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 outline-none transition [color-scheme:dark]"
+                                                    />
+                                                </div>
+
+                                                {/* Room Type */}
+                                                <div className="flex flex-col gap-1">
+                                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Room Type</label>
+                                                    <select value={row.room_type_name}
+                                                        onChange={e => updateManualRow(row.id, "room_type_name", e.target.value)}
+                                                        className="w-full bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition cursor-pointer"
+                                                    >
+                                                        <option value="" className="bg-slate-800 text-slate-400">Select...</option>
+                                                        {roomTypes.map(rt => (
+                                                            <option key={rt.id} value={rt.name} className="bg-slate-800 text-white">{rt.name}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+
+                                                {/* Room Number */}
+                                                <div className="flex flex-col gap-1">
+                                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Room #</label>
+                                                    <select value={row.room_number}
+                                                        onChange={e => updateManualRow(row.id, "room_number", e.target.value)}
+                                                        className="w-full bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition cursor-pointer"
+                                                    >
+                                                        <option value="" className="bg-slate-800 text-slate-400">Any</option>
+                                                        {rooms
+                                                            .filter(rm => !row.room_type_name || roomTypes.find(rt => rt.name === row.room_type_name && rt.id === rm.room_type_id))
+                                                            .map(rm => (
+                                                                <option key={rm.id} value={rm.number} className="bg-slate-800 text-white">{rm.number}</option>
+                                                            ))
+                                                        }
+                                                    </select>
+                                                </div>
+
+                                                {/* Adults */}
+                                                <div className="flex flex-col gap-1">
+                                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Adults</label>
+                                                    <input type="number" min="1" max="10" value={row.adults}
+                                                        onChange={e => updateManualRow(row.id, "adults", e.target.value)}
+                                                        className="w-full bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white text-center focus:border-indigo-500 outline-none transition"
+                                                    />
+                                                </div>
+
+                                                {/* Children */}
+                                                <div className="flex flex-col gap-1">
+                                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Children</label>
+                                                    <input type="number" min="0" max="10" value={row.children}
+                                                        onChange={e => updateManualRow(row.id, "children", e.target.value)}
+                                                        className="w-full bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white text-center focus:border-indigo-500 outline-none transition"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Footer Actions */}
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-6 border-t border-white/10 mt-6">
+                                    <button onClick={addManualRow}
+                                        className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 hover:text-white transition-all"
                                     >
-                                        <RefreshCw size={14} /> Auto-Suggest Mapping
+                                        <Plus size={16} /> Add Booking
                                     </button>
-                                    {(() => {
-                                        const hasMappings = Object.values(mappings).filter(Boolean).length > 0;
-                                        const mappingsChanged = hasMappings && JSON.stringify(
-                                            Object.fromEntries(Object.entries(mappings).filter(([, v]) => v).sort())
-                                        ) !== JSON.stringify(
-                                            Object.fromEntries(Object.entries(savedMappings).filter(([, v]) => v).sort())
-                                        );
-                                        return (
-                                            <button
-                                                onClick={saveMapping}
-                                                disabled={savingMapping || mappingSaved || !mappingsChanged}
-                                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${mappingSaved
-                                                    ? "bg-emerald-500/20 border border-emerald-500/40 text-emerald-400"
-                                                    : "bg-white/10 border border-white/20 text-slate-300 hover:bg-white/20 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    }`}
-                                            >
-                                                {savingMapping ? <Loader2 size={14} className="animate-spin" /> : mappingSaved ? <CheckCircle size={14} /> : <Save size={14} />}
-                                                {savingMapping ? "Saving..." : mappingSaved ? "Saved!" : !mappingsChanged && hasMappings ? "Mapping Saved" : "Save Mapping"}
-                                            </button>
-                                        );
-                                    })()}
-                                </div>
 
-                                <div className="ib-table-container">
-                                    <table className="ib-table">
-                                        <thead className="ib-thead">
-                                            <tr>
-                                                <th className="ib-th w-1/3">Your CSV Column</th>
-                                                <th className="ib-th w-1/3">Vaiyu Field <span className="text-indigo-400 font-normal ml-1">(Select)</span></th>
-                                                <th className="ib-th w-1/3">Sample Data</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-white/5 bg-slate-800/20">
-                                            {csvData.length > 0 ? (
-                                                Object.keys(csvData[0]).map((header) => (
-                                                    <tr key={header} className="ib-tr group">
-                                                        <td className="ib-td font-medium text-slate-300 group-hover:text-white transition-colors">{header}</td>
-                                                        <td className="ib-td">
-                                                            <div className="relative">
-                                                                <select
-                                                                    className={`ib-select ${mappings[header] ? 'ib-select-active' : ''}`}
-                                                                    value={mappings[header] || ""}
-                                                                    onChange={(e) => handleMappingChange(header, e.target.value)}
-                                                                >
-                                                                    <option value="" className="text-slate-500 bg-slate-800">-- Ignore --</option>
-                                                                    {DB_FIELDS.map(f => (
-                                                                        <option key={f.value} value={f.value} className="text-slate-200 bg-slate-800">{f.label} {f.required ? "*" : ""}</option>
-                                                                    ))}
-                                                                </select>
-                                                            </div>
-                                                        </td>
-                                                        <td className="ib-td text-slate-500 truncate max-w-xs font-mono text-xs group-hover:text-slate-400 transition-colors">
-                                                            {csvData[0][header]}
-                                                        </td>
-                                                    </tr>
-                                                ))
-                                            ) : (
-                                                <tr><td colSpan={3} className="p-8 text-center text-slate-400">Processing...</td></tr>
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                <div className="flex justify-end gap-3 pt-6 border-t border-white/10">
                                     <button
-                                        onClick={() => setFile(null)}
-                                        className="ib-btn-secondary"
+                                        onClick={runManualValidation}
+                                        disabled={manualRows.every(r => !r.guest_name)}
+                                        className="ib-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        onClick={runValidation}
-                                        className="ib-btn-primary"
-                                    >
-                                        Confirm & Preview <ChevronRight size={16} />
+                                        Validate & Preview <ChevronRight size={16} />
                                     </button>
                                 </div>
                             </div>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
     ArrowRight,
     ArrowLeft,
@@ -27,6 +27,8 @@ interface Room {
 export default function Availability() {
     const navigate = useNavigate();
     const location = useLocation();
+    const [searchParams] = useSearchParams();
+    const slug = searchParams.get('slug');
     const { guestDetails, stayDetails } = (location.state || {}) as any;
 
     const [rooms, setRooms] = useState<Room[]>([]);
@@ -52,7 +54,13 @@ export default function Availability() {
         if (!stayDetails) return;
         try {
             setLoading(true);
-            const { data: hotelData } = await supabase.from("hotels").select("id").limit(1).single();
+
+            let hotelQuery = supabase.from("hotels").select("id").limit(1);
+            if (slug) {
+                hotelQuery = hotelQuery.eq("slug", slug);
+            }
+
+            const { data: hotelData } = await hotelQuery.single();
             const hid = hotelData?.id;
             setHotelId(hid || null);
             if (!hid) return;
@@ -287,41 +295,43 @@ export default function Availability() {
                             </button>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
-                            {availableRooms.map((room) => {
-                                const isSelected = selectedRoomId === room.id;
-                                const price = room.base_price || 0;
+                        <div className="max-h-[60vh] overflow-y-auto pr-2 -mr-2 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent hover:scrollbar-thumb-slate-300">
+                            <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 pb-4">
+                                {availableRooms.map((room) => {
+                                    const isSelected = selectedRoomId === room.id;
+                                    const price = room.base_price || 0;
 
-                                return (
-                                    <button
-                                        key={room.id}
-                                        onClick={() => handleRoomSelect(room)}
-                                        className={`group relative flex flex-col items-start gap-3 rounded-2xl p-5 text-left transition-all ${isSelected
-                                            ? "bg-indigo-600 text-white shadow-xl ring-2 ring-indigo-600 ring-offset-2 scale-[1.02]"
-                                            : "bg-white text-slate-900 shadow-sm ring-1 ring-slate-900/5 hover:bg-slate-50 hover:shadow-md"
-                                            }`}
-                                    >
-                                        <div className="flex w-full justify-between items-start">
-                                            <div className={`rounded-xl p-2.5 ${isSelected ? "bg-white/20" : "bg-indigo-50 text-indigo-600"}`}>
-                                                <BedDouble className="h-6 w-6" />
+                                    return (
+                                        <button
+                                            key={room.id}
+                                            onClick={() => handleRoomSelect(room)}
+                                            className={`group relative flex flex-col items-start gap-3 rounded-2xl p-5 text-left transition-all ${isSelected
+                                                ? "bg-indigo-600 text-white shadow-xl ring-2 ring-indigo-600 ring-offset-2 scale-[1.02]"
+                                                : "bg-white text-slate-900 shadow-sm ring-1 ring-slate-900/5 hover:bg-slate-50 hover:shadow-md"
+                                                }`}
+                                        >
+                                            <div className="flex w-full justify-between items-start">
+                                                <div className={`rounded-xl p-2.5 ${isSelected ? "bg-white/20" : "bg-indigo-50 text-indigo-600"}`}>
+                                                    <BedDouble className="h-6 w-6" />
+                                                </div>
+                                                {isSelected && <CheckCircle2 className="h-6 w-6 text-white" />}
                                             </div>
-                                            {isSelected && <CheckCircle2 className="h-6 w-6 text-white" />}
-                                        </div>
 
-                                        <div className="w-full">
-                                            <div className="font-bold text-2xl tracking-tight">{room.number}</div>
-                                            <div className={`text-sm font-medium ${isSelected ? "text-indigo-100" : "text-slate-500"}`}>
-                                                {room.room_types?.name || "Standard"}
+                                            <div className="w-full">
+                                                <div className="font-bold text-2xl tracking-tight">{room.number}</div>
+                                                <div className={`text-sm font-medium ${isSelected ? "text-indigo-100" : "text-slate-500"}`}>
+                                                    {room.room_types?.name || "Standard"}
+                                                </div>
                                             </div>
-                                        </div>
 
-                                        <div className={`mt-2 pt-3 border-t w-full flex justify-between items-center ${isSelected ? "border-white/20" : "border-slate-100"}`}>
-                                            <span className="text-lg font-bold">₹{price}</span>
-                                            <span className={`text-xs ${isSelected ? "text-indigo-200" : "text-slate-400"}`}>/ night</span>
-                                        </div>
-                                    </button>
-                                );
-                            })}
+                                            <div className={`mt-2 pt-3 border-t w-full flex justify-between items-center ${isSelected ? "border-white/20" : "border-slate-100"}`}>
+                                                <span className="text-lg font-bold">₹{price}</span>
+                                                <span className={`text-xs ${isSelected ? "text-indigo-200" : "text-slate-400"}`}>/ night</span>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
                         </div>
                     )}
 

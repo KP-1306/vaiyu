@@ -26,8 +26,7 @@ BEGIN
     IF length(v_clean_phone) = 10 THEN
         SELECT * INTO v_guest
         FROM guests
-        WHERE hotel_id = p_hotel_id
-        AND mobile_normalized = v_clean_phone
+        WHERE mobile_normalized = v_clean_phone
         ORDER BY created_at DESC
         LIMIT 1;
 
@@ -53,8 +52,7 @@ BEGIN
     IF COALESCE(trim(p_email),'') <> '' THEN
         SELECT * INTO v_guest
         FROM guests
-        WHERE hotel_id = p_hotel_id
-        AND lower(email) = lower(trim(p_email))
+        WHERE lower(email) = lower(trim(p_email))
         ORDER BY created_at DESC
         LIMIT 1;
 

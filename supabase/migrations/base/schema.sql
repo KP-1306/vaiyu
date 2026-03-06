@@ -830,3 +830,270 @@ GRANT EXECUTE ON FUNCTION get_ticket_details(TEXT) TO service_role;
 -- ============================================================
 -- END OF v1_production.sql
 -- ============================================================
+
+-- ============================================================
+-- VAIYU ENTERPRISE ROLE ADDITION (SAFE VERSION)
+-- Does NOT rename or modify existing roles
+-- Safe to run multiple times
+-- ============================================================
+
+DO $$
+DECLARE
+    v_hotel_id uuid := '139c6002-bdd7-4924-9db4-16f14e283d89';
+BEGIN
+
+INSERT INTO public.hotel_roles (
+    hotel_id,
+    code,
+    name,
+    description,
+    is_active,
+    created_at,
+    updated_at
+)
+SELECT
+    v_hotel_id,
+    r.code,
+    r.name,
+    r.description,
+    true,
+    now(),
+    now()
+FROM (
+    VALUES
+
+    -- Front Office Expansion
+    ('FRONT_DESK_MANAGER', 'Front Desk Manager', 'Supervises front office operations'),
+    ('CONCIERGE', 'Concierge', 'Handles guest assistance and coordination'),
+    ('NIGHT_AUDITOR', 'Night Auditor', 'Handles night shift reconciliation'),
+
+    -- Housekeeping Expansion
+    ('HOUSEKEEPING_SUPERVISOR', 'Housekeeping Supervisor', 'Approves inspections and SLA actions'),
+    ('HOUSEKEEPING_MANAGER', 'Housekeeping Manager', 'Oversees housekeeping department'),
+
+    -- F&B Expansion
+    ('FNB_MANAGER', 'F&B Manager', 'Oversees food & beverage operations'),
+
+    -- Maintenance (Missing in your current list)
+    ('MAINTENANCE_STAFF', 'Maintenance Staff', 'Handles repair and maintenance tasks'),
+    ('MAINTENANCE_SUPERVISOR', 'Maintenance Supervisor', 'Supervises maintenance team'),
+
+    -- Finance
+    ('FINANCE_MANAGER', 'Finance Manager', 'Oversees billing, invoices and refunds'),
+    ('ACCOUNTS_EXECUTIVE', 'Accounts Executive', 'Handles daily financial operations'),
+
+    -- Security
+    ('SECURITY_GUARD', 'Security Guard', 'Monitors property security'),
+    ('SECURITY_SUPERVISOR', 'Security Supervisor', 'Supervises security operations'),
+
+    -- Advanced / Future Enterprise
+    ('IT_ADMIN', 'IT Administrator', 'System configuration and integrations'),
+    ('AUDIT_OFFICER', 'Audit Officer', 'Access to compliance and audit logs'),
+    ('COMPLIANCE_OFFICER', 'Compliance Officer', 'Ensures regulatory compliance')
+
+) AS r(code, name, description)
+
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM public.hotel_roles existing
+    WHERE existing.hotel_id = v_hotel_id
+      AND existing.code = r.code
+);
+
+END $$;
+
+-- ============================================================
+-- SYSTEM ROLE TEMPLATES (Platform Level)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.system_role_templates (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    code text NOT NULL UNIQUE,
+    name text NOT NULL,
+    description text,
+    category text NOT NULL, -- GOVERNANCE / FRONT_OFFICE / HK / FNB / FINANCE / SECURITY / MAINTENANCE / ADVANCED
+    is_default boolean NOT NULL DEFAULT true,
+    is_active boolean NOT NULL DEFAULT true,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_system_role_templates_category
+ON public.system_role_templates (category);
+
+-- ============================================================
+-- SYSTEM ROLE TEMPLATE PERMISSIONS
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.system_role_template_permissions (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    template_id uuid NOT NULL REFERENCES public.system_role_templates(id) ON DELETE CASCADE,
+
+    module text NOT NULL,
+    action text NOT NULL,
+
+    scope_type text DEFAULT 'GLOBAL', -- GLOBAL / ASSIGNED_ZONES / CUSTOM
+    is_critical_allowed boolean NOT NULL DEFAULT false,
+    requires_approval boolean NOT NULL DEFAULT false,
+
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_system_role_template_permission
+ON public.system_role_template_permissions (template_id, module, action);
+-- ============================================================
+-- SEED ENTERPRISE SYSTEM ROLE TEMPLATES
+-- ============================================================
+
+INSERT INTO public.system_role_templates (code, name, description, category)
+SELECT * FROM (
+    VALUES
+
+    -- Governance
+    ('OWNER', 'Owner', 'Full property control', 'GOVERNANCE'),
+    ('ADMIN', 'Administrator', 'Administrative control across departments', 'GOVERNANCE'),
+    ('GENERAL_MANAGER', 'General Manager', 'Oversees entire property operations', 'GOVERNANCE'),
+    ('SHIFT_SUPERVISOR', 'Shift Supervisor', 'Supervises operational shift', 'GOVERNANCE'),
+
+    -- Front Office
+    ('FRONT_DESK_EXECUTIVE', 'Front Desk Executive', 'Handles check-in/out and guest requests', 'FRONT_OFFICE'),
+    ('FRONT_DESK_MANAGER', 'Front Desk Manager', 'Supervises front office operations', 'FRONT_OFFICE'),
+    ('CONCIERGE', 'Concierge', 'Handles guest coordination and requests', 'FRONT_OFFICE'),
+    ('NIGHT_AUDITOR', 'Night Auditor', 'Handles night reconciliation and reports', 'FRONT_OFFICE'),
+
+    -- Housekeeping
+    ('HOUSEKEEPING_STAFF', 'Housekeeping Staff', 'Handles room cleaning tasks', 'HOUSEKEEPING'),
+    ('HOUSEKEEPING_SUPERVISOR', 'Housekeeping Supervisor', 'Approves inspections and escalations', 'HOUSEKEEPING'),
+    ('HOUSEKEEPING_MANAGER', 'Housekeeping Manager', 'Oversees housekeeping department', 'HOUSEKEEPING'),
+
+    -- F&B
+    ('KITCHEN_STAFF', 'Kitchen Staff', 'Prepares food orders', 'FNB'),
+    ('KITCHEN_MANAGER', 'Kitchen Manager', 'Oversees kitchen operations', 'FNB'),
+    ('FOOD_RUNNER', 'Food Runner', 'Delivers food to guest rooms', 'FNB'),
+    ('FNB_MANAGER', 'F&B Manager', 'Oversees food & beverage operations', 'FNB'),
+
+    -- Maintenance
+    ('MAINTENANCE_STAFF', 'Maintenance Staff', 'Handles repair tasks', 'MAINTENANCE'),
+    ('MAINTENANCE_SUPERVISOR', 'Maintenance Supervisor', 'Supervises maintenance operations', 'MAINTENANCE'),
+
+    -- Finance
+    ('FINANCE_MANAGER', 'Finance Manager', 'Oversees billing and refunds', 'FINANCE'),
+    ('ACCOUNTS_EXECUTIVE', 'Accounts Executive', 'Handles daily financial entries', 'FINANCE'),
+
+    -- Security
+    ('SECURITY_GUARD', 'Security Guard', 'Monitors property security', 'SECURITY'),
+    ('SECURITY_SUPERVISOR', 'Security Supervisor', 'Supervises security operations', 'SECURITY'),
+
+    -- Advanced
+    ('IT_ADMIN', 'IT Administrator', 'Manages integrations and system configuration', 'ADVANCED'),
+    ('AUDIT_OFFICER', 'Audit Officer', 'Access to audit logs and compliance tools', 'ADVANCED'),
+    ('COMPLIANCE_OFFICER', 'Compliance Officer', 'Ensures regulatory compliance', 'ADVANCED')
+
+) AS v(code, name, description, category)
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM public.system_role_templates existing
+    WHERE existing.code = v.code
+);
+
+-- Example permission seeding for OWNER
+INSERT INTO public.system_role_template_permissions
+(template_id, module, action, scope_type, is_critical_allowed, requires_approval)
+SELECT
+    t.id,
+    p.module,
+    p.action,
+    'GLOBAL',
+    true,
+    false
+FROM public.system_role_templates t
+CROSS JOIN (
+    VALUES
+    ('HOUSEKEEPING', 'start_cleaning'),
+    ('HOUSEKEEPING', 'bulk_assign'),
+    ('SLA', 'override_sla'),
+    ('FINANCIAL', 'issue_refund'),
+    ('TICKET', 'reopen_ticket')
+) AS p(module, action)
+WHERE t.code = 'OWNER'
+AND NOT EXISTS (
+    SELECT 1
+    FROM public.system_role_template_permissions existing
+    WHERE existing.template_id = t.id
+      AND existing.module = p.module
+      AND existing.action = p.action
+);
+
+-- ============================================================
+-- 1. SYSTEM ROOM TYPE TEMPLATES (PLATFORM LEVEL)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.system_room_type_templates (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    code text NOT NULL UNIQUE,
+    name text NOT NULL,
+    description text,
+    default_base_occupancy integer NOT NULL DEFAULT 2,
+    default_max_occupancy integer NOT NULL DEFAULT 3,
+    is_active boolean NOT NULL DEFAULT true,
+    sort_order integer DEFAULT 0,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+
+CREATE INDEX IF NOT EXISTS idx_system_room_type_templates_active
+ON public.system_room_type_templates (is_active);
+
+-- ============================================================
+-- 2. SEED SYSTEM ROOM TYPE TEMPLATES
+-- ============================================================
+
+INSERT INTO public.system_room_type_templates
+(code, name, description, default_base_occupancy, default_max_occupancy, sort_order)
+SELECT * FROM (
+    VALUES
+    ('STANDARD', 'Standard', 'Basic standard category', 2, 2, 1),
+    ('DELUXE', 'Deluxe', 'Larger upgraded category', 2, 3, 2),
+    ('EXECUTIVE', 'Executive', 'Premium business category', 2, 3, 3),
+    ('SUPERIOR', 'Superior', 'Enhanced comfort category', 2, 3, 4),
+    ('PREMIUM', 'Premium', 'High-end premium category', 2, 3, 5),
+    ('FAMILY', 'Family', 'Family stay category', 3, 5, 6),
+    ('TWIN', 'Twin', 'Two separate beds', 2, 2, 7),
+    ('DOUBLE', 'Double', 'Single double bed', 2, 2, 8),
+    ('STUDIO', 'Studio', 'Studio layout category', 2, 3, 9),
+    ('JUNIOR_SUITE', 'Junior Suite', 'Entry-level suite', 2, 3, 10),
+    ('SUITE', 'Suite', 'Luxury suite', 2, 4, 11),
+    ('EXECUTIVE_SUITE', 'Executive Suite', 'Premium executive suite', 2, 4, 12),
+    ('PRESIDENTIAL_SUITE', 'Presidential Suite', 'Top-tier luxury suite', 2, 6, 13),
+    ('ACCESSIBLE', 'Accessible', 'Accessibility enabled category', 2, 2, 14),
+    ('CONNECTING', 'Connecting', 'Interconnected rooms', 2, 4, 15),
+    ('DORMITORY', 'Dormitory', 'Shared dormitory category', 4, 10, 16)
+) AS v(code, name, description, base_occ, max_occ, sort_order)
+WHERE NOT EXISTS (
+    SELECT 1 FROM public.system_room_type_templates t
+    WHERE t.code = v.code
+);
+
+-- ============================================================
+-- 3. ALTER room_types TO SUPPORT TEMPLATE LINK
+-- ============================================================
+
+ALTER TABLE public.room_types
+ADD COLUMN IF NOT EXISTS template_id uuid
+REFERENCES public.system_room_type_templates(id)
+ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_room_types_template
+ON public.room_types (template_id);
+
+-- ============================================================
+-- 4. LINK EXISTING ROOM_TYPES TO SYSTEM TEMPLATES
+-- ============================================================
+
+UPDATE public.room_types rt
+SET template_id = st.id
+FROM public.system_room_type_templates st
+WHERE lower(rt.name) = lower(st.name)
+AND rt.template_id IS NULL;

@@ -1310,6 +1310,7 @@ function SidebarNav({ slug }: { slug: string }) {
       <NavItem to="/staff" label="Staff App (Services)" />
       <NavItem to="/kitchen" label="Kitchen View" />
       <NavItem to={`/owner/${slug}/import-bookings`} label="Import Bookings" />
+      <NavItem to={`/checkin?slug=${encodedSlug}`} label="Front Desk" />
       <NavItem to={settingsHref} label="Settings" />
       {HAS_CALENDAR && <NavItem to="../bookings/calendar" label="Calendar" />}
     </nav>

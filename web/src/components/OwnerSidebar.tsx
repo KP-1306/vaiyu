@@ -102,6 +102,13 @@ export default function OwnerSidebar({
             matchPrefix: "/hk",
           },
           {
+            to: `/checkin?slug=${encodeURIComponent(resolvedSlug)}`,
+            label: "Front Desk",
+            hint: "Walk-in registration and check-in.",
+            icon: "🛎️",
+            matchPrefix: "/checkin",
+          },
+          {
             to: `${base}/qr`,
             label: "QRs & guest entry",
             hint: "Print codes for menu, requests and checkout.",

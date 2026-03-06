@@ -102,3 +102,7 @@ ON payments(booking_id, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_ticket_events_ticket_created
 ON ticket_events(ticket_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_tickets_stay_id
+ON tickets(stay_id);
+

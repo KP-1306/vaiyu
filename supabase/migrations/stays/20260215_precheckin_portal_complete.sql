@@ -720,12 +720,18 @@ ON storage.objects FOR INSERT
 TO anon, authenticated
 WITH CHECK ( bucket_id = 'identity_proofs' );
 
--- Policy: Strict Read (Service Role ONLY - No direct access)
--- Frontend must request Signed URLs via a backend Edge Function/RPC that verifies permissions.
+-- Policy: Strict Read (Service Role)
 DROP POLICY IF EXISTS "Secure Read" ON storage.objects;
 CREATE POLICY "identity_proofs_service_read"
 ON storage.objects FOR SELECT
 TO service_role
+USING ( bucket_id = 'identity_proofs' );
+
+-- Policy: Authenticated Staff can read (needed for signed URLs on front-desk)
+DROP POLICY IF EXISTS "identity_proofs_authenticated_read" ON storage.objects;
+CREATE POLICY "identity_proofs_authenticated_read"
+ON storage.objects FOR SELECT
+TO authenticated
 USING ( bucket_id = 'identity_proofs' );
 
 -- Policy: Owner Manage (Update/Delete own files)

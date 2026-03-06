@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams, Link } from "react-router-dom";
 import {
     ArrowRight,
     Calendar,
@@ -13,7 +13,8 @@ import {
     CheckCircle2,
     X,
     User,
-    Check
+    Check,
+    ArrowLeft
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { lookupGuestProfile } from "../../lib/api";
@@ -22,7 +23,11 @@ import { CheckInStepper } from "../../components/CheckInStepper";
 export default function WalkInDetails() {
     const navigate = useNavigate();
     const location = useLocation();
+    const [searchParams] = useSearchParams();
     const [loading, setLoading] = useState(false);
+
+    const slug = searchParams.get('slug');
+    const storageKey = `vaiyu_walkin_form_${slug || 'no-slug'}`;
 
     // Restore form data from location.state if navigating back (Modify Search)
     const restored = (location.state as any);
@@ -47,7 +52,18 @@ export default function WalkInDetails() {
                 rooms_count: restored.stayDetails.rooms_count || 1
             };
         }
+
+        try {
+            const saved = sessionStorage.getItem(storageKey);
+            if (saved) {
+                return JSON.parse(saved);
+            }
+        } catch (e) {
+            // ignore
+        }
+
         return {
+            guest_id: null,
             full_name: "",
             mobile: "",
             email: "",
@@ -66,6 +82,10 @@ export default function WalkInDetails() {
         };
     });
 
+    useEffect(() => {
+        sessionStorage.setItem(storageKey, JSON.stringify(formData));
+    }, [formData, storageKey]);
+
     const [roomTypes, setRoomTypes] = useState<{ id: string, name: string }[]>([]);
 
     // OTP State
@@ -76,13 +96,15 @@ export default function WalkInDetails() {
 
     // Lookup State
     const [hotelId, setHotelId] = useState<string | null>(null);
+    const [hotelName, setHotelName] = useState<string | null>(null);
     const [lookupLoading, setLookupLoading] = useState(false);
     const [lookupSource, setLookupSource] = useState<"mobile" | "email" | null>(null);
     const [emailConflictGuest, setEmailConflictGuest] = useState<any | null>(null);
 
     const autofillGuest = (guest: any, source: "mobile" | "email") => {
-        setFormData(prev => ({
+        setFormData((prev: any) => ({
             ...prev,
+            guest_id: guest.id || prev.guest_id,
             full_name: guest.full_name || prev.full_name,
             email: guest.email || prev.email,
             nationality: guest.nationality || prev.nationality,
@@ -142,10 +164,17 @@ export default function WalkInDetails() {
             if (rtData) setRoomTypes(rtData);
 
             // Fetch Hotel Address for default
+            let resolvedHotelId = hotelId;
             if (!formData.address || !hotelId) {
-                const { data: hData } = await supabase.from('hotels').select('id, city, state, address, name').limit(1).single();
+                let query = supabase.from('hotels').select('id, city, state, address, name');
+                if (slug) {
+                    query = query.eq('slug', slug);
+                }
+                const { data: hData } = await query.limit(1).single();
                 if (hData) {
+                    resolvedHotelId = hData.id;
                     setHotelId(hData.id);
+                    setHotelName(hData.name);
                     // Construction logic: Address, City, State
                     const parts = [];
                     if (hData.city) parts.push(hData.city);
@@ -155,8 +184,21 @@ export default function WalkInDetails() {
                     const fullAddr = parts.length > 0 ? parts.join(', ') : (hData.address || '');
 
                     if (fullAddr) {
-                        setFormData(prev => ({ ...prev, address: fullAddr }));
+                        setFormData((prev: any) => ({ ...prev, address: fullAddr }));
                     }
+                }
+            }
+
+            // Auto-lookup guest if mobile is pre-filled but guest_id is missing
+            // (happens when data was restored from sessionStorage without guest_id)
+            if (resolvedHotelId && formData.mobile && formData.mobile.length >= 10 && !formData.guest_id) {
+                try {
+                    const res = await lookupGuestProfile(resolvedHotelId, formData.mobile);
+                    if (res.found && res.guest?.id) {
+                        setFormData((prev: any) => ({ ...prev, guest_id: res.guest.id }));
+                    }
+                } catch (err) {
+                    console.error("[WalkInDetails] Auto-lookup failed:", err);
                 }
             }
         }
@@ -193,6 +235,7 @@ export default function WalkInDetails() {
 
         const payload = {
             guestDetails: {
+                id: formData.guest_id,
                 full_name: formData.full_name,
                 mobile: formData.mobile,
                 email: formData.email,
@@ -215,7 +258,7 @@ export default function WalkInDetails() {
 
         setTimeout(() => {
             setLoading(false);
-            navigate("../availability", { state: payload });
+            navigate({ pathname: "../availability", search: location.search }, { state: payload });
         }, 600);
     };
 
@@ -224,89 +267,114 @@ export default function WalkInDetails() {
     return (
         <div className="mx-auto max-w-5xl space-y-6 pb-20">
 
+            {/* ── Navigation Actions ── */}
+            <div className="flex justify-start">
+                <button
+                    type="button"
+                    onClick={() => navigate({ pathname: "../", search: location.search })}
+                    className="flex shrink-0 items-center justify-center gap-2 px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors text-sm font-semibold shadow-sm"
+                >
+                    <ArrowLeft className="h-4 w-4" />
+                    Back to Selection
+                </button>
+            </div>
+
             {/* ── Stepper ── */}
             <CheckInStepper steps={WALKIN_STEPS} currentStep={0} />
 
             <div className="text-center space-y-3">
+                {hotelName && (
+                    <div className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full bg-slate-900 text-white text-base font-bold shadow-md shadow-slate-900/20 mb-4 mx-auto">
+                        <span className="w-2.5 h-2.5 relative flex">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-indigo-500"></span>
+                        </span>
+                        {hotelName}
+                    </div>
+                )}
                 <h2 className="text-4xl font-light tracking-tight text-slate-900">New Walk-In Registration</h2>
                 <p className="text-lg text-slate-500">Enter guest and stay details to check availability.</p>
             </div>
 
             {/* Email Conflict Modal */}
-            {emailConflictGuest && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 space-y-6">
-                        <div className="space-y-2 text-center">
-                            <div className="mx-auto w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center mb-2">
-                                <User className="h-6 w-6 text-indigo-600" />
+            {
+                emailConflictGuest && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+                        <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 space-y-6">
+                            <div className="space-y-2 text-center">
+                                <div className="mx-auto w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center mb-2">
+                                    <User className="h-6 w-6 text-indigo-600" />
+                                </div>
+                                <h3 className="text-slate-900 text-lg font-bold">Existing Guest Found</h3>
+                                <p className="text-slate-500 text-sm leading-relaxed">
+                                    We found a guest profile associated with <strong>{formData.email}</strong>.
+                                    <br />Do you want to use the saved details?
+                                </p>
                             </div>
-                            <h3 className="text-slate-900 text-lg font-bold">Existing Guest Found</h3>
-                            <p className="text-slate-500 text-sm leading-relaxed">
-                                We found a guest profile associated with <strong>{formData.email}</strong>.
-                                <br />Do you want to use the saved details?
-                            </p>
-                        </div>
 
-                        <div className="bg-slate-50 rounded-xl p-3 text-sm space-y-1 border border-slate-200">
-                            <div className="flex justify-between">
-                                <span className="text-slate-500">Name:</span>
-                                <span className="text-slate-900 font-medium">{emailConflictGuest.full_name}</span>
+                            <div className="bg-slate-50 rounded-xl p-3 text-sm space-y-1 border border-slate-200">
+                                <div className="flex justify-between">
+                                    <span className="text-slate-500">Name:</span>
+                                    <span className="text-slate-900 font-medium">{emailConflictGuest.full_name}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-slate-500">Saved Mobile:</span>
+                                    <span className="text-slate-900 font-medium">{emailConflictGuest.mobile || 'N/A'}</span>
+                                </div>
                             </div>
-                            <div className="flex justify-between">
-                                <span className="text-slate-500">Saved Mobile:</span>
-                                <span className="text-slate-900 font-medium">{emailConflictGuest.mobile || 'N/A'}</span>
-                            </div>
-                        </div>
 
-                        <div className="flex gap-3">
-                            <button
-                                type="button"
-                                onClick={() => setEmailConflictGuest(null)}
-                                className="flex-1 py-3 rounded-xl border border-slate-300 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors"
-                            >
-                                No, Keep Mine
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    autofillGuest(emailConflictGuest, 'email');
-                                    setEmailConflictGuest(null);
-                                }}
-                                className="flex-1 py-3 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 transition-colors"
-                            >
-                                Yes, Autofill
-                            </button>
+                            <div className="flex gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setEmailConflictGuest(null)}
+                                    className="flex-1 py-3 rounded-xl border border-slate-300 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors"
+                                >
+                                    No, Keep Mine
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        autofillGuest(emailConflictGuest, 'email');
+                                        setEmailConflictGuest(null);
+                                    }}
+                                    className="flex-1 py-3 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 transition-colors"
+                                >
+                                    Yes, Autofill
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Autofill Banner */}
-            {lookupSource && (
-                <div className="mx-auto max-w-2xl bg-indigo-50 border border-indigo-100 rounded-xl p-3 flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
-                    <div className="mt-0.5">
-                        <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center">
-                            <Check className="w-3 h-3 text-indigo-600" />
+            {
+                lookupSource && (
+                    <div className="mx-auto max-w-2xl bg-indigo-50 border border-indigo-100 rounded-xl p-3 flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+                        <div className="mt-0.5">
+                            <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center">
+                                <Check className="w-3 h-3 text-indigo-600" />
+                            </div>
                         </div>
+                        <div className="flex-1">
+                            <p className="text-indigo-900 text-sm font-medium">
+                                Details loaded from previous stay
+                            </p>
+                            <p className="text-indigo-600 text-xs">
+                                Matched via {lookupSource === "mobile" ? "mobile number" : "email address"}
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => {
+                                setLookupSource(null);
+                            }}
+                            className="text-indigo-400 hover:text-indigo-600"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
                     </div>
-                    <div className="flex-1">
-                        <p className="text-indigo-900 text-sm font-medium">
-                            Details loaded from previous stay
-                        </p>
-                        <p className="text-indigo-600 text-xs">
-                            Matched via {lookupSource === "mobile" ? "mobile number" : "email address"}
-                        </p>
-                    </div>
-                    <button
-                        onClick={() => {
-                            setLookupSource(null);
-                        }}
-                        className="text-indigo-400 hover:text-indigo-600"
-                    >
-                        <X className="w-4 h-4" />
-                    </button>
-                </div>
-            )}
+                )
+            }
 
             <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-8 lg:grid-cols-2">
 
@@ -318,13 +386,7 @@ export default function WalkInDetails() {
                     </div>
 
                     <div className="space-y-5">
-                        {/* Full Name */}
-                        <div className="space-y-1.5">
-                            <label className="text-sm font-medium text-slate-700">Full Name</label>
-                            <input required className="block w-full rounded-xl border-slate-200 bg-slate-50 py-3 px-4 text-slate-900 focus:bg-white focus:border-indigo-500 focus:ring-indigo-500 transition-all" value={formData.full_name} onChange={e => setFormData({ ...formData, full_name: e.target.value })} placeholder="e.g. Aditi Sharma" />
-                        </div>
-
-                        {/* Mobile + Verify */}
+                        {/* Mobile + Verify (first, so lookup auto-populates name) */}
                         <div className="space-y-1.5">
                             <label className="text-sm font-medium text-slate-700">Mobile Number</label>
                             <div className="flex gap-2">
@@ -336,6 +398,12 @@ export default function WalkInDetails() {
                                     <button type="button" onClick={handleSendOtp} className="whitespace-nowrap rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800 transition-all">Verify OTP</button>
                                 )}
                             </div>
+                        </div>
+
+                        {/* Full Name */}
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-medium text-slate-700">Full Name</label>
+                            <input required className="block w-full rounded-xl border-slate-200 bg-slate-50 py-3 px-4 text-slate-900 focus:bg-white focus:border-indigo-500 focus:ring-indigo-500 transition-all" value={formData.full_name} onChange={e => setFormData({ ...formData, full_name: e.target.value })} placeholder="e.g. Aditi Sharma" />
                         </div>
 
                         {/* OTP Overlay */}
@@ -361,8 +429,8 @@ export default function WalkInDetails() {
 
                         {/* Email */}
                         <div className="space-y-1.5">
-                            <label className="text-sm font-medium text-slate-700">Email <span className="text-slate-400 font-normal">(Opt)</span></label>
-                            <input type="email" className="block w-full rounded-xl border-slate-200 bg-slate-50 py-3 px-4 text-slate-900 focus:bg-white focus:border-indigo-500 focus:ring-indigo-500 transition-all" value={formData.email} onBlur={handleEmailBlur} onChange={e => setFormData({ ...formData, email: e.target.value })} placeholder="guest@..." />
+                            <label className="text-sm font-medium text-slate-700">Email</label>
+                            <input required type="email" className="block w-full rounded-xl border-slate-200 bg-slate-50 py-3 px-4 text-slate-900 focus:bg-white focus:border-indigo-500 focus:ring-indigo-500 transition-all" value={formData.email} onBlur={handleEmailBlur} onChange={e => setFormData({ ...formData, email: e.target.value })} placeholder="guest@..." />
                         </div>
 
                         {/* Nationality & Address */}
@@ -450,7 +518,7 @@ export default function WalkInDetails() {
 
                 {/* ── Footer ── */}
                 <div className="lg:col-span-2 flex flex-col sm:flex-row gap-4 items-center justify-between pt-6 border-t border-slate-200">
-                    <button type="button" onClick={() => navigate("../")} className="w-full sm:w-auto text-slate-600 font-semibold hover:text-slate-900 px-6 py-3 rounded-xl hover:bg-slate-100 transition-all">Cancel</button>
+                    <button type="button" onClick={() => navigate({ pathname: "../", search: location.search })} className="w-full sm:w-auto text-slate-600 font-semibold hover:text-slate-900 px-6 py-3 rounded-xl hover:bg-slate-100 transition-all">Cancel</button>
                     <button type="submit" disabled={loading} className="group w-full sm:w-auto flex items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-12 py-4 text-xl font-bold text-white shadow-xl shadow-indigo-600/20 hover:bg-indigo-500 hover:scale-[1.02] disabled:opacity-70 disabled:scale-100 active:scale-[0.98] transition-all">
                         {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : (
                             <>Check Availability & Rates <ArrowRight className="h-6 w-6 transition-transform group-hover:translate-x-1" /></>
@@ -458,6 +526,6 @@ export default function WalkInDetails() {
                     </button>
                 </div>
             </form>
-        </div>
+        </div >
     );
 }

@@ -396,6 +396,7 @@ const OpsManagerAnalytics = lazy(() => import("./routes/OpsManagerAnalytics"));
 // Import Bookings
 // Import Bookings
 const ImportBookings = lazy(() => import("./routes/ImportBookings"));
+const HotelOnboarding = lazy(() => import("./routes/HotelOnboarding"));
 
 
 // Owner feature flags (for sidebar)
@@ -825,6 +826,9 @@ export default function App() {
             />
 
 
+
+            {/* Hotel Onboarding */}
+            <Route path="/onboard" element={<HotelOnboarding />} />
 
             {/* Global settings/profile (non-property scoped) */}
             <Route path="/settings" element={<Settings />} />

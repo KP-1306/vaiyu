@@ -160,6 +160,7 @@ const OwnerStaffShifts = lazy(() => import("./routes/OwnerStaffShifts")); // NEW
 const OwnerAnalytics = lazy(() => import("./routes/OwnerAnalytics"));
 const OwnerPayments = lazy(() => import("./routes/OwnerPayments")); // NEW
 const ImportBookings = lazy(() => import("./routes/ImportBookings")); // NEW
+const HotelOnboarding = lazy(() => import("./routes/HotelOnboarding")); // NEW
 const AdminOps = lazy(() => import("./pages/AdminOps"));
 
 // ADR & RevPAR detail pages (from routes/OwnerRevenue.tsx)
@@ -516,6 +517,9 @@ const router = createBrowserRouter([
           { path: "walkin-payment", element: <WalkInPayment /> },
         ],
       },
+
+      // Hotel Onboarding
+      { path: "onboard", element: <HotelOnboarding /> },
 
       // GuestNew - Premium Guest Experience
       {

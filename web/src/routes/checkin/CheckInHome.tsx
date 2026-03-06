@@ -1,5 +1,5 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
     FileText,
     Search,
@@ -9,6 +9,7 @@ import {
 
 export default function CheckInHome() {
     const navigate = useNavigate();
+    const location = useLocation();
 
     return (
         <div className="mx-auto max-w-4xl pt-16 px-6 text-center">
@@ -21,7 +22,7 @@ export default function CheckInHome() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-2xl mx-auto">
                 {/* 1. Check-in with Booking */}
                 <button
-                    onClick={() => navigate("booking")}
+                    onClick={() => navigate({ pathname: "booking", search: location.search })}
                     className="group relative flex flex-col items-center justify-center h-64 w-full rounded-2xl bg-white shadow-lg border border-slate-100 transition-all hover:-translate-y-1 hover:shadow-xl active:scale-95"
                 >
                     {/* Icon Composition: Tablet + Mag Glass */}
@@ -45,7 +46,7 @@ export default function CheckInHome() {
 
                 {/* 2. Walk-in Guest */}
                 <button
-                    onClick={() => navigate("walkin")}
+                    onClick={() => navigate({ pathname: "walkin", search: location.search })}
                     className="group relative flex flex-col items-center justify-center h-64 w-full rounded-2xl bg-white shadow-lg border border-slate-100 transition-all hover:-translate-y-1 hover:shadow-xl active:scale-95"
                 >
                     {/* Icon Composition: Person + Luggage */}

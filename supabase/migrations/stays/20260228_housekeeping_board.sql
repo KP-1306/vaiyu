@@ -9,16 +9,6 @@ BEGIN;
 -- 1. SCHEMA UPDATES
 -- ============================================================
 
--- Extend housekeeping_status_enum with 'in_progress' (idempotent)
-DO $$ BEGIN
-    ALTER TYPE housekeeping_status_enum ADD VALUE IF NOT EXISTS 'in_progress';
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
-
--- rooms: add out-of-order flag (if not exists)
-ALTER TABLE rooms ADD COLUMN IF NOT EXISTS is_out_of_order BOOLEAN DEFAULT false;
-
 -- housekeeping_tasks: extend with operational columns
 ALTER TABLE housekeeping_tasks ADD COLUMN IF NOT EXISTS hotel_id UUID REFERENCES hotels(id);
 ALTER TABLE housekeeping_tasks ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ;
@@ -47,9 +37,6 @@ ALTER TABLE housekeeping_events ADD COLUMN IF NOT EXISTS details JSONB DEFAULT '
 
 -- Index for timeline
 CREATE INDEX IF NOT EXISTS idx_hk_events_room ON housekeeping_events(room_id, changed_at DESC);
-
--- Performance: composite index for board view (hotel + status filter)
-CREATE INDEX IF NOT EXISTS idx_rooms_hotel_status ON rooms(hotel_id, housekeeping_status);
 
 
 -- ============================================================

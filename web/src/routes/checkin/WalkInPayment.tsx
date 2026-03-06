@@ -7,7 +7,10 @@ import {
     Lock,
     ShieldCheck,
     Receipt,
-    Upload
+    Upload,
+    CheckCircle2,
+    ImageIcon,
+    RefreshCw
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { CheckInStepper } from "../../components/CheckInStepper";
@@ -28,8 +31,15 @@ export default function WalkInPayment() {
     } = location.state || {};
 
     const [processing, setProcessing] = useState(false);
-    const [idType, setIdType] = useState("aadhar");
-    const [idNumber, setIdNumber] = useState("");
+    const [idType, setIdType] = useState(guestDetails?.id_type || "aadhar");
+    const [idNumber, setIdNumber] = useState(guestDetails?.id_number || "");
+
+    // Document state
+    const [frontImage, setFrontImage] = useState<File | null>(null);
+    const [backImage, setBackImage] = useState<File | null>(null);
+    const [existingFront, setExistingFront] = useState<string | null>(null);
+    const [existingBack, setExistingBack] = useState<string | null>(null);
+    const [loadingDocs, setLoadingDocs] = useState(false);
 
     // Redirect if missing critical data
     useEffect(() => {
@@ -37,6 +47,99 @@ export default function WalkInPayment() {
             navigate("../walkin");
         }
     }, [guestDetails, stayDetails, pricing, navigate]);
+
+    // Fetch existing ID documents for returning guests
+    useEffect(() => {
+        async function fetchExistingDocs() {
+            const mobile = guestDetails?.mobile;
+            let gid = guestDetails?.id;
+
+            // If no guest_id, try to look up guest by mobile_normalized
+            if (!gid && mobile) {
+                const cleanMobile = mobile.replace(/[^0-9]/g, '');
+                // Handle India country code (91XXXXXXXXXX -> XXXXXXXXXX)
+                const normalized = cleanMobile.length === 12 && cleanMobile.startsWith('91')
+                    ? cleanMobile.slice(2)
+                    : cleanMobile;
+
+                const { data: guestRow } = await supabase
+                    .from("guests")
+                    .select("id")
+                    .eq("mobile_normalized", normalized)
+                    .order("created_at", { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                if (guestRow?.id) {
+                    gid = guestRow.id;
+                }
+            }
+
+            if (!gid) {
+                return;
+            }
+
+            setLoadingDocs(true);
+            try {
+                const { data, error } = await supabase
+                    .from("guest_id_documents")
+                    .select("document_type, front_image_url, back_image_url")
+                    .eq("guest_id", gid)
+                    .order("created_at", { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                if (error) {
+                    console.error("[WalkInPayment] Doc fetch error:", error);
+                    return;
+                }
+
+                if (data) {
+                    if (data.document_type) setIdType(data.document_type);
+
+                    if (data.front_image_url) {
+                        await resolveUrl(data.front_image_url, setExistingFront);
+                    }
+                    if (data.back_image_url) {
+                        await resolveUrl(data.back_image_url, setExistingBack);
+                    }
+                }
+            } catch (err) {
+                console.error("[WalkInPayment] Error fetching docs:", err);
+            } finally {
+                setLoadingDocs(false);
+            }
+        }
+
+        fetchExistingDocs();
+    }, [guestDetails?.mobile, hotelId]);
+
+    async function resolveUrl(path: string, setter: (url: string | null) => void) {
+        if (!path) return;
+        // If it's already a URL, use it directly
+        if (path.startsWith("http") || path.startsWith("blob:")) {
+            setter(path);
+            return;
+        }
+        // It's a storage path, try to sign it
+        const { data } = await supabase.storage
+            .from("identity_proofs")
+            .createSignedUrl(path, 3600);
+
+        setter(data?.signedUrl || path);
+    }
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, side: "front" | "back") => {
+        if (e.target.files && e.target.files[0]) {
+            if (side === "front") {
+                setFrontImage(e.target.files[0]);
+                setExistingFront(null);
+            } else {
+                setBackImage(e.target.files[0]);
+                setExistingBack(null);
+            }
+        }
+    };
 
     const handlePayment = async () => {
         setProcessing(true);
@@ -158,26 +261,145 @@ export default function WalkInPayment() {
                         />
                     </div>
 
-                    <div
-                        className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 py-8 cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30 transition-all"
-                    >
-                        <div className="rounded-full bg-white p-3 shadow-sm">
-                            <Camera className="h-7 w-7 text-slate-400" />
-                        </div>
-                        <span className="text-sm font-medium text-slate-600">
-                            Capture Front Side <span className="text-red-500">*</span>
-                        </span>
+                    {/* Front Side Document */}
+                    <div className="space-y-1.5">
+                        <label className="text-sm font-medium text-slate-700">Front Side <span className="text-red-500">*</span></label>
+
+                        {loadingDocs ? (
+                            <div className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 py-8">
+                                <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
+                                <span className="text-sm text-slate-500">Loading existing documents...</span>
+                            </div>
+                        ) : existingFront ? (
+                            <div className="relative rounded-2xl border border-slate-200 bg-slate-50 p-4 flex items-center gap-4 transition-all">
+                                <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-indigo-100 border border-slate-200 shadow-sm">
+                                    {existingFront.startsWith("http") || existingFront.startsWith("blob:") ? (
+                                        <img src={existingFront} alt="Front ID" className="h-full w-full object-cover" />
+                                    ) : (
+                                        <div className="h-full w-full flex items-center justify-center text-indigo-600">
+                                            <ImageIcon className="h-10 w-10" />
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-slate-900">Existing Document</p>
+                                    <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                                        <CheckCircle2 className="h-3.5 w-3.5 text-green-500" /> Previously uploaded
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setExistingFront(null)}
+                                    className="flex items-center gap-1.5 text-indigo-600 hover:text-indigo-700 text-sm font-semibold px-3 py-2 rounded-lg hover:bg-indigo-50 transition-colors"
+                                >
+                                    <RefreshCw className="h-3.5 w-3.5" />
+                                    Re-upload
+                                </button>
+                            </div>
+                        ) : frontImage ? (
+                            <div className="relative rounded-2xl border-2 border-green-300 bg-green-50/50 p-4 flex items-center gap-4">
+                                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-white border border-green-200 shadow-sm">
+                                    <img src={URL.createObjectURL(frontImage)} alt="New Front ID" className="h-full w-full object-cover" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-green-800 truncate">{frontImage.name}</p>
+                                    <p className="text-xs text-green-600 flex items-center gap-1 mt-0.5">
+                                        <CheckCircle2 className="h-3 w-3" /> Ready to upload
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setFrontImage(null)}
+                                    className="text-slate-400 hover:text-slate-600 text-sm font-medium px-2 py-1"
+                                >
+                                    Change
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="relative">
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0 z-10"
+                                    onChange={(e) => handleFileChange(e, "front")}
+                                />
+                                <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 py-8 cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30 transition-all">
+                                    <div className="rounded-full bg-white p-3 shadow-sm">
+                                        <Camera className="h-7 w-7 text-slate-400" />
+                                    </div>
+                                    <span className="text-sm font-medium text-slate-600">
+                                        Capture Front Side <span className="text-red-500">*</span>
+                                    </span>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
-                    <div
-                        className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 py-8 cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30 transition-all"
-                    >
-                        <div className="rounded-full bg-white p-3 shadow-sm">
-                            <Upload className="h-7 w-7 text-slate-400" />
-                        </div>
-                        <span className="text-sm font-medium text-slate-500">
-                            Upload Back Side <span className="text-slate-400 font-normal">(Optional)</span>
-                        </span>
+                    {/* Back Side Document */}
+                    <div className="space-y-1.5">
+                        <label className="text-sm font-medium text-slate-700">Back Side <span className="text-slate-400 font-normal">(Optional)</span></label>
+
+                        {existingBack ? (
+                            <div className="relative rounded-2xl border border-slate-200 bg-slate-50 p-4 flex items-center gap-4 transition-all">
+                                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-indigo-100 border border-slate-200 shadow-sm">
+                                    {existingBack.startsWith("http") || existingBack.startsWith("blob:") ? (
+                                        <img src={existingBack} alt="Back ID" className="h-full w-full object-cover" />
+                                    ) : (
+                                        <div className="h-full w-full flex items-center justify-center text-indigo-600">
+                                            <ImageIcon className="h-8 w-8" />
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-slate-900">Existing Document</p>
+                                    <p className="text-xs text-slate-500">Previously uploaded</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setExistingBack(null)}
+                                    className="flex items-center gap-1.5 text-indigo-600 hover:text-indigo-700 text-sm font-semibold px-3 py-2 rounded-lg hover:bg-indigo-50 transition-colors"
+                                >
+                                    <RefreshCw className="h-3.5 w-3.5" />
+                                    Re-upload
+                                </button>
+                            </div>
+                        ) : backImage ? (
+                            <div className="relative rounded-2xl border-2 border-green-300 bg-green-50/50 p-4 flex items-center gap-4">
+                                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-white border border-green-200 shadow-sm">
+                                    <img src={URL.createObjectURL(backImage)} alt="New Back ID" className="h-full w-full object-cover" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-green-800 truncate">{backImage.name}</p>
+                                    <p className="text-xs text-green-600 flex items-center gap-1 mt-0.5">
+                                        <CheckCircle2 className="h-3 w-3" /> Ready to upload
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setBackImage(null)}
+                                    className="text-slate-400 hover:text-slate-600 text-sm font-medium px-2 py-1"
+                                >
+                                    Change
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="relative">
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0 z-10"
+                                    onChange={(e) => handleFileChange(e, "back")}
+                                />
+                                <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 py-8 cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30 transition-all">
+                                    <div className="rounded-full bg-white p-3 shadow-sm">
+                                        <Upload className="h-7 w-7 text-slate-400" />
+                                    </div>
+                                    <span className="text-sm font-medium text-slate-500">
+                                        Upload Back Side <span className="text-slate-400 font-normal">(Optional)</span>
+                                    </span>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 

@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { Outlet, useSearchParams, useNavigate } from "react-router-dom";
+import { Outlet, useSearchParams, useNavigate, Link, useLocation } from "react-router-dom";
+import { Home, ChevronRight } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import Spinner from "../../components/Spinner";
 
 export default function CheckInLayout() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
+    const location = useLocation();
     const [resolving, setResolving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -85,9 +87,25 @@ export default function CheckInLayout() {
                     <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-600 to-indigo-700 flex items-center justify-center text-white font-bold text-lg">
                         V
                     </div>
-                    <span className="text-lg font-semibold tracking-tight text-slate-900">
+                    <span className="text-lg font-semibold tracking-tight text-slate-900 pr-4">
                         VAiyu Guest
                     </span>
+
+                    {/* Breadcrumbs in Header */}
+                    {location.pathname.includes('/walkin') && (
+                        <div className="hidden sm:flex items-center gap-2 pl-4 border-l border-slate-200 text-sm text-slate-500 font-medium">
+                            <Link to={searchParams.get('slug') ? `/owner/${searchParams.get('slug')}` : "/owner"} className="flex items-center gap-1.5 hover:text-slate-900 transition-colors">
+                                <Home className="h-4 w-4" />
+                                Owner Home
+                            </Link>
+                            <ChevronRight className="h-4 w-4 text-slate-300" />
+                            <Link to={{ pathname: "/checkin", search: location.search }} className="hover:text-slate-900 transition-colors">
+                                Front Desk
+                            </Link>
+                            <ChevronRight className="h-4 w-4 text-slate-300" />
+                            <span className="text-slate-900">Walk-In</span>
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex items-center gap-4">

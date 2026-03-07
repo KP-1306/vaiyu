@@ -109,7 +109,7 @@ ALTER TABLE public.booking_rooms
 DROP CONSTRAINT IF EXISTS booking_rooms_status_check;
 ALTER TABLE public.booking_rooms
 ADD CONSTRAINT booking_rooms_status_check
-CHECK (status IN ('reserved', 'pre_checked_in', 'checked_in', 'cancelled', 'checked_out'));
+CHECK (status IN ('RESERVED', 'PRE_CHECKED_IN', 'CHECKED_IN', 'CANCELLED', 'CHECKED_OUT'));
 
 -- 3b. Add updated_at to booking_rooms
 ALTER TABLE public.booking_rooms
@@ -392,9 +392,9 @@ BEGIN
 
   -- 4. Mark all rooms as PRE_CHECKED_IN
   UPDATE booking_rooms
-  SET status = 'pre_checked_in', updated_at = now()
+  SET status = 'PRE_CHECKED_IN', updated_at = now()
   WHERE booking_id = v_booking_id
-  AND status = 'reserved';
+  AND status = 'RESERVED';
 
   -- 5. Assign Primary Guest to ALL Rooms
   INSERT INTO booking_room_guests (booking_room_id, guest_id, is_primary)

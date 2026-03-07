@@ -749,6 +749,7 @@ $$;
 -- STEP 8: UPDATE PRECHECKIN & WALKIN RPCs (Global Guests & Mapping)
 -- ------------------------------------------------------------------------------
 
+/*
 -- Update create_walkin RPC (removes hotel_id from guest lookup/insert)
 DROP FUNCTION IF EXISTS public.create_walkin(uuid, uuid, uuid, date, date, jsonb, numeric, text);
 CREATE OR REPLACE FUNCTION public.create_walkin(
@@ -821,7 +822,7 @@ BEGIN
  IF v_email IS NOT NULL THEN
  SELECT id INTO v_auth_user_id FROM auth.users WHERE lower(email) = v_email LIMIT 1;
  END IF;
- 
+  
  IF v_auth_user_id IS NULL AND v_clean_phone IS NOT NULL THEN
  SELECT id INTO v_auth_user_id FROM auth.users WHERE regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') = v_clean_phone LIMIT 1;
  END IF;
@@ -867,6 +868,8 @@ BEGIN
  RETURN jsonb_build_object('success', true, 'booking_id', v_booking_id, 'stay_id', v_stay_id);
 END;
 $$;
+*/
+
 
 
 -- Update submit_precheckin RPC (removes hotel_id from guest lookup/insert)

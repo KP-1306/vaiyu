@@ -71,6 +71,7 @@ jobs:
             ticket-get
             process-import-rows
             send-notifications
+            get-document-url
           )
 
           # Optional legacy/aux functions — won't fail the job if missing.

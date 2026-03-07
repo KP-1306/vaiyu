@@ -61,6 +61,7 @@ interface BookingInfo {
     qr_url?: string;
     nationality?: string;
     address?: string;
+    identity_proof?: any;
 }
 
 interface GuestForm {
@@ -215,7 +216,13 @@ export default function PreCheckin() {
                     if (result.identity_proof) {
                         setIdForm({
                             id_type: result.identity_proof.type || "aadhaar",
-                            id_number: result.identity_proof.number || "",
+                            id_number: (() => {
+                                const num = result.identity_proof.number || "";
+                                if (result.identity_proof.type === "aadhaar" && num.length > 4) {
+                                    return `XXXX-XXXX-${num.slice(-4)}`;
+                                }
+                                return num;
+                            })(),
                             front_captured: !!result.identity_proof.front_image,
                             back_uploaded: !!result.identity_proof.back_image,
                             front_image_url: result.identity_proof.front_image,
@@ -308,7 +315,7 @@ export default function PreCheckin() {
                 address: guestForm.address,
                 additional_guests: guestForm.additional_guests,
                 id_type: idForm.id_type,
-                id_number: idForm.id_number,
+                id_number: idForm.id_number.includes("XXXX") ? (booking?.identity_proof?.number || idForm.id_number) : idForm.id_number,
                 front_captured: idForm.front_captured,
                 back_uploaded: idForm.back_uploaded,
                 front_image_url: frontUrl || idForm.front_image_url,

@@ -125,16 +125,16 @@ BEGIN
 
 
     ---------------------------------------------------------
-    -- 6️⃣ Update Booking Status (Consistent lowercase)
+    -- 6️⃣ Update Booking Status (Consistent UPPERCASE)
     ---------------------------------------------------------
     UPDATE bookings
-    SET status = 'checked_out',
+    SET status = 'CHECKED_OUT',
         updated_at = v_now
     WHERE id = p_booking_id;
 
-    -- Update booking_rooms statuses for this booking (Consistent lowercase)
+    -- Update booking_rooms statuses for this booking (Consistent UPPERCASE)
     UPDATE booking_rooms
-    SET status = 'checked_out',
+    SET status = 'CHECKED_OUT',
         updated_at = v_now
     WHERE booking_id = p_booking_id
       AND room_id = v_room_id;
@@ -366,7 +366,7 @@ BEGIN
         RAISE EXCEPTION 'Booking not found';
     END IF;
 
-    -- 3. Enforce Booking Status
+    -- 3. Enforce Booking Status (Case-Insensitive for resilience)
     IF UPPER(v_booking_status) NOT IN ('CHECKED_IN', 'INHOUSE', 'PRE_CHECKED_IN') THEN
         RAISE EXCEPTION 'Payments not allowed for booking status: %', v_booking_status;
     END IF;

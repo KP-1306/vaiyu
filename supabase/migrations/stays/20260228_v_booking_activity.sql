@@ -16,13 +16,13 @@ SELECT
     ae.event_type AS event_type,
     ae.event_type AS title,
     CASE
-        WHEN ae.event_type = 'CHECKIN' OR (ae.event_type = 'STATUS_CHANGE' AND (ae.new_value = 'checked_in' OR ae.new_value = 'inhouse')) THEN 'Guest checked in'
-        WHEN ae.event_type = 'STATUS_CHANGE' AND ae.new_value = 'precheckin' THEN 'Guest completed pre-checkin'
-        WHEN ae.event_type = 'CHECKOUT' OR (ae.event_type = 'STATUS_CHANGE' AND ae.new_value = 'checked_out') THEN 'Guest checked out'
+        WHEN ae.event_type = 'CHECKIN' OR (ae.event_type = 'STATUS_CHANGE' AND (upper(ae.new_value) IN ('CHECKED_IN', 'INHOUSE'))) THEN 'Guest checked in'
+        WHEN ae.event_type = 'STATUS_CHANGE' AND upper(ae.new_value) IN ('PRECHECKIN', 'PRE_CHECKED_IN') THEN 'Guest completed pre-checkin'
+        WHEN ae.event_type = 'CHECKOUT' OR (ae.event_type = 'STATUS_CHANGE' AND upper(ae.new_value) = 'CHECKED_OUT') THEN 'Guest checked out'
         WHEN ae.event_type = 'ROOM_ASSIGNED' THEN 'Room ' || COALESCE(ae.new_value, 'assigned')
         WHEN ae.event_type = 'ROOM_REASSIGNED' THEN 'Room changed from ' || ae.old_value || ' to ' || ae.new_value
-        WHEN ae.event_type = 'CANCEL' OR (ae.event_type = 'STATUS_CHANGE' AND ae.new_value = 'cancelled') THEN 'Booking cancelled'
-        WHEN ae.event_type = 'NO_SHOW' OR (ae.event_type = 'STATUS_CHANGE' AND ae.new_value = 'no_show') THEN 'Marked as no show'
+        WHEN ae.event_type = 'CANCEL' OR (ae.event_type = 'STATUS_CHANGE' AND upper(ae.new_value) = 'CANCELLED') THEN 'Booking cancelled'
+        WHEN ae.event_type = 'NO_SHOW' OR (ae.event_type = 'STATUS_CHANGE' AND upper(ae.new_value) = 'NO_SHOW') THEN 'Marked as no show'
         ELSE COALESCE('Status changed to ' || ae.new_value, 'Status changed')
     END AS description,
     NULL::numeric AS amount,

@@ -10,7 +10,7 @@ export function allowCors(req: Request) {
 
   const corsHeaders: Record<string, string> = {
     "access-control-allow-methods": "GET,POST,OPTIONS",
-    "access-control-allow-headers": "authorization,content-type,x-api-key",
+    "access-control-allow-headers": "authorization,content-type,x-api-key,x-client-info,apikey",
     "vary": "origin",
   };
   if (ok) corsHeaders["access-control-allow-origin"] = origin || "*";

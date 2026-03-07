@@ -98,31 +98,57 @@ USING (
 -- 3. SCHEMA ENHANCEMENTS (Status, Mobile, Rooms)
 -- ============================================================
 
--- 3a. Add 'PRE_CHECKED_IN' status
-ALTER TABLE public.bookings
-DROP CONSTRAINT IF EXISTS bookings_status_check;
+-- 3a. Drop existing constraints before data normalization
+ALTER TABLE public.bookings DROP CONSTRAINT IF EXISTS bookings_status_check;
+ALTER TABLE public.booking_rooms DROP CONSTRAINT IF EXISTS booking_rooms_status_check;
+
+-- 3b. Standardize existing data to UPPERCASE (Safe now)
+UPDATE public.bookings 
+SET status = upper(status) 
+WHERE status IN ('checked_out', 'checked_in', 'cancelled', 'pre_checked_in', 'reserved', 'arriving', 'inhouse', 'no_show', 'completed', 'confirmed', 'created');
+
+UPDATE public.booking_rooms 
+SET status = upper(status) 
+WHERE status IN ('checked_out', 'checked_in', 'cancelled', 'pre_checked_in', 'reserved');
+
+-- 3c. Add 'PRE_CHECKED_IN' and maintain strict UPPERCASE (Re-apply)
 ALTER TABLE public.bookings
 ADD CONSTRAINT bookings_status_check
-CHECK (status IN ('CREATED', 'CONFIRMED', 'PRE_CHECKED_IN', 'CHECKED_IN', 'CANCELLED', 'NO_SHOW', 'COMPLETED', 'checked_out'));
+CHECK (status IN ('CREATED', 'CONFIRMED', 'PRE_CHECKED_IN', 'PARTIALLY_CHECKED_IN', 'CHECKED_IN', 'CANCELLED', 'NO_SHOW', 'COMPLETED', 'CHECKED_OUT'));
 
 ALTER TABLE public.booking_rooms
-DROP CONSTRAINT IF EXISTS booking_rooms_status_check;
-ALTER TABLE public.booking_rooms
 ADD CONSTRAINT booking_rooms_status_check
-CHECK (status IN ('reserved', 'pre_checked_in', 'checked_in', 'cancelled', 'checked_out'));
+CHECK (status IN ('RESERVED', 'PRE_CHECKED_IN', 'CHECKED_IN', 'CANCELLED', 'CHECKED_OUT'));
 
 -- 3b. Add updated_at to booking_rooms
 ALTER TABLE public.booking_rooms
 ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
 
--- 3c. Guest Identity Indexes
-CREATE INDEX IF NOT EXISTS idx_guests_mobile_norm
-ON public.guests (hotel_id, mobile_normalized);
+-- 3c. Guest Identity Indexes (Conditional for Enterprise/Global Schema)
+DO $$
+BEGIN
+    -- Handle idx_guests_mobile_norm
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='guests' AND column_name='hotel_id') THEN
+        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_guests_mobile_norm') THEN
+            CREATE INDEX idx_guests_mobile_norm ON public.guests (hotel_id, mobile_normalized);
+        END IF;
+    ELSE
+        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_guests_mobile_norm') THEN
+            CREATE INDEX idx_guests_mobile_norm ON public.guests (mobile_normalized);
+        END IF;
+    END IF;
 
--- Partial unique index for ON CONFLICT support
-CREATE UNIQUE INDEX IF NOT EXISTS uq_guests_mobile
-ON public.guests (hotel_id, mobile)
-WHERE mobile IS NOT NULL;
+    -- Handle uq_guests_mobile
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='guests' AND column_name='hotel_id') THEN
+        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'uq_guests_mobile') THEN
+            CREATE UNIQUE INDEX uq_guests_mobile ON public.guests (hotel_id, mobile) WHERE mobile IS NOT NULL;
+        END IF;
+    ELSE
+        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'uq_guests_mobile' OR indexname = 'uq_global_guest_mobile') THEN
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_global_guest_mobile ON public.guests (mobile) WHERE mobile IS NOT NULL;
+        END IF;
+    END IF;
+END $$;
 
 -- 3d. Performance Indexes for lookups
 CREATE INDEX IF NOT EXISTS idx_bookings_code ON bookings (hotel_id, code);
@@ -134,6 +160,11 @@ CREATE INDEX IF NOT EXISTS idx_booking_rooms_booking ON booking_rooms (booking_i
 -- 4. RPC: validate_precheckin_token (Fast-Track QR Support)
 -- Purpose: Validate token and return booking details
 -- ============================================================
+-- Drop existing overloads to avoid "function not unique" errors
+DROP FUNCTION IF EXISTS validate_precheckin_token(TEXT, UUID, BOOLEAN);
+DROP FUNCTION IF EXISTS validate_precheckin_token(TEXT);
+DROP FUNCTION IF EXISTS validate_precheckin_token(UUID);
+
 CREATE OR REPLACE FUNCTION validate_precheckin_token(
   p_token TEXT,
   p_hotel_id UUID DEFAULT NULL,
@@ -181,8 +212,8 @@ BEGIN
     (SELECT jsonb_build_object(
         'type', gid.document_type,
         'number', gid.document_number,
-        'front_image', gid.front_image_url,
-        'back_image', gid.back_image_url
+        'has_front_image', gid.front_image_url IS NOT NULL,
+        'has_back_image', gid.back_image_url IS NOT NULL
      )
      FROM guest_id_documents gid
      WHERE gid.guest_id = b.guest_id
@@ -262,6 +293,11 @@ GRANT EXECUTE ON FUNCTION validate_precheckin_token TO anon, authenticated;
 -- 5. RPC: submit_precheckin (Secure + Multi-Room + Identity Upload)
 -- Purpose: Save guest pre-check-in data, mark token used, save ID
 -- ============================================================
+-- Drop existing overloads to avoid "function not unique" errors
+DROP FUNCTION IF EXISTS submit_precheckin(TEXT, JSONB);
+DROP FUNCTION IF EXISTS submit_precheckin(JSONB);
+DROP FUNCTION IF EXISTS submit_precheckin(UUID, JSONB);
+
 CREATE OR REPLACE FUNCTION submit_precheckin(
   p_token TEXT,
   p_data JSONB
@@ -320,50 +356,67 @@ BEGIN
 
   IF v_guest_id IS NULL THEN
       -- Create new guest if missing (Fallback)
-      -- Compute normalized mobile for consistent lookup/insert
       v_mobile_normalized := regexp_replace(NULLIF(p_data->>'phone', ''), '[^0-9]', '', 'g');
 
-      -- 2A. Try to find by normalized mobile first (Deduplication Layer)
-      IF v_mobile_normalized IS NOT NULL THEN
-          SELECT id INTO v_guest_id 
-          FROM guests 
-          WHERE hotel_id = v_hotel_id
-          AND mobile_normalized = v_mobile_normalized
-          LIMIT 1;
+      -- 2A. Try to find by normalized mobile first (Global Deduplication Layer)
+      IF v_mobile_normalized IS NOT NULL AND v_mobile_normalized <> '' THEN
+          IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='guests' AND column_name='hotel_id') THEN
+              EXECUTE format('SELECT id FROM guests WHERE hotel_id = %L AND mobile_normalized = %L ORDER BY created_at DESC LIMIT 1', v_hotel_id, v_mobile_normalized) INTO v_guest_id;
+          ELSE
+              EXECUTE format('SELECT id FROM guests WHERE mobile_normalized = %L ORDER BY created_at DESC LIMIT 1', v_mobile_normalized) INTO v_guest_id;
+          END IF;
       END IF;
 
-      -- 2B. If still not found, Insert distinct guest
-      IF v_guest_id IS NULL THEN
-          INSERT INTO guests (hotel_id, full_name, email, mobile, nationality, address)
-          VALUES (
-              v_hotel_id,
-              p_data->>'guest_name',
-              NULLIF(p_data->>'email', ''),
-              NULLIF(p_data->>'phone', ''),
-              p_data->>'nationality',
-              p_data->>'address'
-          )
-          ON CONFLICT (hotel_id, mobile) WHERE mobile IS NOT NULL 
-          DO UPDATE SET
-              full_name = EXCLUDED.full_name,
-              email = COALESCE(EXCLUDED.email, guests.email),
-              updated_at = now()
-          RETURNING id INTO v_guest_id;
+      -- 2B. Fallback to Email (if mobile failed)
+      IF v_guest_id IS NULL AND p_data->>'email' IS NOT NULL AND p_data->>'email' <> '' THEN
+          IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='guests' AND column_name='hotel_id') THEN
+              EXECUTE format('SELECT id FROM guests WHERE hotel_id = %L AND lower(email) = %L ORDER BY created_at DESC LIMIT 1', v_hotel_id, lower(trim(p_data->>'email'))) INTO v_guest_id;
+          ELSE
+              EXECUTE format('SELECT id FROM guests WHERE lower(email) = %L ORDER BY created_at DESC LIMIT 1', lower(trim(p_data->>'email'))) INTO v_guest_id;
+          END IF;
       END IF;
-      
-      -- If still null (race condition?), try fetch one last time
+
+      -- 2C. If still not found, Insert distinct guest
       IF v_guest_id IS NULL THEN
-          SELECT id INTO v_guest_id FROM guests 
-          WHERE hotel_id = v_hotel_id
-          AND mobile = NULLIF(p_data->>'phone', '');
+          -- Use EXECUTE to handle dynamic column list (hotel_id might not exist)
+          IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='guests' AND column_name='hotel_id') THEN
+              INSERT INTO guests (hotel_id, full_name, email, mobile, nationality, address)
+              VALUES (
+                  v_hotel_id,
+                  p_data->>'guest_name',
+                  NULLIF(p_data->>'email', ''),
+                  NULLIF(p_data->>'phone', ''),
+                  p_data->>'nationality',
+                  p_data->>'address'
+              )
+              ON CONFLICT (hotel_id, mobile) WHERE mobile IS NOT NULL 
+              DO UPDATE SET
+                  full_name = EXCLUDED.full_name,
+                  email = COALESCE(EXCLUDED.email, guests.email),
+                  updated_at = now()
+              RETURNING id INTO v_guest_id;
+          ELSE
+              INSERT INTO guests (full_name, email, mobile, nationality, address)
+              VALUES (
+                  p_data->>'guest_name',
+                  NULLIF(p_data->>'email', ''),
+                  NULLIF(p_data->>'phone', ''),
+                  p_data->>'nationality',
+                  p_data->>'address'
+              )
+              ON CONFLICT (mobile) WHERE mobile IS NOT NULL 
+              DO UPDATE SET
+                  full_name = EXCLUDED.full_name,
+                  email = COALESCE(EXCLUDED.email, guests.email),
+                  updated_at = now()
+              RETURNING id INTO v_guest_id;
+          END IF;
       END IF;
       
       -- Link to booking
       UPDATE bookings SET guest_id = v_guest_id WHERE id = v_booking_id;
   ELSE
       -- Update existing guest profile safely
-      v_mobile_normalized := regexp_replace(NULLIF(p_data->>'phone', ''), '[^0-9]', '', 'g');
-      
       UPDATE guests
       SET 
           full_name = COALESCE(p_data->>'guest_name', full_name),
@@ -392,9 +445,9 @@ BEGIN
 
   -- 4. Mark all rooms as PRE_CHECKED_IN
   UPDATE booking_rooms
-  SET status = 'pre_checked_in', updated_at = now()
+  SET status = 'PRE_CHECKED_IN', updated_at = now()
   WHERE booking_id = v_booking_id
-  AND status = 'reserved';
+  AND status = 'RESERVED';
 
   -- 5. Assign Primary Guest to ALL Rooms
   INSERT INTO booking_room_guests (booking_room_id, guest_id, is_primary)
@@ -414,40 +467,74 @@ BEGIN
       LIMIT 1;
 
       IF v_first_room_id IS NOT NULL THEN
-          BEGIN
-              WITH new_guests AS (
-                  INSERT INTO guests (hotel_id, full_name, mobile, is_vip, created_at, updated_at)
-                  SELECT 
-                      v_hotel_id,
-                      g->>'name',
-                      NULLIF(g->>'mobile', ''),
-                      false,
-                      now(),
-                      now()
-                  FROM jsonb_array_elements(p_data->'additional_guests') g
-                  ON CONFLICT (hotel_id, mobile) WHERE mobile IS NOT NULL
-                  DO UPDATE SET updated_at = now()
-                  RETURNING id
-              )
-              INSERT INTO booking_room_guests (booking_room_id, guest_id, is_primary)
-              SELECT v_first_room_id, id, false
-              FROM new_guests
-              ON CONFLICT (booking_room_id, guest_id) DO NOTHING;
-          EXCEPTION WHEN OTHERS THEN
-              RAISE WARNING 'Failed to add additional guests: %', SQLERRM;
-          END;
+          -- Handle guest creation with or without hotel_id (Global Schema Compatibility)
+          IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='guests' AND column_name='hotel_id') THEN
+              BEGIN
+                  WITH new_guests AS (
+                      INSERT INTO guests (hotel_id, full_name, mobile, is_vip, created_at, updated_at)
+                      SELECT 
+                          v_hotel_id,
+                          g->>'name',
+                          NULLIF(g->>'mobile', ''),
+                          false,
+                          now(),
+                          now()
+                      FROM jsonb_array_elements(p_data->'additional_guests') g
+                      ON CONFLICT (hotel_id, mobile) WHERE mobile IS NOT NULL
+                      DO UPDATE SET updated_at = now()
+                      RETURNING id
+                  )
+                  INSERT INTO booking_room_guests (booking_room_id, guest_id, is_primary)
+                  SELECT v_first_room_id, id, false
+                  FROM new_guests
+                  ON CONFLICT (booking_room_id, guest_id) DO NOTHING;
+              EXCEPTION WHEN OTHERS THEN
+                  RAISE WARNING 'Failed to add additional guests: %', SQLERRM;
+              END;
+          ELSE
+              BEGIN
+                  WITH new_guests AS (
+                      INSERT INTO guests (full_name, mobile, is_vip, created_at, updated_at)
+                      SELECT 
+                          g->>'name',
+                          NULLIF(g->>'mobile', ''),
+                          false,
+                          now(),
+                          now()
+                      FROM jsonb_array_elements(p_data->'additional_guests') g
+                      ON CONFLICT (mobile) WHERE mobile IS NOT NULL
+                      DO UPDATE SET updated_at = now()
+                      RETURNING id
+                  )
+                  INSERT INTO booking_room_guests (booking_room_id, guest_id, is_primary)
+                  SELECT v_first_room_id, id, false
+                  FROM new_guests
+                  ON CONFLICT (booking_room_id, guest_id) DO NOTHING;
+              EXCEPTION WHEN OTHERS THEN
+                  RAISE WARNING 'Failed to add additional guests: %', SQLERRM;
+              END;
+          END IF;
       END IF;
   END IF;
 
-  -- 7. Insert ID Document (Secure with Images)
+  -- 7. Insert ID Document (Secure with History)
   IF p_data->>'id_number' IS NOT NULL AND p_data->>'id_number' != '' THEN
+      -- Deactivate existing documents of the SAME TYPE for this guest
+      UPDATE guest_id_documents 
+      SET is_active = false 
+      WHERE guest_id = v_guest_id 
+      AND document_type = COALESCE((p_data->>'id_type')::guest_document_type, 'other')
+      AND is_active = true;
+
+      -- Insert new active document
       INSERT INTO guest_id_documents (
           guest_id, 
           document_type, 
           document_number, 
           front_image_url, 
           back_image_url, 
-          verification_status
+          verification_status,
+          is_active
       )
       VALUES (
         v_guest_id,
@@ -455,15 +542,9 @@ BEGIN
         p_data->>'id_number',
         p_data->>'front_image_url',
         p_data->>'back_image_url',
-        'pending'
-      )
-      ON CONFLICT (guest_id, document_type) 
-      DO UPDATE SET 
-          document_number = EXCLUDED.document_number,
-          front_image_url = COALESCE(EXCLUDED.front_image_url, guest_id_documents.front_image_url),
-          back_image_url = COALESCE(EXCLUDED.back_image_url, guest_id_documents.back_image_url),
-          verification_status = 'pending',
-          updated_at = now();
+        'pending',
+        true
+      );
   END IF;
 
   -- 8. Mark Token Used (Final Step - Atomic Commit)
@@ -473,6 +554,23 @@ BEGIN
     used_at = now(),
     updated_at = now()
   WHERE id = v_token_id;
+
+  -- 9. Queue "Stay Portal Access" Email (Merged from 20260219)
+  -- If email exists, queue a notification for magic link generation
+  IF (p_data->>'email') IS NOT NULL AND (p_data->>'email') != '' THEN
+    INSERT INTO public.notification_queue (booking_id, channel, template_code, payload, status)
+    VALUES (
+      v_booking_id,
+      'email',
+      'precheckin_completed_access',
+      jsonb_build_object(
+        'booking_id', v_booking_id,
+        'guest_name', COALESCE(p_data->>'guest_name', 'Guest'),
+        'email', p_data->>'email'
+      ),
+      'pending'
+    );
+  END IF;
 
   RETURN jsonb_build_object(
     'success', true,
@@ -486,6 +584,19 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION submit_precheckin TO anon, authenticated;
 
+
+-- 5.2 Document History & Integrity
+ALTER TABLE guest_id_documents ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
+
+-- Drop old rigid constraint
+ALTER TABLE guest_id_documents DROP CONSTRAINT IF EXISTS uq_guest_id_doc_type;
+DROP INDEX IF EXISTS uq_guest_id_doc_type;
+DROP INDEX IF EXISTS uq_guest_doc_unique;
+
+-- New Partial Unique Index (One ACTIVE document per type per guest)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_guest_active_doc 
+ON guest_id_documents (guest_id, document_type) 
+WHERE is_active = true;
 
 -- ============================================================
 -- 6. RPC: search_booking (Kiosk Support)
@@ -554,7 +665,8 @@ BEGIN
      )
      FROM guest_id_documents gid
      WHERE gid.guest_id = b.guest_id
-     ORDER BY gid.updated_at DESC LIMIT 1
+     AND gid.is_active = true
+     ORDER BY gid.created_at DESC LIMIT 1
     )::JSONB
   FROM bookings b
   LEFT JOIN profiles p ON b.guest_profile_id = p.id
@@ -714,36 +826,91 @@ ON CONFLICT (id) DO UPDATE SET public = false;
 DROP POLICY IF EXISTS "Public Access" ON storage.objects;
 
 -- Policy: Strict Upload (Anon + Authenticated)
-DROP POLICY IF EXISTS "Upload identity proofs" ON storage.objects;
+DROP POLICY IF EXISTS "identity_proofs_upload" ON storage.objects;
 CREATE POLICY "identity_proofs_upload"
 ON storage.objects FOR INSERT
 TO anon, authenticated
 WITH CHECK ( bucket_id = 'identity_proofs' );
 
 -- Policy: Strict Read (Service Role)
-DROP POLICY IF EXISTS "Secure Read" ON storage.objects;
+DROP POLICY IF EXISTS "identity_proofs_service_read" ON storage.objects;
 CREATE POLICY "identity_proofs_service_read"
 ON storage.objects FOR SELECT
 TO service_role
 USING ( bucket_id = 'identity_proofs' );
 
--- Policy: Authenticated Staff can read (needed for signed URLs on front-desk)
-DROP POLICY IF EXISTS "identity_proofs_authenticated_read" ON storage.objects;
-CREATE POLICY "identity_proofs_authenticated_read"
-ON storage.objects FOR SELECT
-TO authenticated
-USING ( bucket_id = 'identity_proofs' );
-
--- Policy: Owner Manage (Update/Delete own files)
-DROP POLICY IF EXISTS "Owner Access" ON storage.objects;
 -- Policy: Owner Manager (Update own files)
+DROP POLICY IF EXISTS "identity_proofs_owner_update" ON storage.objects;
 CREATE POLICY "identity_proofs_owner_update"
 ON storage.objects FOR UPDATE
 TO authenticated
 USING ( bucket_id = 'identity_proofs' AND owner = auth.uid() );
 
 -- Policy: Owner Delete (Delete own files)
+DROP POLICY IF EXISTS "identity_proofs_owner_delete" ON storage.objects;
 CREATE POLICY "identity_proofs_owner_delete"
 ON storage.objects FOR DELETE
 TO authenticated
 USING ( bucket_id = 'identity_proofs' AND owner = auth.uid() );
+-- ============================================================
+-- 10. SECURE DOCUMENT VIEWING — Audit Logging
+-- ============================================================
+
+-- Removed direct storage policies. identity_proofs bucket should only
+-- be readable by service_role. Access is provided via Edge Function.
+
+-- 10a. Audit Table: Track every identity document view
+CREATE TABLE IF NOT EXISTS identity_document_views (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  guest_id UUID NOT NULL REFERENCES guests(id) ON DELETE CASCADE,
+  staff_user_id UUID NOT NULL REFERENCES auth.users(id),
+  hotel_id UUID NOT NULL REFERENCES hotels(id) ON DELETE CASCADE,
+  document_side TEXT NOT NULL CHECK (document_side IN ('front', 'back')),
+  document_type TEXT,
+  booking_id UUID REFERENCES bookings(id) ON DELETE SET NULL,
+  ip_address INET,
+  viewed_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_doc_views_guest ON identity_document_views(guest_id);
+CREATE INDEX IF NOT EXISTS idx_doc_views_staff ON identity_document_views(staff_user_id);
+CREATE INDEX IF NOT EXISTS idx_doc_views_hotel ON identity_document_views(hotel_id, viewed_at);
+
+ALTER TABLE identity_document_views ENABLE ROW LEVEL SECURITY;
+
+-- Only service_role and owner/manager can view audit logs
+DROP POLICY IF EXISTS "doc_views_service_all" ON identity_document_views;
+CREATE POLICY "doc_views_service_all"
+ON identity_document_views FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "doc_views_staff_select" ON identity_document_views;
+CREATE POLICY "doc_views_staff_select"
+ON identity_document_views FOR SELECT TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM hotel_members hm
+    WHERE hm.user_id = auth.uid()
+    AND hm.hotel_id = identity_document_views.hotel_id
+    AND hm.role IN ('OWNER', 'MANAGER')
+    AND hm.is_active = true
+  )
+);
+
+-- Insert allowed for authenticated (Edge Function runs as user or service_role)
+DROP POLICY IF EXISTS "doc_views_insert" ON identity_document_views;
+CREATE POLICY "doc_views_insert"
+ON identity_document_views FOR INSERT TO authenticated
+WITH CHECK (staff_user_id = auth.uid());
+
+DROP POLICY IF EXISTS "doc_views_insert_service" ON identity_document_views;
+CREATE POLICY "doc_views_insert_service"
+ON identity_document_views FOR INSERT TO service_role WITH CHECK (true);
+
+-- Drop previous RPC if it was created
+DROP FUNCTION IF EXISTS request_document_view;
+
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_precheckin_tokens_token_lookup
+ON precheckin_tokens (token);
+CREATE INDEX IF NOT EXISTS idx_guest_documents_guest_updated
+ON guest_id_documents (guest_id, updated_at DESC);

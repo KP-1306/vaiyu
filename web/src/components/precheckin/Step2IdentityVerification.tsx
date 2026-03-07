@@ -91,9 +91,11 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
                         type="text"
                         value={idForm.id_number}
                         onChange={(e) => {
-                            let val = e.target.value;
+                            let val = e.target.value.toUpperCase();
                             if (idForm.id_type === "aadhaar") {
-                                val = val.replace(/\D/g, "").slice(0, 12);
+                                if (!val.includes("XXXX")) {
+                                    val = val.replace(/\D/g, "").slice(0, 12);
+                                }
                             }
                             setIdForm({ ...idForm, id_number: val });
                         }}

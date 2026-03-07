@@ -33,6 +33,7 @@ export default function WalkInPayment() {
     const [processing, setProcessing] = useState(false);
     const [idType, setIdType] = useState(guestDetails?.id_type || "aadhar");
     const [idNumber, setIdNumber] = useState(guestDetails?.id_number || "");
+    const [idFromExistingDoc, setIdFromExistingDoc] = useState(false);
 
     // Document state
     const [frontImage, setFrontImage] = useState<File | null>(null);
@@ -81,31 +82,36 @@ export default function WalkInPayment() {
 
             setLoadingDocs(true);
             try {
-                const { data, error } = await supabase
-                    .from("guest_id_documents")
-                    .select("document_type, front_image_url, back_image_url")
-                    .eq("guest_id", gid)
-                    .order("created_at", { ascending: false })
-                    .limit(1)
-                    .maybeSingle();
-
-                if (error) {
-                    console.error("[WalkInPayment] Doc fetch error:", error);
+                // Get the current session — only attempt doc fetch if authenticated
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session?.access_token) {
+                    // No active staff session — skip fetching existing docs silently
                     return;
                 }
 
-                if (data) {
-                    if (data.document_type) setIdType(data.document_type);
+                const headers = { Authorization: `Bearer ${session.access_token}` };
 
-                    if (data.front_image_url) {
-                        await resolveUrl(data.front_image_url, setExistingFront);
-                    }
-                    if (data.back_image_url) {
-                        await resolveUrl(data.back_image_url, setExistingBack);
-                    }
+                // Call secure Edge Function to get signed URLs (for returning guests)
+                const { data: frontData, error: frontErr } = await supabase.functions.invoke('get-document-url', {
+                    body: { guest_id: gid, side: 'front', hotel_id: hotelId },
+                    headers
+                });
+
+                const { data: backData, error: backErr } = await supabase.functions.invoke('get-document-url', {
+                    body: { guest_id: gid, side: 'back', hotel_id: hotelId },
+                    headers
+                });
+
+                if (frontData?.document_type) setIdType(frontData.document_type);
+                if (frontData?.document_number) {
+                    setIdNumber(frontData.document_number);
+                    setIdFromExistingDoc(true);
                 }
+                if (frontData?.signed_url) setExistingFront(frontData.signed_url);
+                if (backData?.signed_url) setExistingBack(backData.signed_url);
             } catch (err) {
-                console.error("[WalkInPayment] Error fetching docs:", err);
+                // Non-critical — silently ignore doc fetch errors
+                console.warn("[WalkInPayment] Could not fetch existing docs:", err);
             } finally {
                 setLoadingDocs(false);
             }
@@ -114,6 +120,7 @@ export default function WalkInPayment() {
         fetchExistingDocs();
     }, [guestDetails?.mobile, hotelId]);
 
+    // resolveUrl now takes the secure path from RPC and signs it for exactly 120 seconds
     async function resolveUrl(path: string, setter: (url: string | null) => void) {
         if (!path) return;
         // If it's already a URL, use it directly
@@ -121,10 +128,10 @@ export default function WalkInPayment() {
             setter(path);
             return;
         }
-        // It's a storage path, try to sign it
+        // It's a storage path, sign it with short expiry (120s)
         const { data } = await supabase.storage
             .from("identity_proofs")
-            .createSignedUrl(path, 3600);
+            .createSignedUrl(path, 120);
 
         setter(data?.signedUrl || path);
     }
@@ -252,13 +259,32 @@ export default function WalkInPayment() {
 
                     <div className="space-y-1.5">
                         <label className="text-sm font-medium text-slate-700">ID Number <span className="text-red-500">*</span></label>
-                        <input
-                            required
-                            className="block w-full rounded-xl border-slate-200 bg-slate-50 py-3 px-4 text-slate-900 focus:bg-white focus:border-indigo-500 focus:ring-indigo-500 transition-all"
-                            value={idNumber}
-                            onChange={e => setIdNumber(e.target.value)}
-                            placeholder={idType === 'aadhar' ? 'XXXX-XXXX-XXXX' : idType === 'passport' ? 'A1234567' : 'Enter ID number'}
-                        />
+                        {idFromExistingDoc ? (
+                            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 py-3 px-4">
+                                <Lock className="h-4 w-4 text-slate-400 shrink-0" />
+                                <span className="flex-1 font-mono text-slate-600 tracking-[0.25em] text-sm">
+                                    **** **** {idNumber.slice(-4)}
+                                </span>
+                                <span className="flex items-center gap-1 text-xs text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full">
+                                    <CheckCircle2 className="h-3 w-3" /> Verified
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => { setIdNumber(''); setIdFromExistingDoc(false); }}
+                                    className="text-xs text-indigo-500 hover:text-indigo-700 font-semibold underline underline-offset-2 transition-colors"
+                                >
+                                    Change
+                                </button>
+                            </div>
+                        ) : (
+                            <input
+                                required
+                                className="block w-full rounded-xl border-slate-200 bg-slate-50 py-3 px-4 text-slate-900 focus:bg-white focus:border-indigo-500 focus:ring-indigo-500 transition-all"
+                                value={idNumber}
+                                onChange={e => setIdNumber(e.target.value)}
+                                placeholder={idType === 'aadhar' ? 'XXXX-XXXX-XXXX' : idType === 'passport' ? 'A1234567' : 'Enter ID number'}
+                            />
+                        )}
                     </div>
 
                     {/* Front Side Document */}

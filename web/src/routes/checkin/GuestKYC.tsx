@@ -40,8 +40,12 @@ export default function GuestKYC() {
     const [backImage, setBackImage] = useState<File | null>(null);
 
     // Existing Image URLs (if pre-filled)
-    const [existingFront, setExistingFront] = useState<string | null>(existingProof?.front_image || null);
-    const [existingBack, setExistingBack] = useState<string | null>(existingProof?.back_image || null);
+    const [existingFront, setExistingFront] = useState<string | null>(
+        existingProof?.front_image || (existingProof?.has_front_image ? 'has_image' : null)
+    );
+    const [existingBack, setExistingBack] = useState<string | null>(
+        existingProof?.back_image || (existingProof?.has_back_image ? 'has_image' : null)
+    );
 
     const [uploading, setUploading] = useState(false);
 
@@ -109,34 +113,55 @@ export default function GuestKYC() {
     // Validation State
     const [errors, setErrors] = useState<Record<string, string>>({});
 
-    // Resolve signed URLs for existing paths
+    // Resolve signed URLs for existing paths using the secure RPC
     useEffect(() => {
-        if (!existingProof) return;
+        if (!existingProof || !booking?.guest_id) return;
 
-        const resolveUrl = async (path: string | null, setter: (url: string | null) => void) => {
-            if (!path) return;
-            // If it's already a URL (legacy or blob), leave it
-            if (path.startsWith('http') || path.startsWith('blob:')) return;
+        const resolveUrl = async (side: "front" | "back", setter: (url: string | null) => void) => {
+            // Check if existing data is already a direct URL (like blob:)
+            const existingPath = side === "front"
+                ? (existingProof.front_image || existingProof.has_front_image)
+                : (existingProof.back_image || existingProof.has_back_image);
 
-            // It's a path, sign it
-            const { data, error } = await supabase.storage
-                .from('identity_proofs')
-                .createSignedUrl(path, 3600); // 1 hour link
-
-            if (data?.signedUrl) {
-                setter(data.signedUrl);
-            } else if (error) {
-                console.error("Failed to sign URL for", path, error);
+            if (typeof existingPath === 'string' && (existingPath.startsWith('http') || existingPath.startsWith('blob:'))) {
+                setter(existingPath);
+                return;
             }
+
+            // Call secure Edge Function to get signed URL directly
+            // It will log an audit entry for staff, or validate token for guests
+            const urlParams = new URLSearchParams(window.location.search);
+            const checkinToken = urlParams.get('tkn');
+
+            const { data: edgeData, error: edgeError } = await supabase.functions.invoke('get-document-url', {
+                body: {
+                    guest_id: booking.guest_id,
+                    side: side,
+                    hotel_id: booking.hotel_id,
+                    token: checkinToken || null // pass token if in precheckin mode
+                }
+            });
+
+            if (edgeError || !edgeData?.signed_url) {
+                console.warn(`[GuestKYC] Edge Function failed for ${side}:`, edgeError);
+                setter(existingPath || null); // fallback to raw path/placeholder if Edge Function fails
+                return;
+            }
+
+            // The Edge Function returns a strictly 120s signed URL
+            setter(edgeData.signed_url);
         };
 
-        if (existingProof.front_image && !existingProof.front_image.startsWith('http')) {
-            resolveUrl(existingProof.front_image, setExistingFront);
+        const hasFront = existingProof.front_image || existingProof.has_front_image;
+        if (hasFront && (!existingProof.front_image || !existingProof.front_image.startsWith('http'))) {
+            resolveUrl("front", setExistingFront);
         }
-        if (existingProof.back_image && !existingProof.back_image.startsWith('http')) {
-            resolveUrl(existingProof.back_image, setExistingBack);
+
+        const hasBack = existingProof.back_image || existingProof.has_back_image;
+        if (hasBack && (!existingProof.back_image || !existingProof.back_image.startsWith('http'))) {
+            resolveUrl("back", setExistingBack);
         }
-    }, [existingProof]);
+    }, [existingProof, booking?.guest_id, booking?.hotel_id]);
 
     useEffect(() => {
         if (!booking) return;

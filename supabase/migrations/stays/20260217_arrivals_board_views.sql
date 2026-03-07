@@ -95,7 +95,7 @@ WITH room_states AS (
         br.booking_id,
         STRING_AGG(r.number, ', ') AS room_numbers,
         COUNT(*) AS rooms_total,
-        COUNT(*) FILTER (WHERE br.status = 'checked_in') AS rooms_checked_in,
+        COUNT(*) FILTER (WHERE br.status = 'CHECKED_IN') AS rooms_checked_in,
         COUNT(*) FILTER (WHERE br.room_id IS NULL) AS rooms_unassigned,
         COUNT(*) FILTER (WHERE br.room_id IS NOT NULL AND r.housekeeping_status = 'dirty') AS rooms_dirty,
         COUNT(*) FILTER (WHERE br.room_id IS NOT NULL AND r.housekeeping_status IN ('clean', 'inspected', 'pickup')) AS rooms_clean
@@ -130,9 +130,9 @@ SELECT
     CASE
         -- 1. OVERRIDE: Booking is strictly already checked in
         WHEN COALESCE(ss.checkout_requested_count, 0) > 0 THEN 'CHECKOUT_REQUESTED'
-        WHEN b.status IN ('CHECKED_IN', 'checked_in') THEN 'CHECKED_IN'
+        WHEN b.status = 'CHECKED_IN' THEN 'CHECKED_IN'
         WHEN b.status = 'PARTIALLY_CHECKED_IN' THEN 'PARTIALLY_ARRIVED'
-        WHEN b.status IN ('CHECKED_OUT', 'checked_out') THEN 'CHECKED_OUT' -- Safety mapping for dashboard exclusion logic if needed
+        WHEN b.status = 'CHECKED_OUT' THEN 'CHECKED_OUT' -- Safety mapping for dashboard exclusion logic if needed
         
         -- 2. OPERATIONAL STATE
         WHEN COALESCE(rs.rooms_total, 0) = 0 THEN 'NO_ROOMS'

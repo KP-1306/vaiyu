@@ -742,7 +742,7 @@ BEGIN
             SUM(COALESCE((row_data->>'adults')::int, 1)) AS adults_total,
             SUM(COALESCE((row_data->>'children')::int, 0)) AS children_total,
             COUNT(DISTINCT COALESCE((row_data->>'room_seq')::int, 1)) AS rooms_total,
-            MAX(row_data->>'booking_status') AS booking_status,
+            UPPER(MAX(row_data->>'booking_status')) AS booking_status,
             -- Get primary row data for guest info
             (ARRAY_AGG(row_data ORDER BY primary_guest_flag DESC, id ASC))[1] as primary_data,
             (ARRAY_AGG(hotel_id ORDER BY primary_guest_flag DESC, id ASC))[1] as primary_hotel_id

@@ -38,16 +38,16 @@ export default function UsageMeter({ hotelId }: { hotelId?: string }) {
         const fromSummary = Number(base?.used_tokens);
         const fromTotals = Number(
           raw?.totals?.tokens?.total ??
-            (raw?.totals?.tokens?.input ?? 0) +
-              (raw?.totals?.tokens?.output ?? 0),
+          (raw?.totals?.tokens?.input ?? 0) +
+          (raw?.totals?.tokens?.output ?? 0),
         );
 
         const used_tokens =
           Number.isFinite(fromSummary) && fromSummary >= 0
             ? fromSummary
             : Number.isFinite(fromTotals) && fromTotals >= 0
-            ? fromTotals
-            : 0;
+              ? fromTotals
+              : 0;
 
         const budget_tokens = Number(
           base?.budget_tokens ?? raw?.budget_tokens ?? 200_000,
@@ -79,22 +79,22 @@ export default function UsageMeter({ hotelId }: { hotelId?: string }) {
   const pct = Math.min(100, Math.round((used * 100) / budget));
 
   return (
-    <section className="card p-4">
+    <section className="rounded-2xl border border-white/10 bg-white/5 p-4 text-slate-100">
       <div className="flex items-center justify-between mb-2">
         <div className="font-semibold">AI usage</div>
         {data?.month_utc && (
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-slate-400">
             Month: {data.month_utc}
           </div>
         )}
       </div>
 
       <div
-        className="h-2 w-full rounded bg-gray-200 overflow-hidden"
+        className="h-2 w-full rounded bg-white/10 overflow-hidden"
         aria-label="AI token usage"
       >
         <div
-          className="h-full bg-blue-600"
+          className="h-full bg-amber-500"
           style={{ width: `${pct}%` }}
           role="progressbar"
           aria-valuenow={pct}
@@ -103,14 +103,14 @@ export default function UsageMeter({ hotelId }: { hotelId?: string }) {
         />
       </div>
 
-      <div className="mt-2 text-sm text-gray-700">
+      <div className="mt-2 text-sm text-slate-300">
         {loading
           ? "Loading…"
           : `${used.toLocaleString()} / ${budget.toLocaleString()} tokens (${pct}%)`}
       </div>
 
       {err && (
-        <div className="mt-1 flex items-center gap-1 text-xs text-gray-500">
+        <div className="mt-1 flex items-center gap-1 text-xs text-slate-500">
           <span aria-hidden="true">ⓘ</span>
           <span title={err}>
             Using demo AI usage numbers (usage API not connected yet).

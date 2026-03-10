@@ -3,8 +3,214 @@
 
 BEGIN;
 
+-- Add claim tracking columns
+ALTER TABLE IF EXISTS public.hotel_invites
+ADD COLUMN IF NOT EXISTS claimed_by uuid REFERENCES auth.users(id),
+ADD COLUMN IF NOT EXISTS claimed_at timestamptz;
+
+-- Ensure unique active invite index exists
+CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_active_invite
+ON public.hotel_invites (hotel_id, email)
+WHERE status = 'pending';
+
+-- Protect against token collisions (safely)
+DO $$
+BEGIN
+IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'hotel_invites_token_unique'
+) THEN
+    ALTER TABLE public.hotel_invites
+    ADD CONSTRAINT hotel_invites_token_unique UNIQUE(token);
+END IF;
+END $$;
+
+
 -- ============================================================
--- 2. Create the Invitation Acceptance RPC (Hardened)
+-- 1. Create the Invitation Creation RPC
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.create_hotel_invite(
+    p_hotel_id uuid,
+    p_email text,
+    p_role_id uuid,
+    p_metadata jsonb DEFAULT '{}'::jsonb
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_invite RECORD;
+BEGIN
+    p_email := lower(trim(p_email));
+
+    IF auth.uid() IS NULL THEN
+        RAISE EXCEPTION 'Authentication required';
+    END IF;
+
+    -- [SECURITY] Domain safety check
+    IF p_email ILIKE '%@mailinator.com' OR p_email ILIKE '%@10minutemail.com' OR p_email ILIKE '%@tempmail.com' THEN
+       RAISE EXCEPTION 'Disallowed email domain provided. Please use a standard email address.';
+    END IF;
+
+    -- [SECURITY] Hotel rate limit (prevent hotel spam)
+    IF (
+        SELECT count(*)
+        FROM public.hotel_invites
+        WHERE hotel_id = p_hotel_id
+        AND created_at > now() - interval '1 hour'
+    ) >= 50
+    THEN
+        RAISE EXCEPTION 'Invite limit exceeded for this hotel. Please try again later.';
+    END IF;
+
+    -- [SECURITY] User rate limit (prevent staff spam)
+    IF (
+        SELECT count(*)
+        FROM public.hotel_invites
+        WHERE created_by = auth.uid()
+        AND created_at > now() - interval '1 hour'
+    ) >= 20
+    THEN
+        RAISE EXCEPTION 'You have sent too many invites recently. Please try again later.';
+    END IF;
+
+    -- Permission check: Caller must be OWNER, ADMIN, MANAGER, or Platform Admin
+    IF NOT public.is_platform_admin() AND NOT EXISTS (
+        SELECT 1
+        FROM public.hotel_members hm
+        JOIN public.hotel_member_roles hmr ON hmr.hotel_member_id = hm.id
+        JOIN public.hotel_roles hr ON hr.id = hmr.role_id
+        WHERE hm.hotel_id = p_hotel_id
+        AND hm.user_id = auth.uid()
+        AND hr.code IN ('OWNER', 'ADMIN', 'MANAGER')
+        AND hm.is_active = true
+        AND hr.is_active = true
+    ) THEN
+        RAISE EXCEPTION 'Insufficient permissions to create invites for this hotel';
+    END IF;
+
+    -- Insert the invite (idempotency handled by unique index ux_unique_active_invite)
+    INSERT INTO public.hotel_invites (
+        hotel_id,
+        email,
+        role_id,
+        invite_metadata,
+        created_by
+    )
+    VALUES (
+        p_hotel_id,
+        p_email,
+        p_role_id,
+        p_metadata,
+        auth.uid()
+    )
+    RETURNING * INTO v_invite;
+
+    -- Queue the email notification
+    INSERT INTO public.notification_queue (
+        channel,
+        template_code,
+        payload
+    )
+    VALUES (
+        'email',
+        'staff_invite',
+        jsonb_build_object(
+            'email', v_invite.email,
+            'invite_token', v_invite.token,
+            'hotel_id', v_invite.hotel_id,
+            'role_id', v_invite.role_id
+        )
+    );
+
+    -- Enterprise Audit Log
+    INSERT INTO public.hotel_audit_logs (
+        hotel_id,
+        user_id,
+        action,
+        entity_type,
+        entity_id,
+        changes
+    )
+    VALUES (
+        p_hotel_id,
+        auth.uid(),
+        'INVITE_CREATED',
+        'hotel_invites',
+        v_invite.id,
+        jsonb_build_object(
+            'email', v_invite.email,
+            'role_id', v_invite.role_id
+        )
+    );
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'invite_id', v_invite.id,
+        'token', v_invite.token
+    );
+END;
+$$;
+
+DROP FUNCTION IF EXISTS public.create_hotel_invite(uuid, text, uuid);
+GRANT EXECUTE ON FUNCTION public.create_hotel_invite(uuid, text, uuid, jsonb) TO authenticated;
+
+-- ============================================================
+-- 2. Create the Invitation Claim RPC (Anti-Race & Anti-Forwarding)
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.claim_hotel_invite(
+    p_token uuid
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_user uuid;
+    v_invite RECORD;
+BEGIN
+    v_user := auth.uid();
+    IF v_user IS NULL THEN
+        RAISE EXCEPTION 'Authentication required';
+    END IF;
+
+    SELECT *
+    INTO v_invite
+    FROM public.hotel_invites
+    WHERE token = p_token
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Invite not found';
+    END IF;
+
+    IF v_invite.status <> 'pending' THEN
+        RAISE EXCEPTION 'Invite not active';
+    END IF;
+
+    -- Already claimed by someone else
+    IF v_invite.claimed_by IS NOT NULL AND v_invite.claimed_by <> v_user THEN
+        RAISE EXCEPTION 'Invite already claimed';
+    END IF;
+
+    UPDATE public.hotel_invites
+    SET
+        claimed_by = v_user,
+        claimed_at = now()
+    WHERE id = v_invite.id;
+
+    RETURN jsonb_build_object('success', true);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.claim_hotel_invite(uuid) TO authenticated;
+
+-- ============================================================
+-- 3. Create the Invitation Acceptance RPC (Hardened)
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.accept_hotel_invite(
     p_token uuid
@@ -46,6 +252,16 @@ BEGIN
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Invalid invite token';
     END IF;
+
+    -- Enforce claim (Anti-Race & Anti-Forwarding)
+    IF v_invite.claimed_by IS NULL THEN
+        RAISE EXCEPTION 'Invite must be claimed before acceptance';
+    END IF;
+
+    IF v_invite.claimed_by <> v_user_id THEN
+        RAISE EXCEPTION 'Invite claimed by another user';
+    END IF;
+
 
     -- Already accepted → ensure membership exists (defensive check)
     IF v_invite.status = 'accepted' THEN
@@ -218,8 +434,8 @@ BEGIN
         RAISE EXCEPTION 'Invite not found';
     END IF;
 
-    -- 🔒 Ensure caller is OWNER, ADMIN, or MANAGER (Prevent lower ranks from revoking)
-    IF NOT EXISTS (
+    -- 🔒 Ensure caller is Platform Admin or OWNER, ADMIN, or MANAGER (Prevent lower ranks from revoking)
+    IF NOT public.is_platform_admin() AND NOT EXISTS (
         SELECT 1
         FROM public.hotel_members hm
         JOIN public.hotel_member_roles hmr ON hmr.hotel_member_id = hm.id
@@ -313,8 +529,8 @@ BEGIN
         RAISE EXCEPTION 'Invite not found';
     END IF;
 
-    -- 🔒 Ensure caller is OWNER, ADMIN, or MANAGER
-    IF NOT EXISTS (
+    -- 🔒 Ensure caller is Platform Admin or OWNER, ADMIN, or MANAGER
+    IF NOT public.is_platform_admin() AND NOT EXISTS (
         SELECT 1
         FROM public.hotel_members hm
         JOIN public.hotel_member_roles hmr ON hmr.hotel_member_id = hm.id
@@ -390,6 +606,23 @@ BEGIN
         )
     );
 
+    -- Queue the email notification (Resend)
+    INSERT INTO public.notification_queue (
+        channel,
+        template_code,
+        payload
+    )
+    VALUES (
+        'email',
+        'staff_invite',
+        jsonb_build_object(
+            'email', v_invite.email,
+            'invite_token', v_invite.token,
+            'hotel_id', v_invite.hotel_id,
+            'role_id', v_invite.role_id
+        )
+    );
+
     RETURN jsonb_build_object(
         'success', true,
         'invite_id', v_invite.id,
@@ -401,4 +634,142 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.resend_hotel_invite(uuid) TO authenticated;
 
+-- ============================================================
+-- 5. Create the Invite Validation RPC (Lightweight for Frontend)
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.validate_hotel_invite(
+    p_token uuid
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_invite RECORD;
+BEGIN
+    SELECT 
+        hi.email,
+        hi.status,
+        hi.expires_at,
+        hi.hotel_id,
+        h.name as hotel_name,
+        hr.code as role_code,
+        hr.name as role_name
+    INTO v_invite
+    FROM public.hotel_invites hi
+    JOIN public.hotels h ON h.id = hi.hotel_id
+    JOIN public.hotel_roles hr ON hr.id = hi.role_id
+    WHERE hi.token = p_token;
+
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('valid', false, 'error', 'Invite not found');
+    END IF;
+
+    IF v_invite.status <> 'pending' THEN
+        RETURN jsonb_build_object('valid', false, 'error', 'Invite already used or revoked');
+    END IF;
+
+    IF v_invite.expires_at < now() THEN
+        RETURN jsonb_build_object('valid', false, 'error', 'Invite has expired');
+    END IF;
+
+    RETURN jsonb_build_object(
+        'valid', true,
+        'email', v_invite.email,
+        'hotel_id', v_invite.hotel_id,
+        'hotel_name', v_invite.hotel_name,
+        'role_code', v_invite.role_code,
+        'role_name', v_invite.role_name
+    );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.validate_hotel_invite(uuid) TO anon, authenticated;
+
+-- ============================================================
+-- 6. Create RPC to release stale claims (Cron-ready)
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.release_stale_invite_claims()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    UPDATE public.hotel_invites
+    SET claimed_by = NULL,
+        claimed_at = NULL
+    WHERE claimed_at < now() - interval '10 minutes'
+    AND status = 'pending';
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.release_stale_invite_claims() FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.release_stale_invite_claims() TO service_role;
+
+-- ============================================================
+-- 7. Performance Optimization Indexes
+-- ============================================================
+
+-- Token lookup (covering index for fast accept validation)
+CREATE INDEX IF NOT EXISTS idx_invites_token_lookup
+ON public.hotel_invites (token)
+INCLUDE (hotel_id, email, role_id, status, expires_at);
+
+-- Pending invites by hotel (for hotel admin screens)
+CREATE INDEX IF NOT EXISTS idx_invites_pending
+ON public.hotel_invites (hotel_id, created_at DESC)
+WHERE status = 'pending';
+
+
+
+-- Expiry cleanup (for the cleanup cron job)
+CREATE INDEX IF NOT EXISTS idx_invites_expiry_cleanup
+ON public.hotel_invites (expires_at)
+WHERE status = 'pending';
+
+-- ============================================================
+-- 8. Auto-expire Stale Invites (Cron-ready)
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.expire_stale_invites()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    UPDATE public.hotel_invites
+    SET status = 'expired'
+    WHERE status = 'pending'
+    AND expires_at < now();
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.expire_stale_invites() FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.expire_stale_invites() TO service_role;
+
+-- ============================================================
+-- 9. Setup Cron Jobs (Postgres pg_cron)
+-- ============================================================
+
+-- Ensure pg_cron extension exists (must be run by superuser in prod)
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+
+-- 1. Release stuck claims every 5 minutes
+SELECT cron.schedule(
+  'release-stuck-invite-claims',
+  '*/5 * * * *',
+  $$ SELECT public.release_stale_invite_claims(); $$
+);
+
+-- 2. Expire old invites every 1 hour
+SELECT cron.schedule(
+  'expire-stale-invites',
+  '0 * * * *',
+  $$ SELECT public.expire_stale_invites(); $$
+);
+
 COMMIT;
+
+

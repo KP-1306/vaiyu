@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { supa } from '../lib/api';
+import { parseDbDate, formatRelativeTime } from '../utils/dateUtils';
 
 // Types
 type OrderStatus = 'CREATED' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED';
@@ -62,13 +63,7 @@ const playNotificationSound = () => {
 };
 
 export default function KitchenDashboard() {
-    // Fix: Handle UTC timestamps correctly. If 'Z' or offset is missing, append 'Z' to treat as UTC.
-    const safeDate = (dateStr: string) => {
-        if (!dateStr) return new Date();
-        if (dateStr.endsWith('Z') || dateStr.includes('+')) return new Date(dateStr);
-        return new Date(dateStr + 'Z');
-    };
-
+    // Stop alarm on any interaction
     const [orders, setOrders] = useState<FoodOrder[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -247,7 +242,7 @@ export default function KitchenDashboard() {
         // [NEW] Live SLA Ticker: Force re-render every 15s to update "X min remaining"
         // We don't need to re-fetch, just re-calculate the time diffs in the render loop.
         const interval = setInterval(() => {
-            setOrders(prev => [...prev]); // Trigger re-render with same data
+            setOrders((prev: FoodOrder[]) => [...prev]); // Trigger re-render with same data
         }, 15000);
 
         return () => {
@@ -257,20 +252,36 @@ export default function KitchenDashboard() {
     }, [fetchOrders]);
 
     // Derived States
-    const kitchenQueue = orders.filter(o => ['CREATED', 'ACCEPTED', 'PREPARING'].includes(o.status));
-    const runnerQueue = orders.filter(o => ['READY', 'DELIVERED'].includes(o.status));
+    const kitchenQueue = orders.filter((o: FoodOrder) => ['CREATED', 'ACCEPTED', 'PREPARING'].includes(o.status));
+    const runnerQueue = orders.filter((o: FoodOrder) => ['READY', 'DELIVERED'].includes(o.status));
 
     // SLA Risks: Created long ago or SLA breach?
-    const slaRisks = orders.filter(o => {
+    const slaRisks = orders.filter((o: FoodOrder) => {
         if (['DELIVERED', 'CANCELLED'].includes(o.status)) return false;
         if (!o.sla?.sla_target_at) return false;
         return true;
-    }).sort((a, b) => new Date(a.sla!.sla_target_at).getTime() - new Date(b.sla!.sla_target_at).getTime());
+    }).sort((a: FoodOrder, b: FoodOrder) => new Date(a.sla!.sla_target_at).getTime() - new Date(b.sla!.sla_target_at).getTime());
 
-    const myOrders = orders.filter(o =>
-        hotelMemberIds.length > 0 && o.assignments?.some(a => hotelMemberIds.includes(a.hotel_member_id)) &&
-        !['CANCELLED'].includes(o.status)
-    );
+    const myOrders = orders
+        .filter((o: FoodOrder) => {
+            const isMyAssignment = hotelMemberIds.length > 0 && o.assignments?.some((a: any) => hotelMemberIds.includes(a.hotel_member_id));
+            if (!isMyAssignment || o.status === 'CANCELLED') return false;
+
+            // For DELIVERED status, only show today's orders to keep the UI clean
+            if (o.status === 'DELIVERED') {
+                const deliveredAt = parseDbDate(o.updated_at);
+                if (!deliveredAt) return false;
+                const startOfDay = new Date();
+                startOfDay.setHours(0, 0, 0, 0);
+                return deliveredAt >= startOfDay;
+            }
+            return true;
+        })
+        .sort((a: FoodOrder, b: FoodOrder) => {
+            // Newest first for My Deliveries
+            return new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime();
+        })
+        .slice(0, 20);
 
 
     // Actions
@@ -280,8 +291,18 @@ export default function KitchenDashboard() {
             if (!client) return;
 
             // Need hotel_id for RPCs. We'll grab from the order itself since we loaded it.
-            const order = orders.find(o => o.id === orderId);
-            if (!order) return;
+            const order = orders.find((o: FoodOrder) => o.id === orderId);
+            if (!order) {
+                console.error("DEBUG: Order not found in local state", orderId);
+                return;
+            }
+
+            console.log(`DEBUG: RPC ${action} triggered`, { orderId, hotel_id: order.hotel_id, status: order.status });
+
+            if (!order.hotel_id) {
+                alert("Missing Hotel ID context. Please refresh the dashboard.");
+                return;
+            }
 
             let rpcName = '';
             if (action === 'ACCEPT') rpcName = 'accept_food_order';
@@ -294,8 +315,10 @@ export default function KitchenDashboard() {
                 p_hotel_id: order.hotel_id
             });
 
-            if (error) throw error;
-            if (error) throw error;
+            if (error) {
+                console.error(`DEBUG: RPC ${rpcName} failed`, error);
+                throw error;
+            }
 
             // Auto-switch tabs based on workflow
             if (action === 'ACCEPT') setActiveKitchenTab('ACCEPTED');
@@ -341,12 +364,12 @@ export default function KitchenDashboard() {
                         </div>
                         <div className="p-4 flex flex-col gap-3 min-h-[300px]">
                             {kitchenQueue
-                                .filter(o =>
+                                .filter((o: FoodOrder) =>
                                     (activeKitchenTab === 'NEW' && o.status === 'CREATED') ||
                                     (activeKitchenTab === 'ACCEPTED' && o.status === 'ACCEPTED') ||
                                     (activeKitchenTab === 'PREPARING' && o.status === 'PREPARING')
                                 )
-                                .map(order => (
+                                .map((order: FoodOrder) => (
                                     <OrderCard
                                         key={order.id}
                                         order={order}
@@ -387,7 +410,7 @@ export default function KitchenDashboard() {
                                 Ready for Pickup ({runnerQueue.filter(o => o.status === 'READY').length})
                             </button>
                             <button onClick={() => setActiveRunnerTab('DELIVERED')} className={`flex-1 py-1.5 rounded text-xs font-bold uppercase transition-colors ${activeRunnerTab === 'DELIVERED' ? 'bg-green-600 text-white' : 'text-gray-400 hover:bg-white/5'}`}>
-                                My Deliveries ({myOrders.filter(o => o.assignments?.some(a => hotelMemberIds.includes(a.hotel_member_id) && a.role === 'RUNNER')).length})
+                                My Deliveries ({myOrders.filter((o: FoodOrder) => o.status === 'DELIVERED' && o.assignments?.some((a: any) => hotelMemberIds.includes(a.hotel_member_id) && a.role === 'RUNNER')).length})
                             </button>
                         </div>
                         <div className="p-4 flex flex-col gap-3 min-h-[300px]">
@@ -396,19 +419,19 @@ export default function KitchenDashboard() {
                                 DELIVERED Tab -> now uses 'myOrders' (view already filters for My assignments)
                             */}
                             {(activeRunnerTab === 'READY' ? runnerQueue : myOrders)
-                                .filter(o => {
+                                .filter((o: FoodOrder) => {
                                     if (activeRunnerTab === 'READY') return o.status === 'READY';
                                     if (activeRunnerTab === 'DELIVERED') {
                                         // Show only orders where I am assigned as RUNNER
                                         // Filter out Kitchen assignments (like ACCEPTED/PREPARING orders where I am the chef)
-                                        const myRunnerAssignment = o.assignments?.find(a =>
+                                        const myRunnerAssignment = o.assignments?.find((a: any) =>
                                             hotelMemberIds.includes(a.hotel_member_id) && a.role === 'RUNNER'
                                         );
-                                        return !!myRunnerAssignment;
+                                        return o.status === 'DELIVERED' && !!myRunnerAssignment;
                                     }
                                     return false;
                                 })
-                                .map(order => (
+                                .map((order: FoodOrder) => (
                                     <OrderCard
                                         key={order.id}
                                         order={order}
@@ -444,7 +467,7 @@ export default function KitchenDashboard() {
                     <div className="bg-[#1a1a1a] rounded-xl overflow-hidden border border-white/10">
                         <div className="bg-blue-600 px-4 py-3 font-bold text-white tracking-wide">My Assigned Orders</div>
                         <div className="p-4 flex flex-col gap-3">
-                            {myOrders.map(order => (
+                            {myOrders.map((order: FoodOrder) => (
                                 <div key={order.id} className="bg-white rounded-lg p-4 text-slate-900 shadow-sm flex justify-between items-center">
                                     <div>
                                         <div className="font-bold text-lg text-blue-700">{order.display_id || `Order #${order.id.slice(0, 4)}`}</div>
@@ -454,7 +477,7 @@ export default function KitchenDashboard() {
                                         <div className="text-right">
                                             <div className="text-xs text-slate-400 uppercase">SLA Target</div>
                                             <div className="font-mono font-bold text-slate-700">
-                                                {safeDate(order.sla.sla_target_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
+                                                {parseDbDate(order.sla.sla_target_at)?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
                                             </div>
                                         </div>
                                     )}
@@ -471,7 +494,8 @@ export default function KitchenDashboard() {
                         <div className="bg-red-600 px-4 py-3 font-bold text-white tracking-wide">SLA Risk Alerts</div>
                         <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
                             {slaRisks.map(order => {
-                                const target = safeDate(order.sla!.sla_target_at);
+                                const target = parseDbDate(order.sla!.sla_target_at);
+                                if (!target) return null;
                                 const now = new Date();
                                 const diffMins = Math.floor((target.getTime() - now.getTime()) / 60000);
                                 const isBreached = diffMins < 0;
@@ -499,18 +523,6 @@ export default function KitchenDashboard() {
 }
 
 function OrderCard({ order, actionLabel, onAction, colorClass, disabled, assignedTo }: { order: FoodOrder, actionLabel: string, onAction?: () => void, colorClass: string, disabled?: boolean, assignedTo?: string }) {
-
-    // Fix: Handle UTC timestamps correctly. If 'Z' or offset is missing, append 'Z' to treat as UTC.
-    const safeDate = (dateStr: string) => {
-        if (!dateStr) return new Date();
-        if (dateStr.endsWith('Z') || dateStr.includes('+')) return new Date(dateStr);
-        return new Date(dateStr + 'Z');
-    };
-
-    // Use updated_at for "Time since status change", fallback to created_at
-    const displayTime = order.updated_at || order.created_at;
-    const timeAgo = Math.floor((Date.now() - safeDate(displayTime).getTime()) / 60000);
-
 
     return (
         <div className="bg-white rounded-lg p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -542,8 +554,8 @@ function OrderCard({ order, actionLabel, onAction, colorClass, disabled, assigne
                         <span>{order.special_instructions}</span>
                     </div>
                 )}
-                <div className="text-xs text-slate-400">
-                    {order.status} {timeAgo} min ago
+                <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-2">
+                    {order.status === 'DELIVERED' ? 'Delivered' : order.status} {formatRelativeTime(order.updated_at || order.created_at)}
                 </div>
                 {assignedTo && (
                     <div className="mt-2 text-xs font-semibold text-blue-400 bg-blue-900/30 px-2 py-1 rounded inline-block border border-blue-500/20">

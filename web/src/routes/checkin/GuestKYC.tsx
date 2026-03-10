@@ -12,7 +12,8 @@ import {
     ImageIcon,
     User, // Added for modal
     Check, // Added for banner
-    X // Added for banner
+    X, // Added for banner
+    Lock
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { lookupGuestProfile } from "../../lib/api";
@@ -36,8 +37,11 @@ export default function GuestKYC() {
         id_number: existingProof?.number || "",
     });
 
+    const [idFromExistingDoc, setIdFromExistingDoc] = useState(!!existingProof?.number);
+
     const [frontImage, setFrontImage] = useState<File | null>(null);
     const [backImage, setBackImage] = useState<File | null>(null);
+    const [viewImage, setViewImage] = useState<string | null>(null);
 
     // Existing Image URLs (if pre-filled)
     const [existingFront, setExistingFront] = useState<string | null>(
@@ -133,23 +137,37 @@ export default function GuestKYC() {
             const urlParams = new URLSearchParams(window.location.search);
             const checkinToken = urlParams.get('tkn');
 
-            const { data: edgeData, error: edgeError } = await supabase.functions.invoke('get-document-url', {
-                body: {
-                    guest_id: booking.guest_id,
-                    side: side,
-                    hotel_id: booking.hotel_id,
-                    token: checkinToken || null // pass token if in precheckin mode
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                const authHeader: Record<string, string> = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+                const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+
+                const res = await fetch(`${supabaseUrl}/functions/v1/get-document-url`, {
+                    method: 'POST',
+                    headers: {
+                        ...authHeader,
+                        'Content-Type': 'application/json'
+                    } as HeadersInit,
+                    body: JSON.stringify({
+                        guest_id: booking.guest_id,
+                        side: side,
+                        hotel_id: booking.hotel_id,
+                        token: checkinToken || null // pass token if in precheckin mode
+                    })
+                });
+
+                if (!res.ok) {
+                    throw new Error(`Edge Function returned ${res.status}`);
                 }
-            });
 
-            if (edgeError || !edgeData?.signed_url) {
-                console.warn(`[GuestKYC] Edge Function failed for ${side}:`, edgeError);
+                // The Edge Function now returns a high-performance binary Blob
+                const blob = await res.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                setter(blobUrl);
+            } catch (err) {
+                console.warn(`[GuestKYC] Edge Function failed for ${side}:`, err);
                 setter(existingPath || null); // fallback to raw path/placeholder if Edge Function fails
-                return;
             }
-
-            // The Edge Function returns a strictly 120s signed URL
-            setter(edgeData.signed_url);
         };
 
         const hasFront = existingProof.front_image || existingProof.has_front_image;
@@ -218,7 +236,8 @@ export default function GuestKYC() {
         }
 
         // Front Image - Valid if new file selected OR existing image available
-        if (!frontImage && !existingFront) newErrors.frontImage = "Front side ID photo is required";
+        const hasExisting = existingFront || existingProof?.front_image || existingProof?.has_front_image;
+        if (!frontImage && !hasExisting) newErrors.frontImage = "Front side ID photo is required";
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -257,18 +276,18 @@ export default function GuestKYC() {
 
         try {
             // 1. Upload Images (Only if new files selected)
-            let frontPath = existingFront; // Default to existing
-            let backPath = existingBack;
+            let frontPath = existingProof?.front_image || (existingProof?.has_front_image ? 'has_image' : null);
+            let backPath = existingProof?.back_image || (existingProof?.has_back_image ? 'has_image' : null);
             const timestamp = Date.now();
 
             if (frontImage) {
-                const folderId = booking.guest_id || booking.id;
+                const folderId = booking.guest_id || booking.booking_id || booking.id || 'unknown';
                 const path = `${booking.hotel_id}/kiosk/${folderId}/front_${timestamp}_${frontImage.name}`;
                 frontPath = await uploadFile(frontImage, path);
             }
 
             if (backImage) {
-                const folderId = booking.guest_id || booking.id;
+                const folderId = booking.guest_id || booking.booking_id || booking.id || 'unknown';
                 const path = `${booking.hotel_id}/kiosk/${folderId}/back_${timestamp}_${backImage.name}`;
                 backPath = await uploadFile(backImage, path);
             }
@@ -291,7 +310,7 @@ export default function GuestKYC() {
                 back_image_path: backPath,
             };
 
-            navigate("../room-assignment", {
+            navigate(`../room-assignment${location.search}`, {
                 state: {
                     booking,
                     guestDetails
@@ -489,16 +508,37 @@ export default function GuestKYC() {
 
                         <div>
                             <label className="block text-sm font-medium text-slate-700">ID Number <span className="text-red-500">*</span></label>
-                            <input
-                                className={`mt-1 block w-full rounded-xl border-slate-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 ${errors.id_number ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''}`}
-                                value={formData.id_number}
-                                onChange={e => {
-                                    setFormData({ ...formData, id_number: e.target.value.toUpperCase() });
-                                    if (errors.id_number) setErrors(prev => ({ ...prev, id_number: '' }));
-                                }}
-                                placeholder="XXXX-XXXX-XXXX"
-                            />
-                            {errors.id_number && <p className="mt-1 text-sm text-red-600 flex items-center gap-1"><AlertCircle className="h-3 w-3" /> {errors.id_number}</p>}
+                            {idFromExistingDoc ? (
+                                <div className="mt-1 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 py-3 px-4">
+                                    <Lock className="h-4 w-4 text-slate-400 shrink-0" />
+                                    <span className="flex-1 font-mono text-slate-600 tracking-[0.25em] text-sm">
+                                        **** **** {formData.id_number.slice(-4)}
+                                    </span>
+                                    <span className="flex items-center gap-1 text-xs text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full">
+                                        <CheckCircle2 className="h-3 w-3" /> Verified
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setFormData(prev => ({ ...prev, id_number: '' })); setIdFromExistingDoc(false); }}
+                                        className="text-xs text-indigo-500 hover:text-indigo-700 font-semibold underline underline-offset-2 transition-colors"
+                                    >
+                                        Change
+                                    </button>
+                                </div>
+                            ) : (
+                                <>
+                                    <input
+                                        className={`mt-1 block w-full rounded-xl border-slate-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 ${errors.id_number ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''}`}
+                                        value={formData.id_number}
+                                        onChange={e => {
+                                            setFormData({ ...formData, id_number: e.target.value.toUpperCase() });
+                                            if (errors.id_number) setErrors(prev => ({ ...prev, id_number: '' }));
+                                        }}
+                                        placeholder="XXXX-XXXX-XXXX"
+                                    />
+                                    {errors.id_number && <p className="mt-1 text-sm text-red-600 flex items-center gap-1"><AlertCircle className="h-3 w-3" /> {errors.id_number}</p>}
+                                </>
+                            )}
                         </div>
 
                         <div className="pt-4 space-y-4">
@@ -525,18 +565,29 @@ export default function GuestKYC() {
                                                 <CheckCircle2 className="h-3 w-3 text-green-500" /> Verified
                                             </p>
                                         </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => setExistingFront(null)}
-                                            className="text-indigo-600 hover:text-indigo-700 text-sm font-medium px-2 py-1"
-                                        >
-                                            Retake
-                                        </button>
+                                        <div className="flex gap-1 shrink-0">
+                                            {existingFront !== 'has_image' && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setViewImage(existingFront.startsWith('http') || existingFront.startsWith('blob:') ? existingFront : `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/identity_proofs/${existingFront}`)}
+                                                    className="text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-md text-sm font-medium px-3 py-1.5 transition-colors"
+                                                >
+                                                    View
+                                                </button>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => setExistingFront(null)}
+                                                className="text-slate-600 hover:text-red-700 bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 shadow-sm rounded-md text-sm font-medium px-3 py-1.5 transition-colors"
+                                            >
+                                                Retake
+                                            </button>
+                                        </div>
                                     </div>
                                 ) : (
                                     <>
                                         {/* If ID Number is pre-filled but image is missing, show specific prompt */}
-                                        {existingProof?.number && !existingFront && (
+                                        {existingProof?.number && !existingFront && !frontImage && (
                                             <div className="mb-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-800 flex gap-2 items-start">
                                                 <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                                                 <span>We have your ID number, but the document image is missing. Please capture it again.</span>
@@ -551,9 +602,21 @@ export default function GuestKYC() {
                                                 onChange={(e) => handleFileChange(e, 'front')}
                                             />
                                             {frontImage ? (
-                                                <div className="flex items-center justify-center gap-2 text-green-600">
-                                                    <CheckCircle2 className="h-5 w-5" />
-                                                    <span className="text-sm font-medium truncate">{frontImage.name}</span>
+                                                <div className="flex flex-col items-center justify-center gap-2">
+                                                    <div className="flex items-center gap-2 text-green-600">
+                                                        <CheckCircle2 className="h-5 w-5" />
+                                                        <span className="text-sm font-medium truncate">{frontImage.name}</span>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            setViewImage(URL.createObjectURL(frontImage));
+                                                        }}
+                                                        className="text-indigo-600 hover:text-indigo-700 text-xs font-semibold px-3 py-1 bg-indigo-50 rounded-full transition-colors z-10 relative"
+                                                    >
+                                                        Click to Preview
+                                                    </button>
                                                 </div>
                                             ) : (
                                                 <div className="text-slate-500">
@@ -580,13 +643,24 @@ export default function GuestKYC() {
                                             <p className="text-sm font-medium text-slate-900 truncate">Existing Document</p>
                                             <p className="text-xs text-slate-500">Verified</p>
                                         </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => setExistingBack(null)}
-                                            className="text-indigo-600 hover:text-indigo-700 text-sm font-medium px-2 py-1"
-                                        >
-                                            Retake
-                                        </button>
+                                        <div className="flex gap-1 shrink-0">
+                                            {existingBack !== 'has_image' && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setViewImage(existingBack)}
+                                                    className="text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-md text-sm font-medium px-3 py-1.5 transition-colors"
+                                                >
+                                                    View
+                                                </button>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => setExistingBack(null)}
+                                                className="text-slate-600 hover:text-red-700 bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 shadow-sm rounded-md text-sm font-medium px-3 py-1.5 transition-colors"
+                                            >
+                                                Retake
+                                            </button>
+                                        </div>
                                     </div>
                                 ) : (
                                     <div className="relative block w-full rounded-xl border-2 border-dashed border-slate-300 p-4 text-center hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
@@ -597,9 +671,21 @@ export default function GuestKYC() {
                                             onChange={(e) => handleFileChange(e, 'back')}
                                         />
                                         {backImage ? (
-                                            <div className="flex items-center justify-center gap-2 text-green-600">
-                                                <CheckCircle2 className="h-5 w-5" />
-                                                <span className="text-sm font-medium truncate">{backImage.name}</span>
+                                            <div className="flex flex-col items-center justify-center gap-2">
+                                                <div className="flex items-center gap-2 text-green-600">
+                                                    <CheckCircle2 className="h-5 w-5" />
+                                                    <span className="text-sm font-medium truncate">{backImage.name}</span>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        setViewImage(URL.createObjectURL(backImage));
+                                                    }}
+                                                    className="text-indigo-600 hover:text-indigo-700 text-xs font-semibold px-3 py-1 bg-indigo-50 rounded-full transition-colors z-10 relative"
+                                                >
+                                                    Click to Preview
+                                                </button>
                                             </div>
                                         ) : (
                                             <div className="text-slate-500">
@@ -642,6 +728,27 @@ export default function GuestKYC() {
                     )}
                 </div>
             </form>
+
+            {/* Document Viewer Modal */}
+            {viewImage && (
+                <div
+                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/95 backdrop-blur-sm animate-in fade-in duration-200"
+                    onClick={() => setViewImage(null)}
+                >
+                    <button
+                        className="absolute top-4 right-4 text-white/70 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors"
+                        onClick={() => setViewImage(null)}
+                    >
+                        <X className="w-8 h-8" />
+                    </button>
+                    <img
+                        src={viewImage}
+                        className="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl ring-1 ring-white/10"
+                        onClick={e => e.stopPropagation()}
+                        alt="Document Preview"
+                    />
+                </div>
+            )}
         </div>
     );
 }

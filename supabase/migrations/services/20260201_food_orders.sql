@@ -41,7 +41,13 @@ CREATE TABLE food_orders (
   ),
 
   created_at TIMESTAMP NOT NULL DEFAULT now(),
-  updated_at TIMESTAMP NOT NULL DEFAULT now()
+  delivered_at TIMESTAMPTZ,
+  delivered_by UUID REFERENCES hotel_members(id),
+  CONSTRAINT chk_food_orders_delivered_integrity CHECK (
+    status <> 'DELIVERED'
+    OR (delivered_at IS NOT NULL AND delivered_by IS NOT NULL)
+  ),
+  updated_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
 
 
@@ -207,13 +213,10 @@ CREATE TABLE food_order_assignments (
   unassigned_at TIMESTAMP
 );
 
-CREATE UNIQUE INDEX ux_food_order_kitchen_assignment
-ON food_order_assignments(food_order_id)
-WHERE role = 'KITCHEN';
-
-CREATE UNIQUE INDEX ux_food_order_runner_assignment
-ON food_order_assignments(food_order_id)
-WHERE role = 'RUNNER';
+-- Concurrency Guard: Prevent multiple active assignments for the same role on an order
+CREATE UNIQUE INDEX ux_food_order_active_assignment
+ON food_order_assignments (food_order_id, role)
+WHERE unassigned_at IS NULL;
 
 
 -- ============================================================
@@ -259,11 +262,30 @@ CREATE INDEX idx_food_orders_stay
 CREATE INDEX idx_food_order_items_order
   ON food_order_items(food_order_id);
 
-CREATE INDEX idx_food_order_events_order
-  ON food_order_events(food_order_id);
+CREATE INDEX idx_food_order_events_trace
+  ON food_order_events(food_order_id, created_at);
 
-CREATE INDEX idx_food_order_sla_breached
-  ON food_order_sla_state(breached);
+-- Optimized for production dashboards (Hotel specific + Recent First)
+CREATE INDEX IF NOT EXISTS idx_food_orders_recent_deliveries
+  ON food_orders (hotel_id, delivered_at DESC);
+
+-- Runner Performance Analytics
+CREATE INDEX IF NOT EXISTS idx_food_orders_runner_analytics
+  ON food_orders (delivered_by, delivered_at);
+
+-- Dashboards: Quick fetch of active work
+CREATE INDEX IF NOT EXISTS idx_food_orders_status
+  ON food_orders (status);
+
+-- Kitchen Dashboard: Ultra-fast fetch of READY orders
+CREATE INDEX IF NOT EXISTS idx_food_orders_ready
+  ON food_orders (hotel_id)
+  WHERE status = 'READY';
+
+-- SLA Breach Watchdog (Ultra-fast partial index)
+CREATE INDEX IF NOT EXISTS idx_food_order_sla_active
+  ON food_order_sla_state (sla_target_at)
+  WHERE sla_completed_at IS NULL;
 
 
 -- ============================================================

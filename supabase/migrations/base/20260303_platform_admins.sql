@@ -43,3 +43,20 @@ USING (
 );
 
 COMMIT;
+
+-- Helper Function: Check if current user is platform admin
+CREATE OR REPLACE FUNCTION public.is_platform_admin()
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.platform_admins
+    WHERE user_id = auth.uid() AND is_active = true
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.is_platform_admin() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_platform_admin() TO service_role;

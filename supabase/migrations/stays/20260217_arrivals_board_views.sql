@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS folios (
     booking_id UUID REFERENCES bookings(id),
     status TEXT DEFAULT 'OPEN', -- OPEN, CLOSED
     created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now()
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE (booking_id)
 );
 
 -- Housekeeping Tasks Table

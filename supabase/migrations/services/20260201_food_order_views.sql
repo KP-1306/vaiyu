@@ -173,32 +173,24 @@ CREATE OR REPLACE VIEW v_my_food_orders AS
 SELECT
   fo.id AS order_id,
   fo.display_id,
+  fo.hotel_id, -- REQUIRED FOR FRONTEND ACTIONS
   fo.status,
-  fo.created_at, -- For UI timestamp
-  fo.updated_at, -- For status duration
+  fo.created_at,
+  fo.updated_at,
   fo.room_id,
-  r.number AS room_number, -- Joined for UI
-
-  fa.hotel_member_id, -- Filter by this in UI/RLS
+  r.number AS room_number,
+  fa.hotel_member_id,
   fa.role,
   fa.assigned_at,
-
   sla.sla_target_at,
-  EXTRACT(EPOCH FROM (sla.sla_target_at - now())) / 60
-    AS sla_minutes_remaining,
-    
+  EXTRACT(EPOCH FROM (sla.sla_target_at::timestamp with time zone - now())) / 60::numeric AS sla_minutes_remaining,
   items.total_items,
   items.total_amount,
-  items.items -- JSON array
-
+  items.items
 FROM food_order_assignments fa
-JOIN food_orders fo
-  ON fo.id = fa.food_order_id
+JOIN food_orders fo ON fo.id = fa.food_order_id
 LEFT JOIN rooms r ON r.id = fo.room_id
-LEFT JOIN food_order_sla_state sla
-  ON sla.food_order_id = fo.id
-
--- LATERAL JOIN for safe aggregation
+LEFT JOIN food_order_sla_state sla ON sla.food_order_id = fo.id
 LEFT JOIN LATERAL (
   SELECT
     COUNT(*) AS total_items,
@@ -217,17 +209,12 @@ LEFT JOIN LATERAL (
   FROM food_order_items
   WHERE food_order_id = fo.id
 ) items ON true
-
 WHERE fa.unassigned_at IS NULL
-  -- Correct Role-Based Logic:
-  -- Kitchen sees active work (ACCEPTED/PREPARING)
-  -- Runner sees active work (READY) + completed deliveries (DELIVERED)
   AND (
-      (fa.role = 'KITCHEN' AND fo.status IN ('ACCEPTED', 'PREPARING'))
-      OR
-      (fa.role = 'RUNNER' AND fo.status IN ('READY', 'DELIVERED'))
+    (fa.role = 'KITCHEN' AND fo.status IN ('ACCEPTED', 'PREPARING'))
+    OR
+    (fa.role = 'RUNNER' AND fo.status IN ('READY', 'DELIVERED'))
   )
-  AND fo.updated_at >= date_trunc('day', now()) -- Rolling 24h window for history
 
 GROUP BY
     fo.id,

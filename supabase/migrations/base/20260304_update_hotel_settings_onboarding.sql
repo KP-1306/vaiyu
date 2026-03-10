@@ -173,6 +173,39 @@ BEGIN
         RAISE EXCEPTION 'Hotel update failed or no rows matched';
     END IF;
 
+    -- Update Guest Info if provided in payload
+    IF payload ? 'wifi_ssid' OR payload ? 'wifi_password' OR payload ? 'breakfast_start' OR payload ? 'breakfast_end' OR payload ? 'guest_notes' THEN
+        UPDATE public.hotel_guest_info
+        SET
+            wifi_ssid = CASE WHEN payload ? 'wifi_ssid' THEN payload->>'wifi_ssid' ELSE wifi_ssid END,
+            wifi_password = CASE WHEN payload ? 'wifi_password' THEN payload->>'wifi_password' ELSE wifi_password END,
+            breakfast_start = CASE WHEN payload ? 'breakfast_start' THEN CAST(NULLIF(payload->>'breakfast_start', '') AS time) ELSE breakfast_start END,
+            breakfast_end = CASE WHEN payload ? 'breakfast_end' THEN CAST(NULLIF(payload->>'breakfast_end', '') AS time) ELSE breakfast_end END,
+            notes = CASE WHEN payload ? 'guest_notes' THEN payload->>'guest_notes' ELSE notes END,
+            updated_at = now()
+        WHERE hotel_id = p_hotel_id;
+        
+        -- If update affected 0 rows (missing relation), then insert
+        IF NOT FOUND THEN
+            INSERT INTO public.hotel_guest_info (
+                hotel_id, 
+                wifi_ssid, 
+                wifi_password, 
+                breakfast_start, 
+                breakfast_end, 
+                notes
+            )
+            VALUES (
+                p_hotel_id,
+                payload->>'wifi_ssid',
+                payload->>'wifi_password',
+                CAST(NULLIF(payload->>'breakfast_start', '') AS time),
+                CAST(NULLIF(payload->>'breakfast_end', '') AS time),
+                payload->>'guest_notes'
+            );
+        END IF;
+    END IF;
+
     -- Audit Log the Update
     INSERT INTO public.hotel_audit_logs (
         hotel_id, user_id, action, entity_type, entity_id, changes, created_at

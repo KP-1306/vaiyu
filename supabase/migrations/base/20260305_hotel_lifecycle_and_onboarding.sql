@@ -232,7 +232,82 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.mark_onboarding_step_complete(uuid, public.hotel_onboarding_step) FROM PUBLIC;
 
 -- ============================================================
--- 8️⃣ CREATE HOTEL ONBOARDING RPC
+-- 8️⃣ CREATE HOTEL GUEST INFO TABLE
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.hotel_guest_info (
+  hotel_id uuid PRIMARY KEY REFERENCES public.hotels(id) ON DELETE CASCADE,
+  wifi_ssid text NULL,
+  wifi_password text NULL,
+  breakfast_start time NULL,
+  breakfast_end time NULL,
+  notes text NULL,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+-- Protect update timestamp
+CREATE TRIGGER trg_hotel_guest_info_updated_at
+BEFORE UPDATE ON public.hotel_guest_info
+FOR EACH ROW
+EXECUTE FUNCTION public.set_updated_at();
+
+-- ============================================================
+-- ROW LEVEL SECURITY FOR GUEST INFO
+-- ============================================================
+ALTER TABLE public.hotel_guest_info ENABLE ROW LEVEL SECURITY;
+
+-- Read policy: Anyone who is an active member or platform admin
+CREATE POLICY "Enable read access for hotel members" ON public.hotel_guest_info
+    FOR SELECT USING (
+        public.is_platform_admin() OR
+        EXISTS (
+            SELECT 1 FROM public.hotel_members hm
+            WHERE hm.hotel_id = hotel_guest_info.hotel_id
+            AND hm.user_id = auth.uid()
+            AND hm.is_active = true
+        )
+    );
+
+-- Add strict INSERT policy
+CREATE POLICY "Platform admins can create guest info" ON public.hotel_guest_info
+    FOR INSERT
+    WITH CHECK (
+        public.is_platform_admin()
+    );
+
+-- Add strict UPDATE policy
+CREATE POLICY "Hotel admins can update guest info" ON public.hotel_guest_info
+    FOR UPDATE
+    USING (
+        public.is_platform_admin() OR
+        EXISTS (
+            SELECT 1 FROM public.hotel_members hm
+            JOIN public.hotel_member_roles hmr ON hmr.hotel_member_id = hm.id
+            JOIN public.hotel_roles hr ON hr.id = hmr.role_id
+            WHERE hm.hotel_id = hotel_guest_info.hotel_id
+            AND hm.user_id = auth.uid()
+            AND hr.code IN ('OWNER', 'ADMIN', 'MANAGER')
+            AND hm.is_active = true
+            AND hr.is_active = true
+        )
+    )
+    WITH CHECK (
+        public.is_platform_admin() OR
+        EXISTS (
+            SELECT 1 FROM public.hotel_members hm
+            JOIN public.hotel_member_roles hmr ON hmr.hotel_member_id = hm.id
+            JOIN public.hotel_roles hr ON hr.id = hmr.role_id
+            WHERE hm.hotel_id = hotel_guest_info.hotel_id
+            AND hm.user_id = auth.uid()
+            AND hr.code IN ('OWNER', 'ADMIN', 'MANAGER')
+            AND hm.is_active = true
+            AND hr.is_active = true
+        )
+    );
+
+-- ============================================================
+-- 9️⃣ CREATE HOTEL ONBOARDING RPC
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION public.create_hotel_onboarding(payload jsonb)
@@ -282,33 +357,23 @@ BEGIN
     )
     RETURNING id INTO new_hotel_id;
 
-    INSERT INTO public.hotel_roles (hotel_id, name, code, description, is_active)
-    VALUES (new_hotel_id, 'Owner', 'OWNER', 'Full administrative access.', true)
-    RETURNING id INTO owner_role_id;
-
-    INSERT INTO public.hotel_roles (hotel_id, name, code, description, is_active)
-    VALUES
-        (new_hotel_id, 'Admin', 'ADMIN', 'Administrative control.', true),
-        (new_hotel_id, 'Manager', 'MANAGER', 'Operational management.', true),
-        (new_hotel_id, 'Front Desk', 'FRONT_DESK', 'Front office.', true),
-        (new_hotel_id, 'Housekeeping', 'HOUSEKEEPING', 'Cleaning operations.', true);
-
-    IF v_owner_user_id IS NOT NULL THEN
-        INSERT INTO public.hotel_members (
-            hotel_id, user_id, status, is_active, is_verified
-        )
-        VALUES (
-            new_hotel_id,
-            v_owner_user_id,
-            'active',
-            true,
-            true
-        )
-        RETURNING id INTO owner_member_id;
-
-        INSERT INTO public.hotel_member_roles (hotel_member_id, role_id)
-        VALUES (owner_member_id, owner_role_id);
-    END IF;
+    -- 2. Insert Guest Info Extensions from Onboarding Step 1
+    INSERT INTO public.hotel_guest_info (
+        hotel_id, 
+        wifi_ssid, 
+        wifi_password, 
+        breakfast_start, 
+        breakfast_end, 
+        notes
+    )
+    VALUES (
+        new_hotel_id,
+        payload->>'wifi_ssid',
+        payload->>'wifi_password',
+        CAST(NULLIF(payload->>'breakfast_start', '') AS time),
+        CAST(NULLIF(payload->>'breakfast_end', '') AS time),
+        payload->>'guest_notes'
+    );
 
     PERFORM public.mark_onboarding_step_complete(
         new_hotel_id,
@@ -327,7 +392,8 @@ BEGIN
         jsonb_build_object(
             'name', payload->>'name',
             'slug', payload->>'slug',
-            'owner_user_id', v_owner_user_id
+            'owner_user_id', v_owner_user_id,
+            'wifi_ssid', payload->>'wifi_ssid'
         ),
         now()
     );
@@ -339,7 +405,7 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.create_hotel_onboarding(jsonb) FROM PUBLIC;
 
 -- ============================================================
--- 9️⃣ ACTIVATE HOTEL (WITH OWNER + BILLING + OVERRIDE CHECK)
+-- 🔟 ACTIVATE HOTEL (WITH OWNER + BILLING + OVERRIDE CHECK)
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION public.activate_hotel(p_hotel_id uuid)

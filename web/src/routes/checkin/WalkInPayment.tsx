@@ -10,7 +10,8 @@ import {
     Upload,
     CheckCircle2,
     ImageIcon,
-    RefreshCw
+    RefreshCw,
+    X
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { CheckInStepper } from "../../components/CheckInStepper";
@@ -40,6 +41,7 @@ export default function WalkInPayment() {
     const [backImage, setBackImage] = useState<File | null>(null);
     const [existingFront, setExistingFront] = useState<string | null>(null);
     const [existingBack, setExistingBack] = useState<string | null>(null);
+    const [viewImage, setViewImage] = useState<string | null>(null);
     const [loadingDocs, setLoadingDocs] = useState(false);
 
     // Redirect if missing critical data
@@ -91,24 +93,41 @@ export default function WalkInPayment() {
 
                 const headers = { Authorization: `Bearer ${session.access_token}` };
 
-                // Call secure Edge Function to get signed URLs (for returning guests)
-                const { data: frontData, error: frontErr } = await supabase.functions.invoke('get-document-url', {
-                    body: { guest_id: gid, side: 'front', hotel_id: hotelId },
-                    headers
-                });
+                const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
-                const { data: backData, error: backErr } = await supabase.functions.invoke('get-document-url', {
-                    body: { guest_id: gid, side: 'back', hotel_id: hotelId },
-                    headers
-                });
+                // Call secure Edge Function for both sides (using fetch to read metadata headers)
+                const fetchSide = async (side: 'front' | 'back') => {
+                    const res = await fetch(`${supabaseUrl}/functions/v1/get-document-url`, {
+                        method: 'POST',
+                        headers: {
+                            ...headers,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ guest_id: gid, side, hotel_id: hotelId })
+                    });
 
-                if (frontData?.document_type) setIdType(frontData.document_type);
-                if (frontData?.document_number) {
-                    setIdNumber(frontData.document_number);
-                    setIdFromExistingDoc(true);
+                    if (!res.ok) return null;
+
+                    const docType = res.headers.get('X-Document-Type');
+                    const docNumber = res.headers.get('X-Document-Number');
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+
+                    return { docType, docNumber, url };
+                };
+
+                const frontRes = await fetchSide('front');
+                const backRes = await fetchSide('back');
+
+                if (frontRes) {
+                    if (frontRes.docType) setIdType(frontRes.docType);
+                    if (frontRes.docNumber) {
+                        setIdNumber(frontRes.docNumber);
+                        setIdFromExistingDoc(true);
+                    }
+                    if (frontRes.url) setExistingFront(frontRes.url);
                 }
-                if (frontData?.signed_url) setExistingFront(frontData.signed_url);
-                if (backData?.signed_url) setExistingBack(backData.signed_url);
+                if (backRes?.url) setExistingBack(backRes.url);
             } catch (err) {
                 // Non-critical — silently ignore doc fetch errors
                 console.warn("[WalkInPayment] Could not fetch existing docs:", err);
@@ -148,6 +167,14 @@ export default function WalkInPayment() {
         }
     };
 
+    async function uploadFile(file: File, path: string) {
+        const { data, error } = await supabase.storage
+            .from('identity_proofs')
+            .upload(path, file);
+        if (error) throw error;
+        return data.path;
+    }
+
     const handlePayment = async () => {
         setProcessing(true);
 
@@ -157,12 +184,34 @@ export default function WalkInPayment() {
 
             if (!hotelId) throw new Error("Hotel ID missing");
 
-            // 2. Create Walk-In via v2 RPC (multi-room aware)
+            // 2. Upload Images if new ones selected
+            let frontPath = existingFront || null;
+            let backPath = existingBack || null;
+            const timestamp = Date.now();
+            const folderId = guestDetails.id || 'walkin';
+
+            if (frontImage) {
+                const path = `${hotelId}/kiosk/${folderId}/front_${timestamp}_${frontImage.name}`;
+                frontPath = await uploadFile(frontImage, path);
+            }
+
+            if (backImage) {
+                const path = `${hotelId}/kiosk/${folderId}/back_${timestamp}_${backImage.name}`;
+                backPath = await uploadFile(backImage, path);
+            }
+
+            // 3. Create Walk-In via v2 RPC (multi-room aware)
             const selections = roomSelections || [{ room_id: selectedRoomId, room_type_id: null }];
 
             const { data, error } = await supabase.rpc("create_walkin_v2", {
                 p_hotel_id: hotelId,
-                p_guest_details: guestDetails,
+                p_guest_details: {
+                    ...guestDetails,
+                    id_type: idType,
+                    id_number: idNumber,
+                    front_image_path: frontPath,
+                    back_image_path: backPath
+                },
                 p_room_selections: selections,
                 p_checkin_date: stayDetails.checkin_date,
                 p_checkout_date: stayDetails.checkout_date,
@@ -313,14 +362,25 @@ export default function WalkInPayment() {
                                         <CheckCircle2 className="h-3.5 w-3.5 text-green-500" /> Previously uploaded
                                     </p>
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setExistingFront(null)}
-                                    className="flex items-center gap-1.5 text-indigo-600 hover:text-indigo-700 text-sm font-semibold px-3 py-2 rounded-lg hover:bg-indigo-50 transition-colors"
-                                >
-                                    <RefreshCw className="h-3.5 w-3.5" />
-                                    Re-upload
-                                </button>
+                                <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+                                    {(existingFront.startsWith("http") || existingFront.startsWith("blob:")) && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setViewImage(existingFront)}
+                                            className="flex justify-center items-center gap-1.5 text-indigo-600 hover:text-indigo-700 bg-indigo-100 hover:bg-indigo-200 text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                                        >
+                                            View
+                                        </button>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => setExistingFront(null)}
+                                        className="flex justify-center items-center gap-1.5 text-slate-600 hover:text-red-700 bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-sm font-semibold px-4 py-2 rounded-lg shadow-sm transition-colors"
+                                    >
+                                        <RefreshCw className="h-3.5 w-3.5" />
+                                        Re-upload
+                                    </button>
+                                </div>
                             </div>
                         ) : frontImage ? (
                             <div className="relative rounded-2xl border-2 border-green-300 bg-green-50/50 p-4 flex items-center gap-4">
@@ -333,13 +393,22 @@ export default function WalkInPayment() {
                                         <CheckCircle2 className="h-3 w-3" /> Ready to upload
                                     </p>
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setFrontImage(null)}
-                                    className="text-slate-400 hover:text-slate-600 text-sm font-medium px-2 py-1"
-                                >
-                                    Change
-                                </button>
+                                <div className="flex flex-col gap-2 shrink-0">
+                                    <button
+                                        type="button"
+                                        onClick={() => setViewImage(URL.createObjectURL(frontImage))}
+                                        className="flex justify-center items-center gap-1.5 text-green-700 hover:text-green-800 bg-green-100 hover:bg-green-200 text-sm font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                                    >
+                                        Preview
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFrontImage(null)}
+                                        className="flex justify-center items-center gap-1.5 text-slate-500 hover:text-slate-700 bg-white border border-slate-200 text-sm font-semibold px-3 py-1.5 rounded-lg shadow-sm transition-colors"
+                                    >
+                                        Change
+                                    </button>
+                                </div>
                             </div>
                         ) : (
                             <div className="relative">
@@ -380,14 +449,25 @@ export default function WalkInPayment() {
                                     <p className="text-sm font-semibold text-slate-900">Existing Document</p>
                                     <p className="text-xs text-slate-500">Previously uploaded</p>
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setExistingBack(null)}
-                                    className="flex items-center gap-1.5 text-indigo-600 hover:text-indigo-700 text-sm font-semibold px-3 py-2 rounded-lg hover:bg-indigo-50 transition-colors"
-                                >
-                                    <RefreshCw className="h-3.5 w-3.5" />
-                                    Re-upload
-                                </button>
+                                <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+                                    {(existingBack.startsWith("http") || existingBack.startsWith("blob:")) && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setViewImage(existingBack)}
+                                            className="flex justify-center items-center gap-1.5 text-indigo-600 hover:text-indigo-700 bg-indigo-100 hover:bg-indigo-200 text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                                        >
+                                            View
+                                        </button>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => setExistingBack(null)}
+                                        className="flex justify-center items-center gap-1.5 text-slate-600 hover:text-red-700 bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-sm font-semibold px-4 py-2 rounded-lg shadow-sm transition-colors"
+                                    >
+                                        <RefreshCw className="h-3.5 w-3.5" />
+                                        Re-upload
+                                    </button>
+                                </div>
                             </div>
                         ) : backImage ? (
                             <div className="relative rounded-2xl border-2 border-green-300 bg-green-50/50 p-4 flex items-center gap-4">
@@ -400,13 +480,22 @@ export default function WalkInPayment() {
                                         <CheckCircle2 className="h-3 w-3" /> Ready to upload
                                     </p>
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setBackImage(null)}
-                                    className="text-slate-400 hover:text-slate-600 text-sm font-medium px-2 py-1"
-                                >
-                                    Change
-                                </button>
+                                <div className="flex flex-col gap-2 shrink-0">
+                                    <button
+                                        type="button"
+                                        onClick={() => setViewImage(URL.createObjectURL(backImage))}
+                                        className="flex justify-center items-center gap-1.5 text-green-700 hover:text-green-800 bg-green-100 hover:bg-green-200 text-sm font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                                    >
+                                        Preview
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setBackImage(null)}
+                                        className="flex justify-center items-center gap-1.5 text-slate-500 hover:text-slate-700 bg-white border border-slate-200 text-sm font-semibold px-3 py-1.5 rounded-lg shadow-sm transition-colors"
+                                    >
+                                        Change
+                                    </button>
+                                </div>
                             </div>
                         ) : (
                             <div className="relative">
@@ -484,6 +573,27 @@ export default function WalkInPayment() {
                     )}
                 </button>
             </div>
+
+            {/* Document Viewer Modal */}
+            {viewImage && (
+                <div
+                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/95 backdrop-blur-sm animate-in fade-in duration-200"
+                    onClick={() => setViewImage(null)}
+                >
+                    <button
+                        className="absolute top-4 right-4 text-white/70 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors"
+                        onClick={() => setViewImage(null)}
+                    >
+                        <X className="w-8 h-8" />
+                    </button>
+                    <img
+                        src={viewImage}
+                        className="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl ring-1 ring-white/10"
+                        onClick={e => e.stopPropagation()}
+                        alt="Document Preview"
+                    />
+                </div>
+            )}
         </div>
     );
 }

@@ -15,6 +15,7 @@ type Stay = {
         phone?: string | null;
         whatsapp?: string | null;
         email?: string | null;
+        amenities?: string[] | null;
     };
     check_in: string;
     check_out: string;
@@ -100,6 +101,7 @@ export default function GuestNewHome() {
                                     phone: s.hotel_phone || s.hotel?.phone,
                                     whatsapp: s.hotel_whatsapp || s.hotel?.wa_display_number,
                                     email: s.hotel_email || s.hotel?.email,
+                                    amenities: s.hotel?.amenities || s.hotel_amenities || [],
                                 },
                                 check_in: s.check_in,
                                 check_out: s.check_out,
@@ -145,6 +147,7 @@ export default function GuestNewHome() {
                                     phone: active.hotel_phone || active.hotel?.phone,
                                     whatsapp: active.hotel_whatsapp || active.hotel?.wa_display_number,
                                     email: active.hotel_email || active.hotel?.email,
+                                    amenities: active.hotel?.amenities || active.hotel_amenities || [],
                                 },
                                 check_in: active.check_in,
                                 check_out: active.check_out,
@@ -170,6 +173,7 @@ export default function GuestNewHome() {
                                     phone: mostRecent.hotel_phone || mostRecent.hotel?.phone,
                                     whatsapp: mostRecent.hotel_whatsapp || mostRecent.hotel?.wa_display_number,
                                     email: mostRecent.hotel_email || mostRecent.hotel?.email,
+                                    amenities: mostRecent.hotel?.amenities || mostRecent.hotel_amenities || [],
                                 },
                                 check_in: mostRecent.check_in,
                                 check_out: mostRecent.check_out,
@@ -242,6 +246,36 @@ export default function GuestNewHome() {
     const [grandTotal, setGrandTotal] = useState(0);
     const [ledgerPaid, setLedgerPaid] = useState(0);
     const [ledgerTotalState, setLedgerTotalState] = useState(0);
+    const [hotelAmenities, setHotelAmenities] = useState<any>(null);
+    const [propertyAmenities, setPropertyAmenities] = useState<string[]>([]);
+
+    // Fetch hotel amenities (Wi-Fi, Breakfast, Notes) and general amenities
+    useEffect(() => {
+        if (!currentStay?.hotel_id) return;
+        (async () => {
+            try {
+                const { data } = await supabase
+                    .from("hotel_guest_info")
+                    .select("*")
+                    .eq("hotel_id", currentStay.hotel_id)
+                    .maybeSingle();
+                if (data) setHotelAmenities(data);
+
+                // Fetch proper hotel amenities if they weren't in the stay object, because user_recent_stays view strips them
+                const { data: hotelData } = await supabase
+                    .from("hotels")
+                    .select("amenities")
+                    .eq("id", currentStay.hotel_id)
+                    .maybeSingle();
+
+                if (hotelData?.amenities) {
+                    setPropertyAmenities(hotelData.amenities);
+                }
+            } catch (err) {
+                console.error("[GuestNewHome] Error fetching hotel amenities:", err);
+            }
+        })();
+    }, [currentStay?.hotel_id]);
 
     const handleActionClick = (e: React.MouseEvent, action: 'request_service' | 'track_requests' | 'checkout' | 'call_reception' | 'whatsapp_reception' | 'email_reception') => {
         if (!currentStay) {
@@ -318,6 +352,18 @@ export default function GuestNewHome() {
         } catch {
             return dateStr;
         }
+    };
+
+    // Format SQL Time (HH:MM:SS to h:mm A)
+    const formatSqlTime = (timeStr: string) => {
+        if (!timeStr) return '';
+        const [hours, minutes] = timeStr.split(':');
+        if (!hours || !minutes) return timeStr;
+        const h = parseInt(hours, 10);
+        const m = parseInt(minutes, 10) || 0;
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        const h12 = h % 12 || 12;
+        return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
     };
 
     useEffect(() => {
@@ -431,6 +477,26 @@ export default function GuestNewHome() {
         if (s === 'cancelled' || s === 'rejected') return 'error';
         if (s === 'in_progress' || s === 'preparing' || s === 'new' || s === 'pending') return 'warning';
         return 'info';
+    };
+
+    // Helper for amenity icons
+    const getAmenityIcon = (amenity: string) => {
+        const lower = amenity.toLowerCase();
+        if (lower.includes('wifi') || lower.includes('wi-fi') || lower.includes('internet')) return '📶';
+        if (lower.includes('pool')) return '🏊';
+        if (lower.includes('gym') || lower.includes('fitness')) return '🏋️';
+        if (lower.includes('spa')) return '💆';
+        if (lower.includes('restaurant') || lower.includes('dining')) return '🍽️';
+        if (lower.includes('bar') || lower.includes('lounge')) return '🍸';
+        if (lower.includes('parking')) return '🅿️';
+        if (lower.includes('room service')) return '🛎️';
+        if (lower.includes('pet') || lower.includes('animal')) return '🐾';
+        if (lower.includes('laundry')) return '🧺';
+        if (lower.includes('air conditioning') || lower.includes('ac')) return '❄️';
+        if (lower.includes('meeting') || lower.includes('business')) return '💼';
+        if (lower.includes('breakfast')) return '🍳';
+        if (lower.includes('airport') || lower.includes('shuttle') || lower.includes('transfer')) return '🚐';
+        return '✨'; // default fallback icon
     };
 
     // Calculate nights
@@ -662,42 +728,132 @@ export default function GuestNewHome() {
 
             {/* Main Content Split (Requests + Folio) */}
             <div className="gn-feature-split">
-                {/* Left: Active Requests Table */}
-                <div className="gn-table-card">
-                    <div className="gn-table-header">
-                        <h3 className="gn-table-title">My Active Requests & Orders</h3>
-                        <Link to={`/stay/${currentStay?.booking_code || 'DEMO'}/requests`} style={{ color: 'var(--text-gold)', textDecoration: 'none', fontSize: '0.875rem' }}>View All ›</Link>
-                    </div>
+                {/* Left: Active Requests & Live Folio */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                    <div className="gn-table-card">
+                        <div className="gn-table-header">
+                            <h3 className="gn-table-title">My Active Requests & Orders</h3>
+                            <Link to={`/stay/${currentStay?.booking_code || 'DEMO'}/requests`} style={{ color: 'var(--text-gold)', textDecoration: 'none', fontSize: '0.875rem' }}>View All ›</Link>
+                        </div>
 
-                    <div className="gn-req-list">
-                        {recentRequests.length > 0 ? (
-                            recentRequests.map((req) => (
-                                <div key={`${req.type}-${req.id}`} className="gn-req-row">
-                                    <div className="gn-req-item">
-                                        <div className="gn-req-img" style={{ background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>
-                                            {req.type === 'ticket' ? '🛎️' : '🍽️'}
+                        <div className="gn-req-list">
+                            {recentRequests.length > 0 ? (
+                                recentRequests.map((req) => (
+                                    <div key={`${req.type}-${req.id}`} className="gn-req-row">
+                                        <div className="gn-req-item">
+                                            <div className="gn-req-img" style={{ background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>
+                                                {req.type === 'ticket' ? '🛎️' : '🍽️'}
+                                            </div>
+                                            {req.title}
                                         </div>
-                                        {req.title}
+                                        <div>
+                                            <span className={`gn-pill gn-pill--${getStatusColor(req.status)}`}>
+                                                {req.status}
+                                            </span>
+                                        </div>
+                                        <div className="gn-req-time">
+                                            {new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </div>
                                     </div>
-                                    <div>
-                                        <span className={`gn-pill gn-pill--${getStatusColor(req.status)}`}>
-                                            {req.status}
-                                        </span>
-                                    </div>
-                                    <div className="gn-req-time">
-                                        {new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    </div>
+                                ))
+                            ) : (
+                                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                    No active requests at the moment.
                                 </div>
-                            ))
-                        ) : (
-                            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                                No active requests at the moment.
-                            </div>
-                        )}
+                            )}
+                        </div>
                     </div>
 
-                    {/* Quick Contact Options */}
-                    <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border-subtle)' }}>
+                    <div className="gn-table-card" style={{ padding: '1.5rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                            <h3 className="gn-table-title" style={{ marginBottom: 0 }}>Live Folio</h3>
+                        </div>
+                        <div className="gn-folio" style={{ marginTop: 0 }}>
+                            {folioItems.map((item, i) => (
+                                <div key={i} className="gn-folio-row">
+                                    <span>{item.label}</span>
+                                    <span>{formatCurrency(item.amount)}</span>
+                                </div>
+                            ))}
+
+                            <div className="gn-folio-total">
+                                <span>Current Total:</span>
+                                <span>{formatCurrency(grandTotal)}</span>
+                            </div>
+
+                            <button onClick={downloadInvoice} className="gn-btn-download">Download Invoice</button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Right: Hotel Info & Contact */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                    {hotelAmenities && ["inhouse", "checked_in"].includes(currentStay?.status?.toLowerCase() || "") && (
+                        <div className="gn-table-card">
+                            <div className="gn-table-header">
+                                <h3 className="gn-table-title">Hotel Info & Amenities</h3>
+                            </div>
+                            <div style={{ padding: '1.25rem' }}>
+                                {hotelAmenities.wifi_ssid && (
+                                    <div style={{ paddingBottom: '1rem', borderBottom: '1px solid var(--border-subtle)', marginBottom: '1rem' }}>
+                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Wi-Fi Network</div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <span style={{ fontWeight: 600 }}>{hotelAmenities.wifi_ssid}</span>
+                                        </div>
+                                        {hotelAmenities.wifi_password && (
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+                                                <span style={{ color: 'var(--text-muted)' }}>Password: {hotelAmenities.wifi_password}</span>
+                                                <button
+                                                    onClick={() => {
+                                                        navigator.clipboard.writeText(hotelAmenities.wifi_password);
+                                                        const el = document.getElementById('copy-btn');
+                                                        if (el) { el.innerText = 'Copied!'; setTimeout(() => el.innerText = 'Copy', 2000); }
+                                                    }}
+                                                    id="copy-btn"
+                                                    style={{ fontSize: '0.75rem', padding: '2px 8px', background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '4px', cursor: 'pointer' }}
+                                                >
+                                                    Copy
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                {(hotelAmenities.breakfast_start || hotelAmenities.breakfast_end) && (
+                                    <div style={{ paddingBottom: hotelAmenities.guest_notes ? '1rem' : '0', borderBottom: hotelAmenities.guest_notes ? '1px solid var(--border-subtle)' : 'none', marginBottom: hotelAmenities.guest_notes ? '1rem' : '0' }}>
+                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>🍳 Breakfast Hours</div>
+                                        <div style={{ fontWeight: 500 }}>
+                                            {hotelAmenities.breakfast_start && hotelAmenities.breakfast_end
+                                                ? `${formatSqlTime(hotelAmenities.breakfast_start)} - ${formatSqlTime(hotelAmenities.breakfast_end)}`
+                                                : formatSqlTime(hotelAmenities.breakfast_start) || formatSqlTime(hotelAmenities.breakfast_end)}
+                                        </div>
+                                    </div>
+                                )}
+                                {hotelAmenities.guest_notes && (
+                                    <div>
+                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>📌 Guest Notes</div>
+                                        <div style={{ fontSize: '0.875rem', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                                            {hotelAmenities.guest_notes}
+                                        </div>
+                                    </div>
+                                )}
+                                {propertyAmenities.length > 0 && (
+                                    <div style={{ marginTop: hotelAmenities.guest_notes || hotelAmenities.breakfast_start || hotelAmenities.wifi_ssid ? '1.5rem' : '0', paddingTop: hotelAmenities.guest_notes || hotelAmenities.breakfast_start || hotelAmenities.wifi_ssid ? '1rem' : '0', borderTop: hotelAmenities.guest_notes || hotelAmenities.breakfast_start || hotelAmenities.wifi_ssid ? '1px solid var(--border-subtle)' : 'none' }}>
+                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem' }}>Property Amenities</div>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                            {propertyAmenities.map((amenity: string, idx: number) => (
+                                                <div key={idx} style={{ padding: '4px 10px', background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '20px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    <span>{getAmenityIcon(amenity)}</span>
+                                                    <span>{amenity}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="gn-table-card" style={{ padding: '1.5rem' }}>
                         <h4 style={{ marginBottom: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Contact Us</h4>
                         <div className="gn-support-grid">
                             {currentStay?.hotel?.phone && (
@@ -731,28 +887,8 @@ export default function GuestNewHome() {
                             )}
                         </div>
                     </div>
-                </div>
 
-                {/* Right: Live Folio Widget */}
-                <div>
-                    <h3 className="gn-table-title" style={{ marginBottom: '1rem' }}>Live Folio</h3>
-                    <div className="gn-folio">
-                        {folioItems.map((item, i) => (
-                            <div key={i} className="gn-folio-row">
-                                <span>{item.label}</span>
-                                <span>{formatCurrency(item.amount)}</span>
-                            </div>
-                        ))}
-
-                        <div className="gn-folio-total">
-                            <span>Current Total:</span>
-                            <span>{formatCurrency(grandTotal)}</span>
-                        </div>
-
-                        <button onClick={downloadInvoice} className="gn-btn-download">Download Invoice</button>
-                    </div>
-
-                    <div style={{ marginTop: '1rem', textAlign: 'right' }}>
+                    <div style={{ textAlign: 'right' }}>
                         <Link to="/contact" className="gn-btn gn-btn--ghost">
                             Need Help?
                         </Link>

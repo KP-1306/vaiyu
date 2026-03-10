@@ -248,6 +248,39 @@ async function formatEmailMessage(
         `;
     }
 
+    if (template === "staff_invite") {
+        const inviteLink = `https://vaiyu.co.in/invite/${payload.invite_token}`;
+        subject = `Invitation to join ${hotel} on Vaiyu`;
+        body = `
+            ${commonHeader}
+              <h2 style="margin-top:0;">You're Invited!</h2>
+              <p style="font-size:16px;line-height:1.6;margin-bottom:28px;">
+                Hello,<br>
+                You have been invited to join the team at <strong>${hotel}</strong> on Vaiyu.
+                Click the button below to accept your invitation and set up your account.
+              </p>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                  <a href="${inviteLink}" 
+                     style="display:inline-block;padding:16px 36px;background:linear-gradient(135deg,#5b8cff,#7f53ff);
+                     color:#ffffff;text-decoration:none;font-weight:bold;border-radius:8px;
+                     font-size:16px;box-shadow:0 4px 12px rgba(91,140,255,0.3);">
+                     Accept Invitation
+                  </a>
+                  <p style="margin-top:15px;font-size:12px;color:#999;">
+                    This link will expire in 7 days.
+                  </p>
+              </div>
+
+              <p style="font-size:14px;color:#777;text-align:center;">
+                If the button above doesn't work, copy and paste this link into your browser:<br>
+                <span style="color:#5b8cff;word-break:break-all;">${inviteLink}</span>
+              </p>
+
+              ${commonFooterSimple}
+        `;
+    }
+
     return { subject, html: body };
 }
 
@@ -289,57 +322,70 @@ Deno.serve(async (req) => {
             // 2. Process each notification
             for (const notif of notifications) {
                 try {
-                    const { guest_name } = notif.payload || {};
+                    // ─── Fetch Recipient & Hotel Context ───
+                    let recipientEmail = "";
+                    let recipientPhone = "";
+                    let recipientName = notif.payload?.guest_name;
+                    let hotelData: any = null;
 
-                    // Get Booking & Hotel details for contact info
-                    const { data: booking, error: bookingErr } = await supabase
-                        .from("bookings")
-                        .select(
-                            `
-              phone,
-              email,
-              guest_name,
-              hotels ( id, name, wa_phone_number_id, email )
-            `
-                        )
-                        .eq("id", notif.booking_id)
-                        .single();
+                    if (notif.booking_id) {
+                        // Get Booking & Hotel details
+                        const { data: booking, error: bookingErr } = await supabase
+                            .from("bookings")
+                            .select(`
+                                phone,
+                                email,
+                                guest_name,
+                                hotels ( id, name, wa_phone_number_id, email )
+                            `)
+                            .eq("id", notif.booking_id)
+                            .single();
 
-                    if (bookingErr || !booking) throw new Error("Booking not found");
+                        if (bookingErr || !booking) throw new Error("Booking not found");
 
-                    const hotel = booking.hotels;
-                    const actualGuestName = guest_name || booking.guest_name;
+                        hotelData = booking.hotels;
+                        recipientEmail = booking.email;
+                        recipientPhone = booking.phone;
+                        recipientName = recipientName || booking.guest_name;
+                    } else if (notif.template_code === 'staff_invite') {
+                        // Staff Invite: Use payload info + fetch hotel
+                        recipientEmail = notif.payload?.email;
+                        const { data: hotel, error: hotelErr } = await supabase
+                            .from("hotels")
+                            .select("id, name, wa_phone_number_id, email")
+                            .eq("id", notif.payload?.hotel_id)
+                            .single();
+
+                        if (hotelErr || !hotel) throw new Error("Hotel not found for invite");
+                        hotelData = hotel;
+                    } else {
+                        throw new Error("Missing context (booking_id or staff payload)");
+                    }
 
                     // Send based on channel
                     if (notif.channel === "whatsapp") {
-                        if (!hotel?.wa_phone_number_id)
+                        if (!hotelData?.wa_phone_number_id)
                             throw new Error("Hotel WhatsApp ID not configured");
-                        if (!booking.phone) throw new Error("Guest phone missing");
+                        if (!recipientPhone) throw new Error("Recipient phone missing");
 
                         const message = await formatWhatsAppMessage(
                             notif.template_code,
                             notif.payload,
-                            actualGuestName
+                            recipientName || "Valued User"
                         );
                         await sendWhatsAppText(
-                            hotel.wa_phone_number_id,
-                            booking.phone,
+                            hotelData.wa_phone_number_id,
+                            recipientPhone,
                             message
                         );
                     } else if (notif.channel === "email") {
                         if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY not set");
-                        if (!booking.email) throw new Error("Guest email missing");
+                        if (!recipientEmail) throw new Error("Recipient email missing");
 
                         // DEV MODE: Use onboarding@resend.dev until domain is verified
                         const from = "onboarding@resend.dev";
 
-                        /* PROD MODE (Once domain verified):
-                        const from = hotel?.email
-                            ? `${hotel.name || 'Hotel'} <${hotel.email}>`
-                            : "Vaiyu <stays@vaiyu.co.in>";
-                        */
-
-                        const recipient = (booking.email || "").trim().toLowerCase();
+                        const recipient = (recipientEmail || "").trim().toLowerCase();
 
                         // Special Handling: Magic Link for Pre-Checkin Completion
                         if (notif.template_code === 'precheckin_completed_access') {
@@ -366,12 +412,12 @@ Deno.serve(async (req) => {
                         const { subject, html } = await formatEmailMessage(
                             notif.template_code,
                             notif.payload,
-                            actualGuestName,
-                            hotel.name || "Hotel"
+                            recipientName || "Valued User",
+                            hotelData.name || "Hotel"
                         );
 
                         console.log(
-                            `[Email] Sending to: "${recipient}" for booking ${notif.booking_id}`
+                            `[Email] Sending to: "${recipient}" using template ${notif.template_code}`
                         );
 
                         await sendEmail(from, recipient, subject, html);

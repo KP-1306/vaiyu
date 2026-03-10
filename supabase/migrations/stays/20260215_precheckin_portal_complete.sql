@@ -161,131 +161,6 @@ CREATE INDEX IF NOT EXISTS idx_booking_rooms_booking ON booking_rooms (booking_i
 -- Purpose: Validate token and return booking details
 -- ============================================================
 -- Drop existing overloads to avoid "function not unique" errors
-DROP FUNCTION IF EXISTS validate_precheckin_token(TEXT, UUID, BOOLEAN);
-DROP FUNCTION IF EXISTS validate_precheckin_token(TEXT);
-DROP FUNCTION IF EXISTS validate_precheckin_token(UUID);
-
-CREATE OR REPLACE FUNCTION validate_precheckin_token(
-  p_token TEXT,
-  p_hotel_id UUID DEFAULT NULL,
-  p_ignore_usage BOOLEAN DEFAULT FALSE
-)
-RETURNS JSONB
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_token_record RECORD;
-BEGIN
-  -- Find valid token (with concurrency lock - Blocking FOR UPDATE to ensure consistency)
-  SELECT
-    pt.id AS token_id,
-    pt.booking_id,
-    pt.expires_at,
-    pt.used_at,
-    pt.precheckin_data,
-    b.code AS booking_code,
-    b.guest_name,
-    COALESCE(g.mobile, b.phone) AS phone,
-    COALESCE(g.email, b.email, (SELECT email FROM profiles WHERE id = b.guest_profile_id)) AS email,
-    b.scheduled_checkin_at,
-    b.scheduled_checkout_at,
-    b.status AS booking_status,
-    b.adults_total,
-    b.children_total,
-    b.rooms_total,
-    h.id AS hotel_id,
-    h.name AS hotel_name,
-    (SELECT rt.name FROM booking_rooms br
-     JOIN room_types rt ON rt.id = br.room_type_id
-     WHERE br.booking_id = b.id
-     ORDER BY br.room_seq LIMIT 1) AS room_type_name,
-    (SELECT br.room_type_id FROM booking_rooms br
-     WHERE br.booking_id = b.id
-     ORDER BY br.room_seq LIMIT 1) AS room_type_id,
-    (SELECT br.room_id FROM booking_rooms br
-     WHERE br.booking_id = b.id
-     ORDER BY br.room_seq LIMIT 1) AS room_id,
-    g.nationality,
-    g.address,
-    (SELECT jsonb_build_object(
-        'type', gid.document_type,
-        'number', gid.document_number,
-        'has_front_image', gid.front_image_url IS NOT NULL,
-        'has_back_image', gid.back_image_url IS NOT NULL
-     )
-     FROM guest_id_documents gid
-     WHERE gid.guest_id = b.guest_id
-     ORDER BY gid.updated_at DESC LIMIT 1
-    ) AS identity_proof
-  INTO v_token_record
-  FROM precheckin_tokens pt
-  JOIN bookings b ON b.id = pt.booking_id
-  JOIN hotels h ON h.id = b.hotel_id
-  LEFT JOIN guests g ON g.id = b.guest_id
-  WHERE pt.token = p_token
-    AND (p_hotel_id IS NULL OR pt.hotel_id = p_hotel_id)
-  FOR UPDATE OF pt;
-
-  -- Token not found
-  IF NOT FOUND THEN
-    RETURN jsonb_build_object(
-      'valid', false,
-      'error', 'Invalid token'
-    );
-  END IF;
-
-  -- Token already used (Bypass if p_ignore_usage is TRUE)
-  IF v_token_record.used_at IS NOT NULL AND NOT p_ignore_usage THEN
-    RETURN jsonb_build_object(
-      'valid', false,
-      'error', 'Pre-check-in already completed',
-      'completed_at', v_token_record.used_at
-    );
-  END IF;
-
-  -- Token expired (NEVER bypassed by p_ignore_usage)
-  IF v_token_record.expires_at IS NOT NULL 
-     AND v_token_record.expires_at < now() THEN
-    RETURN jsonb_build_object(
-      'valid', false,
-      'error', 'This link has expired'
-    );
-  END IF;
-
-  -- Valid — return booking details
-  RETURN jsonb_build_object(
-    'valid', true,
-    'token_id', v_token_record.token_id,
-    'booking_id', v_token_record.booking_id,
-    'id', v_token_record.booking_id,
-    'code', v_token_record.booking_code,
-    'booking_code', v_token_record.booking_code,
-    'guest_name', v_token_record.guest_name,
-    'phone', v_token_record.phone,
-    'email', v_token_record.email,
-    'scheduled_checkin_at', v_token_record.scheduled_checkin_at,
-    'scheduled_checkout_at', v_token_record.scheduled_checkout_at,
-    'status', v_token_record.booking_status,
-    'booking_status', v_token_record.booking_status,
-    'hotel_id', v_token_record.hotel_id,
-    'hotel_name', v_token_record.hotel_name,
-    'adults', COALESCE(v_token_record.adults_total, 1),
-    'children', COALESCE(v_token_record.children_total, 0),
-    'rooms_total', COALESCE(v_token_record.rooms_total, 1),
-    'room_type', v_token_record.room_type_name,
-    'room_type_id', v_token_record.room_type_id,
-    'room_id', v_token_record.room_id,
-    'nationality', v_token_record.nationality,
-    'address', v_token_record.address,
-    'identity_proof', v_token_record.identity_proof,
-    'precheckin_completed', (v_token_record.used_at IS NOT NULL),
-    'precheckin_data', v_token_record.precheckin_data
-  );
-END;
-$$;
-
 GRANT EXECUTE ON FUNCTION validate_precheckin_token TO anon, authenticated;
 
 
@@ -294,19 +169,16 @@ GRANT EXECUTE ON FUNCTION validate_precheckin_token TO anon, authenticated;
 -- Purpose: Save guest pre-check-in data, mark token used, save ID
 -- ============================================================
 -- Drop existing overloads to avoid "function not unique" errors
-DROP FUNCTION IF EXISTS submit_precheckin(TEXT, JSONB);
-DROP FUNCTION IF EXISTS submit_precheckin(JSONB);
-DROP FUNCTION IF EXISTS submit_precheckin(UUID, JSONB);
+DROP FUNCTION IF EXISTS public.submit_precheckin(text, jsonb);
+DROP FUNCTION IF EXISTS public.submit_precheckin(jsonb);
+DROP FUNCTION IF EXISTS public.submit_precheckin(uuid, jsonb);
 
-CREATE OR REPLACE FUNCTION submit_precheckin(
-  p_token TEXT,
-  p_data JSONB
-)
-RETURNS JSONB
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
+CREATE OR REPLACE FUNCTION public.submit_precheckin(p_token text, p_data jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 DECLARE
   v_token_id UUID;
   v_booking_id UUID;
@@ -517,23 +389,15 @@ BEGIN
       END IF;
   END IF;
 
-  -- 7. Insert ID Document (Secure with History)
+  -- 7. Upsert ID Document (Ensures one document per type per guest)
   IF p_data->>'id_number' IS NOT NULL AND p_data->>'id_number' != '' THEN
-      -- Deactivate existing documents of the SAME TYPE for this guest
-      UPDATE guest_id_documents 
-      SET is_active = false 
-      WHERE guest_id = v_guest_id 
-      AND document_type = COALESCE((p_data->>'id_type')::guest_document_type, 'other')
-      AND is_active = true;
-
-      -- Insert new active document
       INSERT INTO guest_id_documents (
           guest_id, 
           document_type, 
           document_number, 
           front_image_url, 
           back_image_url, 
-          verification_status,
+          verification_status, 
           is_active
       )
       VALUES (
@@ -544,7 +408,15 @@ BEGIN
         p_data->>'back_image_url',
         'pending',
         true
-      );
+      )
+      ON CONFLICT (guest_id, document_type) 
+      DO UPDATE SET
+        document_number = EXCLUDED.document_number,
+        front_image_url = COALESCE(EXCLUDED.front_image_url, guest_id_documents.front_image_url),
+        back_image_url = COALESCE(EXCLUDED.back_image_url, guest_id_documents.back_image_url),
+        verification_status = 'pending',
+        is_active = true,
+        updated_at = now();
   END IF;
 
   -- 8. Mark Token Used (Final Step - Atomic Commit)
@@ -581,8 +453,8 @@ BEGIN
     'completed_at', now()
   );
 END;
-$$;
-GRANT EXECUTE ON FUNCTION submit_precheckin TO anon, authenticated;
+$function$;
+GRANT EXECUTE ON FUNCTION public.submit_precheckin(text, jsonb) TO anon, authenticated;
 
 
 -- 5.2 Document History & Integrity
@@ -601,92 +473,6 @@ WHERE is_active = true;
 -- ============================================================
 -- 6. RPC: search_booking (Kiosk Support)
 -- ============================================================
-CREATE OR REPLACE FUNCTION search_booking(
-  p_query TEXT,
-  p_hotel_id UUID DEFAULT NULL,
-  p_limit INT DEFAULT 10
-)
-RETURNS TABLE (
-  booking_id UUID,
-  booking_code TEXT,
-  status TEXT,
-  guest_name TEXT,
-  phone TEXT,
-  email TEXT,
-  scheduled_checkin_at TIMESTAMPTZ,
-  scheduled_checkout_at TIMESTAMPTZ,
-  room_type TEXT,
-  adults INT,
-  children INT,
-  source TEXT,
-  hotel_id UUID,
-  nationality TEXT,
-  address TEXT,
-  room_type_id UUID,
-  room_id UUID,
-  identity_proof JSONB
-)
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-BEGIN
-  p_query := trim(p_query);
-  IF length(p_query) < 2 THEN
-     RAISE EXCEPTION 'Search query too short';
-  END IF;
-
-  p_limit := LEAST(GREATEST(p_limit,1),50);
-
-  RETURN QUERY
-  SELECT DISTINCT ON (b.id)
-    b.id::UUID,
-    b.code::TEXT,
-    b.status::TEXT,
-    b.guest_name::TEXT,
-    b.phone::TEXT,
-    COALESCE(p.email, b.email)::TEXT,
-    b.scheduled_checkin_at::TIMESTAMPTZ,
-    b.scheduled_checkout_at::TIMESTAMPTZ,
-    rt.name::TEXT,
-    COALESCE(b.adults_total, 1)::INT,
-    COALESCE(b.children_total, 0)::INT,
-    b.source::TEXT,
-    b.hotel_id::UUID,
-    g.nationality::TEXT,
-    g.address::TEXT,
-    br.room_type_id::UUID,
-    br.room_id::UUID,
-    (SELECT jsonb_build_object(
-        'type', gid.document_type,
-        'number', gid.document_number,
-        'front_image', gid.front_image_url,
-        'back_image', gid.back_image_url
-     )
-     FROM guest_id_documents gid
-     WHERE gid.guest_id = b.guest_id
-     AND gid.is_active = true
-     ORDER BY gid.created_at DESC LIMIT 1
-    )::JSONB
-  FROM bookings b
-  LEFT JOIN profiles p ON b.guest_profile_id = p.id
-  LEFT JOIN booking_rooms br ON br.booking_id = b.id
-  LEFT JOIN room_types rt ON rt.id = br.room_type_id
-  LEFT JOIN guests g ON g.id = b.guest_id
-  WHERE (p_hotel_id IS NULL OR b.hotel_id = p_hotel_id)
-    AND (
-        b.code ILIKE '%' || p_query || '%'
-        OR b.phone ILIKE '%' || p_query || '%'
-        OR p.email ILIKE '%' || p_query || '%'
-        OR b.email ILIKE '%' || p_query || '%'
-    )
-    AND b.status IN ('CREATED','CONFIRMED','PRE_CHECKED_IN')
-  ORDER BY b.id, br.room_seq NULLS LAST, b.scheduled_checkin_at
-  LIMIT p_limit;
-END;
-$$;
-
-
 -- ============================================================
 -- 7. HELPER: generate_precheckin_tokens (Bulk generation)
 -- ============================================================
@@ -863,18 +649,34 @@ USING ( bucket_id = 'identity_proofs' AND owner = auth.uid() );
 CREATE TABLE IF NOT EXISTS identity_document_views (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   guest_id UUID NOT NULL REFERENCES guests(id) ON DELETE CASCADE,
-  staff_user_id UUID NOT NULL REFERENCES auth.users(id),
+  staff_user_id UUID REFERENCES auth.users(id), -- Nullable for PRECHECKIN_TOKEN access
   hotel_id UUID NOT NULL REFERENCES hotels(id) ON DELETE CASCADE,
   document_side TEXT NOT NULL CHECK (document_side IN ('front', 'back')),
   document_type TEXT,
   booking_id UUID REFERENCES bookings(id) ON DELETE SET NULL,
   ip_address INET,
+  access_method TEXT NOT NULL DEFAULT 'STAFF' CHECK (access_method IN ('STAFF', 'PRECHECKIN_TOKEN')),
   viewed_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Ensure idempotency for existing databases
+DO $$
+BEGIN
+  -- Make staff_user_id nullable if it was previously NOT NULL
+  ALTER TABLE identity_document_views ALTER COLUMN staff_user_id DROP NOT NULL;
+  
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='identity_document_views' AND column_name='access_method') THEN
+    ALTER TABLE identity_document_views ADD COLUMN access_method TEXT NOT NULL DEFAULT 'STAFF' CHECK (access_method IN ('STAFF', 'PRECHECKIN_TOKEN'));
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_doc_views_guest ON identity_document_views(guest_id);
 CREATE INDEX IF NOT EXISTS idx_doc_views_staff ON identity_document_views(staff_user_id);
 CREATE INDEX IF NOT EXISTS idx_doc_views_hotel ON identity_document_views(hotel_id, viewed_at);
+CREATE INDEX IF NOT EXISTS idx_doc_views_staff_rate ON identity_document_views(staff_user_id, guest_id, viewed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_doc_views_guest_rate ON identity_document_views(guest_id, viewed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_guest_documents_lookup
+ON guest_id_documents (guest_id, is_active, created_at DESC);
 
 ALTER TABLE identity_document_views ENABLE ROW LEVEL SECURITY;
 
@@ -914,3 +716,192 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_precheckin_tokens_token_lookup
 ON precheckin_tokens (token);
 CREATE INDEX IF NOT EXISTS idx_guest_documents_guest_updated
 ON guest_id_documents (guest_id, updated_at DESC);
+
+-- ============================================================
+-- RPCs: validate_precheckin_token and search_booking
+-- Updated to match production state + guest_id exposure
+-- ============================================================
+
+DROP FUNCTION IF EXISTS public.search_booking(text, uuid, integer);
+CREATE OR REPLACE FUNCTION public.search_booking(p_query text, p_hotel_id uuid DEFAULT NULL::uuid, p_limit integer DEFAULT 10)
+ RETURNS TABLE(booking_id uuid, booking_code text, status text, guest_name text, phone text, email text, scheduled_checkin_at timestamp with time zone, scheduled_checkout_at timestamp with time zone, room_type text, adults integer, children integer, source text, hotel_id uuid, nationality text, address text, room_type_id uuid, room_id uuid, guest_id uuid, identity_proof jsonb)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  p_query := trim(p_query);
+  IF length(p_query) < 2 THEN
+     RAISE EXCEPTION 'Search query too short';
+  END IF;
+
+  p_limit := LEAST(GREATEST(p_limit,1),50);
+
+  RETURN QUERY
+  SELECT DISTINCT ON (b.id)
+    b.id::UUID,
+    b.code::TEXT,
+    b.status::TEXT,
+    b.guest_name::TEXT,
+    b.phone::TEXT,
+    COALESCE(p.email, b.email)::TEXT,
+    b.scheduled_checkin_at::TIMESTAMPTZ,
+    b.scheduled_checkout_at::TIMESTAMPTZ,
+    rt.name::TEXT,
+    COALESCE(b.adults_total, 1)::INT,
+    COALESCE(b.children_total, 0)::INT,
+    b.source::TEXT,
+    b.hotel_id::UUID,
+    g.nationality::TEXT,
+    g.address::TEXT,
+    br.room_type_id::UUID,
+    br.room_id::UUID,
+    b.guest_id::UUID,
+    (SELECT jsonb_build_object(
+        'type', gid.document_type,
+        'number', gid.document_number,
+        'front_image', gid.front_image_url,
+        'back_image', gid.back_image_url
+     )
+     FROM guest_id_documents gid
+     WHERE gid.guest_id = b.guest_id
+     AND gid.is_active = true
+     ORDER BY gid.created_at DESC LIMIT 1
+    )::JSONB
+  FROM bookings b
+  LEFT JOIN profiles p ON b.guest_profile_id = p.id
+  LEFT JOIN booking_rooms br ON br.booking_id = b.id
+  LEFT JOIN room_types rt ON rt.id = br.room_type_id
+  LEFT JOIN guests g ON g.id = b.guest_id
+  WHERE (p_hotel_id IS NULL OR b.hotel_id = p_hotel_id)
+    AND (
+        b.code ILIKE '%' || p_query || '%'
+        OR b.phone ILIKE '%' || p_query || '%'
+        OR p.email ILIKE '%' || p_query || '%'
+        OR b.email ILIKE '%' || p_query || '%'
+    )
+    AND b.status IN ('CREATED','CONFIRMED','PRE_CHECKED_IN')
+  ORDER BY b.id, br.room_seq NULLS LAST, b.scheduled_checkin_at
+  LIMIT p_limit;
+END;
+$function$;
+
+DROP FUNCTION IF EXISTS public.validate_precheckin_token(text, uuid, boolean);
+CREATE OR REPLACE FUNCTION public.validate_precheckin_token(p_token text, p_hotel_id uuid DEFAULT NULL::uuid, p_ignore_usage boolean DEFAULT false)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_token_record RECORD;
+BEGIN
+  -- Find valid token (with concurrency lock - Blocking FOR UPDATE to ensure consistency)
+  SELECT
+    pt.id AS token_id,
+    pt.booking_id,
+    pt.expires_at,
+    pt.used_at,
+    pt.precheckin_data,
+    b.code AS booking_code,
+    b.guest_name,
+    COALESCE(g.mobile, b.phone) AS phone,
+    COALESCE(g.email, b.email, (SELECT email FROM profiles WHERE id = b.guest_profile_id)) AS email,
+    b.scheduled_checkin_at,
+    b.scheduled_checkout_at,
+    b.status AS booking_status,
+    b.adults_total,
+    b.children_total,
+    b.rooms_total,
+    b.guest_id,
+    h.id AS hotel_id,
+    h.name AS hotel_name,
+    (SELECT rt.name FROM booking_rooms br
+     JOIN room_types rt ON rt.id = br.room_type_id
+     WHERE br.booking_id = b.id
+     ORDER BY br.room_seq LIMIT 1) AS room_type_name,
+    (SELECT br.room_type_id FROM booking_rooms br
+     WHERE br.booking_id = b.id
+     ORDER BY br.room_seq LIMIT 1) AS room_type_id,
+    (SELECT br.room_id FROM booking_rooms br
+     WHERE br.booking_id = b.id
+     ORDER BY br.room_seq LIMIT 1) AS room_id,
+    g.nationality,
+    g.address,
+    (SELECT jsonb_build_object(
+        'type', gid.document_type,
+        'number', gid.document_number,
+        'front_image', gid.front_image_url,
+        'back_image', gid.back_image_url
+     )
+     FROM guest_id_documents gid
+     WHERE gid.guest_id = b.guest_id
+     ORDER BY gid.updated_at DESC LIMIT 1
+    ) AS identity_proof
+  INTO v_token_record
+  FROM precheckin_tokens pt
+  JOIN bookings b ON b.id = pt.booking_id
+  JOIN hotels h ON h.id = b.hotel_id
+  LEFT JOIN guests g ON g.id = b.guest_id
+  WHERE pt.token = p_token
+    AND (p_hotel_id IS NULL OR pt.hotel_id = p_hotel_id)
+  FOR UPDATE OF pt;
+
+  -- Token not found
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object(
+      'valid', false,
+      'error', 'Invalid token'
+    );
+  END IF;
+
+  -- Token already used (Bypass if p_ignore_usage is TRUE)
+  IF v_token_record.used_at IS NOT NULL AND NOT p_ignore_usage THEN
+    RETURN jsonb_build_object(
+      'valid', false,
+      'error', 'Pre-check-in already completed',
+      'completed_at', v_token_record.used_at
+    );
+  END IF;
+
+  -- Token expired (NEVER bypassed by p_ignore_usage)
+  IF v_token_record.expires_at IS NOT NULL 
+     AND v_token_record.expires_at < now() THEN
+    RETURN jsonb_build_object(
+      'valid', false,
+      'error', 'This link has expired'
+    );
+  END IF;
+
+  -- Valid — return booking details
+  RETURN jsonb_build_object(
+    'valid', true,
+    'token_id', v_token_record.token_id,
+    'booking_id', v_token_record.booking_id,
+    'id', v_token_record.booking_id,
+    'code', v_token_record.booking_code,
+    'booking_code', v_token_record.booking_code,
+    'guest_name', v_token_record.guest_name,
+    'phone', v_token_record.phone,
+    'email', v_token_record.email,
+    'scheduled_checkin_at', v_token_record.scheduled_checkin_at,
+    'scheduled_checkout_at', v_token_record.scheduled_checkout_at,
+    'status', v_token_record.booking_status,
+    'booking_status', v_token_record.booking_status,
+    'hotel_id', v_token_record.hotel_id,
+    'hotel_name', v_token_record.hotel_name,
+    'adults', COALESCE(v_token_record.adults_total, 1),
+    'children', COALESCE(v_token_record.children_total, 0),
+    'rooms_total', COALESCE(v_token_record.rooms_total, 1),
+    'room_type', v_token_record.room_type_name,
+    'room_type_id', v_token_record.room_type_id,
+    'room_id', v_token_record.room_id,
+    'guest_id', v_token_record.guest_id,
+    'nationality', v_token_record.nationality,
+    'address', v_token_record.address,
+    'identity_proof', v_token_record.identity_proof,
+    'precheckin_completed', (v_token_record.used_at IS NOT NULL),
+    'precheckin_data', v_token_record.precheckin_data
+  );
+END;
+$function$;

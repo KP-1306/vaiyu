@@ -16,6 +16,8 @@ import {
     Receipt
 } from "lucide-react";
 
+import { parseDbDate } from "../utils/dateUtils";
+
 type FoodOrderData = {
     id: string;
     display_id?: string; // If we have one, else UUID
@@ -178,13 +180,13 @@ export default function FoodOrderTracker() {
     }
 
     // --- Logic for status/ETA ---
-    const createdTime = new Date(data.created_at);
+    const createdTime = parseDbDate(data.created_at) || new Date();
     const isCompleted = ['COMPLETED', 'DELIVERED', 'CLOSED', 'RESOLVED'].includes(data.status);
     const isCancelled = data.status === 'CANCELLED';
 
     // Estimate: If SLA exists, use target. Else default 45 mins?
     // food_order_sla_state usually has sla_target_at
-    const targetTime = data.sla?.sla_target_at ? new Date(data.sla.sla_target_at) : new Date(createdTime.getTime() + 45 * 60000);
+    const targetTime = parseDbDate(data.sla?.sla_target_at) || new Date(createdTime.getTime() + 45 * 60000);
 
     let diffMs = targetTime.getTime() - now.getTime();
     const totalDuration = targetTime.getTime() - createdTime.getTime();
@@ -210,10 +212,10 @@ export default function FoodOrderTracker() {
     // Get timestamps from events
     const getEventTime = (eventType: string) => {
         const event = data.events?.find(e => e.event_type === eventType);
-        return event ? new Date(event.created_at) : null;
+        return event ? parseDbDate(event.created_at) : null;
     };
 
-    const acceptedTime = getEventTime('ORDER_ACCEPTED') || (data.sla?.sla_started_at ? new Date(data.sla.sla_started_at) : null);
+    const acceptedTime = getEventTime('ORDER_ACCEPTED') || parseDbDate(data.sla?.sla_started_at);
     const preparingTime = getEventTime('ORDER_PREPARING');
     const readyTime = getEventTime('ORDER_READY');
     const deliveredTime = getEventTime('ORDER_DELIVERED');

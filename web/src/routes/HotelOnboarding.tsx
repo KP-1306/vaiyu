@@ -8,7 +8,8 @@ import {
     Pencil, MoreVertical, AlertTriangle, Filter, GripVertical,
     Shield, FileText, UserPlus, Key, Eye,
     Copy, Upload, Download, History, RotateCcw, ShieldAlert, Info, MoreHorizontal, Save, Clock,
-    ArrowUpCircle, Bell, HelpCircle, MapPin
+    ArrowUpCircle, Bell, HelpCircle, MapPin, Mail, Phone,
+    Star, UserCircle, Map, Paintbrush, Coffee
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { ImageUpload } from "../components/ImageUpload";
@@ -28,6 +29,12 @@ interface HotelForm {
     invoice_prefix: string; invoice_counter: string; starting_invoice: string;
     brand_color: string; upi_id: string; booking_url: string;
     amenities: string[];
+    // Guest Info
+    wifi_ssid?: string;
+    wifi_password?: string;
+    breakfast_start?: string;
+    breakfast_end?: string;
+    guest_notes?: string;
 }
 
 interface RoomType {
@@ -206,6 +213,7 @@ export default function HotelOnboarding() {
     /* ── User State ── */
     const [userEmail, setUserEmail] = useState<string>("Loading...");
     const [userInitials, setUserInitials] = useState<string>("");
+    const [userId, setUserId] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchUser = async () => {
@@ -214,6 +222,7 @@ export default function HotelOnboarding() {
                 const email = session.user.email;
                 setUserEmail(email);
                 setUserInitials(email.substring(0, 2).toUpperCase());
+                setUserId(session.user.id);
             } else {
                 setUserEmail("Unknown User");
                 setUserInitials("??");
@@ -235,6 +244,7 @@ export default function HotelOnboarding() {
         invoice_prefix: "", invoice_counter: "1", starting_invoice: "",
         brand_color: "#6366F1", upi_id: "", booking_url: "",
         amenities: [],
+        wifi_ssid: "", wifi_password: "", breakfast_start: "07:00", breakfast_end: "10:30", guest_notes: ""
     }, "vaiyu_ob_form");
 
     /* ── Room Setup State (Redesign) ── */
@@ -268,11 +278,43 @@ export default function HotelOnboarding() {
     const [staffMembers, setStaffMembers] = useStickyState<StaffMember[]>(() => [
         { id: generateId(), name: "First Staff Account", email: "staff@example.com", phone: "", role: "Manager", status: "Active", assignedZones: "All Zones", employmentStatus: "Active", accountStatus: "Invite Sent", lastLogin: "", ipAddress: "", selected: false },
     ], "vaiyu_ob_staff");
-    const [staffTab, setStaffTab] = useState<'manage' | 'roles' | 'logs'>('manage');
+    const [staffTab, setStaffTab] = useState<'manage' | 'roles' | 'logs'>('roles');
+    const [rolesSearch, setRolesSearch] = useState("");
+
+    const [showAddRoleModal, setShowAddRoleModal] = useState(false);
+    const [availableRoles, setAvailableRoles] = useState<any[]>([]);
+    const [selectedRolesToAdd, setSelectedRolesToAdd] = useState<string[]>([]);
+    const [loadingRoles, setLoadingRoles] = useState(false);
+
+    useEffect(() => {
+        const fetchSystemRoles = async () => {
+            if (!showAddRoleModal) return;
+            setLoadingRoles(true);
+            try {
+                const { data, error } = await supabase
+                    .from('system_role_templates')
+                    .select('*')
+                    .eq('is_active', true)
+                    .order('code', { ascending: true });
+
+                if (error) throw error;
+                if (data) {
+                    setAvailableRoles(data);
+                }
+            } catch (err) {
+                console.error("Failed to load role templates:", err);
+            } finally {
+                setLoadingRoles(false);
+            }
+        };
+        fetchSystemRoles();
+    }, [showAddRoleModal]);
+
     const [staffSearch, setStaffSearch] = useState("");
     const [staffRoleFilter, setStaffRoleFilter] = useState("");
     const [staffStatusFilter, setStaffStatusFilter] = useState("");
     const [staffZoneFilter, setStaffZoneFilter] = useState("");
+    const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
 
     /* ── Roles & Permissions State ── */
     const [rolePerms, setRolePerms] = useStickyState<RolePermRow[]>(() => [
@@ -282,7 +324,13 @@ export default function HotelOnboarding() {
         { roleLabel: 'Maintenance', contact: '', scopes: makeScopes('Global'), perms: makePerms(false, { 'housekeeping.View Board': true, 'maintenance.View Requests': true, 'maintenance.Handle Requests': true, 'maintenance.Mark Out of Order': true, 'maintenance.Complete Task': true, 'room_service.View Orders': true }) },
         { roleLabel: 'Security Guard', contact: '', scopes: makeScopes('Global'), perms: makePerms(false, { 'security.Access Reports': true, 'security.View Logs': true, 'housekeeping.View Board': true }) },
     ], "vaiyu_ob_roles");
-    const [rolesSearch, setRolesSearch] = useState("");
+
+    const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
+    const [staffForm, setStaffForm] = useState<Partial<StaffMember>>(() => ({
+        name: "", email: "", phone: "", role: rolePerms?.[0]?.roleLabel || "", status: "Active",
+        assignedZones: "", employmentStatus: "Active"
+    }));
+
     const [selectedRoleIdx, setSelectedRoleIdx] = useState<number | null>(null);
     const [roleVersion, setRoleVersion] = useState("v1.4");
     const [roleChangeLog] = useState(() => [
@@ -612,7 +660,42 @@ export default function HotelOnboarding() {
     }, [roomTypes]);
 
     /* ── Staff Logic ── */
-    const addStaff = () => setStaffMembers(p => [...p, { id: generateId(), name: "", email: "", phone: "", role: "Front Desk", status: "Active", assignedZones: "", employmentStatus: "Active", accountStatus: "Invite Sent", lastLogin: "", ipAddress: "", selected: false }]);
+    const addStaff = () => {
+        setEditingStaffId(null);
+        setStaffForm({ name: "", email: "", phone: "", role: rolePerms?.[0]?.roleLabel || "", status: "Active" });
+        setIsStaffModalOpen(true);
+    };
+    const editStaff = (s: StaffMember) => {
+        setEditingStaffId(s.id);
+        setStaffForm({ name: s.name, email: s.email, phone: s.phone, role: s.role, status: s.status });
+        setIsStaffModalOpen(true);
+    };
+    const handleStaffSubmit = () => {
+        if (!staffForm.name?.trim() || !staffForm.email?.trim()) {
+            setError("Name and Email are required");
+            return;
+        }
+        if (editingStaffId) {
+            setStaffMembers(p => p.map(s => s.id === editingStaffId ? { ...s, ...staffForm } : s));
+        } else {
+            setStaffMembers(p => [...p, {
+                id: generateId(),
+                name: staffForm.name || "",
+                email: staffForm.email || "",
+                phone: staffForm.phone || "",
+                role: staffForm.role || rolePerms?.[0]?.roleLabel || "",
+                status: (staffForm.status as any) || "Active",
+                assignedZones: "",
+                employmentStatus: "Active",
+                accountStatus: "Invite Sent",
+                lastLogin: "",
+                ipAddress: "",
+                selected: false
+            }]);
+        }
+        setIsStaffModalOpen(false);
+        setEditingStaffId(null);
+    };
     const removeStaff = (id: string) => setStaffMembers(p => p.filter(s => s.id !== id));
     const updateStaff = (id: string, key: keyof StaffMember, val: any) =>
         setStaffMembers(p => p.map(s => s.id === id ? { ...s, [key]: val } : s));
@@ -692,9 +775,20 @@ export default function HotelOnboarding() {
                         payload,
                         p_action: 'HOTEL_DETAILS_UPDATED'
                     });
-                    if (error) throw error;
-                } else {
-                    const { data, error } = await supabase.rpc('create_hotel_onboarding', { payload });
+                    if (error) {
+                        if (error.message?.includes('Hotel not found')) {
+                            currentHotelId = null;
+                            setHotelId(null);
+                        } else {
+                            throw error;
+                        }
+                    }
+                }
+
+                if (!currentHotelId) {
+                    const { data, error } = await supabase.rpc('create_hotel_onboarding', {
+                        payload: { ...payload, owner_user_id: userId }
+                    });
                     if (error) throw error;
                     currentHotelId = data;
                     setHotelId(data);
@@ -713,11 +807,17 @@ export default function HotelOnboarding() {
                     invoice_counter: form.starting_invoice ? parseInt(form.starting_invoice) : (form.invoice_counter ? parseInt(form.invoice_counter) : 1),
                     brand_color: form.brand_color || null, upi_id: form.upi_id.trim() || null,
                     booking_url: form.booking_url.trim() || null,
+                    logo_path: form.logo_url.trim() || null, cover_image_path: form.cover_image_url.trim() || null,
                     amenities: form.amenities.length > 0 ? form.amenities : null,
                     legal_name: form.legal_name.trim() || null,
                     gst_number: form.gst_number.trim() || null,
                     early_checkin_allowed: form.early_checkin_allowed,
-                    late_checkout_allowed: form.late_checkout_allowed
+                    late_checkout_allowed: form.late_checkout_allowed,
+                    wifi_ssid: form.wifi_ssid || null,
+                    wifi_password: form.wifi_password || null,
+                    breakfast_start: form.breakfast_start || "07:00",
+                    breakfast_end: form.breakfast_end || "10:30",
+                    guest_notes: form.guest_notes || null
                 };
                 let currentHotelId = hotelId;
                 if (currentHotelId) {
@@ -763,20 +863,24 @@ export default function HotelOnboarding() {
                 await supabase.from("hotel_invites").delete().eq("hotel_id", hotelId);
                 const validStaff = staffMembers.filter(s => s.email.trim() && roleIdMap[s.role]);
                 if (validStaff.length > 0) {
-                    const currentUser = (await supabase.auth.getUser()).data.user;
-                    const invites = validStaff.map(s => ({ hotel_id: hotelId, email: s.email.trim(), role_id: roleIdMap[s.role], invite_metadata: { assigned_zones: s.assignedZones || null, employment_status: s.employmentStatus || null }, created_by: currentUser?.id || '00000000-0000-0000-0000-000000000000' }));
-                    const { error: invErr } = await supabase.from("hotel_invites").insert(invites);
-                    if (invErr) console.error("Error creating hotel invites:", invErr);
+                    for (const s of validStaff) {
+                        const { error: invErr } = await supabase.rpc('create_hotel_invite', {
+                            p_hotel_id: hotelId,
+                            p_email: s.email.trim(),
+                            p_role_id: roleIdMap[s.role],
+                            p_metadata: {
+                                assigned_zones: s.assignedZones || null,
+                                employment_status: s.employmentStatus || null
+                            }
+                        });
+                        if (invErr) console.error(`Error creating invite for ${s.email}:`, invErr);
+                    }
                 }
-                const { error, data } = await supabase.rpc('update_hotel_settings_onboarding', { p_hotel_id: hotelId, payload: { status: 'active' }, p_action: 'HOTEL_STAFF_PENDING' });
-                if (error) throw error;
                 await supabase.rpc('mark_onboarding_step_complete', { p_hotel_id: hotelId, p_step: 'staff_setup' });
                 animateStep(4);
             }
             else if (step === 4) {
                 if (!hotelId) throw new Error("Missing Hotel ID.");
-                const { error, data } = await supabase.rpc('update_hotel_settings_onboarding', { p_hotel_id: hotelId, payload: { is_setup_complete: true, theme: features as any }, p_action: 'HOTEL_ACTIVATED' });
-                if (error) throw error;
                 await supabase.rpc('mark_onboarding_step_complete', { p_hotel_id: hotelId, p_step: 'features' });
 
                 // Final Enterprise Activation
@@ -1247,73 +1351,6 @@ export default function HotelOnboarding() {
                                         </div>
                                     </Section>
 
-                                    {/* Branding */}
-                                    <Section emoji="🎨" title="Hotel Branding">
-                                        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-12 items-start">
-                                            {/* Left: Brand Identity Context */}
-                                            <div className="space-y-10">
-                                                <ImageUpload
-                                                    label="Brand Logo"
-                                                    value={form.logo_url}
-                                                    onChange={(url) => set("logo_url", url)}
-                                                    aspectRatio="1:1"
-                                                    helperText="512x512 Square"
-                                                    pathPrefix={hotelId}
-                                                    fileName="logo.png"
-                                                />
-
-                                                <div className="pt-6 border-t border-slate-800/40">
-                                                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4 block">Accent Color</label>
-                                                    <div className="bg-slate-950/40 p-4 rounded-3xl border border-slate-700/30 shadow-inner group/color">
-                                                        <div className="flex items-center gap-4">
-                                                            <div className="relative shrink-0">
-                                                                <input
-                                                                    type="color"
-                                                                    className="w-12 h-12 rounded-[18px] border-2 border-slate-700/50 cursor-pointer bg-slate-900 p-1 appearance-none hover:scale-110 hover:border-indigo-500/50 transition-all duration-300 shadow-xl"
-                                                                    value={form.brand_color}
-                                                                    onChange={e => set("brand_color", e.target.value)}
-                                                                />
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <div className="flex items-center gap-1.5 mb-1">
-                                                                    <span className="text-[10px] font-mono text-indigo-400 font-bold uppercase">{form.brand_color}</span>
-                                                                </div>
-                                                                <input
-                                                                    className="w-full bg-transparent border-none text-[12px] font-medium text-slate-300 outline-none placeholder:text-slate-600 truncate"
-                                                                    value={form.brand_color.replace('#', '')}
-                                                                    onChange={e => set("brand_color", `#${e.target.value.replace(/[^0-9A-Fa-f]/g, '').substring(0, 6)}`)}
-                                                                    placeholder="HEX CODE"
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Right: Visionary Banner Preview */}
-                                            <div className="space-y-8 h-full flex flex-col">
-                                                <ImageUpload
-                                                    label="Cover Banner"
-                                                    value={form.cover_image_url}
-                                                    onChange={(url) => set("cover_image_url", url)}
-                                                    aspectRatio="16:9"
-                                                    helperText="1920x1080 (HD)"
-                                                    pathPrefix={hotelId}
-                                                    fileName="cover.png"
-                                                />
-
-                                                <div className="mt-auto p-6 rounded-[32px] bg-slate-800/20 border border-slate-700/30 flex-1 flex flex-col justify-center">
-                                                    <h4 className="text-white text-sm font-bold mb-2 flex items-center gap-2">
-                                                        <Sparkles size={16} className="text-indigo-400" />
-                                                        Brand Intelligence
-                                                    </h4>
-                                                    <p className="text-[11px] text-slate-400 font-medium leading-[1.8] pr-4">
-                                                        Your branding assets are used to generate a unique visual DNA. This includes guest-facing booking interfaces, invoice themes, and staff dashboard accents designed to maintain a consistent luxury identity across all touchpoints.
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </Section>
                                 </div>
                             )}
 
@@ -1412,6 +1449,45 @@ export default function HotelOnboarding() {
                                         </div>
                                     </Section>
 
+                                    {/* Guest Amenities / Information */}
+                                    <Section emoji="📶" title="Guest Amenities / Information">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                            {/* Wi-Fi Settings */}
+                                            <div className="space-y-4">
+                                                <h4 className="text-sm font-semibold text-slate-300 border-b border-slate-700 pb-2">Wi-Fi Access</h4>
+                                                <div>
+                                                    <label className={labelCls}>Wi-Fi Network (SSID)</label>
+                                                    <input className={inputCls} value={form.wifi_ssid || ""} onChange={e => set("wifi_ssid", e.target.value)} placeholder="Vaiyu_Guest" />
+                                                </div>
+                                                <div>
+                                                    <label className={labelCls}>Wi-Fi Password</label>
+                                                    <input className={inputCls} value={form.wifi_password || ""} onChange={e => set("wifi_password", e.target.value)} placeholder="welcome123" />
+                                                </div>
+                                            </div>
+
+                                            {/* Breakfast Timings */}
+                                            <div className="space-y-4">
+                                                <h4 className="text-sm font-semibold text-slate-300 border-b border-slate-700 pb-2">Breakfast Timings</h4>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className={labelCls}>Start Time</label>
+                                                        <input type="time" className={inputCls} value={form.breakfast_start || "07:00"} onChange={e => set("breakfast_start", e.target.value)} />
+                                                    </div>
+                                                    <div>
+                                                        <label className={labelCls}>End Time</label>
+                                                        <input type="time" className={inputCls} value={form.breakfast_end || "10:30"} onChange={e => set("breakfast_end", e.target.value)} />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* General Guest Notes */}
+                                            <div className="sm:col-span-2 mt-2">
+                                                <label className={labelCls}>General Guest Notes / Instructions</label>
+                                                <textarea className={`${inputCls} min-h-[100px] resize-y py-3 leading-relaxed`} value={form.guest_notes || ""} onChange={e => set("guest_notes", e.target.value)} placeholder="E.g. Pool rules, noise restrictions, or reception contact info..."></textarea>
+                                            </div>
+                                        </div>
+                                    </Section>
+
                                     {/* Payment */}
                                     <Section emoji="💳" title="Payment">
                                         <div className="grid grid-cols-2 gap-4">
@@ -1422,6 +1498,74 @@ export default function HotelOnboarding() {
                                             <div>
                                                 <label className={labelCls}>Booking URL</label>
                                                 <input className={inputCls} value={form.booking_url} onChange={e => set("booking_url", e.target.value)} placeholder="https://booking.hotel.com" />
+                                            </div>
+                                        </div>
+                                    </Section>
+
+                                    {/* Branding */}
+                                    <Section emoji="🎨" title="Hotel Branding">
+                                        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-12 items-start">
+                                            {/* Left: Brand Identity Context */}
+                                            <div className="space-y-10">
+                                                <ImageUpload
+                                                    label="Brand Logo"
+                                                    value={form.logo_url}
+                                                    onChange={(url) => set("logo_url", url)}
+                                                    aspectRatio="1:1"
+                                                    helperText="512x512 Square"
+                                                    pathPrefix={hotelId}
+                                                    fileName="logo.png"
+                                                />
+
+                                                <div className="pt-6 border-t border-slate-800/40">
+                                                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4 block">Accent Color</label>
+                                                    <div className="bg-slate-950/40 p-4 rounded-3xl border border-slate-700/30 shadow-inner group/color">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="relative shrink-0">
+                                                                <input
+                                                                    type="color"
+                                                                    className="w-12 h-12 rounded-[18px] border-2 border-slate-700/50 cursor-pointer bg-slate-900 p-1 appearance-none hover:scale-110 hover:border-indigo-500/50 transition-all duration-300 shadow-xl"
+                                                                    value={form.brand_color}
+                                                                    onChange={e => set("brand_color", e.target.value)}
+                                                                />
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex items-center gap-1.5 mb-1">
+                                                                    <span className="text-[10px] font-mono text-indigo-400 font-bold uppercase">{form.brand_color}</span>
+                                                                </div>
+                                                                <input
+                                                                    className="w-full bg-transparent border-none text-[12px] font-medium text-slate-300 outline-none placeholder:text-slate-600 truncate"
+                                                                    value={form.brand_color.replace('#', '')}
+                                                                    onChange={e => set("brand_color", `#${e.target.value.replace(/[^0-9A-Fa-f]/g, '').substring(0, 6)}`)}
+                                                                    placeholder="HEX CODE"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Right: Visionary Banner Preview */}
+                                            <div className="space-y-8 h-full flex flex-col">
+                                                <ImageUpload
+                                                    label="Cover Banner"
+                                                    value={form.cover_image_url}
+                                                    onChange={(url) => set("cover_image_url", url)}
+                                                    aspectRatio="16:9"
+                                                    helperText="1920x1080 (HD)"
+                                                    pathPrefix={hotelId}
+                                                    fileName="cover.png"
+                                                />
+
+                                                <div className="mt-auto p-6 rounded-[32px] bg-slate-800/20 border border-slate-700/30 flex-1 flex flex-col justify-center">
+                                                    <h4 className="text-white text-sm font-bold mb-2 flex items-center gap-2">
+                                                        <Sparkles size={16} className="text-indigo-400" />
+                                                        Brand Intelligence
+                                                    </h4>
+                                                    <p className="text-[11px] text-slate-400 font-medium leading-[1.8] pr-4">
+                                                        Your branding assets are used to generate a unique visual DNA. This includes guest-facing booking interfaces, invoice themes, and staff dashboard accents designed to maintain a consistent luxury identity across all touchpoints.
+                                                    </p>
+                                                </div>
                                             </div>
                                         </div>
                                     </Section>
@@ -1440,7 +1584,7 @@ export default function HotelOnboarding() {
                                                             ? "bg-indigo-500/15 border-indigo-500/40 text-indigo-300"
                                                             : "bg-slate-800/40 border-slate-700/40 text-slate-400 hover:border-slate-600 hover:text-slate-300"
                                                         }
-                                            `}
+                                             `}
                                                 >
                                                     {a}
                                                 </button>
@@ -1747,8 +1891,8 @@ export default function HotelOnboarding() {
                                     {/* ── Tabs ── */}
                                     <div className="flex items-center gap-1 bg-slate-800/40 rounded-xl p-1 border border-slate-700/40 w-fit">
                                         {([
-                                            { key: 'manage' as const, label: 'Manage Staff', icon: Users },
                                             { key: 'roles' as const, label: 'Roles & Permissions', icon: Shield },
+                                            { key: 'manage' as const, label: 'Manage Staff', icon: Users },
                                             { key: 'logs' as const, label: 'Access Logs', icon: FileText },
                                         ]).map(tab => (
                                             <button key={tab.key} type="button" onClick={() => setStaffTab(tab.key)}
@@ -1771,16 +1915,23 @@ export default function HotelOnboarding() {
                                             <div className="space-y-4">
                                                 {/* Action Bar (Top) */}
                                                 <div className="flex flex-wrap items-center gap-3">
-                                                    <button type="button" onClick={addStaff} className="flex items-center gap-1.5 bg-[#00d084] hover:bg-[#00e691] text-slate-900 font-bold text-[13px] px-4 py-2 rounded-lg transition shadow-lg shadow-[#00d084]/20 cursor-pointer">
-                                                        <UserPlus size={15} className="!stroke-[2.5]" /> Add Staff
-                                                    </button>
+                                                    {rolePerms.length === 0 ? (
+                                                        <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-lg">
+                                                            <span className="text-amber-400 text-[11px] font-semibold flex items-center gap-1.5"><AlertTriangle size={13} /> You must create at least one Role first.</span>
+                                                            <button type="button" onClick={() => setStaffTab('roles')} className="text-xs bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold px-3 py-1 rounded transition cursor-pointer">Create Role</button>
+                                                        </div>
+                                                    ) : (
+                                                        <button type="button" onClick={addStaff} className="flex items-center gap-1.5 bg-[#00d084] hover:bg-[#00e691] text-slate-900 font-bold text-[13px] px-4 py-2 rounded-lg transition shadow-lg shadow-[#00d084]/20 cursor-pointer">
+                                                            <UserPlus size={15} className="!stroke-[2.5]" /> Invite Staff Member
+                                                        </button>
+                                                    )}
                                                     <div className="relative">
                                                         <Search className="absolute left-3 top-2.5 text-slate-500" size={14} />
                                                         <input className="bg-[#1a1c27] border border-slate-700/50 text-slate-200 placeholder-slate-500 rounded-lg py-2 pl-9 pr-3 text-[13px] w-48 focus:outline-none focus:border-indigo-500/50 transition" placeholder="Search..." value={staffSearch} onChange={e => setStaffSearch(e.target.value)} />
                                                     </div>
                                                     <select className="bg-[#1a1c27] border border-slate-700/50 text-slate-300 rounded-lg py-2 pl-3 pr-8 text-[13px] hover:border-slate-600 transition appearance-none cursor-pointer outline-none" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'%2364748b\' viewBox=\'0 0 24 24\'%3E%3Cpath d=\'M7 10l5 5 5-5z\'/%3E%3C/svg%3E")', backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em' }} value={staffRoleFilter} onChange={e => setStaffRoleFilter(e.target.value)}>
                                                         <option value="">Role</option>
-                                                        {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                                                        {rolePerms.map(rp => rp.roleLabel).filter(Boolean).map(r => <option key={r} value={r}>{r}</option>)}
                                                     </select>
                                                     <select className="bg-[#1a1c27] border border-slate-700/50 text-slate-300 rounded-lg py-2 pl-3 pr-8 text-[13px] hover:border-slate-600 transition appearance-none cursor-pointer outline-none" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'%2364748b\' viewBox=\'0 0 24 24\'%3E%3Cpath d=\'M7 10l5 5 5-5z\'/%3E%3C/svg%3E")', backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em' }} value={staffStatusFilter} onChange={e => setStaffStatusFilter(e.target.value)}>
                                                         <option value="">Status</option>
@@ -1846,34 +1997,17 @@ export default function HotelOnboarding() {
                                                                                 <div className="w-8 h-8 rounded-full bg-[#1b192e] flex items-center justify-center text-[11px] font-bold text-indigo-300 shrink-0 border border-indigo-900/50 shadow-inner">
                                                                                     {initials}
                                                                                 </div>
-                                                                                <div className="min-w-0 flex flex-col justify-center gap-1 w-full">
-                                                                                    <input
-                                                                                        type="text"
-                                                                                        value={s.name}
-                                                                                        onChange={e => updateStaffField(s.id, 'name', e.target.value)}
-                                                                                        placeholder="Full Name"
-                                                                                        className="text-[13px] font-semibold text-white bg-transparent border-b border-transparent focus:border-indigo-500 outline-none w-full w-[120px]"
-                                                                                    />
-                                                                                    <input
-                                                                                        type="email"
-                                                                                        value={s.email}
-                                                                                        onChange={e => updateStaffField(s.id, 'email', e.target.value)}
-                                                                                        placeholder="Email Address"
-                                                                                        className="text-[10px] text-slate-400 bg-transparent border-b border-transparent focus:border-indigo-500 outline-none w-full w-[120px]"
-                                                                                    />
+                                                                                <div className="min-w-0 flex flex-col justify-center gap-0.5 w-full">
+                                                                                    <p className="text-[13px] font-semibold text-white truncate">{s.name || 'Unnamed Staff'}</p>
+                                                                                    <p className="text-[10px] text-slate-500 truncate">{s.email || 'No Email'}</p>
                                                                                 </div>
                                                                             </div>
 
-                                                                            {/* Role Outline Pill (Editable Select) */}
+                                                                            {/* Role */}
                                                                             <div>
-                                                                                <select
-                                                                                    className="px-2 py-0.5 text-[11px] font-medium text-slate-300 border border-slate-700 rounded-lg bg-slate-800/20 w-full outline-none focus:border-indigo-500 transition-colors cursor-pointer appearance-none"
-                                                                                    value={s.role}
-                                                                                    onChange={e => updateStaffField(s.id, 'role', e.target.value)}
-                                                                                    style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'%2364748b\' viewBox=\'0 0 24 24\'%3E%3Cpath d=\'M7 10l5 5 5-5z\'/%3E%3C/svg%3E")', backgroundPosition: 'right 0.2rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.2em 1.2em', paddingRight: '1.2rem' }}
-                                                                                >
-                                                                                    {ROLE_OPTIONS.map(r => <option key={r} value={r} className="bg-slate-800">{r}</option>)}
-                                                                                </select>
+                                                                                <span className="px-2 py-0.5 text-[11px] font-medium text-slate-300 bg-slate-800/40 border border-slate-700/50 rounded-lg whitespace-nowrap">
+                                                                                    {s.role}
+                                                                                </span>
                                                                             </div>
 
                                                                             {/* Status Dot */}
@@ -1911,9 +2045,12 @@ export default function HotelOnboarding() {
 
                                                                             {/* Actions */}
                                                                             <div className="flex items-center justify-center gap-2">
-                                                                                <button type="button" className="text-slate-500 hover:text-indigo-400 transition cursor-pointer" title="Edit"><Pencil size={13} strokeWidth={2} /></button>
-                                                                                <button type="button" className="text-slate-500 hover:text-amber-400 transition cursor-pointer" title="Reset Password"><Key size={13} strokeWidth={2} /></button>
-                                                                                <button type="button" onClick={() => removeStaff(s.id)} className="text-slate-500 hover:text-rose-400 transition cursor-pointer" title="Delete"><Trash2 size={13} strokeWidth={2} /></button>
+                                                                                <button type="button" onClick={() => editStaff(s)} className="p-1.5 hover:bg-indigo-500/20 text-indigo-400 rounded-lg transition-colors cursor-pointer" title="Edit Staff">
+                                                                                    <Pencil size={12} strokeWidth={2.5} />
+                                                                                </button>
+                                                                                <button type="button" onClick={() => removeStaff(s.id)} className="p-1.5 hover:bg-rose-500/20 text-rose-400 rounded-lg transition-colors cursor-pointer" title="Remove Staff">
+                                                                                    <Trash2 size={12} strokeWidth={2.5} />
+                                                                                </button>
                                                                             </div>
                                                                         </div>
                                                                     );
@@ -1954,111 +2091,90 @@ export default function HotelOnboarding() {
                                             ? rolePerms.filter(r => r.roleLabel.toLowerCase().includes(rolesSearch.toLowerCase()))
                                             : rolePerms;
                                         return (
-                                            <div className="space-y-6 text-slate-800 bg-[#f4f3f8] font-sans -mx-8 -mt-8 p-8 min-h-screen">
+                                            <div className="space-y-5 text-slate-200 font-sans pt-2">
                                                 {/* ═══ Header ═══ */}
                                                 <div className="flex flex-wrap items-center justify-between gap-4">
                                                     <div>
-                                                        <h1 className="text-[28px] font-semibold text-slate-800 tracking-tight leading-none mb-1.5">Roles & Permissions</h1>
-                                                        <p className="text-sm text-slate-500 font-medium">Define and manage staff roles and permissions efficiently</p>
+                                                        <h1 className="text-[24px] font-semibold text-white tracking-tight leading-none mb-1.5">Roles & Permissions</h1>
+                                                        <p className="text-sm text-slate-400 font-medium">Define and manage staff roles and permissions efficiently</p>
                                                     </div>
                                                     <div className="flex items-center gap-3">
-                                                        <button type="button" className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-700 shadow-sm transition">
-                                                            <Download size={16} /> Access <ChevronDown size={14} className="text-slate-400" />
-                                                        </button>
-                                                        <button type="button" className="flex items-center gap-2 px-8 py-2 bg-[#48947f] text-white rounded-lg text-sm font-bold shadow-sm transition">
-                                                            Save
+                                                        <button type="button" className="flex items-center gap-2 px-4 py-2 bg-[#1b192e] border border-slate-700/50 rounded-lg text-sm font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition">
+                                                            <Download size={16} /> Access <ChevronDown size={14} className="text-slate-500" />
                                                         </button>
                                                     </div>
-                                                </div>
-
-                                                {/* ═══ Tabs & Toolbar ═══ */}
-                                                <div className="flex flex-wrap items-center gap-2 mt-4 border-b border-slate-200 pb-4">
-                                                    <div className="flex items-center bg-[#eae8f0] p-1 rounded-xl">
-                                                        {([
-                                                            { key: 'manage' as const, label: 'Manage Staff', icon: Users },
-                                                            { key: 'roles' as const, label: 'Roles & Permissions', icon: Shield },
-                                                            { key: 'logs' as const, label: 'Access Logs', icon: FileText },
-                                                        ]).map(tab => (
-                                                            <button key={tab.key} type="button" onClick={() => setStaffTab(tab.key)}
-                                                                className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition ${staffTab === tab.key ? 'bg-[#8b5cf6] text-white shadow-md' : 'text-slate-600 hover:text-slate-900'}`}
-                                                            >
-                                                                <tab.icon size={16} /> {tab.label}
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                    <div className="flex-1" />
                                                 </div>
 
                                                 {/* Action Bar */}
                                                 <div className="flex flex-wrap items-center gap-3 pb-2 pt-1">
-                                                    <button type="button" onClick={() => setRolePerms(p => [...p, { roleLabel: 'New Role', contact: '', scopes: makeScopes('Global'), perms: makePerms(false) }])} className="flex items-center gap-1.5 bg-[#48947f] text-white font-bold text-sm px-4 py-2 rounded-lg transition shadow-sm">
-                                                        <Plus size={16} /> Add Role
+                                                    <button type="button" onClick={() => setShowAddRoleModal(true)} className="flex items-center gap-1.5 bg-[#00d084] hover:bg-[#00e691] text-slate-900 font-bold text-sm px-4 py-2 rounded-lg transition shadow-lg shadow-[#00d084]/20 cursor-pointer">
+                                                        <Plus size={16} className="!stroke-[2.5]" /> Add Role
                                                     </button>
                                                     <div className="relative">
-                                                        <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
-                                                        <input className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:outline-none w-64 shadow-sm" placeholder="Search roles..." value={rolesSearch} onChange={e => setRolesSearch(e.target.value)} />
+                                                        <Search className="absolute left-3 top-2.5 text-slate-500" size={16} />
+                                                        <input className="pl-9 pr-4 py-2 bg-[#1a1c27] border border-slate-700/50 rounded-lg text-sm text-slate-200 placeholder-slate-500 focus:border-indigo-500/50 focus:outline-none w-64 shadow-sm" placeholder="Search roles..." value={rolesSearch} onChange={e => setRolesSearch(e.target.value)} />
                                                     </div>
                                                     <div className="relative">
-                                                        <select className="pl-4 pr-10 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 font-medium focus:outline-none shadow-sm appearance-none">
+                                                        <select className="pl-4 pr-10 py-2 bg-[#1a1c27] border border-slate-700/50 rounded-lg text-sm text-slate-300 font-medium focus:outline-none shadow-sm appearance-none outline-none cursor-pointer">
                                                             <option value="">Status</option>
                                                             <option>Active</option>
                                                             <option>Inactive</option>
                                                         </select>
-                                                        <ChevronDown className="absolute right-3 top-2.5 text-slate-400 pointer-events-none" size={14} />
+                                                        <ChevronDown className="absolute right-3 top-2.5 text-slate-500 pointer-events-none" size={14} />
                                                     </div>
                                                     <div className="flex-1" />
-                                                    <button type="button" className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-semibold shadow-sm transition">
-                                                        <Filter size={14} /> Auto Tilt <ChevronDown size={14} className="text-slate-400" />
+                                                    <button type="button" className="flex items-center gap-2 px-4 py-2 bg-slate-800/40 border border-slate-700/30 text-slate-400 hover:text-slate-200 rounded-lg text-sm font-semibold shadow-sm transition">
+                                                        <Filter size={14} /> Auto Tilt <ChevronDown size={14} className="text-slate-500" />
                                                     </button>
                                                 </div>
 
                                                 {/* ═══ Main Table Container ═══ */}
-                                                <div className="rounded-xl bg-white border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-                                                    <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between text-sm bg-white">
-                                                        <div className="text-slate-600 font-medium">
-                                                            Roles <span className="font-semibold text-slate-800 ml-1">1 : 5</span> <span className="text-slate-300 mx-1">○</span> <span className="font-semibold text-slate-800">5</span>
+                                                <div className="rounded-xl bg-[#1e202e] border border-slate-700/40 shadow-lg overflow-hidden flex flex-col">
+                                                    <div className="px-5 py-3 border-b border-slate-700/50 flex items-center justify-between text-sm bg-[#151723]">
+                                                        <div className="text-slate-400 font-medium tracking-wide">
+                                                            Roles <span className="font-bold text-white ml-1">1 : 5</span> <span className="text-slate-600 mx-1">○</span> <span className="font-bold text-white">5</span>
                                                         </div>
                                                     </div>
-                                                    <div className="overflow-x-auto">
-                                                        <table className="w-full text-sm text-slate-700 border-collapse" style={{ minWidth: '1100px' }}>
+                                                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-700">
+                                                        <table className="w-full text-sm text-slate-300 border-collapse" style={{ minWidth: '1100px' }}>
                                                             <thead>
-                                                                <tr className="bg-[#f8f7fa] border-b border-slate-200">
-                                                                    <th className="text-left font-medium text-slate-500 px-5 py-3 w-56">Module</th>
-                                                                    <th className="text-left font-medium text-slate-500 px-2 py-3 w-32 border-r border-[#e8e6f0]">Scope <ChevronDown size={14} className="inline ml-1 text-slate-400" /></th>
-                                                                    <th className="text-center font-medium text-slate-500 px-3 py-3 border-r border-[#e8e6f0]">Housekeeping</th>
-                                                                    <th className="text-center font-medium text-slate-500 px-3 py-3 border-r border-[#e8e6f0]">SLA Management</th>
-                                                                    <th className="text-center font-medium text-slate-500 px-3 py-3 border-r border-[#e8e6f0]">Financials</th>
-                                                                    <th className="text-center font-medium text-slate-500 px-3 py-3 border-r border-[#e8e6f0]">Ticket Lifecycle</th>
-                                                                    <th className="text-center font-medium text-slate-500 px-3 py-3 border-r border-[#e8e6f0]">Room Service</th>
-                                                                    <th className="text-center font-medium text-slate-500 px-3 py-3 border-r border-[#e8e6f0]">Maintenance</th>
-                                                                    <th className="text-center font-medium text-slate-500 px-3 py-3">Security</th>
+                                                                <tr className="bg-[#1b1c28] border-b border-slate-700/50 shadow-sm">
+                                                                    <th className="text-left text-[10px] uppercase font-bold text-slate-500 px-5 py-3 w-56 tracking-wider">Module</th>
+                                                                    <th className="text-left text-[10px] uppercase font-bold text-slate-500 px-2 py-3 w-32 border-r border-slate-700/30 tracking-wider">Scope <ChevronDown size={14} className="inline ml-1 text-slate-400" /></th>
+                                                                    <th className="text-center text-[10px] uppercase font-bold text-slate-500 px-3 py-3 border-r border-slate-700/30 tracking-wider">Housekeeping</th>
+                                                                    <th className="text-center text-[10px] uppercase font-bold text-slate-500 px-3 py-3 border-r border-slate-700/30 tracking-wider">SLA Management</th>
+                                                                    <th className="text-center text-[10px] uppercase font-bold text-slate-500 px-3 py-3 border-r border-slate-700/30 tracking-wider">Financials</th>
+                                                                    <th className="text-center text-[10px] uppercase font-bold text-slate-500 px-3 py-3 border-r border-slate-700/30 tracking-wider">Ticket Lifecycle</th>
+                                                                    <th className="text-center text-[10px] uppercase font-bold text-slate-500 px-3 py-3 border-r border-slate-700/30 tracking-wider">Room Service</th>
+                                                                    <th className="text-center text-[10px] uppercase font-bold text-slate-500 px-3 py-3 border-r border-slate-700/30 tracking-wider">Maintenance</th>
+                                                                    <th className="text-center text-[10px] uppercase font-bold text-slate-500 px-3 py-3 tracking-wider">Security</th>
                                                                 </tr>
                                                                 {/* Secondary Header Row */}
-                                                                <tr className="bg-[#fcfcfd] border-b border-slate-200">
-                                                                    <td className="px-5 py-3 text-slate-600">Module</td>
-                                                                    <td className="px-2 py-3 border-r border-[#e8e6f0]">
-                                                                        <select className="bg-slate-100 border border-slate-200 text-slate-600 text-xs rounded px-2 py-1.5 pr-6 appearance-none shadow-sm w-full font-medium">
+                                                                <tr className="bg-[#181924] border-b border-slate-700/50">
+                                                                    <td className="px-5 py-3 text-slate-400 text-xs font-semibold">Module</td>
+                                                                    <td className="px-2 py-3 border-r border-slate-700/30">
+                                                                        <select className="bg-slate-800 border border-slate-700 text-slate-300 text-[11px] rounded px-2 py-1 pr-6 appearance-none shadow-sm w-full font-semibold outline-none">
                                                                             <option>Global</option>
                                                                         </select>
                                                                     </td>
                                                                     {[
-                                                                        { v: 'Global', d: 'varge 15', c: 'border-[#e8e6f0]' },
-                                                                        { v: 'Assigned Zones Only', d: 'Boonasa 13', c: 'bg-[#f8f0ff] border border-[#e8e6f0] text-indigo-800' },
-                                                                        { v: 'Global', d: 'Boonasa 13', c: 'border-[#e8e6f0]' },
-                                                                        { v: 'Global', d: 'Boonasa 13', c: 'border-[#e8e6f0]' },
-                                                                        { v: 'Global', d: 'Boonasa 13', c: 'border-[#e8e6f0]' },
-                                                                        { v: 'Global', d: 'Rlimnage 15', c: 'border-[#e8e6f0]' },
+                                                                        { v: 'Global', d: 'varge 15', c: 'border-slate-700/30' },
+                                                                        { v: 'Assigned Zones Only', d: 'Boonasa 13', c: 'bg-indigo-500/10 border border-slate-700/30 text-indigo-300' },
+                                                                        { v: 'Global', d: 'Boonasa 13', c: 'border-slate-700/30' },
+                                                                        { v: 'Global', d: 'Boonasa 13', c: 'border-slate-700/30' },
+                                                                        { v: 'Global', d: 'Boonasa 13', c: 'border-slate-700/30' },
+                                                                        { v: 'Global', d: 'Rlimnage 15', c: 'border-slate-700/30' },
                                                                         { v: 'Global', d: 'Acpper 15', c: '' }
                                                                     ].map((opt, i) => (
                                                                         <td key={i} className={`px-2 py-2 text-center align-top border-r ${opt.c.includes('border-r') ? '' : opt.c}`}>
                                                                             <div className="flex flex-col items-center gap-1.5">
-                                                                                <select className={`text-xs rounded px-2 py-1 pr-6 outline-none appearance-none shadow-sm w-[110px] bg-slate-100 border border-slate-200 text-slate-600 font-medium ${opt.v.includes('Zones') ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : ''}`} defaultValue={opt.v}>
+                                                                                <select className={`text-xs rounded px-2 py-1 pr-6 outline-none appearance-none shadow-sm w-[110px] bg-slate-800 border border-slate-700 text-slate-300 font-medium ${opt.v.includes('Zones') ? 'bg-indigo-500/20 border-indigo-500/30 text-indigo-300' : ''}`} defaultValue={opt.v}>
                                                                                     <option>{opt.v}</option>
                                                                                     <option>Global</option>
                                                                                 </select>
-                                                                                <span className="text-[10px] text-slate-400 flex items-center justify-center gap-1 font-medium">
-                                                                                    <span className="flex items-center justify-center w-[12px] h-[12px] rounded-full border border-slate-300">
-                                                                                        <span className="w-1.5 h-1.5 bg-slate-300 rounded-full" />
+                                                                                <span className="text-[10px] text-slate-500 flex items-center justify-center gap-1 font-medium">
+                                                                                    <span className="flex items-center justify-center w-[12px] h-[12px] rounded-full border border-slate-600">
+                                                                                        <span className="w-1.5 h-1.5 bg-slate-500 rounded-full" />
                                                                                     </span>
                                                                                     {opt.d}
                                                                                 </span>
@@ -2067,26 +2183,26 @@ export default function HotelOnboarding() {
                                                                     ))}
                                                                 </tr>
                                                             </thead>
-                                                            <tbody className="divide-y divide-slate-100 bg-white">
+                                                            <tbody className="divide-y divide-slate-700/30 bg-[#1e202e]">
                                                                 {filteredRoles.map((role, ri) => {
                                                                     const isCompact = ['Manager', 'Receptionist', 'Housekeeper', 'Security Guard'].includes(role.roleLabel);
                                                                     return (
-                                                                        <tr key={ri} className={`transition ${!isCompact ? 'bg-[#f8f7ff]' : ''}`}>
+                                                                        <tr key={ri} className={`transition ${!isCompact ? 'bg-[#1b1c28]' : 'hover:bg-slate-800/20'}`}>
                                                                             {/* Name & Avatar */}
                                                                             <td className={`px-4 py-3 align-top ${!isCompact ? 'pt-4' : ''}`}>
                                                                                 <div className="flex items-start gap-3">
                                                                                     <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(role.roleLabel)}&background=random&color=fff`} className="w-9 h-9 rounded-full shadow-sm object-cover" alt="" />
                                                                                     <div className="min-w-0 pt-0.5">
-                                                                                        <p className="text-[15px] font-bold text-slate-800 tracking-tight">{role.roleLabel}</p>
-                                                                                        {role.contact ? <p className="text-xs text-slate-500 whitespace-nowrap">{role.contact}</p> : <p className="text-xs text-slate-400 italic">pecery misionstiot Avr...</p>}
+                                                                                        <p className="text-[15px] font-bold text-slate-200 tracking-tight">{role.roleLabel}</p>
+                                                                                        {role.contact ? <p className="text-xs text-slate-400 whitespace-nowrap">{role.contact}</p> : <p className="text-xs text-slate-500 italic">pecery misionstiot Avr...</p>}
                                                                                     </div>
                                                                                 </div>
                                                                             </td>
                                                                             {/* Primary Scope */}
-                                                                            <td className={`px-2 py-3 align-top border-r border-slate-100 ${!isCompact ? 'pt-4' : ''}`}>
+                                                                            <td className={`px-2 py-3 align-top border-r border-slate-700/30 ${!isCompact ? 'pt-4' : ''}`}>
                                                                                 {!isCompact ? (
-                                                                                    <div className="flex items-center justify-between px-2 py-1 bg-white border border-slate-200 rounded text-xs font-semibold text-slate-700 shadow-sm w-[90px] cursor-pointer">
-                                                                                        Global <ChevronDown size={14} className="text-slate-400" />
+                                                                                    <div className="flex items-center justify-between px-2 py-1 bg-slate-800 border border-slate-700 rounded text-xs font-semibold text-slate-300 shadow-sm w-[90px] cursor-pointer">
+                                                                                        Global <ChevronDown size={14} className="text-slate-500" />
                                                                                     </div>
                                                                                 ) : null}
                                                                             </td>
@@ -2095,10 +2211,10 @@ export default function HotelOnboarding() {
                                                                             {PERM_MODULES.map((mod, mi) => {
                                                                                 const isLast = mi === PERM_MODULES.length - 1;
                                                                                 return (
-                                                                                    <td key={mod.key} className={`px-3 py-3 align-top border-r border-slate-100 ${isLast ? 'border-r-0' : ''}`}>
+                                                                                    <td key={mod.key} className={`px-3 py-3 align-top border-r border-slate-700/30 ${isLast ? 'border-r-0' : ''}`}>
                                                                                         {!isCompact && (
-                                                                                            <div className={`mb-3 flex items-center justify-between px-2 py-1 bg-white rounded text-xs font-semibold shadow-sm w-full cursor-pointer border ${role.scopes[mod.key] === 'Assigned Zones Only' ? 'bg-[#ebf5ed] border-[#c3e3cb] text-[#3d7a69]' : 'border-slate-200 text-slate-700'}`}>
-                                                                                                {role.scopes[mod.key] === 'Assigned Zones Only' ? 'Assigned Zones Only' : 'Global'} <ChevronDown size={14} className="text-slate-400" />
+                                                                                            <div className={`mb-3 flex items-center justify-between px-2 py-1 bg-slate-800 rounded text-xs font-semibold shadow-sm w-full cursor-pointer border ${role.scopes[mod.key] === 'Assigned Zones Only' ? 'bg-[#1b2b24] border-[#294d3f] text-[#4edb9a]' : 'border-slate-700 text-slate-300'}`}>
+                                                                                                {role.scopes[mod.key] === 'Assigned Zones Only' ? 'Assigned Zones Only' : 'Global'} <ChevronDown size={14} className="text-slate-500" />
                                                                                             </div>
                                                                                         )}
                                                                                         <div className={`flex ${isCompact ? 'flex-row items-center justify-center gap-2 mt-2' : 'flex-col gap-2'}`}>
@@ -2528,6 +2644,160 @@ export default function HotelOnboarding() {
                     </main>
                 </div >
 
+
+                {/* ═══════════════════════════════════════════ */}
+                {/*  ADD ROLE MODAL                             */}
+                {/* ═══════════════════════════════════════════ */}
+                {
+                    showAddRoleModal && (
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+                            <div className="bg-slate-900 border border-slate-700/60 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                                {/* Header */}
+                                <div className="flex items-center justify-between p-5 pb-4 border-b border-slate-800/60">
+                                    <div>
+                                        <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                            <Shield className="text-indigo-400" size={24} />
+                                            Add Roles
+                                        </h3>
+                                        <p className="text-sm text-slate-400 mt-1">Select from pre-configured standard roles.</p>
+                                    </div>
+                                    <button onClick={() => setShowAddRoleModal(false)} className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer">
+                                        <X size={20} />
+                                    </button>
+                                </div>
+
+                                {/* Body */}
+                                <div className="p-5 overflow-y-auto space-y-8 flex-1 scrollbar-thin scrollbar-thumb-slate-700">
+                                    {loadingRoles ? (
+                                        <div className="flex items-center justify-center p-12 text-slate-400">
+                                            <Loader2 className="animate-spin mr-2" size={20} /> Loading standard roles...
+                                        </div>
+                                    ) : availableRoles.length === 0 ? (
+                                        <div className="text-center p-8 text-slate-500 text-sm">No role templates found in the system.</div>
+                                    ) : (
+                                        [
+                                            { cat: 'GOVERNANCE', label: 'Governance & Management', color: 'bg-violet-500', iconDefault: Shield },
+                                            { cat: 'FRONT_OFFICE', label: 'Front Office', color: 'bg-blue-500', iconDefault: UserCircle },
+                                            { cat: 'HOUSEKEEPING', label: 'Housekeeping', color: 'bg-teal-500', iconDefault: Paintbrush },
+                                            { cat: 'FNB', label: 'Food & Beverage', color: 'bg-orange-500', iconDefault: Coffee },
+                                            { cat: 'MAINTENANCE', label: 'Maintenance', color: 'bg-amber-500', iconDefault: Settings2 },
+                                            { cat: 'FINANCE', label: 'Finance & Accounts', color: 'bg-emerald-500', iconDefault: FileText },
+                                            { cat: 'SECURITY', label: 'Security', color: 'bg-red-500', iconDefault: ShieldAlert },
+                                            { cat: 'ADVANCED', label: 'Advanced & IT', color: 'bg-cyan-500', iconDefault: Zap },
+                                        ].map(group => {
+                                            const rolesInCat = availableRoles.filter(r => r.category === group.cat);
+                                            if (rolesInCat.length === 0) return null;
+
+                                            return (
+                                                <div key={group.cat} className="space-y-3">
+                                                    <h4 className="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                                                        <div className={`w-1.5 h-1.5 rounded-full ${group.color}`} />
+                                                        {group.label}
+                                                    </h4>
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                        {rolesInCat.map(role => {
+                                                            const isSelected = selectedRolesToAdd.includes(role.code);
+                                                            const isAlreadyAdded = rolePerms.some(r => r.roleLabel.toUpperCase() === role.code || r.roleLabel === role.name);
+                                                            let Icon = group.iconDefault;
+
+                                                            // Fallback specific visual overrides for iconic roles
+                                                            if (role.code === 'OWNER') Icon = Star;
+                                                            if (role.code === 'CONCIERGE') Icon = Map;
+                                                            if (role.code === 'GENERAL_MANAGER') Icon = Users;
+
+                                                            // Get color names from the Tailwind arbitrary class
+                                                            const colorName = group.color.replace('bg-', '').replace('-500', '');
+
+                                                            return (
+                                                                <div key={role.code}
+                                                                    onClick={() => {
+                                                                        if (isAlreadyAdded) return;
+                                                                        setSelectedRolesToAdd(prev => isSelected ? prev.filter(id => id !== role.code) : [...prev, role.code])
+                                                                    }}
+                                                                    className={`
+                                                                    relative p-4 rounded-xl border transition-all cursor-pointer flex items-start gap-3
+                                                                    ${isAlreadyAdded ? 'bg-slate-800/20 border-slate-700/30 opacity-60 cursor-not-allowed' :
+                                                                            isSelected ? `bg-${colorName}-500/10 border-${colorName}-500/30 shadow-[0_0_15px_-3px_var(--tw-shadow-color)] shadow-${colorName}-500/15 bg-gradient-to-br from-${colorName}-500/5 to-transparent` :
+                                                                                'bg-slate-800/40 border-slate-700/50 hover:border-slate-600/50 hover:bg-slate-800/60'
+                                                                        }
+                                                                `}
+                                                                >
+                                                                    <div className={`mt-0.5 p-2 rounded-lg shrink-0 ${isSelected ? `bg-${colorName}-500/20 text-${colorName}-400` : 'bg-slate-700/50 text-slate-400'}`}>
+                                                                        {React.createElement(Icon, { size: 16 })}
+                                                                    </div>
+                                                                    <div className="flex-1 pr-6">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <p className={`text-sm font-bold ${isSelected ? `text-${colorName}-200` : 'text-slate-200'}`}>{role.name}</p>
+                                                                            {isAlreadyAdded && <span className="text-[10px] uppercase font-bold text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded">Added</span>}
+                                                                        </div>
+                                                                        <p className="text-xs text-slate-500 mt-1 leading-relaxed">{role.description || 'System standard role'}</p>
+                                                                    </div>
+                                                                    {!isAlreadyAdded && (
+                                                                        <div className={`absolute top-4 right-4 flex items-center justify-center w-5 h-5 rounded-full border transition-colors ${isSelected ? `bg-${colorName}-500 border-${colorName}-500` : 'border-slate-600 bg-slate-800/50'}`}>
+                                                                            {isSelected && <Check size={12} className="text-white" strokeWidth={3} />}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )
+                                        })
+                                    )}
+                                </div>
+
+                                {/* Footer */}
+                                <div className="p-5 border-t border-slate-800/60 bg-slate-900/50 flex justify-end gap-3 shrink-0">
+                                    <button
+                                        onClick={() => {
+                                            setShowAddRoleModal(false);
+                                            setSelectedRolesToAdd([]);
+                                        }}
+                                        className="px-5 py-2.5 rounded-xl text-sm font-semibold text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 transition-colors border border-slate-700/50 cursor-pointer"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            // TODO: We will mock adding the role for now. 
+                                            // A real integration would use the real `api.supabase().from('hotel_roles').insert()` route here later.
+                                            selectedRolesToAdd.forEach(roleId => {
+                                                const labelMap: Record<string, string> = {
+                                                    'SUPERVISOR': 'Supervisor',
+                                                    'ADMIN': 'Administrator',
+                                                    'OWNER': 'Hotel Owner',
+                                                    'RECEPTIONIST': 'Receptionist',
+                                                    'CONCIERGE': 'Concierge',
+                                                    'HOUSEKEEPING_STAFF': 'Housekeeper',
+                                                    'KITCHEN': 'Kitchen Staff',
+                                                    'RUNNER': 'Runner',
+                                                    'SECURITY_GUARD': 'Security Guard'
+                                                };
+                                                setRolePerms(p => [...p, { roleLabel: labelMap[roleId] || roleId, contact: '', scopes: makeScopes('Global'), perms: makePerms(false) }]);
+                                            });
+                                            setShowAddRoleModal(false);
+                                            setSelectedRolesToAdd([]);
+                                        }}
+                                        disabled={selectedRolesToAdd.length === 0}
+                                        className={`
+                                        px-6 py-2.5 rounded-xl text-sm font-bold shadow-lg transition-all flex items-center gap-2
+                                        ${selectedRolesToAdd.length > 0
+                                                ? 'bg-indigo-500 hover:bg-indigo-400 text-white shadow-indigo-500/20 cursor-pointer'
+                                                : 'bg-slate-800 text-slate-500 shadow-none cursor-not-allowed'
+                                            }
+                                    `}
+                                    >
+                                        Add Selected Roles
+                                        {selectedRolesToAdd.length > 0 && (
+                                            <span className="bg-indigo-600 text-white text-xs px-2 py-0.5 rounded-md ml-1">{selectedRolesToAdd.length}</span>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )
+                }
                 {/* ═══════════════════════════════════════════ */}
                 {/*  ADD ROOM TYPE MODAL                         */}
                 {/* ═══════════════════════════════════════════ */}
@@ -2757,8 +3027,133 @@ export default function HotelOnboarding() {
                         </div>
                     )
                 }
-            </div>
-        </div>
+
+                {/* ═══════════════════════════════════════════ */}
+                {/*  STAFF ADD/EDIT MODAL                         */}
+                {/* ═══════════════════════════════════════════ */}
+                {
+                    isStaffModalOpen && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md">
+                            <div className="bg-[#1e202e] border border-slate-700/60 rounded-[28px] w-full max-w-lg shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
+                                {/* Header */}
+                                <div className="px-8 pt-8 pb-4 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 p-8 opacity-5">
+                                        <UserPlus size={120} className="text-indigo-500 rotate-12" />
+                                    </div>
+                                    <div className="relative z-10">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20">
+                                                {editingStaffId ? <Pencil size={20} /> : <UserPlus size={20} />}
+                                            </div>
+                                            <h3 className="text-xl font-bold text-white">{editingStaffId ? "Edit Staff Member" : "Invite Staff Member"}</h3>
+                                        </div>
+                                        <p className="text-sm text-slate-400">{editingStaffId ? "Update existing staff member's details and roles." : "Onboard a new team member by sending them an invitation."}</p>
+                                    </div>
+                                </div>
+
+                                {/* Content */}
+                                <div className="px-8 py-4 space-y-6 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                        <div className="space-y-1.5">
+                                            <label className={labelCls}>Full Name</label>
+                                            <div className="relative">
+                                                <Users className="absolute left-3.5 top-3.5 text-slate-500" size={16} />
+                                                <input
+                                                    type="text"
+                                                    placeholder="John Doe"
+                                                    className={`${inputCls} pl-11`}
+                                                    value={staffForm.name || ""}
+                                                    onChange={e => setStaffForm(p => ({ ...p, name: e.target.value }))}
+                                                    autoFocus
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className={labelCls}>Email Address</label>
+                                            <div className="relative">
+                                                <Mail className="absolute left-3.5 top-3.5 text-slate-500" size={16} />
+                                                <input
+                                                    type="email"
+                                                    placeholder="john@example.com"
+                                                    className={`${inputCls} pl-11`}
+                                                    value={staffForm.email || ""}
+                                                    onChange={e => setStaffForm(p => ({ ...p, email: e.target.value }))}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                        <div className="space-y-1.5">
+                                            <label className={labelCls}>Phone Number</label>
+                                            <div className="relative">
+                                                <Phone className="absolute left-3.5 top-3.5 text-slate-500" size={16} />
+                                                <input
+                                                    type="tel"
+                                                    placeholder="+91 98765 43210"
+                                                    className={`${inputCls} pl-11`}
+                                                    value={staffForm.phone || ""}
+                                                    onChange={e => setStaffForm(p => ({ ...p, phone: e.target.value }))}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className={labelCls}>Primary Role</label>
+                                            <div className="relative">
+                                                <Shield className="absolute left-3.5 top-3.5 text-slate-500" size={16} />
+                                                <select
+                                                    className={`${selectCls} pl-11 pr-10`}
+                                                    value={staffForm.role || ""}
+                                                    onChange={e => setStaffForm(p => ({ ...p, role: e.target.value }))}
+                                                    style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'%2364748b\' viewBox=\'0 0 24 24\'%3E%3Cpath d=\'M7 10l5 5 5-5z\'/%3E%3C/svg%3E")', backgroundPosition: 'right 0.75rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em' }}
+                                                >
+                                                    {rolePerms.map(rp => rp.roleLabel).filter(Boolean).map(r => <option key={r} value={r} className="bg-slate-800">{r}</option>)}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 gap-5">
+                                        <div className="space-y-1.5">
+                                            <label className={labelCls}>Staff Status</label>
+                                            <div className="flex flex-wrap gap-2">
+                                                {["Active", "Suspended", "Terminated"].map(status => (
+                                                    <button
+                                                        key={status}
+                                                        type="button"
+                                                        onClick={() => setStaffForm(p => ({ ...p, status: status as any }))}
+                                                        className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${staffForm.status === status ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300' : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:border-slate-600'}`}
+                                                    >
+                                                        {status}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Footer */}
+                                <div className="px-8 py-6 mb-2 bg-[#1a1c27]/50 border-t border-slate-700/40 flex items-center justify-end gap-3 mt-4">
+                                    <button
+                                        onClick={() => { setIsStaffModalOpen(false); setEditingStaffId(null); }}
+                                        className="px-6 py-2.5 text-sm font-bold text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-xl transition-all"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleStaffSubmit}
+                                        className="flex items-center gap-2 px-8 py-2.5 bg-indigo-500 hover:bg-indigo-400 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/20 active:scale-95 transition-all"
+                                    >
+                                        {editingStaffId ? <Save size={16} /> : <Plus size={16} />}
+                                        {editingStaffId ? "Save Changes" : "Send Invite"}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )
+                }
+            </div >
+        </div >
     );
 }
 

@@ -887,6 +887,8 @@ export default function PreCheckin() {
                 submitting={submitting}
                 submitError={submitError}
                 setStep={setStep}
+                booking={booking}
+                token={token}
             />
         );
     }

@@ -392,3 +392,8 @@ DROP INDEX IF EXISTS uq_guest_doc_unique;
 CREATE UNIQUE INDEX uq_guest_doc_unique
 ON guest_id_documents (guest_id, document_type)
 WHERE document_type IS NOT NULL;
+
+-- ── Optimization for Guest ID Document Lookups ──
+-- This index speeds up the frequent retrieval of the latest active identity document for a guest.
+CREATE INDEX IF NOT EXISTS idx_guest_docs_active 
+ON guest_id_documents (guest_id, is_active, created_at DESC);

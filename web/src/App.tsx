@@ -397,6 +397,8 @@ const OpsManagerAnalytics = lazy(() => import("./routes/OpsManagerAnalytics"));
 // Import Bookings
 const ImportBookings = lazy(() => import("./routes/ImportBookings"));
 const HotelOnboarding = lazy(() => import("./routes/HotelOnboarding"));
+const InviteValidation = lazy(() => import("./routes/InviteValidation"));
+const InviteAcceptance = lazy(() => import("./routes/InviteAcceptance"));
 
 
 // Owner feature flags (for sidebar)
@@ -603,6 +605,10 @@ export default function App() {
           <Routes>
             {/* Landing */}
             <Route path="/" element={<MarketingHome />} />
+
+            {/* Invitations */}
+            <Route path="/invite/:token" element={<InviteValidation />} />
+            <Route path="/invite/accept/:token" element={<InviteAcceptance />} />
 
             {/* Marketing / info (optional) */}
             <Route path="/about" element={<AboutUs />} />

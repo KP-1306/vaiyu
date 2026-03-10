@@ -202,14 +202,26 @@ DECLARE
 BEGIN
     IF NEW.status = 'DELIVERED' AND OLD.status IS DISTINCT FROM 'DELIVERED' THEN
 
-        SELECT s.booking_id, f.id
-        INTO STRICT v_booking_id, v_folio_id
+        -- 1. Find Booking associated with the stay
+        SELECT s.booking_id INTO v_booking_id
         FROM stays s
-        JOIN folios f ON f.booking_id = s.booking_id
         WHERE s.id = NEW.stay_id;
 
+        IF v_booking_id IS NULL THEN
+            RAISE EXCEPTION 'Stay % has no associated booking', NEW.stay_id;
+        END IF;
+
+        -- 2. Find Folio associated with the booking
+        SELECT f.id INTO v_folio_id
+        FROM folios f
+        WHERE f.booking_id = v_booking_id;
+
+        -- 3. Lazy Folio Creation (Just-In-Time) fail-safe
         IF v_folio_id IS NULL THEN
-            RAISE EXCEPTION 'Folio not found for stay %', NEW.stay_id;
+            INSERT INTO public.folios (booking_id, hotel_id, status)
+            VALUES (v_booking_id, NEW.hotel_id, 'OPEN')
+            ON CONFLICT (booking_id) DO UPDATE SET updated_at = now()
+            RETURNING id INTO v_folio_id;
         END IF;
 
         INSERT INTO folio_entries (

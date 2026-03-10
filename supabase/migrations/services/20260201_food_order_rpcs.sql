@@ -285,23 +285,23 @@ BEGIN
     WHERE food_order_id = p_order_id;
 
     -- Auto-assign runner (least load = fewest active READY orders)
-    SELECT hm.id -- Use hotel_member_id
-    INTO v_runner
-    FROM hotel_members hm
-    JOIN hotel_member_roles hmr ON hmr.hotel_member_id = hm.id
-    JOIN hotel_roles r ON r.id = hmr.role_id
-    WHERE hm.hotel_id = p_hotel_id
-      AND r.code = 'RUNNER'
-      -- Simple load balancing: count orders currently in 'READY' status assigned to this runner
-    ORDER BY (
-        SELECT COUNT(*)
-        FROM food_order_assignments foa
-        JOIN food_orders fo ON fo.id = foa.food_order_id
-        WHERE foa.hotel_member_id = hm.id
-          AND foa.role = 'RUNNER'
-          AND fo.status = 'READY'
-    ) ASC
-    LIMIT 1;
+    v_runner := (
+        SELECT hm.id
+        FROM hotel_members hm
+        JOIN hotel_member_roles hmr ON hmr.hotel_member_id = hm.id
+        JOIN hotel_roles r ON r.id = hmr.role_id
+        WHERE hm.hotel_id = p_hotel_id
+          AND r.code = 'RUNNER'
+        ORDER BY (
+            SELECT COUNT(*)
+            FROM food_order_assignments foa
+            JOIN food_orders fo ON fo.id = foa.food_order_id
+            WHERE foa.hotel_member_id = hm.id
+              AND foa.role = 'RUNNER'
+              AND fo.status = 'READY'
+        ) ASC
+        LIMIT 1
+    );
 
     IF v_runner IS NOT NULL THEN
         INSERT INTO food_order_assignments (
@@ -346,85 +346,102 @@ CREATE OR REPLACE FUNCTION deliver_food_order(
 RETURNS VOID
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
     v_member_id UUID;
+    v_now TIMESTAMPTZ := now();
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1
+    -- 1. Input Validation
+    IF p_hotel_id IS NULL THEN
+        RAISE EXCEPTION 'Missing hotel_id for delivery action';
+    END IF;
+
+    -- 2. Authorization (Safe assignment to prevent P0002)
+    v_member_id := (
+        SELECT hm.id
         FROM hotel_members hm
         JOIN hotel_member_roles hmr ON hmr.hotel_member_id = hm.id
         JOIN hotel_roles r ON r.id = hmr.role_id
         WHERE hm.hotel_id = p_hotel_id
           AND hm.user_id = auth.uid()
           AND r.code IN ('RUNNER','ADMIN','OWNER')
-    ) THEN
-        RAISE EXCEPTION 'Unauthorized delivery action';
-    END IF;
+        LIMIT 1
+    );
 
-    PERFORM 1 FROM food_orders WHERE id = p_order_id FOR UPDATE;
-    
-    -- Claim assignment for the deliverer (Audit/Credit)
-    -- 1. Try to update existing runner assignment
-    
-    -- First, get the hotel_member_id of the current user
-    SELECT id INTO v_member_id
-    FROM hotel_members
-    WHERE hotel_id = p_hotel_id AND user_id = auth.uid();
-    
     IF v_member_id IS NULL THEN
-            RAISE EXCEPTION 'User is not a member of this hotel';
+        RAISE EXCEPTION 'Unauthorized: User not allowed to deliver orders at hotel %', p_hotel_id;
     END IF;
 
-    UPDATE food_order_assignments
-    SET hotel_member_id = v_member_id,
-        assigned_at = now()
-    WHERE food_order_id = p_order_id
-        AND role = 'RUNNER';
+    -- 3. Atomic Lock & State Validation
+    PERFORM 1 
+    FROM food_orders 
+    WHERE id = p_order_id 
+      AND hotel_id = p_hotel_id 
+      AND status = 'READY'
+    FOR UPDATE;
 
-    -- 2. If no runner was assigned, insert new assignment
     IF NOT FOUND THEN
-        INSERT INTO food_order_assignments (
-            id,
-            food_order_id,
-            hotel_member_id,
-            role,
-            assigned_at
-        )
-        VALUES (
-            gen_random_uuid(),
-            p_order_id,
-            v_member_id,
-            'RUNNER',
-            now()
-        );
+        RAISE EXCEPTION 'Order % not found, belongs to another hotel, or is not in READY state', p_order_id;
     END IF;
 
+    -- 4. Audit Model: Preserve assignment history if runner changes
+    UPDATE food_order_assignments
+    SET unassigned_at = v_now
+    WHERE food_order_id = p_order_id
+      AND role = 'RUNNER'
+      AND unassigned_at IS NULL
+      AND hotel_member_id <> v_member_id;
+
+    -- Atomic injection: Concurrency handled by unique partial index
+    INSERT INTO food_order_assignments (id, food_order_id, hotel_member_id, role, assigned_at)
+    VALUES (gen_random_uuid(), p_order_id, v_member_id, 'RUNNER', v_now)
+    ON CONFLICT DO NOTHING;
+
+    -- 5. Unified Status Update
     UPDATE food_orders
-    SET status = 'DELIVERED', updated_at = now()
+    SET status = 'DELIVERED',
+        delivered_at = v_now,
+        delivered_by = v_member_id,
+        updated_at = v_now
     WHERE id = p_order_id
       AND status = 'READY';
 
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'Invalid delivery transition';
+        RAISE EXCEPTION 'Order % status transition failed (already processed or invalid state)', p_order_id;
     END IF;
 
+    -- 6. Streamlined SLA Close
     UPDATE food_order_sla_state
-    SET sla_completed_at = now(),
-        breached = (now() > sla_target_at),
-        breached_at = CASE WHEN now() > sla_target_at THEN now() END
+    SET sla_completed_at = v_now,
+        breached = (v_now > sla_target_at),
+        breached_at = CASE WHEN v_now > sla_target_at THEN v_now END
     WHERE food_order_id = p_order_id;
 
-    INSERT INTO food_order_events
+    IF NOT FOUND THEN
+        RAISE DEBUG 'SLA state record missing for order %', p_order_id;
+    END IF;
+
+    -- 7. High-Traceability Event Logging (V2 with transition metadata)
+    INSERT INTO food_order_events (
+        id, food_order_id, event_type, actor_type, actor_id, payload, created_at
+    )
     VALUES (
         gen_random_uuid(),
         p_order_id,
         'ORDER_DELIVERED',
         'RUNNER',
-        auth.uid(),
-        '{}',
-        now()
+        v_member_id, 
+        jsonb_build_object(
+            'hotel_member_id', v_member_id,
+            'actor_user_id', auth.uid(),
+            'from_status', 'READY',
+            'to_status', 'DELIVERED',
+            'delivered_at', v_now
+        ),
+        v_now
     );
+
 END;
 $$;
 

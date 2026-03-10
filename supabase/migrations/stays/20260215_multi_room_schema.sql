@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS booking_rooms (
   adults integer NOT NULL DEFAULT 1,
   children integer NOT NULL DEFAULT 0,
 
-  status text NOT NULL DEFAULT 'reserved',
+  status text NOT NULL DEFAULT 'RESERVED',
   created_at timestamptz NOT NULL DEFAULT now()
 );
 

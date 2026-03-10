@@ -218,7 +218,7 @@ export default function BookingDetails() {
                             Cancel Check-In
                         </button>
                         <button
-                            onClick={() => navigate("../kyc", { state: { booking } })}
+                            onClick={() => navigate(`../kyc${location.search}`, { state: { booking } })}
                             className="flex-1 sm:flex-none rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                         >
                             Confirm & Continue

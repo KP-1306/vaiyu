@@ -276,6 +276,7 @@ export default function OwnerDashboard() {
     null
   );
   const [opsLoading, setOpsLoading] = useState(false);
+  const [showMobileNav, setShowMobileNav] = useState(false);
 
   const [accessProblem, setAccessProblem] = useState<string | null>(null);
   const inviteToken = params.get("invite");
@@ -833,6 +834,32 @@ export default function OwnerDashboard() {
         <span className="text-zinc-100">Dashboard</span>
       </div>
 
+      {/* Mobile Drawer */}
+      {showMobileNav && (
+        <div className="fixed inset-0 z-[60] lg:hidden">
+          <div
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm"
+            onClick={() => setShowMobileNav(false)}
+          />
+          <aside className="fixed inset-y-0 left-0 w-72 bg-zinc-950 border-r border-zinc-800 p-6 overflow-y-auto">
+            <div className="flex items-center justify-between mb-8">
+              <div className="text-sm font-bold text-white uppercase tracking-widest">
+                Navigation
+              </div>
+              <button
+                onClick={() => setShowMobileNav(false)}
+                className="p-2 text-zinc-400 hover:text-white"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <SidebarNav slug={hotel.slug} onNavClick={() => setShowMobileNav(false)} />
+          </aside>
+        </div>
+      )}
+
       {/* Solid Slate Background - No Gradients */}
 
 
@@ -843,9 +870,10 @@ export default function OwnerDashboard() {
           city={hotel.city}
           dateLabel={dateLabel}
           slug={hotel.slug}
+          onMenuClick={() => setShowMobileNav(true)}
         />
 
-        <div className="mt-8 grid gap-8 lg:grid-cols-[220px,minmax(0,1fr),320px]">
+        <div className="mt-8 grid gap-8 lg:grid-cols-[220px,minmax(0,1fr)] xl:grid-cols-[220px,minmax(0,1fr),320px]">
           {/* Left rail - Navigation Only */}
           <aside className="hidden lg:block space-y-6">
             <SidebarNav slug={hotel.slug} />
@@ -869,36 +897,36 @@ export default function OwnerDashboard() {
             )}
 
             {/* KPI strip */}
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-              <KpiTile label="Rooms" value={total ? `${total}` : "—"} sub="Total rooms" icon={BedDouble} />
+            <div className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+              <KpiTile label="Rooms" value={total ? `${total}` : "—"} sub="Total" icon={BedDouble} />
               <KpiTile
                 label="Active tasks"
                 value={`${tasksTotal}`}
-                sub="Open requests"
+                sub="Open"
                 icon={Clock}
               />
               <KpiTile
-                label="At risk tasks"
+                label="At risk"
                 value={`${tasksAtRisk}`}
-                sub={`Over ${targetMin} min`}
+                sub={`> ${targetMin}m`}
                 accent="amber"
                 icon={AlertTriangle}
               />
               <KpiTile
                 label="Avg response"
                 value={avgResponseMin == null ? "—" : `${avgResponseMin}m`}
-                sub="From SLA metrics"
+                sub="SLA"
                 icon={LayoutDashboard}
               />
               <KpiTile
-                label="Guest satisfaction"
+                label="Satisfaction"
                 value={guestPrimary ?? "—"}
                 sub={
                   typeof npsScore === "number" && (npsResponses ?? 0) > 0
-                    ? `${npsResponses} responses`
+                    ? `${npsResponses} res`
                     : typeof avgRating30d === "number"
-                      ? "Avg rating (30d)"
-                      : "Not available"
+                      ? "Avg rating"
+                      : "N/A"
                 }
                 accent={guestTone === "green" ? "emerald" : guestTone === "amber" ? "amber" : guestTone === "red" ? "rose" : undefined}
                 icon={MessageSquare}
@@ -988,7 +1016,7 @@ export default function OwnerDashboard() {
                   )}
                 </div>
 
-                <div className="mt-3 grid grid-cols-3 gap-2">
+                <div className="mt-3 grid gap-2 grid-cols-1 sm:grid-cols-3">
                   <MiniStat label="Blocked" value={blockedCount == null ? "—" : blockedCount} tone={blockedCount && blockedCount > 0 ? "red" : "grey"} />
                   <MiniStat label="Active" value={tasksTotal} tone={tasksTotal > 0 ? "green" : "grey"} />
                   <MiniStat label="At risk" value={tasksAtRisk} tone={tasksAtRisk > 0 ? "amber" : "grey"} />
@@ -1019,7 +1047,7 @@ export default function OwnerDashboard() {
                       <thead>
                         <tr>
                           <Th>Task</Th>
-                          <Th>Status</Th>
+                          <Th className="hidden sm:table-cell">Status</Th>
                           <Th>Age</Th>
                           <Th className="text-right">SLA</Th>
                         </tr>
@@ -1034,11 +1062,11 @@ export default function OwnerDashboard() {
                                 <div className="font-medium text-slate-100">
                                   {o.title || `#${o.id.slice(0, 8)}`}
                                 </div>
-                                <div className="text-[11px] text-slate-400">
-                                  {fmtTime(o.created_at)}
+                                <div className="text-[11px] text-zinc-500 sm:hidden">
+                                  {o.status}
                                 </div>
                               </Td>
-                              <Td>
+                              <Td className="hidden sm:table-cell">
                                 <span className="text-slate-200">{o.status}</span>
                               </Td>
                               <Td>
@@ -1166,7 +1194,7 @@ export default function OwnerDashboard() {
           </section>
 
           {/* Right rail */}
-          <aside className="space-y-4">
+          <aside className="space-y-4 xl:block">
             <DarkCard className="p-4">
               <CardHeader title="Staff Performance" subtitle="Active staff members" />
               <div className="mt-3">
@@ -1328,12 +1356,14 @@ function DashboardTopBar({
   city,
   dateLabel,
   slug,
+  onMenuClick,
 }: {
   title: string;
   hotelName: string;
   city: string | null;
   dateLabel: string;
   slug: string;
+  onMenuClick?: () => void;
 }) {
   return (
     <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between pb-6 border-b border-zinc-900">
@@ -1378,6 +1408,7 @@ function DashboardTopBar({
 
         <button
           type="button"
+          onClick={onMenuClick}
           className="inline-flex lg:hidden items-center justify-center rounded-md border border-zinc-800 bg-zinc-900/50 p-2 hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-white"
           title="Menu"
         >
@@ -1388,7 +1419,7 @@ function DashboardTopBar({
   );
 }
 
-function SidebarNav({ slug }: { slug: string }) {
+function SidebarNav({ slug, onNavClick }: { slug: string; onNavClick?: () => void }) {
   const encodedSlug = encodeURIComponent(slug);
 
   const servicesHref = `/owner/services?slug=${encodedSlug}`;
@@ -1398,21 +1429,21 @@ function SidebarNav({ slug }: { slug: string }) {
 
   return (
     <nav aria-label="Owner dashboard navigation" className="space-y-1 text-sm">
-      <NavItem href="#top" label="Overview" active />
-      <NavItem to={`/owner/${slug}/arrivals`} label="Guest Arrivals" />
-      <NavItem to={`/owner/${slug}/housekeeping`} label="Housekeeping" />
-      <NavItem to={`/owner/${slug}/analytics`} label="Owner Analytics" />
-      <NavItem to={`/owner/${slug}/payments`} label="Payments & Ledger" />
-      <NavItem to={opsAnalyticsHref} label="Ops Manager Dashboard" />
-      <NavItem to={servicesHref} label="Departments/Services & SLAs" />
-      <NavItem to={`/owner/${slug}/staff-shifts`} label="Staff & Shifts" />
-      <NavItem to={opsHref} label="Supervisor Board" />
-      <NavItem to="/staff" label="Staff App (Services)" />
-      <NavItem to="/kitchen" label="Kitchen View" />
-      <NavItem to={`/owner/${slug}/import-bookings`} label="Import Bookings" />
-      <NavItem to={`/checkin?slug=${encodedSlug}`} label="Front Desk" />
-      <NavItem to={settingsHref} label="Settings" />
-      {HAS_CALENDAR && <NavItem to="../bookings/calendar" label="Calendar" />}
+      <NavItem href="#top" label="Overview" active onClick={onNavClick} />
+      <NavItem to={`/owner/${slug}/arrivals`} label="Guest Arrivals" onClick={onNavClick} />
+      <NavItem to={`/owner/${slug}/housekeeping`} label="Housekeeping" onClick={onNavClick} />
+      <NavItem to={`/owner/${slug}/analytics`} label="Owner Analytics" onClick={onNavClick} />
+      <NavItem to={`/owner/${slug}/payments`} label="Payments & Ledger" onClick={onNavClick} />
+      <NavItem to={opsAnalyticsHref} label="Ops Manager Dashboard" onClick={onNavClick} />
+      <NavItem to={servicesHref} label="Departments/Services & SLAs" onClick={onNavClick} />
+      <NavItem to={`/owner/${slug}/staff-shifts`} label="Staff & Shifts" onClick={onNavClick} />
+      <NavItem to={opsHref} label="Supervisor Board" onClick={onNavClick} />
+      <NavItem to="/staff" label="Staff App (Services)" onClick={onNavClick} />
+      <NavItem to="/kitchen" label="Kitchen View" onClick={onNavClick} />
+      <NavItem to={`/owner/${slug}/import-bookings`} label="Import Bookings" onClick={onNavClick} />
+      <NavItem to={`/checkin?slug=${encodedSlug}`} label="Front Desk" onClick={onNavClick} />
+      <NavItem to={settingsHref} label="Settings" onClick={onNavClick} />
+      {HAS_CALENDAR && <NavItem to="../bookings/calendar" label="Calendar" onClick={onNavClick} />}
     </nav>
   );
 }
@@ -1422,11 +1453,13 @@ function NavItem({
   to,
   href,
   active,
+  onClick,
 }: {
   label: string;
   to?: string;
   href?: string;
   active?: boolean;
+  onClick?: () => void;
 }) {
   const base =
     "flex items-center justify-between rounded-md px-3 py-2 text-[13px] font-medium transition-colors";
@@ -1436,7 +1469,7 @@ function NavItem({
 
   if (href) {
     return (
-      <a href={href} className={cls}>
+      <a href={href} className={cls} onClick={onClick}>
         <span>{label}</span>
       </a>
     );
@@ -1444,7 +1477,7 @@ function NavItem({
 
   if (to) {
     return (
-      <Link to={to} className={cls}>
+      <Link to={to} className={cls} onClick={onClick}>
         <span>{label}</span>
       </Link>
     );
@@ -1507,17 +1540,17 @@ function KpiTile({
   icon?: any;
 }) {
   return (
-    <div className="bg-[#09090b] p-5 rounded-xl border border-zinc-800 flex flex-col justify-between h-full hover:border-zinc-700 transition-colors">
-      <div className="flex justify-between items-start mb-6">
-        <h3 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-widest">{label}</h3>
-        {Icon && <Icon size={16} className="text-zinc-600" />}
+    <div className="bg-[#09090b] p-3 sm:p-5 rounded-xl border border-zinc-800 flex flex-col justify-between h-full hover:border-zinc-700 transition-colors">
+      <div className="flex justify-between items-start mb-4 sm:mb-6">
+        <h3 className="text-[10px] sm:text-[11px] font-semibold text-zinc-500 uppercase tracking-widest truncate">{label}</h3>
+        {Icon && <Icon size={14} className="text-zinc-600 shrink-0" />}
       </div>
 
-      <div className="flex items-baseline gap-2 mt-auto">
-        <span className="text-3xl font-bold text-zinc-100 tracking-tight">{value}</span>
+      <div className="flex items-baseline gap-1 sm:gap-2 mt-auto">
+        <span className="text-xl sm:text-3xl font-bold text-zinc-100 tracking-tight">{value}</span>
       </div>
 
-      {sub && <div className="mt-2 text-[12px] font-medium text-zinc-500">{sub}</div>}
+      {sub && <div className="mt-1 sm:mt-2 text-[10px] sm:text-[12px] font-medium text-zinc-500 truncate">{sub}</div>}
     </div>
   );
 }

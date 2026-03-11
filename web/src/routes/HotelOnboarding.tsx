@@ -210,6 +210,17 @@ export default function HotelOnboarding() {
     const [success, setSuccess] = useState(false);
     const [transitioning, setTransitioning] = useState(false);
 
+    /* ── Member Role Assignment Modal State ── */
+    const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
+    const [roleModalLoading, setRoleModalLoading] = useState(false);
+    const [roleModalSaving, setRoleModalSaving] = useState(false);
+    const [modalMembersList, setModalMembersList] = useState<{ id: string; user_id: string; email: string; name: string }[]>([]);
+    const [modalRolesList, setModalRolesList] = useState<{ id: string; name: string; code: string; description?: string; isTemplate?: boolean }[]>([]);
+    
+    // Form Selection State
+    const [selectedMemberId, setSelectedMemberId] = useState<string>("");
+    const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
+
     /* ── User State ── */
     const [userEmail, setUserEmail] = useState<string>("Loading...");
     const [userInitials, setUserInitials] = useState<string>("");
@@ -678,6 +689,205 @@ export default function HotelOnboarding() {
         setStaffForm({ name: s.name, email: s.email, phone: s.phone, role: s.role, status: s.status });
         setIsStaffModalOpen(true);
     };
+
+    /* ── Member Role Assignment Logic ── */
+    async function fetchRoleModalData() {
+        if (!hotelId) return;
+        setRoleModalLoading(true);
+        try {
+            // 1. Fetch persistent Hotel Members
+            const { data: members, error: memErr } = await supabase
+                .from("hotel_members")
+                .select("id, user_id")
+                .eq("hotel_id", hotelId)
+                .eq("is_active", true);
+            
+            if (memErr) throw memErr;
+
+            // 2. Fetch Profiles for these members to get proper names
+            const userIds = (members || []).map(m => m.user_id).filter(Boolean);
+            let profilesMap: Record<string, { full_name: string, email: string }> = {};
+            
+            if (userIds.length > 0) {
+                const { data: profiles, error: profErr } = await supabase
+                    .from("profiles")
+                    .select("id, full_name, email")
+                    .in("id", userIds);
+                
+                if (!profErr && profiles) {
+                    profiles.forEach(p => {
+                        profilesMap[p.id] = { full_name: p.full_name || "", email: p.email || "" };
+                    });
+                }
+            }
+
+            const formattedMembers = (members || []).map((m: any) => {
+                const p = profilesMap[m.user_id];
+                // Fallback to local staffMembers state if profile name is missing
+                const localMatch = staffMembers.find(s => s.email === p?.email);
+                
+                return {
+                    id: m.id,
+                    user_id: m.user_id,
+                    name: p?.full_name || localMatch?.name || `Staff (ID: ${m.id.substring(0,4)})`,
+                    email: p?.email || localMatch?.email || "No Email"
+                };
+            });
+            setModalMembersList(formattedMembers);
+
+            // 3. Fetch Existing Hotel Roles
+            const { data: hRoles, error: hRoleErr } = await supabase
+                .from("hotel_roles")
+                .select("id, name, code, description")
+                .eq("hotel_id", hotelId)
+                .eq("is_active", true);
+
+            if (hRoleErr) throw hRoleErr;
+
+            // 4. Fetch System Role Templates
+            const { data: sTemplates, error: sTemplErr } = await supabase
+                .from("system_role_templates")
+                .select("code, name, description")
+                .eq("is_active", true);
+
+            if (sTemplErr) throw sTemplErr;
+
+            // 5. Merge Roles (Prefer existing hotel roles, but deduplicate Owner)
+            const mergedRoles: any[] = [];
+            const processedCodes = new Set<string>();
+
+            // Add existing hotel roles first
+            (hRoles || []).forEach(r => {
+                // If the hotel somehow has both "OWNER" and "OWNER_0", we only want to show one "Owner" role.
+                // We'll prioritize the standard "OWNER" code.
+                if (r.code === 'OWNER_0' && processedCodes.has('OWNER')) return;
+                
+                mergedRoles.push({ ...r, isTemplate: false });
+                processedCodes.add(r.code);
+            });
+
+            // Add remaining templates
+            (sTemplates || []).forEach(t => {
+                // Deduplicate: if we already have an "OWNER" (of any variation), don't add another from template
+                if (t.code === 'OWNER' && (processedCodes.has('OWNER') || processedCodes.has('OWNER_0'))) return;
+
+                if (!processedCodes.has(t.code)) {
+                    mergedRoles.push({ 
+                        id: `template_${t.code}`, 
+                        name: t.name, 
+                        code: t.code, 
+                        description: t.description,
+                        isTemplate: true 
+                    });
+                    processedCodes.add(t.code);
+                }
+            });
+
+            setModalRolesList(mergedRoles);
+
+            // Reset Selection
+            setSelectedMemberId("");
+            setSelectedRoleIds([]);
+        } catch (err: any) {
+            console.error("Error fetching modal data:", err);
+            setError(err.message || "Failed to load role data.");
+        } finally {
+            setRoleModalLoading(false);
+        }
+    }
+
+    async function handleMemberSelection(memberId: string) {
+        setSelectedMemberId(memberId);
+        if (!memberId) {
+            setSelectedRoleIds([]);
+            return;
+        }
+        try {
+            const { data: existingRoles, error } = await supabase
+                .from("hotel_member_roles")
+                .select("role_id")
+                .eq("hotel_member_id", memberId);
+            if (error) throw error;
+            setSelectedRoleIds((existingRoles || []).map((r: any) => r.role_id));
+        } catch (err) {
+            console.error("Error fetching existing roles:", err);
+            setSelectedRoleIds([]);
+        }
+    }
+
+    async function handleSaveRoleAssignments() {
+        if (!selectedMemberId || selectedRoleIds.length === 0) {
+            setError("Please select a user and at least one role.");
+            return;
+        }
+        setRoleModalSaving(true);
+        setError("");
+        try {
+            // 1. Identify template-only roles and create them in hotel_roles first
+            const finalRoleIds: string[] = [];
+            const templateRoleIds = selectedRoleIds.filter(id => id.startsWith("template_"));
+            const existingRoleIds = selectedRoleIds.filter(id => !id.startsWith("template_"));
+            
+            finalRoleIds.push(...existingRoleIds);
+
+            if (templateRoleIds.length > 0) {
+                const rolesToCreate = templateRoleIds.map(tempId => {
+                    const templateCode = tempId.replace("template_", "");
+                    const roleData = modalRolesList.find(r => r.code === templateCode);
+                    return {
+                        hotel_id: hotelId,
+                        code: templateCode,
+                        name: roleData?.name || templateCode,
+                        description: roleData?.description || "",
+                        is_active: true
+                    };
+                });
+
+                // Upsert to ensure we don't duplicate codes and to get back the persistent IDs
+                const { data: createdRoles, error: createErr } = await supabase
+                    .from("hotel_roles")
+                    .upsert(rolesToCreate, { onConflict: 'hotel_id,code' })
+                    .select("id");
+
+                if (createErr) throw createErr;
+                if (createdRoles) {
+                    finalRoleIds.push(...createdRoles.map(r => r.id));
+                }
+            }
+
+            if (finalRoleIds.length === 0) {
+                throw new Error("No valid roles to assign.");
+            }
+
+            // 2. Delete existing roles for this member
+            const { error: delErr } = await supabase
+                .from("hotel_member_roles")
+                .delete()
+                .eq("hotel_member_id", selectedMemberId);
+            if (delErr) throw delErr;
+
+            // 3. Insert new role mappings
+            const insertPayload = finalRoleIds.map((roleId) => ({
+                hotel_member_id: selectedMemberId,
+                role_id: roleId
+            }));
+
+            const { error: insErr } = await supabase
+                .from("hotel_member_roles")
+                .insert(insertPayload);
+            if (insErr) throw insErr;
+
+            setIsRoleModalOpen(false);
+            setSuccess(true);
+            setTimeout(() => setSuccess(false), 3000);
+        } catch (err: any) {
+            console.error("Error saving roles:", err);
+            setError(err.message || "Failed to save role assignments.");
+        } finally {
+            setRoleModalSaving(false);
+        }
+    }
+
     const handleStaffSubmit = () => {
         if (!staffForm.name?.trim() || !staffForm.email?.trim()) {
             setError("Name and Email are required");
@@ -866,22 +1076,36 @@ export default function HotelOnboarding() {
                 
                 // 1. Enterprise Pattern: Upsert Roles instead of wiping them
                 if (rolePerms.length > 0) {
-                    const hsRoles = rolePerms.map((rp, i) => ({ 
-                        hotel_id: hotelId, 
-                        code: `${(rp.roleLabel || "ROLE").toUpperCase().replace(/\s/g, '_').substring(0, 15)}_${i}`, 
-                        name: rp.roleLabel || "Unnamed Role", 
-                        description: rp.contact || '', 
-                        is_active: true 
-                    }));
+                    const generatedCodes = new Set<string>();
+                    const hsRoles = rolePerms.map((rp) => {
+                        const rawLabel = (rp.roleLabel || "ROLE").trim();
+                        // Minimal transformation: uppercase and underscore spaces
+                        const baseCode = rawLabel.toUpperCase().replace(/\s/g, '_').substring(0, 25);
+                        
+                        let finalCode = baseCode;
+                        let counter = 1;
+                        // Only add index if there's a collision within the same hotel's role set in this onboarding session
+                        while (generatedCodes.has(finalCode)) {
+                            finalCode = `${baseCode}_${counter}`;
+                            counter++;
+                        }
+                        generatedCodes.add(finalCode);
+
+                        return { 
+                            hotel_id: hotelId, 
+                            code: finalCode, 
+                            name: rp.roleLabel || "Unnamed Role", 
+                            description: rp.contact || '', 
+                            is_active: true 
+                        };
+                    });
                     
                     const { data: insertedRoles, error: roleErr } = await supabase
                         .from("hotel_roles")
                         .upsert(hsRoles, { onConflict: 'hotel_id,code' })
                         .select('id, name');
 
-                    if (roleErr) {
-                        throw roleErr; 
-                    }
+                    if (roleErr) throw roleErr;
                     if (insertedRoles) insertedRoles.forEach(r => { roleIdMap[r.name] = r.id; });
                 }
 
@@ -1059,6 +1283,20 @@ export default function HotelOnboarding() {
 
                         {/* Right Side: Global Controls */}
                         <div className="flex items-center gap-3 md:gap-4">
+                            {/* Assign Roles Button */}
+                            {hotelId && (
+                                <button
+                                    onClick={() => {
+                                        setIsRoleModalOpen(true);
+                                        fetchRoleModalData();
+                                    }}
+                                    className="hidden sm:flex items-center gap-2 px-4 py-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 hover:text-indigo-300 transition-colors border border-indigo-500/20"
+                                >
+                                    <UserPlus size={14} />
+                                    <span className="text-sm font-medium">Assign Roles</span>
+                                </button>
+                            )}
+
                             {/* Hotel Selector */}
                             <div className="relative group">
                                 <button
@@ -3172,6 +3410,120 @@ export default function HotelOnboarding() {
                                     >
                                         {editingStaffId ? <Save size={16} /> : <Plus size={16} />}
                                         {editingStaffId ? "Save Changes" : "Send Invite"}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )
+                }
+                
+                {/* ═══════════════════════════════════════════ */}
+                {/*  ASSIGN ROLES MODAL                         */}
+                {/* ═══════════════════════════════════════════ */}
+                {
+                    isRoleModalOpen && (
+                        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md">
+                            <div className="bg-[#1e202e] border border-slate-700/60 rounded-[28px] w-full max-w-xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
+                                {/* Header */}
+                                <div className="px-8 pt-8 pb-4 relative overflow-hidden bg-slate-900/50">
+                                    <div className="absolute top-0 right-0 p-8 opacity-5">
+                                        <Shield size={120} className="text-indigo-500 rotate-12" />
+                                    </div>
+                                    <div className="relative z-10 flex items-center justify-between">
+                                        <div>
+                                            <div className="flex items-center gap-3 mb-2">
+                                                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20">
+                                                    <UserPlus size={20} />
+                                                </div>
+                                                <h3 className="text-xl font-bold text-white">Assign Member Roles</h3>
+                                            </div>
+                                            <p className="text-sm text-slate-400">Map an existing hotel team member to one or multiple roles.</p>
+                                        </div>
+                                        <button onClick={() => setIsRoleModalOpen(false)} className="bg-slate-800/50 hover:bg-slate-700 p-2 rounded-xl text-slate-400 transition-colors">
+                                            <X size={20} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Content */}
+                                <div className="px-8 py-6 space-y-6 max-h-[60vh] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700">
+                                    {roleModalLoading ? (
+                                        <div className="flex flex-col items-center justify-center py-10 opacity-60">
+                                            <Loader2 size={32} className="text-indigo-400 animate-spin mb-3" />
+                                            <p className="text-sm text-slate-400 font-medium">Loading Hotel Members & Roles...</p>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="space-y-2">
+                                                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Select Team Member</label>
+                                                <select
+                                                    value={selectedMemberId}
+                                                    onChange={(e) => handleMemberSelection(e.target.value)}
+                                                    className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-3 text-sm text-white focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none appearance-none"
+                                                    style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'%2364748b\' viewBox=\'0 0 24 24\'%3E%3Cpath d=\'M7 10l5 5 5-5z\'/%3E%3C/svg%3E")', backgroundPosition: 'right 0.75rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em' }}
+                                                >
+                                                    <option value="" disabled>-- Select a Member --</option>
+                                                    {modalMembersList.map(m => (
+                                                        <option key={m.id} value={m.id}>{m.name} ({m.email})</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+
+                                            <div className="space-y-3">
+                                                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Assign Roles (Multi-Select)</label>
+                                                <div className="bg-slate-950/30 border border-slate-800 rounded-xl p-2 space-y-1">
+                                                    {modalRolesList.length === 0 ? (
+                                                        <div className="p-4 text-center text-sm text-slate-500">No active roles found. Please add roles in the Staff Setup step first.</div>
+                                                    ) : (
+                                                        modalRolesList.map(role => {
+                                                            const isChecked = selectedRoleIds.includes(role.id);
+                                                            return (
+                                                                <label key={role.id} className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${isChecked ? 'bg-indigo-500/10 border border-indigo-500/20' : 'hover:bg-slate-800/40 border border-transparent'}`}>
+                                                                    <div className={`w-5 h-5 rounded flex text-white items-center justify-center transition-colors border ${isChecked ? 'bg-indigo-500 border-indigo-500' : 'bg-slate-800 border-slate-600'}`}>
+                                                                        {isChecked && <Check size={14} strokeWidth={3} />}
+                                                                    </div>
+                                                                    <input 
+                                                                        type="checkbox" 
+                                                                        className="hidden" 
+                                                                        checked={isChecked}
+                                                                        onChange={() => {
+                                                                            setSelectedRoleIds(prev => 
+                                                                                prev.includes(role.id) ? prev.filter(r => r !== role.id) : [...prev, role.id]
+                                                                            );
+                                                                        }} 
+                                                                    />
+                                                                    <div>
+                                                                        <div className={`text-sm font-bold ${isChecked ? 'text-indigo-300' : 'text-slate-300'}`}>{role.name}</div>
+                                                                        <div className="text-[10px] text-slate-500 font-mono mt-0.5">{role.code}</div>
+                                                                    </div>
+                                                                </label>
+                                                            );
+                                                        })
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+
+                                {/* Footer */}
+                                <div className="px-8 py-5 mt-auto bg-[#1a1c27] border-t border-slate-800/80 flex justify-end gap-3 rounded-b-[28px]">
+                                    <button
+                                        onClick={() => setIsRoleModalOpen(false)}
+                                        className="px-6 py-2.5 text-sm font-bold text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-xl transition-all"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleSaveRoleAssignments}
+                                        disabled={roleModalSaving || roleModalLoading || !selectedMemberId || selectedRoleIds.length === 0}
+                                        className="flex items-center gap-2 px-8 py-2.5 bg-indigo-500 hover:bg-indigo-400 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/20 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {roleModalSaving ? (
+                                            <><Loader2 size={16} className="animate-spin" /> Saving Mapping…</>
+                                        ) : (
+                                            <><Save size={16} /> Save Assignment</>
+                                        )}
                                     </button>
                                 </div>
                             </div>

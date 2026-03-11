@@ -18,7 +18,6 @@ const Stay = lazy(() => import("./routes/Stay"));
 const MyRequests = lazy(() => import("./routes/MyRequests"));
 const Bills = React.lazy(() => import("./routes/Bill"));
 const OwnerAccess = React.lazy(() => import("./routes/OwnerAccess"));
-const InviteAccept = React.lazy(() => import("./routes/InviteAccept"));
 const OwnerHomeRedirect = lazy(() => import("./routes/OwnerHomeRedirect"));
 
 // Kill stale SW + caches (keep disabled while debugging)
@@ -161,6 +160,8 @@ const OwnerAnalytics = lazy(() => import("./routes/OwnerAnalytics"));
 const OwnerPayments = lazy(() => import("./routes/OwnerPayments")); // NEW
 const ImportBookings = lazy(() => import("./routes/ImportBookings")); // NEW
 const HotelOnboarding = lazy(() => import("./routes/HotelOnboarding")); // NEW
+const InviteValidation = lazy(() => import("./routes/InviteValidation"));
+const InviteAcceptance = lazy(() => import("./routes/InviteAcceptance"));
 const AdminOps = lazy(() => import("./pages/AdminOps"));
 
 // ADR & RevPAR detail pages (from routes/OwnerRevenue.tsx)
@@ -518,8 +519,10 @@ const router = createBrowserRouter([
         ],
       },
 
-      // Hotel Onboarding
+      // Hotel Onboarding & Invitations
       { path: "onboard", element: <HotelOnboarding /> },
+      { path: "invite/:token", element: <InviteValidation /> },
+      { path: "invite/accept/:token", element: <InviteAcceptance /> },
 
       // GuestNew - Premium Guest Experience
       {
@@ -894,7 +897,7 @@ const router = createBrowserRouter([
         path: "owner/invite/accept/:token",
         element: (
           <AuthGate>
-            <InviteAccept />
+            <InviteAcceptance />
           </AuthGate>
         ),
       },
@@ -910,7 +913,7 @@ const router = createBrowserRouter([
         path: "invite/accept",
         element: (
           <AuthGate>
-            <InviteAccept />
+            <InviteAcceptance />
           </AuthGate>
         ),
       },

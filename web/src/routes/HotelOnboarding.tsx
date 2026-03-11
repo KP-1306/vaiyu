@@ -457,6 +457,8 @@ export default function HotelOnboarding() {
                     max_occupancy: String(rt.max_occupancy),
                     active: true
                 })));
+            } else {
+                setRoomTypes([]);
             }
 
             // Hydrate Room Inventory
@@ -470,6 +472,8 @@ export default function HotelOnboarding() {
                     status: rm.is_out_of_order ? 'Out of Order' : (rm.status === 'occupied' ? 'Occupied' : 'Vacant'),
                     active: !rm.is_out_of_order
                 })));
+            } else {
+                setInventory([]);
             }
 
             // Hydrate Roles
@@ -480,6 +484,8 @@ export default function HotelOnboarding() {
                     scopes: makeScopes('Global'),
                     perms: makePerms(true)
                 })));
+            } else {
+                setRolePerms([]);
             }
 
             // Hydrate Initial Staff Invites
@@ -498,6 +504,8 @@ export default function HotelOnboarding() {
                     ipAddress: "",
                     selected: false
                 })));
+            } else {
+                setStaffMembers([]);
             }
 
             // Hydrate Features from Theme JSON

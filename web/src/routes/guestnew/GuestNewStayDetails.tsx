@@ -71,7 +71,7 @@ export default function GuestNewStayDetails() {
                         hotel: {
                             name: data.hotel_name || data.hotel?.name || "Hotel",
                             city: data.hotel_city || data.hotel?.city,
-                            phone: data.hotel_phone || "+91 177 234 5678",
+                            phone: data.hotel_phone || "",
                         },
                         check_in: data.check_in,
                         check_out: data.check_out,

@@ -20,7 +20,9 @@ import {
   Clock,
   UserCheck,
   MessageSquare,
-  AlertTriangle
+  AlertTriangle,
+  LogOut,
+  Settings
 } from "lucide-react";
 import {
   fetchOpsHeatmap,
@@ -56,12 +58,19 @@ type KpiRow = {
   updated_at: string;
 };
 
-type LiveOrder = {
+type LiveTask = {
   id: string;
   created_at: string;
   status: string;
-  price: number | null;
-  closed_at?: string | null;
+  title?: string;
+};
+
+type KpiSummary = {
+  total_tickets: number;
+  completed_within_sla: number;
+  breached_sla: number;
+  at_risk_tickets: number;
+  sla_compliance_percent: number | null;
 };
 
 type StaffPerf = {
@@ -240,9 +249,11 @@ export default function OwnerDashboard() {
   // KPI state (live via Realtime)
   const [kpi, setKpi] = useState<KpiRow | null>(null);
 
-  // SLA + Live orders
+  // SLA + Live tasks
   const [slaTargetMin, setSlaTargetMin] = useState<number | null>(null);
-  const [liveOrders, setLiveOrders] = useState<LiveOrder[]>([]);
+  const [liveTasks, setLiveTasks] = useState<LiveTask[]>([]);
+  const [kpiSummary, setKpiSummary] = useState<KpiSummary | null>(null);
+  const [activeTaskCount, setActiveTaskCount] = useState<number>(0);
 
   // Staff performance & HRMS snapshot (optional RPC)
   const [staffPerf, setStaffPerf] = useState<StaffPerf[] | null>(null);
@@ -289,11 +300,12 @@ export default function OwnerDashboard() {
       setWorkforceJobs(null);
       setWorkforceLoading(false);
 
-      // 1) Hotel (RLS-gated)
+      // 1) Hotel (RLS-gated) and Base Member Check
       const { data: hotelRow, error: hErr } = await supabase
         .from("hotels")
-        .select("id,name,slug,city")
+        .select("id,name,slug,city, hotel_members!inner(id, user_id)")
         .eq("slug", slug)
+        .eq("hotel_members.user_id", (await supabase.auth.getUser()).data.user?.id)
         .limit(1)
         .maybeSingle();
 
@@ -313,8 +325,39 @@ export default function OwnerDashboard() {
         return;
       }
 
-      setHotel(hotelRow);
       const hotelId = hotelRow.id;
+      
+      // 1b) Detailed Role Check (Block regular STAFF)
+      const memberId = hotelRow.hotel_members?.[0]?.id;
+      if (memberId) {
+          const { data: rolesData, error: rolesErr } = await supabase
+            .from("hotel_member_roles")
+            .select("hotel_roles(code)")
+            .eq("hotel_member_id", memberId);
+            
+          if (rolesErr || !rolesData || rolesData.length === 0) {
+              setAccessProblem("Access denied: You must be an Owner or Manager to view the property dashboard.");
+              setLoading(false);
+              return;
+          }
+          
+          const hasDashboardAccess = rolesData.some((r: any) => 
+               ["OWNER", "ADMIN", "MANAGER", "OPS_MANAGER"].includes(r.hotel_roles?.code)
+          );
+          
+          if (!hasDashboardAccess) {
+              setAccessProblem("Access denied: You must be an Owner or Manager to view the property dashboard.");
+              setLoading(false);
+              return;
+          }
+      }
+
+      setHotel({
+          id: hotelRow.id,
+          name: hotelRow.name,
+          slug: hotelRow.slug,
+          city: hotelRow.city
+      });
 
       // 2) Ops lists (non-blocking)
       try {
@@ -378,47 +421,45 @@ export default function OwnerDashboard() {
         setKpi(null);
       }
 
-      // 5) SLA target + Live orders
+      // 5) SLA target + Live tasks + KPI Summary
       try {
         const { data: sla } = await supabase
           .from("sla_targets")
           .select("target_minutes")
           .eq("hotel_id", hotelId)
-          .eq("key", "order_delivery_min")
+          .eq("key", "ticket_resolution_min")
           .maybeSingle();
 
-        let ordersData: any[] | null = null;
-
-        // Prefer closed_at IS NULL (prod-safe even if status enum differs)
-        const { data: orders1, error: oErr1 } = await supabase
-          .from("orders")
-          .select("id,created_at,status,price,closed_at")
+        const { data: summaryData } = await supabase
+          .from("v_owner_kpi_summary")
+          .select("*")
           .eq("hotel_id", hotelId)
-          .is("closed_at", null)
+          .maybeSingle();
+
+        const { count: activeCount } = await supabase
+          .from("tickets")
+          .select("*", { count: 'exact', head: true })
+          .eq("hotel_id", hotelId)
+          .in("status", ["NEW", "IN_PROGRESS", "BLOCKED"]);
+
+        const { data: tasksData } = await supabase
+          .from("tickets")
+          .select("id,created_at,status,title")
+          .eq("hotel_id", hotelId)
+          .in("status", ["NEW", "IN_PROGRESS", "BLOCKED"])
           .order("created_at", { ascending: false })
           .limit(50);
 
-        if (!oErr1) {
-          ordersData = orders1 || [];
-        } else {
-          // Compatibility fallback if closed_at isn't present in older schemas
-          const { data: orders2 } = await supabase
-            .from("orders")
-            .select("id,created_at,status,price")
-            .eq("hotel_id", hotelId)
-            .in("status", ["open", "preparing"])
-            .order("created_at", { ascending: false })
-            .limit(50);
-
-          ordersData = orders2 || [];
-        }
-
         if (!alive) return;
         setSlaTargetMin(sla?.target_minutes ?? 20);
-        setLiveOrders((ordersData as LiveOrder[]) || []);
+        setKpiSummary(summaryData ?? null);
+        setActiveTaskCount(activeCount ?? 0);
+        setLiveTasks((tasksData as LiveTask[]) || []);
       } catch {
         setSlaTargetMin(20);
-        setLiveOrders([]);
+        setKpiSummary(null);
+        setActiveTaskCount(0);
+        setLiveTasks([]);
       }
 
       // 6) Realtime KPI updates
@@ -725,9 +766,8 @@ export default function OwnerDashboard() {
   const revenueToday = hasRevenueKpi ? kpi!.revenue_today : 0;
 
   const targetMin = slaTargetMin ?? 20;
-  const ordersTotal = liveOrders.length;
-  const ordersOverdue = liveOrders.filter((o) => ageMin(o.created_at) > targetMin)
-    .length;
+  const tasksTotal = activeTaskCount;
+  const tasksAtRisk = kpiSummary?.at_risk_tickets ?? 0;
 
   // SLA % is only shown when we have real "completed" SLA metrics (pilot-safe)
   const slaSeries = (metrics as any)?.slaPerformance as any[] | undefined;
@@ -785,18 +825,18 @@ export default function OwnerDashboard() {
 
   /** ======= Render (dark dashboard) ======= */
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
-      {/* Breadcrumb Header */}
-      <div className="flex items-center gap-2 px-6 py-2 text-xs font-medium text-slate-500 bg-[#0B0B0B] border-b border-white/10 sticky top-0 z-50">
-        <Link to="/owner" className="hover:text-amber-500 transition-colors">Owner Console</Link>
-        <span className="text-slate-600">/</span>
-        <span className="text-slate-200">Dashboard</span>
+    <main className="min-h-screen bg-black text-zinc-100 font-sans selection:bg-zinc-800">
+      {/* Top Header */}
+      <div className="flex items-center gap-2 px-6 py-3 text-xs font-medium text-zinc-400 border-b border-zinc-900 bg-black sticky top-0 z-50">
+        <Link to="/owner" className="hover:text-white transition-colors">Owner Console</Link>
+        <span className="text-zinc-700">/</span>
+        <span className="text-zinc-100">Dashboard</span>
       </div>
 
       {/* Solid Slate Background - No Gradients */}
 
 
-      <div className="relative mx-auto max-w-[1400px] px-4 py-4 lg:px-6 lg:py-6">
+      <div className="mx-auto max-w-[1400px] px-4 py-8 lg:px-8">
         <DashboardTopBar
           title="VAiyu Dashboard"
           hotelName={hotel.name}
@@ -805,51 +845,41 @@ export default function OwnerDashboard() {
           slug={hotel.slug}
         />
 
-        <div className="mt-4 grid gap-4 lg:grid-cols-[240px,minmax(0,1fr),340px]">
-          {/* Left rail */}
-          <aside className="hidden lg:block">
-            <DarkCard className="p-3">
-              <div className="flex items-center justify-between">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300">
-                  Alerts
-                </div>
-                <StatusBadge
-                  label={
-                    ordersOverdue > 0 ? `${ordersOverdue} at risk` : "No risk"
-                  }
-                  tone={ordersOverdue > 0 ? "amber" : "grey"}
-                />
-              </div>
-
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <MiniStat label="At risk" value={ordersOverdue} tone="amber" />
-                <MiniStat
-                  label="Blocked"
-                  value={blockedCount == null ? "—" : blockedCount}
-                  tone={blockedCount && blockedCount > 0 ? "red" : "grey"}
-                />
-              </div>
-
-              <div className="mt-3 border-t border-white/10 pt-3">
-                <SidebarNav slug={hotel.slug} />
-              </div>
-            </DarkCard>
+        <div className="mt-8 grid gap-8 lg:grid-cols-[220px,minmax(0,1fr),320px]">
+          {/* Left rail - Navigation Only */}
+          <aside className="hidden lg:block space-y-6">
+            <SidebarNav slug={hotel.slug} />
           </aside>
 
           {/* Main */}
-          <section className="min-w-0 space-y-4">
-            {/* KPI strip (matches screenshot row) */}
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <section className="min-w-0 flex flex-col gap-6">
+
+            {/* Prominent Alerts Row (Moved from Left Nav) */}
+            {(tasksAtRisk > 0 || (blockedCount ?? 0) > 0) && (
+              <div className="flex items-center gap-6 p-4 rounded-lg border border-red-900/30 bg-red-950/10">
+                <div className="flex items-center gap-2 text-red-500 font-semibold text-sm">
+                  <AlertTriangle size={16} />
+                  Action Required
+                </div>
+                <div className="flex items-center gap-4">
+                  {tasksAtRisk > 0 && <span className="text-sm font-medium text-zinc-300"><span className="text-white">{tasksAtRisk}</span> tasks at risk</span>}
+                  {(blockedCount ?? 0) > 0 && <span className="text-sm font-medium text-zinc-300"><span className="text-white">{blockedCount}</span> blocked</span>}
+                </div>
+              </div>
+            )}
+
+            {/* KPI strip */}
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
               <KpiTile label="Rooms" value={total ? `${total}` : "—"} sub="Total rooms" icon={BedDouble} />
               <KpiTile
                 label="Active tasks"
-                value={`${ordersTotal}`}
+                value={`${tasksTotal}`}
                 sub="Open requests"
                 icon={Clock}
               />
               <KpiTile
                 label="At risk tasks"
-                value={`${ordersOverdue}`}
+                value={`${tasksAtRisk}`}
                 sub={`Over ${targetMin} min`}
                 accent="amber"
                 icon={AlertTriangle}
@@ -899,7 +929,7 @@ export default function OwnerDashboard() {
                 />
                 <div className="mt-3 grid grid-cols-[140px,minmax(0,1fr)] gap-4 items-center">
                   <RingGauge
-                    value={ordersTotal}
+                    value={tasksTotal}
                     // fill uses SLA % if available; otherwise fills based on occupancy (still real)
                     pct={
                       slaPct != null
@@ -912,14 +942,14 @@ export default function OwnerDashboard() {
                   />
                   <div className="min-w-0">
                     <div className="text-sm text-slate-200">
-                      {ordersTotal === 0
+                      {tasksTotal === 0
                         ? "No open requests right now."
-                        : `${ordersTotal} open requests across services.`}
+                        : `${tasksTotal} open requests across services.`}
                     </div>
                     <div className="mt-2 text-xs text-slate-400">
                       Overdue (&gt;{targetMin}m):{" "}
                       <span className="text-slate-200 font-medium">
-                        {ordersOverdue}
+                        {tasksAtRisk}
                       </span>
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-2">
@@ -940,7 +970,7 @@ export default function OwnerDashboard() {
                   subtitle="Request volume trend (real data only)"
                   right={
                     <div className="flex items-center gap-2">
-                      <MiniBadge label={`${ordersOverdue} at risk`} tone={ordersOverdue > 0 ? "amber" : "grey"} />
+                      <MiniBadge label={`${tasksAtRisk} at risk`} tone={tasksAtRisk > 0 ? "amber" : "grey"} />
                       <MiniBadge label={`Occ ${occPct || 0}%`} tone={occupancyTone(occPct)} />
                     </div>
                   }
@@ -960,8 +990,8 @@ export default function OwnerDashboard() {
 
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   <MiniStat label="Blocked" value={blockedCount == null ? "—" : blockedCount} tone={blockedCount && blockedCount > 0 ? "red" : "grey"} />
-                  <MiniStat label="Active" value={ordersTotal} tone={ordersTotal > 0 ? "green" : "grey"} />
-                  <MiniStat label="At risk" value={ordersOverdue} tone={ordersOverdue > 0 ? "amber" : "grey"} />
+                  <MiniStat label="Active" value={tasksTotal} tone={tasksTotal > 0 ? "green" : "grey"} />
+                  <MiniStat label="At risk" value={tasksAtRisk} tone={tasksAtRisk > 0 ? "amber" : "grey"} />
                 </div>
               </DarkCard>
             </div>
@@ -982,7 +1012,7 @@ export default function OwnerDashboard() {
                   }
                 />
                 <div className="mt-3">
-                  {liveOrders.length === 0 ? (
+                  {liveTasks.length === 0 ? (
                     <EmptyState text="No live requests right now." />
                   ) : (
                     <DarkTable>
@@ -995,14 +1025,14 @@ export default function OwnerDashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {liveOrders.slice(0, 8).map((o) => {
+                        {liveTasks.slice(0, 8).map((o) => {
                           const mins = ageMin(o.created_at);
                           const breach = mins > targetMin;
                           return (
                             <tr key={o.id} className="border-t border-white/10">
                               <Td>
                                 <div className="font-medium text-slate-100">
-                                  #{o.id.slice(0, 8)}
+                                  {o.title || `#${o.id.slice(0, 8)}`}
                                 </div>
                                 <div className="text-[11px] text-slate-400">
                                   {fmtTime(o.created_at)}
@@ -1035,10 +1065,10 @@ export default function OwnerDashboard() {
                   subtitle="Open requests by state"
                 />
                 <div className="mt-3">
-                  {liveOrders.length === 0 ? (
+                  {liveTasks.length === 0 ? (
                     <EmptyState text="Not available" />
                   ) : (
-                    <IssueBreakdown orders={liveOrders} targetMin={targetMin} />
+                    <IssueBreakdown orders={liveTasks} targetMin={targetMin} />
                   )}
                 </div>
 
@@ -1210,6 +1240,88 @@ export default function OwnerDashboard() {
 
 /** ========= UI (dark) components ========= */
 
+function UserProfileMenu({ slug }: { slug: string }) {
+  const [userProfile, setUserProfile] = useState<{ fullName: string; role: string } | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    async function loadUser() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      setUserProfile({
+        fullName: profile?.full_name || user.email?.split('@')[0] || "User",
+        role: "Owner View"
+      });
+    }
+    loadUser();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = '/login';
+  };
+
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+  };
+
+  if (!userProfile) {
+    return (
+      <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 animate-pulse">
+        <div className="h-6 w-6 rounded-full bg-white/10" />
+        <div className="h-4 w-16 rounded bg-white/10" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setMenuOpen(!menuOpen)}
+        className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2 py-1.5 hover:bg-white/10 transition-colors"
+      >
+        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600/20 text-blue-400 text-[11px] font-bold">
+          {getInitials(userProfile.fullName)}
+        </div>
+        <div className="leading-tight text-left mr-2 hidden sm:block">
+          <div className="text-[12px] font-medium text-slate-100 max-w-[100px] truncate">{userProfile.fullName}</div>
+          <div className="text-[10px] text-slate-400">{userProfile.role}</div>
+        </div>
+      </button>
+
+      {menuOpen && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+          <div className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-white/10 bg-[#1a1a1a] p-1 shadow-xl z-50">
+            <Link
+              to={`/owner/${slug}/settings`}
+              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-200 hover:bg-white/5 transition-colors"
+              onClick={() => setMenuOpen(false)}
+            >
+              <Settings className="h-4 w-4" />
+              Settings
+            </Link>
+            <button
+              onClick={handleLogout}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-white/5 transition-colors text-left"
+            >
+              <LogOut className="h-4 w-4" />
+              Sign Out
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function DashboardTopBar({
   title,
   hotelName,
@@ -1224,61 +1336,49 @@ function DashboardTopBar({
   slug: string;
 }) {
   return (
-    <header className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-md lg:flex-row lg:items-center lg:justify-between">
+    <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between pb-6 border-b border-zinc-900">
       <div className="min-w-0">
-        <div className="flex items-center gap-3">
-          <div className="text-sm font-semibold text-slate-100">{title}</div>
-          <span className="text-[11px] text-slate-400">•</span>
-          <div className="min-w-0 text-[11px] text-slate-300 truncate">
+        <div className="flex items-baseline gap-3">
+          <h1 className="text-xl font-medium text-white tracking-tight">{title}</h1>
+          <span className="text-zinc-600">/</span>
+          <div className="text-sm text-zinc-400 truncate font-medium">
             {hotelName}
             {city ? ` · ${city}` : ""} · {dateLabel}
           </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         <Link
           to="/owner"
-          className="hidden lg:inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] text-slate-100 hover:bg-white/10"
+          className="hidden lg:inline-flex items-center rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
         >
-          Switch
+          Switch Property
         </Link>
+
         {HAS_PRICING && (
           <Link
             to={`/owner/${slug}/pricing`}
-            className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] text-slate-100 hover:bg-white/10"
+            className="inline-flex items-center rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
           >
             Pricing
           </Link>
         )}
-        <Link
-          to={`/owner/${slug}/settings`}
-          className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] text-slate-100 hover:bg-white/10"
-        >
-          Settings
-        </Link>
 
         <button
           type="button"
-          className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 p-2 hover:bg-white/10"
+          onClick={() => window.location.reload()}
+          className="inline-flex items-center justify-center rounded-md border border-zinc-800 bg-zinc-900/50 p-2 hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-white"
           title="Sync"
         >
           <SvgSync />
         </button>
 
-        <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2 py-1.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-[11px] font-semibold text-slate-100">
-            GM
-          </div>
-          <div className="leading-tight">
-            <div className="text-[12px] font-medium text-slate-100">Owner</div>
-            <div className="text-[10px] text-slate-400">View</div>
-          </div>
-        </div>
+        <UserProfileMenu slug={slug} />
 
         <button
           type="button"
-          className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 p-2 hover:bg-white/10"
+          className="inline-flex lg:hidden items-center justify-center rounded-md border border-zinc-800 bg-zinc-900/50 p-2 hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-white"
           title="Menu"
         >
           <SvgMenu />
@@ -1329,16 +1429,15 @@ function NavItem({
   active?: boolean;
 }) {
   const base =
-    "flex items-center justify-between rounded-xl px-3 py-2 text-[13px] transition-colors";
+    "flex items-center justify-between rounded-md px-3 py-2 text-[13px] font-medium transition-colors";
   const cls = active
-    ? `${base} bg-slate-800 text-emerald-400 font-medium border border-slate-700`
-    : `${base} text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 border border-transparent`;
+    ? `${base} bg-zinc-900 text-white`
+    : `${base} text-zinc-500 hover:bg-zinc-900/50 hover:text-zinc-300`;
 
   if (href) {
     return (
       <a href={href} className={cls}>
         <span>{label}</span>
-        <span className="text-slate-600 group-hover:text-slate-400 transition-colors">→</span>
       </a>
     );
   }
@@ -1346,8 +1445,7 @@ function NavItem({
   if (to) {
     return (
       <Link to={to} className={cls}>
-        <span className={active ? "ml-0" : ""}>{label}</span>
-        {active && <span className="text-emerald-500">→</span>}
+        <span>{label}</span>
       </Link>
     );
   }
@@ -1366,7 +1464,7 @@ function DarkCard({
 }) {
   return (
     <div
-      className={`rounded-xl border border-slate-700 bg-[#1e293b] shadow-sm ${className}`}
+      className={`rounded-xl border border-zinc-800 bg-[#09090b] ${className}`}
     >
       {children}
     </div>
@@ -1383,11 +1481,11 @@ function CardHeader({
   right?: ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-3 mb-2">
+    <div className="flex items-start justify-between gap-3 mb-4">
       <div className="min-w-0">
-        <div className="text-sm font-semibold text-slate-200 uppercase tracking-wide">{title}</div>
+        <div className="text-[11px] font-bold text-zinc-100 uppercase tracking-widest">{title}</div>
         {subtitle ? (
-          <div className="mt-0.5 text-[11px] text-slate-400">{subtitle}</div>
+          <div className="mt-1 text-[11px] text-zinc-500">{subtitle}</div>
         ) : null}
       </div>
       {right ? <div className="shrink-0">{right}</div> : null}
@@ -1409,17 +1507,17 @@ function KpiTile({
   icon?: any;
 }) {
   return (
-    <div className="bg-[#1e293b] p-5 rounded-xl border border-slate-700 shadow-sm flex flex-col justify-between h-full hover:border-slate-600 transition-colors">
-      <div className="flex justify-between items-start mb-2">
-        <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{label}</h3>
-        {Icon && <Icon size={16} className="text-slate-500" />}
+    <div className="bg-[#09090b] p-5 rounded-xl border border-zinc-800 flex flex-col justify-between h-full hover:border-zinc-700 transition-colors">
+      <div className="flex justify-between items-start mb-6">
+        <h3 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-widest">{label}</h3>
+        {Icon && <Icon size={16} className="text-zinc-600" />}
       </div>
 
       <div className="flex items-baseline gap-2 mt-auto">
-        <span className="text-3xl font-bold text-white tracking-tight">{value}</span>
+        <span className="text-3xl font-bold text-zinc-100 tracking-tight">{value}</span>
       </div>
 
-      {sub && <div className="mt-2 text-[11px] font-medium text-slate-500">{sub}</div>}
+      {sub && <div className="mt-2 text-[12px] font-medium text-zinc-500">{sub}</div>}
     </div>
   );
 }
@@ -1434,10 +1532,10 @@ function MiniStat({
   tone: "green" | "amber" | "red" | "grey";
 }) {
   return (
-    <div className="rounded-lg border border-slate-700 bg-[#0f172a] px-3 py-2">
-      <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">{label}</div>
+    <div className="rounded-lg border border-zinc-800 bg-[#09090b] px-3 py-2.5">
+      <div className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold mb-1">{label}</div>
       <div className="flex items-center justify-between">
-        <div className="text-sm font-bold text-slate-200">{value}</div>
+        <div className="text-sm font-bold text-zinc-100">{value}</div>
         <div className={`h-2 w-2 rounded-full ${dotTone(tone)}`} />
       </div>
     </div>
@@ -1505,7 +1603,7 @@ function RingGauge({
 
 function EmptyState({ text }: { text: string }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-slate-300">
+    <div className="rounded-lg border border-dashed border-zinc-800 bg-transparent p-4 text-sm text-zinc-500 text-center flex items-center justify-center">
       {text}
     </div>
   );
@@ -1539,7 +1637,7 @@ function Td({ children, className = "" }: { children: ReactNode; className?: str
 
 /** ========= Breakdown ========= */
 
-function IssueBreakdown({ orders, targetMin }: { orders: LiveOrder[]; targetMin: number }) {
+function IssueBreakdown({ orders, targetMin }: { orders: LiveTask[]; targetMin: number }) {
   const classify = (status: string) => {
     const s = (status || "").toLowerCase();
     const isNew = ["open", "new", "created", "requested"].some((k) => s.includes(k));
@@ -1795,34 +1893,12 @@ function AccessHelp({
       </div>
       <p className="mb-4 text-sm text-slate-300">{message}</p>
       <div className="flex flex-wrap gap-2">
-        {hasValidSlug ? (
-          <Link
-            to={`/owner/access?slug=${encodeURIComponent(slug)}`}
-            className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-100 hover:bg-white/10"
-          >
-            Request Access
-          </Link>
-        ) : null}
         <Link
-          to="/owner"
+          to="/staff"
           className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-100 hover:bg-white/10"
         >
-          Owner Home
+          Return to Staff App
         </Link>
-        <Link
-          to="/invite/accept"
-          className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-100 hover:bg-white/10"
-        >
-          Accept Invite
-        </Link>
-        {inviteToken ? (
-          <Link
-            to={`/invite/accept?code=${encodeURIComponent(inviteToken)}`}
-            className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-100 hover:bg-white/10"
-          >
-            Accept via Code
-          </Link>
-        ) : null}
       </div>
       <p className="mt-3 text-xs text-slate-400">
         Tip: If you received an email invite, open it on this device so we can

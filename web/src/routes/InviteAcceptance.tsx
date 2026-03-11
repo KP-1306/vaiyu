@@ -1,11 +1,17 @@
-import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Spinner from "../components/Spinner";
 
 export default function InviteAcceptance() {
-    const { token } = useParams<{ token: string }>();
+    const params = useParams<{ token?: string }>();
+    const [searchParams] = useSearchParams();
     const navigate = useNavigate();
+
+    // Support both path params and legacy query params (?code= or ?token=)
+    const token = useMemo(() =>
+        params.token || searchParams.get("token") || searchParams.get("code") || "",
+        [params.token, searchParams]);
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -14,7 +20,7 @@ export default function InviteAcceptance() {
     useEffect(() => {
         async function accept() {
             if (!token) {
-                setError("No token provided.");
+                setError("No valid invitation code provided.");
                 setLoading(false);
                 return;
             }
@@ -47,9 +53,9 @@ export default function InviteAcceptance() {
 
                 if (data.success) {
                     setSuccess(true);
-                    // Redirect to the property dashboard after a short delay
+                    // Redirect to the home page after a short delay
                     setTimeout(() => {
-                        navigate(`/owner/${data.hotel_id}/dashboard`);
+                        navigate(`/`);
                     }, 2000);
                 } else {
                     setError(data.message || "Failed to accept invitation.");
@@ -108,7 +114,7 @@ export default function InviteAcceptance() {
                     </div>
                     <h1 className="text-2xl font-bold text-gray-900">Welcome Aboard!</h1>
                     <p className="text-gray-600 mt-2">
-                        You have successfully joined the team. Redirecting you to the dashboard...
+                        You have successfully joined the team. Redirecting you to the home page...
                     </p>
                 </div>
             </div>

@@ -160,14 +160,14 @@ export default function GuestNewHome() {
                                 guests: active.guests || 1,
                             });
                         } else if (stays.length > 0) {
-                            // Use most recent stay for demo
+                            // If no active/upcoming stays, display the most recent past stay
                             const mostRecent = stays[0];
                             setCurrentStay({
                                 id: mostRecent.id,
                                 hotel_id: mostRecent.hotel_id,
-                                status: mostRecent.status || "checked-in",
+                                status: mostRecent.status || "checked_out",
                                 hotel: {
-                                    name: mostRecent.hotel_name || mostRecent.hotel?.name || "Hotel Demo One",
+                                    name: mostRecent.hotel_name || mostRecent.hotel?.name || "Unknown Hotel",
                                     city: mostRecent.hotel_city || mostRecent.hotel?.city,
                                     slug: mostRecent.hotel_slug || mostRecent.hotel?.slug,
                                     phone: mostRecent.hotel_phone || mostRecent.hotel?.phone,
@@ -177,6 +177,7 @@ export default function GuestNewHome() {
                                 },
                                 check_in: mostRecent.check_in,
                                 check_out: mostRecent.check_out,
+                                actual_checkin_at: mostRecent.actual_checkin_at,
                                 bill_total: mostRecent.bill_total,
                                 room_type: mostRecent.room_type || "Standard",
                                 room_number: mostRecent.room_number,
@@ -645,6 +646,38 @@ export default function GuestNewHome() {
         );
     }
 
+    if (!loading && allStays.length === 0) {
+        return (
+            <div className="gn-container" style={{ maxWidth: '1200px', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+                <div style={{ textAlign: 'center', padding: '3rem', background: 'var(--bg-secondary)', borderRadius: '24px', border: '1px solid var(--border-color)', maxWidth: '500px' }}>
+                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🧳</div>
+                    <h2 style={{ color: 'var(--text-primary)', marginBottom: '1rem', fontSize: '1.5rem', fontWeight: 600 }}>No Stays Found</h2>
+                    <p style={{ color: 'var(--text-secondary)', marginBottom: '2.5rem', lineHeight: 1.5 }}>
+                        You don't have any upcoming or active stays linked to your account yet. 
+                        If you have a booking reference code, you can look it up to link it.
+                    </p>
+                    <Link 
+                        to="/checkin" 
+                        style={{ 
+                            background: 'var(--accent-gold)', 
+                            color: '#000', 
+                            padding: '12px 24px', 
+                            borderRadius: '100px', 
+                            fontWeight: 600, 
+                            textDecoration: 'none',
+                            display: 'inline-block',
+                            transition: 'opacity 0.2s'
+                        }}
+                        onMouseOver={(e) => e.currentTarget.style.opacity = '0.9'}
+                        onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
+                    >
+                        Look up Booking
+                    </Link>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="gn-container" style={{ maxWidth: '1200px' }}>
             {/* Hero Section with Background Image */}
@@ -879,9 +912,9 @@ export default function GuestNewHome() {
                             {currentStay?.hotel?.email && (
                                 <a href={`mailto:${currentStay.hotel.email}`} className="gn-support-card">
                                     <div className="gn-support-card__icon">✉️</div>
-                                    <div className="gn-support-card__content">
+                                    <div className="gn-support-card__content" style={{ minWidth: 0 }}>
                                         <div className="gn-support-card__title">Email Front Desk</div>
-                                        <div className="gn-support-card__value">{currentStay.hotel.email}</div>
+                                        <div className="gn-support-card__value" style={{ wordBreak: 'break-all', overflowWrap: 'anywhere' }}>{currentStay.hotel.email}</div>
                                     </div>
                                 </a>
                             )}

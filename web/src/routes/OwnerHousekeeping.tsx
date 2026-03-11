@@ -795,6 +795,9 @@ export default function OwnerHousekeeping() {
   const selectAllDirty = () => {
     setSelectedRows(new Set(rooms.filter(r => r.housekeeping_status === "dirty").map(r => r.room_id)));
   };
+  const selectAllPendingInspection = () => {
+    setSelectedRows(new Set(rooms.filter(r => r.housekeeping_status === "clean").map(r => r.room_id)));
+  };
   const selectArrivalCritical = () => {
     setSelectedRows(new Set(rooms.filter(r => r.arrival_blocked && r.arrival_urgency && ["CRITICAL", "HIGH"].includes(r.arrival_urgency)).map(r => r.room_id)));
   };
@@ -815,7 +818,11 @@ export default function OwnerHousekeeping() {
     try {
       const { error } = await supabase.rpc("hk_bulk_assign", { p_room_ids: selectedIds, p_staff_id: bulkAssignStaff });
       if (error) alert("Bulk Assign Error: " + error.message);
-      else { setSelectedRows(new Set()); setBulkAssignStaff(null); }
+      else { 
+        setSelectedRows(new Set()); 
+        setBulkAssignStaff(null); 
+        fetchBoard();
+      }
     } catch (err) { console.error(err); }
     finally { setBulkLoading(false); }
   };
@@ -826,7 +833,10 @@ export default function OwnerHousekeeping() {
     try {
       const { error } = await supabase.rpc("hk_bulk_start_cleaning", { p_room_ids: selectedIds });
       if (error) alert("Bulk Start Error: " + error.message);
-      else setSelectedRows(new Set());
+      else { 
+        setSelectedRows(new Set());
+        fetchBoard();
+      }
     } catch (err) { console.error(err); }
     finally { setBulkLoading(false); }
   };
@@ -837,7 +847,24 @@ export default function OwnerHousekeeping() {
     try {
       const { error } = await supabase.rpc("hk_bulk_complete_cleaning", { p_room_ids: selectedIds, p_final_status: "clean" });
       if (error) alert("Bulk Clean Error: " + error.message);
-      else setSelectedRows(new Set());
+      else { 
+        setSelectedRows(new Set());
+        fetchBoard();
+      }
+    } catch (err) { console.error(err); }
+    finally { setBulkLoading(false); }
+  };
+
+  const handleBulkMarkInspected = async () => {
+    if (selCount === 0) return;
+    setBulkLoading(true);
+    try {
+      const { error } = await supabase.rpc("hk_bulk_supervisor_override", { p_room_ids: selectedIds, p_new_status: "inspected", p_reason: "Bulk inspected by supervisor" });
+      if (error) alert("Bulk Inspect Error: " + error.message);
+      else { 
+        setSelectedRows(new Set());
+        fetchBoard();
+      }
     } catch (err) { console.error(err); }
     finally { setBulkLoading(false); }
   };
@@ -848,7 +875,10 @@ export default function OwnerHousekeeping() {
     try {
       const { error } = await supabase.rpc("hk_bulk_mark_out_of_order", { p_room_ids: selectedIds, p_reason: "Supervisor bulk action" });
       if (error) alert("Bulk OOO Error: " + error.message);
-      else setSelectedRows(new Set());
+      else { 
+        setSelectedRows(new Set());
+        fetchBoard();
+      }
     } catch (err) { console.error(err); }
     finally { setBulkLoading(false); }
   };
@@ -964,6 +994,7 @@ export default function OwnerHousekeeping() {
         {/* Quick-Select Pills */}
         <div className="flex flex-wrap items-center gap-2">
           <button onClick={selectAllDirty} className="px-3 py-1.5 rounded-full bg-red-500 text-white text-xs font-bold hover:bg-red-600 transition shadow-sm">🔴 Select All Dirty</button>
+          <button onClick={selectAllPendingInspection} className="px-3 py-1.5 rounded-full bg-blue-500 text-white text-xs font-bold hover:bg-blue-600 transition shadow-sm">🔵 Select Pending Inspection</button>
           <button onClick={selectArrivalCritical} className="px-3 py-1.5 rounded-full bg-orange-500 text-white text-xs font-bold hover:bg-orange-600 transition shadow-sm">🔴 Select Arrival Critical</button>
           <button onClick={selectUnassigned} className="px-3 py-1.5 rounded-full border border-gray-300 bg-white text-gray-700 text-xs font-bold hover:bg-gray-50 transition shadow-sm">🟢 Select Unassigned</button>
           {floors.length > 0 && (
@@ -999,6 +1030,9 @@ export default function OwnerHousekeeping() {
             <button onClick={handleBulkMarkClean} disabled={bulkLoading}
               className="px-3 py-1.5 rounded-lg bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 transition disabled:opacity-50 flex items-center gap-1 shadow-sm"
             ><CheckCircle2 className="w-3 h-3" /> Mark Clean</button>
+            <button onClick={handleBulkMarkInspected} disabled={bulkLoading}
+              className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition disabled:opacity-50 flex items-center gap-1 shadow-sm"
+            ><Eye className="w-3 h-3" /> Mark Inspected</button>
             <button onClick={handleBulkOOO} disabled={bulkLoading}
               className="px-3 py-1.5 rounded-lg bg-purple-600 text-white text-xs font-bold hover:bg-purple-700 transition disabled:opacity-50 flex items-center gap-1 shadow-sm"
             ><WrenchIcon className="w-3 h-3" /> Mark OOO</button>

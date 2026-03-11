@@ -171,6 +171,7 @@ SET search_path = public
 AS $$
 DECLARE
     v_user uuid;
+    v_user_email text;
     v_invite RECORD;
 BEGIN
     v_user := auth.uid();
@@ -178,31 +179,48 @@ BEGIN
         RAISE EXCEPTION 'Authentication required';
     END IF;
 
+    -- Lock invite row first
     SELECT *
     INTO v_invite
     FROM public.hotel_invites
     WHERE token = p_token
     FOR UPDATE;
-
+ 
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Invite not found';
     END IF;
+ 
+    -- 1. Expiration check
+    IF v_invite.expires_at < now() THEN
+        RAISE EXCEPTION 'This invite session has expired. Please open the invite link again.';
+    END IF;
 
     IF v_invite.status <> 'pending' THEN
-        RAISE EXCEPTION 'Invite not active';
+        RAISE EXCEPTION 'This invite session has expired. Please open the invite link again.';
     END IF;
+ 
+    -- 2. Fetch current user's email STRICTLY once
+    SELECT email INTO STRICT v_user_email
+    FROM auth.users
+    WHERE id = v_user;
 
     -- Already claimed by someone else
     IF v_invite.claimed_by IS NOT NULL AND v_invite.claimed_by <> v_user THEN
-        RAISE EXCEPTION 'Invite already claimed';
+        -- Secure Takeover Rule: Only allow if current user's email matches the invite's email
+        IF lower(v_invite.email) <> lower(v_user_email) THEN
+            RAISE EXCEPTION 'This invitation was sent to %. Please sign in using that email address to continue.', v_invite.email;
+        END IF;
+        
+        -- If we reached here, email matches, so we allow the silent takeover.
     END IF;
-
+ 
     UPDATE public.hotel_invites
     SET
         claimed_by = v_user,
         claimed_at = now()
-    WHERE id = v_invite.id;
-
+    WHERE id = v_invite.id
+    AND status = 'pending'; -- Replay protection
+ 
     RETURN jsonb_build_object('success', true);
 END;
 $$;
@@ -225,79 +243,73 @@ DECLARE
     v_user_id uuid;
     v_user_email text;
     v_membership_id uuid;
+    v_role_code text;
+    v_hotel_status public.hotel_lifecycle_status;
 BEGIN
-    -- Require authentication
+    -- 1. Require authentication & Fetch user info STRICT
     v_user_id := auth.uid();
     IF v_user_id IS NULL THEN
         RAISE EXCEPTION 'Authentication required';
     END IF;
 
-    -- Get authenticated user's email safely
-    SELECT u.email INTO v_user_email
+    SELECT u.email INTO STRICT v_user_email
     FROM auth.users u
-    WHERE u.id = v_user_id
-    FOR SHARE;
+    WHERE u.id = v_user_id;
 
-    IF v_user_email IS NULL THEN
-        RAISE EXCEPTION 'Authenticated user email not found';
-    END IF;
-
-    -- Lock invite row
+    -- 2. Lock invite row FIRST (Atomic Lock)
     SELECT *
     INTO v_invite
     FROM public.hotel_invites
     WHERE token = p_token
     FOR UPDATE;
 
+    -- 3. Handle Already Accepted / Membership Case
+    -- We do this after lock attempt for consistency
     IF NOT FOUND THEN
+        -- Check if user is already a member (might have accepted already, causing token scramble)
+        SELECT id INTO v_membership_id
+        FROM public.hotel_members
+        WHERE hotel_id = (SELECT hotel_id FROM public.hotel_invites WHERE (token = p_token OR email = v_user_email) AND status = 'accepted' LIMIT 1)
+        AND user_id = v_user_id;
+
+        IF v_membership_id IS NOT NULL THEN
+            SELECT hotel_id INTO v_invite.hotel_id FROM public.hotel_members WHERE id = v_membership_id;
+            RETURN jsonb_build_object(
+                'success', true,
+                'hotel_id', v_invite.hotel_id,
+                'membership_id', v_membership_id,
+                'message', 'Invite already accepted'
+            );
+        END IF;
+
         RAISE EXCEPTION 'Invalid invite token';
+    END IF;
+
+    -- 4. Validation Layer
+    IF v_invite.status = 'accepted' THEN
+         SELECT id INTO v_membership_id FROM public.hotel_members WHERE hotel_id = v_invite.hotel_id AND user_id = v_user_id;
+         RETURN jsonb_build_object('success', true, 'hotel_id', v_invite.hotel_id, 'membership_id', v_membership_id, 'message', 'Invite already accepted');
+    END IF;
+
+    IF v_invite.status <> 'pending' THEN
+        RAISE EXCEPTION 'This invite session has expired. Please open the invite link again.';
+    END IF;
+
+    IF v_invite.expires_at < now() THEN
+        UPDATE public.hotel_invites SET status = 'expired' WHERE id = v_invite.id AND status = 'pending';
+        RAISE EXCEPTION 'Invite has expired';
     END IF;
 
     -- Enforce claim (Anti-Race & Anti-Forwarding)
     IF v_invite.claimed_by IS NULL THEN
-        RAISE EXCEPTION 'Invite must be claimed before acceptance';
+        RAISE EXCEPTION 'This invite session has expired. Please open the invite link again.';
     END IF;
 
     IF v_invite.claimed_by <> v_user_id THEN
-        RAISE EXCEPTION 'Invite claimed by another user';
-    END IF;
-
-
-    -- Already accepted → ensure membership exists (defensive check)
-    IF v_invite.status = 'accepted' THEN
-        SELECT id INTO v_membership_id
-        FROM public.hotel_members
-        WHERE hotel_id = v_invite.hotel_id
-        AND user_id = v_user_id;
-
-        -- [HARDENING] Ensure membership really exists
-        IF v_membership_id IS NULL THEN
-            RAISE EXCEPTION 'Invite accepted but membership missing. Contact support.';
+        -- Secure Takeover Rule: Only allow if current user's email matches the invite's email
+        IF lower(v_invite.email) <> lower(v_user_email) THEN
+            RAISE EXCEPTION 'This invitation was sent to %. Please sign in using that email address to continue.', v_invite.email;
         END IF;
-
-        RETURN jsonb_build_object(
-            'success', true,
-            'hotel_id', v_invite.hotel_id,
-            'membership_id', v_membership_id,
-            'message', 'Invite already accepted'
-        );
-    END IF;
-
-    -- Status validation
-    IF v_invite.status <> 'pending' THEN
-        RAISE EXCEPTION 'Invite is not active (status: %)', v_invite.status;
-    END IF;
-
-    -- Expiry validation
-    IF v_invite.expires_at < now() THEN
-        -- [HARDENING] Conditional update for state integrity
-        UPDATE public.hotel_invites
-        SET status = 'expired'
-        WHERE id = v_invite.id
-        AND status = 'pending'
-        AND expires_at < now();
-
-        RAISE EXCEPTION 'Invite has expired';
     END IF;
 
     -- Email match validation (case-insensitive)
@@ -305,93 +317,51 @@ BEGIN
         RAISE EXCEPTION 'This invite is not assigned to your email';
     END IF;
 
-    -- Core Transaction: Create membership and assign role
-    -- Insert membership safely (race-condition protected via UNIQUE index)
+    -- 5. Core Transaction: Create membership and assign role
     BEGIN
         INSERT INTO public.hotel_members (
-            hotel_id,
-            user_id,
-            created_at
+            hotel_id, user_id, role, status, is_active, created_at
         )
         VALUES (
-            v_invite.hotel_id,
-            v_user_id,
-            now()
+            v_invite.hotel_id, v_user_id, 'STAFF', 'active', true, now()
         )
         RETURNING id INTO v_membership_id;
 
-        -- Assign the role via the join table (protected via UNIQUE index)
-        INSERT INTO public.hotel_member_roles (
-            hotel_member_id,
-            role_id
-        )
-        VALUES (
-            v_membership_id,
-            v_invite.role_id
-        );
+        INSERT INTO public.hotel_member_roles (hotel_member_id, role_id)
+        VALUES (v_membership_id, v_invite.role_id);
 
     EXCEPTION
         WHEN unique_violation THEN
-            -- Already member → fetch existing membership ID
-            SELECT id INTO v_membership_id
-            FROM public.hotel_members
-            WHERE hotel_id = v_invite.hotel_id
-            AND user_id = v_user_id;
-
-            -- Check if role already assigned, if not assign it (idempotent)
+            SELECT id INTO v_membership_id FROM public.hotel_members WHERE hotel_id = v_invite.hotel_id AND user_id = v_user_id;
             INSERT INTO public.hotel_member_roles (hotel_member_id, role_id)
-            VALUES (v_membership_id, v_invite.role_id)
-            ON CONFLICT DO NOTHING;
+            VALUES (v_membership_id, v_invite.role_id) ON CONFLICT DO NOTHING;
     END;
 
-    -- Mark invite accepted and scramble token to prevent reuse
+    -- 6. Mark invite accepted (Replay Protection)
     UPDATE public.hotel_invites
     SET status = 'accepted',
         accepted_at = now(),
         token = gen_random_uuid()
-    WHERE id = v_invite.id;
+    WHERE id = v_invite.id
+    AND status = 'pending';
 
-    -- [HARDENING] If first OWNER accepts, kickstart lifecycle from DRAFT to CONFIGURING
-    DECLARE
-        v_role_code text;
-        v_hotel_status public.hotel_lifecycle_status;
-    BEGIN
-        SELECT code INTO v_role_code FROM public.hotel_roles WHERE id = v_invite.role_id;
-        IF v_role_code = 'OWNER' THEN
-            SELECT status INTO v_hotel_status FROM public.hotels WHERE id = v_invite.hotel_id;
-            IF v_hotel_status = 'DRAFT' THEN
-                UPDATE public.hotels 
-                SET status = 'CONFIGURING',
-                    onboarding_started_at = COALESCE(onboarding_started_at, now())
-                WHERE id = v_invite.hotel_id;
-                
-                -- Log auto-transition
-                INSERT INTO public.hotel_audit_logs (hotel_id, user_id, action, entity_type, entity_id, changes)
-                VALUES (v_invite.hotel_id, v_user_id, 'STATUS_CHANGED', 'hotels', v_invite.hotel_id, jsonb_build_object('from', 'DRAFT', 'to', 'CONFIGURING', 'reason', 'First Owner Accepted Invite'));
-            END IF;
+    -- 7. Lifecycle & Audit
+    SELECT code INTO v_role_code FROM public.hotel_roles WHERE id = v_invite.role_id;
+    IF v_role_code = 'OWNER' THEN
+        SELECT status INTO v_hotel_status FROM public.hotels WHERE id = v_invite.hotel_id;
+        IF v_hotel_status = 'DRAFT' THEN
+            UPDATE public.hotels 
+            SET status = 'CONFIGURING',
+                onboarding_started_at = COALESCE(onboarding_started_at, now())
+            WHERE id = v_invite.hotel_id;
+            
+            INSERT INTO public.hotel_audit_logs (hotel_id, user_id, action, entity_type, entity_id, changes)
+            VALUES (v_invite.hotel_id, v_user_id, 'STATUS_CHANGED', 'hotels', v_invite.hotel_id, jsonb_build_object('from', 'DRAFT', 'to', 'CONFIGURING', 'reason', 'First Owner Accepted Invite'));
         END IF;
-    END;
+    END IF;
 
-    -- Enterprise Audit Log
-    INSERT INTO public.hotel_audit_logs (
-        hotel_id,
-        user_id,
-        action,
-        entity_type,
-        entity_id,
-        changes
-    )
-    VALUES (
-        v_invite.hotel_id,
-        v_user_id,
-        'INVITE_ACCEPTED',
-        'hotel_invites',
-        v_invite.id,
-        jsonb_build_object(
-            'email', v_invite.email,
-            'role_id', v_invite.role_id
-        )
-    );
+    INSERT INTO public.hotel_audit_logs (hotel_id, user_id, action, entity_type, entity_id, changes)
+    VALUES (v_invite.hotel_id, v_user_id, 'INVITE_ACCEPTED', 'hotel_invites', v_invite.id, jsonb_build_object('email', v_invite.email, 'role_id', v_invite.role_id));
 
     RETURN jsonb_build_object(
         'success', true,
@@ -399,7 +369,6 @@ BEGIN
         'membership_id', v_membership_id,
         'role_id', v_invite.role_id
     );
-
 END;
 $$;
 

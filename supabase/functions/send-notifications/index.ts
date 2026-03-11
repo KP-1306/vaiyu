@@ -114,12 +114,16 @@ async function formatEmailMessage(
     let subject = "Update from Hotel";
     let body = "";
 
+    const isStaff = template === "staff_invite";
+    const headerTitle = isStaff ? `Welcome to the Team` : `Welcome to Your Upcoming Stay`;
+    const headerSubtitle = isStaff ? `Join ${hotel} on Vaiyu` : `Let's make your arrival smooth and effortless`;
+
     const commonHeader = `
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Complete Your Pre-Check-in</title>
+<title>${subject}</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f6fb;font-family:Arial,Helvetica,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0">
@@ -129,8 +133,8 @@ async function formatEmailMessage(
           <!-- Header -->
           <tr>
             <td style="background:linear-gradient(135deg,#5b8cff,#7f53ff);color:#ffffff;padding:28px;text-align:center;">
-              <h1 style="margin:0;font-size:26px;">Welcome to Your Upcoming Stay</h1>
-              <p style="margin-top:8px;font-size:15px;opacity:0.9;">Let's make your arrival smooth and effortless</p>
+              <h1 style="margin:0;font-size:26px;">${headerTitle}</h1>
+              <p style="margin-top:8px;font-size:15px;opacity:0.9;">${headerSubtitle}</p>
             </td>
           </tr>
           <!-- Content -->
@@ -145,7 +149,8 @@ async function formatEmailMessage(
           <tr>
             <td style="background:#fafbff;text-align:center;padding:20px;font-size:12px;color:#888;">
               We look forward to welcoming you.<br>
-              <strong>${hotel}</strong>
+              <strong>${hotel}</strong><br>
+              <span style="font-size: 10px; opacity: 0.7; margin-top: 5px; display: block;">Powered by Vaiyu</span>
             </td>
           </tr>
         </table>
@@ -250,14 +255,15 @@ async function formatEmailMessage(
 
     if (template === "staff_invite") {
         const inviteLink = `https://vaiyu.co.in/invite/${payload.invite_token}`;
-        subject = `Invitation to join ${hotel} on Vaiyu`;
+        const roleSuffix = payload.role_name ? ` as a <strong>${payload.role_name}</strong>` : "";
+        subject = `Welcome to the Team at ${hotel}`;
         body = `
             ${commonHeader}
-              <h2 style="margin-top:0;">You're Invited!</h2>
+              <h2 style="margin-top:0;">We're excited to have you!</h2>
               <p style="font-size:16px;line-height:1.6;margin-bottom:28px;">
                 Hello,<br>
-                You have been invited to join the team at <strong>${hotel}</strong> on Vaiyu.
-                Click the button below to accept your invitation and set up your account.
+                You've been invited to join the team at ${hotel} on Vaiyu${roleSuffix}. 
+                Accept your invitation below to set up your account and start managing hotel operations.
               </p>
               
               <div style="text-align: center; margin: 30px 0;">
@@ -348,16 +354,29 @@ Deno.serve(async (req) => {
                         recipientPhone = booking.phone;
                         recipientName = recipientName || booking.guest_name;
                     } else if (notif.template_code === 'staff_invite') {
-                        // Staff Invite: Use payload info + fetch hotel
+                        // Staff Invite: Use payload info + fetch hotel & role
                         recipientEmail = notif.payload?.email;
-                        const { data: hotel, error: hotelErr } = await supabase
+                        const { data: inviteCtx, error: ctxErr } = await supabase
                             .from("hotels")
-                            .select("id, name, wa_phone_number_id, email")
+                            .select(`
+                                id, 
+                                name, 
+                                wa_phone_number_id, 
+                                email,
+                                hotel_roles:hotel_roles!inner ( name )
+                            `)
                             .eq("id", notif.payload?.hotel_id)
+                            .eq("hotel_roles.id", notif.payload?.role_id)
                             .single();
 
-                        if (hotelErr || !hotel) throw new Error("Hotel not found for invite");
-                        hotelData = hotel;
+                        if (ctxErr || !inviteCtx) {
+                            console.error("Context fetch error:", ctxErr);
+                            throw new Error("Hotel or Role not found for invite");
+                        }
+
+                        hotelData = inviteCtx;
+                        // Inject role_name into payload for formatter
+                        notif.payload.role_name = (inviteCtx.hotel_roles as any)?.name;
                     } else {
                         throw new Error("Missing context (booking_id or staff payload)");
                     }
@@ -382,8 +401,8 @@ Deno.serve(async (req) => {
                         if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY not set");
                         if (!recipientEmail) throw new Error("Recipient email missing");
 
-                        // DEV MODE: Use onboarding@resend.dev until domain is verified
-                        const from = "onboarding@resend.dev";
+                        // Use the verified Vaiyu domain sender
+                        const from = '"Vaiyu" <noreply@vaiyu.co.in>';
 
                         const recipient = (recipientEmail || "").trim().toLowerCase();
 

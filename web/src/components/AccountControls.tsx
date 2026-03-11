@@ -144,29 +144,40 @@ export default function AccountControls({
               theme={theme}
               onChoose={() => setOpen(false)}
             />
-            {(memberships || [])
-              .filter(
-                (m) =>
-                  (m.role === "owner" || m.role === "manager") && m.hotelSlug,
-              )
-              .map((m, idx) => (
+          </div>
+
+          {memberships.length > 0 && (
+            <>
+              <div className={`h-px ${theme === "dark" ? "bg-white/10" : "bg-slate-200"}`} />
+              <div className={`px-4 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wider ${theme === "dark" ? "text-white/40" : "text-slate-400"}`}>
+                Operations & Workspace
+              </div>
+              <div className="py-1 flex flex-col">
+                {(memberships || []).some(m => m.role !== "viewer" && m.role !== "staff") && (
+                  <MenuLink
+                    to="/owner"
+                    label="Owner Dashboard"
+                    theme={theme}
+                    onChoose={() => setOpen(false)}
+                  />
+                )}
+
                 <MenuLink
-                  key={`${m.hotelSlug}-${idx}`}
-                  to={`/owner/${m.hotelSlug}`}
-                  label={`Owner @ ${m.hotelName || m.hotelSlug}`}
+                  to="/staff"
+                  label="Staff Tasks"
                   theme={theme}
                   onChoose={() => setOpen(false)}
                 />
-              ))}
-            {(memberships || []).some((m) => m.role === "staff") && (
-              <MenuLink
-                to="/staff"
-                label="Staff workspace"
-                theme={theme}
-                onChoose={() => setOpen(false)}
-              />
-            )}
-          </div>
+                
+                <MenuLink
+                  to="/kitchen"
+                  label="Kitchen Orders"
+                  theme={theme}
+                  onChoose={() => setOpen(false)}
+                />
+              </div>
+            </>
+          )}
 
           <div className={`h-px ${theme === "dark" ? "bg-white/10" : "bg-slate-200"}`} />
 

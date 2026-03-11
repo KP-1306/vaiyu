@@ -24,8 +24,6 @@ export function StaffPicker({ hotelId, currentAssigneeId, onSelect, onCancel }: 
         async function fetchStaff() {
             setLoading(true);
             try {
-                console.log('StaffPicker: Fetching for hotelId:', hotelId);
-
                 // Fetch active hotel members
                 const { data: members, error: mError } = await supabase
                     .from('hotel_members')
@@ -37,13 +35,10 @@ export function StaffPicker({ hotelId, currentAssigneeId, onSelect, onCancel }: 
                     console.error('StaffPicker: Member fetch error', mError);
                     throw mError;
                 }
-                console.log('StaffPicker: Members found:', members?.length, members);
-
                 // Fetch profiles for these members
                 const userIds = (members || []).map(m => m.user_id).filter(Boolean);
 
                 if (userIds.length === 0) {
-                    console.log('StaffPicker: No user IDs found in members');
                     setStaff([]);
                     setLoading(false);
                     return;
@@ -58,8 +53,6 @@ export function StaffPicker({ hotelId, currentAssigneeId, onSelect, onCancel }: 
                     console.error('StaffPicker: Profile fetch error', pError);
                     throw pError;
                 }
-                console.log('StaffPicker: Profiles found:', profiles?.length);
-
                 // Combine members with profiles
                 const combined = (members || [])
                     .map(m => {
@@ -72,12 +65,7 @@ export function StaffPicker({ hotelId, currentAssigneeId, onSelect, onCancel }: 
                         };
                     });
 
-                console.log('StaffPicker: Combined check:', combined);
-                console.log('StaffPicker: Filtering out assignee:', currentAssigneeId);
-
                 const filtered = combined.filter(s => s.id !== currentAssigneeId);
-                console.log('StaffPicker: Final list:', filtered.length);
-
                 setStaff(filtered);
             } catch (error) {
                 console.error('Failed to fetch staff:', error);

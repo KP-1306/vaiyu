@@ -132,7 +132,6 @@ export default function KitchenDashboard() {
 
             // Handle array of memberships
             const memberIds = memberData?.map((m: any) => m.id) || [];
-            console.log("DEBUG: Found Member IDs:", memberIds);
             setHotelMemberIds(memberIds);
 
             // 3. My Orders
@@ -293,11 +292,8 @@ export default function KitchenDashboard() {
             // Need hotel_id for RPCs. We'll grab from the order itself since we loaded it.
             const order = orders.find((o: FoodOrder) => o.id === orderId);
             if (!order) {
-                console.error("DEBUG: Order not found in local state", orderId);
                 return;
             }
-
-            console.log(`DEBUG: RPC ${action} triggered`, { orderId, hotel_id: order.hotel_id, status: order.status });
 
             if (!order.hotel_id) {
                 alert("Missing Hotel ID context. Please refresh the dashboard.");
@@ -316,7 +312,6 @@ export default function KitchenDashboard() {
             });
 
             if (error) {
-                console.error(`DEBUG: RPC ${rpcName} failed`, error);
                 throw error;
             }
 

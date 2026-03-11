@@ -366,25 +366,25 @@ export default function OwnerDashboard() {
           await Promise.all([
             supabase
               .from("stays")
-              .select("id,guest_id,check_in_start,check_out_end,status,room")
+              .select("id,guest_id,check_in_start:scheduled_checkin_at,check_out_end:scheduled_checkout_at,status,room:room_id")
               .eq("hotel_id", hotelId)
-              .gte("check_in_start", todayStartISO)
-              .lt("check_in_start", tomorrowStartISO)
-              .order("check_in_start", { ascending: true }),
+              .gte("scheduled_checkin_at", todayStartISO)
+              .lt("scheduled_checkin_at", tomorrowStartISO)
+              .order("scheduled_checkin_at", { ascending: true }),
             supabase
               .from("stays")
-              .select("id,guest_id,check_in_start,check_out_end,status,room")
+              .select("id,guest_id,check_in_start:scheduled_checkin_at,check_out_end:scheduled_checkout_at,status,room:room_id")
               .eq("hotel_id", hotelId)
-              .lte("check_in_start", nowIso)
-              .gte("check_out_end", nowIso)
-              .order("check_out_end", { ascending: true }),
+              .lte("scheduled_checkin_at", nowIso)
+              .gte("scheduled_checkout_at", nowIso)
+              .order("scheduled_checkout_at", { ascending: true }),
             supabase
               .from("stays")
-              .select("id,guest_id,check_in_start,check_out_end,status,room")
+              .select("id,guest_id,check_in_start:scheduled_checkin_at,check_out_end:scheduled_checkout_at,status,room:room_id")
               .eq("hotel_id", hotelId)
-              .gte("check_out_end", todayStartISO)
-              .lt("check_out_end", tomorrowStartISO)
-              .order("check_out_end", { ascending: true }),
+              .gte("scheduled_checkout_at", todayStartISO)
+              .lt("scheduled_checkout_at", tomorrowStartISO)
+              .order("scheduled_checkout_at", { ascending: true }),
           ]);
         if (!alive) return;
         setArrivals(arr || []);
@@ -648,7 +648,7 @@ export default function OwnerDashboard() {
         const data = await getDashboardMetrics(hotel.id);
         if (mounted) setMetrics(data);
       } catch (err) {
-        console.error("Failed to load dashboard metrics", err);
+        // Metric load failed silently
       }
     }
     loadMetrics();

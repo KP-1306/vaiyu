@@ -1445,7 +1445,6 @@ export async function getServices(hotelKey?: string | null) {
           department_name: row.departments?.name || "General",
         }));
 
-      console.log("[getServices] Successfully fetched", items.length, "services");
       return { items };
     } catch (err) {
       console.warn("getServices supabase failed, falling back to HTTP", err);
@@ -1662,7 +1661,6 @@ export async function getMenu(hotelKey?: string) {
           availability: row.availability, // [NEW] for time checks
         }));
 
-      console.log("[getMenu] Successfully fetched", items.length, "menu items");
       return { items };
     } catch (err) {
       console.warn("getMenu supabase failed, falling back to HTTP", err);
@@ -1710,16 +1708,12 @@ export async function createTicket(
         p_priority: (data as any).priority || 'normal' // [NEW] Structured priority
       };
 
-      console.log('[createTicket] Invoking RPC:', payload);
-
       const { data: res, error } = await s.rpc('create_service_request', payload);
 
       if (error) {
         console.error('[createTicket] RPC error:', error);
         throw error;
       }
-
-      console.log('[createTicket] RPC response:', res);
 
       // Handle both new JSON return ({ id, display_id }) and legacy UUID
       const val = res as any;

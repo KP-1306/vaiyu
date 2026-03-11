@@ -134,11 +134,8 @@ export default function RoomAssignment() {
 
                 setAllHotelRooms(available);
 
-                console.log("[RoomAssignment] booking_rooms:", brs.length, brs);
-                console.log("[RoomAssignment] available rooms:", available.length);
-
             } catch (err) {
-                console.error("Error fetching rooms:", err);
+                // Handle error
             } finally {
                 setLoading(false);
             }
@@ -248,7 +245,7 @@ export default function RoomAssignment() {
                 alert("Check-in failed: " + data.status);
             }
         } catch (err: any) {
-            console.error(err);
+            // Handle error
             alert("Check-in failed: " + err.message);
         } finally {
             setAssigning(false);

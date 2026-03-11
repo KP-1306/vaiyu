@@ -513,7 +513,7 @@ export default function HotelOnboarding() {
                 setFeatures(h.theme);
             }
         } catch (e: any) {
-            console.error("Error cross-hydrating DB data into onboarding:", e);
+            // Error cross-hydrating DB data into onboarding
             setError("Critical Error: Unable to synchronize hotel data. Please check your connection.");
         } finally {
             setTransitioning(false);
@@ -852,7 +852,9 @@ export default function HotelOnboarding() {
                 if (inventory.length > 0) {
                     const roomPayload = inventory.map(r => ({ hotel_id: hotelId, number: r.number, floor: r.floor || "1", wing: r.wing || null, room_type_id: rtIdMap[r.room_type_id] || Object.values(rtIdMap)[0], status: r.status === 'Out of Order' ? 'out_of_order' : r.status.toLowerCase(), housekeeping_status: r.status === 'Dirty' ? 'dirty' : 'clean', is_out_of_order: r.status === 'Out of Order' || !r.active }));
                     const { error: roomsErr } = await supabase.from("rooms").insert(roomPayload);
-                    if (roomsErr) console.error(roomsErr);
+                     if (roomsErr) {
+                         console.error("[HotelOnboarding] Error inserting rooms:", roomsErr);
+                     }
                 }
                 const { error, data } = await supabase.rpc('update_hotel_settings_onboarding', { p_hotel_id: hotelId, payload: { rooms_total: inventory.length }, p_action: 'HOTEL_ROOMS_UPDATED' });
                 if (error) throw error;
@@ -860,16 +862,41 @@ export default function HotelOnboarding() {
                 animateStep(3);
             }
             else if (step === 3) {
-                await supabase.from("hotel_roles").delete().eq("hotel_id", hotelId);
                 const roleIdMap: Record<string, string> = {};
+                
+                // 1. Enterprise Pattern: Upsert Roles instead of wiping them
                 if (rolePerms.length > 0) {
-                    const hsRoles = rolePerms.map(rp => ({ hotel_id: hotelId, code: (rp.roleLabel || "ROLE").toUpperCase().replace(/\s/g, '_').substring(0, 20), name: rp.roleLabel || "Unnamed Role", description: rp.contact || '', is_active: true }));
-                    const { data: insertedRoles, error: roleErr } = await supabase.from("hotel_roles").insert(hsRoles).select('id, name');
-                    if (roleErr) console.error(roleErr);
+                    const hsRoles = rolePerms.map((rp, i) => ({ 
+                        hotel_id: hotelId, 
+                        code: `${(rp.roleLabel || "ROLE").toUpperCase().replace(/\s/g, '_').substring(0, 15)}_${i}`, 
+                        name: rp.roleLabel || "Unnamed Role", 
+                        description: rp.contact || '', 
+                        is_active: true 
+                    }));
+                    
+                    const { data: insertedRoles, error: roleErr } = await supabase
+                        .from("hotel_roles")
+                        .upsert(hsRoles, { onConflict: 'hotel_id,code' })
+                        .select('id, name');
+
+                    if (roleErr) {
+                        throw roleErr; 
+                    }
                     if (insertedRoles) insertedRoles.forEach(r => { roleIdMap[r.name] = r.id; });
                 }
-                await supabase.from("hotel_invites").delete().eq("hotel_id", hotelId);
+
                 const validStaff = staffMembers.filter(s => s.email.trim() && roleIdMap[s.role]);
+                const currentEmails = validStaff.map(s => s.email.trim().toLowerCase());
+
+                // 2. Targeted Sync: Clean up specific removed invites instead of a full table wipe
+                const { data: existingInvites } = await supabase.from('hotel_invites').select('id, email').eq('hotel_id', hotelId);
+                if (existingInvites) {
+                    const invitesToDelete = existingInvites.filter(inv => !currentEmails.includes(inv.email.toLowerCase()));
+                    if (invitesToDelete.length > 0) {
+                        await supabase.from('hotel_invites').delete().in('id', invitesToDelete.map(i => i.id));
+                    }
+                }
+
                 if (validStaff.length > 0) {
                     for (const s of validStaff) {
                         const { error: invErr } = await supabase.rpc('create_hotel_invite', {
@@ -881,7 +908,9 @@ export default function HotelOnboarding() {
                                 employment_status: s.employmentStatus || null
                             }
                         });
-                        if (invErr) console.error(`Error creating invite for ${s.email}:`, invErr);
+                         if (invErr) {
+                             console.error(`[HotelOnboarding] Invite failed for ${s.email}:`, invErr);
+                         }
                     }
                 }
                 await supabase.rpc('mark_onboarding_step_complete', { p_hotel_id: hotelId, p_step: 'staff_setup' });
@@ -2768,21 +2797,10 @@ export default function HotelOnboarding() {
                                     </button>
                                     <button
                                         onClick={() => {
-                                            // TODO: We will mock adding the role for now. 
-                                            // A real integration would use the real `api.supabase().from('hotel_roles').insert()` route here later.
                                             selectedRolesToAdd.forEach(roleId => {
-                                                const labelMap: Record<string, string> = {
-                                                    'SUPERVISOR': 'Supervisor',
-                                                    'ADMIN': 'Administrator',
-                                                    'OWNER': 'Hotel Owner',
-                                                    'RECEPTIONIST': 'Receptionist',
-                                                    'CONCIERGE': 'Concierge',
-                                                    'HOUSEKEEPING_STAFF': 'Housekeeper',
-                                                    'KITCHEN': 'Kitchen Staff',
-                                                    'RUNNER': 'Runner',
-                                                    'SECURITY_GUARD': 'Security Guard'
-                                                };
-                                                setRolePerms(p => [...p, { roleLabel: labelMap[roleId] || roleId, contact: '', scopes: makeScopes('Global'), perms: makePerms(false) }]);
+                                                const matchedTemplate = availableRoles.find(r => r.code === roleId);
+                                                const dynamicLabel = matchedTemplate ? matchedTemplate.name : roleId;
+                                                setRolePerms(p => [...p, { roleLabel: dynamicLabel, contact: '', scopes: makeScopes('Global'), perms: makePerms(false) }]);
                                             });
                                             setShowAddRoleModal(false);
                                             setSelectedRolesToAdd([]);

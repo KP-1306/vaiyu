@@ -106,12 +106,6 @@ export const ticketService = {
             };
         }
 
-        console.log('[DEBUG] Staff member found:', {
-            id: member.id,
-            hotel_id: member.hotel_id,
-            role: member.role
-        });
-
         const { data, error } = await supabase
             .from('v_staff_runner_tickets')
             .select('*')

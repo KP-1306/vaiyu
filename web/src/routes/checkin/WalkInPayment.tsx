@@ -222,8 +222,6 @@ export default function WalkInPayment() {
 
             if (error) throw error;
 
-            console.log("Walk-in successful:", data);
-
             // 3. Navigate to Success
             navigate("../success", {
                 state: {

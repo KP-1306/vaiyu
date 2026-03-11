@@ -306,24 +306,20 @@ async function saveProfile(next: ProfileRecord): Promise<"db" | "local"> {
 
   try {
     const payload = normalizeToDb(user.id, next);
-    console.log("Attempting to save profile to DB:", payload);
 
     const { error } = await supabase
       .from("profiles")
       .upsert(payload, { onConflict: "id" });
 
     if (error) {
-      console.error("Failed to save profile to DB:", error);
       throw error;
     }
 
-    console.log("Successfully saved profile to DB");
     safeWriteLocal(next);
     return "db";
   } catch (err) {
     // If DB write fails for any reason (missing columns / RLS),
     // keep at least the local copy so the user doesn't lose data.
-    console.warn("Falling back to local storage:", err);
     safeWriteLocal(next);
     return "local";
   }

@@ -246,7 +246,6 @@ function QrStayHome({ code }: { code: string }) {
         .single();
 
       if (alive && data) {
-        console.log("[Stay] Resolved stayUUID:", data.id);
         setStayUUID(data.id);
         if (data.hotel && typeof data.hotel !== 'string' && !Array.isArray(data.hotel)) {
           // @ts-ignore

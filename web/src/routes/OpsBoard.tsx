@@ -909,7 +909,6 @@ export default function OpsBoard() {
     } else if (action === 'prioritize') {
       // TODO: Implement prioritize RPC (adjust priority_weight, reorder queue)
       // For now, log and show feedback
-      console.log('Prioritize ticket:', t.id);
       alert('Priority increased! (Backend implementation pending)');
     } else if (action === 'resolve') {
       // Open appropriate drawer based on ticket type

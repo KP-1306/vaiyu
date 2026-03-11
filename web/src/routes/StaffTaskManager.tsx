@@ -93,10 +93,7 @@ export default function StaffTaskManager() {
     useEffect(() => {
         async function fetchHotelContext() {
             try {
-                console.log('[StaffTaskManager] Fetching hotel context...');
                 const { data: { user } } = await supabase.auth.getUser();
-                console.log('[StaffTaskManager] User:', user?.id);
-
                 if (!user) {
                     setError('Not authenticated');
                     setLoading(false);
@@ -121,7 +118,7 @@ export default function StaffTaskManager() {
                     .eq('hotel_member_roles.hotel_roles.code', 'STAFF')
                     .eq('hotel_member_roles.hotel_roles.is_active', true);
 
-                console.log('[StaffTaskManager] Member query result:', { members, memberError });
+ 
 
                 if (memberError || !members || members.length === 0) {
                     setError('Staff member not found or not active');
@@ -132,14 +129,14 @@ export default function StaffTaskManager() {
                 // Take the first hotel (staff should only have one)
                 const hotelId = members[0].hotel_id;
                 const staffMemberId = members[0].id;
-                console.log('[StaffTaskManager] Setting hotel_id:', hotelId, 'staffMemberId:', staffMemberId);
+ 
                 setHotelId(hotelId);
                 setStaffMemberId(staffMemberId);
-            } catch (err: any) {
-                console.error('[StaffTaskManager] Error fetching hotel context:', err);
-                setError(err.message);
-                setLoading(false);
-            }
+             } catch (err: any) {
+                 console.error('[StaffTaskManager] Error fetching hotel context:', err);
+                 setError(err.message);
+                 setLoading(false);
+             }
         }
 
         fetchHotelContext();
@@ -178,12 +175,6 @@ export default function StaffTaskManager() {
             setInProgressTasks(data.inProgress);
             setBlockedTasks(data.blocked);
             setError(null);
-
-            // DEBUG: Log SLA exception request status for all tasks
-            console.log('[DEBUG] SLA Exception Status from view:');
-            [...data.newTasks, ...data.inProgress, ...data.blocked].forEach(task => {
-                console.log(`  Ticket ${task.ticket_id}: status=${task.status}, sla_exception_request_status=${(task as any).sla_exception_request_status}, reason_code=${task.reason_code}`);
-            });
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -219,11 +210,10 @@ export default function StaffTaskManager() {
                     table: 'tickets',
                     filter: `hotel_id=eq.${hotelId}`
                 },
-                (payload) => {
-                    console.log('Realtime update received:', payload);
-                    // Alarm is now triggered in fetchTasks when newTasks count increases
-                    fetchTasks();
-                }
+                 (payload) => {
+                     // Realtime update received: fetchTasks logic
+                     fetchTasks();
+                 }
             )
             .subscribe();
 
@@ -238,11 +228,11 @@ export default function StaffTaskManager() {
             const fullTicket = await ticketService.getTicket(ticketView.ticket_id);
             if (fullTicket) {
                 setSelectedTask(fullTicket);
-                setModal(true);
-            }
-        } catch (e) {
-            console.error("Failed to load task details", e);
-        }
+                 setModal(true);
+             }
+         } catch (e) {
+             console.error("Failed to load task details", e);
+         }
     };
 
     return (
@@ -1420,9 +1410,9 @@ function HistoryView({
             if (!cursor) {
                 setTotalCount(response.totalCount);
             }
-        } catch (error) {
-            console.error('Failed to fetch history:', error);
-        } finally {
+         } catch (err) {
+             // Error fetching availability handled
+         } finally {
             setLoading(false);
         }
     };

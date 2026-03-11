@@ -65,9 +65,6 @@ export default function Availability() {
             setHotelId(hid || null);
             if (!hid) return;
 
-            console.log("[Availability] Fetching for Hotel ID:", hid);
-            console.log("[Availability] Stay Details:", stayDetails);
-
             let query = supabase
                 .from('rooms')
                 .select(`
@@ -85,12 +82,10 @@ export default function Availability() {
 
             // Filter by preference if set
             if (stayDetails.room_type_preference) {
-                console.log("[Availability] Filtering by preference:", stayDetails.room_type_preference);
                 query = query.eq('room_type_id', stayDetails.room_type_preference);
             }
 
             const { data: allRooms, error: roomsError } = await query;
-            console.log("[Availability] All Rooms Found:", allRooms?.length, allRooms);
             if (roomsError) throw roomsError;
 
             // Fetch pricing from rate_plan_prices
@@ -107,13 +102,10 @@ export default function Availability() {
                     priceMap[p.room_type_id] = Number(p.price);
                 }
             });
-            console.log("[Availability] Price Map:", priceMap);
 
             // Filter out occupied rooms for the specific dates
             const checkInStart = `${stayDetails.checkin_date}T14:00:00`;
             const checkOutEnd = `${stayDetails.checkout_date}T11:00:00`;
-
-            console.log("[Availability] Checking overlap:", { checkInStart, checkOutEnd });
 
             const { data: activeStays, error: staysError } = await supabase
                 .from('stays')
@@ -122,15 +114,15 @@ export default function Availability() {
                 .lt('scheduled_checkin_at', checkOutEnd)   // Stay starts before we leave
                 .gt('scheduled_checkout_at', checkInStart); // Stay ends after we arrive
 
-            if (staysError) console.error("[Availability] Stays Error:", staysError);
-            console.log("[Availability] Conflicting Stays:", activeStays);
+            if (staysError) {
+                console.error("[Availability] Error fetching stays:", staysError);
+            }
 
             const occupiedRoomIds = new Set((activeStays || []).map(s => s.room_id));
             const available = ((allRooms as any[])?.filter(r => !occupiedRoomIds.has(r.id)) || []).map(r => ({
                 ...r,
                 base_price: priceMap[r.room_type_id] || 0,
             }));
-            console.log("[Availability] Final Available Rooms:", available.length);
             setRooms(available);
         } catch (err) {
             console.error("[Availability] Error:", err);
@@ -236,7 +228,6 @@ export default function Availability() {
                 }
             });
         } catch (err: any) {
-            console.error(err);
             alert(err.message);
             setLoading(false);
         }

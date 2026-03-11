@@ -1,7 +1,7 @@
 // web/src/routes/Profile.tsx
 
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Spinner from "../components/Spinner";
 import BackHome from "../components/BackHome";
@@ -419,6 +419,7 @@ function downscaleImage(file: File, max = 1024): Promise<Blob> {
 
 /** ---------- UI ---------- */
 export default function Profile() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [mode, setMode] = useState<"view" | "edit">("view");
@@ -657,9 +658,9 @@ export default function Profile() {
 
         {/* Back to dashboard on view mode */}
         {mode === "view" ? (
-          <Link to="/guest" className="btn btn-light whitespace-nowrap">
+          <button onClick={() => navigate(-1)} className="btn btn-light whitespace-nowrap">
             Back to dashboard
-          </Link>
+          </button>
         ) : null}
       </header>
 
@@ -682,9 +683,9 @@ export default function Profile() {
         <div className="mt-4 rounded-xl border border-green-300 bg-green-50 px-4 py-3 text-sm flex items-center justify-between">
           <span>✅ Profile updated successfully.</span>
           <div className="flex gap-2">
-            <Link to="/guest" className="btn btn-light">
+            <button onClick={() => navigate(-1)} className="btn btn-light">
               Back to dashboard
-            </Link>
+            </button>
             <button
               className="btn btn-light"
               onClick={() => setSavedOnce(false)}

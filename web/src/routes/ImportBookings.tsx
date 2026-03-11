@@ -501,8 +501,6 @@ export default function ImportBookings() {
 
         try {
             const { data, error } = await supabase.functions.invoke("upload-import-csv", { body: formData });
-            console.log("Upload Response Data:", data);
-            console.log("Upload Response Error:", error);
 
             if (error) throw error;
             if (!data || !data.batchId) {
@@ -516,7 +514,6 @@ export default function ImportBookings() {
             // Kickstart Worker Loop
             const triggerWorker = async () => {
                 try {
-                    console.log("Triggering worker...");
                     const { data: res, error: workerErr } = await supabase.functions.invoke("process-import-rows", {
                         body: {}
                     });
@@ -527,18 +524,13 @@ export default function ImportBookings() {
                         return;
                     }
 
-                    console.log("Worker Response Payload:", res);
-
                     // Normalize count (handle both old and new keys for safety)
                     const count = (res?.processed !== undefined) ? res.processed : (res?.processed_groups || 0);
 
                     // If rows were processed (success or error), trigger again immediately (Recursive Loop)
                     // NOTE: UI progress is driven by DB polling (batchStats), not this response.
                     if (count > 0) {
-                        console.log(`Worker processed ${count} items. Continuing recursion...`);
                         await triggerWorker();
-                    } else {
-                        console.log("Worker finished batch or no pending rows.");
                     }
                 } catch (e) {
                     console.error("Worker Trigger Failed (Recursion Stopped):", e);

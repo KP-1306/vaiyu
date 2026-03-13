@@ -345,7 +345,7 @@ function UserAvatar({ email }: { email: string | null }) {
 
   async function handleSignOut() {
     await supabase.auth.signOut();
-    window.location.href = "/signin";
+    window.location.href = "https://vaiyu.co.in";
   }
 
   return (

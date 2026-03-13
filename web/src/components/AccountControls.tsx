@@ -204,7 +204,7 @@ export default function AccountControls({
                 localStorage.removeItem("staff:slug");
                 await supabase.auth.signOut();
               } finally {
-                nav("/", { replace: true });
+                window.location.href = "https://vaiyu.co.in";
               }
             }}
             className={`block w-full px-4 py-2 text-left text-sm ${theme === "dark"

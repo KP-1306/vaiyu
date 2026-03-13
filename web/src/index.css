@@ -12,7 +12,9 @@
   --border: #dde3ee;
 }
 
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
 }
 
@@ -38,7 +40,10 @@ html.dark body {
 }
 
 /* ===== Resets for form elements ===== */
-button, input, select, textarea {
+button,
+input,
+select,
+textarea {
   font: inherit;
   color: inherit;
 }
@@ -62,20 +67,32 @@ a {
   cursor: pointer;
   transition: transform 120ms ease, opacity 120ms ease, box-shadow 120ms ease;
 }
-.btn:hover { transform: translateY(-1px); }
-.btn:active { transform: translateY(0); }
-.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
 .btn-outline {
   background: transparent;
   color: var(--fg);
   border-color: var(--border);
 }
+
 .btn-ghost {
   background: transparent;
   color: var(--fg);
   border-color: transparent;
 }
+
 .btn-light {
   background: var(--card);
   color: var(--fg);
@@ -92,6 +109,7 @@ textarea {
   color: var(--fg);
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
+
 .input:focus,
 .select:focus,
 textarea:focus {
@@ -111,7 +129,10 @@ textarea:focus {
   color: var(--brand);
   text-decoration: none;
 }
-.link:hover { text-decoration: underline; }
+
+.link:hover {
+  text-decoration: underline;
+}
 
 .badge {
   display: inline-flex;
@@ -126,9 +147,23 @@ textarea:focus {
 }
 
 /* Status accents often used with reviews */
-.badge-success { border-color: #1ea97c33; background: #1ea97c1a; color: #1ea97c; }
-.badge-warn    { border-color: #f59e0b33; background: #f59e0b1a; color: #b45309; }
-.badge-muted   { border-color: var(--border); background: var(--card); color: var(--muted); }
+.badge-success {
+  border-color: #1ea97c33;
+  background: #1ea97c1a;
+  color: #1ea97c;
+}
+
+.badge-warn {
+  border-color: #f59e0b33;
+  background: #f59e0b1a;
+  color: #b45309;
+}
+
+.badge-muted {
+  border-color: var(--border);
+  background: var(--card);
+  color: var(--muted);
+}
 
 /* Tables for owner reports */
 .table {
@@ -138,16 +173,20 @@ textarea:focus {
   border-radius: 12px;
   overflow: hidden;
 }
-.table th, .table td {
+
+.table th,
+.table td {
   padding: 10px 12px;
   border-bottom: 1px solid var(--border);
   text-align: left;
   font-size: 14px;
 }
+
 .table thead th {
   background: color-mix(in oklab, var(--card) 70%, var(--bg));
   font-weight: 700;
 }
+
 .table tr:hover td {
   background: color-mix(in oklab, var(--card) 40%, var(--bg));
 }
@@ -161,21 +200,32 @@ textarea:focus {
 }
 
 /* Scrollbars (WebKit) */
-*::-webkit-scrollbar { height: 10px; width: 10px; }
-*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 *::-webkit-scrollbar-thumb {
   background-color: color-mix(in oklab, var(--fg) 15%, transparent);
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
+
 *::-webkit-scrollbar-thumb:hover {
   background-color: color-mix(in oklab, var(--fg) 25%, transparent);
 }
 
 /* Motion preference */
 @media (prefers-reduced-motion: reduce) {
-  * { transition: none !important; animation: none !important; }
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
 }
 
 /* === Accessibility & keyboard UX helpers === */
@@ -187,12 +237,13 @@ textarea:focus {
   top: 0;
   background: #fff;
   color: #111;
-  border: 1px solid rgba(0,0,0,.1);
+  border: 1px solid rgba(0, 0, 0, .1);
   padding: .5rem .75rem;
   border-radius: .5rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
   z-index: 10000;
 }
+
 .skip-link:focus {
   left: .75rem;
   top: .75rem;
@@ -209,10 +260,14 @@ textarea:focus {
 /* 3) Screen-reader only helper */
 .sr-only {
   position: absolute !important;
-  width: 1px; height: 1px;
-  padding: 0; margin: -1px;
-  overflow: hidden; clip: rect(0,0,0,0);
-  white-space: nowrap; border: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* 4) Optional: bottom-edge glow helpers for the logo letters */
@@ -220,6 +275,7 @@ textarea:focus {
   -webkit-mask-image: linear-gradient(to top, black 35%, transparent 70%);
   mask-image: linear-gradient(to top, black 35%, transparent 70%);
 }
+
 .logo-letter {
   display: inline-block;
   text-rendering: optimizeLegibility;
@@ -235,6 +291,7 @@ textarea:focus {
   z-index: 1000;
   pointer-events: none;
 }
+
 .top-progress__bar {
   transform-origin: left center;
   transform: scaleX(0);
@@ -246,7 +303,7 @@ textarea:focus {
 }
 
 /* Hide ALL controls inside the marketing hero carousel */
- /* #use-cases .slick-arrow,
+/* #use-cases .slick-arrow,
 #use-cases .slick-dots,
 #use-cases .carousel-arrow,
 #use-cases .carousel-dots,

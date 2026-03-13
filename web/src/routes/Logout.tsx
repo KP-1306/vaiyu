@@ -59,16 +59,14 @@ export default function Logout() {
       // 3) (Optional) ensure no stale SW keeps an old app shell around
       await unregisterServiceWorkers();
 
-      // 4) Redirect home. Do SPA nav first, then hard reload as fallback.
+      // 4) Redirect to landing page. SPA nav first (to show intent), then hard reload.
       if (!cancelled) {
-        navigate("/", { replace: true });
-        // In case the router is mid-transition or a stale shell is cached
+        window.location.href = "https://vaiyu.co.in";
         setTimeout(() => {
           try {
-            // Prefer replace() to avoid adding an extra history entry
-            window.location.replace("/");
+            window.location.replace("https://vaiyu.co.in");
           } catch {
-            window.location.href = "/";
+            window.location.href = "https://vaiyu.co.in";
           }
         }, 60);
       }

@@ -86,7 +86,7 @@ export default function Contact() {
             <h2 className="text-lg font-semibold">Talk to sales</h2>
             <p className="mt-1 text-sm text-gray-600">Rollout, pricing, ROI.</p>
             <a className="btn btn-light mt-3" href="mailto:sales@vaiyu.app">
-              sales@vaiyu.app
+              sales@vaiyu.co.in
             </a>
           </div>
 
@@ -94,7 +94,7 @@ export default function Contact() {
             <h2 className="text-lg font-semibold">Customer support</h2>
             <p className="mt-1 text-sm text-gray-600">We’re here 24×7 for critical issues.</p>
             <a className="btn btn-light mt-3" href="mailto:support@vaiyu.app">
-              support@vaiyu.app
+              support@vaiyu.co.in
             </a>
           </div>
 

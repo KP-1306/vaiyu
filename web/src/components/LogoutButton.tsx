@@ -34,8 +34,8 @@ export default function LogoutButton({
       try { localStorage.removeItem("va:guest"); } catch {}
       try { sessionStorage.clear(); } catch {}
 
-      // ✅ New flow: go to public home
-      navigate("/", { replace: true });
+      // ✅ New flow: go to public landing page
+      window.location.href = "https://vaiyu.co.in";
     }
   }
 

@@ -278,6 +278,10 @@ export default function OwnerDashboard() {
   const [opsLoading, setOpsLoading] = useState(false);
   const [showMobileNav, setShowMobileNav] = useState(false);
 
+  // Detail drawer state
+  type DrawerType = null | 'rooms' | 'tasks' | 'atRisk' | 'sla' | 'satisfaction' | 'staff' | 'arrivals';
+  const [activeDrawer, setActiveDrawer] = useState<DrawerType>(null);
+
   const [accessProblem, setAccessProblem] = useState<string | null>(null);
   const inviteToken = params.get("invite");
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -327,37 +331,37 @@ export default function OwnerDashboard() {
       }
 
       const hotelId = hotelRow.id;
-      
+
       // 1b) Detailed Role Check (Block regular STAFF)
       const memberId = hotelRow.hotel_members?.[0]?.id;
       if (memberId) {
-          const { data: rolesData, error: rolesErr } = await supabase
-            .from("hotel_member_roles")
-            .select("hotel_roles(code)")
-            .eq("hotel_member_id", memberId);
-            
-          if (rolesErr || !rolesData || rolesData.length === 0) {
-              setAccessProblem("Access denied: You must be an Owner or Manager to view the property dashboard.");
-              setLoading(false);
-              return;
-          }
-          
-          const hasDashboardAccess = rolesData.some((r: any) => 
-               ["OWNER", "ADMIN", "MANAGER", "OPS_MANAGER"].includes(r.hotel_roles?.code)
-          );
-          
-          if (!hasDashboardAccess) {
-              setAccessProblem("Access denied: You must be an Owner or Manager to view the property dashboard.");
-              setLoading(false);
-              return;
-          }
+        const { data: rolesData, error: rolesErr } = await supabase
+          .from("hotel_member_roles")
+          .select("hotel_roles(code)")
+          .eq("hotel_member_id", memberId);
+
+        if (rolesErr || !rolesData || rolesData.length === 0) {
+          setAccessProblem("Access denied: You must be an Owner or Manager to view the property dashboard.");
+          setLoading(false);
+          return;
+        }
+
+        const hasDashboardAccess = rolesData.some((r: any) =>
+          ["OWNER", "ADMIN", "MANAGER", "OPS_MANAGER"].includes(r.hotel_roles?.code)
+        );
+
+        if (!hasDashboardAccess) {
+          setAccessProblem("Access denied: You must be an Owner or Manager to view the property dashboard.");
+          setLoading(false);
+          return;
+        }
       }
 
       setHotel({
-          id: hotelRow.id,
-          name: hotelRow.name,
-          slug: hotelRow.slug,
-          city: hotelRow.city
+        id: hotelRow.id,
+        name: hotelRow.name,
+        slug: hotelRow.slug,
+        city: hotelRow.city
       });
 
       // 2) Ops lists (non-blocking)
@@ -709,7 +713,7 @@ export default function OwnerDashboard() {
   /** ======= UI States ======= */
   if (loading) {
     return (
-      <main className="min-h-[60vh] grid place-items-center bg-slate-950 text-slate-100">
+      <main className="min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200">
         <Spinner label="Loading property dashboard…" />
       </main>
     );
@@ -717,32 +721,27 @@ export default function OwnerDashboard() {
 
   if (accessProblem) {
     return (
-      <main className="max-w-3xl mx-auto p-6 bg-slate-950 text-slate-100">
-
-        <AccessHelp
-          slug={slug}
-          message={accessProblem}
-          inviteToken={inviteToken || undefined}
-        />
+      <main className="min-h-screen bg-[#0B0E14] text-slate-200">
+        <div className="max-w-3xl mx-auto p-6">
+          <AccessHelp
+            slug={slug}
+            message={accessProblem}
+            inviteToken={inviteToken || undefined}
+          />
+        </div>
       </main>
     );
   }
 
   if (!hotel) {
     return (
-      <main className="min-h-[60vh] grid place-items-center bg-slate-950 text-slate-100">
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center">
-          <div className="text-lg font-semibold mb-2">No property to show</div>
-          <p className="text-sm text-slate-300">
-            Open your property from the Owner Home.
-          </p>
+      <main className="min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200">
+        <div className="rounded-2xl border border-slate-800/50 bg-[#151A25] p-8 text-center max-w-md">
+          <div className="text-4xl mb-3">🏨</div>
+          <div className="text-lg font-semibold mb-2 text-white">No property to show</div>
+          <p className="text-sm text-slate-400">Open your property from the Owner Home.</p>
           <div className="mt-4">
-            <Link
-              to="/owner"
-              className="inline-flex items-center rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 hover:bg-white/10"
-            >
-              Owner Home
-            </Link>
+            <Link to="/owner" className="inline-flex items-center rounded-lg border border-slate-700 bg-[#0B0E14] px-4 py-2 text-sm text-slate-200 hover:bg-slate-800 transition-colors">Owner Home</Link>
           </div>
         </div>
       </main>
@@ -824,35 +823,39 @@ export default function OwnerDashboard() {
     month: "short",
   });
 
-  /** ======= Render (dark dashboard) ======= */
+  /** ======= Shift-aware greeting ======= */
+  const hour = now.getHours();
+  const shiftGreeting = hour >= 6 && hour < 12 ? "Good morning" : hour >= 12 && hour < 17 ? "Good afternoon" : hour >= 17 && hour < 22 ? "Good evening" : "Night operations";
+  const shiftIcon = hour >= 6 && hour < 12 ? "☀️" : hour >= 12 && hour < 17 ? "🌤️" : hour >= 17 && hour < 22 ? "🌙" : "🌃";
+
+  /** ======= Render (operations command center) ======= */
   return (
-    <main className="min-h-screen bg-black text-zinc-100 font-sans selection:bg-zinc-800">
-      {/* Top Header */}
-      <div className="flex items-center gap-2 px-6 py-3 text-xs font-medium text-zinc-400 border-b border-zinc-900 bg-black sticky top-0 z-50">
-        <Link to="/owner" className="hover:text-white transition-colors">Owner Console</Link>
-        <span className="text-zinc-700">/</span>
-        <span className="text-zinc-100">Dashboard</span>
+    <main className="min-h-screen bg-[#0B0E14] text-slate-200 font-sans selection:bg-emerald-500/30">
+      {/* Breadcrumb strip */}
+      <div className="flex items-center gap-2 px-4 sm:px-6 py-3 text-xs font-medium text-slate-400 border-b border-slate-800/50 bg-[#0B0E14] sticky top-0 z-50 backdrop-blur-md">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <Link to="/owner" className="hover:text-white transition-colors truncate">Console</Link>
+          <span className="text-slate-700">/</span>
+          <span className="text-slate-200 truncate">Dashboard</span>
+        </div>
+        <div className="ml-auto flex items-center gap-2 shrink-0">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <span className="text-[10px] font-mono text-emerald-500/80">Live</span>
+        </div>
       </div>
 
       {/* Mobile Drawer */}
       {showMobileNav && (
         <div className="fixed inset-0 z-[60] lg:hidden">
-          <div
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm"
-            onClick={() => setShowMobileNav(false)}
-          />
-          <aside className="fixed inset-y-0 left-0 w-72 bg-zinc-950 border-r border-zinc-800 p-6 overflow-y-auto">
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowMobileNav(false)} />
+          <aside className="fixed inset-y-0 left-0 w-72 bg-[#0B0E14] border-r border-slate-800/50 p-6 overflow-y-auto">
             <div className="flex items-center justify-between mb-8">
-              <div className="text-sm font-bold text-white uppercase tracking-widest">
-                Navigation
-              </div>
-              <button
-                onClick={() => setShowMobileNav(false)}
-                className="p-2 text-zinc-400 hover:text-white"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 6L6 18M6 6l12 12" />
-                </svg>
+              <div className="text-sm font-bold text-white uppercase tracking-widest">Navigation</div>
+              <button onClick={() => setShowMobileNav(false)} className="p-2 text-slate-400 hover:text-white">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
               </button>
             </div>
             <SidebarNav slug={hotel.slug} onNavClick={() => setShowMobileNav(false)} />
@@ -860,142 +863,217 @@ export default function OwnerDashboard() {
         </div>
       )}
 
-      {/* Solid Slate Background - No Gradients */}
+      <div className="mx-auto max-w-[1400px] px-4 py-6 lg:px-8">
+        {/* Header: Greeting + Hotel + Controls */}
+        <header className="flex flex-col gap-5 pb-6 border-b border-slate-800/50">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-3 min-w-0">
+              {/* Mobile Menu Button - Moved to Left for Visibility */}
+              <button 
+                type="button" 
+                onClick={() => setShowMobileNav(true)} 
+                className="inline-flex lg:hidden items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-2.5 hover:bg-emerald-500/20 transition-colors text-emerald-400 shrink-0" 
+                title="Menu"
+              >
+                <SvgMenu />
+              </button>
+
+              <div className="h-10 w-10 shrink-0 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30 text-lg">
+                {shiftIcon}
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight truncate">
+                  {shiftGreeting}, <span className="text-emerald-400 font-extrabold">{hotel.name}</span>
+                </h1>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5 text-[11px] sm:text-xs text-slate-500">
+                  {hotel.city && <span className="truncate">{hotel.city}</span>}
+                  {hotel.city && <span className="h-1 w-1 rounded-full bg-slate-700 shrink-0" />}
+                  <span>{dateLabel}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button type="button" onClick={() => window.location.reload()} className="inline-flex items-center justify-center rounded-lg border border-slate-800 bg-[#151A25] p-2.5 hover:bg-slate-800 transition-colors text-slate-400 hover:text-white" title="Refresh">
+                <SvgSync />
+              </button>
+              <UserProfileMenu slug={hotel.slug} />
+            </div>
+          </div>
 
 
-      <div className="mx-auto max-w-[1400px] px-4 py-8 lg:px-8">
-        <DashboardTopBar
-          title="VAiyu Dashboard"
-          hotelName={hotel.name}
-          city={hotel.city}
-          dateLabel={dateLabel}
-          slug={hotel.slug}
-          onMenuClick={() => setShowMobileNav(true)}
-        />
+        </header>
 
-        <div className="mt-8 grid gap-8 lg:grid-cols-[220px,minmax(0,1fr)] xl:grid-cols-[220px,minmax(0,1fr),320px]">
-          {/* Left rail - Navigation Only */}
-          <aside className="hidden lg:block space-y-6">
+        <div className="mt-6 flex flex-col lg:grid gap-6 lg:grid-cols-[200px,1fr] xl:grid-cols-[200px,1fr,300px]">
+          {/* ─── Left Nav (grouped) ─── */}
+          <aside className="hidden lg:block space-y-4 sticky top-24 self-start">
             <SidebarNav slug={hotel.slug} />
           </aside>
 
-          {/* Main */}
-          <section className="min-w-0 flex flex-col gap-6">
+          {/* ─── Main Content ─── */}
+          <section className="min-w-0 flex flex-col gap-5">
+            {/* 🆕 Mobile Quick Navigation Hub */}
+            <div className="grid grid-cols-2 gap-3 lg:hidden">
+              <Link to={`/owner/${hotel.slug}/analytics`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
+                <div className="text-lg mb-1">📊</div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Owner Analytics</div>
+              </Link>
+              <Link to={`/ops?slug=${encodeURIComponent(hotel.slug)}`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
+                <div className="text-lg mb-1">🕹️</div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Ops Board</div>
+              </Link>
 
-            {/* Prominent Alerts Row (Moved from Left Nav) */}
+              <Link to={`/owner/${hotel.slug}/arrivals`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
+                <div className="text-lg mb-1">🛬</div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Arrivals</div>
+              </Link>
+              <Link to={`/owner/${hotel.slug}/housekeeping`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
+                <div className="text-lg mb-1">🧹</div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">HK</div>
+              </Link>
+
+              <Link to={`/checkin?slug=${encodeURIComponent(hotel.slug)}`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
+                <div className="text-lg mb-1">🛎️</div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Front Desk</div>
+              </Link>
+              <Link to={`/owner/${hotel.slug}/import-bookings`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
+                <div className="text-lg mb-1">📥</div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Bookings</div>
+              </Link>
+
+              <Link to={`/owner/${hotel.slug}/payments`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
+                <div className="text-lg mb-1">💰</div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Finance</div>
+              </Link>
+              <Link to={`/owner/${hotel.slug}/staff-shifts`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
+                <div className="text-lg mb-1">👥</div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Staff</div>
+              </Link>
+
+              <Link to={`/owner/services?slug=${encodeURIComponent(hotel.slug)}`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
+                <div className="text-lg mb-1">🏢</div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Depts</div>
+              </Link>
+              <Link to="/kitchen" className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
+                <div className="text-lg mb-1">🍳</div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Kitchen</div>
+              </Link>
+
+              <Link to={`/owner/${hotel.slug}/settings`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
+                <div className="text-lg mb-1">⚙️</div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Settings</div>
+              </Link>
+              <Link to="/owner" className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
+                <div className="text-lg mb-1">🔄</div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Switch</div>
+              </Link>
+            </div>
+
+            {/* 🔴 Priority 1: Alert Banner */}
             {(tasksAtRisk > 0 || (blockedCount ?? 0) > 0) && (
-              <div className="flex items-center gap-6 p-4 rounded-lg border border-red-900/30 bg-red-950/10">
-                <div className="flex items-center gap-2 text-red-500 font-semibold text-sm">
+              <div className="flex flex-wrap items-center gap-4 p-4 rounded-xl border border-rose-500/30 bg-rose-500/10 backdrop-blur">
+                <div className="flex items-center gap-2 text-rose-400 font-semibold text-sm">
                   <AlertTriangle size={16} />
-                  Action Required
+                  Immediate Attention
                 </div>
-                <div className="flex items-center gap-4">
-                  {tasksAtRisk > 0 && <span className="text-sm font-medium text-zinc-300"><span className="text-white">{tasksAtRisk}</span> tasks at risk</span>}
-                  {(blockedCount ?? 0) > 0 && <span className="text-sm font-medium text-zinc-300"><span className="text-white">{blockedCount}</span> blocked</span>}
+                <div className="flex items-center gap-4 text-sm">
+                  {tasksAtRisk > 0 && (
+                    <span className="font-medium text-slate-300">
+                      <span className="text-rose-400 font-bold">{tasksAtRisk}</span> tasks at risk
+                    </span>
+                  )}
+                  {(blockedCount ?? 0) > 0 && (
+                    <span className="font-medium text-slate-300">
+                      <span className="text-rose-400 font-bold">{blockedCount}</span> SLA breaches
+                    </span>
+                  )}
                 </div>
+                <Link
+                  to={`/ops?slug=${encodeURIComponent(hotel.slug)}`}
+                  className="ml-auto text-xs font-semibold text-rose-300 hover:text-white bg-rose-500/20 px-3 py-1.5 rounded-lg border border-rose-500/30 transition-colors"
+                >
+                  Open Ops Board →
+                </Link>
               </div>
             )}
 
-            {/* KPI strip */}
-            <div className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
-              <KpiTile label="Rooms" value={total ? `${total}` : "—"} sub="Total" icon={BedDouble} />
-              <KpiTile
-                label="Active tasks"
-                value={`${tasksTotal}`}
-                sub="Open"
-                icon={Clock}
-              />
-              <KpiTile
-                label="At risk"
-                value={`${tasksAtRisk}`}
-                sub={`> ${targetMin}m`}
-                accent="amber"
-                icon={AlertTriangle}
-              />
-              <KpiTile
-                label="Avg response"
-                value={avgResponseMin == null ? "—" : `${avgResponseMin}m`}
-                sub="SLA"
-                icon={LayoutDashboard}
-              />
-              <KpiTile
-                label="Satisfaction"
-                value={guestPrimary ?? "—"}
-                sub={
-                  typeof npsScore === "number" && (npsResponses ?? 0) > 0
-                    ? `${npsResponses} res`
-                    : typeof avgRating30d === "number"
-                      ? "Avg rating"
-                      : "N/A"
-                }
-                accent={guestTone === "green" ? "emerald" : guestTone === "amber" ? "amber" : guestTone === "red" ? "rose" : undefined}
-                icon={MessageSquare}
-              />
+            {/* ✅ All clear banner (when no issues) */}
+            {tasksAtRisk === 0 && (blockedCount ?? 0) === 0 && tasksTotal === 0 && (
+              <div className="flex items-center gap-3 p-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5">
+                <div className="h-8 w-8 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-400">
+                  <UserCheck size={16} />
+                </div>
+                <div className="text-sm text-emerald-300 font-medium">All clear — no open requests or SLA breaches this shift ✓</div>
+              </div>
+            )}
+
+            {/* 📊 Priority 2: KPI Strip (color-coded, clickable) */}
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+              <div onClick={() => setActiveDrawer('rooms')} className="cursor-pointer">
+                <KpiTile label="Rooms" value={total ? `${total}` : "—"} sub={`${occupied} occupied`} icon={BedDouble} />
+              </div>
+              <div onClick={() => setActiveDrawer('tasks')} className="cursor-pointer">
+                <KpiTile label="Active Tasks" value={`${tasksTotal}`} sub={tasksTotal === 0 ? "All clear" : "Open requests"} accent={tasksTotal > 0 ? "amber" : "emerald"} icon={Clock} />
+              </div>
+              <div onClick={() => setActiveDrawer('atRisk')} className="cursor-pointer">
+                <KpiTile label="At Risk" value={`${tasksAtRisk}`} sub={tasksAtRisk === 0 ? "Under SLA" : `Exceeding targets`} accent={tasksAtRisk > 0 ? "rose" : "emerald"} icon={AlertTriangle} />
+              </div>
+              <div onClick={() => setActiveDrawer('sla')} className="cursor-pointer">
+                <KpiTile label="Avg Response" value={avgResponseMin == null ? "—" : `${avgResponseMin}m`} sub="SLA Performance" icon={LayoutDashboard} />
+              </div>
+              <div onClick={() => setActiveDrawer('satisfaction')} className="cursor-pointer">
+                <KpiTile
+                  label="Guest Satisfaction"
+                  value={guestPrimary ?? "—"}
+                  sub={typeof npsScore === "number" && (npsResponses ?? 0) > 0 ? `NPS Score · ${npsResponses} res` : typeof avgRating30d === "number" ? "Average Rating" : "No feedback data"}
+                  accent={guestTone === "green" ? "emerald" : guestTone === "amber" ? "amber" : guestTone === "red" ? "rose" : undefined}
+                  icon={MessageSquare}
+                />
+              </div>
             </div>
 
-            {/* Row: Ring + Trend */}
+            {/* 🔄 Priority 3: Operations Pulse (Active Tasks + Trend) */}
             <div className="grid gap-4 xl:grid-cols-3">
-              <DarkCard className="p-4">
+              <DarkCard className="p-5">
                 <CardHeader
                   title="Active Tasks"
                   right={
                     <StatusBadge
-                      label={
-                        slaPct == null
-                          ? "SLA —"
-                          : slaToneLevel === "green"
-                            ? "On track"
-                            : slaToneLevel === "amber"
-                              ? "Watch"
-                              : slaToneLevel === "red"
-                                ? "Risk"
-                                : "SLA —"
-                      }
+                      label={slaPct == null ? "SLA —" : slaToneLevel === "green" ? "On track" : slaToneLevel === "amber" ? "Watch" : "Risk"}
                       tone={slaToneLevel}
                     />
                   }
                 />
-                <div className="mt-3 grid grid-cols-[140px,minmax(0,1fr)] gap-4 items-center">
-                  <RingGauge
-                    value={tasksTotal}
-                    // fill uses SLA % if available; otherwise fills based on occupancy (still real)
-                    pct={
-                      slaPct != null
-                        ? slaPct
-                        : occPct != null
-                          ? Math.min(100, Math.max(0, occPct))
-                          : 0
-                    }
-                    subtitle="Active tasks"
-                  />
-                  <div className="min-w-0">
-                    <div className="text-sm text-slate-200">
-                      {tasksTotal === 0
-                        ? "No open requests right now."
-                        : `${tasksTotal} open requests across services.`}
-                    </div>
-                    <div className="mt-2 text-xs text-slate-400">
-                      Overdue (&gt;{targetMin}m):{" "}
-                      <span className="text-slate-200 font-medium">
-                        {tasksAtRisk}
-                      </span>
-                    </div>
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      <MiniStat label="Occupancy" value={`${occPct || 0}%`} tone={occupancyTone(occPct)} />
-                      <MiniStat
-                        label="Arrivals"
-                        value={arrivalsCount}
-                        tone={arrivalsCount > 0 ? "green" : "grey"}
+                <div className="mt-4 flex flex-col gap-5">
+                  <div className="flex items-center gap-4">
+                    <div className="shrink-0 scale-90 sm:scale-100">
+                      <RingGauge
+                        value={tasksTotal}
+                        pct={slaPct != null ? slaPct : occPct != null ? Math.min(100, Math.max(0, occPct)) : 0}
+                        subtitle="Active tasks"
                       />
                     </div>
+                    <div className="min-w-0">
+                      <div className="text-sm text-slate-300">
+                        {tasksTotal === 0 ? "All services running smoothly." : `${tasksTotal} open request${tasksTotal > 1 ? "s" : ""} across services.`}
+                      </div>
+                      <div className="mt-2 text-xs text-slate-500">
+                        Overdue (&gt;{targetMin}m): <span className={`font-medium ${tasksAtRisk > 0 ? "text-rose-400" : "text-emerald-400"}`}>{tasksAtRisk}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <MiniStat label="Occupancy" value={`${occPct || 0}%`} tone={occupancyTone(occPct)} />
+                    <MiniStat label="Arrivals" value={arrivalsCount} tone={arrivalsCount > 0 ? "green" : "grey"} />
                   </div>
                 </div>
               </DarkCard>
 
-              <DarkCard className="p-4 xl:col-span-2">
+              <DarkCard className="p-5 xl:col-span-2">
                 <CardHeader
-                  title="Alerts Trend"
-                  subtitle="Request volume trend (real data only)"
+                  title="Operations Pulse"
+                  subtitle="Request volume (live data)"
                   right={
                     <div className="flex items-center gap-2">
                       <MiniBadge label={`${tasksAtRisk} at risk`} tone={tasksAtRisk > 0 ? "amber" : "grey"} />
@@ -1004,44 +1082,41 @@ export default function OwnerDashboard() {
                   }
                 />
                 <div className="mt-3">
-                  {/* We reuse your existing chart component (no fake data). */}
                   {hasSeries((metrics as any)?.taskVolume) ? (
-                    <TaskVolumeChart
-
-                      data={(metrics as any)?.taskVolume || []}
-                      loading={!metrics}
-                    />
+                    <TaskVolumeChart data={(metrics as any)?.taskVolume || []} loading={!metrics} />
                   ) : (
-                    <EmptyState text="Not available" />
+                    <div className="rounded-xl border border-dashed border-slate-700 bg-[#0B0E14] p-8 text-center">
+                      <div className="text-2xl mb-2">📊</div>
+                      <div className="text-sm text-slate-400">Operations data will appear here as requests flow through the system.</div>
+                    </div>
                   )}
                 </div>
-
                 <div className="mt-3 grid gap-2 grid-cols-1 sm:grid-cols-3">
                   <MiniStat label="Blocked" value={blockedCount == null ? "—" : blockedCount} tone={blockedCount && blockedCount > 0 ? "red" : "grey"} />
                   <MiniStat label="Active" value={tasksTotal} tone={tasksTotal > 0 ? "green" : "grey"} />
-                  <MiniStat label="At risk" value={tasksAtRisk} tone={tasksAtRisk > 0 ? "amber" : "grey"} />
+                  <MiniStat label="At Risk" value={tasksAtRisk} tone={tasksAtRisk > 0 ? "amber" : "grey"} />
                 </div>
               </DarkCard>
             </div>
 
-            {/* Row: Task Summary + Issue Breakdown */}
+            {/* 📋 Priority 4: Task Summary + Issue Breakdown */}
             <div className="grid gap-4 xl:grid-cols-3">
-              <DarkCard className="p-4 xl:col-span-2">
+              <DarkCard className="p-5 xl:col-span-2">
                 <CardHeader
-                  title="Task Summary"
-                  subtitle="Latest open requests (pilot-safe)"
+                  title="Live Requests"
+                  subtitle="Latest open service requests"
                   right={
-                    <Link
-                      to={`/ops?slug=${encodeURIComponent(hotel.slug)}`}
-                      className="text-xs text-slate-300 hover:text-slate-100 underline"
-                    >
-                      Open ops →
+                    <Link to={`/ops?slug=${encodeURIComponent(hotel.slug)}`} className="text-xs text-emerald-400 hover:text-emerald-300 font-medium bg-emerald-500/10 px-2.5 py-1.5 rounded-lg transition-colors border border-emerald-500/20">
+                      Open Ops Board →
                     </Link>
                   }
                 />
                 <div className="mt-3">
                   {liveTasks.length === 0 ? (
-                    <EmptyState text="No live requests right now." />
+                    <div className="rounded-xl border border-dashed border-slate-700 bg-[#0B0E14] p-6 text-center">
+                      <div className="text-2xl mb-2">✅</div>
+                      <div className="text-sm text-slate-400">No live requests right now. Operations are running smoothly.</div>
+                    </div>
                   ) : (
                     <DarkTable>
                       <thead>
@@ -1057,26 +1132,15 @@ export default function OwnerDashboard() {
                           const mins = ageMin(o.created_at);
                           const breach = mins > targetMin;
                           return (
-                            <tr key={o.id} className="border-t border-white/10">
+                            <tr key={o.id} className="border-t border-white/10 hover:bg-white/[0.02] transition-colors">
                               <Td>
-                                <div className="font-medium text-slate-100">
-                                  {o.title || `#${o.id.slice(0, 8)}`}
-                                </div>
-                                <div className="text-[11px] text-zinc-500 sm:hidden">
-                                  {o.status}
-                                </div>
+                                <div className="font-medium text-slate-100">{o.title || `#${o.id.slice(0, 8)}`}</div>
+                                <div className="text-[11px] text-slate-500 sm:hidden">{o.status}</div>
                               </Td>
-                              <Td className="hidden sm:table-cell">
-                                <span className="text-slate-200">{o.status}</span>
-                              </Td>
-                              <Td>
-                                <span className="text-slate-200">{mins}m</span>
-                              </Td>
+                              <Td className="hidden sm:table-cell"><span className="text-slate-200">{o.status}</span></Td>
+                              <Td><span className={`font-mono text-sm ${breach ? "text-rose-400" : "text-slate-200"}`}>{mins}m</span></Td>
                               <Td className="text-right">
-                                <StatusBadge
-                                  label={breach ? "At risk" : "On time"}
-                                  tone={breach ? "amber" : "green"}
-                                />
+                                <StatusBadge label={breach ? "At risk" : "On time"} tone={breach ? "amber" : "green"} />
                               </Td>
                             </tr>
                           );
@@ -1087,181 +1151,501 @@ export default function OwnerDashboard() {
                 </div>
               </DarkCard>
 
-              <DarkCard className="p-4">
-                <CardHeader
-                  title="Issue Breakdown"
-                  subtitle="Open requests by state"
-                />
+              <DarkCard className="p-5">
+                <CardHeader title="Issue Breakdown" subtitle="Open requests by state" />
                 <div className="mt-3">
                   {liveTasks.length === 0 ? (
-                    <EmptyState text="Not available" />
+                    <div className="rounded-xl border border-dashed border-slate-700 bg-[#0B0E14] p-4 text-center text-sm text-slate-500">All clear</div>
                   ) : (
                     <IssueBreakdown orders={liveTasks} targetMin={targetMin} />
                   )}
                 </div>
 
                 <div className="mt-4 border-t border-white/10 pt-3">
-                  <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                    Recent feedback
-                  </div>
+                  <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Recent feedback</div>
                   <div className="mt-2">
                     {typeof npsScore === "number" && (npsResponses ?? 0) > 0 ? (
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className="text-sm text-slate-100 font-semibold">
-                            NPS {npsScore}
-                          </div>
-                          <div className="text-[11px] text-slate-400">
-                            {npsResponses} responses (30d)
-                          </div>
+                          <div className="text-sm text-slate-100 font-semibold">NPS {npsScore}</div>
+                          <div className="text-[11px] text-slate-400">{npsResponses} responses (30d)</div>
                         </div>
                         <StatusBadge label="Guest" tone="green" />
                       </div>
                     ) : typeof avgRating30d === "number" ? (
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className="text-sm text-slate-100 font-semibold">
-                            Rating {avgRating30d.toFixed(1)}/5
-                          </div>
+                          <div className="text-sm text-slate-100 font-semibold">Rating {avgRating30d.toFixed(1)}/5</div>
                           <div className="text-[11px] text-slate-400">Last 30 days</div>
                         </div>
                         <StatusBadge label="Guest" tone={ratingTone(avgRating30d)} />
                       </div>
                     ) : (
-                      <EmptyState text="Not available" />
+                      <div className="text-sm text-slate-500">No feedback data yet</div>
                     )}
                   </div>
                 </div>
               </DarkCard>
             </div>
 
-            {/* Row: SLA chart + AI Ops + Usage (kept, but styled dark and pilot-safe) */}
+            {/* 📈 Priority 5: SLA Performance + AI Ops */}
             <div className="grid gap-4 xl:grid-cols-3">
-              <DarkCard className="p-4 xl:col-span-2">
+              <DarkCard className="p-5 xl:col-span-2">
                 <CardHeader
-                  title="Avg Resolution"
-                  subtitle={`SLA performance (target ${targetMin}m).`}
+                  title="SLA Performance"
+                  subtitle={`Resolution trend (target ${targetMin}m)`}
                   right={
-                    slaPct == null ? (
-                      <MiniBadge label="SLA —" tone="grey" />
-                    ) : (
-                      <MiniBadge label={`SLA ${slaPct}%`} tone={slaToneLevel} />
-                    )
+                    slaPct == null ? <MiniBadge label="SLA —" tone="grey" /> : <MiniBadge label={`SLA ${slaPct}%`} tone={slaToneLevel} />
                   }
                 />
                 <div className="mt-3">
                   {hasSeries(slaSeries) ? (
-                    <SlaPerformanceChart
-
-                      data={slaSeries || []}
-                      loading={!metrics}
-                    />
+                    <SlaPerformanceChart data={slaSeries || []} loading={!metrics} />
                   ) : (
-                    <EmptyState text="Not available" />
+                    <div className="rounded-xl border border-dashed border-slate-700 bg-[#0B0E14] p-8 text-center">
+                      <div className="text-2xl mb-2">📉</div>
+                      <div className="text-sm text-slate-400">SLA performance data will appear after service requests are processed.</div>
+                    </div>
                   )}
                 </div>
               </DarkCard>
 
-              <DarkCard className="p-4">
-                <CardHeader title="AI Ops Snapshot" subtitle="From connected ticket history." />
+              <DarkCard className="p-5">
+                <CardHeader title="AI Ops Insights" subtitle="Intelligent recommendations" />
                 <div className="mt-3">
                   {!HAS_FUNCS ? (
-                    <EmptyState text="Not available" />
+                    <div className="rounded-xl border border-dashed border-slate-700 bg-[#0B0E14] p-4 text-center text-sm text-slate-500">Enable AI features to see insights</div>
                   ) : opsLoading ? (
-                    <EmptyState text="Analyzing…" />
+                    <div className="rounded-xl border border-dashed border-slate-700 bg-[#0B0E14] p-4 text-center text-sm text-slate-400">Analyzing operations…</div>
                   ) : (opsHeatmap && opsHeatmap.length) || (staffingPlan && staffingPlan.length) ? (
-                    <div className="space-y-3">
-                      <AiOpsMiniSummary heatmap={opsHeatmap} staffingPlan={staffingPlan} />
-                    </div>
+                    <AiOpsMiniSummary heatmap={opsHeatmap} staffingPlan={staffingPlan} />
                   ) : (
-                    <EmptyState text="Not available" />
+                    <div className="rounded-xl border border-dashed border-slate-700 bg-[#0B0E14] p-4 text-center text-sm text-slate-500">No AI insights available yet</div>
                   )}
                 </div>
-
                 <div className="mt-4 border-t border-white/10 pt-3">
                   <div className="flex items-center justify-between">
-                    <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                      AI usage
-                    </div>
+                    <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">AI usage</div>
                     <MiniBadge label="Owner view" tone="grey" />
                   </div>
-                  <div className="mt-3">
-                    <UsageMeter hotelId={hotel.id} />
-                  </div>
+                  <div className="mt-3"><UsageMeter hotelId={hotel.id} /></div>
                 </div>
               </DarkCard>
             </div>
           </section>
 
-          {/* Right rail */}
+          {/* ─── Right Rail ─── */}
           <aside className="space-y-4 xl:block">
-            <DarkCard className="p-4">
-              <CardHeader title="Staff Performance" subtitle="Active staff members" />
+            {/* Quick Stats */}
+            <div onClick={() => setActiveDrawer('arrivals')} className="cursor-pointer">
+              <DarkCard className="p-4 hover:border-slate-700 transition-colors">
+                <CardHeader title="Today's Snapshot" subtitle={dateLabel} />
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <MiniStat label="Arr" value={arrivalsCount} tone={arrivalsCount > 0 ? "green" : "grey"} />
+                  <MiniStat label="Dep" value={departuresCount} tone={departuresCount > 0 ? "amber" : "grey"} />
+                  <MiniStat label="In-H" value={Array.isArray(inhouse) ? inhouse.length : 0} tone="green" />
+                  <MiniStat label="Occ" value={`${occPct || 0}%`} tone={occupancyTone(occPct)} />
+                </div>
+              </DarkCard>
+            </div>
+
+            <div onClick={() => setActiveDrawer('staff')} className="cursor-pointer">
+            <DarkCard className="p-4 hover:border-slate-700 transition-colors">
+              <CardHeader title="Staff On Duty" subtitle="Active team members" />
               <div className="mt-3">
                 <StaffList data={staffPerf} />
               </div>
-
               {HAS_HRMS && (
                 <div className="mt-4 border-t border-white/10 pt-3">
                   <div className="flex items-center justify-between">
-                    <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                      Attendance
-                    </div>
-                    <Link
-                      to={`/owner/${hotel.slug}/hrms`}
-                      className="text-[11px] text-slate-300 hover:text-slate-100 underline"
-                    >
-                      Open →
-                    </Link>
+                    <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Attendance</div>
+                    <Link to={`/owner/${hotel.slug}/hrms`} className="text-[11px] text-slate-300 hover:text-slate-100 underline">Open →</Link>
                   </div>
-                  <div className="mt-2">
-                    <AttendanceMini data={hrms} />
-                  </div>
+                  <div className="mt-2"><AttendanceMini data={hrms} /></div>
                 </div>
               )}
             </DarkCard>
+            </div>
 
             <DarkCard className="p-4">
               <CardHeader title="Guest Satisfaction" subtitle="NPS / Rating signal" />
               <div className="mt-3">
-                <SatisfactionPanel
-                  hotelName={hotel.name}
-                  npsScore={npsScore}
-                  npsResponses={npsResponses}
-                  avgRating30d={avgRating30d}
-                />
+                <SatisfactionPanel hotelName={hotel.name} npsScore={npsScore} npsResponses={npsResponses} avgRating30d={avgRating30d} />
               </div>
             </DarkCard>
 
             {HAS_WORKFORCE && (
               <DarkCard className="p-4">
-                <CardHeader title="Workforce" subtitle="Open roles (property-scoped)" />
-                <div className="mt-3">
-                  <WorkforceMini jobs={workforceJobs} loading={workforceLoading} />
-                </div>
+                <CardHeader title="Workforce" subtitle="Open roles" />
+                <div className="mt-3"><WorkforceMini jobs={workforceJobs} loading={workforceLoading} /></div>
               </DarkCard>
             )}
 
+            {/* Quick Links */}
             <DarkCard className="p-4">
-              <CardHeader title="Support" subtitle="Owner help & escalation" />
-              <div className="mt-3 space-y-2">
-                <Link
-                  to="/owner"
-                  className="block rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 hover:bg-white/10"
-                >
-                  Switch property
+              <CardHeader title="Quick Links" />
+              <div className="mt-2 space-y-1.5">
+                <Link to={`/owner/${hotel.slug}/analytics`} className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors">
+                  Owner Analytics <span className="text-slate-600">→</span>
                 </Link>
-                <a
-                  href="mailto:support@vaiyu.co.in?subject=Owner%20Dashboard%20help"
-                  className="block rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 hover:bg-white/10"
-                >
-                  Contact support
+                <Link to={`/ops/analytics?slug=${encodeURIComponent(hotel.slug)}`} className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors">
+                  Ops Manager <span className="text-slate-600">→</span>
+                </Link>
+                <Link to={`/checkin?slug=${encodeURIComponent(hotel.slug)}`} className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors">
+                  Front Desk <span className="text-slate-600">→</span>
+                </Link>
+                <a href="mailto:support@vaiyu.co.in?subject=Owner%20Dashboard%20help" className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors">
+                  Contact Support <span className="text-slate-600">→</span>
                 </a>
               </div>
             </DarkCard>
           </aside>
         </div>
       </div>
+      {/* ─── Detail Drawers ─── */}
+      {activeDrawer && (
+        <div className="fixed inset-0 z-[100] flex justify-end">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setActiveDrawer(null)} />
+          <div className="relative w-full sm:max-w-2xl bg-[#0B0E14] h-full shadow-3xl overflow-y-auto border-l border-slate-800/50" style={{ animation: 'slideInRight 0.3s ease-out' }}>
+            <div className="sticky top-0 z-10 bg-[#0B0E14]/95 backdrop-blur-md border-b border-slate-800/50 px-4 sm:px-6 py-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-white">
+                {activeDrawer === 'rooms' && '🏨 Room Occupancy Details'}
+                {activeDrawer === 'tasks' && '📋 Active Tasks'}
+                {activeDrawer === 'atRisk' && '⚠️ At-Risk Analysis'}
+                {activeDrawer === 'sla' && '📈 SLA Performance'}
+                {activeDrawer === 'satisfaction' && '⭐ Guest Satisfaction'}
+                {activeDrawer === 'staff' && '👥 Staff On Duty'}
+                {activeDrawer === 'arrivals' && '🛬 Today\'s Guest Movement'}
+              </h2>
+              <button onClick={() => setActiveDrawer(null)} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="p-6 space-y-6">
+
+              {/* ROOMS DRAWER */}
+              {activeDrawer === 'rooms' && (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-[#151A25] rounded-xl border border-slate-800/50 p-4">
+                      <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">Total Rooms</div>
+                      <div className="text-3xl font-bold text-white">{total || 0}</div>
+                    </div>
+                    <div className="bg-[#151A25] rounded-xl border border-emerald-500/20 p-4">
+                      <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">Occupied</div>
+                      <div className="text-3xl font-bold text-emerald-400">{occupied || 0}</div>
+                      <div className="text-xs text-slate-500 mt-1">{occPct || 0}% occupancy</div>
+                    </div>
+                  </div>
+                  <div className="bg-[#151A25] rounded-xl border border-slate-800/50 p-5">
+                    <div className="text-sm font-semibold text-slate-200 mb-4">Today's Guest Flow</div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="text-center p-3 rounded-lg bg-[#0B0E14] border border-slate-800/50">
+                        <div className="text-2xl font-bold text-blue-400">{arrivalsCount}</div>
+                        <div className="text-[10px] uppercase text-slate-500 mt-1">Arrivals</div>
+                      </div>
+                      <div className="text-center p-3 rounded-lg bg-[#0B0E14] border border-slate-800/50">
+                        <div className="text-2xl font-bold text-emerald-400">{Array.isArray(inhouse) ? inhouse.length : 0}</div>
+                        <div className="text-[10px] uppercase text-slate-500 mt-1">In-House</div>
+                      </div>
+                      <div className="text-center p-3 rounded-lg bg-[#0B0E14] border border-slate-800/50">
+                        <div className="text-2xl font-bold text-amber-400">{departuresCount}</div>
+                        <div className="text-[10px] uppercase text-slate-500 mt-1">Departures</div>
+                      </div>
+                    </div>
+                  </div>
+                  {arrivals.length > 0 && (
+                    <div className="bg-[#151A25] rounded-xl border border-slate-800/50 p-5">
+                      <div className="text-sm font-semibold text-slate-200 mb-3">Expected Arrivals</div>
+                      <div className="space-y-2">
+                        {arrivals.slice(0, 10).map(a => (
+                          <div key={a.id} className="flex items-center justify-between p-3 rounded-lg bg-[#0B0E14] border border-slate-800/50">
+                            <div>
+                              <div className="text-sm font-medium text-slate-200">Room {a.room || 'TBD'}</div>
+                              <div className="text-[11px] text-slate-500">Guest ID: {a.guest_id?.slice(0, 8)}...</div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-slate-400">{a.check_in_start ? new Date(a.check_in_start).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '—'}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* TASKS DRAWER */}
+              {activeDrawer === 'tasks' && (
+                <>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-[#151A25] rounded-xl border border-emerald-500/20 p-4 text-center">
+                      <div className="text-2xl font-bold text-emerald-400">{tasksTotal}</div>
+                      <div className="text-[10px] uppercase text-slate-500 mt-1">Active</div>
+                    </div>
+                    <div className="bg-[#151A25] rounded-xl border border-amber-500/20 p-4 text-center">
+                      <div className="text-2xl font-bold text-amber-400">{tasksAtRisk}</div>
+                      <div className="text-[10px] uppercase text-slate-500 mt-1">At Risk</div>
+                    </div>
+                    <div className="bg-[#151A25] rounded-xl border border-rose-500/20 p-4 text-center">
+                      <div className="text-2xl font-bold text-rose-400">{blockedCount || 0}</div>
+                      <div className="text-[10px] uppercase text-slate-500 mt-1">Blocked</div>
+                    </div>
+                  </div>
+                  <div className="bg-[#151A25] rounded-xl border border-slate-800/50 p-5">
+                    <div className="text-sm font-semibold text-slate-200 mb-3">All Open Requests ({liveTasks.length})</div>
+                    {liveTasks.length === 0 ? (
+                      <div className="text-center py-8 text-slate-500">No open requests. Operations are running smoothly. ✅</div>
+                    ) : (
+                      <div className="space-y-2">
+                        {liveTasks.map(t => {
+                          const mins = ageMin(t.created_at);
+                          const breach = mins > targetMin;
+                          return (
+                            <div key={t.id} className={`flex items-center justify-between p-3 rounded-lg bg-[#0B0E14] border ${breach ? 'border-rose-500/30' : 'border-slate-800/50'}`}>
+                              <div className="min-w-0">
+                                <div className="text-sm font-medium text-slate-200 truncate">{t.title || `#${t.id.slice(0, 8)}`}</div>
+                                <div className="text-[11px] text-slate-500">{t.status} · {mins}m ago</div>
+                              </div>
+                              <StatusBadge label={breach ? 'At risk' : 'On time'} tone={breach ? 'amber' : 'green'} />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* AT RISK DRAWER */}
+              {activeDrawer === 'atRisk' && (
+                <>
+                  <div className="bg-[#151A25] rounded-xl border border-rose-500/20 p-5">
+                    <div className="flex items-center gap-3 mb-3">
+                      <AlertTriangle size={20} className="text-rose-400" />
+                      <div className="text-sm font-semibold text-slate-200">Risk Summary</div>
+                    </div>
+                    <div className="text-3xl font-bold text-rose-400">{tasksAtRisk}</div>
+                    <div className="text-xs text-slate-500 mt-1">Tasks exceeding {targetMin}m SLA target</div>
+                  </div>
+                  <div className="bg-[#151A25] rounded-xl border border-slate-800/50 p-5">
+                    <div className="text-sm font-semibold text-slate-200 mb-3">Overdue Tasks</div>
+                    {liveTasks.filter(t => ageMin(t.created_at) > targetMin).length === 0 ? (
+                      <div className="text-center py-8 text-slate-500">No tasks currently at risk. All clear! ✅</div>
+                    ) : (
+                      <div className="space-y-2">
+                        {liveTasks.filter(t => ageMin(t.created_at) > targetMin).map(t => {
+                          const mins = ageMin(t.created_at);
+                          return (
+                            <div key={t.id} className="flex items-center justify-between p-3 rounded-lg bg-[#0B0E14] border border-rose-500/20">
+                              <div className="min-w-0">
+                                <div className="text-sm font-medium text-slate-200 truncate">{t.title || `#${t.id.slice(0, 8)}`}</div>
+                                <div className="text-[11px] text-slate-500">{t.status}</div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-sm font-bold font-mono text-rose-400">{mins}m</div>
+                                <div className="text-[10px] text-slate-500">overdue by {mins - targetMin}m</div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  <div className="bg-[#151A25] rounded-xl border border-slate-800/50 p-5">
+                    <div className="text-sm font-semibold text-slate-200 mb-3">Blocked Tasks</div>
+                    {(blockedCount ?? 0) === 0 ? (
+                      <div className="text-center py-4 text-slate-500">No blocked tasks</div>
+                    ) : (
+                      <div className="space-y-2">
+                        {liveTasks.filter(t => ['blocked', 'paused', 'hold'].some(k => (t.status || '').toLowerCase().includes(k))).map(t => (
+                          <div key={t.id} className="flex items-center justify-between p-3 rounded-lg bg-[#0B0E14] border border-amber-500/20">
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium text-slate-200 truncate">{t.title || `#${t.id.slice(0, 8)}`}</div>
+                              <div className="text-[11px] text-slate-500">{t.status} · {ageMin(t.created_at)}m</div>
+                            </div>
+                            <StatusBadge label="Blocked" tone="red" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* SLA DRAWER */}
+              {activeDrawer === 'sla' && (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-[#151A25] rounded-xl border border-slate-800/50 p-4">
+                      <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">Avg Response</div>
+                      <div className="text-3xl font-bold text-white">{avgResponseMin == null ? '—' : `${avgResponseMin}m`}</div>
+                    </div>
+                    <div className={`bg-[#151A25] rounded-xl border p-4 ${slaToneLevel === 'green' ? 'border-emerald-500/20' : slaToneLevel === 'amber' ? 'border-amber-500/20' : 'border-rose-500/20'}`}>
+                      <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">SLA Compliance</div>
+                      <div className={`text-3xl font-bold ${slaToneLevel === 'green' ? 'text-emerald-400' : slaToneLevel === 'amber' ? 'text-amber-400' : 'text-rose-400'}`}>{slaPct == null ? '—' : `${slaPct}%`}</div>
+                      <div className="text-xs text-slate-500 mt-1">Target: {targetMin}m</div>
+                    </div>
+                  </div>
+                  <div className="bg-[#151A25] rounded-xl border border-slate-800/50 p-5">
+                    <div className="text-sm font-semibold text-slate-200 mb-3">SLA Performance Chart</div>
+                    {hasSeries(slaSeries) ? (
+                      <SlaPerformanceChart data={slaSeries || []} loading={false} />
+                    ) : (
+                      <div className="text-center py-8 text-slate-500">SLA data will appear after requests are processed.</div>
+                    )}
+                  </div>
+                  <div className="bg-[#151A25] rounded-xl border border-slate-800/50 p-5">
+                    <div className="text-sm font-semibold text-slate-200 mb-3">For detailed analytics</div>
+                    <Link to={`/owner/${hotel.slug}/analytics`} className="inline-flex items-center gap-2 text-sm text-emerald-400 hover:text-emerald-300 font-medium bg-emerald-500/10 px-4 py-2 rounded-lg border border-emerald-500/20 transition-colors">
+                      Open Owner Analytics →
+                    </Link>
+                  </div>
+                </>
+              )}
+
+              {/* SATISFACTION DRAWER */}
+              {activeDrawer === 'satisfaction' && (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    {typeof npsScore === 'number' && (npsResponses ?? 0) > 0 && (
+                      <div className="bg-[#151A25] rounded-xl border border-emerald-500/20 p-4">
+                        <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">NPS Score</div>
+                        <div className="text-3xl font-bold text-emerald-400">{npsScore}</div>
+                        <div className="text-xs text-slate-500 mt-1">{npsResponses} responses (30d)</div>
+                      </div>
+                    )}
+                    {typeof avgRating30d === 'number' && (
+                      <div className="bg-[#151A25] rounded-xl border border-blue-500/20 p-4">
+                        <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">Avg Rating</div>
+                        <div className="text-3xl font-bold text-blue-400">{avgRating30d.toFixed(1)}/5</div>
+                        <div className="text-xs text-slate-500 mt-1">Last 30 days</div>
+                      </div>
+                    )}
+                  </div>
+                  {npsSnapshot && (
+                    <div className="bg-[#151A25] rounded-xl border border-slate-800/50 p-5">
+                      <div className="text-sm font-semibold text-slate-200 mb-3">NPS Breakdown</div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="text-center p-3 rounded-lg bg-[#0B0E14] border border-emerald-500/20">
+                          <div className="text-2xl font-bold text-emerald-400">{npsSnapshot.promoters}</div>
+                          <div className="text-[10px] uppercase text-slate-500 mt-1">Promoters</div>
+                        </div>
+                        <div className="text-center p-3 rounded-lg bg-[#0B0E14] border border-amber-500/20">
+                          <div className="text-2xl font-bold text-amber-400">{npsSnapshot.passives}</div>
+                          <div className="text-[10px] uppercase text-slate-500 mt-1">Passives</div>
+                        </div>
+                        <div className="text-center p-3 rounded-lg bg-[#0B0E14] border border-rose-500/20">
+                          <div className="text-2xl font-bold text-rose-400">{npsSnapshot.detractors}</div>
+                          <div className="text-[10px] uppercase text-slate-500 mt-1">Detractors</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {typeof npsScore !== 'number' && typeof avgRating30d !== 'number' && (
+                    <div className="bg-[#151A25] rounded-xl border border-slate-800/50 p-8 text-center">
+                      <div className="text-2xl mb-2">📊</div>
+                      <div className="text-sm text-slate-400">Guest satisfaction data will appear once feedback is collected.</div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* STAFF DRAWER */}
+              {activeDrawer === 'staff' && (
+                <>
+                  {staffPerf && staffPerf.length > 0 ? (
+                    <div className="bg-[#151A25] rounded-xl border border-slate-800/50 p-5">
+                      <div className="text-sm font-semibold text-slate-200 mb-3">Full Staff Roster ({staffPerf.length})</div>
+                      <div className="space-y-2">
+                        {staffPerf.map(r => (
+                          <div key={r.staff_id} className="flex items-center justify-between p-3 rounded-lg bg-[#0B0E14] border border-slate-800/50">
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium text-slate-200 truncate">{r.display_name}</div>
+                              <div className="text-[11px] text-slate-500">{r.department_name || r.role}</div>
+                            </div>
+                            <StatusBadge label={r.is_online ? 'Online' : 'Away'} tone={r.is_online ? 'green' : 'grey'} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-slate-500">No staff data available</div>
+                  )}
+                  {hrms && (
+                    <div className="bg-[#151A25] rounded-xl border border-slate-800/50 p-5">
+                      <div className="text-sm font-semibold text-slate-200 mb-3">Attendance Summary</div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <MiniStat label="Present" value={hrms.present_today} tone={hrms.attendance_pct_today >= 85 ? 'green' : 'amber'} />
+                        <MiniStat label="Absent" value={hrms.absent_today} tone={hrms.absent_today > 0 ? 'amber' : 'grey'} />
+                        <MiniStat label="Late" value={hrms.late_today} tone={hrms.late_today > 0 ? 'amber' : 'grey'} />
+                        <MiniStat label="Att %" value={`${hrms.attendance_pct_today}%`} tone={hrms.attendance_pct_today >= 85 ? 'green' : 'amber'} />
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* ARRIVALS DRAWER */}
+              {activeDrawer === 'arrivals' && (
+                <>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-[#151A25] rounded-xl border border-blue-500/20 p-4 text-center">
+                      <div className="text-2xl font-bold text-blue-400">{arrivalsCount}</div>
+                      <div className="text-[10px] uppercase text-slate-500 mt-1">Arrivals</div>
+                    </div>
+                    <div className="bg-[#151A25] rounded-xl border border-emerald-500/20 p-4 text-center">
+                      <div className="text-2xl font-bold text-emerald-400">{Array.isArray(inhouse) ? inhouse.length : 0}</div>
+                      <div className="text-[10px] uppercase text-slate-500 mt-1">In-House</div>
+                    </div>
+                    <div className="bg-[#151A25] rounded-xl border border-amber-500/20 p-4 text-center">
+                      <div className="text-2xl font-bold text-amber-400">{departuresCount}</div>
+                      <div className="text-[10px] uppercase text-slate-500 mt-1">Departures</div>
+                    </div>
+                  </div>
+                  {arrivals.length > 0 && (
+                    <div className="bg-[#151A25] rounded-xl border border-slate-800/50 p-5">
+                      <div className="text-sm font-semibold text-slate-200 mb-3">Arrivals ({arrivals.length})</div>
+                      <div className="space-y-2">
+                        {arrivals.map(a => (
+                          <div key={a.id} className="flex items-center justify-between p-3 rounded-lg bg-[#0B0E14] border border-slate-800/50">
+                            <div>
+                              <div className="text-sm font-medium text-slate-200">Room {a.room || 'TBD'}</div>
+                              <div className="text-[11px] text-slate-500">Guest ID: {a.guest_id?.slice(0, 8)}...</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {departures.length > 0 && (
+                    <div className="bg-[#151A25] rounded-xl border border-slate-800/50 p-5">
+                      <div className="text-sm font-semibold text-slate-200 mb-3">Departures ({departures.length})</div>
+                      <div className="space-y-2">
+                        {departures.map(d => (
+                          <div key={d.id} className="flex items-center justify-between p-3 rounded-lg bg-[#0B0E14] border border-slate-800/50">
+                            <div>
+                              <div className="text-sm font-medium text-slate-200">Room {d.room || 'TBD'}</div>
+                              <div className="text-[11px] text-slate-500">Guest ID: {d.guest_id?.slice(0, 8)}...</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes slideInRight {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+      `}</style>
     </main>
   );
 }
@@ -1293,7 +1677,7 @@ function UserProfileMenu({ slug }: { slug: string }) {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    window.location.href = '/login';
+    window.location.href = 'https://vaiyu.co.in';
   };
 
   const getInitials = (name: string) => {
@@ -1327,7 +1711,7 @@ function UserProfileMenu({ slug }: { slug: string }) {
       {menuOpen && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-          <div className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-white/10 bg-[#1a1a1a] p-1 shadow-xl z-50">
+          <div className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-slate-800/50 bg-[#151A25] p-1 shadow-xl z-50">
             <Link
               to={`/owner/${slug}/settings`}
               className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-200 hover:bg-white/5 transition-colors"
@@ -1421,29 +1805,56 @@ function DashboardTopBar({
 
 function SidebarNav({ slug, onNavClick }: { slug: string; onNavClick?: () => void }) {
   const encodedSlug = encodeURIComponent(slug);
-
   const servicesHref = `/owner/services?slug=${encodedSlug}`;
   const opsAnalyticsHref = `/ops/analytics?slug=${encodedSlug}`;
-  const opsHref = `/ops?slug=${encodedSlug}`;
   const settingsHref = `/owner/${slug}/settings`;
 
   return (
-    <nav aria-label="Owner dashboard navigation" className="space-y-1 text-sm">
-      <NavItem href="#top" label="Overview" active onClick={onNavClick} />
-      <NavItem to={`/owner/${slug}/arrivals`} label="Guest Arrivals" onClick={onNavClick} />
-      <NavItem to={`/owner/${slug}/housekeeping`} label="Housekeeping" onClick={onNavClick} />
-      <NavItem to={`/owner/${slug}/analytics`} label="Owner Analytics" onClick={onNavClick} />
-      <NavItem to={`/owner/${slug}/payments`} label="Payments & Ledger" onClick={onNavClick} />
-      <NavItem to={opsAnalyticsHref} label="Ops Manager Dashboard" onClick={onNavClick} />
-      <NavItem to={servicesHref} label="Departments/Services & SLAs" onClick={onNavClick} />
-      <NavItem to={`/owner/${slug}/staff-shifts`} label="Staff & Shifts" onClick={onNavClick} />
-      <NavItem to={opsHref} label="Supervisor Board" onClick={onNavClick} />
-      <NavItem to="/staff" label="Staff App (Services)" onClick={onNavClick} />
-      <NavItem to="/kitchen" label="Kitchen View" onClick={onNavClick} />
-      <NavItem to={`/owner/${slug}/import-bookings`} label="Import Bookings" onClick={onNavClick} />
-      <NavItem to={`/checkin?slug=${encodedSlug}`} label="Front Desk" onClick={onNavClick} />
-      <NavItem to={settingsHref} label="Settings" onClick={onNavClick} />
-      {HAS_CALENDAR && <NavItem to="../bookings/calendar" label="Calendar" onClick={onNavClick} />}
+    <nav aria-label="Owner dashboard navigation" className="space-y-4 text-sm">
+      {/* Operations */}
+      <div>
+        <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-3 px-3">Operations</div>
+        <div className="space-y-1">
+          <NavItem href="#top" label="Overview" active onClick={onNavClick} />
+          <NavItem to={`/owner/${slug}/arrivals`} label="Arrivals" onClick={onNavClick} />
+          <NavItem to={`/owner/${slug}/housekeeping`} label="Housekeeping" onClick={onNavClick} />
+          <NavItem to={`/checkin?slug=${encodedSlug}`} label="Front Desk" onClick={onNavClick} />
+        </div>
+      </div>
+      {/* Analytics */}
+      <div className="pt-2">
+        <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-3 px-3">Analytics</div>
+        <div className="space-y-1">
+          <NavItem to={`/owner/${slug}/analytics`} label="Owner Analytics" onClick={onNavClick} />
+          <NavItem to={opsAnalyticsHref} label="Ops Manager" onClick={onNavClick} />
+        </div>
+      </div>
+      {/* Finance */}
+      <div className="pt-2">
+        <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-3 px-3">Finance</div>
+        <div className="space-y-1">
+          <NavItem to={`/owner/${slug}/payments`} label="Payments & Ledger" onClick={onNavClick} />
+        </div>
+      </div>
+      {/* Staff */}
+      <div className="pt-2">
+        <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-3 px-3">Staff</div>
+        <div className="space-y-1">
+          <NavItem to={servicesHref} label="Departments & SLAs" onClick={onNavClick} />
+          <NavItem to={`/owner/${slug}/staff-shifts`} label="Staff & Shifts" onClick={onNavClick} />
+          <NavItem to="/staff" label="Staff App" onClick={onNavClick} />
+          <NavItem to="/kitchen" label="Kitchen" onClick={onNavClick} />
+        </div>
+      </div>
+      {/* System */}
+      <div className="pt-2">
+        <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-3 px-3">System</div>
+        <div className="space-y-1">
+          <NavItem to={`/owner/${slug}/import-bookings`} label="Import Bookings" onClick={onNavClick} />
+          <NavItem to={settingsHref} label="Settings" onClick={onNavClick} />
+          {HAS_CALENDAR && <NavItem to="../bookings/calendar" label="Calendar" onClick={onNavClick} />}
+        </div>
+      </div>
     </nav>
   );
 }
@@ -1462,10 +1873,10 @@ function NavItem({
   onClick?: () => void;
 }) {
   const base =
-    "flex items-center justify-between rounded-md px-3 py-2 text-[13px] font-medium transition-colors";
+    "flex items-center justify-between rounded-lg px-3 py-2 text-[13px] font-medium transition-colors";
   const cls = active
-    ? `${base} bg-zinc-900 text-white`
-    : `${base} text-zinc-500 hover:bg-zinc-900/50 hover:text-zinc-300`;
+    ? `${base} bg-emerald-500/10 text-emerald-400 border border-emerald-500/20`
+    : `${base} text-slate-500 hover:bg-white/[0.04] hover:text-slate-300`;
 
   if (href) {
     return (
@@ -1497,7 +1908,7 @@ function DarkCard({
 }) {
   return (
     <div
-      className={`rounded-xl border border-zinc-800 bg-[#09090b] ${className}`}
+      className={`rounded-xl border border-slate-800/50 bg-[#151A25] ${className}`}
     >
       {children}
     </div>
@@ -1516,9 +1927,9 @@ function CardHeader({
   return (
     <div className="flex items-start justify-between gap-3 mb-4">
       <div className="min-w-0">
-        <div className="text-[11px] font-bold text-zinc-100 uppercase tracking-widest">{title}</div>
+        <div className="text-[11px] font-bold text-slate-200 uppercase tracking-widest">{title}</div>
         {subtitle ? (
-          <div className="mt-1 text-[11px] text-zinc-500">{subtitle}</div>
+          <div className="mt-1 text-[11px] text-slate-500">{subtitle}</div>
         ) : null}
       </div>
       {right ? <div className="shrink-0">{right}</div> : null}
@@ -1539,18 +1950,21 @@ function KpiTile({
   accent?: "amber" | "emerald" | "rose";
   icon?: any;
 }) {
+  const accentBorder = accent === "rose" ? "border-rose-500/30" : accent === "amber" ? "border-amber-500/30" : accent === "emerald" ? "border-emerald-500/30" : "border-slate-800/50";
+  const accentText = accent === "rose" ? "text-rose-400" : accent === "amber" ? "text-amber-400" : accent === "emerald" ? "text-emerald-400" : "text-white";
+
   return (
-    <div className="bg-[#09090b] p-3 sm:p-5 rounded-xl border border-zinc-800 flex flex-col justify-between h-full hover:border-zinc-700 transition-colors">
+    <div className={`bg-[#151A25] p-3 sm:p-5 rounded-xl border ${accentBorder} flex flex-col justify-between h-full hover:bg-[#1a1f2e] transition-colors`}>
       <div className="flex justify-between items-start mb-4 sm:mb-6">
-        <h3 className="text-[10px] sm:text-[11px] font-semibold text-zinc-500 uppercase tracking-widest truncate">{label}</h3>
-        {Icon && <Icon size={14} className="text-zinc-600 shrink-0" />}
+        <h3 className="text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-widest">{label}</h3>
+        {Icon && <Icon size={14} className="text-slate-600 shrink-0" />}
       </div>
 
       <div className="flex items-baseline gap-1 sm:gap-2 mt-auto">
-        <span className="text-xl sm:text-3xl font-bold text-zinc-100 tracking-tight">{value}</span>
+        <span className={`text-xl sm:text-3xl font-bold tracking-tight ${accentText}`}>{value}</span>
       </div>
 
-      {sub && <div className="mt-1 sm:mt-2 text-[10px] sm:text-[12px] font-medium text-zinc-500 truncate">{sub}</div>}
+      {sub && <div className="mt-1 sm:mt-2 text-[10px] sm:text-[11px] font-medium text-slate-500">{sub}</div>}
     </div>
   );
 }
@@ -1565,11 +1979,11 @@ function MiniStat({
   tone: "green" | "amber" | "red" | "grey";
 }) {
   return (
-    <div className="rounded-lg border border-zinc-800 bg-[#09090b] px-3 py-2.5">
-      <div className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold mb-1">{label}</div>
-      <div className="flex items-center justify-between">
-        <div className="text-sm font-bold text-zinc-100">{value}</div>
-        <div className={`h-2 w-2 rounded-full ${dotTone(tone)}`} />
+    <div className="rounded-lg border border-slate-800/50 bg-[#0B0E14] px-2.5 py-2.5 min-w-0">
+      <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-1 truncate" title={label}>{label}</div>
+      <div className="flex items-center justify-between gap-1">
+        <div className="text-sm font-bold text-slate-100 truncate">{value}</div>
+        <div className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotTone(tone)}`} />
       </div>
     </div>
   );

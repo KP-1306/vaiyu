@@ -21,6 +21,8 @@ export default function GuestReviewScreen() {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
+    const [guestId, setGuestId] = useState<string | null>(null);
+    const [stayId, setStayId] = useState<string | null>(null);
 
     // Fetch booking and categories
     useEffect(() => {
@@ -30,7 +32,7 @@ export default function GuestReviewScreen() {
             // 1. Get Booking
             const { data: booking, error: bError } = await supabase
                 .from("bookings")
-                .select("id, hotel_id, guest_name, hotel:hotels(name, slug)")
+                .select("id, hotel_id, guest_id, guest_name, hotel:hotels(name, slug)")
                 .eq("code", bookingCode)
                 .maybeSingle();
 
@@ -41,8 +43,21 @@ export default function GuestReviewScreen() {
             }
 
             setBookingDetails(booking);
+            setGuestId(booking.guest_id);
 
-            // 2. Get Categories for this hotel
+            // 2. Try to get Active Stay ID (if they are inhouse or just checked out)
+            const { data: stay } = await supabase
+                .from("stays")
+                .select("id")
+                .eq("booking_id", booking.id)
+                .in("status", ["inhouse", "checkout_requested", "checked_out"])
+                .order("created_at", { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (stay) setStayId(stay.id);
+
+            // 3. Get Categories for this hotel
             const { data: cats, error: cError } = await supabase
                 .from("review_categories")
                 .select("id, code, label")
@@ -75,6 +90,8 @@ export default function GuestReviewScreen() {
                 .insert({
                     hotel_id: bookingDetails.hotel_id,
                     booking_id: bookingDetails.id,
+                    guest_id: guestId, // Linked guest
+                    stay_id: stayId,   // Linked stay (if any)
                     overall_rating: overallRating,
                     review_text: reviewText,
                     is_public: overallRating >= 4 // Auto-public for high ratings? Or keep private? 

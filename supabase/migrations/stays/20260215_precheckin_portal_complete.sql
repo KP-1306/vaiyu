@@ -125,30 +125,9 @@ ALTER TABLE public.booking_rooms
 ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
 
 -- 3c. Guest Identity Indexes (Conditional for Enterprise/Global Schema)
-DO $$
-BEGIN
-    -- Handle idx_guests_mobile_norm
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='guests' AND column_name='hotel_id') THEN
-        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_guests_mobile_norm') THEN
-            CREATE INDEX idx_guests_mobile_norm ON public.guests (hotel_id, mobile_normalized);
-        END IF;
-    ELSE
-        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_guests_mobile_norm') THEN
-            CREATE INDEX idx_guests_mobile_norm ON public.guests (mobile_normalized);
-        END IF;
-    END IF;
-
-    -- Handle uq_guests_mobile
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='guests' AND column_name='hotel_id') THEN
-        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'uq_guests_mobile') THEN
-            CREATE UNIQUE INDEX uq_guests_mobile ON public.guests (hotel_id, mobile) WHERE mobile IS NOT NULL;
-        END IF;
-    ELSE
-        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'uq_guests_mobile' OR indexname = 'uq_global_guest_mobile') THEN
-            CREATE UNIQUE INDEX IF NOT EXISTS uq_global_guest_mobile ON public.guests (mobile) WHERE mobile IS NOT NULL;
-        END IF;
-    END IF;
-END $$;
+-- 3c. Guest Identity Indexes (Vaiyu Global Model)
+CREATE INDEX IF NOT EXISTS idx_guests_mobile_norm ON public.guests (mobile_normalized);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_global_guest_mobile ON public.guests (mobile) WHERE mobile IS NOT NULL;
 
 -- 3d. Performance Indexes for lookups
 CREATE INDEX IF NOT EXISTS idx_bookings_code ON bookings (hotel_id, code);
@@ -188,8 +167,9 @@ DECLARE
   v_first_room_id UUID;
   v_mobile_normalized TEXT;
   v_hotel_id UUID;
+  v_doc_type guest_document_type;
+  v_auth_user_id UUID;
 BEGIN
-  -- 1. Validate token
   -- 1. Validate token (with optimized Hotel ID lookup & lock)
   SELECT pt.id, pt.booking_id, pt.used_at, pt.expires_at, b.hotel_id
   INTO v_token_id, v_booking_id, v_used_at, v_expires_at, v_hotel_id
@@ -214,10 +194,6 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'error', 'This link has expired');
   END IF;
 
-  -- 1.1 Token is LOCKED by FOR UPDATE above.
-  -- We will mark it used at the VERY END of the transaction to prevent partial failure.
-  -- If this transaction fails (e.g. constraint violation), the token remains unused.
-
   -- 2. Resolve / Create Primary Guest Identity
   -- Lock booking row to prevent race conditions
   SELECT guest_id
@@ -230,59 +206,46 @@ BEGIN
       -- Create new guest if missing (Fallback)
       v_mobile_normalized := regexp_replace(NULLIF(p_data->>'phone', ''), '[^0-9]', '', 'g');
 
-      -- 2A. Try to find by normalized mobile first (Global Deduplication Layer)
+      -- 2A. Global Guest Lookup by Mobile
       IF v_mobile_normalized IS NOT NULL AND v_mobile_normalized <> '' THEN
-          IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='guests' AND column_name='hotel_id') THEN
-              EXECUTE format('SELECT id FROM guests WHERE hotel_id = %L AND mobile_normalized = %L ORDER BY created_at DESC LIMIT 1', v_hotel_id, v_mobile_normalized) INTO v_guest_id;
-          ELSE
-              EXECUTE format('SELECT id FROM guests WHERE mobile_normalized = %L ORDER BY created_at DESC LIMIT 1', v_mobile_normalized) INTO v_guest_id;
-          END IF;
+          SELECT id INTO v_guest_id 
+          FROM public.guests 
+          WHERE mobile_normalized = v_mobile_normalized 
+          ORDER BY created_at DESC LIMIT 1;
       END IF;
 
-      -- 2B. Fallback to Email (if mobile failed)
+      -- 2B. Global Guest Fallback to Email
       IF v_guest_id IS NULL AND p_data->>'email' IS NOT NULL AND p_data->>'email' <> '' THEN
-          IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='guests' AND column_name='hotel_id') THEN
-              EXECUTE format('SELECT id FROM guests WHERE hotel_id = %L AND lower(email) = %L ORDER BY created_at DESC LIMIT 1', v_hotel_id, lower(trim(p_data->>'email'))) INTO v_guest_id;
-          ELSE
-              EXECUTE format('SELECT id FROM guests WHERE lower(email) = %L ORDER BY created_at DESC LIMIT 1', lower(trim(p_data->>'email'))) INTO v_guest_id;
-          END IF;
+          SELECT id INTO v_guest_id 
+          FROM public.guests 
+          WHERE lower(email) = lower(trim(p_data->>'email')) 
+          ORDER BY created_at DESC LIMIT 1;
       END IF;
 
-      -- 2C. If still not found, Insert distinct guest
+      -- 2C. Global Guest Creation
       IF v_guest_id IS NULL THEN
-          -- Use EXECUTE to handle dynamic column list (hotel_id might not exist)
-          IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='guests' AND column_name='hotel_id') THEN
-              INSERT INTO guests (hotel_id, full_name, email, mobile, nationality, address)
-              VALUES (
-                  v_hotel_id,
-                  p_data->>'guest_name',
-                  NULLIF(p_data->>'email', ''),
-                  NULLIF(p_data->>'phone', ''),
-                  p_data->>'nationality',
-                  p_data->>'address'
-              )
-              ON CONFLICT (hotel_id, mobile) WHERE mobile IS NOT NULL 
-              DO UPDATE SET
-                  full_name = EXCLUDED.full_name,
-                  email = COALESCE(EXCLUDED.email, guests.email),
-                  updated_at = now()
-              RETURNING id INTO v_guest_id;
-          ELSE
-              INSERT INTO guests (full_name, email, mobile, nationality, address)
-              VALUES (
-                  p_data->>'guest_name',
-                  NULLIF(p_data->>'email', ''),
-                  NULLIF(p_data->>'phone', ''),
-                  p_data->>'nationality',
-                  p_data->>'address'
-              )
-              ON CONFLICT (mobile) WHERE mobile IS NOT NULL 
-              DO UPDATE SET
-                  full_name = EXCLUDED.full_name,
-                  email = COALESCE(EXCLUDED.email, guests.email),
-                  updated_at = now()
-              RETURNING id INTO v_guest_id;
-          END IF;
+          INSERT INTO public.guests (
+              full_name,
+              email,
+              mobile,
+              mobile_normalized,
+              nationality,
+              address
+          )
+          VALUES (
+              p_data->>'guest_name',
+              NULLIF(p_data->>'email', ''),
+              NULLIF(p_data->>'phone', ''),
+              v_mobile_normalized,
+              p_data->>'nationality',
+              p_data->>'address'
+          )
+          ON CONFLICT (mobile) WHERE mobile IS NOT NULL 
+          DO UPDATE SET
+              full_name = EXCLUDED.full_name,
+              email = COALESCE(EXCLUDED.email, guests.email),
+              updated_at = now()
+          RETURNING id INTO v_guest_id;
       END IF;
       
       -- Link to booking
@@ -329,9 +292,8 @@ BEGIN
   ON CONFLICT (booking_room_id) WHERE is_primary = true
   DO UPDATE SET guest_id = EXCLUDED.guest_id;
 
-  -- 6. Assign Additional Guests to First Room (Placeholder)
+  -- 6. Assign Additional Guests to First Room
   IF p_data->'additional_guests' IS NOT NULL AND jsonb_array_length(p_data->'additional_guests') > 0 THEN
-      -- Get first room
       SELECT id INTO v_first_room_id
       FROM booking_rooms 
       WHERE booking_id = v_booking_id 
@@ -339,87 +301,120 @@ BEGIN
       LIMIT 1;
 
       IF v_first_room_id IS NOT NULL THEN
-          -- Handle guest creation with or without hotel_id (Global Schema Compatibility)
-          IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='guests' AND column_name='hotel_id') THEN
-              BEGIN
-                  WITH new_guests AS (
-                      INSERT INTO guests (hotel_id, full_name, mobile, is_vip, created_at, updated_at)
-                      SELECT 
-                          v_hotel_id,
-                          g->>'name',
-                          NULLIF(g->>'mobile', ''),
-                          false,
-                          now(),
-                          now()
-                      FROM jsonb_array_elements(p_data->'additional_guests') g
-                      ON CONFLICT (hotel_id, mobile) WHERE mobile IS NOT NULL
-                      DO UPDATE SET updated_at = now()
-                      RETURNING id
+          BEGIN
+              WITH new_guests AS (
+                  INSERT INTO guests (
+                      full_name,
+                      mobile,
+                      is_vip,
+                      created_at,
+                      updated_at
                   )
-                  INSERT INTO booking_room_guests (booking_room_id, guest_id, is_primary)
-                  SELECT v_first_room_id, id, false
-                  FROM new_guests
-                  ON CONFLICT (booking_room_id, guest_id) DO NOTHING;
-              EXCEPTION WHEN OTHERS THEN
-                  RAISE WARNING 'Failed to add additional guests: %', SQLERRM;
-              END;
-          ELSE
-              BEGIN
-                  WITH new_guests AS (
-                      INSERT INTO guests (full_name, mobile, is_vip, created_at, updated_at)
-                      SELECT 
-                          g->>'name',
-                          NULLIF(g->>'mobile', ''),
-                          false,
-                          now(),
-                          now()
-                      FROM jsonb_array_elements(p_data->'additional_guests') g
-                      ON CONFLICT (mobile) WHERE mobile IS NOT NULL
-                      DO UPDATE SET updated_at = now()
-                      RETURNING id
-                  )
-                  INSERT INTO booking_room_guests (booking_room_id, guest_id, is_primary)
-                  SELECT v_first_room_id, id, false
-                  FROM new_guests
-                  ON CONFLICT (booking_room_id, guest_id) DO NOTHING;
-              EXCEPTION WHEN OTHERS THEN
-                  RAISE WARNING 'Failed to add additional guests: %', SQLERRM;
-              END;
-          END IF;
+                  SELECT DISTINCT
+                      g->>'name',
+                      NULLIF(g->>'mobile', ''),
+                      false,
+                      now(),
+                      now()
+                  FROM jsonb_array_elements(p_data->'additional_guests') g
+                  ON CONFLICT (mobile) WHERE mobile IS NOT NULL
+                  DO UPDATE SET updated_at = now()
+                  RETURNING id
+              )
+              INSERT INTO booking_room_guests (
+                  booking_room_id,
+                  guest_id,
+                  is_primary
+              )
+              SELECT v_first_room_id, id, false
+              FROM new_guests
+              ON CONFLICT (booking_room_id, guest_id) DO NOTHING;
+          EXCEPTION WHEN OTHERS THEN
+              RAISE WARNING 'Failed to add additional guests: %', SQLERRM;
+          END;
       END IF;
   END IF;
 
-  -- 7. Upsert ID Document (Ensures one document per type per guest)
+  -- 7. Hardened ID Document Persistence (Metadata & History Aware)
   IF p_data->>'id_number' IS NOT NULL AND p_data->>'id_number' != '' THEN
-      INSERT INTO guest_id_documents (
-          guest_id, 
-          document_type, 
-          document_number, 
-          front_image_url, 
-          back_image_url, 
-          verification_status, 
-          is_active
-      )
-      VALUES (
-        v_guest_id,
-        COALESCE((p_data->>'id_type')::guest_document_type, 'other'),
-        p_data->>'id_number',
-        p_data->>'front_image_url',
-        p_data->>'back_image_url',
-        'pending',
-        true
-      )
-      ON CONFLICT (guest_id, document_type) 
-      DO UPDATE SET
-        document_number = EXCLUDED.document_number,
-        front_image_url = COALESCE(EXCLUDED.front_image_url, guest_id_documents.front_image_url),
-        back_image_url = COALESCE(EXCLUDED.back_image_url, guest_id_documents.back_image_url),
-        verification_status = 'pending',
-        is_active = true,
-        updated_at = now();
+      v_doc_type := COALESCE((p_data->>'id_type')::guest_document_type, 'other');
+
+      -- IF duplicate exists with same front_hash and is active, skip insertion
+      IF NOT EXISTS (
+        SELECT 1 FROM guest_id_documents
+        WHERE guest_id = v_guest_id
+          AND document_type = v_doc_type
+          AND front_hash = p_data->>'front_hash'
+          AND is_active = true
+      ) THEN
+          -- Deactivate previous active doc with concurrency lock
+          UPDATE guest_id_documents
+          SET is_active = false
+          WHERE id IN (
+              SELECT id
+              FROM guest_id_documents
+              WHERE guest_id = v_guest_id
+                AND document_type = v_doc_type
+                AND is_active = true
+              FOR UPDATE
+          );
+
+          -- Insert New Hardened Document
+          INSERT INTO guest_id_documents (
+              guest_id, 
+              document_type, 
+              document_number_masked, 
+              front_image_url, 
+              back_image_url, 
+              storage_key,
+              front_hash,
+              back_hash,
+              issuing_country,
+              verification_status, 
+              is_active
+          )
+          VALUES (
+            v_guest_id,
+            v_doc_type,
+            CASE 
+              WHEN length(p_data->>'id_number') > 4
+              THEN repeat('X', length(p_data->>'id_number') - 4) || right(p_data->>'id_number', 4)
+              ELSE p_data->>'id_number'
+            END,
+            p_data->>'front_image_url',
+            p_data->>'back_image_url',
+            NULLIF(p_data->>'storage_key', '')::UUID,
+            p_data->>'front_hash',
+            p_data->>'back_hash',
+            p_data->>'issuing_country',
+            'pending',
+            true
+          );
+      END IF;
   END IF;
 
-  -- 8. Mark Token Used (Final Step - Atomic Commit)
+  -- 8. Bidirectional Mapping Trigger (Hardened Identity)
+  BEGIN
+    -- Sequential match by verified properties
+    IF p_data->>'email' IS NOT NULL AND p_data->>'email' != '' THEN
+      SELECT id INTO v_auth_user_id FROM auth.users WHERE lower(email) = lower(trim(p_data->>'email')) LIMIT 1;
+    END IF;
+    
+    IF v_auth_user_id IS NULL AND v_mobile_normalized IS NOT NULL AND v_mobile_normalized != '' THEN
+      SELECT id INTO v_auth_user_id FROM auth.users WHERE regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') = v_mobile_normalized LIMIT 1;
+    END IF;
+
+    IF v_auth_user_id IS NOT NULL THEN
+      -- Create mapping if it doesn't exist
+      INSERT INTO public.guest_user_map (user_id, guest_id) 
+      VALUES (v_auth_user_id, v_guest_id) 
+      ON CONFLICT (user_id) DO NOTHING;
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'Identity mapping failed: %', SQLERRM;
+  END;
+
+  -- 9. Mark Token Used
   UPDATE precheckin_tokens
   SET
     precheckin_data = p_data,
@@ -427,8 +422,7 @@ BEGIN
     updated_at = now()
   WHERE id = v_token_id;
 
-  -- 9. Queue "Stay Portal Access" Email (Merged from 20260219)
-  -- If email exists, queue a notification for magic link generation
+  -- 9. Notification Queueing
   IF (p_data->>'email') IS NOT NULL AND (p_data->>'email') != '' THEN
     INSERT INTO public.notification_queue (booking_id, channel, template_code, payload, status)
     VALUES (
@@ -712,7 +706,7 @@ ON identity_document_views FOR INSERT TO service_role WITH CHECK (true);
 DROP FUNCTION IF EXISTS request_document_view;
 
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_precheckin_tokens_token_lookup
+CREATE INDEX IF NOT EXISTS idx_precheckin_token_lookup
 ON precheckin_tokens (token);
 CREATE INDEX IF NOT EXISTS idx_guest_documents_guest_updated
 ON guest_id_documents (guest_id, updated_at DESC);
@@ -759,7 +753,7 @@ BEGIN
     b.guest_id::UUID,
     (SELECT jsonb_build_object(
         'type', gid.document_type,
-        'number', gid.document_number,
+        'number', gid.document_number_masked,
         'front_image', gid.front_image_url,
         'back_image', gid.back_image_url
      )
@@ -830,7 +824,7 @@ BEGIN
     g.address,
     (SELECT jsonb_build_object(
         'type', gid.document_type,
-        'number', gid.document_number,
+        'number', gid.document_number_masked,
         'front_image', gid.front_image_url,
         'back_image', gid.back_image_url
      )

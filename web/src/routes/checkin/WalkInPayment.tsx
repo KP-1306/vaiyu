@@ -14,6 +14,7 @@ import {
     X
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
+import { uploadIdentityDocuments } from "../../lib/storage";
 import { CheckInStepper } from "../../components/CheckInStepper";
 
 export default function WalkInPayment() {
@@ -41,6 +42,7 @@ export default function WalkInPayment() {
     const [backImage, setBackImage] = useState<File | null>(null);
     const [existingFront, setExistingFront] = useState<string | null>(null);
     const [existingBack, setExistingBack] = useState<string | null>(null);
+    const [existingProof, setExistingProof] = useState<any>(null);
     const [viewImage, setViewImage] = useState<string | null>(null);
     const [loadingDocs, setLoadingDocs] = useState(false);
 
@@ -84,6 +86,17 @@ export default function WalkInPayment() {
 
             setLoadingDocs(true);
             try {
+                // 1. Fetch the identity proof record directly
+                const { data: proof } = await supabase
+                    .from('identity_proofs')
+                    .select('*')
+                    .eq('guest_id', gid)
+                    .single();
+
+                if (proof) {
+                    setExistingProof(proof);
+                }
+
                 // Get the current session — only attempt doc fetch if authenticated
                 const { data: { session } } = await supabase.auth.getSession();
                 if (!session?.access_token) {
@@ -103,7 +116,10 @@ export default function WalkInPayment() {
                             ...headers,
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify({ guest_id: gid, side, hotel_id: hotelId })
+                        body: JSON.stringify({
+                             guest_id: gid,
+                             side: side
+                        })
                     });
 
                     if (!res.ok) return null;
@@ -167,13 +183,6 @@ export default function WalkInPayment() {
         }
     };
 
-    async function uploadFile(file: File, path: string) {
-        const { data, error } = await supabase.storage
-            .from('identity_proofs')
-            .upload(path, file);
-        if (error) throw error;
-        return data.path;
-    }
 
     const handlePayment = async () => {
         setProcessing(true);
@@ -185,20 +194,18 @@ export default function WalkInPayment() {
             if (!hotelId) throw new Error("Hotel ID missing");
 
             // 2. Upload Images if new ones selected
-            let frontPath = existingFront || null;
-            let backPath = existingBack || null;
-            const timestamp = Date.now();
-            const folderId = guestDetails.id || 'walkin';
+            const uploadResult = await uploadIdentityDocuments({
+                frontImage,
+                backImage,
+                existingFront: existingProof?.front_image,
+                existingBack: existingProof?.back_image,
+                storageKey: existingProof?.storage_key
+            });
 
-            if (frontImage) {
-                const path = `${hotelId}/kiosk/${folderId}/front_${timestamp}_${frontImage.name}`;
-                frontPath = await uploadFile(frontImage, path);
-            }
-
-            if (backImage) {
-                const path = `${hotelId}/kiosk/${folderId}/back_${timestamp}_${backImage.name}`;
-                backPath = await uploadFile(backImage, path);
-            }
+            const frontPath = uploadResult.frontPath;
+            const backPath = uploadResult.backPath;
+            const storageKey = uploadResult.storageKey;
+    
 
             // 3. Create Walk-In via v2 RPC (multi-room aware)
             const selections = roomSelections || [{ room_id: selectedRoomId, room_type_id: null }];
@@ -210,7 +217,10 @@ export default function WalkInPayment() {
                     id_type: idType,
                     id_number: idNumber,
                     front_image_path: frontPath,
-                    back_image_path: backPath
+                    back_image_path: backPath,
+                    storage_key: storageKey,
+                    front_hash: uploadResult.frontHash,
+                    back_hash: uploadResult.backHash
                 },
                 p_room_selections: selections,
                 p_checkin_date: stayDetails.checkin_date,

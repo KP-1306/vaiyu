@@ -34,6 +34,7 @@ import {
     X,
 } from "lucide-react";
 import { validatePrecheckinToken, submitPrecheckin, supa, lookupGuestProfile } from "../lib/api";
+import { uploadIdentityDocuments } from "../lib/storage";
 import { Step2IdentityVerification } from "../components/precheckin/Step2IdentityVerification";
 import { Step3Success } from "../components/precheckin/Step3Success";
 
@@ -271,41 +272,14 @@ export default function PreCheckin() {
         setSubmitError("");
 
         try {
-            // 1. Upload images if present
-            let frontUrl = "";
-            let backUrl = "";
-
-            const supabase = supa();
-
-            if (idForm.front_file && supabase) {
-                const fileExt = idForm.front_file.name.split('.').pop();
-                const fileName = `${booking?.booking_id}/front_${Date.now()}.${fileExt}`;
-                const { data, error: uploadError } = await supabase.storage
-                    .from('identity_proofs')
-                    .upload(fileName, idForm.front_file);
-
-                if (uploadError) {
-                    console.error("Front image upload failed:", uploadError);
-                    // Allow continuing even if upload fails? Maybe stricter is better.
-                    // throw new Error("Failed to upload front image");
-                } else {
-                    frontUrl = data.path; // Store path, not public URL
-                }
-            }
-
-            if (idForm.back_file && supabase) {
-                const fileExt = idForm.back_file.name.split('.').pop();
-                const fileName = `${booking?.booking_id}/back_${Date.now()}.${fileExt}`;
-                const { data, error: uploadError } = await supabase.storage
-                    .from('identity_proofs')
-                    .upload(fileName, idForm.back_file);
-
-                if (uploadError) {
-                    console.error("Back image upload failed:", uploadError);
-                } else {
-                    backUrl = data.path; // Store path, not public URL
-                }
-            }
+            // 1. Upload images using centralized secure logic
+            const uploadResult = await uploadIdentityDocuments({
+                frontImage: idForm.front_file,
+                backImage: idForm.back_file,
+                existingFront: booking?.identity_proof?.front_image,
+                existingBack: booking?.identity_proof?.back_image,
+                storageKey: booking?.identity_proof?.storage_key
+            });
 
             const payload = {
                 guest_name: guestForm.guest_name,
@@ -318,8 +292,11 @@ export default function PreCheckin() {
                 id_number: idForm.id_number.includes("XXXX") ? (booking?.identity_proof?.number || idForm.id_number) : idForm.id_number,
                 front_captured: idForm.front_captured,
                 back_uploaded: idForm.back_uploaded,
-                front_image_url: frontUrl || idForm.front_image_url,
-                back_image_url: backUrl || idForm.back_image_url,
+                front_image_url: uploadResult.frontPath,
+                back_image_url: uploadResult.backPath,
+                front_hash: uploadResult.frontHash,
+                back_hash: uploadResult.backHash,
+                storage_key: uploadResult.storageKey
             };
 
             const result = await submitPrecheckin(token, payload);

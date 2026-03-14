@@ -169,6 +169,36 @@
     border-radius: var(--radius-lg);
 }
 
+/* ─── Inputs ────────────────────────────────────────────────────────────── */
+.gn-input {
+    width: 100%;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-lg);
+    padding: 12px 16px;
+    color: var(--text-primary);
+    font-size: var(--text-sm);
+    transition: all 200ms ease;
+    outline: none;
+}
+
+.gn-input:focus {
+    background: var(--bg-card);
+    border-color: var(--border-gold);
+    box-shadow: var(--shadow-glow);
+}
+
+.gn-input::placeholder {
+    color: var(--text-muted);
+    font-style: italic;
+    opacity: 0.5;
+}
+
+.gn-input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* ─── Bottom Navigation ─────────────────────────────────────────────────── */
 .gn-bottom-nav {
     position: fixed;

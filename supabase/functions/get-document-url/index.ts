@@ -35,6 +35,15 @@ const ALLOWED_TYPES = [
     "application/pdf"
 ];
 
+// @ts-ignore
+const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+// @ts-ignore
+const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+// Admin client: skips RLS for fetching raw path, logging audit, and signing URL
+// Initialized outside serve() to leverage Edge Runtime instance reuse
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
 serve(async (req: Request) => {
     // 1. Handle CORS
     if (req.method === "OPTIONS") {
@@ -49,25 +58,15 @@ serve(async (req: Request) => {
         }
         const { guest_id, side = "front", token } = body;
 
-        if (!guest_id) {
-            return buildErrorResponse("BAD_REQUEST", "Missing guest_id", 400, req);
+        if (!guest_id || !/^[0-9a-fA-F-]{36}$/.test(guest_id)) {
+            return buildErrorResponse("BAD_REQUEST", "Invalid or missing guest_id", 400, req);
         }
 
         if (side !== "front" && side !== "back") {
             return buildErrorResponse("BAD_REQUEST", "Invalid side", 400, req);
         }
 
-        // 2. Setup Supabase Clients
-        // @ts-ignore
-        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-        // @ts-ignore
-        const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-        // @ts-ignore
-        const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-
-        // Admin client: skips RLS for fetching raw path, logging audit, and signing URL
-        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-
+        // 2. Auth Context Setup
         let callerId: string | null = null;
         let authorized = false;
         let logHotelId: string | null = null;
@@ -120,54 +119,31 @@ serve(async (req: Request) => {
 
                 callerId = user.id;
 
-                // Authenticated Staff: Fetch all roles for the user (don't trust client-side hotel_id)
-                const { data: roles, error: roleError } = await supabaseAdmin
+                // Authenticated Staff: Fetch access in ONE query (Consolidated Authorization)
+                // This joins hotel_members and bookings at the DB level, checking permissions in one step.
+                const { data: accessCheck, error: accessError } = await supabaseAdmin
                     .from("hotel_members")
-                    .select("role, hotel_id")
+                    .select(`
+                        hotel_id,
+                        bookings!inner(id, guest_id)
+                    `)
                     .eq("user_id", callerId)
                     .eq("is_active", true)
-                    .in("role", ["OWNER", "MANAGER", "STAFF"]);
-
-                if (roleError || !roles || roles.length === 0) {
-                    return buildErrorResponse("FORBIDDEN", "Insufficient permissions", 403, req);
-                }
-
-                const allowedHotelIds = roles.map((r: { hotel_id: string }) => r.hotel_id);
-
-                // Check access via active stays (Priority: Privacy Protection - Active or Recent Stays)
-                const { data: guestStays } = await supabaseAdmin
-                    .from("stays")
-                    .select("booking_id, hotel_id")
-                    .eq("guest_id", guest_id)
-                    .in("hotel_id", allowedHotelIds)
-                    .in("status", ["arriving", "inhouse"])
+                    .in("role", ["OWNER", "MANAGER", "STAFF"])
+                    .eq("bookings.guest_id", guest_id)
+                    .in("bookings.status", ["CONFIRMED", "CHECKED_IN", "PARTIALLY_CHECKED_IN"])
                     .limit(1);
 
-                let hasAccess = guestStays && guestStays.length > 0;
-                if (hasAccess) {
-                    logHotelId = guestStays![0].hotel_id;
-                    logBookingId = guestStays![0].booking_id;
-                } else {
-                    // Try active bookings (Privacy Protection: Only Confirmed/Checked-in)
-                    const { data: guestBookings } = await supabaseAdmin
-                        .from("bookings")
-                        .select("id, hotel_id")
-                        .eq("guest_id", guest_id)
-                        .in("hotel_id", allowedHotelIds)
-                        .in("status", ["CONFIRMED", "CHECKED_IN", "PARTIALLY_CHECKED_IN"])
-                        .limit(1);
-
-                    hasAccess = guestBookings && guestBookings.length > 0;
-                    if (hasAccess) {
-                        logHotelId = guestBookings![0].hotel_id;
-                        logBookingId = guestBookings![0].id;
-                    }
+                if (accessError || !accessCheck || accessCheck.length === 0) {
+                    console.error("Access check failed or unauthorized:", accessError);
+                    return buildErrorResponse("FORBIDDEN", "Unauthorized for this guest or no active booking found", 403, req);
                 }
 
-                if (!hasAccess) {
-                    return buildErrorResponse("FORBIDDEN", "Unauthorized for this guest or stay no longer active", 403, req);
-                }
-
+                const accessRec = accessCheck[0];
+                logHotelId = accessRec.hotel_id;
+                // PostgREST returns an array for one-to-many joins
+                logBookingId = Array.isArray(accessRec.bookings) ? accessRec.bookings[0]?.id : (accessRec.bookings as any)?.id;
+                
                 authorized = true;
 
                 // Rate Limiting Check (10 views per minute per staff for this SPECIFIC guest)
@@ -175,7 +151,7 @@ serve(async (req: Request) => {
                 const oneMinuteAgo = new Date(Date.now() - 60000).toISOString();
                 const { count } = await supabaseAdmin
                     .from("identity_document_views")
-                    .select("id", { count: 'planned', head: true })
+                    .select("id", { count: 'exact', head: true })
                     .eq("staff_user_id", callerId)
                     .eq("guest_id", guest_id)
                     .gte("viewed_at", oneMinuteAgo);
@@ -224,7 +200,7 @@ serve(async (req: Request) => {
         const oneHourAgo = new Date(Date.now() - 3600000).toISOString();
         const { count: docViews } = await supabaseAdmin
             .from("identity_document_views")
-            .select("id", { count: 'planned', head: true })
+            .select("id", { count: 'exact', head: true })
             .eq("guest_id", guest_id)
             .gte("viewed_at", oneHourAgo);
 
@@ -232,37 +208,34 @@ serve(async (req: Request) => {
             return buildErrorResponse("RATE_LIMITED", "Maximum hourly secure view limit reached for this document.", 429, req);
         }
 
-        // 6. SECURE PROXY: Download from storage with timeout guard (Binary Streaming)
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 8000);
+        // 6. Assets Integrity & SECURE SIGNED URL
+        // Validate MIME type based on extension before generating the signature
+        const extIndex = rawPath.lastIndexOf(".");
+        const ext = extIndex !== -1 ? rawPath.substring(extIndex + 1).toLowerCase() : "";
+        const contentType = MIME_MAP[ext] || "application/octet-stream";
 
+        if (!ALLOWED_TYPES.includes(contentType)) {
+            return buildErrorResponse("INVALID_FILE_TYPE", "Unsupported document type", 400, req);
+        }
+
+        // Generate a short-lived URL for direct CDN delivery
+        // This eliminates the double-hop latency of streaming files through Edge Functions.
         try {
-            const { data: fileData, error: downloadError } = await supabaseAdmin.storage
+            const { data: signedUrlData, error: signedUrlError } = await supabaseAdmin.storage
                 .from("identity_proofs")
-                .download(rawPath, { signal: controller.signal });
+                .createSignedUrl(rawPath, 60, {
+                    download: false
+                }) // 60-second micro-cache
 
-            if (downloadError || !fileData) {
-                console.error("Storage Download Error:", downloadError);
-                return buildErrorResponse("INTERNAL_SERVER_ERROR", "Failed to retrieve secure document", 500, req);
+            if (signedUrlError || !signedUrlData) {
+                console.error("Signed URL Generation Error:", signedUrlError);
+                return buildErrorResponse("INTERNAL_SERVER_ERROR", "Failed to generate secure document URL", 500, req);
             }
 
-            // Safety: Check file size (no documents should exceed 5MB)
-            if (fileData.size > 5 * 1024 * 1024) {
-                return buildErrorResponse("FILE_TOO_LARGE", "Document exceeds maximum allowed size (5MB)", 413, req);
-            }
-
-            // 7. Validate MIME Type BEFORE Auditing
-            const ext = rawPath.split('.').pop()?.toLowerCase() || "";
-            const contentType = MIME_MAP[ext] || "application/octet-stream";
-
-            if (!ALLOWED_TYPES.includes(contentType)) {
-                return buildErrorResponse("INVALID_FILE_TYPE", "Unsupported document type", 400, req);
-            }
-
-            // 8. Log the view in the audit table ONLY after successful file retrieval and validation
-            // Record whether it was a staff member or a guest with a pre-checkin token
+            // 7. Log the view in the audit table BEFORE returning
+            // Fired as a non-blocking background task to ensure doc-view remains resilient to logging failures
             const accessMethod = callerId ? "STAFF" : "PRECHECKIN_TOKEN";
-            await supabaseAdmin.from("identity_document_views").insert({
+            supabaseAdmin.from("identity_document_views").insert({
                 guest_id: guest_id,
                 staff_user_id: callerId, // Will be null for PRECHECKIN_TOKEN
                 hotel_id: logHotelId,
@@ -271,30 +244,29 @@ serve(async (req: Request) => {
                 booking_id: logBookingId,
                 ip_address: ipAddress,
                 access_method: accessMethod
-            });
+            }).catch((err: any) => console.error("Audit log failed:", err));
 
-            // 9. Return high-performance binary response
-            // Metadata is passed via headers to avoid Base64 overhead while preserving form pre-fill
-            return new Response(fileData, {
-                status: 200,
-                headers: {
-                    ...allowCors(req),
-                    "Content-Type": contentType,
-                    "Content-Disposition": "inline",
-                    "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-                    "Pragma": "no-cache",
-                    "Expires": "0",
-                    "X-Content-Type-Options": "nosniff",
-                    "Referrer-Policy": "no-referrer",
-                    "Content-Security-Policy": "default-src 'none'; img-src 'self' data:;",
-                    "X-Frame-Options": "DENY",
-                    "X-Document-Type": doc.document_type || "",
-                    "X-Document-Number": doc.document_number || "",
-                    "Access-Control-Expose-Headers": "X-Document-Type, X-Document-Number"
+            // 8. Return high-performance JSON response
+            return new Response(
+                JSON.stringify({
+                    url: signedUrlData.signedUrl,
+                    document_type: doc.document_type,
+                    document_number: doc.document_number,
+                    side: side
+                }),
+                {
+                    status: 200,
+                    headers: {
+                        ...allowCors(req),
+                        "Content-Type": "application/json",
+                        "Cache-Control": "private, max-age=30, stale-while-revalidate=60",
+                        "Pragma": "no-cache",
+                        "Expires": "0"
+                    }
                 }
-            });
+            );
         } finally {
-            clearTimeout(timeout);
+            // No-op for now (timeout was for streaming)
         }
 
     } catch (err: any) {

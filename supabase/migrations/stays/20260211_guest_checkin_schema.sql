@@ -64,6 +64,8 @@ ON checkin_sessions(hotel_id, status);
 
 -- 3. Guest Identity Documents (KYC)
 -- ============================================================
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 CREATE TYPE guest_document_type AS ENUM ('passport', 'aadhaar', 'driving_license', 'other');
 CREATE TYPE verification_status AS ENUM ('pending', 'verified', 'rejected');
 
@@ -72,13 +74,20 @@ CREATE TABLE IF NOT EXISTS guest_id_documents (
   guest_id UUID NOT NULL REFERENCES guests(id) ON DELETE CASCADE,
   
   document_type guest_document_type NOT NULL,
-  document_number TEXT,
+  document_number_masked TEXT, -- Renamed from document_number for privacy
+  document_number_hash TEXT,   -- SHA-256 hash for fraud detection
   
   front_image_url TEXT,
   back_image_url TEXT,
   
   issuing_country TEXT,
   expiry_date DATE,
+  
+  -- Secure Storage & Integrity
+  storage_key UUID NOT NULL,   -- Mandatory secure storage identifier
+  front_hash TEXT,
+  back_hash TEXT,
+  is_active BOOLEAN DEFAULT true,
   
   -- Verification Audit
   verification_status verification_status NOT NULL DEFAULT 'pending',
@@ -87,22 +96,65 @@ CREATE TABLE IF NOT EXISTS guest_id_documents (
   rejection_reason TEXT,
   
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-
-  -- Ensure one document per type per guest
-  CONSTRAINT uq_guest_id_doc_type UNIQUE (guest_id, document_type)
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Critical: Ensure guest_id exists in guest_id_documents if table already existed without it
+-- Idempotent column rename if table already exists with old schema
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='guest_id_documents' AND column_name='guest_id') THEN
-    ALTER TABLE guest_id_documents ADD COLUMN guest_id UUID REFERENCES guests(id) ON DELETE CASCADE;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='guest_id_documents' AND column_name='document_number') THEN
+    ALTER TABLE guest_id_documents RENAME COLUMN document_number TO document_number_masked;
+  END IF;
+  
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='guest_id_documents' AND column_name='document_number_hash') THEN
+    ALTER TABLE guest_id_documents ADD COLUMN document_number_hash TEXT;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='guest_id_documents' AND column_name='storage_key') THEN
+    ALTER TABLE guest_id_documents ADD COLUMN storage_key UUID;
   END IF;
 END $$;
 
-CREATE INDEX IF NOT EXISTS idx_guest_docs_guest_id ON guest_id_documents(guest_id);
-CREATE INDEX IF NOT EXISTS idx_guest_docs_status ON guest_id_documents(verification_status);
+-- Triggers for Hashing & Timestamps
+CREATE OR REPLACE FUNCTION set_document_number_hash()
+RETURNS trigger AS $$
+BEGIN
+  IF NEW.document_number_masked IS NOT NULL THEN
+    NEW.document_number_hash := encode(digest(lower(NEW.document_number_masked), 'sha256'), 'hex');
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_set_document_number_hash ON guest_id_documents;
+CREATE TRIGGER trg_set_document_number_hash
+BEFORE INSERT OR UPDATE OF document_number_masked
+ON guest_id_documents
+FOR EACH ROW
+EXECUTE FUNCTION set_document_number_hash();
+
+CREATE TRIGGER set_timestamp_guest_docs
+BEFORE UPDATE ON guest_id_documents
+FOR EACH ROW
+EXECUTE FUNCTION trigger_set_timestamp();
+
+-- Indices for Privacy & Performance
+CREATE INDEX IF NOT EXISTS idx_guest_documents_lookup ON guest_id_documents (guest_id, is_active, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_guest_docs_storage_key ON guest_id_documents (storage_key);
+CREATE INDEX IF NOT EXISTS idx_guest_docs_number_hash ON guest_id_documents (document_number_hash);
+CREATE INDEX IF NOT EXISTS idx_guest_docs_status ON guest_id_documents (verification_status);
+CREATE INDEX IF NOT EXISTS idx_guest_docs_front_hash ON guest_id_documents (front_hash);
+CREATE INDEX IF NOT EXISTS idx_guest_docs_back_hash ON guest_id_documents (back_hash);
+CREATE INDEX IF NOT EXISTS idx_guest_docs_verified_by ON guest_id_documents (verified_by);
+CREATE INDEX IF NOT EXISTS idx_guest_docs_number_masked ON guest_id_documents (document_number_masked);
+CREATE INDEX IF NOT EXISTS idx_guest_docs_type_number ON guest_id_documents (document_type, document_number_masked);
+CREATE INDEX IF NOT EXISTS idx_guest_documents_guest_updated ON guest_id_documents (guest_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_guest_doc_hash_type ON guest_id_documents(document_type, document_number_hash);
+-- Partial Unique Index (Only one ACTIVE document per type per guest)
+DROP INDEX IF EXISTS uq_guest_active_doc;
+CREATE UNIQUE INDEX uq_guest_active_doc 
+ON guest_id_documents (guest_id, document_type) 
+WHERE is_active = true;
 
 -- 4. Check-in Events (Audit Log)
 -- ============================================================
@@ -213,8 +265,10 @@ ON bookings USING gin (code gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_bookings_phone_trgm
 ON bookings USING gin (phone gin_trgm_ops);
 
-CREATE UNIQUE INDEX IF NOT EXISTS uq_guest_doc_unique
-ON guest_id_documents (guest_id, document_type);
+-- Partial Unique Index (Hardening): Only one ACTIVE document per type per guest
+CREATE UNIQUE INDEX IF NOT EXISTS uq_guest_active_doc
+ON guest_id_documents (guest_id, document_type)
+WHERE is_active = true;
 
 -- 8. Final Production Integrity
 -- ============================================================
@@ -393,7 +447,4 @@ CREATE UNIQUE INDEX uq_guest_doc_unique
 ON guest_id_documents (guest_id, document_type)
 WHERE document_type IS NOT NULL;
 
--- ── Optimization for Guest ID Document Lookups ──
--- This index speeds up the frequent retrieval of the latest active identity document for a guest.
-CREATE INDEX IF NOT EXISTS idx_guest_docs_active 
-ON guest_id_documents (guest_id, is_active, created_at DESC);
+-- Standardized identity lookup optimization is already defined earlier as idx_guest_documents_lookup

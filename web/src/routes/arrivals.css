@@ -1,0 +1,188 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Arrivals Board — Isolated Premium Styles
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.arrivals-board {
+    /* ─── Design Tokens ─────────────────────────────────────────────────────── */
+    --gold-50: #fdf8e8;
+    --gold-100: #f9edc5;
+    --gold-200: #f3dc8e;
+    --gold-300: #e9c55a;
+    --gold-400: #d4af37;
+    --gold-500: #b8942d;
+    --gold-600: #967624;
+    --gold-700: #74591d;
+    --gold-800: #5a4418;
+    --gold-900: #473614;
+
+    --bg-primary: #0a0a0c;
+    --bg-secondary: #121215;
+    --bg-card: rgba(20, 18, 16, 0.85);
+    --bg-card-hover: rgba(28, 25, 22, 0.9);
+    --bg-glass: rgba(20, 18, 16, 0.65);
+
+    --text-primary: #f5f3ef;
+    --text-secondary: #b8b3a8;
+    --text-muted: #7a756a;
+    --text-gold: #d4af37;
+
+    --border-subtle: rgba(212, 175, 55, 0.12);
+    --border-medium: rgba(212, 175, 55, 0.20);
+    --border-gold: rgba(212, 175, 55, 0.40);
+
+    --shadow-soft: 0 4px 24px rgba(0, 0, 0, 0.4);
+    --shadow-glow: 0 0 32px rgba(212, 175, 55, 0.15);
+
+    --space-xs: 0.25rem;
+    --space-sm: 0.5rem;
+    --space-md: 1rem;
+    --space-lg: 1.5rem;
+    --space-xl: 2rem;
+    --space-2xl: 3rem;
+
+    --text-xs: 0.75rem;
+    --text-sm: 0.875rem;
+    --text-base: 1rem;
+    --text-lg: 1.125rem;
+    --text-xl: 1.25rem;
+
+    --radius-sm: 0.5rem;
+    --radius-md: 0.75rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.25rem;
+    --radius-full: 9999px;
+
+    min-height: 100vh;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    position: relative;
+    overflow-x: hidden;
+}
+
+/* Premium background with hotel lounge feel */
+.arrivals-board::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+        radial-gradient(ellipse 120% 80% at 20% 10%, rgba(212, 175, 55, 0.08), transparent 50%),
+        radial-gradient(ellipse 100% 60% at 80% 20%, rgba(139, 90, 43, 0.06), transparent 45%),
+        radial-gradient(ellipse 90% 70% at 50% 100%, rgba(30, 20, 10, 0.8), transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.arrivals-board-content {
+    position: relative;
+    z-index: 1;
+}
+
+/* ─── Buttons (Restored Premium) ────────────────────────────────────────── */
+.arrivals-board .gn-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-lg);
+    border-radius: var(--radius-full);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 200ms ease;
+    border: 1px solid transparent;
+    text-decoration: none;
+}
+
+.arrivals-board .gn-btn--primary {
+    background: linear-gradient(135deg, var(--gold-400) 0%, var(--gold-500) 100%);
+    color: #0a0a0c;
+    box-shadow: 0 2px 12px rgba(212, 175, 55, 0.3);
+}
+
+.arrivals-board .gn-btn--primary:hover {
+    background: linear-gradient(135deg, var(--gold-300) 0%, var(--gold-400) 100%);
+    box-shadow: 0 4px 20px rgba(212, 175, 55, 0.4);
+    transform: translateY(-1px);
+}
+
+.arrivals-board .gn-btn--secondary {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border-color: var(--border-medium);
+}
+
+.arrivals-board .gn-btn--secondary:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--border-gold);
+}
+
+.arrivals-board .gn-btn--ghost {
+    background: transparent;
+    color: var(--text-secondary);
+    padding: var(--space-xs) var(--space-md);
+}
+
+.arrivals-board .gn-btn--ghost:hover {
+    color: var(--text-gold);
+}
+
+.arrivals-board .gn-btn-icon {
+    padding: 0;
+    width: 46px;
+    height: 46px;
+    aspect-ratio: 1;
+    flex-shrink: 0;
+}
+
+/* ─── Glass Card (Restored Premium) ─────────────────────────────────────── */
+.arrivals-board .gn-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-xl);
+    backdrop-filter: blur(16px);
+    box-shadow: var(--shadow-soft);
+    transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+
+.arrivals-board .gn-card:hover {
+    border-color: var(--border-medium);
+}
+
+/* ─── Custom Scrollbars ─────────────────────────────────────────────────── */
+.arrivals-board .gn-scrollbar::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+}
+
+.arrivals-board .gn-scrollbar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 10px;
+}
+
+.arrivals-board .gn-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(212, 175, 55, 0.2);
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+}
+
+.arrivals-board .gn-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(212, 175, 55, 0.4);
+}
+
+.arrivals-board .gn-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(212, 175, 55, 0.2) rgba(255, 255, 255, 0.02);
+}
+
+/* ─── Date Picker Indicators ────────────────────────────────────────────── */
+.arrivals-board input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.8) sepia(1) saturate(5) hue-rotate(10deg);
+    cursor: pointer;
+    opacity: 0.8;
+    transition: opacity 200ms ease;
+}
+
+.arrivals-board input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+}

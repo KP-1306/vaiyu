@@ -55,13 +55,16 @@ export default function Availability() {
         try {
             setLoading(true);
 
-            let hotelQuery = supabase.from("hotels").select("id").limit(1);
+            let hotelQuery = supabase.from("hotels").select("id, default_checkin_time, default_checkout_time").limit(1);
             if (slug) {
                 hotelQuery = hotelQuery.eq("slug", slug);
             }
 
             const { data: hotelData } = await hotelQuery.single();
             const hid = hotelData?.id;
+            const hCheckin = hotelData?.default_checkin_time || "14:00";
+            const hCheckout = hotelData?.default_checkout_time || "11:00";
+
             setHotelId(hid || null);
             if (!hid) return;
 
@@ -104,8 +107,8 @@ export default function Availability() {
             });
 
             // Filter out occupied rooms for the specific dates
-            const checkInStart = `${stayDetails.checkin_date}T14:00:00`;
-            const checkOutEnd = `${stayDetails.checkout_date}T11:00:00`;
+            const checkInStart = `${stayDetails.checkin_date}T${hCheckin}:00`;
+            const checkOutEnd = `${stayDetails.checkout_date}T${hCheckout}:00`;
 
             const { data: activeStays, error: staysError } = await supabase
                 .from('stays')
@@ -239,55 +242,59 @@ export default function Availability() {
     const { roomTotal, taxes, totalPayable } = getTotalPricing();
 
     return (
-        <div className="mx-auto max-w-6xl space-y-6 pb-20">
+        <div className="mx-auto max-w-6xl space-y-10 py-4">
             <CheckInStepper steps={WALKIN_STEPS} currentStep={1} />
 
-            <div className="flex flex-col md:flex-row gap-8 items-start">
+            <div className="flex flex-col md:flex-row gap-8 items-start px-2">
 
                 {/* LEFT: Room Selection */}
-                <div className="flex-1 space-y-6">
-                    <div>
-                        <h2 className="text-3xl font-light text-slate-900">
+                <div className="flex-1 space-y-8">
+                    <div className="space-y-4">
+                        <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-[var(--text-gold)]/5 border border-[var(--border-gold)]/10 text-[var(--text-gold)] text-[10px] font-black uppercase tracking-[0.2em]">
+                            Room Selection
+                        </div>
+                        <h2 className="text-4xl font-light tracking-tight text-[var(--text-primary)]">
                             {isMultiRoom ? `Select Room ${currentStep + 1} of ${roomsCount}` : 'Select Room'}
                         </h2>
-                        <p className="text-slate-500 mt-1">
+                        <p className="text-[var(--text-muted)] italic">
                             Available • {stayDetails.checkin_date} to {stayDetails.checkout_date} ({nights} Nights)
                         </p>
                     </div>
 
                     {/* Progress dots for multi-room */}
                     {isMultiRoom && (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                             {Array.from({ length: roomsCount }, (_, i) => (
                                 <div
                                     key={i}
-                                    className={`h-2.5 rounded-full transition-all ${i < currentStep ? 'w-2.5 bg-emerald-500' :
-                                        i === currentStep ? 'w-8 bg-indigo-600' :
-                                            'w-2.5 bg-slate-200'
+                                    className={`h-2 rounded-full transition-all duration-500 ${i < currentStep ? 'w-2 bg-emerald-500/60' :
+                                        i === currentStep ? 'w-12 bg-[var(--text-gold)] shadow-[var(--shadow-glow)]' :
+                                            'w-2 bg-white/10'
                                         }`}
                                 />
                             ))}
-                            <span className="ml-2 text-xs text-slate-400">
+                            <span className="ml-2 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">
                                 {Object.keys(roomSelections).length}/{roomsCount} assigned
                             </span>
                         </div>
                     )}
 
                     {loading ? (
-                        <div className="py-20 text-center">
-                            <Loader2 className="mx-auto h-10 w-10 animate-spin text-indigo-600" />
-                            <p className="mt-4 text-slate-500">Checking real-time availability...</p>
+                        <div className="py-24 text-center">
+                            <Loader2 className="mx-auto h-12 w-12 animate-spin text-[var(--text-gold)]" />
+                            <p className="mt-6 text-[var(--text-muted)] italic font-light">Checking real-time availability...</p>
                         </div>
                     ) : availableRooms.length === 0 ? (
-                        <div className="rounded-2xl bg-slate-50 p-8 text-center">
-                            <p className="text-slate-500">No rooms available matching your criteria.</p>
-                            <button onClick={() => navigate("../walkin-details", { state: { guestDetails, stayDetails } })} className="mt-4 text-indigo-600 font-medium hover:underline">
+                        <div className="gn-card border-amber-500/20 bg-amber-500/5 p-12 text-center text-amber-500 space-y-4">
+                            <p className="font-black uppercase tracking-widest text-sm">No Rooms Available</p>
+                            <p className="text-sm italic opacity-80">No rooms available matching your criteria. Please refine your search.</p>
+                            <button onClick={() => navigate("../walkin-details", { state: { guestDetails, stayDetails } })} className="mt-4 text-[var(--text-gold)] font-black uppercase tracking-widest text-[10px] hover:underline">
                                 Modify Search
                             </button>
                         </div>
                     ) : (
-                        <div className="max-h-[60vh] overflow-y-auto pr-2 -mr-2 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent hover:scrollbar-thumb-slate-300">
-                            <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 pb-4">
+                        <div className="max-h-[60vh] overflow-y-auto pr-2 -mr-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                            <div className="grid grid-cols-2 gap-6 lg:grid-cols-3 pb-6">
                                 {availableRooms.map((room) => {
                                     const isSelected = selectedRoomId === room.id;
                                     const price = room.base_price || 0;
@@ -296,28 +303,32 @@ export default function Availability() {
                                         <button
                                             key={room.id}
                                             onClick={() => handleRoomSelect(room)}
-                                            className={`group relative flex flex-col items-start gap-3 rounded-2xl p-5 text-left transition-all ${isSelected
-                                                ? "bg-indigo-600 text-white shadow-xl ring-2 ring-indigo-600 ring-offset-2 scale-[1.02]"
-                                                : "bg-white text-slate-900 shadow-sm ring-1 ring-slate-900/5 hover:bg-slate-50 hover:shadow-md"
+                                            className={`gn-card group relative flex flex-col items-start gap-4 p-6 text-left transition-all ${isSelected
+                                                ? "bg-[var(--bg-secondary)] border-[var(--border-gold)] shadow-[var(--shadow-glow)] ring-1 ring-[var(--border-gold)]/40"
+                                                : "hover:scale-[1.02] hover:bg-white/[0.02]"
                                                 }`}
                                         >
                                             <div className="flex w-full justify-between items-start">
-                                                <div className={`rounded-xl p-2.5 ${isSelected ? "bg-white/20" : "bg-indigo-50 text-indigo-600"}`}>
-                                                    <BedDouble className="h-6 w-6" />
+                                                <div className={`rounded-xl p-3 border transition-colors ${isSelected ? "bg-[var(--text-gold)]/10 border-[var(--border-gold)]/40" : "bg-[var(--bg-secondary)] border-[var(--border-subtle)]"}`}>
+                                                    <BedDouble className={`h-6 w-6 ${isSelected ? "text-[var(--text-gold)]" : "text-[var(--text-gold)]/40"}`} />
                                                 </div>
-                                                {isSelected && <CheckCircle2 className="h-6 w-6 text-white" />}
+                                                {isSelected && (
+                                                    <div className="h-6 w-6 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center">
+                                                        <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                                                    </div>
+                                                )}
                                             </div>
 
-                                            <div className="w-full">
-                                                <div className="font-bold text-2xl tracking-tight">{room.number}</div>
-                                                <div className={`text-sm font-medium ${isSelected ? "text-indigo-100" : "text-slate-500"}`}>
+                                            <div className="w-full space-y-1">
+                                                <div className="font-black text-2xl text-[var(--text-primary)] tracking-tight">{room.number}</div>
+                                                <div className={`text-[10px] font-black uppercase tracking-widest ${isSelected ? "text-[var(--text-gold)]" : "text-[var(--text-muted)]"}`}>
                                                     {room.room_types?.name || "Standard"}
                                                 </div>
                                             </div>
 
-                                            <div className={`mt-2 pt-3 border-t w-full flex justify-between items-center ${isSelected ? "border-white/20" : "border-slate-100"}`}>
-                                                <span className="text-lg font-bold">₹{price}</span>
-                                                <span className={`text-xs ${isSelected ? "text-indigo-200" : "text-slate-400"}`}>/ night</span>
+                                            <div className={`mt-2 pt-4 border-t w-full flex justify-between items-center ${isSelected ? "border-[var(--border-gold)]/20" : "border-[var(--border-subtle)]"}`}>
+                                                <span className="text-lg font-black text-[var(--text-primary)]">₹{price}</span>
+                                                <span className={`text-[10px] font-black uppercase tracking-widest ${isSelected ? "text-[var(--text-gold)]/60" : "text-[var(--text-muted)]"}`}>/ night</span>
                                             </div>
                                         </button>
                                     );
@@ -328,19 +339,23 @@ export default function Availability() {
 
                     {/* Navigation Buttons (multi-room) */}
                     {isMultiRoom && (
-                        <div className="flex justify-between pt-4">
+                        <div className="flex flex-col sm:flex-row justify-center pt-8 gap-6">
                             <button
                                 onClick={handleBack}
-                                className="flex items-center gap-2 rounded-xl px-6 py-3 text-slate-600 font-medium hover:bg-slate-100 transition-all"
+                                className="gn-btn gn-btn--secondary py-4 px-10 text-base"
                             >
-                                <ArrowLeft className="h-5 w-5" /> Back
+                                <ArrowLeft className="h-5 w-5 mr-2 opacity-50" />
+                                Back
                             </button>
                             <button
                                 onClick={handleNext}
                                 disabled={!selectedRoomId}
-                                className="flex items-center gap-2 rounded-xl bg-indigo-600 px-8 py-3 text-white font-bold shadow-lg hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                className="gn-btn gn-btn--primary py-4 px-12 text-lg group"
                             >
-                                {isLastStep ? 'Proceed to Payment' : 'Next Room'} <ArrowRight className="h-5 w-5" />
+                                <span className="flex items-center gap-3">
+                                    {isLastStep ? 'Proceed to Payment' : 'Next Room'}
+                                    <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                                </span>
                             </button>
                         </div>
                     )}
@@ -348,54 +363,56 @@ export default function Availability() {
 
                 {/* RIGHT: Booking Summary (Sticky) */}
                 <div className="w-full md:w-96 shrink-0">
-                    <div className="sticky top-8 space-y-6">
-                        <div className="rounded-3xl bg-white p-6 shadow-xl ring-1 ring-slate-900/5">
-                            <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-4">
-                                <div className="rounded-full bg-slate-100 p-2 text-slate-600">
-                                    <Receipt className="h-5 w-5" />
+                    <div className="sticky top-8">
+                        <div className="gn-card p-8 space-y-8 border-[var(--border-gold)]/10">
+                            <div className="flex items-center gap-4 border-b border-[var(--border-subtle)] pb-6">
+                                <div className="rounded-xl bg-[var(--text-gold)]/10 p-3 text-[var(--text-gold)] border border-[var(--border-gold)]/20 shadow-[var(--shadow-glow)]">
+                                    <Receipt className="h-6 w-6" />
                                 </div>
-                                <h3 className="text-lg font-semibold text-slate-900">Booking Summary</h3>
+                                <h3 className="text-xl font-light tracking-tight text-[var(--text-primary)]">Booking Summary</h3>
                             </div>
 
-                            <div className="space-y-4 text-sm">
-                                <div className="flex justify-between py-2 border-b border-slate-50">
-                                    <span className="text-slate-500">Guest</span>
-                                    <span className="font-medium text-slate-900 text-right">{guestDetails.full_name}</span>
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-center group">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">Guest</span>
+                                    <span className="text-sm font-medium text-[var(--text-primary)]">{guestDetails.full_name}</span>
                                 </div>
-                                <div className="flex justify-between py-2 border-b border-slate-50">
-                                    <span className="text-slate-500">Dates</span>
-                                    <span className="font-medium text-slate-900 text-right">
-                                        {stayDetails.checkin_date} <br />
-                                        <span className="text-xs text-slate-400">to {stayDetails.checkout_date}</span>
-                                    </span>
+                                <div className="flex justify-between items-start group">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mt-1">Dates</span>
+                                    <div className="text-right">
+                                        <div className="text-sm font-medium text-[var(--text-primary)]">{stayDetails.checkin_date}</div>
+                                        <div className="text-[10px] font-black uppercase tracking-widest text-[var(--text-gold)] opacity-60">to {stayDetails.checkout_date}</div>
+                                    </div>
                                 </div>
-                                <div className="flex justify-between py-2 border-b border-slate-50">
-                                    <span className="text-slate-500">Occupancy</span>
-                                    <div className="flex items-center gap-1 font-medium text-slate-900">
-                                        <Users className="h-4 w-4 text-slate-400" />
+                                <div className="flex justify-between items-center group">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">Occupancy</span>
+                                    <div className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)]">
+                                        <Users className="h-4 w-4 text-[var(--text-gold)]/40" />
                                         {stayDetails.adults} Ad, {stayDetails.children} Ch
                                     </div>
                                 </div>
                                 {isMultiRoom && (
-                                    <div className="flex justify-between py-2 border-b border-slate-50">
-                                        <span className="text-slate-500">Rooms</span>
-                                        <span className="font-medium text-slate-900">{roomsCount}</span>
+                                    <div className="flex justify-between items-center group">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">Rooms</span>
+                                        <span className="text-sm font-medium text-[var(--text-primary)]">{roomsCount} Units</span>
                                     </div>
                                 )}
 
                                 {/* Selected rooms list (multi-room) */}
                                 {isMultiRoom && Object.keys(roomSelections).length > 0 && (
-                                    <div className="mt-2 space-y-1.5">
+                                    <div className="mt-6 space-y-2">
                                         {Object.entries(roomSelections)
                                             .sort(([a], [b]) => parseInt(a) - parseInt(b))
                                             .map(([stepIdx, sel]) => (
-                                                <div key={stepIdx} className="flex justify-between items-center rounded-lg bg-emerald-50 px-3 py-2">
-                                                    <span className="text-xs text-emerald-700 font-medium">
-                                                        Room {parseInt(stepIdx) + 1}: {sel.room_number}
-                                                    </span>
-                                                    <span className="text-xs text-emerald-600">
-                                                        {sel.room_type_name} • ₹{sel.base_price}/n
-                                                    </span>
+                                                <div key={stepIdx} className="flex justify-between items-center rounded-xl bg-white/[0.02] border border-[var(--border-subtle)] px-4 py-3">
+                                                    <div className="space-y-0.5">
+                                                        <div className="text-[10px] font-black uppercase tracking-widest text-[var(--text-gold)]">Room {parseInt(stepIdx) + 1}</div>
+                                                        <div className="text-xs font-medium text-[var(--text-primary)]">{sel.room_number}</div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">{sel.room_type_name}</div>
+                                                        <div className="text-[10px] font-bold text-[var(--text-primary)]">₹{sel.base_price}/n</div>
+                                                    </div>
                                                 </div>
                                             ))}
                                     </div>
@@ -403,53 +420,41 @@ export default function Availability() {
 
                                 {/* Dynamic Pricing */}
                                 {Object.keys(roomSelections).length > 0 ? (
-                                    <div className="mt-6 rounded-2xl bg-slate-50 p-4 space-y-3">
-                                        {isMultiRoom ? (
-                                            <>
-                                                {Object.entries(roomSelections)
-                                                    .sort(([a], [b]) => parseInt(a) - parseInt(b))
-                                                    .map(([stepIdx, sel]) => (
-                                                        <div key={stepIdx} className="flex justify-between text-slate-600 text-xs">
-                                                            <span>Room {parseInt(stepIdx) + 1} ({sel.room_number}) x{nights}n</span>
-                                                            <span>₹{(sel.base_price * nights).toFixed(2)}</span>
-                                                        </div>
-                                                    ))}
-                                                <div className="flex justify-between text-slate-600 border-t border-slate-200 pt-2">
-                                                    <span>Subtotal</span>
-                                                    <span>₹{roomTotal.toFixed(2)}</span>
-                                                </div>
-                                            </>
-                                        ) : (
-                                            <div className="flex justify-between text-slate-600">
-                                                <span>Room Rate (x{nights})</span>
-                                                <span>₹{roomTotal.toFixed(2)}</span>
+                                    <div className="mt-8 pt-6 border-t border-[var(--border-subtle)] space-y-4">
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">
+                                                <span>Subtotal</span>
+                                                <span className="text-[var(--text-primary)]">₹{roomTotal.toFixed(2)}</span>
                                             </div>
-                                        )}
-                                        <div className="flex justify-between text-slate-600">
-                                            <span>Taxes (12%)</span>
-                                            <span>₹{taxes.toFixed(2)}</span>
+                                            <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">
+                                                <span>Taxes (12%)</span>
+                                                <span className="text-[var(--text-primary)]">₹{taxes.toFixed(2)}</span>
+                                            </div>
                                         </div>
-                                        <div className="border-t border-slate-200 pt-3 flex justify-between font-bold text-lg text-slate-900">
-                                            <span>Total</span>
-                                            <span>₹{totalPayable.toFixed(2)}</span>
+                                        <div className="pt-4 border-t border-[var(--border-gold)]/20 flex justify-between items-center">
+                                            <span className="text-xs font-black uppercase tracking-[0.2em] text-[var(--text-gold)]">Total</span>
+                                            <span className="text-2xl font-black text-[var(--text-primary)] tracking-tight">₹{totalPayable.toFixed(2)}</span>
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="mt-6 rounded-2xl bg-slate-50 p-4 text-center text-slate-400 italic">
-                                        Select a room to see pricing
+                                    <div className="mt-8 rounded-2xl bg-white/[0.02] border border-dashed border-[var(--border-subtle)] p-6 text-center">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] italic">Select a room to see pricing</p>
                                     </div>
                                 )}
                             </div>
 
                             {/* Single-room: proceed button in sidebar */}
                             {!isMultiRoom && (
-                                <div className="mt-6 pt-2">
+                                <div className="mt-10">
                                     <button
                                         onClick={handleContinue}
                                         disabled={!selectedRoomId || loading}
-                                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-4 text-lg font-bold text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                        className="gn-btn gn-btn--primary w-full py-5 text-xl group"
                                     >
-                                        Proceed to Payment <ArrowRight className="h-5 w-5" />
+                                        <span className="flex items-center gap-3">
+                                            Proceed to Payment
+                                            <ArrowRight className="h-6 w-6 group-hover:translate-x-1 transition-transform" />
+                                        </span>
                                     </button>
                                 </div>
                             )}

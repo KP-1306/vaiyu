@@ -16,6 +16,7 @@ import {
     Lock
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
+import { uploadIdentityDocuments } from "../../lib/storage";
 import { lookupGuestProfile } from "../../lib/api";
 
 export default function GuestKYC() {
@@ -257,13 +258,6 @@ export default function GuestKYC() {
         }
     };
 
-    async function uploadFile(file: File, path: string) {
-        const { data, error } = await supabase.storage
-            .from('identity_proofs')
-            .upload(path, file);
-        if (error) throw error;
-        return data.path;
-    }
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -276,21 +270,17 @@ export default function GuestKYC() {
 
         try {
             // 1. Upload Images (Only if new files selected)
-            let frontPath = existingProof?.front_image || (existingProof?.has_front_image ? 'has_image' : null);
-            let backPath = existingProof?.back_image || (existingProof?.has_back_image ? 'has_image' : null);
-            const timestamp = Date.now();
+            const uploadResult = await uploadIdentityDocuments({
+                frontImage,
+                backImage,
+                existingFront: existingProof?.front_image,
+                existingBack: existingProof?.back_image,
+                storageKey: existingProof?.storage_key
+            });
 
-            if (frontImage) {
-                const folderId = booking.guest_id || booking.booking_id || booking.id || 'unknown';
-                const path = `${booking.hotel_id}/kiosk/${folderId}/front_${timestamp}_${frontImage.name}`;
-                frontPath = await uploadFile(frontImage, path);
-            }
-
-            if (backImage) {
-                const folderId = booking.guest_id || booking.booking_id || booking.id || 'unknown';
-                const path = `${booking.hotel_id}/kiosk/${folderId}/back_${timestamp}_${backImage.name}`;
-                backPath = await uploadFile(backImage, path);
-            }
+            const frontPath = uploadResult.frontPath;
+            const backPath = uploadResult.backPath;
+            const storageKey = uploadResult.storageKey;
 
             // 2. Prepare Guest Details Object
             // If ID is masked, send the ORIGINAL number (passed via state/props ideally, but for now we assume checkin logic handles it 
@@ -304,10 +294,14 @@ export default function GuestKYC() {
             }
 
             const guestDetails = {
-                ...formData,
-                id_number: finalIdNumber,
-                front_image_path: frontPath, // Matches DB column logic in RPC? No, RPC expects `front_image_path` key in JSON
-                back_image_path: backPath,
+                ...formData, // Keep all form data
+                id_type: formData.id_type,
+                id_number: finalIdNumber, // Use the resolved finalIdNumber
+                front_image: frontPath,
+                back_image: backPath,
+                front_hash: uploadResult.frontHash,
+                back_hash: uploadResult.backHash,
+                storage_key: storageKey
             };
 
             navigate(`../room-assignment${location.search}`, {

@@ -2,11 +2,12 @@
 CREATE INDEX IF NOT EXISTS idx_guests_mobile_normalized ON public.guests(mobile_normalized);
 CREATE INDEX IF NOT EXISTS idx_guests_email_lower ON public.guests (lower(email));
 
--- ── Schema Alignment: Standardize Guest Doc Unique Constraint ──
--- This allows ON CONFLICT (guest_id, document_type) without matching a partial index.
+-- ── Schema Alignment: Hardened Guest Doc Versioning ──
+-- This migration previously standardized a rigid constraint; we now rely on 
+-- the partial unique index defined in the base schema to support history.
 DROP INDEX IF EXISTS uq_guest_doc_unique;
 ALTER TABLE guest_id_documents DROP CONSTRAINT IF EXISTS uq_guest_id_doc_type;
-ALTER TABLE guest_id_documents ADD CONSTRAINT uq_guest_id_doc_type UNIQUE (guest_id, document_type);
+-- Rigid constraint removed to support is_active versioning.
 
 -- ── Cleanup Old Variants ──
 DROP FUNCTION IF EXISTS public.upsert_guest_v2(jsonb, uuid);
@@ -25,11 +26,13 @@ DECLARE
     v_mobile TEXT;
     v_email TEXT;
     v_mobile_norm TEXT;
-    v_full_name TEXT := trim(p_guest_details->>'full_name');
+    v_doc_type public.guest_document_type;
+    v_full_name TEXT;
 BEGIN
     -- 1. Normalize Inputs
-    v_mobile := NULLIF(regexp_replace(p_guest_details->>'mobile', '[^0-9]', '', 'g'), '');
-    v_email := lower(trim(coalesce(p_guest_details->>'email', '')));
+    v_full_name := NULLIF(trim(COALESCE(p_guest_details->>'full_name', p_guest_details->>'guest_name')), '');
+    v_mobile := NULLIF(regexp_replace(COALESCE(p_guest_details->>'mobile', p_guest_details->>'phone'), '[^0-9]', '', 'g'), '');
+    v_email := NULLIF(lower(trim(p_guest_details->>'email')), '');
     v_mobile_norm := v_mobile; -- Character-stripping IS the normalization in this schema
 
     -- Mobile validation guard (from original create_walkin_v2)
@@ -63,44 +66,85 @@ BEGIN
         INSERT INTO public.guests (
             full_name, 
             mobile, 
+            mobile_normalized,
             email, 
             nationality, 
             address
         )
         VALUES (
-            v_full_name, 
+            COALESCE(v_full_name, 'Guest'), 
             v_mobile, 
+            v_mobile_norm,
             v_email, 
-            trim(p_guest_details->>'nationality'), 
-            trim(p_guest_details->>'address')
+            NULLIF(trim(p_guest_details->>'nationality'), ''), 
+            NULLIF(trim(p_guest_details->>'address'), '')
         )
+        ON CONFLICT (mobile) WHERE mobile IS NOT NULL 
+        DO UPDATE SET
+            full_name = EXCLUDED.full_name,
+            email = COALESCE(EXCLUDED.email, guests.email),
+            updated_at = now()
         RETURNING id INTO v_guest_id;
     END IF;
 
-    -- 4. Identity Documents (if provided)
+    -- 4. Hardened Identity Documents (Privacy & Concurrency Aware)
     IF coalesce(p_guest_details->>'front_image_path', '') != '' THEN
-        INSERT INTO public.guest_id_documents (
-            guest_id, 
-            document_type, 
-            front_image_url, 
-            back_image_url, 
-            verification_status,
-            document_number
-        )
-        VALUES (
-            v_guest_id,
-            COALESCE((p_guest_details->>'id_type')::guest_document_type, 'other'),
-            p_guest_details->>'front_image_path',
-            p_guest_details->>'back_image_path',
-            'pending',
-            NULLIF(trim(p_guest_details->>'id_number'), '')
-        )
-        ON CONFLICT (guest_id, document_type) 
-        DO UPDATE SET
-            front_image_url = EXCLUDED.front_image_url,
-            back_image_url = COALESCE(EXCLUDED.back_image_url, guest_id_documents.back_image_url),
-            document_number = COALESCE(NULLIF(EXCLUDED.document_number, ''), guest_id_documents.document_number),
-            updated_at = now();
+        -- Link doc type
+        v_doc_type := COALESCE((p_guest_details->>'id_type')::guest_document_type, 'other');
+        BEGIN
+            -- IF duplicate exists with same front_hash and is active, skip insertion
+            IF NOT EXISTS (
+              SELECT 1 FROM public.guest_id_documents
+              WHERE guest_id = v_guest_id
+                AND document_type = v_doc_type
+                AND front_hash = p_guest_details->>'front_hash'
+                AND is_active = true
+            ) THEN
+                -- Deactivate previous active doc with concurrency lock
+                UPDATE public.guest_id_documents
+                SET is_active = false
+                WHERE id IN (
+                    SELECT id
+                    FROM public.guest_id_documents
+                    WHERE guest_id = v_guest_id
+                      AND document_type = v_doc_type
+                      AND is_active = true
+                    FOR UPDATE
+                );
+
+                -- Insert New Hardened Document
+                INSERT INTO public.guest_id_documents (
+                    guest_id, 
+                    document_type, 
+                    document_number_masked, 
+                    front_image_url, 
+                    back_image_url, 
+                    storage_key,
+                    front_hash,
+                    back_hash,
+                    issuing_country,
+                    verification_status, 
+                    is_active
+                )
+                VALUES (
+                    v_guest_id,
+                    v_doc_type,
+                    CASE 
+                        WHEN length(p_guest_details->>'id_number') > 4
+                        THEN repeat('X', length(p_guest_details->>'id_number') - 4) || right(p_guest_details->>'id_number', 4)
+                        ELSE p_guest_details->>'id_number'
+                    END,
+                    p_guest_details->>'front_image_path',
+                    p_guest_details->>'back_image_path',
+                    NULLIF(p_guest_details->>'storage_key', '')::UUID,
+                    p_guest_details->>'front_hash',
+                    p_guest_details->>'back_hash',
+                    p_guest_details->>'issuing_country',
+                    'pending',
+                    true
+                );
+            END IF;
+        END;
     END IF;
 
     RETURN v_guest_id;

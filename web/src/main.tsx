@@ -67,6 +67,9 @@ import {
 import AuthGate from "./components/AuthGate";
 import AdminGate from "./components/AdminGate";
 
+// Auth context provider
+import { AuthProvider } from "./context/AuthContext";
+
 // Supabase client
 import { supabase } from "./lib/supabase";
 
@@ -969,15 +972,17 @@ root.render(
       <ThemeProvider>
         <QueryClientProvider client={queryClient}>
           <AuthBootstrap>
-            <Suspense
-              fallback={
-                <div className="min-h-[40vh] grid place-items-center">
-                  <Spinner label="Loading page…" />
-                </div>
-              }
-            >
-              <RouterProvider router={router} />
-            </Suspense>
+            <AuthProvider>
+              <Suspense
+                fallback={
+                  <div className="min-h-[40vh] grid place-items-center">
+                    <Spinner label="Loading page…" />
+                  </div>
+                }
+              >
+                <RouterProvider router={router} />
+              </Suspense>
+            </AuthProvider>
           </AuthBootstrap>
         </QueryClientProvider>
       </ThemeProvider>

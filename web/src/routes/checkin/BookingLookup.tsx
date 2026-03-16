@@ -82,62 +82,79 @@ export default function BookingLookup() {
     const BOOKING_STEPS = ["Find Booking", "Confirm Details", "Assign Room"];
 
     return (
-        <div className="mx-auto max-w-xl space-y-6">
+        <div className="mx-auto max-w-2xl px-4">
             {/* ── Stepper ── */}
-            <CheckInStepper steps={BOOKING_STEPS} currentStep={0} />
-
-            <div className="space-y-2 text-center">
-                <h2 className="text-3xl font-light text-slate-900">Find your Booking</h2>
-                <p className="text-slate-500">
-                    Enter your confirmation code, email address, or mobile number.
-                </p>
+            <div className="mb-12">
+                <CheckInStepper steps={BOOKING_STEPS} currentStep={0} />
             </div>
 
-            <form onSubmit={handleSearch} className="space-y-6">
-                <div className="relative">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                        <Search className="h-6 w-6 text-slate-400" />
-                    </div>
-                    <input
-                        type="text"
-                        className="block w-full rounded-2xl border-0 bg-white py-6 pl-14 pr-4 text-xl text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:leading-6"
-                        placeholder="e.g. RES-1234 or +91 987..."
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        disabled={loading}
-                        autoFocus
-                    />
+            <div className="gn-card premium-glass space-y-8 p-8 md:p-12">
+                <div className="space-y-3 text-center">
+                    <h2 className="text-4xl font-light tracking-tight text-white gn-page-title">
+                        Find your <span className="text-gold-400 font-medium">Booking</span>
+                    </h2>
+                    <p className="text-white/60 text-lg">
+                        Enter your confirmation code, email, or mobile number to begin.
+                    </p>
                 </div>
 
-                {error && (
-                    <div className="rounded-lg bg-red-50 p-4 text-sm text-red-600 animate-in fade-in">
-                        {error}
+                <form onSubmit={handleSearch} className="space-y-10 pt-4">
+                    <div className="space-y-4">
+                        <label className="text-[11px] font-black uppercase tracking-[0.4em] text-gold-400/50 ml-1">
+                            Search Criteria
+                        </label>
+                        <div className="relative group">
+                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-7 transition-all duration-300 group-focus-within:text-gold-400 group-focus-within:scale-110">
+                                <Search className="h-7 w-7 text-white/20 transition-colors group-focus-within:text-gold-400" />
+                            </div>
+                            <input
+                                type="text"
+                                className="gn-input !pl-20 text-2xl !bg-white/5 !border-white/10 focus:!border-gold-400/50 focus:!ring-gold-400/20 placeholder:text-white/10 placeholder:italic transition-all duration-300"
+                                placeholder="RES-1234 or Mobile Number"
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                disabled={loading}
+                                autoFocus
+                            />
+                        </div>
                     </div>
-                )}
 
-                <div className="flex gap-4">
-                    <button
-                        type="button"
-                        onClick={() => navigate("../")}
-                        className="flex-1 rounded-2xl bg-white px-8 py-5 text-xl font-semibold text-slate-700 shadow-sm ring-1 ring-inset ring-slate-300 hover:bg-slate-50 transition-all active:scale-[0.98]"
-                    >
-                        Back
-                    </button>
-                    <button
-                        type="submit"
-                        disabled={loading || !query.trim()}
-                        className="flex-[2] flex items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-8 py-5 text-xl font-semibold text-white shadow-md hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
-                    >
-                        {loading ? (
-                            <Loader2 className="h-6 w-6 animate-spin" />
-                        ) : (
-                            <>
-                                Search Booking <ArrowRight className="h-5 w-5" />
-                            </>
-                        )}
-                    </button>
-                </div>
-            </form>
+                    {error && (
+                        <div className="rounded-2xl bg-red-500/10 border border-red-500/20 p-4 text-center text-red-400 animate-in fade-in slide-in-from-top-2">
+                            {error}
+                        </div>
+                    )}
+
+                    <div className="flex flex-col sm:flex-row gap-4 pt-2">
+                        <button
+                            type="button"
+                            onClick={() => navigate("../")}
+                            className="flex-1 rounded-2xl bg-white/5 px-8 py-5 text-lg font-bold text-white/80 border border-white/10 hover:bg-white/10 hover:text-white transition-all active:scale-[0.98] uppercase tracking-widest"
+                        >
+                            Back
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={loading || !query.trim()}
+                            className="flex-[2] flex items-center justify-center gap-3 rounded-2xl bg-white px-8 py-5 text-lg font-black text-black shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:bg-gold-400 hover:text-black transition-all active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed uppercase tracking-widest"
+                        >
+                            {loading ? (
+                                <Loader2 className="h-6 w-6 animate-spin" />
+                            ) : (
+                                <>
+                                    Search Booking <ArrowRight className="h-5 w-5" />
+                                </>
+                            )}
+                        </button>
+                    </div>
+
+                    <div className="pt-4 text-center">
+                        <p className="text-[10px] text-white/20 uppercase tracking-[0.3em] font-medium italic">
+                            Secure Check-In System • v2.0
+                        </p>
+                    </div>
+                </form>
+            </div>
         </div>
     );
 }

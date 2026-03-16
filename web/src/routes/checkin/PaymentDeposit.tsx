@@ -25,10 +25,17 @@ export default function PaymentDeposit() {
             // 1. Mock Payment Gateway Delay
             await new Promise(resolve => setTimeout(resolve, 2000));
 
+            const mappedGuestDetails = {
+                ...guestDetails,
+                id_type: (guestDetails?.id_type === 'aadhaar' || guestDetails?.id_type === 'passport' || guestDetails?.id_type === 'driving_license' || guestDetails?.id_type === 'other') 
+                    ? guestDetails.id_type 
+                    : (guestDetails?.id_type === 'aadhar' ? 'aadhaar' : 'other'),
+            };
+
             // 2. Process Check-in RPC
             const { data, error } = await supabase.rpc("process_checkin", {
                 p_booking_id: booking.id,
-                p_guest_details: guestDetails,
+                p_guest_details: mappedGuestDetails,
                 p_room_id: roomId,
                 p_actor_id: null // System/Kiosk
             });

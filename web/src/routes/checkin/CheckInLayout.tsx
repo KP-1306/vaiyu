@@ -3,6 +3,8 @@ import { Outlet, useSearchParams, useNavigate, Link, useLocation } from "react-r
 import { Home, ChevronRight } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import Spinner from "../../components/Spinner";
+import "../guestnew/guestnew.css";
+import "./checkin-visibility.css";
 
 export default function CheckInLayout() {
     const [searchParams] = useSearchParams();
@@ -12,6 +14,8 @@ export default function CheckInLayout() {
     const [error, setError] = useState<string | null>(null);
 
     const token = searchParams.get("tkn");
+    const slug = searchParams.get("slug");
+
 
     useEffect(() => {
         async function resolveToken() {
@@ -51,80 +55,84 @@ export default function CheckInLayout() {
 
     if (resolving) {
         return (
-            <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
-                <Spinner label="Resolving QR Code..." />
-                <p className="mt-4 text-slate-500 text-sm">Please wait while we fetch your booking details.</p>
+            <div className="guestnew flex flex-col items-center justify-center p-6 text-center">
+                <div className="guestnew-content">
+                    <Spinner label="Resolving QR Code..." />
+                    <p className="mt-4 text-gold-200/60 text-sm">Please wait while we fetch your booking details.</p>
+                </div>
             </div>
         );
     }
 
     if (error) {
         return (
-            <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
-                <div className="h-16 w-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-4">
-                    <span className="text-2xl font-bold">!</span>
+            <div className="guestnew flex flex-col items-center justify-center p-6 text-center">
+                <div className="guestnew-content">
+                    <div className="h-20 w-20 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mb-6 ring-1 ring-red-500/20">
+                        <span className="text-3xl font-bold">!</span>
+                    </div>
+                    <h2 className="text-2xl font-semibold text-white">QR Resolution Failed</h2>
+                    <p className="mt-2 text-gold-100/60 max-w-sm">{error}</p>
+                    <button
+                        onClick={() => {
+                            window.location.href = "/checkin";
+                        }}
+                        className="gn-btn gn-btn--primary mt-8"
+                    >
+                        Try Manual Search
+                    </button>
                 </div>
-                <h2 className="text-2xl font-semibold text-slate-900">QR Resolution Failed</h2>
-                <p className="mt-2 text-slate-600 max-w-sm">{error}</p>
-                <button
-                    onClick={() => {
-                        window.location.href = "/checkin";
-                    }}
-                    className="mt-6 rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
-                >
-                    Try Manual Search
-                </button>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-brand-gold selection:text-white">
+        <div className="guestnew checkin-container">
             {/* Header */}
-            <header className="sticky top-0 z-50 flex h-16 items-center justify-between bg-white px-6 shadow-sm border-b border-slate-100">
-                <div className="flex items-center gap-2">
-                    {/* Logo Placeholder - simplified for now */}
-                    <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-600 to-indigo-700 flex items-center justify-center text-white font-bold text-lg">
-                        V
-                    </div>
-                    <span className="text-lg font-semibold tracking-tight text-slate-900 pr-4">
-                        VAiyu Guest
-                    </span>
+            <header className="gn-header">
+                <div className="flex items-center gap-4">
+                    <Link 
+                        to={{ 
+                            pathname: "/checkin", 
+                            search: slug ? `?slug=${slug}` : "" 
+                        }} 
+                        className="gn-header__logo"
+                    >
+                        <img 
+                            src="/brand/vaiyu-logo.png" 
+                            alt="VAiyu" 
+                            className="h-9 w-auto object-contain"
+                        />
+                        <span className="hidden sm:inline font-medium tracking-tight text-white">
+                            VAiyu Guest
+                        </span>
+                    </Link>
 
-                    {/* Breadcrumbs in Header */}
+                    {/* Simple Title instead of Owner Breadcrumbs */}
                     {location.pathname.includes('/walkin') && (
-                        <div className="hidden sm:flex items-center gap-2 pl-4 border-l border-slate-200 text-sm text-slate-500 font-medium">
-                            <Link to={searchParams.get('slug') ? `/owner/${searchParams.get('slug')}` : "/owner"} className="flex items-center gap-1.5 hover:text-slate-900 transition-colors">
-                                <Home className="h-4 w-4" />
-                                Owner Home
-                            </Link>
-                            <ChevronRight className="h-4 w-4 text-slate-300" />
-                            <Link to={{ pathname: "/checkin", search: location.search }} className="hover:text-slate-900 transition-colors">
-                                Front Desk
-                            </Link>
-                            <ChevronRight className="h-4 w-4 text-slate-300" />
-                            <span className="text-slate-900">Walk-In</span>
+                        <div className="hidden md:flex items-center gap-3 pl-4 border-l border-white/10 text-sm text-gold-100/40 font-medium italic">
+                            Walk-In Registration
                         </div>
                     )}
                 </div>
 
-                <div className="flex items-center gap-4">
-                    <button className="text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors">
+                <div className="flex items-center gap-6">
+                    <button className="text-sm font-medium text-gold-100/40 hover:text-white transition-colors">
                         English (US)
                     </button>
-                    <button className="text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors">
+                    <button className="text-sm font-medium text-gold-100/40 hover:text-white transition-colors">
                         Help
                     </button>
                 </div>
             </header>
 
             {/* Main Content */}
-            <main className="mx-auto max-w-5xl px-4 py-8 md:px-6 lg:py-12 animate-in fade-in duration-500">
+            <main className="guestnew-content mx-auto max-w-5xl px-4 py-8 md:px-6 lg:py-12 animate-in fade-in duration-700">
                 <Outlet />
             </main>
 
             {/* Footer */}
-            <footer className="fixed bottom-0 left-0 right-0 py-4 text-center text-xs text-slate-400 bg-white/50 backdrop-blur-sm border-t border-slate-100/50">
+            <footer className="fixed bottom-0 left-0 right-0 py-4 text-center text-[10px] uppercase tracking-[0.2em] text-gold-200/50 bg-black/40 backdrop-blur-md border-t border-white/5 z-0">
                 Powered by VAiyu Hospitality OS
             </footer>
         </div>

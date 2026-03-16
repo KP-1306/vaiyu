@@ -214,10 +214,17 @@ export default function RoomAssignment() {
                     room_id: assignments[br.id],
                 }));
 
+            const mappedGuestDetails = {
+                ...guestDetails,
+                id_type: (guestDetails.id_type === 'aadhaar' || guestDetails.id_type === 'passport' || guestDetails.id_type === 'driving_license' || guestDetails.id_type === 'other') 
+                    ? guestDetails.id_type 
+                    : (guestDetails.id_type === 'aadhar' ? 'aadhaar' : 'other'),
+            };
+
             // Always use v2 (multi-room aware)
             const { data, error } = await supabase.rpc("process_checkin_v2", {
                 p_booking_id: bookingId,
-                p_guest_details: guestDetails,
+                p_guest_details: mappedGuestDetails,
                 p_room_assignments: roomAssignments,
                 p_actor_id: null
             });
@@ -237,6 +244,7 @@ export default function RoomAssignment() {
                 navigate("../success", {
                     state: {
                         booking,
+                        hotelId: booking.hotel_id,
                         roomNumber: roomNumbers || "Assigned",
                         roomsCount: bookingRooms.length,
                     }
@@ -257,89 +265,114 @@ export default function RoomAssignment() {
     const BOOKING_STEPS = ["Find Booking", "Confirm Details", "Assign Room"];
 
     return (
-        <div className="mx-auto max-w-4xl space-y-6">
-            {/* ── Check-in Stepper ── */}
-            <CheckInStepper steps={BOOKING_STEPS} currentStep={2} />
-
-            {/* ── Header ── */}
-            <div className="text-center space-y-2">
-                <h2 className="text-3xl font-light text-slate-900">
-                    {isMultiRoom ? `Assign Room ${currentStep + 1} of ${bookingRooms.length}` : 'Choose Your Room'}
+        <div className="mx-auto max-w-4xl space-y-10 pb-20">
+            {/* ── Header Area ── */}
+            <div className="text-center space-y-4">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gold-400/5 border border-gold-400/20 mb-2">
+                    <div className="w-2 h-2 rounded-full bg-gold-400 animate-pulse" />
+                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gold-400">Inventory Sync Active</span>
+                </div>
+                
+                <h2 className="text-4xl font-light text-white tracking-tight">
+                    {isMultiRoom ? `Unit Assignment ${currentStep + 1}/${bookingRooms.length}` : 'Residence Selection'}
                 </h2>
-                <p className="text-slate-500">
-                    {isMultiRoom
-                        ? `Select a ${currentBookingRoom?.room_type_name || ''} room`
-                        : 'Select a room for your stay.'
+                <p className="text-gold-100/40 font-light text-lg">
+                    {isMultiRoom 
+                        ? `Provisioning ${currentBookingRoom?.room_type_name || ''} allocation`
+                        : 'Curate your preferred living space.'
                     }
                 </p>
-                {/* Multi-room progress dots */}
+
+                {/* Multi-room progress indicators */}
                 {isMultiRoom && (
-                    <div className="flex justify-center gap-2 pt-2">
+                    <div className="flex justify-center gap-4 pt-6">
                         {bookingRooms.map((br, i) => (
-                            <div
-                                key={br.id}
-                                className={`flex items-center justify-center h-8 w-8 rounded-full text-xs font-bold transition-all ${i === currentStep
-                                    ? 'bg-indigo-600 text-white ring-2 ring-indigo-300 ring-offset-2'
-                                    : assignments[br.id]
-                                        ? 'bg-green-500 text-white'
-                                        : 'bg-slate-200 text-slate-500'
-                                    }`}
-                            >
-                                {assignments[br.id] && i !== currentStep ? '✓' : i + 1}
+                            <div key={br.id} className="relative group">
+                                <div className={`flex items-center justify-center h-10 w-10 rounded-xl font-mono text-xs transition-all duration-500 ${
+                                    i === currentStep 
+                                        ? 'bg-gold-400 text-black shadow-[0_0_20px_rgba(212,175,55,0.4)] scale-110 z-10' 
+                                        : assignments[br.id]
+                                            ? 'bg-gold-400/20 text-gold-400 ring-1 ring-gold-400/30'
+                                            : 'bg-white/5 text-white/20 ring-1 ring-white/10'
+                                }`}>
+                                    {assignments[br.id] && i !== currentStep ? <CheckCircle2 className="w-5 h-5" /> : `0${i + 1}`}
+                                </div>
+                                <div className={`absolute -bottom-2 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full transition-all duration-500 ${i === currentStep ? 'bg-gold-400 scale-100' : 'bg-transparent scale-0'}`} />
                             </div>
                         ))}
                     </div>
                 )}
             </div>
 
-            {/* ── Room Type Badge ── */}
+            {/* ── Suite Type Identification ── */}
             {currentBookingRoom && (
                 <div className="flex justify-center">
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-4 py-1.5 text-sm font-medium text-indigo-700 ring-1 ring-inset ring-indigo-200">
-                        <BedDouble className="h-4 w-4" />
-                        {currentBookingRoom.room_type_name}
-                    </span>
+                    <div className="px-6 py-2 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md flex items-center gap-3">
+                        <BedDouble className="h-4 w-4 text-gold-400/60" />
+                        <span className="text-xs font-bold uppercase tracking-[0.2em] text-white/80">
+                            {currentBookingRoom.room_type_name}
+                        </span>
+                    </div>
                 </div>
             )}
 
-            {/* ── Room Grid ── */}
+            {/* ── Selection Grid ── */}
             {loading ? (
-                <div className="py-20 text-center">
-                    <Loader2 className="mx-auto h-10 w-10 animate-spin text-indigo-600" />
-                    <p className="mt-4 text-slate-500">Finding best available rooms...</p>
+                <div className="py-24 text-center space-y-4">
+                    <div className="relative mx-auto w-16 h-16">
+                        <Loader2 className="h-16 w-16 animate-spin text-gold-400/20" />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="w-2 h-2 rounded-full bg-gold-400 animate-ping" />
+                        </div>
+                    </div>
+                    <p className="text-gold-100/40 text-sm font-light tracking-widest uppercase">Fetching real-time availability...</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4 px-4">
                     {availableRooms.map((room) => {
                         const isSelected = selectedRoomId === room.id;
-                        // Check if already assigned to another booking_room
                         const assignedToOther = Object.entries(assignments).some(
                             ([brId, rId]) => brId !== currentBookingRoom?.id && rId === room.id
                         );
+                        
                         return (
                             <button
                                 key={room.id}
                                 onClick={() => handleRoomSelect(room.id)}
                                 disabled={assignedToOther}
-                                className={`group relative flex flex-col items-start gap-2 rounded-2xl p-4 text-left transition-all ${isSelected
-                                    ? "bg-indigo-600 text-white shadow-md ring-2 ring-indigo-600 ring-offset-2"
-                                    : assignedToOther
-                                        ? "bg-slate-100 text-slate-400 cursor-not-allowed opacity-50"
-                                        : "bg-white text-slate-900 shadow-sm ring-1 ring-slate-900/5 hover:bg-slate-50"
-                                    }`}
+                                className={`group relative flex flex-col items-start gap-4 p-6 rounded-3xl border transition-all duration-500 text-left overflow-hidden ${
+                                    isSelected
+                                        ? "bg-gold-400 border-gold-400 shadow-[0_0_40px_rgba(212,175,55,0.15)] scale-[1.02]"
+                                        : assignedToOther
+                                            ? "bg-white/5 border-transparent opacity-30 grayscale cursor-not-allowed"
+                                            : "bg-white/[0.03] border-white/5 hover:border-gold-400/40 hover:bg-gold-400/[0.03]"
+                                }`}
                             >
-                                <div className={`rounded-xl p-2 ${isSelected ? "bg-white/20" : "bg-slate-100"}`}>
-                                    <BedDouble className="h-6 w-6" />
+                                {/* Selection Glow */}
+                                {isSelected && (
+                                    <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent" />
+                                )}
+
+                                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-colors duration-500 ${
+                                    isSelected ? "bg-black text-gold-400" : "bg-white/5 text-white/40 group-hover:text-gold-400"
+                                }`}>
+                                    <BedDouble className="h-5 w-5" />
                                 </div>
-                                <div>
-                                    <div className="font-semibold text-lg">{room.number}</div>
-                                    <div className={`text-xs ${isSelected ? "text-indigo-100" : "text-slate-500"}`}>
-                                        {room.room_type_name || room.type || "Standard"} • Floor {room.floor}
+
+                                <div className="space-y-1 relative z-10">
+                                    <div className={`text-2xl font-light tracking-tight transition-colors ${isSelected ? "text-black" : "text-white"}`}>
+                                        {room.number}
+                                    </div>
+                                    <div className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${
+                                        isSelected ? "text-black/60" : "text-gold-400/40 group-hover:text-gold-400/60"
+                                    }`}>
+                                        Floor {room.floor} • {room.room_type_name || room.type || "Unit"}
                                     </div>
                                 </div>
+
                                 {isSelected && (
-                                    <div className="absolute top-4 right-4">
-                                        <CheckCircle2 className="h-5 w-5 text-white" />
+                                    <div className="absolute top-6 right-6">
+                                        <div className="w-2 h-2 rounded-full bg-black animate-pulse" />
                                     </div>
                                 )}
                             </button>
@@ -349,33 +382,57 @@ export default function RoomAssignment() {
             )}
 
             {!loading && availableRooms.length === 0 && (
-                <div className="rounded-2xl bg-amber-50 p-6 text-center text-amber-800">
-                    No rooms available at the moment. Please contact front desk.
+                <div className="mx-auto max-w-sm rounded-3xl bg-red-400/5 border border-red-400/20 p-8 text-center space-y-4 backdrop-blur-md">
+                    <div className="w-12 h-12 rounded-full bg-red-400/10 flex items-center justify-center mx-auto">
+                        <BedDouble className="h-6 w-6 text-red-400/60" />
+                    </div>
+                    <div className="space-y-1">
+                        <p className="text-white text-sm font-medium">Inventory Unavailable</p>
+                        <p className="text-red-400/60 text-xs font-light tracking-wider uppercase">Contact establishment support</p>
+                    </div>
                 </div>
             )}
 
-            {/* ── Navigation Buttons ── */}
-            <div className="flex justify-center pt-8 gap-4">
-                <button
-                    onClick={handleBack}
-                    className="flex items-center gap-2 rounded-2xl bg-white px-10 py-4 text-xl font-semibold text-slate-700 shadow-lg ring-1 ring-inset ring-slate-300 hover:bg-slate-50 transition-all hover:scale-105 active:scale-[0.99]"
-                >
-                    <ArrowLeft className="h-5 w-5" />
-                    {currentStep > 0 ? 'Previous Room' : 'Back'}
-                </button>
-                <button
-                    onClick={handleNext}
-                    disabled={!selectedRoomId || assigning}
-                    className="flex items-center gap-2 rounded-2xl bg-indigo-600 px-10 py-4 text-xl font-bold text-white shadow-lg transition-all hover:bg-indigo-500 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
-                >
-                    {assigning ? (
-                        <>Processing <Loader2 className="h-5 w-5 animate-spin" /></>
-                    ) : isLastStep ? (
-                        <>Confirm & Get Keys <ArrowRight className="h-6 w-6" /></>
-                    ) : (
-                        <>Next Room <ArrowRight className="h-6 w-6" /></>
-                    )}
-                </button>
+            {/* ── Interaction Layer ── */}
+            <div className="flex flex-col items-center space-y-6 pt-10">
+                <div className="flex gap-6 w-full max-w-2xl px-4">
+                    <button
+                        onClick={handleBack}
+                        className="flex-1 gn-btn gn-btn--secondary py-5 text-lg group"
+                    >
+                        <div className="flex items-center justify-center gap-3">
+                            <ArrowLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
+                            <span className="uppercase tracking-[0.15em] font-bold">
+                                {currentStep > 0 ? 'Back' : 'Profile'}
+                            </span>
+                        </div>
+                    </button>
+                    <button
+                        onClick={handleNext}
+                        disabled={!selectedRoomId || assigning}
+                        className="flex-[2] gn-btn gn-btn--primary py-5 text-lg group overflow-hidden"
+                    >
+                        {assigning ? (
+                            <div className="flex items-center gap-3">
+                                <Loader2 className="h-6 w-6 animate-spin text-black" />
+                                <span className="uppercase tracking-widest font-bold">Executing Sync...</span>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-3">
+                                <span className="uppercase tracking-[0.15em] font-bold">
+                                    {isLastStep ? 'Finalize Check-in' : 'Next Allocation'}
+                                </span>
+                                <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                            </div>
+                        )}
+                    </button>
+                </div>
+                
+                {!selectedRoomId && !loading && (
+                    <p className="text-[10px] uppercase font-bold tracking-[0.3em] text-white/20">
+                        Selection required to advance
+                    </p>
+                )}
             </div>
         </div>
     );

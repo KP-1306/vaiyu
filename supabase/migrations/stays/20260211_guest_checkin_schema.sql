@@ -116,22 +116,29 @@ BEGIN
 END $$;
 
 -- Triggers for Hashing & Timestamps
-CREATE OR REPLACE FUNCTION set_document_number_hash()
+CREATE OR REPLACE FUNCTION public.set_document_number_hash()
 RETURNS trigger AS $$
 BEGIN
   IF NEW.document_number_masked IS NOT NULL THEN
-    NEW.document_number_hash := encode(digest(lower(NEW.document_number_masked), 'sha256'), 'hex');
+    NEW.document_number_hash :=
+      encode(
+        extensions.digest(lower(NEW.document_number_masked)::text, 'sha256'),
+        'hex'
+      );
+  ELSE
+    NEW.document_number_hash := NULL;
   END IF;
+
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS trg_set_document_number_hash ON guest_id_documents;
+DROP TRIGGER IF EXISTS trg_set_document_number_hash ON public.guest_id_documents;
 CREATE TRIGGER trg_set_document_number_hash
 BEFORE INSERT OR UPDATE OF document_number_masked
-ON guest_id_documents
+ON public.guest_id_documents
 FOR EACH ROW
-EXECUTE FUNCTION set_document_number_hash();
+EXECUTE FUNCTION public.set_document_number_hash();
 
 CREATE TRIGGER set_timestamp_guest_docs
 BEFORE UPDATE ON guest_id_documents

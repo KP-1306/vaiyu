@@ -8,8 +8,8 @@ interface CheckInStepperProps {
 
 export function CheckInStepper({ steps, currentStep }: CheckInStepperProps) {
     return (
-        <div className="w-full py-6">
-            <div className="flex items-center justify-center">
+        <div className="w-full py-8 md:py-12 px-4">
+            <div className="flex items-center justify-center max-w-2xl mx-auto">
                 {steps.map((step, index) => {
                     const isCompleted = index < currentStep;
                     const isCurrent = index === currentStep;
@@ -17,36 +17,64 @@ export function CheckInStepper({ steps, currentStep }: CheckInStepperProps) {
 
                     return (
                         <React.Fragment key={index}>
-                            {/* Step Circle & Label Container */}
-                            <div className="flex items-center gap-3">
-
+                            {/* Step Indicator Section */}
+                            <div className="flex flex-col items-center gap-3 relative">
                                 {/* Circle Indicator */}
                                 <div
-                                    className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold transition-colors duration-300
-                    ${isCompleted ? "bg-indigo-600 text-white" : ""}
-                    ${isCurrent ? "bg-indigo-600 text-white ring-4 ring-indigo-50" : ""}
-                    ${!isCompleted && !isCurrent ? "bg-slate-100 text-slate-500" : ""}
-                  `}
+                                    className={`relative z-10 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-700
+                                        ${isCompleted 
+                                            ? "bg-gold-400 text-black shadow-[0_0_20px_rgba(212,175,55,0.4)]" 
+                                            : isCurrent 
+                                                ? "bg-white/[0.08] text-white" 
+                                                : "bg-white/[0.04] text-white/40 border border-white/5"
+                                        }
+                                    `}
                                 >
-                                    {isCompleted ? <Check className="h-5 w-5" /> : index + 1}
+                                    {/* Show number for ALL steps, but add a checkmark badge for completed ones */}
+                                    <span className={`${isCompleted ? "text-black" : isCurrent ? "text-white" : "text-white/30"}`}>
+                                        0{index + 1}
+                                    </span>
+                                    
+                                    {isCompleted && (
+                                        <div className="absolute -top-1 -right-1 h-4 w-4 bg-white rounded-full flex items-center justify-center shadow-lg">
+                                            <Check size={10} strokeWidth={4} className="text-black" />
+                                        </div>
+                                    )}
+
+                                    {/* Rotating Active Ring */}
+                                    {isCurrent && (
+                                        <div className="absolute inset-[-4px] rounded-[15px] border border-gold-400/30 border-t-gold-400 animate-[spin_3s_linear_infinite]" />
+                                    )}
+                                    
+                                    {/* Static Border for Current */}
+                                    {isCurrent && (
+                                        <div className="absolute inset-0 rounded-xl border border-gold-400/50 shadow-[inset_0_0_10px_rgba(212,175,55,0.2)]" />
+                                    )}
                                 </div>
 
-                                {/* Text Label */}
+                                {/* Persistent Text Label */}
                                 <span
-                                    className={`text-sm font-medium transition-colors duration-300
-                    ${isCurrent ? "text-slate-900" : "text-slate-500"}
-                  `}
+                                    className={`absolute -bottom-8 px-2 text-center text-[7px] sm:text-[9px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] transition-all duration-700
+                                        ${isCurrent ? "text-white opacity-100" : isCompleted ? "text-gold-400/60" : "text-white/20"}
+                                    `}
+                                    style={{ 
+                                        width: 'max-content',
+                                        maxWidth: '100px',
+                                        whiteSpace: 'normal',
+                                        lineHeight: '1.2'
+                                    }}
                                 >
                                     {step}
                                 </span>
                             </div>
 
-                            {/* Connector Line (if not last) */}
+                            {/* Architectural Connector Line */}
                             {!isLast && (
-                                <div className="mx-4 h-[2px] w-12 bg-slate-100 sm:w-24 md:w-32">
+                                <div className="mx-2 sm:mx-10 h-[1.5px] flex-1 bg-white/[0.05] min-w-[20px] sm:min-w-[80px] relative overflow-hidden rounded-full">
                                     <div
-                                        className={`h-full transition-all duration-500 ease-out ${index < currentStep ? "bg-indigo-600 w-full" : "w-0"
-                                            }`}
+                                        className={`absolute inset-0 bg-gold-400 shadow-[0_0_10px_rgba(212,175,55,0.5)] transition-all duration-1000 ease-in-out ${
+                                            index < currentStep ? "translate-x-0" : "-translate-x-full"
+                                        }`}
                                     />
                                 </div>
                             )}
@@ -57,3 +85,9 @@ export function CheckInStepper({ steps, currentStep }: CheckInStepperProps) {
         </div>
     );
 }
+
+// Add these to your global CSS or guestnew.css if needed:
+// @keyframes shimmer {
+//   0% { transform: translateX(-100%); }
+//   100% { transform: translateX(200%); }
+// }

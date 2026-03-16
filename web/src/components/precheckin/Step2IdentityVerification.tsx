@@ -21,7 +21,8 @@ interface Step2Props {
 }
 
 export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, submitting, submitError, setStep, booking, token }: Step2Props) {
-    const selectedIdType = ID_TYPES.find((t) => t.value === idForm.id_type) || ID_TYPES[0];
+    const normalizedIdType = (idForm.id_type === 'aadhar') ? 'aadhaar' : idForm.id_type;
+    const selectedIdType = ID_TYPES.find((t) => t.value === normalizedIdType) || ID_TYPES[0];
     const frontInputRef = useRef<HTMLInputElement>(null);
     const backInputRef = useRef<HTMLInputElement>(null);
 
@@ -144,7 +145,8 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
                         value={idForm.id_number}
                         onChange={(e) => {
                             let val = e.target.value.toUpperCase();
-                            if (idForm.id_type === "aadhaar") {
+                            const currentType = (idForm.id_type === 'aadhar') ? 'aadhaar' : idForm.id_type;
+                            if (currentType === "aadhaar") {
                                 if (!val.includes("XXXX")) {
                                     val = val.replace(/\D/g, "").slice(0, 12);
                                 }
@@ -267,7 +269,8 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
                 <button
                     disabled={submitting || !idForm.id_number || !idForm.front_captured}
                     onClick={() => {
-                        if (idForm.id_type === "aadhaar") {
+                        const currentType = (idForm.id_type === 'aadhar') ? 'aadhaar' : idForm.id_type;
+                        if (currentType === "aadhaar") {
                             const isMasked = idForm.id_number.includes("XXXX");
                             if (!isMasked && idForm.id_number.length !== 12) {
                                 alert("Please enter a valid 12-digit Aadhaar number");

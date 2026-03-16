@@ -2,19 +2,24 @@
 import { supabase } from "./supabase";
 
 /**
- * Uploads a file to the 'identity_proofs' bucket and returns the storage path.
- * Uses upsert: true and respects AbortSignal for network efficiency.
+ * Uploads a file to the 'identity_proofs' bucket via a secure Edge Function.
+ * This bypasses RLS for guest-facing kiosks while keeping the bucket private.
  */
 export async function uploadFile(file: File, path: string, signal?: AbortSignal) {
-    const { data, error } = await supabase.storage
-        .from('identity_proofs')
-        .upload(path, file, { 
-            upsert: true,
-            // @ts-ignore: signal is supported in runtime but may be missing in older types
-            signal 
-        });
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("path", path);
+
+    // Call the Edge Function instead of direct storage client
+    const { data, error } = await supabase.functions.invoke("upload-guest-id", {
+        body: formData,
+        // @ts-ignore
+        signal
+    });
     
     if (error) throw error;
+    if (!data?.path) throw new Error("Upload failed: No path returned from Edge Function");
+    
     return data.path;
 }
 

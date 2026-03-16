@@ -1,6 +1,7 @@
 // web/src/lib/api.ts
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { supabase } from "./supabase";
 
 // Base URL (set on Netlify as VITE_API_URL, e.g. https://your-api.example.com)
 // NOTE: can be absolute (recommended) OR relative (e.g., "/api").
@@ -26,29 +27,7 @@ type MaybeSupa = SupabaseClient | null;
 
 let _supa: MaybeSupa = null;
 export function supa(): MaybeSupa {
-  try {
-    const url = (import.meta as any).env?.VITE_SUPABASE_URL as
-      | string
-      | undefined;
-    const anon = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY as
-      | string
-      | undefined;
-
-    if (!url || !anon) return null;
-    if (_supa) return _supa;
-
-    _supa = createClient(url, anon, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-      },
-    });
-
-    return _supa;
-  } catch {
-    return null;
-  }
+  return supabase || null;
 }
 
 /**

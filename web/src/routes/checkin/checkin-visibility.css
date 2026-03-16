@@ -1,0 +1,185 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Check-In High Visibility Overrides
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Target only children of the check-in routes */
+.checkin-container {
+    /* High Contrast Inputs */
+    .gn-input {
+        width: 100% !important;
+        background: rgba(22, 22, 24, 0.95) !important;
+        border: 1px solid rgba(212, 175, 55, 0.3) !important;
+        border-radius: var(--radius-lg) !important;
+        /* Remove shorthand padding to allow pl-12 to work */
+        padding-top: 12px !important;
+        padding-bottom: 12px !important;
+        padding-right: 16px !important;
+        color: #ffffff !important;
+        font-size: 1.1rem !important;
+        line-height: 1.5 !important;
+        height: auto !important;
+        min-height: 52px !important;
+        transition: all 200ms ease !important;
+        outline: none !important;
+    }
+
+    /* Support for deep left padding to avoid icon overlap */
+    .gn-input.pl-12,
+    select.gn-input.pl-12 {
+        padding-left: 48px !important;
+    }
+
+    .gn-input.pl-20,
+    .gn-input.\!pl-20 {
+        padding-left: 80px !important;
+    }
+
+    .gn-input:not([class*="pl-"]) {
+        padding-left: 16px !important;
+    }
+
+    /* Ensure icons inside input wrappers are visible and bright */
+    .relative > svg {
+        color: #d4af37 !important;
+        opacity: 1 !important;
+        z-index: 10 !important;
+    }
+
+    /* Hide default browser date/number icons to avoid clutter with custom icons */
+    input[type="date"]::-webkit-calendar-picker-indicator,
+    input[type="date"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+        display: none !important;
+        appearance: none !important;
+        -webkit-appearance: none !important;
+        margin: 0 !important;
+    }
+
+    /* For Firefox */
+    input[type="number"] {
+        appearance: textfield !important;
+        -moz-appearance: textfield !important;
+    }
+
+    .gn-input:focus {
+        background: var(--bg-card) !important;
+        border-color: #dbae67 !important;
+        box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.25) !important;
+    }
+
+    .gn-input::placeholder {
+        color: rgba(255, 255, 255, 0.6) !important;
+        font-style: italic !important;
+        opacity: 0.8 !important;
+    }
+
+    .gn-input:disabled {
+        opacity: 0.5 !important;
+        cursor: not-allowed !important;
+    }
+
+    /* Refined Typography Hierarchy */
+    label, 
+    .gn-label {
+        text-transform: none !important; /* Force natural casing */
+        letter-spacing: 0.15em !important;
+        font-size: 0.75rem !important; /* Slightly larger for laptop legibility */
+        font-weight: 800 !important;
+        opacity: 0.8 !important; /* Increased from 0.6 for visibility */
+        margin-bottom: 12px !important; /* Increased breathing room */
+        display: block !important;
+        color: #ffffff !important; /* Force white for clarity */
+    }
+
+    /* High Contrast Visibility Overrides for Faint Text */
+    .text-gold-400\/30,
+    .text-gold-400\/20,
+    .text-gold-400\/10 {
+        color: rgba(212, 175, 55, 0.7) !important; /* Brighter gold subtext */
+    }
+
+    .text-white\/40,
+    .text-white\/30,
+    .text-white\/20 {
+        color: rgba(255, 255, 255, 0.6) !important; /* Legible white subtext */
+    }
+
+    .text-white\/10,
+    .text-white\/5 {
+        color: rgba(255, 255, 255, 0.45) !important; /* Much brighter than original 5-10% */
+    }
+
+    .text-gold-100\/60 {
+        color: rgba(255, 250, 232, 0.9) !important;
+    }
+
+    .gn-section-title {
+        text-transform: none !important;
+        letter-spacing: -0.02em !important;
+        font-weight: 300 !important;
+    }
+
+    .gn-page-title {
+        text-transform: none !important;
+        letter-spacing: -0.04em !important;
+        font-weight: 300 !important;
+    }
+
+    .gn-pill {
+        text-transform: uppercase !important;
+        letter-spacing: 0.2em !important;
+        font-weight: 900 !important;
+    }
+
+    .gn-btn {
+        text-transform: uppercase !important;
+        letter-spacing: 0.1em !important;
+        font-weight: 800 !important;
+    }
+
+    /* Standardized Card Spacing - Optimized for Laptops */
+    .gn-card {
+        padding: 1.5rem !important; /* Reduced for laptops */
+        border-radius: 1.5rem !important;
+        background: rgba(255, 255, 255, 0.03) !important;
+        border: 1px solid rgba(255, 255, 255, 0.05) !important;
+        backdrop-filter: blur(20px) !important;
+    }
+
+
+
+    @media (min-width: 1440px) {
+        .gn-card {
+            padding: 2.5rem !important; /* Larger for desktop */
+            border-radius: 2rem !important;
+        }
+    }
+
+    /* Premium Glassmorphism Utility */
+    .premium-glass {
+        background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.05), transparent),
+                    rgba(15, 15, 18, 0.6) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    /* Final Overrides */
+    .gn-card--flush {
+        padding: 0 !important;
+    }
+
+    /* Exceptions: Keep some things uppercase if they are truly IDs or codes */
+    .gn-stay-detail__booking-id,
+    .font-mono {
+        text-transform: uppercase !important;
+    }
+
+    /* Brighter Labels - Replaced by Refined Typography Hierarchy above */
+
+    /* Specific overrides for faint icons when using Tailwind */
+    .text-gold-400\/60,
+    .text-gold-400\/40 {
+        color: #d4af37 !important; /* Force full brightness gold-400 */
+    }
+}

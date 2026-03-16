@@ -20,13 +20,12 @@ import {
 } from "../lib/api";
 import { useGuestIdentity } from "../hooks/useGuestIdentity";
 
-const ID_TYPES = [
-  "Aadhaar",
-  "Driving Licence",
-  "Passport",
-  "Voter ID",
-  "PAN",
-  "Other",
+const ID_TYPES_MAP = [
+  { value: "aadhaar", label: "Aadhaar" },
+  { value: "driving_license", label: "Driving License" },
+  { value: "passport", label: "Passport" },
+  { value: "voter_id", label: "Voter ID" },
+  { value: "other", label: "Other" },
 ];
 
 type Form = {
@@ -82,7 +81,7 @@ export default function Precheck() {
     guestName: "",
     phone: "",
     email: "",
-    idType: ID_TYPES[0], // default Aadhaar
+    idType: ID_TYPES_MAP[0].value, // default aadhaar
     idNumber: "",
     arrivalDate: "",
     arrivalTime: "",
@@ -125,10 +124,10 @@ export default function Precheck() {
         identity.secondary_email ||
         "",
       idType:
-        prev.idType ||
-        identity.id_type ||
-        identity.idType ||
-        ID_TYPES[0],
+        (() => {
+          const raw = prev.idType || identity.id_type || identity.idType || ID_TYPES_MAP[0].value;
+          return (String(raw).toLowerCase() === 'aadhar') ? 'aadhaar' : raw;
+        })(),
       idNumber:
         prev.idNumber ||
         identity.id_number ||
@@ -155,7 +154,7 @@ export default function Precheck() {
         name: f.guestName,
         phone: f.phone,
         email: f.email || null,
-        id_type: f.idType,
+        id_type: (f.idType === 'aadhaar' || f.idType === 'passport' || f.idType === 'driving_license' || f.idType === 'other') ? f.idType : 'other',
         id_number: f.idNumber,
       },
       arrival: {
@@ -191,7 +190,7 @@ export default function Precheck() {
             name: f.guestName,
             phone: f.phone,
             email: f.email || null,
-            id_type: f.idType,
+            id_type: (f.idType === 'aadhaar' || f.idType === 'passport' || f.idType === 'driving_license' || f.idType === 'other') ? f.idType : 'other',
             id_number: f.idNumber || null,
           });
         }
@@ -306,9 +305,9 @@ export default function Precheck() {
               value={f.idType}
               onChange={(e) => up("idType", e.target.value)}
             >
-              {ID_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
+              {ID_TYPES_MAP.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
                 </option>
               ))}
             </select>

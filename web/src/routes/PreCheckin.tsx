@@ -88,7 +88,7 @@ interface IdForm {
 const ID_TYPES = [
     { value: "aadhaar", label: "Aadhaar Card", placeholder: "XXXX-XXXX-XXXX" },
     { value: "passport", label: "Passport", placeholder: "A1234567" },
-    { value: "driving_licence", label: "Driving Licence", placeholder: "DL-XXXXXXXXX" },
+    { value: "driving_license", label: "Driving License", placeholder: "DL-XXXXXXXXX" },
     { value: "voter_id", label: "Voter ID", placeholder: "ABC1234567" },
     { value: "other", label: "Other", placeholder: "Enter ID number" },
 ];
@@ -215,11 +215,14 @@ export default function PreCheckin() {
                     }));
 
                     if (result.identity_proof) {
+                        const incomingType = result.identity_proof.type || "aadhaar";
+                        const id_type = (incomingType === 'aadhar') ? 'aadhaar' : incomingType;
+
                         setIdForm({
-                            id_type: result.identity_proof.type || "aadhaar",
+                            id_type: id_type,
                             id_number: (() => {
                                 const num = result.identity_proof.number || "";
-                                if (result.identity_proof.type === "aadhaar" && num.length > 4) {
+                                if (id_type === "aadhaar" && num.length > 4) {
                                     return `XXXX-XXXX-${num.slice(-4)}`;
                                 }
                                 return num;
@@ -288,7 +291,7 @@ export default function PreCheckin() {
                 nationality: guestForm.nationality,
                 address: guestForm.address,
                 additional_guests: guestForm.additional_guests,
-                id_type: idForm.id_type,
+                id_type: (idForm.id_type === 'aadhaar' || idForm.id_type === 'passport' || idForm.id_type === 'driving_license' || idForm.id_type === 'other') ? idForm.id_type : 'other',
                 id_number: idForm.id_number.includes("XXXX") ? (booking?.identity_proof?.number || idForm.id_number) : idForm.id_number,
                 front_captured: idForm.front_captured,
                 back_uploaded: idForm.back_uploaded,

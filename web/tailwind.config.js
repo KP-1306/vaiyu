@@ -15,6 +15,18 @@ export default {
           earth:   '#FFD60A', // y (Yellow — stability)
           space:   '#8E8E93', // u (Grey — awareness)
         },
+        gold: {
+          50:  '#fdf8e8',
+          100: '#f9edc5',
+          200: '#f3dc8e',
+          300: '#e9c55a',
+          400: '#d4af37', // Foundation gold
+          500: '#b8942d',
+          600: '#967624',
+          700: '#74591d',
+          800: '#5a4418',
+          900: '#473614',
+        },
       },
       boxShadow: {
         glowBlue:   '0 2px 6px rgba(15,98,254,0.45)',

@@ -1,5 +1,5 @@
 import { useRef, ChangeEvent, useState, useEffect } from "react";
-import { Camera, Check, ChevronDown, Lock, Shield, Upload, AlertTriangle, Loader2 } from "lucide-react";
+import { Camera, Check, ChevronDown, Lock, Shield, Upload, AlertTriangle, Loader2, FileText, Eye, X } from "lucide-react";
 import "./Step2IdentityVerification.css";
 
 const ID_TYPES = [
@@ -28,6 +28,29 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
 
     const [remoteFrontUrl, setRemoteFrontUrl] = useState<string | null>(null);
     const [remoteBackUrl, setRemoteBackUrl] = useState<string | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null); // For Modal
+
+    // Local previews for newly selected files
+    const [frontPreview, setFrontPreview] = useState<string | null>(null);
+    const [backPreview, setBackPreview] = useState<string | null>(null);
+
+    // Revoke blob URLs to prevent memory leaks
+    useEffect(() => {
+        return () => {
+            if (frontPreview) URL.revokeObjectURL(frontPreview);
+            if (backPreview) URL.revokeObjectURL(backPreview);
+        };
+    }, [frontPreview, backPreview]);
+
+    // Initialize/Sync blob previews from idForm.front_file/back_file
+    useEffect(() => {
+        if (idForm.front_file && !frontPreview) {
+            setFrontPreview(URL.createObjectURL(idForm.front_file));
+        }
+        if (idForm.back_file && !backPreview) {
+            setBackPreview(URL.createObjectURL(idForm.back_file));
+        }
+    }, [idForm.front_file, idForm.back_file, frontPreview, backPreview]);
 
     useEffect(() => {
         const resolveUrl = async (side: "front" | "back", setter: (url: string | null) => void) => {
@@ -41,14 +64,12 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
             }
 
             try {
-                const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
-                const anonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+                const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
                 const res = await fetch(`${supabaseUrl}/functions/v1/get-document-url`, {
                     method: "POST",
                     headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${anonKey}`
+                        "Content-Type": "application/json"
                     },
                     body: JSON.stringify({
                         guest_id: booking?.guest_id,
@@ -59,10 +80,11 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
                 });
 
                 if (!res.ok) throw new Error(`Edge Function returned ${res.status}`);
-
-                const blob = await res.blob();
-                const blobUrl = URL.createObjectURL(blob);
-                setter(blobUrl);
+                
+                const json = await res.json();
+                if (json.url) {
+                    setter(json.url);
+                }
             } catch (err) {
                 console.warn(`[Step2] Failed to resolve remote ${side} URL:`, err);
             }
@@ -87,6 +109,15 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
     const handleFileChange = (e: ChangeEvent<HTMLInputElement>, field: 'front_captured' | 'back_uploaded') => {
         const file = e.target.files?.[0];
         if (file) {
+            const tempUrl = URL.createObjectURL(file);
+            if (field === 'front_captured') {
+                if (frontPreview) URL.revokeObjectURL(frontPreview);
+                setFrontPreview(tempUrl);
+            } else {
+                if (backPreview) URL.revokeObjectURL(backPreview);
+                setBackPreview(tempUrl);
+            }
+
             setIdForm({
                 ...idForm,
                 [field]: true,
@@ -174,8 +205,8 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
                         onClick={handleFrontClick}
                         className={`step2-capture-btn ${idForm.front_captured ? "captured" : ""}`}
                         style={{
-                            backgroundImage: idForm.front_file
-                                ? `url(${URL.createObjectURL(idForm.front_file)})`
+                            backgroundImage: frontPreview
+                                ? `url(${frontPreview})`
                                 : remoteFrontUrl
                                     ? `url(${remoteFrontUrl})`
                                     : 'none',
@@ -183,24 +214,38 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
                             backgroundPosition: 'center'
                         }}
                     >
-                        <div className={`step2-icon-box ${(idForm.front_file || remoteFrontUrl) ? "has-preview" : ""}`}>
-                            {idForm.front_captured ? <Check /> : (
+                        <div className={`step2-icon-box ${(frontPreview || remoteFrontUrl) ? "has-preview" : ""}`}>
+                            {(frontPreview || remoteFrontUrl) ? <FileText /> : (
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
                                     <circle cx="12" cy="13" r="3" />
                                 </svg>
                             )}
                         </div>
-                        <div className={`${(idForm.front_file || remoteFrontUrl) ? "bg-black/60 backdrop-blur-sm p-2 rounded-lg" : ""}`}>
-                            <div className="step2-capture-title">
-                                {idForm.front_file
-                                    ? "Front Side Captured"
-                                    : (idForm.front_captured || remoteFrontUrl)
-                                        ? "Front Side Saved"
-                                        : "Capture Front Side"}
+                        <div className={`flex-1 ${(frontPreview || remoteFrontUrl) ? "bg-black/60 backdrop-blur-sm p-4 rounded-xl border border-white/10" : ""}`}>
+                            <div className="flex items-center justify-between">
+                                <div className="step2-capture-title">
+                                    {frontPreview
+                                        ? "Front Side Captured"
+                                        : (idForm.front_captured || remoteFrontUrl)
+                                            ? "Front Side Saved"
+                                            : "Capture Front Side"}
+                                </div>
+                                {(frontPreview || remoteFrontUrl) && (
+                                    <div 
+                                        className="step2-view-link flex items-center gap-1"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setPreviewUrl(frontPreview || remoteFrontUrl);
+                                        }}
+                                    >
+                                        <Eye className="w-3 h-3" />
+                                        View Proof
+                                    </div>
+                                )}
                             </div>
                             <div className="step2-capture-subtitle">
-                                {idForm.front_file
+                                {frontPreview
                                     ? "Tap to retake"
                                     : (idForm.front_captured || remoteFrontUrl)
                                         ? "Document on file • Tap to replace"
@@ -222,8 +267,8 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
                         onClick={handleBackClick}
                         className={`step2-capture-btn ${idForm.back_uploaded ? "captured" : ""}`}
                         style={{
-                            backgroundImage: idForm.back_file
-                                ? `url(${URL.createObjectURL(idForm.back_file)})`
+                            backgroundImage: backPreview
+                                ? `url(${backPreview})`
                                 : remoteBackUrl
                                     ? `url(${remoteBackUrl})`
                                     : 'none',
@@ -231,8 +276,8 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
                             backgroundPosition: 'center'
                         }}
                     >
-                        <div className={`step2-icon-box ${(idForm.back_file || remoteBackUrl) ? "has-preview" : ""}`}>
-                            {idForm.back_uploaded ? <Check /> : (
+                        <div className={`step2-icon-box ${(backPreview || remoteBackUrl) ? "has-preview" : ""}`}>
+                            {(backPreview || remoteBackUrl) ? <FileText /> : (
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                                     <polyline points="17 8 12 3 7 8" />
@@ -240,16 +285,30 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
                                 </svg>
                             )}
                         </div>
-                        <div className={`${(idForm.back_file || remoteBackUrl) ? "bg-black/60 backdrop-blur-sm p-2 rounded-lg" : ""}`}>
-                            <div className="step2-capture-title">
-                                {idForm.back_file
-                                    ? "Back Side Uploaded"
-                                    : (idForm.back_uploaded || remoteBackUrl)
-                                        ? "Back Side Saved"
-                                        : "Upload Back Side"}
+                        <div className={`flex-1 ${(backPreview || remoteBackUrl) ? "bg-black/60 backdrop-blur-sm p-4 rounded-xl border border-white/10" : ""}`}>
+                            <div className="flex items-center justify-between">
+                                <div className="step2-capture-title">
+                                    {backPreview
+                                        ? "Back Side Uploaded"
+                                        : (idForm.back_uploaded || remoteBackUrl)
+                                            ? "Back Side Saved"
+                                            : "Upload Back Side"}
+                                </div>
+                                {(backPreview || remoteBackUrl) && (
+                                    <div 
+                                        className="step2-view-link flex items-center gap-1"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setPreviewUrl(backPreview || remoteBackUrl);
+                                        }}
+                                    >
+                                        <Eye className="w-3 h-3" />
+                                        View Proof
+                                    </div>
+                                )}
                             </div>
                             <div className="step2-capture-subtitle">
-                                {idForm.back_file
+                                {backPreview
                                     ? "Tap to change"
                                     : (idForm.back_uploaded || remoteBackUrl)
                                         ? "Document on file • Tap to replace"
@@ -261,7 +320,7 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
 
                 {/* Encryption Notice */}
                 <div className="step2-encrypt-notice">
-                    <Lock />
+                    <Lock size={16} />
                     <span>Documents encrypted and stored securely</span>
                 </div>
 
@@ -291,6 +350,24 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
                     )}
                 </button>
             </div>
+
+            {/* ── Image Preview Modal (GuestKYC Style) ── */}
+            {previewUrl && (
+                <div className="step2-modal-overlay" onClick={() => setPreviewUrl(null)}>
+                    <div className="step2-modal-container">
+                        <button className="step2-modal-close-top" onClick={() => setPreviewUrl(null)}>
+                            <X className="w-10 h-10" />
+                        </button>
+                        
+                        <div className="step2-modal-image-wrapper" onClick={e => e.stopPropagation()}>
+                            <img src={previewUrl} className="step2-modal-image" alt="Proof Review" />
+                            <div className="step2-modal-footer-badge">
+                                <p>Secure Document Review Node</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Error Toast */}
             {submitError && (

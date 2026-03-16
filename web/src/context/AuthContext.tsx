@@ -1,12 +1,10 @@
 // web/src/context/AuthContext.tsx
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, useRef } from "react";
 import { supabase } from "../lib/supabase";
 
 type AuthContextValue = {
   loading: boolean;
-  user: ReturnType<typeof supabase.auth.getUser> extends Promise<{ data: infer D }>
-    ? NonNullable<D>["user"] | null
-    : any;
+  user: any;
   email: string | null;
 };
 
@@ -18,26 +16,42 @@ const AuthContext = createContext<AuthContextValue>({
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<AuthContextValue["user"]>(null);
+  const [user, setUser] = useState<any>(null);
+  const linkingAttempted = useRef<string | null>(null);
 
   useEffect(() => {
     let alive = true;
 
-    const bootstrap = async () => {
+    async function ensureMapping(uid: string) {
+      if (linkingAttempted.current === uid) return;
+      linkingAttempted.current = uid;
+      const { error } = await supabase.rpc("link_auth_user_to_guest");
+      if (error) {
+        // Reset ref on failure to allow retry on next state change
+        linkingAttempted.current = null;
+      }
+    }
+
+    const boostrap = async () => {
       setLoading(true);
       try {
         const { data } = await supabase.auth.getUser();
         if (!alive) return;
-        setUser(data?.user ?? null);
+        const u = data?.user ?? null;
+        setUser(u);
+        if (u) ensureMapping(u.id);
       } finally {
         if (alive) setLoading(false);
       }
     };
 
-    bootstrap();
+    boostrap();
 
     const { data: subscription } = supabase.auth.onAuthStateChange((_evt, session) => {
-      setUser(session?.user ?? null);
+      const u = session?.user ?? null;
+      setUser(u);
+      if (u) ensureMapping(u.id);
+      else linkingAttempted.current = null;
     });
 
     return () => {

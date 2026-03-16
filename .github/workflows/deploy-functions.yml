@@ -72,6 +72,7 @@ jobs:
             process-import-rows
             send-notifications
             get-document-url
+            upload-guest-id
           )
 
           # Optional legacy/aux functions — won't fail the job if missing.

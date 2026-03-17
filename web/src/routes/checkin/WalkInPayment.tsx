@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
     Camera,
     CreditCard,
@@ -22,6 +22,8 @@ import { CheckInStepper } from "../../components/CheckInStepper";
 export default function WalkInPayment() {
     const navigate = useNavigate();
     const location = useLocation();
+    const [searchParams] = useSearchParams();
+    const slug = searchParams.get('slug');
 
     const {
         guestDetails,
@@ -63,7 +65,7 @@ export default function WalkInPayment() {
     // Redirect if missing critical data
     useEffect(() => {
         if (!guestDetails || !stayDetails || !pricing) {
-            navigate("../walkin");
+            navigate({ pathname: "../walkin", search: slug ? `?slug=${slug}` : "" });
         }
     }, [guestDetails, stayDetails, pricing, navigate]);
 
@@ -98,6 +100,11 @@ export default function WalkInPayment() {
                 return;
             }
 
+            // Guard: If we already have the URL or a local capture, skip the fetch
+            if ((existingFront || frontPreview) && (existingBack || backPreview)) {
+                return;
+            }
+
             setLoadingDocs(true);
             try {
                 // 1. Fetch the identity proof record directly
@@ -127,6 +134,10 @@ export default function WalkInPayment() {
 
                 // Call secure Edge Function for both sides (JSON response)
                 const fetchSide = async (side: 'front' | 'back') => {
+                    // Internal Side Guard
+                    if (side === 'front' && (existingFront || frontPreview || frontCleared)) return null;
+                    if (side === 'back' && (existingBack || backPreview || backCleared)) return null;
+
                     const { data, error } = await supabase.functions.invoke('get-document-url', {
                         body: {
                             guest_id: gid,
@@ -253,7 +264,7 @@ export default function WalkInPayment() {
             if (error) throw error;
 
             // 3. Navigate to Success
-            navigate("../success", {
+            navigate({ pathname: "../success", search: slug ? `?slug=${slug}` : "" }, {
                 state: {
                     roomNumber: roomNumber || "Assigned",
                     bookingCode: data.booking_code,
@@ -551,7 +562,14 @@ export default function WalkInPayment() {
                             </div>
 
                             {/* ── Execute Action ── */}
-                            <div className="pt-10">
+                            <div className="pt-10 space-y-4">
+                                <button
+                                    onClick={() => navigate({ pathname: "../availability", search: slug ? `?slug=${slug}` : "" }, { state: location.state })}
+                                    className="w-full py-4 text-sm font-bold tracking-widest text-white/40 border border-white/5 rounded-2xl hover:bg-white/5 hover:text-white transition-all duration-300 uppercase"
+                                >
+                                    Back to Selection
+                                </button>
+
                                 <button
                                     onClick={handlePayment}
                                     disabled={processing}
@@ -571,7 +589,7 @@ export default function WalkInPayment() {
                                     )}
                                 </button>
 
-                                <div className="flex items-center justify-center gap-3 text-[8px] font-black uppercase tracking-[0.3em] text-white/10 pt-8">
+                                <div className="flex items-center justify-center gap-3 text-[8px] font-black uppercase tracking-[0.3em] text-white/10 pt-4">
                                     <Lock className="h-3 w-3" />
                                     End-to-End Cryptographic Security
                                 </div>

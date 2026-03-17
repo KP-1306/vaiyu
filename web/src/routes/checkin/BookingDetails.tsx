@@ -1,5 +1,5 @@
 import React from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
     CheckCircle,
     ArrowRight,
@@ -20,6 +20,8 @@ import "./BookingDetails.css";
 export default function BookingDetails() {
     const navigate = useNavigate();
     const location = useLocation();
+    const [searchParams] = useSearchParams();
+    const slug = searchParams.get("slug");
     const booking = location.state?.booking;
     const [hotelData, setHotelData] = React.useState<any>(null);
     const [loading, setLoading] = React.useState(!!booking?.hotel_id);
@@ -68,7 +70,7 @@ export default function BookingDetails() {
                 </div>
                 <h2 className="text-2xl font-black text-white tracking-widest uppercase">No booking selected</h2>
                 <button
-                    onClick={() => navigate("../booking")}
+                    onClick={() => navigate({ pathname: "../booking", search: slug ? `?slug=${slug}` : "" })}
                     className="text-gold-400 hover:text-gold-300 font-black uppercase tracking-[0.2em] transition-colors"
                 >
                     &larr; Return to search
@@ -270,14 +272,14 @@ export default function BookingDetails() {
                 {/* 3. Footer Control Actions */}
                 <div className="gn-details-footer">
                     <button
-                        onClick={() => navigate("../booking")}
+                        onClick={() => navigate({ pathname: "../booking", search: slug ? `?slug=${slug}` : "" })}
                         className="gn-details-btn-secondary"
                     >
                         <ArrowLeft className="h-4 w-4" /> Return to Search
                     </button>
 
                     <button
-                        onClick={() => navigate(`../kyc${location.search}`, { state: { booking } })}
+                        onClick={() => navigate({ pathname: "../kyc", search: slug ? `?slug=${slug}` : "" }, { state: { booking } })}
                         className="gn-details-btn-primary"
                     >
                         {/* Dynamic Interactive Layer */}

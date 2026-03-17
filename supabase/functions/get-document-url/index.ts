@@ -186,8 +186,8 @@ serve(async (req: Request) => {
 
                     if (countError) {
                          console.warn("[get-document-url] Rate limit check query failed (non-blocking):", countError);
-                    } else if (count !== null && count >= 10) {
-                        console.warn(`[get-document-url] Rate Limited: Staff ${callerId} viewed Guest ${guest_id} too many times.`);
+                    } else if (count !== null && count >= 40) {
+                        console.warn(`[get-document-url] RATE LIMIT HIT (MINUTE): Staff ${callerId} viewed Guest ${guest_id} ${count} times in last 60s.`);
                         return new Response(
                             JSON.stringify({ error: { code: "RATE_LIMITED", message: "Too many requests for this document. Please wait a minute." } }),
                             { 
@@ -267,7 +267,8 @@ serve(async (req: Request) => {
 
             if (vError) {
                 console.warn("[get-document-url] Hourly rate check query failed (non-blocking):", vError);
-            } else if (docViews !== null && docViews >= 30) {
+            } else if (docViews !== null && docViews >= 120) {
+                console.warn(`[get-document-url] RATE LIMIT HIT (HOURLY): Guest ${guest_id} document viewed ${docViews} times in last hour.`);
                 return buildErrorResponse("RATE_LIMITED", "Maximum hourly secure view limit reached for this document.", 429, req);
             }
         } catch (vExc) {

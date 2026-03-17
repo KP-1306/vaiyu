@@ -14,13 +14,26 @@ export default function CheckInHome() {
     const location = useLocation();
     const [searchParams] = useSearchParams();
     const slug = searchParams.get("slug");
-    const [hotelInfo, setHotelInfo] = React.useState<{ name: string; logo_url: string | null } | null>(null);
+    const [hotelInfo, setHotelInfo] = React.useState<{ name: string; logo_url: string | null; phone: string | null } | null>(null);
 
     React.useEffect(() => {
         async function fetchHotel() {
             if (!slug) return;
-            const { data } = await supabase.from('hotels').select('*').ilike('slug', slug).maybeSingle();
-            if (data) setHotelInfo(data);
+            try {
+                // Query the public view which has proper aliases (logo_url) and RLS
+                const { data, error } = await supabase.from('v_public_hotels')
+                    .select('name, logo_url, phone')
+                    .ilike('slug', slug)
+                    .maybeSingle();
+                
+                if (error) {
+                    console.error("[CheckInHome] Hotel fetch error:", error);
+                    return;
+                }
+                if (data) setHotelInfo(data);
+            } catch (err) {
+                console.error("[CheckInHome] Unexpected fetch error:", err);
+            }
         }
         fetchHotel();
     }, [slug]);
@@ -68,7 +81,7 @@ export default function CheckInHome() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto px-6">
                 {/* 1. Check-in with Booking */}
                 <button
-                    onClick={() => navigate({ pathname: "booking", search: location.search })}
+                    onClick={() => navigate({ pathname: "booking", search: slug ? `?slug=${slug}` : "" })}
                     className="group relative gn-card p-12 flex flex-col items-center text-center transition-all duration-700 hover:-translate-y-3 hover:shadow-[0_40px_100px_rgba(212,175,55,0.1)] active:scale-95 overflow-hidden border-transparent hover:border-gold-400/20"
                 >
                     {/* Decorative Gradient Glow */}
@@ -91,7 +104,7 @@ export default function CheckInHome() {
 
                 {/* 2. Walk-in Guest */}
                 <button
-                    onClick={() => navigate({ pathname: "walkin", search: location.search })}
+                    onClick={() => navigate({ pathname: "walkin", search: slug ? `?slug=${slug}` : "" })}
                     className="group relative gn-card p-12 flex flex-col items-center text-center transition-all duration-700 hover:-translate-y-3 hover:shadow-[0_40px_100px_rgba(212,175,55,0.1)] active:scale-95 overflow-hidden border-transparent hover:border-gold-400/20"
                 >
                     {/* Decorative Gradient Glow */}
@@ -115,7 +128,7 @@ export default function CheckInHome() {
 
             <div className="text-center pt-8">
                 <p className="text-gold-100/30 text-xs font-medium">
-                    Need assistance? Call reception at <span className="text-gold-100/50">+91 000 000 0000</span>
+                    Need assistance? Call reception at <span className="text-gold-100/50">{hotelInfo?.phone || "+91 000 000 0000"}</span>
                 </p>
             </div>
         </div>

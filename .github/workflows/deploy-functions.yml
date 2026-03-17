@@ -64,13 +64,16 @@ jobs:
           # Required functions — fail the job if any of these fail to deploy.
           required=(
             tickets
+            ticket-get
             orders
             reviews
             ops-list
             ops-update
             ticket-get
+            upload-import-csv
             process-import-rows
             send-notifications
+            generate-reminders
             get-document-url
             upload-guest-id
           )

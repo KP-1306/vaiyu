@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { ArrowRight, Search, Loader2 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { CheckInStepper } from "../../components/CheckInStepper";
 
 export default function BookingLookup() {
     const navigate = useNavigate();
+    const location = useLocation();
     const [searchParams] = useSearchParams();
+    const slug = searchParams.get("slug");
     const [query, setQuery] = useState(searchParams.get("code") || "");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -66,7 +68,7 @@ export default function BookingLookup() {
                 // If 1, auto-select. If multiple, show list?
                 // Let's just take the first one for now.
                 const booking = data[0];
-                navigate("../details", { state: { booking } });
+                navigate({ pathname: "../details", search: slug ? `?slug=${slug}` : "" }, { state: { booking } });
             } else {
                 setError("No booking found with those details.");
             }
@@ -128,7 +130,7 @@ export default function BookingLookup() {
                     <div className="flex flex-col sm:flex-row gap-4 pt-2">
                         <button
                             type="button"
-                            onClick={() => navigate("../")}
+                            onClick={() => navigate({ pathname: "../", search: slug ? `?slug=${slug}` : "" })}
                             className="flex-1 rounded-2xl bg-white/5 px-8 py-5 text-lg font-bold text-white/80 border border-white/10 hover:bg-white/10 hover:text-white transition-all active:scale-[0.98] uppercase tracking-widest"
                         >
                             Back

@@ -54,6 +54,10 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
 
     useEffect(() => {
         const resolveUrl = async (side: "front" | "back", setter: (url: string | null) => void) => {
+            // Guard: Skip if already fetched or in progress
+            if (side === "front" && remoteFrontUrl) return;
+            if (side === "back" && remoteBackUrl) return;
+
             const existingPath = side === "front" ? idForm.front_image_url : idForm.back_image_url;
             if (!existingPath) return;
 

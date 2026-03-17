@@ -24,15 +24,13 @@ export default function CheckInSuccess() {
 
         async function fetchInfo() {
             try {
-                console.log("[CheckInSuccess] Fetching for hotelId:", hotelId);
-                // 1. Fetch Hotel Name
+                // 1. Fetch Hotel Name from public view
                 const { data: hData, error: hErr } = await supabase
-                    .from('hotels')
+                    .from('v_public_hotels')
                     .select('name, slug')
                     .eq('id', hotelId)
                     .maybeSingle();
 
-                console.log("[CheckInSuccess] Hotel Data:", hData, "Error:", hErr);
                 if (hData) setHotelData(hData);
 
                 // 2. Fetch Guest Info (WiFi, Breakfast)
@@ -42,7 +40,6 @@ export default function CheckInSuccess() {
                     .eq('hotel_id', hotelId)
                     .maybeSingle();
 
-                console.log("[CheckInSuccess] Guest Info:", gData, "Error:", gErr);
                 if (gData) setGuestInfo(gData);
             } catch (err) {
                 console.error("[CheckInSuccess] Load error:", err);
@@ -90,7 +87,7 @@ export default function CheckInSuccess() {
 
                     <div className="space-y-4">
                         <div className="inline-flex items-center gap-3 px-6 py-2 rounded-full bg-gold-400/5 border border-gold-400/20 text-gold-400 text-[11px] font-black uppercase tracking-[0.4em]">
-                            Checkin Complete
+                            Checkin Completed
                         </div>
                         <h1 className="text-6xl font-light tracking-tighter text-white">
                             Assigned & <span className="text-gold-400 italic font-medium">Secured.</span>
@@ -146,7 +143,7 @@ export default function CheckInSuccess() {
                             <Coffee className="h-7 w-7" />
                         </div>
                         <div className="text-left space-y-1">
-                            <h3 className="text-lg font-light text-white tracking-tight">Culinary Access</h3>
+                            <h3 className="text-lg font-light text-white tracking-tight">Breakfast Time</h3>
                             <p className="text-[10px] font-bold uppercase tracking-widest text-gold-400/40 leading-relaxed">
                                 {guestInfo?.breakfast_start ? `${formatTime(guestInfo.breakfast_start)} — ${formatTime(guestInfo.breakfast_end)}` : '07:00 — 10:30'}
                                 <span className="block mt-0.5 opacity-60">Hourly Provisioning</span>
@@ -158,15 +155,15 @@ export default function CheckInSuccess() {
                 {/* Footer Action */}
                 <div className="pt-10 animate-in fade-in slide-in-from-bottom-20 duration-1000 delay-500">
                     <Link
-                        to={{ 
-                            pathname: "/checkin", 
-                            search: hotelData?.slug ? `?slug=${hotelData.slug}` : location.search 
+                        to={{
+                            pathname: "/checkin",
+                            search: hotelData?.slug ? `?slug=${hotelData.slug}` : ""
                         }}
                         state={{ hotelId }}
                         className="gn-btn gn-btn--primary px-16 py-6 text-xl group relative overflow-hidden inline-flex items-center gap-3"
                     >
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                        <span className="uppercase tracking-[0.2em] font-black">Back to Nexus</span>
+                        <span className="uppercase tracking-[0.2em] font-black">Back to Checkin</span>
                         <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
                     </Link>
                 </div>

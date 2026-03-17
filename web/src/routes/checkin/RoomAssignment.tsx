@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
     ArrowRight,
     ArrowLeft,
@@ -34,6 +34,8 @@ type RoomAssignments = Record<string, string>;
 export default function RoomAssignment() {
     const navigate = useNavigate();
     const location = useLocation();
+    const [searchParams] = useSearchParams();
+    const slug = searchParams.get('slug');
     const { booking, guestDetails } = location.state || {};
 
     const [allHotelRooms, setAllHotelRooms] = useState<Room[]>([]);
@@ -50,7 +52,7 @@ export default function RoomAssignment() {
     // Redirect if missing flow data
     useEffect(() => {
         if (!booking || !guestDetails) {
-            navigate("../booking");
+            navigate({ pathname: "../booking", search: slug ? `?slug=${slug}` : "" });
         }
     }, [booking, guestDetails, navigate]);
 
@@ -197,7 +199,7 @@ export default function RoomAssignment() {
         if (currentStep > 0) {
             setCurrentStep(prev => prev - 1);
         } else {
-            navigate("../kyc", { state: { booking } });
+            navigate({ pathname: "../kyc", search: slug ? `?slug=${slug}` : "" }, { state: { booking } });
         }
     };
 
@@ -241,7 +243,7 @@ export default function RoomAssignment() {
                     .filter(Boolean)
                     .join(', ');
 
-                navigate("../success", {
+                navigate({ pathname: "../success", search: slug ? `?slug=${slug}` : "" }, {
                     state: {
                         booking,
                         hotelId: booking.hotel_id,

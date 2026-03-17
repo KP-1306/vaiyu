@@ -34,8 +34,11 @@ export default function CheckInLayout() {
                 if (rpcError) throw rpcError;
 
                 if (data?.valid) {
-                    // Navigate to details with booking data
-                    navigate("/checkin/details", {
+                    // Navigate to details with booking data, preserving slug
+                    navigate({
+                        pathname: "/checkin/details",
+                        search: slug ? `?slug=${slug}` : ""
+                    }, {
                         state: { booking: data },
                         replace: true // Prevent back button loop
                     });
@@ -75,7 +78,7 @@ export default function CheckInLayout() {
                     <p className="mt-2 text-gold-100/60 max-w-sm">{error}</p>
                     <button
                         onClick={() => {
-                            window.location.href = "/checkin";
+                            window.location.href = `/checkin?slug=${slug || ''}`;
                         }}
                         className="gn-btn gn-btn--primary mt-8"
                     >
@@ -92,10 +95,7 @@ export default function CheckInLayout() {
             <header className="gn-header">
                 <div className="flex items-center gap-4">
                     <Link 
-                        to={{ 
-                            pathname: "/checkin", 
-                            search: slug ? `?slug=${slug}` : "" 
-                        }} 
+                        to={slug ? `/owner/${slug}` : "/owner"} 
                         className="gn-header__logo"
                     >
                         <img 

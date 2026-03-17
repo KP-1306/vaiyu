@@ -1,16 +1,21 @@
 import React, { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
     CreditCard,
     Loader2,
     Lock,
-    ShieldCheck
+    ShieldCheck,
+    ArrowRight,
+    Receipt
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
+import { CheckInStepper } from "../../components/CheckInStepper";
 
 export default function PaymentDeposit() {
     const navigate = useNavigate();
     const location = useLocation();
+    const [searchParams] = useSearchParams();
+    const slug = searchParams.get('slug');
     const { booking, guestDetails, roomId } = location.state || {};
 
     const [processing, setProcessing] = useState(false);
@@ -43,9 +48,7 @@ export default function PaymentDeposit() {
             if (error) throw error;
 
             if (data.status === 'SUCCESS' || data.status === 'ALREADY_CHECKED_IN') {
-                navigate("../success", { state: { booking, roomNumber: "101" } }); // We need room number from room list, but assume we get it back or look it up.
-                // Actually process_checkin returns stay_id. We might want to fetch stay details to show room number.
-                // For now, let's just show success.
+                navigate({ pathname: "../success", search: slug ? `?slug=${slug}` : "" }, { state: { booking, roomNumber: "101", hotelId: booking.hotel_id } });
             } else {
                 alert("Check-in failed: " + data.status);
             }
@@ -60,65 +63,102 @@ export default function PaymentDeposit() {
 
     if (!booking) return null;
 
+    const PRECHECKIN_STEPS = ["Booking Details", "Guest Identity", "Security Deposit"];
+
     return (
-        <div className="mx-auto max-w-xl space-y-8">
-            <div className="text-center space-y-2">
-                <h2 className="text-3xl font-light text-slate-900">Security Deposit</h2>
-                <p className="text-slate-500">A refundable deposit is required for incidentals.</p>
+        <div className="mx-auto max-w-2xl px-4 space-y-12">
+            <div className="mb-8">
+                <CheckInStepper steps={PRECHECKIN_STEPS} currentStep={2} />
             </div>
 
-            <div className="rounded-3xl bg-white p-8 shadow-lg ring-1 ring-slate-900/5 space-y-6">
-                <div className="flex flex-col items-center justify-center py-6 border-b border-slate-100">
-                    <p className="text-sm font-medium text-slate-500 uppercase tracking-wider">Total Amount</p>
-                    <div className="text-5xl font-bold text-slate-900 mt-2">
-                        ₹{depositAmount.toLocaleString()}
+            <div className="gn-card premium-glass p-8 md:p-12 space-y-10 relative overflow-hidden group">
+                {/* Decorative Elements */}
+                <div className="absolute top-0 right-0 w-64 h-64 bg-gold-400/5 blur-[100px] -mr-32 -mt-32" />
+
+                <div className="space-y-6 text-center">
+                    <div className="inline-flex items-center gap-3 px-6 py-2 rounded-full bg-gold-400/5 border border-gold-400/20 text-gold-400 text-[10px] font-black uppercase tracking-[0.4em]">
+                        Authorization Required
+                    </div>
+                    <h2 className="text-4xl font-light text-white tracking-tight">Security <span className="text-gold-400 font-medium italic">Hold</span></h2>
+                    <p className="text-gold-100/40 text-lg font-light leading-relaxed max-w-md mx-auto">
+                        A refundable security deposit is required for incidentals during your residency.
+                    </p>
+                </div>
+
+                <div className="flex flex-col items-center justify-center py-12 border-y border-white/5 bg-white/[0.01] rounded-3xl">
+                    <p className="text-[10px] font-black text-gold-400/40 uppercase tracking-[0.3em] mb-4">Total Amount to Authorize</p>
+                    <div className="text-6xl font-light text-white tracking-tighter flex items-start gap-1">
+                        <span className="text-2xl text-gold-400/40 mt-2">₹</span>
+                        {depositAmount.toLocaleString()}
                     </div>
                 </div>
 
                 <div className="space-y-4">
-                    <button className="group relative w-full flex items-center justify-between rounded-2xl border border-slate-200 p-4 hover:border-indigo-600 hover:bg-indigo-50 transition-all">
-                        <div className="flex items-center gap-3">
-                            <div className="rounded-xl bg-slate-100 p-2 text-slate-600 group-hover:bg-indigo-200 group-hover:text-indigo-700">
-                                <CreditCard className="h-6 w-6" />
+                    <div className="flex items-center gap-4 px-2 mb-2">
+                        <Receipt className="h-4 w-4 text-gold-400/40" />
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Settlement Method</span>
+                    </div>
+                    
+                    <button className="w-full group/btn relative flex items-center justify-between p-6 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-gold-400/[0.04] hover:border-gold-400/30 transition-all duration-500 text-left">
+                        <div className="flex items-center gap-5">
+                            <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center text-gold-400/20 group-hover/btn:text-gold-400 group-hover/btn:bg-gold-400/10 transition-all duration-500">
+                                <CreditCard className="h-7 w-7" />
                             </div>
-                            <div className="text-left">
-                                <div className="font-semibold text-slate-900">Credit / Debit Card</div>
-                                <div className="text-xs text-slate-500">Visa, Mastercard, Amex</div>
+                            <div className="space-y-1">
+                                <div className="text-lg font-medium text-white tracking-tight">Digitized Card</div>
+                                <div className="text-[9px] font-bold uppercase tracking-widest text-gold-400/30">Visa / Mastercard / Amex</div>
                             </div>
                         </div>
-                        <div className="h-5 w-5 rounded-full border border-slate-300 group-hover:border-indigo-600 group-hover:border-4" />
+                        <div className="w-5 h-5 rounded-full border-2 border-white/10 group-hover/btn:border-gold-400 transition-all" />
                     </button>
 
-                    <button className="group relative w-full flex items-center justify-between rounded-2xl border border-slate-200 p-4 hover:border-indigo-600 hover:bg-indigo-50 transition-all">
-                        <div className="flex items-center gap-3">
-                            <div className="rounded-xl bg-slate-100 p-2 text-slate-600 group-hover:bg-indigo-200 group-hover:text-indigo-700">
-                                <ShieldCheck className="h-6 w-6" />
+                    <button className="w-full group/btn relative flex items-center justify-between p-6 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-gold-400/[0.04] hover:border-gold-400/30 transition-all duration-500 text-left">
+                        <div className="flex items-center gap-5">
+                            <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center text-gold-400/20 group-hover/btn:text-gold-400 group-hover/btn:bg-gold-400/10 transition-all duration-500">
+                                <ShieldCheck className="h-7 w-7" />
                             </div>
-                            <div className="text-left">
-                                <div className="font-semibold text-slate-900">UPI / QR Code</div>
-                                <div className="text-xs text-slate-500">GPay, PhonePe, Paytm</div>
+                            <div className="space-y-1">
+                                <div className="text-lg font-medium text-white tracking-tight">Digital Mesh</div>
+                                <div className="text-[9px] font-bold uppercase tracking-widest text-gold-400/30">UPI / QR Transfer</div>
                             </div>
                         </div>
-                        <div className="h-5 w-5 rounded-full border border-slate-300 group-hover:border-indigo-600 group-hover:border-4" />
+                        <div className="w-5 h-5 rounded-full border-2 border-white/10 group-hover/btn:border-gold-400 transition-all" />
                     </button>
                 </div>
 
-                <div className="flex items-center justify-center gap-2 text-xs text-slate-400">
-                    <Lock className="h-3 w-3" />
-                    Secure 256-bit encrypted transaction
-                </div>
+                <div className="space-y-6 pt-6">
+                    <button
+                        onClick={handlePayment}
+                        disabled={processing}
+                        className="w-full py-6 text-2xl font-light tracking-tight text-black bg-gold-400 rounded-2xl hover:bg-gold-300 transition-all duration-500 group relative overflow-hidden shadow-[0_20px_40px_-10px_rgba(212,175,55,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                        {processing ? (
+                            <div className="flex items-center justify-center gap-4">
+                                <Loader2 className="h-6 w-6 animate-spin" />
+                                <span className="uppercase tracking-[0.2em] text-[10px] font-black">Authorizing...</span>
+                            </div>
+                        ) : (
+                            <div className="flex items-center justify-center gap-4">
+                                <span className="uppercase tracking-[0.15em] text-[11px] font-black">Authorize ₹{depositAmount.toLocaleString()}</span>
+                                <ArrowRight className="h-6 w-6 group-hover:translate-x-2 transition-transform" />
+                            </div>
+                        )}
+                    </button>
 
-                <button
-                    onClick={handlePayment}
-                    disabled={processing}
-                    className="w-full rounded-2xl bg-indigo-600 px-8 py-4 text-lg font-semibold text-white shadow-lg hover:bg-indigo-500 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:hover:scale-100 flex items-center justify-center gap-2"
-                >
-                    {processing ? (
-                        <Loader2 className="h-6 w-6 animate-spin" />
-                    ) : (
-                        "Pay & Complete Check-in"
-                    )}
-                </button>
+                    <button
+                        type="button"
+                        onClick={() => navigate(-1)}
+                        className="w-full py-4 text-xs font-bold tracking-[0.3em] text-white/20 hover:text-white transition-colors uppercase"
+                    >
+                        Cancel Authorization
+                    </button>
+                    
+                    <div className="flex items-center justify-center gap-3 text-[9px] font-black uppercase tracking-[0.4em] text-white/10">
+                        <Lock className="h-3.5 w-3.5" />
+                        End-to-End Cryptographic Security
+                    </div>
+                </div>
             </div>
         </div>
     );

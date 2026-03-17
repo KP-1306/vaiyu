@@ -170,8 +170,8 @@ export default function WalkInDetails() {
             // Fetch Hotel Address for default
             let resolvedHotelId = hotelId;
             if (!formData.address || !hotelId) {
-                // Use robust fetch with ilike for case-insensitivity
-                const { data: hData } = await supabase.from('hotels')
+                // Use robust fetch with ilike for case-insensitivity from public view (RLS safe)
+                const { data: hData } = await supabase.from('v_public_hotels')
                     .select('*')
                     .ilike('slug', slug || '')
                     .maybeSingle();
@@ -268,7 +268,7 @@ export default function WalkInDetails() {
 
         setTimeout(() => {
             setLoading(false);
-            navigate({ pathname: "../availability", search: location.search }, { state: payload });
+            navigate({ pathname: "../availability", search: slug ? `?slug=${slug}` : "" }, { state: payload });
         }, 600);
     };
 
@@ -636,7 +636,7 @@ export default function WalkInDetails() {
                 <div className="lg:col-span-2 flex flex-col sm:flex-row gap-6 items-center justify-between pt-10 border-t border-white/5">
                     <button
                         type="button"
-                        onClick={() => navigate({ pathname: "../", search: location.search })}
+                        onClick={() => navigate({ pathname: "../", search: slug ? `?slug=${slug}` : "" })}
                         className="w-full sm:w-auto gn-btn gn-btn--secondary px-10 py-4 text-sm uppercase tracking-widest font-bold"
                     >
                         Back to Selection

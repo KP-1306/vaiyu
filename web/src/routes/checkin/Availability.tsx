@@ -195,7 +195,7 @@ export default function Availability() {
         if (currentStep > 0) {
             setCurrentStep(prev => prev - 1);
         } else {
-            navigate("../walkin-details", { state: { guestDetails, stayDetails } });
+            navigate({ pathname: "../walkin-details", search: slug ? `?slug=${slug}` : "" }, { state: { guestDetails, stayDetails } });
         }
     };
 
@@ -220,7 +220,7 @@ export default function Availability() {
                 .map(sel => sel.room_type_name)
                 .join(', ');
 
-            navigate("../walkin-payment", {
+            navigate({ pathname: "../walkin-payment", search: slug ? `?slug=${slug}` : "" }, {
                 state: {
                     guestDetails,
                     stayDetails,
@@ -309,7 +309,7 @@ export default function Availability() {
                                 <p className="text-red-500/60 text-xs font-bold uppercase tracking-widest">Adjust search criteria</p>
                             </div>
                             <button 
-                                onClick={() => navigate("../walkin-details", { state: { guestDetails, stayDetails } })} 
+                                onClick={() => navigate({ pathname: "../walkin-details", search: slug ? `?slug=${slug}` : "" }, { state: { guestDetails, stayDetails } })} 
                                 className="gn-btn gn-btn--secondary px-8 py-3 text-[10px]"
                             >
                                 Refine Parameters

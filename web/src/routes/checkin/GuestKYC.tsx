@@ -1,6 +1,6 @@
 // GuestKYC.tsx Update
 import React, { useState, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
     ArrowRight,
     Camera,
@@ -31,6 +31,8 @@ import { lookupGuestProfile } from "../../lib/api";
 export default function GuestKYC() {
     const navigate = useNavigate();
     const location = useLocation();
+    const [searchParams] = useSearchParams();
+    const slug = searchParams.get("slug");
     const booking = location.state?.booking;
 
     const existingProof = booking?.identity_proof;
@@ -76,7 +78,7 @@ export default function GuestKYC() {
         async function fetchHotel() {
             const hotelId = booking?.hotel_id;
             if (!hotelId) return;
-            const { data } = await supabase.from('hotels').select('*').eq('id', hotelId).maybeSingle();
+            const { data } = await supabase.from('v_public_hotels').select('*').eq('id', hotelId).maybeSingle();
             if (data) setHotelInfo(data);
         }
         fetchHotel();
@@ -85,17 +87,18 @@ export default function GuestKYC() {
     useEffect(() => {
         if (!existingProof || !booking?.guest_id) return;
 
-        const resolveUrl = async (side: "front" | "back", setter: (url: string | null) => void) => {
-            // If user manually cleared it, skip re-fetching
-            if (side === "front" && frontCleared) return;
-            if (side === "back" && backCleared) return;
+        const resolveUrl = async (side: "front" | "back") => {
+            // 1. Logic Guards: Skip if manually cleared or ALREADY FETCHED in this session
+            if (side === "front" && (frontCleared || existingFront)) return;
+            if (side === "back" && (backCleared || existingBack)) return;
 
             const existingPath = side === "front"
                 ? (existingProof.front_image || existingProof.has_front_image)
                 : (existingProof.back_image || existingProof.has_back_image);
 
             if (typeof existingPath === 'string' && (existingPath.startsWith('http') || existingPath.startsWith('blob:'))) {
-                setter(existingPath);
+                if (side === "front") setExistingFront(existingPath);
+                else setExistingBack(existingPath);
                 return;
             }
 
@@ -117,14 +120,17 @@ export default function GuestKYC() {
 
                 if (res.ok) {
                     const json = await res.json();
-                    if (json.url) setter(json.url);
+                    if (json.url) {
+                        if (side === "front") setExistingFront(json.url);
+                        else setExistingBack(json.url);
+                    }
                 }
             } catch (err) { console.warn(`[GuestKYC] Edge Function failed for ${side}:`, err); }
         };
 
-        if (existingProof.front_image || existingProof.has_front_image) resolveUrl("front", setExistingFront);
-        if (existingProof.back_image || existingProof.has_back_image) resolveUrl("back", setExistingBack);
-    }, [existingProof, booking?.guest_id, booking?.hotel_id, frontCleared, backCleared]);
+        if (existingProof.front_image || existingProof.has_front_image) resolveUrl("front");
+        if (existingProof.back_image || existingProof.has_back_image) resolveUrl("back");
+    }, [existingProof, booking?.guest_id, booking?.hotel_id, frontCleared, backCleared, existingFront, existingBack]);
 
     const autofillGuest = (guest: any, source: "mobile" | "email") => {
         setFormData(prev => ({
@@ -214,7 +220,7 @@ export default function GuestKYC() {
                 back_image: uploadResult.backPath,
                 storage_key: uploadResult.storageKey
             };
-            navigate(`../room-assignment${location.search}`, { state: { booking, guestDetails } });
+            navigate({ pathname: "../room-assignment", search: slug ? `?slug=${slug}` : "" }, { state: { booking, guestDetails } });
         } catch (err: any) { alert("Error: " + err.message); } finally { setUploading(false); }
     };
 
@@ -419,7 +425,7 @@ export default function GuestKYC() {
 
                 <div className="pt-8 flex flex-col items-center space-y-6">
                     <div className="flex gap-6 w-full">
-                        <button type="button" onClick={() => navigate("../details", { state: { booking } })} className="flex-1 gn-btn gn-btn--secondary py-5 text-lg">Return</button>
+                        <button type="button" onClick={() => navigate({ pathname: "../details", search: slug ? `?slug=${slug}` : "" }, { state: { booking } })} className="flex-1 gn-btn gn-btn--secondary py-5 text-lg">Return</button>
                         <button type="submit" disabled={uploading} className="flex-[2] gn-btn gn-btn--primary py-5 text-lg group overflow-hidden">
                             {uploading ? <div className="flex items-center gap-3 justify-center"><Loader2 className="h-6 w-6 animate-spin text-black" /><span className="uppercase tracking-widest font-bold">Securing Vault...</span></div> : <div className="flex items-center gap-3 justify-center"><span className="uppercase tracking-[0.15em] font-bold">Authorize & Advance</span><ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" /></div>}
                         </button>

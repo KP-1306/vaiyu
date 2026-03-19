@@ -1,13 +1,17 @@
 import { Link } from "react-router-dom";
 import { useState, useEffect, useMemo, ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from "../../lib/supabase";
+import { getServices } from "../../lib/api";
 import { SimpleTooltip } from "../../components/SimpleTooltip";
 import "./guestnew.css";
+import "./HeroMockup.css";
 
 type Stay = {
-    id: string;
+    id: string; // booking_id
+    primary_stay_id: string;
     hotel_id?: string | null;
-    status?: string | null;
+    status: string | null;
     hotel: {
         name: string;
         city?: string;
@@ -19,14 +23,21 @@ type Stay = {
     };
     check_in: string;
     check_out: string;
-    actual_checkin_at?: string | null;
-    bill_total?: number | null;
-    room_type?: string | null;
-    room_number?: string | null;
+    room_numbers?: string | null;
+    room_types?: string[] | null;
+    rooms_detail?: any[];
     booking_code?: string | null;
+    outstanding_balance?: number | null;
+    total_amount?: number | null;
+    bill_total?: number | null; // Keep for backward compatibility with user_recent_stays
+    room_type?: string | null; // Keep for backward compatibility
     room_charge?: number | null;
     city_tax?: number | null;
     guests?: number;
+    precheckin_token?: string | null;
+    precheckin_expires_at?: string | null;
+    precheckin_used_at?: string | null;
+    total_nights?: number | null;
 };
 
 // Helper for Tooltips
@@ -43,6 +54,7 @@ export default function GuestNewHome() {
     const [allStays, setAllStays] = useState<Stay[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeRequests, setActiveRequests] = useState(0);
+    const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
     // Get time-aware greeting
     const greeting = useMemo(() => {
@@ -52,7 +64,9 @@ export default function GuestNewHome() {
         return "Good evening";
     }, []);
 
-    // Fetch user profile and stays
+    // Fetch user profile and active bookings
+    const [activeBookings, setActiveBookings] = useState<any[]>([]);
+
     useEffect(() => {
         let mounted = true;
 
@@ -81,7 +95,56 @@ export default function GuestNewHome() {
                         setDisplayName(profile.full_name.split(" ")[0]);
                     }
 
-                    // Fetch stays
+                    // Fetch Active Bookings (Grouped Stays)
+                    const { data: bookings } = await supabase
+                        .from("v_guest_active_bookings")
+                        .select("*")
+                        .order("check_in", { ascending: true });
+
+                    if (mounted && bookings) {
+                        const mappedBookings = bookings.map((b: any) => ({
+                            id: b.booking_id,
+                            primary_stay_id: b.primary_stay_id,
+                            booking_code: b.booking_code,
+                            hotel_id: b.hotel_id,
+                            hotel: {
+                                name: b.hotel_name,
+                                city: b.hotel_city,
+                                slug: b.hotel_slug,
+                                phone: b.hotel_phone,
+                                whatsapp: b.hotel_whatsapp,
+                                email: b.hotel_email,
+                            },
+                            check_in: b.check_in,
+                            check_out: b.check_out,
+                            status: b.status, // 'inhouse' or 'arriving'
+                            room_numbers: b.room_numbers_display,
+                            rooms_detail: b.rooms_detail,
+                            outstanding_balance: b.outstanding_balance,
+                            city_tax: (b.total_amount || 0) * 0.03,
+                            precheckin_token: b.precheckin_token,
+                            precheckin_expires_at: b.precheckin_expires_at,
+                            precheckin_used_at: b.precheckin_used_at,
+                            room_types: b.room_types, // Array of room type names
+                            total_nights: b.total_nights
+                        }));
+
+                        // Sort: Inhouse first, then by check-in date
+                        const sortedBookings = [...mappedBookings].sort((a, b) => {
+                            if (a.status === 'inhouse' && b.status !== 'inhouse') return -1;
+                            if (a.status !== 'inhouse' && b.status === 'inhouse') return 1;
+                            return new Date(a.check_in).getTime() - new Date(b.check_in).getTime();
+                        });
+
+                        setActiveBookings(sortedBookings);
+
+                        // Default currentStay to the first sorted booking if not set
+                        if (sortedBookings.length > 0 && (!currentStay || !sortedBookings.find(sb => sb.id === currentStay.id))) {
+                            setCurrentStay(sortedBookings[0]);
+                        }
+                    }
+
+                    // Also fetch all stays for the "Trips" history if needed, but the hero section now uses activeBookings
                     const { data: stays } = await supabase
                         .from("user_recent_stays")
                         .select("*")
@@ -92,6 +155,7 @@ export default function GuestNewHome() {
                         setAllStays(
                             stays.map((s: any) => ({
                                 id: s.id,
+                                primary_stay_id: s.id, // For single stays, primary_stay_id IS safe to be s.id
                                 hotel_id: s.hotel_id,
                                 status: s.status,
                                 hotel: {
@@ -107,86 +171,11 @@ export default function GuestNewHome() {
                                 check_out: s.check_out,
                                 bill_total: s.bill_total,
                                 room_type: s.room_type,
-                                room_number: s.room_number, // Attempt to fetch real room number
+                                room_numbers: s.room_number,
                                 booking_code: s.booking_code,
-                                room_charge: s.room_charge || (s.bill_total ? s.bill_total * 0.97 : 0),
-                                city_tax: s.city_tax || (s.bill_total ? s.bill_total * 0.03 : 0),
                                 guests: s.guests || 1,
                             }))
                         );
-
-                        // Find current/active stay
-                        const now = new Date();
-
-                        // 1. Prioritize active stays
-                        let active = stays.find((s: any) =>
-                            ["inhouse", "checked_in", "partially_arrived", "checkout_requested"].includes(s.status?.toLowerCase() || "")
-                        );
-
-                        // 2. Fallback to upcoming stay
-                        if (!active) {
-                            active = stays.find((s: any) => {
-                                const checkout = new Date(s.check_out);
-                                const isPast = ["checked_out", "cancelled"].includes(s.status?.toLowerCase() || "");
-                                return !isPast && (
-                                    ["arriving", "expected", "confirmed"].includes(s.status?.toLowerCase() || "") ||
-                                    checkout >= now
-                                );
-                            });
-                        }
-
-                        if (active) {
-                            setCurrentStay({
-                                id: active.id,
-                                hotel_id: active.hotel_id,
-                                status: active.status || "inhouse",
-                                hotel: {
-                                    name: active.hotel_name || active.hotel?.name || "Hotel",
-                                    city: active.hotel_city || active.hotel?.city,
-                                    slug: active.hotel_slug || active.hotel?.slug,
-                                    phone: active.hotel_phone || active.hotel?.phone,
-                                    whatsapp: active.hotel_whatsapp || active.hotel?.wa_display_number,
-                                    email: active.hotel_email || active.hotel?.email,
-                                    amenities: active.hotel?.amenities || active.hotel_amenities || [],
-                                },
-                                check_in: active.check_in,
-                                check_out: active.check_out,
-                                actual_checkin_at: active.actual_checkin_at,
-                                bill_total: active.bill_total,
-                                room_type: active.room_type,
-                                booking_code: active.booking_code,
-                                room_charge: active.room_charge || (active.bill_total ? active.bill_total * 0.97 : 0),
-                                city_tax: active.city_tax || (active.bill_total ? active.bill_total * 0.03 : 0),
-                                guests: active.guests || 1,
-                            });
-                        } else if (stays.length > 0) {
-                            // If no active/upcoming stays, display the most recent past stay
-                            const mostRecent = stays[0];
-                            setCurrentStay({
-                                id: mostRecent.id,
-                                hotel_id: mostRecent.hotel_id,
-                                status: mostRecent.status || "checked_out",
-                                hotel: {
-                                    name: mostRecent.hotel_name || mostRecent.hotel?.name || "Unknown Hotel",
-                                    city: mostRecent.hotel_city || mostRecent.hotel?.city,
-                                    slug: mostRecent.hotel_slug || mostRecent.hotel?.slug,
-                                    phone: mostRecent.hotel_phone || mostRecent.hotel?.phone,
-                                    whatsapp: mostRecent.hotel_whatsapp || mostRecent.hotel?.wa_display_number,
-                                    email: mostRecent.hotel_email || mostRecent.hotel?.email,
-                                    amenities: mostRecent.hotel?.amenities || mostRecent.hotel_amenities || [],
-                                },
-                                check_in: mostRecent.check_in,
-                                check_out: mostRecent.check_out,
-                                actual_checkin_at: mostRecent.actual_checkin_at,
-                                bill_total: mostRecent.bill_total,
-                                room_type: mostRecent.room_type || "Standard",
-                                room_number: mostRecent.room_number,
-                                booking_code: mostRecent.booking_code,
-                                room_charge: mostRecent.room_charge || (mostRecent.bill_total ? mostRecent.bill_total * 0.97 : 0),
-                                city_tax: mostRecent.city_tax || (mostRecent.bill_total ? mostRecent.bill_total * 0.03 : 0),
-                                guests: mostRecent.guests || 1,
-                            });
-                        }
                     }
                 }
             } catch (err) {
@@ -213,25 +202,25 @@ export default function GuestNewHome() {
 
     // Fetch active requests count when currentStay changes
     useEffect(() => {
-        if (!currentStay?.id) {
+        if (!currentStay?.primary_stay_id) {
             setActiveRequests(0);
             return;
         }
 
         (async () => {
             try {
-                // Count active tickets (not completed/cancelled)
+                // Count active tickets (not completed/cancelled) - Scoped to PRIMARY STAY
                 const { count: ticketCount } = await supabase
                     .from("tickets")
                     .select("*", { count: "exact", head: true })
-                    .eq("stay_id", currentStay.id)
+                    .eq("stay_id", currentStay.primary_stay_id)
                     .not("status", "in", "(\"completed\",\"cancelled\")");
 
-                // Count active food orders (pending/preparing)
+                // Count active food orders (pending/preparing) - Scoped to PRIMARY STAY
                 const { count: orderCount } = await supabase
                     .from("food_orders")
                     .select("*", { count: "exact", head: true })
-                    .eq("stay_id", currentStay.id)
+                    .eq("stay_id", currentStay.primary_stay_id)
                     .in("status", ["pending", "preparing", "ready"]);
 
                 setActiveRequests((ticketCount || 0) + (orderCount || 0));
@@ -239,7 +228,7 @@ export default function GuestNewHome() {
                 console.error("[GuestNewHome] Error fetching active requests:", err);
             }
         })();
-    }, [currentStay?.id]);
+    }, [currentStay?.primary_stay_id]);
 
     const [recentRequests, setRecentRequests] = useState<any[]>([]);
     const [folioItems, setFolioItems] = useState<any[]>([]);
@@ -249,6 +238,27 @@ export default function GuestNewHome() {
     const [ledgerTotalState, setLedgerTotalState] = useState(0);
     const [hotelAmenities, setHotelAmenities] = useState<any>(null);
     const [propertyAmenities, setPropertyAmenities] = useState<string[]>([]);
+    const [serviceOfferings, setServiceOfferings] = useState<any[]>([]);
+    const [menuCategories, setMenuCategories] = useState<any[]>([]);
+
+    // Helper for proper offering emojis
+    const getOfferingEmoji = (name: string) => {
+        const n = name.toLowerCase();
+        if (n.includes("dining") || n.includes("food") || n.includes("menu") || n.includes("breakfast") || n.includes("lunch") || n.includes("dinner")) return "🍽️";
+        if (n.includes("housekeeping") || n.includes("cleaning") || n.includes("maid") || n.includes("turndown")) return "🧹";
+        if (n.includes("spa") || n.includes("wellness") || n.includes("massage") || n.includes("salon")) return "💆‍♀️";
+        if (n.includes("transfer") || n.includes("taxi") || n.includes("cab") || n.includes("pickup") || n.includes("airport") || n.includes("travel")) return "🚕";
+        if (n.includes("laundry") || n.includes("ironing") || n.includes("wash") || n.includes("dry-clean")) return "🧺";
+        if (n.includes("maintenance") || n.includes("repair") || n.includes("fix") || n.includes("electrical") || n.includes("plumbing")) return "🔧";
+        if (n.includes("wifi") || n.includes("internet") || n.includes("network")) return "📶";
+        if (n.includes("drink") || n.includes("bar") || n.includes("beverage") || n.includes("cocktail") || n.includes("wine")) return "🍹";
+        if (n.includes("key") || n.includes("lock") || n.includes("access") || n.includes("security")) return "🔑";
+        if (n.includes("bell") || n.includes("concierge") || n.includes("porter") || n.includes("reception") || n.includes("help") || n.includes("support")) return "🛎️";
+        if (n.includes("gym") || n.includes("fitness") || n.includes("workout") || n.includes("sport")) return "🏋️‍♂️";
+        if (n.includes("pool") || n.includes("swim")) return "🏊‍♂️";
+        if (n.includes("doctor") || n.includes("medical") || n.includes("health")) return "💊";
+        return "✨";
+    };
 
     // Fetch hotel amenities (Wi-Fi, Breakfast, Notes) and general amenities
     useEffect(() => {
@@ -276,6 +286,33 @@ export default function GuestNewHome() {
                 console.error("[GuestNewHome] Error fetching hotel amenities:", err);
             }
         })();
+    }, [currentStay?.hotel_id]);
+
+    // Fetch dynamic Property Offerings (Services + Menu Categories)
+    useEffect(() => {
+        if (!currentStay?.hotel_id) return;
+
+        const fetchOfferings = async () => {
+            try {
+                // 1) Fetch Services
+                const res = await getServices(currentStay.hotel_id);
+                if (res?.items) setServiceOfferings(res.items);
+
+                // 2) Fetch Menu Categories
+                const { data: categories } = await supabase
+                    .from('menu_categories')
+                    .select('id, name')
+                    .eq('hotel_id', currentStay.hotel_id)
+                    .eq('active', true)
+                    .order('display_order');
+
+                if (categories) setMenuCategories(categories);
+            } catch (err) {
+                console.error("[GuestNewHome] Error fetching offerings:", err);
+            }
+        };
+
+        fetchOfferings();
     }, [currentStay?.hotel_id]);
 
     const handleActionClick = (e: React.MouseEvent, action: 'request_service' | 'track_requests' | 'checkout' | 'call_reception' | 'whatsapp_reception' | 'email_reception') => {
@@ -421,20 +458,14 @@ export default function GuestNewHome() {
                 let ledgerTotal = 0;
                 let paidAmount = 0;
 
-                // Fetch booking_id from stays table since the recent stays view doesn't have it
-                const { data: stayData } = await supabase
-                    .from("stays")
-                    .select("booking_id")
-                    .eq("id", currentStay.id)
-                    .single();
-
-                if (stayData?.booking_id) {
+                // Scoped to Aggregated Booking for Financials
+                if (currentStay.id) {
                     // Fetch consolidated ledger totals directly
                     const { data: ledger } = await supabase
                         .from("v_arrival_payment_state")
                         .select("total_amount, paid_amount")
-                        .eq("booking_id", stayData.booking_id)
-                        .single();
+                        .eq("booking_id", currentStay.id)
+                        .maybeSingle();
 
                     if (ledger) {
                         ledgerTotal = ledger.total_amount || 0;
@@ -638,6 +669,30 @@ export default function GuestNewHome() {
         invoiceWindow.document.close();
     };
 
+    const [activeIndex, setActiveIndex] = useState(0);
+    const [scrollProgress, setScrollProgress] = useState(0);
+
+    const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+        const { scrollLeft, scrollWidth, clientWidth } = e.currentTarget;
+        const maxScroll = scrollWidth - clientWidth;
+        const progress = maxScroll > 0 ? scrollLeft / maxScroll : 0;
+        setScrollProgress(progress);
+
+        if (activeBookings.length > 0) {
+            setActiveIndex(Math.round(progress * (activeBookings.length - 1)));
+        }
+    };
+
+    const scroll = (direction: 'left' | 'right') => {
+        const el = document.querySelector('.hero-mockup-scroll-container') as HTMLElement;
+        if (el) {
+            const firstCard = el.firstElementChild as HTMLElement;
+            const cardWidth = firstCard ? firstCard.offsetWidth + 18 : 296;
+            const scrollAmount = direction === 'left' ? -cardWidth : cardWidth;
+            el.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+        }
+    };
+
     if (loading) {
         return (
             <div className="gn-container" style={{ paddingTop: "2rem" }}>
@@ -653,17 +708,17 @@ export default function GuestNewHome() {
                     <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🧳</div>
                     <h2 style={{ color: 'var(--text-primary)', marginBottom: '1rem', fontSize: '1.5rem', fontWeight: 600 }}>No Stays Found</h2>
                     <p style={{ color: 'var(--text-secondary)', marginBottom: '2.5rem', lineHeight: 1.5 }}>
-                        You don't have any upcoming or active stays linked to your account yet. 
+                        You don't have any upcoming or active stays linked to your account yet.
                         If you have a booking reference code, you can look it up to link it.
                     </p>
-                    <Link 
-                        to="/checkin" 
-                        style={{ 
-                            background: 'var(--accent-gold)', 
-                            color: '#000', 
-                            padding: '12px 24px', 
-                            borderRadius: '100px', 
-                            fontWeight: 600, 
+                    <Link
+                        to="/checkin"
+                        style={{
+                            background: 'var(--accent-gold)',
+                            color: '#000',
+                            padding: '12px 24px',
+                            borderRadius: '100px',
+                            fontWeight: 600,
                             textDecoration: 'none',
                             display: 'inline-block',
                             transition: 'opacity 0.2s'
@@ -678,39 +733,275 @@ export default function GuestNewHome() {
         );
     }
 
+    // Helper to normalize dates to midnight for consistent "day" counting
+    const normalizeDate = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+    const getStayDayLabel = (checkInStr: string, totalNights: number) => {
+        const start = normalizeDate(new Date(checkInStr));
+        const now = normalizeDate(new Date());
+        const diffDays = Math.round((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        const currentDay = Math.min(Math.max(1, diffDays), totalNights);
+        const nightsTotal = totalNights || 1;
+        return `Stay: Day ${currentDay} of ${nightsTotal} ${nightsTotal === 1 ? 'night' : 'nights'}`;
+    };
+
+    const getNightsRemainingLabel = (checkInStr: string, checkOutStr: string, totalNights?: number) => {
+        const start = normalizeDate(new Date(checkInStr));
+        const end = normalizeDate(new Date(checkOutStr));
+        const now = normalizeDate(new Date());
+
+        // Calculate total nights if not provided
+        const nightsTotal = totalNights || Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+
+        // daysPassed = floor((now - checkin) / 1 day) + 1
+        const daysPassed = Math.round((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+        // nightsLeft = totalNights - daysPassed
+        const nightsLeft = nightsTotal - daysPassed;
+
+        const diffToCheckout = Math.round((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffToCheckout <= 0) return "Checkout today";
+        if (nightsLeft <= 0) return "Final night";
+        return `${nightsLeft} ${nightsLeft === 1 ? 'night' : 'nights'} left`;
+    };
+
+    // Helper for smart time labels (Upcoming/Inhouse)
+    // type: 'arrival' | 'checkout'
+    const getSmartTimeLabel = (dateStr: string, type: 'arrival' | 'checkout') => {
+        const target = normalizeDate(new Date(dateStr));
+        const now = normalizeDate(new Date());
+        const prefix = type === 'arrival' ? 'Starts' : 'Ends';
+
+        const diffDays = Math.round((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 0) return "Today";
+        if (diffDays === 1) return "Tomorrow";
+        if (diffDays < 0) return type === 'arrival' ? "🔴 Check-in delayed" : "Ended";
+        return `${prefix} in ${diffDays} days`;
+    };
+
     return (
         <div className="gn-container" style={{ maxWidth: '1200px' }}>
-            {/* Hero Section with Background Image */}
-            <div className="gn-hero-section">
-                <div className="gn-hero-content">
-                    {/* Header Section */}
-                    <header className="gn-hero-header">
-                        <h1 className="gn-greeting">
-                            Welcome, {displayName}.
-                        </h1>
-                        <div style={{ fontFamily: 'var(--font-serif)', fontSize: '1.5rem', color: 'var(--text-gold)', fontStyle: 'italic', opacity: 0.9 }}>
-                            {currentStay?.hotel.name || "Grand Hotel & Spa"}
-                        </div>
-                    </header>
+            <div className="hero-mockup-wrapper">
+                {/* Hero Section */}
+                <div className="gn-hero-section">
+                    <div className="gn-hero-content">
+                        {/* Header Section */}
+                        <header className="hero-mockup-greeting-group">
+                            <h1 className="hero-mockup-greeting">
+                                {currentStay?.status === 'arriving'
+                                    ? `${displayName.charAt(0).toUpperCase() + displayName.slice(1).toLowerCase()}, Here is your upcoming stay.`
+                                    : `Welcome, ${displayName.toLowerCase()}.`
+                                }
+                            </h1>
+                        </header>
 
-                    {/* Status Bar Widget */}
-                    {currentStay && (
-                        <div className="gn-status-bar">
-                            <div className="gn-status-item">
-                                Room <span>{currentStay.room_number || currentStay.room_type || "—"}</span>
+                        {/* Main Featured Booking Card */}
+                        {currentStay ? (
+                            <div className="hero-mockup-card">
+                                <div className="hero-mockup-card-header">
+                                    <div className="hero-mockup-hotel">
+                                        🏨 {currentStay.hotel?.name || 'Hotel'}
+                                    </div>
+                                    <div className="hero-mockup-outstanding">
+                                        Outstanding: <span>{formatCurrency(currentStay.outstanding_balance || 0)}</span>
+                                    </div>
+                                </div>
+
+                                {currentStay.status === 'arriving' ? (
+                                    <div className="hero-mockup-card-body-split">
+                                        <div className="hero-mockup-card-body-left">
+                                            <div className="hero-mockup-room">
+                                                {currentStay.room_numbers && currentStay.room_numbers !== 'Unassigned'
+                                                    ? `Room: ${currentStay.room_numbers}`
+                                                    : `Room Type: ${currentStay.room_types?.join(', ') || 'Standard Room'}`
+                                                }
+                                            </div>
+                                            <div className="hero-mockup-status-row">
+                                                <div className="hero-mockup-status-pill gn-status-pill--upcoming">
+                                                    <span className="gn-status-dot-amber"></span> UPCOMING STAY
+                                                </div>
+                                            </div>
+                                            <div className="hero-mockup-booking-code" style={{ marginBottom: '12px' }}>
+                                                Booking: {currentStay.booking_code}
+                                            </div>
+                                            <div className="hero-mockup-time-stack">
+                                                <div className="hero-mockup-time-item">
+                                                    <span className="hero-mockup-time-label">Arrival:</span> {new Date(currentStay.check_in).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • 2:00 PM
+                                                </div>
+                                                <div className="hero-mockup-time-item">
+                                                    <span className="hero-mockup-time-label">Checkout:</span> {new Date(currentStay.check_out).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • 11:00 AM
+                                                </div>
+                                                <div style={{ marginTop: '2px', fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.7)' }}>
+                                                    {(currentStay.total_nights || nights)} {(currentStay.total_nights || nights) === 1 ? 'night' : 'nights'}
+                                                </div>
+                                                <div style={{ fontSize: '0.85rem', color: '#e5c158', fontWeight: 600 }}>
+                                                    {getSmartTimeLabel(currentStay.check_in, 'arrival')}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="hero-mockup-card-body-right">
+                                            {currentStay.precheckin_token && !currentStay.precheckin_used_at && (
+                                                <Link to={`/precheckin/${currentStay.precheckin_token}`} className="gn-internal-action-button gn-internal-action--primary">
+                                                    <span className="icon">✓</span> Complete Pre Check-In
+                                                </Link>
+                                            )}
+                                            <button onClick={() => setIsDetailsModalOpen(true)} className="gn-internal-action-button gn-internal-action--secondary">
+                                                View Details <span className="arrow">›</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="hero-mockup-card-body-split">
+                                        <div className="hero-mockup-card-body-left">
+                                            <div className="hero-mockup-room">
+                                                Room: {currentStay.room_numbers}
+                                            </div>
+                                            <div className="hero-mockup-status-row">
+                                                <div className="hero-mockup-status-pill gn-status-pill--inhouse-active">
+                                                    ✓ STAY IN PROGRESS
+                                                </div>
+                                            </div>
+                                            <div className="hero-mockup-booking-code" style={{ marginBottom: '12px' }}>
+                                                Booking: {currentStay.booking_code}
+                                            </div>
+                                            <div className="hero-mockup-time-stack">
+                                                <div className="hero-mockup-time-item" style={{ fontWeight: 500, color: '#fff', marginBottom: '4px' }}>
+                                                    {getStayDayLabel(currentStay.check_in, currentStay.total_nights || nights)}
+                                                </div>
+                                                {getNightsRemainingLabel(currentStay.check_in, currentStay.check_out, currentStay.total_nights || nights) === "Checkout today" ? (
+                                                    <div style={{ fontSize: '0.85rem', color: '#ef4444', fontWeight: 700 }}>
+                                                        🔴 Checkout today • 11:00 AM
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <div className="hero-mockup-time-item">
+                                                            <span className="hero-mockup-time-label">Checkout:</span> {new Date(currentStay.check_out).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • 11:00 AM
+                                                        </div>
+                                                        <div style={{ marginTop: '2px', fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.7)' }}>
+                                                            {getNightsRemainingLabel(currentStay.check_in, currentStay.check_out, currentStay.total_nights || nights)}
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="hero-mockup-card-body-right">
+                                            <Link to={`/stay/${currentStay.booking_code}/menu?tab=services`} className="gn-internal-action-button gn-internal-action--primary">
+                                                <span className="icon">🛎️</span> Request Service
+                                            </Link>
+                                            <button onClick={() => setIsDetailsModalOpen(true)} className="gn-internal-action-button gn-internal-action--secondary">
+                                                View Details <span className="arrow">›</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                            <div className="gn-status-item gn-status-item--highlight">
-                                <span>▶</span> {["checkout_requested"].includes(currentStay.status?.toLowerCase() || "") ? 'Checkout Requested' : (currentStay.status?.toLowerCase() === 'inhouse' || currentStay.status?.toLowerCase() === 'checked_in') ? 'Checked-In' : 'Upcoming'}
+                        ) : (
+                            <div style={{ opacity: 0.6, fontStyle: 'italic', padding: '40px 0', color: '#fff' }}>
+                                No active stays found.
                             </div>
-                            <div className="gn-status-item">
-                                {["arriving", "expected", "confirmed"].includes((currentStay.status || "").toLowerCase()) ? 'Check-In' : 'Check-Out'}:
-                                <span> {new Date(["arriving", "expected", "confirmed"].includes((currentStay.status || "").toLowerCase()) ? currentStay.check_in : currentStay.check_out).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - 11:00 AM</span>
+                        )}
+
+                        {/* Other Bookings Selection Carousel */}
+                        {activeBookings.length > 1 && (
+                            <div className="hero-mockup-carousel-group">
+                                <div className="hero-mockup-carousel-header">
+                                    <h3 className="hero-mockup-carousel-title">Other Bookings ({activeBookings.length})</h3>
+                                    <Link to="/guest/trips" className="hero-mockup-view-all">View All ↗</Link>
+                                </div>
+
+                                <div className="hero-mockup-carousel-main">
+                                    <div className="hero-mockup-arrow hero-mockup-arrow--left" onClick={() => scroll('left')}>‹</div>
+
+                                    <div className="hero-mockup-scroll-container" onScroll={handleScroll}>
+                                        {activeBookings.map((booking, i) => {
+                                            const nights = Math.ceil(Math.abs(new Date(booking.check_out).getTime() - new Date(booking.check_in).getTime()) / (1000 * 60 * 60 * 24));
+                                            return (
+                                                <div
+                                                    key={booking.id}
+                                                    className={`hero-mockup-subcard ${currentStay?.id === booking.id ? 'active' : ''}`}
+                                                    onClick={() => setCurrentStay(booking)}
+                                                >
+                                                    <div className="hero-mockup-subcard-hotel">
+                                                        {booking.hotel.name.toUpperCase()}
+                                                    </div>
+                                                    <div className="hero-mockup-subcard-room">
+                                                        {booking.room_numbers && booking.room_numbers !== 'Unassigned'
+                                                            ? `Room: ${booking.room_numbers}`
+                                                            : `${booking.room_types?.[0] || 'Standard Room'}`
+                                                        }
+                                                    </div>
+                                                    <div className="hero-mockup-subcard-footer">
+                                                        <div className="hero-mockup-subcard-status-wrapper">
+                                                            <div className={`hero-mockup-subcard-status ${booking.status === 'inhouse' ? 'gn-status-pill--inhouse' : 'gn-status-pill--upcoming'}`}>
+                                                                {booking.status === 'inhouse' ? (
+                                                                    <div className="gn-status-pill--inhouse-active" style={{ fontSize: '0.75rem', padding: '4px 10px', borderRadius: '100px', width: 'fit-content' }}>
+                                                                        ✓ STAY IN PROGRESS
+                                                                    </div>
+                                                                ) : (
+                                                                    <><span className="gn-status-dot-amber"></span> UPCOMING</>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <div className="hero-mockup-subcard-info">
+                                                            {booking.status === 'inhouse' ? (
+                                                                <div className="hero-mockup-time-stack" style={{ marginTop: '0', gap: '4px' }}>
+                                                                    <div className="hero-mockup-subcard-checkout">
+                                                                        {getNightsRemainingLabel(booking.check_in, booking.check_out, booking.total_nights) === "Checkout today"
+                                                                            ? <><span style={{ color: '#ef4444', fontWeight: 600 }}>🔴 Checkout today</span> • 11:00 AM</>
+                                                                            : <>Checkout: {new Date(booking.check_out).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • 11:00 AM</>
+                                                                        }
+                                                                    </div>
+                                                                    {getNightsRemainingLabel(booking.check_in, booking.check_out, booking.total_nights) !== "Checkout today" && (
+                                                                        <div className="hero-mockup-nights-left" style={{ fontSize: '0.8rem', color: '#e5c158' }}>
+                                                                            {getNightsRemainingLabel(booking.check_in, booking.check_out, booking.total_nights)}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                <div className="hero-mockup-time-stack" style={{ marginTop: '0', gap: '4px' }}>
+                                                                    <div className="hero-mockup-subcard-checkout">
+                                                                        Arrival: {new Date(booking.check_in).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • 2:00 PM
+                                                                    </div>
+                                                                    <div className="hero-mockup-nights-left" style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: '0.8rem' }}>
+                                                                        {(booking.total_nights || nights)} {(booking.total_nights || nights) === 1 ? 'night' : 'nights'}
+                                                                    </div>
+                                                                    <div className="hero-mockup-nights-left" style={{ color: 'rgba(229, 193, 88, 0.8)', fontSize: '0.8rem', fontWeight: 500 }}>
+                                                                        {getSmartTimeLabel(booking.check_in, 'arrival')}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    <div className="hero-mockup-arrow hero-mockup-arrow--right" onClick={() => scroll('right')}>›</div>
+                                </div>
+
+                                <div className="hero-mockup-nav-controls">
+                                    <div className="hero-mockup-dots">
+                                        {activeBookings.map((_, i) => (
+                                            <div
+                                                key={i}
+                                                className={`hero-mockup-dot ${activeIndex === i ? 'active' : ''}`}
+                                                onClick={() => {
+                                                    const el = document.querySelector('.hero-mockup-scroll-container') as HTMLElement;
+                                                    if (el) {
+                                                        const firstCard = el.firstElementChild as HTMLElement;
+                                                        const cardWidth = firstCard ? firstCard.offsetWidth + 18 : 296;
+                                                        el.scrollTo({ left: i * cardWidth, behavior: 'smooth' });
+                                                    }
+                                                }}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
-                            <div className="gn-status-item" style={{ flex: 1, justifyContent: 'flex-end', borderRight: 'none' }}>
-                                Outstanding: <span>{formatCurrency(grandTotal)}</span>
-                            </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -748,55 +1039,60 @@ export default function GuestNewHome() {
                     </div>
                 </Link>
 
-                <ConditionalTooltip content="Express checkout is available during your active stay." condition={!currentStay || ["arriving", "expected", "confirmed", "checked_out", "cancelled", "no_show"].includes((currentStay.status || "").toLowerCase())}>
-                    <Link to="/guest/checkout" onClick={(e) => handleActionClick(e, 'checkout')} className={`gn-action-btn gn-action-btn--dark ${!currentStay || ["arriving", "expected", "confirmed", "checked_out", "cancelled", "no_show"].includes((currentStay.status || "").toLowerCase()) ? 'gn-action-btn--disabled' : ''}`}>
-                        <div className="gn-action-btn__icon">✔️</div>
+                {currentStay?.status === 'arriving' && currentStay?.precheckin_token && !currentStay?.precheckin_used_at ? (
+                    <Link to={`/pre-checkin/${currentStay.precheckin_token}`} className="gn-action-btn gn-action-btn--gold">
+                        <div className="gn-action-btn__icon">📝</div>
                         <div className="gn-action-btn__content">
-                            <span className="gn-action-btn__title">Checkout</span>
-                            <span className="gn-action-btn__subtitle">Express Exit</span>
+                            <span className="gn-action-btn__title">Complete Pre-Checkin</span>
+                            <span className="gn-action-btn__subtitle">Skip the Front Desk</span>
                         </div>
                     </Link>
-                </ConditionalTooltip>
+                ) : (
+                    <ConditionalTooltip content="Express checkout is available during your active stay." condition={!currentStay || ["arriving", "expected", "confirmed", "checked_out", "cancelled", "no_show"].includes((currentStay.status || "").toLowerCase())}>
+                        <Link to="/guest/checkout" onClick={(e) => handleActionClick(e, 'checkout')} className={`gn-action-btn gn-action-btn--dark ${!currentStay || ["arriving", "expected", "confirmed", "checked_out", "cancelled", "no_show"].includes((currentStay.status || "").toLowerCase()) ? 'gn-action-btn--disabled' : ''}`}>
+                            <div className="gn-action-btn__icon">✔️</div>
+                            <div className="gn-action-btn__content">
+                                <span className="gn-action-btn__title">Checkout</span>
+                                <span className="gn-action-btn__subtitle">Express Exit</span>
+                            </div>
+                        </Link>
+                    </ConditionalTooltip>
+                )}
             </div>
 
             {/* Main Content Split (Requests + Folio) */}
             <div className="gn-feature-split">
                 {/* Left: Active Requests & Live Folio */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                    {/* Active Requests */}
                     <div className="gn-table-card">
                         <div className="gn-table-header">
-                            <h3 className="gn-table-title">My Active Requests & Orders</h3>
-                            <Link to={`/stay/${currentStay?.booking_code || 'DEMO'}/requests`} style={{ color: 'var(--text-gold)', textDecoration: 'none', fontSize: '0.875rem' }}>View All ›</Link>
+                            <h3 className="gn-table-title">Recent Requests</h3>
+                            <Link to={`/stay/${currentStay?.booking_code || 'DEMO'}/menu?tab=orders&code=${currentStay?.booking_code || 'DEMO'}`} className="gn-btn-ghost">View All</Link>
                         </div>
-
-                        <div className="gn-req-list">
-                            {recentRequests.length > 0 ? (
-                                recentRequests.map((req) => (
-                                    <div key={`${req.type}-${req.id}`} className="gn-req-row">
+                        {recentRequests.length > 0 ? (
+                            <div className="gn-requests-list" style={{ padding: '0 1.25rem' }}>
+                                {recentRequests.map(req => (
+                                    <div key={req.id} className="gn-req-row">
                                         <div className="gn-req-item">
-                                            <div className="gn-req-img" style={{ background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>
-                                                {req.type === 'ticket' ? '🛎️' : '🍽️'}
-                                            </div>
-                                            {req.title}
+                                            <span style={{ fontSize: '1.2rem' }}>{req.type === 'ticket' ? '🛎️' : '🍽️'}</span>
+                                            <span>{req.title}</span>
                                         </div>
-                                        <div>
-                                            <span className={`gn-pill gn-pill--${getStatusColor(req.status)}`}>
-                                                {req.status}
-                                            </span>
+                                        <div className={`gn-pill gn-pill--${getStatusColor(req.status)}`}>
+                                            {req.status}
                                         </div>
-                                        <div className="gn-req-time">
-                                            {new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </div>
+                                        <div className="gn-req-time">{new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                                     </div>
-                                ))
-                            ) : (
-                                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                                    No active requests at the moment.
-                                </div>
-                            )}
-                        </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div style={{ padding: '2rem', textAlign: 'center', opacity: 0.5, fontStyle: 'italic' }}>
+                                No active requests at the moment.
+                            </div>
+                        )}
                     </div>
 
+                    {/* Live Folio */}
                     <div className="gn-table-card" style={{ padding: '1.5rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                             <h3 className="gn-table-title" style={{ marginBottom: 0 }}>Live Folio</h3>
@@ -814,14 +1110,21 @@ export default function GuestNewHome() {
                                 <span>{formatCurrency(grandTotal)}</span>
                             </div>
 
-                            <button onClick={downloadInvoice} className="gn-btn-download">Download Invoice</button>
+                            <button
+                                onClick={downloadInvoice}
+                                className="gn-btn-download"
+                                disabled={grandTotal > 0}
+                                style={{ opacity: grandTotal > 0 ? 0.6 : 1, cursor: grandTotal > 0 ? 'not-allowed' : 'pointer' }}
+                            >
+                                {grandTotal > 0 ? "Clear Dues to Download" : "Download Invoice"}
+                            </button>
                         </div>
                     </div>
                 </div>
 
                 {/* Right: Hotel Info & Contact */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                    {hotelAmenities && ["inhouse", "checked_in"].includes(currentStay?.status?.toLowerCase() || "") && (
+                    {hotelAmenities && ["inhouse", "checked_in", "arriving", "expected", "confirmed"].includes((currentStay?.status || "").toLowerCase()) && (
                         <div className="gn-table-card">
                             <div className="gn-table-header">
                                 <h3 className="gn-table-title">Hotel Info & Amenities</h3>
@@ -835,18 +1138,24 @@ export default function GuestNewHome() {
                                         </div>
                                         {hotelAmenities.wifi_password && (
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
-                                                <span style={{ color: 'var(--text-muted)' }}>Password: {hotelAmenities.wifi_password}</span>
-                                                <button
-                                                    onClick={() => {
-                                                        navigator.clipboard.writeText(hotelAmenities.wifi_password);
-                                                        const el = document.getElementById('copy-btn');
-                                                        if (el) { el.innerText = 'Copied!'; setTimeout(() => el.innerText = 'Copy', 2000); }
-                                                    }}
-                                                    id="copy-btn"
-                                                    style={{ fontSize: '0.75rem', padding: '2px 8px', background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '4px', cursor: 'pointer' }}
-                                                >
-                                                    Copy
-                                                </button>
+                                                {["inhouse", "checked_in"].includes((currentStay?.status || "").toLowerCase()) ? (
+                                                    <>
+                                                        <span style={{ color: 'var(--text-muted)' }}>Password: {hotelAmenities.wifi_password}</span>
+                                                        <button
+                                                            onClick={() => {
+                                                                navigator.clipboard.writeText(hotelAmenities.wifi_password);
+                                                                const el = document.getElementById('copy-btn');
+                                                                if (el) { el.innerText = 'Copied!'; setTimeout(() => el.innerText = 'Copy', 2000); }
+                                                            }}
+                                                            id="copy-btn"
+                                                            style={{ fontSize: '0.75rem', padding: '2px 8px', background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '4px', cursor: 'pointer' }}
+                                                        >
+                                                            Copy
+                                                        </button>
+                                                    </>
+                                                ) : (
+                                                    <span style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '0.85rem' }}>Password: <span style={{ opacity: 0.6 }}>(Available after Check-In)</span></span>
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -934,6 +1243,117 @@ export default function GuestNewHome() {
                 <div>Your Dedicated Service Officers</div>
                 <div>Hotel Need to Know ›</div>
             </div>
+
+            {/* Premium Details Modal */}
+            {isDetailsModalOpen && currentStay && createPortal(
+                <div className="guestnew" style={{ position: 'relative', zIndex: 10000 }}>
+                    <div className="gn-modal-overlay" onClick={() => setIsDetailsModalOpen(false)}>
+                        <div className="gn-modal-content gn-premium-modal" onClick={e => e.stopPropagation()}>
+                            <button className="gn-modal-close" onClick={() => setIsDetailsModalOpen(false)}>×</button>
+
+                            <div className="gn-modal-header">
+                                <h2>Booking Details</h2>
+                                <div className="gn-modal-booking-code">{currentStay.booking_code}</div>
+                            </div>
+
+                            <div className="gn-modal-body">
+                                <div className="gn-modal-section">
+                                    <h3>{currentStay.hotel.name}</h3>
+                                    <div className="gn-modal-status-row">
+                                        <span className={`hero-mockup-status-pill ${currentStay.status === 'inhouse' ? 'gn-status-pill--inhouse' : 'gn-status-pill--upcoming'}`}>
+                                            {currentStay.status === 'inhouse' ? '✓ CHECKED-IN' : <><span className="gn-status-dot-amber"></span> UPCOMING STAY</>}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="gn-modal-section gn-modal-grid">
+                                    <div className="gn-modal-grid-item">
+                                        <span className="gn-modal-label">Check-in</span>
+                                        <span className="gn-modal-value">{new Date(currentStay.check_in).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}<br />From 2:00 PM</span>
+                                    </div>
+                                    <div className="gn-modal-grid-item">
+                                        <span className="gn-modal-label">Check-out</span>
+                                        <span className="gn-modal-value">{new Date(currentStay.check_out).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}<br />By 11:00 AM</span>
+                                    </div>
+                                </div>
+
+                                <div className="gn-modal-section gn-modal-grid">
+                                    <div className="gn-modal-grid-item">
+                                        <span className="gn-modal-label">
+                                            {currentStay.room_numbers && currentStay.room_numbers !== 'Unassigned' ? 'Room' : 'Room Type'}
+                                        </span>
+                                        <span className="gn-modal-value">
+                                            {currentStay.room_numbers && currentStay.room_numbers !== 'Unassigned'
+                                                ? currentStay.room_numbers
+                                                : (currentStay.room_types?.join(', ') || 'Standard Room')
+                                            }
+                                        </span>
+                                    </div>
+                                    <div className="gn-modal-grid-item">
+                                        <span className="gn-modal-label">Guests</span>
+                                        <span className="gn-modal-value">{currentStay.guests || 1} Guests</span>
+                                    </div>
+                                </div>
+
+                                <div className="gn-modal-section">
+                                    <h4 className="gn-modal-subsection-title">Price Breakdown</h4>
+                                    <div className="gn-modal-price-row">
+                                        <span>Room Charge</span>
+                                        <span>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(currentStay.room_charge || 0)}</span>
+                                    </div>
+                                    <div className="gn-modal-price-row">
+                                        <span>City Tax</span>
+                                        <span>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(currentStay.city_tax || 0)}</span>
+                                    </div>
+                                    <div className="gn-modal-price-row gn-modal-total-row">
+                                        <span>Total Estimated</span>
+                                        <span>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(currentStay.total_amount || 0)}</span>
+                                    </div>
+                                </div>
+
+                                <div className="gn-modal-section">
+                                    <h4 className="gn-modal-subsection-title">Property Offerings</h4>
+                                    <div className="gn-modal-services-preview">
+                                        {menuCategories.length === 0 && serviceOfferings.length === 0 ? (
+                                            <div className="gn-modal-helper-text" style={{ textAlign: 'left', opacity: 0.6, marginBottom: 0 }}>
+                                                Discovering available services...
+                                            </div>
+                                        ) : (
+                                            <>
+                                                {/* Show Menu Categories */}
+                                                {menuCategories.map(cat => (
+                                                    <div key={cat.id} className="gn-modal-service-pill">
+                                                        {getOfferingEmoji(cat.name)} {cat.name}
+                                                    </div>
+                                                ))}
+                                                {/* Show Services (limit to 20 total offerings including categories) */}
+                                                {serviceOfferings.slice(0, Math.max(0, 20 - menuCategories.length)).map(svc => (
+                                                    <div key={svc.id || svc.key} className="gn-modal-service-pill">
+                                                        {getOfferingEmoji(svc.label_en || svc.label || svc.key)} {svc.label_en || svc.label || svc.key}
+                                                    </div>
+                                                ))}
+                                            </>
+                                        )}
+                                    </div>
+                                    <p className="gn-modal-helper-text" style={{ marginTop: '12px', textAlign: 'left', marginBottom: 0 }}>
+                                        These services and menus will be available to request directly from your dashboard once you check-in!
+                                    </p>
+                                </div>
+
+                                {currentStay.status === 'arriving' && currentStay.precheckin_token && !currentStay.precheckin_used_at && (
+                                    <div className="gn-modal-action-area">
+                                        <p className="gn-modal-helper-text">To ensure a smooth arrival, please complete your pre-checkin before you arrive.</p>
+                                        <Link to={`/pre-checkin/${currentStay.precheckin_token}`} className="gn-internal-action-button gn-internal-action--primary">
+                                            <span className="icon">✓</span> Complete Pre Check-In
+                                        </Link>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
         </div>
     );
 }

@@ -261,7 +261,7 @@
     background-position: center;
     border-radius: var(--radius-xl);
     overflow: hidden;
-    padding: 60px 40px 40px;
+    padding: 24px 40px 40px;
     margin-bottom: var(--space-2xl);
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
     border: 1px solid rgba(255, 255, 255, 0.1);

@@ -1,0 +1,191 @@
+/* OwnerStaffShifts — Premium Dark Theme */
+.staff-shifts-dark {
+    --bg-primary: #0a0a0c;
+    --bg-secondary: #121215;
+    --bg-card: rgba(22, 22, 26, 0.7);
+    --bg-card-hover: rgba(30, 30, 35, 0.9);
+    --bg-glass: rgba(10, 10, 12, 0.75);
+    
+    --text-primary: #f5f3ef;
+    --text-secondary: #b8b3a8;
+    --text-muted: #64748b;
+    --text-accent: #6366f1; /* Indigo */
+    
+    --border-subtle: rgba(255, 255, 255, 0.05);
+    --border-medium: rgba(255, 255, 255, 0.1);
+    --border-accent: rgba(99, 102, 241, 0.2);
+    
+    --radius-xl: 1.5rem;
+    --shadow-premium: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
+}
+
+.staff-shifts-dark {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+}
+
+.staff-shifts-dark .glass-card {
+    background: var(--bg-card);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-premium);
+}
+
+.staff-shifts-dark .sidebar-card {
+    background: rgba(18, 18, 21, 0.4);
+    border: 1px solid var(--border-subtle);
+}
+
+.staff-shifts-dark .action-button-primary {
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+}
+
+.staff-shifts-dark .action-button-secondary {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-medium);
+    color: var(--text-secondary);
+}
+
+.staff-shifts-dark .stat-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-subtle);
+}
+
+.staff-shifts-dark .timeline-header {
+    background: var(--bg-glass);
+    border-bottom: 1px solid var(--border-medium);
+}
+
+.staff-shifts-dark .filter-button {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-medium);
+    color: var(--text-secondary);
+}
+
+.staff-shifts-dark .filter-button:hover {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: var(--text-accent);
+}
+
+.staff-shifts-dark .modal-content {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-medium);
+}
+
+.staff-shifts-dark select option {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+.staff-shifts-dark .text-premium-muted {
+    color: var(--text-muted);
+}
+
+.staff-shifts-dark .text-premium-accent {
+    color: var(--text-accent);
+}
+
+/* Custom scrollbar for dark theme */
+.staff-shifts-dark ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+.staff-shifts-dark ::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+}
+.staff-shifts-dark ::-webkit-scrollbar-thumb {
+    background: var(--border-medium);
+    border-radius: 10px;
+}
+.staff-shifts-dark ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-accent);
+}
+/* Dropdowns & Popovers */
+.staff-shifts-dark .dropdown-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 0.5rem;
+    min-width: 180px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-medium);
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    z-index: 50;
+    padding: 0.5rem;
+    animation: slideInDown 0.2s ease-out;
+}
+
+.staff-shifts-dark .dropdown-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.8rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-radius: 0.5rem;
+    transition: all 0.2s;
+    text-align: left;
+}
+
+.staff-shifts-dark .dropdown-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: white;
+}
+
+.staff-shifts-dark .dropdown-item.danger:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
+.staff-shifts-dark .popover-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+}
+
+@keyframes slideInDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Shift Box Overrides */
+.staff-shifts-dark .shift-box {
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.staff-shifts-dark .shift-box:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 10;
+}
+
+.staff-shifts-dark .shift-box.is-locked {
+    opacity: 0.8;
+    cursor: not-allowed;
+}
+
+/* Native Input Icons (Clock & Calendar) */
+.staff-shifts-dark input[type="time"]::-webkit-calendar-picker-indicator,
+.staff-shifts-dark input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.staff-shifts-dark input[type="time"]::-webkit-calendar-picker-indicator:hover,
+.staff-shifts-dark input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+}
+

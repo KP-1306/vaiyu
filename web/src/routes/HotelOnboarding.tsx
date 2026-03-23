@@ -1128,6 +1128,7 @@ export default function HotelOnboarding() {
                             p_email: s.email.trim(),
                             p_role_id: roleIdMap[s.role],
                             p_metadata: {
+                                full_name: s.name.trim() || null,
                                 assigned_zones: s.assignedZones || null,
                                 employment_status: s.employmentStatus || null
                             }

@@ -245,6 +245,7 @@ DECLARE
     v_membership_id uuid;
     v_role_code text;
     v_hotel_status public.hotel_lifecycle_status;
+    v_full_name text;
 BEGIN
     -- 1. Require authentication & Fetch user info STRICT
     v_user_id := auth.uid();
@@ -317,7 +318,17 @@ BEGIN
         RAISE EXCEPTION 'This invite is not assigned to your email';
     END IF;
 
-    -- 5. Core Transaction: Create membership and assign role
+    -- 5. Extract Full Name from Metadata & Update Profile
+    v_full_name := v_invite.invite_metadata->>'full_name';
+    IF v_full_name IS NOT NULL AND v_full_name <> '' THEN
+        UPDATE public.profiles
+        SET full_name = COALESCE(full_name, v_full_name),
+            updated_at = now()
+        WHERE id = v_user_id
+        AND (full_name IS NULL OR full_name = '');
+    END IF;
+
+    -- 6. Core Transaction: Create membership and assign role
     BEGIN
         INSERT INTO public.hotel_members (
             hotel_id, user_id, role, status, is_active, created_at
@@ -337,7 +348,7 @@ BEGIN
             VALUES (v_membership_id, v_invite.role_id) ON CONFLICT DO NOTHING;
     END;
 
-    -- 6. Mark invite accepted (Replay Protection)
+    -- 7. Mark invite accepted (Replay Protection)
     UPDATE public.hotel_invites
     SET status = 'accepted',
         accepted_at = now(),
@@ -345,7 +356,7 @@ BEGIN
     WHERE id = v_invite.id
     AND status = 'pending';
 
-    -- 7. Lifecycle & Audit
+    -- 8. Lifecycle & Audit
     SELECT code INTO v_role_code FROM public.hotel_roles WHERE id = v_invite.role_id;
     IF v_role_code = 'OWNER' THEN
         SELECT status INTO v_hotel_status FROM public.hotels WHERE id = v_invite.hotel_id;

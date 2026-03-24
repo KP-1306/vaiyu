@@ -36,6 +36,7 @@ import {
     Edit3,
     ExternalLink,
     AlertCircle,
+    UserX,
     Brain,
     CalendarDays,
     Sparkles,
@@ -68,9 +69,15 @@ interface Shift {
 interface StaffMember {
     staff_id: string;
     full_name: string;
+    email: string | null;
     avatar_url: string | null;
+    department_id: string | null;
     department_name: string | null;
+    departments?: { department_id: string; name: string; is_primary: boolean }[];
+    assigned_zone_id: string | null;
     assigned_zone_name: string | null;
+    is_active: boolean;
+    is_verified: boolean;
     has_shift: boolean;
     shifts: Shift[];
 }
@@ -78,11 +85,14 @@ interface StaffMember {
 interface AvailableStaff {
     staff_id: string;
     full_name: string;
+    email: string | null;
     avatar_url: string | null;
     department_id: string | null;
     department_name: string | null;
     zone_id: string | null;
     zone_name: string | null;
+    is_active: boolean;
+    is_verified: boolean;
 }
 
 interface DashboardSummary {
@@ -161,6 +171,52 @@ export default function OwnerStaffShifts() {
     const [activeStaffMenuId, setActiveStaffMenuId] = useState<string | null>(null);
     const [activeAssignMenuId, setActiveAssignMenuId] = useState<string | null>(null);
     const [activeShiftPopoverId, setActiveShiftPopoverId] = useState<string | null>(null);
+
+    const [editStaffModal, setEditStaffModal] = useState<any>(null);
+    const [isUpdatingStaff, setIsUpdatingStaff] = useState(false);
+    const [deactivateUserModal, setDeactivateUserModal] = useState<any>(null);
+    const [isDeactivatingUser, setIsDeactivatingUser] = useState(false);
+    const [deactivateReason, setDeactivateReason] = useState("");
+
+
+    const activeAssignStaffData = useMemo(() => {
+        if (!activeAssignMenuId || !data) return null;
+        for (const staff of data.timeline) {
+            if (staff.staff_id === activeAssignMenuId) return staff;
+        }
+        return null;
+    }, [activeAssignMenuId, data]);
+    const activePopoverData = useMemo(() => {
+        if (!activeShiftPopoverId || !data) return null;
+        for (const staff of data.timeline) {
+            const shift = staff.shifts.find(s => s.shift_id === activeShiftPopoverId);
+            if (shift) return { staff, shift };
+        }
+        return null;
+    }, [activeShiftPopoverId, data]);
+
+    const handleDeactivateUser = async () => {
+        if (!deactivateReason.trim()) {
+            return; // Needs reason
+        }
+        setIsDeactivatingUser(true);
+        try {
+            const { error } = await supabase
+                .rpc('update_hotel_member', {
+                    p_member_id: deactivateUserModal.staff_id,
+                    p_is_active: false
+                });
+
+            if (error) throw error;
+            
+            setDeactivateUserModal(null);
+            loadData();
+        } catch (err: any) {
+            console.error(err);
+        } finally {
+            setIsDeactivatingUser(false);
+        }
+    };
     const [shiftExplanation, setShiftExplanation] = useState<any>(null);
     const [showFullExplanation, setShowFullExplanation] = useState(false);
     const [showShiftDetails, setShowShiftDetails] = useState(false);
@@ -327,10 +383,52 @@ export default function OwnerStaffShifts() {
 
         if (rpcErr) {
             console.error('Dashboard refetch error:', rpcErr);
+            return;
+        }
+
+        if (rpcData && rpcData.timeline) {
+            const staffIds = rpcData.timeline.map((s: any) => s.staff_id);
+            
+            // 1. Fetch all departments for these staff members
+            const { data: allDepts, error: deptsErr } = await supabase
+                .from('staff_departments')
+                .select('staff_id, department_id, is_primary, departments(name)')
+                .in('staff_id', staffIds);
+
+            // 2. Fetch specific verified/email status from hotel_members if needed
+            const { data: membersInfo, error: membersErr } = await supabase
+                .from('hotel_members')
+                .select('id, is_verified, email')
+                .in('id', staffIds);
+
+            if (!deptsErr && !membersErr) {
+                const enrichedTimeline = rpcData.timeline.map((staff: any) => {
+                    const depts = allDepts
+                        ?.filter(d => d.staff_id === staff.staff_id)
+                        .map(d => ({
+                            department_id: d.department_id,
+                            name: d.departments?.name || 'Unknown',
+                            is_primary: d.is_primary
+                        })) || [];
+                    
+                    const mInfo = membersInfo?.find(m => m.id === staff.staff_id);
+                    
+                    return {
+                        ...staff,
+                        departments: depts,
+                        // Fallback to member table if RPC misses these
+                        is_verified: mInfo ? mInfo.is_verified : staff.is_verified,
+                        email: mInfo ? mInfo.email : staff.email
+                    };
+                });
+                setData({ ...rpcData, timeline: enrichedTimeline });
+            } else {
+                setData(rpcData);
+            }
         } else {
             setData(rpcData);
-            setError(null);
         }
+        setError(null);
     }, [hotelId, currentDate]);
 
     // 3b. Conflict-aware error handler
@@ -1680,8 +1778,10 @@ export default function OwnerStaffShifts() {
                                         <div className="w-64 shrink-0 px-8 py-4"></div>
                                         <div className="flex flex-1">
                                             {[6, 8, 10, 12, 14, 16, 18, 20, 22, 0, 2, 4].map(hour => (
-                                                <div key={hour} className="flex-1 border-l border-white/[0.03] py-4 text-center text-[10px] font-black uppercase tracking-widest text-slate-500">
-                                                    {hour === 0 ? '12 AM' : hour > 12 ? `${hour - 12} PM` : hour === 12 ? '12 PM' : `${hour} AM`}
+                                                <div key={hour} className="flex-1 border-l border-white/[0.03] py-4 relative h-[48px]">
+                                                    <div className="absolute top-1/2 -translate-y-1/2 -left-8 w-16 text-center text-[10px] font-black uppercase tracking-widest text-slate-500 pointer-events-none">
+                                                        {hour === 0 ? '12 AM' : hour > 12 ? `${hour - 12} PM` : hour === 12 ? '12 PM' : `${hour} AM`}
+                                                    </div>
                                                 </div>
                                             ))}
                                         </div>
@@ -1691,9 +1791,9 @@ export default function OwnerStaffShifts() {
                                     <div className="divide-y divide-white/[0.03]">
                                         {timeline.map(staff => {
                                             const startOfTimeline = new Date(currentDate);
-                                            startOfTimeline.setHours(6, 0, 0, 0); // Start at 6 AM
+                                            startOfTimeline.setHours(6, 0, 0, 0);
                                             const endOfTimeline = new Date(startOfTimeline);
-                                            endOfTimeline.setDate(endOfTimeline.getDate() + 1); // 24h later
+                                            endOfTimeline.setDate(endOfTimeline.getDate() + 1);
                                             const timelineDuration = endOfTimeline.getTime() - startOfTimeline.getTime();
 
                                             return (
@@ -1701,84 +1801,65 @@ export default function OwnerStaffShifts() {
                                                     {/* Staff Info Column */}
                                                     <div className="flex w-64 shrink-0 items-center justify-between px-8 border-r border-white/5 relative group/staff">
                                                         <div className="flex items-center gap-4 min-w-0">
-                                                            <img
-                                                                src={staff.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(staff.full_name)}&background=random`}
-                                                                className="h-12 w-12 rounded-full object-cover shadow-sm ring-1 ring-white/10"
-                                                                alt=""
-                                                            />
+                                                            <div className="relative">
+                                                                <img
+                                                                    src={staff.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(staff.full_name)}&background=random`}
+                                                                    className="h-10 w-10 rounded-xl object-cover ring-1 ring-white/10"
+                                                                    alt=""
+                                                                />
+                                                                {staff.is_verified && (
+                                                                    <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-[#0a0a0c] flex items-center justify-center shadow-lg">
+                                                                        <Check size={8} className="text-white" strokeWidth={4} />
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                             <div className="min-w-0">
-                                                                <div className="truncate text-sm font-bold text-white">{staff.full_name}</div>
-                                                                <div className="truncate text-[10px] font-black uppercase tracking-widest text-slate-500">
-                                                                    {staff.department_name} | {staff.assigned_zone_name || 'No Zone'}
+                                                                <div className="text-sm font-black text-white truncate group-hover/staff:text-indigo-400 transition-colors uppercase tracking-tight">{staff.full_name}</div>
+                                                                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter truncate max-w-[150px]">
+                                                                    {staff.departments && staff.departments.length > 0 
+                                                                        ? staff.departments.map(d => d.name).join(', ') 
+                                                                        : staff.department_name || 'General Staff'}
                                                                 </div>
                                                             </div>
                                                         </div>
 
-                                                        {/* Staff Row Actions (Contextual) */}
+                                                        {/* Staff Context Actions */}
                                                         <div className="flex items-center gap-1 opacity-0 group-hover/staff:opacity-100 transition-opacity">
                                                             <button
-                                                                onClick={() => {
-                                                                    setShiftModalData({ ...shiftModalData, staffId: staff.staff_id });
-                                                                    setIsShiftModalOpen(true);
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setEditStaffModal({
+                                                                        staff_id: staff.staff_id,
+                                                                        full_name: staff.full_name,
+                                                                        email: staff.email,
+                                                                        is_active: staff.is_active,
+                                                                        is_verified: staff.is_verified,
+                                                                        avatar_url: staff.avatar_url
+                                                                    });
                                                                 }}
-                                                                className="w-7 h-7 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400 hover:bg-indigo-500/20 transition-colors"
-                                                                title="Add Shift"
+                                                                className="p-1.5 rounded-lg bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all"
                                                             >
-                                                                <Plus size={14} strokeWidth={3} />
+                                                                <Settings size={14} />
                                                             </button>
-                                                            <div className="relative">
-                                                                <button
-                                                                    onClick={() => setActiveStaffMenuId(activeStaffMenuId === staff.staff_id ? null : staff.staff_id)}
-                                                                    className="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
-                                                                >
-                                                                    <MoreVertical size={14} />
-                                                                </button>
-
-                                                                {activeStaffMenuId === staff.staff_id && (
-                                                                    <>
-                                                                        <div className="popover-overlay" onClick={() => setActiveStaffMenuId(null)} />
-                                                                        <div className="dropdown-menu !right-auto !left-0 !top-full mt-1">
-                                                                            <button
-                                                                                className="dropdown-item"
-                                                                                onClick={() => {
-                                                                                    setHistoryView(staff.staff_id);
-                                                                                    setActiveStaffMenuId(null);
-                                                                                }}
-                                                                            >
-                                                                                <Clock size={14} /> View History
-                                                                            </button>
-                                                                            <button className="dropdown-item danger" onClick={() => setActiveStaffMenuId(null)}>
-                                                                                <X size={14} /> Mark Off-Duty
-                                                                            </button>
-                                                                        </div>
-                                                                    </>
-                                                                )}
-                                                            </div>
                                                         </div>
                                                     </div>
 
                                                     {/* Timeline Content */}
                                                     <div
-                                                        className={`relative flex-1 transition-colors ${dragOverStaffId === staff.staff_id ? 'bg-indigo-500/10' : ''} ${selectedStaffId === staff.staff_id ? 'bg-white/[0.03]' : ''}`}
-                                                        onClick={() => setSelectedStaffId(staff.staff_id)}
+                                                        className={`relative flex-1 group transition-all duration-300 ${dragOverStaffId === staff.staff_id ? 'bg-indigo-500/10' : ''}`}
                                                         onDragOver={(e) => {
                                                             e.preventDefault();
                                                             setDragOverStaffId(staff.staff_id);
                                                         }}
                                                         onDragLeave={() => setDragOverStaffId(null)}
                                                         onDrop={(e) => {
-                                                            e.preventDefault();
-                                                            if (!draggedShift || !timelineRef.current) return;
-
                                                             const rect = timelineRef.current.getBoundingClientRect();
                                                             const staffColumnWidth = 256; // 64 * 4 = 256px
                                                             const timelineWidth = rect.width - staffColumnWidth;
                                                             const x = e.clientX - rect.left - staffColumnWidth;
 
-                                                            if (x < 0) return;
+                                                            if (x < 0 || !draggedShift) return;
 
-                                                            const startOfTimeline = new Date(currentDate);
-                                                            startOfTimeline.setHours(6, 0, 0, 0);
                                                             const totalMinutes = 24 * 60;
                                                             const dropMinutes = (x / timelineWidth) * totalMinutes;
 
@@ -1814,13 +1895,13 @@ export default function OwnerStaffShifts() {
                                                         }}
                                                     >
                                                         {/* Vertical Guides */}
-                                                        <div className="absolute inset-0 flex">
+                                                        <div className="absolute inset-0 flex pointer-events-none">
                                                             {[...Array(12)].map((_, i) => (
                                                                 <div key={i} className="flex-1 border-l border-white/[0.03] border-dotted" />
                                                             ))}
                                                         </div>
 
-                                                        {/* Shift Bars */}
+                                                        {/* Shift Bars Area */}
                                                         <div className="absolute inset-0 flex flex-col justify-center gap-2 px-1">
                                                             <div className="relative h-10 w-full">
                                                                 {staff.shifts.map(s => {
@@ -1899,18 +1980,26 @@ export default function OwnerStaffShifts() {
                                                                                     />
                                                                                 </>
                                                                             )}
+
+                                                                            {/* Shift Popover Container */}
                                                                             {activeShiftPopoverId === s.shift_id && (
                                                                                 <>
-                                                                                    <div className="fixed inset-0 bg-black/60 backdrop-blur-[3px] z-[90]" onClick={() => setActiveShiftPopoverId(null)} />
-                                                                                    <div className="dropdown-menu !right-auto !left-0 !top-full mt-3 w-[400px] bg-[#0f172a] border border-white/10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] rounded-[32px] overflow-hidden z-[100] font-sans animate-in fade-in zoom-in-95 duration-200">
-
-                                                                                        {/* ── HEADER ── */}
+                                                                                    <div className="fixed inset-0 z-[100]" onClick={(e) => { e.stopPropagation(); setActiveShiftPopoverId(null); }} />
+                                                                                    <div className="absolute left-0 top-full mt-4 w-[400px] bg-[#0f172a]/95 backdrop-blur-2xl border border-white/10 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] rounded-[32px] overflow-hidden z-[110] animate-in fade-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
+                                                                                        {/* Popover Content */}
                                                                                         <div className="relative p-7 pb-6 flex items-start gap-5">
-                                                                                            <img
-                                                                                                src={staff.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(staff.full_name)}&background=6366f1&color=fff`}
-                                                                                                alt={staff.full_name}
-                                                                                                className="w-20 h-20 rounded-[24px] object-cover ring-1 ring-white/10"
-                                                                                            />
+                                                                                            <div className="relative">
+                                                                                                <img
+                                                                                                    src={staff.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(staff.full_name)}&background=6366f1&color=fff`}
+                                                                                                    alt={staff.full_name}
+                                                                                                    className="w-20 h-20 rounded-[24px] object-cover ring-1 ring-white/10"
+                                                                                                />
+                                                                                                {staff.is_verified && (
+                                                                                                    <div className="absolute -top-1 -right-1 bg-indigo-500 rounded-full p-1 border-2 border-[#0f172a] shadow-lg z-10">
+                                                                                                        <Check size={10} strokeWidth={4} className="text-white" />
+                                                                                                    </div>
+                                                                                                )}
+                                                                                            </div>
                                                                                             <div className="flex-1 pt-1">
                                                                                                 <h3 className="text-2xl font-black text-white leading-tight mb-1">{staff.full_name}</h3>
                                                                                                 <p className="text-[11px] font-black text-slate-500 uppercase tracking-[0.1em] mb-4">
@@ -1931,7 +2020,7 @@ export default function OwnerStaffShifts() {
 
                                                                                         <div className="h-px bg-white/5 mx-7" />
 
-                                                                                        {/* ── ACTIONS GROUP ── */}
+                                                                                        {/* Actions Section */}
                                                                                         <div className="p-7 space-y-5">
                                                                                             <div className="flex items-center gap-3">
                                                                                                 <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">Actions</span>
@@ -1952,6 +2041,23 @@ export default function OwnerStaffShifts() {
                                                                                                     <Edit3 size={18} className="text-slate-500 group-hover:text-white transition-colors" />
                                                                                                     Edit Shift
                                                                                                 </button>
+                                                                                                <button
+                                                                                                    className="w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 text-indigo-400 text-sm font-bold transition-all group"
+                                                                                                    onClick={() => {
+                                                                                                        setEditStaffModal({
+                                                                                                            staff_id: staff.staff_id,
+                                                                                                            full_name: staff.full_name,
+                                                                                                            email: staff.email,
+                                                                                                            is_active: staff.is_active,
+                                                                                                            is_verified: staff.is_verified,
+                                                                                                            avatar_url: staff.avatar_url
+                                                                                                        });
+                                                                                                        setActiveShiftPopoverId(null);
+                                                                                                    }}
+                                                                                                >
+                                                                                                    <Settings size={18} className="text-indigo-500/70 group-hover:text-indigo-400 transition-colors" />
+                                                                                                    Edit Staff Settings
+                                                                                                </button>
                                                                                                 <button disabled={s.is_locked} className="w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 text-white text-sm font-bold transition-all disabled:opacity-30 group" onClick={() => setActiveShiftPopoverId(null)}>
                                                                                                     <RefreshCw size={18} className="text-emerald-500/70 group-hover:text-emerald-400 transition-colors" />
                                                                                                     Reassign / Move
@@ -1971,9 +2077,7 @@ export default function OwnerStaffShifts() {
                                                                                             </div>
                                                                                         </div>
 
-                                                                                        <div className="h-px bg-white/5 mx-7" />
-
-                                                                                        {/* ── AI INSIGHT GROUP ── */}
+                                                                                        {/* AI Insights Section */}
                                                                                         <div className="p-7 pt-6 bg-white/[0.01]">
                                                                                             <div className="flex items-center gap-3 mb-6">
                                                                                                 <Brain size={22} className="text-indigo-500" />
@@ -2005,7 +2109,7 @@ export default function OwnerStaffShifts() {
                                                                                                     onClick={() => setShowFullExplanation(!showFullExplanation)}
                                                                                                     className="mt-2 px-6 py-2.5 rounded-xl bg-[#2563eb] hover:bg-blue-600 text-white text-xs font-black flex items-center gap-2.5 transition-all shadow-lg shadow-blue-500/20"
                                                                                                 >
-                                                                                                    <Search size={14} strokeWidth={3} /> View Full Explanation
+                                                                                                    <Search size={14} strokeWidth={3} /> View Full Insight
                                                                                                 </button>
 
                                                                                                 {showFullExplanation && shiftExplanation?.explanation && (
@@ -2021,7 +2125,7 @@ export default function OwnerStaffShifts() {
                                                                                             </div>
                                                                                         </div>
 
-                                                                                        {/* ── OVERLAP WARNING ── */}
+                                                                                        {/* OVERLAP WARNING */}
                                                                                         {staff.shifts.some(other =>
                                                                                             other.shift_id !== s.shift_id &&
                                                                                             new Date(other.shift_start) < new Date(s.shift_end) &&
@@ -2046,9 +2150,7 @@ export default function OwnerStaffShifts() {
                                                             </div>
 
                                                             {/* Assign Shift Button */}
-                                                            <div className="mt-1 flex pl-2 relative z-10" style={{
-                                                                marginLeft: staff.shifts.length > 0 ? '0' : '0'
-                                                            }}>
+                                                            <div className="mt-1 flex pl-2 relative z-10">
                                                                 {activeAssignMenuId === staff.staff_id && (
                                                                     <>
                                                                         <div className="fixed inset-0 z-[90]" onClick={() => setActiveAssignMenuId(null)} />
@@ -2062,21 +2164,21 @@ export default function OwnerStaffShifts() {
                                                                                         <Sun size={14} strokeWidth={3} />
                                                                                     </div>
                                                                                     <span>Morning</span>
-                                                                                    <span className="text-[10px] text-slate-600 font-black ml-auto">07:00 - 15:00</span>
+                                                                                    <span className="text-[10px] text-slate-600 font-black ml-auto">07:00</span>
                                                                                 </button>
                                                                                 <button className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-300 hover:bg-white/5 rounded-xl flex items-center gap-3 transition-all group" onClick={() => handleQuickAssign(staff.staff_id, 'evening')}>
                                                                                     <div className="p-1 rounded-lg bg-orange-500/10 text-orange-500 group-hover:bg-orange-500/20 transition-colors">
                                                                                         <Sunset size={14} strokeWidth={3} />
                                                                                     </div>
                                                                                     <span>Evening</span>
-                                                                                    <span className="text-[10px] text-slate-600 font-black ml-auto">15:00 - 23:00</span>
+                                                                                    <span className="text-[10px] text-slate-600 font-black ml-auto">15:00</span>
                                                                                 </button>
                                                                                 <button className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-300 hover:bg-white/5 rounded-xl flex items-center gap-3 transition-all group" onClick={() => handleQuickAssign(staff.staff_id, 'night')}>
                                                                                     <div className="p-1 rounded-lg bg-indigo-500/10 text-indigo-400 group-hover:bg-indigo-500/20 transition-colors">
                                                                                         <Moon size={14} strokeWidth={3} />
                                                                                     </div>
                                                                                     <span>Night</span>
-                                                                                    <span className="text-[10px] text-slate-600 font-black ml-auto">23:00 - 07:00</span>
+                                                                                    <span className="text-[10px] text-slate-600 font-black ml-auto">23:00</span>
                                                                                 </button>
 
                                                                                 <div className="h-px bg-white/5 my-2 mx-2" />
@@ -2146,11 +2248,17 @@ export default function OwnerStaffShifts() {
                                                         </div>
                                                         <div>
                                                             <h2 className="text-2xl font-black text-white mb-1">{staff.full_name}</h2>
+                                                            {staff.email && (
+                                                                <div className="text-sm text-slate-400 font-medium mb-2 flex items-center gap-2">
+                                                                    <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                                                                    {staff.email}
+                                                                </div>
+                                                            )}
                                                             <div className="text-sm font-bold text-slate-400 uppercase tracking-widest">
                                                                 {staff.department_name} • <span className="text-indigo-400">{staff.assigned_zone_name || 'No Zone'}</span>
                                                             </div>
                                                             <div className="flex items-center gap-2 mt-6">
-                                                                <button className="flex items-center gap-2 rounded-xl bg-white/5 px-5 py-2.5 text-xs font-black text-white border border-white/10 hover:bg-white/10 transition-all">
+                                                                <button onClick={() => setEditStaffModal(staff)} className="flex items-center gap-2 rounded-xl bg-white/5 px-5 py-2.5 text-xs font-black text-white border border-white/10 hover:bg-white/10 transition-all">
                                                                     <Edit3 size={14} /> Edit Staff
                                                                 </button>
                                                                 <button
@@ -3542,30 +3650,375 @@ export default function OwnerStaffShifts() {
                                     );
                                 }
 
-                                return relevantStaff.map(staff => (
-                                    <div key={staff.staff_id} className="flex items-center gap-4 p-4 rounded-2xl bg-white/[0.02] border border-white/5">
-                                        <div className="w-10 h-10 rounded-xl bg-white/10 overflow-hidden flex items-center justify-center shrink-0">
-                                            {staff.avatar_url ? (
-                                                <img src={staff.avatar_url} alt={staff.full_name} className="w-full h-full object-cover" />
-                                            ) : (
-                                                <User size={18} className="text-slate-400" />
-                                            )}
-                                        </div>
-                                        <div>
-                                            <div className="text-sm font-bold text-slate-200">{staff.full_name}</div>
-                                            <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">{staff.department_name || 'No Dept'}</div>
-                                        </div>
-                                        {rosterDetailType === 'on_shift' && (
-                                            <div className="ml-auto">
-                                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_5px_theme(colors.emerald.500)]" />
-                                                    <span className="text-[9px] font-black uppercase text-emerald-400">Active</span>
+                                return relevantStaff.map(staff => {
+                                    // Find the "most relevant" shift to show: either the current one, or the first scheduled one of the day
+                                    const now = pulseTime;
+                                    const currentShift = staff.shifts.find(s => new Date(s.shift_start) <= now && new Date(s.shift_end) > now) 
+                                                      || staff.shifts.find(s => s.status === 'scheduled');
+
+                                    return (
+                                        <div key={staff.staff_id} className="flex items-center gap-4 p-4 rounded-2xl bg-white/[0.02] border border-white/5 group hover:bg-white/[0.04] transition-all">
+                                            <div className="w-12 h-12 shrink-0 relative">
+                                                <div className="w-full h-full rounded-xl bg-white/10 overflow-hidden flex items-center justify-center border border-white/5">
+                                                    {staff.avatar_url ? (
+                                                        <img src={staff.avatar_url} alt={staff.full_name} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <User size={20} className="text-slate-400" />
+                                                    )}
+                                                </div>
+                                                {staff.is_verified && (
+                                                    <div className="absolute -top-1.5 -right-1.5 bg-emerald-500 rounded-full p-1 border-2 border-[#121216] shadow-xl z-20">
+                                                        <Check size={9} strokeWidth={4} className="text-white" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="text-sm font-bold text-slate-100 truncate">{staff.full_name}</div>
+                                                </div>
+                                                <div className="text-[10px] font-medium text-slate-500 truncate mb-1">{staff.email || 'No email provided'}</div>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest truncate max-w-[120px]">
+                                                        {staff.departments && staff.departments.length > 0 
+                                                            ? staff.departments.map(d => d.name).join(', ') 
+                                                            : staff.department_name || 'No Dept'}
+                                                    </div>
+                                                    <div className="h-1 w-1 rounded-full bg-white/10" />
+                                                    <div className="text-[9px] font-black text-indigo-400 uppercase tracking-widest truncate">{staff.assigned_zone_name || 'No Zone'}</div>
                                                 </div>
                                             </div>
-                                        )}
-                                    </div>
-                                ));
+                                            
+                                            {currentShift && (
+                                                <div className="text-right shrink-0 pl-4 border-l border-white/5">
+                                                    <div className={`text-[9px] font-black uppercase tracking-widest mb-1 px-2 py-0.5 rounded-full border inline-block ${new Date(currentShift.shift_start) <= now && new Date(currentShift.shift_end) > now ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-white/5 text-slate-400 border-white/10'}`}>
+                                                        {currentShift.shift_type}
+                                                    </div>
+                                                    <div className="text-[10px] font-bold text-slate-400 flex items-center justify-end gap-1">
+                                                        <Clock size={10} className="text-slate-600" />
+                                                        {new Date(currentShift.shift_start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} – {new Date(currentShift.shift_end).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                });
                             })()}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── EXTERNAL SHIFT ACTIONS MODAL ── */}
+            {activePopoverData && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-[3px]" onClick={() => setActiveShiftPopoverId(null)} />
+                    <div className="relative w-full max-w-[400px] bg-[#0f172a] border border-white/10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] rounded-[32px] overflow-hidden font-sans animate-in fade-in zoom-in-95 duration-200 flex flex-col" style={{ maxHeight: '90vh' }}>
+                        <div className="relative p-7 pb-6 flex items-start gap-5 shrink-0 bg-white/[0.02]">
+                            <div className="relative">
+                                <img
+                                    src={activePopoverData.staff.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(activePopoverData.staff.full_name)}&background=6366f1&color=fff`}
+                                    alt={activePopoverData.staff.full_name}
+                                    className="w-20 h-20 rounded-[24px] object-cover ring-1 ring-white/10"
+                                />
+                                {activePopoverData.staff.is_verified && (
+                                    <div className="absolute -top-1.5 -right-1.5 bg-emerald-500 rounded-full p-1 border-2 border-[#121216] shadow-xl z-20">
+                                        <Check size={9} strokeWidth={4} className="text-white" />
+                                    </div>
+                                )}
+                            </div>
+                            <div className="flex-1 pt-1">
+                                <h3 className="text-2xl font-black text-white leading-tight mb-1">{activePopoverData.staff.full_name}</h3>
+                                <p className="text-[11px] font-black text-slate-500 uppercase tracking-[0.1em] mb-4">
+                                    {activePopoverData.staff.departments && activePopoverData.staff.departments.length > 0 
+                                        ? activePopoverData.staff.departments.map(d => d.name).join(', ') 
+                                        : activePopoverData.shift.department_name || activePopoverData.staff.department_name || 'STAFF'} {activePopoverData.shift.zone_name ? `· ${activePopoverData.shift.zone_name.toUpperCase()}` : ''}
+                                </p>
+                                <div className="flex items-center gap-2.5 text-sm font-bold text-emerald-400">
+                                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+                                    {new Date(activePopoverData.shift.shift_start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} – {new Date(activePopoverData.shift.shift_end).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                                </div>
+                            </div>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setActiveShiftPopoverId(null); }}
+                                className="text-slate-500 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-2xl"
+                            >
+                                <X size={24} strokeWidth={2.5} />
+                            </button>
+                        </div>
+                        <div className="h-px bg-white/5 mx-7 shrink-0" />
+                        <div className="flex-1 overflow-y-auto no-scrollbar pb-7">
+                            <div className="p-7 space-y-5">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">Actions</span>
+                                    <div className="flex-1 h-[1px] bg-white/5" />
+                                </div>
+                                <div className="space-y-2.5">
+                                    <button
+                                        disabled={activePopoverData.shift.is_locked}
+                                        className="w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 text-white text-sm font-bold transition-all disabled:opacity-30 group"
+                                        onClick={async () => {
+                                            setActiveShiftPopoverId(null);
+                                            isEditingRef.current = true;
+                                            await handleShiftOperation('lock_shift', { p_id: activePopoverData.shift.shift_id, p_user: userId });
+                                        }}
+                                    >
+                                        <Edit3 size={18} className="text-slate-500 group-hover:text-white transition-colors" />
+                                        Edit Shift
+                                    </button>
+                                    <button disabled={activePopoverData.shift.is_locked} className="w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 text-white text-sm font-bold transition-all group" onClick={() => setActiveShiftPopoverId(null)}>
+                                        <RefreshCw size={18} className="text-emerald-500/70 group-hover:text-emerald-400 transition-colors" />
+                                        Reassign / Move
+                                    </button>
+                                    <button disabled={activePopoverData.shift.is_locked} className="w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 text-white text-sm font-bold transition-all group" onClick={() => { setActiveShiftPopoverId(null); handleSplitShiftPrompt(activePopoverData.shift); }}>
+                                        <Scissors size={18} className="text-slate-500 group-hover:text-white transition-colors" />
+                                        Split Shift
+                                    </button>
+                                    <button className="w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 text-white text-sm font-bold transition-all group" onClick={() => { setActiveShiftPopoverId(null); handleLockToggle(activePopoverData.shift); }}>
+                                        <Lock size={18} className={activePopoverData.shift.is_locked ? "text-indigo-400" : "text-slate-500"} />
+                                        Lock Shift <span className="text-[10px] text-slate-500 font-bold ml-1 tracking-tight">({activePopoverData.shift.is_locked ? 'currently locked' : 'unlocked'})</span>
+                                    </button>
+                                    <div className="h-px bg-white/5 w-full my-4" />
+                                    <button className="w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl bg-red-500/5 border border-red-500/10 hover:bg-red-500/10 hover:border-red-500/20 text-red-400 text-sm font-bold transition-all group" onClick={() => { setActiveShiftPopoverId(null); setDeactivateUserModal(activePopoverData.staff); }}>
+                                        <UserX size={18} className="text-red-500/50 group-hover:text-red-400 transition-colors" />
+                                        Activate / Deactivate User
+                                    </button>
+                                    <button className="w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-400 text-sm font-bold transition-all group" onClick={() => { setActiveShiftPopoverId(null); handleRequestOverridePrompt(activePopoverData.shift); }}>
+                                        <AlertTriangle size={18} />
+                                        Request Override
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── DEACTIVATE USER SUB-MODAL ── */}
+            {deactivateUserModal && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setDeactivateUserModal(null)} />
+                    <div className="relative w-full max-w-[400px] bg-white rounded-3xl overflow-hidden shadow-2xl font-sans animate-in fade-in zoom-in-95 duration-200">
+                        <div className="p-6 text-center border-b border-slate-100 flex items-center justify-center relative">
+                            <h3 className="text-lg font-black text-slate-800">Deactivate User?</h3>
+                            <button onClick={() => setDeactivateUserModal(null)} className="absolute right-6 text-slate-400 hover:text-slate-600">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-5">
+                            <p className="text-sm font-medium text-slate-600 text-center">
+                                Are you sure you want to deactivate <span className="font-bold text-slate-900">{deactivateUserModal.full_name}</span>?
+                            </p>
+                            <div className="p-4 bg-emerald-50 rounded-2xl flex items-start gap-3 border border-emerald-100">
+                                <div className="mt-0.5 rounded text-emerald-600"><Check size={18} strokeWidth={3} /></div>
+                                <p className="text-sm font-bold text-emerald-800 leading-snug">This will prevent the user from being scheduled.</p>
+                            </div>
+                            <div className="space-y-2">
+                                <div className="relative">
+                                    <div className="absolute top-3.5 left-4 text-amber-500"><AlertTriangle size={18} /></div>
+                                    <textarea 
+                                        placeholder="Reason (required)" 
+                                        value={deactivateReason}
+                                        onChange={(e) => setDeactivateReason(e.target.value)}
+                                        className="w-full bg-white border border-amber-200 focus:border-amber-400 rounded-2xl py-3 pl-12 pr-4 text-sm font-medium text-slate-800 placeholder:text-amber-500/50 min-h-[100px] outline-none transition-colors"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="p-4 bg-slate-50 border-t border-slate-100 flex gap-3">
+                            <button onClick={() => setDeactivateUserModal(null)} className="flex-1 py-3.5 rounded-2xl bg-slate-200/50 hover:bg-slate-200 text-slate-600 text-sm font-bold transition-colors">Cancel</button>
+                            <button onClick={handleDeactivateUser} disabled={isDeactivatingUser || !deactivateReason.trim()} className="flex-1 py-3.5 rounded-2xl bg-red-600 hover:bg-red-700 text-white text-sm font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+                                {isDeactivatingUser ? <Loader2 size={18} className="animate-spin" /> : null}
+                                Deactivate User
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+
+            {/* ── CENTRALIZED ASSIGN SHIFT MODAL ── */}
+            {activeAssignStaffData && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-[3px]" onClick={() => setActiveAssignMenuId(null)} />
+                    <div className="relative w-full max-w-[400px] bg-[#0f172a] border border-white/10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] rounded-[32px] overflow-hidden font-sans animate-in fade-in zoom-in-95 duration-200 flex flex-col" style={{ maxHeight: '90vh' }}>
+                        
+                        <div className="relative p-7 pb-6 flex items-start gap-5 shrink-0 bg-white/[0.02]">
+                            <img
+                                src={activeAssignStaffData.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(activeAssignStaffData.full_name)}&background=6366f1&color=fff`}
+                                alt={activeAssignStaffData.full_name}
+                                className="w-20 h-20 rounded-[24px] object-cover ring-1 ring-white/10"
+                            />
+                            <div className="flex-1 pt-1">
+                                <h3 className="text-2xl font-black text-white leading-tight mb-1">{activeAssignStaffData.full_name}</h3>
+                                <p className="text-[11px] font-black text-slate-500 uppercase tracking-[0.1em] mb-4">
+                                    {activeAssignStaffData.departments && activeAssignStaffData.departments.length > 0 
+                                        ? activeAssignStaffData.departments.map(d => d.name).join(', ') 
+                                        : activeAssignStaffData.department_name || 'STAFF'} {activeZone !== 'All Zones' ? `· ${activeZone.toUpperCase()}` : ''}
+                                </p>
+                                <div className="flex items-center gap-2.5 text-sm font-bold text-indigo-400">
+                                    <div className="w-2.5 h-2.5 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
+                                    Assigning New Shift
+                                </div>
+                            </div>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setActiveAssignMenuId(null); }}
+                                className="text-slate-500 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-2xl"
+                            >
+                                <X size={24} strokeWidth={2.5} />
+                            </button>
+                        </div>
+
+                        <div className="h-px bg-white/5 mx-7 shrink-0" />
+
+                        <div className="flex-1 overflow-y-auto no-scrollbar pb-7">
+                            <div className="p-7 space-y-5">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">Quick Assign Templates</span>
+                                    <div className="flex-1 h-[1px] bg-white/5" />
+                                </div>
+                                <div className="space-y-2.5">
+                                    <button className="w-full text-left px-5 py-4 text-sm font-bold text-slate-300 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10 rounded-2xl flex items-center gap-4 transition-all group" onClick={() => { setActiveAssignMenuId(null); handleQuickAssign(activeAssignStaffData.staff_id, 'morning'); }}>
+                                        <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-500 group-hover:bg-amber-500/20 group-hover:scale-110 transition-all">
+                                            <Sun size={18} strokeWidth={3} />
+                                        </div>
+                                        <span>Morning Shift</span>
+                                        <span className="text-[10px] text-slate-500 font-black ml-auto bg-black/20 px-2 py-1 rounded-lg">07:00 - 15:00</span>
+                                    </button>
+                                    
+                                    <button className="w-full text-left px-5 py-4 text-sm font-bold text-slate-300 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10 rounded-2xl flex items-center gap-4 transition-all group" onClick={() => { setActiveAssignMenuId(null); handleQuickAssign(activeAssignStaffData.staff_id, 'evening'); }}>
+                                        <div className="p-2.5 rounded-xl bg-orange-500/10 text-orange-500 group-hover:bg-orange-500/20 group-hover:scale-110 transition-all">
+                                            <Sunset size={18} strokeWidth={3} />
+                                        </div>
+                                        <span>Evening Shift</span>
+                                        <span className="text-[10px] text-slate-500 font-black ml-auto bg-black/20 px-2 py-1 rounded-lg">15:00 - 23:00</span>
+                                    </button>
+                                    
+                                    <button className="w-full text-left px-5 py-4 text-sm font-bold text-slate-300 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10 rounded-2xl flex items-center gap-4 transition-all group" onClick={() => { setActiveAssignMenuId(null); handleQuickAssign(activeAssignStaffData.staff_id, 'night'); }}>
+                                        <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-400 group-hover:bg-indigo-500/20 group-hover:scale-110 transition-all">
+                                            <Moon size={18} strokeWidth={3} />
+                                        </div>
+                                        <span>Night Shift</span>
+                                        <span className="text-[10px] text-slate-500 font-black ml-auto bg-black/20 px-2 py-1 rounded-lg">23:00 - 07:00</span>
+                                    </button>
+                                </div>
+                                
+                                <div className="py-2">
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex-1 h-[1px] bg-white/5" />
+                                        <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">or</span>
+                                        <div className="flex-1 h-[1px] bg-white/5" />
+                                    </div>
+                                </div>
+
+                                <button className="w-full text-center px-5 py-4 text-sm font-black text-indigo-400 hover:bg-indigo-500/10 border border-indigo-500/20 rounded-2xl flex items-center justify-center gap-3 transition-all group" onClick={() => {
+                                    setActiveAssignMenuId(null);
+                                    setShiftModalData({ ...shiftModalData, staffId: activeAssignStaffData.staff_id });
+                                    setIsShiftModalOpen(true);
+                                }}>
+                                    <Settings size={16} strokeWidth={3} className="group-hover:rotate-90 transition-transform duration-500" />
+                                    CREATE CUSTOM SHIFT
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── EDIT STAFF MODAL ── */}
+            {editStaffModal && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setEditStaffModal(null)} />
+                    <div className="relative w-full max-w-[450px] bg-white rounded-3xl overflow-hidden shadow-2xl font-sans animate-in fade-in zoom-in-95 duration-200">
+                        <div className="p-6 text-center border-b border-slate-100 flex items-center justify-center relative">
+                            <h3 className="text-lg font-black text-slate-800">Edit Staff Settings</h3>
+                            <button onClick={() => setEditStaffModal(null)} className="absolute right-6 text-slate-400 hover:text-slate-600">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="p-8 space-y-6">
+                            <div className="flex items-center gap-4">
+                                <img
+                                    src={editStaffModal.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(editStaffModal.full_name)}&background=random`}
+                                    className="w-16 h-16 rounded-2xl border border-slate-200"
+                                    alt=""
+                                />
+                                <div>
+                                    <h4 className="text-lg font-bold text-slate-900 leading-tight">{editStaffModal.full_name}</h4>
+                                    <p className="text-sm font-medium text-slate-500">{editStaffModal.email || 'No email provided'}</p>
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-4">
+                                <div className="p-5 rounded-2xl border border-slate-200 bg-slate-50 flex items-center justify-between mb-4">
+                                    <div>
+                                        <h5 className="text-sm font-bold text-slate-900">Active Status</h5>
+                                        <p className="text-xs font-medium text-slate-500 mt-0.5">Allow scheduling and login access</p>
+                                    </div>
+                                    <button
+                                        disabled={isUpdatingStaff}
+                                        onClick={async () => {
+                                            setIsUpdatingStaff(true);
+                                            try {
+                                                const { error } = await supabase
+                                                    .rpc('update_hotel_member', {
+                                                        p_member_id: editStaffModal.staff_id,
+                                                        p_is_active: !editStaffModal.is_active
+                                                    });
+                                                
+                                                if (error) throw error;
+                                                
+                                                setEditStaffModal({ ...editStaffModal, is_active: !editStaffModal.is_active });
+                                                showToast('Active status updated successfully', 'success');
+                                                refetchDashboard();
+                                            } catch (err: any) {
+                                                showToast(err.message || 'Failed to update active status', 'error');
+                                            } finally {
+                                                setIsUpdatingStaff(false);
+                                            }
+                                        }}
+                                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors disabled:opacity-50 ${editStaffModal.is_active ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                                    >
+                                        <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${editStaffModal.is_active ? 'translate-x-6' : 'translate-x-1'}`} />
+                                    </button>
+                                </div>
+                                <div className="p-5 rounded-2xl border border-slate-200 bg-slate-50 flex items-center justify-between">
+                                    <div>
+                                        <h5 className="text-sm font-bold text-slate-900">Verification Status</h5>
+                                        <p className="text-xs font-medium text-slate-500 mt-0.5">Allow SLA ticket assignments</p>
+                                    </div>
+                                    <button
+                                        disabled={isUpdatingStaff}
+                                        onClick={async () => {
+                                            setIsUpdatingStaff(true);
+                                            try {
+                                                const { error } = await supabase
+                                                    .rpc('update_hotel_member', {
+                                                        p_member_id: editStaffModal.staff_id,
+                                                        p_is_verified: !editStaffModal.is_verified
+                                                    });
+                                                
+                                                if (error) throw error;
+                                                
+                                                setEditStaffModal({ ...editStaffModal, is_verified: !editStaffModal.is_verified });
+                                                showToast('Verification status updated successfully', 'success');
+                                                refetchDashboard();
+                                            } catch (err: any) {
+                                                showToast(err.message || 'Failed to update verification', 'error');
+                                            } finally {
+                                                setIsUpdatingStaff(false);
+                                            }
+                                        }}
+                                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors disabled:opacity-50 ${editStaffModal.is_verified ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                                    >
+                                        <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${editStaffModal.is_verified ? 'translate-x-6' : 'translate-x-1'}`} />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+                            <button onClick={() => setEditStaffModal(null)} className="px-6 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold transition-colors">
+                                Done
+                            </button>
                         </div>
                     </div>
                 </div>

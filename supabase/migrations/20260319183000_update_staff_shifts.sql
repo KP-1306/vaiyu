@@ -370,8 +370,7 @@ create or replace function get_staff_shifts_dashboard(
   p_hotel_id uuid,
   p_selected_day timestamptz,
   p_now timestamptz default now()
-)
-returns jsonb
+) returns jsonb
 language plpgsql
 security definer
 as $$
@@ -407,9 +406,12 @@ begin
   timeline_data as (
     select jsonb_agg(sub order by sub.full_name) as timeline
     from (
-      select 
+      select
         hm.id as staff_id,
         coalesce(p.full_name, p.email, 'User ' || left(hm.id::text, 4)) as full_name,
+        p.email as email,
+        hm.is_active as is_active,
+        hm.is_verified as is_verified,
         p.profile_photo_url as avatar_url,
         sdd.department_name,
         sz.zone_name as assigned_zone_name,
@@ -480,7 +482,7 @@ begin
       where hm.hotel_id = p_hotel_id
         and hm.is_active = true
 
-      group by hm.id, p.full_name, p.email, p.profile_photo_url, sdd.department_name, sz.zone_name
+      group by hm.id, p.full_name, p.email, hm.is_active, hm.is_verified, p.profile_photo_url, sdd.department_name, sz.zone_name
       order by full_name
     ) sub
   ),
@@ -491,6 +493,9 @@ begin
       select 
         hm.id as staff_id,
         coalesce(p.full_name, p.email, 'User ' || left(hm.id::text, 4)) as full_name,
+        p.email as email,
+        hm.is_active as is_active,
+        hm.is_verified as is_verified,
         p.profile_photo_url as avatar_url,
         sdd.department_name,
         sz.zone_id,
@@ -566,5 +571,54 @@ begin
   from timeline_data t, available_data a, summary_data s;
 
   return v_result;
+end;
+$$;
+
+-- =========================================================
+-- STEP 10: Admin Member Update RPC (Bypasses Table RLS)
+-- =========================================================
+
+create or replace function update_hotel_member(
+  p_member_id uuid,
+  p_is_active boolean default null,
+  p_is_verified boolean default null
+) returns void
+language plpgsql
+security definer
+as $$
+declare
+  v_hotel_id uuid;
+begin
+  -- Get the hotel ID for the member
+  select hotel_id into v_hotel_id
+  from public.hotel_members
+  where id = p_member_id;
+
+  if v_hotel_id is null then
+    raise exception 'Member not found';
+  end if;
+
+  -- Ensure the executing user is part of the same hotel (and ideally an ADMIN/OWNER)
+  if not exists (
+    select 1 from public.hotel_members hm
+    join public.hotel_member_roles hmr on hmr.hotel_member_id = hm.id
+    join public.hotel_roles hr on hr.id = hmr.role_id
+    where hm.user_id = auth.uid()
+      and hm.hotel_id = v_hotel_id
+      and hr.code in ('OWNER', 'ADMIN', 'MANAGER')
+      and hm.is_active = true
+  ) then
+    raise exception 'Not authorized to modify this member';
+  end if;
+
+  -- Apply the update
+  if p_is_active is not null then
+    update public.hotel_members set is_active = p_is_active where id = p_member_id;
+  end if;
+  
+  if p_is_verified is not null then
+    update public.hotel_members set is_verified = p_is_verified where id = p_member_id;
+  end if;
+
 end;
 $$;

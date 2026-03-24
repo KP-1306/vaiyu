@@ -9,7 +9,7 @@ import {
     Shield, FileText, UserPlus, Key, Eye,
     Copy, Upload, Download, History, RotateCcw, ShieldAlert, Info, MoreHorizontal, Save, Clock,
     ArrowUpCircle, Bell, HelpCircle, MapPin, Mail, Phone,
-    Star, UserCircle, Map, Paintbrush, Coffee
+    Star, UserCircle, Map, Paintbrush, Coffee, LogOut, Home
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { ImageUpload } from "../components/ImageUpload";
@@ -209,6 +209,7 @@ export default function HotelOnboarding() {
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
     const [success, setSuccess] = useState(false);
     const [transitioning, setTransitioning] = useState(false);
+    const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
     /* ── Member Role Assignment Modal State ── */
     const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
@@ -381,6 +382,47 @@ export default function HotelOnboarding() {
 
     const set = (key: keyof HotelForm, val: any) => setForm(p => ({ ...p, [key]: val }));
 
+    /* ── Reset All Onboarding State (used when switching/creating hotels) ── */
+    const resetOnboardingState = useCallback(() => {
+        setHotelId(null);
+        setStep(0);
+        setForm({
+            name: "", slug: "", description: "", phone: "", email: "",
+            address: "", city: "", state: "", country: "India", postal_code: "",
+            latitude: "", longitude: "",
+            legal_name: "", gst_number: "", logo_url: "", cover_image_url: "",
+            default_checkin_time: "14:00", default_checkout_time: "11:00",
+            early_checkin_allowed: false, late_checkout_allowed: false,
+            timezone: "Asia/Kolkata", currency_code: "INR",
+            tax_percentage: "12", service_charge_percentage: "0",
+            invoice_prefix: "", invoice_counter: "1", starting_invoice: "",
+            brand_color: "#6366F1", upi_id: "", booking_url: "",
+            amenities: [],
+            wifi_ssid: "", wifi_password: "", breakfast_start: "07:00", breakfast_end: "10:30", guest_notes: ""
+        });
+        setRoomTypes([
+            { id: generateId(), name: "Standard", base_occupancy: "2", max_occupancy: "2", active: true },
+            { id: generateId(), name: "Deluxe", base_occupancy: "2", max_occupancy: "3", active: true },
+            { id: generateId(), name: "Suite", base_occupancy: "2", max_occupancy: "4", active: true },
+        ]);
+        setInventory([]);
+        setStaffMembers([]);
+        setRolePerms([
+            { roleLabel: 'Manager', contact: '', scopes: makeScopes('Global'), perms: makePerms(true) },
+            { roleLabel: 'Receptionist', contact: '', scopes: { ...makeScopes('Global'), sla: 'Assigned Zones Only' }, perms: makePerms(true, { 'sla.Approve SLA Exception': false, 'sla.Override SLA': false, 'tickets.Request Supervisor': false }) },
+            { roleLabel: 'Housekeeper', contact: '', scopes: makeScopes('Global'), perms: makePerms(true, { 'financials.Modify Tickets': false, 'financials.Approve SLA Override': false, 'tickets.Issue Refunds': false, 'tickets.Reopen Ticket': false, 'tickets.Request Supervisor': false, 'security.Manage Access': false }) },
+        ]);
+        setFeatures(DEFAULT_FEATURES);
+        setError("");
+        setFieldErrors({});
+        // Reset transient UI state
+        setSelectedRoomTypeId("");
+        setParseInput("");
+        setParseTags([]);
+        setPreviewRooms([]);
+        setInventorySearch("");
+    }, []);
+
     /* ── Hotel Search & Auto-Population ── */
     const searchHotels = async (query: string = "") => {
         setIsHotelSearching(true);
@@ -522,6 +564,8 @@ export default function HotelOnboarding() {
             // Hydrate Features from Theme JSON
             if (h.theme && Array.isArray(h.theme)) {
                 setFeatures(h.theme);
+            } else {
+                setFeatures(DEFAULT_FEATURES);
             }
         } catch (e: any) {
             // Error cross-hydrating DB data into onboarding
@@ -1384,8 +1428,8 @@ export default function HotelOnboarding() {
                                                         </div>
                                                         <button
                                                             onClick={() => {
+                                                                resetOnboardingState();
                                                                 handleNameChange(headerSearchQuery);
-                                                                setStep(0);
                                                                 setIsHeaderSelectorOpen(false);
                                                             }}
                                                             className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 transition-colors uppercase tracking-widest"
@@ -1406,10 +1450,8 @@ export default function HotelOnboarding() {
                                                 <div className="p-3 bg-slate-950/60 border-t border-slate-800/80 flex items-center justify-center">
                                                     <button
                                                         onClick={() => {
-                                                            setHotelId(null);
-                                                            setForm(p => ({ ...p, name: "" }));
+                                                            resetOnboardingState();
                                                             setIsHeaderSelectorOpen(false);
-                                                            setStep(0);
                                                         }}
                                                         className="text-[10px] font-bold text-rose-400 hover:text-rose-300 transition-colors uppercase tracking-widest"
                                                     >
@@ -1443,13 +1485,71 @@ export default function HotelOnboarding() {
                             </button>
 
                             {/* Profile Dropdown */}
-                            <button className="flex items-center gap-2 pl-2 pr-1.5 py-1.5 sm:ml-2 rounded-full border border-slate-700/50 bg-slate-800/30 hover:bg-slate-800/60 transition max-w-[140px]">
-                                <div className="w-6 h-6 rounded-full bg-slate-700 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
-                                    {userInitials}
-                                </div>
-                                <span className="text-xs font-semibold text-slate-300 truncate hidden sm:block">{userEmail}</span>
-                                <ChevronDown size={14} className="text-slate-500 shrink-0" />
-                            </button>
+                            <div className="relative">
+                                <button
+                                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                                    className={`flex items-center gap-2 pl-2 pr-1.5 py-1.5 sm:ml-2 rounded-full border transition max-w-[160px] ${isUserMenuOpen ? 'border-indigo-500/40 bg-indigo-500/10' : 'border-slate-700/50 bg-slate-800/30 hover:bg-slate-800/60'}`}
+                                >
+                                    <div className="w-6 h-6 rounded-full bg-slate-700 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+                                        {userInitials}
+                                    </div>
+                                    <span className="text-xs font-semibold text-slate-300 truncate hidden sm:block">{userEmail}</span>
+                                    <ChevronDown size={14} className={`text-slate-500 shrink-0 transition-transform duration-200 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+                                </button>
+
+                                {isUserMenuOpen && (
+                                    <>
+                                        <div className="fixed inset-0 z-[80]" onClick={() => setIsUserMenuOpen(false)} />
+                                        <div className="absolute right-0 top-[calc(100%+8px)] z-[90] w-64 bg-[#0f172a] border border-slate-700/60 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden ring-1 ring-white/5 animate-in fade-in slide-in-from-top-2">
+                                            {/* User Info */}
+                                            <div className="p-4 border-b border-slate-800/60">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500/30 to-violet-500/20 border border-indigo-500/20 flex items-center justify-center text-sm font-bold text-indigo-300">
+                                                        {userInitials}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-bold text-white truncate">{userEmail}</p>
+                                                        <p className="text-[10px] font-medium text-slate-500 uppercase tracking-widest">Hotel Admin</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {/* Navigation */}
+                                            <div className="p-2">
+                                                <button
+                                                    onClick={() => { setIsUserMenuOpen(false); navigate('/'); }}
+                                                    className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-slate-300 hover:text-white hover:bg-white/5 rounded-xl transition-colors"
+                                                >
+                                                    <Home size={16} className="text-slate-500" />
+                                                    Home
+                                                </button>
+                                                {hotelId && (
+                                                    <button
+                                                        onClick={() => { setIsUserMenuOpen(false); navigate(`/owner/${hotelId}`); }}
+                                                        className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-slate-300 hover:text-white hover:bg-white/5 rounded-xl transition-colors"
+                                                    >
+                                                        <Building2 size={16} className="text-slate-500" />
+                                                        Owner Dashboard
+                                                    </button>
+                                                )}
+                                            </div>
+                                            {/* Logout */}
+                                            <div className="p-2 border-t border-slate-800/60">
+                                                <button
+                                                    onClick={async () => {
+                                                        setIsUserMenuOpen(false);
+                                                        await supabase.auth.signOut();
+                                                        navigate('/');
+                                                    }}
+                                                    className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-rose-400 hover:text-rose-300 hover:bg-rose-500/5 rounded-xl transition-colors"
+                                                >
+                                                    <LogOut size={16} />
+                                                    Sign Out
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
                         </div>
                     </header>
 
@@ -1484,9 +1584,10 @@ export default function HotelOnboarding() {
                             {step === 0 && (
                                 <div className="space-y-8">
                                     {/* Property Info */}
+                                    <div className={`relative ${showSuggestions ? 'z-[50]' : ''}`}>
                                     <Section emoji="🏨" title="Property Info">
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            <div className="sm:col-span-2 relative">
+                                            <div className={`sm:col-span-2 relative ${showSuggestions ? 'z-[50]' : ''}`}>
                                                 <label className={labelCls}>Hotel Name <span className="text-rose-400">*</span></label>
                                                 <div className="relative group">
                                                     <input
@@ -1510,10 +1611,10 @@ export default function HotelOnboarding() {
                                                 {showSuggestions && (hotelSuggestions.length > 0 || isHotelSearching) && (
                                                     <>
                                                         <div
-                                                            className="fixed inset-0 z-10"
+                                                            className="fixed inset-0 z-[50]"
                                                             onClick={() => setShowSuggestions(false)}
                                                         />
-                                                        <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-20 bg-slate-900/98 backdrop-blur-2xl border border-slate-700/60 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300 ring-1 ring-white/5">
+                                                        <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-[60] bg-[#0f172a] border border-slate-700/60 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300 ring-1 ring-white/5">
                                                             <div className="p-3 bg-slate-900/50 border-b border-slate-800/80 flex items-center justify-between">
                                                                 <div className="flex items-center gap-2">
                                                                     <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
@@ -1600,6 +1701,7 @@ export default function HotelOnboarding() {
                                             </div>
                                         </div>
                                     </Section>
+                                    </div>
 
                                     {/* Location */}
                                     <Section emoji="📍" title="Location">
@@ -3551,7 +3653,7 @@ function Section({ emoji, title, children }: { emoji: string; title: string; chi
                     <div className="h-[2px] w-8 bg-indigo-500/40 rounded-full group-hover:w-12 transition-all duration-500"></div>
                 </div>
             </div>
-            <div className="bg-slate-900/30 border border-slate-800/40 rounded-[32px] p-8 shadow-2xl backdrop-blur-sm relative overflow-hidden group-hover:border-indigo-500/10 transition-colors duration-500">
+            <div className="bg-slate-900/30 border border-slate-800/40 rounded-[32px] p-8 shadow-2xl backdrop-blur-sm relative group-hover:border-indigo-500/10 transition-colors duration-500">
                 {/* Subtle Glow */}
                 <div className="absolute -top-24 -right-24 w-48 h-48 bg-indigo-500/5 blur-[100px] pointer-events-none"></div>
                 <div className="relative z-10">

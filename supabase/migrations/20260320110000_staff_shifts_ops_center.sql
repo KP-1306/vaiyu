@@ -96,49 +96,136 @@ execute function public.sync_staff_shift_version();
 -- =========================================================
 -- 3. ASSIGN SHIFT
 -- =========================================================
-create or replace function assign_shift(
+-- 1. Redefine assign_shift to accept p_dry_run
+drop function if exists public.assign_shift(uuid, timestamptz, timestamptz, text, uuid, uuid, uuid, text, jsonb);
+
+create or replace function public.assign_shift(
   p_staff_id uuid,
   p_shift_start timestamptz,
   p_shift_end timestamptz,
   p_shift_type text,
   p_zone_id uuid,
-  p_created_by uuid
+  p_created_by uuid,
+  p_department_id uuid default null,
+  p_action_reason text default null,
+  p_explanation jsonb default null,
+  p_dry_run boolean default false
 )
 returns uuid
 language plpgsql
+security definer
+set search_path = public
 as $$
-declare v_id uuid;
+declare 
+  v_id uuid;
+  v_dept_id uuid := p_department_id;
 begin
-  if p_shift_end <= p_shift_start then
-    raise exception 'Invalid shift range';
+  -- 🛡 1. SECURITY: Verify caller is an active member of the same hotel as the staff
+  if not exists (
+    select 1
+    from public.hotel_members hm_staff
+    where hm_staff.id = p_staff_id
+      and hm_staff.is_active = true
+      and hm_staff.hotel_id in (
+        select hotel_id
+        from public.hotel_members
+        where user_id = auth.uid()
+          and is_active = true
+      )
+  ) then
+    raise exception 'Unauthorized or invalid active hotel membership context';
   end if;
 
-  if p_shift_type not in ('morning','evening','night') then
-    raise exception 'Invalid shift type';
+  -- 🔄 2. CONCURRENCY: Lock the staff member
+  perform 1
+  from public.hotel_members
+  where id = p_staff_id
+  for update;
+
+  -- 🧩 3. INTEGRITY: Zone-to-Department enforcement
+  if v_dept_id is null and p_zone_id is not null then
+    select department_id into v_dept_id
+    from public.hotel_zones
+    where id = p_zone_id;
   end if;
 
-  if p_shift_end - p_shift_start > interval '24 hours' then
-    raise exception 'Shift duration exceeds 24 hours';
+  if v_dept_id is null then
+    -- 🎯 3B: Fallback to PRIMARY department
+    select department_id into v_dept_id
+    from public.staff_departments
+    where staff_id = p_staff_id
+      and is_primary = true
+      and is_active = true
+    limit 1;
   end if;
 
+  if v_dept_id is null then
+    -- 🎯 3C: Final Fallback to ANY active department (Safety)
+    select department_id into v_dept_id
+    from public.staff_departments
+    where staff_id = p_staff_id
+      and is_active = true
+    order by priority desc, department_id asc
+    limit 1;
+  end if;
+
+  -- 🛡 3D: Hard Assertion before INSERT
+  if v_dept_id is null then
+    raise exception 'Validation failed: Staff member has no active department assignments';
+  end if;
+
+  -- 📝 4. AUDIT CONTEXT: Pass reasoning securely to trigger layer
+  perform set_config(
+    'vaiyu.action_reason',
+    coalesce(p_action_reason, 'Manual assignment'),
+    true
+  );
+
+  perform set_config(
+    'vaiyu.explanation',
+    coalesce(p_explanation::text, ''),
+    true
+  );
+
+  -- 💾 5. EXECUTION: Insert the active shift
   insert into public.staff_shifts (
-    staff_id, shift_start, shift_end,
-    shift_type, zone_id,
-    status, is_active, created_by
+    staff_id,
+    shift_start,
+    shift_end,
+    shift_type,
+    zone_id,
+    department_id,
+    created_by,
+    is_active,
+    status
   )
   values (
-    p_staff_id, p_shift_start, p_shift_end,
-    p_shift_type::shift_type_enum, p_zone_id,
-    'scheduled', true, p_created_by
+    p_staff_id,
+    p_shift_start,
+    p_shift_end,
+    p_shift_type::shift_type_enum,
+    p_zone_id,
+    v_dept_id,
+    p_created_by,
+    true,
+    'scheduled'
   )
   returning id into v_id;
 
-  return v_id;
+  -- 🧹 6. CLEANUP: Prevent session leak
+  perform set_config('vaiyu.action_reason', '', true);
+  perform set_config('vaiyu.explanation', '', true);
 
-exception when exclusion_violation then
-  raise exception 'Shift overlap';
+  -- 🛑 7. DRY RUN ABORT: Cancel the entire transaction safely, but prove success constraints passed
+  if p_dry_run then
+    raise exception 'DRY_RUN_SUCCESS';
+  end if;
+
+  return v_id;
 end;
 $$;
+
+alter function public.assign_shift owner to postgres;
 
 -- =========================================================
 -- 4. UPDATE SHIFT
@@ -376,15 +463,18 @@ begin
 end;
 $$;
 
--- =========================================================
--- 10. BULK ASSIGN
--- =========================================================
-create or replace function bulk_assign_shifts(
+-- 2. Redefine bulk_assign_shifts to accept p_dry_run and execute Subtransactions
+drop function if exists public.bulk_assign_shifts(jsonb, uuid);
+
+create or replace function public.bulk_assign_shifts(
   p_shifts jsonb,
-  p_user uuid
+  p_user uuid,
+  p_dry_run boolean default false
 )
 returns jsonb
 language plpgsql
+security definer
+set search_path = public
 as $$
 declare
   v_item jsonb;
@@ -394,55 +484,65 @@ begin
   for v_item in select * from jsonb_array_elements(p_shifts)
   loop
     begin
-      if (v_item->>'shift_type') not in ('morning','evening','night') then
-        v_result := v_result || jsonb_build_object(
-          'staff_id', v_item->>'staff_id',
-          'status', 'invalid_shift_type'
-        );
-        continue;
-      end if;
-
-      if (v_item->>'shift_end')::timestamptz <= (v_item->>'shift_start')::timestamptz then
-        v_result := v_result || jsonb_build_object(
-          'staff_id', v_item->>'staff_id',
-          'status', 'invalid_time'
-        );
-        continue;
-      end if;
-
-      insert into public.staff_shifts (
-        staff_id,
-        shift_start,
-        shift_end,
-        shift_type,
-        zone_id,
-        status,
-        is_active,
-        created_by
-      )
-      values (
+      -- Standardize logic via core engine
+      v_shift_id := public.assign_shift(
         (v_item->>'staff_id')::uuid,
         (v_item->>'shift_start')::timestamptz,
         (v_item->>'shift_end')::timestamptz,
-        (v_item->>'shift_type')::shift_type_enum,
+        v_item->>'shift_type',
         (v_item->>'zone_id')::uuid,
-        'scheduled',
-        true,
-        p_user
-      )
-      returning id into v_shift_id;
+        p_user,
+        (v_item->>'department_id')::uuid,
+        nullif(v_item->>'action_reason', ''),
+        (v_item->'explanation')::jsonb,
+        p_dry_run -- Pass dry run constraint
+      );
 
+      -- If we reach here, p_dry_run=false AND execution was successful.
       v_result := v_result || jsonb_build_object(
         'staff_id', v_item->>'staff_id',
+        'shift_start', v_item->>'shift_start',
+        'shift_end', v_item->>'shift_end',
         'status', 'success',
+        'message', 'Clear',
         'shift_id', v_shift_id
       );
 
     exception
+      when raise_exception then
+        if sqlerrm = 'DRY_RUN_SUCCESS' then
+          -- The transaction was intentionally rolled back by the engine to simulate dryness
+          v_result := v_result || jsonb_build_object(
+            'staff_id', v_item->>'staff_id',
+            'shift_start', v_item->>'shift_start',
+            'shift_end', v_item->>'shift_end',
+            'status', 'success',
+            'message', 'Clear'
+          );
+        else
+          v_result := v_result || jsonb_build_object(
+            'staff_id', v_item->>'staff_id',
+            'shift_start', v_item->>'shift_start',
+            'shift_end', v_item->>'shift_end',
+            'status', 'error',
+            'message', SQLERRM
+          );
+        end if;
       when exclusion_violation then
         v_result := v_result || jsonb_build_object(
           'staff_id', v_item->>'staff_id',
-          'status', 'conflict'
+          'shift_start', v_item->>'shift_start',
+          'shift_end', v_item->>'shift_end',
+          'status', 'conflict',
+          'message', 'Overlaps with an existing shift'
+        );
+      when others then
+        v_result := v_result || jsonb_build_object(
+          'staff_id', v_item->>'staff_id',
+          'shift_start', v_item->>'shift_start',
+          'shift_end', v_item->>'shift_end',
+          'status', 'error',
+          'message', SQLERRM
         );
     end;
   end loop;
@@ -450,6 +550,8 @@ begin
   return v_result;
 end;
 $$;
+
+alter function public.bulk_assign_shifts owner to postgres;
 
 -- =========================================================
 -- 11. OVERRIDE FLOW
@@ -711,6 +813,7 @@ create table if not exists public.shift_audit_log (
   action text not null check (action in ('created','updated','cancelled','deleted')),
   diff jsonb not null, -- Stores: { "field": { "old": "...", "new": "..." } }
   action_reason text,  -- Optional: why this happened (AI/Manual/System)
+  explanation jsonb,   -- Detailed AI reasoning
   changed_by uuid,
   changed_at timestamptz not null default now()
 );
@@ -746,14 +849,23 @@ end $$;
 create or replace function public.trg_shift_audit()
 returns trigger
 language plpgsql
+security definer
+set search_path = public
 as $$
 declare
   v_action text;
   v_changed_by uuid;
   v_hotel_id uuid;
   v_diff jsonb := '{}'::jsonb;
+  v_explanation jsonb;
 begin
-  -- 👤 Identify Actor (Supabase production pattern)
+  -- Read explanation from session
+  v_explanation := nullif(
+    current_setting('vaiyu.explanation', true),
+    ''
+  )::jsonb;
+
+  -- 👤 Identify Actor
   v_changed_by := coalesce(
     current_setting('request.jwt.claim.sub', true)::uuid,
     auth.uid(),
@@ -761,85 +873,85 @@ begin
     OLD.created_by
   );
 
-  -- 🏢 Lookup hotel_id correctly (staff_id = profiles.id)
+  -- 🏢 Lookup hotel_id correctly
   select hm.hotel_id into v_hotel_id
   from public.hotel_members hm
   where hm.id = coalesce(NEW.staff_id, OLD.staff_id)
   limit 1;
 
-  -- 🛡 MANDATORY: Prevent orphan audit logs
   if v_hotel_id is null then
-    raise exception 'Audit failed: hotel_id not found for staff_id %', coalesce(NEW.staff_id, OLD.staff_id);
+    raise exception 'Audit failed: hotel_id not found for staff %', coalesce(NEW.staff_id, OLD.staff_id);
   end if;
 
-  -- 🎯 Detect action & compute diff
   if tg_op = 'INSERT' then
     v_action := 'created';
     v_diff := jsonb_build_object(
-      'staff_id',    jsonb_build_object('new', NEW.staff_id),
-      'status',       jsonb_build_object('new', NEW.status),
-      'shift_start', jsonb_build_object('new', NEW.shift_start),
-      'shift_end',   jsonb_build_object('new', NEW.shift_end),
-      'shift_type',  jsonb_build_object('new', NEW.shift_type),
-      'zone_id',     jsonb_build_object('new', NEW.zone_id)
+      'staff_id',      jsonb_build_object('new', NEW.staff_id),
+      'department_id',  jsonb_build_object('new', NEW.department_id),
+      'status',         jsonb_build_object('new', NEW.status),
+      'shift_start',   jsonb_build_object('new', NEW.shift_start),
+      'shift_end',     jsonb_build_object('new', NEW.shift_end),
+      'shift_type',    jsonb_build_object('new', NEW.shift_type),
+      'zone_id',       jsonb_build_object('new', NEW.zone_id)
     );
-
   elsif tg_op = 'UPDATE' then
-    -- Skip noise (locks, version bumps)
     if (
       NEW.shift_start is not distinct from OLD.shift_start and
       NEW.shift_end is not distinct from OLD.shift_end and
       NEW.shift_type is not distinct from OLD.shift_type and
       NEW.zone_id is not distinct from OLD.zone_id and
       NEW.status is not distinct from OLD.status and
-      NEW.staff_id is not distinct from OLD.staff_id
+      NEW.staff_id is not distinct from OLD.staff_id and
+      NEW.department_id is not distinct from OLD.department_id
     ) then
       return NEW;
     end if;
 
-    if NEW.status = 'cancelled' and (OLD.status is null or OLD.status != 'cancelled') then
-      v_action := 'cancelled';
-    else
-      v_action := 'updated';
-    end if;
-
-    -- Compute clean field-level diff
-    v_diff := jsonb_strip_nulls(jsonb_build_object(
-      'shift_start', case when NEW.shift_start is distinct from OLD.shift_start then jsonb_build_object('old', OLD.shift_start, 'new', NEW.shift_start) end,
-      'shift_end',   case when NEW.shift_end   is distinct from OLD.shift_end   then jsonb_build_object('old', OLD.shift_end,   'new', NEW.shift_end) end,
-      'shift_type',  case when NEW.shift_type  is distinct from OLD.shift_type  then jsonb_build_object('old', OLD.shift_type,  'new', NEW.shift_type) end,
-      'staff_id',    case when NEW.staff_id    is distinct from OLD.staff_id    then jsonb_build_object('old', OLD.staff_id,    'new', NEW.staff_id) end,
-      'zone_id',     case when NEW.zone_id     is distinct from OLD.zone_id     then jsonb_build_object('old', OLD.zone_id,     'new', NEW.zone_id) end,
-      'status',      case when NEW.status      is distinct from OLD.status      then jsonb_build_object('old', OLD.status,      'new', NEW.status) end
-    ));
-
+    v_action := 'updated';
+    if NEW.shift_start is distinct from OLD.shift_start then v_diff := v_diff || jsonb_build_object('shift_start', jsonb_build_object('old', OLD.shift_start, 'new', NEW.shift_start)); end if;
+    if NEW.shift_end is distinct from OLD.shift_end then v_diff := v_diff || jsonb_build_object('shift_end', jsonb_build_object('old', OLD.shift_end, 'new', NEW.shift_end)); end if;
+    if NEW.department_id is distinct from OLD.department_id then v_diff := v_diff || jsonb_build_object('department_id', jsonb_build_object('old', OLD.department_id, 'new', NEW.department_id)); end if;
+    if NEW.zone_id is distinct from OLD.zone_id then v_diff := v_diff || jsonb_build_object('zone_id', jsonb_build_object('old', OLD.zone_id, 'new', NEW.zone_id)); end if;
+    if NEW.status is distinct from OLD.status then v_diff := v_diff || jsonb_build_object('status', jsonb_build_object('old', OLD.status, 'new', NEW.status)); end if;
+  
   elsif tg_op = 'DELETE' then
     v_action := 'deleted';
     v_diff := jsonb_build_object(
       'deleted', true,
+      'department_id', OLD.department_id,
+      'staff_id', OLD.staff_id,
       'shift_start', OLD.shift_start,
-      'shift_end',   OLD.shift_end,
-      'staff_id',    OLD.staff_id,
-      'status',      OLD.status
+      'shift_end', OLD.shift_end
     );
+    -- Insert audit log for delete before returning OLD
+    insert into public.shift_audit_log (
+      hotel_id, shift_id, staff_id, action, diff, 
+      action_reason, explanation, changed_by
+    )
+    values (
+      v_hotel_id, OLD.id, OLD.staff_id, v_action, v_diff, 
+      nullif(current_setting('vaiyu.action_reason', true), ''),
+      v_explanation,
+      v_changed_by
+    );
+    return OLD;
   end if;
 
-  -- 📝 Record the audit
+  -- 💾 Insert audit log for insert/update
   insert into public.shift_audit_log (
-    hotel_id, shift_id, staff_id, action, diff, changed_by
-  ) values (
-    v_hotel_id,
-    coalesce(NEW.id, OLD.id),
-    coalesce(NEW.staff_id, OLD.staff_id),
-    v_action,
-    v_diff,
+    hotel_id, shift_id, staff_id, action, diff, 
+    action_reason, explanation, changed_by
+  )
+  values (
+    v_hotel_id, NEW.id, NEW.staff_id, v_action, v_diff, 
+    nullif(current_setting('vaiyu.action_reason', true), ''),
+    v_explanation,
     v_changed_by
   );
 
-  if tg_op = 'DELETE' then return OLD; end if;
   return NEW;
 end;
-$$;
+$$ language plpgsql;
 
 -- 🔗 Re-attach Trigger
 drop trigger if exists trg_shift_audit on public.staff_shifts;

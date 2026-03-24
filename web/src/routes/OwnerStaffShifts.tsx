@@ -174,9 +174,15 @@ export default function OwnerStaffShifts() {
 
     const [editStaffModal, setEditStaffModal] = useState<any>(null);
     const [isUpdatingStaff, setIsUpdatingStaff] = useState(false);
+    const [editStaffRoles, setEditStaffRoles] = useState<{ id: string; name: string; code: string }[]>([]);
+    const [editStaffDepts, setEditStaffDepts] = useState<{ id: string; name: string; is_primary: boolean }[]>([]);
     const [deactivateUserModal, setDeactivateUserModal] = useState<any>(null);
     const [isDeactivatingUser, setIsDeactivatingUser] = useState(false);
     const [deactivateReason, setDeactivateReason] = useState("");
+
+    // Filter Menu States
+    const [isDeptFilterOpen, setIsDeptFilterOpen] = useState(false);
+    const [isZoneFilterOpen, setIsZoneFilterOpen] = useState(false);
 
 
     const activeAssignStaffData = useMemo(() => {
@@ -186,14 +192,6 @@ export default function OwnerStaffShifts() {
         }
         return null;
     }, [activeAssignMenuId, data]);
-    const activePopoverData = useMemo(() => {
-        if (!activeShiftPopoverId || !data) return null;
-        for (const staff of data.timeline) {
-            const shift = staff.shifts.find(s => s.shift_id === activeShiftPopoverId);
-            if (shift) return { staff, shift };
-        }
-        return null;
-    }, [activeShiftPopoverId, data]);
 
     const handleDeactivateUser = async () => {
         if (!deactivateReason.trim()) {
@@ -395,11 +393,17 @@ export default function OwnerStaffShifts() {
                 .select('staff_id, department_id, is_primary, departments(name)')
                 .in('staff_id', staffIds);
 
-            // 2. Fetch specific verified/email status from hotel_members if needed
+            // 2. Fetch verified status and email separately (safer than PostgREST joins without explicit FKs)
             const { data: membersInfo, error: membersErr } = await supabase
                 .from('hotel_members')
-                .select('id, is_verified, email')
+                .select('id, is_verified, user_id')
                 .in('id', staffIds);
+
+            const userIds = membersInfo?.map(m => m.user_id).filter(Boolean) || [];
+            const { data: profilesInfo } = await supabase
+                .from('profiles')
+                .select('id, email')
+                .in('id', userIds);
 
             if (!deptsErr && !membersErr) {
                 const enrichedTimeline = rpcData.timeline.map((staff: any) => {
@@ -412,13 +416,13 @@ export default function OwnerStaffShifts() {
                         })) || [];
                     
                     const mInfo = membersInfo?.find(m => m.id === staff.staff_id);
+                    const pInfo = profilesInfo?.find(p => p.id === mInfo?.user_id);
                     
                     return {
                         ...staff,
                         departments: depts,
-                        // Fallback to member table if RPC misses these
                         is_verified: mInfo ? mInfo.is_verified : staff.is_verified,
-                        email: mInfo ? mInfo.email : staff.email
+                        email: pInfo?.email || staff.email
                     };
                 });
                 setData({ ...rpcData, timeline: enrichedTimeline });
@@ -1292,6 +1296,62 @@ export default function OwnerStaffShifts() {
         }
     }
 
+    // 5b. Fetch roles & departments for Edit Staff modal
+    useEffect(() => {
+        if (!editStaffModal?.staff_id) {
+            setEditStaffRoles([]);
+            setEditStaffDepts([]);
+            return;
+        }
+        const staffId = editStaffModal.staff_id;
+
+        // Fetch departments
+        supabase
+            .from('staff_departments')
+            .select('department_id, is_primary, departments(id, name)')
+            .eq('staff_id', staffId)
+            .then(({ data }) => {
+                if (data) {
+                    setEditStaffDepts(data.map((sd: any) => ({
+                        id: sd.department_id,
+                        name: sd.departments?.name || 'Unknown',
+                        is_primary: sd.is_primary
+                    })));
+                }
+            });
+
+        // Fetch roles
+        supabase
+            .from('hotel_member_roles')
+            .select('role_id, hotel_roles(id, name, code)')
+            .eq('hotel_member_id', staffId)
+            .then(({ data }) => {
+                if (data) {
+                    setEditStaffRoles(data.map((r: any) => ({
+                        id: r.role_id,
+                        name: r.hotel_roles?.name || 'Unknown',
+                        code: r.hotel_roles?.code || ''
+                    })));
+                }
+            });
+    }, [editStaffModal?.staff_id]);
+
+    // 6. Filter Logic (MUST be before early returns to respect React hook rules)
+    const rawTimeline = data?.timeline || [];
+    const filteredTimeline = useMemo(() => {
+        return rawTimeline.filter(staff => {
+            const matchesDept = activeDepartment === "All Departments" || 
+                (staff.departments && staff.departments.some((d: any) => d.name === activeDepartment)) ||
+                (staff.department_name === activeDepartment);
+                
+            const matchesZone = activeZone === "All Zones" || 
+                staff.zone_id === activeZone || 
+                staff.zone_name === activeZone;
+                
+            return matchesDept && matchesZone;
+        });
+    }, [rawTimeline, activeDepartment, activeZone]);
+
     if (loading && !data) {
         return (
             <div className="flex h-screen items-center justify-center bg-[#0a0a0c]">
@@ -1311,7 +1371,6 @@ export default function OwnerStaffShifts() {
             </div>
         );
     }
-
     const { timeline = [], available = [], summary } = data || {};
 
     return (
@@ -1682,21 +1741,78 @@ export default function OwnerStaffShifts() {
 
                                     {/* Dropdowns */}
                                     <div className="flex items-center gap-3">
-                                        <div className="relative group cursor-pointer">
+                                        {/* Department Filter */}
+                                        <div className="relative">
                                             <button
-                                                className="filter-button flex items-center gap-6 px-4 py-2 text-sm font-bold transition-all rounded-lg"
+                                                onClick={() => setIsDeptFilterOpen(!isDeptFilterOpen)}
+                                                className={`filter-button flex items-center gap-6 px-4 py-2 text-sm font-bold transition-all rounded-lg select-none ${isDeptFilterOpen ? 'bg-white/10 text-white' : 'text-slate-400'}`}
                                             >
                                                 {activeDepartment}
-                                                <ChevronDown size={14} strokeWidth={3} className="opacity-40" />
+                                                <ChevronDown size={14} strokeWidth={3} className={`transition-transform duration-300 ${isDeptFilterOpen ? 'rotate-180 opacity-100' : 'opacity-40'}`} />
                                             </button>
+
+                                            {isDeptFilterOpen && (
+                                                <>
+                                                    <div className="fixed inset-0 z-[60]" onClick={() => setIsDeptFilterOpen(false)} />
+                                                    <div className="absolute top-[calc(100%+8px)] left-0 min-w-[220px] p-2 bg-[#1a1a24] border border-white/10 rounded-xl shadow-2xl shadow-black/50 z-[70] animate-in fade-in slide-in-from-top-2">
+                                                        <div className="px-3 py-1.5 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5 mb-1">Departments</div>
+                                                        <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                                                            <button
+                                                                onClick={() => { setActiveDepartment("All Departments"); setIsDeptFilterOpen(false); }}
+                                                                className={`w-full text-left px-3 py-2 text-sm font-bold rounded-lg transition-colors mb-1 ${activeDepartment === "All Departments" ? 'bg-indigo-500 text-white' : 'text-slate-300 hover:bg-white/5 hover:text-white'}`}
+                                                            >
+                                                                All Departments
+                                                            </button>
+                                                            {hotelDepartments.map(dept => (
+                                                                <button
+                                                                    key={dept.id}
+                                                                    onClick={() => { setActiveDepartment(dept.name); setIsDeptFilterOpen(false); }}
+                                                                    className={`w-full text-left px-3 py-2 text-sm font-bold rounded-lg transition-colors mb-1 ${activeDepartment === dept.name ? 'bg-indigo-500 text-white' : 'text-slate-300 hover:bg-white/5 hover:text-white'}`}
+                                                                >
+                                                                    {dept.name}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
-                                        <div className="relative group cursor-pointer">
+
+                                        {/* Zone Filter */}
+                                        <div className="relative">
                                             <button
-                                                className="filter-button flex items-center gap-6 px-4 py-2 text-sm font-bold transition-all rounded-lg"
+                                                onClick={() => setIsZoneFilterOpen(!isZoneFilterOpen)}
+                                                className={`filter-button flex items-center gap-6 px-4 py-2 text-sm font-bold transition-all rounded-lg select-none ${isZoneFilterOpen ? 'bg-white/10 text-white' : 'text-slate-400'}`}
                                             >
                                                 {activeZone}
-                                                <ChevronDown size={14} strokeWidth={3} className="opacity-40" />
+                                                <ChevronDown size={14} strokeWidth={3} className={`transition-transform duration-300 ${isZoneFilterOpen ? 'rotate-180 opacity-100' : 'opacity-40'}`} />
                                             </button>
+
+                                            {isZoneFilterOpen && (
+                                                <>
+                                                    <div className="fixed inset-0 z-[60]" onClick={() => setIsZoneFilterOpen(false)} />
+                                                    <div className="absolute top-[calc(100%+8px)] left-0 min-w-[220px] p-2 bg-[#1a1a24] border border-white/10 rounded-xl shadow-2xl shadow-black/50 z-[70] animate-in fade-in slide-in-from-top-2">
+                                                        <div className="px-3 py-1.5 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5 mb-1">Zones</div>
+                                                        <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                                                            <button
+                                                                onClick={() => { setActiveZone("All Zones"); setIsZoneFilterOpen(false); }}
+                                                                className={`w-full text-left px-3 py-2 text-sm font-bold rounded-lg transition-colors mb-1 ${activeZone === "All Zones" ? 'bg-indigo-500 text-white' : 'text-slate-300 hover:bg-white/5 hover:text-white'}`}
+                                                            >
+                                                                All Zones
+                                                            </button>
+                                                            {hotelZones.map(zone => (
+                                                                <button
+                                                                    key={zone.id}
+                                                                    onClick={() => { setActiveZone(zone.name); setIsZoneFilterOpen(false); }}
+                                                                    className={`w-full text-left px-3 py-2 text-sm font-bold rounded-lg transition-colors mb-1 ${activeZone === zone.name ? 'bg-indigo-500 text-white' : 'text-slate-300 hover:bg-white/5 hover:text-white'}`}
+                                                                >
+                                                                    {zone.name}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -1789,7 +1905,7 @@ export default function OwnerStaffShifts() {
 
                                     {/* Staff Rows */}
                                     <div className="divide-y divide-white/[0.03]">
-                                        {timeline.map(staff => {
+                                        {filteredTimeline.map(staff => {
                                             const startOfTimeline = new Date(currentDate);
                                             startOfTimeline.setHours(6, 0, 0, 0);
                                             const endOfTimeline = new Date(startOfTimeline);
@@ -2074,6 +2190,11 @@ export default function OwnerStaffShifts() {
                                                                                                     <AlertTriangle size={18} />
                                                                                                     Request Override
                                                                                                 </button>
+                                                                                                <div className="h-px bg-white/5 w-full my-1" />
+                                                                                                <button className="w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl bg-red-500/5 border border-red-500/10 hover:bg-red-500/10 hover:border-red-500/20 text-red-400 text-sm font-bold transition-all group" onClick={() => { setActiveShiftPopoverId(null); setDeactivateUserModal(staff); }}>
+                                                                                                    <UserX size={18} className="text-red-500/50 group-hover:text-red-400 transition-colors" />
+                                                                                                    Activate / Deactivate User
+                                                                                                </button>
                                                                                             </div>
                                                                                         </div>
 
@@ -2300,7 +2421,7 @@ export default function OwnerStaffShifts() {
                                         })()
                                     ) : (
                                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                                            {timeline.map(staff => {
+                                            {filteredTimeline.map(staff => {
                                                 const now = pulseTime;
                                                 const hasActiveShift = staff.shifts.some(s => new Date(s.shift_start) <= now && new Date(s.shift_end) > now);
 
@@ -3699,6 +3820,12 @@ export default function OwnerStaffShifts() {
                                                     </div>
                                                 </div>
                                             )}
+                                            <button 
+                                                className="ml-auto shrink-0 p-2 rounded-xl bg-red-500/5 border border-red-500/10 hover:bg-red-500/10 hover:border-red-500/20 text-red-400 transition-all"
+                                                onClick={(e) => { e.stopPropagation(); setDeactivateUserModal(staff); }}
+                                            >
+                                                <UserX size={18} className="text-red-500/50 group-hover:text-red-400 transition-colors" />
+                                            </button>
                                         </div>
                                     );
                                 });
@@ -3708,90 +3835,6 @@ export default function OwnerStaffShifts() {
                 </div>
             )}
 
-            {/* ── EXTERNAL SHIFT ACTIONS MODAL ── */}
-            {activePopoverData && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    <div className="fixed inset-0 bg-black/60 backdrop-blur-[3px]" onClick={() => setActiveShiftPopoverId(null)} />
-                    <div className="relative w-full max-w-[400px] bg-[#0f172a] border border-white/10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] rounded-[32px] overflow-hidden font-sans animate-in fade-in zoom-in-95 duration-200 flex flex-col" style={{ maxHeight: '90vh' }}>
-                        <div className="relative p-7 pb-6 flex items-start gap-5 shrink-0 bg-white/[0.02]">
-                            <div className="relative">
-                                <img
-                                    src={activePopoverData.staff.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(activePopoverData.staff.full_name)}&background=6366f1&color=fff`}
-                                    alt={activePopoverData.staff.full_name}
-                                    className="w-20 h-20 rounded-[24px] object-cover ring-1 ring-white/10"
-                                />
-                                {activePopoverData.staff.is_verified && (
-                                    <div className="absolute -top-1.5 -right-1.5 bg-emerald-500 rounded-full p-1 border-2 border-[#121216] shadow-xl z-20">
-                                        <Check size={9} strokeWidth={4} className="text-white" />
-                                    </div>
-                                )}
-                            </div>
-                            <div className="flex-1 pt-1">
-                                <h3 className="text-2xl font-black text-white leading-tight mb-1">{activePopoverData.staff.full_name}</h3>
-                                <p className="text-[11px] font-black text-slate-500 uppercase tracking-[0.1em] mb-4">
-                                    {activePopoverData.staff.departments && activePopoverData.staff.departments.length > 0 
-                                        ? activePopoverData.staff.departments.map(d => d.name).join(', ') 
-                                        : activePopoverData.shift.department_name || activePopoverData.staff.department_name || 'STAFF'} {activePopoverData.shift.zone_name ? `· ${activePopoverData.shift.zone_name.toUpperCase()}` : ''}
-                                </p>
-                                <div className="flex items-center gap-2.5 text-sm font-bold text-emerald-400">
-                                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-                                    {new Date(activePopoverData.shift.shift_start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} – {new Date(activePopoverData.shift.shift_end).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                                </div>
-                            </div>
-                            <button
-                                onClick={(e) => { e.stopPropagation(); setActiveShiftPopoverId(null); }}
-                                className="text-slate-500 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-2xl"
-                            >
-                                <X size={24} strokeWidth={2.5} />
-                            </button>
-                        </div>
-                        <div className="h-px bg-white/5 mx-7 shrink-0" />
-                        <div className="flex-1 overflow-y-auto no-scrollbar pb-7">
-                            <div className="p-7 space-y-5">
-                                <div className="flex items-center gap-3">
-                                    <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">Actions</span>
-                                    <div className="flex-1 h-[1px] bg-white/5" />
-                                </div>
-                                <div className="space-y-2.5">
-                                    <button
-                                        disabled={activePopoverData.shift.is_locked}
-                                        className="w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 text-white text-sm font-bold transition-all disabled:opacity-30 group"
-                                        onClick={async () => {
-                                            setActiveShiftPopoverId(null);
-                                            isEditingRef.current = true;
-                                            await handleShiftOperation('lock_shift', { p_id: activePopoverData.shift.shift_id, p_user: userId });
-                                        }}
-                                    >
-                                        <Edit3 size={18} className="text-slate-500 group-hover:text-white transition-colors" />
-                                        Edit Shift
-                                    </button>
-                                    <button disabled={activePopoverData.shift.is_locked} className="w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 text-white text-sm font-bold transition-all group" onClick={() => setActiveShiftPopoverId(null)}>
-                                        <RefreshCw size={18} className="text-emerald-500/70 group-hover:text-emerald-400 transition-colors" />
-                                        Reassign / Move
-                                    </button>
-                                    <button disabled={activePopoverData.shift.is_locked} className="w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 text-white text-sm font-bold transition-all group" onClick={() => { setActiveShiftPopoverId(null); handleSplitShiftPrompt(activePopoverData.shift); }}>
-                                        <Scissors size={18} className="text-slate-500 group-hover:text-white transition-colors" />
-                                        Split Shift
-                                    </button>
-                                    <button className="w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 text-white text-sm font-bold transition-all group" onClick={() => { setActiveShiftPopoverId(null); handleLockToggle(activePopoverData.shift); }}>
-                                        <Lock size={18} className={activePopoverData.shift.is_locked ? "text-indigo-400" : "text-slate-500"} />
-                                        Lock Shift <span className="text-[10px] text-slate-500 font-bold ml-1 tracking-tight">({activePopoverData.shift.is_locked ? 'currently locked' : 'unlocked'})</span>
-                                    </button>
-                                    <div className="h-px bg-white/5 w-full my-4" />
-                                    <button className="w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl bg-red-500/5 border border-red-500/10 hover:bg-red-500/10 hover:border-red-500/20 text-red-400 text-sm font-bold transition-all group" onClick={() => { setActiveShiftPopoverId(null); setDeactivateUserModal(activePopoverData.staff); }}>
-                                        <UserX size={18} className="text-red-500/50 group-hover:text-red-400 transition-colors" />
-                                        Activate / Deactivate User
-                                    </button>
-                                    <button className="w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-400 text-sm font-bold transition-all group" onClick={() => { setActiveShiftPopoverId(null); handleRequestOverridePrompt(activePopoverData.shift); }}>
-                                        <AlertTriangle size={18} />
-                                        Request Override
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* ── DEACTIVATE USER SUB-MODAL ── */}
             {deactivateUserModal && (
@@ -3947,7 +3990,39 @@ export default function OwnerStaffShifts() {
                                     <p className="text-sm font-medium text-slate-500">{editStaffModal.email || 'No email provided'}</p>
                                 </div>
                             </div>
-                            
+
+                            {/* Departments & Roles Badges */}
+                            <div className="space-y-3">
+                                {editStaffDepts.length > 0 && (
+                                    <div>
+                                        <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Departments</h5>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {editStaffDepts.map(d => (
+                                                <span key={d.id} className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold ${d.is_primary ? 'bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200' : 'bg-slate-100 text-slate-600'}`}>
+                                                    {d.name}
+                                                    {d.is_primary && <span className="text-[9px] font-black text-indigo-400">PRIMARY</span>}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                {editStaffRoles.length > 0 && (
+                                    <div>
+                                        <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Roles</h5>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {editStaffRoles.map(r => (
+                                                <span key={r.id} className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-700 ring-1 ring-amber-200">
+                                                    {r.name}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                {editStaffDepts.length === 0 && editStaffRoles.length === 0 && (
+                                    <p className="text-xs text-slate-400 italic">No departments or roles assigned yet.</p>
+                                )}
+                            </div>
+
                             <div className="space-y-4">
                                 <div className="p-5 rounded-2xl border border-slate-200 bg-slate-50 flex items-center justify-between mb-4">
                                     <div>

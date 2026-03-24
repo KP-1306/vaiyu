@@ -742,7 +742,7 @@ end $$;
 -- =========================================================
 -- STEP 9: Smart Audit Trigger (Hardened)
 -- =========================================================
-
+`
 create or replace function public.trg_shift_audit()
 returns trigger
 language plpgsql
@@ -845,7 +845,7 @@ $$;
 drop trigger if exists trg_shift_audit on public.staff_shifts;
 create trigger trg_shift_audit
 after insert or update or delete on public.staff_shifts
-for each row execute function public.trg_shift_audit();
+for each row execute function public.trg_shift_audit();`
 
 -- =========================================================
 -- STEP 10: Robust History RPC with Metadata

@@ -869,10 +869,10 @@ export default function OwnerDashboard() {
           <div className="flex items-center justify-between w-full">
             <div className="flex items-center gap-3 min-w-0">
               {/* Mobile Menu Button - Moved to Left for Visibility */}
-              <button 
-                type="button" 
-                onClick={() => setShowMobileNav(true)} 
-                className="inline-flex lg:hidden items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-2.5 hover:bg-emerald-500/20 transition-colors text-emerald-400 shrink-0" 
+              <button
+                type="button"
+                onClick={() => setShowMobileNav(true)}
+                className="inline-flex lg:hidden items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-2.5 hover:bg-emerald-500/20 transition-colors text-emerald-400 shrink-0"
                 title="Menu"
               >
                 <SvgMenu />
@@ -1062,7 +1062,7 @@ export default function OwnerDashboard() {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-3">
                     <MiniStat label="Occupancy" value={`${occPct || 0}%`} tone={occupancyTone(occPct)} />
                     <MiniStat label="Arrivals" value={arrivalsCount} tone={arrivalsCount > 0 ? "green" : "grey"} />
@@ -1250,21 +1250,21 @@ export default function OwnerDashboard() {
             </div>
 
             <div onClick={() => setActiveDrawer('staff')} className="cursor-pointer">
-            <DarkCard className="p-4 hover:border-slate-700 transition-colors">
-              <CardHeader title="Staff On Duty" subtitle="Active team members" />
-              <div className="mt-3">
-                <StaffList data={staffPerf} />
-              </div>
-              {HAS_HRMS && (
-                <div className="mt-4 border-t border-white/10 pt-3">
-                  <div className="flex items-center justify-between">
-                    <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Attendance</div>
-                    <Link to={`/owner/${hotel.slug}/hrms`} className="text-[11px] text-slate-300 hover:text-slate-100 underline">Open →</Link>
-                  </div>
-                  <div className="mt-2"><AttendanceMini data={hrms} /></div>
+              <DarkCard className="p-4 hover:border-slate-700 transition-colors">
+                <CardHeader title="Staff On Duty" subtitle="Active team members" />
+                <div className="mt-3">
+                  <StaffList data={staffPerf} />
                 </div>
-              )}
-            </DarkCard>
+                {HAS_HRMS && (
+                  <div className="mt-4 border-t border-white/10 pt-3">
+                    <div className="flex items-center justify-between">
+                      <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Attendance</div>
+                      <Link to={`/owner/${hotel.slug}/hrms`} className="text-[11px] text-slate-300 hover:text-slate-100 underline">Open →</Link>
+                    </div>
+                    <div className="mt-2"><AttendanceMini data={hrms} /></div>
+                  </div>
+                )}
+              </DarkCard>
             </div>
 
             <DarkCard className="p-4">
@@ -1365,7 +1365,7 @@ export default function OwnerDashboard() {
                               <div className="text-[11px] text-slate-500">Guest ID: {a.guest_id?.slice(0, 8)}...</div>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="text-xs text-slate-400">{a.check_in_start ? new Date(a.check_in_start).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '—'}</span>
+                              <span className="text-xs text-slate-400">{a.check_in_start ? new Date(a.check_in_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</span>
                             </div>
                           </div>
                         ))}
@@ -1816,6 +1816,7 @@ function SidebarNav({ slug, onNavClick }: { slug: string; onNavClick?: () => voi
         <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-3 px-3">Operations</div>
         <div className="space-y-1">
           <NavItem href="#top" label="Overview" active onClick={onNavClick} />
+          <NavItem to={`/ops?slug=${encodedSlug}`} label="Supervisor" onClick={onNavClick} />
           <NavItem to={`/owner/${slug}/arrivals`} label="Arrivals" onClick={onNavClick} />
           <NavItem to={`/owner/${slug}/housekeeping`} label="Housekeeping" onClick={onNavClick} />
           <NavItem to={`/checkin?slug=${encodedSlug}`} label="Front Desk" onClick={onNavClick} />

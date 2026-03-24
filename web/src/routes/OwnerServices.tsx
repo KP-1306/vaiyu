@@ -158,8 +158,8 @@ export default function OwnerServices() {
       }));
 
       setDepartments(transformedDepts);
-      if (transformedDepts.length > 0 && !activeTab) {
-        setActiveTab(transformedDepts[0].id);
+      if (transformedDepts.length > 0) {
+        setActiveTab(prev => prev || transformedDepts[0].id);
       }
 
       const { data: servicesData, error: servicesError } = await supabase
@@ -188,7 +188,7 @@ export default function OwnerServices() {
     } finally {
       setLoading(false);
     }
-  }, [hotelSlug, activeTab]);
+  }, [hotelSlug]);
 
   // Helper to handle SLA field changes with smart detection
   const handleSLAChange = (deptId: string, field: keyof SLAPolicyData, value: string) => {
@@ -294,16 +294,7 @@ export default function OwnerServices() {
     handleUpdateService(editingServiceIndex, { label: name, sla_minutes: sla });
   };
 
-  const handleDeleteService = async (serviceId: string) => {
-    if (!confirm("Delete this service?")) return;
-    try {
-      const { error } = await supabase.from("services").delete().eq("id", serviceId);
-      if (error) throw error;
-      setServices((prev) => prev.filter((s) => s.id !== serviceId));
-    } catch (err: any) {
-      alert(`Failed to delete: ${err.message}`);
-    }
-  };
+
 
   const handleAddCustomService = () => {
     if (!customServiceName.trim()) return;
@@ -459,9 +450,47 @@ export default function OwnerServices() {
       const { data: hotel } = await supabase.from("hotels").select("id").eq("slug", hotelSlug).single();
       if (!hotel) throw new Error("Hotel not found");
 
+      let newDeptToFocus: string | null = null;
+      
+      // Auto-capture any pending department that wasn't explicitly added
+      let pendingDept: Department | null = null;
+      if (showAddDepartmentForm && newDepartmentName.trim()) {
+        const generatedCode = generateDepartmentCode(newDepartmentName);
+        const newDeptId = self.crypto.randomUUID();
+        pendingDept = {
+          id: newDeptId,
+          code: generatedCode,
+          name: newDepartmentName,
+          description: newDepartmentDescription.trim() || undefined,
+          is_active: true,
+          is_new: true,
+          is_custom: true,
+          template_id: undefined,
+          sla_policy: {
+            target_minutes: 30,
+            warn_minutes: 20,
+            escalate_minutes: 20,
+            sla_start_trigger: 'ON_ASSIGN',
+          }
+        };
+        
+        // Include temp SLA changes early. 
+        if (slaChanges['new-dept-temp']) {
+           slaChanges[newDeptId] = slaChanges['new-dept-temp'];
+        }
+        
+        // Reset form to stop re-triggering
+        setNewDepartmentName("");
+        setNewDepartmentDescription("");
+        setShowAddDepartmentForm(false);
+      }
+
       // 1. Handle New Departments
       const newDepartments = departments.filter(d => d.is_new);
+      if (pendingDept) newDepartments.push(pendingDept);
+      
       if (newDepartments.length > 0) {
+        newDeptToFocus = newDepartments[newDepartments.length - 1].id;
         // Insert Departments
         const { error: deptError } = await supabase
           .from("departments")
@@ -562,7 +591,9 @@ export default function OwnerServices() {
       setSlaChanges({});
       setDirty(false);
       await loadData();
-      showAlert('Success', "Saved settings successfully!", 'success');
+      if (newDeptToFocus) {
+        setActiveTab(newDeptToFocus);
+      }
     } catch (err: any) {
       showAlert('Error', `Failed: ${err.message}`, 'danger');
     } finally {
@@ -777,25 +808,10 @@ export default function OwnerServices() {
 
 
 
-  const handleSaveManageDepartments = () => {
+  const handleSaveManageDepartments = async () => {
     if (!hotelSlug) return;
-
-    setConfirmDialog({
-      isOpen: true,
-      title: "Save Changes?",
-      message: "This will apply to new tickets only.\n\nExisting tickets will continue with their original SLA.",
-      confirmText: "Save Changes",
-      variant: 'primary',
-      icon: (
-        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-        </svg>
-      ),
-      onConfirm: async () => {
-        await handleSave();
-        setShowManageDepartmentsModal(false);
-      }
-    });
+    await handleSave();
+    setShowManageDepartmentsModal(false);
   };
 
   const formatStartTrigger = (trigger: string) => {
@@ -1045,11 +1061,7 @@ export default function OwnerServices() {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                               </svg>
                             </button>
-                            <button onClick={() => handleDeleteService(service.id!)} className={`${styles.actionButton} ${styles.deleteButton}`}>
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
+
                           </div>
                         </div>
                       ))}

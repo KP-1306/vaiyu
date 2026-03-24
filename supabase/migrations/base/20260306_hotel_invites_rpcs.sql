@@ -359,10 +359,11 @@ BEGIN
     -- 8. Lifecycle & Audit
     SELECT code INTO v_role_code FROM public.hotel_roles WHERE id = v_invite.role_id;
     IF v_role_code = 'OWNER' THEN
-        SELECT status INTO v_hotel_status FROM public.hotels WHERE id = v_invite.hotel_id;
+        SELECT lifecycle_status INTO v_hotel_status FROM public.hotels WHERE id = v_invite.hotel_id;
         IF v_hotel_status = 'DRAFT' THEN
             UPDATE public.hotels 
-            SET status = 'CONFIGURING',
+            SET lifecycle_status = 'CONFIGURING',
+                status = 'active',
                 onboarding_started_at = COALESCE(onboarding_started_at, now())
             WHERE id = v_invite.hotel_id;
             

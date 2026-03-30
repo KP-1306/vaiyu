@@ -312,7 +312,17 @@ export default function PreCheckin() {
                 setSubmitError(result?.error || "Submission failed");
             }
         } catch (err: any) {
-            setSubmitError(err.message || "Something went wrong");
+            const raw = err.message || "Something went wrong";
+            // Friendly messages for constraint violations
+            if (raw.includes("uq_global_guest_mobile") || raw.includes("mobile_normalized")) {
+                setSubmitError("This mobile number is already registered with another guest. Please use a different number or contact the hotel for assistance.");
+            } else if (raw.includes("uq_global_guest_email") || raw.includes("email_normalized")) {
+                setSubmitError("This email address is already registered with another guest. Please use a different email or contact the hotel for assistance.");
+            } else if (raw.includes("duplicate key") || raw.includes("unique constraint") || raw.includes("violates unique")) {
+                setSubmitError("A guest with these details already exists. Please verify your information or contact the hotel.");
+            } else {
+                setSubmitError(raw);
+            }
         } finally {
             setSubmitting(false);
         }

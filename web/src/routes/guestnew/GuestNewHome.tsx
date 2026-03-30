@@ -701,7 +701,7 @@ export default function GuestNewHome() {
         );
     }
 
-    if (!loading && allStays.length === 0) {
+    if (!loading && allStays.length === 0 && activeBookings.length === 0) {
         return (
             <div className="gn-container" style={{ maxWidth: '1200px', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
                 <div style={{ textAlign: 'center', padding: '3rem', background: 'var(--bg-secondary)', borderRadius: '24px', border: '1px solid var(--border-color)', maxWidth: '500px' }}>

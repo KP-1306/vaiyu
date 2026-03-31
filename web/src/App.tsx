@@ -212,6 +212,18 @@ const Privacy = optionalFromGlob(
   ),
 );
 
+const Thanks = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/Thanks.{tsx,jsx}",
+  ),
+  () => (
+    <FallbackPage
+      title="Thanks"
+      hint="Add web/src/routes/Thanks.tsx to enable this page."
+    />
+  ),
+);
+
 // HRMS (optional)
 const OwnerHRMS = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
@@ -617,6 +629,7 @@ export default function App() {
             <Route path="/careers" element={<Careers />} />
             <Route path="/press" element={<Press />} />
             <Route path="/privacy" element={<Privacy />} />
+            <Route path="/thanks" element={<Thanks />} />
 
             {/* Auth */}
             <Route path="/signin" element={<SignIn />} />

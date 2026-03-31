@@ -54,6 +54,10 @@ interface BookingInfo {
     booking_status?: string;
     hotel_id?: string;
     hotel_name?: string;
+    hotel_phone?: string;
+    hotel_address?: string;
+    hotel_latitude?: number;
+    hotel_longitude?: number;
     room_type?: string;
     room_price?: number;
     adults?: number;

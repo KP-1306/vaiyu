@@ -732,35 +732,6 @@
     letter-spacing: 0.05em;
 }
 
-/* ─── Floating Support Button ───────────────────────────────────────────── */
-.gn-floating-support {
-    position: fixed;
-    bottom: 100px;
-    right: var(--space-lg);
-    z-index: 90;
-}
-
-.gn-floating-support__btn {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-    background: var(--bg-card);
-    border: 1px solid var(--border-gold);
-    border-radius: var(--radius-full);
-    padding: var(--space-sm) var(--space-lg);
-    color: var(--text-primary);
-    font-size: var(--text-sm);
-    font-weight: 500;
-    box-shadow: var(--shadow-soft);
-    text-decoration: none;
-    transition: all 200ms ease;
-}
-
-.gn-floating-support__btn:hover {
-    box-shadow: var(--shadow-soft), var(--shadow-glow);
-    transform: translateY(-2px);
-}
-
 /* ─── Trips List ────────────────────────────────────────────────────────── */
 .gn-trip-group {
     margin-bottom: var(--space-xl);

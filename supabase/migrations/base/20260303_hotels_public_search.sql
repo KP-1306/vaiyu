@@ -38,7 +38,8 @@ SELECT
     upi_id,
     booking_url,
     amenities,
-    status
+    status,
+    wa_display_number
 FROM public.hotels
 WHERE (status = 'active' OR status IS NULL);
 

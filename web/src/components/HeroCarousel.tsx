@@ -65,7 +65,7 @@ export default function HeroCarousel({
 
   return (
     <section
-      className="relative isolate h-[72vh] min-h-[520px] max-h-[820px] overflow-hidden rounded-3xl border bg-black"
+      className="relative isolate h-[72vh] min-h-[520px] max-h-[820px] w-full overflow-hidden rounded-[2rem] border border-[#d4af37]/20 bg-[#141210] shadow-[0_8px_32px_rgba(0,0,0,0.6)]"
       aria-roledescription="carousel"
       aria-label="Highlights"
       aria-live="polite"
@@ -107,31 +107,31 @@ export default function HeroCarousel({
                     // @ts-ignore
                     fetchpriority={idx === 0 ? "high" : undefined}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/35 to-black/10" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0c]/90 via-[#0a0a0c]/40 to-black/20" />
                 </>
               ) : (
-                <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" />
+                <div className="absolute inset-0 bg-gradient-to-br from-[#141210] via-[#0a0a0c] to-[#141210]" />
               )}
 
               {/* Copy */}
               <div className="absolute inset-0 grid">
-                <div className="self-end md:self-center px-6 md:px-10 lg:px-16 pb-10 md:pb-0">
-                  <div className="max-w-3xl text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-black/35 px-3 py-1 text-xs mb-3 backdrop-blur">
+                <div className="self-end md:self-center px-6 md:px-12 lg:px-20 pb-16 md:pb-0 w-full max-w-5xl mx-auto">
+                  <div className="max-w-3xl text-[#f5f3ef] drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-[#d4af37]/40 bg-black/40 px-3 py-1 text-xs mb-3 md:mb-4 backdrop-blur text-[#d4af37] font-medium tracking-wide">
                       <span aria-hidden>🤖</span> AI-powered hospitality OS
                     </div>
-                    <h1 className="text-4xl md:text-6xl font-bold leading-tight">
+                    <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
                       {s.headline}
                     </h1>
                     {s.sub ? (
-                      <p className="mt-3 text-base md:text-lg text-white/90">
+                      <p className="mt-3 md:mt-4 text-base md:text-lg lg:text-xl text-[#b8b3a8] max-w-2xl">
                         {s.sub}
                       </p>
                     ) : null}
 
                     {!disableCtas && s.cta?.href ? (
-                      <div className="mt-6">
-                        <Link to={s.cta.href} className="btn btn-light text-base">
+                      <div className="mt-6 md:mt-8">
+                        <Link to={s.cta.href} className="inline-flex items-center justify-center px-6 py-3 font-semibold text-[#0a0a0c] bg-gradient-to-r from-[#e9c55a] to-[#d4af37] rounded-xl hover:opacity-90 transition-opacity">
                           {s.cta.label}
                         </Link>
                       </div>
@@ -147,16 +147,17 @@ export default function HeroCarousel({
       {/* DOTS */}
       {slides.length > 1 && (
         <div
-          className="absolute inset-x-0 bottom-4 flex items-center justify-center"
+          className="absolute inset-x-0 bottom-6 flex items-center justify-center"
           style={{ zIndex: 80 }}
         >
           <div
-            className="flex items-center gap-6"
+            className="flex items-center gap-4 sm:gap-6"
             style={{
-              padding: "6px 14px",
+              padding: "6px 12px",
               borderRadius: 9999,
-              backgroundColor: "rgba(0,0,0,0.55)",
-              backdropFilter: "blur(8px)",
+              backgroundColor: "rgba(10, 10, 12, 0.6)",
+              border: "1px solid rgba(212, 175, 55, 0.2)",
+              backdropFilter: "blur(12px)",
             }}
           >
             {slides.map((s, idx) => (
@@ -167,14 +168,15 @@ export default function HeroCarousel({
                 aria-current={idx === i}
                 onClick={() => goto(idx)}
                 style={{
-                  width: idx === i ? 20 : 10,
-                  height: 10,
+                  width: idx === i ? 24 : 8,
+                  height: 8,
                   borderRadius: 9999,
                   border: "none",
                   backgroundColor:
-                    idx === i ? "#ffffff" : "rgba(255,255,255,0.55)",
+                    idx === i ? "#d4af37" : "rgba(212, 175, 55, 0.4)",
                   cursor: "pointer",
                   padding: 0,
+                  transition: "all 300ms ease",
                 }}
               />
             ))}
@@ -189,21 +191,26 @@ export default function HeroCarousel({
             type="button"
             onClick={() => goto(i - 1)}
             aria-label="Previous slide"
+            className="hidden sm:block"
             style={{
               position: "absolute",
               top: "50%",
               left: 16,
               transform: "translateY(-50%)",
               zIndex: 85,
-              backgroundColor: "rgba(0,0,0,0.65)",
-              color: "#ffffff",
+              backgroundColor: "rgba(10, 10, 12, 0.5)",
+              border: "1px solid rgba(212, 175, 55, 0.2)",
+              backdropFilter: "blur(8px)",
+              color: "#d4af37",
               borderRadius: 9999,
-              border: "none",
-              padding: "6px 12px",
+              padding: "10px 14px",
               fontSize: 20,
-              fontWeight: 700,
+              fontWeight: 400,
               cursor: "pointer",
+              transition: "all 200ms ease",
             }}
+            onMouseOver={(e) => { e.currentTarget.style.backgroundColor = 'rgba(10, 10, 12, 0.8)'; e.currentTarget.style.borderColor = 'rgba(212, 175, 55, 0.5)'; }}
+            onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'rgba(10, 10, 12, 0.5)'; e.currentTarget.style.borderColor = 'rgba(212, 175, 55, 0.2)'; }}
           >
             ‹
           </button>
@@ -212,21 +219,26 @@ export default function HeroCarousel({
             type="button"
             onClick={() => goto(i + 1)}
             aria-label="Next slide"
+            className="hidden sm:block"
             style={{
               position: "absolute",
               top: "50%",
               right: 16,
               transform: "translateY(-50%)",
               zIndex: 85,
-              backgroundColor: "rgba(0,0,0,0.65)",
-              color: "#ffffff",
+              backgroundColor: "rgba(10, 10, 12, 0.5)",
+              border: "1px solid rgba(212, 175, 55, 0.2)",
+              backdropFilter: "blur(8px)",
+              color: "#d4af37",
               borderRadius: 9999,
-              border: "none",
-              padding: "6px 12px",
+              padding: "10px 14px",
               fontSize: 20,
-              fontWeight: 700,
+              fontWeight: 400,
               cursor: "pointer",
+              transition: "all 200ms ease",
             }}
+            onMouseOver={(e) => { e.currentTarget.style.backgroundColor = 'rgba(10, 10, 12, 0.8)'; e.currentTarget.style.borderColor = 'rgba(212, 175, 55, 0.5)'; }}
+            onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'rgba(10, 10, 12, 0.5)'; e.currentTarget.style.borderColor = 'rgba(212, 175, 55, 0.2)'; }}
           >
             ›
           </button>

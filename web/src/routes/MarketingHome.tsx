@@ -201,7 +201,7 @@ export default function MarketingHome() {
   }, [location.hash]);
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
+    <div className="min-h-screen bg-[#0a0a0c] text-[#f5f3ef]">
       {/* SEO */}
       <SEO
         title="VAiyu — AI OS for Hotels"
@@ -220,100 +220,109 @@ export default function MarketingHome() {
       />
 
       {/* HERO / Use-cases carousel */}
-      <section id="use-cases" className="mx-auto max-w-7xl px-4 py-6 scroll-mt-24">
+      {/* Floating cinematic dark hero with safe zones */}
+      <section id="use-cases" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8 scroll-mt-24">
         <HeroCarousel slides={slides} disableCtas />
       </section>
 
-      {/* WHY (HTML/CSS — lightweight, no big images) */}
-      <section id="why" className="mx-auto max-w-7xl px-4 py-14">
-        <h2 className="text-2xl font-bold">The whole journey, upgraded</h2>
-        <p className="text-gray-600 mt-1">
+      {/* WHY (Upgraded to Dark Gold Theme) */}
+      <section id="why" className="mx-auto max-w-7xl px-4 py-16 sm:py-24">
+        <h2 className="text-3xl sm:text-4xl font-bold text-[#f5f3ef]">The whole journey, upgraded</h2>
+        <p className="text-[#b8b3a8] mt-3 text-lg">
           Clear wins for guests, staff, owners, and your brand.
         </p>
 
-        <div className="mt-6 rounded-3xl ring-1 ring-slate-200 bg-white/70 p-6 sm:p-8 shadow-sm">
-          <div className="rounded-2xl bg-gradient-to-br from-slate-50 via-white to-slate-50 p-6 sm:p-10">
-            <div className="text-center mb-8">
-              <h3 className="text-3xl font-bold tracking-tight">
+        <div className="mt-10 rounded-3xl border border-[#d4af37]/20 bg-[#141210]/90 p-6 sm:p-10 shadow-[0_4px_24px_rgba(0,0,0,0.6)] backdrop-blur-md">
+          <div className="rounded-2xl bg-[#0a0a0c] border border-[#d4af37]/10 p-8 sm:p-12 shadow-inner">
+            <div className="text-center mb-12">
+              <h3 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#f5f3ef]">
                 One OS for Guests, Staff, and Owners
               </h3>
-              <p className="mt-2 text-gray-600">Wins across guests, staff, owners, and brand.</p>
+              <p className="mt-4 text-[#b8b3a8] text-lg">Wins across guests, staff, owners, and brand.</p>
             </div>
 
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {/* Guests */}
-              <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <SuitcaseIcon className="h-8 w-8" />
+              <article className="rounded-2xl border border-[#d4af37]/20 bg-[#141210] p-6 shadow-lg hover:-translate-y-1 hover:border-[#d4af37]/40 transition-all duration-300">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-xl bg-sky-500/10 flex items-center justify-center">
+                    <SuitcaseIcon className="h-7 w-7" />
+                  </div>
                   <div>
-                    <h4 className="font-semibold">For Guests</h4>
-                    <div className="text-xs font-medium text-sky-700 bg-sky-50 rounded-full px-2 py-0.5 inline-block">
+                    <h4 className="font-semibold text-[#f5f3ef]">For Guests</h4>
+                    <div className="text-[11px] font-bold text-sky-400 uppercase tracking-wider mt-1">
                       Convenience
                     </div>
                   </div>
                 </div>
-                <ul className="mt-4 space-y-2 text-sm text-gray-700">
-                  <li>✓ Express mobile check-in</li>
-                  <li>✓ In-app request tracking</li>
-                  <li>✓ Room service made easy</li>
-                  <li>✓ Refer credits among friends</li>
+                <ul className="mt-6 space-y-3 text-sm text-[#b8b3a8]">
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> Express mobile check-in</li>
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> In-app request tracking</li>
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> Room service made easy</li>
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> Refer credits among friends</li>
                 </ul>
               </article>
 
               {/* Staff */}
-              <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <StaffIcon className="h-8 w-8" />
+              <article className="rounded-2xl border border-[#d4af37]/20 bg-[#141210] p-6 shadow-lg hover:-translate-y-1 hover:border-[#d4af37]/40 transition-all duration-300">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                    <StaffIcon className="h-7 w-7" />
+                  </div>
                   <div>
-                    <h4 className="font-semibold">For Staff</h4>
-                    <div className="text-xs font-medium text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5 inline-block">
+                    <h4 className="font-semibold text-[#f5f3ef]">For Staff</h4>
+                    <div className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider mt-1">
                       Efficiency
                     </div>
                   </div>
                 </div>
-                <ul className="mt-4 space-y-2 text-sm text-gray-700">
-                  <li>✓ Universal &amp; clear SLAs</li>
-                  <li>✓ Live updates (no refresh)</li>
-                  <li>✓ Auto-routing to teams</li>
-                  <li>✓ Fewer calls, more action</li>
+                <ul className="mt-6 space-y-3 text-sm text-[#b8b3a8]">
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> Universal &amp; clear SLAs</li>
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> Live updates (no refresh)</li>
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> Auto-routing to teams</li>
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> Fewer calls, more action</li>
                 </ul>
               </article>
 
               {/* Owners */}
-              <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <BarsIcon className="h-8 w-8" />
+              <article className="rounded-2xl border border-[#d4af37]/20 bg-[#141210] p-6 shadow-lg hover:-translate-y-1 hover:border-[#d4af37]/40 transition-all duration-300">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-xl bg-fuchsia-500/10 flex items-center justify-center">
+                    <BarsIcon className="h-7 w-7" />
+                  </div>
                   <div>
-                    <h4 className="font-semibold">For Owners</h4>
-                    <div className="text-xs font-medium text-fuchsia-700 bg-fuchsia-50 rounded-full px-2 py-0.5 inline-block">
+                    <h4 className="font-semibold text-[#f5f3ef]">For Owners</h4>
+                    <div className="text-[11px] font-bold text-fuchsia-400 uppercase tracking-wider mt-1">
                       Insights
                     </div>
                   </div>
                 </div>
-                <ul className="mt-4 space-y-2 text-sm text-gray-700">
-                  <li>✓ SLA KPIs &amp; policy hints</li>
-                  <li>✓ Bottleneck alerts</li>
-                  <li>✓ Property-wide trends</li>
-                  <li>✓ Energy-smart hours</li>
+                <ul className="mt-6 space-y-3 text-sm text-[#b8b3a8]">
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> SLA KPIs &amp; policy hints</li>
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> Bottleneck alerts</li>
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> Property-wide trends</li>
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> Energy-smart hours</li>
                 </ul>
               </article>
 
               {/* Brand */}
-              <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <TrophyIcon className="h-8 w-8" />
+              <article className="rounded-2xl border border-[#d4af37]/20 bg-[#141210] p-6 shadow-lg hover:-translate-y-1 hover:border-[#d4af37]/40 transition-all duration-300">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                    <TrophyIcon className="h-7 w-7" />
+                  </div>
                   <div>
-                    <h4 className="font-semibold">For Brand</h4>
-                    <div className="text-xs font-medium text-amber-700 bg-amber-50 rounded-full px-2 py-0.5 inline-block">
+                    <h4 className="font-semibold text-[#f5f3ef]">For Brand</h4>
+                    <div className="text-[11px] font-bold text-amber-400 uppercase tracking-wider mt-1">
                       Trust
                     </div>
                   </div>
                 </div>
-                <ul className="mt-4 space-y-2 text-sm text-gray-700">
-                  <li>✓ Truth-based reviews</li>
-                  <li>✓ Owner approval</li>
-                  <li>✓ Label fewer</li>
-                  <li>✓ Clear ranking impact</li>
+                <ul className="mt-6 space-y-3 text-sm text-[#b8b3a8]">
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> Truth-based reviews</li>
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> Owner approval</li>
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> Label fewer</li>
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> Clear ranking impact</li>
                 </ul>
               </article>
             </div>
@@ -322,44 +331,47 @@ export default function MarketingHome() {
       </section>
 
       {/* Alternating image + content */}
-      <section id="ai" className="mx-auto max-w-7xl px-4 pb-14 scroll-mt-24">
+      <section id="ai" className="mx-auto max-w-7xl px-4 pb-16 scroll-mt-24">
         <AIShowcase />
       </section>
 
       {/* Social proof */}
-      <section className="mx-auto max-w-7xl px-4 pb-4">
+      <section className="mx-auto max-w-7xl px-4 pb-10">
         <ResultsAndSocialProof />
       </section>
 
       {/* Onboarding / Security / Integrations */}
-      <section className="mx-auto max-w-7xl px-4 pb-16">
+      <section className="mx-auto max-w-7xl px-4 pb-20">
         <GlassBand_OnboardingSecurityIntegrations />
       </section>
 
       {/* Live Product Peek */}
-      <section className="mx-auto max-w-7xl px-4 pb-16">
+      <section className="mx-auto max-w-7xl px-4 pb-20">
         <LiveProductPeek />
       </section>
 
       {/* FAQ */}
-      <section className="mx-auto max-w-7xl px-4 pb-20">
+      <section className="mx-auto max-w-7xl px-4 pb-24">
         <FAQShort />
       </section>
 
       {/* Closing contact CTA */}
-      <section id="contact-cta" className="mx-auto max-w-7xl px-4 pb-16">
-        <div className="rounded-3xl border border-gray-200 bg-white p-8 sm:p-10 shadow-sm">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="text-center md:text-left">
-              <h3 className="text-2xl font-semibold text-gray-900">
+      <section id="contact-cta" className="mx-auto max-w-7xl px-4 pb-24">
+        <div className="rounded-[2.5rem] border border-[#d4af37]/20 bg-[#141210]/90 p-10 sm:p-14 shadow-[0_4px_32px_rgba(0,0,0,0.5)] backdrop-blur-md relative overflow-hidden">
+          {/* Decorative glow */}
+          <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 bg-[#d4af37]/5 rounded-full blur-3xl pointer-events-none" />
+          
+          <div className="flex flex-col md:flex-row items-center justify-between gap-10 relative z-10">
+            <div className="text-center md:text-left max-w-2xl">
+              <h3 className="text-3xl sm:text-4xl font-bold text-[#f5f3ef]">
                 Want a walkthrough for your property?
               </h3>
-              <p className="text-gray-600 mt-1">
+              <p className="text-[#b8b3a8] mt-4 text-xl">
                 We’ll brand the demo with your details and share a 7-day pilot plan.
               </p>
             </div>
             <div className="flex-shrink-0">
-              <Link to="/contact" className="btn">
+              <Link to="/contact" className="inline-flex items-center justify-center px-8 py-4 font-bold text-[#0a0a0c] bg-gradient-to-r from-[#e9c55a] to-[#d4af37] border border-[#d4af37] rounded-2xl hover:opacity-90 shadow-[0_0_24px_rgba(212,175,55,0.2)] hover:shadow-[0_0_36px_rgba(212,175,55,0.4)] hover:-translate-y-1 transition-all">
                 Contact us
               </Link>
             </div>
@@ -368,18 +380,18 @@ export default function MarketingHome() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-gray-200">
-        <div className="mx-auto max-w-7xl px-4 py-8 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-3">
-          <div>© {new Date().getFullYear()} VAiyu — Where Intelligence Meets Comfort.</div>
-          <div className="flex items-center gap-4">
-            <Link className="hover:text-gray-800" to="/about-ai">AI</Link>
-            <a className="hover:text-gray-800" href="#why">Why VAiyu</a>
-            <Link className="hover:text-gray-800" to="/about">About</Link>
-            <Link className="hover:text-gray-800" to="/press">Press</Link>
-            <Link className="hover:text-gray-800" to="/privacy">Privacy</Link>
-            <Link className="hover:text-gray-800" to="/terms">Terms</Link>
-            <Link className="hover:text-gray-800" to="/contact">Contact</Link>
-            <Link className="hover:text-gray-800" to="/careers">Careers</Link>
+      <footer className="border-t border-[#d4af37]/20 bg-[#0a0a0c]">
+        <div className="mx-auto max-w-7xl px-4 py-10 text-sm text-[#7a756a] flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="font-medium tracking-wide">© {new Date().getFullYear()} VAiyu — Where Intelligence Meets Comfort.</div>
+          <div className="flex flex-wrap items-center justify-center gap-6">
+            <Link className="hover:text-[#d4af37] transition-colors" to="/about-ai">AI</Link>
+            <a className="hover:text-[#d4af37] transition-colors" href="#why">Why VAiyu</a>
+            <Link className="hover:text-[#d4af37] transition-colors" to="/about">About</Link>
+            <Link className="hover:text-[#d4af37] transition-colors" to="/press">Press</Link>
+            <Link className="hover:text-[#d4af37] transition-colors" to="/privacy">Privacy</Link>
+            <Link className="hover:text-[#d4af37] transition-colors" to="/terms">Terms</Link>
+            <Link className="hover:text-[#d4af37] transition-colors" to="/contact">Contact</Link>
+            <Link className="hover:text-[#d4af37] transition-colors" to="/careers">Careers</Link>
           </div>
         </div>
       </footer>

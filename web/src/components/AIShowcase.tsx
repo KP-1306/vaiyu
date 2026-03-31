@@ -1,11 +1,11 @@
 // web/src/components/AIShowcase.tsx
 export default function AIShowcase() {
   return (
-    <section className="bg-white">
-      <div className="mx-auto max-w-7xl px-6 md:px-8 py-16 md:py-20 space-y-20">
+    <section className="bg-transparent">
+      <div className="mx-auto max-w-7xl px-6 md:px-8 py-12 md:py-20 space-y-24">
 
         {/* Block 1 — Image left, content right (NO CTA) */}
-        <div className="grid lg:grid-cols-2 gap-10 lg:gap-14 items-center">
+        <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
           <Figure
             src="/illustrations/vaiyu-intelligence-final.png"
             // src2x="/illustrations/vaiyu-intelligence-final@2x.png"
@@ -24,7 +24,7 @@ export default function AIShowcase() {
         </div>
 
         {/* Block 2 — Content left, image right (keeps CTA) */}
-        <div className="grid lg:grid-cols-2 gap-10 lg:gap-14 items-center">
+        <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
           <Copy
             title="VAiyu Intelligence — The AI Operating System"
             bullets={[
@@ -60,19 +60,20 @@ function Figure({
   eager?: boolean;
 }) {
   return (
-    <figure className="m-0">
-      <div className="rounded-2xl ring-1 ring-slate-200 bg-white overflow-hidden shadow-sm">
+    <figure className="m-0 relative group">
+      {/* Decorative subtle glow behind images in dark mode */}
+      <div className="absolute -inset-4 bg-[#d4af37]/5 rounded-[2rem] blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+      <div className="relative rounded-2xl ring-1 ring-[#d4af37]/20 bg-[#141210] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.6)]">
         {/* Large & crisp, never stretched or squished */}
         <img
           src={src}
           srcSet={src2x ? `${src} 1x, ${src2x} 2x` : undefined}
           alt={alt}
-          className="block w-full h-auto"
+          className="block w-full h-auto opacity-90 group-hover:opacity-100 transition-opacity duration-500"
           loading={eager ? "eager" : "lazy"}
           // @ts-ignore
           fetchpriority={eager ? "high" : "auto"}
           decoding="async"
-          /* Big on desktop (~720px), full-width on mobile */
           sizes="(min-width: 1280px) 720px, (min-width: 1024px) 680px, 100vw"
         />
       </div>
@@ -95,24 +96,25 @@ function Copy({
   return (
     <div>
       {eyebrow && (
-        <div className="text-cyan-700 text-xs font-semibold tracking-wide uppercase">
+        <div className="text-[#d4af37] text-xs font-bold tracking-widest uppercase">
           {eyebrow}
         </div>
       )}
-      <h3 className="mt-2 text-2xl md:text-3xl font-semibold leading-tight text-slate-900">
+      <h3 className="mt-3 text-3xl md:text-4xl font-bold leading-tight text-[#f5f3ef]">
         {title}
       </h3>
-      <ul className="mt-4 space-y-2 text-slate-700">
+      <ul className="mt-6 space-y-4 text-lg text-[#b8b3a8]">
         {bullets.map((b) => (
-          <li key={b} className="pl-5 relative">
-            <span className="absolute left-0 top-2 w-1.5 h-1.5 rounded-full bg-emerald-500/90" />
+          <li key={b} className="pl-6 relative">
+            {/* Gold diamond bullet */}
+            <span className="absolute left-0 top-2.5 w-2 h-2 rotate-45 bg-gradient-to-br from-[#e9c55a] to-[#d4af37]" />
             {b}
           </li>
         ))}
       </ul>
       {cta && (
-        <div className="mt-5">
-          <a href={cta.href} className="btn">
+        <div className="mt-8">
+          <a href={cta.href} className="inline-flex items-center justify-center px-6 py-3 font-semibold text-[#0a0a0c] bg-[#e9c55a] rounded-xl hover:bg-[#d4af37] transition-colors">
             {cta.label}
           </a>
         </div>

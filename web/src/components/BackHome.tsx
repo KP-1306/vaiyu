@@ -227,11 +227,17 @@ export default function BackHome({
 
   const dest = forcedTo ?? autoTo;
 
+  const isDarkTheme = pathname === "/careers" || pathname.startsWith("/about") || pathname === "/contact";
+
   return (
-    <div className="fixed left-3 top-3 z-40">
+    <div className="fixed left-3 top-3 sm:left-6 sm:top-6 z-50">
       <NavLink
         to={dest}
-        className={`inline-flex items-center gap-2 rounded-xl border bg-white/95 px-3 py-2 text-sm shadow hover:bg-white ${className}`}
+        className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium shadow-sm backdrop-blur-md transition-all duration-300 ${
+          isDarkTheme 
+            ? "bg-[#1a1816]/70 border-[#d4af37]/20 text-[#b8b3a8] hover:bg-[#d4af37] hover:text-[#0a0a0c] hover:shadow-[0_0_15px_rgba(212,175,55,0.3)]"
+            : "bg-white/80 border-slate-200 text-slate-700 hover:bg-white hover:text-slate-900 hover:shadow-md"
+        } ${className}`}
         aria-label={label}
       >
         {label}

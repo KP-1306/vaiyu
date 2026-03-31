@@ -1,13 +1,15 @@
 // web/src/routes/Contact.tsx
 
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import SEO from "../components/SEO";
 
 export default function Contact() {
+  const navigate = useNavigate();
   // unified local state (used for both Netlify submit and mailto fallback)
   const [sending, setSending] = useState(false);
   const [ok, setOk] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [f, setF] = useState({
     name: "",
     email: "",
@@ -132,19 +134,52 @@ export default function Contact() {
               </div>
             )}
 
+            {error && (
+              <div className="p-2 bg-red-50 border border-red-200 rounded text-red-700">
+                {error}
+              </div>
+            )}
+
             <form
               name="lead"
-              method="POST"
-              action="/thanks"
-              data-netlify="true"
-              data-netlify-honeypot="bot-field"
-              onSubmit={() => setSending(true)}
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setSending(true);
+                setError(null);
+
+                try {
+                  const body = new URLSearchParams({
+                    "form-name": "lead",
+                    name: f.name,
+                    email: f.email,
+                    company: f.company,
+                    subject: f.subject,
+                    message: f.message,
+                  });
+
+                  const res = await fetch("/", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: body.toString(),
+                  });
+
+                  if (res.ok) {
+                    navigate("/thanks");
+                  } else {
+                    setError("Something went wrong. Please try the 'Send via email' button instead.");
+                    setSending(false);
+                  }
+                } catch {
+                  setError("Network error. Please try the 'Send via email' button instead.");
+                  setSending(false);
+                }
+              }}
               className="space-y-3"
             >
               <input type="hidden" name="form-name" value="lead" />
               <p className="hidden">
                 <label>
-                  Don’t fill this out: <input name="bot-field" />
+                  Don't fill this out: <input name="bot-field" />
                 </label>
               </p>
 

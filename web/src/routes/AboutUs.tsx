@@ -36,7 +36,7 @@ function BackToDashboardButton({ label = "Back to dashboard" }: { label?: string
   }, [compute]);
 
   return (
-    <Link to={to} className="btn btn-light">
+    <Link to={to} className="inline-flex items-center justify-center px-5 py-2.5 font-medium bg-[#1a1816] text-[#b8b3a8] border border-[#d4af37]/20 rounded-xl hover:bg-[#24221f] hover:text-[#f5f3ef] transition-colors">
       {label}
     </Link>
   );
@@ -44,7 +44,7 @@ function BackToDashboardButton({ label = "Back to dashboard" }: { label?: string
 
 export default function AboutUs() {
   return (
-    <main className="min-h-screen bg-gray-50 text-gray-900">
+    <main className="min-h-screen bg-[#0a0a0c] text-[#f5f3ef]">
       <SEO
         title="About VAiyu"
         description="VAiyu is the operating system for modern hospitality—uniting guest experience, hotel operations, sustainability signals, and truth-anchored AI."
@@ -52,30 +52,30 @@ export default function AboutUs() {
 
       {/* Hero */}
       <section
-        className="relative isolate text-white"
+        className="relative isolate text-[#f5f3ef]"
         style={{
           background:
-            "radial-gradient(900px 320px at -10% -40%, rgba(20,90,242,.25), transparent 60%), radial-gradient(800px 300px at 110% -30%, rgba(14,165,233,.25), transparent 60%), linear-gradient(180deg, #0b1220, #101827)",
+            "radial-gradient(ellipse 120% 80% at 20% 10%, rgba(212, 175, 55, 0.08), transparent 50%), radial-gradient(ellipse 100% 60% at 80% 20%, rgba(139, 90, 43, 0.06), transparent 45%), radial-gradient(ellipse 90% 70% at 50% 100%, rgba(30, 20, 10, 0.8), transparent 60%)",
         }}
       >
-        <div className="mx-auto max-w-6xl px-4 py-20 sm:py-24">
-          <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs backdrop-blur">
+        <div className="mx-auto max-w-6xl px-4 py-20 sm:py-24 relative z-[1]">
+          <span className="inline-flex items-center gap-2 rounded-full bg-[#1a1816] border border-[#d4af37]/20 px-3 py-1 text-xs text-[#d4af37]">
             🧭 About VAiyu
           </span>
           <h1 className="mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl">
             Building the operating system for modern hospitality
           </h1>
-          <p className="mt-3 max-w-2xl text-white/85">
+          <p className="mt-3 max-w-2xl text-[#b8b3a8]">
             We make every stay feel effortless—by uniting guest experience, hotel operations,
-            sustainability signals and <b>truth-anchored AI</b> on a single, calm platform.
+            sustainability signals and <b className="text-[#f5f3ef]">truth-anchored AI</b> on a single, calm platform.
           </p>
 
           {/* CTAs */}
           <div className="mt-6 flex flex-wrap gap-3">
-            <Link to="/about-ai" className="btn !bg-white !text-gray-900 hover:!bg-gray-50">
+            <Link to="/about-ai" className="inline-flex items-center justify-center px-5 py-2.5 font-semibold bg-[#e9c55a] text-[#0a0a0c] rounded-xl hover:bg-[#d4af37] transition-colors">
               How our AI works
             </Link>
-            <Link to="/contact" className="btn btn-light">
+            <Link to="/contact" className="inline-flex items-center justify-center px-5 py-2.5 font-medium bg-[#1a1816] text-[#b8b3a8] border border-[#d4af37]/20 rounded-xl hover:bg-[#24221f] hover:text-[#f5f3ef] transition-colors">
               Contact us
             </Link>
             {/* Smart back button (guest-safe) */}
@@ -88,23 +88,23 @@ export default function AboutUs() {
           className="absolute bottom-[-1px] left-0 w-full pointer-events-none"
           aria-hidden
         >
-          <path fill="#f9fafb" d="M0,80 C240,160 480,0 720,60 C960,120 1200,40 1440,100 L1440,140 L0,140 Z" />
+          <path fill="#0a0a0c" d="M0,80 C240,160 480,0 720,60 C960,120 1200,40 1440,100 L1440,140 L0,140 Z" />
         </svg>
       </section>
 
       {/* Mission — authentic, with sustainability / energy signals */}
       <section className="mx-auto max-w-6xl px-4 py-12">
         <div className="grid lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-3 card bg-white">
-            <h2 className="text-xl font-semibold">Our mission</h2>
-            <p className="mt-2 text-gray-700">
+          <div className="lg:col-span-3 bg-[#141210]/90 backdrop-blur-md border border-[#d4af37]/20 rounded-2xl p-6 sm:p-8 shadow-[0_4px_24px_rgba(0,0,0,0.4)]">
+            <h2 className="text-xl font-semibold text-[#f5f3ef]">Our mission</h2>
+            <p className="mt-2 text-[#b8b3a8]">
               Hospitality should feel human—and calm. VAiyu gives hotels one intelligent system that
               connects guests, teams, owners and devices in real time. We predict service risk, route
               work with clear SLAs, and ground every AI output in verified activity. The result: faster
               service, fewer misses, better margins and reviews that reflect the truth of the stay.
             </p>
 
-            <div className="mt-4 grid sm:grid-cols-2 gap-3">
+            <div className="mt-6 grid sm:grid-cols-2 gap-4">
               <Bullet>Guest experience: contactless pre-check-in, live request tracking, transparent bills.</Bullet>
               <Bullet>Staff efficiency: housekeeping, kitchen and desk with real-time updates and SLA nudges.</Bullet>
               <Bullet>Owner clarity: KPIs, exceptions, and policy hints that turn insight into action.</Bullet>
@@ -113,8 +113,8 @@ export default function AboutUs() {
                 approval.
               </Bullet>
               <Bullet>
-                Grid-smart operations: <b>tariff-aware device shedding</b>, <b>peak-hour playbooks</b> and{" "}
-                <b>carbon-aware scheduling</b> to reduce cost and impact.
+                Grid-smart operations: <b className="text-[#e9c55a]">tariff-aware device shedding</b>, <b className="text-[#e9c55a]">peak-hour playbooks</b> and{" "}
+                <b className="text-[#e9c55a]">carbon-aware scheduling</b> to reduce cost and impact.
               </Bullet>
             </div>
           </div>
@@ -123,9 +123,9 @@ export default function AboutUs() {
 
       {/* What we build — improved structure (4 pillars + 2 enablers) */}
       <section className="mx-auto max-w-6xl px-4 pb-6">
-        <h2 className="text-xl font-semibold">What we build</h2>
-        <p className="mt-1 text-gray-600">Six pieces, one calm system.</p>
-        <div className="mt-3 grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <h2 className="text-xl font-semibold text-[#f5f3ef]">What we build</h2>
+        <p className="mt-1 text-[#7a756a]">Six pieces, one calm system.</p>
+        <div className="mt-4 grid md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
           <Tile
             title="Guest Microsite"
             desc="Contactless check-in, in-stay menu, live tickets and transparent bills—no app to download."
@@ -160,10 +160,10 @@ export default function AboutUs() {
       </section>
 
       {/* Our story — clearer, credible timeline */}
-      <section className="mx-auto max-w-6xl px-4 py-6">
-        <div className="card bg-white">
-          <h2 className="text-xl font-semibold">Our story</h2>
-          <div className="mt-4 grid md:grid-cols-3 gap-4">
+      <section className="mx-auto max-w-6xl px-4 py-8">
+        <div className="bg-[#141210]/90 backdrop-blur-md border border-[#d4af37]/20 rounded-2xl p-6 sm:p-8 shadow-[0_4px_24px_rgba(0,0,0,0.4)]">
+          <h2 className="text-xl font-semibold text-[#f5f3ef]">Our story</h2>
+          <div className="mt-5 grid md:grid-cols-3 gap-4 lg:gap-6">
             <Timeline
               year="Origins"
               text="We started as operators and builders—fixing the everyday frictions of guest requests and follow-ups."
@@ -189,9 +189,9 @@ export default function AboutUs() {
       </section>
 
       {/* Leadership */}
-      <section className="mx-auto max-w-6xl px-4 py-6">
-        <h2 className="text-xl font-semibold">Leadership</h2>
-        <div className="mt-3 grid md:grid-cols-3 gap-4">
+      <section className="mx-auto max-w-6xl px-4 py-8">
+        <h2 className="text-xl font-semibold text-[#f5f3ef]">Leadership</h2>
+        <div className="mt-4 grid md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
           <Leader
             name="A. Kamal Bisht"
             role="CEO / Product"
@@ -226,14 +226,14 @@ export default function AboutUs() {
       </section>
 
       {/* CTA — single Contact button */}
-      <section className="border-t bg-white">
-        <div className="mx-auto max-w-6xl px-4 py-8 flex flex-wrap items-center justify-between gap-3">
+      <section className="border-t border-[#d4af37]/20 bg-[#141210] mt-8">
+        <div className="mx-auto max-w-6xl px-4 py-10 flex flex-wrap items-center justify-between gap-5">
           <div>
-            <div className="font-semibold">Let’s make stays effortless.</div>
-            <div className="text-sm text-gray-600">Talk to us about your property and goals.</div>
+            <div className="text-xl font-semibold text-[#f5f3ef]">Let’s make stays effortless.</div>
+            <div className="text-sm text-[#b8b3a8] mt-1">Talk to us about your property and goals.</div>
           </div>
           <div className="flex gap-2">
-            <Link to="/contact" className="btn">
+            <Link to="/contact" className="inline-flex items-center justify-center px-6 py-3 font-semibold text-[#0a0a0c] bg-gradient-to-r from-[#e9c55a] to-[#d4af37] rounded-xl hover:opacity-90 transition-opacity whitespace-nowrap">
               Contact us
             </Link>
           </div>
@@ -247,48 +247,49 @@ export default function AboutUs() {
 
 function Bullet({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-start gap-2 text-sm text-gray-700">
-      • <span>{children}</span>
+    <div className="flex items-start gap-2.5 text-sm text-[#b8b3a8]">
+      <span className="text-[#d4af37] font-bold">•</span> <span>{children}</span>
     </div>
   );
 }
 
 function Tile({ title, desc, emoji }: { title: string; desc: string; emoji: string }) {
   return (
-    <div className="card bg-white">
+    <div className="bg-[#141210]/90 backdrop-blur-md border border-[#d4af37]/20 rounded-2xl p-6 shadow-[0_4px_24px_rgba(0,0,0,0.4)] transition-all hover:-translate-y-1 hover:border-[#d4af37]/40 hover:shadow-[0_8px_32px_rgba(212,175,55,0.15)]">
       <div className="text-2xl">{emoji}</div>
-      <div className="font-semibold mt-1">{title}</div>
-      <div className="mt-1 text-sm text-gray-700">{desc}</div>
+      <div className="font-semibold text-[#f5f3ef] mt-2">{title}</div>
+      <div className="mt-1.5 text-sm text-[#b8b3a8] leading-relaxed">{desc}</div>
     </div>
   );
 }
 
 function Timeline({ year, text }: { year: string; text: string }) {
   return (
-    <div className="rounded border p-3">
-      <div className="text-xs font-semibold text-gray-500">{year}</div>
-      <div className="mt-1 text-sm text-gray-800">{text}</div>
+    <div className="rounded-xl border border-[#d4af37]/20 p-5 bg-[#1a1816]/50 transition-colors hover:bg-[#1a1816]">
+      <div className="text-xs font-semibold text-[#d4af37] tracking-wider uppercase">{year}</div>
+      <div className="mt-2 text-sm text-[#b8b3a8] leading-relaxed">{text}</div>
     </div>
   );
 }
 
 function Leader({ name, role, blurb }: { name: string; role: string; blurb: string }) {
   return (
-    <div className="card bg-white">
-      <div className="flex items-center gap-3">
-        <div className="h-12 w-12 rounded-full bg-gradient-to-br from-sky-500 to-indigo-600 text-white grid place-items-center font-semibold">
+    <div className="bg-[#141210]/90 backdrop-blur-md border border-[#d4af37]/20 rounded-2xl p-6 shadow-[0_4px_24px_rgba(0,0,0,0.4)]">
+      <div className="flex items-center gap-4">
+        <div className="h-12 w-12 rounded-full bg-gradient-to-br from-[#e9c55a] to-[#d4af37] text-[#0a0a0c] grid place-items-center font-bold text-lg shadow-[0_0_15px_rgba(212,175,55,0.3)] shrink-0">
           {name
             .split(" ")
+            .filter((n, i) => i > 0 || n.length > 2) // skip "A.", "B.", etc ideally, but simple enough logic
             .map((n) => n[0])
             .slice(0, 2)
             .join("")}
         </div>
         <div>
-          <div className="font-semibold">{name}</div>
-          <div className="text-xs text-gray-600">{role}</div>
+          <div className="font-semibold text-[#f5f3ef]">{name}</div>
+          <div className="text-xs font-medium text-[#d4af37] mt-0.5">{role}</div>
         </div>
       </div>
-      <p className="mt-2 text-sm text-gray-700">{blurb}</p>
+      <p className="mt-4 text-sm text-[#b8b3a8] leading-relaxed">{blurb}</p>
     </div>
   );
 }

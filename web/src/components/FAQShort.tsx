@@ -25,21 +25,27 @@ export default function FAQShort() {
   ];
 
   return (
-    <section id="faq" className="py-24 bg-gray-50">
+    <section id="faq" className="py-12 bg-transparent">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-10">
-          <h2 className="text-3xl sm:text-4xl font-semibold text-gray-900">Frequently Asked Questions</h2>
-          <p className="mt-3 text-gray-600">Short answers owners and operators ask first.</p>
+        <div className="text-center mb-14">
+          <h2 className="text-3xl sm:text-4xl font-bold text-[#f5f3ef]">Frequently Asked Questions</h2>
+          <p className="mt-4 text-[#b8b3a8] text-lg">Short answers owners and operators ask first.</p>
         </div>
 
-        <div className="divide-y divide-gray-200 rounded-2xl border border-gray-200 bg-white">
+        <div className="divide-y divide-[#d4af37]/10 rounded-[2rem] border border-[#d4af37]/20 bg-[#141210]/90 backdrop-blur-xl shadow-[0_10px_40px_-20px_rgba(0,0,0,0.6)] overflow-hidden">
           {faqs.map((f, i) => (
-            <details key={i} className="group open:bg-gray-50">
-              <summary className="cursor-pointer list-none p-5 sm:p-6 font-medium text-gray-900 flex items-center justify-between">
-                <span>{f.q}</span>
-                <span className="transition group-open:rotate-180">▾</span>
+            <details key={i} className="group open:bg-[#1a1816]/50 transition-colors">
+              <summary className="cursor-pointer list-none p-6 sm:p-8 font-semibold text-[#f5f3ef] flex items-center justify-between text-lg outline-none focus-visible:ring-2 focus-visible:ring-[#d4af37]/50 rounded-lg">
+                <span className="pr-4">{f.q}</span>
+                <span className="text-[#d4af37] transition-transform duration-300 group-open:rotate-180 flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-[#1a1816] border border-[#d4af37]/20">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </span>
               </summary>
-              <div className="px-5 sm:px-6 pb-6 text-gray-700 leading-relaxed">{f.a}</div>
+              <div className="px-6 sm:px-8 pb-8 text-[#b8b3a8] leading-relaxed text-base border-t border-transparent group-open:border-[#d4af37]/5 pt-4">
+                {f.a}
+              </div>
             </details>
           ))}
         </div>

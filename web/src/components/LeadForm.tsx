@@ -1,33 +1,61 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { track } from "../lib/analytics";
 
 /**
  * Netlify Forms-ready lead form.
- * - Posts to static site (no backend required)
+ * - Posts via fetch() (no full-page redirect)
  * - Honeypot field for spam
- * - Redirects to /thanks on success
+ * - Navigates to /thanks on success via React Router
  */
 export default function LeadForm() {
+  const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   return (
     <form
       name="lead"
-      method="POST"
-      action="/thanks"
-      data-netlify="true"
-      data-netlify-honeypot="bot-field"
-      onSubmit={() => {
+      onSubmit={async (e) => {
+        e.preventDefault();
         setSubmitting(true);
+        setError(null);
         track("lead_submit", { place: "contact" });
+
+        const formData = new FormData(e.currentTarget);
+        formData.set("form-name", "lead");
+
+        try {
+          const res = await fetch("/", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams(formData as any).toString(),
+          });
+
+          if (res.ok) {
+            navigate("/thanks");
+          } else {
+            setError("Something went wrong. Please try again.");
+            setSubmitting(false);
+          }
+        } catch {
+          setError("Network error. Please try again.");
+          setSubmitting(false);
+        }
       }}
       className="space-y-3"
     >
       {/* Required boilerplate for Netlify Forms */}
       <input type="hidden" name="form-name" value="lead" />
       <p className="hidden">
-        <label>Don’t fill this out: <input name="bot-field" /></label>
+        <label>Don't fill this out: <input name="bot-field" /></label>
       </p>
+
+      {error && (
+        <div className="p-2 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+          {error}
+        </div>
+      )}
 
       <div>
         <label className="block text-sm text-gray-600">Name</label>

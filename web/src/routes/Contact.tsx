@@ -23,13 +23,13 @@ export default function Contact() {
   // Fallback: open the user's email client with the current form values
   function sendViaEmail(e?: React.MouseEvent) {
     e?.preventDefault?.();
-    const to = "hello@vaiyu.app";
+    const to = "support@vaiyu.co.in";
     const subject = encodeURIComponent(f.subject || `Contact from ${f.name || "Guest"}`);
     const body = encodeURIComponent(
       `Name: ${f.name}\nEmail: ${f.email}\nCompany/Hotel: ${f.company}\n\n${f.message}`
     );
     window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
-    setOk("Opening your email client… If nothing appears, write to hello@vaiyu.app.");
+    setOk("Opening your email client… If nothing appears, write to support@vaiyu.co.in.");
   }
 
   return (
@@ -85,7 +85,7 @@ export default function Contact() {
           <div className="card bg-white">
             <h2 className="text-lg font-semibold">Talk to sales</h2>
             <p className="mt-1 text-sm text-gray-600">Rollout, pricing, ROI.</p>
-            <a className="btn btn-light mt-3" href="mailto:sales@vaiyu.app">
+            <a className="btn btn-light mt-3" href="mailto:sales@vaiyu.co.in">
               sales@vaiyu.co.in
             </a>
           </div>
@@ -93,7 +93,7 @@ export default function Contact() {
           <div className="card bg-white">
             <h2 className="text-lg font-semibold">Customer support</h2>
             <p className="mt-1 text-sm text-gray-600">We’re here 24×7 for critical issues.</p>
-            <a className="btn btn-light mt-3" href="mailto:support@vaiyu.app">
+            <a className="btn btn-light mt-3" href="mailto:support@vaiyu.co.in">
               support@vaiyu.co.in
             </a>
           </div>
@@ -227,7 +227,7 @@ export default function Contact() {
 
             <p className="text-xs text-gray-500">
               Prefer to write directly? Email{" "}
-              <a className="link" href="mailto:hello@vaiyu.app">hello@vaiyu.app</a>.
+              <a className="link" href="mailto:support@vaiyu.co.in">support@vaiyu.co.in</a>.
             </p>
           </div>
 
@@ -237,7 +237,7 @@ export default function Contact() {
               <li>We typically respond within one business day.</li>
               <li>
                 For urgent issues, please write to{" "}
-                <a className="link" href="mailto:support@vaiyu.app">support@vaiyu.app</a>.
+                <a className="link" href="mailto:support@vaiyu.co.in">support@vaiyu.co.in</a>.
               </li>
               <li>We support pilots for single properties as well as chains.</li>
             </ul>

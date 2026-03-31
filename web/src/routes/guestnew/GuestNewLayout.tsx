@@ -124,13 +124,6 @@ export default function GuestNewLayout() {
                 <Outlet />
             </div>
 
-            {/* Floating Support Button */}
-            <div className="gn-floating-support">
-                <Link to="/guest/support" className="gn-floating-support__btn">
-                    💬 <span>Support</span> <span>›</span>
-                </Link>
-            </div>
-
             {/* Bottom Navigation */}
             <nav className="gn-bottom-nav">
                 <div className="gn-bottom-nav__inner">

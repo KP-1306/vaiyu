@@ -33,7 +33,7 @@ export default function Press() {
           </h1>
           <p className="mt-3 max-w-2xl text-white/85">
             Download logos, brand colors, boilerplate and a press-ready zip. For inquiries,
-            email <a className="underline" href="mailto:press@vaiyu.app">press@vaiyu.app</a>.
+            email <a className="underline" href="mailto:press@vaiyu.co.in">press@vaiyu.co.in</a>.
           </p>
 
           <div className="mt-6 flex flex-wrap gap-3">
@@ -123,7 +123,7 @@ export default function Press() {
             <a className="btn btn-light" href="/brand/vaiyu-boilerplate.txt" download>
               Download boilerplate (.txt)
             </a>
-            <a className="btn btn-light" href="mailto:press@vaiyu.app">
+            <a className="btn btn-light" href="mailto:press@vaiyu.co.in">
               Contact press
             </a>
           </div>

@@ -52,7 +52,7 @@ export default function SiteFooter() {
           <nav aria-label="Social" className="flex flex-col gap-2">
             <a href="https://x.com/yourhandle" target="_blank" rel="noopener noreferrer" className="hover:underline">X (Twitter)</a>
             <a href="https://www.linkedin.com/company/yourpage" target="_blank" rel="noopener noreferrer" className="hover:underline">LinkedIn</a>
-            <a href="mailto:hello@vaiyu.app" className="hover:underline">Email</a>
+            <a href="mailto:support@vaiyu.co.in" className="hover:underline">Email</a>
           </nav>
         </div>
       </div>

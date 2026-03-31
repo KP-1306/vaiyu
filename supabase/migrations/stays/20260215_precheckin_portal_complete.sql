@@ -810,6 +810,10 @@ BEGIN
     b.guest_id,
     h.id AS hotel_id,
     h.name AS hotel_name,
+    h.phone AS hotel_phone,
+    h.address AS hotel_address,
+    h.latitude AS hotel_latitude,
+    h.longitude AS hotel_longitude,
     (SELECT rt.name FROM booking_rooms br
      JOIN room_types rt ON rt.id = br.room_type_id
      WHERE br.booking_id = b.id
@@ -884,6 +888,10 @@ BEGIN
     'booking_status', v_token_record.booking_status,
     'hotel_id', v_token_record.hotel_id,
     'hotel_name', v_token_record.hotel_name,
+    'hotel_phone', v_token_record.hotel_phone,
+    'hotel_address', v_token_record.hotel_address,
+    'hotel_latitude', v_token_record.hotel_latitude,
+    'hotel_longitude', v_token_record.hotel_longitude,
     'adults', COALESCE(v_token_record.adults_total, 1),
     'children', COALESCE(v_token_record.children_total, 0),
     'rooms_total', COALESCE(v_token_record.rooms_total, 1),

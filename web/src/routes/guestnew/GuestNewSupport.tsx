@@ -15,6 +15,7 @@ export default function GuestNewSupport() {
     const [hotelPhone, setHotelPhone] = useState<string>("Contact Front Desk");
     const [hotelWhatsapp, setHotelWhatsapp] = useState<string>("");
     const [loading, setLoading] = useState(true);
+    const [hasActiveStay, setHasActiveStay] = useState(true);
 
     useEffect(() => {
         let mounted = true;
@@ -34,8 +35,12 @@ export default function GuestNewSupport() {
                     .order("check_in", { ascending: false })
                     .limit(20);
 
-                if (mounted && stays && stays.length > 0) {
-                    const now = new Date();
+                if (mounted && stays) {
+                    if (stays.length === 0) {
+                        setHasActiveStay(false);
+                    }
+                    else {
+                        const now = new Date();
                     
                     // Prioritize active stays
                     let active = stays.find((s: any) =>
@@ -60,11 +65,28 @@ export default function GuestNewSupport() {
                     }
 
                     if (active) {
-                        const phone = active.hotel_phone || active.hotel?.phone;
-                        const whatsapp = active.hotel_whatsapp || active.hotel?.wa_display_number || phone;
+                        // Fetch from the public view to bypass RLS restrictions on the main table
+                        const { data: hotelData, error } = await supabase
+                            .from("v_public_hotels")
+                            .select("phone, wa_display_number")
+                            .eq("id", active.hotel_id)
+                            .single();
+                            
+                        if (error) {
+                            console.error("[DEBUG] Error fetching hotel from v_public_hotels:", error);
+                            alert("Supabase API Error fetching Hotel Contact Info: " + error.message + "\n\n(Tip: if it says 'column not found', your local Supabase schema cache hasn't updated yet! Run: NOTIFY pgrst, reload_schema; in SQL)");
+                        } else if (!hotelData) {
+                             console.warn("[DEBUG] No hotel found in v_public_hotels for id:", active.hotel_id);
+                        }
+
+                        const phone = hotelData?.phone || active.hotel_phone;
+                        const whatsapp = hotelData?.wa_display_number || active.hotel_whatsapp || hotelData?.phone || phone;
                         
                         if (phone) setHotelPhone(phone);
                         if (whatsapp) setHotelWhatsapp(whatsapp);
+                    } else {
+                        console.warn("[DEBUG] No active stay found in stays array", stays);
+                    }
                     }
                 }
             } catch (err) {
@@ -81,24 +103,15 @@ export default function GuestNewSupport() {
         };
     }, []);
 
-    const handleSendMessage = async () => {
-        if (!message.trim()) return;
-
-        setSending(true);
-
-        // Simulate sending message
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-
-        setSent(true);
-        setSending(false);
-        setMessage("");
-
-        // Reset after a few seconds
-        setTimeout(() => setSent(false), 3000);
-    };
-    
-    // Format whatsapp string for URL (strip non-digits)
     const cleanWhatsapp = hotelWhatsapp ? hotelWhatsapp.replace(/\D/g, '') : '';
+
+    const handleSendMessage = () => {
+        if (!message.trim() || !cleanWhatsapp) return;
+
+        const url = `https://wa.me/${cleanWhatsapp}?text=${encodeURIComponent(message)}`;
+        window.open(url, '_blank', 'noopener,noreferrer');
+        setMessage("");
+    };
 
     return (
         <div className="gn-container">
@@ -116,8 +129,13 @@ export default function GuestNewSupport() {
             <p className="gn-section-subtitle">We're here to help 24/7</p>
 
             {/* Quick Contact Options */}
-            <div className="gn-section">
+            <div className="gn-section" style={{ opacity: hasActiveStay ? 1 : 0.5, pointerEvents: hasActiveStay ? "auto" : "none" }}>
                 <h3 className="gn-section-title">Contact Us</h3>
+                {!hasActiveStay && (
+                    <p style={{ color: "var(--text-muted)", fontSize: "var(--text-sm)", marginBottom: "1rem" }}>
+                        You do not have an active stay. Please book a room to access direct hotel support.
+                    </p>
+                )}
                 <div className="gn-support-options">
                     <a href={hotelPhone !== "Contact Front Desk" ? `tel:${hotelPhone}` : "#"} className="gn-card gn-support-option" onClick={(e) => hotelPhone === "Contact Front Desk" && e.preventDefault()}>
                         <div className="gn-support-option__icon">📞</div>
@@ -139,61 +157,40 @@ export default function GuestNewSupport() {
             </div>
 
             {/* Chat Message */}
-            <div className="gn-section">
+            <div className="gn-section" style={{ opacity: hasActiveStay ? 1 : 0.5, pointerEvents: hasActiveStay ? "auto" : "none" }}>
                 <h3 className="gn-section-title">Send a Message</h3>
                 <div 
                     className="gn-card" 
-                    style={{ padding: "0", position: "relative", opacity: 0.6, cursor: "not-allowed", overflow: "hidden" }}
+                    style={{ padding: "0", position: "relative", overflow: "hidden" }}
                 >
-                    {/* Invisible overlay button to catch clicks effortlessly */}
-                    <button 
-                        style={{
-                            position: "absolute",
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            width: "100%",
-                            height: "100%",
-                            opacity: 0,
-                            zIndex: 10,
-                            cursor: "not-allowed",
-                            background: "transparent",
-                            border: "none",
-                            appearance: "none",
-                            margin: 0,
-                            padding: 0
-                        }}
-                        onClick={() => alert("This feature will be coming soon!\n\nPlease raise a service request directly using the 'Request Service' button on your dashboard.")}
-                        title="This feature will be coming soon! Please raise a service request directly using the 'Request Service' button on your dashboard."
-                    />
-                    
-                    {/* Visual forms (Un-clickable) */}
-                    <div style={{ padding: "1.5rem", pointerEvents: "none" }}>
-                        <textarea
-                            style={{
-                                width: "100%",
-                                minHeight: "120px",
-                                padding: "1rem",
-                                background: "var(--bg-card-hover)",
-                                border: "1px solid var(--border-subtle)",
-                                borderRadius: "var(--radius-lg)",
-                                color: "var(--text-primary)",
-                                fontSize: "var(--text-sm)",
-                                resize: "vertical",
-                                marginBottom: "1rem",
-                            }}
-                            placeholder="How can we help you?"
-                            value=""
-                            readOnly
-                        />
-                        <button
-                            className="gn-btn gn-btn--primary"
-                            style={{ width: "100%" }}
-                            type="button"
-                        >
-                            Send Message
-                        </button>
+                    <div style={{ padding: "1.5rem" }}>
+                                <textarea
+                                    style={{
+                                        width: "100%",
+                                        minHeight: "120px",
+                                        padding: "1rem",
+                                        background: "var(--bg-card-hover)",
+                                        border: "1px solid var(--border-subtle)",
+                                        borderRadius: "var(--radius-lg)",
+                                        color: "var(--text-primary)",
+                                        fontSize: "var(--text-sm)",
+                                        resize: "vertical",
+                                        marginBottom: "1rem",
+                                    }}
+                                    placeholder={cleanWhatsapp ? "How can we help you?" : "WhatsApp messaging is unavailable for this hotel"}
+                                    value={message}
+                                    onChange={(e) => setMessage(e.target.value)}
+                                    disabled={!cleanWhatsapp}
+                                />
+                                <button
+                                    className="gn-btn gn-btn--primary"
+                                    style={{ width: "100%", opacity: !cleanWhatsapp ? 0.5 : 1, cursor: !cleanWhatsapp ? 'not-allowed' : 'pointer' }}
+                                    type="button"
+                                    onClick={handleSendMessage}
+                                    disabled={!message.trim() || !cleanWhatsapp}
+                                >
+                                    {cleanWhatsapp ? "Send via WhatsApp" : "Unavailable"}
+                                </button>
                     </div>
                 </div>
             </div>

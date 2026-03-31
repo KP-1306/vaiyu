@@ -67,8 +67,8 @@ export default function Privacy() {
           VAiyu (“we”, “us”) provides software that helps hotels operate smoothly and
           serve guests better. This policy explains what we collect, why, and how we
           protect it. Questions? Email{" "}
-          <a className="link" href="mailto:privacy@vaiyu.app">
-            privacy@vaiyu.app
+          <a className="link" href="mailto:privacy@vaiyu.co.in">
+            privacy@vaiyu.co.in
           </a>
           .
         </p>
@@ -131,8 +131,8 @@ export default function Privacy() {
           <p className="mt-2">
             Depending on your region, you may have rights to access, correct, export, or
             delete your data. Contact{" "}
-            <a className="link" href="mailto:privacy@vaiyu.app">
-              privacy@vaiyu.app
+            <a className="link" href="mailto:privacy@vaiyu.co.in">
+              privacy@vaiyu.co.in
             </a>
             .
           </p>

@@ -98,9 +98,9 @@ export default function Careers() {
             </p>
             <a
               className="btn btn-light mt-3"
-              href="mailto:talent@vaiyu.app?subject=General%20Application%20-%20VAiyu&body=Links%20to%20work%20%2F%20CV%3A%0A"
+              href="mailto:talent@vaiyu.co.in?subject=General%20Application%20-%20VAiyu&body=Links%20to%20work%20%2F%20CV%3A%0A"
             >
-              Email talent@vaiyu.app
+              Email talent@vaiyu.co.in
             </a>
           </div>
         </div>
@@ -112,7 +112,7 @@ export default function Careers() {
 type Role = { id: string; title: string; location: string; type: string; blurb: string };
 
 function RoleCard({ role }: { role: Role }) {
-  const mail = `mailto:talent@vaiyu.app?subject=Application%3A%20${encodeURIComponent(
+  const mail = `mailto:talent@vaiyu.co.in?subject=Application%3A%20${encodeURIComponent(
     role.title
   )}&body=Hi%20VAiyu%20team%2C%0A%0ARole%3A%20${encodeURIComponent(
     role.title

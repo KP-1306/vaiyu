@@ -115,15 +115,43 @@ export function Step3Success({ booking, checkinFormatted, checkinTime, token }: 
             <div className="step3-tips-section">
                 <span className="step3-tips-header">Quick Tips</span>
 
-                <div className="step3-tip-row">
-                    <MapPin className="step3-tip-icon" />
-                    <span className="step3-tip-text">Directions to Hotel</span>
-                </div>
+                {(booking.hotel_latitude && booking.hotel_longitude) || booking.hotel_address ? (
+                    <a
+                        href={
+                            booking.hotel_latitude && booking.hotel_longitude
+                                ? `https://www.google.com/maps/search/?api=1&query=${booking.hotel_latitude},${booking.hotel_longitude}`
+                                : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(booking.hotel_address || booking.hotel_name || "Hotel")}`
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="step3-tip-row"
+                        style={{ textDecoration: 'none' }}
+                    >
+                        <MapPin className="step3-tip-icon" />
+                        <span className="step3-tip-text">Directions to Hotel</span>
+                    </a>
+                ) : (
+                    <div className="step3-tip-row">
+                        <MapPin className="step3-tip-icon" />
+                        <span className="step3-tip-text">Directions to Hotel</span>
+                    </div>
+                )}
 
-                <div className="step3-tip-row">
-                    <Phone className="step3-tip-icon" />
-                    <span className="step3-tip-text">Contact Number</span>
-                </div>
+                {booking.hotel_phone ? (
+                    <a
+                        href={`tel:${booking.hotel_phone.replace(/[^0-9+]/g, '')}`}
+                        className="step3-tip-row"
+                        style={{ textDecoration: 'none' }}
+                    >
+                        <Phone className="step3-tip-icon" />
+                        <span className="step3-tip-text">{booking.hotel_phone}</span>
+                    </a>
+                ) : (
+                    <div className="step3-tip-row">
+                        <Phone className="step3-tip-icon" />
+                        <span className="step3-tip-text">Contact Number</span>
+                    </div>
+                )}
             </div>
 
             {/* Actions */}

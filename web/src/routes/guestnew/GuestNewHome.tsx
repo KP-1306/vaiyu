@@ -979,7 +979,7 @@ export default function GuestNewHome() {
                                                                             </>
                                                                         );
                                                                     })()}
-                                                            </div>
+                                                                </div>
                                                             ) : (
                                                                 <div className="hero-mockup-time-stack" style={{ marginTop: '0', gap: '4px' }}>
                                                                     <div className="hero-mockup-subcard-checkout">
@@ -1258,12 +1258,6 @@ export default function GuestNewHome() {
                         </Link>
                     </div>
                 </div>
-            </div>
-
-            {/* Department Footer Mockup */}
-            <div style={{ marginTop: '4rem', opacity: 0.5, borderTop: '1px solid var(--border-subtle)', paddingTop: '1rem', fontSize: '0.8rem', display: 'flex', justifyContent: 'space-between' }}>
-                <div>Your Dedicated Service Officers</div>
-                <div>Hotel Need to Know ›</div>
             </div>
 
             {/* Premium Details Modal */}

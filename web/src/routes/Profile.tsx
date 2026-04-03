@@ -631,152 +631,159 @@ export default function Profile() {
 
   if (loading) {
     return (
-      <main className="min-h-[50vh] grid place-items-center">
+      <main className="min-h-screen bg-[#0a0a0c] text-[#f5f3ef] font-['Inter',sans-serif] grid place-items-center">
         <Spinner label="Loading your profile…" />
       </main>
     );
   }
 
   return (
-    <main className="max-w-3xl mx-auto p-6">
-      <BackHome />
+    <div className="min-h-screen bg-[#0a0a0c] text-white/90 font-['Inter',sans-serif] selection:bg-[#C5A065]/30">
+      <main className="max-w-3xl mx-auto p-6 relative z-10 pt-10">
+        <BackHome />
 
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Your profile</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Keep these handy — they speed up check-in and help us reach you in a
-            pinch.
-          </p>
-          {/* Friendly helper nudges */}
-          <p className="text-xs text-gray-600 mt-2">
-            <strong>Tip:</strong> Add a <em>profile photo</em> so hotel staff
-            can greet you faster, and upload your <em>KYC</em> once to breeze
-            through future stays.
-          </p>
-        </div>
+        <header className="flex items-start justify-between gap-4 mt-6">
+          <div>
+            <h1 className="gn-serif text-3xl font-bold tracking-tight text-white mb-2">Your profile</h1>
+            <p className="text-sm text-white/60 mt-1">
+              Keep these handy — they speed up check-in and help us reach you in a pinch.
+            </p>
+            {/* Friendly helper nudges */}
+            <p className="text-xs text-[#C5A065] mt-2">
+              <strong>Tip:</strong> Add a <em>profile photo</em> so hotel staff
+              can greet you faster, and upload your <em>KYC</em> once to breeze
+              through future stays.
+            </p>
+          </div>
 
-        {/* Back to dashboard on view mode */}
-        {mode === "view" ? (
-          <button onClick={() => navigate(-1)} className="btn btn-light whitespace-nowrap">
-            Back to dashboard
-          </button>
-        ) : null}
-      </header>
-
-      {/* Completeness indicator */}
-      <div className="mt-4 rounded-xl border bg-white/90 shadow-sm p-3">
-        <div className="flex items-center justify-between text-sm">
-          <span>Profile completeness</span>
-          <span className="font-medium">{score}%</span>
-        </div>
-        <div className="mt-2 h-2 rounded bg-gray-200 overflow-hidden">
-          <div
-            className="h-full bg-blue-600"
-            style={{ width: `${score}%` }}
-          />
-        </div>
-      </div>
-
-      {/* success banner */}
-      {savedOnce && mode === "view" && (
-        <div className="mt-4 rounded-xl border border-green-300 bg-green-50 px-4 py-3 text-sm flex items-center justify-between">
-          <span>✅ Profile updated successfully.</span>
-          <div className="flex gap-2">
-            <button onClick={() => navigate(-1)} className="btn btn-light">
+          {/* Back to dashboard on view mode */}
+          {mode === "view" ? (
+            <button onClick={() => navigate(-1)} className="bg-white/5 hover:bg-white/10 border border-white/10 text-white px-4 py-2 rounded-lg text-sm transition-colors whitespace-nowrap">
               Back to dashboard
             </button>
-            <button
-              className="btn btn-light"
-              onClick={() => setSavedOnce(false)}
-            >
-              Dismiss
-            </button>
+          ) : null}
+        </header>
+
+        {/* Completeness indicator */}
+        <div className="mt-8 rounded-2xl border border-white/10 bg-[#141210] p-4 shadow-xl">
+          <div className="flex items-center justify-between text-sm mb-3">
+            <span className="text-white/80 font-medium">Profile completeness</span>
+            <span className="font-bold text-[#C5A065]">{score}%</span>
+          </div>
+          <div className="h-2 rounded-full bg-white/5 overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-[#8E713C] to-[#C5A065] transition-all duration-1000"
+              style={{ width: `${score}%` }}
+            />
           </div>
         </div>
-      )}
 
-      <div className="mt-4 rounded-2xl border bg-white/90 shadow-sm">
-        <div className="flex items-center justify-between p-4 border-b">
-          <div className="text-xs text-gray-600">
-            Saved in{" "}
-            <span className="font-medium">
-              {source === "db" ? "Cloud (Supabase)" : "This device"}
-            </span>
-          </div>
-          {mode === "view" ? (
-            <button
-              className="btn btn-light"
-              onClick={() => setMode("edit")}
-            >
-              Edit
-            </button>
-          ) : (
+        {/* success banner */}
+        {savedOnce && mode === "view" && (
+          <div className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm flex items-center justify-between shadow-lg shadow-emerald-500/5">
+            <span className="text-emerald-400">✅ Profile updated successfully.</span>
             <div className="flex gap-2">
-              <button
-                className="btn btn-light"
-                onClick={() => setMode("view")}
-              >
-                Cancel
+              <button onClick={() => navigate(-1)} className="bg-white/5 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 px-3 py-1.5 rounded-lg text-xs transition-colors">
+                Back to dashboard
               </button>
               <button
-                className="btn"
-                onClick={handleSave}
-                disabled={saving || !requiredOk}
+                className="bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 px-3 py-1.5 rounded-lg text-xs transition-colors"
+                onClick={() => setSavedOnce(false)}
               >
-                {saving ? "Saving…" : "Save changes"}
+                Dismiss
               </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        <div className="mt-4 rounded-3xl border border-white/10 bg-[#141210] shadow-2xl overflow-hidden">
+          <div className="flex items-center justify-between p-5 border-b border-white/5 bg-white/[0.02]">
+            <div className="text-xs text-white/50">
+              Saved in{" "}
+              <span className="font-medium text-white/80">
+                {source === "db" ? "Cloud (Supabase)" : "This device"}
+              </span>
+            </div>
+            {mode === "view" ? (
+              <button
+                className="bg-white/5 hover:bg-white/10 border border-white/10 text-white px-5 py-2 rounded-lg text-sm transition-colors"
+                onClick={() => setMode("edit")}
+              >
+                Edit Profile
+              </button>
+            ) : (
+              <div className="flex gap-3">
+                <button
+                  className="bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 px-4 py-2 rounded-lg text-sm transition-colors"
+                  onClick={() => setMode("view")}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="bg-gradient-to-r from-[#8E713C] to-[#C5A065] text-white px-5 py-2 rounded-lg text-sm font-medium shadow-lg shadow-[#C5A065]/20 hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={handleSave}
+                  disabled={saving || !requiredOk}
+                >
+                  {saving ? "Saving…" : "Save changes"}
+                </button>
+              </div>
+            )}
+          </div>
 
         {/* Friendly, sectioned form */}
-        <form className="p-5 grid gap-6">
+        <form className="p-6 grid gap-6">
           <CardSection
             emoji="🧑‍💼"
             title="User profile"
             blurb="Your public face for reservations — add a photo so staff can recognise you quickly."
           >
             {/* Avatar + basic info */}
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full overflow-hidden border bg-gray-100">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-6 mb-2">
+              <div className="w-20 h-20 rounded-full overflow-hidden border border-white/10 bg-black/50 shadow-inner flex-shrink-0 relative group">
                 {profile.profile_photo_url ? (
                   <img
                     src={profile.profile_photo_url}
                     alt="Profile"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
                 ) : (
-                  <div className="w-full h-full grid place-items-center text-gray-400 text-xs">
+                  <div className="w-full h-full grid place-items-center text-white/30 text-xs">
                     No photo
                   </div>
                 )}
+                {/* Subtle inner ring overlay */}
+                <div className="absolute inset-0 rounded-full border border-white/5 pointer-events-none"></div>
               </div>
 
               {mode === "edit" && (
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs text-gray-600">
-                    Profile photo (PNG/JPG/WEBP, max 3 MB)
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm text-white/70 font-medium">
+                    Profile photo (PNG/JPG, max 3 MB)
                   </label>
-                  <input
-                    type="file"
-                    accept=".png,.jpg,.jpeg,.webp"
-                    onChange={handleAvatarFile}
-                    disabled={avatarUploading || avatarRemoving}
-                  />
+                  <label className="bg-white/5 hover:bg-[#C5A065]/20 border border-white/10 hover:border-[#C5A065]/30 text-white/90 px-4 py-2 rounded-lg text-sm transition-all cursor-pointer inline-flex items-center w-max gap-2 group">
+                    <svg className="w-4 h-4 text-[#C5A065] group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                    <span>Choose file</span>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept=".png,.jpg,.jpeg,.webp"
+                      onChange={handleAvatarFile}
+                      disabled={avatarUploading || avatarRemoving}
+                    />
+                  </label>
                   {avatarUploading ? (
-                    <p className="text-xs text-gray-600">Uploading…</p>
+                    <p className="text-xs text-[#C5A065] animate-pulse">Uploading…</p>
                   ) : null}
                   {avatarRemoving ? (
-                    <p className="text-xs text-gray-600">Removing…</p>
+                    <p className="text-xs text-white/50">Removing…</p>
                   ) : null}
                   {avatarError ? (
-                    <p className="text-xs text-red-600">{avatarError}</p>
+                    <p className="text-xs text-red-500/90">{avatarError}</p>
                   ) : null}
-                  {(profile.avatar_path || profile.profile_photo_url) && (
+                  {(profile.avatar_path || profile.profile_photo_url) && !avatarUploading && (
                     <button
                       type="button"
-                      className="text-xs underline self-start"
+                      className="text-xs text-red-400 hover:text-red-300 underline self-start transition-colors"
                       onClick={handleRemoveAvatar}
                       disabled={avatarRemoving}
                     >
@@ -834,7 +841,7 @@ export default function Profile() {
             title="KYC details"
             blurb="Upload once, and speed through future check-ins."
           >
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2">
               <Select
                 label="Government ID type *"
                 value={profile.govt_id_type}
@@ -854,7 +861,7 @@ export default function Profile() {
                 onChange={(v) =>
                   setProfile({ ...profile, govt_id_number: v.toUpperCase() })
                 }
-                placeholder="Enter ID number exactly as on document"
+                placeholder="Enter exactly as on document"
                 required
                 readOnly={mode === "view"}
                 error={govtIdError}
@@ -863,51 +870,59 @@ export default function Profile() {
 
             {/* KYC upload / view (≤3 MB) */}
             {mode === "view" ? (
-              <div className="grid gap-1">
-                <label className="text-sm">KYC attachment</label>
+              <div className="grid gap-1.5">
+                <label className="text-sm text-white/70 font-medium">KYC attachment</label>
                 {profile.kyc_path ? (
                   kycSignedUrl ? (
                     <a
-                      className="inline-block text-blue-700 underline text-sm"
+                      className="inline-flex items-center gap-2 text-[#C5A065] hover:text-[#e0bb7d] text-sm font-medium transition-colors"
                       href={kycSignedUrl}
                       target="_blank"
                       rel="noreferrer"
                     >
-                      View (secure link)
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                      View Document (secure link)
                     </a>
                   ) : (
-                    <span className="text-sm text-gray-600">
-                      Generating link…
+                    <span className="text-sm text-white/40">
+                      Generating secure link…
                     </span>
                   )
                 ) : (
-                  <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm">
-                    —
+                  <div className="rounded-xl border border-white/5 bg-white/5 px-4 py-3 text-sm text-white/50">
+                    No document uploaded
                   </div>
                 )}
               </div>
             ) : (
-              <div className="grid gap-1">
-                <label className="text-sm">
-                  KYC attachment (PNG/JPG/WEBP/PDF, max 3 MB)
+              <div className="grid gap-2">
+                <label className="text-sm text-white/70 font-medium">
+                  KYC attachment (PNG/JPG/PDF, max 3 MB)
                 </label>
-                <input
-                  type="file"
-                  accept=".png,.jpg,.jpeg,.webp,.pdf"
-                  onChange={handleKycFile}
-                  disabled={kycUploading}
-                />
-                {kycUploading ? (
-                  <p className="text-xs text-gray-600">Uploading…</p>
-                ) : null}
-                {kycError ? (
-                  <p className="text-xs text-red-600">{kycError}</p>
-                ) : null}
-                {profile.kyc_path ? (
-                  <p className="text-xs">
-                    A document is on file. Upload again to replace.
-                  </p>
-                ) : null}
+                <div className="flex flex-col items-start gap-2">
+                  <label className="bg-white/5 hover:bg-[#C5A065]/20 border border-white/10 hover:border-[#C5A065]/30 text-white/90 px-4 py-2 rounded-lg text-sm transition-all cursor-pointer inline-flex items-center gap-2 group">
+                    <svg className="w-4 h-4 text-[#C5A065] group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    <span>Upload Document</span>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept=".png,.jpg,.jpeg,.webp,.pdf"
+                      onChange={handleKycFile}
+                      disabled={kycUploading}
+                    />
+                  </label>
+                  {kycUploading ? (
+                    <p className="text-xs text-[#C5A065] animate-pulse">Uploading…</p>
+                  ) : null}
+                  {kycError ? (
+                    <p className="text-xs text-red-500/90">{kycError}</p>
+                  ) : null}
+                  {profile.kyc_path && !kycUploading ? (
+                    <p className="text-xs text-emerald-400/80">
+                      ✅ Document on file. Upload a new one to replace it.
+                    </p>
+                  ) : null}
+                </div>
               </div>
             )}
 
@@ -925,7 +940,7 @@ export default function Profile() {
             title="Other"
             blurb="Who should we call in case of an emergency?"
           >
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2">
               <Field
                 label="Emergency contact person"
                 value={profile.emergency_name}
@@ -971,7 +986,7 @@ export default function Profile() {
                 <>
                   I agree to the{" "}
                   <a
-                    className="underline"
+                    className="text-[#C5A065] hover:text-[#e0bb7d] underline underline-offset-2"
                     href="/about"
                     target="_blank"
                     rel="noreferrer"
@@ -980,7 +995,7 @@ export default function Profile() {
                   </a>
                   ,{" "}
                   <a
-                    className="underline"
+                    className="text-[#C5A065] hover:text-[#e0bb7d] underline underline-offset-2"
                     href="/terms"
                     target="_blank"
                     rel="noreferrer"
@@ -989,7 +1004,7 @@ export default function Profile() {
                   </a>{" "}
                   and{" "}
                   <a
-                    className="underline"
+                    className="text-[#C5A065] hover:text-[#e0bb7d] underline underline-offset-2"
                     href="/privacy"
                     target="_blank"
                     rel="noreferrer"
@@ -1009,30 +1024,31 @@ export default function Profile() {
           </CardSection>
 
           {error ? (
-            <p className="text-sm text-red-600 -mt-2">{error}</p>
+            <p className="text-sm text-red-500 bg-red-500/10 border border-red-500/20 p-3 rounded-lg -mt-2">{error}</p>
           ) : null}
         </form>
-      </div>
+        </div> {/* closes the outer rounded-3xl container */}
 
-      {/* Help box */}
-      <div className="mt-4 rounded-xl border bg-blue-50/70 p-4 text-sm flex items-center justify-between">
-        <div className="max-w-[80%]">
-          Having trouble with your profile? No worries — our team can help fix
-          it quickly.
+        {/* Help box */}
+        <div className="mt-6 rounded-2xl border border-blue-500/20 bg-blue-500/5 p-5 text-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
+          <div className="max-w-[80%] text-white/80 leading-relaxed font-sans cursor-default">
+            Having trouble with your profile? No worries — our team can help fix
+            it quickly.
+          </div>
+          <div className="flex gap-3 w-full sm:w-auto">
+            <Link to="/contact" className="flex-1 sm:flex-none text-center bg-white/5 hover:bg-white/10 border border-white/10 text-white px-4 py-2 rounded-lg text-sm transition-colors cursor-pointer">
+              Contact us
+            </Link>
+            <a
+              className="flex-1 sm:flex-none text-center bg-white/5 hover:bg-white/10 border border-white/10 text-white px-4 py-2 rounded-lg text-sm transition-colors cursor-pointer"
+              href="mailto:support@vaiyu.co.in?subject=Profile%20help"
+            >
+              Email support
+            </a>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Link to="/contact" className="btn btn-light">
-            Contact us
-          </Link>
-          <a
-            className="btn btn-light"
-            href="mailto:support@vaiyu.co.in?subject=Profile%20help"
-          >
-            Email support
-          </a>
-        </div>
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }
 
@@ -1049,17 +1065,18 @@ function CardSection({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-xl border p-4 bg-white/95 shadow-xs">
-      <div className="mb-3">
-        <h2 className="text-base font-semibold flex items-center gap-2">
-          <span className="text-lg">{emoji}</span>
+    <section className="rounded-2xl border border-white/10 p-6 bg-[#141210] shadow-xl relative overflow-hidden group">
+      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+      <div className="mb-4">
+        <h2 className="text-lg font-semibold flex items-center gap-2 text-white/90 tracking-wide">
+          <span className="text-xl">{emoji}</span>
           {title}
         </h2>
         {blurb ? (
-          <p className="text-xs text-gray-600 mt-1">{blurb}</p>
+          <p className="text-sm text-white/50 mt-1.5">{blurb}</p>
         ) : null}
       </div>
-      <div className="grid gap-3">{children}</div>
+      <div className="grid gap-4">{children}</div>
     </section>
   );
 }
@@ -1086,18 +1103,18 @@ function Field({
     [label],
   );
   return (
-    <div className="grid gap-1">
-      <label htmlFor={id} className="text-sm">
-        {label} {required ? <span className="text-red-600">*</span> : null}
+    <div className="grid gap-1.5">
+      <label htmlFor={id} className="text-sm text-white/70 font-medium tracking-wide">
+        {label} {required ? <span className="text-[#C5A065]">*</span> : null}
       </label>
       {readOnly ? (
-        <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm">
+        <div className="rounded-xl border border-white/5 bg-white/5 px-4 py-3 text-sm text-white/80 cursor-default">
           {value || "—"}
         </div>
       ) : (
         <input
           id={id}
-          className={`rounded-lg border px-3 py-2 text-sm outline-none focus:ring ${error ? "border-red-500" : "border-gray-300"
+          className={`rounded-xl border px-4 py-3 text-sm outline-none bg-black/40 text-white placeholder-white/30 focus:border-[#C5A065] focus:ring-1 focus:ring-[#C5A065]/50 transition-all ${error ? "border-red-500/50 focus:border-red-500/80" : "border-white/10 hover:border-white/20"
             }`}
           value={value}
           onChange={(e) => onChange?.(e.target.value)}
@@ -1105,7 +1122,7 @@ function Field({
           required={required}
         />
       )}
-      {error ? <p className="text-xs text-red-600">{error}</p> : null}
+      {error ? <p className="text-xs text-red-500/90">{error}</p> : null}
     </div>
   );
 }
@@ -1128,18 +1145,18 @@ function TextArea({
     [label],
   );
   return (
-    <div className="grid gap-1">
-      <label htmlFor={id} className="text-sm">
+    <div className="grid gap-1.5">
+      <label htmlFor={id} className="text-sm text-white/70 font-medium tracking-wide">
         {label}
       </label>
       {readOnly ? (
-        <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm whitespace-pre-wrap">
+        <div className="rounded-xl border border-white/5 bg-white/5 px-4 py-3 text-sm text-white/80 whitespace-pre-wrap cursor-default">
           {value || "—"}
         </div>
       ) : (
         <textarea
           id={id}
-          className="rounded-lg border px-3 py-2 text-sm outline-none focus:ring min-h-[90px]"
+          className="rounded-xl border px-4 py-3 text-sm outline-none bg-black/40 text-white placeholder-white/30 focus:border-[#C5A065] focus:ring-1 focus:ring-[#C5A065]/50 transition-all border-white/10 hover:border-white/20 min-h-[90px]"
           value={value}
           onChange={(e) => onChange?.(e.target.value)}
           placeholder={placeholder}
@@ -1169,25 +1186,25 @@ function Select({
     [label],
   );
   return (
-    <div className="grid gap-1">
-      <label htmlFor={id} className="text-sm">
-        {label} {required ? <span className="text-red-600">*</span> : null}
+    <div className="grid gap-1.5">
+      <label htmlFor={id} className="text-sm text-white/70 font-medium tracking-wide">
+        {label} {required ? <span className="text-[#C5A065]">*</span> : null}
       </label>
       {readOnly ? (
-        <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm">
+        <div className="rounded-xl border border-white/5 bg-white/5 px-4 py-3 text-sm text-white/80 cursor-default">
           {value || "—"}
         </div>
       ) : (
         <select
           id={id}
-          className="rounded-lg border px-3 py-2 text-sm"
+          className="rounded-xl border px-4 py-3 text-sm outline-none bg-black/40 text-white placeholder-white/30 focus:border-[#C5A065] focus:ring-1 focus:ring-[#C5A065]/50 transition-all border-white/10 hover:border-white/20 appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5%208l5%205%205-5%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%221.5%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_1rem_center]"
           value={value}
           onChange={(e) => onChange?.(e.target.value)}
           required={required}
         >
-          <option value="">Select</option>
+          <option value="" className="bg-[#1a1a1a] text-white">Select</option>
           {options.map((op) => (
-            <option key={op} value={op}>
+            <option key={op} value={op} className="bg-[#1a1a1a] text-white">
               {op}
             </option>
           ))}
@@ -1211,25 +1228,25 @@ function Checkbox({
   readOnly?: boolean;
 }) {
   return (
-    <label className="flex items-start gap-3 text-sm">
+    <label className="flex items-start gap-4 text-sm mt-2 group leading-relaxed">
       {readOnly ? (
         <input
           type="checkbox"
           checked={checked}
           readOnly
-          className="mt-1"
+          className="mt-1 appearance-none w-5 h-5 border border-white/20 rounded bg-white/5 checked:bg-[#C5A065] checked:border-[#C5A065] cursor-default bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%231a1510%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M16.707%205.293a1%201%200%20010%201.414l-8%208a1%201%200%2001-1.414%200l-4-4a1%201%200%20011.414-1.414L8%2012.586l7.293-7.293a1%201%200%20011.414%200z%22%20clip-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E')] checked:bg-center bg-no-repeat bg-[length:0%] checked:bg-[length:100%]"
         />
       ) : (
         <input
           type="checkbox"
-          className="mt-1"
+          className="mt-1 appearance-none w-5 h-5 flex-shrink-0 border border-white/20 rounded bg-black/40 checked:bg-[#C5A065] checked:border-[#C5A065] cursor-pointer transition-colors group-hover:border-[#C5A065]/50 bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%231a1510%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M16.707%205.293a1%201%200%20010%201.414l-8%208a1%201%200%2001-1.414%200l-4-4a1%201%200%20011.414-1.414L8%2012.586l7.293-7.293a1%201%200%20011.414%200z%22%20clip-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E')] checked:bg-center bg-no-repeat bg-[length:0%] checked:bg-[length:100%]"
           checked={checked}
           onChange={(e) => onChange?.(e.target.checked)}
           required={required}
         />
       )}
-      <span>
-        {label} {required ? <span className="text-red-600">*</span> : null}
+      <span className="text-white/80 group-hover:text-white/90 transition-colors">
+        {label} {required ? <span className="text-[#C5A065]">*</span> : null}
       </span>
     </label>
   );

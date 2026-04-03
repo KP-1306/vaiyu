@@ -276,13 +276,13 @@ export default function GuestNewCheckout() {
                         <div className="gn-serif text-3xl text-white mb-2">Checkout Overview</div>
                         <p className="text-white/50 text-sm mb-8">Review your stay details and settle your bill before checking out.</p>
 
-                        <div className="grid grid-cols-2 gap-8 mb-8">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8 mb-8">
                             {/* Check-Out Details Box */}
                             <div className="col-span-1">
                                 <div className="gn-serif text-lg text-white/90 mb-3">Check-Out Details</div>
-                                <div className="gn-inset-card p-4 flex justify-between items-center">
-                                    <div className="flex items-center gap-3 text-sm text-white/80">
-                                        <Calendar className="w-4 h-4 text-[#C5A065]" />
+                                <div className="gn-inset-card p-4 flex justify-between items-center h-[54px]">
+                                    <div className="flex items-center gap-3 text-sm text-white/80 whitespace-nowrap overflow-hidden text-ellipsis">
+                                        <Calendar className="w-4 h-4 text-[#C5A065] flex-shrink-0" />
                                         <span>{new Date(stay.check_out).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - 11:00 AM</span>
                                     </div>
                                     <ChevronRight className="w-4 h-4 opacity-30" />
@@ -332,7 +332,7 @@ export default function GuestNewCheckout() {
                         {/* Additional Services Grid */}
                         <div>
                             <div className="gn-serif text-lg text-white/90 mb-3">Additional Services</div>
-                            <div className="grid grid-cols-4 gap-3">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                 {[
                                     { icon: Luggage, label: "Baggage\nAssistance" },
                                     { icon: Clock, label: "Late\nCheckout" },

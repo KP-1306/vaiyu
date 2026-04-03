@@ -171,6 +171,7 @@ RETURNS boolean
 LANGUAGE sql
 AS $$
     SELECT EXISTS (
+        -- Check 1: Active member with OWNER role (invite already accepted)
         SELECT 1
         FROM public.hotel_members hm
         JOIN public.hotel_member_roles hmr ON hmr.hotel_member_id = hm.id
@@ -178,6 +179,17 @@ AS $$
         WHERE hm.hotel_id = p_hotel_id
           AND hr.code = 'OWNER'
           AND hm.is_active = true
+          AND hr.is_active = true
+
+        UNION ALL
+
+        -- Check 2: Pending invite with OWNER role (invite sent but not yet accepted)
+        SELECT 1
+        FROM public.hotel_invites hi
+        JOIN public.hotel_roles hr ON hr.id = hi.role_id
+        WHERE hi.hotel_id = p_hotel_id
+          AND hr.code = 'OWNER'
+          AND hi.status = 'pending'
           AND hr.is_active = true
     );
 $$;

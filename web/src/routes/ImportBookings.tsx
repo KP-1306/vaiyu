@@ -115,11 +115,11 @@ export default function ImportBookings() {
         { label: "Booking Status", value: "booking_status", required: false },
         { label: "Guest Name", value: "guest_name", required: true },
         { label: "Phone Number", value: "guest_phone", required: false },
-        { label: "Email", value: "guest_email", required: false },
+        { label: "Email", value: "guest_email", required: true },
         { label: "Check-In Date", value: "checkin_date", required: true },
         { label: "Check-Out Date", value: "checkout_date", required: true },
         { label: "Room Number", value: "room_number", required: false },
-        { label: "Room Type", value: "room_type_name", required: false },
+        { label: "Room Type", value: "room_type_name", required: true },
         { label: "Adults", value: "adults", required: false },
         { label: "Children", value: "children", required: false },
         { label: "Special Requests", value: "special_requests", required: false },
@@ -355,6 +355,8 @@ export default function ImportBookings() {
             // 1. Required Fields
             if (!parsed.booking_reference) { errors.push("Missing Booking Ref"); fieldErrors["booking_reference"] = true; }
             if (!parsed.guest_name) { errors.push("Missing Guest Name"); fieldErrors["guest_name"] = true; }
+            if (!parsed.room_type_name) { errors.push("Missing Room Type"); fieldErrors["room_type_name"] = true; }
+            if (!parsed.guest_email) { errors.push("Missing Email"); fieldErrors["guest_email"] = true; }
 
             // 2. Dates
             if (!parsed.checkin_date) {
@@ -384,6 +386,11 @@ export default function ImportBookings() {
             const rawPhone = parsed.guest_phone;
             const rawEmail = parsed.guest_email;
             const isPrimary = parsed.primary_guest_flag === "true" || parsed.primary_guest_flag === "1" || parsed.primary_guest_flag === "yes";
+
+            if (isPrimary && !rawEmail) {
+                errors.push("Missing Email (Required for Primary Guest)");
+                fieldErrors["guest_email"] = true;
+            }
 
             if (!rawPhone && !rawEmail) {
                 // If primary_guest_flag is mapped, only enforce contact for primary guests.
@@ -657,6 +664,8 @@ export default function ImportBookings() {
 
                 if (!parsed.booking_reference) { errors.push("Missing Booking Ref"); fieldErrors["booking_reference"] = true; }
                 if (!parsed.guest_name) { errors.push("Missing Guest Name"); fieldErrors["guest_name"] = true; }
+                if (!parsed.room_type_name) { errors.push("Missing Room Type"); fieldErrors["room_type_name"] = true; }
+                if (!parsed.guest_email) { errors.push("Missing Email"); fieldErrors["guest_email"] = true; }
                 if (!parsed.checkin_date) { errors.push("Missing Check-in"); fieldErrors["checkin_date"] = true; }
                 else if (isNaN(Date.parse(parsed.checkin_date))) { errors.push("Invalid Check-in Date"); fieldErrors["checkin_date"] = true; }
                 if (!parsed.checkout_date) { errors.push("Missing Check-out"); fieldErrors["checkout_date"] = true; }
@@ -748,8 +757,8 @@ export default function ImportBookings() {
                                     </td>
 
                                     {/* Room Type */}
-                                    <td className="ib-td text-slate-400">
-                                        {res.parsed.room_type_name || res.parsed.room_number || "Standard"}
+                                    <td className={`ib-td ${res.fieldErrors["room_type_name"] ? "bg-red-500/10 text-red-400 italic" : "text-slate-400"}`}>
+                                        {res.fieldErrors["room_type_name"] ? "Missing" : (res.parsed.room_type_name || "-")}
                                     </td>
 
                                     {/* Adults */}
@@ -1171,7 +1180,7 @@ export default function ImportBookings() {
 
                                                 {/* Email */}
                                                 <div className="flex flex-col gap-1">
-                                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Email</label>
+                                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Email <span className="text-red-400">*</span></label>
                                                     <input type="email" value={row.guest_email}
                                                         onChange={e => updateManualRow(row.id, "guest_email", e.target.value)}
                                                         className="w-full bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 outline-none transition"
@@ -1199,7 +1208,7 @@ export default function ImportBookings() {
 
                                                 {/* Room Type */}
                                                 <div className="flex flex-col gap-1">
-                                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Room Type</label>
+                                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Room Type <span className="text-red-400">*</span></label>
                                                     <select value={row.room_type_name}
                                                         onChange={e => updateManualRow(row.id, "room_type_name", e.target.value)}
                                                         className="w-full bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition cursor-pointer"

@@ -14,6 +14,7 @@ type Stay = {
     hotel: {
         name: string;
         city?: string;
+        phone?: string;
     };
     check_in: string;
     check_out: string;
@@ -90,7 +91,8 @@ export default function GuestNewCheckout() {
                         booking_id: stayRow?.booking_id || "",
                         hotel: {
                             name: active.hotel_name || active.hotel?.name || "Grand Hotel & Spa",
-                            city: active.hotel_city
+                            city: active.hotel_city,
+                            phone: active.hotel_phone
                         },
                         check_in: active.check_in,
                         check_out: active.check_out,
@@ -285,9 +287,6 @@ export default function GuestNewCheckout() {
                                     </div>
                                     <ChevronRight className="w-4 h-4 opacity-30" />
                                 </div>
-                                <button className="w-full mt-2 bg-[#C5A065]/20 hover:bg-[#C5A065]/30 text-[#C5A065] text-xs font-semibold py-2 rounded transition-colors">
-                                    Extend Stay
-                                </button>
                             </div>
 
                             {/* Guest Count Box (Simulated to match visual weight of mockup) */}
@@ -445,7 +444,18 @@ export default function GuestNewCheckout() {
                         </div>
 
                         <div className="mt-8 pt-6 border-t border-white/5 flex items-center justify-end gap-2 text-xs text-white/40">
-                            <span>Need any assistance? Call Front Desk at <span className="text-white/60 hover:text-white cursor-pointer">+91 01234 56789</span></span>
+                            <span>
+                                Need any assistance? Call Front Desk at{" "}
+                                {stay.hotel.phone ? (
+                                    <a href={`tel:${stay.hotel.phone}`} className="text-white/60 hover:text-white transition-colors cursor-pointer">
+                                        {stay.hotel.phone}
+                                    </a>
+                                ) : (
+                                    <span className="text-white/60 hover:text-white transition-colors cursor-pointer">
+                                        +91 01234 56789
+                                    </span>
+                                )}
+                            </span>
                             <div className="w-5 h-5 rounded-full border border-white/20 flex items-center justify-center hover:bg-white/5 cursor-pointer">
                                 <HelpCircle className="w-3 h-3" />
                             </div>

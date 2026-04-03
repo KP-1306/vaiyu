@@ -760,7 +760,8 @@ export default function GuestNewHome() {
         const nightsLeft = nightsTotal - daysPassed;
 
         const diffToCheckout = Math.round((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-        if (diffToCheckout <= 0) return "Checkout today";
+        if (diffToCheckout < 0) return "Checkout delayed";
+        if (diffToCheckout === 0) return "Checkout today";
         if (nightsLeft <= 0) return "Final night";
         return `${nightsLeft} ${nightsLeft === 1 ? 'night' : 'nights'} left`;
     };
@@ -869,20 +870,29 @@ export default function GuestNewHome() {
                                                 <div className="hero-mockup-time-item" style={{ fontWeight: 500, color: '#fff', marginBottom: '4px' }}>
                                                     {getStayDayLabel(currentStay.check_in, currentStay.total_nights || nights)}
                                                 </div>
-                                                {getNightsRemainingLabel(currentStay.check_in, currentStay.check_out, currentStay.total_nights || nights) === "Checkout today" ? (
-                                                    <div style={{ fontSize: '0.85rem', color: '#ef4444', fontWeight: 700 }}>
-                                                        🔴 Checkout today • 11:00 AM
-                                                    </div>
-                                                ) : (
-                                                    <>
-                                                        <div className="hero-mockup-time-item">
-                                                            <span className="hero-mockup-time-label">Checkout:</span> {new Date(currentStay.check_out).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • 11:00 AM
+                                                {(() => {
+                                                    const label = getNightsRemainingLabel(currentStay.check_in, currentStay.check_out, currentStay.total_nights || nights);
+                                                    if (label === "Checkout delayed") return (
+                                                        <div style={{ fontSize: '0.85rem', color: '#ef4444', fontWeight: 700 }}>
+                                                            🔴 Checkout delayed — was {new Date(currentStay.check_out).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • 11:00 AM
                                                         </div>
-                                                        <div style={{ marginTop: '2px', fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.7)' }}>
-                                                            {getNightsRemainingLabel(currentStay.check_in, currentStay.check_out, currentStay.total_nights || nights)}
+                                                    );
+                                                    if (label === "Checkout today") return (
+                                                        <div style={{ fontSize: '0.85rem', color: '#ef4444', fontWeight: 700 }}>
+                                                            🔴 Checkout today • 11:00 AM
                                                         </div>
-                                                    </>
-                                                )}
+                                                    );
+                                                    return (
+                                                        <>
+                                                            <div className="hero-mockup-time-item">
+                                                                <span className="hero-mockup-time-label">Checkout:</span> {new Date(currentStay.check_out).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • 11:00 AM
+                                                            </div>
+                                                            <div style={{ marginTop: '2px', fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.7)' }}>
+                                                                {label}
+                                                            </div>
+                                                        </>
+                                                    );
+                                                })()}
                                             </div>
                                         </div>
                                         <div className="hero-mockup-card-body-right">
@@ -946,18 +956,30 @@ export default function GuestNewHome() {
                                                         <div className="hero-mockup-subcard-info">
                                                             {booking.status === 'inhouse' ? (
                                                                 <div className="hero-mockup-time-stack" style={{ marginTop: '0', gap: '4px' }}>
-                                                                    <div className="hero-mockup-subcard-checkout">
-                                                                        {getNightsRemainingLabel(booking.check_in, booking.check_out, booking.total_nights) === "Checkout today"
-                                                                            ? <><span style={{ color: '#ef4444', fontWeight: 600 }}>🔴 Checkout today</span> • 11:00 AM</>
-                                                                            : <>Checkout: {new Date(booking.check_out).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • 11:00 AM</>
-                                                                        }
-                                                                    </div>
-                                                                    {getNightsRemainingLabel(booking.check_in, booking.check_out, booking.total_nights) !== "Checkout today" && (
-                                                                        <div className="hero-mockup-nights-left" style={{ fontSize: '0.8rem', color: '#e5c158' }}>
-                                                                            {getNightsRemainingLabel(booking.check_in, booking.check_out, booking.total_nights)}
-                                                                        </div>
-                                                                    )}
-                                                                </div>
+                                                                    {(() => {
+                                                                        const label = getNightsRemainingLabel(booking.check_in, booking.check_out, booking.total_nights);
+                                                                        if (label === "Checkout delayed") return (
+                                                                            <div className="hero-mockup-subcard-checkout">
+                                                                                <span style={{ color: '#ef4444', fontWeight: 600 }}>🔴 Checkout delayed</span>
+                                                                            </div>
+                                                                        );
+                                                                        if (label === "Checkout today") return (
+                                                                            <div className="hero-mockup-subcard-checkout">
+                                                                                <span style={{ color: '#ef4444', fontWeight: 600 }}>🔴 Checkout today</span> • 11:00 AM
+                                                                            </div>
+                                                                        );
+                                                                        return (
+                                                                            <>
+                                                                                <div className="hero-mockup-subcard-checkout">
+                                                                                    Checkout: {new Date(booking.check_out).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • 11:00 AM
+                                                                                </div>
+                                                                                <div className="hero-mockup-nights-left" style={{ fontSize: '0.8rem', color: '#e5c158' }}>
+                                                                                    {label}
+                                                                                </div>
+                                                                            </>
+                                                                        );
+                                                                    })()}
+                                                            </div>
                                                             ) : (
                                                                 <div className="hero-mockup-time-stack" style={{ marginTop: '0', gap: '4px' }}>
                                                                     <div className="hero-mockup-subcard-checkout">

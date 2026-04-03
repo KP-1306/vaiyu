@@ -217,7 +217,7 @@ export default function HotelOnboarding() {
     const [roleModalSaving, setRoleModalSaving] = useState(false);
     const [modalMembersList, setModalMembersList] = useState<{ id: string; user_id: string; email: string; name: string }[]>([]);
     const [modalRolesList, setModalRolesList] = useState<{ id: string; name: string; code: string; description?: string; isTemplate?: boolean }[]>([]);
-    
+
     // Form Selection State
     const [selectedMemberId, setSelectedMemberId] = useState<string>("");
     const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
@@ -260,11 +260,7 @@ export default function HotelOnboarding() {
     }, "vaiyu_ob_form");
 
     /* ── Room Setup State (Redesign) ── */
-    const [roomTypes, setRoomTypes] = useStickyState<RoomType[]>(() => [
-        { id: generateId(), name: "Standard", base_occupancy: "2", max_occupancy: "2", active: true },
-        { id: generateId(), name: "Deluxe", base_occupancy: "2", max_occupancy: "3", active: true },
-        { id: generateId(), name: "Suite", base_occupancy: "2", max_occupancy: "4", active: true },
-    ], "vaiyu_ob_roomTypes");
+    const [roomTypes, setRoomTypes] = useStickyState<RoomType[]>(() => [], "vaiyu_ob_roomTypes_v2");
     const [inventory, setInventory] = useStickyState<RoomInventory[]>([], "vaiyu_ob_inventory");
     const [editingRoomTypeIdx, setEditingRoomTypeIdx] = useState<number | null>(null);
 
@@ -287,9 +283,7 @@ export default function HotelOnboarding() {
     const [previewRooms, setPreviewRooms] = useState<RoomInventory[]>([]);
     const [inventorySearch, setInventorySearch] = useState("");
 
-    const [staffMembers, setStaffMembers] = useStickyState<StaffMember[]>(() => [
-        { id: generateId(), name: "First Staff Account", email: "staff@example.com", phone: "", role: "Manager", status: "Active", assignedZones: "All Zones", employmentStatus: "Active", accountStatus: "Invite Sent", lastLogin: "", ipAddress: "", selected: false },
-    ], "vaiyu_ob_staff");
+    const [staffMembers, setStaffMembers] = useStickyState<StaffMember[]>(() => [], "vaiyu_ob_staff_v2");
     const [staffTab, setStaffTab] = useState<'manage' | 'roles' | 'logs'>('roles');
     const [rolesSearch, setRolesSearch] = useState("");
 
@@ -329,13 +323,7 @@ export default function HotelOnboarding() {
     const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
 
     /* ── Roles & Permissions State ── */
-    const [rolePerms, setRolePerms] = useStickyState<RolePermRow[]>(() => [
-        { roleLabel: 'Manager', contact: '(555) 123-4567', scopes: makeScopes('Global'), perms: makePerms(true) },
-        { roleLabel: 'Receptionist', contact: '(555) 123-4567', scopes: { ...makeScopes('Global'), sla: 'Assigned Zones Only' }, perms: makePerms(true, { 'sla.Approve SLA Exception': false, 'sla.Override SLA': false, 'tickets.Request Supervisor': false }) },
-        { roleLabel: 'Housekeeper', contact: '', scopes: makeScopes('Global'), perms: makePerms(true, { 'financials.Modify Tickets': false, 'financials.Approve SLA Override': false, 'tickets.Issue Refunds': false, 'tickets.Reopen Ticket': false, 'tickets.Request Supervisor': false, 'security.Manage Access': false }) },
-        { roleLabel: 'Maintenance', contact: '', scopes: makeScopes('Global'), perms: makePerms(false, { 'housekeeping.View Board': true, 'maintenance.View Requests': true, 'maintenance.Handle Requests': true, 'maintenance.Mark Out of Order': true, 'maintenance.Complete Task': true, 'room_service.View Orders': true }) },
-        { roleLabel: 'Security Guard', contact: '', scopes: makeScopes('Global'), perms: makePerms(false, { 'security.Access Reports': true, 'security.View Logs': true, 'housekeeping.View Board': true }) },
-    ], "vaiyu_ob_roles");
+    const [rolePerms, setRolePerms] = useStickyState<RolePermRow[]>(() => [], "vaiyu_ob_roles_v2");
 
     const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
     const [staffForm, setStaffForm] = useState<Partial<StaffMember>>(() => ({
@@ -345,10 +333,7 @@ export default function HotelOnboarding() {
 
     const [selectedRoleIdx, setSelectedRoleIdx] = useState<number | null>(null);
     const [roleVersion, setRoleVersion] = useState("v1.4");
-    const [roleChangeLog] = useState(() => [
-        { time: 'Today, 2:04 PM', action: 'Updated permission assignments', icon: '🔧' },
-        { time: 'Sat, 1:34 15:44M', action: 'Created role "Maint" from template', icon: '📋' },
-    ]);
+    const [roleChangeLog] = useState<any[]>(() => []);
     const togglePerm = (roleIdx: number, permKey: string) => {
         setRolePerms(p => p.map((r, i) => i === roleIdx ? { ...r, perms: { ...r.perms, [permKey]: !r.perms[permKey] } } : r));
     };
@@ -357,16 +342,7 @@ export default function HotelOnboarding() {
     };
 
     /* ── Access Logs State ── */
-    const [accessLogs] = useState(() => [
-        { id: '33874', time: 'Today, 2:04 PM', severity: 'Sensitive' as const, actor: 'Harry Reynolds', actorRole: 'Receptionist', event: 'Folio #9721', entity: 'Folio', source: '172.18.97', sourceDetail: 'mc1084c0317', host: 'Grand Palace', origin: 'Dashboard' },
-        { id: '33865', time: 'Today, 2:07 PM', severity: 'Sensitive' as const, actor: 'Harry Reynolds', actorRole: '', event: 'Ticket #1109', entity: 'Ticket', source: '117.159.12', sourceDetail: 'ch036,2084', host: 'Grand Palace', origin: 'Dashboard' },
-        { id: '33864', time: 'Today, 2:05 PM', severity: 'Critical' as const, actor: 'Ashley Larson', actorRole: 'Pacom 527EL', event: 'Room 17512', entity: 'Room', source: 'Chrome 125K', sourceDetail: '13:01:47', host: 'Dashboard', origin: 'Dashboard' },
-        { id: '33865b', time: 'Today, 11:22 AM', severity: 'Normal' as const, actor: 'Amanda Clark', actorRole: 'Email Official', event: 'Ticket #1109', entity: 'Ticket', source: '172.18.87', sourceDetail: 'N2.879.352', host: 'Phabex', origin: 'API' },
-        { id: '33867', time: 'Today, 11:27 AM', severity: 'Critical' as const, actor: 'E59 Admin', actorRole: '', event: 'Failed login attempt', entity: 'Auth', source: '••••', sourceDetail: '', host: '', origin: 'System' },
-        { id: '33866', time: 'Today, 11:27 AM', severity: 'Critical' as const, actor: 'AD Admin', actorRole: 'Admnlrred #22281', event: 'Room Cleaning', entity: 'Room', source: '', sourceDetail: '', host: 'Dashboard', origin: 'Dashboard' },
-        { id: '33865c', time: 'Today, 11:12 AM', severity: 'Critical' as const, actor: 'James Morgan', actorRole: 'Samita Lasky', event: 'Room Cleaning', entity: 'Room', source: '10:58 AM', sourceDetail: '91-00.194.8', host: 'Grand Palace', origin: 'Cron' },
-        { id: '33861', time: 'Today, 11:13 AM', severity: 'Normal' as const, actor: 'E59 Admin', actorRole: '', event: 'Fodel #11102 5', entity: 'Folio', source: '', sourceDetail: '', host: 'Op', origin: 'Webhook' },
-    ]);
+    const [accessLogs] = useState<any[]>(() => []);
     const [logSearch, setLogSearch] = useState('');
     const [logSeverityFilter, setLogSeverityFilter] = useState('');
     const [selectedLogIdx, setSelectedLogIdx] = useState<number | null>(null);
@@ -400,18 +376,10 @@ export default function HotelOnboarding() {
             amenities: [],
             wifi_ssid: "", wifi_password: "", breakfast_start: "07:00", breakfast_end: "10:30", guest_notes: ""
         });
-        setRoomTypes([
-            { id: generateId(), name: "Standard", base_occupancy: "2", max_occupancy: "2", active: true },
-            { id: generateId(), name: "Deluxe", base_occupancy: "2", max_occupancy: "3", active: true },
-            { id: generateId(), name: "Suite", base_occupancy: "2", max_occupancy: "4", active: true },
-        ]);
+        setRoomTypes([]);
         setInventory([]);
         setStaffMembers([]);
-        setRolePerms([
-            { roleLabel: 'Manager', contact: '', scopes: makeScopes('Global'), perms: makePerms(true) },
-            { roleLabel: 'Receptionist', contact: '', scopes: { ...makeScopes('Global'), sla: 'Assigned Zones Only' }, perms: makePerms(true, { 'sla.Approve SLA Exception': false, 'sla.Override SLA': false, 'tickets.Request Supervisor': false }) },
-            { roleLabel: 'Housekeeper', contact: '', scopes: makeScopes('Global'), perms: makePerms(true, { 'financials.Modify Tickets': false, 'financials.Approve SLA Override': false, 'tickets.Issue Refunds': false, 'tickets.Reopen Ticket': false, 'tickets.Request Supervisor': false, 'security.Manage Access': false }) },
-        ]);
+        setRolePerms([]);
         setFeatures(DEFAULT_FEATURES);
         setError("");
         setFieldErrors({});
@@ -745,19 +713,19 @@ export default function HotelOnboarding() {
                 .select("id, user_id")
                 .eq("hotel_id", hotelId)
                 .eq("is_active", true);
-            
+
             if (memErr) throw memErr;
 
             // 2. Fetch Profiles for these members to get proper names
             const userIds = (members || []).map(m => m.user_id).filter(Boolean);
             let profilesMap: Record<string, { full_name: string, email: string }> = {};
-            
+
             if (userIds.length > 0) {
                 const { data: profiles, error: profErr } = await supabase
                     .from("profiles")
                     .select("id, full_name, email")
                     .in("id", userIds);
-                
+
                 if (!profErr && profiles) {
                     profiles.forEach(p => {
                         profilesMap[p.id] = { full_name: p.full_name || "", email: p.email || "" };
@@ -769,11 +737,11 @@ export default function HotelOnboarding() {
                 const p = profilesMap[m.user_id];
                 // Fallback to local staffMembers state if profile name is missing
                 const localMatch = staffMembers.find(s => s.email === p?.email);
-                
+
                 return {
                     id: m.id,
                     user_id: m.user_id,
-                    name: p?.full_name || localMatch?.name || `Staff (ID: ${m.id.substring(0,4)})`,
+                    name: p?.full_name || localMatch?.name || `Staff (ID: ${m.id.substring(0, 4)})`,
                     email: p?.email || localMatch?.email || "No Email"
                 };
             });
@@ -805,7 +773,7 @@ export default function HotelOnboarding() {
                 // If the hotel somehow has both "OWNER" and "OWNER_0", we only want to show one "Owner" role.
                 // We'll prioritize the standard "OWNER" code.
                 if (r.code === 'OWNER_0' && processedCodes.has('OWNER')) return;
-                
+
                 mergedRoles.push({ ...r, isTemplate: false });
                 processedCodes.add(r.code);
             });
@@ -816,12 +784,12 @@ export default function HotelOnboarding() {
                 if (t.code === 'OWNER' && (processedCodes.has('OWNER') || processedCodes.has('OWNER_0'))) return;
 
                 if (!processedCodes.has(t.code)) {
-                    mergedRoles.push({ 
-                        id: `template_${t.code}`, 
-                        name: t.name, 
-                        code: t.code, 
+                    mergedRoles.push({
+                        id: `template_${t.code}`,
+                        name: t.name,
+                        code: t.code,
                         description: t.description,
-                        isTemplate: true 
+                        isTemplate: true
                     });
                     processedCodes.add(t.code);
                 }
@@ -871,7 +839,7 @@ export default function HotelOnboarding() {
             const finalRoleIds: string[] = [];
             const templateRoleIds = selectedRoleIds.filter(id => id.startsWith("template_"));
             const existingRoleIds = selectedRoleIds.filter(id => !id.startsWith("template_"));
-            
+
             finalRoleIds.push(...existingRoleIds);
 
             if (templateRoleIds.length > 0) {
@@ -1106,9 +1074,9 @@ export default function HotelOnboarding() {
                 if (inventory.length > 0) {
                     const roomPayload = inventory.map(r => ({ hotel_id: hotelId, number: r.number, floor: r.floor || "1", wing: r.wing || null, room_type_id: rtIdMap[r.room_type_id] || Object.values(rtIdMap)[0], status: r.status === 'Out of Order' ? 'out_of_order' : r.status.toLowerCase(), housekeeping_status: r.status === 'Dirty' ? 'dirty' : 'clean', is_out_of_order: r.status === 'Out of Order' || !r.active }));
                     const { error: roomsErr } = await supabase.from("rooms").insert(roomPayload);
-                     if (roomsErr) {
-                         console.error("[HotelOnboarding] Error inserting rooms:", roomsErr);
-                     }
+                    if (roomsErr) {
+                        console.error("[HotelOnboarding] Error inserting rooms:", roomsErr);
+                    }
                 }
                 const { error, data } = await supabase.rpc('update_hotel_settings_onboarding', { p_hotel_id: hotelId, payload: { rooms_total: inventory.length }, p_action: 'HOTEL_ROOMS_UPDATED' });
                 if (error) throw error;
@@ -1117,7 +1085,7 @@ export default function HotelOnboarding() {
             }
             else if (step === 3) {
                 const roleIdMap: Record<string, string> = {};
-                
+
                 // 1. Enterprise Pattern: Upsert Roles instead of wiping them
                 if (rolePerms.length > 0) {
                     const generatedCodes = new Set<string>();
@@ -1125,7 +1093,7 @@ export default function HotelOnboarding() {
                         const rawLabel = (rp.roleLabel || "ROLE").trim();
                         // Minimal transformation: uppercase and underscore spaces
                         const baseCode = rawLabel.toUpperCase().replace(/\s/g, '_').substring(0, 25);
-                        
+
                         let finalCode = baseCode;
                         let counter = 1;
                         // Only add index if there's a collision within the same hotel's role set in this onboarding session
@@ -1135,15 +1103,15 @@ export default function HotelOnboarding() {
                         }
                         generatedCodes.add(finalCode);
 
-                        return { 
-                            hotel_id: hotelId, 
-                            code: finalCode, 
-                            name: rp.roleLabel || "Unnamed Role", 
-                            description: rp.contact || '', 
-                            is_active: true 
+                        return {
+                            hotel_id: hotelId,
+                            code: finalCode,
+                            name: rp.roleLabel || "Unnamed Role",
+                            description: rp.contact || '',
+                            is_active: true
                         };
                     });
-                    
+
                     const { data: insertedRoles, error: roleErr } = await supabase
                         .from("hotel_roles")
                         .upsert(hsRoles, { onConflict: 'hotel_id,code' })
@@ -1177,9 +1145,9 @@ export default function HotelOnboarding() {
                                 employment_status: s.employmentStatus || null
                             }
                         });
-                         if (invErr) {
-                             console.error(`[HotelOnboarding] Invite failed for ${s.email}:`, invErr);
-                         }
+                        if (invErr) {
+                            console.error(`[HotelOnboarding] Invite failed for ${s.email}:`, invErr);
+                        }
                     }
                 }
                 await supabase.rpc('mark_onboarding_step_complete', { p_hotel_id: hotelId, p_step: 'staff_setup' });
@@ -1585,122 +1553,122 @@ export default function HotelOnboarding() {
                                 <div className="space-y-8">
                                     {/* Property Info */}
                                     <div className={`relative ${showSuggestions ? 'z-[50]' : ''}`}>
-                                    <Section emoji="🏨" title="Property Info">
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            <div className={`sm:col-span-2 relative ${showSuggestions ? 'z-[50]' : ''}`}>
-                                                <label className={labelCls}>Hotel Name <span className="text-rose-400">*</span></label>
-                                                <div className="relative group">
-                                                    <input
-                                                        className={`${fI("name")} pr-10`}
-                                                        value={form.name}
-                                                        onChange={e => handleNameChange(e.target.value)}
-                                                        onFocus={() => setShowSuggestions(true)}
-                                                        placeholder="e.g. Grand Palace Hotel"
-                                                        maxLength={100}
-                                                    />
-                                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                                                        {isHotelSearching ? (
-                                                            <Loader2 size={16} className="text-indigo-400 animate-spin" />
-                                                        ) : (
-                                                            <div className={`w-2 h-2 rounded-full ${hotelId ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-600'}`} title={hotelId ? "Existing Property Selected" : "New Property"} />
-                                                        )}
+                                        <Section emoji="🏨" title="Property Info">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                <div className={`sm:col-span-2 relative ${showSuggestions ? 'z-[50]' : ''}`}>
+                                                    <label className={labelCls}>Hotel Name <span className="text-rose-400">*</span></label>
+                                                    <div className="relative group">
+                                                        <input
+                                                            className={`${fI("name")} pr-10`}
+                                                            value={form.name}
+                                                            onChange={e => handleNameChange(e.target.value)}
+                                                            onFocus={() => setShowSuggestions(true)}
+                                                            placeholder="e.g. Grand Palace Hotel"
+                                                            maxLength={100}
+                                                        />
+                                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                                                            {isHotelSearching ? (
+                                                                <Loader2 size={16} className="text-indigo-400 animate-spin" />
+                                                            ) : (
+                                                                <div className={`w-2 h-2 rounded-full ${hotelId ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-600'}`} title={hotelId ? "Existing Property Selected" : "New Property"} />
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Suggestions Dropdown */}
+                                                    {showSuggestions && (hotelSuggestions.length > 0 || isHotelSearching) && (
+                                                        <>
+                                                            <div
+                                                                className="fixed inset-0 z-[50]"
+                                                                onClick={() => setShowSuggestions(false)}
+                                                            />
+                                                            <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-[60] bg-[#0f172a] border border-slate-700/60 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300 ring-1 ring-white/5">
+                                                                <div className="p-3 bg-slate-900/50 border-b border-slate-800/80 flex items-center justify-between">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] px-1">Nearby Matches</span>
+                                                                    </div>
+                                                                    {hotelId && (
+                                                                        <button
+                                                                            onClick={(e) => { e.stopPropagation(); setHotelId(null); setShowSuggestions(false); }}
+                                                                            className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 px-3 py-1 rounded-full bg-indigo-500/5 border border-indigo-500/10 transition-all uppercase tracking-widest"
+                                                                        >
+                                                                            Reset to New
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                                <div className="max-h-[320px] overflow-y-auto custom-scrollbar">
+                                                                    {hotelSuggestions.map((h) => (
+                                                                        <button
+                                                                            key={h.id}
+                                                                            onClick={() => autoPopulateForm(h)}
+                                                                            className={`w-full text-left px-5 py-4 transition-all group flex items-start justify-between border-b border-slate-800/40 last:border-none ${hotelId === h.id ? 'bg-indigo-500/10' : 'hover:bg-slate-800/40'}`}
+                                                                        >
+                                                                            <div className="min-w-0 pr-4">
+                                                                                <div className={`font-bold text-sm transition-colors truncate ${hotelId === h.id ? 'text-indigo-300' : 'text-white group-hover:text-indigo-300'}`}>{h.name}</div>
+                                                                                <div className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-1 font-medium italic">
+                                                                                    <MapPin size={10} className="text-slate-600" />
+                                                                                    {h.city || 'Location Unknown'}, {h.state || ''}
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="shrink-0 flex flex-col items-end gap-1.5">
+                                                                                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md uppercase tracking-tight ${hotelId === h.id ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
+                                                                                    {hotelId === h.id ? 'Selected' : 'Existing'}
+                                                                                </span>
+                                                                                <span className="text-[9px] font-mono text-slate-600 tracking-tighter">{h.slug}</span>
+                                                                            </div>
+                                                                        </button>
+                                                                    ))}
+                                                                    {hotelSuggestions.length === 0 && isHotelSearching && (
+                                                                        <div className="px-4 py-8 text-center text-slate-500 text-xs italic">
+                                                                            Searching for properties...
+                                                                        </div>
+                                                                    )}
+                                                                    {!isHotelSearching && hotelSuggestions.length === 0 && (
+                                                                        <div className="px-4 py-8 text-center space-y-2">
+                                                                            <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center mx-auto mb-3">
+                                                                                <Plus size={14} className="text-slate-500" />
+                                                                            </div>
+                                                                            <p className="text-white text-xs font-bold leading-relaxed">No existing property found</p>
+                                                                            <p className="text-[10px] text-slate-500 leading-relaxed px-6">
+                                                                                Continue typing to create "<span className="text-indigo-400">{form.name}</span>" as a new property.
+                                                                            </p>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                <div className="p-3 bg-slate-950/40 border-t border-slate-800/50">
+                                                                    <p className="text-[10px] text-slate-500 leading-relaxed italic">
+                                                                        Selecting an existing property will automatically populate its details into this form.
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                    {fieldErrors.name && <p className={errCls}>{fieldErrors.name}</p>}
+                                                </div>
+                                                <div>
+                                                    <label className={labelCls}>URL Slug</label>
+                                                    <div className="flex items-center bg-slate-800/60 border border-slate-600/40 rounded-xl overflow-hidden focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
+                                                        <span className="px-3 text-xs text-slate-500 border-r border-slate-700 whitespace-nowrap">vaiyu.co.in/</span>
+                                                        <input className="flex-1 bg-transparent px-3 py-3 text-sm text-white outline-none" value={form.slug} onChange={e => set("slug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} maxLength={40} />
                                                     </div>
                                                 </div>
-
-                                                {/* Suggestions Dropdown */}
-                                                {showSuggestions && (hotelSuggestions.length > 0 || isHotelSearching) && (
-                                                    <>
-                                                        <div
-                                                            className="fixed inset-0 z-[50]"
-                                                            onClick={() => setShowSuggestions(false)}
-                                                        />
-                                                        <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-[60] bg-[#0f172a] border border-slate-700/60 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300 ring-1 ring-white/5">
-                                                            <div className="p-3 bg-slate-900/50 border-b border-slate-800/80 flex items-center justify-between">
-                                                                <div className="flex items-center gap-2">
-                                                                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
-                                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] px-1">Nearby Matches</span>
-                                                                </div>
-                                                                {hotelId && (
-                                                                    <button
-                                                                        onClick={(e) => { e.stopPropagation(); setHotelId(null); setShowSuggestions(false); }}
-                                                                        className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 px-3 py-1 rounded-full bg-indigo-500/5 border border-indigo-500/10 transition-all uppercase tracking-widest"
-                                                                    >
-                                                                        Reset to New
-                                                                    </button>
-                                                                )}
-                                                            </div>
-                                                            <div className="max-h-[320px] overflow-y-auto custom-scrollbar">
-                                                                {hotelSuggestions.map((h) => (
-                                                                    <button
-                                                                        key={h.id}
-                                                                        onClick={() => autoPopulateForm(h)}
-                                                                        className={`w-full text-left px-5 py-4 transition-all group flex items-start justify-between border-b border-slate-800/40 last:border-none ${hotelId === h.id ? 'bg-indigo-500/10' : 'hover:bg-slate-800/40'}`}
-                                                                    >
-                                                                        <div className="min-w-0 pr-4">
-                                                                            <div className={`font-bold text-sm transition-colors truncate ${hotelId === h.id ? 'text-indigo-300' : 'text-white group-hover:text-indigo-300'}`}>{h.name}</div>
-                                                                            <div className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-1 font-medium italic">
-                                                                                <MapPin size={10} className="text-slate-600" />
-                                                                                {h.city || 'Location Unknown'}, {h.state || ''}
-                                                                            </div>
-                                                                        </div>
-                                                                        <div className="shrink-0 flex flex-col items-end gap-1.5">
-                                                                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md uppercase tracking-tight ${hotelId === h.id ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
-                                                                                {hotelId === h.id ? 'Selected' : 'Existing'}
-                                                                            </span>
-                                                                            <span className="text-[9px] font-mono text-slate-600 tracking-tighter">{h.slug}</span>
-                                                                        </div>
-                                                                    </button>
-                                                                ))}
-                                                                {hotelSuggestions.length === 0 && isHotelSearching && (
-                                                                    <div className="px-4 py-8 text-center text-slate-500 text-xs italic">
-                                                                        Searching for properties...
-                                                                    </div>
-                                                                )}
-                                                                {!isHotelSearching && hotelSuggestions.length === 0 && (
-                                                                    <div className="px-4 py-8 text-center space-y-2">
-                                                                        <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center mx-auto mb-3">
-                                                                            <Plus size={14} className="text-slate-500" />
-                                                                        </div>
-                                                                        <p className="text-white text-xs font-bold leading-relaxed">No existing property found</p>
-                                                                        <p className="text-[10px] text-slate-500 leading-relaxed px-6">
-                                                                            Continue typing to create "<span className="text-indigo-400">{form.name}</span>" as a new property.
-                                                                        </p>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                            <div className="p-3 bg-slate-950/40 border-t border-slate-800/50">
-                                                                <p className="text-[10px] text-slate-500 leading-relaxed italic">
-                                                                    Selecting an existing property will automatically populate its details into this form.
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                    </>
-                                                )}
-                                                {fieldErrors.name && <p className={errCls}>{fieldErrors.name}</p>}
-                                            </div>
-                                            <div>
-                                                <label className={labelCls}>URL Slug</label>
-                                                <div className="flex items-center bg-slate-800/60 border border-slate-600/40 rounded-xl overflow-hidden focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
-                                                    <span className="px-3 text-xs text-slate-500 border-r border-slate-700 whitespace-nowrap">vaiyu.co.in/</span>
-                                                    <input className="flex-1 bg-transparent px-3 py-3 text-sm text-white outline-none" value={form.slug} onChange={e => set("slug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} maxLength={40} />
+                                                <div>
+                                                    <label className={labelCls}>Description</label>
+                                                    <input className={inputCls} value={form.description} onChange={e => set("description", e.target.value)} placeholder="Brief tagline" maxLength={200} />
+                                                </div>
+                                                <div>
+                                                    <label className={labelCls}>Hotel Email <span className="text-rose-400">*</span></label>
+                                                    <input type="email" className={fI("email")} value={form.email} onChange={e => set("email", e.target.value)} placeholder="info@hotel.com" />
+                                                    {fieldErrors.email && <p className={errCls}>{fieldErrors.email}</p>}
+                                                </div>
+                                                <div>
+                                                    <label className={labelCls}>Hotel Phone <span className="text-rose-400">*</span></label>
+                                                    <input type="tel" className={fI("phone")} value={form.phone} onChange={e => set("phone", PHONE_CLEAN(e.target.value))} placeholder="+91 98765 43210" maxLength={16} />
+                                                    {fieldErrors.phone && <p className={errCls}>{fieldErrors.phone}</p>}
                                                 </div>
                                             </div>
-                                            <div>
-                                                <label className={labelCls}>Description</label>
-                                                <input className={inputCls} value={form.description} onChange={e => set("description", e.target.value)} placeholder="Brief tagline" maxLength={200} />
-                                            </div>
-                                            <div>
-                                                <label className={labelCls}>Hotel Email <span className="text-rose-400">*</span></label>
-                                                <input type="email" className={fI("email")} value={form.email} onChange={e => set("email", e.target.value)} placeholder="info@hotel.com" />
-                                                {fieldErrors.email && <p className={errCls}>{fieldErrors.email}</p>}
-                                            </div>
-                                            <div>
-                                                <label className={labelCls}>Hotel Phone <span className="text-rose-400">*</span></label>
-                                                <input type="tel" className={fI("phone")} value={form.phone} onChange={e => set("phone", PHONE_CLEAN(e.target.value))} placeholder="+91 98765 43210" maxLength={16} />
-                                                {fieldErrors.phone && <p className={errCls}>{fieldErrors.phone}</p>}
-                                            </div>
-                                        </div>
-                                    </Section>
+                                        </Section>
                                     </div>
 
                                     {/* Location */}
@@ -2768,7 +2736,7 @@ export default function HotelOnboarding() {
                                                                     {filteredLogs.map((log, li) => {
                                                                         const sc = sevColor(log.severity);
                                                                         const isSelected = selectedLogIdx === li;
-                                                                        const initials = log.actor.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+                                                                        const initials = log.actor.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2);
                                                                         return (
                                                                             <tr key={li} className={`hover:bg-slate-800/20 transition cursor-pointer group ${isSelected ? 'bg-indigo-500/5 ring-1 ring-indigo-500/20' : ''}`} onClick={() => setSelectedLogIdx(isSelected ? null : li)}>
                                                                                 <td className="px-2 py-2 text-[10px] text-slate-600">{li + 1}</td>
@@ -3519,7 +3487,7 @@ export default function HotelOnboarding() {
                         </div>
                     )
                 }
-                
+
                 {/* ═══════════════════════════════════════════ */}
                 {/*  ASSIGN ROLES MODAL                         */}
                 {/* ═══════════════════════════════════════════ */}
@@ -3585,15 +3553,15 @@ export default function HotelOnboarding() {
                                                                     <div className={`w-5 h-5 rounded flex text-white items-center justify-center transition-colors border ${isChecked ? 'bg-indigo-500 border-indigo-500' : 'bg-slate-800 border-slate-600'}`}>
                                                                         {isChecked && <Check size={14} strokeWidth={3} />}
                                                                     </div>
-                                                                    <input 
-                                                                        type="checkbox" 
-                                                                        className="hidden" 
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        className="hidden"
                                                                         checked={isChecked}
                                                                         onChange={() => {
-                                                                            setSelectedRoleIds(prev => 
+                                                                            setSelectedRoleIds(prev =>
                                                                                 prev.includes(role.id) ? prev.filter(r => r !== role.id) : [...prev, role.id]
                                                                             );
-                                                                        }} 
+                                                                        }}
                                                                     />
                                                                     <div>
                                                                         <div className={`text-sm font-bold ${isChecked ? 'text-indigo-300' : 'text-slate-300'}`}>{role.name}</div>

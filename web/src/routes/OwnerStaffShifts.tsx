@@ -2464,7 +2464,7 @@ export default function OwnerStaffShifts() {
 
             {/* ── ASSIGN SHIFT MODAL ── */}
             {isShiftModalOpen && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md" style={{ colorScheme: 'dark' }}>
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md overflow-y-auto" style={{ colorScheme: 'dark' }}>
                     <div className="modal-content rounded-[28px] w-full max-w-lg shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
                         <div className="px-8 pt-8 pb-5 border-b border-white/5">
                             <div className="flex items-center justify-between">
@@ -2569,7 +2569,7 @@ export default function OwnerStaffShifts() {
 
             {/* ── BULK ASSIGN MODAL ── */}
             {isBulkModalOpen && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md" style={{ colorScheme: 'dark' }}>
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md overflow-y-auto" style={{ colorScheme: 'dark' }}>
                     <div className="modal-content rounded-[28px] w-full max-w-lg shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
                         <div className="px-8 pt-8 pb-5 border-b border-white/5">
                             <div className="flex items-center justify-between">
@@ -2681,7 +2681,7 @@ export default function OwnerStaffShifts() {
             )}
             {/* ── EDIT SHIFT MODAL ── */}
             {selectedShift && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md" style={{ colorScheme: 'dark' }}>
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md overflow-y-auto" style={{ colorScheme: 'dark' }}>
                     <div className="modal-content rounded-[28px] w-full max-w-lg shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
                         <div className="px-8 pt-8 pb-5 border-b border-white/5">
                             <div className="flex items-center justify-between">
@@ -2798,7 +2798,7 @@ export default function OwnerStaffShifts() {
                 </div>
             )}
             {isRoleModalOpen && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md" style={{ colorScheme: 'dark' }}>
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md overflow-y-auto" style={{ colorScheme: 'dark' }}>
                     <div className="modal-content rounded-[28px] w-full max-w-xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
                         {/* Header */}
                         <div className="px-8 pt-8 pb-5 border-b border-white/5">
@@ -2933,7 +2933,7 @@ export default function OwnerStaffShifts() {
 
             {/* ── WEEKLY SCHEDULER MODAL ── */}
             {isWeeklyModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
                     <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={() => setIsWeeklyModalOpen(false)} />
                     <div className="relative w-full max-w-2xl bg-gradient-to-br from-[#111118] to-[#0d0d14] rounded-3xl border border-white/10 shadow-2xl shadow-black/60 overflow-hidden flex flex-col max-h-[90vh]">
 
@@ -3203,7 +3203,7 @@ export default function OwnerStaffShifts() {
 
             {/* ── SMART SCHEDULER MODAL ── */}
             {isSmartModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
                     <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={() => setIsSmartModalOpen(false)} />
                     <div className="relative w-full max-w-3xl bg-gradient-to-br from-[#111118] to-[#0d0d14] rounded-3xl border border-white/10 shadow-2xl shadow-black/60 overflow-hidden flex flex-col max-h-[90vh]">
 
@@ -3529,10 +3529,10 @@ export default function OwnerStaffShifts() {
             </div>
             {/* ── DEPARTMENT ASSIGNMENT MODAL ── */}
             {isDepartmentModalOpen && selectedStaffId && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto">
                     <div className="absolute inset-0 bg-[#0a0a0c]/80 backdrop-blur-xl" onClick={() => setIsDepartmentModalOpen(false)} />
                     {/* Removed overflow-hidden to prevent absolute dropdown clipping */}
-                    <div className="relative w-full max-w-2xl rounded-[32px] border border-white/10 bg-[#121216] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+                    <div className="relative w-full max-w-2xl rounded-[32px] border border-white/10 bg-[#121216] p-8 shadow-2xl animate-in zoom-in-95 duration-200 !overflow-visible">
                         <div className="flex items-center justify-between mb-8">
                             <div>
                                 <h2 className="text-xl font-black text-white uppercase tracking-widest">Manage Departments</h2>
@@ -3654,7 +3654,7 @@ export default function OwnerStaffShifts() {
                                             className="fixed inset-0 z-10"
                                             onClick={(e) => { e.stopPropagation(); setIsAddDeptDropdownOpen(false); }}
                                         />
-                                        <div className="absolute top-[calc(100%+8px)] left-0 right-0 p-3 bg-[#1a1a24] border border-white/10 rounded-2xl shadow-2xl shadow-black/50 z-50 animate-in fade-in slide-in-from-top-2">
+                                        <div className="absolute bottom-[calc(100%+12px)] left-0 right-0 p-3 bg-[#1a1a24] border border-white/10 rounded-[24px] shadow-2xl shadow-black/80 z-[110] animate-in fade-in slide-in-from-bottom-2">
                                             <div className="px-4 py-2 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 border-b border-white/5 pb-3">
                                                 Select a Department
                                             </div>
@@ -3741,7 +3741,7 @@ export default function OwnerStaffShifts() {
 
             {/* ── ROSTER DETAILS MODAL ── */}
             {rosterDetailType && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto">
                     <div className="absolute inset-0 bg-[#0a0a0c]/80 backdrop-blur-xl" onClick={() => setRosterDetailType(null)} />
                     <div className="relative w-full max-w-lg rounded-[32px] border border-white/10 bg-[#121216] p-8 shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[80vh]">
                         <div className="flex items-center justify-between mb-6 shrink-0">
@@ -3838,7 +3838,7 @@ export default function OwnerStaffShifts() {
 
             {/* ── DEACTIVATE USER SUB-MODAL ── */}
             {deactivateUserModal && (
-                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 overflow-y-auto">
                     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setDeactivateUserModal(null)} />
                     <div className="relative w-full max-w-[400px] bg-white rounded-3xl overflow-hidden shadow-2xl font-sans animate-in fade-in zoom-in-95 duration-200">
                         <div className="p-6 text-center border-b border-slate-100 flex items-center justify-center relative">
@@ -3881,7 +3881,7 @@ export default function OwnerStaffShifts() {
 
             {/* ── CENTRALIZED ASSIGN SHIFT MODAL ── */}
             {activeAssignStaffData && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto">
                     <div className="fixed inset-0 bg-black/60 backdrop-blur-[3px]" onClick={() => setActiveAssignMenuId(null)} />
                     <div className="relative w-full max-w-[400px] bg-[#0f172a] border border-white/10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] rounded-[32px] overflow-hidden font-sans animate-in fade-in zoom-in-95 duration-200 flex flex-col" style={{ maxHeight: '90vh' }}>
                         
@@ -3969,7 +3969,7 @@ export default function OwnerStaffShifts() {
 
             {/* ── EDIT STAFF MODAL ── */}
             {editStaffModal && (
-                <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 overflow-y-auto">
                     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setEditStaffModal(null)} />
                     <div className="relative w-full max-w-[450px] bg-white rounded-3xl overflow-hidden shadow-2xl font-sans animate-in fade-in zoom-in-95 duration-200">
                         <div className="p-6 text-center border-b border-slate-100 flex items-center justify-center relative">

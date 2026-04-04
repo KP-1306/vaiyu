@@ -51,6 +51,7 @@ export default function FoodOrderTracker() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [now, setNow] = useState(new Date());
+    const [slaMinutes, setSlaMinutes] = useState(30);
 
     useEffect(() => {
         const timer = setInterval(() => setNow(new Date()), 1000);
@@ -70,6 +71,7 @@ export default function FoodOrderTracker() {
                 .select(`
                     id,
                     display_id,
+                    hotel_id,
                     status,
                     created_at,
                     updated_at,
@@ -90,8 +92,24 @@ export default function FoodOrderTracker() {
             if (orderErr) throw orderErr;
             if (!order) throw new Error("Order not found");
 
-            // 1b. Fetch Room Number manually
+            // 1b. Fetch KITCHEN department SLA for pre-acceptance fallback
+            if ((order as any).hotel_id) {
+                try {
+                    const { data: deptData } = await supabase
+                        .from('departments')
+                        .select('id, sla_policies(target_minutes)')
+                        .eq('hotel_id', (order as any).hotel_id)
+                        .eq('code', 'KITCHEN')
+                        .is('sla_policies.valid_to', null)
+                        .maybeSingle();
+                    const mins = (deptData as any)?.sla_policies?.[0]?.target_minutes;
+                    if (mins) setSlaMinutes(mins);
+                } catch { /* keep 30 min default */ }
+            }
+
+            // 1c. Fetch Room Number manually
             let roomData = null;
+
             if (order.room_id) {
                 const { data: r } = await supabase
                     .from('rooms')
@@ -186,7 +204,7 @@ export default function FoodOrderTracker() {
 
     // Estimate: If SLA exists, use target. Else default 45 mins?
     // food_order_sla_state usually has sla_target_at
-    const targetTime = parseDbDate(data.sla?.sla_target_at) || new Date(createdTime.getTime() + 45 * 60000);
+    const targetTime = parseDbDate(data.sla?.sla_target_at) || new Date(createdTime.getTime() + slaMinutes * 60000);
 
     let diffMs = targetTime.getTime() - now.getTime();
     const totalDuration = targetTime.getTime() - createdTime.getTime();
@@ -310,7 +328,7 @@ export default function FoodOrderTracker() {
                                 <span>{isCompleted ? "DELIVERED AT" : "ESTIMATED ARRIVAL"}</span>
                             </div>
                             <div className="text-3xl font-bold text-white font-mono mb-1">
-                                {isCompleted ? new Date(data.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : targetTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                                {isCompleted ? (parseDbDate(data.updated_at) || new Date()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : targetTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                             </div>
                             <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
                                 {isCompleted ? "Completed" : isBreached ? "Delayed" : "On Schedule"}

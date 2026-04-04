@@ -196,10 +196,17 @@ export default function OwnerArrivals() {
     const [roomTypes, setRoomTypes] = useState<{ id: string, name: string }[]>([]);
     const [roomTypeFilter, setRoomTypeFilter] = useState<string | null>(null);
 
-    // Approval State
+    // Approval & Modal State
     const [approvingCheckout, setApprovingCheckout] = useState<string | null>(null);
+    const [checkoutModal, setCheckoutModal] = useState<{
+        isOpen: boolean;
+        type: 'alert' | 'confirm' | 'success';
+        title: string;
+        message: string | React.ReactNode;
+        onConfirm?: () => void;
+    }>({ isOpen: false, type: 'alert', title: '', message: '' });
 
-    const handleApproveCheckout = async (row: OperationalArrival) => {
+    const handleApproveCheckout = async (row: OperationalArrival, source: 'GUEST' | 'STAFF' = 'GUEST') => {
         if (!row.active_stay_id) return;
         setApprovingCheckout(row.booking_id);
         try {
@@ -207,17 +214,34 @@ export default function OwnerArrivals() {
                 p_hotel_id: row.hotel_id,
                 p_booking_id: row.booking_id,
                 p_stay_id: row.active_stay_id,
-                p_force: row.pending_amount > 0
+                p_force: row.pending_amount > 0,
+                p_source: source
             });
             if (error) {
                 console.error("Error approving checkout:", error);
-                alert("Failed to approve checkout: " + error.message);
+                setCheckoutModal({
+                    isOpen: true,
+                    type: 'alert',
+                    title: 'Checkout Failed',
+                    message: error.message
+                });
             } else {
-                alert(`Checkout successfully approved for Room ${row.room_numbers || "Unassigned"}.`);
+                setCheckoutModal({
+                    isOpen: true,
+                    type: 'success',
+                    title: 'Checked Out',
+                    message: `Successfully checked out Room ${row.room_numbers || "Unassigned"}.`
+                });
                 fetchDashboard(); // Immediate refresh after success
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
+            setCheckoutModal({
+                isOpen: true,
+                type: 'alert',
+                title: 'Unexpected Error',
+                message: err.message || 'An unknown error occurred while checking out.'
+            });
         } finally {
             setApprovingCheckout(null);
         }
@@ -601,7 +625,7 @@ export default function OwnerArrivals() {
     const ArrivalRow = ({ arrival, onFolioOpen, onApproveCheckout, approvingCheckout }: {
         arrival: OperationalArrival;
         onFolioOpen: (arrival: OperationalArrival) => void;
-        onApproveCheckout: (arrival: OperationalArrival) => void;
+        onApproveCheckout: (arrival: OperationalArrival, source?: 'GUEST' | 'STAFF') => void;
         approvingCheckout: boolean;
     }) => (
         <tr key={arrival.booking_id} className="hover:bg-[var(--gold-400)]/5 transition-all group">
@@ -632,7 +656,7 @@ export default function OwnerArrivals() {
                                     OTA
                                 </span>
                             )}
-                            {arrival.urgency_level === "CRITICAL" && (
+                            {arrival.urgency_level === "CRITICAL" && !["CHECKED_IN", "PARTIALLY_ARRIVED"].includes(arrival.arrival_operational_state) && (
                                 <span className="bg-red-500/10 text-red-400 border border-red-500/20 text-[9px] font-black px-2 py-0.5 rounded flex items-center gap-1 tracking-widest uppercase">
                                     <AlertCircle className="w-2.5 h-2.5" /> Late
                                 </span>
@@ -748,7 +772,7 @@ export default function OwnerArrivals() {
 
                     {arrival.arrival_operational_state === "CHECKOUT_REQUESTED" && (
                         <button
-                            onClick={() => onApproveCheckout(arrival)}
+                            onClick={() => onApproveCheckout(arrival, 'GUEST')}
                             disabled={approvingCheckout}
                             className={`gn-btn ${arrival.pending_amount > 0 ? 'bg-red-500/20 text-red-400 border-red-500/30 font-black hover:bg-red-500/30' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 font-black hover:bg-emerald-500/30'} px-4 py-2 text-[11px] font-black uppercase tracking-widest flex items-center gap-1.5 disabled:opacity-50 transition-all`}
                         >
@@ -757,7 +781,38 @@ export default function OwnerArrivals() {
                         </button>
                     )}
 
-                    {arrival.primary_action === "CHECKIN" && (
+                    {arrival.arrival_operational_state === "CHECKED_IN" && (
+                        <button
+                            onClick={() => {
+                                const balance = arrival.pending_amount || 0;
+                                if (balance > 0) {
+                                    setCheckoutModal({
+                                        isOpen: true,
+                                        type: 'alert',
+                                        title: 'Balance Pending',
+                                        message: `Cannot checkout manually. Guest has an unpaid balance of ₹${balance.toLocaleString('en-IN')}.\n\nPlease collect payment via the Folio before checking out.`
+                                    });
+                                    return;
+                                }
+                                setCheckoutModal({
+                                    isOpen: true,
+                                    type: 'confirm',
+                                    title: 'Confirm Checkout',
+                                    message: `Check out Room ${arrival.room_numbers || "Unassigned"} — ${arrival.guest_name}?\nBalance: ₹0 (Settled)\n\n⚠️ Guest has NOT requested checkout.\nThis is a staff-initiated action.`,
+                                    onConfirm: () => onApproveCheckout(arrival, 'STAFF')
+                                });
+                            }}
+                            disabled={approvingCheckout}
+                            className="gn-btn bg-orange-500/15 text-orange-400 border border-orange-500/25 hover:bg-orange-500/25 px-4 py-2 text-[11px] font-black uppercase tracking-widest flex items-center gap-1.5 disabled:opacity-50 transition-all"
+                        >
+                            {approvingCheckout ? <RefreshCw className="w-3 animate-spin" /> : <KeyRound className="w-3 h-3" />}
+                            Checkout
+                        </button>
+                    )}
+
+                    {arrival.primary_action === "CHECKIN" && 
+                     arrival.arrival_operational_state !== "CHECKED_IN" && 
+                     arrival.arrival_operational_state !== "CHECKOUT_REQUESTED" && (
                         <button
                             onClick={() => navigate(`/checkin/booking?code=${arrival.booking_code}`)}
                             className="gn-btn gn-btn--primary px-4 py-2 text-[11px] font-black uppercase tracking-widest flex items-center gap-2"
@@ -1351,6 +1406,56 @@ export default function OwnerArrivals() {
                         </div>
                     </div>
                 </div>
+
+                {/* Custom Checkout Modal */}
+                {checkoutModal.isOpen && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+                        <div className="bg-[#15151a] border border-[var(--border-gold)]/40 rounded-2xl p-6 shadow-2xl max-w-sm w-full transform transition-all relative overflow-hidden">
+                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[var(--border-gold)] to-transparent opacity-50"></div>
+                            
+                            <div className="flex items-start gap-4 mb-6">
+                                {checkoutModal.type === 'alert' && <AlertCircle className="w-8 h-8 text-orange-500 mt-1" />}
+                                {checkoutModal.type === 'success' && <CheckCircle2 className="w-8 h-8 text-emerald-500 mt-1" />}
+                                {checkoutModal.type === 'confirm' && <KeyRound className="w-8 h-8 text-yellow-500 mt-1" />}
+                                <div>
+                                    <h3 className="text-xl font-black text-[var(--text-primary)] tracking-tight uppercase mb-1.5">{checkoutModal.title}</h3>
+                                    <div className="text-sm text-[var(--text-secondary)] whitespace-pre-line leading-relaxed font-medium">{checkoutModal.message}</div>
+                                </div>
+                            </div>
+                            
+                            <div className="flex items-center justify-end gap-3 mt-2 border-t border-[var(--border-subtle)] pt-5">
+                                {(checkoutModal.type === 'confirm' || checkoutModal.type === 'alert') && (
+                                    <button
+                                        onClick={() => setCheckoutModal(prev => ({ ...prev, isOpen: false }))}
+                                        className="px-4 py-2 text-xs font-black text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors uppercase tracking-widest"
+                                    >
+                                        {checkoutModal.type === 'confirm' ? 'Cancel' : 'Close'}
+                                    </button>
+                                )}
+                                {checkoutModal.type === 'confirm' && (
+                                    <button
+                                        onClick={() => {
+                                            checkoutModal.onConfirm?.();
+                                            setCheckoutModal(prev => ({ ...prev, isOpen: false }));
+                                        }}
+                                        className="gn-btn gn-btn--primary px-5 py-2.5 text-xs font-black tracking-wider uppercase flex items-center gap-2"
+                                    >
+                                        <CheckCircle2 className="w-4 h-4" />
+                                        Force Checkout
+                                    </button>
+                                )}
+                                {checkoutModal.type === 'success' && (
+                                    <button
+                                        onClick={() => setCheckoutModal(prev => ({ ...prev, isOpen: false }))}
+                                        className="gn-btn gn-btn--primary px-5 py-2.5 text-xs font-black tracking-wider uppercase"
+                                    >
+                                        Okay
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <FolioDrawer
                     isOpen={!!selectedFolioArrival}

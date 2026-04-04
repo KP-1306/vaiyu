@@ -6,7 +6,8 @@ CREATE OR REPLACE FUNCTION checkout_stay(
     p_hotel_id UUID,
     p_booking_id UUID,
     p_stay_id UUID,
-    p_force BOOLEAN DEFAULT FALSE
+    p_force BOOLEAN DEFAULT FALSE,
+    p_source TEXT DEFAULT 'GUEST'  -- 'GUEST' | 'STAFF' | 'SYSTEM'
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -16,6 +17,7 @@ AS $$
 DECLARE
     v_pending_amount NUMERIC;
     v_room_id UUID;
+    v_stay_status TEXT;
     v_now TIMESTAMPTZ := now();
 BEGIN
 
@@ -23,17 +25,23 @@ BEGIN
     -- 1️⃣ Pessimistic Locking & Validation
     ---------------------------------------------------------
     -- Lock stay row and fetch room_id directly
-    SELECT room_id INTO v_room_id 
+    SELECT room_id, status INTO v_room_id, v_stay_status
     FROM stays
     WHERE id = p_stay_id
       AND booking_id = p_booking_id
-      AND status = 'checkout_requested' -- Strictly enforce request flow
+      AND (
+          status = 'checkout_requested'
+          OR (status = 'inhouse' AND p_source = 'STAFF')
+      )
     FOR UPDATE;
 
     IF NOT FOUND THEN
         RETURN jsonb_build_object(
             'success', false,
-            'error', 'Stay not found or checkout hasn''t been requested yet.'
+            'error', CASE WHEN p_source = 'STAFF'
+                THEN 'Stay not found or not eligible for checkout.'
+                ELSE 'Stay not found or checkout hasn''t been requested yet.'
+            END
         );
     END IF;
 
@@ -170,7 +178,8 @@ BEGIN
             'stay_id', p_stay_id,
             'room_id', v_room_id,
             'force', p_force,
-            'balance_at_checkout', v_pending_amount
+            'balance_at_checkout', v_pending_amount,
+            'origin', p_source
         ),
         COALESCE(auth.uid(), NULL)
     );
@@ -187,7 +196,7 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION checkout_stay(UUID, UUID, UUID, BOOLEAN)
+GRANT EXECUTE ON FUNCTION checkout_stay(UUID, UUID, UUID, BOOLEAN, TEXT)
 TO authenticated, service_role;
 
 -- ============================================================

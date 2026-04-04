@@ -18,6 +18,7 @@ import {
   RefreshCcw
 } from "lucide-react";
 import { getTicketComments, reopenTicket } from "../lib/api";
+import { parseDbDate } from "../utils/dateUtils";
 
 type TrackerData = {
   id: string;
@@ -220,7 +221,7 @@ export default function RequestTracker() {
   }
 
   // Calculate ETA & Timer Logic
-  const createdTime = new Date(data.created_at);
+  const createdTime = parseDbDate(data.created_at) || new Date();
   const slaMinutes = data.service?.sla_minutes || 30;
   const targetMs = slaMinutes * 60000;
 
@@ -230,7 +231,7 @@ export default function RequestTracker() {
 
   if (data.sla_started_at) {
     // Started: Fixed Deadline
-    const startTime = new Date(data.sla_started_at);
+    const startTime = parseDbDate(data.sla_started_at) || new Date();
     expectedTime = new Date(startTime.getTime() + targetMs);
     diffMs = expectedTime.getTime() - now.getTime();
 
@@ -350,7 +351,7 @@ export default function RequestTracker() {
 
               {data.completed_at ? (
                 <div className="text-3xl font-bold text-white font-mono mb-1">
-                  {Math.max(1, Math.ceil((new Date(data.completed_at).getTime() - new Date(data.created_at).getTime()) / 60000))} min
+                  {Math.max(1, Math.ceil(((parseDbDate(data.completed_at) || new Date()).getTime() - (parseDbDate(data.created_at) || new Date()).getTime()) / 60000))} min
                 </div>
               ) : (
                 <div className="text-3xl font-bold text-white font-mono mb-1">

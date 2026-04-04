@@ -941,10 +941,10 @@ export default function OwnerDashboard() {
                 <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Bookings</div>
               </Link>
 
-              <Link to={`/owner/${hotel.slug}/payments`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
+              {/* <Link to={`/owner/${hotel.slug}/payments`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
                 <div className="text-lg mb-1">💰</div>
                 <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Finance</div>
-              </Link>
+              </Link> */}
               <Link to={`/owner/${hotel.slug}/staff-shifts`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
                 <div className="text-lg mb-1">👥</div>
                 <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Staff</div>
@@ -1207,28 +1207,6 @@ export default function OwnerDashboard() {
                       <div className="text-sm text-slate-400">SLA performance data will appear after service requests are processed.</div>
                     </div>
                   )}
-                </div>
-              </DarkCard>
-
-              <DarkCard className="p-5">
-                <CardHeader title="AI Ops Insights" subtitle="Intelligent recommendations" />
-                <div className="mt-3">
-                  {!HAS_FUNCS ? (
-                    <div className="rounded-xl border border-dashed border-slate-700 bg-[#0B0E14] p-4 text-center text-sm text-slate-500">Enable AI features to see insights</div>
-                  ) : opsLoading ? (
-                    <div className="rounded-xl border border-dashed border-slate-700 bg-[#0B0E14] p-4 text-center text-sm text-slate-400">Analyzing operations…</div>
-                  ) : (opsHeatmap && opsHeatmap.length) || (staffingPlan && staffingPlan.length) ? (
-                    <AiOpsMiniSummary heatmap={opsHeatmap} staffingPlan={staffingPlan} />
-                  ) : (
-                    <div className="rounded-xl border border-dashed border-slate-700 bg-[#0B0E14] p-4 text-center text-sm text-slate-500">No AI insights available yet</div>
-                  )}
-                </div>
-                <div className="mt-4 border-t border-white/10 pt-3">
-                  <div className="flex items-center justify-between">
-                    <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">AI usage</div>
-                    <MiniBadge label="Owner view" tone="grey" />
-                  </div>
-                  <div className="mt-3"><UsageMeter hotelId={hotel.id} /></div>
                 </div>
               </DarkCard>
             </div>
@@ -1831,12 +1809,12 @@ function SidebarNav({ slug, onNavClick }: { slug: string; onNavClick?: () => voi
         </div>
       </div>
       {/* Finance */}
-      <div className="pt-2">
+      {/* <div className="pt-2">
         <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-3 px-3">Finance</div>
         <div className="space-y-1">
           <NavItem to={`/owner/${slug}/payments`} label="Payments & Ledger" onClick={onNavClick} />
         </div>
-      </div>
+      </div> */}
       {/* Staff */}
       <div className="pt-2">
         <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-3 px-3">Staff</div>

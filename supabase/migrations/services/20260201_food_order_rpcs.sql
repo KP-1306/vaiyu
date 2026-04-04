@@ -166,17 +166,20 @@ BEGIN
       AND hm.user_id = auth.uid()
     ON CONFLICT DO NOTHING;
 
-    -- Start SLA
+    -- Start SLA (anchored to order creation time, not accept time)
     INSERT INTO food_order_sla_state (
         food_order_id,
         sla_started_at,
         sla_target_at
     )
-    VALUES (
+    SELECT
         p_order_id,
         now(),
-        now() + interval '30 minutes'
-    )
+        fo.created_at + (COALESCE(sp.target_minutes, 30) || ' minutes')::interval
+    FROM food_orders fo
+    JOIN departments d ON d.hotel_id = fo.hotel_id AND d.code = 'KITCHEN'
+    LEFT JOIN sla_policies sp ON sp.department_id = d.id AND sp.is_active = true AND sp.valid_to IS NULL
+    WHERE fo.id = p_order_id
     ON CONFLICT DO NOTHING;
 
     INSERT INTO food_order_events

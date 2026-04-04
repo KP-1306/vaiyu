@@ -104,7 +104,7 @@ export default function CheckInLayout() {
                             className="h-9 w-auto object-contain"
                         />
                         <span className="hidden sm:inline font-medium tracking-tight text-white">
-                            VAiyu Guest
+                            VAiyu
                         </span>
                     </Link>
 

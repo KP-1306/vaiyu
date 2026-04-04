@@ -60,14 +60,16 @@ BEGIN
         );
     END IF;
 
-    -- C: Lock Folio explicitly
+    -- C: Lock Folio explicitly & Lazy Creation
     PERFORM 1 FROM folios WHERE booking_id = p_booking_id FOR UPDATE;
     IF NOT FOUND THEN
-        -- Every booking MUST have a folio in this model
-        RETURN jsonb_build_object(
-            'success', false,
-            'error', 'Booking folio not found'
-        );
+        -- Every booking MUST have a folio, create it just-in-time if missing
+        INSERT INTO folios (booking_id, hotel_id, status)
+        VALUES (p_booking_id, v_hotel_id, 'OPEN')
+        ON CONFLICT (booking_id) DO NOTHING;
+        
+        -- Re-lock the newly created folio
+        PERFORM 1 FROM folios WHERE booking_id = p_booking_id FOR UPDATE;
     END IF;
 
 

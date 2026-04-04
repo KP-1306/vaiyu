@@ -110,6 +110,7 @@ const ClaimStay = lazy(() => import("./routes/ClaimStay"));
 const Checkout = lazy(() => import("./routes/Checkout"));
 const GuestDashboard = lazy(() => import("./routes/GuestDashboard"));
 const HotelReviews = lazy(() => import("./routes/HotelReviews"));
+const GuestFeedback = lazy(() => import("./routes/GuestFeedback"));
 
 // GuestNew - Premium Guest Experience
 const GuestNewLayout = lazy(() => import("./routes/guestnew/GuestNewLayout"));
@@ -490,6 +491,7 @@ const router = createBrowserRouter([
       { path: "bill", element: <Bill /> },
       { path: "precheck/:code", element: <Precheck /> },
       { path: "precheckin/:token", element: <PreCheckin /> },
+      { path: "feedback/:token", element: <GuestFeedback /> },
       { path: "regcard", element: <Regcard /> },
       { path: "claim", element: <ClaimStay /> },
       { path: "checkout", element: <Checkout /> },

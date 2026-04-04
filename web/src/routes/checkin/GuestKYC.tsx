@@ -280,12 +280,13 @@ export default function GuestKYC() {
                                     {errors.full_name && <p className="mt-1 text-[10px] text-red-400 flex items-center gap-1 ml-1 uppercase font-bold tracking-wider"><AlertCircle className="h-3 w-3" /> {errors.full_name}</p>}
                                 </div>
                                 <div className="space-y-1.5 relative">
-                                    <label className="block text-sm font-medium text-white/90 ml-1">Digital Coordinates <span className="text-gold-400">*</span></label>
+                                    <label className="block text-sm font-medium text-white/90 ml-1">Email <span className="text-gold-400">*</span></label>
                                     <div className="relative"><Mail className="pointer-events-none absolute top-4 left-4 h-5 w-5 text-gold-400 z-10" /><input type="email" className={`gn-input pl-12 ${errors.email ? 'border-red-500/50 bg-red-500/5' : ''}`} value={formData.email} onChange={e => { setFormData({ ...formData, email: e.target.value }); if (errors.email) setErrors(prev => ({ ...prev, email: '' })); }} onBlur={handleEmailBlur} placeholder="john@example.com" /></div>
                                 </div>
                                 <div className="space-y-1.5 relative">
-                                    <label className="block text-sm font-medium text-white/90 ml-1">Mobile Link <span className="text-gold-400">*</span></label>
+                                    <label className="block text-sm font-medium text-white/90 ml-1">Mobile  <span className="text-gold-400">*</span></label>
                                     <div className="relative"><Phone className="pointer-events-none absolute top-4 left-4 h-5 w-5 text-gold-400 z-10" /><input type="tel" className={`gn-input pl-12 ${errors.phone ? 'border-red-500/50 bg-red-500/5' : ''}`} value={formData.phone} onChange={e => { setFormData({ ...formData, phone: e.target.value }); if (errors.phone) setErrors(prev => ({ ...prev, phone: '' })); }} onBlur={handleMobileBlur} placeholder="+91 12345 67890" /></div>
+                                    {errors.phone && <p className="mt-1 text-[10px] text-red-400 flex items-center gap-1 ml-1 uppercase font-bold tracking-wider"><AlertCircle className="h-3 w-3" /> {errors.phone}</p>}
                                 </div>
                                 <div className="space-y-5">
                                     <div className="space-y-1.5 relative">
@@ -352,7 +353,7 @@ export default function GuestKYC() {
                             <div className="space-y-6">
                                 <div className="space-y-3">
                                     <div className="flex justify-between items-end px-1"><label className="text-sm font-medium text-white/90">Primary ID Proof <span className="text-gold-400">*</span></label></div>
-                                    { (existingFront || frontPreview) ? (
+                                    {(existingFront || frontPreview) ? (
                                         <div className="relative overflow-hidden w-full bg-black/40 border border-white/10 rounded-3xl group transition-all duration-500 hover:border-gold-400/30">
                                             <div className="relative aspect-[4/1] w-full overflow-hidden bg-black/60 border-b border-white/5">
                                                 <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-all duration-700 z-10" />
@@ -367,9 +368,9 @@ export default function GuestKYC() {
                                             </div>
                                             <div className="flex w-full divide-x divide-white/5 bg-white/[0.02]">
                                                 <button type="button" onClick={() => setViewImage(frontPreview || existingFront)} className="flex-1 py-5 text-[10px] font-black text-gold-100/60 hover:bg-white/5 hover:text-white transition-all uppercase tracking-[0.2em]">Review</button>
-                                                <button type="button" onClick={() => { 
-                                                    setExistingFront(null); 
-                                                    setFrontImage(null); 
+                                                <button type="button" onClick={() => {
+                                                    setExistingFront(null);
+                                                    setFrontImage(null);
                                                     if (frontPreview) URL.revokeObjectURL(frontPreview);
                                                     setFrontPreview(null);
                                                     setFrontCleared(true);
@@ -384,10 +385,11 @@ export default function GuestKYC() {
                                             </div>
                                         </div>
                                     )}
+                                    {errors.frontImage && <p className="mt-1 text-[10px] text-red-400 flex items-center gap-1 uppercase font-bold tracking-wider"><AlertCircle className="h-3 w-3" /> {errors.frontImage}</p>}
                                 </div>
                                 <div className="space-y-3">
                                     <div className="flex justify-between items-end px-1"><label className="text-sm font-medium text-white/90">Supporting ID View</label></div>
-                                    { (existingBack || backPreview) ? (
+                                    {(existingBack || backPreview) ? (
                                         <div className="relative overflow-hidden w-full bg-black/40 border border-white/10 rounded-3xl group transition-all duration-500 hover:border-white/30">
                                             <div className="relative aspect-[4/1] w-full overflow-hidden bg-black/60 border-b border-white/5">
                                                 <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-all duration-700 z-10" />
@@ -402,9 +404,9 @@ export default function GuestKYC() {
                                             </div>
                                             <div className="flex w-full divide-x divide-white/5 bg-white/[0.02]">
                                                 <button type="button" onClick={() => setViewImage(backPreview || existingBack)} className="flex-1 py-5 text-[10px] font-black text-gold-100/60 hover:bg-white/5 hover:text-white transition-all uppercase tracking-[0.2em]">Review</button>
-                                                <button type="button" onClick={() => { 
-                                                    setExistingBack(null); 
-                                                    setBackImage(null); 
+                                                <button type="button" onClick={() => {
+                                                    setExistingBack(null);
+                                                    setBackImage(null);
                                                     if (backPreview) URL.revokeObjectURL(backPreview);
                                                     setBackPreview(null);
                                                     setBackCleared(true);

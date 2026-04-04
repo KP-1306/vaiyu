@@ -207,23 +207,38 @@ export default function OwnerArrivals() {
     }>({ isOpen: false, type: 'alert', title: '', message: '' });
 
     const handleApproveCheckout = async (row: OperationalArrival, source: 'GUEST' | 'STAFF' = 'GUEST') => {
-        if (!row.active_stay_id) return;
+        if (!row.active_stay_id) {
+            setCheckoutModal({
+                isOpen: true,
+                type: 'alert',
+                title: 'Checkout Failed',
+                message: 'Cannot checkout: This booking is missing an active room stay record (expected status "inhouse"). The check-in flow may not have completed properly.'
+            });
+            return;
+        }
+
         setApprovingCheckout(row.booking_id);
         try {
-            const { error } = await supabase.rpc('checkout_stay', {
+            const { error, data } = await supabase.rpc('checkout_stay', {
                 p_hotel_id: row.hotel_id,
                 p_booking_id: row.booking_id,
                 p_stay_id: row.active_stay_id,
                 p_force: row.pending_amount > 0,
                 p_source: source
             });
-            if (error) {
-                console.error("Error approving checkout:", error);
+
+            // Handle custom internal JSON errors from RPC
+            const internalError = (typeof data === 'object' && data !== null && !(data as any).success) 
+                ? (data as any).error 
+                : null;
+
+            if (error || internalError) {
+                console.error("Error approving checkout:", error || internalError);
                 setCheckoutModal({
                     isOpen: true,
                     type: 'alert',
                     title: 'Checkout Failed',
-                    message: error.message
+                    message: internalError || error?.message || 'Unknown error occurred.'
                 });
             } else {
                 setCheckoutModal({
@@ -1434,9 +1449,12 @@ export default function OwnerArrivals() {
                                 )}
                                 {checkoutModal.type === 'confirm' && (
                                     <button
-                                        onClick={() => {
-                                            checkoutModal.onConfirm?.();
-                                            setCheckoutModal(prev => ({ ...prev, isOpen: false }));
+                                        onClick={async () => {
+                                            if (checkoutModal.onConfirm) {
+                                                await checkoutModal.onConfirm();
+                                            } else {
+                                                setCheckoutModal(prev => ({ ...prev, isOpen: false }));
+                                            }
                                         }}
                                         className="gn-btn gn-btn--primary px-5 py-2.5 text-xs font-black tracking-wider uppercase flex items-center gap-2"
                                     >

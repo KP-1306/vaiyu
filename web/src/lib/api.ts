@@ -1638,6 +1638,7 @@ export async function getMenu(hotelKey?: string) {
           active: row.active,
           metadata: row.metadata, // [NEW] for images/dietary
           availability: row.availability, // [NEW] for time checks
+          internal_notes: row.internal_notes, // [TEMP] Used as description for now
         }));
 
       return { items };

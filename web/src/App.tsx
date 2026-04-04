@@ -357,6 +357,7 @@ const GuestDashboard = lazy(() => import("./routes/GuestDashboard"));
 const Stay = lazy(() => import("./routes/Stay"));
 const MyRequests = lazy(() => import("./routes/MyRequests"));
 const Checkout = lazy(() => import("./routes/Checkout"));
+const GuestFeedback = lazy(() => import("./routes/GuestFeedback"));
 
 const OwnerHome = lazy(() => import("./routes/OwnerHome"));
 const SignIn = lazy(() => import("./routes/SignIn"));
@@ -663,6 +664,9 @@ export default function App() {
             {/* Support both /checkout/:code and /checkout */}
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/checkout/:code" element={<Checkout />} />
+
+            {/* Public Feedback (no login required) */}
+            <Route path="/feedback/:token" element={<GuestFeedback />} />
 
             {/* Guest Jobs */}
             <Route path="/hotel/:slug/jobs" element={<HotelJobs />} />

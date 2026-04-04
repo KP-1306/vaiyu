@@ -96,6 +96,13 @@ async function formatWhatsAppMessage(
     if (template === "precheckin_reminder_2") {
         return `Good morning ${guest}! We look forward to welcoming you today. Quick pre-checkin: ${link}`;
     }
+    if (template === "post_checkout_thankyou") {
+        const feedbackLink = payload.feedback_token
+            ? `https://vaiyu.co.in/feedback/${payload.feedback_token}`
+            : "https://vaiyu.co.in";
+        const hotel = payload.hotel_name || "our hotel";
+        return `Thank you for staying with us at ${hotel}, ${guest}! We hope you had a wonderful experience. We'd love your feedback — it takes just a minute: ${feedbackLink}`;
+    }
     return `Notification: ${JSON.stringify(payload)}`;
 }
 
@@ -284,6 +291,93 @@ async function formatEmailMessage(
               </p>
 
               ${commonFooterSimple}
+        `;
+    }
+
+    if (template === "post_checkout_thankyou") {
+        const feedbackLink = payload.feedback_token
+            ? `https://vaiyu.co.in/feedback/${payload.feedback_token}`
+            : "https://vaiyu.co.in";
+        subject = `Thank You for Staying at ${hotel}!`;
+
+        const thankYouHeader = `
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>${subject}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f6fb;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      <td align="center" style="padding:30px 0;">
+        <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
+          <!-- Header with warm gradient -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460);color:#ffffff;padding:36px 28px;text-align:center;">
+              <h1 style="margin:0;font-size:28px;color:#d4a574;">Thank You, ${guest}!</h1>
+              <p style="margin-top:10px;font-size:15px;opacity:0.85;color:#e8d5c4;">We hope you had a wonderful stay</p>
+            </td>
+          </tr>
+          <!-- Content -->
+          <tr>
+            <td style="padding:32px;text-align:center;color:#333;">
+        `;
+
+        const thankYouFooter = `
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="background:#fafbff;text-align:center;padding:20px;font-size:12px;color:#888;">
+              We look forward to hosting you again.<br>
+              <strong>${hotel}</strong><br>
+              <span style="font-size: 10px; opacity: 0.7; margin-top: 5px; display: block;">Powered by Vaiyu</span>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+        `;
+
+        body = `
+            ${thankYouHeader}
+              <p style="font-size:16px;line-height:1.8;margin-bottom:24px;color:#444;">
+                It was our pleasure having you at <strong>${hotel}</strong>.<br>
+                We truly value your patronage and hope every moment of your stay was memorable.
+              </p>
+
+              <div style="background:linear-gradient(135deg,#fffaf5,#fff7ed);border:1px solid #f0e6d8;border-radius:12px;padding:24px;margin-bottom:28px;">
+                  <p style="margin:0 0 8px;font-size:14px;color:#8b6914;font-weight:600;">✨ Your feedback shapes our future</p>
+                  <p style="margin:0;font-size:14px;color:#666;line-height:1.6;">
+                    We'd love to hear about your experience. It takes less than a minute and helps us serve you even better next time.
+                  </p>
+              </div>
+
+              <!-- CTA Button -->
+              <div style="text-align:center;margin:32px 0;">
+                  <a href="${feedbackLink}" 
+                     style="display:inline-block;padding:16px 40px;background:linear-gradient(135deg,#d4a574,#c49660);
+                     color:#1a1a2e;text-decoration:none;font-weight:bold;border-radius:50px;
+                     font-size:16px;box-shadow:0 4px 15px rgba(212,165,116,0.4);letter-spacing:0.3px;">
+                     Share Your Feedback
+                  </a>
+              </div>
+
+              <p style="margin-top:20px;font-size:13px;color:#999;">
+                If the button doesn't work, copy this link:<br>
+                <span style="color:#d4a574;word-break:break-all;">${feedbackLink}</span>
+              </p>
+
+              <hr style="border:none;border-top:1px solid #eee;margin:28px 0;">
+
+              <p style="font-size:13px;color:#aaa;">
+                This link is unique to your stay and expires in 30 days.
+              </p>
+            ${thankYouFooter}
         `;
     }
 

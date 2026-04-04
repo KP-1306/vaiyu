@@ -496,13 +496,13 @@ export default function AddFoodItemModal({ isOpen, onClose, onSave, hotelId, ini
                                 </div>
                             </div>
 
-                            {/* Internal Notes */}
+                            {/* Item Description */}
                             <div className="space-y-4">
-                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Internal Notes</h3>
+                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Item Description</h3>
                                 <textarea
                                     value={internalNotes}
                                     onChange={e => setInternalNotes(e.target.value)}
-                                    placeholder="Add any notes for the kitchen staff..."
+                                    placeholder="Add a tasty description for the guest..."
                                     className="w-full bg-[#0B0F1A] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500 transition-colors min-h-[100px] resize-none"
                                 />
                             </div>

@@ -79,6 +79,7 @@ type FoodItem = {
     hide_outside?: boolean;
   };
   active?: boolean;
+  internal_notes?: string;
 };
 
 type MenuCategory = {
@@ -693,6 +694,9 @@ export default function FoodMenu() {
                               {meta.vegan && <span className="text-[10px] bg-emerald-500/10 text-emerald-500 px-1.5 py-0.5 rounded border border-emerald-500/20">Vegan</span>}
                             </div>
                             <h3 className="font-semibold text-white leading-tight mb-1 group-hover:text-[#f5f3ef] transition-colors">{item.name}</h3>
+                            {item.internal_notes && (
+                              <p className="text-xs text-[#b8b3a8] line-clamp-2 mt-1 mb-2">{item.internal_notes}</p>
+                            )}
                             <div className="text-[#d4af37] font-mono text-base font-bold">₹{item.base_price || 0}</div>
                           </div>
                         </div>

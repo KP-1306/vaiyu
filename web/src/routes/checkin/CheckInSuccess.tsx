@@ -96,7 +96,7 @@ export default function CheckInSuccess() {
                             {loading ? (
                                 <Loader2 className="h-6 w-6 animate-spin mx-auto text-gold-400/40" />
                             ) : (
-                                <>Your residency at <span className="text-white font-medium">{hotelData?.name || "The Hotel"}</span> has been successfully provisioned. We await your presence.</>
+                                <>Residency at <span className="text-white font-medium">{hotelData?.name || "The Hotel"}</span> has been successfully provisioned. Guest in-house.</>
                             )}
                         </p>
                     </div>

@@ -330,8 +330,9 @@ WHERE id IN (
     WHERE t.rn > 1
 );
 
+DROP INDEX IF EXISTS public.uq_notification_precheckin;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_notification_precheckin
-ON public.notification_queue(booking_id, template_code)
+ON public.notification_queue(booking_id, template_code, channel)
 WHERE template_code = 'precheckin_link';
 
 -- 1.6 Performance Indexes (Lookup Optimization)
@@ -954,26 +955,38 @@ BEGIN
     ----------------------------------------------------------------
     -- 6. Notification Queue
     ----------------------------------------------------------------
-    IF v_token IS NOT NULL AND (v_phone IS NOT NULL OR v_email IS NOT NULL) THEN
-        INSERT INTO public.notification_queue (
-            booking_id,
-            channel,
-            template_code,
-            payload,
-            status
-        )
-        VALUES (
-            v_booking_id,
-            CASE WHEN v_phone IS NOT NULL THEN 'whatsapp' ELSE 'email' END,
-            'precheckin_link',
-            jsonb_build_object(
-                'token', v_token,
-                'guest_name', v_guest_name,
-                'link', 'https://vaiyu.co.in/precheckin/' || v_token
-            ),
-            'pending'
-        )
-        ON CONFLICT (booking_id, template_code) WHERE template_code = 'precheckin_link' DO NOTHING;
+    IF v_token IS NOT NULL THEN
+        -- Fire EMAIL
+        IF v_email IS NOT NULL AND v_email <> '' THEN
+            INSERT INTO public.notification_queue (
+                booking_id, channel, template_code, payload, status
+            ) VALUES (
+                v_booking_id, 'email', 'precheckin_link',
+                jsonb_build_object(
+                    'token', v_token,
+                    'guest_name', v_guest_name,
+                    'link', 'https://vaiyu.co.in/precheckin/' || v_token
+                ),
+                'pending'
+            )
+            ON CONFLICT (booking_id, template_code, channel) WHERE template_code = 'precheckin_link' DO NOTHING;
+        END IF;
+
+        -- Fire WHATSAPP
+        IF v_phone IS NOT NULL AND v_phone <> '' THEN
+            INSERT INTO public.notification_queue (
+                booking_id, channel, template_code, payload, status
+            ) VALUES (
+                v_booking_id, 'whatsapp', 'precheckin_link',
+                jsonb_build_object(
+                    'token', v_token,
+                    'guest_name', v_guest_name,
+                    'link', 'https://vaiyu.co.in/precheckin/' || v_token
+                ),
+                'pending'
+            )
+            ON CONFLICT (booking_id, template_code, channel) WHERE template_code = 'precheckin_link' DO NOTHING;
+        END IF;
     END IF;
 
     ----------------------------------------------------------------

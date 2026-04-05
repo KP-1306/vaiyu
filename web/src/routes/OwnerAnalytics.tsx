@@ -298,26 +298,86 @@ export default function OwnerAnalytics() {
     // Match colors from Image 1: Orange, Purple, Blue, Green, Indigo
     const COLORS = ['#f97316', '#a855f7', '#3b82f6', '#22c55e', '#6366f1'];
 
+    // Utility to get Local ISO date string (YYYY-MM-DD)
+    const getISODate = (d: Date) => {
+        const offset = d.getTimezoneOffset() * 60000;
+        return new Date(d.getTime() - offset).toISOString().split('T')[0];
+    };
+
     // Derived Data based on Time Range
     const getActiveWindow = (arr: any[]) => {
-        if (timeRange === 'today') return arr.slice(-1);
-        if (timeRange === '7d') return arr.slice(-7);
-        if (timeRange === '30d') return arr.slice(-30);
-        return arr;
+        const today = new Date();
+        if (timeRange === 'today') return arr.filter(item => item.day === getISODate(today));
+
+        const daysToSubtract = timeRange === '7d' ? 6 : 29;
+        const cutoffDate = new Date();
+        cutoffDate.setDate(today.getDate() - daysToSubtract);
+        const cutoffStr = getISODate(cutoffDate);
+
+        return arr.filter(item => item.day >= cutoffStr);
     };
+
     const getPrevWindow = (arr: any[]) => {
-        if (timeRange === 'today') return arr.slice(-2, -1);
-        if (timeRange === '7d') return arr.slice(-14, -7);
-        if (timeRange === '30d') return arr.slice(-60, -30);
-        return arr;
+        const today = new Date();
+        const daysToSubtract = timeRange === '7d' ? 7 : 30;
+        const windowSize = timeRange === '7d' ? 7 : 30;
+
+        const endOfPrev = new Date();
+        endOfPrev.setDate(today.getDate() - daysToSubtract);
+        const startOfPrev = new Date();
+        startOfPrev.setDate(endOfPrev.getDate() - windowSize + 1);
+
+        const endStr = getISODate(endOfPrev);
+        const startStr = getISODate(startOfPrev);
+
+        if (timeRange === 'today') {
+            const yesterday = new Date();
+            yesterday.setDate(today.getDate() - 1);
+            const yestStr = getISODate(yesterday);
+            return arr.filter(item => item.day === yestStr);
+        }
+
+        return arr.filter(item => item.day >= startStr && item.day <= endStr);
     };
 
     const activeTrend = useMemo(() => getActiveWindow(trend), [trend, timeRange]);
+    const prevTrend = useMemo(() => getPrevWindow(trend), [trend, timeRange]);
+    
     const activeCheckins = useMemo(() => getActiveWindow(checkinTrend), [checkinTrend, timeRange]);
     const prevCheckins = useMemo(() => getPrevWindow(checkinTrend), [checkinTrend, timeRange]);
+    
+    // Performance Math: Volume-weighted calculation for perfect accuracy
+    const calculatedKpi = useMemo(() => {
+        const completed = activeTrend.reduce((acc, curr) => acc + (curr.completed_within_sla || 0), 0);
+        const breached = activeTrend.reduce((acc, curr) => acc + (curr.breached_sla || 0), 0);
+        const total = completed + breached;
+        return {
+            compliance: total > 0 ? Math.round((completed / total) * 100) : 100,
+            breachRate: total > 0 ? Math.round((breached / total) * 100) : 0,
+            total: total
+        };
+    }, [activeTrend]);
+
+    const prevKpi = useMemo(() => {
+        const completed = prevTrend.reduce((acc, curr) => acc + (curr.completed_within_sla || 0), 0);
+        const breached = prevTrend.reduce((acc, curr) => acc + (curr.breached_sla || 0), 0);
+        const total = completed + breached;
+        return {
+            compliance: total > 0 ? Math.round((completed / total) * 100) : 100,
+            breachRate: total > 0 ? Math.round((breached / total) * 100) : 0
+        };
+    }, [prevTrend]);
+
     const activeBreaches = useMemo(() => getActiveWindow(breaches), [breaches, timeRange]);
     const activeBlocks = useMemo(() => getActiveWindow(blocks), [blocks, timeRange]);
     const activeStaff = useMemo(() => getActiveWindow(staff), [staff, timeRange]);
+
+    const curCheckins = useMemo(() => activeCheckins.reduce((a, c) => a + (c.checkin_count || 0), 0), [activeCheckins]);
+    const lastCheckins = useMemo(() => prevCheckins.reduce((a, c) => a + (c.checkin_count || 0), 0), [prevCheckins]);
+    const checkinDiff = curCheckins - lastCheckins;
+
+    const diffSla = Math.round(calculatedKpi.compliance - prevKpi.compliance);
+    const diffBreach = Math.round(calculatedKpi.breachRate - prevKpi.breachRate);
 
     const aggregatedBreaches = useMemo(() => {
         const map = new Map<string, { label: string, count: number }>();
@@ -350,10 +410,10 @@ export default function OwnerAnalytics() {
         const map = new Map<string, { name: string, completed: number, onTime: number }>();
         activeStaff.forEach(s => {
             const cur = map.get(s.staff_id) || { name: s.full_name, completed: 0, onTime: 0 };
-            map.set(s.staff_id, { 
-                name: s.full_name, 
-                completed: cur.completed + s.completed_tasks, 
-                onTime: cur.onTime + s.completed_within_sla 
+            map.set(s.staff_id, {
+                name: s.full_name,
+                completed: cur.completed + s.completed_tasks,
+                onTime: cur.onTime + s.completed_within_sla
             });
         });
         return Array.from(map.entries()).map(([id, data]) => ({
@@ -385,9 +445,9 @@ export default function OwnerAnalytics() {
         const map = new Map<string, { created: number, resolved: number }>();
         activeActivityBreakdown.forEach(a => {
             const cur = map.get(a.department_name) || { created: 0, resolved: 0 };
-            map.set(a.department_name, { 
-                created: cur.created + a.created_count, 
-                resolved: cur.resolved + a.resolved_count 
+            map.set(a.department_name, {
+                created: cur.created + a.created_count,
+                resolved: cur.resolved + a.resolved_count
             });
         });
         return Array.from(map.entries()).map(([name, data]) => ({
@@ -423,14 +483,38 @@ export default function OwnerAnalytics() {
         { name: 'Exempt', value: rangeExempted }
     ];
 
+    const kpiCards = [
+        {
+            label: "SLA Compliance",
+            value: `${calculatedKpi.compliance}%`,
+            trend: diffSla,
+            trendLabel: "vs Prev Period",
+            color: "text-emerald-500",
+            isUpGood: true,
+        },
+        {
+            label: "SLA Breach Rate",
+            value: `${calculatedKpi.breachRate}%`,
+            trend: diffBreach,
+            trendLabel: "vs Prev Period",
+            color: "text-rose-500",
+            isUpGood: false,
+        },
+        {
+            label: "Guest Check-Ins",
+            value: `${curCheckins}`,
+            trend: checkinDiff,
+            trendLabel: "vs Prev Period",
+            color: "text-blue-400",
+            isUpGood: true,
+        }
+    ];
+
     if (loading) return <div className="min-h-screen grid place-items-center bg-[#0B0E14] text-slate-500">Loading dashboard...</div>;
     if (error) return <div className="min-h-screen grid place-items-center bg-[#0B0E14] text-rose-500">Error: {error}</div>;
 
-
-
     return (
         <div className="min-h-screen bg-[#0B0E14] p-4 text-slate-200 font-sans selection:bg-emerald-500/30">
-            {/* Header / Top Nav */}
             {/* Header / Top Nav - Aligned with Ops Manager */}
             <div className="mb-6">
                 <div className="flex items-center gap-2 text-xs font-medium text-slate-400 mb-2">
@@ -506,62 +590,9 @@ export default function OwnerAnalytics() {
                     </div>
                 </div>
             </div>
-
-            {/* Section 2: Performance Health (Time-Filtered) */}
             <SectionTitle title={`Performance Health (${timeRange === 'today' ? 'Today' : (timeRange === '7d' ? 'Last 7 Days' : 'This Month')})`} />
             <div className="mb-6 grid gap-4 grid-cols-1 lg:grid-cols-3">
-                {(() => {
-                    const curTrend = activeTrend;
-                    const prevTrend = getPrevWindow(trend);
-                    
-                    const calcComp = (arr: SlaTrendRow[]) => {
-                        const tot = arr.reduce((a, c) => a + c.completed_within_sla + c.breached_sla, 0);
-                        return tot > 0 ? (arr.reduce((a, c) => a + c.completed_within_sla, 0) / tot) * 100 : 0;
-                    };
-                    const calcBreach = (arr: SlaTrendRow[]) => {
-                        const tot = arr.reduce((a, c) => a + c.completed_within_sla + c.breached_sla, 0);
-                        return tot > 0 ? (arr.reduce((a, c) => a + c.breached_sla, 0) / tot) * 100 : 0;
-                    };
-
-                    const curSla = calcComp(curTrend);
-                    const prevSla = prevTrend.length ? calcComp(prevTrend) : curSla;
-                    const diffSla = Math.round(curSla - prevSla);
-
-                    const curBreach = calcBreach(curTrend);
-                    const prevBreach = prevTrend.length ? calcBreach(prevTrend) : curBreach;
-                    const diffBreach = Math.round(curBreach - prevBreach);
-                    
-                    const curCheckins = activeCheckins.reduce((a, c) => a + c.checkin_count, 0);
-                    const lastCheckins = prevCheckins.reduce((a, c) => a + c.checkin_count, 0);
-                    const checkinDiff = curCheckins - lastCheckins;
-
-                    return [
-                        {
-                            label: "SLA Compliance",
-                            value: `${Math.round(curSla)}%`,
-                            trend: diffSla,
-                            trendLabel: "vs Prev Period",
-                            color: "text-emerald-500",
-                            isUpGood: true,
-                        },
-                        {
-                            label: "SLA Breach Rate",
-                            value: `${Math.round(curBreach)}%`,
-                            trend: diffBreach,
-                            trendLabel: "vs Prev Period",
-                            color: "text-rose-500",
-                            isUpGood: false,
-                        },
-                        {
-                            label: "Guest Check-Ins",
-                            value: `${curCheckins}`,
-                            trend: checkinDiff,
-                            trendLabel: "vs Prev Period",
-                            color: "text-blue-400",
-                            isUpGood: true,
-                        }
-                    ];
-                })().map((s, i) => (
+                {kpiCards.map((s, i) => (
                     <div key={i} className="rounded-xl bg-[#151A25] p-5 border border-slate-800/50 shadow-sm flex flex-col justify-between">
                         <div className="text-[12px] font-semibold text-slate-400 mb-2 uppercase tracking-wider">{s.label}</div>
                         <div className="flex items-end gap-2 mb-2">
@@ -601,7 +632,20 @@ export default function OwnerAnalytics() {
                     </div>
                     <div className="h-[250px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={getActiveWindow(activity).slice().reverse()} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                            <AreaChart 
+                                data={getActiveWindow(activity)
+                                    .slice()
+                                    .reverse()
+                                    .map(d => ({
+                                        ...d,
+                                        // Add a tiny visual offset so lines don't perfectly overlap
+                                        created_display: d.created_count > 0 && d.created_count === d.resolved_count 
+                                            ? d.created_count + 0.1 
+                                            : d.created_count
+                                    }))
+                                } 
+                                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                            >
                                 <defs>
                                     <linearGradient id="colorCreated" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
@@ -621,27 +665,31 @@ export default function OwnerAnalytics() {
                                     tickFormatter={(val) => new Date(val).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}
                                 />
                                 <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10 }} />
-                                <Tooltip
-                                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }}
-                                    itemStyle={{ padding: 0 }}
-                                />
-                                <Area
-                                    type="monotone"
-                                    dataKey="created_count"
-                                    stroke="#3b82f6"
-                                    strokeWidth={3}
-                                    fillOpacity={1}
-                                    fill="url(#colorCreated)"
-                                    name="Created"
+                                <Tooltip 
+                                    contentStyle={{ backgroundColor: '#151A25', borderColor: '#334155', borderRadius: '8px', color: '#f8fafc' }}
+                                    itemStyle={{ color: '#f8fafc' }}
+                                    formatter={(value: any, name: string) => [Math.floor(value), name]}
                                 />
                                 <Area
                                     type="monotone"
                                     dataKey="resolved_count"
                                     stroke="#10b981"
-                                    strokeWidth={3}
-                                    fillOpacity={1}
+                                    strokeWidth={2}
+                                    fillOpacity={0.1}
                                     fill="url(#colorResolved)"
                                     name="Resolved"
+                                    dot={{ r: 4, fill: '#10b981', stroke: '#151A25', strokeWidth: 2 }}
+                                    activeDot={{ r: 6, strokeWidth: 0 }}
+                                />
+                                <Area
+                                    type="monotone"
+                                    dataKey="created_display"
+                                    stroke="#3b82f6"
+                                    strokeWidth={4}
+                                    fillOpacity={0}
+                                    name="Created"
+                                    dot={{ r: 6, fill: '#151A25', stroke: '#3b82f6', strokeWidth: 2 }}
+                                    activeDot={{ r: 8, strokeWidth: 0 }}
                                 />
                             </AreaChart>
                         </ResponsiveContainer>

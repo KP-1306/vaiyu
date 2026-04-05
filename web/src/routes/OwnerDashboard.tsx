@@ -1036,7 +1036,7 @@ export default function OwnerDashboard() {
             <div className="grid gap-4 xl:grid-cols-3">
               <DarkCard className="p-5">
                 <CardHeader
-                  title="Active Tasks"
+                  title="Shift Workload"
                   right={
                     <StatusBadge
                       label={slaPct == null ? "SLA —" : slaToneLevel === "green" ? "On track" : slaToneLevel === "amber" ? "Watch" : "Risk"}
@@ -1044,29 +1044,10 @@ export default function OwnerDashboard() {
                     />
                   }
                 />
-                <div className="mt-4 flex flex-col gap-5">
-                  <div className="flex items-center gap-4">
-                    <div className="shrink-0 scale-90 sm:scale-100">
-                      <RingGauge
-                        value={tasksTotal}
-                        pct={slaPct != null ? slaPct : occPct != null ? Math.min(100, Math.max(0, occPct)) : 0}
-                        subtitle="Active tasks"
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-sm text-slate-300">
-                        {tasksTotal === 0 ? "All services running smoothly." : `${tasksTotal} open request${tasksTotal > 1 ? "s" : ""} across services.`}
-                      </div>
-                      <div className="mt-2 text-xs text-slate-500">
-                        Overdue (&gt;{targetMin}m): <span className={`font-medium ${tasksAtRisk > 0 ? "text-rose-400" : "text-emerald-400"}`}>{tasksAtRisk}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <MiniStat label="Occupancy" value={`${occPct || 0}%`} tone={occupancyTone(occPct)} />
-                    <MiniStat label="Arrivals" value={arrivalsCount} tone={arrivalsCount > 0 ? "green" : "grey"} />
-                  </div>
+                <div className="mt-4 flex flex-col gap-3">
+                  <BreakRow label="Open Requests" value={tasksTotal} tone={tasksTotal > 0 ? "green" : "grey"} />
+                  <BreakRow label="At Risk (> SLA)" value={tasksAtRisk} tone={tasksAtRisk > 0 ? "amber" : "grey"} />
+                  <BreakRow label="Blocked Issues" value={blockedCount ?? 0} tone={(blockedCount ?? 0) > 0 ? "red" : "grey"} />
                 </div>
               </DarkCard>
 
@@ -1090,11 +1071,6 @@ export default function OwnerDashboard() {
                       <div className="text-sm text-slate-400">Operations data will appear here as requests flow through the system.</div>
                     </div>
                   )}
-                </div>
-                <div className="mt-3 grid gap-2 grid-cols-1 sm:grid-cols-3">
-                  <MiniStat label="Blocked" value={blockedCount == null ? "—" : blockedCount} tone={blockedCount && blockedCount > 0 ? "red" : "grey"} />
-                  <MiniStat label="Active" value={tasksTotal} tone={tasksTotal > 0 ? "green" : "grey"} />
-                  <MiniStat label="At Risk" value={tasksAtRisk} tone={tasksAtRisk > 0 ? "amber" : "grey"} />
                 </div>
               </DarkCard>
             </div>
@@ -1218,11 +1194,28 @@ export default function OwnerDashboard() {
             <div onClick={() => setActiveDrawer('arrivals')} className="cursor-pointer">
               <DarkCard className="p-4 hover:border-slate-700 transition-colors">
                 <CardHeader title="Today's Snapshot" subtitle={dateLabel} />
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <MiniStat label="Arr" value={arrivalsCount} tone={arrivalsCount > 0 ? "green" : "grey"} />
-                  <MiniStat label="Dep" value={departuresCount} tone={departuresCount > 0 ? "amber" : "grey"} />
-                  <MiniStat label="In-H" value={Array.isArray(inhouse) ? inhouse.length : 0} tone="green" />
-                  <MiniStat label="Occ" value={`${occPct || 0}%`} tone={occupancyTone(occPct)} />
+                <div className="mt-3 flex flex-col gap-2">
+                  <div className="flex justify-between items-center px-3 py-2.5 rounded-lg border border-slate-800/50 bg-[#0B0E14]">
+                    <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                      <span className={`h-2 w-2 rounded-full ${arrivalsCount > 0 ? 'bg-blue-400' : 'bg-slate-600'}`}></span>
+                      Pending Arrivals
+                    </div>
+                    <span className="text-slate-100 font-bold text-sm">{arrivalsCount}</span>
+                  </div>
+                  <div className="flex justify-between items-center px-3 py-2.5 rounded-lg border border-slate-800/50 bg-[#0B0E14]">
+                    <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                      <span className={`h-2 w-2 rounded-full ${departuresCount > 0 ? 'bg-amber-400' : 'bg-slate-600'}`}></span>
+                      Pending Departures
+                    </div>
+                    <span className="text-slate-100 font-bold text-sm">{departuresCount}</span>
+                  </div>
+                  <div className="flex justify-between items-center px-3 py-2.5 rounded-lg border border-emerald-500/10 bg-emerald-500/5">
+                    <div className="text-[11px] font-bold uppercase tracking-widest text-emerald-500/70 flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-emerald-400"></span>
+                      Currently In-House
+                    </div>
+                    <span className="text-emerald-400 font-bold text-sm">{Array.isArray(inhouse) ? inhouse.length : 0}</span>
+                  </div>
                 </div>
               </DarkCard>
             </div>
@@ -1245,12 +1238,15 @@ export default function OwnerDashboard() {
               </DarkCard>
             </div>
 
-            <DarkCard className="p-4">
-              <CardHeader title="Guest Satisfaction" subtitle="NPS / Rating signal" />
-              <div className="mt-3">
-                <SatisfactionPanel hotelName={hotel.name} npsScore={npsScore} npsResponses={npsResponses} avgRating30d={avgRating30d} />
-              </div>
-            </DarkCard>
+            {/* Guest Satisfaction conditionally shown */}
+            {(typeof npsScore === "number" || typeof avgRating30d === "number") && (
+              <DarkCard className="p-4">
+                <CardHeader title="Guest Satisfaction" subtitle="NPS / Rating signal" />
+                <div className="mt-3">
+                  <SatisfactionPanel hotelName={hotel.name} npsScore={npsScore} npsResponses={npsResponses} avgRating30d={avgRating30d} />
+                </div>
+              </DarkCard>
+            )}
 
             {HAS_WORKFORCE && (
               <DarkCard className="p-4">

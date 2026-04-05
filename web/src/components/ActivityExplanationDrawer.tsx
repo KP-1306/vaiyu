@@ -12,7 +12,7 @@ import {
 import { ArrowDownRight, TrendingUp } from "lucide-react";
 
 export type ActivityBreakdownRow = {
-    hotel_id: string;
+    hotel_id?: string;
     department_name: string;
     created_count: number;
     resolved_count: number;
@@ -49,7 +49,7 @@ export default function ActivityExplanationDrawer({
                             Activity Breakdown
                         </h2>
                         <p className="text-sm text-slate-400">
-                            Departmental contributions to <span className="text-blue-400 font-bold">{totalCreated}</span> created vs <span className="text-emerald-400 font-bold">{totalResolved}</span> resolved tickets (Last 7 Days).
+                            Departmental contributions to <span className="text-blue-400 font-bold">{totalCreated}</span> created vs <span className="text-emerald-400 font-bold">{totalResolved}</span> resolved tickets for this period.
                         </p>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors">

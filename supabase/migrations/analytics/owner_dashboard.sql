@@ -5,13 +5,15 @@
 
 -- 1️⃣ v_owner_kpi_summary (Top tiles)
 -- ============================================================
-CREATE OR REPLACE VIEW v_owner_kpi_summary AS
+CREATE OR REPLACE VIEW v_owner_kpi_summary 
+WITH (security_invoker = on) AS
 SELECT
   t.hotel_id,
 
-  COUNT(*) FILTER (WHERE t.status NOT IN ('CANCELLED'))                      AS total_tickets,
+  -- Only count currently active backlog issues
+  COUNT(DISTINCT t.id) FILTER (WHERE t.status IN ('NEW', 'IN_PROGRESS')) AS total_tickets,
 
-  COUNT(*) FILTER (
+  COUNT(DISTINCT t.id) FILTER (
     WHERE t.status = 'COMPLETED'
       AND ss.breached = false
       AND NOT EXISTS (
@@ -21,11 +23,11 @@ SELECT
       )
   ) AS completed_within_sla,
 
-  COUNT(*) FILTER (
+  COUNT(DISTINCT t.id) FILTER (
     WHERE ss.breached = true
   ) AS breached_sla,
 
-  COUNT(*) FILTER (
+  COUNT(DISTINCT t.id) FILTER (
     WHERE t.status IN ('NEW','IN_PROGRESS')
       AND ss.current_remaining_seconds <= LEAST(
         30 * 60,
@@ -40,7 +42,7 @@ SELECT
 
   ROUND(
     100.0 *
-    COUNT(*) FILTER (
+    COUNT(DISTINCT t.id) FILTER (
       WHERE t.status = 'COMPLETED'
         AND ss.breached = false
         AND NOT EXISTS (
@@ -50,7 +52,7 @@ SELECT
         )
     )
     /
-    NULLIF(COUNT(*) FILTER (WHERE t.status = 'COMPLETED'), 0),
+    NULLIF(COUNT(DISTINCT t.id) FILTER (WHERE t.status = 'COMPLETED'), 0),
     2
   ) AS sla_compliance_percent
 

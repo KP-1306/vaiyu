@@ -19,6 +19,7 @@ export interface FoodItemData {
         vegan: boolean;
         spice_level: 'Mild' | 'Medium' | 'Hot' | null;
         allergens: string[];
+        image_url?: string | null;
     };
     internal_notes: string;
     availability: {

@@ -14,7 +14,7 @@ import {
 import { ArrowDownRight, TrendingUp, Users } from "lucide-react";
 
 export type ImpactRow = {
-    hotel_id: string;
+    hotel_id?: string;
     department_name: string;
     breached_count: number;
     impact_percent: number;
@@ -61,11 +61,11 @@ export default function SLAExplanationDrawer({
         { name: 'Ideal', value: 100, type: 'start', fill: '#3b82f6' }, // Blue
         ...impactData.map(d => ({
             name: d.department_name,
-            value: d.impact_percent,
+            value: Math.round(d.impact_percent || 0),
             type: 'impact',
             fill: '#f43f5e' // Red
         })),
-        { name: 'Actual', value: currentCompliance, type: 'end', fill: '#10b981' } // Green
+        { name: 'Actual', value: Math.round(currentCompliance), type: 'end', fill: '#10b981' } // Green
     ];
 
     // Context Data: Mix SLA Trend with Mock Occupancy
@@ -86,7 +86,7 @@ export default function SLAExplanationDrawer({
                 <div className="flex items-center justify-between mb-8">
                     <div>
                         <h2 className="text-xl font-bold text-white">SLA Performance Explained</h2>
-                        <p className="text-sm text-slate-400">Why your score is <span className="text-emerald-400 font-bold">{Math.round(currentCompliance)}%</span> today</p>
+                        <p className="text-sm text-slate-400">Why your score is <span className="text-emerald-400 font-bold">{Math.round(currentCompliance)}%</span> for this period</p>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors">
                         <ArrowDownRight className="rotate-[-135deg]" size={24} />

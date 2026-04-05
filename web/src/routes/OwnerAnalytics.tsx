@@ -52,24 +52,28 @@ type SlaTrendRow = {
     sla_exempted: number;
 };
 
-type BreachRow = {
-    reason_code: string;
-    reason_label: string;
-    breached_count: number;
-    breached_percent: number;
-};
-
-type BlockReasonRow = {
-    reason_code: string;
-    block_count: number;
-};
-
 type StaffPerfRow = {
+    hotel_id: string;
+    day: string;
     staff_id: string;
     full_name: string;
     completed_tasks: number;
     completed_within_sla: number;
-    sla_success_rate: number | null;
+};
+
+type BreachRow = {
+    hotel_id: string;
+    day: string;
+    reason_code: string;
+    reason_label: string;
+    breached_count: number;
+};
+
+type BlockReasonRow = {
+    hotel_id: string;
+    day: string;
+    reason_code: string;
+    block_count: number;
 };
 
 type TicketActivityRow = {
@@ -77,6 +81,21 @@ type TicketActivityRow = {
     day: string;
     created_count: number;
     resolved_count: number;
+};
+
+type CheckInTrendRow = {
+    hotel_id: string;
+    day: string;
+    checkin_count: number;
+};
+
+type OccupancyStatsRow = {
+    hotel_id: string;
+    total_rooms: number;
+    occupied_rooms: number;
+    occupancy_percent: number;
+    check_ins_today: number;
+    check_ins_yesterday: number;
 };
 
 
@@ -212,13 +231,15 @@ export default function OwnerAnalytics() {
     const [blocks, setBlocks] = useState<BlockReasonRow[]>([]);
     const [staff, setStaff] = useState<StaffPerfRow[]>([]);
     const [activity, setActivity] = useState<TicketActivityRow[]>([]);
+    const [checkinTrend, setCheckinTrend] = useState<CheckInTrendRow[]>([]);
     const [impact, setImpact] = useState<ImpactRow[]>([]);
     const [risks, setRisks] = useState<RiskBreakdownRow[]>([]);
     const [activityBreakdown, setActivityBreakdown] = useState<ActivityBreakdownRow[]>([]);
+    const [occupancy, setOccupancy] = useState<OccupancyStatsRow | null>(null);
 
 
     // UI State
-    const [timeRange, setTimeRange] = useState<'24h' | '7d'>('7d');
+    const [timeRange, setTimeRange] = useState<'today' | '7d' | '30d'>('7d');
     const [slaDrawerOpen, setSlaDrawerOpen] = useState(false);
     const [riskDrawerOpen, setRiskDrawerOpen] = useState(false);
     const [activityDrawerOpen, setActivityDrawerOpen] = useState(false);
@@ -238,16 +259,18 @@ export default function OwnerAnalytics() {
                 if (hotelErr) throw hotelErr;
                 if (!hotel) throw new Error(`Property not found (slug: ${curSlug})`);
 
-                const [kpiRes, trendRes, breachesRes, blockRes, staffRes, activityRes, impactRes, riskRes, activityBreakdownRes] = await Promise.all([
+                const [kpiRes, trendRes, breachesRes, blockRes, staffRes, activityRes, checkinRes, impactRes, riskRes, activityBreakdownRes, occupancyRes] = await Promise.all([
                     supabase.from("v_owner_kpi_summary").select("*").eq("hotel_id", hotel.id).maybeSingle(),
-                    supabase.from("v_owner_sla_trend_daily").select("*").eq("hotel_id", hotel.id).order("day", { ascending: true }).limit(14),
+                    supabase.from("v_owner_sla_trend_daily").select("*").eq("hotel_id", hotel.id).order("day", { ascending: true }).limit(60),
                     supabase.from("v_owner_sla_breach_breakdown").select("*").eq("hotel_id", hotel.id).limit(10),
                     supabase.from("v_owner_block_reason_analysis").select("*").eq("hotel_id", hotel.id).limit(10),
                     supabase.from("v_owner_staff_performance").select("*").eq("hotel_id", hotel.id).order("completed_tasks", { ascending: false }).limit(6),
-                    supabase.from("v_owner_ticket_activity").select("*").eq("hotel_id", hotel.id).limit(14),
-                    supabase.from("v_owner_sla_impact_waterfall").select("*").eq("hotel_id", hotel.id),
+                    supabase.from("v_owner_ticket_activity").select("*").eq("hotel_id", hotel.id).limit(60),
+                    supabase.from("v_owner_checkin_trend_daily").select("*").eq("hotel_id", hotel.id).order("day", { ascending: true }).limit(60),
+                    supabase.from("v_owner_sla_impact_waterfall").select("*").eq("hotel_id", hotel.id).limit(180),
                     supabase.from("v_owner_at_risk_breakdown").select("*").eq("hotel_id", hotel.id),
-                    supabase.from("v_owner_activity_breakdown").select("*").eq("hotel_id", hotel.id),
+                    supabase.from("v_owner_activity_breakdown").select("*").eq("hotel_id", hotel.id).limit(180),
+                    supabase.from("v_owner_occupancy_stats").select("*").eq("hotel_id", hotel.id).maybeSingle(),
                 ]);
 
                 if (mounted) {
@@ -257,9 +280,11 @@ export default function OwnerAnalytics() {
                     setBlocks(blockRes.data || []);
                     setStaff(staffRes.data || []);
                     setActivity(activityRes.data || []);
+                    setCheckinTrend(checkinRes.data || []);
                     setImpact(impactRes.data || []);
                     setRisks(riskRes.data || []);
                     setActivityBreakdown(activityBreakdownRes.data || []);
+                    setOccupancy(occupancyRes.data || null);
                 }
             } catch (err: any) {
                 if (mounted) setError(err.message);
@@ -274,20 +299,113 @@ export default function OwnerAnalytics() {
     const COLORS = ['#f97316', '#a855f7', '#3b82f6', '#22c55e', '#6366f1'];
 
     // Derived Data based on Time Range
-    const activeTrend = useMemo(() => {
-        if (timeRange === '24h') return trend.slice(-1);
-        return trend.slice(-7);
-    }, [trend, timeRange]);
+    const getActiveWindow = (arr: any[]) => {
+        if (timeRange === 'today') return arr.slice(-1);
+        if (timeRange === '7d') return arr.slice(-7);
+        if (timeRange === '30d') return arr.slice(-30);
+        return arr;
+    };
+    const getPrevWindow = (arr: any[]) => {
+        if (timeRange === 'today') return arr.slice(-2, -1);
+        if (timeRange === '7d') return arr.slice(-14, -7);
+        if (timeRange === '30d') return arr.slice(-60, -30);
+        return arr;
+    };
 
-    const pieData = useMemo(() => breaches.map(b => ({
+    const activeTrend = useMemo(() => getActiveWindow(trend), [trend, timeRange]);
+    const activeCheckins = useMemo(() => getActiveWindow(checkinTrend), [checkinTrend, timeRange]);
+    const prevCheckins = useMemo(() => getPrevWindow(checkinTrend), [checkinTrend, timeRange]);
+    const activeBreaches = useMemo(() => getActiveWindow(breaches), [breaches, timeRange]);
+    const activeBlocks = useMemo(() => getActiveWindow(blocks), [blocks, timeRange]);
+    const activeStaff = useMemo(() => getActiveWindow(staff), [staff, timeRange]);
+
+    const aggregatedBreaches = useMemo(() => {
+        const map = new Map<string, { label: string, count: number }>();
+        activeBreaches.forEach(b => {
+            const cur = map.get(b.reason_code) || { label: b.reason_label, count: 0 };
+            map.set(b.reason_code, { label: b.reason_label, count: cur.count + b.breached_count });
+        });
+        const arr = Array.from(map.entries()).map(([code, data]) => ({
+            reason_code: code,
+            reason_label: data.label,
+            breached_count: data.count
+        })).sort((a, b) => b.breached_count - a.breached_count);
+
+        const total = arr.reduce((acc, curr) => acc + curr.breached_count, 0);
+        return arr.map(a => ({ ...a, breached_percent: total > 0 ? Math.round((a.breached_count / total) * 100) : 0 }));
+    }, [activeBreaches]);
+
+    const aggregatedBlocks = useMemo(() => {
+        const map = new Map<string, number>();
+        activeBlocks.forEach(b => {
+            map.set(b.reason_code, (map.get(b.reason_code) || 0) + b.block_count);
+        });
+        return Array.from(map.entries()).map(([code, count]) => ({
+            reason_code: code,
+            block_count: count
+        })).sort((a, b) => b.block_count - a.block_count).slice(0, 5);
+    }, [activeBlocks]);
+
+    const aggregatedStaff = useMemo(() => {
+        const map = new Map<string, { name: string, completed: number, onTime: number }>();
+        activeStaff.forEach(s => {
+            const cur = map.get(s.staff_id) || { name: s.full_name, completed: 0, onTime: 0 };
+            map.set(s.staff_id, { 
+                name: s.full_name, 
+                completed: cur.completed + s.completed_tasks, 
+                onTime: cur.onTime + s.completed_within_sla 
+            });
+        });
+        return Array.from(map.entries()).map(([id, data]) => ({
+            staff_id: id,
+            full_name: data.name,
+            completed_tasks: data.completed,
+            completed_within_sla: data.onTime,
+            sla_success_rate: data.completed > 0 ? Math.round((data.onTime / data.completed) * 100) : 0
+        })).sort((a, b) => b.completed_tasks - a.completed_tasks).slice(0, 6);
+    }, [activeStaff]);
+
+    const activeImpact = useMemo(() => getActiveWindow(impact), [impact, timeRange]);
+    const activeActivityBreakdown = useMemo(() => getActiveWindow(activityBreakdown), [activityBreakdown, timeRange]);
+
+    const aggregatedImpact = useMemo(() => {
+        const map = new Map<string, number>();
+        activeImpact.forEach(i => {
+            map.set(i.department_name, (map.get(i.department_name) || 0) + i.breached_count);
+        });
+        const total = activeTrend.reduce((acc: number, curr: SlaTrendRow) => acc + curr.completed_within_sla + curr.breached_sla, 0);
+        return Array.from(map.entries()).map(([name, count]) => ({
+            department_name: name,
+            breached_count: count,
+            impact_percent: total > 0 ? Math.round((count / total) * 100 * 100) / 100 : 0
+        })).sort((a, b) => (b.impact_percent || 0) - (a.impact_percent || 0));
+    }, [activeImpact, activeTrend]);
+
+    const aggregatedActivityBreakdown = useMemo(() => {
+        const map = new Map<string, { created: number, resolved: number }>();
+        activeActivityBreakdown.forEach(a => {
+            const cur = map.get(a.department_name) || { created: 0, resolved: 0 };
+            map.set(a.department_name, { 
+                created: cur.created + a.created_count, 
+                resolved: cur.resolved + a.resolved_count 
+            });
+        });
+        return Array.from(map.entries()).map(([name, data]) => ({
+            department_name: name,
+            created_count: data.created,
+            resolved_count: data.resolved
+        }));
+    }, [activeActivityBreakdown]);
+
+    const pieData = useMemo(() => aggregatedBreaches.map(b => ({
         name: b.reason_label,
         value: b.breached_count,
         percent: b.breached_percent
-    })), [breaches]);
+    })), [aggregatedBreaches]);
 
-    const rangeCompleted = activeTrend.reduce((a, c) => a + c.completed_within_sla, 0);
-    const rangeBreached = activeTrend.reduce((a, c) => a + c.breached_sla, 0);
-    const rangeExempted = activeTrend.reduce((a, c) => a + c.sla_exempted, 0);
+    const rangeCompleted = activeTrend.reduce((acc: number, curr: SlaTrendRow) => acc + curr.completed_within_sla, 0);
+    const rangeBreached = activeTrend.reduce((acc: number, curr: SlaTrendRow) => acc + curr.breached_sla, 0);
+    const rangeExempted = activeTrend.reduce((acc: number, curr: SlaTrendRow) => acc + curr.sla_exempted, 0);
     const rangeTotal = rangeCompleted + rangeBreached; // Excluding exempted from compliance calc usually
 
     // Calculate dynamic compliance
@@ -296,7 +414,6 @@ export default function OwnerAnalytics() {
         : (kpi?.sla_compliance_percent ?? 0); // Fallback if no data in range
 
     const atRisk = kpi?.at_risk_tickets ?? 0;
-    const breachedTotal = kpi?.breached_sla ?? 0; // This is "Breached Today" from KPI view
     const active = kpi?.total_tickets ?? 0;
 
     // For specific charts, use activeTrend
@@ -331,13 +448,17 @@ export default function OwnerAnalytics() {
                             <h1 className="text-2xl font-bold text-white tracking-tight">Owner Analytics Dashboard</h1>
                             <div className="flex items-center gap-2 text-xs text-slate-500">
                                 <span>Real-time Operations Intelligence</span>
-                                <span className="h-1 w-1 rounded-full bg-slate-700"></span>
-                                <span className="text-emerald-500 font-medium">Live</span>
                             </div>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-4">
+                        {/* Global Time Filter */}
+                        <div className="flex bg-[#11141d] rounded-lg p-1 border border-slate-800">
+                            <button onClick={() => setTimeRange('today')} className={`px-4 py-1.5 text-xs font-medium rounded-md transition ${timeRange === 'today' ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-400 hover:text-slate-300'}`}>Today</button>
+                            <button onClick={() => setTimeRange('7d')} className={`px-4 py-1.5 text-xs font-medium rounded-md transition ${timeRange === '7d' ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-400 hover:text-slate-300'}`}>Last 7 Days</button>
+                            <button onClick={() => setTimeRange('30d')} className={`px-4 py-1.5 text-xs font-medium rounded-md transition ${timeRange === '30d' ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-400 hover:text-slate-300'}`}>This Month</button>
+                        </div>
                         <div className="h-8 w-px bg-slate-800" />
                         <div className="flex items-center gap-2">
                             <div className="h-8 w-8 rounded-full bg-slate-800 grid place-items-center text-xs text-white border border-slate-700">
@@ -352,111 +473,109 @@ export default function OwnerAnalytics() {
                 </div>
             </div>
 
-            {/* Top Stats Cards */}
-            <div className="mb-6 grid gap-4 grid-cols-2 lg:grid-cols-5">
-                {(
-                    [
-                        (() => {
-                            // 1. SLA Compliance
-                            const cur = trend.slice(-7);
-                            const prev = trend.length > 7 ? trend.slice(0, -7) : [];
+            {/* Section 1: Live Operations */}
+            <div className="mb-6">
+                <SectionTitle title="Live Operations (Right Now)" action={<div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />} />
+                <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
+                    <div className="rounded-xl bg-[#151A25] p-5 border border-slate-800/50 flex items-center justify-between shadow-sm">
+                        <div>
+                            <div className="text-xs font-semibold text-slate-400 mb-1 tracking-wider uppercase">Live Occupancy</div>
+                            <div className="text-3xl font-bold text-emerald-400">{occupancy ? `${Math.round(occupancy.occupancy_percent)}%` : "0%"}</div>
+                        </div>
+                        <div className="h-10 w-10 shrink-0 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
+                            <LayoutDashboard size={20} className="text-emerald-500" />
+                        </div>
+                    </div>
+                    <div onClick={() => setRiskDrawerOpen(true)} className="rounded-xl bg-[#151A25] p-5 border border-slate-800/50 flex items-center justify-between shadow-sm cursor-pointer hover:bg-slate-800/50 transition">
+                        <div>
+                            <div className="text-xs font-semibold text-slate-400 mb-1 tracking-wider uppercase">At-Risk Tickets</div>
+                            <div className="text-3xl font-bold text-amber-500">{atRisk}</div>
+                        </div>
+                        <div className="h-10 w-10 shrink-0 rounded-full bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
+                            <AlertTriangle size={20} className="text-amber-500" />
+                        </div>
+                    </div>
+                    <div className="rounded-xl bg-[#151A25] p-5 border border-slate-800/50 flex items-center justify-between shadow-sm">
+                        <div>
+                            <div className="text-xs font-semibold text-slate-400 mb-1 tracking-wider uppercase">Total Active Issues</div>
+                            <div className="text-3xl font-bold text-rose-400">{active}</div>
+                        </div>
+                        <div className="h-10 w-10 shrink-0 rounded-full bg-rose-500/10 flex items-center justify-center border border-rose-500/20">
+                            <ShieldAlert size={20} className="text-rose-500" />
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-                            const calcComp = (arr: SlaTrendRow[]) => {
-                                const tot = arr.reduce((a, c) => a + c.completed_within_sla + c.breached_sla, 0);
-                                return tot > 0 ? (arr.reduce((a, c) => a + c.completed_within_sla, 0) / tot) * 100 : 0;
-                            };
+            {/* Section 2: Performance Health (Time-Filtered) */}
+            <SectionTitle title={`Performance Health (${timeRange === 'today' ? 'Today' : (timeRange === '7d' ? 'Last 7 Days' : 'This Month')})`} />
+            <div className="mb-6 grid gap-4 grid-cols-1 lg:grid-cols-3">
+                {(() => {
+                    const curTrend = activeTrend;
+                    const prevTrend = getPrevWindow(trend);
+                    
+                    const calcComp = (arr: SlaTrendRow[]) => {
+                        const tot = arr.reduce((a, c) => a + c.completed_within_sla + c.breached_sla, 0);
+                        return tot > 0 ? (arr.reduce((a, c) => a + c.completed_within_sla, 0) / tot) * 100 : 0;
+                    };
+                    const calcBreach = (arr: SlaTrendRow[]) => {
+                        const tot = arr.reduce((a, c) => a + c.completed_within_sla + c.breached_sla, 0);
+                        return tot > 0 ? (arr.reduce((a, c) => a + c.breached_sla, 0) / tot) * 100 : 0;
+                    };
 
-                            const curRate = calcComp(cur); // effectively dynamicCompliance for 7d
-                            const prevRate = prev.length ? calcComp(prev) : curRate;
-                            const diff = Math.round(curRate - prevRate);
+                    const curSla = calcComp(curTrend);
+                    const prevSla = prevTrend.length ? calcComp(prevTrend) : curSla;
+                    const diffSla = Math.round(curSla - prevSla);
 
-                            return {
-                                label: "SLA Compliance",
-                                value: `${Math.round(curRate)}%`,
-                                trend: diff,
-                                trendLabel: "vs Last Week",
-                                color: "text-emerald-500",
-                                isUpGood: true,
-                                onClick: () => setSlaDrawerOpen(true),
-                                cursor: 'cursor-pointer hover:bg-slate-800/50 transition'
-                            };
-                        })(),
-                        (() => {
-                            // 2. SLA Breach Rate
-                            const cur = trend.slice(-7);
-                            const prev = trend.length > 7 ? trend.slice(0, -7) : [];
+                    const curBreach = calcBreach(curTrend);
+                    const prevBreach = prevTrend.length ? calcBreach(prevTrend) : curBreach;
+                    const diffBreach = Math.round(curBreach - prevBreach);
+                    
+                    const curCheckins = activeCheckins.reduce((a, c) => a + c.checkin_count, 0);
+                    const lastCheckins = prevCheckins.reduce((a, c) => a + c.checkin_count, 0);
+                    const checkinDiff = curCheckins - lastCheckins;
 
-                            const calcBreach = (arr: SlaTrendRow[]) => {
-                                const tot = arr.reduce((a, c) => a + c.completed_within_sla + c.breached_sla, 0);
-                                return tot > 0 ? (arr.reduce((a, c) => a + c.breached_sla, 0) / tot) * 100 : 0;
-                            };
-
-                            const curRate = calcBreach(cur);
-                            const prevRate = prev.length ? calcBreach(prev) : curRate;
-                            const diff = Math.round(curRate - prevRate);
-
-                            return {
-                                label: "SLA Breach Rate",
-                                value: `${Math.round(curRate)}%`,
-                                trend: diff, // Positive diff means MORE breaches (bad)
-                                trendLabel: "vs Last Week",
-                                color: "text-rose-500",
-                                isUpGood: false,
-                                onClick: () => setSlaDrawerOpen(true),
-                                cursor: 'cursor-pointer hover:bg-slate-800/50 transition'
-                            };
-                        })(),
+                    return [
                         {
-                            // 3. Tickets at Risk
-                            label: "Tickets at Risk",
-                            value: `${atRisk > 0 ? Math.round((atRisk / (kpi?.total_tickets || 1)) * 100) : 0}%`, // calculating % of active
-                            trend: 3,
-                            trendLabel: "",
-                            color: "text-amber-500",
-                            isUpGood: false,
-                            onClick: () => setRiskDrawerOpen(true),
-                            cursor: 'cursor-pointer hover:bg-slate-800/50 transition'
-                        },
-                        {
-                            // 4. Room Occupancy (Mock)
-                            label: "Room Occupancy",
-                            value: "78%",
-                            trend: 4,
-                            trendLabel: "",
+                            label: "SLA Compliance",
+                            value: `${Math.round(curSla)}%`,
+                            trend: diffSla,
+                            trendLabel: "vs Prev Period",
                             color: "text-emerald-500",
-                            isUpGood: true
+                            isUpGood: true,
                         },
                         {
-                            // 5. Guest Check-Ins (Mock)
+                            label: "SLA Breach Rate",
+                            value: `${Math.round(curBreach)}%`,
+                            trend: diffBreach,
+                            trendLabel: "vs Prev Period",
+                            color: "text-rose-500",
+                            isUpGood: false,
+                        },
+                        {
                             label: "Guest Check-Ins",
-                            value: "320",
-                            subValue: "Today",
-                            trend: -5,
-                            trendLabel: "vs Last Week",
-                            color: "text-white", // Value color
-                            isUpGood: true
+                            value: `${curCheckins}`,
+                            trend: checkinDiff,
+                            trendLabel: "vs Prev Period",
+                            color: "text-blue-400",
+                            isUpGood: true,
                         }
-                    ] as { label: string; value: string; subValue?: string; trend: number; trendLabel: string; color: string; isUpGood: boolean }[]
-                ).map((s, i) => (
-                    <div
-                        key={i}
-                        onClick={(s as any).onClick}
-                        className={`rounded-xl bg-[#151A25] p-4 border border-slate-800/50 shadow-sm flex flex-col justify-between ${(s as any).cursor || ''}`}
-                    >
-                        <div className="text-[12px] font-semibold text-slate-400 mb-2">{s.label}</div>
+                    ];
+                })().map((s, i) => (
+                    <div key={i} className="rounded-xl bg-[#151A25] p-5 border border-slate-800/50 shadow-sm flex flex-col justify-between">
+                        <div className="text-[12px] font-semibold text-slate-400 mb-2 uppercase tracking-wider">{s.label}</div>
                         <div className="flex items-end gap-2 mb-2">
-                            <div className={`text-3xl font-bold ${s.color}`}>{s.value}</div>
-                            {s.subValue && <div className="text-sm text-slate-500 font-medium mb-1.5">{s.subValue}</div>}
-                            <div className={`flex items-center gap-0.5 text-xs font-bold mb-1.5 ${s.trend === 0 ? 'text-slate-500' :
+                            <div className={`text-4xl font-bold ${s.color}`}>{s.value}</div>
+                            <div className={`flex items-center gap-0.5 text-sm font-bold mb-1.5 ${s.trend === 0 ? 'text-slate-500' :
                                 (s.isUpGood ? (s.trend > 0 ? 'text-emerald-500' : 'text-rose-500') : (s.trend > 0 ? 'text-rose-500' : 'text-emerald-500'))
                                 }`}>
-                                {s.trend !== 0 && (s.trend > 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />)}
+                                {s.trend !== 0 && (s.trend > 0 ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />)}
                             </div>
                         </div>
-                        <div className={`text-[11px] font-medium flex items-center gap-1.5 ${s.trend === 0 ? 'text-slate-500' :
+                        <div className={`text-[12px] font-medium flex items-center gap-1.5 ${s.trend === 0 ? 'text-slate-500' :
                             (s.isUpGood ? (s.trend > 0 ? 'text-emerald-500' : 'text-rose-500') : (s.trend > 0 ? 'text-rose-500' : 'text-emerald-500'))
                             }`}>
-                            <span>{s.trend > 0 ? '+' : ''}{s.trend}%</span>
+                            <span>{s.trend > 0 ? '+' : ''}{s.trend}</span>
                             <span className="text-slate-500 font-normal">{s.trendLabel}</span>
                         </div>
                     </div>
@@ -482,7 +601,7 @@ export default function OwnerAnalytics() {
                     </div>
                     <div className="h-[250px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={activity.slice(0, 14).reverse()} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                            <AreaChart data={getActiveWindow(activity).slice().reverse()} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                 <defs>
                                     <linearGradient id="colorCreated" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
@@ -586,18 +705,7 @@ export default function OwnerAnalytics() {
                             <SectionTitle title="Overview" />
                         </div>
                         <div className="flex items-center gap-4 text-xs font-medium text-slate-500">
-                            <span
-                                onClick={() => setTimeRange('24h')}
-                                className={`cursor-pointer transition-colors ${timeRange === '24h' ? 'text-emerald-400 font-bold' : 'hover:text-slate-300'}`}
-                            >
-                                Last 24h
-                            </span>
-                            <span
-                                onClick={() => setTimeRange('7d')}
-                                className={`cursor-pointer transition-colors ${timeRange === '7d' ? 'text-emerald-400 font-bold' : 'hover:text-slate-300'}`}
-                            >
-                                Last 7 Days
-                            </span>
+                            {/* Filter removed to respect Global Filter */}
                         </div>
                     </div>
 
@@ -607,7 +715,7 @@ export default function OwnerAnalytics() {
                             <div className="flex items-baseline gap-2 mb-2 w-full justify-center">
                                 <span className="text-5xl font-bold text-emerald-400 tracking-tight">{dynamicCompliance}%</span>
                                 <span className="text-[10px] uppercase font-bold text-amber-500">
-                                    SLA Compliance ({timeRange === '24h' ? '24h' : '7 Days'})
+                                    SLA Compliance
                                 </span>
                             </div>
                             <div className="relative h-48 w-48 my-4">
@@ -825,16 +933,16 @@ export default function OwnerAnalytics() {
                             {/* Bottom Stats (Left Side) */}
                             <div className="mt-4 space-y-1.5 pl-2">
                                 <div className="flex items-center gap-2 text-sm text-slate-300">
-                                    <span className="font-bold text-white">{kpi?.breached_sla ?? 0}</span>
+                                    <span className="font-bold text-white">{rangeBreached}</span>
                                     <span className="text-slate-400 font-light">Breached SLA</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-sm text-slate-300">
-                                    <span className="font-bold text-white">{kpi?.at_risk_tickets ?? 0}</span>
+                                    <span className="font-bold text-white">{atRisk}</span>
                                     <span className="text-slate-400 font-light">AT RISK Tasks</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-sm text-slate-300">
-                                    <span className="font-bold text-white">{breaches.reduce((a, c) => a + c.breached_count, 0)}</span>
-                                    <span className="text-slate-400 font-light">Analyzed Breaches</span>
+                                    <span className="font-bold text-white">{rangeTotal}</span>
+                                    <span className="text-slate-400 font-light">Total Resolved</span>
                                 </div>
                             </div>
                         </div>
@@ -879,7 +987,7 @@ export default function OwnerAnalytics() {
                 <div className="rounded-2xl bg-[#151A25] p-6 border border-slate-800/50">
                     <SectionTitle title="Staff Performance" />
                     <div className="space-y-4">
-                        {staff.map((s, i) => (
+                        {aggregatedStaff.map((s, i) => (
                             <div key={s.staff_id} className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="h-9 w-9 rounded-full bg-slate-800 grid place-items-center text-xs font-medium text-slate-300 border border-slate-700">
@@ -887,14 +995,14 @@ export default function OwnerAnalytics() {
                                     </div>
                                     <div>
                                         <div className="text-sm font-medium text-white">{s.full_name}</div>
-                                        <div className="text-[10px] text-slate-500">{Math.round((s.completed_within_sla / (s.completed_tasks || 1)) * 100)}% On Time</div>
+                                        <div className="text-[10px] text-slate-500">{s.completed_tasks} Tasks</div>
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    <div className={`text-sm font-bold ${(s.sla_success_rate || 0) >= 90 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                    <div className={`text-sm font-bold ${s.sla_success_rate >= 90 ? 'text-emerald-400' : 'text-amber-400'}`}>
                                         {s.sla_success_rate}%
                                     </div>
-                                    <div className="text-[10px] text-slate-500">Score</div>
+                                    <div className="text-[10px] text-slate-500 text-center">Score</div>
                                 </div>
                             </div>
                         ))}
@@ -905,7 +1013,7 @@ export default function OwnerAnalytics() {
                 <div className="rounded-2xl bg-[#151A25] p-6 border border-slate-800/50">
                     <SectionTitle title="Block & Exception Impact" />
                     <div className="space-y-4">
-                        {blocks.map((b, i) => (
+                        {aggregatedBlocks.map((b, i) => (
                             <div key={i} className="group">
                                 <div className="flex items-center justify-between mb-1.5">
                                     <div className="flex items-center gap-2">
@@ -918,12 +1026,12 @@ export default function OwnerAnalytics() {
                                 <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
                                     <div
                                         className="h-full bg-amber-500/80 rounded-full"
-                                        style={{ width: `${Math.min(100, (b.block_count / 20) * 100)}%` }}
+                                        style={{ width: `${Math.min(100, (b.block_count / 10) * 100)}%` }}
                                     />
                                 </div>
                             </div>
                         ))}
-                        {blocks.length === 0 && <div className="text-xs text-slate-500 italic">No active blocks recorded.</div>}
+                        {aggregatedBlocks.length === 0 && <div className="text-xs text-slate-500 italic">No historical blocks in range.</div>}
                     </div>
                 </div>
 
@@ -939,7 +1047,7 @@ export default function OwnerAnalytics() {
                             <div>
                                 <h4 className="text-xs font-bold text-rose-400 mb-0.5">Frequent Breaches</h4>
                                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                                    Room 216 had 4 SLA Breaches in the last week. Investigation recommended.
+                                    Room 216 had 4 SLA Breaches {timeRange === 'today' ? 'today' : (timeRange === '7d' ? 'in the last week' : 'this month')}. Investigation recommended.
                                 </p>
                             </div>
                         </div>
@@ -976,8 +1084,8 @@ export default function OwnerAnalytics() {
             <SLAExplanationDrawer
                 isOpen={slaDrawerOpen}
                 onClose={() => setSlaDrawerOpen(false)}
-                impactData={impact}
-                trendData={trend}
+                impactData={aggregatedImpact}
+                trendData={activeTrend}
                 currentCompliance={dynamicCompliance}
             />
 
@@ -990,7 +1098,7 @@ export default function OwnerAnalytics() {
             <ActivityExplanationDrawer
                 isOpen={activityDrawerOpen}
                 onClose={() => setActivityDrawerOpen(false)}
-                activityData={activityBreakdown}
+                activityData={aggregatedActivityBreakdown}
             />
         </div>
     );

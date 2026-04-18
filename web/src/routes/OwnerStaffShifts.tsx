@@ -147,7 +147,7 @@ export default function OwnerStaffShifts() {
     const [hotelZones, setHotelZones] = useState<{ id: string, name: string }[]>([]);
     const [hotelDepartments, setHotelDepartments] = useState<{ id: string, name: string }[]>([]);
     const [staffDepartments, setStaffDepartments] = useState<any[]>([]);
-    
+
     /* ── Shift Assignment Modal State ── */
     const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
     const [shiftModalData, setShiftModalData] = useState({
@@ -165,7 +165,7 @@ export default function OwnerStaffShifts() {
     const [isDepartmentModalOpen, setIsDepartmentModalOpen] = useState(false);
     const [isAddDeptDropdownOpen, setIsAddDeptDropdownOpen] = useState(false);
     const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
-    const [rosterDetailType, setRosterDetailType] = useState<'on_shift' | 'off_duty' | null>(null);
+    const [rosterDetailType, setRosterDetailType] = useState<'on_shift' | 'off_duty' | 'deactivated' | null>(null);
     const [globalAssignOpen, setGlobalAssignOpen] = useState(false);
     const [globalBulkOpen, setGlobalBulkOpen] = useState(false);
     const [activeStaffMenuId, setActiveStaffMenuId] = useState<string | null>(null);
@@ -179,6 +179,9 @@ export default function OwnerStaffShifts() {
     const [deactivateUserModal, setDeactivateUserModal] = useState<any>(null);
     const [isDeactivatingUser, setIsDeactivatingUser] = useState(false);
     const [deactivateReason, setDeactivateReason] = useState("");
+    const [deactivatedMembers, setDeactivatedMembers] = useState<StaffMember[]>([]);
+    const [confirmToggle, setConfirmToggle] = useState<{ type: 'active' | 'verified'; currentValue: boolean; staffId: string; staffName: string } | null>(null);
+    const [isConfirmToggleLoading, setIsConfirmToggleLoading] = useState(false);
 
     // Filter Menu States
     const [isDeptFilterOpen, setIsDeptFilterOpen] = useState(false);
@@ -206,11 +209,16 @@ export default function OwnerStaffShifts() {
                 });
 
             if (error) throw error;
-            
+
+            showToast(`${deactivateUserModal.full_name} has been deactivated`, 'success');
             setDeactivateUserModal(null);
-            loadData();
+            setDeactivateReason("");
+            refetchDashboard();
+            fetchDeactivatedMembers();
         } catch (err: any) {
             console.error(err);
+            setDeactivateUserModal(null);
+            showToast(err.message || 'Failed to deactivate user', 'error');
         } finally {
             setIsDeactivatingUser(false);
         }
@@ -386,7 +394,7 @@ export default function OwnerStaffShifts() {
 
         if (rpcData && rpcData.timeline) {
             const staffIds = rpcData.timeline.map((s: any) => s.staff_id);
-            
+
             // 1. Fetch all departments for these staff members
             const { data: allDepts, error: deptsErr } = await supabase
                 .from('staff_departments')
@@ -414,10 +422,10 @@ export default function OwnerStaffShifts() {
                             name: d.departments?.name || 'Unknown',
                             is_primary: d.is_primary
                         })) || [];
-                    
+
                     const mInfo = membersInfo?.find(m => m.id === staff.staff_id);
                     const pInfo = profilesInfo?.find(p => p.id === mInfo?.user_id);
-                    
+
                     return {
                         ...staff,
                         departments: depts,
@@ -434,6 +442,37 @@ export default function OwnerStaffShifts() {
         }
         setError(null);
     }, [hotelId, currentDate]);
+
+    // 3a. Fetch deactivated members via SECURITY DEFINER RPC (bypasses RLS)
+    const fetchDeactivatedMembers = useCallback(async () => {
+        if (!hotelId) return;
+        const { data: rpcResult, error: rpcErr } = await supabase.rpc('get_deactivated_hotel_members', {
+            p_hotel_id: hotelId
+        });
+
+        if (rpcErr || !rpcResult || !Array.isArray(rpcResult)) {
+            if (rpcErr) console.error('Deactivated members fetch error:', rpcErr);
+            setDeactivatedMembers([]);
+            return;
+        }
+
+        const enriched: StaffMember[] = rpcResult.map((m: any) => ({
+            staff_id: m.staff_id,
+            full_name: m.full_name || 'Unknown User',
+            email: m.email || null,
+            avatar_url: m.avatar_url || null,
+            department_id: null,
+            department_name: m.roles || m.department_name || null,
+            assigned_zone_id: null,
+            assigned_zone_name: null,
+            is_active: false,
+            is_verified: m.is_verified ?? false,
+            has_shift: false,
+            shifts: []
+        }));
+
+        setDeactivatedMembers(enriched);
+    }, [hotelId]);
 
     // 3b. Conflict-aware error handler
     const handleShiftError = useCallback((e: any) => {
@@ -993,7 +1032,8 @@ export default function OwnerStaffShifts() {
         }
 
         fetchDashboard();
-    }, [hotelId, currentDate, refetchDashboard]);
+        fetchDeactivatedMembers();
+    }, [hotelId, currentDate, refetchDashboard, fetchDeactivatedMembers]);
 
     // 4a. Fetch Staff Specific Departments when modal opens
     const fetchStaffDepts = useCallback(async () => {
@@ -1011,7 +1051,7 @@ export default function OwnerStaffShifts() {
             `)
             .eq('staff_id', selectedStaffId)
             .order('priority', { ascending: true });
-            
+
         if (data && !error) {
             setStaffDepartments(data);
         }
@@ -1340,14 +1380,14 @@ export default function OwnerStaffShifts() {
     const rawTimeline = data?.timeline || [];
     const filteredTimeline = useMemo(() => {
         return rawTimeline.filter(staff => {
-            const matchesDept = activeDepartment === "All Departments" || 
+            const matchesDept = activeDepartment === "All Departments" ||
                 (staff.departments && staff.departments.some((d: any) => d.name === activeDepartment)) ||
                 (staff.department_name === activeDepartment);
-                
-            const matchesZone = activeZone === "All Zones" || 
-                staff.zone_id === activeZone || 
+
+            const matchesZone = activeZone === "All Zones" ||
+                staff.zone_id === activeZone ||
                 staff.zone_name === activeZone;
-                
+
             return matchesDept && matchesZone;
         });
     }, [rawTimeline, activeDepartment, activeZone]);
@@ -1405,7 +1445,7 @@ export default function OwnerStaffShifts() {
                         </div>
 
                         <div className="space-y-3">
-                            <div 
+                            <div
                                 onClick={() => setRosterDetailType('on_shift')}
                                 className="flex items-center justify-between rounded-xl bg-emerald-500/10 p-3 border border-emerald-500/20 cursor-pointer hover:bg-emerald-500/20 transition-all active:scale-[0.98]"
                             >
@@ -1415,7 +1455,7 @@ export default function OwnerStaffShifts() {
                                 </div>
                                 <span className="text-sm font-black text-emerald-500 pointer-events-none">{summary?.on_shift || 0}</span>
                             </div>
-                            <div 
+                            <div
                                 onClick={() => setRosterDetailType('off_duty')}
                                 className="flex items-center justify-between rounded-xl bg-white/5 p-3 border border-white/5 cursor-pointer hover:bg-white/10 transition-all active:scale-[0.98]"
                             >
@@ -1425,6 +1465,18 @@ export default function OwnerStaffShifts() {
                                 </div>
                                 <span className="text-sm font-black text-slate-500 pointer-events-none">{summary?.off_shift || 0}</span>
                             </div>
+                            {deactivatedMembers.length > 0 && (
+                                <div
+                                    onClick={() => setRosterDetailType('deactivated')}
+                                    className="flex items-center justify-between rounded-xl bg-red-500/5 p-3 border border-red-500/10 cursor-pointer hover:bg-red-500/10 transition-all active:scale-[0.98]"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-2 w-2 rounded-full bg-red-500/60" />
+                                        <span className="text-sm font-bold text-red-300/80 pointer-events-none">Deactivated</span>
+                                    </div>
+                                    <span className="text-sm font-black text-red-500/60 pointer-events-none">{deactivatedMembers.length}</span>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -1932,9 +1984,9 @@ export default function OwnerStaffShifts() {
                                                             <div className="min-w-0">
                                                                 <div className="text-sm font-black text-white truncate group-hover/staff:text-indigo-400 transition-colors uppercase tracking-tight">{staff.full_name}</div>
                                                                 <div className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter truncate max-w-[150px]">
-                                                                    {staff.departments && staff.departments.length > 0 
-                                                                        ? staff.departments.map(d => d.name).join(', ') 
-                                                                        : staff.department_name || 'General Staff'}
+                                                                    {staff.departments && staff.departments.length > 0
+                                                                        ? staff.departments.map(d => d.name).join(', ')
+                                                                        : staff.department_name || 'UNASSIGNED DEPT'}
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -2873,13 +2925,13 @@ export default function OwnerStaffShifts() {
                                                                     );
                                                                 }}
                                                                 className={`group flex items-center gap-4 p-4 rounded-2xl cursor-pointer border transition-all ${isChecked
-                                                                        ? 'bg-indigo-500/10 border-indigo-500/30'
-                                                                        : 'bg-white/[0.02] border-white/5 hover:border-white/20 hover:bg-white/[0.04]'
+                                                                    ? 'bg-indigo-500/10 border-indigo-500/30'
+                                                                    : 'bg-white/[0.02] border-white/5 hover:border-white/20 hover:bg-white/[0.04]'
                                                                     }`}
                                                             >
                                                                 <div className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all border-2 ${isChecked
-                                                                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-500/30'
-                                                                        : 'bg-white/5 border-white/10 text-transparent'
+                                                                    ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-500/30'
+                                                                    : 'bg-white/5 border-white/10 text-transparent'
                                                                     }`}>
                                                                     <Check size={14} strokeWidth={4} />
                                                                 </div>
@@ -2995,8 +3047,8 @@ export default function OwnerStaffShifts() {
                                                     setWeeklyPreview(null);
                                                 }}
                                                 className={`w-10 h-10 rounded-xl text-xs font-black transition-all border ${isSelected
-                                                        ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/20'
-                                                        : 'bg-white/[0.03] border-white/10 text-slate-500 hover:border-white/20 hover:text-white'
+                                                    ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/20'
+                                                    : 'bg-white/[0.03] border-white/10 text-slate-500 hover:border-white/20 hover:text-white'
                                                     }`}
                                             >
                                                 {label}
@@ -3511,13 +3563,13 @@ export default function OwnerStaffShifts() {
             )}
 
             {/* ── TOAST NOTIFICATIONS ── */}
-            <div className="fixed bottom-6 right-6 z-[100] flex flex-col gap-2 pointer-events-none">
+            <div className="fixed bottom-6 right-6 z-[9999] flex flex-col gap-2 pointer-events-none">
                 {toasts.map(t => (
                     <div
                         key={t.id}
                         className={`pointer-events-auto flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl backdrop-blur-xl border text-sm font-bold animate-in fade-in slide-in-from-bottom-2 duration-300 ${t.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
-                                t.type === 'warning' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
-                                    'bg-red-500/10 border-red-500/20 text-red-400'
+                            t.type === 'warning' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
+                                'bg-red-500/10 border-red-500/20 text-red-400'
                             }`}
                     >
                         {t.type === 'success' && <Check size={16} strokeWidth={3} />}
@@ -3566,20 +3618,20 @@ export default function OwnerStaffShifts() {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-4">
-                                        <button 
+                                        <button
                                             onClick={async () => {
                                                 if (sd.is_primary) {
                                                     return showToast('Cannot disable the primary department. Please make another department primary first.', 'warning');
                                                 }
                                                 if (!confirm(`Are you sure you want to remove ${sd.departments?.name}?`)) return;
-                                                
+
                                                 try {
                                                     const { error } = await supabase
                                                         .from('staff_departments')
                                                         .delete()
                                                         .eq('staff_id', selectedStaffId)
                                                         .eq('department_id', sd.department_id);
-                                                    
+
                                                     if (error) throw error;
                                                     showToast(`${sd.departments?.name} removed successfully`, 'success');
                                                     await fetchStaffDepts();
@@ -3594,7 +3646,7 @@ export default function OwnerStaffShifts() {
                                             Disable
                                         </button>
                                         <div className="w-px h-4 bg-white/10" />
-                                        <button 
+                                        <button
                                             disabled={sd.is_primary}
                                             onClick={async () => {
                                                 try {
@@ -3747,9 +3799,11 @@ export default function OwnerStaffShifts() {
                         <div className="flex items-center justify-between mb-6 shrink-0">
                             <div>
                                 <h2 className="text-xl font-black text-white uppercase tracking-widest">
-                                    {rosterDetailType === 'on_shift' ? 'Staff On Shift' : 'Staff Off Duty'}
+                                    {rosterDetailType === 'on_shift' ? 'Staff On Shift' : rosterDetailType === 'deactivated' ? 'Deactivated Staff' : 'Staff Off Duty'}
                                 </h2>
-                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tight mt-1">Live Status Overview</p>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tight mt-1">
+                                    {rosterDetailType === 'deactivated' ? 'Reactivate members to restore access' : 'Live Status Overview'}
+                                </p>
                             </div>
                             <button onClick={() => setRosterDetailType(null)} className="rounded-full bg-white/5 p-2 text-slate-400 hover:bg-white/10 hover:text-white transition-all">
                                 <X size={20} />
@@ -3758,10 +3812,12 @@ export default function OwnerStaffShifts() {
 
                         <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-2">
                             {(() => {
-                                const relevantStaff = data?.timeline.filter(staff => {
-                                    if (rosterDetailType === 'on_shift') return staff.has_shift;
-                                    return !staff.has_shift;
-                                }) || [];
+                                const relevantStaff = rosterDetailType === 'deactivated'
+                                    ? deactivatedMembers
+                                    : (data?.timeline.filter(staff => {
+                                        if (rosterDetailType === 'on_shift') return staff.has_shift;
+                                        return !staff.has_shift;
+                                    }) || []);
 
                                 if (relevantStaff.length === 0) {
                                     return (
@@ -3774,8 +3830,8 @@ export default function OwnerStaffShifts() {
                                 return relevantStaff.map(staff => {
                                     // Find the "most relevant" shift to show: either the current one, or the first scheduled one of the day
                                     const now = pulseTime;
-                                    const currentShift = staff.shifts.find(s => new Date(s.shift_start) <= now && new Date(s.shift_end) > now) 
-                                                      || staff.shifts.find(s => s.status === 'scheduled');
+                                    const currentShift = staff.shifts.find(s => new Date(s.shift_start) <= now && new Date(s.shift_end) > now)
+                                        || staff.shifts.find(s => s.status === 'scheduled');
 
                                     return (
                                         <div key={staff.staff_id} className="flex items-center gap-4 p-4 rounded-2xl bg-white/[0.02] border border-white/5 group hover:bg-white/[0.04] transition-all">
@@ -3800,15 +3856,15 @@ export default function OwnerStaffShifts() {
                                                 <div className="text-[10px] font-medium text-slate-500 truncate mb-1">{staff.email || 'No email provided'}</div>
                                                 <div className="flex items-center gap-2">
                                                     <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest truncate max-w-[120px]">
-                                                        {staff.departments && staff.departments.length > 0 
-                                                            ? staff.departments.map(d => d.name).join(', ') 
-                                                            : staff.department_name || 'No Dept'}
+                                                        {staff.departments && staff.departments.length > 0
+                                                            ? staff.departments.map(d => d.name).join(', ')
+                                                            : staff.department_name || 'UNASSIGNED DEPT'}
                                                     </div>
                                                     <div className="h-1 w-1 rounded-full bg-white/10" />
                                                     <div className="text-[9px] font-black text-indigo-400 uppercase tracking-widest truncate">{staff.assigned_zone_name || 'No Zone'}</div>
                                                 </div>
                                             </div>
-                                            
+
                                             {currentShift && (
                                                 <div className="text-right shrink-0 pl-4 border-l border-white/5">
                                                     <div className={`text-[9px] font-black uppercase tracking-widest mb-1 px-2 py-0.5 rounded-full border inline-block ${new Date(currentShift.shift_start) <= now && new Date(currentShift.shift_end) > now ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-white/5 text-slate-400 border-white/10'}`}>
@@ -3820,12 +3876,41 @@ export default function OwnerStaffShifts() {
                                                     </div>
                                                 </div>
                                             )}
-                                            <button 
-                                                className="ml-auto shrink-0 p-2 rounded-xl bg-red-500/5 border border-red-500/10 hover:bg-red-500/10 hover:border-red-500/20 text-red-400 transition-all"
-                                                onClick={(e) => { e.stopPropagation(); setDeactivateUserModal(staff); }}
-                                            >
-                                                <UserX size={18} className="text-red-500/50 group-hover:text-red-400 transition-colors" />
-                                            </button>
+                                            {rosterDetailType === 'deactivated' ? (
+                                                <button
+                                                    className="ml-auto shrink-0 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 hover:border-emerald-500/30 text-emerald-400 text-xs font-bold transition-all flex items-center gap-2"
+                                                    onClick={async (e) => {
+                                                        e.stopPropagation();
+                                                        try {
+                                                            const { error } = await supabase.rpc('update_hotel_member', {
+                                                                p_member_id: staff.staff_id,
+                                                                p_is_active: true
+                                                            });
+                                                            if (error) throw error;
+                                                            showToast(`${staff.full_name} has been reactivated`, 'success');
+
+                                                            if (deactivatedMembers.length === 1) {
+                                                                setRosterDetailType(null);
+                                                            }
+
+                                                            await refetchDashboard();
+                                                            await fetchDeactivatedMembers();
+                                                        } catch (err: any) {
+                                                            showToast(err.message || 'Failed to reactivate', 'error');
+                                                        }
+                                                    }}
+                                                >
+                                                    <Check size={14} strokeWidth={3} />
+                                                    Reactivate
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    className="ml-auto shrink-0 p-2 rounded-xl bg-red-500/5 border border-red-500/10 hover:bg-red-500/10 hover:border-red-500/20 text-red-400 transition-all"
+                                                    onClick={(e) => { e.stopPropagation(); setDeactivateUserModal(staff); }}
+                                                >
+                                                    <UserX size={18} className="text-red-500/50 group-hover:text-red-400 transition-colors" />
+                                                </button>
+                                            )}
                                         </div>
                                     );
                                 });
@@ -3840,36 +3925,36 @@ export default function OwnerStaffShifts() {
             {deactivateUserModal && (
                 <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 overflow-y-auto">
                     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setDeactivateUserModal(null)} />
-                    <div className="relative w-full max-w-[400px] bg-white rounded-3xl overflow-hidden shadow-2xl font-sans animate-in fade-in zoom-in-95 duration-200">
-                        <div className="p-6 text-center border-b border-slate-100 flex items-center justify-center relative">
-                            <h3 className="text-lg font-black text-slate-800">Deactivate User?</h3>
-                            <button onClick={() => setDeactivateUserModal(null)} className="absolute right-6 text-slate-400 hover:text-slate-600">
+                    <div className="relative w-full max-w-[400px] bg-[#121216] border border-white/10 rounded-[32px] overflow-hidden shadow-2xl font-sans animate-in fade-in zoom-in-95 duration-200">
+                        <div className="p-6 text-center border-b border-white/5 flex items-center justify-center relative">
+                            <h3 className="text-lg font-black text-white">Deactivate User?</h3>
+                            <button onClick={() => setDeactivateUserModal(null)} className="absolute right-6 text-slate-500 hover:text-white transition-colors">
                                 <X size={20} />
                             </button>
                         </div>
                         <div className="p-6 space-y-5">
-                            <p className="text-sm font-medium text-slate-600 text-center">
-                                Are you sure you want to deactivate <span className="font-bold text-slate-900">{deactivateUserModal.full_name}</span>?
+                            <p className="text-sm font-medium text-slate-400 text-center">
+                                Are you sure you want to deactivate <span className="font-bold text-white">{deactivateUserModal.full_name}</span>?
                             </p>
-                            <div className="p-4 bg-emerald-50 rounded-2xl flex items-start gap-3 border border-emerald-100">
-                                <div className="mt-0.5 rounded text-emerald-600"><Check size={18} strokeWidth={3} /></div>
-                                <p className="text-sm font-bold text-emerald-800 leading-snug">This will prevent the user from being scheduled.</p>
+                            <div className="p-4 bg-emerald-500/10 rounded-2xl flex items-start gap-3 border border-emerald-500/20">
+                                <div className="mt-0.5 rounded text-emerald-500"><Check size={18} strokeWidth={3} /></div>
+                                <p className="text-sm font-bold text-emerald-400 leading-snug">This will prevent the user from being scheduled.</p>
                             </div>
                             <div className="space-y-2">
                                 <div className="relative">
                                     <div className="absolute top-3.5 left-4 text-amber-500"><AlertTriangle size={18} /></div>
-                                    <textarea 
-                                        placeholder="Reason (required)" 
+                                    <textarea
+                                        placeholder="Reason (required)"
                                         value={deactivateReason}
                                         onChange={(e) => setDeactivateReason(e.target.value)}
-                                        className="w-full bg-white border border-amber-200 focus:border-amber-400 rounded-2xl py-3 pl-12 pr-4 text-sm font-medium text-slate-800 placeholder:text-amber-500/50 min-h-[100px] outline-none transition-colors"
+                                        className="w-full bg-[#0a0a0c] border border-white/10 focus:border-amber-500/50 rounded-2xl py-3 pl-12 pr-4 text-sm font-medium text-white placeholder:text-slate-600 min-h-[100px] outline-none transition-colors"
                                     />
                                 </div>
                             </div>
                         </div>
-                        <div className="p-4 bg-slate-50 border-t border-slate-100 flex gap-3">
-                            <button onClick={() => setDeactivateUserModal(null)} className="flex-1 py-3.5 rounded-2xl bg-slate-200/50 hover:bg-slate-200 text-slate-600 text-sm font-bold transition-colors">Cancel</button>
-                            <button onClick={handleDeactivateUser} disabled={isDeactivatingUser || !deactivateReason.trim()} className="flex-1 py-3.5 rounded-2xl bg-red-600 hover:bg-red-700 text-white text-sm font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+                        <div className="p-4 bg-[#0a0a0c] border-t border-white/5 flex gap-3">
+                            <button onClick={() => setDeactivateUserModal(null)} className="flex-1 py-3.5 rounded-2xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white text-sm font-bold transition-colors">Cancel</button>
+                            <button onClick={handleDeactivateUser} disabled={isDeactivatingUser || !deactivateReason.trim()} className="flex-1 py-3.5 rounded-2xl bg-red-500/20 hover:bg-red-500/30 text-red-500 border border-red-500/20 text-sm font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50">
                                 {isDeactivatingUser ? <Loader2 size={18} className="animate-spin" /> : null}
                                 Deactivate User
                             </button>
@@ -3884,7 +3969,7 @@ export default function OwnerStaffShifts() {
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto">
                     <div className="fixed inset-0 bg-black/60 backdrop-blur-[3px]" onClick={() => setActiveAssignMenuId(null)} />
                     <div className="relative w-full max-w-[400px] bg-[#0f172a] border border-white/10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] rounded-[32px] overflow-hidden font-sans animate-in fade-in zoom-in-95 duration-200 flex flex-col" style={{ maxHeight: '90vh' }}>
-                        
+
                         <div className="relative p-7 pb-6 flex items-start gap-5 shrink-0 bg-white/[0.02]">
                             <img
                                 src={activeAssignStaffData.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(activeAssignStaffData.full_name)}&background=6366f1&color=fff`}
@@ -3894,8 +3979,8 @@ export default function OwnerStaffShifts() {
                             <div className="flex-1 pt-1">
                                 <h3 className="text-2xl font-black text-white leading-tight mb-1">{activeAssignStaffData.full_name}</h3>
                                 <p className="text-[11px] font-black text-slate-500 uppercase tracking-[0.1em] mb-4">
-                                    {activeAssignStaffData.departments && activeAssignStaffData.departments.length > 0 
-                                        ? activeAssignStaffData.departments.map(d => d.name).join(', ') 
+                                    {activeAssignStaffData.departments && activeAssignStaffData.departments.length > 0
+                                        ? activeAssignStaffData.departments.map(d => d.name).join(', ')
                                         : activeAssignStaffData.department_name || 'STAFF'} {activeZone !== 'All Zones' ? `· ${activeZone.toUpperCase()}` : ''}
                                 </p>
                                 <div className="flex items-center gap-2.5 text-sm font-bold text-indigo-400">
@@ -3927,7 +4012,7 @@ export default function OwnerStaffShifts() {
                                         <span>Morning Shift</span>
                                         <span className="text-[10px] text-slate-500 font-black ml-auto bg-black/20 px-2 py-1 rounded-lg">07:00 - 15:00</span>
                                     </button>
-                                    
+
                                     <button className="w-full text-left px-5 py-4 text-sm font-bold text-slate-300 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10 rounded-2xl flex items-center gap-4 transition-all group" onClick={() => { setActiveAssignMenuId(null); handleQuickAssign(activeAssignStaffData.staff_id, 'evening'); }}>
                                         <div className="p-2.5 rounded-xl bg-orange-500/10 text-orange-500 group-hover:bg-orange-500/20 group-hover:scale-110 transition-all">
                                             <Sunset size={18} strokeWidth={3} />
@@ -3935,7 +4020,7 @@ export default function OwnerStaffShifts() {
                                         <span>Evening Shift</span>
                                         <span className="text-[10px] text-slate-500 font-black ml-auto bg-black/20 px-2 py-1 rounded-lg">15:00 - 23:00</span>
                                     </button>
-                                    
+
                                     <button className="w-full text-left px-5 py-4 text-sm font-bold text-slate-300 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10 rounded-2xl flex items-center gap-4 transition-all group" onClick={() => { setActiveAssignMenuId(null); handleQuickAssign(activeAssignStaffData.staff_id, 'night'); }}>
                                         <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-400 group-hover:bg-indigo-500/20 group-hover:scale-110 transition-all">
                                             <Moon size={18} strokeWidth={3} />
@@ -3944,7 +4029,7 @@ export default function OwnerStaffShifts() {
                                         <span className="text-[10px] text-slate-500 font-black ml-auto bg-black/20 px-2 py-1 rounded-lg">23:00 - 07:00</span>
                                     </button>
                                 </div>
-                                
+
                                 <div className="py-2">
                                     <div className="flex items-center gap-3">
                                         <div className="flex-1 h-[1px] bg-white/5" />
@@ -3971,10 +4056,10 @@ export default function OwnerStaffShifts() {
             {editStaffModal && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 overflow-y-auto">
                     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setEditStaffModal(null)} />
-                    <div className="relative w-full max-w-[450px] bg-white rounded-3xl overflow-hidden shadow-2xl font-sans animate-in fade-in zoom-in-95 duration-200">
-                        <div className="p-6 text-center border-b border-slate-100 flex items-center justify-center relative">
-                            <h3 className="text-lg font-black text-slate-800">Edit Staff Settings</h3>
-                            <button onClick={() => setEditStaffModal(null)} className="absolute right-6 text-slate-400 hover:text-slate-600">
+                    <div className="relative w-full max-w-[450px] bg-[#121216] border border-white/10 rounded-[32px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                        <div className="p-6 text-center border-b border-white/5 flex items-center justify-center relative">
+                            <h3 className="text-lg font-black text-white">Edit Staff Settings</h3>
+                            <button onClick={() => setEditStaffModal(null)} className="absolute right-6 text-slate-500 hover:text-white transition-colors">
                                 <X size={20} />
                             </button>
                         </div>
@@ -3982,12 +4067,12 @@ export default function OwnerStaffShifts() {
                             <div className="flex items-center gap-4">
                                 <img
                                     src={editStaffModal.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(editStaffModal.full_name)}&background=random`}
-                                    className="w-16 h-16 rounded-2xl border border-slate-200"
+                                    className="w-16 h-16 rounded-2xl border border-white/10 shadow-lg object-cover"
                                     alt=""
                                 />
                                 <div>
-                                    <h4 className="text-lg font-bold text-slate-900 leading-tight">{editStaffModal.full_name}</h4>
-                                    <p className="text-sm font-medium text-slate-500">{editStaffModal.email || 'No email provided'}</p>
+                                    <h4 className="text-lg font-bold text-white leading-tight">{editStaffModal.full_name}</h4>
+                                    <p className="text-sm font-medium text-slate-400">{editStaffModal.email || 'No email provided'}</p>
                                 </div>
                             </div>
 
@@ -3995,12 +4080,12 @@ export default function OwnerStaffShifts() {
                             <div className="space-y-3">
                                 {editStaffDepts.length > 0 && (
                                     <div>
-                                        <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Departments</h5>
+                                        <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Departments</h5>
                                         <div className="flex flex-wrap gap-1.5">
                                             {editStaffDepts.map(d => (
-                                                <span key={d.id} className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold ${d.is_primary ? 'bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200' : 'bg-slate-100 text-slate-600'}`}>
+                                                <span key={d.id} className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold border ${d.is_primary ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-white/5 text-slate-300 border-white/10'}`}>
                                                     {d.name}
-                                                    {d.is_primary && <span className="text-[9px] font-black text-indigo-400">PRIMARY</span>}
+                                                    {d.is_primary && <span className="text-[9px] font-black text-indigo-500">PRIMARY</span>}
                                                 </span>
                                             ))}
                                         </div>
@@ -4008,10 +4093,10 @@ export default function OwnerStaffShifts() {
                                 )}
                                 {editStaffRoles.length > 0 && (
                                     <div>
-                                        <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Roles</h5>
+                                        <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Roles</h5>
                                         <div className="flex flex-wrap gap-1.5">
                                             {editStaffRoles.map(r => (
-                                                <span key={r.id} className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-700 ring-1 ring-amber-200">
+                                                <span key={r.id} className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
                                                     {r.name}
                                                 </span>
                                             ))}
@@ -4019,80 +4104,166 @@ export default function OwnerStaffShifts() {
                                     </div>
                                 )}
                                 {editStaffDepts.length === 0 && editStaffRoles.length === 0 && (
-                                    <p className="text-xs text-slate-400 italic">No departments or roles assigned yet.</p>
+                                    <p className="text-xs text-slate-500 italic">No departments or roles assigned yet.</p>
                                 )}
                             </div>
 
                             <div className="space-y-4">
-                                <div className="p-5 rounded-2xl border border-slate-200 bg-slate-50 flex items-center justify-between mb-4">
+                                <div className="p-5 rounded-2xl border border-white/5 bg-white/[0.02] flex items-center justify-between mb-4">
                                     <div>
-                                        <h5 className="text-sm font-bold text-slate-900">Active Status</h5>
+                                        <h5 className="text-sm font-bold text-slate-200">Active Status</h5>
                                         <p className="text-xs font-medium text-slate-500 mt-0.5">Allow scheduling and login access</p>
                                     </div>
                                     <button
                                         disabled={isUpdatingStaff}
-                                        onClick={async () => {
-                                            setIsUpdatingStaff(true);
-                                            try {
-                                                const { error } = await supabase
-                                                    .rpc('update_hotel_member', {
-                                                        p_member_id: editStaffModal.staff_id,
-                                                        p_is_active: !editStaffModal.is_active
-                                                    });
-                                                
-                                                if (error) throw error;
-                                                
-                                                setEditStaffModal({ ...editStaffModal, is_active: !editStaffModal.is_active });
-                                                showToast('Active status updated successfully', 'success');
-                                                refetchDashboard();
-                                            } catch (err: any) {
-                                                showToast(err.message || 'Failed to update active status', 'error');
-                                            } finally {
-                                                setIsUpdatingStaff(false);
-                                            }
-                                        }}
-                                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors disabled:opacity-50 ${editStaffModal.is_active ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                                        onClick={() => setConfirmToggle({
+                                            type: 'active',
+                                            currentValue: editStaffModal.is_active,
+                                            staffId: editStaffModal.staff_id,
+                                            staffName: editStaffModal.full_name
+                                        })}
+                                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors disabled:opacity-50 ${editStaffModal.is_active ? 'bg-emerald-500' : 'bg-white/10 border border-white/20'}`}
                                     >
-                                        <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${editStaffModal.is_active ? 'translate-x-6' : 'translate-x-1'}`} />
+                                        <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${editStaffModal.is_active ? 'translate-x-6' : 'translate-x-1 shadow-sm'}`} />
                                     </button>
                                 </div>
-                                <div className="p-5 rounded-2xl border border-slate-200 bg-slate-50 flex items-center justify-between">
+                                <div className="p-5 rounded-2xl border border-white/5 bg-white/[0.02] flex items-center justify-between">
                                     <div>
-                                        <h5 className="text-sm font-bold text-slate-900">Verification Status</h5>
+                                        <h5 className="text-sm font-bold text-slate-200">Verification Status</h5>
                                         <p className="text-xs font-medium text-slate-500 mt-0.5">Allow SLA ticket assignments</p>
                                     </div>
                                     <button
                                         disabled={isUpdatingStaff}
-                                        onClick={async () => {
-                                            setIsUpdatingStaff(true);
-                                            try {
-                                                const { error } = await supabase
-                                                    .rpc('update_hotel_member', {
-                                                        p_member_id: editStaffModal.staff_id,
-                                                        p_is_verified: !editStaffModal.is_verified
-                                                    });
-                                                
-                                                if (error) throw error;
-                                                
-                                                setEditStaffModal({ ...editStaffModal, is_verified: !editStaffModal.is_verified });
-                                                showToast('Verification status updated successfully', 'success');
-                                                refetchDashboard();
-                                            } catch (err: any) {
-                                                showToast(err.message || 'Failed to update verification', 'error');
-                                            } finally {
-                                                setIsUpdatingStaff(false);
-                                            }
-                                        }}
-                                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors disabled:opacity-50 ${editStaffModal.is_verified ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                                        onClick={() => setConfirmToggle({
+                                            type: 'verified',
+                                            currentValue: editStaffModal.is_verified,
+                                            staffId: editStaffModal.staff_id,
+                                            staffName: editStaffModal.full_name
+                                        })}
+                                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors disabled:opacity-50 ${editStaffModal.is_verified ? 'bg-emerald-500' : 'bg-white/10 border border-white/20'}`}
                                     >
-                                        <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${editStaffModal.is_verified ? 'translate-x-6' : 'translate-x-1'}`} />
+                                        <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${editStaffModal.is_verified ? 'translate-x-6' : 'translate-x-1 shadow-sm'}`} />
                                     </button>
                                 </div>
                             </div>
                         </div>
-                        <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
-                            <button onClick={() => setEditStaffModal(null)} className="px-6 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold transition-colors">
+                        <div className="p-4 bg-[#0a0a0c] border-t border-white/5 flex justify-end">
+                            <button onClick={() => setEditStaffModal(null)} className="px-6 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-sm font-bold transition-all">
                                 Done
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── CONFIRM TOGGLE MODAL (Active Status / Verification Status) ── */}
+            {confirmToggle && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 overflow-y-auto">
+                    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setConfirmToggle(null)} />
+                    <div className="relative w-full max-w-[420px] bg-[#121216] border border-white/10 rounded-[32px] overflow-hidden shadow-2xl font-sans animate-in fade-in zoom-in-95 duration-200">
+                        <div className="p-6 text-center border-b border-white/5 flex items-center justify-center relative">
+                            <h3 className="text-lg font-black text-white">
+                                {confirmToggle.type === 'active'
+                                    ? (confirmToggle.currentValue ? 'Deactivate Staff?' : 'Activate Staff?')
+                                    : (confirmToggle.currentValue ? 'Remove Verification?' : 'Verify Staff?')}
+                            </h3>
+                            <button onClick={() => setConfirmToggle(null)} className="absolute right-6 text-slate-500 hover:text-white transition-colors">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div className="flex items-center gap-4 p-4 rounded-2xl bg-white/[0.02] border border-white/5">
+                                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center text-white font-black text-lg shadow-lg border border-white/10">
+                                    {confirmToggle.staffName.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                    <div className="text-sm font-bold text-white">{confirmToggle.staffName}</div>
+                                    <div className="text-xs text-slate-400 mt-0.5">
+                                        {confirmToggle.type === 'active' ? 'Active Status' : 'Verification Status'}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {confirmToggle.type === 'active' && confirmToggle.currentValue && (
+                                <div className="p-4 bg-amber-500/10 rounded-2xl flex items-start gap-3 border border-amber-500/20">
+                                    <div className="mt-0.5 text-amber-500"><AlertTriangle size={18} /></div>
+                                    <div>
+                                        <p className="text-sm font-bold text-amber-400 leading-snug">This will prevent the user from being scheduled.</p>
+                                        <p className="text-xs text-amber-500/70 mt-1">You can reactivate them later from the Deactivated section.</p>
+                                    </div>
+                                </div>
+                            )}
+                            {confirmToggle.type === 'active' && !confirmToggle.currentValue && (
+                                <div className="p-4 bg-emerald-500/10 rounded-2xl flex items-start gap-3 border border-emerald-500/20">
+                                    <div className="mt-0.5 text-emerald-500"><Check size={18} strokeWidth={3} /></div>
+                                    <p className="text-sm font-bold text-emerald-400 leading-snug">This will restore scheduling access and allow the user to log in again.</p>
+                                </div>
+                            )}
+                            {confirmToggle.type === 'verified' && confirmToggle.currentValue && (
+                                <div className="p-4 bg-amber-500/10 rounded-2xl flex items-start gap-3 border border-amber-500/20">
+                                    <div className="mt-0.5 text-amber-500"><AlertTriangle size={18} /></div>
+                                    <p className="text-sm font-bold text-amber-400 leading-snug">Removing verification will prevent SLA ticket assignments for this user.</p>
+                                </div>
+                            )}
+                            {confirmToggle.type === 'verified' && !confirmToggle.currentValue && (
+                                <div className="p-4 bg-emerald-500/10 rounded-2xl flex items-start gap-3 border border-emerald-500/20">
+                                    <div className="mt-0.5 text-emerald-500"><Check size={18} strokeWidth={3} /></div>
+                                    <p className="text-sm font-bold text-emerald-400 leading-snug">This will allow SLA ticket assignments for this user.</p>
+                                </div>
+                            )}
+
+                            <p className="text-sm font-medium text-slate-400 text-center">
+                                Are you sure you want to {confirmToggle.currentValue ? (confirmToggle.type === 'active' ? 'deactivate' : 'unverify') : (confirmToggle.type === 'active' ? 'activate' : 'verify')} <span className="font-bold text-white">{confirmToggle.staffName}</span>?
+                            </p>
+                        </div>
+                        <div className="p-4 bg-[#0a0a0c] border-t border-white/5 flex gap-3">
+                            <button onClick={() => setConfirmToggle(null)} className="flex-1 py-3.5 rounded-2xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-sm font-bold transition-all border border-transparent">Cancel</button>
+                            <button
+                                disabled={isConfirmToggleLoading}
+                                onClick={async () => {
+                                    setIsConfirmToggleLoading(true);
+                                    try {
+                                        const params: any = { p_member_id: confirmToggle.staffId };
+                                        if (confirmToggle.type === 'active') {
+                                            params.p_is_active = !confirmToggle.currentValue;
+                                        } else {
+                                            params.p_is_verified = !confirmToggle.currentValue;
+                                        }
+                                        const { error } = await supabase.rpc('update_hotel_member', params);
+                                        if (error) throw error;
+
+                                        // Update the edit modal state if it's still open
+                                        if (editStaffModal && editStaffModal.staff_id === confirmToggle.staffId) {
+                                            if (confirmToggle.type === 'active') {
+                                                setEditStaffModal({ ...editStaffModal, is_active: !confirmToggle.currentValue });
+                                            } else {
+                                                setEditStaffModal({ ...editStaffModal, is_verified: !confirmToggle.currentValue });
+                                            }
+                                        }
+
+                                        const actionLabel = confirmToggle.type === 'active'
+                                            ? (confirmToggle.currentValue ? 'deactivated' : 'activated')
+                                            : (confirmToggle.currentValue ? 'unverified' : 'verified');
+                                        showToast(`${confirmToggle.staffName} has been ${actionLabel}`, 'success');
+                                        setConfirmToggle(null);
+                                        await refetchDashboard();
+                                        await fetchDeactivatedMembers();
+                                    } catch (err: any) {
+                                        setConfirmToggle(null);
+                                        showToast(err.message || 'Failed to update status', 'error');
+                                    } finally {
+                                        setIsConfirmToggleLoading(false);
+                                    }
+                                }}
+                                className={`flex-1 py-3.5 rounded-2xl text-white text-sm font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50 ${confirmToggle.currentValue
+                                    ? (confirmToggle.type === 'active' ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700')
+                                    : 'bg-emerald-600 hover:bg-emerald-700'
+                                    }`}
+                            >
+                                {isConfirmToggleLoading ? <Loader2 size={18} className="animate-spin" /> : null}
+                                {confirmToggle.currentValue
+                                    ? (confirmToggle.type === 'active' ? 'Deactivate' : 'Remove Verification')
+                                    : (confirmToggle.type === 'active' ? 'Activate' : 'Verify')}
                             </button>
                         </div>
                     </div>

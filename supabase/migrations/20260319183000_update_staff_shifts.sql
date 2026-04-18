@@ -587,14 +587,9 @@ language plpgsql
 security definer
 as $$
 declare
-  v_hotel_id uuid;
 begin
-  -- Get the hotel ID for the member
-  select hotel_id into v_hotel_id
-  from public.hotel_members
-  where id = p_member_id;
-
-  if v_hotel_id is null then
+  -- Ensure the hotel member actually exists
+  if not exists (select 1 from public.hotel_members where id = p_member_id) then
     raise exception 'Member not found';
   end if;
 
@@ -604,7 +599,7 @@ begin
     join public.hotel_member_roles hmr on hmr.hotel_member_id = hm.id
     join public.hotel_roles hr on hr.id = hmr.role_id
     where hm.user_id = auth.uid()
-      and hm.hotel_id = v_hotel_id
+      and hm.hotel_id = (select hotel_id from public.hotel_members where id = p_member_id limit 1)
       and hr.code in ('OWNER', 'ADMIN', 'MANAGER')
       and hm.is_active = true
   ) then
@@ -613,6 +608,33 @@ begin
 
   -- Apply the update
   if p_is_active is not null then
+    -- If deactivating, ensure we correspond to a safe state
+    if p_is_active = false then
+      -- Check if the member being deactivated is currently an active owner
+      if exists (
+        select 1 from public.hotel_member_roles hmr
+        join public.hotel_roles hr on hr.id = hmr.role_id
+        join public.hotel_members hm on hm.id = hmr.hotel_member_id
+        where hmr.hotel_member_id = p_member_id 
+          and hr.code = 'OWNER'
+          and hm.is_active = true
+      ) then
+        -- Check if there are any *other* active owners in this hotel
+        if not exists (
+          select 1
+          from public.hotel_members hm
+          join public.hotel_member_roles hmr on hmr.hotel_member_id = hm.id
+          join public.hotel_roles hr on hr.id = hmr.role_id
+          where hm.hotel_id = (select hotel_id from public.hotel_members where id = p_member_id limit 1)  -- Using a robust subquery instead of the local variable
+            and hm.is_active = true
+            and hr.code = 'OWNER'
+            and hm.id != p_member_id
+        ) then
+          raise exception 'Cannot deactivate the only remaining active owner of the hotel';
+        end if;
+      end if;
+    end if;
+
     update public.hotel_members set is_active = p_is_active where id = p_member_id;
   end if;
   

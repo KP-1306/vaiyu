@@ -1,5 +1,9 @@
 project_id = "vsqiuwbmawygkxxjrxnt"
 
+[auth]
+site_url = "http://127.0.0.1:8080"
+additional_redirect_urls = ["http://localhost:8080/*", "http://127.0.0.1:8080/*"]
+
 [functions]
 
 [functions.process-import-rows]

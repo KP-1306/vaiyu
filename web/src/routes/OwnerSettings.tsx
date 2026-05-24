@@ -7,6 +7,7 @@ import OwnerGate from "../components/OwnerGate";
 import SEO from "../components/SEO";
 import UsageMeter from "../components/UsageMeter";
 import RazorpayPanel from "../components/owner/RazorpayPanel";
+import WhatsAppPanel from "../components/owner/WhatsAppPanel";
 import { onboardRazorpayAccount, RazorpayServiceError } from "../services/razorpayService";
 // -------- Types --------
 type Theme = { brand?: string; mode?: "light" | "dark" };
@@ -52,6 +53,11 @@ type Hotel = {
   razorpay_account_id?: string | null;       // ROUTE-mode Linked Account
   razorpay_platform_fee_pct?: number | null; // ROUTE-mode platform fee
   razorpay_direct_key_id?: string | null;    // DIRECT-mode public key_id
+
+  // WhatsApp — per-hotel Meta config
+  wa_phone_number_id?: string | null;
+  wa_display_number?: string | null;
+  whatsapp_enabled?: boolean;
 };
 
 
@@ -175,6 +181,11 @@ export default function OwnerSettings() {
         razorpay_account_id: hRaw.razorpay_account_id ?? null,
         razorpay_platform_fee_pct: hRaw.razorpay_platform_fee_pct ?? null,
         razorpay_direct_key_id: hRaw.razorpay_direct_key_id ?? null,
+
+        // WhatsApp fields — load from DB so the panel shows current state on reload.
+        wa_phone_number_id: hRaw.wa_phone_number_id ?? null,
+        wa_display_number: hRaw.wa_display_number ?? null,
+        whatsapp_enabled: hRaw.whatsapp_enabled ?? false,
       };
 
       setHotel(normalizedHotel);
@@ -799,6 +810,21 @@ export default function OwnerSettings() {
                         <span className="text-xs text-slate-500 italic">Enter UPI ID to see QR preview</span>
                       )}
                     </div>
+                  </div>
+
+                  {/* WhatsApp — per-hotel Meta Business config */}
+                  <div className="mt-6">
+                    <WhatsAppPanel
+                      hotelId={hotel.id}
+                      waPhoneNumberId={hotel.wa_phone_number_id ?? null}
+                      waDisplayNumber={hotel.wa_display_number ?? null}
+                      whatsappEnabled={hotel.whatsapp_enabled ?? false}
+                      onChange={({ wa_phone_number_id, wa_display_number, whatsapp_enabled }) => {
+                        if (wa_phone_number_id !== undefined) patchHotel("wa_phone_number_id", wa_phone_number_id);
+                        if (wa_display_number !== undefined) patchHotel("wa_display_number", wa_display_number);
+                        if (whatsapp_enabled !== undefined) patchHotel("whatsapp_enabled", whatsapp_enabled);
+                      }}
+                    />
                   </div>
 
                   {/* Razorpay Route — per-hotel Linked Account */}

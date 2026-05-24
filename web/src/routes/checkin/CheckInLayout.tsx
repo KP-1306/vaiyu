@@ -99,7 +99,7 @@ export default function CheckInLayout() {
                         className="gn-header__logo"
                     >
                         <img 
-                            src="/brand/vaiyu-logo.png" 
+                            src="/brand/vaiyu-logo.webp" 
                             alt="VAiyu" 
                             className="h-9 w-auto object-contain"
                         />

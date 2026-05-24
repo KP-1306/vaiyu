@@ -20,7 +20,7 @@ export default function ResultsAndSocialProof() {
           {/* Left — Image + KPIs */}
           <div className="relative rounded-[2rem] overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.6)] ring-1 ring-[#d4af37]/20">
             <img
-              src="/illustrations/results_lobby.jpg"
+              src="/illustrations/results_lobby.webp"
               alt="Hotel lobby operations with staff in motion"
               className="w-full object-cover aspect-[4/3] opacity-80"
               loading="lazy"

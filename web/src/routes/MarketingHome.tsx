@@ -127,7 +127,7 @@ export default function MarketingHome() {
         sub: "AI turns live stay activity into faster service and delightful guest journeys.",
         cta: { label: "Learn more", href: "#why" },
         variant: "photo",
-        img: "/hero/ai-hero.png",
+        img: "/hero/ai-hero.webp",
         imgAlt: "AI hero background",
       },
       {
@@ -136,7 +136,7 @@ export default function MarketingHome() {
         sub: "Scan, confirm, head to your room. No kiosk queues.",
         cta: { label: "See how it works", href: "#ai" },
         variant: "photo",
-        img: "/hero/checkin.png",
+        img: "/hero/checkin.webp",
         imgAlt: "Guest scanning QR at the front desk",
       },
       {
@@ -147,7 +147,7 @@ export default function MarketingHome() {
           ? { label: "Staff workspace", href: staffHomeHref }
           : { label: "For hotels", href: ownerHomeHref },
         variant: "photo",
-        img: "/hero/sla.png",
+        img: "/hero/sla.webp",
         imgAlt: "Tablet with SLA dashboard",
       },
       {
@@ -156,7 +156,7 @@ export default function MarketingHome() {
         sub: "AI drafts grounded in verified stay data—owners approve, brand stays safe.",
         cta: { label: "Moderation overview", href: "/about-ai" },
         variant: "photo",
-        img: "/hero/reviews.png",
+        img: "/hero/reviews.webp",
         imgAlt: "Owner reviewing AI draft",
       },
       {
@@ -165,7 +165,7 @@ export default function MarketingHome() {
         sub: "Tariff-aware actions and device shedding without drama.",
         cta: { label: "Learn about grid mode", href: "/grid/devices" },
         variant: "photo",
-        img: "/hero/grid.png",
+        img: "/hero/grid.webp",
         imgAlt: "Energy dashboard on wall tablet",
       },
       {
@@ -176,7 +176,7 @@ export default function MarketingHome() {
           ? { label: "Open owner home", href: ownerHomeHref }
           : { label: "For hotels", href: ownerHomeHref },
         variant: "photo",
-        img: "/hero/owner-console.png",
+        img: "/hero/owner-console.webp",
         imgAlt: "Owner console KPIs on monitor",
       },
     ],

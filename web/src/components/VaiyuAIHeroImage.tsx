@@ -13,8 +13,8 @@ export default function VaiyuAIHeroImage() {
               media="(prefers-color-scheme: dark)"
             /> */}
             <img
-              src="/illustrations/vaiyu-intelligence-final.png"
-              srcSet="/illustrations/vaiyu-intelligence-final.png 1x, /illustrations/vaiyu-intelligence-final@2x.png 2x"
+              src="/illustrations/vaiyu-intelligence-final.webp"
+              srcSet="/illustrations/vaiyu-intelligence-final.webp 1x, /illustrations/vaiyu-intelligence-final@2x.png 2x"
               alt="Vaiyu AI Intelligence at the core: Guest Experience, Property Efficiency, Brand Value, and Self-Improvement connected by a smart operating system"
               className="block w-full h-auto"
               loading="eager"

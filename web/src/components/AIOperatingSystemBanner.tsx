@@ -34,8 +34,8 @@ export default function AIOperatingSystemBanner() {
             <div className="relative bg-white p-0">
               <figure className="m-0">
                 <img
-                  src="/illustrations/ai-os-banner.png"
-                  srcSet="/illustrations/ai-os-banner.png 1x, /illustrations/ai-os-banner@2x.png 2x"
+                  src="/illustrations/ai-os-banner.webp"
+                  srcSet="/illustrations/ai-os-banner.webp 1x, /illustrations/ai-os-banner@2x.png 2x"
                   alt="VAiyu Intelligence — AI + Sustainability engine transforming hotel operations"
                   className="block w-full h-full object-contain"
                   loading="eager"

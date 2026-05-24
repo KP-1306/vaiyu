@@ -2,12 +2,12 @@ import React from "react";
 
 export default function LiveProductPeek() {
   const items = [
-    { tag: "Guest", poster: "/illustrations/peek_guest.png", y: 0 },
-    { tag: "Staff", poster: "/illustrations/peek_staff.png", y: -10 },
-    { tag: "Owner", poster: "/illustrations/peek_owner.png", y: 0 },
+    { tag: "Guest", poster: "/illustrations/peek_guest.webp", y: 0 },
+    { tag: "Staff", poster: "/illustrations/peek_staff.webp", y: -10 },
+    { tag: "Owner", poster: "/illustrations/peek_owner.webp", y: 0 },
   ] as const;
 
-  const FALLBACK = "/illustrations/peek_poster.png";
+  const FALLBACK = "/illustrations/peek_poster.webp";
 
   return (
     <section id="peek" className="py-12 bg-transparent">

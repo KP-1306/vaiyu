@@ -63,14 +63,14 @@ export default function Press() {
             <div className="p-8 rounded-2xl border border-[#d4af37]/20 bg-[#060608] flex items-center justify-center min-h-[200px] shadow-inner">
               <div className="h-24 w-24 rounded-full bg-[#141210] border border-[#d4af37]/30 shadow-[0_0_24px_rgba(212,175,55,0.2)] flex items-center justify-center p-1 overflow-hidden transition-transform hover:scale-105 duration-300">
                 <img
-                  src="/brand/vaiyu-logo.png"
+                  src="/brand/vaiyu-logo.webp"
                   alt="VAiyu Primary Logo"
                   className="w-full h-full object-contain rounded-full"
                 />
               </div>
             </div>
             
-            <a className="inline-flex w-full items-center justify-center px-4 py-3 font-semibold bg-[#1a1816] text-[#b8b3a8] border border-[#d4af37]/30 rounded-xl hover:bg-[#d4af37] hover:text-[#0a0a0c] transition-all hover:shadow-[0_0_15px_rgba(212,175,55,0.4)]" href="/brand/vaiyu-logo.png" download>
+            <a className="inline-flex w-full items-center justify-center px-4 py-3 font-semibold bg-[#1a1816] text-[#b8b3a8] border border-[#d4af37]/30 rounded-xl hover:bg-[#d4af37] hover:text-[#0a0a0c] transition-all hover:shadow-[0_0_15px_rgba(212,175,55,0.4)]" href="/brand/vaiyu-logo.webp" download>
               Download Logo (PNG)
             </a>
           </div>

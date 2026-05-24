@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { X, ChevronDown, CheckCircle2 } from "lucide-react";
+import { X, ChevronDown, CheckCircle2, RotateCcw, AlertTriangle, Loader2 } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { RazorpayServiceError } from "../services/razorpayService";
+import { getRazorpayClient } from "../services/razorpayClient";
 
 interface FolioDrawerProps {
     isOpen: boolean;
@@ -24,6 +26,12 @@ interface Transaction {
     collected_by: string;
     created_at: string;
     reference_id: string;
+    /** Set when this payment was captured via Razorpay — enables Refund button */
+    razorpay_payment_id?: string | null;
+    /** Which Razorpay credential path was used. Drives refund dispatch
+     *  (Route vs Direct) so old DIRECT payments still refund via DIRECT keys
+     *  even if the hotel has since switched to ROUTE. */
+    razorpay_mode?: "DIRECT" | "ROUTE" | null;
 }
 
 interface ArrivalEvent {
@@ -51,6 +59,56 @@ export default function FolioDrawer({ isOpen, onClose, arrival }: FolioDrawerPro
     const [paymentLoading, setPaymentLoading] = useState(false);
     const [isPaymentMethodOpen, setIsPaymentMethodOpen] = useState(false);
 
+    // Refund modal state
+    const [refundFor, setRefundFor] = useState<Transaction | null>(null);
+    const [refundAmount, setRefundAmount] = useState<number | "">("");
+    const [refundReason, setRefundReason] = useState<string>("");
+    const [refundBusy, setRefundBusy] = useState(false);
+    const [refundError, setRefundError] = useState<string | null>(null);
+
+    function openRefundModal(tx: Transaction) {
+        setRefundFor(tx);
+        setRefundAmount(tx.amount);
+        setRefundReason("");
+        setRefundError(null);
+    }
+    function closeRefundModal() {
+        setRefundFor(null);
+        setRefundBusy(false);
+        setRefundError(null);
+    }
+    async function submitRefund() {
+        if (!refundFor) return;
+        if (refundAmount === "" || Number(refundAmount) <= 0) {
+            setRefundError("Refund amount must be > 0");
+            return;
+        }
+        if (Number(refundAmount) > refundFor.amount + 0.001) {
+            setRefundError(`Cannot refund more than the original amount (₹${refundFor.amount.toLocaleString()})`);
+            return;
+        }
+        setRefundBusy(true);
+        setRefundError(null);
+        try {
+            // Dispatch to the right Razorpay client based on how the original
+            // payment was captured. A DIRECT-captured payment MUST be refunded
+            // via DIRECT keys (hotel's own Razorpay account holds the funds).
+            await getRazorpayClient(refundFor.razorpay_mode ?? "ROUTE").createRefund({
+                paymentId: refundFor.id,
+                amount: Number(refundAmount),
+                reason: refundReason.trim() || undefined,
+            });
+            closeRefundModal();
+            // Refresh the folio view — payment row + new folio entry will reflect
+            fetchFolioAndTransactions();
+        } catch (e) {
+            const msg = e instanceof RazorpayServiceError ? e.message : String((e as any)?.message ?? e);
+            setRefundError(msg);
+        } finally {
+            setRefundBusy(false);
+        }
+    }
+
     useEffect(() => {
         if (!isOpen || !arrival?.booking_id) return;
         fetchFolioAndTransactions();
@@ -70,7 +128,7 @@ export default function FolioDrawer({ isOpen, onClose, arrival }: FolioDrawerPro
         // Fetch Transactions
         const { data: txData } = await supabase
             .from("payments")
-            .select("id, amount, method, status, collected_by, created_at, reference_id")
+            .select("id, amount, method, status, collected_by, created_at, reference_id, razorpay_payment_id, razorpay_mode")
             .eq("booking_id", arrival.booking_id)
             .order("created_at", { ascending: false });
 
@@ -276,10 +334,19 @@ export default function FolioDrawer({ isOpen, onClose, arrival }: FolioDrawerPro
 
     if (!isOpen || !arrival) return null;
 
-    // Derived Financials from Entries
-    // For simplicity, let's just group by type
-    const roomCharges = entries.filter(e => e.entry_type === "ROOM_CHARGE").reduce((acc, e) => acc + Number(e.amount), 0);
-    const foodCharges = entries.filter(e => e.entry_type === "FOOD_CHARGE").reduce((acc, e) => acc + Number(e.amount), 0);
+    // Derived Financials from Entries — group by entry_type so each line in
+    // the folio summary maps to a single category. ADJUSTMENT can be either
+    // a discount (negative) or a surcharge (positive); split on sign.
+    const sumWhere = (pred: (e: FolioEntry) => boolean) =>
+        entries.filter(pred).reduce((acc, e) => acc + Number(e.amount), 0);
+    const roomCharges = sumWhere(e => e.entry_type === "ROOM_CHARGE");
+    const foodCharges = sumWhere(e => e.entry_type === "FOOD_CHARGE");
+    const serviceCharges = sumWhere(e => e.entry_type === "SERVICE_CHARGE");
+    const taxAmount = sumWhere(e => e.entry_type === "TAX");
+    const discountAmount = -sumWhere(e => e.entry_type === "ADJUSTMENT" && Number(e.amount) < 0);
+    const surchargeAmount = sumWhere(e => e.entry_type === "ADJUSTMENT" && Number(e.amount) > 0);
+    // totalCharges = all non-payment entries with their stored sign — includes
+    // ADJUSTMENT's negative sign so the discount is correctly subtracted.
     const totalCharges = entries.filter(e => !["PAYMENT", "REFUND"].includes(e.entry_type)).reduce((acc, e) => acc + Number(e.amount), 0);
     const totalPayments = entries.filter(e => ["PAYMENT", "REFUND"].includes(e.entry_type)).reduce((acc, e) => acc + Math.abs(Number(e.amount)), 0);
 
@@ -358,10 +425,34 @@ export default function FolioDrawer({ isOpen, onClose, arrival }: FolioDrawerPro
                                             <span>Room Charges</span>
                                             <span>₹ {roomCharges.toLocaleString('en-IN')}</span>
                                         </div>
+                                        {discountAmount > 0 && (
+                                            <div className="flex justify-between items-center text-[#78B48B]">
+                                                <span>Discount</span>
+                                                <span>(-₹ {discountAmount.toLocaleString('en-IN')})</span>
+                                            </div>
+                                        )}
+                                        {surchargeAmount > 0 && (
+                                            <div className="flex justify-between items-center text-[#F3E6D0]/90">
+                                                <span>Surcharge</span>
+                                                <span>₹ {surchargeAmount.toLocaleString('en-IN')}</span>
+                                            </div>
+                                        )}
+                                        {taxAmount > 0 && (
+                                            <div className="flex justify-between items-center text-[#F3E6D0]/90">
+                                                <span>Tax</span>
+                                                <span>₹ {taxAmount.toLocaleString('en-IN')}</span>
+                                            </div>
+                                        )}
                                         {foodCharges > 0 && (
                                             <div className="flex justify-between items-center text-[#F3E6D0]/90">
                                                 <span>Food / F&B</span>
                                                 <span>₹ {foodCharges.toLocaleString('en-IN')}</span>
+                                            </div>
+                                        )}
+                                        {serviceCharges > 0 && (
+                                            <div className="flex justify-between items-center text-[#F3E6D0]/90">
+                                                <span>Service</span>
+                                                <span>₹ {serviceCharges.toLocaleString('en-IN')}</span>
                                             </div>
                                         )}
                                         {totalPayments > 0 && (
@@ -557,11 +648,27 @@ export default function FolioDrawer({ isOpen, onClose, arrival }: FolioDrawerPro
                                                         {tx.collected_by && staffNames[tx.collected_by] ? staffNames[tx.collected_by] : "System"}
                                                     </span>
                                                 </div>
-                                                {tx.reference_id && (
-                                                    <div className="text-[#F3E6D0]/30 font-mono tracking-tight">
-                                                        #{/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(tx.reference_id) ? tx.reference_id.substring(0, 8).toUpperCase() : tx.reference_id}
-                                                    </div>
-                                                )}
+                                                <div className="flex items-center gap-3">
+                                                    {/* Refund only for COMPLETED Razorpay payments. Cash refunds
+                                                        are a different workflow (no gateway round-trip) and aren't
+                                                        wired yet. */}
+                                                    {tx.status === "COMPLETED" && tx.razorpay_payment_id && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => openRefundModal(tx)}
+                                                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 transition-colors text-[10px] font-bold uppercase tracking-wider"
+                                                            title="Refund this payment via Razorpay (reverse_all)"
+                                                        >
+                                                            <RotateCcw className="w-3 h-3" />
+                                                            Refund
+                                                        </button>
+                                                    )}
+                                                    {tx.reference_id && (
+                                                        <div className="text-[#F3E6D0]/30 font-mono tracking-tight">
+                                                            #{/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(tx.reference_id) ? tx.reference_id.substring(0, 8).toUpperCase() : tx.reference_id}
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     ))}
@@ -727,6 +834,108 @@ export default function FolioDrawer({ isOpen, onClose, arrival }: FolioDrawerPro
                             >
                                 {paymentLoading ? "Processing..." : "Record Payment"}
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Refund modal — only mounted when refundFor is set */}
+            {refundFor && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+                    <div className="w-full max-w-md rounded-2xl border border-amber-500/30 bg-[#1a1a1a] p-6 shadow-2xl">
+                        <div className="flex items-start justify-between mb-4">
+                            <div className="flex items-start gap-3">
+                                <div className="h-10 w-10 rounded-xl bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center justify-center">
+                                    <RotateCcw className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-[#F3E6D0]">Refund payment</h3>
+                                    <p className="text-xs text-[#F3E6D0]/60 mt-0.5">
+                                        Refund via Razorpay (Linked Account is debited)
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={closeRefundModal}
+                                className="p-1.5 text-[#F3E6D0]/40 hover:text-[#F3E6D0] rounded-md transition-colors"
+                                aria-label="Close"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="text-xs text-[#F3E6D0]/60 bg-white/5 rounded-lg px-3 py-2 border border-white/10">
+                                Original payment: <span className="font-mono text-[#F3E6D0]">₹{refundFor.amount.toLocaleString("en-IN")}</span>
+                                {" · "}
+                                <span className="capitalize">{refundFor.method.toLowerCase()}</span>
+                                {refundFor.razorpay_payment_id && (
+                                    <>
+                                        {" · "}
+                                        <span className="font-mono text-[10px] text-[#F3E6D0]/50">{refundFor.razorpay_payment_id}</span>
+                                    </>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#F3E6D0]/70 mb-1.5">
+                                    Amount to refund (₹)
+                                </label>
+                                <input
+                                    type="number"
+                                    min={0.01}
+                                    step={0.01}
+                                    max={refundFor.amount}
+                                    value={refundAmount}
+                                    onChange={(e) => setRefundAmount(e.target.value === "" ? "" : Number(e.target.value))}
+                                    className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-mono text-[#F3E6D0] focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                                />
+                                <p className="text-[11px] text-[#F3E6D0]/40 mt-1">
+                                    Defaults to full amount. Partial refunds allowed.
+                                </p>
+                            </div>
+
+                            <div>
+                                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#F3E6D0]/70 mb-1.5">
+                                    Reason <span className="text-[#F3E6D0]/30 font-normal normal-case">(staff note, optional)</span>
+                                </label>
+                                <textarea
+                                    value={refundReason}
+                                    onChange={(e) => setRefundReason(e.target.value)}
+                                    placeholder="Guest disputed extra night charge…"
+                                    rows={2}
+                                    className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-[#F3E6D0] placeholder-[#F3E6D0]/30 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 resize-none"
+                                />
+                            </div>
+
+                            {refundError && (
+                                <div className="flex items-start gap-2 p-3 rounded-lg border border-rose-500/30 bg-rose-500/10 text-xs text-rose-300">
+                                    <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                                    <span>{refundError}</span>
+                                </div>
+                            )}
+
+                            <div className="text-[11px] text-[#F3E6D0]/40 leading-relaxed border-t border-white/5 pt-3">
+                                Refunds are processed with <code className="bg-white/5 px-1 rounded">reverse_all: 1</code> so funds come back from this hotel's Razorpay Linked Account. Razorpay typically settles refunds within 5–7 business days.
+                            </div>
+
+                            <div className="flex gap-2 pt-1">
+                                <button
+                                    onClick={closeRefundModal}
+                                    disabled={refundBusy}
+                                    className="flex-1 py-2.5 rounded-lg border border-white/10 bg-white/5 text-sm font-medium text-[#F3E6D0]/70 hover:bg-white/10 disabled:opacity-50 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={submitRefund}
+                                    disabled={refundBusy || refundAmount === "" || Number(refundAmount) <= 0}
+                                    className="flex-1 py-2.5 rounded-lg bg-amber-600 text-sm font-bold text-white hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-2"
+                                >
+                                    {refundBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+                                    {refundBusy ? "Processing…" : "Refund"}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

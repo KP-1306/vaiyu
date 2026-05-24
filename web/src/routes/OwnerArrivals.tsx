@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import PendingExtensionsCard from "../components/owner/PendingExtensionsCard";
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import {
     AlertCircle,
@@ -30,8 +31,50 @@ import {
 } from 'lucide-react';
 import { SimpleTooltip } from "../components/SimpleTooltip";
 import FolioDrawer from "../components/FolioDrawer";
+import { parseDbDate } from "../utils/dateUtils";
+import { LogOut } from "lucide-react";
 import "./guestnew/guestnew.css";
 import "./arrivals.css";
+
+/** ===== Checkout urgency (frontend-only, IST-aware, time-precision) =====
+ *  Computes per-row state from `scheduled_checkout_at` so staff can see at a glance
+ *  who's overdue or departing today. Time-precision so a guest scheduled to leave
+ *  today 11:00 IST shows "overdue" once 11:00 has passed, not "departing today" all day. */
+type CheckoutState = "overdue" | "today" | "future" | "na";
+
+function ymdInIST(d: Date | null): string | null {
+    if (!d) return null;
+    // 'en-CA' formats as YYYY-MM-DD; combined with timeZone gives the IST date string.
+    return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+}
+
+function computeCheckoutState(
+    arrival: { arrival_operational_state: string; scheduled_checkout_at?: string | null },
+    now: Date,
+): { state: CheckoutState; hoursLate: number; daysLate: number } {
+    const isInHouse = [
+        "CHECKED_IN",
+        "PARTIALLY_ARRIVED",
+        "CHECKOUT_REQUESTED",
+    ].includes(arrival.arrival_operational_state);
+    if (!isInHouse || !arrival.scheduled_checkout_at) return { state: "na", hoursLate: 0, daysLate: 0 };
+
+    const checkoutDate = parseDbDate(arrival.scheduled_checkout_at);
+    if (!checkoutDate) return { state: "na", hoursLate: 0, daysLate: 0 };
+
+    const diffMs = now.getTime() - checkoutDate.getTime();
+    if (diffMs > 0) {
+        const hoursLate = Math.max(1, Math.floor(diffMs / 3_600_000));
+        const daysLate = Math.floor(hoursLate / 24);
+        return { state: "overdue", hoursLate, daysLate };
+    }
+
+    // Future — same IST calendar day means "departing today"
+    const checkoutISTDate = ymdInIST(checkoutDate);
+    const nowISTDate = ymdInIST(now);
+    if (checkoutISTDate === nowISTDate) return { state: "today", hoursLate: 0, daysLate: 0 };
+    return { state: "future", hoursLate: 0, daysLate: 0 };
+}
 /* ─────── types ─────── */
 
 interface OperationalArrival {
@@ -100,6 +143,111 @@ const QuickFilterPill = ({ label, count, icon, color, active, onClick }: { label
         <span className={`${active ? 'text-black/70' : color} font-black ml-1`}>{count}</span>
     </button>
 );
+
+/** Always-on checkout attention banner — sits at the top of the arrivals page so
+ *  staff see overdue/departing-today guests regardless of the table's date filter.
+ *  Collapses to nothing when there's nothing to surface. */
+const CheckoutAttentionStrip = ({
+    overdue,
+    departingToday,
+    onViewOverdue,
+    onViewDepartingToday,
+}: {
+    overdue: number;
+    departingToday: number;
+    onViewOverdue: () => void;
+    onViewDepartingToday: () => void;
+}) => {
+    if (overdue === 0 && departingToday === 0) return null;
+    const top: "rose" | "amber" = overdue > 0 ? "rose" : "amber";
+    const shellClass = top === "rose"
+        ? "border-rose-500/30 bg-gradient-to-br from-rose-500/[0.08] via-transparent to-transparent"
+        : "border-amber-500/30 bg-gradient-to-br from-amber-500/[0.08] via-transparent to-transparent";
+    return (
+        <div className={`rounded-2xl border ${shellClass} backdrop-blur-md overflow-hidden`}>
+            <div className="flex items-center justify-between gap-3 px-5 py-2.5 border-b border-white/5">
+                <div className="flex items-center gap-2">
+                    <span className={`h-2 w-2 rounded-full ${top === "rose" ? "bg-rose-400 animate-pulse" : "bg-amber-400"}`} />
+                    <span className={`text-[11px] font-black uppercase tracking-[0.18em] ${top === "rose" ? "text-rose-300" : "text-amber-300"}`}>
+                        Checkout attention
+                    </span>
+                </div>
+                <span className="text-[11px] text-slate-500 font-medium">
+                    Always-on · independent of date filter
+                </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-white/5">
+                {overdue > 0 && (
+                    <div className="flex items-center gap-3 px-5 py-3">
+                        <div className="h-9 w-9 shrink-0 rounded-lg border bg-rose-500/15 text-rose-300 border-rose-500/30 flex items-center justify-center">
+                            <AlertCircle className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <div className="text-sm font-bold text-white">
+                                {overdue} overdue checkout{overdue === 1 ? "" : "s"}
+                            </div>
+                            <div className="text-xs text-slate-400">Past scheduled checkout time and still in-house.</div>
+                        </div>
+                        <button
+                            onClick={onViewOverdue}
+                            className="shrink-0 inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider px-3 py-1.5 rounded-lg border bg-rose-500/15 hover:bg-rose-500/25 text-rose-200 hover:text-white border-rose-500/30 transition-colors"
+                        >
+                            View <ArrowRight className="w-3 h-3" />
+                        </button>
+                    </div>
+                )}
+                {departingToday > 0 && (
+                    <div className="flex items-center gap-3 px-5 py-3">
+                        <div className="h-9 w-9 shrink-0 rounded-lg border bg-amber-500/15 text-amber-300 border-amber-500/30 flex items-center justify-center">
+                            <LogOut className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <div className="text-sm font-bold text-white">
+                                {departingToday} departing today
+                            </div>
+                            <div className="text-xs text-slate-400">Scheduled to check out later today.</div>
+                        </div>
+                        <button
+                            onClick={onViewDepartingToday}
+                            className="shrink-0 inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider px-3 py-1.5 rounded-lg border bg-amber-500/15 hover:bg-amber-500/25 text-amber-200 hover:text-white border-amber-500/30 transition-colors"
+                        >
+                            View <ArrowRight className="w-3 h-3" />
+                        </button>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+/** Inline departure-urgency pill — pairs color with shape (icon + text) for a11y. */
+const DepartureBadge = ({ state, hoursLate, daysLate }: { state: CheckoutState; hoursLate: number; daysLate: number }) => {
+    if (state === "na" || state === "future") return null;
+    const baseClasses = "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black border uppercase tracking-wider w-fit";
+    if (state === "overdue") {
+        const lateLabel = daysLate >= 1 ? `${daysLate}d late` : `${hoursLate}h late`;
+        const tooltipDuration = daysLate >= 1
+            ? `${daysLate} day${daysLate === 1 ? "" : "s"} past the scheduled checkout`
+            : `${hoursLate} hour${hoursLate === 1 ? "" : "s"} past the scheduled checkout time`;
+        return (
+            <SimpleTooltip content={`${tooltipDuration} and the guest is still in-house. Process the checkout or extend the stay.`}>
+                <span className={`${baseClasses} bg-rose-500/10 text-rose-300 border-rose-500/30`}>
+                    <AlertCircle className="w-2.5 h-2.5" />
+                    Overdue · {lateLabel}
+                </span>
+            </SimpleTooltip>
+        );
+    }
+    // state === "today"
+    return (
+        <SimpleTooltip content="Scheduled to check out later today.">
+            <span className={`${baseClasses} bg-amber-500/10 text-amber-300 border-amber-500/30`}>
+                <LogOut className="w-2.5 h-2.5" />
+                Departing today
+            </span>
+        </SimpleTooltip>
+    );
+};
 
 const StatusBadge = ({ state, urgency }: { state: string, urgency: string }) => {
     const baseClasses = "inline-flex items-center px-3 py-1.5 rounded-full text-[10px] font-bold border shadow-sm uppercase tracking-wider";
@@ -206,7 +354,7 @@ export default function OwnerArrivals() {
         onConfirm?: () => void;
     }>({ isOpen: false, type: 'alert', title: '', message: '' });
 
-    const handleApproveCheckout = async (row: OperationalArrival, source: 'GUEST' | 'STAFF' = 'GUEST') => {
+    const handleApproveCheckout = async (row: OperationalArrival, source: 'GUEST' | 'STAFF' = 'GUEST', ctdAcknowledged: boolean = false) => {
         if (!row.active_stay_id) {
             setCheckoutModal({
                 isOpen: true,
@@ -217,13 +365,51 @@ export default function OwnerArrivals() {
             return;
         }
 
+        // CTD precheck: if any room type on this booking is closed-to-departure
+        // for today's date, ask staff to confirm the override before proceeding.
+        // We check by date (DATE part of scheduled_checkout_at) for each
+        // room_type_id on the booking — any CTD hit blocks unless overridden.
+        if (!ctdAcknowledged) {
+            const { isClosedToDeparture } = await import("../services/rateService");
+            const today = new Date().toISOString().slice(0, 10);
+            const types = row.room_type_ids?.length ? row.room_type_ids : [null];
+            for (const rtId of types) {
+                const blocked = await isClosedToDeparture(row.hotel_id, rtId, today);
+                if (blocked) {
+                    setCheckoutModal({
+                        isOpen: true,
+                        type: 'confirm',
+                        title: 'Closed to Departure',
+                        message: (
+                            <>
+                                <p>
+                                    Today (<span className="font-semibold">{today}</span>) is flagged
+                                    <span className="font-semibold"> closed to departure</span> for this room type.
+                                </p>
+                                <p className="mt-2 text-sm text-slate-400">
+                                    Typical reasons: peak-night minimum-stay enforcement, group-block
+                                    integrity. Confirming will bypass the block — make sure this is
+                                    authorized by a manager.
+                                </p>
+                            </>
+                        ),
+                        onConfirm: () => {
+                            setCheckoutModal({ isOpen: false, type: 'alert', title: '', message: '' });
+                            handleApproveCheckout(row, source, /* ctdAcknowledged */ true);
+                        },
+                    });
+                    return;
+                }
+            }
+        }
+
         setApprovingCheckout(row.booking_id);
         try {
             const { error, data } = await supabase.rpc('checkout_stay', {
                 p_hotel_id: row.hotel_id,
                 p_booking_id: row.booking_id,
                 p_stay_id: row.active_stay_id,
-                p_force: row.pending_amount > 0,
+                p_force: row.pending_amount > 0 || ctdAcknowledged,
                 p_source: source
             });
 
@@ -411,6 +597,39 @@ export default function OwnerArrivals() {
         return rows;
     }, [arrivals, roomTypeFilter]);
 
+    // Live "now" reference — refreshed every minute so badges age naturally
+    const [now, setNow] = useState(() => new Date());
+    useEffect(() => {
+        const id = setInterval(() => setNow(new Date()), 60_000);
+        return () => clearInterval(id);
+    }, []);
+
+    // Parallel fetch: all currently in-house guests, regardless of dateFilter.
+    // This keeps the checkout-urgency counts accurate even when the table is
+    // showing only "Today's arrivals" (which would otherwise hide a guest who
+    // checked in yesterday and is now overdue to leave).
+    const [inHouseGuests, setInHouseGuests] = useState<OperationalArrival[]>([]);
+    useEffect(() => {
+        if (!hotelId) return;
+        let cancelled = false;
+        const load = async () => {
+            const { data } = await supabase
+                .from("v_arrival_dashboard_rows")
+                .select("*")
+                .eq("hotel_id", hotelId)
+                .in("arrival_operational_state", ["CHECKED_IN", "PARTIALLY_ARRIVED", "CHECKOUT_REQUESTED"]);
+            if (!cancelled && data) setInHouseGuests(data);
+        };
+        load();
+        // Refresh on the same realtime channel as the main dashboard
+        const channel = supabase
+            .channel(`inhouse-checkout-${hotelId}`)
+            .on("postgres_changes", { event: "*", schema: "public", table: "stays" }, load)
+            .on("postgres_changes", { event: "*", schema: "public", table: "bookings" }, load)
+            .subscribe();
+        return () => { cancelled = true; supabase.removeChannel(channel); };
+    }, [hotelId]);
+
     // Stats (Driven by Context)
     const stats = useMemo(() => ({
         total: contextArrivals.length,
@@ -422,8 +641,12 @@ export default function OwnerArrivals() {
         waitingRoom: contextArrivals.filter(a => a.arrival_operational_state === "WAITING_ROOM_ASSIGNMENT").length,
         paymentPending: contextArrivals.filter(a => a.payment_pending).length,
         vip: contextArrivals.filter(a => a.vip_flag).length,
-        checkoutRequested: contextArrivals.filter(a => a.arrival_operational_state === "CHECKOUT_REQUESTED").length
-    }), [contextArrivals]);
+        checkoutRequested: contextArrivals.filter(a => a.arrival_operational_state === "CHECKOUT_REQUESTED").length,
+
+        // Checkout urgency — computed from in-house list so dateFilter can't hide them
+        overdue: inHouseGuests.filter(a => computeCheckoutState(a, now).state === "overdue").length,
+        departingToday: inHouseGuests.filter(a => computeCheckoutState(a, now).state === "today").length,
+    }), [contextArrivals, inHouseGuests, now]);
 
     // Timeline Data (Driven by Context)
     const timelineData = useMemo(() => {
@@ -532,6 +755,8 @@ export default function OwnerArrivals() {
         else if (statusFilter === "PARTIALLY_ARRIVED") rows = rows.filter(r => r.arrival_operational_state === "PARTIALLY_ARRIVED");
         else if (statusFilter === "ARRIVED") rows = rows.filter(r => ["PARTIALLY_ARRIVED", "CHECKED_IN"].includes(r.arrival_operational_state));
         else if (statusFilter === "CHECKOUT_REQUESTED") rows = rows.filter(r => r.arrival_operational_state === "CHECKOUT_REQUESTED");
+        else if (statusFilter === "OVERDUE") rows = rows.filter(r => computeCheckoutState(r, now).state === "overdue");
+        else if (statusFilter === "DEPARTING_TODAY") rows = rows.filter(r => computeCheckoutState(r, now).state === "today");
         else if (statusFilter === "NO_ROOMS") rows = rows.filter(r => r.arrival_operational_state === "NO_ROOMS");
         else if (statusFilter === "PAYMENT_PENDING") rows = rows.filter(r => r.payment_pending);
         else if (statusFilter === "VIP") rows = rows.filter(r => r.vip_flag);
@@ -642,8 +867,16 @@ export default function OwnerArrivals() {
         onFolioOpen: (arrival: OperationalArrival) => void;
         onApproveCheckout: (arrival: OperationalArrival, source?: 'GUEST' | 'STAFF') => void;
         approvingCheckout: boolean;
-    }) => (
-        <tr key={arrival.booking_id} className="hover:bg-[var(--gold-400)]/5 transition-all group">
+    }) => {
+        const checkout = computeCheckoutState(arrival, now);
+        const overdueRow = checkout.state === "overdue";
+        return (
+        <tr
+            key={arrival.booking_id}
+            className={`transition-all group ${overdueRow
+                ? "bg-rose-500/[0.04] border-l-4 border-rose-500/60 hover:bg-rose-500/[0.08]"
+                : "hover:bg-[var(--gold-400)]/5"}`}
+        >
             {/* Guest */}
             <td className="px-6 py-4 whitespace-nowrap">
                 <div className="flex items-center">
@@ -718,7 +951,10 @@ export default function OwnerArrivals() {
 
             {/* Status */}
             <td className="px-6 py-4 whitespace-nowrap">
-                <StatusBadge state={arrival.arrival_operational_state} urgency={arrival.urgency_level} />
+                <div className="flex flex-col gap-1.5">
+                    <StatusBadge state={arrival.arrival_operational_state} urgency={arrival.urgency_level} />
+                    <DepartureBadge state={checkout.state} hoursLate={checkout.hoursLate} daysLate={checkout.daysLate} />
+                </div>
             </td>
 
             {/* Room */}
@@ -842,12 +1078,24 @@ export default function OwnerArrivals() {
                 </div>
             </td>
         </tr>
-    );
+        );
+    };
 
 
     return (
         <div className="arrivals-board min-h-screen font-sans">
             <div className="arrivals-board-content p-6 space-y-6">
+
+                {/* Always-on checkout attention banner — independent of dateFilter */}
+                <CheckoutAttentionStrip
+                    overdue={stats.overdue}
+                    departingToday={stats.departingToday}
+                    onViewOverdue={() => { setStatusFilter("OVERDUE"); setDateFilter("ALL"); }}
+                    onViewDepartingToday={() => { setStatusFilter("DEPARTING_TODAY"); setDateFilter("ALL"); }}
+                />
+
+                {/* Pending stay-extension requests (renders nothing if list is empty) */}
+                <PendingExtensionsCard hotelId={hotelId} onResolved={fetchDashboard} />
 
                 {/* Header & Actions */}
                 <div className="flex justify-between items-center gn-card p-6 shadow-2xl">
@@ -1214,6 +1462,30 @@ export default function OwnerArrivals() {
                         color="text-amber-400"
                         active={statusFilter === "CHECKOUT_REQUESTED"}
                         onClick={() => setStatusFilter(statusFilter === "CHECKOUT_REQUESTED" ? null : "CHECKOUT_REQUESTED")}
+                    />
+                    <QuickFilterPill
+                        label="Departing Today"
+                        count={stats.departingToday}
+                        icon={<LogOut className="w-4 h-4" />}
+                        color="text-amber-400"
+                        active={statusFilter === "DEPARTING_TODAY"}
+                        onClick={() => {
+                            if (statusFilter === "DEPARTING_TODAY") { setStatusFilter(null); return; }
+                            setStatusFilter("DEPARTING_TODAY");
+                            setDateFilter("ALL"); // ensure in-house guests from past dates are loaded
+                        }}
+                    />
+                    <QuickFilterPill
+                        label="Overdue"
+                        count={stats.overdue}
+                        icon={<AlertCircle className="w-4 h-4" />}
+                        color="text-rose-400"
+                        active={statusFilter === "OVERDUE"}
+                        onClick={() => {
+                            if (statusFilter === "OVERDUE") { setStatusFilter(null); return; }
+                            setStatusFilter("OVERDUE");
+                            setDateFilter("ALL");
+                        }}
                     />
                 </div>
 

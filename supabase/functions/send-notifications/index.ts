@@ -103,6 +103,26 @@ async function formatWhatsAppMessage(
         const hotel = payload.hotel_name || "our hotel";
         return `Thank you for staying with us at ${hotel}, ${guest}! We hope you had a wonderful experience. We'd love your feedback — it takes just a minute: ${feedbackLink}`;
     }
+    // ─── Stay extension — guest-facing decisions ───
+    if (template === "extension_approved_guest") {
+        const hotel = payload.hotel_name || "the hotel";
+        const newDate = payload.new_checkout_at
+            ? new Date(payload.new_checkout_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+            : "your new date";
+        const nights = payload.additional_nights || 1;
+        const charge = (payload.additional_amount && Number(payload.additional_amount) > 0)
+            ? ` An additional charge of ₹${Number(payload.additional_amount).toLocaleString("en-IN")} has been added to your folio.`
+            : "";
+        return `Hi ${guest}, your stay extension at ${hotel} is approved. New checkout: ${newDate} (${nights} additional night${nights === 1 ? "" : "s"}).${charge}`;
+    }
+    if (template === "extension_rejected_guest") {
+        const hotel = payload.hotel_name || "the hotel";
+        const requestedDate = payload.requested_checkout_at
+            ? new Date(payload.requested_checkout_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+            : "your requested date";
+        const note = payload.staff_note ? ` Reason: ${payload.staff_note}.` : "";
+        return `Hi ${guest}, we're unable to extend your stay at ${hotel} to ${requestedDate}.${note} Please contact the front desk if you'd like to discuss alternatives.`;
+    }
     return `Notification: ${JSON.stringify(payload)}`;
 }
 
@@ -378,6 +398,66 @@ async function formatEmailMessage(
                 This link is unique to your stay and expires in 30 days.
               </p>
             ${thankYouFooter}
+        `;
+    }
+
+    // ─── Stay extension — guest-facing decisions ───
+    if (template === "extension_approved_guest") {
+        const newDate = payload.new_checkout_at
+            ? new Date(payload.new_checkout_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+            : "your new date";
+        const nights = payload.additional_nights || 1;
+        const additionalAmount = Number(payload.additional_amount) || 0;
+        const chargeRow = additionalAmount > 0
+            ? `<tr><td style="padding:6px 0;color:#666;">Additional charge</td>
+               <td style="padding:6px 0;text-align:right;font-weight:bold;color:#0f3460;">₹${additionalAmount.toLocaleString("en-IN")}</td></tr>`
+            : `<tr><td style="padding:6px 0;color:#666;">Additional charge</td>
+               <td style="padding:6px 0;text-align:right;color:#16a34a;font-weight:bold;">Waived</td></tr>`;
+        subject = `Stay extension approved — ${hotel}`;
+        body = `
+            ${commonHeader}
+              <h2 style="margin-top:0;color:#16a34a;">Your extension is approved! ✓</h2>
+              <p style="font-size:16px;line-height:1.6;margin-bottom:20px;">
+                Dear <strong>${guest}</strong>,<br>
+                We're glad to confirm your stay extension at <strong>${hotel}</strong>.
+              </p>
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;background:#f9fafb;border-radius:10px;padding:16px;">
+                <tr><td style="padding:6px 0;color:#666;">New checkout</td>
+                    <td style="padding:6px 0;text-align:right;font-weight:bold;color:#0f3460;">${newDate}</td></tr>
+                <tr><td style="padding:6px 0;color:#666;">Additional nights</td>
+                    <td style="padding:6px 0;text-align:right;font-weight:bold;color:#0f3460;">${nights}</td></tr>
+                ${chargeRow}
+              </table>
+              <p style="font-size:14px;color:#777;">
+                If you have any questions, the front desk is happy to help.
+              </p>
+            ${commonFooterSimple}
+        `;
+    }
+
+    if (template === "extension_rejected_guest") {
+        const requestedDate = payload.requested_checkout_at
+            ? new Date(payload.requested_checkout_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+            : "your requested date";
+        const noteBlock = payload.staff_note
+            ? `<p style="background:#fef3c7;border-left:3px solid #f59e0b;padding:12px;border-radius:6px;color:#78350f;font-size:14px;margin:16px 0;">
+                <strong>Note from the hotel:</strong> ${payload.staff_note}
+              </p>`
+            : "";
+        subject = `Update on your stay extension — ${hotel}`;
+        body = `
+            ${commonHeader}
+              <h2 style="margin-top:0;color:#b91c1c;">We couldn't extend your stay</h2>
+              <p style="font-size:16px;line-height:1.6;margin-bottom:20px;">
+                Dear <strong>${guest}</strong>,<br>
+                Unfortunately we're unable to extend your stay at <strong>${hotel}</strong> to <strong>${requestedDate}</strong>.
+                The room is reserved for another guest, or the date isn't available for our hotel.
+              </p>
+              ${noteBlock}
+              <p style="font-size:15px;color:#444;line-height:1.6;">
+                Please reach out to the front desk if you'd like to discuss alternatives — we'd love to find a way to keep you with us.
+              </p>
+            ${commonFooterSimple}
         `;
     }
 

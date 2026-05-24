@@ -22,15 +22,37 @@ export default function GuestNewRewards() {
 
         (async () => {
             try {
-                // Fetch stays to calculate points
+                // Fetch stays to calculate points. user_recent_stays.bill_total
+                // is hardcoded to NULL in the view, so we backfill from the
+                // folio ledger to compute real spend for the rewards balance.
                 const { data: stays } = await supabase
                     .from("user_recent_stays")
-                    .select("bill_total, check_in")
+                    .select("bill_total, check_in, booking_code")
                     .order("check_in", { ascending: false });
 
                 if (mounted && stays) {
-                    // Calculate points from spend (1 point per ₹100)
-                    const totalSpend = stays.reduce((sum, s) => sum + (s.bill_total || 0), 0);
+                    // Resolve booking codes → ledger totals (stay portion only, food excluded).
+                    const codes = stays.map((s: any) => s.booking_code).filter(Boolean) as string[];
+                    let totalLedger = 0;
+                    if (codes.length > 0) {
+                        const { data: bookingsRows } = await supabase
+                            .from("bookings")
+                            .select("id, code")
+                            .in("code", codes);
+                        const bookingIds = (bookingsRows || []).map((b: any) => b.id);
+                        if (bookingIds.length > 0) {
+                            const { data: ledgerRows } = await supabase
+                                .from("v_arrival_payment_state")
+                                .select("total_amount")
+                                .in("booking_id", bookingIds);
+                            ledgerRows?.forEach((l: any) => {
+                                totalLedger += Number(l.total_amount) || 0;
+                            });
+                        }
+                    }
+                    // Fall back to bill_total when ledger has nothing (old data).
+                    const totalLegacy = stays.reduce((sum, s) => sum + (s.bill_total || 0), 0);
+                    const totalSpend = totalLedger > 0 ? totalLedger : totalLegacy;
                     setPoints(Math.round(totalSpend / 100));
 
                     // Calculate member since

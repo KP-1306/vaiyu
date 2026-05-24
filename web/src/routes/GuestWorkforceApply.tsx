@@ -98,7 +98,7 @@ export default function GuestWorkforceApply() {
           return;
         }
 
-        setJob(jobRow as JobRow);
+        setJob(jobRow as unknown as JobRow);
 
         const hotelId = (jobRow as any).hotel_id as string | null;
         if (hotelId) {

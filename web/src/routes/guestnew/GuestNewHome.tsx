@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { supabase } from "../../lib/supabase";
 import { getServices } from "../../lib/api";
 import { SimpleTooltip } from "../../components/SimpleTooltip";
+import { formatIstTime, formatRelativeTime, parseDbDate } from "../../utils/dateUtils";
 import "./guestnew.css";
 import "./HeroMockup.css";
 
@@ -232,6 +233,17 @@ export default function GuestNewHome() {
 
     const [recentRequests, setRecentRequests] = useState<any[]>([]);
     const [folioItems, setFolioItems] = useState<any[]>([]);
+    // Per-entry-type breakdown from v_arrival_payment_state. Used by the
+    // booking-detail modal and invoice HTML so they don't fall back to the
+    // synthesized 97/3 split when folio entries are present.
+    const [ledgerBreakdown, setLedgerBreakdown] = useState<{
+        room: number;
+        tax: number;
+        food: number;
+        service: number;
+        discount: number;
+        surcharge: number;
+    } | null>(null);
     const [foodOrders, setFoodOrders] = useState<any[]>([]);
     const [grandTotal, setGrandTotal] = useState(0);
     const [ledgerPaid, setLedgerPaid] = useState(0);
@@ -448,53 +460,93 @@ export default function GuestNewHome() {
                         created_at: o.created_at,
                         eta: "20m"
                     }))
-                ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                ].sort((a, b) => (parseDbDate(b.created_at)?.getTime() ?? 0) - (parseDbDate(a.created_at)?.getTime() ?? 0))
                     .slice(0, 5);
 
                 setRecentRequests(combined);
 
-                // Calculate Live Folio using Enterprise Ledger View
-                const items = [];
+                // Calculate Live Folio using Enterprise Ledger View.
+                // The view now exposes per-entry-type breakdown columns so we
+                // can label each line correctly (Room / Tax / Discount / Food
+                // / Service / Payments) instead of dumping everything into a
+                // single "Food & Dining" bucket.
+                const items: Array<{ label: string; amount: number }> = [];
                 let ledgerTotal = 0;
                 let paidAmount = 0;
 
-                // Scoped to Aggregated Booking for Financials
                 if (currentStay.id) {
-                    // Fetch consolidated ledger totals directly
                     const { data: ledger } = await supabase
                         .from("v_arrival_payment_state")
-                        .select("total_amount, paid_amount")
+                        .select(
+                            "total_amount, paid_amount, room_charges, food_charges, service_charges, tax_amount, discount_amount, surcharge_amount",
+                        )
                         .eq("booking_id", currentStay.id)
                         .maybeSingle();
 
                     if (ledger) {
-                        ledgerTotal = ledger.total_amount || 0;
-                        paidAmount = ledger.paid_amount || 0;
+                        ledgerTotal = Number(ledger.total_amount) || 0;
+                        paidAmount = Number(ledger.paid_amount) || 0;
+
+                        const roomCharges = Number(ledger.room_charges) || 0;
+                        const foodCharges = Number(ledger.food_charges) || 0;
+                        const serviceCharges = Number(ledger.service_charges) || 0;
+                        const taxAmount = Number(ledger.tax_amount) || 0;
+                        const discountAmount = Number(ledger.discount_amount) || 0;
+                        const surchargeAmount = Number(ledger.surcharge_amount) || 0;
+
+                        // Hoist breakdown into component state so the booking-
+                        // detail modal and invoice HTML can render proper rows
+                        // instead of falling back to currentStay.room_charge / city_tax
+                        // (which are 0 for walk-ins).
+                        setLedgerBreakdown({
+                            room: roomCharges,
+                            tax: taxAmount,
+                            food: foodCharges,
+                            service: serviceCharges,
+                            discount: discountAmount,
+                            surcharge: surchargeAmount,
+                        });
+
+                        // Fallback for older bookings: pre-walk-in-v2 stays had
+                        // no ROOM_CHARGE entry; their amount sits on the stay
+                        // record itself. Use the view value when available,
+                        // otherwise fall back to currentStay.bill_total so old
+                        // folios still render the room line.
+                        const roomLineAmount = roomCharges > 0
+                            ? roomCharges
+                            : (Number(currentStay.bill_total) || 0);
+                        if (roomLineAmount > 0) {
+                            const label = currentStay.room_type
+                                ? `Room Charges (${currentStay.room_type})`
+                                : "Room Charges";
+                            items.push({ label, amount: roomLineAmount });
+                        }
+
+                        if (foodCharges > 0) {
+                            items.push({ label: "Food & Dining", amount: foodCharges });
+                        }
+                        if (serviceCharges > 0) {
+                            items.push({ label: "Service Charges", amount: serviceCharges });
+                        }
+                        if (surchargeAmount > 0) {
+                            items.push({ label: "Surcharge", amount: surchargeAmount });
+                        }
+                        if (discountAmount > 0) {
+                            items.push({ label: "Discount", amount: -discountAmount });
+                        }
+                        if (taxAmount > 0) {
+                            items.push({ label: "Tax", amount: taxAmount });
+                        }
+                        if (paidAmount > 0) {
+                            items.push({ label: "Payments Received", amount: -paidAmount });
+                        }
                     }
-                }
-
-                // Room Charges
-                if (currentStay.room_type) {
-                    const roomCharge = currentStay.bill_total || 0;
-                    items.push({ label: `Room Charges (${currentStay.room_type})`, amount: roomCharge });
-                }
-
-                // Push consolidated food/service charges based on ledger
-                // (Subtracting assumed room charges to get the remainders for the UI breakdown)
-                const roomChargeBase = currentStay.bill_total || 0;
-                const dynamicCharges = Math.max(0, ledgerTotal - roomChargeBase);
-                if (dynamicCharges > 0) {
-                    items.push({ label: 'Food & Dining (Ledger)', amount: dynamicCharges });
-                }
-
-                if (paidAmount > 0) {
-                    items.push({ label: 'Payments Received', amount: -paidAmount });
                 }
 
                 setFolioItems(items);
                 setLedgerPaid(paidAmount || 0);
                 setLedgerTotalState(ledgerTotal || 0);
-                // "Current Total" in Live Folio implies Outstanding Balance realistically
+                // "Current Total" in Live Folio = outstanding balance.
                 setGrandTotal(Math.max(0, ledgerTotal - paidAmount));
 
             } catch (err) {
@@ -616,8 +668,15 @@ export default function GuestNewHome() {
     
     <div class="section">
         <div class="section-title">Stay Charges</div>
-        <div class="row"><span>Room</span><span>${formatCurrency(currentStay.room_charge)}</span></div>
-        <div class="row"><span>City Tax</span><span>${formatCurrency(currentStay.city_tax)}</span></div>
+        <div class="row"><span>Room</span><span>${formatCurrency(
+            ledgerBreakdown && ledgerBreakdown.room > 0 ? ledgerBreakdown.room : (currentStay.room_charge ?? 0)
+        )}</span></div>
+        ${ledgerBreakdown && ledgerBreakdown.discount > 0 ? `<div class="row" style="color:#0a8a4a"><span>Discount</span><span>-${formatCurrency(ledgerBreakdown.discount)}</span></div>` : ""}
+        ${ledgerBreakdown && ledgerBreakdown.surcharge > 0 ? `<div class="row"><span>Surcharge</span><span>${formatCurrency(ledgerBreakdown.surcharge)}</span></div>` : ""}
+        <div class="row"><span>${ledgerBreakdown && ledgerBreakdown.tax > 0 ? "Tax" : "City Tax"}</span><span>${formatCurrency(
+            ledgerBreakdown && ledgerBreakdown.tax > 0 ? ledgerBreakdown.tax : (currentStay.city_tax ?? 0)
+        )}</span></div>
+        ${ledgerBreakdown && ledgerBreakdown.service > 0 ? `<div class="row"><span>Service</span><span>${formatCurrency(ledgerBreakdown.service)}</span></div>` : ""}
     </div>
     
     ${foodOrders.length > 0 ? `
@@ -1090,7 +1149,7 @@ export default function GuestNewHome() {
                     <div className="gn-table-card">
                         <div className="gn-table-header">
                             <h3 className="gn-table-title">Recent Requests</h3>
-                            <Link to={`/stay/${currentStay?.booking_code || 'DEMO'}/menu?tab=orders&code=${currentStay?.booking_code || 'DEMO'}`} className="gn-btn-ghost">View All</Link>
+                            <Link to={`/stay/${currentStay?.booking_code || 'DEMO'}/requests`} className="gn-btn-ghost">View All</Link>
                         </div>
                         {recentRequests.length > 0 ? (
                             <div className="gn-requests-list" style={{ padding: '0 1.25rem' }}>
@@ -1103,7 +1162,7 @@ export default function GuestNewHome() {
                                         <div className={`gn-pill gn-pill--${getStatusColor(req.status)}`}>
                                             {req.status}
                                         </div>
-                                        <div className="gn-req-time">{new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                                        <div className="gn-req-time" title={formatRelativeTime(req.created_at)}>{formatIstTime(req.created_at)}</div>
                                     </div>
                                 ))}
                             </div>
@@ -1313,18 +1372,65 @@ export default function GuestNewHome() {
 
                                 <div className="gn-modal-section">
                                     <h4 className="gn-modal-subsection-title">Price Breakdown</h4>
-                                    <div className="gn-modal-price-row">
-                                        <span>Room Charge</span>
-                                        <span>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(currentStay.room_charge || 0)}</span>
-                                    </div>
-                                    <div className="gn-modal-price-row">
-                                        <span>City Tax</span>
-                                        <span>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(currentStay.city_tax || 0)}</span>
-                                    </div>
-                                    <div className="gn-modal-price-row gn-modal-total-row">
-                                        <span>Total Estimated</span>
-                                        <span>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(currentStay.total_amount || 0)}</span>
-                                    </div>
+                                    {(() => {
+                                        const fmt = (n: number) =>
+                                            new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(n || 0);
+                                        // Prefer real folio breakdown when available; fall back
+                                        // to the synthesized values on currentStay for older bookings.
+                                        const room = ledgerBreakdown && ledgerBreakdown.room > 0
+                                            ? ledgerBreakdown.room
+                                            : (currentStay.room_charge || 0);
+                                        const tax = ledgerBreakdown && ledgerBreakdown.tax > 0
+                                            ? ledgerBreakdown.tax
+                                            : (currentStay.city_tax || 0);
+                                        const discount = ledgerBreakdown ? ledgerBreakdown.discount : 0;
+                                        const surcharge = ledgerBreakdown ? ledgerBreakdown.surcharge : 0;
+                                        const food = ledgerBreakdown ? ledgerBreakdown.food : 0;
+                                        const service = ledgerBreakdown ? ledgerBreakdown.service : 0;
+                                        const total = ledgerBreakdown
+                                            ? room + tax + food + service + surcharge - discount
+                                            : (currentStay.total_amount || 0);
+                                        return (
+                                            <>
+                                                <div className="gn-modal-price-row">
+                                                    <span>Room Charge</span>
+                                                    <span>{fmt(room)}</span>
+                                                </div>
+                                                {discount > 0 && (
+                                                    <div className="gn-modal-price-row" style={{ color: '#6ee7b7' }}>
+                                                        <span>Discount</span>
+                                                        <span>−{fmt(discount)}</span>
+                                                    </div>
+                                                )}
+                                                {surcharge > 0 && (
+                                                    <div className="gn-modal-price-row">
+                                                        <span>Surcharge</span>
+                                                        <span>{fmt(surcharge)}</span>
+                                                    </div>
+                                                )}
+                                                <div className="gn-modal-price-row">
+                                                    <span>{ledgerBreakdown && ledgerBreakdown.tax > 0 ? 'Tax' : 'City Tax'}</span>
+                                                    <span>{fmt(tax)}</span>
+                                                </div>
+                                                {food > 0 && (
+                                                    <div className="gn-modal-price-row">
+                                                        <span>Food & Dining</span>
+                                                        <span>{fmt(food)}</span>
+                                                    </div>
+                                                )}
+                                                {service > 0 && (
+                                                    <div className="gn-modal-price-row">
+                                                        <span>Service</span>
+                                                        <span>{fmt(service)}</span>
+                                                    </div>
+                                                )}
+                                                <div className="gn-modal-price-row gn-modal-total-row">
+                                                    <span>Total Estimated</span>
+                                                    <span>{fmt(total)}</span>
+                                                </div>
+                                            </>
+                                        );
+                                    })()}
                                 </div>
 
                                 <div className="gn-modal-section">

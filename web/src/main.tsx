@@ -157,6 +157,16 @@ const OwnerReviews = lazy(() => import("./routes/OwnerReviews"));
 const OwnerHousekeeping = lazy(() => import("./routes/OwnerHousekeeping"));
 const OwnerQRSheet = lazy(() => import("./routes/OwnerQRSheet"));
 const OwnerPricing = lazy(() => import("./routes/OwnerPricing"));
+const OwnerPricingRules = lazy(() => import("./routes/OwnerPricingRules"));
+const OwnerPricingHistory = lazy(() => import("./routes/OwnerPricingHistory"));
+const OwnerRatePlans = lazy(() => import("./routes/OwnerRatePlans"));
+const OwnerRatePlanPricing = lazy(() => import("./routes/OwnerRatePlanPricing"));
+const OwnerRateCalendar = lazy(() => import("./routes/OwnerRateCalendar"));
+const OwnerFinance = lazy(() => import("./routes/OwnerFinance"));
+const OwnerFinanceBudgets = lazy(() => import("./routes/OwnerFinanceBudgets"));
+const OwnerFinanceExpenses = lazy(() => import("./routes/OwnerFinanceExpenses"));
+const FinanceRoleGuard = lazy(() => import("./components/owner/FinanceRoleGuard"));
+const FinanceErrorBoundary = lazy(() => import("./components/owner/FinanceErrorBoundary"));
 const OwnerMenu = lazy(() => import("./routes/OwnerMenu")); // NEW
 const OwnerWorkforce = lazy(() => import("./routes/OwnerWorkforce")); // NEW (fix /owner/:slug/workforce)
 const OwnerStaffShifts = lazy(() => import("./routes/OwnerStaffShifts")); // NEW
@@ -770,12 +780,111 @@ const router = createBrowserRouter([
           </AuthGate>
         ),
       },
-      // NEW: /owner/:slug/pricing (Open pricing)
       {
         path: "owner/:slug/pricing",
         element: (
           <AuthGate>
-            <OwnerPricing />
+            <FinanceErrorBoundary>
+              <FinanceRoleGuard>
+                <OwnerPricing />
+              </FinanceRoleGuard>
+            </FinanceErrorBoundary>
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/:slug/pricing/rules",
+        element: (
+          <AuthGate>
+            <FinanceErrorBoundary>
+              <FinanceRoleGuard>
+                <OwnerPricingRules />
+              </FinanceRoleGuard>
+            </FinanceErrorBoundary>
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/:slug/pricing/history",
+        element: (
+          <AuthGate>
+            <FinanceErrorBoundary>
+              <FinanceRoleGuard>
+                <OwnerPricingHistory />
+              </FinanceRoleGuard>
+            </FinanceErrorBoundary>
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/:slug/pricing/plans",
+        element: (
+          <AuthGate>
+            <FinanceErrorBoundary>
+              <FinanceRoleGuard>
+                <OwnerRatePlans />
+              </FinanceRoleGuard>
+            </FinanceErrorBoundary>
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/:slug/pricing/plans/:planId",
+        element: (
+          <AuthGate>
+            <FinanceErrorBoundary>
+              <FinanceRoleGuard>
+                <OwnerRatePlanPricing />
+              </FinanceRoleGuard>
+            </FinanceErrorBoundary>
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/:slug/pricing/calendar",
+        element: (
+          <AuthGate>
+            <FinanceErrorBoundary>
+              <FinanceRoleGuard>
+                <OwnerRateCalendar />
+              </FinanceRoleGuard>
+            </FinanceErrorBoundary>
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/:slug/finance",
+        element: (
+          <AuthGate>
+            <FinanceErrorBoundary>
+              <FinanceRoleGuard>
+                <OwnerFinance />
+              </FinanceRoleGuard>
+            </FinanceErrorBoundary>
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/:slug/finance/budgets",
+        element: (
+          <AuthGate>
+            <FinanceErrorBoundary>
+              <FinanceRoleGuard>
+                <OwnerFinanceBudgets />
+              </FinanceRoleGuard>
+            </FinanceErrorBoundary>
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/:slug/finance/expenses",
+        element: (
+          <AuthGate>
+            <FinanceErrorBoundary>
+              <FinanceRoleGuard>
+                <OwnerFinanceExpenses />
+              </FinanceRoleGuard>
+            </FinanceErrorBoundary>
           </AuthGate>
         ),
       },

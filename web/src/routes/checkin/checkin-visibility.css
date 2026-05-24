@@ -45,8 +45,7 @@
         z-index: 10 !important;
     }
 
-    /* Hide default browser date/number icons to avoid clutter with custom icons */
-    input[type="date"]::-webkit-calendar-picker-indicator,
+    /* Hide default browser number spin buttons */
     input[type="date"]::-webkit-inner-spin-button,
     input[type="number"]::-webkit-inner-spin-button,
     input[type="number"]::-webkit-outer-spin-button {
@@ -54,6 +53,21 @@
         appearance: none !important;
         -webkit-appearance: none !important;
         margin: 0 !important;
+    }
+
+    /* Hide the default date picker icon visually but keep it clickable —
+       stretching it across the whole input means a click anywhere on the
+       field opens the calendar popup. Using display:none would also kill
+       the click handler, breaking the picker entirely on Chromium. */
+    input[type="date"]::-webkit-calendar-picker-indicator {
+        opacity: 0 !important;
+        position: absolute !important;
+        inset: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        cursor: pointer !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
 
     /* For Firefox */

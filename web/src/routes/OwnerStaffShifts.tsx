@@ -419,7 +419,9 @@ export default function OwnerStaffShifts() {
                         ?.filter(d => d.staff_id === staff.staff_id)
                         .map(d => ({
                             department_id: d.department_id,
-                            name: d.departments?.name || 'Unknown',
+                            // Supabase typed-select returns nested relations as arrays.
+                            // Take the first row — the join is 1:1 in practice.
+                            name: (Array.isArray(d.departments) ? d.departments[0]?.name : (d.departments as any)?.name) || 'Unknown',
                             is_primary: d.is_primary
                         })) || [];
 
@@ -1385,8 +1387,8 @@ export default function OwnerStaffShifts() {
                 (staff.department_name === activeDepartment);
 
             const matchesZone = activeZone === "All Zones" ||
-                staff.zone_id === activeZone ||
-                staff.zone_name === activeZone;
+                staff.assigned_zone_id === activeZone ||
+                staff.assigned_zone_name === activeZone;
 
             return matchesDept && matchesZone;
         });
@@ -2021,6 +2023,7 @@ export default function OwnerStaffShifts() {
                                                         }}
                                                         onDragLeave={() => setDragOverStaffId(null)}
                                                         onDrop={(e) => {
+                                                            if (!timelineRef.current) return;
                                                             const rect = timelineRef.current.getBoundingClientRect();
                                                             const staffColumnWidth = 256; // 64 * 4 = 256px
                                                             const timelineWidth = rect.width - staffColumnWidth;

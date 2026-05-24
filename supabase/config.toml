@@ -14,3 +14,15 @@ verify_jwt = false
 
 [functions.generate-reminders]
 verify_jwt = false
+
+# Razorpay webhook receives unauthenticated POSTs from Razorpay servers and
+# verifies them by HMAC signature against RAZORPAY_WEBHOOK_SECRET. Razorpay
+# does not (cannot) send a Supabase JWT.
+[functions.razorpay-webhook]
+verify_jwt = false
+
+# DIRECT-mode webhook receiver — same rationale as razorpay-webhook above.
+# Multi-hotel routing happens via notes.hotel_id in the payload; HMAC is
+# verified against each hotel's per-hotel webhook secret.
+[functions.razorpay-direct-webhook]
+verify_jwt = false

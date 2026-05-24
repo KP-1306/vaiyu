@@ -93,7 +93,7 @@ export default function HotelJobs() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!apply.job) return;
+    if (!apply.job?.id) return;
 
     const trimmedName = apply.fullName.trim();
     const trimmedPhone = apply.phone.trim();
@@ -108,13 +108,21 @@ export default function HotelJobs() {
     setSuccessMsg(null);
 
     try {
-      await applyForWorkforceJob(apply.job.id, {
-        full_name: trimmedName,
-        phone: trimmedPhone,
-        email: apply.email.trim() || undefined,
-        notes: apply.notes.trim() || undefined,
-        source_text: "Guest app – Jobs at this hotel",
-      } as any);
+      await applyForWorkforceJob({
+        jobId: apply.job.id,
+        // The current API takes a structured `{ jobId, message?, expectedSalary?, token? }`.
+        // Pack the applicant info into the message field so the legacy applicant
+        // payload still reaches the server until a richer endpoint is wired.
+        message: [
+          `Name: ${trimmedName}`,
+          `Phone: ${trimmedPhone}`,
+          apply.email.trim() ? `Email: ${apply.email.trim()}` : null,
+          apply.notes.trim() ? `Notes: ${apply.notes.trim()}` : null,
+          "Source: Guest app – Jobs at this hotel",
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      });
 
       setSuccessMsg(
         "Thank you! The hotel team has received your interest and will contact you if there’s a match."

@@ -124,7 +124,7 @@ export default function OwnerRegister() {
       // Supabase auth token (if user is signed in)
       const { data: sessionRes } = await supabase.auth.getSession();
       const token = sessionRes.session?.access_token;
-      const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
+      const authHeader: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
       // Build payload used for both JSON and multipart
       const payload = {

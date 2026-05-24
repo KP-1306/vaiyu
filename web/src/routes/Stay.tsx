@@ -391,7 +391,6 @@ function QrStayHome({ code }: { code: string }) {
               stayId={stayUUID}
               stayCode={normalizedCode}
               hotelName={displayHotelName}
-              messages={[]}
               openWhatsAppUrl={whatsAppUrl}
             />
             <StayWalletPanel hotelName={hotelLabel} />

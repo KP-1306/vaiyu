@@ -4,8 +4,10 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase } from "../../lib/supabase";
 import {
     Check, CreditCard, ChevronRight, Calendar, Users,
-    Luggage, Clock, Car, SprayCan, HelpCircle
+    Luggage, Clock, Car, SprayCan, HelpCircle, Loader2, AlertTriangle
 } from "lucide-react";
+import { RazorpayServiceError } from "../../services/razorpayService";
+import { getRazorpayClient } from "../../services/razorpayClient";
 
 type Stay = {
     id: string; // stay_id
@@ -36,6 +38,13 @@ export default function GuestNewCheckout() {
     const [completed, setCompleted] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
+
+    // Razorpay state
+    const [hotelHasRazorpay, setHotelHasRazorpay] = useState(false);
+    const [razorpayMode, setRazorpayMode] = useState<"NONE" | "DIRECT" | "ROUTE">("NONE");
+    const [payingOnline, setPayingOnline] = useState(false);
+    const [paymentError, setPaymentError] = useState<string | null>(null);
+    const [paymentJustSucceeded, setPaymentJustSucceeded] = useState(false);
 
     // Fetch stay & user profile
     useEffect(() => {
@@ -121,21 +130,38 @@ export default function GuestNewCheckout() {
     // Fetch Ledger Metrics & Payment Breakdown
     const [priorPayments, setPriorPayments] = useState(0);
     const [foodTotal, setFoodTotal] = useState(0);
+    // Per-entry-type breakdown sourced from v_arrival_payment_state. Pre-walk-in-v2
+    // bookings won't have folio rows for room/tax — we fall back to stay.room_charge
+    // / stay.city_tax in those cases (see calculations below).
+    const [ledgerRoomCharges, setLedgerRoomCharges] = useState(0);
+    const [ledgerTax, setLedgerTax] = useState(0);
+    const [ledgerDiscount, setLedgerDiscount] = useState(0);
+    const [ledgerService, setLedgerService] = useState(0);
+    const [ledgerSurcharge, setLedgerSurcharge] = useState(0);
     const [paymentBreakdown, setPaymentBreakdown] = useState<{ method: string; amount: number }[]>([]);
+
+    // Stable identity for the reload trigger so the ledger refreshes after payment
+    const [ledgerReloadKey, setLedgerReloadKey] = useState(0);
 
     useEffect(() => {
         if (!stay?.booking_id) return;
         (async () => {
-            // 1. Fetch consolidated ledger totals
+            // 1. Fetch consolidated ledger with per-type breakdown
             const { data } = await supabase
                 .from("v_arrival_payment_state")
-                .select("paid_amount, total_amount")
+                .select(
+                    "paid_amount, total_amount, room_charges, food_charges, service_charges, tax_amount, discount_amount, surcharge_amount",
+                )
                 .eq("booking_id", stay.booking_id)
                 .single();
             if (data) {
-                setPriorPayments(data.paid_amount || 0);
-                // Currently all charges hit the "foodTotal" bucket in the UI for simplicity
-                setFoodTotal(data.total_amount || 0);
+                setPriorPayments(Number(data.paid_amount) || 0);
+                setFoodTotal(Number(data.food_charges) || 0);
+                setLedgerRoomCharges(Number(data.room_charges) || 0);
+                setLedgerTax(Number(data.tax_amount) || 0);
+                setLedgerDiscount(Number(data.discount_amount) || 0);
+                setLedgerService(Number(data.service_charges) || 0);
+                setLedgerSurcharge(Number(data.surcharge_amount) || 0);
             }
 
             // Fetch payment breakdown
@@ -155,7 +181,68 @@ export default function GuestNewCheckout() {
                 setPaymentBreakdown(Object.entries(breakdown).map(([method, amount]) => ({ method, amount })));
             }
         })();
-    }, [stay?.booking_id]);
+    }, [stay?.booking_id, ledgerReloadKey]);
+
+    // Look up whether the hotel is onboarded onto Razorpay Route
+    useEffect(() => {
+        if (!stay?.hotel_id) return;
+        let cancelled = false;
+        (async () => {
+            const { data } = await supabase
+                .from("hotels")
+                .select("razorpay_mode, razorpay_account_id, razorpay_direct_key_id")
+                .eq("id", stay.hotel_id)
+                .maybeSingle();
+            if (cancelled || !data) return;
+            const mode = (data.razorpay_mode ?? "NONE") as "NONE" | "DIRECT" | "ROUTE";
+            setRazorpayMode(mode);
+            setHotelHasRazorpay(
+                (mode === "ROUTE" && !!data.razorpay_account_id) ||
+                (mode === "DIRECT" && !!data.razorpay_direct_key_id),
+            );
+        })();
+        return () => { cancelled = true; };
+    }, [stay?.hotel_id]);
+
+    /** Opens Razorpay Checkout, verifies the captured payment server-side,
+     *  refreshes the ledger so balanceDue reflects the new payment. */
+    async function handlePayOnline() {
+        if (!stay?.hotel_id || !stay?.booking_id) return;
+        setPayingOnline(true);
+        setPaymentError(null);
+        try {
+            const rzp = getRazorpayClient(razorpayMode);
+            const order = await rzp.createWalkInOrder({
+                hotelId: stay.hotel_id,
+                bookingId: stay.booking_id,
+            });
+            const result = await rzp.openRazorpayCheckout(order);
+            if (!result.ok) {
+                if (result.reason === "DISMISSED") {
+                    throw new Error("Payment cancelled. You can retry below.");
+                }
+                throw new Error(
+                    "Payment failed: " + (result.error?.description ?? "unknown reason"),
+                );
+            }
+            await rzp.verifyWalkInPayment({
+                hotelId: stay.hotel_id,
+                bookingId: stay.booking_id,
+                folioId: order.folioId,
+                orderId: result.orderId,
+                paymentId: result.paymentId,
+                signature: result.signature,
+            });
+            setPaymentJustSucceeded(true);
+            // Refresh ledger so balanceDue and paymentBreakdown reflect the new payment
+            setLedgerReloadKey((k) => k + 1);
+        } catch (e) {
+            const msg = e instanceof RazorpayServiceError ? e.message : String((e as any)?.message ?? e);
+            setPaymentError(msg);
+        } finally {
+            setPayingOnline(false);
+        }
+    }
 
     // Format currency
     const formatCurrency = (amount: number | null | undefined) => {
@@ -228,14 +315,20 @@ export default function GuestNewCheckout() {
 
     if (!stay) return null;
 
-    // Calculations
-    const roomCharges = stay.room_charge || 0;
-    const taxes = stay.city_tax || 0;
-    const roomService = foodTotal;
-    const lateCheckout = 0; // Keeping as 0 for now as requested
+    // Calculations.
+    // Prefer ledger (folio) values — that's the source of truth post-walk-in-v2.
+    // Fall back to the stay record for older bookings whose room/tax never made
+    // it into folio_entries.
+    const roomCharges = ledgerRoomCharges > 0 ? ledgerRoomCharges : (stay.room_charge || 0);
+    const taxes = ledgerTax > 0 ? ledgerTax : (stay.city_tax || 0);
+    const roomService = foodTotal;          // FOOD_CHARGE only now (not the whole ledger)
+    const serviceCharges = ledgerService;
+    const surcharge = ledgerSurcharge;
+    const discount = ledgerDiscount;        // positive magnitude; subtract from total
+    const lateCheckout = 0;
 
-    // Total calculation
-    const total = roomCharges + taxes + roomService + lateCheckout;
+    // Total = charges + adjustments. Discount lowers it; surcharge raises it.
+    const total = roomCharges + taxes + roomService + serviceCharges + surcharge + lateCheckout - discount;
     const balanceDue = Math.max(0, total - priorPayments);
 
     return (
@@ -310,10 +403,30 @@ export default function GuestNewCheckout() {
                                     <span>Room Charges</span>
                                     <span className="text-white">{formatCurrency(roomCharges)}</span>
                                 </div>
-                                <div className="flex justify-between text-sm text-white/70">
-                                    <span>Food & Dining</span>
-                                    <span className="text-white">{formatCurrency(roomService)}</span>
-                                </div>
+                                {roomService > 0 && (
+                                    <div className="flex justify-between text-sm text-white/70">
+                                        <span>Food & Dining</span>
+                                        <span className="text-white">{formatCurrency(roomService)}</span>
+                                    </div>
+                                )}
+                                {serviceCharges > 0 && (
+                                    <div className="flex justify-between text-sm text-white/70">
+                                        <span>Service Charges</span>
+                                        <span className="text-white">{formatCurrency(serviceCharges)}</span>
+                                    </div>
+                                )}
+                                {surcharge > 0 && (
+                                    <div className="flex justify-between text-sm text-white/70">
+                                        <span>Surcharge</span>
+                                        <span className="text-white">{formatCurrency(surcharge)}</span>
+                                    </div>
+                                )}
+                                {discount > 0 && (
+                                    <div className="flex justify-between text-sm text-emerald-300/90">
+                                        <span>Discount</span>
+                                        <span>−{formatCurrency(discount)}</span>
+                                    </div>
+                                )}
                                 <div className="flex justify-between text-sm text-white/70">
                                     <span>Late Checkout Fee <span className="text-xs opacity-50">(optional)</span></span>
                                     <span className="text-white">{formatCurrency(lateCheckout)}</span>
@@ -391,24 +504,58 @@ export default function GuestNewCheckout() {
                                     </div>
                                 )}
 
-                                <div className="relative group">
+                                {/* Settle Balance — Razorpay flow */}
+                                {balanceDue > 0 && hotelHasRazorpay && (
                                     <button
                                         type="button"
-                                        className="w-full bg-white/5 border border-white/10 py-4 px-6 rounded-lg flex items-center justify-between transition-all group hover:bg-white/10 text-white cursor-pointer"
+                                        onClick={handlePayOnline}
+                                        disabled={payingOnline}
+                                        className="w-full bg-gradient-to-r from-[#8E713C] to-[#C5A065] text-white py-4 px-6 rounded-lg flex items-center justify-between transition-all hover:brightness-110 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-[#C5A065]/20"
                                     >
                                         <div className="flex items-center gap-3">
-                                            <CreditCard className="w-5 h-5 text-[#C5A065]" />
-                                            <span className="font-medium">Settle Balance</span>
+                                            {payingOnline ? (
+                                                <Loader2 className="w-5 h-5 animate-spin" />
+                                            ) : (
+                                                <CreditCard className="w-5 h-5" />
+                                            )}
+                                            <div className="text-left">
+                                                <div className="font-medium">
+                                                    {payingOnline ? "Opening secure payment…" : `Settle balance · ₹${balanceDue.toLocaleString("en-IN")}`}
+                                                </div>
+                                                <div className="text-[10px] uppercase tracking-widest opacity-70 mt-0.5">
+                                                    UPI · Card · Netbanking via Razorpay
+                                                </div>
+                                            </div>
                                         </div>
-                                        <ChevronRight className="w-5 h-5 opacity-50 group-hover:translate-x-1 transition-transform" />
+                                        {!payingOnline && <ChevronRight className="w-5 h-5" />}
                                     </button>
+                                )}
 
-                                    <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-3 w-64 bg-black/90 p-3 rounded-lg text-xs leading-relaxed text-center text-white/90 border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-xl">
-                                        Online payments are not available yet. Please contact the front desk to settle your balance.
-                                        {/* Little triangle arrow pointing down */}
-                                        <div className="absolute left-1/2 -translate-x-1/2 top-full w-2 h-2 bg-black/90 border-r border-b border-white/10 rotate-45 -mt-1"></div>
+                                {balanceDue > 0 && !hotelHasRazorpay && (
+                                    <div className="bg-white/5 border border-white/10 py-4 px-6 rounded-lg flex items-center gap-3 text-white/70">
+                                        <CreditCard className="w-5 h-5 text-[#C5A065]/60 shrink-0" />
+                                        <span className="text-sm">
+                                            Online payments aren't set up for this hotel yet — please settle at the front desk.
+                                        </span>
                                     </div>
-                                </div>
+                                )}
+
+                                {paymentJustSucceeded && balanceDue === 0 && (
+                                    <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-4 flex items-start gap-3">
+                                        <Check className="w-5 h-5 text-emerald-400 mt-0.5 shrink-0" />
+                                        <div>
+                                            <p className="text-emerald-300 text-sm font-medium">Payment received</p>
+                                            <p className="text-emerald-300/70 text-xs mt-0.5">Your balance is settled. You can request checkout below.</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {paymentError && (
+                                    <div className="bg-rose-500/10 border border-rose-500/20 rounded-lg p-4 flex items-start gap-3">
+                                        <AlertTriangle className="w-4 h-4 text-rose-400 mt-0.5 shrink-0" />
+                                        <p className="text-rose-300 text-sm">{paymentError}</p>
+                                    </div>
+                                )}
 
                                 <div className="text-center mt-3">
                                     <button

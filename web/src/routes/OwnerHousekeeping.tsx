@@ -1235,12 +1235,12 @@ export default function OwnerHousekeeping() {
                                 <CheckCircle2 className="w-3.5 h-3.5" /> Mark Clean
                               </button>
                             )}
-                            {(room.housekeeping_status === "clean" || room.housekeeping_status === "inspection") && (
+                            {room.housekeeping_status === "clean" && (
                               <button onClick={() => handleAction("inspect", room.room_id)} disabled={actionLoading} className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition text-[11px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-indigo-500/20">
                                 <Eye className="w-3.5 h-3.5" /> Mark Inspected
                               </button>
                             )}
-                            {room.housekeeping_status === "ooo" && (
+                            {room.housekeeping_status === "out_of_order" && (
                               <button onClick={() => setResolveRoom(room)} disabled={actionLoading} className="px-6 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl transition text-[11px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-orange-500/20">
                                 <WrenchIcon className="w-3.5 h-3.5" /> Resolve
                               </button>

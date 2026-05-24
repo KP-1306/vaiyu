@@ -52,7 +52,7 @@ export default function GuestNewBills() {
                     .order("check_in", { ascending: false });
 
                 if (mounted && staysData) {
-                    const mappedStays = staysData.map((s: any) => ({
+                    const mappedStays: Stay[] = staysData.map((s: any) => ({
                         id: s.id,
                         hotel_id: s.hotel_id,
                         hotel_name: s.hotel_name || s.hotel?.name || "Hotel",
@@ -64,12 +64,52 @@ export default function GuestNewBills() {
                         booking_code: s.booking_code,
                         status: s.status,
                     }));
-                    setStays(mappedStays);
 
                     // Get booking codes for fetching orders
                     const bookingCodes = mappedStays
                         .map((s) => s.booking_code)
-                        .filter(Boolean);
+                        .filter(Boolean) as string[];
+
+                    // Backfill bill_total from the folio ledger. user_recent_stays
+                    // hardcodes bill_total to NULL, so without this every stay row
+                    // would render "—" and the Total Stay Bills summary would be ₹0.
+                    // bill_total = full ledger total (includes room, tax, discount,
+                    // food, service). Yes, that overlaps with the "Total Food
+                    // Orders" card — that card stays as a standalone breakdown for
+                    // food spend across stays, while this row shows what the guest
+                    // actually owed for the whole stay.
+                    if (bookingCodes.length > 0) {
+                        const { data: bookingsRows } = await supabase
+                            .from("bookings")
+                            .select("id, code")
+                            .in("code", bookingCodes);
+
+                        const codeToBookingId = new Map<string, string>();
+                        bookingsRows?.forEach((b: any) => codeToBookingId.set(b.code, b.id));
+                        const bookingIds = Array.from(codeToBookingId.values());
+
+                        if (bookingIds.length > 0) {
+                            const { data: ledgerRows } = await supabase
+                                .from("v_arrival_payment_state")
+                                .select("booking_id, total_amount")
+                                .in("booking_id", bookingIds);
+
+                            const bookingIdToStayBill = new Map<string, number>();
+                            ledgerRows?.forEach((l: any) => {
+                                bookingIdToStayBill.set(l.booking_id, Number(l.total_amount) || 0);
+                            });
+
+                            for (const stay of mappedStays) {
+                                const bid = stay.booking_code ? codeToBookingId.get(stay.booking_code) : undefined;
+                                const stayBill = bid ? bookingIdToStayBill.get(bid) : undefined;
+                                if (typeof stayBill === "number" && stayBill > 0) {
+                                    stay.bill_total = stayBill;
+                                }
+                            }
+                        }
+                    }
+
+                    setStays(mappedStays);
 
                     if (bookingCodes.length > 0) {
                         // Fetch food orders using the view (has proper RLS)

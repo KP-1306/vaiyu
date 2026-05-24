@@ -16,6 +16,8 @@ export interface DashboardMetrics {
     occupancyHistory: {
         date: string;
         occupancyPct: number;
+        occupiedCount: number;
+        totalRooms: number;
     }[];
     revenueHistory: {
         date: string;
@@ -94,7 +96,9 @@ export async function getDashboardMetrics(hotelId: string): Promise<DashboardMet
         // Process Occupancy Data
         const occupancyHistory = (occResponse.data || []).map((row: any) => ({
             date: new Date(row.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }),
-            occupancyPct: row.occupancy_pct || 0
+            occupancyPct: row.occupancy_pct || 0,
+            occupiedCount: row.occupied_count || 0,
+            totalRooms: row.total_rooms || 0,
         }));
 
         // Process Revenue Data

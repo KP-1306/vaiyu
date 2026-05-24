@@ -13,10 +13,14 @@ import {
     Utensils,
     MapPin,
     RefreshCcw,
-    Receipt
+    Receipt,
+    CreditCard,
+    AlertTriangle,
 } from "lucide-react";
 
-import { parseDbDate } from "../utils/dateUtils";
+import { parseDbDate, formatIstTime } from "../utils/dateUtils";
+import { RazorpayServiceError } from "../services/razorpayService";
+import { getRazorpayClient } from "../services/razorpayClient";
 
 type FoodOrderData = {
     id: string;
@@ -26,6 +30,11 @@ type FoodOrderData = {
     updated_at: string;
     total_amount: number;
     booking_code?: string;
+    booking_id?: string;
+    hotel_id?: string;
+    balance_due?: number;
+    hotel_has_razorpay?: boolean;
+    razorpay_mode?: "NONE" | "DIRECT" | "ROUTE";
     room?: {
         number: string;
     };
@@ -52,6 +61,45 @@ export default function FoodOrderTracker() {
     const [error, setError] = useState<string | null>(null);
     const [now, setNow] = useState(new Date());
     const [slaMinutes, setSlaMinutes] = useState(30);
+
+    // Razorpay pay-folio state
+    const [payingFolio, setPayingFolio] = useState(false);
+    const [payError, setPayError] = useState<string | null>(null);
+    const [paySuccess, setPaySuccess] = useState(false);
+
+    async function handlePayFolio() {
+        if (!data?.hotel_id || !data?.booking_id) return;
+        setPayingFolio(true);
+        setPayError(null);
+        try {
+            const rzp = getRazorpayClient(data.razorpay_mode ?? "NONE");
+            const order = await rzp.createWalkInOrder({
+                hotelId: data.hotel_id,
+                bookingId: data.booking_id,
+            });
+            const result = await rzp.openRazorpayCheckout(order);
+            if (!result.ok) {
+                if (result.reason === "DISMISSED") throw new Error("Payment cancelled.");
+                throw new Error("Payment failed: " + (result.error?.description ?? "unknown"));
+            }
+            await rzp.verifyWalkInPayment({
+                hotelId: data.hotel_id,
+                bookingId: data.booking_id,
+                folioId: order.folioId,
+                orderId: result.orderId,
+                paymentId: result.paymentId,
+                signature: result.signature,
+            });
+            setPaySuccess(true);
+            // Refresh order to pick up new balance
+            await fetchOrder();
+        } catch (e) {
+            const msg = e instanceof RazorpayServiceError ? e.message : String((e as any)?.message ?? e);
+            setPayError(msg);
+        } finally {
+            setPayingFolio(false);
+        }
+    }
 
     useEffect(() => {
         const timer = setInterval(() => setNow(new Date()), 1000);
@@ -136,26 +184,59 @@ export default function FoodOrderTracker() {
                 .eq('food_order_id', order.id)
                 .order('created_at', { ascending: true });
 
-            // 1c. Get booking_code - prefer sessionStorage (no DB call), fallback to DB
+            // 1c. Get booking_code + booking_id (booking_id needed for Razorpay flow).
+            //     Prefer sessionStorage for code (no DB call); always fetch booking_id from DB.
             let bookingCode: string | undefined = undefined;
+            let bookingIdResolved: string | undefined = undefined;
             try {
                 bookingCode = sessionStorage.getItem('vaiyu:stay_code') || undefined;
             } catch { }
 
-            // Only fetch from DB if not in sessionStorage
-            if (!bookingCode && (order as any).stay_id) {
+            if ((order as any).stay_id) {
                 const { data: stay } = await supabase
                     .from('stays')
-                    .select('booking_code')
+                    .select('booking_code, booking_id')
                     .eq('id', (order as any).stay_id)
                     .maybeSingle();
-                bookingCode = stay?.booking_code;
+                if (!bookingCode) bookingCode = stay?.booking_code;
+                bookingIdResolved = stay?.booking_id ?? undefined;
+            }
+
+            // 1d. Razorpay availability + folio balance — drive the "Pay folio" CTA below
+            let hotelHasRazorpay = false;
+            let razorpayMode: "NONE" | "DIRECT" | "ROUTE" = "NONE";
+            let balanceDue = 0;
+            if ((order as any).hotel_id) {
+                const { data: hotelRow } = await supabase
+                    .from('hotels')
+                    .select('razorpay_mode, razorpay_account_id, razorpay_direct_key_id')
+                    .eq('id', (order as any).hotel_id)
+                    .maybeSingle();
+                razorpayMode = (hotelRow?.razorpay_mode ?? "NONE") as "NONE" | "DIRECT" | "ROUTE";
+                hotelHasRazorpay =
+                    (razorpayMode === "ROUTE" && !!hotelRow?.razorpay_account_id) ||
+                    (razorpayMode === "DIRECT" && !!hotelRow?.razorpay_direct_key_id);
+            }
+            if (bookingIdResolved) {
+                const { data: ps } = await supabase
+                    .from('v_arrival_payment_state')
+                    .select('total_amount, paid_amount')
+                    .eq('booking_id', bookingIdResolved)
+                    .maybeSingle();
+                if (ps) {
+                    balanceDue = Math.max(0, Number(ps.total_amount ?? 0) - Number(ps.paid_amount ?? 0));
+                }
             }
 
             setData({
                 ...order,
                 display_id: order.display_id || order.id.slice(0, 8).toUpperCase(),
                 booking_code: bookingCode,
+                booking_id: bookingIdResolved,
+                hotel_id: (order as any).hotel_id,
+                balance_due: balanceDue,
+                hotel_has_razorpay: hotelHasRazorpay,
+                razorpay_mode: razorpayMode,
                 room: roomData ? { number: roomData.number } : undefined,
                 items: items || [],
                 total_amount: total,
@@ -327,8 +408,11 @@ export default function FoodOrderTracker() {
                                 <Clock size={16} />
                                 <span>{isCompleted ? "DELIVERED AT" : "ESTIMATED ARRIVAL"}</span>
                             </div>
-                            <div className="text-3xl font-bold text-white font-mono mb-1">
-                                {isCompleted ? (parseDbDate(data.updated_at) || new Date()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : targetTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                            <div className="flex items-baseline gap-2 mb-1">
+                                <span className="text-3xl font-bold text-white font-mono leading-none">
+                                    {isCompleted ? formatIstTime(parseDbDate(data.updated_at) || new Date(), { showLabel: false }) : formatIstTime(targetTime, { showLabel: false })}
+                                </span>
+                                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">IST</span>
                             </div>
                             <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
                                 {isCompleted ? "Completed" : isBreached ? "Delayed" : "On Schedule"}
@@ -409,12 +493,51 @@ export default function FoodOrderTracker() {
                                 </div>
                                 <div className="pt-1">
                                     <div className={`text-sm font-bold ${step.active ? 'text-white' : 'text-zinc-500'}`}>{step.label}</div>
-                                    {step.active && step.time && <div className="text-xs text-zinc-500 mt-0.5">{step.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>}
+                                    {step.active && step.time && <div className="text-xs text-zinc-500 mt-0.5">{formatIstTime(step.time, { showLabel: false })}</div>}
                                 </div>
                             </div>
                         ))}
                     </div>
                 </div>
+
+                {/* Pay folio balance — guest can settle their bill (including this order)
+                    via Razorpay without going to the checkout page. Hidden if there's
+                    nothing owed, hotel hasn't onboarded Razorpay, or order was cancelled. */}
+                {!isCancelled
+                    && data.hotel_has_razorpay
+                    && data.booking_id
+                    && (data.balance_due ?? 0) > 0 && (
+                        <button
+                            onClick={handlePayFolio}
+                            disabled={payingFolio}
+                            className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-4 rounded-xl text-sm font-bold transition-all shadow-lg flex items-center justify-center gap-2 mb-3"
+                        >
+                            {payingFolio ? (
+                                <>
+                                    <Loader2 size={16} className="animate-spin" />
+                                    Opening secure payment…
+                                </>
+                            ) : (
+                                <>
+                                    <CreditCard size={16} />
+                                    Pay folio balance · ₹{(data.balance_due ?? 0).toLocaleString("en-IN")}
+                                </>
+                            )}
+                        </button>
+                    )}
+
+                {paySuccess && (
+                    <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 mb-3 flex items-center gap-2 text-emerald-300 text-sm">
+                        <CheckCircle2 className="w-4 h-4 shrink-0" />
+                        Payment received. Your folio is settled.
+                    </div>
+                )}
+                {payError && (
+                    <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-3 mb-3 flex items-start gap-2 text-rose-300 text-sm">
+                        <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                        <span className="leading-snug">{payError}</span>
+                    </div>
+                )}
 
                 {/* Action Buttons */}
                 {!isCompleted && !isCancelled && (

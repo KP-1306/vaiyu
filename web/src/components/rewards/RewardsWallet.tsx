@@ -208,7 +208,7 @@ export default function RewardsWallet({
       const bal = balances.find((b) => b.hotel_id === claimHotelId);
       if (bal && claimAmountPaise > bal.available_paise) {
         throw new Error(
-          `Amount exceeds available balance (${inr(b.available_paise)}).`
+          `Amount exceeds available balance (${inr(bal.available_paise)}).`
         );
       }
 

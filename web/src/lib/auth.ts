@@ -136,7 +136,6 @@ export function clearPersistedRole() {
 export async function signOutEverywhere() {
   // 1) Attempt global sign-out (invalidates refresh tokens on all devices)
   try {
-    // @ts-expect-error: scope is supported in newer supabase-js versions
     await supabase.auth.signOut({ scope: "global" });
   } catch {
     // Fallback to regular signOut if scope isn't supported

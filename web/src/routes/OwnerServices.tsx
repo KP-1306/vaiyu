@@ -13,7 +13,7 @@ import AddDepartmentTemplateModal from "../components/AddDepartmentTemplateModal
 import ConfirmDialog from "../components/ConfirmDialog";
 import OwnerMenuManagement from "../components/OwnerMenuManagement";
 import { supabase } from "../lib/supabase";
-import { useAuth } from "../hooks/useAuth";
+import { useAuth } from "../context/AuthContext";
 import styles from "./OwnerServices.module.css";
 
 interface Service {

@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { getGuestTickets, reopenTicket, addGuestComment, getTicketComments, supa, getCancelReasons, cancelTicketByGuest, getGuestFoodOrders } from "../lib/api";
+import { parseDbDate, formatIstTime } from "../utils/dateUtils";
 
 type GuestTicket = {
     id: string;
@@ -842,10 +843,15 @@ function TicketCard({
     };
 
     const timeAgo = (dateStr: string) => {
-        const date = new Date(dateStr);
+        // parseDbDate appends 'Z' when the timestamp arrives without a TZ
+        // suffix, which is the root cause of the "5h ago" bug — a naked
+        // `new Date(dateStr)` was treating "17:56:14" as local time.
+        const date = parseDbDate(dateStr);
+        if (!date) return "—";
         const now = new Date();
-        const diffMs = now.getTime() - date.getTime();
+        const diffMs = Math.max(0, now.getTime() - date.getTime());
         const diffMins = Math.floor(diffMs / 60000);
+        if (diffMins < 1) return "just now";
         if (diffMins < 60) return `${diffMins}m ago`;
         const diffHours = Math.floor(diffMins / 60);
         if (diffHours < 24) return `${diffHours}h ago`;
@@ -1177,10 +1183,15 @@ function FoodOrderCard({ order }: { order: GuestFoodOrder }) {
     const config = statusConfig[order.status] || statusConfig.CREATED;
 
     const timeAgo = (dateStr: string) => {
-        const date = new Date(dateStr);
+        // parseDbDate appends 'Z' when the timestamp arrives without a TZ
+        // suffix, which is the root cause of the "5h ago" bug — a naked
+        // `new Date(dateStr)` was treating "17:56:14" as local time.
+        const date = parseDbDate(dateStr);
+        if (!date) return "—";
         const now = new Date();
-        const diffMs = now.getTime() - date.getTime();
+        const diffMs = Math.max(0, now.getTime() - date.getTime());
         const diffMins = Math.floor(diffMs / 60000);
+        if (diffMins < 1) return "just now";
         if (diffMins < 60) return `${diffMins}m ago`;
         const diffHours = Math.floor(diffMins / 60);
         if (diffHours < 24) return `${diffHours}h ago`;

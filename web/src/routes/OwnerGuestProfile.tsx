@@ -560,7 +560,7 @@ export default function OwnerGuestProfile() {
                 <div>
                   Last visit:{" "}
                   {formatDate(
-                    data.profile?.last_seen_at ?? stats.last_visit_at ?? null
+                    data?.profile?.last_seen_at ?? stats.last_visit_at ?? null
                   )}
                 </div>
               )}

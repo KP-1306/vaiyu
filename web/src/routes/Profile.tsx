@@ -166,7 +166,7 @@ function mergeProfiles(dbRec: ProfileRecord, local: ProfileRecord | null): Profi
       // for now, keep DB "true" if local is false and DB is true
       return;
     }
-    out[key] = val as any;
+    (out as Record<string, unknown>)[key as string] = val;
   });
   return out;
 }

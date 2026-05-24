@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 import SEO from "../components/SEO";
-import HeroCarousel from "../components/HeroCarousel";
+import HeroCarousel, { type Slide } from "../components/HeroCarousel";
 import AIShowcase from "../components/AIShowcase";
 import ResultsAndSocialProof from "../components/ResultsAndSocialProof";
 import GlassBand_OnboardingSecurityIntegrations from "../components/GlassBand_OnboardingSecurityIntegrations";
@@ -119,7 +119,7 @@ export default function MarketingHome() {
   const staffHomeHref = "/staff";
 
   /** ---------- Hero slides (CTAs present for types, but hidden by disableCtas) ---------- */
-  const slides = useMemo(
+  const slides = useMemo<Slide[]>(
     () => [
       {
         id: "ai-hero",

@@ -1,0 +1,1646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Wireframe — Artificial Jewelry E-commerce (Premium)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&family=Italiana&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root {
+    --bone: #F5F0E8;
+    --ivory: #FAF6F0;
+    --cream: #EFE7DA;
+    --gold: #B8956A;
+    --gold-deep: #8C6B3F;
+    --champagne: #D4B896;
+    --emerald: #1F4332;
+    --emerald-deep: #0F2920;
+    --ink: #1A1614;
+    --ash: #6B6258;
+    --rose: #B8758A;
+    --blush: #F2DCDB;
+  }
+
+  * { -webkit-font-smoothing: antialiased; }
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bone);
+    color: var(--ink);
+    font-weight: 300;
+    letter-spacing: 0.01em;
+  }
+
+  .serif { font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 400; }
+  .display { font-family: 'Italiana', serif; letter-spacing: 0.04em; }
+
+  .screen {
+    max-width: 1280px;
+    margin: 48px auto;
+    background: white;
+    box-shadow: 0 30px 80px -20px rgba(26, 22, 20, 0.12), 0 8px 24px -12px rgba(26, 22, 20, 0.08);
+    overflow: hidden;
+    border-radius: 2px;
+  }
+
+  .screen-label {
+    background: var(--ink);
+    color: var(--champagne);
+    padding: 14px 28px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* Premium image placeholders with subtle gradients & patterns */
+  .ph {
+    background:
+      radial-gradient(ellipse at 30% 30%, rgba(212, 184, 150, 0.4), transparent 60%),
+      radial-gradient(ellipse at 70% 70%, rgba(184, 149, 106, 0.3), transparent 60%),
+      linear-gradient(135deg, #E8DCC8, #D4B896, #C9A961);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(26, 22, 20, 0.35);
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    font-weight: 400;
+    position: relative;
+  }
+  .ph-dark {
+    background:
+      radial-gradient(ellipse at 30% 30%, rgba(31, 67, 50, 0.6), transparent 60%),
+      radial-gradient(ellipse at 70% 70%, rgba(15, 41, 32, 0.7), transparent 60%),
+      linear-gradient(135deg, #2D5A47, #1F4332, #0F2920);
+    color: rgba(245, 240, 232, 0.5);
+  }
+  .ph-rose {
+    background:
+      radial-gradient(ellipse at 30% 30%, rgba(242, 220, 219, 0.7), transparent 60%),
+      radial-gradient(ellipse at 70% 70%, rgba(184, 117, 138, 0.4), transparent 60%),
+      linear-gradient(135deg, #F2DCDB, #E5C4C7, #B8758A);
+    color: rgba(26, 22, 20, 0.4);
+  }
+  .ph-cream {
+    background: linear-gradient(135deg, #EFE7DA, #E8DCC8, #D4B896);
+    color: rgba(26, 22, 20, 0.3);
+  }
+
+  /* Subtle texture overlay */
+  .ph::after {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      radial-gradient(circle at 20% 50%, rgba(255,255,255,0.15) 0%, transparent 50%),
+      radial-gradient(circle at 80% 50%, rgba(255,255,255,0.1) 0%, transparent 40%);
+    pointer-events: none;
+  }
+
+  .nav-link {
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    transition: color 0.3s ease;
+    position: relative;
+    padding-bottom: 2px;
+  }
+  .nav-link::after {
+    content: '';
+    position: absolute; bottom: 0; left: 0;
+    width: 0; height: 1px;
+    background: var(--gold);
+    transition: width 0.3s ease;
+  }
+  .nav-link:hover { color: var(--gold-deep); }
+  .nav-link:hover::after { width: 100%; }
+
+  .btn-gold {
+    background: var(--ink);
+    color: var(--ivory);
+    padding: 14px 32px;
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    font-weight: 500;
+    border: 1px solid var(--ink);
+    transition: all 0.3s ease;
+    cursor: pointer;
+  }
+  .btn-gold:hover { background: var(--gold-deep); border-color: var(--gold-deep); }
+
+  .btn-line {
+    background: transparent;
+    color: var(--ink);
+    padding: 13px 28px;
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    font-weight: 500;
+    border: 1px solid var(--ink);
+    transition: all 0.3s ease;
+    cursor: pointer;
+  }
+  .btn-line:hover { background: var(--ink); color: var(--ivory); }
+
+  .btn-emerald {
+    background: var(--emerald);
+    color: var(--ivory);
+    padding: 14px 32px;
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    font-weight: 500;
+    border: none;
+    transition: all 0.3s ease;
+    cursor: pointer;
+  }
+  .btn-emerald:hover { background: var(--emerald-deep); }
+
+  .eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: var(--gold-deep);
+    font-weight: 500;
+  }
+
+  .price { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 18px; }
+  .price-strike { color: var(--ash); text-decoration: line-through; font-size: 13px; }
+
+  .product-card {
+    transition: transform 0.4s ease;
+    cursor: pointer;
+  }
+  .product-card:hover { transform: translateY(-4px); }
+  .product-card .ph { transition: opacity 0.3s ease; }
+
+  .chip-line {
+    border: 1px solid var(--ink);
+    padding: 6px 16px;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink);
+    font-weight: 400;
+    background: white;
+  }
+
+  .filter-checkbox {
+    appearance: none;
+    width: 14px; height: 14px;
+    border: 1px solid var(--ash);
+    margin-right: 10px;
+    position: relative;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .filter-checkbox:checked {
+    background: var(--ink);
+    border-color: var(--ink);
+  }
+  .filter-checkbox:checked::after {
+    content: '✓'; color: white; position: absolute;
+    top: -3px; left: 1px; font-size: 12px;
+  }
+
+  .swatch {
+    width: 24px; height: 24px; border-radius: 50%;
+    cursor: pointer; transition: transform 0.2s ease;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+  }
+  .swatch:hover { transform: scale(1.15); }
+  .swatch.active { box-shadow: 0 0 0 1px white, 0 0 0 2px var(--ink); }
+
+  .star { color: var(--gold); letter-spacing: 0.15em; font-size: 11px; }
+
+  .divider-ornament {
+    display: flex; align-items: center; gap: 16px;
+    color: var(--gold);
+    margin: 0 auto;
+    width: fit-content;
+  }
+  .divider-ornament::before, .divider-ornament::after {
+    content: ''; width: 50px; height: 1px; background: var(--gold);
+  }
+
+  .badge-soft {
+    background: var(--ivory);
+    color: var(--ink);
+    border: 1px solid var(--gold);
+    padding: 4px 12px;
+    font-size: 9px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+
+  .timeline-line {
+    height: 1px;
+    background: linear-gradient(90deg, var(--gold) 0%, var(--gold) 50%, var(--cream) 50%, var(--cream) 100%);
+  }
+
+  table.lux { width: 100%; border-collapse: collapse; }
+  table.lux th {
+    text-align: left; padding: 14px 12px; border-bottom: 1px solid var(--cream);
+    font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--ash); font-weight: 500;
+  }
+  table.lux td {
+    padding: 18px 12px; border-bottom: 1px solid var(--cream);
+    font-size: 13px; color: var(--ink); font-weight: 300;
+  }
+
+  .pill { padding: 5px 12px; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; font-weight: 500; }
+  .pill-amber { background: #FDF3E0; color: #8B6914; }
+  .pill-emerald { background: #E6EFEA; color: var(--emerald); }
+  .pill-rose { background: #FAEAED; color: #8B3A4F; }
+  .pill-blue { background: #E5EBF0; color: #2C4159; }
+  .pill-gold { background: #F5EDDC; color: var(--gold-deep); }
+
+  .stat-card {
+    background: white;
+    padding: 28px;
+    border: 1px solid var(--cream);
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  }
+
+  .toplabel {
+    background: var(--ink);
+    color: var(--champagne);
+    text-align: center;
+    padding: 8px;
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    font-weight: 400;
+  }
+
+  .editorial-quote {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 28px;
+    line-height: 1.5;
+    color: var(--ink);
+    text-align: center;
+    max-width: 700px;
+    margin: 0 auto;
+    font-weight: 400;
+  }
+
+  /* Subtle animations */
+  @keyframes shimmer {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+  }
+  .shimmer { animation: shimmer 2s infinite; }
+
+  .progress-bar {
+    height: 4px; background: var(--cream); position: relative; overflow: hidden;
+  }
+  .progress-bar > div {
+    height: 100%; background: var(--gold);
+  }
+
+  .gold-line {
+    height: 1px; background: var(--gold); width: 40px;
+  }
+</style>
+</head>
+<body>
+
+<div class="text-center pt-16 pb-2">
+  <div class="eyebrow mb-4">A Premium Wireframe</div>
+  <h1 class="display text-5xl mb-3">Editorial Jewelry House</h1>
+  <p class="text-sm" style="color: var(--ash); letter-spacing: 0.1em;">Multi-category architecture · Crafted for the modern luxury buyer</p>
+  <div class="divider-ornament mt-6"><span class="display text-xs">VII SCREENS</span></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SCREEN 1: HOMEPAGE -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="screen">
+  <div class="screen-label">I — Homepage · Editorial Landing</div>
+
+  <div class="toplabel">Complimentary shipping pan-India · Easy 14-day returns · Members earn 2× points</div>
+
+  <!-- Header -->
+  <div class="border-b" style="border-color: var(--cream); padding: 28px 48px; display: flex; align-items: center; justify-content: space-between;">
+    <div style="flex: 1; display: flex; gap: 36px;">
+      <a class="nav-link">Earrings</a>
+      <a class="nav-link">Necklaces</a>
+      <a class="nav-link">Rings</a>
+      <a class="nav-link">Bangles</a>
+      <a class="nav-link">Bridal</a>
+    </div>
+    <div class="display text-3xl" style="flex: 1; text-align: center; letter-spacing: 0.15em;">AABHUSHAN</div>
+    <div style="flex: 1; display: flex; justify-content: flex-end; gap: 28px; font-size: 13px; color: var(--ink);">
+      <span>Search</span>
+      <span>Account</span>
+      <span>Wishlist (3)</span>
+      <span style="font-weight: 500;">Bag (2)</span>
+    </div>
+  </div>
+
+  <!-- Hero - editorial -->
+  <div style="position: relative;">
+    <div class="ph" style="height: 620px;">
+      <div style="text-align: center; position: relative; z-index: 2;">
+        <div class="eyebrow mb-6">The Spring Edit · Volume IX</div>
+        <h1 class="display" style="font-size: 88px; line-height: 1; color: var(--ink); margin-bottom: 24px;">Heirlooms<br/><em style="font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 300;">in the making</em></h1>
+        <p class="serif" style="font-size: 18px; color: var(--ink); max-width: 460px; margin: 0 auto 40px; font-style: italic;">A study in restraint and modern romance — twenty-four pieces, hand-finished, ready for the moments you'll remember.</p>
+        <div style="display: flex; gap: 12px; justify-content: center;">
+          <button class="btn-gold">Discover the Edit</button>
+          <button class="btn-line">View Lookbook</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Editorial Categories -->
+  <div style="padding: 96px 48px;">
+    <div class="text-center mb-16">
+      <div class="eyebrow mb-3">Browse the House</div>
+      <h2 class="display text-5xl">By Category</h2>
+    </div>
+
+    <div class="grid grid-cols-3 gap-1">
+      <div style="position: relative; cursor: pointer; overflow: hidden;">
+        <div class="ph" style="height: 480px;">Earrings</div>
+        <div style="position: absolute; bottom: 32px; left: 32px; right: 32px;">
+          <div class="serif text-3xl" style="color: var(--ink);">Earrings</div>
+          <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px;">
+            <div class="gold-line"></div>
+            <span style="font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;">240 pieces</span>
+          </div>
+        </div>
+      </div>
+      <div style="position: relative; cursor: pointer; overflow: hidden;">
+        <div class="ph ph-dark" style="height: 480px;">Necklaces</div>
+        <div style="position: absolute; bottom: 32px; left: 32px; right: 32px;">
+          <div class="serif text-3xl" style="color: var(--ivory);">Necklaces</div>
+          <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px; color: var(--champagne);">
+            <div style="height: 1px; width: 40px; background: var(--champagne);"></div>
+            <span style="font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;">180 pieces</span>
+          </div>
+        </div>
+      </div>
+      <div style="position: relative; cursor: pointer; overflow: hidden;">
+        <div class="ph ph-rose" style="height: 480px;">Rings</div>
+        <div style="position: absolute; bottom: 32px; left: 32px; right: 32px;">
+          <div class="serif text-3xl" style="color: var(--ink);">Rings</div>
+          <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px;">
+            <div class="gold-line"></div>
+            <span style="font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;">95 pieces</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- The Edit / Featured Products -->
+  <div style="padding: 96px 48px; background: var(--ivory);">
+    <div class="flex justify-between items-end mb-12">
+      <div>
+        <div class="eyebrow mb-3">As Selected by Our Atelier</div>
+        <h2 class="display text-5xl">The Edit</h2>
+      </div>
+      <a style="font-size: 11px; letter-spacing: 0.25em; text-transform: uppercase; border-bottom: 1px solid var(--ink); padding-bottom: 4px;">View All Pieces →</a>
+    </div>
+
+    <div class="grid grid-cols-4 gap-8">
+      <div class="product-card">
+        <div class="ph" style="height: 380px; position: relative;">Editorial Image
+          <div style="position: absolute; top: 16px; right: 16px;"><span class="badge-soft">Just In</span></div>
+          <div style="position: absolute; top: 16px; left: 16px; width: 32px; height: 32px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px;">♡</div>
+        </div>
+        <div class="text-center mt-5">
+          <div class="serif text-xl" style="margin-bottom: 4px;">The Aria Drops</div>
+          <div style="font-size: 11px; color: var(--ash); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 12px;">Rose Gold · Pearl</div>
+          <div class="price">₹ 1,899</div>
+          <div style="display: flex; justify-content: center; gap: 6px; margin-top: 12px;">
+            <div class="swatch active" style="background: #D4A574;"></div>
+            <div class="swatch" style="background: #E8E4DA;"></div>
+            <div class="swatch" style="background: #2D2D2D;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="product-card">
+        <div class="ph ph-cream" style="height: 380px; position: relative;">Editorial Image
+          <div style="position: absolute; top: 16px; left: 16px; width: 32px; height: 32px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px;">♡</div>
+        </div>
+        <div class="text-center mt-5">
+          <div class="serif text-xl" style="margin-bottom: 4px;">Solène Choker</div>
+          <div style="font-size: 11px; color: var(--ash); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 12px;">Pearl · Champagne</div>
+          <div class="price">₹ 2,499</div>
+          <div style="display: flex; justify-content: center; gap: 6px; margin-top: 12px;">
+            <div class="swatch active" style="background: #E8E4DA;"></div>
+            <div class="swatch" style="background: #D4A574;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="product-card">
+        <div class="ph ph-rose" style="height: 380px; position: relative;">Editorial Image
+          <div style="position: absolute; top: 16px; right: 16px;"><span class="badge-soft">Bestseller</span></div>
+          <div style="position: absolute; top: 16px; left: 16px; width: 32px; height: 32px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px;">♡</div>
+        </div>
+        <div class="text-center mt-5">
+          <div class="serif text-xl" style="margin-bottom: 4px;">Mira Bridal Set</div>
+          <div style="font-size: 11px; color: var(--ash); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 12px;">Kundan · Heritage</div>
+          <div class="price">₹ 4,899 <span class="price-strike ml-2">₹ 7,499</span></div>
+          <div style="display: flex; justify-content: center; gap: 6px; margin-top: 12px;">
+            <div class="swatch active" style="background: #B8758A;"></div>
+            <div class="swatch" style="background: #1F4332;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="product-card">
+        <div class="ph ph-dark" style="height: 380px; position: relative;">Editorial Image
+          <div style="position: absolute; top: 16px; left: 16px; width: 32px; height: 32px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px;">♡</div>
+        </div>
+        <div class="text-center mt-5">
+          <div class="serif text-xl" style="margin-bottom: 4px;">Cassia Bangle Stack</div>
+          <div style="font-size: 11px; color: var(--ash); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 12px;">Oxidised · Set of 3</div>
+          <div class="price">₹ 1,299</div>
+          <div style="display: flex; justify-content: center; gap: 6px; margin-top: 12px;">
+            <div class="swatch active" style="background: #2D2D2D;"></div>
+            <div class="swatch" style="background: #D4A574;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Editorial spread - shop the look -->
+  <div style="padding: 96px 48px;">
+    <div class="grid grid-cols-12 gap-8 items-center">
+      <div class="col-span-7">
+        <div class="ph ph-cream" style="height: 640px;">Editorial Lookbook · Full bleed image</div>
+      </div>
+      <div class="col-span-5" style="padding: 0 32px;">
+        <div class="eyebrow mb-4">Story Number Twelve</div>
+        <h2 class="display text-5xl mb-6" style="line-height: 1;">An afternoon<br/>at the haveli</h2>
+        <p class="serif" style="font-size: 18px; line-height: 1.7; color: var(--ash); margin-bottom: 32px; font-weight: 300;">
+          Soft sun, faded marble, jasmine in the air. Three pieces from our heritage line — styled for the slow rituals of an Indian afternoon.
+        </p>
+        <div style="margin-bottom: 32px;">
+          <div style="display: flex; gap: 12px; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--cream);">
+            <div class="ph" style="width: 60px; height: 60px;"></div>
+            <div style="flex: 1;">
+              <div class="serif text-lg">Mira Bridal Set</div>
+              <div style="font-size: 11px; color: var(--ash); letter-spacing: 0.15em; text-transform: uppercase;">As worn — page 1</div>
+            </div>
+            <div class="price">₹ 4,899</div>
+          </div>
+          <div style="display: flex; gap: 12px; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--cream);">
+            <div class="ph ph-rose" style="width: 60px; height: 60px;"></div>
+            <div style="flex: 1;">
+              <div class="serif text-lg">Aria Earrings</div>
+              <div style="font-size: 11px; color: var(--ash); letter-spacing: 0.15em; text-transform: uppercase;">As worn — page 1</div>
+            </div>
+            <div class="price">₹ 1,899</div>
+          </div>
+          <div style="display: flex; gap: 12px;">
+            <div class="ph ph-dark" style="width: 60px; height: 60px;"></div>
+            <div style="flex: 1;">
+              <div class="serif text-lg">Cassia Bangle</div>
+              <div style="font-size: 11px; color: var(--ash); letter-spacing: 0.15em; text-transform: uppercase;">As worn — page 1</div>
+            </div>
+            <div class="price">₹ 1,299</div>
+          </div>
+        </div>
+        <button class="btn-line">Shop the Story</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Membership / Loyalty -->
+  <div style="padding: 96px 48px; background: var(--emerald-deep); color: var(--ivory);">
+    <div class="text-center max-w-3xl mx-auto">
+      <div class="eyebrow mb-4" style="color: var(--champagne);">Aabhushan Cercle</div>
+      <h2 class="display text-5xl mb-6" style="color: var(--ivory);">A House Membership</h2>
+      <p class="serif" style="font-size: 19px; line-height: 1.7; color: rgba(245, 240, 232, 0.85); margin-bottom: 40px; font-weight: 300;">
+        Complimentary access for our most cherished clients. Earn points on every order, receive private editions before they launch, and enjoy a personal styling consultation each season.
+      </p>
+      <div class="grid grid-cols-3 gap-12 text-center mt-12 mb-12">
+        <div>
+          <div class="display text-4xl" style="color: var(--champagne);">2×</div>
+          <div style="font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; margin-top: 8px; opacity: 0.7;">Points on every purchase</div>
+        </div>
+        <div>
+          <div class="display text-4xl" style="color: var(--champagne);">VII</div>
+          <div style="font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; margin-top: 8px; opacity: 0.7;">Day early access to new editions</div>
+        </div>
+        <div>
+          <div class="display text-4xl" style="color: var(--champagne);">∞</div>
+          <div style="font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; margin-top: 8px; opacity: 0.7;">Complimentary styling sessions</div>
+        </div>
+      </div>
+      <button class="btn-emerald" style="background: var(--champagne); color: var(--emerald-deep);">Become a Member — Free</button>
+    </div>
+  </div>
+
+  <!-- Editorial / Journal -->
+  <div style="padding: 96px 48px; background: var(--ivory);">
+    <div class="text-center mb-16">
+      <div class="eyebrow mb-3">From the Journal</div>
+      <h2 class="display text-5xl">Reading Room</h2>
+    </div>
+    <div class="grid grid-cols-3 gap-10">
+      <div>
+        <div class="ph" style="height: 320px; margin-bottom: 24px;">Article cover</div>
+        <div class="eyebrow mb-2" style="font-size: 9px;">Style Notes · 6 min read</div>
+        <h3 class="serif text-2xl mb-3" style="line-height: 1.3;">How to layer necklaces, the way the French do it</h3>
+        <p style="font-size: 13px; color: var(--ash); line-height: 1.7; font-weight: 300;">A guide to effortless layering — from collarbone to décolletage — with three pieces from the new spring edit.</p>
+      </div>
+      <div>
+        <div class="ph ph-dark" style="height: 320px; margin-bottom: 24px;">Article cover</div>
+        <div class="eyebrow mb-2" style="font-size: 9px;">Atelier Diary · 4 min read</div>
+        <h3 class="serif text-2xl mb-3" style="line-height: 1.3;">Inside the workshop where every piece is hand-finished</h3>
+        <p style="font-size: 13px; color: var(--ash); line-height: 1.7; font-weight: 300;">Meet the artisans in Jaipur whose hands shape each piece — from raw alloy to final polish.</p>
+      </div>
+      <div>
+        <div class="ph ph-rose" style="height: 320px; margin-bottom: 24px;">Article cover</div>
+        <div class="eyebrow mb-2" style="font-size: 9px;">Bridal Edit · 8 min read</div>
+        <h3 class="serif text-2xl mb-3" style="line-height: 1.3;">A bride's checklist — twelve months to the wedding</h3>
+        <p style="font-size: 13px; color: var(--ash); line-height: 1.7; font-weight: 300;">Our atelier walks you through every milestone, from save-the-date to the morning of the ceremony.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div style="padding: 80px 48px 40px; background: var(--ink); color: var(--cream);">
+    <div class="grid grid-cols-12 gap-8">
+      <div class="col-span-4">
+        <div class="display text-4xl mb-6" style="color: var(--ivory); letter-spacing: 0.15em;">AABHUSHAN</div>
+        <p class="serif" style="font-size: 17px; line-height: 1.7; color: rgba(245, 240, 232, 0.7); font-weight: 300;">
+          A house of considered jewelry. Designed in Mumbai, hand-finished in Jaipur, delivered to thirty-two countries.
+        </p>
+      </div>
+      <div class="col-span-2">
+        <div style="font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--champagne); margin-bottom: 20px;">Shop</div>
+        <div style="font-size: 13px; line-height: 2.4; color: rgba(245, 240, 232, 0.7);">Earrings<br/>Necklaces<br/>Rings<br/>Bangles<br/>Bridal</div>
+      </div>
+      <div class="col-span-2">
+        <div style="font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--champagne); margin-bottom: 20px;">House</div>
+        <div style="font-size: 13px; line-height: 2.4; color: rgba(245, 240, 232, 0.7);">The Atelier<br/>The Cercle<br/>Journal<br/>Stockists<br/>Press</div>
+      </div>
+      <div class="col-span-4">
+        <div style="font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--champagne); margin-bottom: 20px;">A Letter from the House</div>
+        <p style="font-size: 13px; line-height: 1.7; color: rgba(245, 240, 232, 0.7); margin-bottom: 20px; font-weight: 300;">
+          Each season we send a single letter — new editions, behind-the-scenes notes, and the rare members-only offer.
+        </p>
+        <div style="display: flex; border-bottom: 1px solid var(--gold); padding-bottom: 12px;">
+          <input style="background: transparent; border: none; color: var(--ivory); flex: 1; outline: none; font-size: 13px;" placeholder="your.email@example.com" />
+          <button style="color: var(--champagne); font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;">Subscribe →</button>
+        </div>
+      </div>
+    </div>
+    <div style="border-top: 1px solid rgba(212, 184, 150, 0.15); margin-top: 60px; padding-top: 32px; display: flex; justify-content: space-between; font-size: 11px; letter-spacing: 0.15em; color: rgba(245, 240, 232, 0.5);">
+      <div>© MMXXVI · Aabhushan Maison</div>
+      <div style="display: flex; gap: 24px;"><span>Privacy</span><span>Terms</span><span>Returns</span><span>Care Guide</span></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SCREEN 2: LISTING -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="screen">
+  <div class="screen-label">II — Category · The Edit Index</div>
+
+  <!-- Breadcrumb / Hero -->
+  <div style="padding: 48px 48px 32px; text-align: center; border-bottom: 1px solid var(--cream);">
+    <div style="font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ash); margin-bottom: 16px;">House · Earrings</div>
+    <h1 class="display text-6xl mb-3">Earrings</h1>
+    <p class="serif" style="font-size: 17px; color: var(--ash); max-width: 540px; margin: 0 auto; font-style: italic; font-weight: 300;">From whisper-light studs to statement chandeliers — pieces that frame, soften, and remember.</p>
+    <div style="margin-top: 32px; display: flex; justify-content: center; gap: 12px;">
+      <span class="chip-line">All · 240</span>
+      <span class="chip-line">Studs</span>
+      <span class="chip-line">Drops</span>
+      <span class="chip-line">Jhumka</span>
+      <span class="chip-line">Hoops</span>
+      <span class="chip-line">Chandelier</span>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-12 gap-8" style="padding: 48px;">
+    <aside class="col-span-3">
+      <div style="position: sticky; top: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; padding-bottom: 16px; border-bottom: 1px solid var(--cream);">
+          <div style="font-size: 11px; letter-spacing: 0.25em; text-transform: uppercase; font-weight: 500;">Refine</div>
+          <div style="font-size: 11px; color: var(--ash); letter-spacing: 0.15em;">240 results</div>
+        </div>
+
+        <div style="margin-bottom: 32px;">
+          <div class="serif text-lg mb-3">Price</div>
+          <div style="font-size: 13px; color: var(--ink); line-height: 2.2; font-weight: 300;">
+            <label style="display: flex; align-items: center; cursor: pointer;"><input type="checkbox" class="filter-checkbox" />Under ₹ 1,000</label>
+            <label style="display: flex; align-items: center; cursor: pointer;"><input type="checkbox" class="filter-checkbox" checked />₹ 1,000 — ₹ 2,500</label>
+            <label style="display: flex; align-items: center; cursor: pointer;"><input type="checkbox" class="filter-checkbox" />₹ 2,500 — ₹ 5,000</label>
+            <label style="display: flex; align-items: center; cursor: pointer;"><input type="checkbox" class="filter-checkbox" />Above ₹ 5,000</label>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 32px;">
+          <div class="serif text-lg mb-3">Material</div>
+          <div style="font-size: 13px; color: var(--ink); line-height: 2.2; font-weight: 300;">
+            <label style="display: flex; align-items: center; cursor: pointer;"><input type="checkbox" class="filter-checkbox" checked />Brass</label>
+            <label style="display: flex; align-items: center; cursor: pointer;"><input type="checkbox" class="filter-checkbox" />Silver-plated</label>
+            <label style="display: flex; align-items: center; cursor: pointer;"><input type="checkbox" class="filter-checkbox" />Alloy</label>
+            <label style="display: flex; align-items: center; cursor: pointer;"><input type="checkbox" class="filter-checkbox" />Oxidised</label>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 32px;">
+          <div class="serif text-lg mb-3">Finish</div>
+          <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+            <div class="swatch active" style="background: #D4A574;"></div>
+            <div class="swatch" style="background: #E8E4DA;"></div>
+            <div class="swatch" style="background: #2D2D2D;"></div>
+            <div class="swatch" style="background: #B8758A;"></div>
+            <div class="swatch" style="background: #1F4332;"></div>
+            <div class="swatch" style="background: #722F37;"></div>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 32px;">
+          <div class="serif text-lg mb-3">Occasion</div>
+          <div style="font-size: 13px; color: var(--ink); line-height: 2.2; font-weight: 300;">
+            <label style="display: flex; align-items: center; cursor: pointer;"><input type="checkbox" class="filter-checkbox" />Daily</label>
+            <label style="display: flex; align-items: center; cursor: pointer;"><input type="checkbox" class="filter-checkbox" />Bridal</label>
+            <label style="display: flex; align-items: center; cursor: pointer;"><input type="checkbox" class="filter-checkbox" checked />Festive</label>
+            <label style="display: flex; align-items: center; cursor: pointer;"><input type="checkbox" class="filter-checkbox" />Cocktail</label>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 32px;">
+          <div class="serif text-lg mb-3">Stone</div>
+          <div style="font-size: 13px; color: var(--ink); line-height: 2.2; font-weight: 300;">
+            <label style="display: flex; align-items: center; cursor: pointer;"><input type="checkbox" class="filter-checkbox" />Pearl</label>
+            <label style="display: flex; align-items: center; cursor: pointer;"><input type="checkbox" class="filter-checkbox" />Crystal</label>
+            <label style="display: flex; align-items: center; cursor: pointer;"><input type="checkbox" class="filter-checkbox" />Kundan</label>
+            <label style="display: flex; align-items: center; cursor: pointer;"><input type="checkbox" class="filter-checkbox" />None</label>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="col-span-9">
+      <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 24px; border-bottom: 1px solid var(--cream); margin-bottom: 32px;">
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <span style="font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ash);">Active —</span>
+          <span class="chip-line">Brass ✕</span>
+          <span class="chip-line">₹ 1,000–2,500 ✕</span>
+          <span class="chip-line">Festive ✕</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 24px; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;">
+          <span>Sort: Curated</span>
+          <span style="color: var(--ash);">|</span>
+          <span>▦</span>
+          <span style="color: var(--ash);">▤</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-8">
+        <!-- product cards repeat -->
+        <div class="product-card">
+          <div class="ph" style="height: 360px; position: relative;">
+            <div style="position: absolute; top: 14px; right: 14px;"><span class="badge-soft">New</span></div>
+            <div style="position: absolute; top: 14px; left: 14px; width: 32px; height: 32px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px;">♡</div>
+          </div>
+          <div class="text-center mt-4">
+            <div class="serif text-xl">The Aria Drops</div>
+            <div style="font-size: 10px; color: var(--ash); letter-spacing: 0.2em; text-transform: uppercase; margin: 6px 0 10px;">Rose Gold · Pearl</div>
+            <div class="price">₹ 1,899</div>
+          </div>
+        </div>
+        <div class="product-card">
+          <div class="ph ph-cream" style="height: 360px; position: relative;">
+            <div style="position: absolute; top: 14px; left: 14px; width: 32px; height: 32px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px;">♡</div>
+          </div>
+          <div class="text-center mt-4">
+            <div class="serif text-xl">Lumière Studs</div>
+            <div style="font-size: 10px; color: var(--ash); letter-spacing: 0.2em; text-transform: uppercase; margin: 6px 0 10px;">Champagne · Crystal</div>
+            <div class="price">₹ 1,299</div>
+          </div>
+        </div>
+        <div class="product-card">
+          <div class="ph ph-rose" style="height: 360px; position: relative;">
+            <div style="position: absolute; top: 14px; right: 14px;"><span class="badge-soft">Bestseller</span></div>
+            <div style="position: absolute; top: 14px; left: 14px; width: 32px; height: 32px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px;">♡</div>
+          </div>
+          <div class="text-center mt-4">
+            <div class="serif text-xl">Vesper Jhumka</div>
+            <div style="font-size: 10px; color: var(--ash); letter-spacing: 0.2em; text-transform: uppercase; margin: 6px 0 10px;">Antique · Pearl</div>
+            <div class="price">₹ 2,199</div>
+          </div>
+        </div>
+        <div class="product-card">
+          <div class="ph ph-dark" style="height: 360px; position: relative;">
+            <div style="position: absolute; top: 14px; left: 14px; width: 32px; height: 32px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px;">♡</div>
+          </div>
+          <div class="text-center mt-4">
+            <div class="serif text-xl">Noir Hoops</div>
+            <div style="font-size: 10px; color: var(--ash); letter-spacing: 0.2em; text-transform: uppercase; margin: 6px 0 10px;">Oxidised · Black</div>
+            <div class="price">₹ 1,499</div>
+          </div>
+        </div>
+        <div class="product-card">
+          <div class="ph" style="height: 360px; position: relative;">
+            <div style="position: absolute; top: 14px; left: 14px; width: 32px; height: 32px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px;">♡</div>
+          </div>
+          <div class="text-center mt-4">
+            <div class="serif text-xl">Mirage Chandelier</div>
+            <div style="font-size: 10px; color: var(--ash); letter-spacing: 0.2em; text-transform: uppercase; margin: 6px 0 10px;">Brass · Kundan</div>
+            <div class="price">₹ 2,499</div>
+          </div>
+        </div>
+        <div class="product-card">
+          <div class="ph ph-cream" style="height: 360px; position: relative;">
+            <div style="position: absolute; top: 14px; right: 14px;"><span class="badge-soft">Limited</span></div>
+            <div style="position: absolute; top: 14px; left: 14px; width: 32px; height: 32px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px;">♡</div>
+          </div>
+          <div class="text-center mt-4">
+            <div class="serif text-xl">Saanjh Mirror</div>
+            <div style="font-size: 10px; color: var(--ash); letter-spacing: 0.2em; text-transform: uppercase; margin: 6px 0 10px;">Gold · Mirror Work</div>
+            <div class="price">₹ 1,799</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="text-center mt-12">
+        <button class="btn-line">Show 24 More</button>
+        <div style="font-size: 11px; color: var(--ash); letter-spacing: 0.2em; text-transform: uppercase; margin-top: 16px;">Showing 24 of 240</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SCREEN 3: PRODUCT DETAIL -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="screen">
+  <div class="screen-label">III — Product Detail · The Object</div>
+
+  <div style="padding: 32px 48px 16px; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ash);">House · Earrings · Drops · The Aria</div>
+
+  <div class="grid grid-cols-2 gap-0" style="padding: 16px 48px;">
+    <!-- Gallery: editorial -->
+    <div style="display: grid; grid-template-columns: 80px 1fr; gap: 16px;">
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div class="ph" style="height: 80px; border: 1px solid var(--ink);">01</div>
+        <div class="ph ph-cream" style="height: 80px;">02</div>
+        <div class="ph ph-rose" style="height: 80px;">03</div>
+        <div class="ph ph-dark" style="height: 80px;">04</div>
+        <div class="ph" style="height: 80px;">▶</div>
+        <div class="ph" style="height: 80px; background: white; border: 1px dashed var(--ash); color: var(--ash);">360°</div>
+      </div>
+      <div class="ph" style="height: 720px;">Editorial Hero — full bleed, zoomable</div>
+    </div>
+
+    <!-- Details -->
+    <div style="padding: 0 60px;">
+      <div class="eyebrow mb-3">The Spring Edit · Volume IX</div>
+      <h1 class="display" style="font-size: 56px; line-height: 1; margin-bottom: 20px;">The Aria Drops</h1>
+      <p class="serif" style="font-size: 17px; color: var(--ash); font-style: italic; line-height: 1.6; margin-bottom: 24px; font-weight: 300;">A whisper of rose gold, two pearls suspended like quiet thoughts — designed to move with the slightest turn of your head.</p>
+
+      <div style="display: flex; align-items: baseline; gap: 16px; margin-bottom: 8px;">
+        <div class="display text-4xl">₹ 1,899</div>
+        <div class="price-strike">₹ 2,799</div>
+        <span class="badge-soft">Save 32%</span>
+      </div>
+      <div style="font-size: 11px; color: var(--ash); letter-spacing: 0.15em; margin-bottom: 32px;">Inclusive of all duties · Or 3 interest-free EMIs of ₹ 633</div>
+
+      <div style="margin: 32px 0 28px; padding: 24px 0; border-top: 1px solid var(--cream); border-bottom: 1px solid var(--cream);">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+          <span class="star">★ ★ ★ ★ ★</span>
+          <span class="serif text-lg">4.8</span>
+          <span style="font-size: 11px; color: var(--ash); letter-spacing: 0.15em;">312 considered reviews</span>
+        </div>
+        <div style="font-size: 12px; color: var(--gold-deep); letter-spacing: 0.1em;">Worn by 1,247 women this season</div>
+      </div>
+
+      <div style="margin-bottom: 28px;">
+        <div style="font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--ash); margin-bottom: 12px;">Finish — <span style="color: var(--ink);">Rose Gold</span></div>
+        <div style="display: flex; gap: 14px;">
+          <div class="swatch active" style="width: 36px; height: 36px; background: #D4A574;"></div>
+          <div class="swatch" style="width: 36px; height: 36px; background: #E8E4DA;"></div>
+          <div class="swatch" style="width: 36px; height: 36px; background: #2D2D2D;"></div>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 28px;">
+        <div style="font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--ash); margin-bottom: 12px;">Quantity</div>
+        <div style="display: inline-flex; align-items: center; border: 1px solid var(--ink); padding: 4px;">
+          <button style="width: 32px; height: 32px;">−</button>
+          <span style="width: 40px; text-align: center;">1</span>
+          <button style="width: 32px; height: 32px;">+</button>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-bottom: 24px;">
+        <button class="btn-gold" style="flex: 1;">Add to Bag</button>
+        <button class="btn-line" style="flex: 1;">Buy Now</button>
+        <button style="border: 1px solid var(--ink); width: 52px;">♡</button>
+      </div>
+
+      <div style="border: 1px solid var(--cream); padding: 20px; background: var(--ivory); margin-bottom: 32px;">
+        <div style="font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 12px; color: var(--gold-deep);">Delivery to your door</div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <input value="110001" style="flex: 1; border: none; background: transparent; border-bottom: 1px solid var(--ink); padding: 6px 0; font-size: 14px; outline: none;" />
+          <button style="font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--gold-deep);">Check →</button>
+        </div>
+        <div style="font-size: 12px; color: var(--emerald); margin-top: 12px; line-height: 1.6;">
+          ✓ Arriving Tuesday, 5 May<br/>
+          ✓ Complimentary shipping · Cash on delivery available
+        </div>
+      </div>
+
+      <!-- Accordions -->
+      <div style="border-top: 1px solid var(--cream);">
+        <details style="border-bottom: 1px solid var(--cream); padding: 20px 0;" open>
+          <summary class="serif text-xl" style="cursor: pointer; list-style: none; display: flex; justify-content: space-between;">The Story <span style="color: var(--gold);">—</span></summary>
+          <p class="serif" style="font-size: 16px; line-height: 1.7; color: var(--ash); margin-top: 16px; font-weight: 300;">
+            Inspired by the long, slow afternoons of summers in Lucknow — when light filtered through carved jali screens and earrings caught the breeze on a verandah. Each piece is hand-finished by our artisans in Jaipur over the course of three days.
+          </p>
+        </details>
+        <details style="border-bottom: 1px solid var(--cream); padding: 20px 0;">
+          <summary class="serif text-xl" style="cursor: pointer; list-style: none; display: flex; justify-content: space-between;">Specifications <span style="color: var(--gold);">+</span></summary>
+        </details>
+        <details style="border-bottom: 1px solid var(--cream); padding: 20px 0;">
+          <summary class="serif text-xl" style="cursor: pointer; list-style: none; display: flex; justify-content: space-between;">Care · Maintenance <span style="color: var(--gold);">+</span></summary>
+        </details>
+        <details style="border-bottom: 1px solid var(--cream); padding: 20px 0;">
+          <summary class="serif text-xl" style="cursor: pointer; list-style: none; display: flex; justify-content: space-between;">Shipping · Returns <span style="color: var(--gold);">+</span></summary>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <!-- Editorial pull quote -->
+  <div style="padding: 96px 48px; background: var(--ivory); border-top: 1px solid var(--cream); border-bottom: 1px solid var(--cream);">
+    <div class="divider-ornament mb-8"><span class="display text-xs">REVIEWS</span></div>
+    <div class="editorial-quote">
+      "The pearls catch the light in a way that feels almost — alive. I wore them through three weddings and a long afternoon of photographs. They have not stopped becoming a part of me since."
+    </div>
+    <div class="text-center mt-8">
+      <div class="star">★ ★ ★ ★ ★</div>
+      <div class="serif text-lg mt-3">Aanya Kapoor</div>
+      <div style="font-size: 11px; color: var(--ash); letter-spacing: 0.2em; text-transform: uppercase;">Verified · Mumbai</div>
+    </div>
+  </div>
+
+  <!-- You may also love -->
+  <div style="padding: 96px 48px;">
+    <div class="text-center mb-12">
+      <div class="eyebrow mb-3">The House Suggests</div>
+      <h2 class="display text-4xl">You may also love</h2>
+    </div>
+    <div class="grid grid-cols-4 gap-8">
+      <div class="product-card"><div class="ph ph-cream" style="height: 320px;"></div><div class="text-center mt-3"><div class="serif text-lg">Solène Choker</div><div class="price mt-1">₹ 2,499</div></div></div>
+      <div class="product-card"><div class="ph" style="height: 320px;"></div><div class="text-center mt-3"><div class="serif text-lg">Vesper Jhumka</div><div class="price mt-1">₹ 2,199</div></div></div>
+      <div class="product-card"><div class="ph ph-rose" style="height: 320px;"></div><div class="text-center mt-3"><div class="serif text-lg">Mira Pendant</div><div class="price mt-1">₹ 1,899</div></div></div>
+      <div class="product-card"><div class="ph ph-dark" style="height: 320px;"></div><div class="text-center mt-3"><div class="serif text-lg">Noir Hoops</div><div class="price mt-1">₹ 1,499</div></div></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SCREEN 4: CHECKOUT -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="screen">
+  <div class="screen-label">IV — Checkout · The Concierge</div>
+
+  <div style="padding: 32px 48px; border-bottom: 1px solid var(--cream); display: flex; justify-content: space-between; align-items: center;">
+    <div class="display text-2xl" style="letter-spacing: 0.15em;">AABHUSHAN</div>
+    <div style="display: flex; gap: 32px; font-size: 11px; letter-spacing: 0.25em; text-transform: uppercase;">
+      <div style="color: var(--ink); font-weight: 500;"><span class="display" style="color: var(--gold);">I</span> Bag</div>
+      <div style="color: var(--ink); font-weight: 500;"><span class="display" style="color: var(--gold);">II</span> Address</div>
+      <div style="color: var(--ink); font-weight: 500; border-bottom: 1px solid var(--gold); padding-bottom: 4px;"><span class="display" style="color: var(--gold);">III</span> Payment</div>
+      <div style="color: var(--ash);"><span class="display">IV</span> Confirmation</div>
+    </div>
+    <div style="font-size: 11px; letter-spacing: 0.2em; color: var(--ash);">Secure · 256-bit</div>
+  </div>
+
+  <div class="grid grid-cols-3 gap-12" style="padding: 60px 48px;">
+    <div class="col-span-2 space-y-8">
+      <!-- Bag review -->
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 24px;">
+          <h2 class="display text-3xl">Your Bag</h2>
+          <span style="font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ash);">2 pieces</span>
+        </div>
+
+        <div style="border-top: 1px solid var(--cream);">
+          <div style="display: grid; grid-template-columns: 120px 1fr auto; gap: 24px; padding: 24px 0; border-bottom: 1px solid var(--cream); align-items: center;">
+            <div class="ph" style="height: 120px;"></div>
+            <div>
+              <div class="serif text-2xl" style="margin-bottom: 4px;">The Aria Drops</div>
+              <div style="font-size: 11px; color: var(--ash); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 14px;">Rose Gold · Pearl</div>
+              <div style="display: flex; gap: 24px; align-items: center; font-size: 12px;">
+                <div style="display: inline-flex; align-items: center; border: 1px solid var(--ink);">
+                  <button style="width: 28px; height: 28px;">−</button>
+                  <span style="width: 32px; text-align: center;">1</span>
+                  <button style="width: 28px; height: 28px;">+</button>
+                </div>
+                <span style="color: var(--ash); letter-spacing: 0.15em; cursor: pointer; text-transform: uppercase;">Save for later</span>
+                <span style="color: var(--ash); letter-spacing: 0.15em; cursor: pointer; text-transform: uppercase;">Remove</span>
+              </div>
+            </div>
+            <div class="display text-2xl">₹ 1,899</div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 120px 1fr auto; gap: 24px; padding: 24px 0; border-bottom: 1px solid var(--cream); align-items: center;">
+            <div class="ph ph-cream" style="height: 120px;"></div>
+            <div>
+              <div class="serif text-2xl" style="margin-bottom: 4px;">Solène Choker</div>
+              <div style="font-size: 11px; color: var(--ash); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 14px;">Pearl · Champagne</div>
+              <div style="display: flex; gap: 24px; align-items: center; font-size: 12px;">
+                <div style="display: inline-flex; align-items: center; border: 1px solid var(--ink);">
+                  <button style="width: 28px; height: 28px;">−</button>
+                  <span style="width: 32px; text-align: center;">1</span>
+                  <button style="width: 28px; height: 28px;">+</button>
+                </div>
+                <span style="color: var(--ash); letter-spacing: 0.15em; cursor: pointer; text-transform: uppercase;">Save for later</span>
+                <span style="color: var(--ash); letter-spacing: 0.15em; cursor: pointer; text-transform: uppercase;">Remove</span>
+              </div>
+            </div>
+            <div class="display text-2xl">₹ 2,499</div>
+          </div>
+        </div>
+
+        <!-- Gift wrap -->
+        <div style="background: var(--ivory); border: 1px solid var(--cream); padding: 20px; margin-top: 24px; display: flex; gap: 16px; align-items: center;">
+          <div class="ph" style="width: 60px; height: 60px;">⊕</div>
+          <div style="flex: 1;">
+            <div class="serif text-lg">Add Maison Gift Box — ₹ 199</div>
+            <div style="font-size: 12px; color: var(--ash); margin-top: 4px;">Cream linen, gold seal, hand-tied ribbon · Comes with our printed care card</div>
+          </div>
+          <button class="btn-line" style="padding: 10px 20px; font-size: 10px;">Add</button>
+        </div>
+      </div>
+
+      <!-- Address -->
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 24px;">
+          <h2 class="display text-3xl">Delivery</h2>
+        </div>
+        <div style="border: 1px solid var(--ink); padding: 24px;">
+          <div style="display: flex; justify-content: space-between;">
+            <div>
+              <div class="serif text-xl">Priya Sharma</div>
+              <div style="font-size: 13px; color: var(--ash); margin-top: 2px;">+91 98765 43210</div>
+              <div style="font-size: 14px; color: var(--ink); margin-top: 12px; line-height: 1.6;">A-204, Sunshine Apartments, Sector 18,<br/>Noida, Uttar Pradesh — 201 301</div>
+            </div>
+            <div style="display: flex; gap: 16px; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;">
+              <span style="border-bottom: 1px solid var(--ink); padding-bottom: 2px;">Edit</span>
+              <span style="color: var(--ash);">Change</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payment -->
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 24px;">
+          <h2 class="display text-3xl">Payment</h2>
+          <span style="font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ash);">🔒 Encrypted via Razorpay</span>
+        </div>
+
+        <div style="border-top: 1px solid var(--cream);">
+          <label style="display: flex; padding: 24px 0; border-bottom: 1px solid var(--cream); cursor: pointer; align-items: center; gap: 16px; background: var(--ivory); padding-left: 16px; padding-right: 16px;">
+            <input type="radio" checked style="accent-color: var(--ink);" />
+            <div style="flex: 1;">
+              <div class="serif text-xl">UPI</div>
+              <div style="font-size: 12px; color: var(--ash); margin-top: 4px;">PhonePe · Google Pay · Paytm · BHIM</div>
+            </div>
+            <div style="font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--gold-deep);">Recommended</div>
+          </label>
+          <label style="display: flex; padding: 24px 0; border-bottom: 1px solid var(--cream); cursor: pointer; align-items: center; gap: 16px; padding-left: 16px; padding-right: 16px;">
+            <input type="radio" style="accent-color: var(--ink);" />
+            <div style="flex: 1;">
+              <div class="serif text-xl">Card</div>
+              <div style="font-size: 12px; color: var(--ash); margin-top: 4px;">Visa · Mastercard · Rupay · Amex</div>
+            </div>
+          </label>
+          <label style="display: flex; padding: 24px 0; border-bottom: 1px solid var(--cream); cursor: pointer; align-items: center; gap: 16px; padding-left: 16px; padding-right: 16px;">
+            <input type="radio" style="accent-color: var(--ink);" />
+            <div style="flex: 1;">
+              <div class="serif text-xl">Net Banking</div>
+              <div style="font-size: 12px; color: var(--ash); margin-top: 4px;">All major Indian banks</div>
+            </div>
+          </label>
+          <label style="display: flex; padding: 24px 0; border-bottom: 1px solid var(--cream); cursor: pointer; align-items: center; gap: 16px; padding-left: 16px; padding-right: 16px;">
+            <input type="radio" style="accent-color: var(--ink);" />
+            <div style="flex: 1;">
+              <div class="serif text-xl">EMI · 0% Interest</div>
+              <div style="font-size: 12px; color: var(--ash); margin-top: 4px;">3, 6 or 9-month plans · From ₹ 633/month</div>
+            </div>
+          </label>
+          <label style="display: flex; padding: 24px 0; cursor: pointer; align-items: center; gap: 16px; padding-left: 16px; padding-right: 16px;">
+            <input type="radio" style="accent-color: var(--ink);" />
+            <div style="flex: 1;">
+              <div class="serif text-xl">Cash on Delivery</div>
+              <div style="font-size: 12px; color: var(--ash); margin-top: 4px;">+ ₹ 50 handling charge</div>
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary -->
+    <div>
+      <div style="position: sticky; top: 24px; border: 1px solid var(--ink); background: white;">
+        <div style="background: var(--ink); color: var(--champagne); padding: 16px 24px; font-size: 11px; letter-spacing: 0.3em; text-transform: uppercase; text-align: center;">Order Summary</div>
+        <div style="padding: 28px;">
+          <div style="font-size: 13px; line-height: 2.4; color: var(--ink); border-bottom: 1px solid var(--cream); padding-bottom: 16px; margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between;"><span style="color: var(--ash);">Subtotal · 2 pieces</span><span>₹ 4,398</span></div>
+            <div style="display: flex; justify-content: space-between;"><span style="color: var(--ash);">Members discount</span><span style="color: var(--emerald);">− ₹ 440</span></div>
+            <div style="display: flex; justify-content: space-between;"><span style="color: var(--ash);">Shipping</span><span style="color: var(--gold-deep); letter-spacing: 0.15em; font-size: 11px; text-transform: uppercase;">Complimentary</span></div>
+            <div style="display: flex; justify-content: space-between;"><span style="color: var(--ash);">GST (18%)</span><span>₹ 712</span></div>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 24px; border-bottom: 1px solid var(--cream); margin-bottom: 24px;">
+            <div class="display text-xl">Total</div>
+            <div class="display text-3xl">₹ 4,670</div>
+          </div>
+          <div style="background: var(--ivory); padding: 12px 16px; font-size: 12px; color: var(--gold-deep); margin-bottom: 24px;">
+            ✦ You earn <span style="font-weight: 500;">93 Cercle Points</span> · Worth ₹ 93
+          </div>
+          <div style="border-bottom: 1px solid var(--ink); padding-bottom: 8px; margin-bottom: 24px; display: flex;">
+            <input style="flex: 1; border: none; outline: none; font-size: 13px;" placeholder="Promotional code" />
+            <button style="font-size: 11px; letter-spacing: 0.25em; text-transform: uppercase;">Apply</button>
+          </div>
+          <button class="btn-gold" style="width: 100%;">Place Order — ₹ 4,670</button>
+          <div style="font-size: 10px; color: var(--ash); letter-spacing: 0.2em; text-transform: uppercase; text-align: center; margin-top: 16px;">14-day return policy applies</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SCREEN 5: ORDER TRACKING -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="screen">
+  <div class="screen-label">V — Order · In Transit</div>
+
+  <div style="padding: 64px 48px 32px; text-align: center; border-bottom: 1px solid var(--cream);">
+    <div class="eyebrow mb-3">Order in Transit</div>
+    <h1 class="display text-5xl mb-3">It's on its way</h1>
+    <p class="serif" style="font-size: 17px; color: var(--ash); font-style: italic; max-width: 480px; margin: 0 auto; font-weight: 300;">Two pieces, packed by hand in our Jaipur atelier, are travelling to you now.</p>
+    <div style="margin-top: 24px; font-size: 12px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--ash);">Order № AB-2026-04829 · Placed 28 April</div>
+  </div>
+
+  <!-- Timeline -->
+  <div style="padding: 64px 48px;">
+    <div style="position: relative; max-width: 900px; margin: 0 auto;">
+      <!-- progress -->
+      <div style="height: 1px; background: var(--cream); position: absolute; top: 22px; left: 22px; right: 22px;"></div>
+      <div style="height: 1px; background: var(--gold); position: absolute; top: 22px; left: 22px; width: 60%;"></div>
+
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); position: relative;">
+        <div style="text-align: center;">
+          <div style="width: 44px; height: 44px; border-radius: 50%; background: var(--gold); color: white; display: flex; align-items: center; justify-content: center; margin: 0 auto; font-size: 16px;">✓</div>
+          <div class="serif text-lg mt-4">Confirmed</div>
+          <div style="font-size: 11px; color: var(--ash); letter-spacing: 0.15em; margin-top: 2px;">28 April · 2:14 PM</div>
+        </div>
+        <div style="text-align: center;">
+          <div style="width: 44px; height: 44px; border-radius: 50%; background: var(--gold); color: white; display: flex; align-items: center; justify-content: center; margin: 0 auto; font-size: 16px;">✓</div>
+          <div class="serif text-lg mt-4">Hand-packed</div>
+          <div style="font-size: 11px; color: var(--ash); letter-spacing: 0.15em; margin-top: 2px;">29 April · 10:30 AM</div>
+        </div>
+        <div style="text-align: center;">
+          <div class="shimmer" style="width: 44px; height: 44px; border-radius: 50%; background: var(--ink); color: var(--champagne); display: flex; align-items: center; justify-content: center; margin: 0 auto; font-size: 14px; box-shadow: 0 0 0 6px rgba(184, 149, 106, 0.15);">●</div>
+          <div class="serif text-lg mt-4" style="color: var(--ink);">In Transit</div>
+          <div style="font-size: 11px; color: var(--gold-deep); letter-spacing: 0.15em; margin-top: 2px;">Today, since 9:00 AM</div>
+        </div>
+        <div style="text-align: center;">
+          <div style="width: 44px; height: 44px; border-radius: 50%; background: white; border: 1px solid var(--cream); color: var(--ash); display: flex; align-items: center; justify-content: center; margin: 0 auto; font-size: 14px;">IV</div>
+          <div class="serif text-lg mt-4" style="color: var(--ash);">Delivered</div>
+          <div style="font-size: 11px; color: var(--ash); letter-spacing: 0.15em; margin-top: 2px;">Expected today, 4–8 PM</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- courier card -->
+    <div style="max-width: 900px; margin: 60px auto 0; background: var(--ivory); border: 1px solid var(--cream); padding: 32px; display: grid; grid-template-columns: 1fr auto; gap: 32px; align-items: center;">
+      <div>
+        <div class="eyebrow mb-3">Travelling via Delhivery Express</div>
+        <div class="serif text-2xl mb-3">Expected to reach you today</div>
+        <div style="font-size: 13px; color: var(--ash); line-height: 1.8;">
+          AWB № DEL-2342819 · Driver Rahul will call before arrival<br/>
+          A one-time password will be sent to your phone at the door
+        </div>
+      </div>
+      <div style="text-align: right;">
+        <button class="btn-line">Track Live Map</button>
+      </div>
+    </div>
+
+    <!-- items in transit -->
+    <div style="max-width: 900px; margin: 32px auto 0; padding-top: 32px; border-top: 1px solid var(--cream);">
+      <div style="font-size: 11px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--ash); margin-bottom: 24px;">In your parcel</div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+        <div style="display: flex; gap: 16px; align-items: center;">
+          <div class="ph" style="width: 80px; height: 80px;"></div>
+          <div style="flex: 1;">
+            <div class="serif text-xl">The Aria Drops</div>
+            <div style="font-size: 11px; color: var(--ash); letter-spacing: 0.15em; text-transform: uppercase; margin-top: 4px;">Quantity I · ₹ 1,899</div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 16px; align-items: center;">
+          <div class="ph ph-cream" style="width: 80px; height: 80px;"></div>
+          <div style="flex: 1;">
+            <div class="serif text-xl">Solène Choker</div>
+            <div style="font-size: 11px; color: var(--ash); letter-spacing: 0.15em; text-transform: uppercase; margin-top: 4px;">Quantity I · ₹ 2,499</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- bottom CTAs -->
+    <div style="max-width: 900px; margin: 48px auto 0; padding-top: 32px; border-top: 1px solid var(--cream); display: flex; justify-content: center; gap: 12px;">
+      <button class="btn-line">Download Invoice</button>
+      <button class="btn-line">Contact Concierge</button>
+      <button class="btn-line">Need to return?</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SCREEN 6: ADMIN DASHBOARD -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="screen">
+  <div class="screen-label">VI — Atelier · Admin Console</div>
+
+  <div style="display: grid; grid-template-columns: 240px 1fr; min-height: 800px;">
+    <aside style="background: var(--ink); color: var(--cream); padding: 32px 0;">
+      <div style="padding: 0 28px; margin-bottom: 40px;">
+        <div class="display text-xl" style="color: var(--ivory); letter-spacing: 0.15em;">AABHUSHAN</div>
+        <div style="font-size: 9px; letter-spacing: 0.4em; color: var(--gold); margin-top: 4px;">ATELIER CONSOLE</div>
+      </div>
+
+      <div style="font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--ash); padding: 0 28px; margin-bottom: 12px;">House</div>
+      <div style="font-size: 13px; color: rgba(245, 240, 232, 0.85);">
+        <div style="padding: 12px 28px; background: rgba(184, 149, 106, 0.15); border-left: 2px solid var(--gold); color: var(--ivory); display: flex; justify-content: space-between; align-items: center;">
+          <span>Dashboard</span>
+        </div>
+        <div style="padding: 12px 28px; display: flex; justify-content: space-between; align-items: center;">
+          <span>Orders</span>
+          <span style="background: var(--gold); color: var(--ink); font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 500;">23</span>
+        </div>
+        <div style="padding: 12px 28px;">Products</div>
+        <div style="padding: 12px 28px;">Categories</div>
+        <div style="padding: 12px 28px;">Inventory</div>
+        <div style="padding: 12px 28px;">Customers</div>
+        <div style="padding: 12px 28px;">Cercle Members</div>
+      </div>
+
+      <div style="font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--ash); padding: 0 28px; margin: 24px 0 12px;">Marketing</div>
+      <div style="font-size: 13px; color: rgba(245, 240, 232, 0.85);">
+        <div style="padding: 12px 28px;">Editions</div>
+        <div style="padding: 12px 28px;">Campaigns</div>
+        <div style="padding: 12px 28px;">Coupons</div>
+        <div style="padding: 12px 28px;">Reviews</div>
+      </div>
+
+      <div style="font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--ash); padding: 0 28px; margin: 24px 0 12px;">Operations</div>
+      <div style="font-size: 13px; color: rgba(245, 240, 232, 0.85);">
+        <div style="padding: 12px 28px;">Shipping</div>
+        <div style="padding: 12px 28px;">Payments</div>
+        <div style="padding: 12px 28px;">Returns</div>
+        <div style="padding: 12px 28px;">Reports</div>
+      </div>
+    </aside>
+
+    <main style="background: var(--bone); padding: 40px;">
+      <!-- header -->
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px;">
+        <div>
+          <div class="eyebrow mb-2">Wednesday · 29 April</div>
+          <h1 class="display text-4xl">Good afternoon, Ajit</h1>
+          <p style="font-size: 13px; color: var(--ash); margin-top: 6px;">Twenty-three orders await your attention this morning.</p>
+        </div>
+        <div style="display: flex; gap: 12px;">
+          <select style="border: 1px solid var(--ink); background: white; padding: 10px 16px; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;"><option>Today</option><option>Last 7 days</option><option>This month</option></select>
+          <button class="btn-gold">+ New Edition</button>
+        </div>
+      </div>
+
+      <!-- KPIs -->
+      <div class="grid grid-cols-4 gap-4 mb-10">
+        <div class="stat-card">
+          <div class="eyebrow mb-3">Revenue · Today</div>
+          <div class="display text-4xl">₹ 84,259</div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 12px;">
+            <span style="color: var(--emerald);">↑ 12.4%</span>
+            <span style="color: var(--ash);">vs yesterday</span>
+          </div>
+          <div class="progress-bar" style="margin-top: 16px;"><div style="width: 68%;"></div></div>
+          <div style="font-size: 10px; color: var(--ash); margin-top: 6px; letter-spacing: 0.15em;">68% OF DAILY GOAL</div>
+        </div>
+        <div class="stat-card">
+          <div class="eyebrow mb-3">Orders</div>
+          <div class="display text-4xl">37</div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 12px;">
+            <span style="color: var(--emerald);">↑ 8</span>
+            <span style="color: var(--ash);">in the last hour</span>
+          </div>
+          <div style="display: flex; gap: 4px; margin-top: 16px; height: 32px; align-items: flex-end;">
+            <div style="flex: 1; background: var(--cream); height: 40%;"></div>
+            <div style="flex: 1; background: var(--cream); height: 60%;"></div>
+            <div style="flex: 1; background: var(--cream); height: 50%;"></div>
+            <div style="flex: 1; background: var(--cream); height: 70%;"></div>
+            <div style="flex: 1; background: var(--cream); height: 55%;"></div>
+            <div style="flex: 1; background: var(--gold); height: 100%;"></div>
+            <div style="flex: 1; background: var(--gold); height: 80%;"></div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="eyebrow mb-3">Pending Shipments</div>
+          <div class="display text-4xl">23</div>
+          <div style="font-size: 12px; color: var(--gold-deep); margin-top: 12px; letter-spacing: 0.15em; text-transform: uppercase;">Action needed</div>
+          <button class="btn-line" style="margin-top: 16px; padding: 8px 16px; font-size: 10px; width: 100%;">Process Shipments →</button>
+        </div>
+        <div class="stat-card">
+          <div class="eyebrow mb-3">New Cercle Members</div>
+          <div class="display text-4xl">12</div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 12px;">
+            <span style="color: var(--emerald);">↑ 4</span>
+            <span style="color: var(--ash);">vs daily average</span>
+          </div>
+          <div style="display: flex; gap: -4px; margin-top: 16px;">
+            <div class="ph" style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid white;"></div>
+            <div class="ph ph-rose" style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid white; margin-left: -4px;"></div>
+            <div class="ph ph-cream" style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid white; margin-left: -4px;"></div>
+            <div class="ph ph-dark" style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid white; margin-left: -4px;"></div>
+            <div style="width: 24px; height: 24px; border-radius: 50%; background: var(--ink); color: var(--champagne); font-size: 9px; display: flex; align-items: center; justify-content: center; border: 2px solid white; margin-left: -4px;">+8</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts row -->
+      <div class="grid grid-cols-3 gap-4 mb-10">
+        <div class="stat-card col-span-2" style="padding: 32px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+            <div>
+              <div class="eyebrow mb-2">Performance · 30 days</div>
+              <h3 class="display text-2xl">Revenue Trajectory</h3>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="chip-line" style="background: var(--ink); color: white; border-color: var(--ink);">Revenue</button>
+              <button class="chip-line">Orders</button>
+              <button class="chip-line">AOV</button>
+            </div>
+          </div>
+          <div class="ph ph-cream" style="height: 240px;">Editorial line chart</div>
+        </div>
+        <div class="stat-card" style="padding: 32px;">
+          <div class="eyebrow mb-2">This Month</div>
+          <h3 class="display text-2xl mb-6">Top Editions</h3>
+          <div style="space-y: 16px;">
+            <div style="display: flex; gap: 12px; align-items: center; padding-bottom: 14px; border-bottom: 1px solid var(--cream);">
+              <div class="display text-xl" style="color: var(--gold); width: 24px;">I</div>
+              <div class="ph ph-rose" style="width: 44px; height: 44px;"></div>
+              <div style="flex: 1;">
+                <div class="serif text-base">Mira Bridal Set</div>
+                <div style="font-size: 10px; color: var(--ash); letter-spacing: 0.15em; text-transform: uppercase;">42 sold · ₹ 2.05 L</div>
+              </div>
+            </div>
+            <div style="display: flex; gap: 12px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--cream);">
+              <div class="display text-xl" style="color: var(--gold); width: 24px;">II</div>
+              <div class="ph ph-cream" style="width: 44px; height: 44px;"></div>
+              <div style="flex: 1;">
+                <div class="serif text-base">Solène Choker</div>
+                <div style="font-size: 10px; color: var(--ash); letter-spacing: 0.15em; text-transform: uppercase;">38 sold · ₹ 94k</div>
+              </div>
+            </div>
+            <div style="display: flex; gap: 12px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--cream);">
+              <div class="display text-xl" style="color: var(--gold); width: 24px;">III</div>
+              <div class="ph" style="width: 44px; height: 44px;"></div>
+              <div style="flex: 1;">
+                <div class="serif text-base">Aria Drops</div>
+                <div style="font-size: 10px; color: var(--ash); letter-spacing: 0.15em; text-transform: uppercase;">31 sold · ₹ 58k</div>
+              </div>
+            </div>
+            <div style="display: flex; gap: 12px; align-items: center; padding-top: 14px;">
+              <div class="display text-xl" style="color: var(--gold); width: 24px;">IV</div>
+              <div class="ph ph-dark" style="width: 44px; height: 44px;"></div>
+              <div style="flex: 1;">
+                <div class="serif text-base">Cassia Bangle</div>
+                <div style="font-size: 10px; color: var(--ash); letter-spacing: 0.15em; text-transform: uppercase;">26 sold · ₹ 33k</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent orders -->
+      <div class="stat-card" style="padding: 32px;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 20px;">
+          <div>
+            <div class="eyebrow mb-2">Most Recent</div>
+            <h3 class="display text-2xl">Orders</h3>
+          </div>
+          <span style="font-size: 11px; letter-spacing: 0.25em; text-transform: uppercase; border-bottom: 1px solid var(--ink); padding-bottom: 2px;">View all 348 →</span>
+        </div>
+        <table class="lux">
+          <thead>
+            <tr><th>Order</th><th>Client</th><th>Pieces</th><th>Total</th><th>Status</th><th></th></tr>
+          </thead>
+          <tbody>
+            <tr><td style="font-family: 'Cormorant Garamond', serif; font-size: 16px;">№ 04829</td><td>Priya Sharma <span style="color: var(--gold-deep); font-size: 10px; letter-spacing: 0.2em; margin-left: 8px;">CERCLE</span></td><td>2</td><td class="display text-lg">₹ 4,670</td><td><span class="pill pill-amber">In Transit</span></td><td><span style="font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; border-bottom: 1px solid var(--ink); cursor: pointer;">Open</span></td></tr>
+            <tr><td style="font-family: 'Cormorant Garamond', serif; font-size: 16px;">№ 04828</td><td>Riya Mehra</td><td>1</td><td class="display text-lg">₹ 1,899</td><td><span class="pill pill-blue">Hand-packed</span></td><td><span style="font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; border-bottom: 1px solid var(--ink); cursor: pointer;">Open</span></td></tr>
+            <tr><td style="font-family: 'Cormorant Garamond', serif; font-size: 16px;">№ 04827</td><td>Anjali Khurana <span style="color: var(--gold-deep); font-size: 10px; letter-spacing: 0.2em; margin-left: 8px;">CERCLE</span></td><td>3</td><td class="display text-lg">₹ 8,290</td><td><span class="pill pill-emerald">Delivered</span></td><td><span style="font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; border-bottom: 1px solid var(--ink); cursor: pointer;">Open</span></td></tr>
+            <tr><td style="font-family: 'Cormorant Garamond', serif; font-size: 16px;">№ 04826</td><td>Neha Tiwari</td><td>1</td><td class="display text-lg">₹ 2,499</td><td><span class="pill pill-gold">Awaiting Pack</span></td><td><button class="btn-gold" style="padding: 6px 14px; font-size: 10px;">Pack →</button></td></tr>
+            <tr><td style="font-family: 'Cormorant Garamond', serif; font-size: 16px;">№ 04825</td><td>Sneha Reddy</td><td>2</td><td class="display text-lg">₹ 3,798</td><td><span class="pill pill-rose">Return Initiated</span></td><td><span style="font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; border-bottom: 1px solid var(--ink); cursor: pointer;">Approve</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SCREEN 7: ADD PRODUCT - MULTI-CATEGORY -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="screen">
+  <div class="screen-label">VII — Atelier · New Edition (Multi-Category Architecture)</div>
+
+  <div style="padding: 48px;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 48px;">
+      <div>
+        <div class="eyebrow mb-2">Atelier · Catalogue</div>
+        <h1 class="display text-5xl">Compose a New Edition</h1>
+      </div>
+      <div style="display: flex; gap: 12px;">
+        <button class="btn-line">Save Draft</button>
+        <button class="btn-gold">Publish to Boutique</button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-3 gap-8">
+      <div class="col-span-2 space-y-6">
+        <!-- Category - the key piece -->
+        <div style="background: white; border: 1px solid var(--cream); padding: 32px;">
+          <div class="eyebrow mb-2">Step One</div>
+          <h3 class="display text-2xl mb-4">Category & Type</h3>
+          <select style="width: 100%; border: 1px solid var(--ink); padding: 14px 16px; font-size: 14px; background: white; font-family: 'Cormorant Garamond', serif; font-size: 17px;">
+            <option>Jewelry → Earrings → Drops</option>
+            <option>Jewelry → Earrings → Jhumka</option>
+            <option>Jewelry → Necklaces → Choker</option>
+            <option>Jewelry → Bridal → Sets</option>
+            <option disabled>───── Coming soon ─────</option>
+            <option>Sarees → Silk → Banarasi</option>
+            <option>Sarees → Cotton → Handloom</option>
+            <option>Kurtis → Cotton → A-line</option>
+          </select>
+          <div style="margin-top: 16px; padding: 16px; background: var(--ivory); border-left: 2px solid var(--gold); font-size: 13px; line-height: 1.7; color: var(--ash);">
+            <span class="serif" style="font-style: italic; color: var(--ink);">Note from the architect —</span> the category you select determines which attributes appear below. The same engine seamlessly handles jewelry today, sarees tomorrow. Cart, checkout, courier and admin remain identical.
+          </div>
+        </div>
+
+        <!-- Basic info -->
+        <div style="background: white; border: 1px solid var(--cream); padding: 32px;">
+          <div class="eyebrow mb-2">Step Two</div>
+          <h3 class="display text-2xl mb-5">The Essentials</h3>
+          <div style="space-y: 18px;">
+            <div style="margin-bottom: 18px;">
+              <label class="eyebrow" style="font-size: 9px; display: block; margin-bottom: 8px;">Edition Name</label>
+              <input value="The Aria Drops" style="width: 100%; border: none; border-bottom: 1px solid var(--ink); padding: 10px 0; font-family: 'Cormorant Garamond', serif; font-size: 22px; outline: none; background: transparent;" />
+            </div>
+            <div style="margin-bottom: 18px;">
+              <label class="eyebrow" style="font-size: 9px; display: block; margin-bottom: 8px;">The Story</label>
+              <textarea style="width: 100%; border: 1px solid var(--cream); padding: 14px; font-size: 14px; outline: none; min-height: 100px; font-family: inherit; resize: vertical;" placeholder="Write the editorial description that will appear on the product page...">A whisper of rose gold, two pearls suspended like quiet thoughts...</textarea>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="eyebrow" style="font-size: 9px; display: block; margin-bottom: 8px;">SKU</label>
+                <input value="ARI-RG-0042" style="width: 100%; border: 1px solid var(--cream); padding: 12px 14px; font-size: 13px; outline: none;" />
+              </div>
+              <div>
+                <label class="eyebrow" style="font-size: 9px; display: block; margin-bottom: 8px;">HSN Code</label>
+                <input value="7117" style="width: 100%; border: 1px solid var(--cream); padding: 12px 14px; font-size: 13px; outline: none;" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Media -->
+        <div style="background: white; border: 1px solid var(--cream); padding: 32px;">
+          <div class="eyebrow mb-2">Step Three</div>
+          <h3 class="display text-2xl mb-5">Editorial Imagery</h3>
+          <div class="grid grid-cols-5 gap-3">
+            <div class="ph" style="height: 100px; position: relative;">
+              <span style="position: absolute; top: 4px; left: 4px; background: var(--ink); color: var(--champagne); font-size: 8px; padding: 2px 6px; letter-spacing: 0.15em;">HERO</span>
+            </div>
+            <div class="ph ph-cream" style="height: 100px;"></div>
+            <div class="ph ph-rose" style="height: 100px;"></div>
+            <div class="ph ph-dark" style="height: 100px;">▶</div>
+            <div style="height: 100px; border: 1px dashed var(--ash); display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--ivory); cursor: pointer;">
+              <div style="font-size: 24px; color: var(--ash); margin-bottom: 4px;">+</div>
+              <div style="font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ash);">360°</div>
+            </div>
+          </div>
+          <div style="margin-top: 14px; font-size: 12px; color: var(--ash); line-height: 1.6;">
+            Recommended: 1 hero · 3 detail · 1 lifestyle · 1 video · 360° spin (premium tier)
+          </div>
+        </div>
+
+        <!-- Pricing -->
+        <div style="background: white; border: 1px solid var(--cream); padding: 32px;">
+          <div class="eyebrow mb-2">Step Four</div>
+          <h3 class="display text-2xl mb-5">Pricing</h3>
+          <div class="grid grid-cols-4 gap-4">
+            <div>
+              <label class="eyebrow" style="font-size: 9px; display: block; margin-bottom: 8px;">MRP</label>
+              <input value="2,799" style="width: 100%; border: 1px solid var(--cream); padding: 12px 14px; font-family: 'Cormorant Garamond', serif; font-size: 18px; outline: none;" />
+            </div>
+            <div>
+              <label class="eyebrow" style="font-size: 9px; display: block; margin-bottom: 8px;">House Price</label>
+              <input value="1,899" style="width: 100%; border: 1px solid var(--ink); padding: 12px 14px; font-family: 'Cormorant Garamond', serif; font-size: 18px; outline: none; background: var(--ivory);" />
+            </div>
+            <div>
+              <label class="eyebrow" style="font-size: 9px; display: block; margin-bottom: 8px;">Cost Price</label>
+              <input value="640" style="width: 100%; border: 1px solid var(--cream); padding: 12px 14px; font-family: 'Cormorant Garamond', serif; font-size: 18px; outline: none;" />
+            </div>
+            <div>
+              <label class="eyebrow" style="font-size: 9px; display: block; margin-bottom: 8px;">Margin</label>
+              <div style="padding: 12px 14px; font-family: 'Cormorant Garamond', serif; font-size: 18px; background: var(--ivory); color: var(--emerald);">66%</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dynamic attributes -->
+        <div style="background: var(--ivory); border: 1px solid var(--gold); padding: 32px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5px;">
+            <div>
+              <div class="eyebrow mb-2" style="color: var(--gold-deep);">Step Five · Auto-loaded</div>
+              <h3 class="display text-2xl">Attributes <span style="font-size: 14px; color: var(--ash); font-style: italic;">— for Earrings → Drops</span></h3>
+            </div>
+            <span class="badge-soft">Multi-category schema</span>
+          </div>
+          <div style="font-size: 12px; color: var(--ash); margin-bottom: 24px;">These fields automatically change based on the selected category. Sarees would show fabric, length, blouse-piece instead.</div>
+
+          <div class="grid grid-cols-3 gap-5">
+            <div>
+              <label class="eyebrow" style="font-size: 9px; display: block; margin-bottom: 6px;">Material</label>
+              <select style="width: 100%; border: 1px solid var(--cream); padding: 10px; background: white; font-size: 13px;"><option>Brass</option></select>
+            </div>
+            <div>
+              <label class="eyebrow" style="font-size: 9px; display: block; margin-bottom: 6px;">Plating</label>
+              <select style="width: 100%; border: 1px solid var(--cream); padding: 10px; background: white; font-size: 13px;"><option>Rose Gold</option></select>
+            </div>
+            <div>
+              <label class="eyebrow" style="font-size: 9px; display: block; margin-bottom: 6px;">Stone</label>
+              <select style="width: 100%; border: 1px solid var(--cream); padding: 10px; background: white; font-size: 13px;"><option>Pearl</option></select>
+            </div>
+            <div>
+              <label class="eyebrow" style="font-size: 9px; display: block; margin-bottom: 6px;">Length</label>
+              <input value="4.5 cm" style="width: 100%; border: 1px solid var(--cream); padding: 10px; background: white; font-size: 13px;" />
+            </div>
+            <div>
+              <label class="eyebrow" style="font-size: 9px; display: block; margin-bottom: 6px;">Closure</label>
+              <select style="width: 100%; border: 1px solid var(--cream); padding: 10px; background: white; font-size: 13px;"><option>Push-back</option></select>
+            </div>
+            <div>
+              <label class="eyebrow" style="font-size: 9px; display: block; margin-bottom: 6px;">Weight (g)</label>
+              <input value="12" style="width: 100%; border: 1px solid var(--cream); padding: 10px; background: white; font-size: 13px;" />
+            </div>
+            <div>
+              <label class="eyebrow" style="font-size: 9px; display: block; margin-bottom: 6px;">Occasion</label>
+              <select style="width: 100%; border: 1px solid var(--cream); padding: 10px; background: white; font-size: 13px;"><option>Festive · Cocktail</option></select>
+            </div>
+            <div>
+              <label class="eyebrow" style="font-size: 9px; display: block; margin-bottom: 6px;">Style</label>
+              <select style="width: 100%; border: 1px solid var(--cream); padding: 10px; background: white; font-size: 13px;"><option>Drops</option></select>
+            </div>
+            <div>
+              <label class="eyebrow" style="font-size: 9px; display: block; margin-bottom: 6px;">Care</label>
+              <select style="width: 100%; border: 1px solid var(--cream); padding: 10px; background: white; font-size: 13px;"><option>Standard</option></select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Variants -->
+        <div style="background: white; border: 1px solid var(--cream); padding: 32px;">
+          <h3 class="display text-2xl mb-5">Variants by Finish</h3>
+          <div style="space-y: 12px;">
+            <div style="display: grid; grid-template-columns: 36px 120px 1fr 100px 100px; gap: 12px; align-items: center; padding: 14px; background: var(--ivory); border-bottom: 1px solid var(--cream);">
+              <div class="swatch" style="background: #D4A574;"></div>
+              <div class="serif text-lg">Rose Gold</div>
+              <input value="ARI-RG-0042" style="border: 1px solid var(--cream); padding: 8px 12px; font-size: 12px; background: white;" />
+              <input value="24" style="border: 1px solid var(--cream); padding: 8px 12px; font-size: 12px; background: white; text-align: center;" />
+              <span style="font-size: 11px; color: var(--ash); letter-spacing: 0.15em; text-transform: uppercase;">In Stock</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 36px 120px 1fr 100px 100px; gap: 12px; align-items: center; padding: 14px; border-bottom: 1px solid var(--cream);">
+              <div class="swatch" style="background: #E8E4DA;"></div>
+              <div class="serif text-lg">Champagne</div>
+              <input value="ARI-CH-0042" style="border: 1px solid var(--cream); padding: 8px 12px; font-size: 12px;" />
+              <input value="18" style="border: 1px solid var(--cream); padding: 8px 12px; font-size: 12px; text-align: center;" />
+              <span style="font-size: 11px; color: var(--ash); letter-spacing: 0.15em; text-transform: uppercase;">In Stock</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 36px 120px 1fr 100px 100px; gap: 12px; align-items: center; padding: 14px;">
+              <div class="swatch" style="background: #2D2D2D;"></div>
+              <div class="serif text-lg">Antique Black</div>
+              <input value="ARI-AB-0042" style="border: 1px solid var(--cream); padding: 8px 12px; font-size: 12px;" />
+              <input value="3" style="border: 1px solid var(--cream); padding: 8px 12px; font-size: 12px; text-align: center; color: var(--gold-deep);" />
+              <span style="font-size: 11px; color: var(--gold-deep); letter-spacing: 0.15em; text-transform: uppercase;">Low Stock</span>
+            </div>
+            <div style="margin-top: 16px; font-size: 11px; letter-spacing: 0.25em; text-transform: uppercase; cursor: pointer; color: var(--gold-deep);">+ Add Another Finish</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar -->
+      <div class="space-y-6">
+        <div style="background: white; border: 1px solid var(--cream); padding: 24px;">
+          <div class="eyebrow mb-2">Inventory</div>
+          <h3 class="display text-xl mb-4">Stock</h3>
+          <div style="font-size: 13px; line-height: 2.2;">
+            <div style="display: flex; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid var(--cream);"><span style="color: var(--ash);">Total available</span><span class="display text-2xl">45</span></div>
+            <div style="display: flex; justify-content: space-between; padding-top: 8px;"><span style="color: var(--ash);">Low-stock alert</span><span>at 5</span></div>
+            <div style="margin-top: 12px;">
+              <label class="eyebrow" style="font-size: 9px; display: block; margin-bottom: 6px;">Warehouse</label>
+              <select style="width: 100%; border: 1px solid var(--cream); padding: 10px; font-size: 13px;"><option>Jaipur — Atelier</option></select>
+            </div>
+          </div>
+        </div>
+
+        <div style="background: white; border: 1px solid var(--cream); padding: 24px;">
+          <div class="eyebrow mb-2">Logistics</div>
+          <h3 class="display text-xl mb-4">Shipping</h3>
+          <div style="font-size: 13px; line-height: 2;">
+            <div>
+              <label class="eyebrow" style="font-size: 9px; display: block; margin-bottom: 6px;">Weight</label>
+              <input value="25 g" style="width: 100%; border: 1px solid var(--cream); padding: 10px; font-size: 13px;" />
+            </div>
+            <div style="margin-top: 8px;">
+              <label class="eyebrow" style="font-size: 9px; display: block; margin-bottom: 6px;">Dimensions</label>
+              <input value="10 × 8 × 3 cm" style="width: 100%; border: 1px solid var(--cream); padding: 10px; font-size: 13px;" />
+            </div>
+            <div style="margin-top: 14px; padding: 12px; background: var(--ivory); font-size: 12px; color: var(--gold-deep); line-height: 1.6;">
+              ✦ Delhivery rate: <span class="display text-lg" style="color: var(--ink);">₹ 45</span><br/>
+              <span style="color: var(--ash); font-size: 11px;">auto-calculated from Shiprocket</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="background: white; border: 1px solid var(--cream); padding: 24px;">
+          <div class="eyebrow mb-2">Discoverability</div>
+          <h3 class="display text-xl mb-4">SEO</h3>
+          <input style="width: 100%; border: 1px solid var(--cream); padding: 10px; font-size: 13px; margin-bottom: 10px;" placeholder="Meta title" />
+          <textarea style="width: 100%; border: 1px solid var(--cream); padding: 10px; font-size: 13px; min-height: 60px; font-family: inherit;" placeholder="Meta description"></textarea>
+          <input value="aria, drops, pearl, rose gold" style="width: 100%; border: 1px solid var(--cream); padding: 10px; font-size: 13px; margin-top: 10px;" placeholder="Tags" />
+        </div>
+
+        <div style="background: white; border: 1px solid var(--cream); padding: 24px;">
+          <div class="eyebrow mb-2">Visibility</div>
+          <h3 class="display text-xl mb-4">Status</h3>
+          <select style="width: 100%; border: 1px solid var(--ink); padding: 10px; font-size: 13px; background: var(--ivory);">
+            <option>Live · Boutique</option>
+            <option>Draft</option>
+            <option>Archive</option>
+          </select>
+          <div style="margin-top: 16px; padding: 12px; border: 1px dashed var(--gold); font-size: 12px; line-height: 1.6;">
+            <label style="display: flex; gap: 8px; align-items: center;"><input type="checkbox" checked /> Members early access (24h)</label>
+            <label style="display: flex; gap: 8px; align-items: center; margin-top: 6px;"><input type="checkbox" /> Feature on homepage</label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div style="text-align: center; padding: 80px 24px;">
+  <div class="divider-ornament"><span class="display text-xs">FIN</span></div>
+  <p class="serif" style="font-size: 17px; color: var(--ash); margin-top: 32px; max-width: 600px; margin-left: auto; margin-right: auto; font-style: italic; font-weight: 300; line-height: 1.7;">
+    Seven screens · One language · A multi-category architecture that grows with you. The same atelier console, cart, checkout, and courier work seamlessly when you add sarees, kurtis, or any new line tomorrow.
+  </p>
+  <div style="margin-top: 32px; font-size: 10px; letter-spacing: 0.4em; text-transform: uppercase; color: var(--ash);">Designed in the spirit of Maison Margiela · Mejuri · The Row</div>
+</div>
+
+</body>
+</html>

@@ -29,7 +29,7 @@ export default function HomeOrApp() {
         const data = await fetchJSON(`${apiBase}/status`, {
           timeoutMs: 5000,
           retries: 1,
-          signal: abortRef.current.signal,
+          signal: abortRef.current?.signal,
         });
         setStatus(asObject(data));
         setErr(null);

@@ -2,6 +2,8 @@
 import { Link, useParams } from "react-router-dom";
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "../../lib/supabase";
+import RequestExtensionButton from "../../components/guest/RequestExtensionButton";
+import { formatIstDateTime } from "../../utils/dateUtils";
 
 type Stay = {
     id: string;
@@ -31,12 +33,28 @@ type FoodOrder = {
     total_items: number;
 };
 
+type LedgerBreakdown = {
+    room_charges: number;
+    food_charges: number;
+    service_charges: number;
+    tax_amount: number;
+    discount_amount: number;
+    surcharge_amount: number;
+    total_amount: number;
+    paid_amount: number;
+};
+
 export default function GuestNewStayDetails() {
     const { id } = useParams<{ id: string }>();
     const [stay, setStay] = useState<Stay | null>(null);
     const [orders, setOrders] = useState<FoodOrder[]>([]);
     const [loading, setLoading] = useState(true);
     const [copied, setCopied] = useState(false);
+    // Per-entry-type breakdown from v_arrival_payment_state (post-walk-in-v2
+    // bookings have ROOM_CHARGE / ADJUSTMENT / TAX as folio entries; older
+    // bookings have nothing, in which case we fall back to stay.bill_total
+    // and the legacy 97/3 split below).
+    const [ledger, setLedger] = useState<LedgerBreakdown | null>(null);
 
     // Fetch stay details and food orders
     useEffect(() => {
@@ -94,6 +112,40 @@ export default function GuestNewStayDetails() {
                         if (mounted && ordersData) {
                             setOrders(ordersData);
                         }
+
+                        // Resolve booking_id via the booking code so we can
+                        // pull the per-entry-type folio breakdown. user_recent_stays
+                        // doesn't expose booking_id directly. If RLS blocks this
+                        // read for some reason, the fallback path keeps the page
+                        // functional (legacy 97/3 synthesis from bill_total).
+                        const { data: bookingRow } = await supabase
+                            .from("bookings")
+                            .select("id")
+                            .eq("code", bookingCode)
+                            .maybeSingle();
+
+                        if (mounted && bookingRow?.id) {
+                            const { data: ledgerRow } = await supabase
+                                .from("v_arrival_payment_state")
+                                .select(
+                                    "room_charges, food_charges, service_charges, tax_amount, discount_amount, surcharge_amount, total_amount, paid_amount",
+                                )
+                                .eq("booking_id", bookingRow.id)
+                                .maybeSingle();
+
+                            if (mounted && ledgerRow) {
+                                setLedger({
+                                    room_charges: Number(ledgerRow.room_charges) || 0,
+                                    food_charges: Number(ledgerRow.food_charges) || 0,
+                                    service_charges: Number(ledgerRow.service_charges) || 0,
+                                    tax_amount: Number(ledgerRow.tax_amount) || 0,
+                                    discount_amount: Number(ledgerRow.discount_amount) || 0,
+                                    surcharge_amount: Number(ledgerRow.surcharge_amount) || 0,
+                                    total_amount: Number(ledgerRow.total_amount) || 0,
+                                    paid_amount: Number(ledgerRow.paid_amount) || 0,
+                                });
+                            }
+                        }
                     }
                 }
             } catch (err) {
@@ -150,9 +202,26 @@ export default function GuestNewStayDetails() {
         }
     };
 
-    // Calculate total bill
+    // Calculate total bill — prefer ledger (real folio) values, fall back to
+    // the legacy 97/3 synthesis from bill_total for older bookings whose
+    // room/tax never landed in folio_entries.
     const totalFoodBill = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
-    const grandTotal = (stay?.bill_total || 0) + totalFoodBill;
+    const billRoom = ledger && ledger.room_charges > 0
+        ? ledger.room_charges
+        : (stay?.room_charge || 0);
+    const billTax = ledger && ledger.tax_amount > 0
+        ? ledger.tax_amount
+        : (stay?.city_tax || 0);
+    const billFood = ledger ? ledger.food_charges : 0;
+    const billService = ledger ? ledger.service_charges : 0;
+    const billDiscount = ledger ? ledger.discount_amount : 0;
+    const billSurcharge = ledger ? ledger.surcharge_amount : 0;
+    // When ledger has values, trust it as the source of truth (it already
+    // includes food). When ledger is missing, fall back to bill_total + foodBill
+    // for backwards compatibility with pre-walk-in-v2 stays.
+    const grandTotal = ledger
+        ? (billRoom + billTax + billFood + billService + billSurcharge - billDiscount)
+        : ((stay?.bill_total || 0) + totalFoodBill);
 
     // Download/Print Invoice
     const downloadInvoice = () => {
@@ -231,8 +300,11 @@ export default function GuestNewStayDetails() {
     
     <div class="section">
         <div class="section-title">Stay Charges</div>
-        <div class="row"><span>Room</span><span>${formatCurrency(stay.room_charge)}</span></div>
-        <div class="row"><span>City Tax</span><span>${formatCurrency(stay.city_tax)}</span></div>
+        <div class="row"><span>Room</span><span>${formatCurrency(billRoom)}</span></div>
+        ${billDiscount > 0 ? `<div class="row" style="color:#0a8a4a"><span>Discount</span><span>-${formatCurrency(billDiscount)}</span></div>` : ""}
+        ${billSurcharge > 0 ? `<div class="row"><span>Surcharge</span><span>${formatCurrency(billSurcharge)}</span></div>` : ""}
+        <div class="row"><span>${billTax > 0 || !ledger ? "Tax" : "City Tax"}</span><span>${formatCurrency(billTax)}</span></div>
+        ${billService > 0 ? `<div class="row"><span>Service</span><span>${formatCurrency(billService)}</span></div>` : ""}
     </div>
     
     ${orders.length > 0 ? `
@@ -330,6 +402,14 @@ export default function GuestNewStayDetails() {
                         {copied ? "✓" : "📋"}
                     </button>
                 </div>
+
+                {/* Stay extension — guest can request more nights; front desk approves. */}
+                <div className="mt-4">
+                    <RequestExtensionButton
+                        stayId={stay.id}
+                        currentCheckoutAt={stay.check_out}
+                    />
+                </div>
             </div>
 
             {/* Bill Summary */}
@@ -338,25 +418,39 @@ export default function GuestNewStayDetails() {
 
                 <div className="gn-bill__row">
                     <span className="gn-bill__row--label">Room</span>
-                    <span className="gn-bill__row--value">{formatCurrency(stay.room_charge)}</span>
+                    <span className="gn-bill__row--value">{formatCurrency(billRoom)}</span>
                 </div>
+                {billDiscount > 0 && (
+                    <div className="gn-bill__row" style={{ color: "#6ee7b7" }}>
+                        <span className="gn-bill__row--label">Discount</span>
+                        <span className="gn-bill__row--value">−{formatCurrency(billDiscount)}</span>
+                    </div>
+                )}
+                {billSurcharge > 0 && (
+                    <div className="gn-bill__row">
+                        <span className="gn-bill__row--label">Surcharge</span>
+                        <span className="gn-bill__row--value">{formatCurrency(billSurcharge)}</span>
+                    </div>
+                )}
                 <div className="gn-bill__row">
-                    <span className="gn-bill__row--label">City Tax</span>
-                    <span className="gn-bill__row--value">{formatCurrency(stay.city_tax)}</span>
+                    <span className="gn-bill__row--label">{billTax > 0 || !ledger ? "Tax" : "City Tax"}</span>
+                    <span className="gn-bill__row--value">{formatCurrency(billTax)}</span>
                 </div>
                 <div className="gn-bill__row">
                     <span className="gn-bill__row--label">Food</span>
                     <span className="gn-bill__row--value">
-                        {formatCurrency(orders.reduce((sum, o) => sum + (o.total_amount || 0), 0))}
+                        {formatCurrency(ledger ? billFood : totalFoodBill)}
                     </span>
                 </div>
+                {billService > 0 && (
+                    <div className="gn-bill__row">
+                        <span className="gn-bill__row--label">Service</span>
+                        <span className="gn-bill__row--value">{formatCurrency(billService)}</span>
+                    </div>
+                )}
                 <div className="gn-bill__row gn-bill__row--total">
                     <span className="gn-bill__row--label">Total</span>
-                    <span className="gn-bill__row--value">
-                        {formatCurrency(
-                            (stay.bill_total || 0) + orders.reduce((sum, o) => sum + (o.total_amount || 0), 0)
-                        )}
-                    </span>
+                    <span className="gn-bill__row--value">{formatCurrency(grandTotal)}</span>
                 </div>
 
                 <div className="gn-bill__action">
@@ -409,13 +503,7 @@ export default function GuestNewStayDetails() {
                                     </span>
                                 </div>
                                 <div className="gn-order-card__time">
-                                    🕐 {new Date(order.created_at).toLocaleDateString("en-IN", {
-                                        month: "short",
-                                        day: "numeric",
-                                    })}, {new Date(order.created_at).toLocaleTimeString("en-IN", {
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                    })}
+                                    🕐 {formatIstDateTime(order.created_at)}
                                 </div>
                                 <div className="gn-order-card__items">
                                     {Array.isArray(order.items) && order.items.slice(0, 3).map((item, i) => (

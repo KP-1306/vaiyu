@@ -14,7 +14,7 @@ function maskEmail(e: string) {
   const u =
     user.length <= 2
       ? user[0] ?? ""
-      : `${user[0]}${"*".repeat(Math.max(1, user.length - 2))}${user.at(-1)}`;
+      : `${user[0]}${"*".repeat(Math.max(1, user.length - 2))}${user[user.length - 1]}`;
   return `${u}@${domain}`;
 }
 

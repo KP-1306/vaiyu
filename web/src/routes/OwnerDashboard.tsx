@@ -22,7 +22,9 @@ import {
   MessageSquare,
   AlertTriangle,
   LogOut,
-  Settings
+  Settings,
+  ArrowRight,
+  type LucideIcon,
 } from "lucide-react";
 import {
   fetchOpsHeatmap,
@@ -34,6 +36,10 @@ import {
 import SlaPerformanceChart from "../components/analytics/SlaPerformanceChart";
 import TaskVolumeChart from "../components/analytics/TaskVolumeChart";
 import { getDashboardMetrics, type DashboardMetrics } from "../lib/dashboardApi";
+import { getOutstandingBalanceSummary, type OutstandingBalanceSummary, getHousekeepingSummary, type HousekeepingSummary, getArrivalsForecast, type ForecastSummary } from "../services/financeService";
+import { listPendingExtensions } from "../services/stayExtensionService";
+import { getPricingSettings, listPricingRules } from "../services/pricingService";
+import { Wallet, Sparkles, CalendarPlus, Tag } from "lucide-react";
 
 /** ========= Types ========= */
 type Hotel = { id: string; name: string; slug: string; city: string | null };
@@ -201,6 +207,40 @@ function hasSeries<T>(arr?: T[] | null) {
   return Array.isArray(arr) && arr.length > 0;
 }
 
+/* ===== Role-aware visibility =====================================
+ * Sections that contain financial or HR data are gated. Operational
+ * content (arrivals, housekeeping, live requests) stays visible to
+ * everyone. Mapping is a single source of truth so adding a new
+ * section means deciding once who can see it. */
+
+type DashboardRole = "owner" | "manager" | "staff" | "viewer";
+
+function normalizeRole(raw: string | null | undefined): DashboardRole {
+  const r = (raw || "").trim().toLowerCase();
+  if (r === "owner") return "owner";
+  if (r === "manager") return "manager";
+  if (r === "staff") return "staff";
+  return "viewer";
+}
+
+const SECTION_VISIBILITY: Record<string, DashboardRole[]> = {
+  // Money-flavored signals — owners + managers
+  finance: ["owner", "manager"],
+  // Hiring / workforce — owner only
+  hr: ["owner"],
+};
+
+function canSee(role: DashboardRole | null, section: keyof typeof SECTION_VISIBILITY): boolean {
+  if (role === null) return false; // restrict during initial role fetch
+  const allowed = SECTION_VISIBILITY[section];
+  return !allowed || allowed.includes(role);
+}
+
+function roleLabel(role: DashboardRole | null): string {
+  if (!role) return "—";
+  return role.charAt(0).toUpperCase() + role.slice(1);
+}
+
 /** ========= Small helpers to sanitize slug ========= */
 function normalizeSlug(raw?: string) {
   const s = (raw || "").trim();
@@ -236,7 +276,19 @@ export default function OwnerDashboard() {
   // Subscribe to tickets for this property and keep KPIs refreshed
   useTicketsRealtime(slug);
 
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
+
+  // Tab IA — URL-driven so deep-links and browser back/forward work
+  type DashboardTab = "today" | "week" | "pipeline";
+  const tabParam = (params.get("tab") || "today") as string;
+  const activeTab: DashboardTab =
+    tabParam === "week" || tabParam === "pipeline" ? tabParam : "today";
+  const setActiveTab = (next: DashboardTab) => {
+    const newParams = new URLSearchParams(params);
+    if (next === "today") newParams.delete("tab");
+    else newParams.set("tab", next);
+    setParams(newParams, { replace: true });
+  };
 
   const [loading, setLoading] = useState(true);
   const [hotel, setHotel] = useState<Hotel | null>(null);
@@ -277,6 +329,24 @@ export default function OwnerDashboard() {
   );
   const [opsLoading, setOpsLoading] = useState(false);
   const [showMobileNav, setShowMobileNav] = useState(false);
+
+  // Outstanding folio balance — money owed by currently in-house guests
+  const [outstandingBalance, setOutstandingBalance] = useState<OutstandingBalanceSummary | null>(null);
+
+  // Housekeeping board glance — inventory health
+  const [housekeeping, setHousekeeping] = useState<HousekeepingSummary | null>(null);
+
+  // Arrivals pipeline (next 7 days) — what's coming
+  const [forecast, setForecast] = useState<ForecastSummary | null>(null);
+
+  // Approvals: pending stay extensions
+  const [pendingExtensionCount, setPendingExtensionCount] = useState(0);
+
+  // Pricing review nudge — true when rules exist and engine is in manual-review mode
+  const [pricingReviewActive, setPricingReviewActive] = useState<{ rulesCount: number } | null>(null);
+
+  // Role-aware visibility — current user's role on this hotel
+  const [currentRole, setCurrentRole] = useState<DashboardRole | null>(null);
 
   // Detail drawer state
   type DrawerType = null | 'rooms' | 'tasks' | 'atRisk' | 'sla' | 'satisfaction' | 'staff' | 'arrivals';
@@ -644,6 +714,7 @@ export default function OwnerDashboard() {
 
   /* Dashboard Analytics */
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
+  const [metricsFetchedAt, setMetricsFetchedAt] = useState<Date | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -651,7 +722,10 @@ export default function OwnerDashboard() {
       if (!hotel?.id) return;
       try {
         const data = await getDashboardMetrics(hotel.id);
-        if (mounted) setMetrics(data);
+        if (mounted) {
+          setMetrics(data);
+          setMetricsFetchedAt(new Date());
+        }
       } catch (err) {
         // Metric load failed silently
       }
@@ -659,6 +733,162 @@ export default function OwnerDashboard() {
     loadMetrics();
     return () => {
       mounted = false;
+    };
+  }, [hotel?.id]);
+
+  // Force a re-render every 60s so "X min ago" relative-age text stays current
+  // without us refetching the data.
+  const [, setNowTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setNowTick((n) => n + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  /* Outstanding folio balance — fetch + realtime */
+  useEffect(() => {
+    if (!hotel?.id) return;
+    let cancelled = false;
+
+    const load = async () => {
+      const summary = await getOutstandingBalanceSummary(hotel.id);
+      if (!cancelled) setOutstandingBalance(summary);
+    };
+    load();
+
+    // Refresh whenever a folio entry or folio changes — captures payments,
+    // new charges, refunds, and folio close events all on the same channel.
+    const channel = supabase
+      .channel(`outstanding-balance-${hotel.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "folio_entries" }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "folios" }, load)
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [hotel?.id]);
+
+  /* Housekeeping board glance — fetch + realtime on rooms */
+  useEffect(() => {
+    if (!hotel?.id) return;
+    let cancelled = false;
+    const load = async () => {
+      const s = await getHousekeepingSummary(hotel.id);
+      if (!cancelled) setHousekeeping(s);
+    };
+    load();
+    const channel = supabase
+      .channel(`hk-board-${hotel.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "rooms" }, load)
+      .subscribe();
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [hotel?.id]);
+
+  /* Arrivals forecast (next 7 days) — fetch + realtime on bookings */
+  useEffect(() => {
+    if (!hotel?.id) return;
+    let cancelled = false;
+    const load = async () => {
+      const s = await getArrivalsForecast(hotel.id);
+      if (!cancelled) setForecast(s);
+    };
+    load();
+    const channel = supabase
+      .channel(`forecast-${hotel.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "bookings" }, load)
+      .subscribe();
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [hotel?.id]);
+
+  /* Pending stay-extension requests — count + realtime */
+  useEffect(() => {
+    if (!hotel?.id) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const rows = await listPendingExtensions(hotel.id);
+        if (!cancelled) setPendingExtensionCount(rows.length);
+      } catch {
+        // listPendingExtensions surfaces typed errors; for the dashboard
+        // attention strip, a fetch failure should silently render zero
+        // rather than crash the page.
+        if (!cancelled) setPendingExtensionCount(0);
+      }
+    };
+    load();
+    const channel = supabase
+      .channel(`pending-extensions-${hotel.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "stay_extension_requests" }, load)
+      .subscribe();
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [hotel?.id]);
+
+  /* Current user's role for this hotel — drives section visibility */
+  useEffect(() => {
+    if (!hotel?.id) return;
+    let cancelled = false;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        if (!cancelled) setCurrentRole("viewer");
+        return;
+      }
+      const { data } = await supabase
+        .from("hotel_members")
+        .select("role")
+        .eq("hotel_id", hotel.id)
+        .eq("user_id", user.id)
+        .eq("active", true)
+        .limit(1)
+        .maybeSingle();
+      if (!cancelled) setCurrentRole(normalizeRole(data?.role));
+    })();
+    return () => { cancelled = true; };
+  }, [hotel?.id]);
+
+  /* Pricing review nudge — fires when rules exist AND engine is in recommend-only mode */
+  useEffect(() => {
+    if (!hotel?.id) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const [settings, rules] = await Promise.all([
+          getPricingSettings(hotel.id),
+          listPricingRules(hotel.id),
+        ]);
+        if (cancelled) return;
+        // Surface only when the owner has set rules but is in manual-review
+        // mode — that's a recurring decision they should be reminded about.
+        // Auto-apply mode = no nudge (it's working as intended).
+        // No rules = no nudge (would be onboarding noise on a fresh tenant).
+        if (rules.length > 0 && (settings.recommend_only || !settings.auto_apply_enabled)) {
+          setPricingReviewActive({ rulesCount: rules.length });
+        } else {
+          setPricingReviewActive(null);
+        }
+      } catch {
+        if (!cancelled) setPricingReviewActive(null);
+      }
+    };
+    load();
+    const channel = supabase
+      .channel(`pricing-nudge-${hotel.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "pricing_rules" }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "pricing_settings" }, load)
+      .subscribe();
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
     };
   }, [hotel?.id]);
 
@@ -828,6 +1058,138 @@ export default function OwnerDashboard() {
   const shiftGreeting = hour >= 6 && hour < 12 ? "Good morning" : hour >= 12 && hour < 17 ? "Good afternoon" : hour >= 17 && hour < 22 ? "Good evening" : "Night operations";
   const shiftIcon = hour >= 6 && hour < 12 ? "☀️" : hour >= 12 && hour < 17 ? "🌤️" : hour >= 17 && hour < 22 ? "🌙" : "🌃";
 
+  /** ======= Attention strip — single source of truth for "what needs me right now" =======
+   *  NOTE: plain computation (no useMemo) — there are early returns above this point and
+   *  hooks below them would violate rules-of-hooks. */
+  const attentionItems: AttentionItem[] = [];
+
+  if ((blockedCount ?? 0) > 0) {
+    attentionItems.push({
+      key: "sla",
+      severity: "critical",
+      icon: AlertTriangle,
+      title: `${blockedCount} SLA breach${blockedCount === 1 ? "" : "es"}`,
+      subtitle: "Service requests past their target response time.",
+      cta: { label: "Open ops board", to: `/ops?slug=${encodeURIComponent(hotel.slug)}` },
+    });
+  }
+
+  if (tasksAtRisk > 0) {
+    attentionItems.push({
+      key: "atRisk",
+      severity: "critical",
+      icon: Clock,
+      title: `${tasksAtRisk} task${tasksAtRisk === 1 ? "" : "s"} at risk`,
+      subtitle: "Approaching SLA threshold — triage now.",
+      cta: { label: "Triage", to: `/ops?slug=${encodeURIComponent(hotel.slug)}` },
+    });
+  }
+
+  if (departuresCount > 0) {
+    attentionItems.push({
+      key: "departures",
+      severity: "warning",
+      icon: LogOut,
+      title: `${departuresCount} pending departure${departuresCount === 1 ? "" : "s"}`,
+      subtitle: departuresCount === 1
+        ? "Process checkout to free the room and close the folio."
+        : "Process checkouts to free rooms and close folios.",
+      cta: { label: "Process", to: `/owner/${hotel.slug}/arrivals` },
+    });
+  }
+
+  if (pendingExtensionCount > 0) {
+    attentionItems.push({
+      key: "extensions",
+      severity: "warning",
+      icon: CalendarPlus,
+      title: `${pendingExtensionCount} stay extension${pendingExtensionCount === 1 ? "" : "s"} awaiting approval`,
+      subtitle: pendingExtensionCount === 1
+        ? "Guest requested a longer stay — approve or decline before checkout."
+        : "Guests requested longer stays — approve or decline before checkout.",
+      cta: { label: "Review", to: `/owner/${hotel.slug}/arrivals` },
+    });
+  }
+
+  const openJobsCount = (workforceJobs ?? []).filter((j) =>
+    (j.status || "open").toLowerCase().includes("open")
+  ).length;
+  if (openJobsCount > 0) {
+    attentionItems.push({
+      key: "hiring",
+      severity: "info",
+      icon: Users,
+      title: `${openJobsCount} open hiring role${openJobsCount === 1 ? "" : "s"}`,
+      subtitle: "Review applicants to close staffing gaps.",
+      cta: { label: "Review", to: `/owner/${hotel.slug}/staff-shifts` },
+    });
+  }
+
+  if (pricingReviewActive) {
+    attentionItems.push({
+      key: "pricing-review",
+      severity: "info",
+      icon: Tag,
+      title: `Pricing on manual review · ${pricingReviewActive.rulesCount} rule${pricingReviewActive.rulesCount === 1 ? "" : "s"} active`,
+      subtitle: "Engine is producing recommendations but not auto-applying. Review tonight's rates.",
+      cta: { label: "Review rates", to: `/owner/${hotel.slug}/pricing` },
+    });
+  }
+
+  const topSeverity = attentionItems.find((i) => i.severity === "critical")
+    ? "critical"
+    : attentionItems.find((i) => i.severity === "warning")
+      ? "warning"
+      : attentionItems.length > 0
+        ? "info"
+        : null;
+
+  /** ======= Today's money block (revenue · occupancy · ADR with vs-yesterday deltas) ======= */
+  const revenueHistory = ((metrics as any)?.revenueHistory ?? []) as { date: string; revenue: number }[];
+  const occupancyHistory = ((metrics as any)?.occupancyHistory ?? []) as { date: string; occupancyPct: number; occupiedCount: number; totalRooms: number }[];
+
+  const todayRevenue = revenueHistory.length ? revenueHistory[revenueHistory.length - 1].revenue : 0;
+  const yesterdayRevenue = revenueHistory.length >= 2 ? revenueHistory[revenueHistory.length - 2].revenue : 0;
+
+  const todayOccPct = todayStats?.occupancyPct ?? (occupancyHistory.length ? occupancyHistory[occupancyHistory.length - 1].occupancyPct : occPct);
+  const yesterdayOccPct = occupancyHistory.length >= 2 ? occupancyHistory[occupancyHistory.length - 2].occupancyPct : 0;
+  const yesterdayOccupied = occupancyHistory.length >= 2 ? occupancyHistory[occupancyHistory.length - 2].occupiedCount : 0;
+
+  const todayAdr = occupied > 0 ? todayRevenue / occupied : 0;
+  const yesterdayAdr = yesterdayOccupied > 0 ? yesterdayRevenue / yesterdayOccupied : 0;
+
+  // Recency context — used as fallback when today's value is empty so the hero
+  // is informative on quiet days instead of three em-dashes.
+  const last7Revenue = revenueHistory.slice(-7).reduce((s, d) => s + (d.revenue || 0), 0);
+  const last7DaysCount = Math.min(revenueHistory.length, 7);
+  const last7AvgRevenue = last7DaysCount > 0 ? last7Revenue / last7DaysCount : 0;
+
+  const last7OccSamples = occupancyHistory.slice(-7);
+  const last7AvgOcc = last7OccSamples.length > 0
+    ? last7OccSamples.reduce((s, d) => s + (d.occupancyPct || 0), 0) / last7OccSamples.length
+    : 0;
+  const last7TotalOccupied = last7OccSamples.reduce((s, d) => s + (d.occupiedCount || 0), 0);
+  const last7AvgAdr = last7TotalOccupied > 0 ? last7Revenue / last7TotalOccupied : 0;
+
+  const todayMetrics = {
+    revenue: todayRevenue,
+    revenueDelta: todayRevenue - yesterdayRevenue,
+    revenueDeltaPct: yesterdayRevenue > 0 ? ((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100 : null,
+    occPct: todayOccPct,
+    occupiedRooms: occupied,
+    totalRooms: total,
+    occDeltaPp: todayOccPct - yesterdayOccPct, // percentage points
+    adr: todayAdr,
+    adrDeltaPct: yesterdayAdr > 0 ? ((todayAdr - yesterdayAdr) / yesterdayAdr) * 100 : null,
+    hasYesterday: revenueHistory.length >= 2 || occupancyHistory.length >= 2,
+    // Recency context for empty-state pivot (last 7 days)
+    last7Revenue,
+    last7AvgRevenue,
+    last7AvgOcc,
+    last7AvgAdr,
+    last7DaysCount,
+  };
+
   /** ======= Render (operations command center) ======= */
   return (
     <main className="min-h-screen bg-[#0B0E14] text-slate-200 font-sans selection:bg-emerald-500/30">
@@ -838,13 +1200,10 @@ export default function OwnerDashboard() {
           <span className="text-slate-700">/</span>
           <span className="text-slate-200 truncate">Dashboard</span>
         </div>
-        <div className="ml-auto flex items-center gap-2 shrink-0">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
-          <span className="text-[10px] font-mono text-emerald-500/80">Live</span>
-        </div>
+        <div className="ml-auto flex items-center gap-2 shrink-0" />
+        {/* Removed loud "Live" indicator — it overpromised. Realtime only covers
+            tickets/SLA; revenue, occupancy, and trends fetch on page load. The
+            refresh button in the header is the honest way to force fresh data. */}
       </div>
 
       {/* Mobile Drawer */}
@@ -893,11 +1252,19 @@ export default function OwnerDashboard() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              <button type="button" onClick={() => window.location.reload()} className="inline-flex items-center justify-center rounded-lg border border-slate-800 bg-[#151A25] p-2.5 hover:bg-slate-800 transition-colors text-slate-400 hover:text-white" title="Refresh">
+            <div className="flex items-center gap-3 shrink-0">
+              {metricsFetchedAt && (
+                <FreshnessStamp fetchedAt={metricsFetchedAt} />
+              )}
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="inline-flex items-center justify-center rounded-lg border border-slate-800 bg-[#151A25] p-2.5 hover:bg-slate-800 transition-colors text-slate-400 hover:text-white"
+                title="Refresh metrics (revenue, occupancy, trends). Realtime data updates automatically."
+              >
                 <SvgSync />
               </button>
-              <UserProfileMenu slug={hotel.slug} />
+              <UserProfileMenu slug={hotel.slug} role={currentRole} />
             </div>
           </div>
 
@@ -969,67 +1336,74 @@ export default function OwnerDashboard() {
               </Link>
             </div>
 
-            {/* 🔴 Priority 1: Alert Banner */}
-            {(tasksAtRisk > 0 || (blockedCount ?? 0) > 0) && (
-              <div className="flex flex-wrap items-center gap-4 p-4 rounded-xl border border-rose-500/30 bg-rose-500/10 backdrop-blur">
-                <div className="flex items-center gap-2 text-rose-400 font-semibold text-sm">
-                  <AlertTriangle size={16} />
-                  Immediate Attention
-                </div>
-                <div className="flex items-center gap-4 text-sm">
-                  {tasksAtRisk > 0 && (
-                    <span className="font-medium text-slate-300">
-                      <span className="text-rose-400 font-bold">{tasksAtRisk}</span> tasks at risk
-                    </span>
-                  )}
-                  {(blockedCount ?? 0) > 0 && (
-                    <span className="font-medium text-slate-300">
-                      <span className="text-rose-400 font-bold">{blockedCount}</span> SLA breaches
-                    </span>
-                  )}
-                </div>
-                <Link
-                  to={`/ops?slug=${encodeURIComponent(hotel.slug)}`}
-                  className="ml-auto text-xs font-semibold text-rose-300 hover:text-white bg-rose-500/20 px-3 py-1.5 rounded-lg border border-rose-500/30 transition-colors"
-                >
-                  Open Ops Board →
-                </Link>
-              </div>
-            )}
+            {/* 🎯 Attention Strip — what needs me right now (or collapsed all-clear) */}
+            <AttentionStrip items={attentionItems} topSeverity={topSeverity} />
 
-            {/* ✅ All clear banner (when no issues) */}
-            {tasksAtRisk === 0 && (blockedCount ?? 0) === 0 && tasksTotal === 0 && (
-              <div className="flex items-center gap-3 p-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5">
-                <div className="h-8 w-8 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-400">
-                  <UserCheck size={16} />
-                </div>
-                <div className="text-sm text-emerald-300 font-medium">All clear — no open requests or SLA breaches this shift ✓</div>
-              </div>
-            )}
+            {/* Tab IA — Today / This Week / Pipeline (Week tab is finance-gated) */}
+            <DashboardTabs
+              active={activeTab}
+              onChange={setActiveTab}
+              showWeekTab={canSee(currentRole, 'finance')}
+            />
 
-            {/* 📊 Priority 2: KPI Strip (color-coded, clickable) */}
-            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-              <div onClick={() => setActiveDrawer('rooms')} className="cursor-pointer">
-                <KpiTile label="Rooms" value={total ? `${total}` : "—"} sub={`${occupied} occupied`} icon={BedDouble} />
-              </div>
-              <div onClick={() => setActiveDrawer('tasks')} className="cursor-pointer">
-                <KpiTile label="Active Tasks" value={`${tasksTotal}`} sub={tasksTotal === 0 ? "All clear" : "Open requests"} accent={tasksTotal > 0 ? "amber" : "emerald"} icon={Clock} />
-              </div>
-              <div onClick={() => setActiveDrawer('atRisk')} className="cursor-pointer">
-                <KpiTile label="At Risk" value={`${tasksAtRisk}`} sub={tasksAtRisk === 0 ? "Under SLA" : `Exceeding targets`} accent={tasksAtRisk > 0 ? "rose" : "emerald"} icon={AlertTriangle} />
-              </div>
-              <div onClick={() => setActiveDrawer('sla')} className="cursor-pointer">
-                <KpiTile label="Avg Response" value={avgResponseMin == null ? "—" : `${avgResponseMin}m`} sub="SLA Performance" icon={LayoutDashboard} />
-              </div>
-              <div onClick={() => setActiveDrawer('satisfaction')} className="cursor-pointer">
-                <KpiTile
-                  label="Guest Satisfaction"
-                  value={guestPrimary ?? "—"}
-                  sub={typeof npsScore === "number" && (npsResponses ?? 0) > 0 ? `NPS Score · ${npsResponses} res` : typeof avgRating30d === "number" ? "Average Rating" : "No feedback data"}
-                  accent={guestTone === "green" ? "emerald" : guestTone === "amber" ? "amber" : guestTone === "red" ? "rose" : undefined}
-                  icon={MessageSquare}
-                />
-              </div>
+            {activeTab === "week" && canSee(currentRole, 'finance') ? (
+              <WeekView
+                revenueHistory={revenueHistory}
+                occupancyHistory={occupancyHistory}
+                last7Revenue={last7Revenue}
+                last7AvgOcc={last7AvgOcc}
+                last7AvgAdr={last7AvgAdr}
+                hotelSlug={hotel.slug}
+              />
+            ) : activeTab === "pipeline" ? (
+              <PipelineView forecast={forecast} hotelSlug={hotel.slug} vipStays={vipStays} />
+            ) : (
+              <>
+                {/* 💰 Priority 2: Today's money block — owner/manager only */}
+                {canSee(currentRole, 'finance') && (
+                  <TodayHero metrics={todayMetrics} dateLabel={dateLabel} hotelSlug={hotel.slug} />
+                )}
+
+            {/* Arrivals pipeline — next 7 days */}
+            <ForecastStrip summary={forecast} hotelSlug={hotel.slug} />
+
+            {/* Housekeeping board glance — inventory health */}
+            <HousekeepingStrip summary={housekeeping} hotelSlug={hotel.slug} />
+
+            {/* Ops at a glance — compact secondary strip; preserves drawer entry points */}
+            <div className="grid gap-2 grid-cols-2 lg:grid-cols-4">
+              <OpsChip
+                label="Active Tasks"
+                value={`${tasksTotal}`}
+                sub={tasksTotal === 0 ? "All clear" : "Open requests"}
+                tone={tasksTotal > 0 ? "amber" : "neutral"}
+                icon={Clock}
+                onClick={() => setActiveDrawer('tasks')}
+              />
+              <OpsChip
+                label="At Risk"
+                value={`${tasksAtRisk}`}
+                sub={tasksAtRisk === 0 ? "Under SLA" : "Exceeding targets"}
+                tone={tasksAtRisk > 0 ? "rose" : "neutral"}
+                icon={AlertTriangle}
+                onClick={() => setActiveDrawer('atRisk')}
+              />
+              <OpsChip
+                label="Avg Response"
+                value={avgResponseMin == null ? "—" : `${avgResponseMin}m`}
+                sub={avgResponseMin == null ? "Awaiting first ticket" : "SLA performance"}
+                tone="neutral"
+                icon={LayoutDashboard}
+                onClick={() => setActiveDrawer('sla')}
+              />
+              <OpsChip
+                label="Guest Satisfaction"
+                value={guestPrimary ?? "—"}
+                sub={typeof npsScore === "number" && (npsResponses ?? 0) > 0 ? `NPS · ${npsResponses} res` : typeof avgRating30d === "number" ? "Avg rating" : "First ratings appear here"}
+                tone={guestTone === "green" ? "emerald" : guestTone === "amber" ? "amber" : guestTone === "red" ? "rose" : "neutral"}
+                icon={MessageSquare}
+                onClick={() => setActiveDrawer('satisfaction')}
+              />
             </div>
 
             {/* 🔄 Priority 3: Operations Pulse (Active Tasks + Trend) */}
@@ -1063,14 +1437,24 @@ export default function OwnerDashboard() {
                   }
                 />
                 <div className="mt-3">
-                  {hasSeries((metrics as any)?.taskVolume) ? (
-                    <TaskVolumeChart data={(metrics as any)?.taskVolume || []} loading={!metrics} />
-                  ) : (
-                    <div className="rounded-xl border border-dashed border-slate-700 bg-[#0B0E14] p-8 text-center">
-                      <div className="text-2xl mb-2">📊</div>
-                      <div className="text-sm text-slate-400">Operations data will appear here as requests flow through the system.</div>
-                    </div>
-                  )}
+                  {(() => {
+                    const tv = ((metrics as any)?.taskVolume ?? []) as any[];
+                    // "Has data" means at least one hourly bucket > 0 — not just
+                    // a non-empty zero-padded array (which would render a flat
+                    // zero-line chart taking up 200px+ of dead space).
+                    const hasMeaningfulData = tv.some((p: any) => (p?.count ?? 0) > 0);
+                    if (hasMeaningfulData) {
+                      return <TaskVolumeChart data={tv} loading={!metrics} />;
+                    }
+                    return (
+                      <div className="rounded-xl border border-dashed border-slate-700 bg-[#0B0E14] px-4 py-3 flex items-center gap-3">
+                        <div className="text-lg">📊</div>
+                        <div className="text-xs text-slate-400">
+                          No request volume today. The hourly chart will appear once tickets start flowing.
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </DarkCard>
             </div>
@@ -1186,41 +1570,77 @@ export default function OwnerDashboard() {
                 </div>
               </DarkCard>
             </div>
+              </>
+            )}
           </section>
 
           {/* ─── Right Rail ─── */}
           <aside className="space-y-4 xl:block">
-            {/* Quick Stats */}
-            <div onClick={() => setActiveDrawer('arrivals')} className="cursor-pointer">
+            {/* Quick Stats — guest flow, today */}
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => setActiveDrawer('arrivals')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setActiveDrawer('arrivals');
+                }
+              }}
+              className="cursor-pointer rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B0E14]"
+            >
               <DarkCard className="p-4 hover:border-slate-700 transition-colors">
-                <CardHeader title="Today's Snapshot" subtitle={dateLabel} />
+                <CardHeader title="Today's Snapshot" subtitle={`Guest flow · ${dateLabel}`} />
                 <div className="mt-3 flex flex-col gap-2">
-                  <div className="flex justify-between items-center px-3 py-2.5 rounded-lg border border-slate-800/50 bg-[#0B0E14]">
-                    <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                      <span className={`h-2 w-2 rounded-full ${arrivalsCount > 0 ? 'bg-blue-400' : 'bg-slate-600'}`}></span>
-                      Pending Arrivals
-                    </div>
-                    <span className="text-slate-100 font-bold text-sm">{arrivalsCount}</span>
-                  </div>
-                  <div className="flex justify-between items-center px-3 py-2.5 rounded-lg border border-slate-800/50 bg-[#0B0E14]">
-                    <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                      <span className={`h-2 w-2 rounded-full ${departuresCount > 0 ? 'bg-amber-400' : 'bg-slate-600'}`}></span>
-                      Pending Departures
-                    </div>
-                    <span className="text-slate-100 font-bold text-sm">{departuresCount}</span>
-                  </div>
-                  <div className="flex justify-between items-center px-3 py-2.5 rounded-lg border border-emerald-500/10 bg-emerald-500/5">
-                    <div className="text-[11px] font-bold uppercase tracking-widest text-emerald-500/70 flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full bg-emerald-400"></span>
-                      Currently In-House
-                    </div>
-                    <span className="text-emerald-400 font-bold text-sm">{Array.isArray(inhouse) ? inhouse.length : 0}</span>
-                  </div>
+                  <SnapshotRow
+                    label="Arrivals today"
+                    hint="Expected check-ins"
+                    value={arrivalsCount}
+                    dotClass={arrivalsCount > 0 ? "bg-blue-400" : "bg-slate-600"}
+                  />
+                  <SnapshotRow
+                    label="In-house now"
+                    hint="Guests physically checked in"
+                    value={Array.isArray(inhouse) ? inhouse.length : 0}
+                    dotClass={(Array.isArray(inhouse) && inhouse.length > 0) ? "bg-emerald-400" : "bg-slate-600"}
+                    tone="emerald"
+                  />
+                  <SnapshotRow
+                    label="Departures today"
+                    hint="Expected check-outs"
+                    value={departuresCount}
+                    dotClass={departuresCount > 0 ? "bg-amber-400" : "bg-slate-600"}
+                  />
                 </div>
+                {/* Reconciliation note: a pending departure must be in-house — if not, flag it */}
+                {departuresCount > 0 && (Array.isArray(inhouse) ? inhouse.length : 0) === 0 && (
+                  <div className="mt-3 flex items-start gap-2 px-3 py-2 rounded-lg border border-amber-500/20 bg-amber-500/5 text-[11px] leading-snug text-amber-200/90">
+                    <AlertTriangle size={12} className="mt-0.5 shrink-0 text-amber-400" />
+                    <span>
+                      <span className="font-semibold">Heads up:</span> {departuresCount} departure{departuresCount === 1 ? "" : "s"} expected today, but no guests are marked in-house — check-in records may be missing.
+                    </span>
+                  </div>
+                )}
               </DarkCard>
             </div>
 
-            <div onClick={() => setActiveDrawer('staff')} className="cursor-pointer">
+            {/* Outstanding Balance — money owed by in-house guests (owner/manager) */}
+            {canSee(currentRole, 'finance') && (
+              <OutstandingBalanceCard summary={outstandingBalance} hotelSlug={hotel.slug} />
+            )}
+
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => setActiveDrawer('staff')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setActiveDrawer('staff');
+                }
+              }}
+              className="cursor-pointer rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B0E14]"
+            >
               <DarkCard className="p-4 hover:border-slate-700 transition-colors">
                 <CardHeader title="Staff On Duty" subtitle="Active team members" />
                 <div className="mt-3">
@@ -1248,7 +1668,7 @@ export default function OwnerDashboard() {
               </DarkCard>
             )}
 
-            {HAS_WORKFORCE && (
+            {HAS_WORKFORCE && canSee(currentRole, 'hr') && (
               <DarkCard className="p-4">
                 <CardHeader title="Workforce" subtitle="Open roles" />
                 <div className="mt-3"><WorkforceMini jobs={workforceJobs} loading={workforceLoading} /></div>
@@ -1626,7 +2046,7 @@ export default function OwnerDashboard() {
 
 /** ========= UI (dark) components ========= */
 
-function UserProfileMenu({ slug }: { slug: string }) {
+function UserProfileMenu({ slug, role }: { slug: string; role?: DashboardRole | null }) {
   const [userProfile, setUserProfile] = useState<{ fullName: string; role: string } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -1643,11 +2063,11 @@ function UserProfileMenu({ slug }: { slug: string }) {
 
       setUserProfile({
         fullName: profile?.full_name || user.email?.split('@')[0] || "User",
-        role: "Owner View"
+        role: role ? `${roleLabel(role)} View` : "Member View",
       });
     }
     loadUser();
-  }, []);
+  }, [role]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -1804,13 +2224,25 @@ function SidebarNav({ slug, onNavClick }: { slug: string; onNavClick?: () => voi
           <NavItem to={opsAnalyticsHref} label="Ops Manager" onClick={onNavClick} />
         </div>
       </div>
+      {/* Dynamic Pricing */}
+      <div className="pt-2">
+        <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-3 px-3">Pricing</div>
+        <div className="space-y-1">
+          <NavItem to={`/owner/${slug}/pricing`} label="Dynamic Pricing" onClick={onNavClick} />
+          <NavItem to={`/owner/${slug}/pricing/rules`} label="↳ Rules" onClick={onNavClick} />
+          <NavItem to={`/owner/${slug}/pricing/history`} label="↳ History" onClick={onNavClick} />
+        </div>
+      </div>
       {/* Finance */}
-      {/* <div className="pt-2">
+      <div className="pt-2">
         <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-3 px-3">Finance</div>
         <div className="space-y-1">
-          <NavItem to={`/owner/${slug}/payments`} label="Payments & Ledger" onClick={onNavClick} />
+          <NavItem to={`/owner/${slug}/finance`} label="Overview" onClick={onNavClick} />
+          <NavItem to={`/owner/${slug}/finance/budgets`} label="↳ Budgets" onClick={onNavClick} />
+          <NavItem to={`/owner/${slug}/finance/expenses`} label="↳ Expenses" onClick={onNavClick} />
+          <NavItem to={`/owner/${slug}/payments`} label="Payments & Settlements" onClick={onNavClick} />
         </div>
-      </div> */}
+      </div>
       {/* Staff */}
       <div className="pt-2">
         <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-3 px-3">Staff</div>
@@ -1909,6 +2341,869 @@ function CardHeader({
       </div>
       {right ? <div className="shrink-0">{right}</div> : null}
     </div>
+  );
+}
+
+type AttentionSeverity = "critical" | "warning" | "info";
+type AttentionItem = {
+  key: string;
+  severity: AttentionSeverity;
+  icon: LucideIcon;
+  title: string;
+  subtitle: string;
+  cta: { label: string; to: string };
+};
+
+function AttentionStrip({
+  items,
+  topSeverity,
+}: {
+  items: AttentionItem[];
+  topSeverity: AttentionSeverity | null;
+}) {
+  // Empty state — single-line all-clear, low visual weight
+  if (items.length === 0) {
+    return (
+      <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-emerald-500/15 bg-emerald-500/5">
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+        </span>
+        <span className="text-sm text-emerald-300/90 font-medium">All clear — nothing needs your attention right now.</span>
+      </div>
+    );
+  }
+
+  // Severity → shell tint + accent classes
+  const shellByTop: Record<AttentionSeverity, string> = {
+    critical: "border-rose-500/30 bg-gradient-to-br from-rose-500/10 via-[#151A25] to-[#151A25]",
+    warning: "border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-[#151A25] to-[#151A25]",
+    info: "border-sky-500/25 bg-gradient-to-br from-sky-500/10 via-[#151A25] to-[#151A25]",
+  };
+  const top = topSeverity ?? "info";
+
+  const tileBySeverity: Record<AttentionSeverity, string> = {
+    critical: "bg-rose-500/15 text-rose-300 border-rose-500/30",
+    warning: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+    info: "bg-sky-500/15 text-sky-300 border-sky-500/30",
+  };
+  const ctaBySeverity: Record<AttentionSeverity, string> = {
+    critical: "text-rose-200 hover:text-white bg-rose-500/15 hover:bg-rose-500/25 border-rose-500/30",
+    warning: "text-amber-200 hover:text-white bg-amber-500/15 hover:bg-amber-500/25 border-amber-500/30",
+    info: "text-sky-200 hover:text-white bg-sky-500/15 hover:bg-sky-500/25 border-sky-500/30",
+  };
+  const headlineTone: Record<AttentionSeverity, string> = {
+    critical: "text-rose-300",
+    warning: "text-amber-300",
+    info: "text-sky-300",
+  };
+
+  const VISIBLE = 3;
+  const visible = items.slice(0, VISIBLE);
+  const overflow = items.length - visible.length;
+
+  return (
+    <div className={`rounded-xl border ${shellByTop[top]} backdrop-blur-md overflow-hidden`}>
+      <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-white/5">
+        <div className="flex items-center gap-2">
+          <span className={`h-2 w-2 rounded-full ${top === "critical" ? "bg-rose-400" : top === "warning" ? "bg-amber-400" : "bg-sky-400"}`} />
+          <span className={`text-[11px] font-bold uppercase tracking-[0.18em] ${headlineTone[top]}`}>
+            Needs your attention
+          </span>
+        </div>
+        <span className="text-[11px] text-slate-500 font-medium">
+          {items.length} item{items.length === 1 ? "" : "s"}
+        </span>
+      </div>
+
+      <div className="divide-y divide-white/5">
+        {visible.map((item) => {
+          const Icon = item.icon;
+          return (
+            <div key={item.key} className="flex items-center gap-3 px-4 py-3">
+              <div className={`h-9 w-9 shrink-0 rounded-lg border flex items-center justify-center ${tileBySeverity[item.severity]}`}>
+                <Icon size={16} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-semibold text-white truncate">{item.title}</div>
+                <div className="text-xs text-slate-400 truncate">{item.subtitle}</div>
+              </div>
+              <Link
+                to={item.cta.to}
+                className={`shrink-0 inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors ${ctaBySeverity[item.severity]}`}
+              >
+                {item.cta.label}
+                <ArrowRight size={12} />
+              </Link>
+            </div>
+          );
+        })}
+      </div>
+
+      {overflow > 0 && (
+        <div className="px-4 py-2 border-t border-white/5 text-[11px] text-slate-400 font-medium">
+          +{overflow} more — scroll down for the full ops view.
+        </div>
+      )}
+    </div>
+  );
+}
+
+type TodayMetrics = {
+  revenue: number;
+  revenueDelta: number;
+  revenueDeltaPct: number | null;
+  occPct: number;
+  occupiedRooms: number;
+  totalRooms: number;
+  occDeltaPp: number;
+  adr: number;
+  adrDeltaPct: number | null;
+  hasYesterday: boolean;
+  // Recency fallback for empty-state pivot
+  last7Revenue: number;
+  last7AvgRevenue: number;
+  last7AvgOcc: number;
+  last7AvgAdr: number;
+  last7DaysCount: number;
+};
+
+function fmtINR(v: number) {
+  if (v >= 1_00_000) return `₹${(v / 1_00_000).toFixed(v >= 10_00_000 ? 1 : 2)}L`;
+  if (v >= 1000) return `₹${Math.round(v).toLocaleString("en-IN")}`;
+  return `₹${Math.round(v).toLocaleString("en-IN")}`;
+}
+
+function TodayHero({
+  metrics,
+  dateLabel,
+  hotelSlug,
+}: {
+  metrics: TodayMetrics;
+  dateLabel: string;
+  hotelSlug: string;
+}) {
+  const hasRevenue = metrics.revenue > 0;
+  const hasOccupancy = metrics.totalRooms > 0;
+
+  return (
+    <div className="rounded-2xl border border-slate-800/60 bg-gradient-to-br from-emerald-500/[0.06] via-[#151A25] to-[#151A25] overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-white/5">
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-emerald-400" />
+          <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-300">Today</span>
+          <span className="text-[11px] text-slate-500 font-medium">· {dateLabel}</span>
+        </div>
+        <Link
+          to={`/owner/${hotelSlug}/analytics`}
+          className="text-[11px] font-semibold text-slate-300 hover:text-white inline-flex items-center gap-1"
+        >
+          Full analytics <ArrowRight size={11} />
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-white/5">
+        {/* Revenue */}
+        <HeroStat
+          label="Revenue"
+          value={hasRevenue ? fmtINR(metrics.revenue) : "—"}
+          empty={!hasRevenue}
+          emptyHint={metrics.hasYesterday ? "No revenue today" : "First booking awaited"}
+          delta={
+            metrics.revenueDeltaPct == null
+              ? null
+              : {
+                  pct: metrics.revenueDeltaPct,
+                  abs: fmtINR(Math.abs(metrics.revenueDelta)),
+                }
+          }
+          recency={!hasRevenue && metrics.last7Revenue > 0
+            ? `Last 7d: ${fmtINR(metrics.last7Revenue)} · ${fmtINR(metrics.last7AvgRevenue)}/day avg`
+            : undefined}
+        />
+        {/* Occupancy */}
+        <HeroStat
+          label="Occupancy"
+          value={hasOccupancy ? `${Math.round(metrics.occPct)}%` : "—"}
+          empty={!hasOccupancy}
+          emptyHint="No rooms configured"
+          subValue={hasOccupancy ? `${metrics.occupiedRooms} of ${metrics.totalRooms} rooms · sold today` : undefined}
+          delta={
+            metrics.hasYesterday
+              ? {
+                  pct: metrics.occDeltaPp,
+                  abs: `${Math.abs(Math.round(metrics.occDeltaPp))}pp`,
+                  unit: "pp",
+                }
+              : null
+          }
+          recency={metrics.occPct === 0 && metrics.last7AvgOcc > 0
+            ? `Last 7d avg: ${Math.round(metrics.last7AvgOcc)}%`
+            : undefined}
+        />
+        {/* ADR */}
+        <HeroStat
+          label="ADR"
+          value={metrics.adr > 0 ? fmtINR(metrics.adr) : "—"}
+          empty={metrics.adr <= 0}
+          emptyHint={metrics.occupiedRooms === 0 ? "No occupied rooms today" : "—"}
+          subValue="Avg daily rate"
+          delta={
+            metrics.adrDeltaPct == null
+              ? null
+              : { pct: metrics.adrDeltaPct, abs: `${Math.abs(Math.round(metrics.adrDeltaPct))}%` }
+          }
+          recency={metrics.adr <= 0 && metrics.last7AvgAdr > 0
+            ? `Last 7d avg: ${fmtINR(metrics.last7AvgAdr)}`
+            : undefined}
+        />
+      </div>
+    </div>
+  );
+}
+
+function HeroStat({
+  label,
+  value,
+  subValue,
+  empty,
+  emptyHint,
+  delta,
+  recency,
+}: {
+  label: string;
+  value: string;
+  subValue?: string;
+  empty?: boolean;
+  emptyHint?: string;
+  delta: { pct: number; abs: string; unit?: string } | null;
+  recency?: string;
+}) {
+  const up = delta != null && delta.pct > 0.5;
+  const down = delta != null && delta.pct < -0.5;
+  const flat = delta != null && !up && !down;
+
+  const deltaTone = up ? "text-emerald-400" : down ? "text-rose-400" : "text-slate-500";
+  const arrow = up ? "↑" : down ? "↓" : "·";
+
+  return (
+    <div className="px-5 py-5 sm:py-6 flex flex-col gap-2 min-w-0">
+      <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">{label}</div>
+      <div className={`text-3xl sm:text-4xl font-bold tracking-tight font-mono ${empty ? "text-slate-600" : "text-white"}`}>
+        {value}
+      </div>
+      {empty ? (
+        <>
+          <div className="text-xs text-slate-500 italic">{emptyHint}</div>
+          {/* Recency pivot: when today is empty, surface last-7d context so the
+              card is informative on quiet days instead of three em-dashes. */}
+          {recency && (
+            <div className="text-xs text-emerald-400/80 font-medium mt-0.5">
+              {recency}
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          {subValue && <div className="text-xs text-slate-400">{subValue}</div>}
+          {delta != null ? (
+            <div className={`text-xs font-semibold ${deltaTone} flex items-center gap-1`}>
+              <span>{arrow}</span>
+              <span>
+                {delta.abs}
+                {delta.unit ? "" : delta.pct !== 0 ? ` (${Math.abs(Math.round(delta.pct))}%)` : ""}
+              </span>
+              <span className="text-slate-500 font-medium">{flat ? "flat vs yesterday" : "vs yesterday"}</span>
+            </div>
+          ) : (
+            <div className="text-xs text-slate-500">No yesterday data yet</div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Small honest "metrics last fetched" stamp next to the refresh button.
+ *  Realtime cards (folios, rooms, bookings, stay extensions) update on their
+ *  own channels — this stamp specifically tracks one-shot RPC freshness so
+ *  the user knows when revenue/occupancy/SLA charts were last refetched. */
+function FreshnessStamp({ fetchedAt }: { fetchedAt: Date }) {
+  const ageMs = Date.now() - fetchedAt.getTime();
+  const ageMin = Math.floor(ageMs / 60_000);
+  const istTime = fetchedAt.toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "Asia/Kolkata",
+  });
+  const ageLabel = ageMin < 1 ? "just now" : ageMin < 60 ? `${ageMin}m ago` : `${Math.floor(ageMin / 60)}h ago`;
+  // Past ~10 minutes, the data may be growing stale — nudge with amber tone
+  const stale = ageMin >= 10;
+  return (
+    <div
+      className={`hidden sm:flex flex-col items-end leading-tight ${stale ? "text-amber-400/80" : "text-slate-500"}`}
+      title={`Metrics fetched at ${istTime} IST. Realtime cards update independently.`}
+    >
+      <span className="text-[9px] font-bold uppercase tracking-widest">Metrics</span>
+      <span className="text-[10px] font-mono">{istTime} · {ageLabel}</span>
+    </div>
+  );
+}
+
+function DashboardTabs({
+  active,
+  onChange,
+  showWeekTab = true,
+}: {
+  active: "today" | "week" | "pipeline";
+  onChange: (next: "today" | "week" | "pipeline") => void;
+  showWeekTab?: boolean;
+}) {
+  const allTabs: { key: "today" | "week" | "pipeline"; label: string; sub: string }[] = [
+    { key: "today",    label: "Today",     sub: "Live ops" },
+    { key: "week",     label: "This Week", sub: "Last 7 days" },
+    { key: "pipeline", label: "Pipeline",  sub: "What's coming" },
+  ];
+  const tabs = showWeekTab ? allTabs : allTabs.filter((t) => t.key !== "week");
+  return (
+    <div className="inline-flex p-1 rounded-xl border border-slate-800/60 bg-[#151A25] gap-1 self-start">
+      {tabs.map((t) => {
+        const isActive = active === t.key;
+        return (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => onChange(t.key)}
+            aria-pressed={isActive}
+            className={`px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition-colors flex flex-col items-start gap-0.5 ${
+              isActive
+                ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                : "text-slate-400 hover:text-white hover:bg-slate-800/60 border border-transparent"
+            }`}
+          >
+            <span className="uppercase tracking-widest">{t.label}</span>
+            <span className={`text-[9px] font-medium ${isActive ? "text-emerald-400/70" : "text-slate-500"}`}>{t.sub}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** "This Week" tab — 7-day revenue + occupancy trend, derived from existing
+ *  metrics history. No new RPC; reuses revenueHistory + occupancyHistory. */
+function WeekView({
+  revenueHistory,
+  occupancyHistory,
+  last7Revenue,
+  last7AvgOcc,
+  last7AvgAdr,
+  hotelSlug,
+}: {
+  revenueHistory: { date: string; revenue: number }[];
+  occupancyHistory: { date: string; occupancyPct: number; occupiedCount: number; totalRooms: number }[];
+  last7Revenue: number;
+  last7AvgOcc: number;
+  last7AvgAdr: number;
+  hotelSlug: string;
+}) {
+  const revLast7 = revenueHistory.slice(-7);
+  const occLast7 = occupancyHistory.slice(-7);
+  const peakRev = revLast7.reduce((m, d) => Math.max(m, d.revenue || 0), 0);
+  const peakOcc = occLast7.reduce((m, d) => Math.max(m, d.occupancyPct || 0), 0);
+
+  if (revLast7.length === 0 && occLast7.length === 0) {
+    return (
+      <div className="rounded-2xl border border-dashed border-slate-700 bg-[#0B0E14] p-8 text-center">
+        <div className="text-2xl mb-2">📈</div>
+        <div className="text-sm text-slate-400">Trend data will appear after a few days of activity.</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Week summary */}
+      <div className="rounded-2xl border border-slate-800/60 bg-gradient-to-br from-emerald-500/[0.05] via-[#151A25] to-[#151A25] overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-white/5">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-emerald-400" />
+            <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-300">This week</span>
+            <span className="text-[11px] text-slate-500 font-medium">· last 7 days</span>
+          </div>
+          <Link to={`/owner/${hotelSlug}/analytics`} className="text-[11px] font-semibold text-slate-300 hover:text-white inline-flex items-center gap-1">
+            Full analytics <ArrowRight size={11} />
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-white/5">
+          <div className="px-5 py-5 flex flex-col gap-1">
+            <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Revenue</div>
+            <div className="text-2xl sm:text-3xl font-bold tracking-tight font-mono text-white">
+              {last7Revenue > 0 ? fmtINR(last7Revenue) : "—"}
+            </div>
+            <div className="text-xs text-slate-400">7-day total</div>
+          </div>
+          <div className="px-5 py-5 flex flex-col gap-1">
+            <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Avg occupancy</div>
+            <div className="text-2xl sm:text-3xl font-bold tracking-tight font-mono text-white">
+              {last7AvgOcc > 0 ? `${Math.round(last7AvgOcc)}%` : "—"}
+            </div>
+            <div className="text-xs text-slate-400">across {occLast7.length} day{occLast7.length === 1 ? "" : "s"}</div>
+          </div>
+          <div className="px-5 py-5 flex flex-col gap-1">
+            <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Avg ADR</div>
+            <div className="text-2xl sm:text-3xl font-bold tracking-tight font-mono text-white">
+              {last7AvgAdr > 0 ? fmtINR(last7AvgAdr) : "—"}
+            </div>
+            <div className="text-xs text-slate-400">7-day avg daily rate</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Revenue trend */}
+      <div className="rounded-2xl border border-slate-800/60 bg-[#151A25] overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-2.5 border-b border-white/5">
+          <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-300">Revenue trend</span>
+          <span className="text-[11px] text-slate-500 font-medium">peak: {peakRev > 0 ? fmtINR(peakRev) : "—"}</span>
+        </div>
+        <div className={`grid grid-cols-${revLast7.length || 1} divide-x divide-white/5`}>
+          {revLast7.map((d, i) => {
+            const heightPct = peakRev > 0 ? Math.max(8, (d.revenue / peakRev) * 100) : 0;
+            return (
+              <div key={i} className="px-2 py-3 flex flex-col items-center gap-1.5 min-w-0">
+                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 truncate">{d.date}</div>
+                <div className="relative w-full h-12 flex items-end justify-center">
+                  {d.revenue > 0 ? (
+                    <div className="w-3 rounded-t-md bg-emerald-400" style={{ height: `${heightPct}%` }} />
+                  ) : (
+                    <div className="w-3 h-1 rounded-full bg-slate-700" />
+                  )}
+                </div>
+                <div className="text-[10px] font-mono text-slate-300">{d.revenue > 0 ? fmtINR(d.revenue) : "—"}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Occupancy trend */}
+      <div className="rounded-2xl border border-slate-800/60 bg-[#151A25] overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-2.5 border-b border-white/5">
+          <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-sky-300">Occupancy trend</span>
+          <span className="text-[11px] text-slate-500 font-medium">peak: {peakOcc > 0 ? `${Math.round(peakOcc)}%` : "—"}</span>
+        </div>
+        <div className={`grid grid-cols-${occLast7.length || 1} divide-x divide-white/5`}>
+          {occLast7.map((d, i) => {
+            const heightPct = peakOcc > 0 ? Math.max(8, (d.occupancyPct / peakOcc) * 100) : 0;
+            return (
+              <div key={i} className="px-2 py-3 flex flex-col items-center gap-1.5 min-w-0">
+                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 truncate">{d.date}</div>
+                <div className="relative w-full h-12 flex items-end justify-center">
+                  {d.occupancyPct > 0 ? (
+                    <div className="w-3 rounded-t-md bg-sky-400" style={{ height: `${heightPct}%` }} />
+                  ) : (
+                    <div className="w-3 h-1 rounded-full bg-slate-700" />
+                  )}
+                </div>
+                <div className="text-[10px] font-mono text-slate-300">{d.occupancyPct > 0 ? `${Math.round(d.occupancyPct)}%` : "—"}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** "Pipeline" tab — emphasizes the 7-day forecast and arriving VIPs. */
+function PipelineView({
+  forecast,
+  hotelSlug,
+  vipStays,
+}: {
+  forecast: ForecastSummary | null;
+  hotelSlug: string;
+  vipStays: VipStay[] | null;
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Reuse the same forecast strip — it's the right size for this surface */}
+      <ForecastStrip summary={forecast} hotelSlug={hotelSlug} />
+
+      <div className="rounded-2xl border border-slate-800/60 bg-[#151A25] p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-purple-300">VIP arrivals</div>
+            <div className="text-xs text-slate-500 mt-0.5">Flagged guests in the upcoming window</div>
+          </div>
+          <Link to={`/owner/${hotelSlug}/arrivals`} className="text-[11px] font-semibold text-slate-300 hover:text-white inline-flex items-center gap-1">
+            All arrivals <ArrowRight size={11} />
+          </Link>
+        </div>
+        {Array.isArray(vipStays) && vipStays.length > 0 ? (
+          <div className="space-y-2">
+            {vipStays.slice(0, 5).map((s) => (
+              <div key={s.stay_id} className="flex items-center justify-between rounded-xl border border-purple-500/20 bg-purple-500/[0.04] px-3 py-2">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-slate-100 truncate">
+                    {s.room ? `Room ${s.room}` : "Room TBD"}
+                  </div>
+                  <div className="text-[11px] text-slate-400 truncate">
+                    Arrives {s.check_in_start ? new Date(s.check_in_start).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }) : "—"}
+                  </div>
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md bg-purple-500/15 text-purple-300 border border-purple-500/30">
+                  VIP
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed border-slate-700 bg-[#0B0E14] px-4 py-3 flex items-center gap-3">
+            <div className="text-lg">⭐</div>
+            <div className="text-xs text-slate-400">No VIP arrivals in the upcoming window.</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ForecastStrip({
+  summary,
+  hotelSlug,
+}: {
+  summary: ForecastSummary | null;
+  hotelSlug: string;
+}) {
+  if (!summary) {
+    return <div className="rounded-2xl border border-slate-800/60 bg-[#151A25] h-[88px] animate-pulse" />;
+  }
+  const { days, totalArrivals, peakDay } = summary;
+
+  // Headline: how busy is the week?
+  const eyebrowTone =
+    totalArrivals === 0 ? "text-slate-400" : totalArrivals >= 5 ? "text-emerald-300" : "text-sky-300";
+  const dotClass =
+    totalArrivals === 0 ? "bg-slate-600" : totalArrivals >= 5 ? "bg-emerald-400" : "bg-sky-400";
+
+  // Bar heights — proportional to peak so visual signal is preserved.
+  const peakCount = days.reduce((m, d) => Math.max(m, d.arrivals), 0);
+
+  return (
+    <div className="rounded-2xl border border-slate-800/60 bg-[#151A25] overflow-hidden">
+      <div className="flex items-center justify-between gap-3 px-5 py-2.5 border-b border-white/5">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`h-2 w-2 rounded-full ${dotClass}`} />
+          <span className={`text-[11px] font-bold uppercase tracking-[0.18em] ${eyebrowTone}`}>
+            Next 7 days
+          </span>
+          <span className="text-[11px] text-slate-500 font-medium truncate">
+            {totalArrivals === 0
+              ? "· No arrivals expected"
+              : `· ${totalArrivals} ${totalArrivals === 1 ? "arrival" : "arrivals"}`}
+            {peakDay && peakDay.arrivals > 1 && (
+              <span> · peak {peakDay.dayLabel} ({peakDay.arrivals})</span>
+            )}
+          </span>
+        </div>
+        <Link
+          to={`/owner/${hotelSlug}/arrivals`}
+          className="text-[11px] font-semibold text-slate-300 hover:text-white inline-flex items-center gap-1 shrink-0"
+        >
+          View calendar <ArrowRight size={11} />
+        </Link>
+      </div>
+      <div className="grid grid-cols-7 divide-x divide-white/5">
+        {days.map((d) => {
+          const heightPct = peakCount > 0 ? Math.max(8, (d.arrivals / peakCount) * 100) : 0;
+          const muted = d.arrivals === 0;
+          const labelTone = d.isToday ? "text-white" : "text-slate-400";
+          return (
+            <div key={d.dateISO} className="px-2 py-3 flex flex-col items-center gap-1.5 min-w-0">
+              <div className={`text-[10px] font-bold uppercase tracking-widest truncate ${labelTone}`}>
+                {d.dayLabel}
+              </div>
+              <div className="relative w-full h-10 flex items-end justify-center">
+                {d.arrivals > 0 ? (
+                  <div
+                    className={`w-3 rounded-t-md ${d.isToday ? "bg-emerald-400" : "bg-sky-400"}`}
+                    style={{ height: `${heightPct}%` }}
+                  />
+                ) : (
+                  <div className="w-3 h-1 rounded-full bg-slate-700" />
+                )}
+              </div>
+              <div className={`text-sm font-bold ${muted ? "text-slate-600" : "text-slate-100"}`}>
+                {d.arrivals}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function HousekeepingStrip({
+  summary,
+  hotelSlug,
+}: {
+  summary: HousekeepingSummary | null;
+  hotelSlug: string;
+}) {
+  // Loading skeleton — same height as live state so the page doesn't jump
+  if (!summary) {
+    return (
+      <div className="rounded-2xl border border-slate-800/60 bg-[#151A25] px-5 py-4 h-[88px] animate-pulse" />
+    );
+  }
+  if (summary.total === 0) {
+    // No rooms configured — skip rather than show a confusing empty strip
+    return null;
+  }
+
+  const { total, ready, dirty, pickup, inProgress, outOfOrder, readyPct } = summary;
+
+  // Headline tone reflects the most concerning state present
+  const headlineTone: "rose" | "amber" | "emerald" =
+    outOfOrder > 0 ? "rose" : dirty + pickup > 0 ? "amber" : "emerald";
+  const eyebrowClass = headlineTone === "rose"
+    ? "text-rose-300"
+    : headlineTone === "amber"
+      ? "text-amber-300"
+      : "text-emerald-300";
+  const dotClass = headlineTone === "rose"
+    ? "bg-rose-400"
+    : headlineTone === "amber"
+      ? "bg-amber-400"
+      : "bg-emerald-400";
+
+  type Cell = { count: number; label: string; tone: "emerald" | "amber" | "sky" | "rose" };
+  const cells: Cell[] = [
+    { count: ready,      label: "Ready",       tone: "emerald" },
+    { count: dirty,      label: "Dirty",       tone: "amber"   },
+    { count: pickup,     label: "Pickup",      tone: "amber"   },
+    { count: inProgress, label: "In progress", tone: "sky"     },
+    { count: outOfOrder, label: "OOO",         tone: "rose"    },
+  ];
+  const toneClasses: Record<Cell["tone"], { tile: string; value: string }> = {
+    emerald: { tile: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30", value: "text-emerald-300" },
+    amber:   { tile: "bg-amber-500/15 text-amber-300 border-amber-500/30",       value: "text-amber-300" },
+    sky:     { tile: "bg-sky-500/15 text-sky-300 border-sky-500/30",             value: "text-sky-300" },
+    rose:    { tile: "bg-rose-500/15 text-rose-300 border-rose-500/30",          value: "text-rose-300" },
+  };
+
+  return (
+    <div className="rounded-2xl border border-slate-800/60 bg-[#151A25] overflow-hidden">
+      <div className="flex items-center justify-between gap-3 px-5 py-2.5 border-b border-white/5">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`h-2 w-2 rounded-full ${dotClass}`} />
+          <span className={`text-[11px] font-bold uppercase tracking-[0.18em] ${eyebrowClass}`}>
+            Housekeeping
+          </span>
+          <span className="text-[11px] text-slate-500 font-medium truncate">
+            · {ready} of {total} ready ({readyPct}%)
+          </span>
+        </div>
+        <Link
+          to={`/owner/${hotelSlug}/housekeeping`}
+          className="text-[11px] font-semibold text-slate-300 hover:text-white inline-flex items-center gap-1 shrink-0"
+        >
+          Open board <ArrowRight size={11} />
+        </Link>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-x divide-y sm:divide-y-0 divide-white/5">
+        {cells.map((c) => {
+          const t = toneClasses[c.tone];
+          const muted = c.count === 0;
+          return (
+            <div key={c.label} className="px-4 py-3 flex items-center gap-3 min-w-0">
+              <div className={`h-8 w-8 shrink-0 rounded-lg border flex items-center justify-center ${
+                muted ? "bg-slate-800/60 text-slate-500 border-slate-700/50" : t.tile
+              }`}>
+                <Sparkles size={14} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 truncate">
+                  {c.label}
+                </div>
+                <div className={`text-sm font-bold ${muted ? "text-slate-600" : t.value}`}>
+                  {c.count}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function OutstandingBalanceCard({
+  summary,
+  hotelSlug,
+}: {
+  summary: OutstandingBalanceSummary | null;
+  hotelSlug: string;
+}) {
+  // Loading state — neutral placeholder so the rail doesn't jump
+  if (!summary) {
+    return (
+      <DarkCard className="p-4">
+        <CardHeader title="Outstanding Balance" subtitle="Active folios" />
+        <div className="mt-3 h-12 rounded-lg bg-slate-800/40 animate-pulse" />
+      </DarkCard>
+    );
+  }
+
+  const { totalOwed, staysWithBalance, totalOpenFolios, guestRefundOwed } = summary;
+  const hasOwed = totalOwed > 0;
+  const hasRefund = guestRefundOwed > 0;
+  // Fully settled: there are open folios but every one is at zero balance
+  const allSettled = totalOpenFolios > 0 && !hasOwed && !hasRefund;
+  // No active stays at all
+  const noActive = totalOpenFolios === 0;
+
+  return (
+    <DarkCard className="p-4">
+      <CardHeader title="Outstanding Balance" subtitle="Money owed by in-house guests" />
+
+      <div className="mt-3 flex items-center gap-3">
+        <div className={`h-10 w-10 shrink-0 rounded-xl border flex items-center justify-center ${
+          hasOwed
+            ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
+            : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+        }`}>
+          <Wallet size={18} />
+        </div>
+        <div className="min-w-0 flex-1">
+          {noActive ? (
+            <>
+              <div className="text-base font-bold text-slate-400">—</div>
+              <div className="text-xs text-slate-500">No active folios</div>
+            </>
+          ) : hasOwed ? (
+            <>
+              <div className="text-lg font-bold text-amber-300 font-mono">
+                {fmtINR(totalOwed)}
+              </div>
+              <div className="text-xs text-slate-400">
+                across {staysWithBalance} {staysWithBalance === 1 ? "stay" : "stays"}
+                {totalOpenFolios > staysWithBalance && (
+                  <span className="text-slate-500"> · {totalOpenFolios - staysWithBalance} settled</span>
+                )}
+              </div>
+            </>
+          ) : allSettled ? (
+            <>
+              <div className="text-base font-bold text-emerald-400">All settled</div>
+              <div className="text-xs text-slate-400">
+                {totalOpenFolios} open {totalOpenFolios === 1 ? "folio" : "folios"} at ₹0
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-base font-bold text-slate-200">No balance owed</div>
+              <div className="text-xs text-slate-400">{totalOpenFolios} active</div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Hotel owes guest a refund — separate signal, less common */}
+      {hasRefund && (
+        <div className="mt-2 flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-sky-500/20 bg-sky-500/5">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-sky-400">Refund pending</span>
+          <span className="text-xs font-mono text-sky-300 ml-auto">{fmtINR(guestRefundOwed)}</span>
+        </div>
+      )}
+
+      {hasOwed && (
+        <Link
+          to={`/owner/${hotelSlug}/arrivals`}
+          className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-amber-200 hover:text-white bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 px-3 py-1.5 rounded-lg transition-colors w-full justify-center"
+        >
+          Review &amp; collect
+          <ArrowRight size={12} />
+        </Link>
+      )}
+    </DarkCard>
+  );
+}
+
+function SnapshotRow({
+  label,
+  hint,
+  value,
+  dotClass,
+  tone,
+}: {
+  label: string;
+  hint: string;
+  value: number;
+  dotClass: string;
+  tone?: "emerald";
+}) {
+  const wrapClass = tone === "emerald"
+    ? "border-emerald-500/10 bg-emerald-500/5"
+    : "border-slate-800/50 bg-[#0B0E14]";
+  const labelClass = tone === "emerald" ? "text-emerald-500/70" : "text-slate-400";
+  const valueClass = tone === "emerald" ? "text-emerald-400" : "text-slate-100";
+  return (
+    <div className={`flex justify-between items-center px-3 py-2.5 rounded-lg border ${wrapClass}`}>
+      <div className="min-w-0">
+        <div className={`text-[11px] font-bold uppercase tracking-widest ${labelClass} flex items-center gap-2`}>
+          <span className={`h-2 w-2 rounded-full ${dotClass}`} />
+          {label}
+        </div>
+        <div className="text-[10px] text-slate-500 mt-0.5 ml-4">{hint}</div>
+      </div>
+      <span className={`font-bold text-sm ${valueClass}`}>{value}</span>
+    </div>
+  );
+}
+
+function OpsChip({
+  label,
+  value,
+  sub,
+  tone,
+  icon: Icon,
+  onClick,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  tone: "neutral" | "emerald" | "amber" | "rose";
+  icon: LucideIcon;
+  onClick: () => void;
+}) {
+  const toneClasses: Record<typeof tone, { tile: string; value: string }> = {
+    neutral: { tile: "bg-slate-800/60 text-slate-400 border-slate-700/50", value: "text-white" },
+    emerald: { tile: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30", value: "text-emerald-300" },
+    amber: { tile: "bg-amber-500/15 text-amber-300 border-amber-500/30", value: "text-amber-300" },
+    rose: { tile: "bg-rose-500/15 text-rose-300 border-rose-500/30", value: "text-rose-300" },
+  };
+  const t = toneClasses[tone];
+  return (
+    <button
+      onClick={onClick}
+      title={`${label} · ${sub}`}
+      className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-slate-800/50 bg-[#151A25] hover:border-slate-700 hover:bg-slate-800/50 transition-colors text-left min-w-0 w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B0E14]"
+    >
+      <div className={`h-8 w-8 shrink-0 rounded-lg border flex items-center justify-center ${t.tile}`}>
+        <Icon size={14} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 truncate">{label}</div>
+        <div className="flex items-baseline gap-2 min-w-0">
+          <span className={`text-sm font-bold ${t.value} shrink-0`}>{value}</span>
+          <span className="text-[10px] text-slate-500 truncate">{sub}</span>
+        </div>
+      </div>
+    </button>
   );
 }
 
@@ -2117,24 +3412,34 @@ function StaffList({ data }: { data: StaffPerf[] | null }) {
 
   return (
     <div className="space-y-2">
-      {data.slice(0, 6).map((r) => (
-        <div
-          key={r.staff_id}
-          className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2"
-        >
-          <div className="min-w-0">
-            <div className="text-sm font-medium text-slate-100 truncate">
-              {r.display_name}
+      {data.slice(0, 6).map((r) => {
+        const fullRoleString = r.department_name || r.role || "";
+        const roles = fullRoleString.split(",").map((s) => s.trim()).filter(Boolean);
+        const primary = roles[0] || fullRoleString;
+        const extraCount = Math.max(0, roles.length - 1);
+        return (
+          <div
+            key={r.staff_id}
+            className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2"
+          >
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-slate-100 truncate">
+                {r.display_name}
+              </div>
+              <div
+                className="text-[11px] text-slate-400 truncate"
+                title={extraCount > 0 ? fullRoleString : undefined}
+              >
+                {primary}
+                {extraCount > 0 && <span className="text-slate-500"> · +{extraCount} more</span>}
+              </div>
             </div>
-            <div className="text-[11px] text-slate-400 truncate">
-              {r.department_name || r.role}
+            <div className="flex items-center gap-2">
+              <StatusBadge label={r.is_online ? "Online" : "Away"} tone={r.is_online ? "green" : "grey"} />
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <StatusBadge label={r.is_online ? "Online" : "Away"} tone={r.is_online ? "green" : "grey"} />
-          </div>
-        </div>
-      ))}
+        );
+      })}
       {data.length > 6 ? (
         <div className="text-[11px] text-slate-400">+{data.length - 6} more</div>
       ) : null}

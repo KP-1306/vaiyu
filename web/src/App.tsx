@@ -263,6 +263,64 @@ const OwnerPricing = optionalFromGlob(
   ),
 );
 
+// Owner pricing sub-pages
+const OwnerPricingRules = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/OwnerPricingRules.{tsx,jsx}",
+  ),
+  () => <FallbackPage title="Pricing Rules" />,
+);
+
+const OwnerPricingHistory = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/OwnerPricingHistory.{tsx,jsx}",
+  ),
+  () => <FallbackPage title="Pricing History" />,
+);
+
+const OwnerRatePlans = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/OwnerRatePlans.{tsx,jsx}",
+  ),
+  () => <FallbackPage title="Rate Plans" />,
+);
+
+const OwnerRatePlanPricing = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/OwnerRatePlanPricing.{tsx,jsx}",
+  ),
+  () => <FallbackPage title="Plan Pricing" />,
+);
+
+const OwnerRateCalendar = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/OwnerRateCalendar.{tsx,jsx}",
+  ),
+  () => <FallbackPage title="Rate Calendar" />,
+);
+
+// Finance module
+const OwnerFinance = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/OwnerFinance.{tsx,jsx}",
+  ),
+  () => <FallbackPage title="Finance" />,
+);
+
+const OwnerFinanceBudgets = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/OwnerFinanceBudgets.{tsx,jsx}",
+  ),
+  () => <FallbackPage title="Budget Planner" />,
+);
+
+const OwnerFinanceExpenses = optionalFromGlob(
+  import.meta.glob<{ default: React.ComponentType<any> }>(
+    "./routes/OwnerFinanceExpenses.{tsx,jsx}",
+  ),
+  () => <FallbackPage title="Expenses" />,
+);
+
 // Owner occupancy (optional quick view)
 const OwnerOccupancy = optionalFromGlob(
   import.meta.glob<{ default: React.ComponentType<any> }>(
@@ -511,6 +569,38 @@ function OwnerSidebar({ basePath }: { basePath: string }) {
       label: "Bookings calendar",
       to: `${base}/bookings/calendar`,
       feature: "calendar",
+    },
+    {
+      label: "Dynamic Pricing",
+      to: `${base}/pricing`,
+    },
+    {
+      label: "↳ Rate Plans",
+      to: `${base}/pricing/plans`,
+    },
+    {
+      label: "↳ Rate Calendar",
+      to: `${base}/pricing/calendar`,
+    },
+    {
+      label: "↳ Pricing Rules",
+      to: `${base}/pricing/rules`,
+    },
+    {
+      label: "↳ Pricing History",
+      to: `${base}/pricing/history`,
+    },
+    {
+      label: "Finance",
+      to: `${base}/finance`,
+    },
+    {
+      label: "↳ Budgets",
+      to: `${base}/finance/budgets`,
+    },
+    {
+      label: "↳ Expenses",
+      to: `${base}/finance/expenses`,
     },
     {
       label: "Property settings",
@@ -827,6 +917,70 @@ export default function App() {
               element={
                 <OwnerLayout>
                   <OwnerPricing />
+                </OwnerLayout>
+              }
+            />
+            <Route
+              path="/owner/:slug/pricing/rules"
+              element={
+                <OwnerLayout>
+                  <OwnerPricingRules />
+                </OwnerLayout>
+              }
+            />
+            <Route
+              path="/owner/:slug/pricing/history"
+              element={
+                <OwnerLayout>
+                  <OwnerPricingHistory />
+                </OwnerLayout>
+              }
+            />
+            <Route
+              path="/owner/:slug/pricing/plans"
+              element={
+                <OwnerLayout>
+                  <OwnerRatePlans />
+                </OwnerLayout>
+              }
+            />
+            <Route
+              path="/owner/:slug/pricing/plans/:planId"
+              element={
+                <OwnerLayout>
+                  <OwnerRatePlanPricing />
+                </OwnerLayout>
+              }
+            />
+            <Route
+              path="/owner/:slug/pricing/calendar"
+              element={
+                <OwnerLayout>
+                  <OwnerRateCalendar />
+                </OwnerLayout>
+              }
+            />
+            <Route
+              path="/owner/:slug/finance"
+              element={
+                <OwnerLayout>
+                  <OwnerFinance />
+                </OwnerLayout>
+              }
+            />
+            <Route
+              path="/owner/:slug/finance/budgets"
+              element={
+                <OwnerLayout>
+                  <OwnerFinanceBudgets />
+                </OwnerLayout>
+              }
+            />
+            <Route
+              path="/owner/:slug/finance/expenses"
+              element={
+                <OwnerLayout>
+                  <OwnerFinanceExpenses />
                 </OwnerLayout>
               }
             />

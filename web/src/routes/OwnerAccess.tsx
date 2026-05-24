@@ -55,7 +55,8 @@ export default function OwnerAccess() {
   const [copyOk, setCopyOk] = useState<string | null>(null);
 
   // Build once, avoids SSR issues
-  const inviteLinkBase = useMemo(() => `${location.origin}/owner/invite/accept`, [location.origin]);
+  // Use window.location for the absolute URL — react-router's Location has no `origin`.
+  const inviteLinkBase = useMemo(() => `${window.location.origin}/owner/invite/accept`, []);
 
   useEffect(() => {
     let alive = true;

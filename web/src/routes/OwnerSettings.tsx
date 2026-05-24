@@ -6,6 +6,8 @@ import { supabase } from "../lib/supabase";
 import OwnerGate from "../components/OwnerGate";
 import SEO from "../components/SEO";
 import UsageMeter from "../components/UsageMeter";
+import RazorpayPanel from "../components/owner/RazorpayPanel";
+import { onboardRazorpayAccount, RazorpayServiceError } from "../services/razorpayService";
 // -------- Types --------
 type Theme = { brand?: string; mode?: "light" | "dark" };
 
@@ -44,6 +46,12 @@ type Hotel = {
   breakfast_start?: string | null;
   breakfast_end?: string | null;
   guest_notes?: string | null;
+
+  // Razorpay — per-hotel mode + credentials
+  razorpay_mode?: "NONE" | "DIRECT" | "ROUTE";
+  razorpay_account_id?: string | null;       // ROUTE-mode Linked Account
+  razorpay_platform_fee_pct?: number | null; // ROUTE-mode platform fee
+  razorpay_direct_key_id?: string | null;    // DIRECT-mode public key_id
 };
 
 
@@ -783,6 +791,41 @@ export default function OwnerSettings() {
                         <span className="text-xs text-slate-500 italic">Enter UPI ID to see QR preview</span>
                       )}
                     </div>
+                  </div>
+
+                  {/* Razorpay Route — per-hotel Linked Account */}
+                  <div className="mt-6">
+                    <RazorpayPanel
+                      hotelId={hotel.id}
+                      razorpayMode={(hotel.razorpay_mode ?? "NONE") as "NONE" | "DIRECT" | "ROUTE"}
+                      razorpayDirectKeyId={hotel.razorpay_direct_key_id ?? null}
+                      razorpayAccountId={hotel.razorpay_account_id ?? null}
+                      platformFeePct={hotel.razorpay_platform_fee_pct ?? 0}
+                      onChange={({ razorpay_mode, razorpay_direct_key_id, razorpay_account_id, razorpay_platform_fee_pct }) => {
+                        if (razorpay_mode !== undefined) patchHotel("razorpay_mode", razorpay_mode);
+                        if (razorpay_direct_key_id !== undefined) patchHotel("razorpay_direct_key_id", razorpay_direct_key_id);
+                        if (razorpay_account_id !== undefined) patchHotel("razorpay_account_id", razorpay_account_id);
+                        if (razorpay_platform_fee_pct !== undefined) patchHotel("razorpay_platform_fee_pct", razorpay_platform_fee_pct);
+                      }}
+                      onLaunchOnboarding={async () => {
+                        try {
+                          const result = await onboardRazorpayAccount({ hotelId: hotel.id });
+                          patchHotel("razorpay_account_id", result.accountId);
+                          // Live mode returns an activation URL for KYC.
+                          // Test mode returns it as null and the LA is usable
+                          // immediately for transfers[].
+                          if (result.activationUrl) {
+                            window.open(result.activationUrl, "_blank", "noopener,noreferrer");
+                            setOk("Account created — opening KYC in a new tab.");
+                          } else {
+                            setOk(`Razorpay test account created: ${result.accountId}`);
+                          }
+                        } catch (e) {
+                          const msg = e instanceof RazorpayServiceError ? e.message : String((e as any)?.message ?? e);
+                          setErr("Razorpay onboarding failed: " + msg);
+                        }
+                      }}
+                    />
                   </div>
                 </section>
 

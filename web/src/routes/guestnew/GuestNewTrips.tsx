@@ -12,6 +12,7 @@ type Stay = {
     check_in: string;
     check_out: string;
     bill_total?: number | null;
+    booking_code?: string | null;
     status?: string | null;
 };
 
@@ -47,7 +48,7 @@ export default function GuestNewTrips() {
                     .order("check_in", { ascending: false });
 
                 if (mounted && data) {
-                    const mapped = data.map((s: any) => ({
+                    const mapped: Stay[] = data.map((s: any) => ({
                         id: s.id,
                         hotel: {
                             name: s.hotel_name || s.hotel?.name || "Hotel",
@@ -56,8 +57,44 @@ export default function GuestNewTrips() {
                         check_in: s.check_in,
                         check_out: s.check_out,
                         bill_total: s.bill_total,
+                        booking_code: s.booking_code,
                         status: s.status,
                     }));
+
+                    // Backfill bill_total from the folio ledger — user_recent_stays
+                    // hardcodes bill_total to NULL, so without this every trip row
+                    // would have no amount. Stay portion = total − food so the
+                    // number reflects what was paid for the room itself.
+                    const codes = mapped
+                        .map((s) => s.booking_code)
+                        .filter(Boolean) as string[];
+                    if (codes.length > 0) {
+                        const { data: bookingsRows } = await supabase
+                            .from("bookings")
+                            .select("id, code")
+                            .in("code", codes);
+                        const codeToBookingId = new Map<string, string>();
+                        bookingsRows?.forEach((b: any) => codeToBookingId.set(b.code, b.id));
+                        const bookingIds = Array.from(codeToBookingId.values());
+                        if (bookingIds.length > 0) {
+                            const { data: ledgerRows } = await supabase
+                                .from("v_arrival_payment_state")
+                                .select("booking_id, total_amount")
+                                .in("booking_id", bookingIds);
+                            const bidToStayBill = new Map<string, number>();
+                            ledgerRows?.forEach((l: any) => {
+                                bidToStayBill.set(l.booking_id, Number(l.total_amount) || 0);
+                            });
+                            for (const stay of mapped) {
+                                const bid = stay.booking_code ? codeToBookingId.get(stay.booking_code) : undefined;
+                                const stayBill = bid ? bidToStayBill.get(bid) : undefined;
+                                if (typeof stayBill === "number" && stayBill > 0) {
+                                    stay.bill_total = stayBill;
+                                }
+                            }
+                        }
+                    }
+
                     setStays(mapped);
 
                     // Calculate member since

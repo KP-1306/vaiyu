@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Wireframe — Artificial Jewelry E-commerce (Classic)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background:#faf7f5; }
+  .screen { max-width: 1200px; margin: 32px auto; background:white; border-radius:16px; box-shadow:0 8px 40px rgba(0,0,0,0.06); overflow:hidden; }
+  .screen-label { background:#1f1f1f; color:#fff; padding:10px 20px; font-size:13px; font-weight:600; letter-spacing:0.5px; }
+  .ph-img { background:linear-gradient(135deg, #fce7e3, #f5d0c5); display:flex; align-items:center; justify-content:center; color:#a8745f; font-size:11px; }
+  .nav-link { color:#4a4a4a; font-size:14px; font-weight:500; }
+  .nav-link:hover { color:#c2185b; }
+  .badge-new { background:#c2185b; color:white; font-size:10px; padding:2px 6px; border-radius:4px; font-weight:600; }
+  .price-was { text-decoration: line-through; color:#999; }
+  .price-now { color:#c2185b; font-weight:700; }
+  .btn-primary { background:#c2185b; color:white; padding:10px 24px; border-radius:8px; font-weight:600; font-size:14px; }
+  .btn-primary:hover { background:#a01548; }
+  .btn-outline { border:1.5px solid #c2185b; color:#c2185b; padding:8px 20px; border-radius:8px; font-weight:600; font-size:14px; }
+  .chip { background:#fdf2ee; border:1px solid #f5d0c5; color:#8b4a3a; padding:4px 12px; border-radius:20px; font-size:12px; }
+  .star { color:#f5b400; }
+  .section-title { font-family: Georgia, serif; }
+</style>
+</head>
+<body>
+
+<div class="text-center pt-10 pb-2">
+  <h1 class="text-3xl font-bold" style="color:#1f1f1f">Wireframe — Artificial Jewelry E-commerce (Classic)</h1>
+  <p class="text-gray-500 mt-2">Multi-category ready · Built for jewelry today, extensible to sarees / lifestyle tomorrow</p>
+  <p class="text-xs text-gray-400 mt-1">Scroll through the screens below ↓</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SCREEN 1: HOMEPAGE -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="screen">
+  <div class="screen-label">SCREEN 1 — HOMEPAGE</div>
+
+  <div class="bg-pink-50 text-center py-2 text-xs text-pink-900">
+    Free shipping on orders above ₹999 · COD available · Easy 7-day returns
+  </div>
+
+  <div class="border-b border-gray-200 px-8 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-10">
+      <div class="text-2xl font-bold section-title" style="color:#c2185b">Aabhushan</div>
+      <nav class="flex gap-7">
+        <a class="nav-link">Earrings</a>
+        <a class="nav-link">Necklaces</a>
+        <a class="nav-link">Rings</a>
+        <a class="nav-link">Bangles</a>
+        <a class="nav-link">Sets</a>
+        <a class="nav-link">Collections</a>
+        <a class="nav-link" style="color:#c2185b">Sale</a>
+      </nav>
+    </div>
+    <div class="flex items-center gap-5">
+      <div class="text-gray-400">🔍 Search</div>
+      <div>👤</div>
+      <div>♡ <span class="text-xs">3</span></div>
+      <div>🛒 <span class="text-xs">2</span></div>
+    </div>
+  </div>
+
+  <div class="ph-img" style="height:380px; background:linear-gradient(135deg, #fce7e3, #f5d0c5, #e8b4a0);">
+    <div class="text-center">
+      <div class="text-xs uppercase tracking-widest text-rose-900 mb-3">New Collection · Spring 2026</div>
+      <div class="text-5xl section-title font-semibold text-rose-950 mb-3">Crafted to Charm</div>
+      <div class="text-rose-900 mb-6 max-w-md mx-auto text-sm">Handpicked artificial jewelry that pairs with your every mood — from morning coffee to wedding sangeet.</div>
+      <button class="btn-primary">Shop the Collection →</button>
+    </div>
+  </div>
+
+  <div class="px-8 py-10">
+    <h2 class="text-2xl section-title text-center mb-8">Shop by Category</h2>
+    <div class="grid grid-cols-5 gap-4">
+      <div class="text-center">
+        <div class="ph-img rounded-full mx-auto" style="width:120px; height:120px; border-radius:50%;">Earrings</div>
+        <div class="mt-3 text-sm font-medium">Earrings</div>
+        <div class="text-xs text-gray-500">240+ items</div>
+      </div>
+      <div class="text-center">
+        <div class="ph-img rounded-full mx-auto" style="width:120px; height:120px; border-radius:50%;">Necklaces</div>
+        <div class="mt-3 text-sm font-medium">Necklaces</div>
+        <div class="text-xs text-gray-500">180+ items</div>
+      </div>
+      <div class="text-center">
+        <div class="ph-img rounded-full mx-auto" style="width:120px; height:120px; border-radius:50%;">Rings</div>
+        <div class="mt-3 text-sm font-medium">Rings</div>
+        <div class="text-xs text-gray-500">95+ items</div>
+      </div>
+      <div class="text-center">
+        <div class="ph-img rounded-full mx-auto" style="width:120px; height:120px; border-radius:50%;">Bangles</div>
+        <div class="mt-3 text-sm font-medium">Bangles</div>
+        <div class="text-xs text-gray-500">120+ items</div>
+      </div>
+      <div class="text-center">
+        <div class="ph-img rounded-full mx-auto" style="width:120px; height:120px; border-radius:50%;">Sets</div>
+        <div class="mt-3 text-sm font-medium">Bridal Sets</div>
+        <div class="text-xs text-gray-500">60+ items</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="px-8 py-8 bg-gray-50">
+    <div class="flex justify-between items-end mb-6">
+      <h2 class="text-2xl section-title">Trending Now</h2>
+      <a class="text-sm text-pink-700 underline">View all →</a>
+    </div>
+    <div class="grid grid-cols-4 gap-5">
+      <div class="bg-white rounded-lg overflow-hidden">
+        <div class="ph-img relative" style="height:240px;">
+          Product Image
+          <div class="absolute top-2 left-2"><span class="badge-new">NEW</span></div>
+          <div class="absolute top-2 right-2 bg-white rounded-full w-8 h-8 flex items-center justify-center">♡</div>
+        </div>
+        <div class="p-3">
+          <div class="text-xs text-gray-500">Earrings</div>
+          <div class="text-sm font-medium mt-1">Rose Gold Jhumka Drops</div>
+          <div class="flex items-center gap-1 mt-1 text-xs"><span class="star">★★★★★</span><span class="text-gray-500">(124)</span></div>
+          <div class="mt-2"><span class="price-now">₹599</span> <span class="price-was text-xs ml-2">₹1,199</span> <span class="text-xs text-green-600 ml-1">50% off</span></div>
+        </div>
+      </div>
+      <div class="bg-white rounded-lg overflow-hidden">
+        <div class="ph-img relative" style="height:240px;">Product Image
+          <div class="absolute top-2 right-2 bg-white rounded-full w-8 h-8 flex items-center justify-center">♡</div>
+        </div>
+        <div class="p-3">
+          <div class="text-xs text-gray-500">Necklace</div>
+          <div class="text-sm font-medium mt-1">Pearl Layered Choker</div>
+          <div class="flex items-center gap-1 mt-1 text-xs"><span class="star">★★★★☆</span><span class="text-gray-500">(89)</span></div>
+          <div class="mt-2"><span class="price-now">₹899</span> <span class="price-was text-xs ml-2">₹1,499</span></div>
+        </div>
+      </div>
+      <div class="bg-white rounded-lg overflow-hidden">
+        <div class="ph-img relative" style="height:240px;">Product Image
+          <div class="absolute top-2 left-2"><span class="badge-new" style="background:#16a34a">BESTSELLER</span></div>
+          <div class="absolute top-2 right-2 bg-white rounded-full w-8 h-8 flex items-center justify-center">♡</div>
+        </div>
+        <div class="p-3">
+          <div class="text-xs text-gray-500">Bridal Set</div>
+          <div class="text-sm font-medium mt-1">Kundan Wedding Set</div>
+          <div class="flex items-center gap-1 mt-1 text-xs"><span class="star">★★★★★</span><span class="text-gray-500">(312)</span></div>
+          <div class="mt-2"><span class="price-now">₹2,499</span> <span class="price-was text-xs ml-2">₹4,999</span></div>
+        </div>
+      </div>
+      <div class="bg-white rounded-lg overflow-hidden">
+        <div class="ph-img relative" style="height:240px;">Product Image
+          <div class="absolute top-2 right-2 bg-white rounded-full w-8 h-8 flex items-center justify-center">♡</div>
+        </div>
+        <div class="p-3">
+          <div class="text-xs text-gray-500">Bangles</div>
+          <div class="text-sm font-medium mt-1">Oxidised Silver Bangle Pair</div>
+          <div class="flex items-center gap-1 mt-1 text-xs"><span class="star">★★★★☆</span><span class="text-gray-500">(56)</span></div>
+          <div class="mt-2"><span class="price-now">₹449</span> <span class="price-was text-xs ml-2">₹899</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="px-8 py-10">
+    <h2 class="text-2xl section-title text-center mb-2">Shop by Occasion</h2>
+    <p class="text-center text-gray-500 text-sm mb-6">Find the perfect piece for every moment</p>
+    <div class="grid grid-cols-4 gap-4">
+      <div class="ph-img rounded-lg" style="height:180px;">Wedding</div>
+      <div class="ph-img rounded-lg" style="height:180px;">Daily Wear</div>
+      <div class="ph-img rounded-lg" style="height:180px;">Party</div>
+      <div class="ph-img rounded-lg" style="height:180px;">Festive</div>
+    </div>
+  </div>
+
+  <div class="px-8 py-10 bg-gray-50">
+    <h2 class="text-2xl section-title text-center mb-6">Shop the Look</h2>
+    <div class="grid grid-cols-3 gap-5">
+      <div class="ph-img rounded-lg" style="height:300px;">Lookbook 1<br/>Reel/Photo</div>
+      <div class="ph-img rounded-lg" style="height:300px;">Lookbook 2<br/>Reel/Photo</div>
+      <div class="ph-img rounded-lg" style="height:300px;">Lookbook 3<br/>Reel/Photo</div>
+    </div>
+  </div>
+
+  <div class="bg-gray-900 text-gray-300 px-8 py-10 grid grid-cols-4 gap-8 text-sm">
+    <div>
+      <div class="text-xl font-bold text-white mb-3 section-title">Aabhushan</div>
+      <p class="text-xs text-gray-400">Premium artificial jewelry crafted with love.</p>
+    </div>
+    <div>
+      <div class="font-semibold text-white mb-3">Shop</div>
+      <div>Earrings</div><div>Necklaces</div><div>Rings</div><div>Bangles</div>
+    </div>
+    <div>
+      <div class="font-semibold text-white mb-3">Help</div>
+      <div>Track Order</div><div>Returns</div><div>Shipping</div><div>FAQ</div>
+    </div>
+    <div>
+      <div class="font-semibold text-white mb-3">Newsletter</div>
+      <div class="flex gap-2 mt-2">
+        <input class="bg-gray-800 px-3 py-2 rounded text-xs flex-1" placeholder="Your email" />
+        <button class="bg-pink-600 px-4 py-2 rounded text-xs">Subscribe</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SCREEN 2: PRODUCT LISTING / CATEGORY -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="screen">
+  <div class="screen-label">SCREEN 2 — CATEGORY / LISTING PAGE (with filters)</div>
+
+  <div class="border-b px-8 py-4">
+    <div class="text-xs text-gray-500">Home · Earrings</div>
+    <h1 class="text-3xl section-title mt-1">Earrings <span class="text-base text-gray-500 font-sans">(240 products)</span></h1>
+  </div>
+
+  <div class="grid grid-cols-12 gap-6 px-8 py-6">
+    <aside class="col-span-3 text-sm">
+      <div class="font-semibold mb-3">Filters</div>
+
+      <div class="mb-5">
+        <div class="font-medium mb-2">Price</div>
+        <div class="space-y-1 text-gray-600">
+          <div>☐ Under ₹500</div>
+          <div>☑ ₹500 – ₹1,000</div>
+          <div>☐ ₹1,000 – ₹2,000</div>
+          <div>☐ Above ₹2,000</div>
+        </div>
+      </div>
+
+      <div class="mb-5">
+        <div class="font-medium mb-2">Material</div>
+        <div class="space-y-1 text-gray-600">
+          <div>☑ Brass</div>
+          <div>☐ Silver Plated</div>
+          <div>☐ Alloy</div>
+          <div>☐ Oxidised</div>
+        </div>
+      </div>
+
+      <div class="mb-5">
+        <div class="font-medium mb-2">Color</div>
+        <div class="flex flex-wrap gap-2">
+          <div class="w-7 h-7 rounded-full bg-yellow-500 border-2 border-pink-600"></div>
+          <div class="w-7 h-7 rounded-full bg-gray-300"></div>
+          <div class="w-7 h-7 rounded-full bg-rose-300"></div>
+          <div class="w-7 h-7 rounded-full bg-emerald-600"></div>
+          <div class="w-7 h-7 rounded-full bg-red-600"></div>
+          <div class="w-7 h-7 rounded-full bg-blue-700"></div>
+        </div>
+      </div>
+
+      <div class="mb-5">
+        <div class="font-medium mb-2">Occasion</div>
+        <div class="space-y-1 text-gray-600">
+          <div>☐ Daily Wear</div>
+          <div>☐ Wedding</div>
+          <div>☑ Party</div>
+          <div>☐ Festive</div>
+        </div>
+      </div>
+
+      <div class="mb-5">
+        <div class="font-medium mb-2">Style</div>
+        <div class="space-y-1 text-gray-600">
+          <div>☐ Jhumka</div>
+          <div>☐ Studs</div>
+          <div>☐ Drops</div>
+          <div>☐ Hoops</div>
+          <div>☐ Chandelier</div>
+        </div>
+      </div>
+
+      <div class="mb-5">
+        <div class="font-medium mb-2">Rating</div>
+        <div class="space-y-1 text-gray-600">
+          <div>☐ ★★★★★</div>
+          <div>☑ ★★★★☆ & up</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="col-span-9">
+      <div class="flex justify-between items-center mb-4 text-sm">
+        <div class="flex gap-2">
+          <span class="chip">Material: Brass ✕</span>
+          <span class="chip">Price: ₹500-1000 ✕</span>
+          <span class="chip">Party ✕</span>
+          <span class="text-pink-700 underline ml-2">Clear all</span>
+        </div>
+        <select class="border rounded px-3 py-1.5">
+          <option>Sort: Recommended</option>
+          <option>Price: Low to High</option>
+          <option>Newest First</option>
+          <option>Best Rated</option>
+        </select>
+      </div>
+
+      <div class="grid grid-cols-3 gap-5">
+        <div class="bg-white border rounded-lg overflow-hidden">
+          <div class="ph-img" style="height:240px;">Image</div>
+          <div class="p-3">
+            <div class="text-sm font-medium">Floral Drop Earrings</div>
+            <div class="flex items-center gap-1 mt-1 text-xs"><span class="star">★★★★★</span><span class="text-gray-500">(67)</span></div>
+            <div class="mt-1"><span class="price-now">₹699</span> <span class="price-was text-xs ml-1">₹1,299</span></div>
+          </div>
+        </div>
+        <div class="bg-white border rounded-lg overflow-hidden">
+          <div class="ph-img" style="height:240px;">Image</div>
+          <div class="p-3">
+            <div class="text-sm font-medium">Pearl Stud Set</div>
+            <div class="flex items-center gap-1 mt-1 text-xs"><span class="star">★★★★☆</span><span class="text-gray-500">(43)</span></div>
+            <div class="mt-1"><span class="price-now">₹549</span></div>
+          </div>
+        </div>
+        <div class="bg-white border rounded-lg overflow-hidden">
+          <div class="ph-img" style="height:240px;">Image</div>
+          <div class="p-3">
+            <div class="text-sm font-medium">Antique Jhumka</div>
+            <div class="flex items-center gap-1 mt-1 text-xs"><span class="star">★★★★★</span><span class="text-gray-500">(201)</span></div>
+            <div class="mt-1"><span class="price-now">₹899</span> <span class="price-was text-xs ml-1">₹1,499</span></div>
+          </div>
+        </div>
+        <div class="bg-white border rounded-lg overflow-hidden">
+          <div class="ph-img" style="height:240px;">Image</div>
+          <div class="p-3">
+            <div class="text-sm font-medium">Crystal Hoops</div>
+            <div class="flex items-center gap-1 mt-1 text-xs"><span class="star">★★★★☆</span><span class="text-gray-500">(28)</span></div>
+            <div class="mt-1"><span class="price-now">₹799</span></div>
+          </div>
+        </div>
+        <div class="bg-white border rounded-lg overflow-hidden">
+          <div class="ph-img" style="height:240px;">Image</div>
+          <div class="p-3">
+            <div class="text-sm font-medium">Meenakari Earrings</div>
+            <div class="flex items-center gap-1 mt-1 text-xs"><span class="star">★★★★★</span><span class="text-gray-500">(156)</span></div>
+            <div class="mt-1"><span class="price-now">₹659</span> <span class="price-was text-xs ml-1">₹1,099</span></div>
+          </div>
+        </div>
+        <div class="bg-white border rounded-lg overflow-hidden">
+          <div class="ph-img" style="height:240px;">Image</div>
+          <div class="p-3">
+            <div class="text-sm font-medium">Statement Chandelier</div>
+            <div class="flex items-center gap-1 mt-1 text-xs"><span class="star">★★★★☆</span><span class="text-gray-500">(91)</span></div>
+            <div class="mt-1"><span class="price-now">₹999</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="text-center mt-6"><button class="btn-outline">Load more</button></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SCREEN 3: PRODUCT DETAIL -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="screen">
+  <div class="screen-label">SCREEN 3 — PRODUCT DETAIL PAGE</div>
+
+  <div class="grid grid-cols-2 gap-8 p-8">
+    <div>
+      <div class="ph-img rounded-lg" style="height:500px;">Main Product Image · 360° view + zoom</div>
+      <div class="grid grid-cols-5 gap-2 mt-3">
+        <div class="ph-img rounded" style="height:80px; border:2px solid #c2185b;">1</div>
+        <div class="ph-img rounded" style="height:80px;">2</div>
+        <div class="ph-img rounded" style="height:80px;">3</div>
+        <div class="ph-img rounded" style="height:80px;">4</div>
+        <div class="ph-img rounded" style="height:80px;">▶ Video</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="text-xs text-gray-500">Aabhushan · Earrings · Jhumka</div>
+      <h1 class="text-3xl section-title mt-1">Rose Gold Floral Jhumka with Pearl Drops</h1>
+      <div class="flex items-center gap-2 mt-2">
+        <span class="star text-lg">★★★★★</span>
+        <span class="text-sm text-gray-600">4.8 · 312 reviews</span>
+        <span class="text-sm text-gray-400">| 1.2k sold</span>
+      </div>
+
+      <div class="mt-5">
+        <span class="text-3xl font-bold" style="color:#c2185b">₹899</span>
+        <span class="price-was ml-3">₹1,799</span>
+        <span class="text-green-600 ml-2 font-medium">50% off</span>
+      </div>
+      <div class="text-xs text-gray-500 mt-1">Inclusive of all taxes · Free shipping</div>
+
+      <div class="mt-6">
+        <div class="text-sm font-medium mb-2">Color: <span class="text-gray-600">Rose Gold</span></div>
+        <div class="flex gap-2">
+          <div class="w-10 h-10 rounded-full bg-rose-300 border-2 border-pink-700"></div>
+          <div class="w-10 h-10 rounded-full bg-yellow-500 border"></div>
+          <div class="w-10 h-10 rounded-full bg-gray-400 border"></div>
+        </div>
+      </div>
+
+      <div class="mt-5">
+        <div class="text-sm font-medium mb-2">Quantity</div>
+        <div class="flex items-center gap-3 border rounded w-fit">
+          <button class="px-3 py-1">−</button>
+          <span>1</span>
+          <button class="px-3 py-1">+</button>
+        </div>
+      </div>
+
+      <div class="flex gap-3 mt-6">
+        <button class="btn-primary flex-1">Add to Cart</button>
+        <button class="btn-outline flex-1">Buy Now</button>
+        <button class="border rounded-lg w-12">♡</button>
+      </div>
+
+      <div class="mt-6 border rounded-lg p-4 bg-gray-50">
+        <div class="text-sm font-medium mb-2">📍 Check delivery</div>
+        <div class="flex gap-2">
+          <input class="flex-1 border rounded px-3 py-1.5 text-sm" placeholder="Enter pincode" value="110001" />
+          <button class="text-pink-700 font-medium text-sm">Check</button>
+        </div>
+        <div class="text-xs text-green-700 mt-2">✓ Delivers in 3–5 days · COD available</div>
+      </div>
+
+      <div class="mt-5 grid grid-cols-3 gap-2 text-center text-xs">
+        <div class="border rounded p-2"><div>🚚</div>Free Shipping<br/><span class="text-gray-500">Above ₹999</span></div>
+        <div class="border rounded p-2"><div>↩️</div>Easy Returns<br/><span class="text-gray-500">7-day policy</span></div>
+        <div class="border rounded p-2"><div>💳</div>Secure Pay<br/><span class="text-gray-500">UPI / Cards</span></div>
+      </div>
+
+      <div class="mt-6 border-t pt-4">
+        <div class="text-sm font-medium mb-2">Description</div>
+        <p class="text-sm text-gray-600 leading-relaxed">Elegant rose-gold finish jhumka with delicate floral motifs and dangling pearl drops. Lightweight design (12g) makes it comfortable for all-day wear. Perfect for parties, sangeet, and festive occasions.</p>
+      </div>
+
+      <div class="mt-4 border-t pt-4 text-sm">
+        <div class="grid grid-cols-2 gap-y-2 text-gray-600">
+          <div class="font-medium text-gray-900">Material</div><div>Brass with rose-gold plating</div>
+          <div class="font-medium text-gray-900">Stone</div><div>Pearl drops</div>
+          <div class="font-medium text-gray-900">Length</div><div>4.5 cm</div>
+          <div class="font-medium text-gray-900">Closure</div><div>Push-back</div>
+          <div class="font-medium text-gray-900">Care</div><div>Avoid water · Store in pouch</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="border-t p-8 bg-gray-50">
+    <h2 class="text-xl section-title mb-4">Customer Reviews</h2>
+    <div class="grid grid-cols-3 gap-6 mb-6">
+      <div class="text-center">
+        <div class="text-5xl font-bold" style="color:#c2185b">4.8</div>
+        <div class="star text-lg">★★★★★</div>
+        <div class="text-sm text-gray-500 mt-1">Based on 312 reviews</div>
+      </div>
+      <div class="col-span-2 space-y-1 text-sm">
+        <div class="flex items-center gap-2"><span class="w-8">5★</span><div class="flex-1 bg-gray-200 h-2 rounded"><div class="bg-yellow-400 h-2 rounded" style="width:78%"></div></div><span class="text-gray-500">243</span></div>
+        <div class="flex items-center gap-2"><span class="w-8">4★</span><div class="flex-1 bg-gray-200 h-2 rounded"><div class="bg-yellow-400 h-2 rounded" style="width:15%"></div></div><span class="text-gray-500">47</span></div>
+        <div class="flex items-center gap-2"><span class="w-8">3★</span><div class="flex-1 bg-gray-200 h-2 rounded"><div class="bg-yellow-400 h-2 rounded" style="width:4%"></div></div><span class="text-gray-500">14</span></div>
+        <div class="flex items-center gap-2"><span class="w-8">2★</span><div class="flex-1 bg-gray-200 h-2 rounded"><div class="bg-yellow-400 h-2 rounded" style="width:2%"></div></div><span class="text-gray-500">5</span></div>
+        <div class="flex items-center gap-2"><span class="w-8">1★</span><div class="flex-1 bg-gray-200 h-2 rounded"><div class="bg-yellow-400 h-2 rounded" style="width:1%"></div></div><span class="text-gray-500">3</span></div>
+      </div>
+    </div>
+    <div class="bg-white p-4 rounded border">
+      <div class="flex justify-between items-start">
+        <div>
+          <div class="font-medium">Priya S.</div>
+          <div class="star text-sm">★★★★★</div>
+        </div>
+        <div class="text-xs text-gray-400">2 weeks ago · ✓ Verified</div>
+      </div>
+      <p class="text-sm text-gray-700 mt-2">Beautiful piece! The pearls look really premium and the rose-gold finish hasn't faded. Wore it to my cousin's wedding and got so many compliments.</p>
+      <div class="flex gap-2 mt-2">
+        <div class="ph-img rounded" style="width:60px; height:60px;">📷</div>
+        <div class="ph-img rounded" style="width:60px; height:60px;">📷</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SCREEN 4: CART + CHECKOUT -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="screen">
+  <div class="screen-label">SCREEN 4 — CART & CHECKOUT</div>
+
+  <div class="px-8 py-4 border-b flex items-center justify-center gap-3 text-sm">
+    <span class="text-pink-700 font-medium">① Cart</span>
+    <span class="text-gray-300">———</span>
+    <span class="text-pink-700 font-medium">② Address</span>
+    <span class="text-gray-300">———</span>
+    <span class="text-pink-700 font-medium">③ Payment</span>
+    <span class="text-gray-300">———</span>
+    <span class="text-gray-400">④ Confirmation</span>
+  </div>
+
+  <div class="grid grid-cols-3 gap-6 p-8">
+    <div class="col-span-2 space-y-4">
+      <h2 class="text-xl section-title">Your Cart (2 items)</h2>
+
+      <div class="border rounded-lg p-4 flex gap-4">
+        <div class="ph-img rounded" style="width:100px; height:100px;">Img</div>
+        <div class="flex-1">
+          <div class="font-medium">Rose Gold Floral Jhumka</div>
+          <div class="text-xs text-gray-500 mt-1">Color: Rose Gold</div>
+          <div class="flex items-center justify-between mt-2">
+            <div class="flex items-center gap-2 border rounded">
+              <button class="px-2 py-1">−</button><span class="text-sm">1</span><button class="px-2 py-1">+</button>
+            </div>
+            <div class="font-bold" style="color:#c2185b">₹899</div>
+          </div>
+          <div class="text-xs mt-2 flex gap-3"><a class="text-pink-700">♡ Move to wishlist</a><a class="text-gray-500">✕ Remove</a></div>
+        </div>
+      </div>
+
+      <div class="border rounded-lg p-4 flex gap-4">
+        <div class="ph-img rounded" style="width:100px; height:100px;">Img</div>
+        <div class="flex-1">
+          <div class="font-medium">Pearl Layered Choker</div>
+          <div class="text-xs text-gray-500 mt-1">Color: White Pearl</div>
+          <div class="flex items-center justify-between mt-2">
+            <div class="flex items-center gap-2 border rounded">
+              <button class="px-2 py-1">−</button><span class="text-sm">1</span><button class="px-2 py-1">+</button>
+            </div>
+            <div class="font-bold" style="color:#c2185b">₹1,299</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="border rounded-lg p-4 mt-6">
+        <div class="font-medium mb-3">Delivery Address</div>
+        <div class="border rounded p-3 bg-pink-50 border-pink-200">
+          <div class="flex justify-between">
+            <div>
+              <div class="font-medium text-sm">Priya Sharma · 9876543210</div>
+              <div class="text-sm text-gray-600 mt-1">A-204, Sunshine Apartments, Sector 18, Noida, UP - 201301</div>
+            </div>
+            <div class="text-pink-700 text-sm">Edit</div>
+          </div>
+        </div>
+        <a class="text-pink-700 text-sm mt-2 inline-block">+ Add new address</a>
+      </div>
+
+      <div class="border rounded-lg p-4">
+        <div class="font-medium mb-3">Payment Method</div>
+        <div class="space-y-2">
+          <label class="border rounded p-3 flex items-center gap-3 cursor-pointer bg-pink-50 border-pink-300">
+            <input type="radio" checked /> <div class="flex-1"><div class="font-medium text-sm">UPI</div><div class="text-xs text-gray-500">PhonePe, GPay, Paytm</div></div>
+          </label>
+          <label class="border rounded p-3 flex items-center gap-3 cursor-pointer">
+            <input type="radio" /> <div class="flex-1"><div class="font-medium text-sm">Credit / Debit Card</div><div class="text-xs text-gray-500">Visa, Mastercard, Rupay</div></div>
+          </label>
+          <label class="border rounded p-3 flex items-center gap-3 cursor-pointer">
+            <input type="radio" /> <div class="flex-1"><div class="font-medium text-sm">Net Banking</div><div class="text-xs text-gray-500">All major banks</div></div>
+          </label>
+          <label class="border rounded p-3 flex items-center gap-3 cursor-pointer">
+            <input type="radio" /> <div class="flex-1"><div class="font-medium text-sm">Cash on Delivery</div><div class="text-xs text-gray-500">+ ₹40 COD charge</div></div>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="border rounded-lg p-4 sticky top-4">
+        <div class="font-medium mb-3">Order Summary</div>
+        <div class="text-sm space-y-2">
+          <div class="flex justify-between"><span>Subtotal (2 items)</span><span>₹2,198</span></div>
+          <div class="flex justify-between text-green-600"><span>Discount</span><span>− ₹200</span></div>
+          <div class="flex justify-between"><span>Shipping</span><span class="text-green-600">FREE</span></div>
+          <div class="flex justify-between"><span>GST (18%)</span><span>₹359</span></div>
+        </div>
+        <div class="border-t mt-3 pt-3 flex justify-between font-bold">
+          <span>Total</span>
+          <span class="text-lg" style="color:#c2185b">₹2,357</span>
+        </div>
+        <div class="text-xs text-green-700 mt-2">You save ₹600 on this order!</div>
+
+        <div class="mt-4 border-t pt-3">
+          <input class="w-full border rounded px-3 py-2 text-sm" placeholder="Apply coupon code" />
+          <div class="text-xs text-gray-500 mt-1">Try: WELCOME10, FREESHIP</div>
+        </div>
+
+        <button class="btn-primary w-full mt-4">Place Order · ₹2,357</button>
+        <div class="text-xs text-gray-500 text-center mt-2">🔒 100% Secure Payments</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SCREEN 5: ORDER TRACKING -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="screen">
+  <div class="screen-label">SCREEN 5 — ORDER TRACKING</div>
+
+  <div class="p-8">
+    <div class="flex justify-between items-start mb-6">
+      <div>
+        <h1 class="text-2xl section-title">Order #AB-2026-04829</h1>
+        <div class="text-sm text-gray-500">Placed on 28 Apr 2026 · 2 items · ₹2,357</div>
+      </div>
+      <button class="btn-outline">Download Invoice</button>
+    </div>
+
+    <div class="border rounded-lg p-6 mb-6">
+      <div class="grid grid-cols-4 gap-2">
+        <div class="text-center">
+          <div class="w-10 h-10 rounded-full bg-green-500 text-white mx-auto flex items-center justify-center font-bold">✓</div>
+          <div class="text-xs font-medium mt-2">Order Placed</div>
+          <div class="text-xs text-gray-500">28 Apr · 2:14 PM</div>
+        </div>
+        <div class="text-center">
+          <div class="w-10 h-10 rounded-full bg-green-500 text-white mx-auto flex items-center justify-center font-bold">✓</div>
+          <div class="text-xs font-medium mt-2">Packed</div>
+          <div class="text-xs text-gray-500">29 Apr · 10:30 AM</div>
+        </div>
+        <div class="text-center">
+          <div class="w-10 h-10 rounded-full bg-pink-600 text-white mx-auto flex items-center justify-center font-bold animate-pulse">●</div>
+          <div class="text-xs font-medium mt-2 text-pink-700">Out for Delivery</div>
+          <div class="text-xs text-gray-500">Today · since 9:00 AM</div>
+        </div>
+        <div class="text-center">
+          <div class="w-10 h-10 rounded-full bg-gray-200 text-gray-400 mx-auto flex items-center justify-center font-bold">4</div>
+          <div class="text-xs text-gray-500 mt-2">Delivered</div>
+          <div class="text-xs text-gray-400">Expected today</div>
+        </div>
+      </div>
+
+      <div class="mt-6 bg-pink-50 p-4 rounded">
+        <div class="text-sm font-medium">📦 Out for delivery via Shiprocket (Delhivery)</div>
+        <div class="text-xs text-gray-600 mt-1">AWB: DEL-2342819 · Driver: Rahul · 📞 +91 99887 76655</div>
+        <div class="text-xs text-gray-600">Expected delivery: Today between 4 PM – 8 PM</div>
+        <div class="text-xs text-pink-700 mt-2">🔒 OTP will be sent at delivery — keep phone handy</div>
+      </div>
+    </div>
+
+    <div class="border rounded-lg p-4">
+      <div class="font-medium mb-3">Items in this order</div>
+      <div class="space-y-3">
+        <div class="flex gap-3">
+          <div class="ph-img rounded" style="width:60px; height:60px;">Img</div>
+          <div class="flex-1 text-sm"><div class="font-medium">Rose Gold Floral Jhumka</div><div class="text-xs text-gray-500">Qty 1 · ₹899</div></div>
+          <button class="text-xs text-pink-700">Return / Exchange</button>
+        </div>
+        <div class="flex gap-3">
+          <div class="ph-img rounded" style="width:60px; height:60px;">Img</div>
+          <div class="flex-1 text-sm"><div class="font-medium">Pearl Layered Choker</div><div class="text-xs text-gray-500">Qty 1 · ₹1,299</div></div>
+          <button class="text-xs text-pink-700">Return / Exchange</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SCREEN 6: ADMIN DASHBOARD -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="screen">
+  <div class="screen-label">SCREEN 6 — ADMIN DASHBOARD</div>
+
+  <div class="grid grid-cols-12 min-h-[700px]">
+    <aside class="col-span-2 bg-gray-900 text-gray-300 p-4 text-sm">
+      <div class="text-white font-bold text-lg mb-6 section-title">Aabhushan Admin</div>
+      <div class="space-y-1">
+        <div class="px-3 py-2 rounded bg-pink-700 text-white">📊 Dashboard</div>
+        <div class="px-3 py-2">📦 Orders <span class="bg-pink-600 text-xs px-1.5 rounded ml-1">23</span></div>
+        <div class="px-3 py-2">🛍️ Products</div>
+        <div class="px-3 py-2">🏷️ Categories</div>
+        <div class="px-3 py-2">📋 Inventory</div>
+        <div class="px-3 py-2">👥 Customers</div>
+        <div class="px-3 py-2">🎟️ Coupons</div>
+        <div class="px-3 py-2">⭐ Reviews</div>
+        <div class="px-3 py-2">📈 Analytics</div>
+        <div class="px-3 py-2">📧 Marketing</div>
+        <div class="px-3 py-2">🚚 Shipping</div>
+        <div class="px-3 py-2">💳 Payments</div>
+        <div class="px-3 py-2 mt-6 text-gray-500">⚙️ Settings</div>
+      </div>
+    </aside>
+
+    <main class="col-span-10 p-6 bg-gray-50">
+      <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold">Dashboard</h1>
+        <div class="flex gap-2">
+          <select class="border rounded px-3 py-1.5 text-sm"><option>Today</option><option>Last 7 days</option><option>This month</option></select>
+          <button class="btn-primary text-sm">+ New Product</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-lg p-4 border-l-4 border-pink-600">
+          <div class="text-xs text-gray-500">Today's Revenue</div>
+          <div class="text-2xl font-bold mt-1">₹48,259</div>
+          <div class="text-xs text-green-600 mt-1">↑ 12.4% vs yesterday</div>
+        </div>
+        <div class="bg-white rounded-lg p-4 border-l-4 border-blue-500">
+          <div class="text-xs text-gray-500">Orders Today</div>
+          <div class="text-2xl font-bold mt-1">37</div>
+          <div class="text-xs text-green-600 mt-1">↑ 8 new since 1 hr</div>
+        </div>
+        <div class="bg-white rounded-lg p-4 border-l-4 border-yellow-500">
+          <div class="text-xs text-gray-500">Pending Shipments</div>
+          <div class="text-2xl font-bold mt-1">23</div>
+          <div class="text-xs text-yellow-700 mt-1">Action needed</div>
+        </div>
+        <div class="bg-white rounded-lg p-4 border-l-4 border-green-500">
+          <div class="text-xs text-gray-500">New Customers</div>
+          <div class="text-2xl font-bold mt-1">12</div>
+          <div class="text-xs text-green-600 mt-1">↑ 4 vs avg</div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-4 mb-6">
+        <div class="col-span-2 bg-white rounded-lg p-4">
+          <div class="flex justify-between items-center mb-3">
+            <div class="font-medium">Sales · Last 7 days</div>
+            <select class="text-xs border rounded px-2 py-1"><option>Revenue</option><option>Orders</option></select>
+          </div>
+          <div class="ph-img rounded" style="height:240px; background:linear-gradient(135deg, #fff, #fce7e3);">📈 Line chart</div>
+        </div>
+        <div class="bg-white rounded-lg p-4">
+          <div class="font-medium mb-3">Top Selling</div>
+          <div class="space-y-3 text-sm">
+            <div class="flex gap-3"><div class="ph-img rounded" style="width:40px; height:40px;"></div><div class="flex-1"><div class="font-medium text-xs">Kundan Set</div><div class="text-xs text-gray-500">42 sold · ₹1.04L</div></div></div>
+            <div class="flex gap-3"><div class="ph-img rounded" style="width:40px; height:40px;"></div><div class="flex-1"><div class="font-medium text-xs">Pearl Choker</div><div class="text-xs text-gray-500">38 sold · ₹49k</div></div></div>
+            <div class="flex gap-3"><div class="ph-img rounded" style="width:40px; height:40px;"></div><div class="flex-1"><div class="font-medium text-xs">Rose Gold Jhumka</div><div class="text-xs text-gray-500">31 sold · ₹27k</div></div></div>
+            <div class="flex gap-3"><div class="ph-img rounded" style="width:40px; height:40px;"></div><div class="flex-1"><div class="font-medium text-xs">Oxidised Bangle</div><div class="text-xs text-gray-500">26 sold · ₹11k</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-lg p-4">
+        <div class="flex justify-between items-center mb-3">
+          <div class="font-medium">Recent Orders</div>
+          <a class="text-pink-700 text-sm">View all →</a>
+        </div>
+        <table class="w-full text-sm">
+          <thead class="text-xs text-gray-500 border-b">
+            <tr>
+              <th class="text-left py-2">Order</th>
+              <th class="text-left">Customer</th>
+              <th class="text-left">Items</th>
+              <th class="text-left">Amount</th>
+              <th class="text-left">Status</th>
+              <th class="text-left">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="border-b"><td class="py-3">#AB-04829</td><td>Priya S.</td><td>2</td><td>₹2,357</td><td><span class="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded text-xs">Out for delivery</span></td><td><button class="text-pink-700 text-xs">View</button></td></tr>
+            <tr class="border-b"><td class="py-3">#AB-04828</td><td>Riya M.</td><td>1</td><td>₹899</td><td><span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs">Packed</span></td><td><button class="text-pink-700 text-xs">View</button></td></tr>
+            <tr class="border-b"><td class="py-3">#AB-04827</td><td>Anjali K.</td><td>3</td><td>₹4,129</td><td><span class="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs">Delivered</span></td><td><button class="text-pink-700 text-xs">View</button></td></tr>
+            <tr class="border-b"><td class="py-3">#AB-04826</td><td>Neha T.</td><td>1</td><td>₹1,299</td><td><span class="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-xs">Pending</span></td><td><button class="btn-primary text-xs" style="padding:4px 10px">Pack & Ship</button></td></tr>
+            <tr><td class="py-3">#AB-04825</td><td>Sneha R.</td><td>2</td><td>₹1,798</td><td><span class="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs">Return req.</span></td><td><button class="text-pink-700 text-xs">Approve</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SCREEN 7: ADMIN — ADD/EDIT PRODUCT (multi-category) -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="screen">
+  <div class="screen-label">SCREEN 7 — ADMIN: ADD PRODUCT (multi-category architecture)</div>
+
+  <div class="p-8">
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-2xl font-bold">Add New Product</h1>
+      <div class="flex gap-2">
+        <button class="btn-outline">Save as Draft</button>
+        <button class="btn-primary">Publish</button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-3 gap-6">
+      <div class="col-span-2 space-y-4">
+        <div class="bg-white border rounded-lg p-5">
+          <div class="font-medium mb-3">Category</div>
+          <select class="w-full border rounded px-3 py-2">
+            <option>Jewelry → Earrings → Jhumka</option>
+            <option>Jewelry → Necklaces → Choker</option>
+            <option disabled>──────────────</option>
+            <option>Sarees → Silk → Banarasi (future)</option>
+            <option>Sarees → Cotton → Handloom (future)</option>
+          </select>
+          <div class="text-xs text-gray-500 mt-2">💡 Selecting a category loads its specific attributes below — same engine works for sarees, kurtis, anything.</div>
+        </div>
+
+        <div class="bg-white border rounded-lg p-5">
+          <div class="font-medium mb-3">Basic Info</div>
+          <div class="space-y-3">
+            <input class="w-full border rounded px-3 py-2 text-sm" placeholder="Product title" value="Rose Gold Floral Jhumka with Pearl Drops" />
+            <textarea class="w-full border rounded px-3 py-2 text-sm" rows="3" placeholder="Description"></textarea>
+            <div class="grid grid-cols-2 gap-3">
+              <input class="border rounded px-3 py-2 text-sm" placeholder="SKU" value="JHM-RG-0042" />
+              <input class="border rounded px-3 py-2 text-sm" placeholder="HSN code" value="7117" />
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white border rounded-lg p-5">
+          <div class="font-medium mb-3">Images & Media</div>
+          <div class="grid grid-cols-5 gap-2">
+            <div class="ph-img rounded" style="height:80px;">+ Img</div>
+            <div class="ph-img rounded" style="height:80px;">+ Img</div>
+            <div class="ph-img rounded" style="height:80px;">+ Img</div>
+            <div class="ph-img rounded" style="height:80px;">+ Video</div>
+            <div class="ph-img rounded border-2 border-dashed" style="height:80px; background:white; color:#888;">+ 360°</div>
+          </div>
+        </div>
+
+        <div class="bg-white border rounded-lg p-5">
+          <div class="font-medium mb-3">Pricing</div>
+          <div class="grid grid-cols-3 gap-3">
+            <div><label class="text-xs text-gray-500">MRP</label><input class="w-full border rounded px-3 py-2 text-sm" value="1799" /></div>
+            <div><label class="text-xs text-gray-500">Selling Price</label><input class="w-full border rounded px-3 py-2 text-sm" value="899" /></div>
+            <div><label class="text-xs text-gray-500">Cost</label><input class="w-full border rounded px-3 py-2 text-sm" value="320" /></div>
+          </div>
+          <div class="text-xs text-green-700 mt-2">Margin: ₹579 (64%)</div>
+        </div>
+
+        <div class="bg-white border rounded-lg p-5">
+          <div class="font-medium mb-1">Attributes <span class="text-xs text-gray-500 font-normal">(for Jewelry → Earrings)</span></div>
+          <div class="text-xs text-gray-500 mb-3">These fields auto-change when you select a different category.</div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="text-xs">Material</label><select class="w-full border rounded px-3 py-2 text-sm"><option>Brass</option><option>Alloy</option><option>Silver-plated</option></select></div>
+            <div><label class="text-xs">Plating</label><select class="w-full border rounded px-3 py-2 text-sm"><option>Rose Gold</option></select></div>
+            <div><label class="text-xs">Stone Type</label><select class="w-full border rounded px-3 py-2 text-sm"><option>Pearl</option></select></div>
+            <div><label class="text-xs">Length</label><input class="w-full border rounded px-3 py-2 text-sm" value="4.5 cm" /></div>
+            <div><label class="text-xs">Closure</label><select class="w-full border rounded px-3 py-2 text-sm"><option>Push-back</option></select></div>
+            <div><label class="text-xs">Occasion</label><select class="w-full border rounded px-3 py-2 text-sm"><option>Party</option></select></div>
+            <div><label class="text-xs">Style</label><select class="w-full border rounded px-3 py-2 text-sm"><option>Jhumka</option></select></div>
+            <div><label class="text-xs">Weight</label><input class="w-full border rounded px-3 py-2 text-sm" value="12g" /></div>
+          </div>
+        </div>
+
+        <div class="bg-white border rounded-lg p-5">
+          <div class="font-medium mb-3">Variants (Color)</div>
+          <div class="space-y-2 text-sm">
+            <div class="flex gap-3 items-center border rounded p-2"><div class="w-6 h-6 rounded-full bg-rose-300"></div><span>Rose Gold</span><input class="border rounded px-2 py-1 text-xs ml-auto" value="SKU: JHM-RG-0042" /><input class="border rounded px-2 py-1 text-xs w-20" value="Stock: 24" /></div>
+            <div class="flex gap-3 items-center border rounded p-2"><div class="w-6 h-6 rounded-full bg-yellow-500"></div><span>Gold</span><input class="border rounded px-2 py-1 text-xs ml-auto" value="SKU: JHM-GD-0042" /><input class="border rounded px-2 py-1 text-xs w-20" value="Stock: 18" /></div>
+            <button class="text-pink-700 text-sm">+ Add variant</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <div class="bg-white border rounded-lg p-5">
+          <div class="font-medium mb-3">Inventory</div>
+          <div class="text-sm space-y-2">
+            <div class="flex justify-between"><span>Total stock</span><span class="font-bold">42</span></div>
+            <div class="flex justify-between"><span>Low-stock alert at</span><span>5</span></div>
+            <div><label class="text-xs">Warehouse</label><select class="w-full border rounded px-3 py-1.5 text-sm"><option>Delhi - Main</option></select></div>
+          </div>
+        </div>
+
+        <div class="bg-white border rounded-lg p-5">
+          <div class="font-medium mb-3">Shipping</div>
+          <div class="text-sm space-y-2">
+            <div><label class="text-xs">Weight (g)</label><input class="w-full border rounded px-3 py-1.5 text-sm" value="25" /></div>
+            <div><label class="text-xs">Dimensions (cm)</label><input class="w-full border rounded px-3 py-1.5 text-sm" value="10 × 8 × 3" /></div>
+            <div class="text-xs text-gray-600 pt-2">📦 Shiprocket auto-rate: ₹45 (estimated)</div>
+          </div>
+        </div>
+
+        <div class="bg-white border rounded-lg p-5">
+          <div class="font-medium mb-3">SEO</div>
+          <div class="space-y-2 text-sm">
+            <input class="w-full border rounded px-3 py-1.5 text-sm" placeholder="Meta title" />
+            <textarea class="w-full border rounded px-3 py-1.5 text-sm" rows="2" placeholder="Meta description"></textarea>
+            <input class="w-full border rounded px-3 py-1.5 text-sm" placeholder="Tags (comma-separated)" value="jhumka, rose gold, pearl, party" />
+          </div>
+        </div>
+
+        <div class="bg-white border rounded-lg p-5">
+          <div class="font-medium mb-3">Status</div>
+          <select class="w-full border rounded px-3 py-2 text-sm"><option>Active</option><option>Draft</option><option>Out of stock</option></select>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div class="text-center py-10 text-gray-500 text-sm">
+  <div class="font-medium text-gray-700 mb-2">📋 Total: 7 wireframes covering core flows</div>
+  Homepage · Listing · Product Detail · Cart/Checkout · Order Tracking · Admin Dashboard · Add Product
+  <div class="mt-4 text-xs">Architecture note — same screens work when you add Sarees later. Only the category attributes (fabric, length, weave) change. Cart, checkout, courier, payment, admin remain identical.</div>
+</div>
+
+</body>
+</html>

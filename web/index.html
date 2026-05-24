@@ -66,6 +66,11 @@
       <textarea name="message"></textarea>
     </form>
 
+    <!-- Razorpay Checkout (~30 KB gz). Loaded async so it doesn't block first
+         paint; the staff walk-in payment page awaits window.Razorpay before
+         opening the modal. -->
+    <script src="https://checkout.razorpay.com/v1/checkout.js" async></script>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

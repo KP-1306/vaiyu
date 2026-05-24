@@ -13,8 +13,8 @@ export default function OwnerApplications() {
     try {
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
-      const list = await fetchOwnerApps(status, token);
-      setApps(list);
+      const { items } = await fetchOwnerApps(status, token);
+      setApps(items);
     } catch (e:any) {
       setErr(e.message || "Failed to load");
     } finally {

@@ -125,9 +125,9 @@ export default function GridEvents() {
   action: e.action,            // "shed" | "restore"
   watts: e.watts ?? null,
 }));
+  // (GridEventsTable rendering happens inside the JSX return below;
+  //  this stray expression was leftover from a refactor and removed.)
 
-<GridEventsTable events={rows} currency="₹" />
-  
   async function restore(ev: GridEvent, device_id: string) {
     if (!demoMode) {
       await gridStepEvent(ev.id, device_id, 'restore', 'manual restore');

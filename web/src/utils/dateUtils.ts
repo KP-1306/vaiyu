@@ -23,6 +23,50 @@ export const parseDbDate = (dateStr?: string | null): Date | null => {
 };
 
 /**
+ * Formats a database timestamp as IST (Asia/Kolkata) clock time, e.g.
+ * "23:26 IST". Use for any guest-facing or staff-facing timestamps that
+ * should be unambiguous about the timezone — relying on the browser's
+ * default locale fails when the user's machine is set to UTC and silently
+ * misrenders timestamps that arrived from the database without a TZ suffix.
+ */
+export const formatIstTime = (
+    date: Date | null | string,
+    opts: { showLabel?: boolean; hour12?: boolean } = {},
+): string => {
+    if (!date) return "---";
+    const d = typeof date === "string" ? parseDbDate(date) : date;
+    if (!d) return "---";
+    const time = d.toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: opts.hour12 ?? false,
+        timeZone: "Asia/Kolkata",
+    });
+    return opts.showLabel === false ? time : `${time} IST`;
+};
+
+/**
+ * Formats a database timestamp as IST date+time, e.g. "6 May, 23:26 IST".
+ */
+export const formatIstDateTime = (date: Date | null | string): string => {
+    if (!date) return "---";
+    const d = typeof date === "string" ? parseDbDate(date) : date;
+    if (!d) return "---";
+    const datePart = d.toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "short",
+        timeZone: "Asia/Kolkata",
+    });
+    const timePart = d.toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+        timeZone: "Asia/Kolkata",
+    });
+    return `${datePart}, ${timePart} IST`;
+};
+
+/**
  * Formats a Date into a human-friendly relative time string.
  */
 export const formatRelativeTime = (date: Date | null | string): string => {

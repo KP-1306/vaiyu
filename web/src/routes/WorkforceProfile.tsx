@@ -9,7 +9,7 @@ import {
   listWorkforceApplications,
   type WorkforceProfile,
   type WorkforceJob,
-  type WorkforceApplication,
+  type WorkforceJobApplication as WorkforceApplication,
 } from "../lib/api";
 import BackHome from "../components/BackHome";
 import Spinner from "../components/Spinner";
@@ -55,8 +55,10 @@ export default function WorkforceProfilePage() {
       try {
         setError(null);
         const [prof, myApps] = await Promise.all([
-          fetchWorkforceProfile(token),
-          listWorkforceApplications({ mode: "mine", token }),
+          fetchWorkforceProfile(token ?? undefined),
+          // listWorkforceApplications takes a single optional token arg.
+          // The "mine" filter is implicit on the server (uses auth.uid()).
+          listWorkforceApplications(token ?? undefined),
         ]);
 
         if (cancelled) return;
@@ -67,8 +69,9 @@ export default function WorkforceProfilePage() {
         const city = prof?.location_city ?? undefined;
         const state = prof?.location_state ?? undefined;
 
+        // listWorkforceJobs already filters to "open" jobs server-side
+        // (see listOpenJobs), so we just pass the location filters.
         const openJobs = await listWorkforceJobs({
-          mode: "open",
           city,
           state,
         });
@@ -130,14 +133,12 @@ export default function WorkforceProfilePage() {
     setError(null);
 
     try {
-      const app = await applyForWorkforceJob(
-        job.id,
-        {
-          message: message.trim() || undefined,
-          expected_salary: expectedSalary || undefined,
-        },
-        token
-      );
+      const app = await applyForWorkforceJob({
+        jobId: job.id,
+        message: message.trim() || undefined,
+        expectedSalary: expectedSalary ? Number(expectedSalary) : undefined,
+        token: token ?? undefined,
+      });
 
       setApplications((prev) => {
         const existing = prev.find((a) => a.id === app.id);

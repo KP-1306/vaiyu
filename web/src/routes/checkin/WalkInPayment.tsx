@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
     Camera,
@@ -13,11 +13,25 @@ import {
     RefreshCw,
     ArrowRight,
     Users,
-    X
+    X,
+    Percent,
+    AlertTriangle,
+    ChevronDown,
+    ChevronUp,
+    Bed
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { uploadIdentityDocuments } from "../../lib/storage";
 import { CheckInStepper } from "../../components/CheckInStepper";
+import type { DiscountReason } from "../../types/rate";
+import { DISCOUNT_REASON_LABELS, DISCOUNT_SOFT_CAP_PCT } from "../../types/rate";
+import { canGrantDiscount } from "../../services/rateService";
+import { getPricingSettings } from "../../services/pricingService";
+import {
+    // Kept as type-only imports; runtime dispatch goes through the facade.
+    RazorpayServiceError,
+} from "../../services/razorpayService";
+import { getRazorpayClient } from "../../services/razorpayClient";
 
 export default function WalkInPayment() {
     const navigate = useNavigate();
@@ -40,6 +54,134 @@ export default function WalkInPayment() {
     const [idType, setIdType] = useState(guestDetails?.id_type || "aadhaar");
     const [idNumber, setIdNumber] = useState(guestDetails?.id_number || "");
     const [idFromExistingDoc, setIdFromExistingDoc] = useState(false);
+
+    // ─── Front-desk discount state ──────────────────────────
+    // Keyed by room_id. Each entry is the per-night discount for that
+    // booking_room. Reason+note are booking-level (one reason for the whole
+    // discount transaction) — most real-world workflows treat the whole
+    // walk-in as one negotiation, not per-room.
+    const [discountsByRoom, setDiscountsByRoom] = useState<Record<string, number>>({});
+    const [discountReason, setDiscountReason] = useState<DiscountReason | "">("");
+    const [discountNote, setDiscountNote] = useState("");
+    const [discountOpen, setDiscountOpen] = useState(false);
+    const [discountError, setDiscountError] = useState<string | null>(null);
+    // RBAC gate: only finance-manager-or-above can grant discretionary
+    // discounts. Server enforces independently inside create_walkin_v2.
+    const [canDiscount, setCanDiscount] = useState<boolean | null>(null);
+    // Per-hotel discount cap from pricing_settings.max_discount_pct.
+    // null = no cap (engine still warns at DISCOUNT_SOFT_CAP_PCT). Server
+    // enforces independently — this is for fail-fast UX, not security.
+    const [discountCapPct, setDiscountCapPct] = useState<number | null>(null);
+
+    // ─── Payment mode ──────────────────────────────────────
+    // Front-desk picks Cash or Online before they can authorize. Online is
+    // disabled when the hotel hasn't been onboarded onto a Razorpay Linked
+    // Account (razorpay_account_id missing).
+    const [paymentMode, setPaymentMode] = useState<"CASH" | "ONLINE" | null>(null);
+    const [hotelHasRazorpay, setHotelHasRazorpay] = useState<boolean>(false);
+    // Razorpay mode picked by hotel in Owner Settings. NONE → online buttons stay
+    // hidden; DIRECT → use hotel's own keys; ROUTE → platform Linked Account.
+    const [razorpayMode, setRazorpayMode] = useState<"NONE" | "DIRECT" | "ROUTE">("NONE");
+    const [paymentError, setPaymentError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        if (!hotelId) {
+            setCanDiscount(false);
+            return;
+        }
+        canGrantDiscount(hotelId).then((ok) => {
+            if (!cancelled) setCanDiscount(ok);
+        });
+        getPricingSettings(hotelId).then((s) => {
+            if (!cancelled) setDiscountCapPct(s.max_discount_pct);
+        }).catch(() => {
+            // Settings row may not exist yet for fresh hotels; treat as no cap.
+            if (!cancelled) setDiscountCapPct(null);
+        });
+        // Check whether this hotel is onboarded onto Razorpay Route. If
+        // razorpay_account_id is set, we can offer the Online payment
+        // option; otherwise the button stays disabled with a tooltip.
+        supabase
+            .from("hotels")
+            .select("razorpay_mode, razorpay_account_id, razorpay_direct_key_id")
+            .eq("id", hotelId)
+            .maybeSingle()
+            .then(({ data }) => {
+                if (cancelled || !data) return;
+                const mode = (data.razorpay_mode ?? "NONE") as "NONE" | "DIRECT" | "ROUTE";
+                setRazorpayMode(mode);
+                // Online button is enabled if EITHER mode is configured. Mode
+                // dispatch happens at call time via getRazorpayClient(mode).
+                setHotelHasRazorpay(
+                    (mode === "ROUTE" && !!data.razorpay_account_id) ||
+                    (mode === "DIRECT" && !!data.razorpay_direct_key_id),
+                );
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [hotelId]);
+
+    const nights = stayDetails?.nights || 1;
+    const selectionsList: Array<{ room_id: string; room_type_id: string | null; amount_per_night?: number }> =
+        roomSelections || [{ room_id: selectedRoomId, room_type_id: null }];
+
+    // Tax config flows from Availability via location.state.pricing.
+    // Default 12% / exclusive matches the previous hardcoded behavior.
+    const taxPct: number = Number(pricing?.taxPct ?? 12);
+    const taxInclusive: boolean = !!pricing?.taxInclusive;
+
+    // Recompute totals locally so the sidebar shows the discount in real time
+    // instead of trusting the (now stale) `pricing` payload from Availability.
+    const liveTotals = useMemo(() => {
+        let gross = 0;
+        let discount = 0;
+        for (const sel of selectionsList) {
+            const apn = sel.amount_per_night ?? 0;
+            const dpn = discountsByRoom[sel.room_id] ?? 0;
+            gross += apn * nights;
+            discount += dpn * nights;
+        }
+        const net = Math.max(0, gross - discount);
+        const taxes = taxInclusive ? 0 : net * (taxPct / 100);
+        const totalPayable = taxInclusive ? net : net + taxes;
+        const discountPct = gross > 0 ? (discount / gross) * 100 : 0;
+        return { gross, discount, net, taxes, totalPayable, discountPct };
+    }, [selectionsList, discountsByRoom, nights, taxPct, taxInclusive]);
+
+    // Validate discount input on every change. Keeps the Authorize button
+    // honest about whether the current state can actually be saved.
+    useEffect(() => {
+        if (liveTotals.discount === 0) {
+            setDiscountError(null);
+            return;
+        }
+        if (!discountReason) {
+            setDiscountError("Pick a reason for the discount.");
+            return;
+        }
+        for (const sel of selectionsList) {
+            const apn = sel.amount_per_night ?? 0;
+            const dpn = discountsByRoom[sel.room_id] ?? 0;
+            if (dpn > apn) {
+                setDiscountError("A discount can't exceed the room's nightly price.");
+                return;
+            }
+            // Match the server-side cap inside create_walkin_v2 so we fail
+            // fast in the UI instead of letting the RPC reject after submit.
+            if (discountCapPct != null && apn > 0) {
+                const pct = (dpn / apn) * 100;
+                if (pct > discountCapPct) {
+                    setDiscountError(
+                        `Discount of ${pct.toFixed(1)}% exceeds the hotel's ${discountCapPct}% cap. Reduce or ask an authorized manager.`,
+                    );
+                    return;
+                }
+            }
+        }
+        setDiscountError(null);
+    }, [liveTotals.discount, discountReason, discountsByRoom, selectionsList, discountCapPct]);
 
     // Document state
     const [frontImage, setFrontImage] = useState<File | null>(null);
@@ -215,67 +357,156 @@ export default function WalkInPayment() {
     };
 
 
+    /**
+     * Creates the booking + folio + charges via create_walkin_v2.
+     * Does NOT record payment — that's a separate step (cash insert OR
+     * Razorpay flow). Returns the booking metadata needed for the
+     * downstream payment step.
+     */
+    const runCreateWalkInRpc = async (): Promise<{
+        bookingId: string;
+        bookingCode: string;
+        folioId: string;
+        roomsCount: number;
+        actorId: string | null;
+    }> => {
+        if (!hotelId) throw new Error("Hotel ID missing");
+
+        // 1. Upload identity images (if newly captured)
+        const uploadResult = await uploadIdentityDocuments({
+            frontImage,
+            backImage,
+            existingFront: existingProof?.front_image,
+            existingBack: existingProof?.back_image,
+            storageKey: existingProof?.storage_key
+        });
+
+        // 2. Capture staff user id for audit
+        const { data: { user: actorUser } } = await supabase.auth.getUser();
+        const actorId = actorUser?.id ?? null;
+
+        // 3. Build per-room selections with discount fields
+        const selections = selectionsList.map((sel) => {
+            const dpn = discountsByRoom[sel.room_id] ?? 0;
+            return {
+                room_id: sel.room_id,
+                room_type_id: sel.room_type_id,
+                amount_per_night: sel.amount_per_night,
+                discount_per_night: dpn > 0 ? dpn : undefined,
+                discount_reason: dpn > 0 ? discountReason : undefined,
+                discount_note: dpn > 0 ? (discountNote.trim() || undefined) : undefined,
+            };
+        });
+
+        // 4. Run the RPC
+        const { data, error } = await supabase.rpc("create_walkin_v2", {
+            p_hotel_id: hotelId,
+            p_guest_details: {
+                ...guestDetails,
+                id_type: (idType === 'aadhaar' || idType === 'passport' || idType === 'driving_license' || idType === 'other') ? idType : 'other',
+                id_number: idNumber,
+                front_image_path: uploadResult.frontPath,
+                back_image_path: uploadResult.backPath,
+                storage_key: uploadResult.storageKey,
+                front_hash: uploadResult.frontHash,
+                back_hash: uploadResult.backHash
+            },
+            p_room_selections: selections,
+            p_checkin_date: stayDetails.checkin_date,
+            p_checkout_date: stayDetails.checkout_date,
+            p_adults: stayDetails.adults,
+            p_children: stayDetails.children,
+            p_actor_id: actorId,
+        });
+
+        if (error) throw error;
+        if (!data?.booking_id || !data?.folio_id) {
+            throw new Error("Walk-in succeeded but booking/folio id missing");
+        }
+
+        return {
+            bookingId: data.booking_id,
+            bookingCode: data.booking_code,
+            folioId: data.folio_id,
+            roomsCount: selections.length,
+            actorId,
+        };
+    };
+
     const handlePayment = async () => {
+        // Validation gates
+        if (discountError) { setPaymentError(discountError); return; }
+        if (!paymentMode) { setPaymentError("Choose a settlement method to continue."); return; }
+
         setProcessing(true);
+        setPaymentError(null);
+
+        let booking: { bookingId: string; bookingCode: string; folioId: string; roomsCount: number; actorId: string | null } | null = null;
 
         try {
-            // 1. Mock Payment Gateway Delay
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            // Step 1 — booking + charges
+            booking = await runCreateWalkInRpc();
 
-            if (!hotelId) throw new Error("Hotel ID missing");
+            // Step 2 — collect payment based on mode
+            if (paymentMode === "CASH") {
+                // Direct insert. Trigger trg_payment_to_folio creates the
+                // matching folio_entries PAYMENT row when status='COMPLETED'.
+                const { error: payErr } = await supabase.from("payments").insert({
+                    hotel_id: hotelId,
+                    booking_id: booking.bookingId,
+                    folio_id: booking.folioId,
+                    amount: liveTotals.totalPayable,
+                    currency: "INR",
+                    method: "CASH",
+                    status: "COMPLETED",
+                    collected_by: booking.actorId,
+                    notes: "Cash collected at front desk (walk-in)",
+                });
+                if (payErr) throw new Error(`Cash payment record failed: ${payErr.message}`);
+            } else if (paymentMode === "ONLINE") {
+                // Razorpay flow: facade dispatches to Route or Direct based on
+                // the hotel's razorpay_mode (chosen in Owner Settings).
+                const rzp = getRazorpayClient(razorpayMode);
+                const order = await rzp.createWalkInOrder({
+                    hotelId,
+                    bookingId: booking.bookingId,
+                });
+                const checkoutResult = await rzp.openRazorpayCheckout(order);
+                if (!checkoutResult.ok) {
+                    if (checkoutResult.reason === "DISMISSED") {
+                        throw new Error(
+                            `Payment cancelled. Booking ${booking.bookingCode} is saved with balance due — retry payment or switch to cash.`,
+                        );
+                    } else {
+                        const desc = checkoutResult.error?.description ?? "Razorpay rejected the payment";
+                        throw new Error(`Payment failed: ${desc}. Booking ${booking.bookingCode} is saved with balance due.`);
+                    }
+                }
+                await rzp.verifyWalkInPayment({
+                    hotelId,
+                    bookingId: booking.bookingId,
+                    folioId: booking.folioId,
+                    orderId: checkoutResult.orderId,
+                    paymentId: checkoutResult.paymentId,
+                    signature: checkoutResult.signature,
+                });
+            }
 
-            // 2. Upload Images if new ones selected
-            const uploadResult = await uploadIdentityDocuments({
-                frontImage,
-                backImage,
-                existingFront: existingProof?.front_image,
-                existingBack: existingProof?.back_image,
-                storageKey: existingProof?.storage_key
-            });
-
-            const frontPath = uploadResult.frontPath;
-            const backPath = uploadResult.backPath;
-            const storageKey = uploadResult.storageKey;
-
-
-            // 3. Create Walk-In via v2 RPC (multi-room aware)
-            const selections = roomSelections || [{ room_id: selectedRoomId, room_type_id: null }];
-
-            const { data, error } = await supabase.rpc("create_walkin_v2", {
-                p_hotel_id: hotelId,
-                p_guest_details: {
-                    ...guestDetails,
-                    id_type: (idType === 'aadhaar' || idType === 'passport' || idType === 'driving_license' || idType === 'other') ? idType : 'other',
-                    id_number: idNumber,
-                    front_image_path: frontPath,
-                    back_image_path: backPath,
-                    storage_key: storageKey,
-                    front_hash: uploadResult.frontHash,
-                    back_hash: uploadResult.backHash
-                },
-                p_room_selections: selections,
-                p_checkin_date: stayDetails.checkin_date,
-                p_checkout_date: stayDetails.checkout_date,
-                p_adults: stayDetails.adults,
-                p_children: stayDetails.children,
-                p_actor_id: null
-            });
-
-            if (error) throw error;
-
-            // 3. Navigate to Success
+            // Step 3 — success
             navigate({ pathname: "../success", search: slug ? `?slug=${slug}` : "" }, {
                 state: {
                     roomNumber: roomNumber || "Assigned",
-                    bookingCode: data.booking_code,
-                    roomsCount: selections.length,
-                    hotelId: hotelId
+                    bookingCode: booking.bookingCode,
+                    roomsCount: booking.roomsCount,
+                    hotelId,
                 }
             });
-
         } catch (err: any) {
-            console.error(err);
-            alert("Payment/Check-in failed: " + err.message);
+            console.error("Walk-in payment failed", err);
+            const msg = err instanceof RazorpayServiceError
+                ? err.message
+                : (err?.message ?? "Payment/Check-in failed");
+            setPaymentError(msg);
         } finally {
             setProcessing(false);
         }
@@ -505,25 +736,328 @@ export default function WalkInPayment() {
                                 </div>
                             </div>
 
-                            <div className="space-y-6 pt-8 pb-10">
+                            <div className="space-y-6 pt-8 pb-6">
                                 <div className="flex justify-between items-center px-2">
                                     <span className="text-[9px] font-black uppercase tracking-[0.3em] text-white/20">Base Rent</span>
-                                    <span className="text-lg font-light text-white tracking-tight">₹{pricing.roomTotal.toLocaleString()}</span>
+                                    <span className="text-lg font-light text-white tracking-tight">₹{liveTotals.gross.toLocaleString()}</span>
                                 </div>
-                                <div className="flex justify-between items-center px-2">
-                                    <span className="text-[9px] font-black uppercase tracking-[0.3em] text-white/20">Taxation (12%)</span>
-                                    <span className="text-lg font-light text-white tracking-tight">₹{pricing.taxes.toLocaleString()}</span>
-                                </div>
+                                {liveTotals.discount > 0 && (
+                                    <div className="flex justify-between items-center px-2">
+                                        <span className="text-[9px] font-black uppercase tracking-[0.3em] text-emerald-400/80 flex items-center gap-1">
+                                            <Percent className="h-3 w-3" />
+                                            Discount {liveTotals.discountPct.toFixed(1)}%
+                                        </span>
+                                        <span className="text-lg font-light text-emerald-400 tracking-tight">−₹{liveTotals.discount.toLocaleString()}</span>
+                                    </div>
+                                )}
+                                {!taxInclusive && taxPct > 0 && (
+                                    <div className="flex justify-between items-center px-2">
+                                        <span className="text-[9px] font-black uppercase tracking-[0.3em] text-white/20">Taxation ({taxPct}%)</span>
+                                        <span className="text-lg font-light text-white tracking-tight">₹{liveTotals.taxes.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                                    </div>
+                                )}
+                                {taxInclusive && (
+                                    <div className="flex justify-between items-center px-2">
+                                        <span className="text-[9px] font-black uppercase tracking-[0.3em] text-white/20">Tax (inclusive)</span>
+                                        <span className="text-lg font-light text-white/40 tracking-tight">included</span>
+                                    </div>
+                                )}
                                 <div className="pt-8 border-t border-gold-400/10 flex justify-between items-end px-2">
                                     <div className="space-y-1">
                                         <span className="text-[9px] font-black uppercase tracking-[0.4em] text-gold-400">Net Total</span>
                                         <p className="text-[8px] font-bold text-white/30 uppercase tracking-widest">Final Payable</p>
                                     </div>
                                     <span className="text-4xl font-light text-white tracking-tighter shadow-gold-400/10 drop-shadow-2xl">
-                                        ₹{pricing.totalPayable.toLocaleString()}
+                                        ₹{Math.round(liveTotals.totalPayable).toLocaleString()}
                                     </span>
                                 </div>
                             </div>
+
+                            {/* ── Front-desk discount panel — gated on canDiscount ── */}
+                            {canDiscount && (
+                            <div className="border-t border-white/5 pt-5 pb-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setDiscountOpen(v => !v)}
+                                    className="w-full flex items-center justify-between text-left group"
+                                    aria-expanded={discountOpen}
+                                >
+                                    <span className="flex items-center gap-2.5">
+                                        <span className="w-7 h-7 rounded-lg bg-gold-400/10 ring-1 ring-gold-400/20 flex items-center justify-center">
+                                            <Percent className="h-3.5 w-3.5 text-gold-400" />
+                                        </span>
+                                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-gold-400/80">
+                                            Apply Discount
+                                        </span>
+                                        {liveTotals.discount > 0 && (
+                                            <span className="rounded-full bg-emerald-500/15 text-emerald-300 px-2.5 py-0.5 text-[10px] font-bold normal-case tracking-normal">
+                                                −₹{liveTotals.discount.toLocaleString()} ({liveTotals.discountPct.toFixed(0)}%)
+                                            </span>
+                                        )}
+                                    </span>
+                                    <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-white/40 group-hover:text-white/70 transition-colors">
+                                        {discountOpen ? "Hide" : "Edit"}
+                                        {discountOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                                    </span>
+                                </button>
+
+                                {discountOpen && (
+                                    <div className="mt-5 space-y-5">
+                                        {/* Cap subtext — surfaces the per-hotel policy so staff
+                                            knows the ceiling before typing rather than discovering
+                                            it via a server reject after submit. */}
+                                        <div className="flex items-center justify-between rounded-lg bg-white/[0.02] border border-white/[0.06] px-3 py-2">
+                                            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40">
+                                                Hotel policy
+                                            </span>
+                                            <span className="text-[10px] font-bold uppercase tracking-widest text-white/60">
+                                                {discountCapPct != null
+                                                    ? <>Max <span className="text-gold-400">{discountCapPct}%</span> per room</>
+                                                    : <span className="text-white/40 normal-case tracking-normal">No cap configured</span>}
+                                            </span>
+                                        </div>
+
+                                        {/* Per-room discount cards */}
+                                        <div className="space-y-3">
+                                            {selectionsList.map((sel, idx) => {
+                                                const apn = sel.amount_per_night ?? 0;
+                                                const dpn = discountsByRoom[sel.room_id] ?? 0;
+                                                const pct = apn > 0 ? (dpn / apn) * 100 : 0;
+                                                const lineTotalSaved = dpn * nights;
+                                                // Effective ceiling: 100% by default, capped further by
+                                                // pricing_settings.max_discount_pct when set. Both the
+                                                // <input max> and the preset chips clamp to this.
+                                                const effectiveMaxPct = Math.min(100, discountCapPct ?? 100);
+                                                const atCap = discountCapPct != null && pct >= discountCapPct - 0.05;
+                                                const nearCap = discountCapPct != null && !atCap && pct >= discountCapPct - 5;
+                                                // Primary lever is %, but the API contract is rupees per
+                                                // night, so we convert at the boundary. Storage stays in ₹
+                                                // to preserve roundtripping with the server / folio.
+                                                const setRoomDiscountPct = (newPct: number) => {
+                                                    const cleaned = Math.max(0, Math.min(effectiveMaxPct, Number.isFinite(newPct) ? newPct : 0));
+                                                    const rupees = +(apn * cleaned / 100).toFixed(2);
+                                                    setDiscountsByRoom(prev => ({ ...prev, [sel.room_id]: rupees }));
+                                                };
+                                                const displayPct = apn > 0 ? +(dpn / apn * 100).toFixed(2) : 0;
+                                                const PRESETS = [5, 10, 15, 20];
+                                                const roomLabel =
+                                                    (sel as any).room_number
+                                                        ? `Room ${(sel as any).room_number}`
+                                                        : `Room ${idx + 1}`;
+                                                return (
+                                                    <div
+                                                        key={sel.room_id || idx}
+                                                        className={
+                                                            "rounded-2xl p-4 space-y-3 transition-colors border " +
+                                                            (dpn > 0
+                                                                ? "bg-emerald-500/[0.04] border-emerald-500/20"
+                                                                : "bg-white/[0.02] border-white/[0.06]")
+                                                        }
+                                                    >
+                                                        {/* Header: room + per-night rate */}
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-2">
+                                                                <Bed className="h-3.5 w-3.5 text-white/30" />
+                                                                <span className="text-[11px] font-bold uppercase tracking-widest text-white/60">
+                                                                    {roomLabel}
+                                                                </span>
+                                                            </div>
+                                                            <span className="text-[11px] text-white/40 tabular-nums">
+                                                                ₹{apn.toLocaleString()} / night
+                                                            </span>
+                                                        </div>
+
+                                                        {/* Primary lever: percentage. Right cell shows the
+                                                            resolved per-night ₹ so staff can quote the guest
+                                                            both the % and the concrete savings. */}
+                                                        {/* Color semantics: rose = actual error (above cap, blocks
+                                                            submit); amber = at/near cap (valid but at policy limit);
+                                                            emerald = active discount; neutral = no discount. */}
+                                                        <div
+                                                            className={
+                                                                "flex items-stretch rounded-xl border bg-white/[0.04] focus-within:ring-2 transition " +
+                                                                (atCap || nearCap
+                                                                    ? "border-amber-500/40 focus-within:border-amber-500/60 focus-within:ring-amber-500/15"
+                                                                    : dpn > 0
+                                                                        ? "border-emerald-500/30 focus-within:border-gold-400/50 focus-within:ring-gold-400/15"
+                                                                        : "border-white/[0.08] focus-within:border-gold-400/50 focus-within:ring-gold-400/15")
+                                                            }
+                                                        >
+                                                            <input
+                                                                type="number"
+                                                                inputMode="decimal"
+                                                                min={0}
+                                                                max={effectiveMaxPct}
+                                                                step={0.5}
+                                                                value={displayPct || ""}
+                                                                onChange={(e) => {
+                                                                    const v = Number(e.target.value);
+                                                                    setRoomDiscountPct(Number.isFinite(v) ? v : 0);
+                                                                }}
+                                                                placeholder="0"
+                                                                className="flex-1 bg-transparent pl-4 pr-2 py-2.5 text-base text-white placeholder-white/25 focus:outline-none tabular-nums"
+                                                                aria-label={`Discount percent for ${roomLabel}`}
+                                                            />
+                                                            <span
+                                                                className={
+                                                                    "pr-3 flex items-center text-base font-semibold " +
+                                                                    (dpn === 0
+                                                                        ? "text-white/40"
+                                                                        : atCap || pct > DISCOUNT_SOFT_CAP_PCT
+                                                                            ? "text-amber-400"
+                                                                            : "text-emerald-300")
+                                                                }
+                                                            >
+                                                                %
+                                                            </span>
+                                                            {dpn > 0 && (
+                                                                <span className={
+                                                                    "px-3 flex items-center text-xs font-bold tabular-nums border-l whitespace-nowrap " +
+                                                                    (atCap
+                                                                        ? "border-amber-500/30 text-amber-300"
+                                                                        : "border-emerald-500/20 text-emerald-300")
+                                                                }>
+                                                                    −₹{Math.round(dpn).toLocaleString()}/n
+                                                                </span>
+                                                            )}
+                                                        </div>
+
+                                                        {/* At-cap is a valid state — server accepts equality.
+                                                            We use amber (warning/limit-reached), NOT rose (error).
+                                                            The Authorize button stays enabled because there's
+                                                            nothing to fix; the message just informs staff that
+                                                            this is the ceiling. */}
+                                                        {dpn > 0 && atCap && discountCapPct != null && (
+                                                            <div className="flex items-start gap-2 rounded-lg bg-amber-500/[0.08] border border-amber-500/25 px-3 py-2">
+                                                                <Lock className="h-3.5 w-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
+                                                                <p className="text-[11px] text-amber-100 leading-relaxed">
+                                                                    At the hotel's <span className="font-bold">{discountCapPct}%</span> ceiling — this is the highest discount allowed for this hotel. Raise the cap on the Pricing page if you need to go higher.
+                                                                </p>
+                                                            </div>
+                                                        )}
+                                                        {dpn > 0 && !atCap && nearCap && discountCapPct != null && (
+                                                            <div className="flex items-start gap-2 rounded-lg bg-amber-500/[0.06] border border-amber-500/20 px-3 py-2">
+                                                                <AlertTriangle className="h-3.5 w-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
+                                                                <p className="text-[11px] text-amber-100 leading-relaxed">
+                                                                    Close to the hotel's <span className="font-bold">{discountCapPct}%</span> ceiling.
+                                                                </p>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Quick presets — fastest path for staff */}
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setRoomDiscountPct(0)}
+                                                                disabled={dpn === 0}
+                                                                className="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest border border-white/10 bg-white/[0.02] text-white/50 hover:text-white hover:bg-white/[0.05] transition disabled:opacity-30 disabled:cursor-not-allowed"
+                                                            >
+                                                                Clear
+                                                            </button>
+                                                            {PRESETS.map(p => {
+                                                                const isActive = apn > 0 && Math.round(pct) === p;
+                                                                const overCap = p > effectiveMaxPct;
+                                                                return (
+                                                                    <button
+                                                                        key={p}
+                                                                        type="button"
+                                                                        onClick={() => setRoomDiscountPct(p)}
+                                                                        disabled={overCap}
+                                                                        title={overCap ? `Above hotel cap of ${discountCapPct}%` : undefined}
+                                                                        className={
+                                                                            "px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest border transition disabled:cursor-not-allowed inline-flex items-center gap-1 " +
+                                                                            (isActive
+                                                                                ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-200"
+                                                                                : overCap
+                                                                                    ? "border-rose-500/15 bg-rose-500/[0.04] text-rose-300/50 line-through"
+                                                                                    : "border-white/10 bg-white/[0.02] text-white/50 hover:text-white hover:bg-white/[0.05]")
+                                                                        }
+                                                                    >
+                                                                        {overCap && <Lock className="h-2.5 w-2.5 no-underline" />}
+                                                                        {p}%
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+
+                                                        {/* Line preview — shows what's actually saved */}
+                                                        {dpn > 0 && (
+                                                            <div className="flex items-center justify-between text-[11px] pt-1">
+                                                                <span className="text-white/40">
+                                                                    × {nights} night{nights === 1 ? "" : "s"}
+                                                                </span>
+                                                                <span className="text-emerald-300 font-semibold tabular-nums">
+                                                                    −₹{lineTotalSaved.toLocaleString()} off
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+
+                                        {/* Aggregate discount preview when more than one room is discounted */}
+                                        {liveTotals.discount > 0 && selectionsList.length > 1 && (
+                                            <div className="flex items-center justify-between rounded-xl bg-emerald-500/[0.06] border border-emerald-500/20 px-4 py-2.5">
+                                                <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-300/80">
+                                                    Total Discount
+                                                </span>
+                                                <span className="text-base font-semibold text-emerald-300 tabular-nums">
+                                                    −₹{liveTotals.discount.toLocaleString()}
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {liveTotals.discount > 0 && (
+                                            <>
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[10px] font-bold uppercase tracking-widest text-white/50">
+                                                        Reason <span className="text-rose-400">*</span>
+                                                    </label>
+                                                    <select
+                                                        value={discountReason}
+                                                        onChange={(e) => setDiscountReason(e.target.value as DiscountReason | "")}
+                                                        className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-gold-400/50 focus:ring-2 focus:ring-gold-400/15 transition"
+                                                    >
+                                                        <option value="" className="bg-slate-900">Pick a reason…</option>
+                                                        {(Object.keys(DISCOUNT_REASON_LABELS) as DiscountReason[]).map(k => (
+                                                            <option key={k} value={k} className="bg-slate-900">
+                                                                {DISCOUNT_REASON_LABELS[k]}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[10px] font-bold uppercase tracking-widest text-white/50">
+                                                        Note <span className="font-normal normal-case text-white/30 tracking-normal">(optional · audit trail)</span>
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={discountNote}
+                                                        onChange={(e) => setDiscountNote(e.target.value)}
+                                                        placeholder="e.g. Approved by Mr. Sharma"
+                                                        className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-gold-400/50 focus:ring-2 focus:ring-gold-400/15 transition"
+                                                    />
+                                                </div>
+
+                                                {liveTotals.discountPct > DISCOUNT_SOFT_CAP_PCT && (
+                                                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 flex items-start gap-2.5">
+                                                        <AlertTriangle className="h-3.5 w-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
+                                                        <p className="text-[11px] text-amber-100 leading-relaxed">
+                                                            Discount exceeds <span className="font-bold">{DISCOUNT_SOFT_CAP_PCT}%</span>. This will be flagged in finance reports — make sure the reason and note capture management approval.
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+
+                                        {discountError && (
+                                            <p className="text-xs text-rose-300 px-1">{discountError}</p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            )}
 
                             {/* ── Settlement & Payment Section ── */}
                             <div className="pt-8 border-t border-white/5 space-y-6">
@@ -533,32 +1067,89 @@ export default function WalkInPayment() {
                                 </div>
 
                                 <div className="space-y-4">
-                                    <button className="w-full group/btn relative flex items-center justify-between p-5 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-gold-400/[0.04] hover:border-gold-400/30 transition-all duration-500 text-left">
+                                    {/* Cash — always available */}
+                                    <button
+                                        type="button"
+                                        onClick={() => setPaymentMode("CASH")}
+                                        aria-pressed={paymentMode === "CASH"}
+                                        className={`w-full group/btn relative flex items-center justify-between p-5 rounded-2xl border transition-all duration-500 text-left ${
+                                            paymentMode === "CASH"
+                                                ? "bg-gold-400/10 border-gold-400/60 shadow-[0_0_0_1px_rgba(212,175,55,0.3)]"
+                                                : "bg-white/[0.02] border-white/5 hover:bg-gold-400/[0.04] hover:border-gold-400/30"
+                                        }`}
+                                    >
                                         <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-gold-400/20 group-hover/btn:text-gold-400 group-hover/btn:bg-gold-400/10 transition-all duration-500">
-                                                <ImageIcon className="h-5 w-5" />
+                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-500 ${
+                                                paymentMode === "CASH"
+                                                    ? "bg-gold-400/20 text-gold-400"
+                                                    : "bg-white/5 text-gold-400/20 group-hover/btn:text-gold-400 group-hover/btn:bg-gold-400/10"
+                                            }`}>
+                                                <Receipt className="h-5 w-5" />
                                             </div>
                                             <div className="space-y-0.5">
-                                                <div className="text-sm font-medium text-white tracking-tight">Digital Currency</div>
-                                                <div className="text-[8px] font-bold uppercase tracking-widest text-gold-400/30">UPI / QR Transfer</div>
+                                                <div className="text-sm font-medium text-white tracking-tight">Cash</div>
+                                                <div className="text-[8px] font-bold uppercase tracking-widest text-gold-400/30">Collected at desk</div>
                                             </div>
                                         </div>
-                                        <div className="w-4 h-4 rounded-full border-2 border-white/10 group-hover/btn:border-gold-400/80 transition-all" />
+                                        <div className={`w-4 h-4 rounded-full border-2 transition-all ${
+                                            paymentMode === "CASH" ? "border-gold-400 bg-gold-400" : "border-white/10 group-hover/btn:border-gold-400/80"
+                                        }`} />
                                     </button>
 
-                                    <button className="w-full group/btn relative flex items-center justify-between p-5 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-gold-400/[0.04] hover:border-gold-400/30 transition-all duration-500 text-left">
+                                    {/* Pay Online — Razorpay (UPI/Card/Netbanking/Wallets) */}
+                                    <button
+                                        type="button"
+                                        onClick={() => hotelHasRazorpay && setPaymentMode("ONLINE")}
+                                        aria-pressed={paymentMode === "ONLINE"}
+                                        disabled={!hotelHasRazorpay}
+                                        title={hotelHasRazorpay ? "" : "Razorpay not configured for this hotel — contact ops to set up the Linked Account"}
+                                        className={`w-full group/btn relative flex items-center justify-between p-5 rounded-2xl border transition-all duration-500 text-left ${
+                                            !hotelHasRazorpay
+                                                ? "bg-white/[0.01] border-white/5 opacity-40 cursor-not-allowed"
+                                                : paymentMode === "ONLINE"
+                                                    ? "bg-gold-400/10 border-gold-400/60 shadow-[0_0_0_1px_rgba(212,175,55,0.3)]"
+                                                    : "bg-white/[0.02] border-white/5 hover:bg-gold-400/[0.04] hover:border-gold-400/30"
+                                        }`}
+                                    >
                                         <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-gold-400/20 group-hover/btn:text-gold-400 group-hover/btn:bg-gold-400/10 transition-all duration-500">
+                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-500 ${
+                                                paymentMode === "ONLINE"
+                                                    ? "bg-gold-400/20 text-gold-400"
+                                                    : "bg-white/5 text-gold-400/20 group-hover/btn:text-gold-400 group-hover/btn:bg-gold-400/10"
+                                            }`}>
                                                 <CreditCard className="h-5 w-5" />
                                             </div>
                                             <div className="space-y-0.5">
-                                                <div className="text-sm font-medium text-white tracking-tight">Physical Card</div>
-                                                <div className="text-[8px] font-bold uppercase tracking-widest text-gold-400/30">Visa / Mastercard</div>
+                                                <div className="text-sm font-medium text-white tracking-tight">Pay Online</div>
+                                                <div className="text-[8px] font-bold uppercase tracking-widest text-gold-400/30">
+                                                    {hotelHasRazorpay ? "UPI / Card / Netbanking" : "Razorpay not configured"}
+                                                </div>
                                             </div>
                                         </div>
-                                        <div className="w-4 h-4 rounded-full border-2 border-white/10 group-hover/btn:border-gold-400/80 transition-all" />
+                                        <div className={`w-4 h-4 rounded-full border-2 transition-all ${
+                                            paymentMode === "ONLINE" ? "border-gold-400 bg-gold-400" : "border-white/10 group-hover/btn:border-gold-400/80"
+                                        }`} />
                                     </button>
                                 </div>
+
+                                {/* Inline error banner */}
+                                {paymentError && (
+                                    <div className="flex items-start gap-3 p-4 rounded-xl border border-rose-500/30 bg-rose-500/[0.06]">
+                                        <AlertTriangle className="h-4 w-4 text-rose-400 mt-0.5 shrink-0" />
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-xs font-bold uppercase tracking-widest text-rose-300 mb-1">Payment issue</div>
+                                            <div className="text-xs text-rose-200/90 leading-relaxed">{paymentError}</div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setPaymentError(null)}
+                                            className="shrink-0 text-rose-400/60 hover:text-rose-300"
+                                            aria-label="Dismiss error"
+                                        >
+                                            <X className="h-3.5 w-3.5" />
+                                        </button>
+                                    </div>
+                                )}
                             </div>
 
                             {/* ── Execute Action ── */}
@@ -572,19 +1163,25 @@ export default function WalkInPayment() {
 
                                 <button
                                     onClick={handlePayment}
-                                    disabled={processing}
+                                    disabled={processing || !!discountError || !paymentMode}
                                     className="w-full py-6 text-2xl font-light tracking-tight text-black bg-gold-400 rounded-2xl hover:bg-gold-300 transition-all duration-500 group relative overflow-hidden shadow-[0_20px_40px_-10px_rgba(212,175,55,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
                                     {processing ? (
                                         <div className="flex items-center justify-center gap-4">
                                             <Loader2 className="h-6 w-6 animate-spin" />
-                                            <span className="uppercase tracking-[0.2em] text-[9px] font-black">Authorizing...</span>
+                                            <span className="uppercase tracking-[0.2em] text-[9px] font-black">
+                                                {paymentMode === "ONLINE" ? "Opening Razorpay..." : "Authorizing..."}
+                                            </span>
                                         </div>
                                     ) : (
                                         <div className="flex items-center justify-center gap-4">
-                                            <span className="uppercase tracking-[0.15em] text-[10px] font-black">Authorize ₹{pricing.totalPayable.toLocaleString()}</span>
-                                            <ArrowRight className="h-6 w-6 group-hover:translate-x-2 transition-transform" />
+                                            <span className="uppercase tracking-[0.15em] text-[10px] font-black">
+                                                {paymentMode === "CASH" && `Collect Cash · ₹${Math.round(liveTotals.totalPayable).toLocaleString()}`}
+                                                {paymentMode === "ONLINE" && `Pay Online · ₹${Math.round(liveTotals.totalPayable).toLocaleString()}`}
+                                                {!paymentMode && "Choose settlement method above"}
+                                            </span>
+                                            {paymentMode && <ArrowRight className="h-6 w-6 group-hover:translate-x-2 transition-transform" />}
                                         </div>
                                     )}
                                 </button>

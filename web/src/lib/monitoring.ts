@@ -1,42 +1,138 @@
 // web/src/lib/monitoring.ts
-// Safe to ship without @sentry/browser installed. Loads Sentry from CDN only if DSN exists.
+//
+// Safe to ship without `@sentry/browser` installed. Loads Sentry from CDN
+// only if `VITE_SENTRY_DSN` is set, in production builds.
+//
+// Public API:
+//   initMonitoring()                  — call once from main.tsx
+//   captureException(err, ctx?)       — explicit error capture
+//   captureMessage(msg, level?, ctx?) — structured message
+//   addBreadcrumb({...})              — trace breadcrumb for debugging payment flows
+//   setUserContext({id, email})       — attach user identity to subsequent events
+//
+// If Sentry isn't loaded (no DSN, dev mode, or CDN failure), every call
+// silently falls back to `console.error` so we never lose signal.
 
 type AnyObj = Record<string, unknown>;
 
-/**
- * Initialize monitoring (Sentry) only when VITE_SENTRY_DSN is set.
- * Uses a runtime import from a CDN so the bundler doesn’t need @sentry/browser.
- */
-export async function initMonitoring(extra: AnyObj = {}) {
-  const dsn = import.meta.env.VITE_SENTRY_DSN as string | undefined;
-  if (!dsn) return; // Monitoring disabled
+// Loaded Sentry handle. `null` until init resolves; stays null in dev / if no DSN.
+let sentryRef: any = null;
+let initialised = false;
 
-  // Load Sentry in production only (optional)
+/** Initialize monitoring (Sentry) only when VITE_SENTRY_DSN is set.
+ *  Uses a runtime import from a CDN so the bundler doesn't need @sentry/browser. */
+export async function initMonitoring(extra: AnyObj = {}) {
+  if (initialised) return;
+  initialised = true;
+
+  const dsn = import.meta.env.VITE_SENTRY_DSN as string | undefined;
+  if (!dsn) return;
+
+  // Load Sentry in production only
   if (import.meta.env.DEV) return;
 
-  // Load Sentry from esm.sh (no npm dep required)
-  const sentry = await import("https://esm.sh/@sentry/browser@7.120.0");
-  const integrations = await import("https://esm.sh/@sentry/integrations@7.120.0");
+  try {
+    // @ts-expect-error — runtime CDN import, no type definitions
+    const sentry: any = await import(/* @vite-ignore */ "https://esm.sh/@sentry/browser@7.120.0");
+    // @ts-expect-error — runtime CDN import, no type definitions
+    const integrations: any = await import(/* @vite-ignore */ "https://esm.sh/@sentry/integrations@7.120.0");
 
-  sentry.init({
-    dsn,
-    release: import.meta.env.VITE_APP_VERSION ?? undefined,
-    environment: import.meta.env.MODE,
-    integrations: [
-      new integrations.BrowserTracing(),
-      new integrations.Replay(), // remove if you don't need session replay
-    ],
-    tracesSampleRate: 0.1,
-    replaysSessionSampleRate: 0.0,
-    replaysOnErrorSampleRate: 0.1,
-    ...extra,
-  });
+    sentry.init({
+      dsn,
+      release: import.meta.env.VITE_APP_VERSION ?? undefined,
+      environment: import.meta.env.MODE,
+      integrations: [
+        new integrations.BrowserTracing(),
+        new integrations.Replay(),
+      ],
+      tracesSampleRate: 0.1,
+      replaysSessionSampleRate: 0.0,
+      replaysOnErrorSampleRate: 0.1,
+      ...extra,
+    });
+
+    sentryRef = sentry;
+  } catch (e) {
+    // CDN unreachable — log to console and continue without monitoring.
+    console.error("[monitoring] Sentry init failed; continuing without it", e);
+  }
 }
 
-/** Optional helpers */
-export function captureException(err: unknown) {
-  // Lazy path when CDN not loaded: just console.error
-  // If loaded, Sentry will replace console via its integration
-  // and still receive the error.
-  console.error(err);
+/** Explicit exception capture. Always logs to console; ships to Sentry if loaded. */
+export function captureException(err: unknown, context?: AnyObj): void {
+  // Always log locally so dev/CI/local sessions see the error.
+  console.error(err, context ?? "");
+
+  if (!sentryRef) return;
+  try {
+    if (context) {
+      sentryRef.withScope((scope: any) => {
+        for (const [k, v] of Object.entries(context)) {
+          scope.setExtra(k, v);
+        }
+        sentryRef.captureException(err);
+      });
+    } else {
+      sentryRef.captureException(err);
+    }
+  } catch { /* swallow */ }
+}
+
+/** Capture a non-exception message (info/warning/error). */
+export function captureMessage(
+  message: string,
+  level: "fatal" | "error" | "warning" | "info" | "debug" = "info",
+  context?: AnyObj,
+): void {
+  if (level === "error" || level === "fatal") {
+    console.error("[" + level + "]", message, context ?? "");
+  } else if (level === "warning") {
+    console.warn("[warning]", message, context ?? "");
+  }
+  if (!sentryRef) return;
+  try {
+    if (context) {
+      sentryRef.withScope((scope: any) => {
+        for (const [k, v] of Object.entries(context)) scope.setExtra(k, v);
+        scope.setLevel(level);
+        sentryRef.captureMessage(message, level);
+      });
+    } else {
+      sentryRef.captureMessage(message, level);
+    }
+  } catch { /* swallow */ }
+}
+
+/** Add a breadcrumb — useful for tracing the steps before an error.
+ *  Especially valuable in the Razorpay flow: createOrder → openCheckout →
+ *  handler → verifyPayment, where the final exception alone doesn't tell
+ *  you which step failed. */
+export function addBreadcrumb(crumb: {
+  category: string;
+  message: string;
+  level?: "fatal" | "error" | "warning" | "info" | "debug";
+  data?: AnyObj;
+}): void {
+  if (!sentryRef) return;
+  try {
+    sentryRef.addBreadcrumb({
+      category: crumb.category,
+      message: crumb.message,
+      level: crumb.level ?? "info",
+      data: crumb.data,
+      timestamp: Date.now() / 1000,
+    });
+  } catch { /* swallow */ }
+}
+
+/** Tag the current Sentry scope with user identity. Call after auth resolves. */
+export function setUserContext(user: { id: string; email?: string | null } | null): void {
+  if (!sentryRef) return;
+  try {
+    if (user) {
+      sentryRef.setUser({ id: user.id, email: user.email ?? undefined });
+    } else {
+      sentryRef.setUser(null);
+    }
+  } catch { /* swallow */ }
 }

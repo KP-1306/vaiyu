@@ -48,6 +48,30 @@ export async function initMonitoring(extra: AnyObj = {}) {
       tracesSampleRate: 0.1,
       replaysSessionSampleRate: 0.0,
       replaysOnErrorSampleRate: 0.1,
+      // Filter out third-party noise that would otherwise pollute Sentry.
+      // These come from Razorpay's checkout.js (and similar embedded SDKs)
+      // attempting to ping internal/dev endpoints. They don't affect
+      // payment success and aren't actionable on our side.
+      beforeSend(event: any, hint: any) {
+        const err = hint?.originalException;
+        const msg = (event?.message || err?.message || "").toString();
+        const url = (event?.request?.url || "").toString();
+        const stack = (err?.stack || "").toString();
+
+        const noisePatterns = [
+          /localhost:7071/i,                              // Razorpay's dev-mode leftover ping
+          /Refused to get unsafe header/i,                // CORS expose-headers warning from Razorpay's xhr
+          /v2-entry\.modern\.js/i,                        // Razorpay checkout bundle internal errors
+          /chrome-extension:\/\//i,                       // Browser-extension noise
+          /ResizeObserver loop limit exceeded/i,          // Benign browser warning
+          /Non-Error promise rejection captured/i,        // Often library noise without real signal
+        ];
+
+        if (noisePatterns.some((rx) => rx.test(msg) || rx.test(stack) || rx.test(url))) {
+          return null; // drop the event
+        }
+        return event;
+      },
       ...extra,
     });
 

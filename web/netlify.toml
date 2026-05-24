@@ -13,9 +13,17 @@
     X-Frame-Options = "SAMEORIGIN"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
-    Permissions-Policy = "geolocation=(), microphone=(), payment=(), camera=(self)"
+    # Permissions-Policy: allow payment API for self + Razorpay's checkout
+    # origin (some Razorpay flows use the Payment Request API for UPI/cards).
+    Permissions-Policy = "geolocation=(), microphone=(), payment=(self \"https://checkout.razorpay.com\"), camera=(self)"
     Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
-    Content-Security-Policy = "default-src 'self'; connect-src 'self' https: wss:; img-src 'self' data: https:; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:; frame-ancestors 'self'; base-uri 'self'"
+    # CSP: frame-src lists the origins our pages are allowed to embed via
+    # <iframe>. Razorpay's Checkout popup iframes both api.razorpay.com
+    # (for the OTP/payment form) and various bank/UPI/wallet origins via
+    # *.razorpay.com. Without this, default-src 'self' is used as a fallback
+    # and every Razorpay iframe is blocked → "Framing 'https://api.razorpay.com/'
+    # violates Content Security Policy" in the console.
+    Content-Security-Policy = "default-src 'self'; connect-src 'self' https: wss:; img-src 'self' data: https:; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:; frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://*.razorpay.com; frame-ancestors 'self'; base-uri 'self'"
 
 # ---------- Old links → new flow
 [[redirects]]

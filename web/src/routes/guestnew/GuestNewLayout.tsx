@@ -83,7 +83,7 @@ export default function GuestNewLayout() {
             {/* Header */}
             <header className="gn-header">
                 <Link to="/guest" className="gn-header__logo">
-                    <img src="/brand/vaiyu-logo.png" alt="Vaiyu" />
+                    <img src="/brand/vaiyu-logo.webp" alt="Vaiyu" />
                     <span>Vaiyu</span>
                 </Link>
 

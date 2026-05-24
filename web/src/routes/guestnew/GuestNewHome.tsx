@@ -631,7 +631,7 @@ export default function GuestNewHome() {
     <!-- Vaiyu Platform Header -->
     <div class="platform-header">
         <div class="platform-logo">
-            <img src="/brand/vaiyu-logo.png" alt="Vaiyu" onerror="this.style.display='none'" />
+            <img src="/brand/vaiyu-logo.webp" alt="Vaiyu" onerror="this.style.display='none'" />
             <span>Vaiyu</span>
         </div>
         <div class="platform-tagline">Tax Invoice</div>

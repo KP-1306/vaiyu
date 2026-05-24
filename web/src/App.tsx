@@ -51,12 +51,12 @@ const FallbackPage: React.FC<{ title: string; hint?: string }> = ({
 /**
  * Fallback marketing page — only used when
  * web/src/routes/MarketingHome.tsx is missing.
- * Now shows the VAiyu logo from /brand/vaiyu-logo.png.
+ * Now shows the VAiyu logo from /brand/vaiyu-logo.webp.
  */
 const FallbackMarketing: React.FC = () => (
   <main className="mx-auto max-w-3xl px-4 py-16">
     <div className="flex items-center gap-3">
-      <img src="/brand/vaiyu-logo.png" alt="VAiyu" className="h-10 w-auto" />
+      <img src="/brand/vaiyu-logo.webp" alt="VAiyu" className="h-10 w-auto" />
       <h1 className="text-2xl font-semibold">VAiyu</h1>
     </div>
     <p className="mt-2 text-gray-600">

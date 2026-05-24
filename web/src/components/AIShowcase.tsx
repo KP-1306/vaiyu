@@ -7,7 +7,7 @@ export default function AIShowcase() {
         {/* Block 1 — Image left, content right (NO CTA) */}
         <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
           <Figure
-            src="/illustrations/vaiyu-intelligence-final.png"
+            src="/illustrations/vaiyu-intelligence-final.webp"
             // src2x="/illustrations/vaiyu-intelligence-final@2x.png"
             alt="VAiyu AI Intelligence connecting Guest Experience, Property Efficiency, Brand Value, and Self-Improvement"
           />
@@ -35,7 +35,7 @@ export default function AIShowcase() {
           //   cta={{ label: "Learn the architecture", href: "#ai" }}
           />
           <Figure
-            src="/illustrations/ai-os-banner.png"
+            src="/illustrations/ai-os-banner.webp"
             // src2x="/illustrations/ai-os-banner@2x.png"
             alt="VAiyu Intelligence — AI + Sustainability Operating System for Hospitality"
             eager={false}

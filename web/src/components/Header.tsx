@@ -1,33 +1,11 @@
 // web/src/components/Header.tsx
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import AccountControls from "./AccountControls";
-import { supabase } from "../lib/supabase";
 
 export default function Header() {
   const { pathname, hash } = useLocation();
   const navigate = useNavigate();
-
-  // Tiny “You’re signed in as …” strip (kept)
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      const { data } = await supabase.auth.getUser();
-      if (!alive) return;
-      setUserEmail(data?.user?.email ?? null);
-    })();
-    const { data: sub } = supabase.auth.onAuthStateChange(
-      (_evt, session) => {
-        setUserEmail(session?.user?.email ?? null);
-      }
-    );
-    return () => {
-      alive = false;
-      sub?.subscription?.unsubscribe();
-    };
-  }, []);
 
   // Smooth-scroll for in-page anchors (#ai, #why)
   useEffect(() => {
@@ -56,7 +34,7 @@ export default function Header() {
           <span className="inline-flex items-center gap-2.5">
             <div className="h-8 w-8 rounded-full bg-[#141210] border border-[#d4af37]/20 shadow-[0_0_10px_rgba(212,175,55,0.1)] overflow-hidden flex items-center justify-center p-0.5">
               <img
-                src="/brand/vaiyu-logo.png"
+                src="/brand/vaiyu-logo.webp"
                 alt="VAiyu"
                 className="h-full w-full object-contain rounded-full"
               />
@@ -97,12 +75,6 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Tiny signed-in hint on marketing home only */}
-      {pathname === "/" && userEmail && (
-        <div className="border-t border-[#d4af37]/10 bg-[#141210]/90 backdrop-blur text-center text-[11px] uppercase tracking-widest text-[#7a756a] py-2">
-          Signed in to dashboard as <span className="font-bold text-[#d4af37] lowercase">{userEmail}</span>
-        </div>
-      )}
     </header>
   );
 }

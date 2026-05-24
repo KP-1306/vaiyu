@@ -10,7 +10,6 @@ import {
     Loader2,
     ShieldCheck,
     Upload,
-    CheckCircle2,
     X,
     User,
     Check,
@@ -92,11 +91,9 @@ export default function WalkInDetails() {
 
     const [roomTypes, setRoomTypes] = useState<{ id: string, name: string }[]>([]);
 
-    // OTP State
-    const [showOtp, setShowOtp] = useState(false);
-    const [otp, setOtp] = useState(["", "", "", ""]);
-    const [isVerified, setIsVerified] = useState(false);
-    const [verifying, setVerifying] = useState(false);
+    // (OTP/Auth Code state removed — was theatre code: fake setTimeout
+    //  "verification" accepting any 4 digits, no real OTP ever sent. The
+    //  Auth Code button it gated has been removed too.)
 
     // Lookup State
     const [hotelId, setHotelId] = useState<string | null>(null);
@@ -221,23 +218,8 @@ export default function WalkInDetails() {
         return Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24)));
     };
 
-    const handleSendOtp = () => {
-        if (formData.mobile.length < 10) { alert("Please enter a valid mobile number"); return; }
-        setShowOtp(true);
-    };
-
-    const handleVerifyOtp = () => {
-        setVerifying(true);
-        setTimeout(() => { setVerifying(false); setIsVerified(true); setShowOtp(false); }, 1500);
-    };
-
-    const handleOtpChange = (index: number, value: string) => {
-        if (value.length > 1) return;
-        const newOtp = [...otp];
-        newOtp[index] = value;
-        setOtp(newOtp);
-        if (value && index < 3) document.getElementById(`otp-${index + 1}`)?.focus();
-    };
+    // (OTP send/verify/change handlers removed along with the Auth Code
+    //  button — they were fake-verification with no backend call.)
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -395,41 +377,26 @@ export default function WalkInDetails() {
 
                     <div className="p-10 pt-0 space-y-8">
                         <div className="space-y-6">
-                            {/* Mobile + Verify */}
+                            {/* Mobile */}
                             <div className="space-y-2 relative">
                                 <label className="block text-sm font-medium text-white/90 ml-1">Contact Link</label>
-                                <div className="flex gap-3">
-                                    <div className="relative flex-1">
-                                        <input 
-                                            required 
-                                            type="tel" 
-                                            className={`gn-input w-full ${isVerified ? 'border-gold-400/40 bg-gold-400/[0.02]' : ''} ${formData.mobile && !/^[0-9]{10}$/.test(formData.mobile) ? 'border-red-500/50' : ''}`} 
-                                            value={formData.mobile} 
-                                            onBlur={handleMobileBlur} 
-                                            onChange={e => {
-                                                const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
-                                                setFormData({ ...formData, mobile: val });
-                                            }} 
-                                            placeholder="10-digit mobile number" 
-                                            disabled={isVerified} 
-                                        />
-                                        {formData.mobile && !/^[0-9]{10}$/.test(formData.mobile) && (
-                                            <div className="absolute -bottom-5 left-1 text-[10px] font-bold text-red-500 uppercase tracking-widest animate-in fade-in slide-in-from-top-1">
-                                                Enter 10-digit number
-                                            </div>
-                                        )}
-                                    </div>
-                                    {isVerified ? (
-                                        <div className="flex items-center justify-center px-5 rounded-2xl bg-gold-400/10 text-gold-400 ring-1 ring-gold-400/20"><CheckCircle2 className="h-6 w-6" /></div>
-                                    ) : (
-                                        <button 
-                                            type="button" 
-                                            onClick={handleSendOtp} 
-                                            disabled={!/^[0-9]{10}$/.test(formData.mobile)}
-                                            className="gn-btn gn-btn--primary px-6 py-4 text-xs whitespace-nowrap disabled:opacity-30 disabled:grayscale transition-all"
-                                        >
-                                            Auth Code
-                                        </button>
+                                <div className="relative">
+                                    <input
+                                        required
+                                        type="tel"
+                                        className={`gn-input w-full ${formData.mobile && !/^[0-9]{10}$/.test(formData.mobile) ? 'border-red-500/50' : ''}`}
+                                        value={formData.mobile}
+                                        onBlur={handleMobileBlur}
+                                        onChange={e => {
+                                            const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
+                                            setFormData({ ...formData, mobile: val });
+                                        }}
+                                        placeholder="10-digit mobile number"
+                                    />
+                                    {formData.mobile && !/^[0-9]{10}$/.test(formData.mobile) && (
+                                        <div className="absolute -bottom-5 left-1 text-[10px] font-bold text-red-500 uppercase tracking-widest animate-in fade-in slide-in-from-top-1">
+                                            Enter 10-digit number
+                                        </div>
                                     )}
                                 </div>
                                 {lookupLoading && <span className="text-[10px] font-bold text-gold-400 absolute right-32 bottom-4 uppercase animate-pulse">Syncing...</span>}
@@ -449,47 +416,6 @@ export default function WalkInDetails() {
                                     />
                                 </div>
                             </div>
-
-                            {/* OTP Overlay */}
-                            {showOtp && (
-                                <div className="absolute inset-0 z-[60] flex items-center justify-center rounded-[2.5rem] bg-black/60 backdrop-blur-xl animate-in fade-in duration-300">
-                                    <div className="gn-card w-full max-w-[280px] p-8 space-y-8 border-gold-400/20 shadow-2xl">
-                                        <div className="flex justify-between items-center">
-                                            <div className="space-y-1">
-                                                <h4 className="text-xl font-light text-white">Verify</h4>
-                                                <p className="text-[9px] uppercase tracking-widest font-bold text-gold-100/30">OTP sent to link</p>
-                                            </div>
-                                            <button 
-                                                type="button" 
-                                                onClick={() => setShowOtp(false)} 
-                                                className="text-white/20 hover:text-white p-2 hover:bg-white/5 rounded-xl transition-all"
-                                            >
-                                                <X className="h-5 w-5" />
-                                            </button>
-                                        </div>
-                                        <div className="flex gap-3 justify-center">
-                                            {otp.map((digit, idx) => (
-                                                <input 
-                                                    key={idx} 
-                                                    id={`otp-${idx}`} 
-                                                    type="text" 
-                                                    maxLength={1} 
-                                                    className="h-12 w-10 rounded-xl bg-white/5 border border-white/10 text-center text-xl font-mono text-gold-400 focus:border-gold-400/60 focus:ring-0 outline-none transition-all" 
-                                                    value={digit} 
-                                                    onChange={(e) => handleOtpChange(idx, e.target.value)} 
-                                                />
-                                            ))}
-                                        </div>
-                                        <button 
-                                            type="button" 
-                                            onClick={handleVerifyOtp} 
-                                            className="w-full gn-btn gn-btn--primary py-4 text-sm"
-                                        >
-                                            {verifying ? <Loader2 className="h-5 w-5 animate-spin mx-auto text-black" /> : "Authorize"}
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
 
                             {/* Email */}
                             <div className="space-y-2 relative">

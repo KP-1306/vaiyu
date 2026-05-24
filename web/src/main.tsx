@@ -530,6 +530,11 @@ const router = createBrowserRouter([
           { path: "success", element: <CheckInSuccess /> },
           { path: "walkin", element: <WalkInDetails /> },
           { path: "availability", element: <Availability /> },
+          // Canonical path — avoids the "payment" substring that some
+          // ad-blockers' default filter lists match (causing Chrome to
+          // show "This content is blocked. Contact the site owner").
+          { path: "walk-in/confirm", element: <WalkInPayment /> },
+          // Legacy alias — keeps any bookmarks / in-flight sessions working.
           { path: "walkin-payment", element: <WalkInPayment /> },
         ],
       },

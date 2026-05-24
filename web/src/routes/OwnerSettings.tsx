@@ -167,6 +167,14 @@ export default function OwnerSettings() {
         breakfast_start: sRaw.breakfast_start || "07:00",
         breakfast_end: sRaw.breakfast_end || "10:30",
         guest_notes: sRaw.notes || "",
+
+        // Razorpay fields — load from DB so the panel shows "Configured" on
+        // page reload (previously these were dropped during normalization,
+        // making the panel look like credentials were never saved).
+        razorpay_mode: (hRaw.razorpay_mode ?? "NONE") as "NONE" | "DIRECT" | "ROUTE",
+        razorpay_account_id: hRaw.razorpay_account_id ?? null,
+        razorpay_platform_fee_pct: hRaw.razorpay_platform_fee_pct ?? null,
+        razorpay_direct_key_id: hRaw.razorpay_direct_key_id ?? null,
       };
 
       setHotel(normalizedHotel);

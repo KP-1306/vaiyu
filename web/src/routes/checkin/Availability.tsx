@@ -311,7 +311,10 @@ export default function Availability() {
                 .map(sel => sel.room_type_name)
                 .join(', ');
 
-            navigate({ pathname: "../walkin-payment", search: slug ? `?slug=${slug}` : "" }, {
+            // Use the path-segment URL "/checkin/walk-in/confirm" instead of
+            // "../walkin-payment" — the latter's "payment" substring trips
+            // common ad-blocker filter lists and shows Chrome's "content blocked".
+            navigate({ pathname: "../walk-in/confirm", search: slug ? `?slug=${slug}` : "" }, {
                 state: {
                     guestDetails,
                     stayDetails,

@@ -27,7 +27,7 @@ interface HotelForm {
     timezone: string; currency_code: string;
     tax_percentage: string; service_charge_percentage: string;
     invoice_prefix: string; invoice_counter: string; starting_invoice: string;
-    brand_color: string; upi_id: string; booking_url: string;
+    brand_color: string; booking_url: string;
     amenities: string[];
     // Guest Info
     wifi_ssid?: string;
@@ -254,7 +254,7 @@ export default function HotelOnboarding() {
         timezone: "Asia/Kolkata", currency_code: "INR",
         tax_percentage: "12", service_charge_percentage: "0",
         invoice_prefix: "", invoice_counter: "1", starting_invoice: "",
-        brand_color: "#6366F1", upi_id: "", booking_url: "",
+        brand_color: "#6366F1", booking_url: "",
         amenities: [],
         wifi_ssid: "", wifi_password: "", breakfast_start: "07:00", breakfast_end: "10:30", guest_notes: ""
     }, "vaiyu_ob_form");
@@ -372,7 +372,7 @@ export default function HotelOnboarding() {
             timezone: "Asia/Kolkata", currency_code: "INR",
             tax_percentage: "12", service_charge_percentage: "0",
             invoice_prefix: "", invoice_counter: "1", starting_invoice: "",
-            brand_color: "#6366F1", upi_id: "", booking_url: "",
+            brand_color: "#6366F1", booking_url: "",
             amenities: [],
             wifi_ssid: "", wifi_password: "", breakfast_start: "07:00", breakfast_end: "10:30", guest_notes: ""
         });
@@ -447,7 +447,6 @@ export default function HotelOnboarding() {
             invoice_counter: h.invoice_counter ? String(h.invoice_counter) : "1",
             starting_invoice: "",
             brand_color: h.brand_color || "#6366F1",
-            upi_id: h.upi_id || "",
             booking_url: h.booking_url || "",
             amenities: h.amenities || [],
         });
@@ -1035,7 +1034,7 @@ export default function HotelOnboarding() {
                     service_charge_percentage: form.service_charge_percentage ? +form.service_charge_percentage : null,
                     invoice_prefix: form.invoice_prefix || null,
                     invoice_counter: form.starting_invoice ? parseInt(form.starting_invoice) : (form.invoice_counter ? parseInt(form.invoice_counter) : 1),
-                    brand_color: form.brand_color || null, upi_id: form.upi_id.trim() || null,
+                    brand_color: form.brand_color || null,
                     booking_url: form.booking_url.trim() || null,
                     logo_path: form.logo_url.trim() || null, cover_image_path: form.cover_image_url.trim() || null,
                     amenities: form.amenities.length > 0 ? form.amenities : null,
@@ -1834,17 +1833,12 @@ export default function HotelOnboarding() {
                                         </div>
                                     </Section>
 
-                                    {/* Payment */}
-                                    <Section emoji="💳" title="Payment">
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <label className={labelCls}>UPI ID</label>
-                                                <input className={inputCls} value={form.upi_id} onChange={e => set("upi_id", e.target.value)} placeholder="hotel@paytm" />
-                                            </div>
-                                            <div>
-                                                <label className={labelCls}>Booking URL</label>
-                                                <input className={inputCls} value={form.booking_url} onChange={e => set("booking_url", e.target.value)} placeholder="https://booking.hotel.com" />
-                                            </div>
+                                    {/* Booking URL */}
+                                    <Section emoji="🔗" title="External Booking">
+                                        <div>
+                                            <label className={labelCls}>Booking URL</label>
+                                            <input className={inputCls} value={form.booking_url} onChange={e => set("booking_url", e.target.value)} placeholder="https://booking.hotel.com" />
+                                            <p className="mt-1 text-xs text-slate-500">Optional. Online payments are configured later from Owner Settings → Integrations (Razorpay).</p>
                                         </div>
                                     </Section>
 

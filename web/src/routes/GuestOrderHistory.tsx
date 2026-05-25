@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { ArrowLeft, Receipt, Clock, ChevronRight, ShoppingBag, Utensils, IndianRupee } from "lucide-react";
-import QRCode from "react-qr-code";
 
 type OrderHistoryItem = {
     order_id: string;
@@ -25,7 +24,7 @@ export default function GuestOrderHistory() {
     const [orders, setOrders] = useState<OrderHistoryItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [bookingCode, setBookingCode] = useState<string | null>(null);
-    const [hotelInfo, setHotelInfo] = useState<{ name: string; upi_id: string | null } | null>(null);
+    const [hotelInfo, setHotelInfo] = useState<{ name: string } | null>(null);
     const [totalPaid, setTotalPaid] = useState(0);
 
     useEffect(() => {
@@ -53,10 +52,10 @@ export default function GuestOrderHistory() {
 
             if (stayError || !stayData) return;
 
-            // 2. Fetch hotel UPI info
+            // 2. Fetch hotel name (for display only — payments go through Razorpay)
             const { data: hotelData } = await supabase
                 .from('hotels')
-                .select('name, upi_id')
+                .select('name')
                 .eq('id', (stayData as any).hotel_id)
                 .single();
 
@@ -160,8 +159,8 @@ export default function GuestOrderHistory() {
                         </div>
                     )}
 
-                    {/* UPI QR Code or Paid Badge */}
-                    {isFullyPaid ? (
+                    {/* Paid Badge — for unpaid balance, guest pays via Razorpay on the Bills page */}
+                    {isFullyPaid && (
                         <div className="mt-6 pt-6 border-t border-white/10 flex flex-col items-center animate-in fade-in slide-in-from-bottom-4">
                             <div className="bg-emerald-500/20 text-emerald-400 p-4 rounded-full mb-3 border border-emerald-500/30 ring-4 ring-emerald-500/10">
                                 <Receipt size={32} />
@@ -169,22 +168,6 @@ export default function GuestOrderHistory() {
                             <h3 className="text-lg font-semibold text-white mb-1">Payment Complete</h3>
                             <p className="text-sm text-slate-400">All orders have been settled.</p>
                         </div>
-                    ) : (
-                        hotelInfo?.upi_id && netPayable > 0 && (
-                            <div className="mt-6 pt-6 border-t border-white/10 flex flex-col items-center">
-                                <div className="bg-white p-3 rounded-xl shadow-lg mb-3">
-                                    <QRCode
-                                        value={`upi://pay?pa=${hotelInfo.upi_id}&pn=${encodeURIComponent(hotelInfo.name)}&am=${netPayable}&cu=${currency}`}
-                                        size={140}
-                                        style={{ height: "auto", maxWidth: "100%", width: "100%" }}
-                                        viewBox={`0 0 256 256`}
-                                    />
-                                </div>
-                                <p className="text-xs text-emerald-400 font-medium flex items-center gap-1">
-                                    <IndianRupee size={12} /> Scan to pay {new Intl.NumberFormat('en-IN', { style: 'currency', currency }).format(netPayable)}
-                                </p>
-                            </div>
-                        )
                     )}
                 </div>
 

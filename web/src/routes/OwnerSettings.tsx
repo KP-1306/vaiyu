@@ -25,7 +25,6 @@ type Hotel = {
   email?: string;
   logo_url?: string;
   theme?: Theme;
-  upi_id?: string;
 
   // Newly Added Fields from Onboarding
   default_checkin_time?: string;
@@ -151,7 +150,6 @@ export default function OwnerSettings() {
         email: sRaw.contact_email || hRaw.email || "",
         logo_url: sRaw.logo_url || hRaw.logo_url || "",
         theme: { brand: themeBrand, mode: themeMode },
-        upi_id: hRaw.upi_id || "",
 
         // Operations & Tax Fields
         default_checkin_time: hRaw.default_checkin_time || "14:00",
@@ -252,7 +250,6 @@ export default function OwnerSettings() {
         email: hotel.email?.trim(),
         logo_url: hotel.logo_url?.trim(),
         theme: hotel.theme,
-        upi_id: hotel.upi_id?.trim(),
 
         // Operations & Tax
         default_checkin_time: hotel.default_checkin_time,
@@ -290,7 +287,6 @@ export default function OwnerSettings() {
           email: hotelPayload.email,
           logo_path: hotelPayload.logo_url, // Map to RPC arg name
           theme: hotelPayload.theme,
-          upi_id: hotelPayload.upi_id,
 
           // Operations & Tax
           default_checkin_time: hotelPayload.default_checkin_time,
@@ -776,41 +772,9 @@ export default function OwnerSettings() {
                   </div>
                 </section>
 
-                {/* UPI / Payment Settings */}
+                {/* Integrations — payments + messaging */}
                 <section className="rounded-2xl border border-white/10 bg-white/5 p-5 sm:p-6 space-y-4">
-                  <div className="font-semibold">Payments &amp; UPI</div>
-                  <div className="grid md:grid-cols-2 gap-3 items-start">
-                    <div>
-                      <label className="text-sm font-medium text-slate-200 block">
-                        UPI ID / VPA
-                        <input
-                          className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
-                          value={hotel.upi_id || ""}
-                          onChange={(e) => patchHotel("upi_id", e.target.value)}
-                          placeholder="e.g. business@upi"
-                        />
-                      </label>
-                      <p className="text-xs text-slate-400 mt-1">
-                        This UPI ID will be used to generate payment QR codes for guest bills.
-                      </p>
-                    </div>
-                    <div className="flex flex-col items-center justify-center p-4 border rounded bg-white/5">
-                      {hotel.upi_id ? (
-                        <>
-                          <img
-                            src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(
-                              `upi://pay?pa=${hotel.upi_id}&pn=${encodeURIComponent(hotel.name)}&cu=INR`
-                            )}`}
-                            alt="UPI QR Preview"
-                            className="w-32 h-32"
-                          />
-                          <span className="text-xs text-green-600 mt-2 font-medium">Preview</span>
-                        </>
-                      ) : (
-                        <span className="text-xs text-slate-500 italic">Enter UPI ID to see QR preview</span>
-                      )}
-                    </div>
-                  </div>
+                  <div className="font-semibold">Integrations</div>
 
                   {/* WhatsApp — per-hotel Meta Business config */}
                   <div className="mt-6">

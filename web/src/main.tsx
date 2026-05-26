@@ -151,6 +151,8 @@ const DeskTickets = lazy(() => import("./routes/desk/Tickets"));
 const Owner = lazy(() => import("./routes/Owner"));
 const OwnerDashboard = lazy(() => import("./routes/OwnerDashboard"));
 const OwnerArrivals = lazy(() => import("./routes/OwnerArrivals"));
+const OwnerLeads = lazy(() => import("./routes/owner/Leads"));
+const PublicLeadCapture = lazy(() => import("./routes/PublicLeadCapture"));
 const OwnerSettings = lazy(() => import("./routes/OwnerSettings"));
 const OwnerServices = lazy(() => import("./routes/OwnerServices"));
 const OwnerReviews = lazy(() => import("./routes/OwnerReviews"));
@@ -491,6 +493,8 @@ const router = createBrowserRouter([
       // Guest / Journey
       { path: "scan", element: <Scan /> },
       { path: "hotel/:slug", element: <Hotel /> },
+      // Public lead-capture (anonymous) — Day 11
+      { path: "p/:hotelSlug/enquire", element: <PublicLeadCapture /> },
       { path: "menu", element: <FoodMenu /> },
       { path: "stay/:code/menu", element: <FoodMenu /> },
       { path: "stay/:code/orders", element: <GuestOrderHistory /> },
@@ -680,6 +684,14 @@ const router = createBrowserRouter([
         element: (
           <AuthGate>
             <OwnerArrivals />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/:slug/leads",
+        element: (
+          <AuthGate>
+            <OwnerLeads />
           </AuthGate>
         ),
       },

@@ -37,6 +37,7 @@ import SlaPerformanceChart from "../components/analytics/SlaPerformanceChart";
 import TaskVolumeChart from "../components/analytics/TaskVolumeChart";
 import { getDashboardMetrics, type DashboardMetrics } from "../lib/dashboardApi";
 import { getOutstandingBalanceSummary, type OutstandingBalanceSummary, getHousekeepingSummary, type HousekeepingSummary, getArrivalsForecast, type ForecastSummary } from "../services/financeService";
+import { LeadsSummaryCard } from "../components/owner/LeadsSummaryCard";
 import { listPendingExtensions } from "../services/stayExtensionService";
 import { getPricingSettings, listPricingRules } from "../services/pricingService";
 import { Wallet, Sparkles, CalendarPlus, Tag } from "lucide-react";
@@ -1298,6 +1299,10 @@ export default function OwnerDashboard() {
                 <div className="text-lg mb-1">🧹</div>
                 <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">HK</div>
               </Link>
+              <Link to={`/owner/${hotel.slug}/leads`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
+                <div className="text-lg mb-1">📞</div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Leads</div>
+              </Link>
 
               <Link to={`/checkin?slug=${encodeURIComponent(hotel.slug)}`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
                 <div className="text-lg mb-1">🛎️</div>
@@ -1628,6 +1633,9 @@ export default function OwnerDashboard() {
             {canSee(currentRole, 'finance') && (
               <OutstandingBalanceCard summary={outstandingBalance} hotelSlug={hotel.slug} />
             )}
+
+            {/* Day 11 — Open leads summary widget */}
+            <LeadsSummaryCard hotelId={hotel.id} hotelSlug={hotel.slug} />
 
             <div
               role="button"

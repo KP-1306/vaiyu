@@ -26,3 +26,9 @@ verify_jwt = false
 # verified against each hotel's per-hotel webhook secret.
 [functions.razorpay-direct-webhook]
 verify_jwt = false
+
+# Day 11 — public lead capture for hotel website enquiry forms.
+# No JWT required; relies on rate-limiting via api_hits + create_lead_public
+# RPC's SECURITY DEFINER + source/hotel validation. CORS open by design.
+[functions.leads-public-capture]
+verify_jwt = false

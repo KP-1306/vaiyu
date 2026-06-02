@@ -73,6 +73,12 @@ export function VisibilityScoreCard({ hotelId, hotelSlug }: Props) {
   const latest = snapshots[0];
   const prior = snapshots[1];
   const delta = latest && prior ? Math.round((latest.total_score - prior.total_score) * 10) / 10 : null;
+  // A brand-new hotel will see its first snapshot land days after onboarding,
+  // and the second snapshot a week later. Until then, the score is jittery —
+  // a -4.5 delta against a near-zero prior reads as "I'm getting worse" when
+  // it actually means "I just started." Surface that explicitly when there
+  // are fewer than 3 snapshots so the operator doesn't misread the trend.
+  const stillStabilizing = snapshots.length > 0 && snapshots.length < 3;
 
   const ringRadius = 28;
   const ringCircumference = 2 * Math.PI * ringRadius;
@@ -129,7 +135,16 @@ export function VisibilityScoreCard({ hotelId, hotelSlug }: Props) {
               {breakdown.max_unlockable_weight} pts pending data
             </div>
           )}
-          {delta !== null && delta !== 0 && (
+          {/* Delta chip and stabilization hint are mutually exclusive. While
+              the hotel is still in its first 3 snapshots, the prior baseline
+              is mostly noise (zeros + onboarding) — a red "-4.5" chip there
+              reads as "you're regressing" when it actually means "you just
+              started". Show *only* the stabilization hint in that window. */}
+          {stillStabilizing ? (
+            <div className="mt-1.5 text-[10px] text-slate-500 leading-snug">
+              Score stabilizes after the first 7 days of snapshots.
+            </div>
+          ) : delta !== null && delta !== 0 ? (
             <div
               className={`mt-1 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] ${
                 delta > 0
@@ -140,13 +155,12 @@ export function VisibilityScoreCard({ hotelId, hotelSlug }: Props) {
               {delta > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
               <span>{delta > 0 ? `+${delta}` : delta} since last snapshot</span>
             </div>
-          )}
-          {delta === 0 && (
+          ) : delta === 0 ? (
             <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-slate-500/10 px-1.5 py-0.5 text-[10px] text-slate-300">
               <Minus className="h-3 w-3" />
               <span>No change since last snapshot</span>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     </Link>

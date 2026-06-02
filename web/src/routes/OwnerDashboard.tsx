@@ -1261,9 +1261,17 @@ export default function OwnerDashboard() {
               <div className="h-10 w-10 shrink-0 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30 text-lg">
                 {shiftIcon}
               </div>
-              <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight truncate">
-                  {shiftGreeting}, <span className="text-emerald-400 font-extrabold">{hotel.name}</span>
+              <div className="min-w-0 flex-1">
+                {/* Mobile-first: the time-of-day greeting + hotel name
+                    combined was overflowing the 375px viewport ("Good
+                    afternoo…"). Below sm we drop the greeting prefix
+                    entirely and let the hotel name take the full width with
+                    a 2-line clamp; from sm up we restore the full greeting.
+                    Long real hotel names ("The Himalayan Boutique Stay")
+                    fit cleanly in both. */}
+                <h1 className="text-base sm:text-xl font-bold text-white tracking-tight leading-tight line-clamp-2">
+                  <span className="hidden sm:inline">{shiftGreeting}, </span>
+                  <span className="text-emerald-400 font-extrabold">{hotel.name}</span>
                 </h1>
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5 text-[11px] sm:text-xs text-slate-500">
                   {hotel.city && <span className="truncate">{hotel.city}</span>}
@@ -1292,7 +1300,7 @@ export default function OwnerDashboard() {
 
         </header>
 
-        <div className="mt-6 flex flex-col lg:grid gap-6 lg:grid-cols-[200px,1fr] xl:grid-cols-[200px,1fr,300px]">
+        <div className="mt-6 flex flex-col lg:grid gap-6 lg:grid-cols-[180px,1fr,260px] xl:grid-cols-[200px,1fr,300px]">
           {/* ─── Left Nav (grouped) ─── */}
           <aside className="hidden lg:block space-y-4 sticky top-24 self-start">
             <SidebarNav slug={hotel.slug} />
@@ -1301,116 +1309,42 @@ export default function OwnerDashboard() {
           {/* ─── Main Content ─── */}
           <section className="min-w-0 flex flex-col gap-5">
             {/* 🆕 Mobile Quick Navigation Hub */}
-            <div className="grid grid-cols-2 gap-3 lg:hidden">
-              <Link to={`/owner/${hotel.slug}/analytics`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
-                <div className="text-lg mb-1">📊</div>
-                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Owner Analytics</div>
+            {/* Mobile quick-tile grid — was 14 tiles in 2 cols, which meant
+                operators scrolled past the entire app menu before seeing today's
+                revenue. The hamburger button in the header already opens the
+                full SidebarNav drawer; this grid now surfaces the four highest-
+                frequency front-desk actions plus a "More" tile that opens that
+                same drawer. Anything beyond these four is one extra tap, not a
+                lost feature. */}
+            <div className="grid grid-cols-3 gap-2 lg:hidden">
+              <Link to={`/checkin?slug=${encodeURIComponent(hotel.slug)}`} className="flex flex-col items-center justify-center px-2 py-3 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
+                <div className="text-base mb-0.5">🛎️</div>
+                <div className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Front Desk</div>
               </Link>
-              <Link to={`/ops?slug=${encodeURIComponent(hotel.slug)}`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
-                <div className="text-lg mb-1">🕹️</div>
-                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Ops Board</div>
+              <Link to={`/owner/${hotel.slug}/arrivals`} className="flex flex-col items-center justify-center px-2 py-3 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
+                <div className="text-base mb-0.5">🛬</div>
+                <div className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Arrivals</div>
               </Link>
-
-              <Link to={`/owner/${hotel.slug}/arrivals`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
-                <div className="text-lg mb-1">🛬</div>
-                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Arrivals</div>
+              <Link to={`/owner/${hotel.slug}/housekeeping`} className="flex flex-col items-center justify-center px-2 py-3 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
+                <div className="text-base mb-0.5">🧹</div>
+                <div className="text-[9px] font-bold uppercase tracking-widest text-slate-400">HK</div>
               </Link>
-              <Link to={`/owner/${hotel.slug}/housekeeping`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
-                <div className="text-lg mb-1">🧹</div>
-                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">HK</div>
+              <Link to={`/ops?slug=${encodeURIComponent(hotel.slug)}`} className="flex flex-col items-center justify-center px-2 py-3 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
+                <div className="text-base mb-0.5">🕹️</div>
+                <div className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Ops Board</div>
               </Link>
-              <Link to={`/owner/${hotel.slug}/leads`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
-                <div className="text-lg mb-1">📞</div>
-                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Leads</div>
+              <Link to={`/owner/${hotel.slug}/leads`} className="flex flex-col items-center justify-center px-2 py-3 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
+                <div className="text-base mb-0.5">📞</div>
+                <div className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Leads</div>
               </Link>
-              {FOLLOW_UP_RADAR_V0_ENABLED && (
-                <Link to={`/owner/${hotel.slug}/follow-up`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
-                  <div className="text-lg mb-1">📡</div>
-                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Radar</div>
-                </Link>
-              )}
-              {AI_QUOTE_DRAFTS_V0_ENABLED && (
-                <Link to={`/owner/${hotel.slug}/quote-drafts`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
-                  <div className="text-lg mb-1">📝</div>
-                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Quotes</div>
-                </Link>
-              )}
-              {DRIP_ENGINE_V1_ENABLED && (
-                <Link to={`/owner/${hotel.slug}/drip`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
-                  <div className="text-lg mb-1">✉️</div>
-                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Drips</div>
-                </Link>
-              )}
-              {PARTNER_NETWORK_V1_ENABLED && (
-                <Link to={`/owner/${hotel.slug}/partners`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
-                  <div className="text-lg mb-1">🤝</div>
-                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Partners</div>
-                </Link>
-              )}
-              {DIGITAL_ASSET_MANAGER_V0_ENABLED && (
-                <Link to={`/owner/${hotel.slug}/assets`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
-                  <div className="text-lg mb-1">📷</div>
-                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Assets</div>
-                </Link>
-              )}
-              {LOCAL_SEO_LANDING_PLANNER_V0_ENABLED && (
-                <Link to={`/owner/${hotel.slug}/seo-planner`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
-                  <div className="text-lg mb-1">🛡️</div>
-                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">SEO Plan</div>
-                </Link>
-              )}
-              {VISIBILITY_SCORE_ENABLED && (
-                <Link to={`/owner/${hotel.slug}/visibility`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
-                  <div className="text-lg mb-1">📊</div>
-                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Visibility</div>
-                </Link>
-              )}
-              <Link to={`/owner/${hotel.slug}/whatsapp`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
-                <div className="text-lg mb-1">💬</div>
-                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">WhatsApp</div>
-              </Link>
-              {SEASONAL_DEMAND_CALENDAR_V0_ENABLED && (
-                <Link to={`/owner/${hotel.slug}/seasonal`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
-                  <div className="text-lg mb-1">📅</div>
-                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Seasonal</div>
-                </Link>
-              )}
-
-              <Link to={`/checkin?slug=${encodeURIComponent(hotel.slug)}`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
-                <div className="text-lg mb-1">🛎️</div>
-                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Front Desk</div>
-              </Link>
-              <Link to={`/owner/${hotel.slug}/import-bookings`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
-                <div className="text-lg mb-1">📥</div>
-                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Bookings</div>
-              </Link>
-
-              {/* <Link to={`/owner/${hotel.slug}/payments`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
-                <div className="text-lg mb-1">💰</div>
-                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Finance</div>
-              </Link> */}
-              <Link to={`/owner/${hotel.slug}/staff-shifts`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
-                <div className="text-lg mb-1">👥</div>
-                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Staff</div>
-              </Link>
-
-              <Link to={`/owner/services?slug=${encodeURIComponent(hotel.slug)}`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
-                <div className="text-lg mb-1">🏢</div>
-                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Depts</div>
-              </Link>
-              <Link to="/kitchen" className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
-                <div className="text-lg mb-1">🍳</div>
-                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Kitchen</div>
-              </Link>
-
-              <Link to={`/owner/${hotel.slug}/settings`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
-                <div className="text-lg mb-1">⚙️</div>
-                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Settings</div>
-              </Link>
-              <Link to="/owner" className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
-                <div className="text-lg mb-1">🔄</div>
-                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Switch</div>
-              </Link>
+              <button
+                type="button"
+                onClick={() => setShowMobileNav(true)}
+                className="flex flex-col items-center justify-center px-2 py-3 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] hover:bg-emerald-500/15 transition-colors text-emerald-300"
+              >
+                <div className="text-base mb-0.5">▤</div>
+                <div className="text-[9px] font-bold uppercase tracking-widest">More menu</div>
+              </button>
             </div>
 
             {/* 🎯 Attention Strip — what needs me right now (or collapsed all-clear) */}
@@ -1447,43 +1381,74 @@ export default function OwnerDashboard() {
             {/* Housekeeping board glance — inventory health */}
             <HousekeepingStrip summary={housekeeping} hotelSlug={hotel.slug} />
 
-            {/* Ops at a glance — compact secondary strip; preserves drawer entry points */}
-            <div className="grid gap-2 grid-cols-2 lg:grid-cols-4">
-              <OpsChip
-                label="Active Tasks"
-                value={`${tasksTotal}`}
-                sub={tasksTotal === 0 ? "All clear" : "Open requests"}
-                tone={tasksTotal > 0 ? "amber" : "neutral"}
-                icon={Clock}
+            {/* Ops at a glance — compact secondary strip; preserves drawer entry points.
+                When every metric is zero/null (a brand-new hotel or a quiet day),
+                collapse to a single ribbon-pill instead of paying full pixel rent
+                for "0 · 0 · — · —". Click drops the operator into the same drawer
+                as the expanded version. */}
+            {(tasksTotal === 0 && tasksAtRisk === 0 && avgResponseMin == null && !guestPrimary) ? (
+              <button
+                type="button"
                 onClick={() => setActiveDrawer('tasks')}
-              />
-              <OpsChip
-                label="At Risk"
-                value={`${tasksAtRisk}`}
-                sub={tasksAtRisk === 0 ? "Under SLA" : "Exceeding targets"}
-                tone={tasksAtRisk > 0 ? "rose" : "neutral"}
-                icon={AlertTriangle}
-                onClick={() => setActiveDrawer('atRisk')}
-              />
-              <OpsChip
-                label="Avg Response"
-                value={avgResponseMin == null ? "—" : `${avgResponseMin}m`}
-                sub={avgResponseMin == null ? "Awaiting first ticket" : "SLA performance"}
-                tone="neutral"
-                icon={LayoutDashboard}
-                onClick={() => setActiveDrawer('sla')}
-              />
-              <OpsChip
-                label="Guest Satisfaction"
-                value={guestPrimary ?? "—"}
-                sub={typeof npsScore === "number" && (npsResponses ?? 0) > 0 ? `NPS · ${npsResponses} res` : typeof avgRating30d === "number" ? "Avg rating" : "First ratings appear here"}
-                tone={guestTone === "green" ? "emerald" : guestTone === "amber" ? "amber" : guestTone === "red" ? "rose" : "neutral"}
-                icon={MessageSquare}
-                onClick={() => setActiveDrawer('satisfaction')}
-              />
-            </div>
+                className="self-start inline-flex items-center gap-3 px-3.5 py-2 rounded-xl border border-slate-800/60 bg-[#151A25] hover:bg-slate-800/40 transition-colors text-left"
+              >
+                <Clock size={14} className="text-slate-500" />
+                <div className="flex items-baseline gap-2">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Service ops</span>
+                  <span className="text-xs text-slate-500">all quiet · 0 open · — avg · awaiting first rating</span>
+                </div>
+              </button>
+            ) : (
+              <div className="grid gap-2 grid-cols-2 lg:grid-cols-4">
+                <OpsChip
+                  label="Active Tasks"
+                  value={`${tasksTotal}`}
+                  sub={tasksTotal === 0 ? "All clear" : "Open requests"}
+                  tone={tasksTotal > 0 ? "amber" : "neutral"}
+                  icon={Clock}
+                  onClick={() => setActiveDrawer('tasks')}
+                />
+                <OpsChip
+                  label="At Risk"
+                  value={`${tasksAtRisk}`}
+                  sub={tasksAtRisk === 0 ? "Under SLA" : "Exceeding targets"}
+                  tone={tasksAtRisk > 0 ? "rose" : "neutral"}
+                  icon={AlertTriangle}
+                  onClick={() => setActiveDrawer('atRisk')}
+                />
+                <OpsChip
+                  label="Avg Response"
+                  value={avgResponseMin == null ? "—" : `${avgResponseMin}m`}
+                  sub={avgResponseMin == null ? "Awaiting first ticket" : "SLA performance"}
+                  tone="neutral"
+                  icon={LayoutDashboard}
+                  onClick={() => setActiveDrawer('sla')}
+                />
+                <OpsChip
+                  label="Guest Satisfaction"
+                  value={guestPrimary ?? "—"}
+                  sub={typeof npsScore === "number" && (npsResponses ?? 0) > 0 ? `NPS · ${npsResponses} res` : typeof avgRating30d === "number" ? "Avg rating" : "First ratings appear here"}
+                  tone={guestTone === "green" ? "emerald" : guestTone === "amber" ? "amber" : guestTone === "red" ? "rose" : "neutral"}
+                  icon={MessageSquare}
+                  onClick={() => setActiveDrawer('satisfaction')}
+                />
+              </div>
+            )}
 
-            {/* 🔄 Priority 3: Operations Pulse (Active Tasks + Trend) */}
+            {/* 🔄 Priority 3: Operations Pulse (Active Tasks + Trend).
+                Same all-zero-collapse policy as Service Ops and HK: when
+                Shift Workload has all three counts at zero AND Operations
+                Pulse has no hourly data, the whole grid is dead weight. Skip
+                it entirely — the Service Ops pill above already conveys the
+                "nothing happening" signal once. */}
+            {(() => {
+              const tv = ((metrics as any)?.taskVolume ?? []) as any[];
+              const hasMeaningfulPulse = tv.some((p: any) => (p?.count ?? 0) > 0);
+              const allWorkloadZero = tasksTotal === 0 && tasksAtRisk === 0 && (blockedCount ?? 0) === 0;
+              if (allWorkloadZero && !hasMeaningfulPulse) {
+                return null;
+              }
+              return (
             <div className="grid gap-4 xl:grid-cols-3">
               <DarkCard className="p-5">
                 <CardHeader
@@ -1507,38 +1472,47 @@ export default function OwnerDashboard() {
                   title="Operations Pulse"
                   subtitle="Request volume (live data)"
                   right={
-                    <div className="flex items-center gap-2">
-                      <MiniBadge label={`${tasksAtRisk} at risk`} tone={tasksAtRisk > 0 ? "amber" : "grey"} />
-                      <MiniBadge label={`Occ ${occPct || 0}%`} tone={occupancyTone(occPct)} />
-                    </div>
+                    /* Only render badges when they carry signal — a "0 at
+                       risk · Occ 0%" pair is noise that competes for the eye
+                       with the actual chart. */
+                    (tasksAtRisk > 0 || occPct > 0) ? (
+                      <div className="flex items-center gap-2">
+                        {tasksAtRisk > 0 && <MiniBadge label={`${tasksAtRisk} at risk`} tone="amber" />}
+                        {occPct > 0 && <MiniBadge label={`Occ ${occPct}%`} tone={occupancyTone(occPct)} />}
+                      </div>
+                    ) : null
                   }
                 />
                 <div className="mt-3">
-                  {(() => {
-                    const tv = ((metrics as any)?.taskVolume ?? []) as any[];
-                    // "Has data" means at least one hourly bucket > 0 — not just
-                    // a non-empty zero-padded array (which would render a flat
-                    // zero-line chart taking up 200px+ of dead space).
-                    const hasMeaningfulData = tv.some((p: any) => (p?.count ?? 0) > 0);
-                    if (hasMeaningfulData) {
-                      return <TaskVolumeChart data={tv} loading={!metrics} />;
-                    }
-                    return (
-                      <div className="rounded-xl border border-dashed border-slate-700 bg-[#0B0E14] px-4 py-3 flex items-center gap-3">
-                        <div className="text-lg">📊</div>
-                        <div className="text-xs text-slate-400">
-                          No request volume today. The hourly chart will appear once tickets start flowing.
-                        </div>
+                  {hasMeaningfulPulse ? (
+                    <TaskVolumeChart data={tv} loading={!metrics} />
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-slate-700 bg-[#0B0E14] px-4 py-3 flex items-center gap-3">
+                      <div className="text-lg">📊</div>
+                      <div className="text-xs text-slate-400">
+                        No request volume today. The hourly chart will appear once tickets start flowing.
                       </div>
-                    );
-                  })()}
+                    </div>
+                  )}
                 </div>
               </DarkCard>
             </div>
+              );
+            })()}
 
-            {/* 📋 Priority 4: Task Summary + Issue Breakdown */}
-            <div className="grid gap-4 xl:grid-cols-3">
-              <DarkCard className="p-5 xl:col-span-2">
+            {/* 📋 Priority 4: Task Summary + Issue Breakdown.
+                Issue Breakdown is a *derivative* view of liveTasks — when
+                there's nothing to break down AND no feedback to show, the
+                whole card is dead weight. Drop it from the grid and let
+                Live Requests span full width in that case. */}
+            {(() => {
+              const showIssueBreakdown =
+                liveTasks.length > 0
+                || (typeof npsScore === "number" && (npsResponses ?? 0) > 0)
+                || typeof avgRating30d === "number";
+              return (
+            <div className={`grid gap-4 ${showIssueBreakdown ? "xl:grid-cols-3" : ""}`}>
+              <DarkCard className={`p-5 ${showIssueBreakdown ? "xl:col-span-2" : ""}`}>
                 <CardHeader
                   title="Live Requests"
                   subtitle="Latest open service requests"
@@ -1550,9 +1524,9 @@ export default function OwnerDashboard() {
                 />
                 <div className="mt-3">
                   {liveTasks.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-slate-700 bg-[#0B0E14] p-6 text-center">
-                      <div className="text-2xl mb-2">✅</div>
-                      <div className="text-sm text-slate-400">No live requests right now. Operations are running smoothly.</div>
+                    <div className="rounded-xl border border-dashed border-slate-700 bg-[#0B0E14] px-4 py-3 flex items-center gap-3">
+                      <div className="text-lg">✅</div>
+                      <div className="text-xs text-slate-400">No live requests right now — operations are running smoothly.</div>
                     </div>
                   ) : (
                     <DarkTable>
@@ -1588,6 +1562,7 @@ export default function OwnerDashboard() {
                 </div>
               </DarkCard>
 
+              {showIssueBreakdown && (
               <DarkCard className="p-5">
                 <CardHeader title="Issue Breakdown" subtitle="Open requests by state" />
                 <div className="mt-3">
@@ -1623,30 +1598,39 @@ export default function OwnerDashboard() {
                   </div>
                 </div>
               </DarkCard>
+              )}
             </div>
+              );
+            })()}
 
-            {/* 📈 Priority 5: SLA Performance + AI Ops */}
-            <div className="grid gap-4 xl:grid-cols-3">
-              <DarkCard className="p-5 xl:col-span-2">
-                <CardHeader
-                  title="SLA Performance"
-                  subtitle={`Resolution trend (target ${targetMin}m)`}
-                  right={
-                    slaPct == null ? <MiniBadge label="SLA —" tone="grey" /> : <MiniBadge label={`SLA ${slaPct}%`} tone={slaToneLevel} />
-                  }
-                />
-                <div className="mt-3">
-                  {hasSeries(slaSeries) ? (
-                    <SlaPerformanceChart data={slaSeries || []} loading={!metrics} />
-                  ) : (
-                    <div className="rounded-xl border border-dashed border-slate-700 bg-[#0B0E14] p-8 text-center">
-                      <div className="text-2xl mb-2">📉</div>
-                      <div className="text-sm text-slate-400">SLA performance data will appear after service requests are processed.</div>
-                    </div>
-                  )}
-                </div>
-              </DarkCard>
-            </div>
+            {/* 📈 Priority 5: SLA Performance — only render when there's something
+                to show. On a brand-new hotel with zero tickets, the empty
+                200px chart placeholder makes the dashboard read "broken" rather
+                than "new". Skip the section entirely until either live data
+                or historical series exists. */}
+            {(hasSeries(slaSeries) || liveTasks.length > 0) && (
+              <div className="grid gap-4 xl:grid-cols-3">
+                <DarkCard className="p-5 xl:col-span-2">
+                  <CardHeader
+                    title="SLA Performance"
+                    subtitle={`Resolution trend (target ${targetMin}m)`}
+                    right={
+                      slaPct == null ? <MiniBadge label="SLA —" tone="grey" /> : <MiniBadge label={`SLA ${slaPct}%`} tone={slaToneLevel} />
+                    }
+                  />
+                  <div className="mt-3">
+                    {hasSeries(slaSeries) ? (
+                      <SlaPerformanceChart data={slaSeries || []} loading={!metrics} />
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-slate-700 bg-[#0B0E14] px-4 py-3 flex items-center gap-3">
+                        <div className="text-lg">📉</div>
+                        <div className="text-xs text-slate-400">SLA trend appears after a few tickets are processed.</div>
+                      </div>
+                    )}
+                  </div>
+                </DarkCard>
+              </div>
+            )}
               </>
             )}
           </section>
@@ -1668,27 +1652,45 @@ export default function OwnerDashboard() {
             >
               <DarkCard className="p-4 hover:border-slate-700 transition-colors">
                 <CardHeader title="Today's Snapshot" subtitle={`Guest flow · ${dateLabel}`} />
-                <div className="mt-3 flex flex-col gap-2">
-                  <SnapshotRow
-                    label="Arrivals today"
-                    hint="Expected check-ins"
-                    value={arrivalsCount}
-                    dotClass={arrivalsCount > 0 ? "bg-blue-400" : "bg-slate-600"}
-                  />
-                  <SnapshotRow
-                    label="In-house now"
-                    hint="Guests physically checked in"
-                    value={Array.isArray(inhouse) ? inhouse.length : 0}
-                    dotClass={(Array.isArray(inhouse) && inhouse.length > 0) ? "bg-emerald-400" : "bg-slate-600"}
-                    tone="emerald"
-                  />
-                  <SnapshotRow
-                    label="Departures today"
-                    hint="Expected check-outs"
-                    value={departuresCount}
-                    dotClass={departuresCount > 0 ? "bg-amber-400" : "bg-slate-600"}
-                  />
-                </div>
+                {(() => {
+                  const inhouseCount = Array.isArray(inhouse) ? inhouse.length : 0;
+                  const allZero = arrivalsCount === 0 && inhouseCount === 0 && departuresCount === 0;
+                  // Quiet-day collapse — three rows of "0 / 0 / 0" carries no
+                  // signal beyond what a one-line summary conveys. Compact it
+                  // so the right rail uses ~30px instead of ~140px for the
+                  // same information density.
+                  if (allZero) {
+                    return (
+                      <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-800/60 bg-[#0B0E14]">
+                        <span className="h-1.5 w-1.5 rounded-full bg-slate-600" />
+                        <span className="text-xs text-slate-400">Quiet day · no arrivals, in-house, or departures</span>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="mt-3 flex flex-col gap-2">
+                      <SnapshotRow
+                        label="Arrivals today"
+                        hint="Expected check-ins"
+                        value={arrivalsCount}
+                        dotClass={arrivalsCount > 0 ? "bg-blue-400" : "bg-slate-600"}
+                      />
+                      <SnapshotRow
+                        label="In-house now"
+                        hint="Guests physically checked in"
+                        value={inhouseCount}
+                        dotClass={inhouseCount > 0 ? "bg-emerald-400" : "bg-slate-600"}
+                        tone="emerald"
+                      />
+                      <SnapshotRow
+                        label="Departures today"
+                        hint="Expected check-outs"
+                        value={departuresCount}
+                        dotClass={departuresCount > 0 ? "bg-amber-400" : "bg-slate-600"}
+                      />
+                    </div>
+                  );
+                })()}
                 {/* Reconciliation note: a pending departure must be in-house — if not, flag it */}
                 {departuresCount > 0 && (Array.isArray(inhouse) ? inhouse.length : 0) === 0 && (
                   <div className="mt-3 flex items-start gap-2 px-3 py-2 rounded-lg border border-amber-500/20 bg-amber-500/5 text-[11px] leading-snug text-amber-200/90">
@@ -1754,31 +1756,20 @@ export default function OwnerDashboard() {
               </DarkCard>
             )}
 
-            {HAS_WORKFORCE && canSee(currentRole, 'hr') && (
+            {/* Workforce card — suppressed entirely when there are no jobs to
+                show. A "Not available" stub on a brand-new hotel is dead pixel
+                weight in the right rail; if the feature has no data, it should
+                not occupy a slot. The card reappears as soon as a job exists. */}
+            {HAS_WORKFORCE && canSee(currentRole, 'hr') && !workforceLoading && (workforceJobs?.length ?? 0) > 0 && (
               <DarkCard className="p-4">
                 <CardHeader title="Workforce" subtitle="Open roles" />
                 <div className="mt-3"><WorkforceMini jobs={workforceJobs} loading={workforceLoading} /></div>
               </DarkCard>
             )}
 
-            {/* Quick Links */}
-            <DarkCard className="p-4">
-              <CardHeader title="Quick Links" />
-              <div className="mt-2 space-y-1.5">
-                <Link to={`/owner/${hotel.slug}/analytics`} className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors">
-                  Owner Analytics <span className="text-slate-600">→</span>
-                </Link>
-                <Link to={`/ops/analytics?slug=${encodeURIComponent(hotel.slug)}`} className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors">
-                  Ops Manager <span className="text-slate-600">→</span>
-                </Link>
-                <Link to={`/checkin?slug=${encodeURIComponent(hotel.slug)}`} className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors">
-                  Front Desk <span className="text-slate-600">→</span>
-                </Link>
-                <a href="mailto:support@vaiyu.co.in?subject=Owner%20Dashboard%20help" className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors">
-                  Contact Support <span className="text-slate-600">→</span>
-                </a>
-              </div>
-            </DarkCard>
+            {/* Quick Links moved out of the right rail into the bottom footer
+                strip — it was duplicating the sidebar at high pixel cost and
+                stealing focus from Visibility/Outstanding. See <QuickLinksFooter /> below. */}
           </aside>
         </div>
 
@@ -1796,7 +1787,7 @@ export default function OwnerDashboard() {
               Lead capture · packages · SEO · partners · seasonal · OTA · assets · drips
             </span>
           </header>
-          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 auto-rows-fr [&>a]:h-full [&>div]:h-full">
             {/* Day 11 — Open leads summary widget */}
             <LeadsSummaryCard hotelId={hotel.id} hotelSlug={hotel.slug} />
 
@@ -1844,6 +1835,34 @@ export default function OwnerDashboard() {
             {OTA_LISTING_OPTIMIZER_V0_ENABLED && (
               <OTAReadinessCard hotelSlug={hotel.slug} />
             )}
+          </div>
+        </section>
+
+        {/* ─── Quick Links footer strip ──────────────────────────────────
+            These are jump-points the operator may reach for at the end of a
+            session (deep links to analytics or support). Lives below Growth
+            Hub as a thin horizontal row instead of stealing right-rail real
+            estate that's better used by Visibility/Outstanding/Staff. */}
+        <section className="mt-8 pt-5 border-t border-slate-800/50">
+          <div className="flex items-baseline justify-between mb-3">
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">
+              Quick Links
+            </h2>
+            <span className="text-[10px] text-slate-500">Deep links into the rest of the console</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <Link to={`/owner/${hotel.slug}/analytics`} className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-[#151A25] px-3 py-2.5 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors">
+              Owner Analytics <span className="text-slate-600">→</span>
+            </Link>
+            <Link to={`/ops/analytics?slug=${encodeURIComponent(hotel.slug)}`} className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-[#151A25] px-3 py-2.5 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors">
+              Ops Manager <span className="text-slate-600">→</span>
+            </Link>
+            <Link to={`/checkin?slug=${encodeURIComponent(hotel.slug)}`} className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-[#151A25] px-3 py-2.5 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors">
+              Front Desk <span className="text-slate-600">→</span>
+            </Link>
+            <a href="mailto:support@vaiyu.co.in?subject=Owner%20Dashboard%20help" className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-[#151A25] px-3 py-2.5 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors">
+              Contact Support <span className="text-slate-600">→</span>
+            </a>
           </div>
         </section>
       </div>
@@ -2512,15 +2531,15 @@ function AttentionStrip({
   items: AttentionItem[];
   topSeverity: AttentionSeverity | null;
 }) {
-  // Empty state — single-line all-clear, low visual weight
+  // Empty state — slim inline chip (was a full-row banner). When there's no
+  // attention required, the dashboard shouldn't shout at the operator with a
+  // big green panel; a quiet status pill aligned with the timestamp area is
+  // honest signaling without stealing focus from the metrics below.
   if (items.length === 0) {
     return (
-      <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-emerald-500/15 bg-emerald-500/5">
-        <span className="relative flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-        </span>
-        <span className="text-sm text-emerald-300/90 font-medium">All clear — nothing needs your attention right now.</span>
+      <div className="inline-flex items-center gap-2 self-start px-2.5 py-1 rounded-full border border-emerald-500/15 bg-emerald-500/[0.06]">
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+        <span className="text-[11px] text-emerald-300/80 font-medium">All clear · nothing needs attention</span>
       </div>
     );
   }
@@ -2635,19 +2654,68 @@ function TodayHero({
   hotelSlug: string;
 }) {
   const hasRevenue = metrics.revenue > 0;
+  // `hasOccupancy` here = "rooms are configured", which drives whether the
+  // HeroStat shows "0%" or "—" for the value cell. Different from the
+  // allEmpty check below: a hotel with rooms but no occupants is still
+  // visually broken-looking if every other tile is also empty.
   const hasOccupancy = metrics.totalRooms > 0;
+  const hasMeaningfulOccupancy = hasOccupancy && metrics.occupiedRooms > 0;
+  const hasAdr = metrics.adr > 0;
+  // When *every* hero metric is empty (no revenue, no occupants, no ADR),
+  // the three-column layout shows two skinny em-dashes flanking an awkward
+  // "0%" — which makes the card read as half-broken. Collapse to a single
+  // honest empty state that points the operator to the action that unblocks
+  // the data: take a booking.
+  const allEmpty = !hasRevenue && !hasMeaningfulOccupancy && !hasAdr;
+
+  if (allEmpty) {
+    // Compressed single-row banner — the previous 200px hero card was ~85%
+    // whitespace on a brand-new tenant. Bringing it down to a thin pill keeps
+    // the CTA visible without making "no data yet" look like the focal point
+    // of the dashboard. The "TODAY" eyebrow is dropped here because the tab
+    // strip directly above already labels this section as "TODAY · Live ops".
+    return (
+      <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.08] via-[#151A25] to-[#151A25] flex flex-col sm:flex-row sm:items-center gap-3 px-4 sm:px-5 py-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-400 animate-pulse" />
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-slate-100">No revenue, occupancy, or ADR yet today</div>
+            {(metrics.last7Revenue > 0 || metrics.last7AvgOcc > 0) && (
+              <div className="text-[11px] text-emerald-400/80 font-medium mt-0.5">
+                Last 7d: {fmtINR(metrics.last7Revenue)} revenue · {Math.round(metrics.last7AvgOcc)}% avg occ
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 sm:ml-auto shrink-0">
+          <Link
+            to={`/owner/${hotelSlug}/analytics`}
+            className="text-[11px] font-semibold text-slate-400 hover:text-white inline-flex items-center gap-1 whitespace-nowrap"
+          >
+            Full analytics <ArrowRight size={11} />
+          </Link>
+          <Link
+            to={`/checkin?slug=${hotelSlug}`}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-100 text-xs font-semibold transition-colors whitespace-nowrap"
+          >
+            Walk-in check-in <ArrowRight size={12} />
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="rounded-2xl border border-slate-800/60 bg-gradient-to-br from-emerald-500/[0.06] via-[#151A25] to-[#151A25] overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-3 border-b border-white/5">
+    <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.10] via-[#151A25] to-[#151A25] overflow-hidden shadow-[0_0_0_1px_rgba(16,185,129,0.06)_inset]">
+      <div className="flex items-center justify-between px-5 py-2.5 border-b border-white/5">
         <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-emerald-400" />
+          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
           <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-300">Today</span>
           <span className="text-[11px] text-slate-500 font-medium">· {dateLabel}</span>
         </div>
         <Link
           to={`/owner/${hotelSlug}/analytics`}
-          className="text-[11px] font-semibold text-slate-300 hover:text-white inline-flex items-center gap-1"
+          className="text-[11px] font-semibold text-slate-400 hover:text-white inline-flex items-center gap-1"
         >
           Full analytics <ArrowRight size={11} />
         </Link>
@@ -2738,9 +2806,13 @@ function HeroStat({
   const arrow = up ? "↑" : down ? "↓" : "·";
 
   return (
-    <div className="px-5 py-5 sm:py-6 flex flex-col gap-2 min-w-0">
+    <div className="px-5 py-6 sm:py-7 flex flex-col gap-2 min-w-0">
       <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">{label}</div>
-      <div className={`text-3xl sm:text-4xl font-bold tracking-tight font-mono ${empty ? "text-slate-600" : "text-white"}`}>
+      {/* `tabular-nums` gives column-aligned digits without forcing the mono
+          font's awkward `%` glyph (which previously made "0%" read as a
+          rendering bug). Display font for the body keeps the percent + digit
+          spacing visually clean at hero size. */}
+      <div className={`text-4xl sm:text-5xl xl:text-[2.75rem] leading-none font-bold tracking-tight tabular-nums ${empty ? "text-slate-600" : "text-white"}`}>
         {value}
       </div>
       {empty ? (
@@ -2827,14 +2899,16 @@ function DashboardTabs({
             type="button"
             onClick={() => onChange(t.key)}
             aria-pressed={isActive}
-            className={`px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition-colors flex flex-col items-start gap-0.5 ${
+            className={`px-2.5 sm:px-4 py-2 rounded-lg text-xs font-bold transition-colors flex flex-col items-start gap-0.5 ${
               isActive
                 ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
                 : "text-slate-400 hover:text-white hover:bg-slate-800/60 border border-transparent"
             }`}
           >
-            <span className="uppercase tracking-widest">{t.label}</span>
-            <span className={`text-[9px] font-medium ${isActive ? "text-emerald-400/70" : "text-slate-500"}`}>{t.sub}</span>
+            <span className="uppercase tracking-widest whitespace-nowrap">{t.label}</span>
+            {/* Sub-labels hidden below sm — they overflow / wrap awkwardly
+                on 375px and the label alone is unambiguous. */}
+            <span className={`hidden sm:block text-[9px] font-medium whitespace-nowrap ${isActive ? "text-emerald-400/70" : "text-slate-500"}`}>{t.sub}</span>
           </button>
         );
       })}
@@ -3033,6 +3107,28 @@ function ForecastStrip({
   }
   const { days, totalArrivals, peakDay } = summary;
 
+  // All-zero collapse — when there are no arrivals across the entire 7-day
+  // window, the bar chart is 7 empty placeholder slots stacked next to each
+  // other, which looks like a broken visualization. Compact to a single
+  // info-pill row that still surfaces the calendar deep-link.
+  if (totalArrivals === 0) {
+    return (
+      <div className="rounded-2xl border border-slate-800/60 bg-[#151A25] flex items-center gap-2.5 px-4 py-3">
+        <span className="h-2 w-2 rounded-full bg-slate-600 shrink-0" />
+        <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 whitespace-nowrap shrink-0">Next 7 days</span>
+        <span className="text-xs text-slate-500 truncate min-w-0">· No arrivals expected</span>
+        <Link
+          to={`/owner/${hotelSlug}/arrivals`}
+          className="ml-auto shrink-0 text-[11px] font-semibold text-slate-300 hover:text-white inline-flex items-center gap-1"
+        >
+          <span className="hidden sm:inline">View calendar</span>
+          <span className="sm:hidden">Calendar</span>
+          <ArrowRight size={11} />
+        </Link>
+      </div>
+    );
+  }
+
   // Headline: how busy is the week?
   const eyebrowTone =
     totalArrivals === 0 ? "text-slate-400" : totalArrivals >= 5 ? "text-emerald-300" : "text-sky-300";
@@ -3132,13 +3228,26 @@ function HousekeepingStrip({
       : "bg-emerald-400";
 
   type Cell = { count: number; label: string; tone: "emerald" | "amber" | "sky" | "rose" };
+  // Always show Ready + Dirty (the two states with semantic meaning even at
+  // zero — "no dirty rooms" is information, not noise). The remaining three
+  // (Pickup / In progress / OOO) are exception states; hide them when zero
+  // so the row stops paying full pixel rent for "0 · 0 · 0".
   const cells: Cell[] = [
     { count: ready,      label: "Ready",       tone: "emerald" },
     { count: dirty,      label: "Dirty",       tone: "amber"   },
-    { count: pickup,     label: "Pickup",      tone: "amber"   },
-    { count: inProgress, label: "In progress", tone: "sky"     },
-    { count: outOfOrder, label: "OOO",         tone: "rose"    },
+    ...(pickup > 0     ? [{ count: pickup,     label: "Pickup",      tone: "amber" as const }] : []),
+    ...(inProgress > 0 ? [{ count: inProgress, label: "In progress", tone: "sky"   as const }] : []),
+    ...(outOfOrder > 0 ? [{ count: outOfOrder, label: "OOO",         tone: "rose"  as const }] : []),
   ];
+  // Adapt grid column count to the actual number of cells so we don't end up
+  // with 2 wide cells in a 5-col grid (gets visually awkward).
+  const gridColsClass = cells.length <= 2
+    ? "grid-cols-2"
+    : cells.length === 3
+      ? "grid-cols-3"
+      : cells.length === 4
+        ? "grid-cols-2 sm:grid-cols-4"
+        : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5";
   const toneClasses: Record<Cell["tone"], { tile: string; value: string }> = {
     emerald: { tile: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30", value: "text-emerald-300" },
     amber:   { tile: "bg-amber-500/15 text-amber-300 border-amber-500/30",       value: "text-amber-300" },
@@ -3165,7 +3274,7 @@ function HousekeepingStrip({
           Open board <ArrowRight size={11} />
         </Link>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-x divide-y sm:divide-y-0 divide-white/5">
+      <div className={`grid ${gridColsClass} divide-x divide-y sm:divide-y-0 divide-white/5`}>
         {cells.map((c) => {
           const t = toneClasses[c.tone];
           const muted = c.count === 0;
@@ -3222,10 +3331,17 @@ function OutstandingBalanceCard({
       <CardHeader title="Outstanding Balance" subtitle="Money owed by in-house guests" />
 
       <div className="mt-3 flex items-center gap-3">
+        {/* Icon tone follows the data: warm amber when money is owed (action
+            needed), emerald when everything is settled (positive state), muted
+            slate when there's nothing to do at all (no folios open) — the
+            previous always-tinted treatment implied action on a "nothing-to-do"
+            card, which read as misleading. */}
         <div className={`h-10 w-10 shrink-0 rounded-xl border flex items-center justify-center ${
           hasOwed
             ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
-            : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+            : noActive
+              ? "bg-slate-800/40 text-slate-600 border-slate-700/50"
+              : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
         }`}>
           <Wallet size={18} />
         </div>

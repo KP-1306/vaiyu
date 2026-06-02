@@ -132,6 +132,19 @@ export function OTAReadinessCard({ hotelSlug }: Props) {
         <ChevronRight className="h-4 w-4 text-slate-500 shrink-0" aria-hidden />
       </div>
 
+      {/* Wizard-incomplete CTA — promoted ABOVE the score ring because nothing
+          else on this card matters until the cold-start wizard runs. Showing
+          a 0/100 ring on every new tenant before they've even entered data
+          reads as "we're broken"; the CTA fixes that and points to the action. */}
+      {wizardIncomplete && (
+        <div className="mt-3 flex items-center gap-2 rounded-lg border border-sky-500/40 bg-sky-500/10 px-2.5 py-2">
+          <ClipboardList className="h-4 w-4 text-sky-300 shrink-0" />
+          <span className="text-[12px] text-sky-100 font-medium leading-snug">
+            Cold-start wizard not completed — open to fill the matrix.
+          </span>
+        </div>
+      )}
+
       {/* Hero: score ring + band */}
       <div className="mt-3 flex items-center gap-4">
         <div className={`relative shrink-0 rounded-full border ${BAND_BADGE_CLS[overallBand].split(' ').slice(0, 1).join(' ')} p-1`}>
@@ -204,15 +217,7 @@ export function OTAReadinessCard({ hotelSlug }: Props) {
         </div>
       )}
 
-      {/* Wizard incomplete CTA */}
-      {wizardIncomplete && (
-        <div className="mt-3 flex items-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/10 px-2.5 py-2">
-          <ClipboardList className="h-4 w-4 text-sky-300 shrink-0" />
-          <span className="text-[12px] text-sky-200">
-            Cold-start wizard not completed — open the workspace to fill the matrix.
-          </span>
-        </div>
-      )}
+      {/* Wizard incomplete CTA moved to top of card. */}
 
       {/* Empty / error states */}
       {!summary && !isLoading && !isError && (
@@ -226,7 +231,9 @@ export function OTAReadinessCard({ hotelSlug }: Props) {
         </div>
       )}
 
-      <p className="mt-3 text-[10px] text-slate-500">{OTA_DISCLAIMER_EN}</p>
+      <p className="mt-3 text-[9px] leading-snug text-slate-600 line-clamp-2" title={OTA_DISCLAIMER_EN}>
+        {OTA_DISCLAIMER_EN}
+      </p>
     </Link>
   );
 }

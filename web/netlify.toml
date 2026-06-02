@@ -1,6 +1,9 @@
 [build]
   command = "npm run build"
   publish = "dist"
+  # Node 22 LTS. Matches .nvmrc + .github/workflows/test.yml so local /
+  # CI / Netlify builds all run on the same major.
+  environment = { NODE_VERSION = "22" }
 
 [functions]
   directory = "functions"      # => web/functions

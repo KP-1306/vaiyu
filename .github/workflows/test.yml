@@ -26,7 +26,10 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # Node 22 LTS has native WebSocket. @supabase/realtime-js 2.x errors
+          # on Node <22 at SupabaseClient construction time, which breaks any
+          # test that imports a service via lib/supabase.ts.
+          node-version: "22"
           cache: "npm"
           cache-dependency-path: web/package-lock.json
 

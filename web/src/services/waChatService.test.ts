@@ -14,11 +14,11 @@ const SERVICE = readFileSync(
   'utf8',
 );
 const MIG_THREADS = readFileSync(
-  resolve(__dirname, '../../../supabase/migrations/20260602000002_wa_chat_threads.sql'),
+  resolve(__dirname, '../../../supabase/migrations/20260602001001_wa_chat_threads.sql'),
   'utf8',
 );
 const MIG_ROUTING = readFileSync(
-  resolve(__dirname, '../../../supabase/migrations/20260602000003_wa_inbound_routing.sql'),
+  resolve(__dirname, '../../../supabase/migrations/20260602001002_wa_inbound_routing.sql'),
   'utf8',
 );
 const ALL_MIG = MIG_THREADS + '\n' + MIG_ROUTING;

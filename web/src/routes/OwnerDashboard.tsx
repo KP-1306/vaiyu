@@ -1701,7 +1701,11 @@ export default function OwnerDashboard() {
               </DarkCard>
             </div>
 
-            {/* Visibility Score — Position 9. Hero card, top of right rail. */}
+            {/* Visibility Score — Position 9. Hero card, top of right rail.
+                Stays in the right rail (alongside Outstanding Balance + Staff)
+                because it's the meta-KPI that benefits from sitting next to
+                operational status. All other Growth Hub cards moved below into
+                the full-width <GrowthHubGrid> for better horizontal use. */}
             {VISIBILITY_SCORE_ENABLED && (
               <VisibilityScoreCard hotelId={hotel.id} hotelSlug={hotel.slug} />
             )}
@@ -1709,54 +1713,6 @@ export default function OwnerDashboard() {
             {/* Outstanding Balance — money owed by in-house guests (owner/manager) */}
             {canSee(currentRole, 'finance') && (
               <OutstandingBalanceCard summary={outstandingBalance} hotelSlug={hotel.slug} />
-            )}
-
-            {/* Day 11 — Open leads summary widget */}
-            <LeadsSummaryCard hotelId={hotel.id} hotelSlug={hotel.slug} />
-
-            {/* Follow-up Radar — real follow-ups (mock fallback if empty) */}
-            {FOLLOW_UP_RADAR_V0_ENABLED && (
-              <ActionRadarCard hotelSlug={hotel.slug} hotelId={hotel.id} />
-            )}
-
-            {/* AI Quote Drafts v0 — Phase 8A: deterministic template, no AI call */}
-            {AI_QUOTE_DRAFTS_V0_ENABLED && (
-              <QuoteDraftCard hotelSlug={hotel.slug} />
-            )}
-
-            {/* Experience Package Builder — Position 5 */}
-            {PACKAGE_BUILDER_V0_ENABLED && (
-              <PackageBuilderCard hotelSlug={hotel.slug} />
-            )}
-
-            {/* Local SEO Landing Planner — Position 7 (internal planning only) */}
-            {LOCAL_SEO_LANDING_PLANNER_V0_ENABLED && (
-              <LocalSeoPlannerCard hotelSlug={hotel.slug} />
-            )}
-
-            {/* Local Partner Directory — Position 4 of the growth sheet */}
-            {PARTNER_NETWORK_V1_ENABLED && (
-              <PartnersSummaryCard hotelId={hotel.id} hotelSlug={hotel.slug} />
-            )}
-
-            {/* Follow-up email sequences — Position 2 (drip engine) */}
-            {DRIP_ENGINE_V1_ENABLED && (
-              <DripActivityCard hotelId={hotel.id} hotelSlug={hotel.slug} />
-            )}
-
-            {/* Digital Asset Manager — Position 6 of the growth sheet */}
-            {DIGITAL_ASSET_MANAGER_V0_ENABLED && (
-              <AssetReadinessCard hotelId={hotel.id} hotelSlug={hotel.slug} />
-            )}
-
-            {/* Seasonal Demand Calendar — Position 8 (planning + readiness) */}
-            {SEASONAL_DEMAND_CALENDAR_V0_ENABLED && (
-              <SeasonalCalendarCard hotelSlug={hotel.slug} />
-            )}
-
-            {/* OTA Listing Optimizer — Position 2 of the growth sheet */}
-            {OTA_LISTING_OPTIMIZER_V0_ENABLED && (
-              <OTAReadinessCard hotelSlug={hotel.slug} />
             )}
 
             <div
@@ -1825,6 +1781,71 @@ export default function OwnerDashboard() {
             </DarkCard>
           </aside>
         </div>
+
+        {/* ─── Growth Hub ──────────────────────────────────────────────
+            Full-width 3-column grid below the main 3-col layout. Cards
+            here are the strategic/exploratory features — not operational
+            status. Visibility Score stays in the right rail as the meta-KPI.
+            Mobile: 1 col · Tablet: 2 cols · Desktop: 3 cols.            */}
+        <section className="mt-8" data-testid="growth-hub-grid">
+          <header className="mb-3 flex items-baseline justify-between">
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">
+              Growth Hub
+            </h2>
+            <span className="text-[10px] text-slate-500">
+              Lead capture · packages · SEO · partners · seasonal · OTA · assets · drips
+            </span>
+          </header>
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+            {/* Day 11 — Open leads summary widget */}
+            <LeadsSummaryCard hotelId={hotel.id} hotelSlug={hotel.slug} />
+
+            {/* Follow-up Radar — real follow-ups */}
+            {FOLLOW_UP_RADAR_V0_ENABLED && (
+              <ActionRadarCard hotelSlug={hotel.slug} hotelId={hotel.id} />
+            )}
+
+            {/* AI Quote Drafts v0 */}
+            {AI_QUOTE_DRAFTS_V0_ENABLED && (
+              <QuoteDraftCard hotelSlug={hotel.slug} />
+            )}
+
+            {/* Experience Package Builder — Position 5 */}
+            {PACKAGE_BUILDER_V0_ENABLED && (
+              <PackageBuilderCard hotelSlug={hotel.slug} />
+            )}
+
+            {/* Local SEO Landing Planner — Position 7 */}
+            {LOCAL_SEO_LANDING_PLANNER_V0_ENABLED && (
+              <LocalSeoPlannerCard hotelSlug={hotel.slug} />
+            )}
+
+            {/* Local Partner Directory — Position 4 */}
+            {PARTNER_NETWORK_V1_ENABLED && (
+              <PartnersSummaryCard hotelId={hotel.id} hotelSlug={hotel.slug} />
+            )}
+
+            {/* Follow-up email sequences — Position 2 (drip engine) */}
+            {DRIP_ENGINE_V1_ENABLED && (
+              <DripActivityCard hotelId={hotel.id} hotelSlug={hotel.slug} />
+            )}
+
+            {/* Digital Asset Manager — Position 6 */}
+            {DIGITAL_ASSET_MANAGER_V0_ENABLED && (
+              <AssetReadinessCard hotelId={hotel.id} hotelSlug={hotel.slug} />
+            )}
+
+            {/* Seasonal Demand Calendar — Position 8 */}
+            {SEASONAL_DEMAND_CALENDAR_V0_ENABLED && (
+              <SeasonalCalendarCard hotelSlug={hotel.slug} />
+            )}
+
+            {/* OTA Listing Optimizer — Position 10 */}
+            {OTA_LISTING_OPTIMIZER_V0_ENABLED && (
+              <OTAReadinessCard hotelSlug={hotel.slug} />
+            )}
+          </div>
+        </section>
       </div>
       {/* ─── Detail Drawers ─── */}
       {activeDrawer && (

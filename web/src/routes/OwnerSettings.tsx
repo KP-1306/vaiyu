@@ -8,6 +8,8 @@ import SEO from "../components/SEO";
 import UsageMeter from "../components/UsageMeter";
 import RazorpayPanel from "../components/owner/RazorpayPanel";
 import WhatsAppPanel from "../components/owner/WhatsAppPanel";
+import InteraktPanel from "../components/owner/InteraktPanel";
+import AiQuoteConsentPanel from "../components/owner/AiQuoteConsentPanel";
 import { onboardRazorpayAccount, RazorpayServiceError } from "../services/razorpayService";
 // -------- Types --------
 type Theme = { brand?: string; mode?: "light" | "dark" };
@@ -57,6 +59,9 @@ type Hotel = {
   wa_phone_number_id?: string | null;
   wa_display_number?: string | null;
   whatsapp_enabled?: boolean;
+  // Interakt (BSP) — per-hotel routing + cap
+  whatsapp_provider?: "META_DIRECT" | "INTERAKT";
+  whatsapp_daily_cap?: number;
 };
 
 
@@ -184,6 +189,8 @@ export default function OwnerSettings() {
         wa_phone_number_id: hRaw.wa_phone_number_id ?? null,
         wa_display_number: hRaw.wa_display_number ?? null,
         whatsapp_enabled: hRaw.whatsapp_enabled ?? false,
+        whatsapp_provider: (hRaw.whatsapp_provider ?? "META_DIRECT") as "META_DIRECT" | "INTERAKT",
+        whatsapp_daily_cap: hRaw.whatsapp_daily_cap ?? 200,
       };
 
       setHotel(normalizedHotel);
@@ -776,6 +783,11 @@ export default function OwnerSettings() {
                 <section className="rounded-2xl border border-white/10 bg-white/5 p-5 sm:p-6 space-y-4">
                   <div className="font-semibold">Integrations</div>
 
+                  {/* AI Quote Drafts — per-hotel consent toggle */}
+                  <div className="mt-2">
+                    <AiQuoteConsentPanel hotelId={hotel.id} />
+                  </div>
+
                   {/* WhatsApp — per-hotel Meta Business config */}
                   <div className="mt-6">
                     <WhatsAppPanel
@@ -787,6 +799,20 @@ export default function OwnerSettings() {
                         if (wa_phone_number_id !== undefined) patchHotel("wa_phone_number_id", wa_phone_number_id);
                         if (wa_display_number !== undefined) patchHotel("wa_display_number", wa_display_number);
                         if (whatsapp_enabled !== undefined) patchHotel("whatsapp_enabled", whatsapp_enabled);
+                      }}
+                    />
+                  </div>
+
+                  {/* Interakt — provider routing + daily cap + delivery health */}
+                  <div className="mt-6">
+                    <InteraktPanel
+                      hotelId={hotel.id}
+                      whatsappEnabled={hotel.whatsapp_enabled ?? false}
+                      whatsappProvider={hotel.whatsapp_provider ?? "META_DIRECT"}
+                      whatsappDailyCap={hotel.whatsapp_daily_cap ?? 200}
+                      onChange={({ whatsapp_provider, whatsapp_daily_cap }) => {
+                        if (whatsapp_provider !== undefined) patchHotel("whatsapp_provider", whatsapp_provider);
+                        if (whatsapp_daily_cap !== undefined) patchHotel("whatsapp_daily_cap", whatsapp_daily_cap);
                       }}
                     />
                   </div>

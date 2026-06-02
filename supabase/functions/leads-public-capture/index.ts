@@ -30,6 +30,7 @@ interface PublicCaptureBody {
   party_children?: number;
   room_count?: number;
   notes?: string;
+  source_detail?: string;
 }
 
 const RATE_LIMIT_PER_MIN = 5; // 5/min = 300/hr — generous for real form usage; blocks bots
@@ -62,6 +63,7 @@ Deno.serve(async (req: Request) => {
     party_children,
     room_count,
     notes,
+    source_detail,
   } = body;
 
   if (!hotel_id || typeof hotel_id !== "string") {
@@ -99,6 +101,7 @@ Deno.serve(async (req: Request) => {
     p_party_children: typeof party_children === "number" ? party_children : 0,
     p_room_count: typeof room_count === "number" ? room_count : 1,
     p_notes: notes ?? null,
+    p_source_detail: source_detail ?? null,
   });
 
   const duration_ms = Math.round(performance.now() - start);

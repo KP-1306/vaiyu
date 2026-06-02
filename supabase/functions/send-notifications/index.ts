@@ -1,5 +1,14 @@
 import { createClient } from "npm:@supabase/supabase-js";
 import { Resend } from "npm:resend";
+import {
+    InteraktError,
+    sendInteraktFreeText,
+    sendInteraktTemplate,
+} from "../_shared/interakt.ts";
+import {
+    getTemplate,
+    isTemplateConfigured,
+} from "../_shared/interakt-templates.ts";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -84,6 +93,16 @@ async function formatWhatsAppMessage(
     payload: any,
     guestName: string
 ) {
+    // ─── Pre-rendered messages (drip engine) ───
+    // The drip worker (claim_pending_drip_steps) substitutes placeholders
+    // server-side and writes the final body into payload.body. We just
+    // pass it through. Same for any future pre-rendered template.
+    if (template?.startsWith?.("lead_drip_")) {
+        const body = (payload?.body as string | undefined)?.trim();
+        if (body) return body;
+        // Falls through to the generic fallback if body missing.
+    }
+
     const link = payload.link || "https://vaiyu.co.in";
     const guest = guestName || "Valued Guest";
 
@@ -132,6 +151,48 @@ async function formatEmailMessage(
     guestName: string,
     hotelName: string
 ) {
+    // ─── Pre-rendered email (quote_send_v1) ───
+    // enqueue_quote_send composes the final subject + HTML body server-side
+    // (using either operator overrides or send-quote's default template).
+    // We pass through; no per-template HTML wrapping here.
+    if (template === "quote_send_v1") {
+        const subject = (payload?.subject as string | undefined)?.trim() || "Your quote";
+        const html    = (payload?.body_html as string | undefined)?.trim() || "";
+        if (html) return { subject, html };
+        // Falls through to generic if body missing.
+    }
+
+    // ─── Pre-rendered email (drip engine) ───
+    // claim_pending_drip_steps substitutes placeholders and writes the final
+    // subject + body (plain text) into payload. We wrap the plain-text body
+    // in a minimal HTML shell so it renders well in any client.
+    if (template?.startsWith?.("lead_drip_")) {
+        const subject = (payload?.subject as string | undefined)?.trim() || "Update";
+        const bodyText = (payload?.body as string | undefined) ?? "";
+        if (bodyText) {
+            const safe = (s: string) => String(s)
+                .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            // Convert blank-line-separated paragraphs to <p> tags; single
+            // newlines to <br>. Preserves drip copy formatting.
+            const paragraphs = bodyText.split(/\n{2,}/).map(p =>
+                `<p style="margin:0 0 14px 0;line-height:1.6;color:#222;font-size:15px;">${safe(p).replace(/\n/g, "<br>")}</p>`
+            ).join("");
+            const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f4f6fb;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:30px 0;">
+    <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;padding:32px;box-shadow:0 4px 14px rgba(0,0,0,0.06);">
+      <tr><td>${paragraphs}</td></tr>
+      <tr><td style="padding-top:18px;border-top:1px solid #eee;margin-top:18px;text-align:center;font-size:12px;color:#888;">
+        <strong>${safe(hotelName)}</strong><br>
+        <span style="font-size:10px;opacity:0.7;">Powered by VAiyu</span>
+      </td></tr>
+    </table>
+  </td></tr></table>
+</body></html>`;
+            return { subject, html };
+        }
+        // Falls through to generic if body missing.
+    }
+
     const link =
         payload.link ||
         `https://vaiyu.co.in/precheckin/${payload.token || ""}`;
@@ -516,7 +577,7 @@ Deno.serve(async (req) => {
                                 phone,
                                 email,
                                 guest_name,
-                                hotels ( id, name, wa_phone_number_id, email )
+                                hotels ( id, name, wa_phone_number_id, email, whatsapp_enabled, whatsapp_provider, whatsapp_daily_cap )
                             `)
                             .eq("id", notif.booking_id)
                             .single();
@@ -527,16 +588,44 @@ Deno.serve(async (req) => {
                         recipientEmail = booking.email;
                         recipientPhone = booking.phone;
                         recipientName = recipientName || booking.guest_name;
+                    } else if (notif.lead_id) {
+                        // Lead-targeted notification (drip + quote send).
+                        // Recipient address comes from payload.to (set by the
+                        // RPC at enqueue time). Lead's stored contact is the
+                        // fallback so legacy callers without payload.to still
+                        // work.
+                        const { data: lead, error: leadErr } = await supabase
+                            .from("leads")
+                            .select("contact_name, contact_phone, contact_email, hotel_id")
+                            .eq("id", notif.lead_id)
+                            .single();
+                        if (leadErr || !lead) throw new Error("Lead not found");
+
+                        const hotelId = notif.hotel_id || lead.hotel_id;
+                        const { data: hotel, error: hotelErr } = await supabase
+                            .from("hotels")
+                            .select("id, name, wa_phone_number_id, email, whatsapp_enabled, whatsapp_provider, whatsapp_daily_cap")
+                            .eq("id", hotelId)
+                            .single();
+                        if (hotelErr || !hotel) throw new Error("Hotel not found for lead");
+
+                        hotelData = hotel;
+                        recipientEmail = (notif.payload?.to as string) || lead.contact_email;
+                        recipientPhone = (notif.payload?.to as string) || lead.contact_phone;
+                        recipientName = recipientName || lead.contact_name || "Valued Guest";
                     } else if (notif.template_code === 'staff_invite') {
                         // Staff Invite: Use payload info + fetch hotel & role
                         recipientEmail = notif.payload?.email;
                         const { data: inviteCtx, error: ctxErr } = await supabase
                             .from("hotels")
                             .select(`
-                                id, 
-                                name, 
-                                wa_phone_number_id, 
+                                id,
+                                name,
+                                wa_phone_number_id,
                                 email,
+                                whatsapp_enabled,
+                                whatsapp_provider,
+                                whatsapp_daily_cap,
                                 hotel_roles:hotel_roles!inner ( name )
                             `)
                             .eq("id", notif.payload?.hotel_id)
@@ -557,20 +646,84 @@ Deno.serve(async (req) => {
 
                     // Send based on channel
                     if (notif.channel === "whatsapp") {
-                        if (!hotelData?.wa_phone_number_id)
-                            throw new Error("Hotel WhatsApp ID not configured");
+                        if (hotelData?.whatsapp_enabled === false)
+                            throw new Error("WHATSAPP_DISABLED_FOR_HOTEL");
                         if (!recipientPhone) throw new Error("Recipient phone missing");
 
-                        const message = await formatWhatsAppMessage(
-                            notif.template_code,
-                            notif.payload,
-                            recipientName || "Valued User"
-                        );
-                        await sendWhatsAppText(
-                            hotelData.wa_phone_number_id,
-                            recipientPhone,
-                            message
-                        );
+                        const provider: string = hotelData?.whatsapp_provider ?? "META_DIRECT";
+
+                        if (provider === "INTERAKT") {
+                            // ─── Interakt path ─────────────────────────────
+                            // 1. Daily cap check (idempotent — re-checked before each send)
+                            const { data: sentToday } = await supabase.rpc(
+                                "wa_template_sends_today",
+                                { p_hotel_id: hotelData.id },
+                            );
+                            const cap = hotelData?.whatsapp_daily_cap ?? 200;
+                            if (typeof sentToday === "number" && sentToday >= cap) {
+                                // Defer this row to tomorrow — bump next_attempt_at via mark_notification_failed
+                                // with a specific reason so the owner can see it in audit.
+                                throw new Error("INTERAKT_DAILY_CAP_REACHED");
+                            }
+
+                            // 2. Lookup template definition
+                            const tmplDef = getTemplate(notif.template_code);
+                            if (!tmplDef || !isTemplateConfigured(notif.template_code)) {
+                                throw new Error("INTERAKT_TEMPLATE_NOT_CONFIGURED");
+                            }
+
+                            // 3. Resolve payload → bodyValues / headerValues / buttonValues
+                            let mapped: ReturnType<typeof tmplDef.mapPayload>;
+                            try {
+                                mapped = tmplDef.mapPayload({
+                                    guestName: recipientName || "Valued Guest",
+                                    hotelName: hotelData.name || "Hotel",
+                                    payload: notif.payload ?? {},
+                                });
+                            } catch (mapErr) {
+                                throw new Error(
+                                    `INTERAKT_TEMPLATE_MAP_FAILED:${(mapErr as Error).message}`,
+                                );
+                            }
+
+                            // 4. Send. Phone is whatever the queue carried — sender splits to (cc, num).
+                            try {
+                                const sendRes = await sendInteraktTemplate({
+                                    phoneE164: recipientPhone,
+                                    templateName: tmplDef.name,
+                                    languageCode: tmplDef.languageCode,
+                                    bodyValues: mapped.bodyValues,
+                                    headerValues: mapped.headerValues,
+                                    fileName: mapped.fileName,
+                                    buttonValues: mapped.buttonValues,
+                                    callbackData: notif.id,
+                                });
+                                // 5. Persist provider_message_id for delivery webhook reconciliation
+                                await supabase
+                                    .from("notification_queue")
+                                    .update({ provider_message_id: sendRes.messageId })
+                                    .eq("id", notif.id);
+                            } catch (err) {
+                                if (err instanceof InteraktError) {
+                                    throw new Error(err.code);
+                                }
+                                throw err;
+                            }
+                        } else {
+                            // ─── META_DIRECT legacy path ───────────────────
+                            if (!hotelData?.wa_phone_number_id)
+                                throw new Error("Hotel WhatsApp ID not configured");
+                            const message = await formatWhatsAppMessage(
+                                notif.template_code,
+                                notif.payload,
+                                recipientName || "Valued User",
+                            );
+                            await sendWhatsAppText(
+                                hotelData.wa_phone_number_id,
+                                recipientPhone,
+                                message,
+                            );
+                        }
                     } else if (notif.channel === "email") {
                         if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY not set");
                         if (!recipientEmail) throw new Error("Recipient email missing");
@@ -613,7 +766,25 @@ Deno.serve(async (req) => {
                             `[Email] Sending to: "${recipient}" using template ${notif.template_code}`
                         );
 
-                        await sendEmail(from, recipient, subject, html);
+                        const sendResult = await sendEmail(from, recipient, subject, html);
+                        const externalId = (sendResult as { id?: string } | null)?.id;
+                        if (externalId) {
+                            // Best-effort: store Resend's message id so the
+                            // resend-webhook can correlate bounce/complaint
+                            // events back to this queue row. A failure here
+                            // must NOT undo the send.
+                            try {
+                                await supabase.rpc("record_external_message_id", {
+                                    p_notification_id: notif.id,
+                                    p_external_id:     externalId,
+                                });
+                            } catch (recErr) {
+                                console.warn(
+                                    `[Email] record_external_message_id failed for ${notif.id}`,
+                                    recErr,
+                                );
+                            }
+                        }
                     } else {
                         throw new Error(`Unsupported channel: ${notif.channel}`);
                     }
@@ -624,19 +795,38 @@ Deno.serve(async (req) => {
                     totalProcessed++;
                     allResults.push({ id: notif.id, status: "sent" });
                 } catch (err: any) {
-                    console.error(`Failed notification ${notif.id}:`, err);
+                    const msg = (err?.message ?? String(err)) as string;
+                    console.error(`Failed notification ${notif.id}:`, msg);
 
-                    // Failure → mark failed via RPC (handles retry count + backoff)
-                    await supabase.rpc("mark_notification_failed", {
-                        p_id: notif.id,
-                        p_error: err.message,
-                    });
-
-                    allResults.push({
-                        id: notif.id,
-                        status: "pending",
-                        error: err.message,
-                    });
+                    if (msg === "INTERAKT_DAILY_CAP_REACHED") {
+                        // Cap hit is not a failure — defer to tomorrow 08:00 IST
+                        // without bumping retry_count. The row stays 'pending'.
+                        await supabase.rpc("defer_notification_to_tomorrow", { p_id: notif.id });
+                        allResults.push({ id: notif.id, status: "deferred", reason: msg });
+                    } else if (msg === "INTERAKT_TEMPLATE_NOT_CONFIGURED") {
+                        // Template not wired yet — defer 1 hour (bumps retry_count
+                        // and permanently fails after 48 attempts so the row stops
+                        // accumulating indefinitely).
+                        await supabase.rpc("defer_notification_one_hour", {
+                            p_id: notif.id,
+                            p_reason: msg,
+                        });
+                        allResults.push({ id: notif.id, status: "deferred", reason: msg });
+                    } else if (msg === "INTERAKT_5XX" || msg === "INTERAKT_NETWORK" || msg === "INTERAKT_RATE_LIMITED") {
+                        // Transient provider issues — defer 1 hour (bounded by retry_count)
+                        await supabase.rpc("defer_notification_one_hour", {
+                            p_id: notif.id,
+                            p_reason: msg,
+                        });
+                        allResults.push({ id: notif.id, status: "deferred", reason: msg });
+                    } else {
+                        // True failure → mark failed via RPC (handles retry count + backoff)
+                        await supabase.rpc("mark_notification_failed", {
+                            p_id: notif.id,
+                            p_error: msg,
+                        });
+                        allResults.push({ id: notif.id, status: "pending", error: msg });
+                    }
                 }
             }
 

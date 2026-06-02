@@ -72,6 +72,7 @@ import { AuthProvider } from "./context/AuthContext";
 
 // Supabase client
 import { supabase } from "./lib/supabase";
+import { tryDevAutoLogin } from "./lib/devAuth";
 
 // React Query
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -152,6 +153,20 @@ const Owner = lazy(() => import("./routes/Owner"));
 const OwnerDashboard = lazy(() => import("./routes/OwnerDashboard"));
 const OwnerArrivals = lazy(() => import("./routes/OwnerArrivals"));
 const OwnerLeads = lazy(() => import("./routes/owner/Leads"));
+const OwnerFollowUpRadar = lazy(() => import("./routes/owner/FollowUpRadar"));
+const OwnerQuoteDrafts = lazy(() => import("./routes/owner/QuoteDrafts"));
+const OwnerPartners = lazy(() => import("./routes/owner/Partners"));
+const OwnerDrip = lazy(() => import("./routes/owner/Drip"));
+const OwnerPackages = lazy(() => import("./routes/owner/Packages"));
+const OwnerPackageBuilder = lazy(() => import("./routes/owner/PackageBuilder"));
+const OwnerLocalSeoPlanner = lazy(() => import("./routes/owner/LocalSeoPlanner"));
+const OwnerAssets = lazy(() => import("./routes/owner/Assets"));
+const OwnerSeasonalCalendar = lazy(() => import("./routes/owner/SeasonalCalendar"));
+const OwnerOTAOptimizer = lazy(() => import("./routes/owner/OTAOptimizer"));
+const OwnerVisibility = lazy(() => import("./routes/owner/Visibility"));
+const OwnerWhatsAppInbox = lazy(() => import("./routes/owner/WhatsAppInbox"));
+const OwnerPackagePreview = lazy(() => import("./routes/owner/PackagePreview"));
+const PublicPackageLanding = lazy(() => import("./routes/PublicPackageLanding"));
 const PublicLeadCapture = lazy(() => import("./routes/PublicLeadCapture"));
 const OwnerSettings = lazy(() => import("./routes/OwnerSettings"));
 const OwnerServices = lazy(() => import("./routes/OwnerServices"));
@@ -214,11 +229,18 @@ function AuthBootstrap({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let cancelled = false;
 
-    supabase.auth
-      .getSession()
+    // Dev-only auto sign-in. No-op in production builds and when the opt-in
+    // env var is unset. See web/src/lib/devAuth.ts for the safety gates.
+    tryDevAutoLogin()
       .catch(() => { })
       .finally(() => {
-        if (!cancelled) setReady(true);
+        if (cancelled) return;
+        supabase.auth
+          .getSession()
+          .catch(() => { })
+          .finally(() => {
+            if (!cancelled) setReady(true);
+          });
       });
 
     const sub = supabase.auth.onAuthStateChange(() => {
@@ -495,6 +517,8 @@ const router = createBrowserRouter([
       { path: "hotel/:slug", element: <Hotel /> },
       // Public lead-capture (anonymous) — Day 11
       { path: "p/:hotelSlug/enquire", element: <PublicLeadCapture /> },
+      // Public package landing (anonymous) — Experience Package Builder
+      { path: "p/:hotelSlug/package/:packageSlug", element: <PublicPackageLanding /> },
       { path: "menu", element: <FoodMenu /> },
       { path: "stay/:code/menu", element: <FoodMenu /> },
       { path: "stay/:code/orders", element: <GuestOrderHistory /> },
@@ -692,6 +716,118 @@ const router = createBrowserRouter([
         element: (
           <AuthGate>
             <OwnerLeads />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/:slug/follow-up",
+        element: (
+          <AuthGate>
+            <OwnerFollowUpRadar />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/:slug/quote-drafts",
+        element: (
+          <AuthGate>
+            <OwnerQuoteDrafts />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/:slug/partners",
+        element: (
+          <AuthGate>
+            <OwnerPartners />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/:slug/drip",
+        element: (
+          <AuthGate>
+            <OwnerDrip />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/:slug/assets",
+        element: (
+          <AuthGate>
+            <OwnerAssets />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/:slug/packages",
+        element: (
+          <AuthGate>
+            <OwnerPackages />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/:slug/packages/new",
+        element: (
+          <AuthGate>
+            <OwnerPackageBuilder />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/:slug/packages/:id",
+        element: (
+          <AuthGate>
+            <OwnerPackageBuilder />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/:slug/packages/:id/preview",
+        element: (
+          <AuthGate>
+            <OwnerPackagePreview />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/:slug/seo-planner",
+        element: (
+          <AuthGate>
+            <OwnerLocalSeoPlanner />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/:slug/visibility",
+        element: (
+          <AuthGate>
+            <OwnerVisibility />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/:slug/whatsapp",
+        element: (
+          <AuthGate>
+            <OwnerWhatsAppInbox />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/:slug/seasonal",
+        element: (
+          <AuthGate>
+            <OwnerSeasonalCalendar />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/:slug/ota",
+        element: (
+          <AuthGate>
+            <OwnerOTAOptimizer />
           </AuthGate>
         ),
       },

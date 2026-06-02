@@ -15,7 +15,9 @@ import { LeadDetailContactSection } from './LeadDetailContactSection';
 import { LeadDetailBasicsSection } from './LeadDetailBasicsSection';
 import { LeadDetailNotesSection } from './LeadDetailNotesSection';
 import { LeadDetailTimeline } from './LeadDetailTimeline';
+import { LeadDripPanel } from './LeadDripPanel';
 import { LeadConvertModal } from './LeadConvertModal';
+import { LeadPackageSuggestPanel } from './LeadPackageSuggestPanel';
 
 interface Props {
   leadId: string | null;
@@ -46,6 +48,11 @@ export function LeadDetailDrawer({
   const [convertOpen, setConvertOpen] = useState(false);
   const setDirty = useCallback((key: string) => (dirty: boolean) => {
     setDirtySet((prev) => {
+      // Bail out when the flag is unchanged so we return the SAME Set
+      // reference — otherwise a new Set every call forces a re-render, which
+      // hands child sections a fresh onDirtyChange callback, re-fires their
+      // effect, and spins an infinite render loop.
+      if (dirty === prev.has(key)) return prev;
       const next = new Set(prev);
       if (dirty) next.add(key);
       else next.delete(key);
@@ -205,6 +212,8 @@ export function LeadDetailDrawer({
                 canEdit={canEdit}
                 showToast={showToast}
               />
+              <LeadPackageSuggestPanel lead={lead} />
+              <LeadDripPanel leadId={lead.id} hotelId={lead.hotel_id} />
               <LeadDetailTimeline events={events} isLoading={isEventsLoading} />
             </div>
           </>

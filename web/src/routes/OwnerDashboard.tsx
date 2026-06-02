@@ -38,6 +38,26 @@ import TaskVolumeChart from "../components/analytics/TaskVolumeChart";
 import { getDashboardMetrics, type DashboardMetrics } from "../lib/dashboardApi";
 import { getOutstandingBalanceSummary, type OutstandingBalanceSummary, getHousekeepingSummary, type HousekeepingSummary, getArrivalsForecast, type ForecastSummary } from "../services/financeService";
 import { LeadsSummaryCard } from "../components/owner/LeadsSummaryCard";
+import { ActionRadarCard } from "../components/owner/ActionRadarCard";
+import { FOLLOW_UP_RADAR_V0_ENABLED } from "../config/followUpRadar";
+import { QuoteDraftCard } from "../components/owner/QuoteDraftCard";
+import { PackageBuilderCard } from "../components/owner/PackageBuilderCard";
+import { PACKAGE_BUILDER_V0_ENABLED } from "../config/packages";
+import { LocalSeoPlannerCard } from "../components/owner/LocalSeoPlannerCard";
+import { LOCAL_SEO_LANDING_PLANNER_V0_ENABLED } from "../config/localSeoPlanner";
+import { AI_QUOTE_DRAFTS_V0_ENABLED } from "../config/quoteDrafts";
+import { PartnersSummaryCard } from "../components/owner/PartnersSummaryCard";
+import { PARTNER_NETWORK_V1_ENABLED } from "../config/partnerNetwork";
+import { DripActivityCard } from "../components/owner/DripActivityCard";
+import { DRIP_ENGINE_V1_ENABLED } from "../config/dripEngine";
+import { AssetReadinessCard } from "../components/owner/AssetReadinessCard";
+import { DIGITAL_ASSET_MANAGER_V0_ENABLED } from "../config/digitalAssetManager";
+import { SeasonalCalendarCard } from "../components/owner/SeasonalCalendarCard";
+import { SEASONAL_DEMAND_CALENDAR_V0_ENABLED } from "../config/seasonalCalendar";
+import { OTAReadinessCard } from "../components/owner/OTAReadinessCard";
+import { OTA_LISTING_OPTIMIZER_V0_ENABLED } from "../config/otaOptimizer";
+import { VisibilityScoreCard } from "../components/owner/VisibilityScoreCard";
+import { VISIBILITY_SCORE_ENABLED } from "../config/visibilityScore";
 import { listPendingExtensions } from "../services/stayExtensionService";
 import { getPricingSettings, listPricingRules } from "../services/pricingService";
 import { Wallet, Sparkles, CalendarPlus, Tag } from "lucide-react";
@@ -1303,6 +1323,58 @@ export default function OwnerDashboard() {
                 <div className="text-lg mb-1">📞</div>
                 <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Leads</div>
               </Link>
+              {FOLLOW_UP_RADAR_V0_ENABLED && (
+                <Link to={`/owner/${hotel.slug}/follow-up`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
+                  <div className="text-lg mb-1">📡</div>
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Radar</div>
+                </Link>
+              )}
+              {AI_QUOTE_DRAFTS_V0_ENABLED && (
+                <Link to={`/owner/${hotel.slug}/quote-drafts`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
+                  <div className="text-lg mb-1">📝</div>
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Quotes</div>
+                </Link>
+              )}
+              {DRIP_ENGINE_V1_ENABLED && (
+                <Link to={`/owner/${hotel.slug}/drip`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
+                  <div className="text-lg mb-1">✉️</div>
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Drips</div>
+                </Link>
+              )}
+              {PARTNER_NETWORK_V1_ENABLED && (
+                <Link to={`/owner/${hotel.slug}/partners`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
+                  <div className="text-lg mb-1">🤝</div>
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Partners</div>
+                </Link>
+              )}
+              {DIGITAL_ASSET_MANAGER_V0_ENABLED && (
+                <Link to={`/owner/${hotel.slug}/assets`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
+                  <div className="text-lg mb-1">📷</div>
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Assets</div>
+                </Link>
+              )}
+              {LOCAL_SEO_LANDING_PLANNER_V0_ENABLED && (
+                <Link to={`/owner/${hotel.slug}/seo-planner`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
+                  <div className="text-lg mb-1">🛡️</div>
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">SEO Plan</div>
+                </Link>
+              )}
+              {VISIBILITY_SCORE_ENABLED && (
+                <Link to={`/owner/${hotel.slug}/visibility`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
+                  <div className="text-lg mb-1">📊</div>
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Visibility</div>
+                </Link>
+              )}
+              <Link to={`/owner/${hotel.slug}/whatsapp`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
+                <div className="text-lg mb-1">💬</div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">WhatsApp</div>
+              </Link>
+              {SEASONAL_DEMAND_CALENDAR_V0_ENABLED && (
+                <Link to={`/owner/${hotel.slug}/seasonal`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
+                  <div className="text-lg mb-1">📅</div>
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Seasonal</div>
+                </Link>
+              )}
 
               <Link to={`/checkin?slug=${encodeURIComponent(hotel.slug)}`} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
                 <div className="text-lg mb-1">🛎️</div>
@@ -1629,6 +1701,11 @@ export default function OwnerDashboard() {
               </DarkCard>
             </div>
 
+            {/* Visibility Score — Position 9. Hero card, top of right rail. */}
+            {VISIBILITY_SCORE_ENABLED && (
+              <VisibilityScoreCard hotelId={hotel.id} hotelSlug={hotel.slug} />
+            )}
+
             {/* Outstanding Balance — money owed by in-house guests (owner/manager) */}
             {canSee(currentRole, 'finance') && (
               <OutstandingBalanceCard summary={outstandingBalance} hotelSlug={hotel.slug} />
@@ -1636,6 +1713,51 @@ export default function OwnerDashboard() {
 
             {/* Day 11 — Open leads summary widget */}
             <LeadsSummaryCard hotelId={hotel.id} hotelSlug={hotel.slug} />
+
+            {/* Follow-up Radar — real follow-ups (mock fallback if empty) */}
+            {FOLLOW_UP_RADAR_V0_ENABLED && (
+              <ActionRadarCard hotelSlug={hotel.slug} hotelId={hotel.id} />
+            )}
+
+            {/* AI Quote Drafts v0 — Phase 8A: deterministic template, no AI call */}
+            {AI_QUOTE_DRAFTS_V0_ENABLED && (
+              <QuoteDraftCard hotelSlug={hotel.slug} />
+            )}
+
+            {/* Experience Package Builder — Position 5 */}
+            {PACKAGE_BUILDER_V0_ENABLED && (
+              <PackageBuilderCard hotelSlug={hotel.slug} />
+            )}
+
+            {/* Local SEO Landing Planner — Position 7 (internal planning only) */}
+            {LOCAL_SEO_LANDING_PLANNER_V0_ENABLED && (
+              <LocalSeoPlannerCard hotelSlug={hotel.slug} />
+            )}
+
+            {/* Local Partner Directory — Position 4 of the growth sheet */}
+            {PARTNER_NETWORK_V1_ENABLED && (
+              <PartnersSummaryCard hotelId={hotel.id} hotelSlug={hotel.slug} />
+            )}
+
+            {/* Follow-up email sequences — Position 2 (drip engine) */}
+            {DRIP_ENGINE_V1_ENABLED && (
+              <DripActivityCard hotelId={hotel.id} hotelSlug={hotel.slug} />
+            )}
+
+            {/* Digital Asset Manager — Position 6 of the growth sheet */}
+            {DIGITAL_ASSET_MANAGER_V0_ENABLED && (
+              <AssetReadinessCard hotelId={hotel.id} hotelSlug={hotel.slug} />
+            )}
+
+            {/* Seasonal Demand Calendar — Position 8 (planning + readiness) */}
+            {SEASONAL_DEMAND_CALENDAR_V0_ENABLED && (
+              <SeasonalCalendarCard hotelSlug={hotel.slug} />
+            )}
+
+            {/* OTA Listing Optimizer — Position 2 of the growth sheet */}
+            {OTA_LISTING_OPTIMIZER_V0_ENABLED && (
+              <OTAReadinessCard hotelSlug={hotel.slug} />
+            )}
 
             <div
               role="button"

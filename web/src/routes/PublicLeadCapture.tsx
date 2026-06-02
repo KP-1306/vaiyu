@@ -4,10 +4,12 @@
 // No auth required. Resolves slug → hotel_id, then POSTs to the
 // leads-public-capture Edge Function.
 
-import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { Loader2, CheckCircle, AlertCircle, Send } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
+import { Loader2, CheckCircle, AlertCircle, Send, Tent } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { getPackagePublic } from '../services/packageService';
+import type { PublicPackagePayload } from '../types/package';
 
 interface HotelLite {
   id: string;
@@ -46,11 +48,42 @@ const EMPTY_FORM: FormState = {
 
 export default function PublicLeadCapture() {
   const { hotelSlug } = useParams<{ hotelSlug: string }>();
+  const [searchParams] = useSearchParams();
+  const packageSlug = searchParams.get('package');
+  const utmSource = searchParams.get('utm_source');
   const [hotel, setHotel] = useState<HotelLite | null>(null);
   const [hotelError, setHotelError] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [mode, setMode] = useState<SubmitMode>({ kind: 'idle' });
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [packageContext, setPackageContext] = useState<PublicPackagePayload | null>(null);
+
+  // Optional package context — pre-fills notes + attributes source_detail
+  useEffect(() => {
+    if (!hotelSlug || !packageSlug) return;
+    let cancelled = false;
+    (async () => {
+      const payload = await getPackagePublic(hotelSlug, packageSlug);
+      if (cancelled || !payload) return;
+      setPackageContext(payload);
+      setForm((prev) => {
+        // Only pre-fill if operator hasn't typed anything yet
+        if (prev.notes.trim()) return prev;
+        return {
+          ...prev,
+          notes: `Asked about "${payload.package.name}".`,
+          party_adults: Math.max(prev.party_adults, payload.package.min_party_adults),
+        };
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [hotelSlug, packageSlug]);
+
+  const sourceDetail = useMemo<string | null>(() => {
+    if (packageContext) return `Package: ${packageContext.package.name}`;
+    if (utmSource) return `utm_source: ${utmSource}`;
+    return null;
+  }, [packageContext, utmSource]);
 
   // Resolve slug → hotel
   useEffect(() => {
@@ -123,6 +156,7 @@ export default function PublicLeadCapture() {
           party_children: form.party_children,
           room_count: form.room_count,
           notes: form.notes.trim() || null,
+          source_detail: sourceDetail,
         },
       });
 
@@ -207,6 +241,12 @@ export default function PublicLeadCapture() {
           <p className="text-sm text-white/60">
             Share a few details and we'll get back to you with availability and rates.
           </p>
+          {packageContext && (
+            <div className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-200">
+              <Tent className="h-3.5 w-3.5" aria-hidden />
+              <span>About: {packageContext.package.name}</span>
+            </div>
+          )}
         </header>
 
         <form

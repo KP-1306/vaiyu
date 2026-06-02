@@ -251,6 +251,52 @@ VITE_HAS_WORKFORCE=true     # Workforce hiring
 VITE_API_URL=http://localhost:4000  # Fastify API (optional)
 ```
 
+## Browser-agent / Playwright testing mode (dev-only auth bypass)
+
+For autonomous UI testing (Playwright, Claude Code, browser agents) the app
+ships a development-only auto sign-in that produces a real Supabase session
+against a seeded owner user. Magic-link / OTP is skipped, but RLS, RPCs,
+Edge Functions and Realtime all run normally — only the bootstrap friction
+is removed.
+
+Activation requires ALL of:
+1. A `vite` dev build (`npm run dev`). Production `vite build` artifacts
+   strip the entire bypass module via dead-code elimination.
+2. `VITE_DEV_AUTH_BYPASS=true` in `web/.env.local`.
+3. `VITE_SUPABASE_URL` pointing at localhost (or a project ref explicitly
+   listed in `VITE_DEV_AUTH_ALLOWED_PROJECT_REF`).
+
+### Setup
+
+```bash
+# 1. Seed the local Supabase with a deterministic owner + hotel.
+#    Boots `supabase start` if needed; refuses to run against non-local DBs.
+./web/scripts/dev-seed.sh
+
+# 2. Configure web/.env.local (copy from .env.local.example if needed).
+#    Set:
+#      VITE_SUPABASE_URL=http://127.0.0.1:54321
+#      VITE_SUPABASE_ANON_KEY=<from `supabase status`>
+#      VITE_DEV_AUTH_BYPASS=true
+#      VITE_DEV_AUTH_EMAIL=dev-owner@vaiyu.test
+#      VITE_DEV_AUTH_PASSWORD=devpassword-change-me
+#      VITE_DEV_AUTH_HOTEL_SLUG=dev-hotel
+
+# 3. Run the dev server. The browser will auto-land on /owner/dev-hotel.
+cd web && npm run dev -- --port 8080 --host
+```
+
+The console logs `[DEV AUTH BYPASS ACTIVE]` whenever this code path runs, so
+it's impossible to miss. Disable by flipping `VITE_DEV_AUTH_BYPASS=false`.
+
+### Production safety
+
+- Never set `VITE_DEV_AUTH_*` vars in Netlify or any production environment.
+  They are ignored in built artifacts but should not be present anyway.
+- `web/.env.local` is gitignored — never commit credentials.
+- `supabase/seed-dev-auth.sql` refuses to execute without a session flag the
+  wrapper script sets; pasting it into a prod psql session is a hard abort.
+
 ## Getting Help
 
 If you encounter issues:

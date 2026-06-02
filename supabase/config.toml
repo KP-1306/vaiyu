@@ -32,3 +32,28 @@ verify_jwt = false
 # RPC's SECURITY DEFINER + source/hotel validation. CORS open by design.
 [functions.leads-public-capture]
 verify_jwt = false
+
+# Resend → Vaiyu webhook (bounce/complaint/delivered events). Verified by
+# Svix signature using RESEND_WEBHOOK_SECRET. Drives drip auto-pause on
+# bounce — see migration 20260526000009.
+[functions.resend-webhook]
+verify_jwt = false
+
+# Inbound chat (WhatsApp Meta callback). Already used as a stub; now also
+# pauses active drip subscriptions when a lead replies. No JWT — Meta uses
+# its own signed callback (verification token configured in dashboard).
+[functions.chat-inbound]
+verify_jwt = false
+
+# Position 5 — anon view tracker for the public package landing page.
+# Rate-limited via api_hits (1/min dedup per IP+package). Raw IP never stored;
+# only sha256(ip + PACKAGE_VIEW_IP_SALT + UTC date).
+[functions.packages-track-view]
+verify_jwt = false
+
+# Interakt webhook — receives delivery receipts + inbound WhatsApp messages.
+# No JWT (Interakt's HTTP callback). Verified by HMAC-SHA256 against
+# INTERAKT_WEBHOOK_SECRET. Returns 200 on signature failure to avoid hint
+# leakage but logs and refuses to process.
+[functions.interakt-webhook]
+verify_jwt = false

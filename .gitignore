@@ -1,7 +1,28 @@
 node_modules
 dist
 .env
+# Catch sibling env files (e.g. .env.local, .env.production, .env.functions)
+.env.*
+!.env.*.example
 .DS_Store
 *.log
 .vscode
 .idea
+
+# ─── Tool-local + testing-only artifacts (never commit) ──────────────────────
+# Claude Code session data + your local agent settings
+.claude/
+# Personal MCP tool configuration
+.mcp.json
+# Playwright browser-automation runtime (screenshots, console logs, snapshots)
+.playwright-mcp/
+# Local personal knowledge tool
+memory-bank/
+
+# ─── Supabase CLI local state ────────────────────────────────────────────────
+supabase/.branches/
+supabase/.temp/
+
+# ─── Smoke-test screenshots at repo root ─────────────────────────────────────
+# Keep PNGs inside web/public/, docs/, etc. — only block loose root-level ones
+/*.png

@@ -31,7 +31,11 @@ jobs:
           cache-dependency-path: web/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        # `npm ci` over-validates optionalDependencies in npm 10/11 — fails on
+        # cross-platform esbuild 0.28 binaries (e.g. @esbuild/netbsd-arm64 on
+        # linux-x64 runner) even though they're marked optional. `npm install`
+        # respects the same lockfile but skips unsupported platforms cleanly.
+        run: npm install --no-audit --no-fund --prefer-offline
 
       - name: Typecheck
         run: npm run typecheck

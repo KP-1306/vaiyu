@@ -17,6 +17,8 @@ import {
     Layout,
     Shield,
     UserPlus,
+    Mail,
+    Copy,
     AlertTriangle,
     RefreshCw,
     Search,
@@ -147,6 +149,15 @@ export default function OwnerStaffShifts() {
     const [hotelZones, setHotelZones] = useState<{ id: string, name: string }[]>([]);
     const [hotelDepartments, setHotelDepartments] = useState<{ id: string, name: string }[]>([]);
     const [staffDepartments, setStaffDepartments] = useState<any[]>([]);
+
+    /* ── Invite Teammate Modal State (consolidated from the retired /settings/access screen) ── */
+    const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+    const [inviteRolesLoading, setInviteRolesLoading] = useState(false);
+    const [inviteRoles, setInviteRoles] = useState<{ id: string; name: string; code: string }[]>([]);
+    const [inviteForm, setInviteForm] = useState<{ email: string; roleId: string }>({ email: "", roleId: "" });
+    const [inviteSaving, setInviteSaving] = useState(false);
+    const [inviteLink, setInviteLink] = useState<string | null>(null);
+    const [pendingInvites, setPendingInvites] = useState<{ id: string; email: string; role_id: string | null; token: string; expires_at: string }[]>([]);
 
     /* ── Shift Assignment Modal State ── */
     const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
@@ -1245,6 +1256,83 @@ export default function OwnerStaffShifts() {
         }
     }
 
+    /* ──────────────────────────────────────────────────────────────
+       Invite Teammate — reuses the hardened create_hotel_invite RPC
+       (same path /onboard Staff Setup uses). No new SQL/schema.
+    ────────────────────────────────────────────────────────────── */
+    const OWNER_ROLE_CODES = ['OWNER', 'OWNER_0'];
+
+    async function openInviteModal() {
+        setInviteLink(null);
+        setInviteForm({ email: "", roleId: "" });
+        setIsInviteModalOpen(true);
+        await Promise.all([fetchInvitableRoles(), fetchPendingInvites()]);
+    }
+
+    async function fetchInvitableRoles() {
+        if (!hotelId) return;
+        setInviteRolesLoading(true);
+        try {
+            const { data: roles, error } = await supabase
+                .from("hotel_roles")
+                .select("id, name, code")
+                .eq("hotel_id", hotelId)
+                .eq("is_active", true);
+            if (error) throw error;
+            const list = roles || [];
+            setInviteRoles(list);
+            const firstInvitable = list.find(r => !OWNER_ROLE_CODES.includes(r.code));
+            setInviteForm(f => ({ ...f, roleId: firstInvitable?.id || "" }));
+        } catch (e: any) {
+            showToast(e?.message || "Failed to load roles", "error");
+        } finally {
+            setInviteRolesLoading(false);
+        }
+    }
+
+    async function fetchPendingInvites() {
+        if (!hotelId) return;
+        const { data: invs, error } = await supabase
+            .from("hotel_invites")
+            .select("id, email, role_id, token, expires_at")
+            .eq("hotel_id", hotelId)
+            .is("accepted_at", null)
+            .order("created_at", { ascending: false });
+        if (!error) setPendingInvites(invs || []);
+    }
+
+    async function handleSendInvite() {
+        const email = inviteForm.email.trim().toLowerCase();
+        if (!hotelId || !email || !inviteForm.roleId) return;
+        setInviteSaving(true);
+        setInviteLink(null);
+        try {
+            const { data: result, error } = await supabase.rpc("create_hotel_invite", {
+                p_hotel_id: hotelId,
+                p_email: email,
+                p_role_id: inviteForm.roleId,
+                p_metadata: {},
+            });
+            if (error) throw error;
+            const token = (result as any)?.token || (result as any)?.invite?.token || null;
+            if (token) setInviteLink(`${window.location.origin}/owner/invite/accept/${token}`);
+            showToast("Invite sent", "success");
+            setInviteForm(f => ({ ...f, email: "" }));
+            await fetchPendingInvites();
+        } catch (e: any) {
+            showToast(e?.message || "Failed to send invite", "error");
+        } finally {
+            setInviteSaving(false);
+        }
+    }
+
+    async function handleRevokeInvite(id: string) {
+        const { error } = await supabase.from("hotel_invites").delete().eq("id", id);
+        if (error) { showToast(error.message, "error"); return; }
+        showToast("Invite revoked", "success");
+        await fetchPendingInvites();
+    }
+
     async function handleMemberSelection(memberId: string) {
         setSelectedMemberId(memberId);
         if (!memberId) {
@@ -1686,6 +1774,14 @@ export default function OwnerStaffShifts() {
                                 </div>
 
                                 <div className="flex items-center gap-3">
+                                    <button
+                                        onClick={openInviteModal}
+                                        className="action-button-secondary flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all"
+                                    >
+                                        <UserPlus size={14} strokeWidth={2.5} className="text-slate-400" />
+                                        Invite Teammate
+                                    </button>
+
                                     <button
                                         onClick={() => { fetchRoleModalData(); setIsRoleModalOpen(true); }}
                                         className="action-button-secondary flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all"
@@ -2985,6 +3081,167 @@ export default function OwnerStaffShifts() {
                     </div>
                 </div>
             )}
+
+            {/* ── INVITE TEAMMATE MODAL ── */}
+            {isInviteModalOpen && (() => {
+                const invitable = inviteRoles.filter(r => !OWNER_ROLE_CODES.includes(r.code));
+                const roleNameById: Record<string, string> = Object.fromEntries(inviteRoles.map(r => [r.id, r.name]));
+                return (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md overflow-y-auto" style={{ colorScheme: 'dark' }}>
+                        <div className="modal-content rounded-[28px] w-full max-w-xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
+                            {/* Header */}
+                            <div className="px-8 pt-8 pb-5 border-b border-white/5">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20">
+                                            <UserPlus size={22} strokeWidth={2.5} />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-xl font-black text-white">Invite Teammate</h3>
+                                            <p className="text-sm font-bold text-slate-500">Send a role-scoped login invite. They sign in with this email, then open the accept link.</p>
+                                        </div>
+                                    </div>
+                                    <button onClick={() => setIsInviteModalOpen(false)} className="p-2 rounded-xl text-slate-500 hover:text-white hover:bg-white/5 transition-colors">
+                                        <X size={24} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Content */}
+                            <div className="px-8 py-6 space-y-6 max-h-[60vh] overflow-y-auto no-scrollbar">
+                                {inviteRolesLoading ? (
+                                    <div className="flex flex-col items-center justify-center py-12">
+                                        <Loader2 size={32} className="text-indigo-500 animate-spin mb-4" />
+                                        <p className="text-sm font-bold text-slate-500">Loading roles…</p>
+                                    </div>
+                                ) : invitable.length === 0 ? (
+                                    /* A1 gate: no invitable roles defined yet */
+                                    <div className="p-8 text-center rounded-2xl border border-dashed border-white/10 bg-white/[0.02]">
+                                        <div className="flex justify-center mb-3">
+                                            <div className="p-3 bg-amber-500/10 rounded-xl text-amber-400"><Shield size={24} /></div>
+                                        </div>
+                                        <p className="text-sm font-black text-white">No invitable roles yet</p>
+                                        <p className="text-xs font-bold text-slate-500 mt-1 max-w-sm mx-auto">Only the Owner role exists. Create staff roles (Manager, Front desk, Housekeeping…) in Setup before inviting teammates.</p>
+                                        <Link to="/onboard" className="inline-flex items-center gap-2 mt-4 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black transition-all">
+                                            <Settings size={14} /> Set up roles
+                                        </Link>
+                                    </div>
+                                ) : (
+                                    <>
+                                        {/* Email */}
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Email</label>
+                                            <div className="relative">
+                                                <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                                                <input
+                                                    type="email"
+                                                    value={inviteForm.email}
+                                                    onChange={(e) => setInviteForm(f => ({ ...f, email: e.target.value }))}
+                                                    placeholder="person@hotel.com"
+                                                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-3.5 text-sm font-bold text-white placeholder:text-slate-600 focus:bg-white/[0.08] focus:border-indigo-500 transition-all outline-none"
+                                                    style={{ colorScheme: 'dark' }}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Role */}
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Role</label>
+                                            <div className="relative">
+                                                <select
+                                                    value={inviteForm.roleId}
+                                                    onChange={(e) => setInviteForm(f => ({ ...f, roleId: e.target.value }))}
+                                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-sm font-bold text-white focus:bg-white/[0.08] focus:border-indigo-500 transition-all outline-none appearance-none cursor-pointer"
+                                                    style={{ colorScheme: 'dark' }}
+                                                >
+                                                    {invitable.map(r => (
+                                                        <option key={r.id} value={r.id} className="bg-[#0a0a0c] text-white">{r.name}</option>
+                                                    ))}
+                                                </select>
+                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                                                    <ChevronDown size={18} strokeWidth={3} />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            onClick={handleSendInvite}
+                                            disabled={inviteSaving || !inviteForm.email.trim() || !inviteForm.roleId}
+                                            className="action-button-primary w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm font-black transition-all disabled:opacity-20 disabled:cursor-not-allowed"
+                                        >
+                                            {inviteSaving ? (<><Loader2 size={16} className="animate-spin" /> Sending…</>) : (<><UserPlus size={16} /> Send invite</>)}
+                                        </button>
+
+                                        {/* Accept link after success */}
+                                        {inviteLink && (
+                                            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-2 animate-in fade-in slide-in-from-top-2">
+                                                <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Invite sent · share this accept link</p>
+                                                <div className="flex items-center gap-2">
+                                                    <code className="flex-1 text-[11px] font-mono text-slate-300 bg-black/30 rounded-lg px-3 py-2 truncate">{inviteLink}</code>
+                                                    <button
+                                                        onClick={() => { navigator.clipboard.writeText(inviteLink); showToast("Link copied", "success"); }}
+                                                        className="p-2.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 transition-all"
+                                                        title="Copy link"
+                                                    >
+                                                        <Copy size={15} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Pending invites */}
+                                        <div className="pt-2 space-y-3">
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Pending invites</label>
+                                            {pendingInvites.length === 0 ? (
+                                                <p className="text-xs font-bold text-slate-600 px-1">No pending invites.</p>
+                                            ) : (
+                                                <div className="grid gap-2">
+                                                    {pendingInvites.map(inv => (
+                                                        <div key={inv.id} className="flex items-center justify-between gap-3 p-3.5 rounded-xl bg-white/[0.02] border border-white/5">
+                                                            <div className="min-w-0">
+                                                                <div className="text-sm font-bold text-slate-200 truncate">{inv.email}</div>
+                                                                <div className="text-[10px] font-bold text-slate-500 mt-0.5">
+                                                                    {(inv.role_id && roleNameById[inv.role_id]) || "Role"} · expires {new Date(inv.expires_at).toLocaleDateString()}
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                                <button
+                                                                    onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/owner/invite/accept/${inv.token}`); showToast("Link copied", "success"); }}
+                                                                    className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 transition-all"
+                                                                    title="Copy accept link"
+                                                                >
+                                                                    <Copy size={14} />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleRevokeInvite(inv.id)}
+                                                                    className="p-2 rounded-lg bg-white/5 hover:bg-rose-500/15 text-slate-400 hover:text-rose-400 transition-all"
+                                                                    title="Revoke invite"
+                                                                >
+                                                                    <Trash2 size={14} />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+
+                            {/* Footer */}
+                            <div className="px-8 py-6 mt-auto bg-white/[0.02] border-t border-white/5 flex justify-end">
+                                <button
+                                    onClick={() => setIsInviteModalOpen(false)}
+                                    className="px-6 py-3 text-sm font-black text-slate-500 hover:text-white hover:bg-white/5 rounded-xl transition-all"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
 
             {/* ── WEEKLY SCHEDULER MODAL ── */}
             {isWeeklyModalOpen && (

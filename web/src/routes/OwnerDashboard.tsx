@@ -1854,6 +1854,9 @@ export default function OwnerDashboard() {
             <Link to={`/owner/${hotel.slug}/analytics`} className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-[#151A25] px-3 py-2.5 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors">
               Owner Analytics <span className="text-slate-600">→</span>
             </Link>
+            <Link to={`/owner/${hotel.slug}/reviews`} className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-[#151A25] px-3 py-2.5 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors">
+              Guest Reviews <span className="text-slate-600">→</span>
+            </Link>
             <Link to={`/ops/analytics?slug=${encodeURIComponent(hotel.slug)}`} className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-[#151A25] px-3 py-2.5 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors">
               Ops Manager <span className="text-slate-600">→</span>
             </Link>

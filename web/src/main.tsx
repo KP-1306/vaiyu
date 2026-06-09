@@ -5,6 +5,7 @@ import {
   createBrowserRouter,
   RouterProvider,
   Outlet,
+  Navigate,
   useParams,
   useSearchParams,
   Link,
@@ -17,7 +18,12 @@ const Stays = lazy(() => import("./routes/Stays"));
 const Stay = lazy(() => import("./routes/Stay"));
 const MyRequests = lazy(() => import("./routes/MyRequests"));
 const Bills = React.lazy(() => import("./routes/Bill"));
-const OwnerAccess = React.lazy(() => import("./routes/OwnerAccess"));
+// Retired: the old "Property access" screen (/settings/access, /owner/access) is
+// consolidated into Staff & Shifts → "Invite Teammate". These routes redirect there.
+function AccessRedirect() {
+  const { slug } = useParams();
+  return <Navigate to={slug ? `/owner/${slug}/staff-shifts` : "/owner"} replace />;
+}
 const OwnerHomeRedirect = lazy(() => import("./routes/OwnerHomeRedirect"));
 
 // Kill stale SW + caches (keep disabled while debugging)
@@ -1113,12 +1119,18 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: "owner/reviews",
+        // Hotel-scoped owner reviews — the live guest_reviews / reputation surface
+        path: "owner/:slug/reviews",
         element: (
           <AuthGate>
             <OwnerReviews />
           </AuthGate>
         ),
+      },
+      {
+        // Legacy slug-less route → dashboard (which resolves the hotel)
+        path: "owner/reviews",
+        element: <Navigate to="/owner" replace />,
       },
 
       // Admin shell (protected via AuthGate)
@@ -1156,7 +1168,7 @@ const router = createBrowserRouter([
         path: "owner/:slug/settings/access",
         element: (
           <AuthGate>
-            <OwnerAccess />
+            <AccessRedirect />
           </AuthGate>
         ),
       },
@@ -1172,7 +1184,7 @@ const router = createBrowserRouter([
         path: "owner/access",
         element: (
           <AuthGate>
-            <OwnerAccess />
+            <AccessRedirect />
           </AuthGate>
         ),
       },

@@ -1,59 +1,124 @@
+// web/src/routes/OwnerReviews.tsx
+//
+// Owner Reviews / Reputation — Supabase-native, reads the LIVE guest_reviews
+// system (where the guest app actually writes), not the legacy `reviews` table.
+// Owner actions that have real backing today: toggle visibility (is_public) and
+// escalate (review_flags). Header metrics are computed client-side from the
+// loaded rows (no dependency on a view's RLS).
 import { useEffect, useMemo, useState } from "react";
+import { useParams } from "react-router-dom";
 import OwnerGate from "../components/OwnerGate";
 import SEO from "../components/SEO";
+import { supabase } from "../lib/supabase";
 import {
-  listPendingReviews,
-  approveReview,
-  rejectReview,
-} from "../lib/api";
+  Star,
+  Flag,
+  Eye,
+  EyeOff,
+  Loader2,
+  RefreshCw,
+  AlertTriangle,
+  MessageSquare,
+  ThumbsUp,
+  ThumbsDown,
+  ShieldAlert,
+} from "lucide-react";
 
-type Pending = {
+type Review = {
   id: string;
-  bookingCode: string;
-  hotel_slug: string;
-  rating: number;
-  title?: string;
-  body?: string;
+  overall_rating: number;
+  review_text: string | null;
+  is_public: boolean;
+  is_anonymous: boolean;
   created_at: string;
-  anchors?: {
-    tickets: number;
-    orders: number;
-    onTime: number;
-    late: number;
-    avgMins: number;
-    details?: string[];
-  };
+  guest_id: string | null;
+  guests?: { full_name: string | null } | null;
 };
 
+type CatRating = { review_id: string; rating: number; label: string };
+
+function Stars({ n }: { n: number }) {
+  return (
+    <span className="inline-flex items-center gap-0.5" aria-label={`${n} star`}>
+      {[1, 2, 3, 4, 5].map((i) => (
+        <Star
+          key={i}
+          size={15}
+          className={i <= n ? "text-amber-500 fill-amber-500" : "text-gray-300"}
+        />
+      ))}
+    </span>
+  );
+}
+
 export default function OwnerReviews() {
-  const [rows, setRows] = useState<Pending[]>([]);
+  const { slug } = useParams();
+  const [hotelId, setHotelId] = useState<string | null>(null);
+  const [rows, setRows] = useState<Review[]>([]);
+  const [catsByReview, setCatsByReview] = useState<Record<string, CatRating[]>>({});
+  const [flagged, setFlagged] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
-
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [q, setQ] = useState("");
-  const [selected, setSelected] = useState<Record<string, boolean>>({});
-  const allSelected = useMemo(
-    () => rows.length > 0 && rows.every((r) => selected[r.id]),
-    [rows, selected]
-  );
 
-  <SEO title="Owner Home" noIndex />
-  
   async function load() {
     setErr(null);
     setLoading(true);
     try {
-      const r = await listPendingReviews();
-      const items = ((r as any)?.items || r || []) as Pending[];
-      setRows(items);
-      // prune stale selections
-      setSelected((prev) => {
-        const next: Record<string, boolean> = {};
-        for (const it of items) if (prev[it.id]) next[it.id] = true;
-        return next;
-      });
+      // 1. Resolve the hotel from the slug
+      const { data: h, error: hErr } = await supabase
+        .from("hotels")
+        .select("id")
+        .eq("slug", slug)
+        .single();
+      if (hErr) throw hErr;
+      const hid = h.id as string;
+      setHotelId(hid);
+
+      // 2. Reviews (guest name joined; respected only when not anonymous)
+      const { data: revs, error: rErr } = await supabase
+        .from("guest_reviews")
+        .select(
+          "id, overall_rating, review_text, is_public, is_anonymous, created_at, guest_id, guests(full_name)"
+        )
+        .eq("hotel_id", hid)
+        .order("created_at", { ascending: false });
+      if (rErr) throw rErr;
+      setRows((revs as any as Review[]) || []);
+
+      // 3. Open escalations → mark which reviews are flagged
+      const { data: flags } = await supabase
+        .from("review_flags")
+        .select("review_id, status")
+        .eq("hotel_id", hid)
+        .in("status", ["open", "in_progress"]);
+      const fmap: Record<string, boolean> = {};
+      for (const f of flags || []) fmap[(f as any).review_id] = true;
+      setFlagged(fmap);
+
+      // 4. Category ratings (best-effort — never blocks the page)
+      try {
+        const { data: cats } = await supabase
+          .from("review_ratings")
+          .select("review_id, rating, review_categories(label)")
+          .eq("hotel_id", hid);
+        const byReview: Record<string, CatRating[]> = {};
+        for (const c of (cats as any[]) || []) {
+          const label = c.review_categories?.label;
+          if (!label) continue;
+          (byReview[c.review_id] ||= []).push({
+            review_id: c.review_id,
+            rating: c.rating,
+            label,
+          });
+        }
+        setCatsByReview(byReview);
+      } catch {
+        setCatsByReview({});
+      }
     } catch (e: any) {
-      setErr(e?.message || "Failed to load pending reviews");
+      setErr(e?.message || "Failed to load reviews");
     } finally {
       setLoading(false);
     }
@@ -61,255 +126,230 @@ export default function OwnerReviews() {
 
   useEffect(() => {
     load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug]);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     if (!s) return rows;
-    return rows.filter((p) => {
-      return (
-        p.bookingCode.toLowerCase().includes(s) ||
-        (p.title || "").toLowerCase().includes(s) ||
-        (p.body || "").toLowerCase().includes(s)
-      );
-    });
+    return rows.filter(
+      (r) =>
+        (r.review_text || "").toLowerCase().includes(s) ||
+        (r.guests?.full_name || "").toLowerCase().includes(s)
+    );
   }, [rows, q]);
 
-  function toggleAll() {
-    if (allSelected) {
-      setSelected({});
-      return;
+  // Header metrics — computed from loaded rows (no view dependency)
+  const metrics = useMemo(() => {
+    const total = rows.length;
+    const avg = total
+      ? Math.round((rows.reduce((s, r) => s + (r.overall_rating || 0), 0) / total) * 10) / 10
+      : 0;
+    const positive = rows.filter((r) => r.overall_rating >= 4).length;
+    const negative = rows.filter((r) => r.overall_rating <= 2).length;
+    const escalations = Object.keys(flagged).length;
+    const last = rows[0]?.created_at || null;
+    return { total, avg, positive, negative, escalations, last };
+  }, [rows, flagged]);
+
+  async function toggleVisibility(r: Review) {
+    setBusyId(r.id);
+    try {
+      const { error } = await supabase
+        .from("guest_reviews")
+        .update({ is_public: !r.is_public })
+        .eq("id", r.id);
+      if (error) throw error;
+      setRows((prev) =>
+        prev.map((x) => (x.id === r.id ? { ...x, is_public: !x.is_public } : x))
+      );
+    } catch (e: any) {
+      setErr(e?.message || "Could not change visibility");
+    } finally {
+      setBusyId(null);
     }
-    const next: Record<string, boolean> = {};
-    for (const r of filtered) next[r.id] = true;
-    setSelected(next);
   }
 
-  function toggleOne(id: string) {
-    setSelected((prev) => ({ ...prev, [id]: !prev[id] }));
-  }
-
-  const selectedList = useMemo(
-    () => filtered.filter((r) => selected[r.id]),
-    [filtered, selected]
-  );
-
-  async function doApprove(p: Pending) {
-    await approveReview(p.id, p.bookingCode);
-    load();
-  }
-  async function doReject(p: Pending) {
-    if (!confirm("Reject this draft?")) return;
-    await rejectReview(p.id, p.bookingCode);
-    load();
-  }
-
-  async function approveAll() {
-    if (!filtered.length) return;
-    if (!confirm(`Approve all ${filtered.length} draft(s)?`)) return;
-    await Promise.all(filtered.map((p) => approveReview(p.id, p.bookingCode)));
-    load();
-  }
-
-  async function approveSelected() {
-    if (!selectedList.length) return;
-    if (!confirm(`Approve ${selectedList.length} selected draft(s)?`)) return;
-    await Promise.all(selectedList.map((p) => approveReview(p.id, p.bookingCode)));
-    load();
-  }
-
-  async function rejectSelected() {
-    if (!selectedList.length) return;
-    if (!confirm(`Reject ${selectedList.length} selected draft(s)?`)) return;
-    await Promise.all(selectedList.map((p) => rejectReview(p.id, p.bookingCode)));
-    load();
-  }
-
-  function downloadCSV() {
-    const rowsForCsv = filtered;
-    const header = [
-      "id",
-      "bookingCode",
-      "hotel_slug",
-      "rating",
-      "title",
-      "body",
-      "created_at",
-      "tickets",
-      "orders",
-      "onTime",
-      "late",
-      "avgMins",
-    ];
-
-    const esc = (v: any) => {
-      const s = v == null ? "" : String(v);
-      // escape quotes; wrap in quotes if contains comma/quote/newline
-      if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-      return s;
-    };
-
-    const lines = [
-      header.join(","),
-      ...rowsForCsv.map((r) =>
-        [
-          r.id,
-          r.bookingCode,
-          r.hotel_slug,
-          r.rating,
-          r.title || "",
-          r.body || "",
-          r.created_at,
-          r.anchors?.tickets ?? 0,
-          r.anchors?.orders ?? 0,
-          r.anchors?.onTime ?? 0,
-          r.anchors?.late ?? 0,
-          r.anchors?.avgMins ?? 0,
-        ]
-          .map(esc)
-          .join(",")
-      ),
-    ].join("\n");
-
-    const blob = new Blob([lines], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `pending-reviews-${new Date().toISOString().slice(0, 19)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  async function escalate(r: Review) {
+    if (!hotelId || flagged[r.id]) return;
+    setBusyId(r.id);
+    try {
+      const flag_type = r.overall_rating <= 2 ? "low_rating" : "complaint";
+      const severity = r.overall_rating <= 2 ? "high" : "medium";
+      const { error } = await supabase.from("review_flags").insert({
+        hotel_id: hotelId,
+        review_id: r.id,
+        flag_type,
+        severity,
+        // status defaults to 'open'
+      });
+      if (error) throw error;
+      setFlagged((prev) => ({ ...prev, [r.id]: true }));
+    } catch (e: any) {
+      setErr(e?.message || "Could not escalate");
+    } finally {
+      setBusyId(null);
+    }
   }
 
   return (
     <OwnerGate>
+      <SEO title="Guest Reviews" noIndex />
       <main className="max-w-4xl mx-auto p-4 space-y-4">
+        {/* Header */}
         <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="text-xl font-semibold">Review Moderation</h1>
+            <h1 className="text-xl font-semibold">Guest Reviews</h1>
             <div className="text-sm text-gray-600">
-              Approve or reject AI-suggested drafts before they go public.
+              Real reviews left by your guests. Control what's public and escalate the ones that need attention.
             </div>
           </div>
           <div className="flex items-center gap-2">
             <input
               className="input"
-              placeholder="Search by booking code, title or text…"
+              placeholder="Search reviews…"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              style={{ width: 280 }}
+              style={{ width: 240 }}
             />
             <button className="btn btn-light" onClick={load} disabled={loading}>
-              Refresh
+              <RefreshCw size={15} className={loading ? "animate-spin" : ""} /> Refresh
             </button>
           </div>
         </header>
 
-        <div className="card">
-          <div className="flex flex-wrap items-center gap-2">
-            <button className="btn" onClick={approveAll} disabled={!filtered.length || loading}>
-              Approve all ({filtered.length})
-            </button>
-            <div className="h-6 w-px bg-gray-200" />
-            <button
-              className="btn"
-              onClick={approveSelected}
-              disabled={!selectedList.length || loading}
-              title="Approve selected"
-            >
-              Approve selected ({selectedList.length})
-            </button>
-            <button
-              className="btn btn-outline"
-              onClick={rejectSelected}
-              disabled={!selectedList.length || loading}
-              title="Reject selected"
-            >
-              Reject selected
-            </button>
-            <div className="h-6 w-px bg-gray-200" />
-            <button className="btn btn-light" onClick={downloadCSV} disabled={!filtered.length}>
-              Download CSV
-            </button>
-            <div className="ml-auto text-sm text-gray-600">
-              {filtered.length} pending in view
+        {/* Metrics */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div className="card text-center">
+            <div className="text-2xl font-bold flex items-center justify-center gap-1">
+              {metrics.avg || "—"} <Star size={18} className="text-amber-500 fill-amber-500" />
             </div>
+            <div className="text-xs text-gray-500 mt-1">Average rating</div>
+          </div>
+          <div className="card text-center">
+            <div className="text-2xl font-bold">{metrics.total}</div>
+            <div className="text-xs text-gray-500 mt-1">Total reviews</div>
+          </div>
+          <div className="card text-center">
+            <div className="text-2xl font-bold text-emerald-600 flex items-center justify-center gap-1">
+              <ThumbsUp size={16} /> {metrics.positive}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">Positive (4–5★)</div>
+          </div>
+          <div className="card text-center">
+            <div className="text-2xl font-bold text-rose-600 flex items-center justify-center gap-1">
+              <ThumbsDown size={16} /> {metrics.negative}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">Negative (1–2★)</div>
+          </div>
+          <div className="card text-center">
+            <div className="text-2xl font-bold text-amber-600 flex items-center justify-center gap-1">
+              <ShieldAlert size={16} /> {metrics.escalations}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">Open escalations</div>
           </div>
         </div>
 
         {err && (
-          <div className="card" style={{ borderColor: "#f59e0b" }}>
-            ⚠️ {err}
+          <div className="card flex items-center gap-2" style={{ borderColor: "#f59e0b" }}>
+            <AlertTriangle size={16} className="text-amber-500" /> {err}
           </div>
         )}
-        {loading && <div>Loading…</div>}
-        {!loading && rows.length === 0 && (
-          <div className="card">No pending reviews 🎉</div>
+        {loading && (
+          <div className="card flex items-center gap-2 text-gray-600">
+            <Loader2 size={16} className="animate-spin" /> Loading reviews…
+          </div>
+        )}
+        {!loading && rows.length === 0 && !err && (
+          <div className="card text-center text-gray-600">
+            <MessageSquare size={22} className="mx-auto mb-2 text-gray-400" />
+            No guest reviews yet. They appear here as guests submit them at checkout.
+          </div>
         )}
 
-        <div className="grid gap-10">
-          {!!filtered.length && (
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input
-                type="checkbox"
-                checked={allSelected}
-                onChange={toggleAll}
-              />
-              Select all in view
-            </label>
-          )}
-
-          {filtered.map((p) => (
-            <div key={p.id} className="card">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-3">
-                  <input
-                    type="checkbox"
-                    className="mt-1"
-                    checked={!!selected[p.id]}
-                    onChange={() => toggleOne(p.id)}
-                  />
-                  <div>
-                    <div className="text-xs text-gray-500">
-                      {p.hotel_slug} • {new Date(p.created_at).toLocaleString()}
+        {/* List */}
+        <div className="space-y-3">
+          {filtered.map((r) => {
+            const cats = catsByReview[r.id] || [];
+            const name = r.is_anonymous
+              ? "Anonymous guest"
+              : r.guests?.full_name || "Guest";
+            const isFlagged = !!flagged[r.id];
+            const busy = busyId === r.id;
+            return (
+              <div key={r.id} className="card">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Stars n={r.overall_rating} />
+                      <span className="text-sm font-semibold">{name}</span>
+                      <span className="text-xs text-gray-500">
+                        {new Date(r.created_at).toLocaleDateString()}
+                      </span>
+                      <span
+                        className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${
+                          r.is_public
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-gray-100 text-gray-500"
+                        }`}
+                      >
+                        {r.is_public ? "Public" : "Private"}
+                      </span>
+                      {isFlagged && (
+                        <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                          Escalated
+                        </span>
+                      )}
                     </div>
-                    <div className="font-semibold mt-1">
-                      {p.title || "Suggested review"}
-                    </div>
-                    <div className="mt-1">{'⭐'.repeat(p.rating)}</div>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <button className="btn" onClick={() => doApprove(p)}>
-                    Approve
-                  </button>
-                  <button className="btn btn-outline" onClick={() => doReject(p)}>
-                    Reject
-                  </button>
-                </div>
-              </div>
-
-              {p.body && <div className="mt-3 whitespace-pre-wrap">{p.body}</div>}
-
-              {p.anchors && (
-                <details className="mt-3">
-                  <summary className="cursor-pointer">Why this rating?</summary>
-                  <div className="text-sm mt-2 text-gray-700">
-                    Requests: {p.anchors.tickets} · Orders: {p.anchors.orders} · On-time: {p.anchors.onTime} · Late: {p.anchors.late} · Avg mins: {p.anchors.avgMins}
-                    {p.anchors.details?.length ? (
-                      <div className="mt-2">
-                        {p.anchors.details.map((d, i) => (
-                          <div key={i} style={{ opacity: 0.9 }}>{d}</div>
+                    {r.review_text && (
+                      <div className="mt-2 text-sm whitespace-pre-wrap">{r.review_text}</div>
+                    )}
+                    {cats.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {cats.map((c, i) => (
+                          <span
+                            key={i}
+                            className="text-[11px] bg-gray-100 text-gray-700 rounded-md px-2 py-0.5 inline-flex items-center gap-1"
+                          >
+                            {c.label}
+                            <span className="inline-flex items-center gap-0.5 font-semibold">
+                              {c.rating}
+                              <Star size={10} className="text-amber-500 fill-amber-500" />
+                            </span>
+                          </span>
                         ))}
                       </div>
-                    ) : null}
+                    )}
                   </div>
-                </details>
-              )}
-              <div className="text-xs text-gray-500 mt-2">
-                Booking: {p.bookingCode}
+                  <div className="flex flex-col gap-2 shrink-0">
+                    <button
+                      className="btn btn-light"
+                      onClick={() => toggleVisibility(r)}
+                      disabled={busy}
+                      title={r.is_public ? "Hide from public" : "Show publicly"}
+                    >
+                      {busy ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : r.is_public ? (
+                        <EyeOff size={14} />
+                      ) : (
+                        <Eye size={14} />
+                      )}
+                      {r.is_public ? "Make private" : "Make public"}
+                    </button>
+                    <button
+                      className="btn btn-outline"
+                      onClick={() => escalate(r)}
+                      disabled={busy || isFlagged}
+                      title={isFlagged ? "Already escalated" : "Escalate for follow-up"}
+                    >
+                      <Flag size={14} /> {isFlagged ? "Escalated" : "Escalate"}
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </main>
     </OwnerGate>

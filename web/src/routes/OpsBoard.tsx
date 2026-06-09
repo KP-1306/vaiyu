@@ -14,6 +14,7 @@ import {
   reassignTask,
   rejectSlaException,
   rejectSupervisorApproval,
+  approveSupervisorRequest,
   grantSlaException,
   IS_SUPABASE_FUNCTIONS,
 } from "../lib/api";
@@ -896,7 +897,7 @@ export default function OpsBoard() {
 
   const handleAction = async (t: Ticket, action: string) => {
     if (action === 'approve') {
-      await unblockTask(t.id, 'SUPERVISOR_APPROVED', 'Approved');
+      await approveSupervisorRequest(t.id, 'Approved');
       refresh();
     } else if (action === 'reject') {
       // Open comment modal for rejection

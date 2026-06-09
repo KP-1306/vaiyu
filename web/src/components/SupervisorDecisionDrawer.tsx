@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Clock, User, AlertTriangle, CheckCircle, XCircle, ChevronDown, ChevronRight, Briefcase, Activity } from 'lucide-react';
-import { getTicketEvents, grantSlaException, rejectSlaException, unblockTask, rejectSupervisorApproval } from '../lib/api';
+import { getTicketEvents, grantSlaException, rejectSlaException, approveSupervisorRequest, rejectSupervisorApproval } from '../lib/api';
 
 // ============================================================
 // Types
@@ -216,7 +216,7 @@ export default function SupervisorDecisionDrawer({
         setIsSubmitting(true);
         setError(null);
         try {
-            await unblockTask(ticket.id, 'SUPERVISOR_APPROVED', comment || 'Approved by supervisor');
+            await approveSupervisorRequest(ticket.id, comment || 'Approved by supervisor');
             onDecision();
             onClose();
         } catch (err: any) {

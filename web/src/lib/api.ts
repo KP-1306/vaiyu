@@ -2963,6 +2963,28 @@ export async function rejectSupervisorApproval(
   return data;
 }
 
+/**
+ * Approve a supervisor approval request on a BLOCKED ticket.
+ * Emits SUPERVISOR_APPROVED + UNBLOCKED(supervisor_request_cancelled),
+ * flips status to IN_PROGRESS, fires SLA-resume trigger.
+ * Allowed for SUPERVISOR or OWNER role on the hotel.
+ */
+export async function approveSupervisorRequest(
+  ticketId: string,
+  comment?: string
+) {
+  const s = supa();
+  if (!s) return { error: { message: "Not authenticated" } };
+
+  const { data, error } = await s.rpc("approve_supervisor_request", {
+    p_ticket_id: ticketId,
+    p_comment: comment || null,
+  });
+
+  if (error) throw error;
+  return data;
+}
+
 export async function grantSlaException(
   ticketId: string,
   comment: string

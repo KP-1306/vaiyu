@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VAiyu — New User Testing Guide</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 15px; line-height: 1.65; color: #1a1a2e; background: #f8f9fb;
+    }
+    .layout { display: flex; min-height: 100vh; }
+
+    /* Sidebar */
+    .sidebar {
+      width: 268px; flex-shrink: 0; background: #0f172a; color: #cbd5e1;
+      position: sticky; top: 0; height: 100vh; overflow-y: auto; padding: 0 0 40px;
+    }
+    .sidebar-logo { padding: 24px 20px 16px; border-bottom: 1px solid #1e293b; }
+    .sidebar-logo h1 { font-size: 20px; font-weight: 700; color: #fff; letter-spacing: -0.5px; }
+    .sidebar-logo p { font-size: 11px; color: #64748b; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .sidebar nav { padding: 16px 0; }
+    .sidebar-section-title {
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+      color: #475569; padding: 12px 20px 4px;
+    }
+    .sidebar a {
+      display: flex; align-items: center; gap: 8px; padding: 7px 20px; color: #94a3b8;
+      text-decoration: none; font-size: 13px; transition: color .15s, background .15s; border-left: 2px solid transparent;
+    }
+    .sidebar a:hover { color: #f1f5f9; background: #1e293b; }
+    .sidebar a.active { color: #fff; border-left-color: #6366f1; background: #1e293b; }
+    .sidebar a .step-num {
+      background: #1e293b; color: #64748b; border-radius: 4px; font-size: 10px; font-weight: 600;
+      padding: 1px 5px; min-width: 22px; text-align: center;
+    }
+
+    .main { flex: 1; max-width: 920px; padding: 0 40px 80px; }
+
+    /* Hero */
+    .hero {
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 60%, #312e81 100%);
+      color: #fff; padding: 56px 40px; margin: 0 -40px 36px;
+    }
+    .hero-badge {
+      display: inline-block; background: rgba(99,102,241,.25); color: #a5b4fc;
+      border: 1px solid rgba(99,102,241,.4); border-radius: 20px; font-size: 11px; font-weight: 600;
+      letter-spacing: .5px; text-transform: uppercase; padding: 3px 12px; margin-bottom: 16px;
+    }
+    .hero h1 { font-size: 32px; font-weight: 800; letter-spacing: -1px; line-height: 1.2; }
+    .hero h1 span { color: #818cf8; }
+    .hero p { margin-top: 12px; color: #cbd5e1; font-size: 16px; max-width: 620px; }
+    .hero-meta { display: flex; gap: 24px; margin-top: 28px; flex-wrap: wrap; }
+    .hero-meta-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #94a3b8; }
+    .hero-meta-item strong { color: #e2e8f0; }
+
+    /* Orientation / concept */
+    .concept { margin-bottom: 36px; }
+    .concept h2 { font-size: 22px; font-weight: 800; letter-spacing: -.4px; margin-bottom: 8px; color: #0f172a; }
+    .concept > p { color: #475569; font-size: 15px; margin-bottom: 18px; }
+    .roles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 18px 0; }
+    .role-card { border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; background: #fff; }
+    .role-card .role-icon { font-size: 22px; }
+    .role-card h3 { font-size: 14px; font-weight: 700; margin: 8px 0 2px; }
+    .role-card .who { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; color: #6366f1; margin-bottom: 6px; }
+    .role-card p { font-size: 12.5px; color: #64748b; line-height: 1.55; }
+    .flow {
+      background: #0f172a; color: #e2e8f0; border-radius: 12px; padding: 18px 20px; margin-top: 6px;
+      font-size: 13.5px; line-height: 1.7;
+    }
+    .flow strong { color: #a5b4fc; }
+    .flow .flow-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: #64748b; margin-bottom: 6px; }
+
+    /* Data banner */
+    .seed-banner {
+      background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 12px; padding: 18px 20px; margin-bottom: 16px;
+    }
+    .seed-banner h4 { font-size: 13px; font-weight: 700; color: #3730a3; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+    .seed-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; }
+    .seed-grid div { font-size: 12.5px; color: #3730a3; display: flex; gap: 7px; align-items: flex-start; }
+    .seed-grid .k { color: #16a34a; font-weight: 700; }
+    .seed-grid .empty .k { color: #d97706; }
+
+    .env-banner {
+      background: #fffbeb; border: 1px solid #fcd34d; border-radius: 10px; padding: 14px 18px;
+      margin-bottom: 36px; display: flex; gap: 12px; align-items: flex-start;
+    }
+    .env-banner .icon { font-size: 18px; margin-top: 1px; }
+    .env-banner h4 { font-size: 13px; font-weight: 700; color: #92400e; margin-bottom: 4px; }
+    .env-banner p { font-size: 12px; color: #78350f; }
+    .env-banner code { background: #fef3c7; border-radius: 3px; padding: 1px 5px; font-family: monospace; font-size: 11px; }
+
+    /* Section headers */
+    .section-header { display: flex; align-items: center; gap: 14px; margin: 48px 0 8px; padding-top: 8px; }
+    .section-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+    .section-header h2 { font-size: 20px; font-weight: 700; letter-spacing: -.3px; color: #0f172a; }
+    .section-header p { font-size: 13px; color: #64748b; margin-top: 2px; }
+    .section-divider { border: none; border-top: 1px solid #e2e8f0; margin: 0 0 32px; }
+
+    /* Test blocks */
+    .test-block { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 28px; overflow: hidden; }
+    .test-block-header { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid #f1f5f9; background: #fafafa; }
+    .test-num { background: #6366f1; color: #fff; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 2px 8px; flex-shrink: 0; }
+    .test-block-header h3 { font-size: 15px; font-weight: 700; color: #0f172a; }
+    .test-block-header .url-pill {
+      margin-left: auto; background: #f1f5f9; color: #475569; font-family: monospace; font-size: 11px;
+      border-radius: 6px; padding: 2px 8px; white-space: nowrap; max-width: 280px; overflow: hidden; text-overflow: ellipsis;
+    }
+    .test-block-body { padding: 20px; }
+    .test-block-body p.context { color: #475569; font-size: 14px; margin-bottom: 16px; }
+
+    .steps { list-style: none; margin-bottom: 18px; }
+    .steps li { display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px solid #f8fafc; font-size: 14px; color: #334155; align-items: flex-start; }
+    .steps li:last-child { border-bottom: none; }
+    .step-bullet { background: #e0e7ff; color: #4338ca; font-size: 11px; font-weight: 700; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+    .steps code, .context code, .expect code, .note code { background: #f1f5f9; border-radius: 4px; padding: 1px 6px; font-family: monospace; font-size: 12px; color: #0f172a; }
+
+    .expect { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 13px; color: #166534; display: flex; gap: 8px; align-items: flex-start; }
+    .expect .icon { font-size: 14px; margin-top: 1px; }
+    .note { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 13px; color: #9a3412; display: flex; gap: 8px; align-items: flex-start; }
+    .note .icon { font-size: 14px; margin-top: 1px; }
+    .emptynote { background: #f1f5f9; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 13px; color: #475569; display: flex; gap: 8px; align-items: flex-start; }
+
+    .screenshot-wrap { border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; margin-top: 4px; }
+    .screenshot-wrap.phone { max-width: 340px; margin: 4px auto 0; box-shadow: 0 8px 30px rgba(15,23,42,.12); }
+    .phone-row { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
+    .phone-row .screenshot-wrap.phone { margin: 0; flex: 0 0 300px; max-width: 300px; }
+
+    /* Screen-reference gallery */
+    .ref-intro { background:#eef2ff; border:1px solid #c7d2fe; border-radius:12px; padding:16px 20px; margin-bottom:8px; font-size:13.5px; color:#3730a3; }
+    .feature-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:18px; margin-bottom:8px; }
+    .feature-grid.phones { grid-template-columns:repeat(3,1fr); }
+    .feature-card { border:1px solid #e2e8f0; border-radius:12px; overflow:hidden; background:#fff; display:flex; flex-direction:column; }
+    .feature-card .shot { background:#0f172a; border-bottom:1px solid #e2e8f0; }
+    .feature-card .shot img { width:100%; display:block; height:auto; }
+    .feature-card.phone-card .shot { display:flex; justify-content:center; padding:10px; }
+    .feature-card.phone-card .shot img { width:auto; max-height:360px; border-radius:6px; }
+    .feature-card .body { padding:13px 15px; }
+    .feature-card .body h4 { font-size:14px; font-weight:700; color:#0f172a; display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+    .feature-card .body .route { font-family:monospace; font-size:10.5px; color:#64748b; background:#f1f5f9; border-radius:4px; padding:1px 6px; }
+    .feature-card .body p { font-size:12.5px; color:#475569; margin-top:6px; line-height:1.5; }
+    .feature-card .body .testline { font-size:12px; color:#166534; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; padding:6px 9px; margin-top:9px; }
+    .feature-card .body .testline b { color:#15803d; }
+    .reserved-note { background:#fff7ed; border:1px solid #fed7aa; border-radius:10px; padding:14px 18px; margin:8px 0 0; font-size:12.5px; color:#9a3412; }
+    .reserved-note b { color:#7c2d12; }
+    @media (max-width:820px){ .feature-grid, .feature-grid.phones { grid-template-columns:1fr; } }
+    .screenshot-caption { background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 6px 12px; font-size: 11px; color: #64748b; display: flex; align-items: center; gap: 6px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 1px; }
+    .dot-r { background: #fc5c5c; } .dot-y { background: #fdbc40; } .dot-g { background: #35cd4b; }
+    .screenshot-wrap img { width: 100%; display: block; height: auto; }
+
+    .persona-pill { display: inline-block; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: .3px; padding: 2px 10px; margin-left: 8px; vertical-align: middle; }
+    .pill-owner { background: #ede9fe; color: #5b21b6; }
+    .pill-staff { background: #dbeafe; color: #1d4ed8; }
+    .pill-guest { background: #fce7f3; color: #9d174d; }
+    .pill-ops { background: #d1fae5; color: #065f46; }
+
+    @media print {
+      .sidebar { display: none; }
+      .main { max-width: 100%; padding: 20px; }
+      .hero { margin: 0 0 24px; }
+      .test-block, .role-card { break-inside: avoid; }
+    }
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+    @media (max-width: 720px) { .roles, .seed-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <h1>VAiyu</h1>
+      <p>New User Testing Guide</p>
+    </div>
+    <nav>
+      <div class="sidebar-section-title">Start Here</div>
+      <a href="#what"><span class="step-num">i</span> What is VAiyu?</a>
+      <a href="#data"><span class="step-num">ii</span> Demo data &amp; setup</a>
+
+      <div class="sidebar-section-title">Getting In</div>
+      <a href="#signin"><span class="step-num">01</span> Open &amp; Sign In</a>
+
+      <div class="sidebar-section-title">Owner Console</div>
+      <a href="#dashboard"><span class="step-num">02</span> Owner Dashboard</a>
+      <a href="#arrivals"><span class="step-num">03</span> Arrivals</a>
+      <a href="#housekeeping"><span class="step-num">04</span> Housekeeping</a>
+      <a href="#frontdesk"><span class="step-num">05</span> Front Desk (Walk-in)</a>
+      <a href="#staff"><span class="step-num">06</span> Staff &amp; Shifts</a>
+      <a href="#folio"><span class="step-num">07</span> Revenue, Folio &amp; Money</a>
+      <a href="#analytics"><span class="step-num">08</span> Owner Analytics</a>
+      <a href="#finance"><span class="step-num">09</span> Finance</a>
+      <a href="#pricing"><span class="step-num">10</span> Dynamic Pricing</a>
+      <a href="#settings"><span class="step-num">11</span> Hotel Settings</a>
+      <a href="#payments"><span class="step-num">12</span> Payments &amp; Settlements</a>
+
+      <div class="sidebar-section-title">Growth Hub</div>
+      <a href="#leads"><span class="step-num">13</span> Lead CRM</a>
+      <a href="#packages"><span class="step-num">14</span> Experience Packages</a>
+      <a href="#visibility"><span class="step-num">15</span> Visibility Score</a>
+
+      <div class="sidebar-section-title">Operations (Staff)</div>
+      <a href="#ops"><span class="step-num">16</span> Ops Board</a>
+      <a href="#kitchen"><span class="step-num">17</span> Kitchen</a>
+
+      <div class="sidebar-section-title">Guest Journey</div>
+      <a href="#guest"><span class="step-num">18</span> Home · Service · Food</a>
+      <a href="#guest"><span class="step-num">21</span> Track · Checkout</a>
+
+      <div class="sidebar-section-title">Screen Reference</div>
+      <a href="#reference"><span class="step-num">★</span> All Screens</a>
+      <a href="#ref-growth"><span class="step-num">+9</span> Growth Hub full set</a>
+      <a href="#ref-owner"><span class="step-num">+12</span> Owner — more tools</a>
+      <a href="#ref-setup"><span class="step-num">+3</span> Setup &amp; Check-in</a>
+      <a href="#ref-staff"><span class="step-num">+4</span> Staff apps</a>
+      <a href="#ref-guest"><span class="step-num">+5</span> Guest — more</a>
+      <a href="#ref-guestdeep"><span class="step-num">+7</span> Guest deep-links</a>
+      <a href="#ref-public"><span class="step-num">+2</span> Public funnel</a>
+
+      <div class="sidebar-section-title">Finish</div>
+      <a href="#checklist"><span class="step-num">✓</span> Test Checklist</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+
+    <!-- Hero -->
+    <div class="hero">
+      <div class="hero-badge">Testing Guide · v2.0 · 06 June 2026</div>
+      <h1>VAiyu <span>New User</span><br>Testing Guide</h1>
+      <p>A step-by-step walkthrough of every major screen in VAiyu — written for someone who has never seen it before. Read "What is VAiyu?" first, then work through each numbered screen.</p>
+      <div class="hero-meta">
+        <div class="hero-meta-item">🏨 <strong>Hotel:</strong> Dev Test Hotel · Dehradun</div>
+        <div class="hero-meta-item">👥 <strong>Roles:</strong> Owner · Staff · Guest</div>
+        <div class="hero-meta-item">🖥️ <strong>Screens:</strong> 22 steps + 42 reference = 64</div>
+        <div class="hero-meta-item">📸 <strong>Screenshots:</strong> live captures</div>
+      </div>
+    </div>
+
+    <!-- ORIENTATION -->
+    <div class="concept" id="what">
+      <h2>What is VAiyu?</h2>
+      <p>
+        VAiyu is an <strong>all-in-one operations system for hotels</strong> — built for small and mid-sized
+        properties in India (with a focus on Uttarakhand: Dehradun, Rishikesh, the Char Dham route). One login
+        runs the entire hotel: room bookings and walk-in check-ins, guest folios and payments (cash, UPI, card,
+        Razorpay), housekeeping, food orders, guest service requests, staff shifts, room pricing, finance, and a
+        "Growth Hub" of marketing tools (leads, packages, local SEO, OTA readiness). Everything updates in real time.
+      </p>
+
+      <div class="roles">
+        <div class="role-card">
+          <div class="role-icon">🏠</div>
+          <div class="who">Runs the hotel</div>
+          <h3>Owner / Manager</h3>
+          <p>Uses the <strong>Owner Console</strong> — dashboard, money, staff, pricing, marketing. The back office and command centre. This is most of this guide.</p>
+        </div>
+        <div class="role-card">
+          <div class="role-icon">🛎️</div>
+          <div class="who">Works the floor</div>
+          <h3>Front-desk &amp; Staff</h3>
+          <p>Use the <strong>Ops Board</strong>, <strong>Kitchen screen</strong> and <strong>Staff App</strong> to handle check-ins, service requests, and food orders as they come in.</p>
+        </div>
+        <div class="role-card">
+          <div class="role-icon">📱</div>
+          <div class="who">Staying at the hotel</div>
+          <h3>Guest</h3>
+          <p>Uses the <strong>Guest Portal</strong> on their phone (via a room QR code) to see their stay, order food, request service, view the bill, and check out.</p>
+        </div>
+      </div>
+
+      <div class="flow">
+        <div class="flow-title">How the three connect — one example</div>
+        A guest taps <strong>"extra towels"</strong> in the Guest Portal → it appears instantly on the staff
+        <strong>Ops Board</strong> with an SLA timer → a housekeeper marks it done → the owner sees the response
+        time on the <strong>Dashboard</strong>. Money flows the same way: a <strong>walk-in check-in</strong>
+        creates a <strong>folio</strong> → payments post to it → the Dashboard shows revenue and the outstanding
+        balance owed. Everything you do on one screen shows up on the others in seconds.
+      </div>
+    </div>
+
+    <!-- DEMO DATA -->
+    <div id="data">
+      <div class="seed-banner">
+        <h4>📦 What demo data is loaded (so you know what to expect on each screen)</h4>
+        <div class="seed-grid">
+          <div><span class="k">✓</span> <span><b>In-house guest:</b> Asha Verma · Room 201 · checked in · folio ₹3,500, ₹2,000 paid, ₹1,500 due</span></div>
+          <div><span class="k">✓</span> <span><b>Arriving today:</b> Rohan Kapoor · Room 202 · ₹3,500 due</span></div>
+          <div><span class="k">✓</span> <span><b>Future booking:</b> Priya Nair · in 3 days</span></div>
+          <div><span class="k">✓</span> <span><b>Rooms:</b> 101, 102 (dirty) · 201, 202 (clean)</span></div>
+          <div><span class="k">✓</span> <span><b>2 service requests</b> (Asha): Extra Towels (REQ-1062) · AC Repair (REQ-1063)</span></div>
+          <div><span class="k">✓</span> <span><b>1 food order</b> (Asha): ORD-1020 · Veg Thali + Masala Chai · ₹300 · Preparing</span></div>
+          <div><span class="k">✓</span> <span><b>Service catalog:</b> Housekeeping / Room Service / Maintenance + a food menu</span></div>
+          <div><span class="k">✓</span> <span><b>Guest session:</b> Asha's stay is linked — the Guest Portal shows it live</span></div>
+          <div><span class="k">✓</span> <span><b>1 lead:</b> "Smoke Test Pilgrim" — Char Dham enquiry</span></div>
+          <div><span class="k">✓</span> <span><b>1 package:</b> "Char Dham Yatra Special — 4N" · ₹12,500</span></div>
+          <div class="empty"><span class="k">○</span> <span><b>Still empty (by design):</b> finance budgets · Razorpay online payments</span></div>
+        </div>
+      </div>
+
+      <div class="env-banner">
+        <span class="icon">⚠️</span>
+        <div>
+          <h4>This is a local test environment</h4>
+          <p>
+            Screens run against a local server at <code>http://localhost:8080</code> for the <b>Dev Test Hotel</b>.
+            A developer-only auto-login is active, so visiting any owner URL signs you in automatically — in
+            production you would sign in with a magic-link email (Step 01). The <b>"○ empty by design"</b> screens
+            above show real empty-states; each step tells you how to make data appear.
+          </p>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- 01 SIGN IN -->
+    <div id="signin">
+      <div class="section-header">
+        <div class="section-icon" style="background:#ede9fe;">🔑</div>
+        <div>
+          <h2>Getting In <span class="persona-pill pill-owner">Owner</span><span class="persona-pill pill-staff">Staff</span></h2>
+          <p>How a new user opens VAiyu and signs in</p>
+        </div>
+      </div>
+      <hr class="section-divider"/>
+    </div>
+
+    <div class="test-block">
+      <div class="test-block-header"><span class="test-num">STEP 01</span><h3>Open VAiyu &amp; Sign In</h3><span class="url-pill">/ → /signin</span></div>
+      <div class="test-block-body">
+        <p class="context">
+          VAiyu opens on a marketing landing page. Hotel staff sign in with a <strong>passwordless magic link</strong> —
+          you enter your email, get a one-time link, click it, and land on your hotel's Owner Console. There is no
+          password to remember.
+        </p>
+        <ul class="steps">
+          <li><span class="step-bullet">1</span> Open the app URL your VAiyu admin shared (here: <code>http://localhost:8080</code>). You'll see the landing page below.</li>
+          <li><span class="step-bullet">2</span> Click <strong>Sign in</strong> (top-right) to reach <code>/signin</code>.</li>
+          <li><span class="step-bullet">3</span> Enter the email your hotel was registered with and click <strong>"Send magic link"</strong>.</li>
+          <li><span class="step-bullet">4</span> Open the email (check spam too) and click the link — it expires in 10 minutes.</li>
+          <li><span class="step-bullet">5</span> You're redirected to your Owner Console at <code>/owner/&lt;your-hotel&gt;</code>.</li>
+        </ul>
+        <div class="expect"><span class="icon">✅</span> After the link, you land on the Dashboard showing "Good morning/afternoon/evening, &lt;Hotel Name&gt;".</div>
+        <div class="note"><span class="icon">ℹ️</span> <strong>In this test build</strong> the magic-link step is skipped — a dev auto-login signs you in instantly, so visiting <code>/owner/dev-hotel</code> takes you straight to the Dashboard. The screenshot below is the real public landing page (the entry point).</div>
+        <div class="screenshot-wrap">
+          <div class="screenshot-caption"><span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span> &nbsp; VAiyu landing page — the public entry point, with "Sign in" top-right</div>
+          <img src="img/01-entry.png" alt="VAiyu landing page" loading="lazy" />
+        </div>
+      </div>
+    </div>
+
+
+    <!-- OWNER CONSOLE SECTION -->
+    <div id="dashboard">
+      <div class="section-header">
+        <div class="section-icon" style="background:#e0e7ff;">🏠</div>
+        <div><h2>Owner Console <span class="persona-pill pill-owner">Owner</span></h2><p>The command centre owners and managers live in all day</p></div>
+      </div>
+      <hr class="section-divider"/>
+    </div>
+
+    <!-- 02 DASHBOARD -->
+    <div class="test-block">
+      <div class="test-block-header"><span class="test-num">STEP 02</span><h3>Owner Dashboard — today at a glance</h3><span class="url-pill">/owner/dev-hotel</span></div>
+      <div class="test-block-body">
+        <p class="context">
+          The first screen after login. The top strip shows today's <strong>Revenue, Occupancy and ADR</strong>
+          (average daily rate); the right rail shows <strong>Outstanding Balance, Visibility Score and Staff on duty</strong>;
+          and below sits the <strong>Growth Hub</strong>. The left column is the navigation menu to every other screen.
+        </p>
+        <ul class="steps">
+          <li><span class="step-bullet">1</span> Read the greeting and date at the top: <strong>"Good evening, Dev Test Hotel · Dehradun · Sat 06 Jun"</strong>.</li>
+          <li><span class="step-bullet">2</span> Check the KPI strip — with demo data: <strong>Revenue ₹540, Occupancy 50% (2 of 4 rooms), ADR ₹270</strong>.</li>
+          <li><span class="step-bullet">3</span> Right rail → <strong>Today's Snapshot</strong>: Arrivals today 2, In-house now 2, Departures 0.</li>
+          <li><span class="step-bullet">4</span> Right rail → <strong>Outstanding Balance ₹5,000 across 2 stays</strong> (money owed by in-house guests).</li>
+          <li><span class="step-bullet">5</span> <strong>Housekeeping</strong> tile shows 2 of 4 ready (50%). <strong>Active Tasks</strong> shows <strong>2 open requests</strong>, and the <strong>Operations Pulse</strong> chart plots live request volume.</li>
+          <li><span class="step-bullet">6</span> Switch the <strong>Today / This Week / Pipeline</strong> tabs, then scroll down to the <strong>Growth Hub</strong> cards.</li>
+        </ul>
+        <div class="expect"><span class="icon">✅</span> Dashboard loads in a few seconds, no error. Revenue/Occupancy/ADR and Outstanding all show real numbers. The "Refresh" button re-pulls metrics.</div>
+        <div class="screenshot-wrap">
+          <div class="screenshot-caption"><span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span> &nbsp; Owner Dashboard — populated with demo data (Revenue ₹540 · Occupancy 50% · Outstanding ₹5,000)</div>
+          <img src="img/02-owner-dashboard.png" alt="Owner Dashboard" loading="lazy" />
+        </div>
+      </div>
+    </div>
+
+    <!-- 03 ARRIVALS -->
+    <div class="test-block" id="arrivals">
+      <div class="test-block-header"><span class="test-num">STEP 03</span><h3>Arrivals — today's check-ins</h3><span class="url-pill">/owner/dev-hotel/arrivals</span></div>
+      <div class="test-block-body">
+        <p class="context">
+          The front-desk's main screen: every guest expected today, their room, arrival time, status, outstanding
+          balance, and quick <strong>Collect</strong> / <strong>Checkout</strong> actions. An hourly arrivals chart
+          sits at the top.
+        </p>
+        <ul class="steps">
+          <li><span class="step-bullet">1</span> Click <strong>Arrivals</strong> in the left menu (or "View calendar" on the Dashboard).</li>
+          <li><span class="step-bullet">2</span> See <strong>Total Arrivals 2 · Arrived 1 · Payment Pending 2</strong> in the summary tiles.</li>
+          <li><span class="step-bullet">3</span> Row 1: <strong>Asha Verma · Checked In · UNPAID</strong> with Collect &amp; Checkout buttons. Row 2: <strong>Rohan Kapoor · Late · UNPAID</strong>.</li>
+          <li><span class="step-bullet">4</span> Use the filters (Today / Tomorrow / All Dates, status, room type) and the search box.</li>
+          <li><span class="step-bullet">5</span> Click <strong>Collect</strong> on a guest to open their folio — see Step 07.</li>
+        </ul>
+        <div class="expect"><span class="icon">✅</span> Two guest rows visible with correct names/rooms. Collect and Checkout open without error.</div>
+        <div class="screenshot-wrap">
+          <div class="screenshot-caption"><span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span> &nbsp; Arrivals — Asha Verma (checked in) and the day's summary tiles</div>
+          <img src="img/03-arrivals.png" alt="Arrivals" loading="lazy" />
+        </div>
+      </div>
+    </div>
+
+    <!-- 04 HOUSEKEEPING -->
+    <div class="test-block" id="housekeeping">
+      <div class="test-block-header"><span class="test-num">STEP 04</span><h3>Housekeeping Board</h3><span class="url-pill">/owner/dev-hotel/housekeeping</span></div>
+      <div class="test-block-body">
+        <p class="context">
+          Every room's cleaning status in real time: Dirty, Clean, Inspection-pending, Out-of-order. Housekeepers
+          update status from the Staff App; the owner monitors here. An "Arrival Monitor" on the right flags rooms
+          needed for incoming guests.
+        </p>
+        <ul class="steps">
+          <li><span class="step-bullet">1</span> Click <strong>Housekeeping</strong> in the left menu.</li>
+          <li><span class="step-bullet">2</span> See the 4 demo rooms: <strong>101 &amp; 102 = Dirty, 201 &amp; 202 = Clean</strong> (matches the Dashboard's "2 of 4 ready").</li>
+          <li><span class="step-bullet">3</span> Each row shows room number, floor, type, and workflow state (e.g. "Waiting Cleaning").</li>
+          <li><span class="step-bullet">4</span> Click <strong>Start Cleaning</strong> on a dirty room → then <strong>Mark Inspected</strong> to walk a room through the cycle.</li>
+        </ul>
+        <div class="expect"><span class="icon">✅</span> All 4 rooms visible with correct status. A status change updates immediately, no reload.</div>
+        <div class="screenshot-wrap">
+          <div class="screenshot-caption"><span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span> &nbsp; Housekeeping — rooms 101/102 dirty, 201/202 clean</div>
+          <img src="img/04-housekeeping.png" alt="Housekeeping board" loading="lazy" />
+        </div>
+      </div>
+    </div>
+
+    <!-- 05 FRONT DESK -->
+    <div class="test-block" id="frontdesk">
+      <div class="test-block-header"><span class="test-num">STEP 05</span><h3>Front Desk — Walk-in check-in</h3><span class="url-pill">/checkin → Instant Residency</span></div>
+      <div class="test-block-body">
+        <p class="context">
+          For guests who arrive without a booking. The Front Desk screen offers two paths: <strong>Digital Arrival</strong>
+          (look up an existing reservation) and <strong>Instant Residency</strong> (a brand-new walk-in). Instant Residency
+          opens a "Guest Registration" form, then room selection and payment. GST is applied automatically from hotel settings.
+        </p>
+        <ul class="steps">
+          <li><span class="step-bullet">1</span> Click <strong>Front Desk</strong> in the menu (or "Walk-in check-in" on the Dashboard). You'll see the two arrival cards.</li>
+          <li><span class="step-bullet">2</span> Click <strong>Instant Residency → Check Availability</strong> to open the Guest Registration form (shown below).</li>
+          <li><span class="step-bullet">3</span> <strong>Identity Details:</strong> mobile number, legal name, email, origin, residence city.</li>
+          <li><span class="step-bullet">4</span> <strong>Stay Provisions:</strong> arrival &amp; departure dates, adults, children, unit count, room preference, any special requests.</li>
+          <li><span class="step-bullet">5</span> Continue to room selection, then payment — choose <strong>Cash / UPI / Card</strong>. Partial payment is allowed; the rest stays on the folio.</li>
+          <li><span class="step-bullet">6</span> Confirm. The new guest then appears in <strong>Arrivals</strong> as "Checked In".</li>
+        </ul>
+        <div class="expect"><span class="icon">✅</span> The registration form accepts input, tax is added automatically, and the booking + folio are created on confirm.</div>
+        <div class="note"><span class="icon">⚠️</span> Rooms 201 &amp; 202 are taken by the demo guests; use <strong>101 or 102</strong> for a fresh walk-in test.</div>
+        <div class="screenshot-wrap">
+          <div class="screenshot-caption"><span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span> &nbsp; Walk-in "Guest Registration" form — Identity Details + Stay Provisions</div>
+          <img src="img/05-front-desk.png" alt="Walk-in registration form" loading="lazy" />
+        </div>
+      </div>
+    </div>
+
+    <!-- 06 STAFF -->
+    <div class="test-block" id="staff">
+      <div class="test-block-header"><span class="test-num">STEP 06</span><h3>Staff &amp; Shifts</h3><span class="url-pill">/owner/dev-hotel/staff-shifts</span></div>
+      <div class="test-block-body">
+        <p class="context">
+          Manage your team and the day's roster. The left panel is the <strong>Staff Roster</strong> (on-shift vs off-duty);
+          the main panel is a <strong>Shift Schedule</strong> timeline. Use <strong>Assign Role</strong> and
+          <strong>Assign Shift</strong> to staff the day.
+        </p>
+        <ul class="steps">
+          <li><span class="step-bullet">1</span> Click <strong>Staff &amp; Shifts</strong> in the menu. The demo has <strong>1 member: Dev Owner</strong>.</li>
+          <li><span class="step-bullet">2</span> Note the live status counters: Total Staff, On/Off shift, Morning/Evening/Night.</li>
+          <li><span class="step-bullet">3</span> Click <strong>Assign Shift</strong> on a staff member and pick a time block on the timeline.</li>
+          <li><span class="step-bullet">4</span> Use <strong>Assign Role</strong> to set a department/zone. Check <strong>Shift History</strong> for past rosters.</li>
+        </ul>
+        <div class="expect"><span class="icon">✅</span> Roster loads, the shift timeline renders for today's date, and Assign Shift opens a picker.</div>
+        <div class="screenshot-wrap">
+          <div class="screenshot-caption"><span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span> &nbsp; Staff &amp; Shifts — roster + shift schedule timeline</div>
+          <img src="img/10-staff-shifts.png" alt="Staff and Shifts" loading="lazy" />
+        </div>
+      </div>
+    </div>
+
+    <!-- 07 FOLIO / MONEY -->
+    <div class="test-block" id="folio">
+      <div class="test-block-header"><span class="test-num">STEP 07</span><h3>Revenue, Folio &amp; Money</h3><span class="url-pill">Arrivals → Collect</span></div>
+      <div class="test-block-body">
+        <p class="context">
+          A "folio" is a guest's running bill. Money in VAiyu lives in three places: the <strong>Dashboard cards</strong>
+          (Revenue / ADR / Outstanding), each guest's <strong>folio</strong> (room charges, tax, payments, balance), and
+          <strong>Payments &amp; Settlements</strong> (Step 12, for Razorpay payouts). The cleanest view of the money math
+          is the folio drawer, opened from Arrivals.
+        </p>
+        <ul class="steps">
+          <li><span class="step-bullet">1</span> Go to <strong>Arrivals</strong> and click <strong>Collect</strong> on Asha Verma. A drawer opens with Summary / Folio / Payments / Activity tabs.</li>
+          <li><span class="step-bullet">2</span> On the <strong>Folio</strong> tab, read the math: <strong>Room Charges ₹3,125 + Tax ₹375 = ₹3,500</strong>, minus <strong>Payments ₹2,000</strong> = <strong>Outstanding ₹1,500</strong>.</li>
+          <li><span class="step-bullet">3</span> Click <strong>Collect Payment</strong> to record a cash/UPI/card payment against the balance. (Payments are immutable once recorded — refunds are added as new entries, never edits.)</li>
+          <li><span class="step-bullet">4</span> Cross-check: the Dashboard's <strong>Outstanding ₹5,000</strong> = Asha ₹1,500 + Rohan ₹3,500. The numbers reconcile across screens.</li>
+        </ul>
+        <div class="expect"><span class="icon">✅</span> Folio totals add up exactly (charges − payments = outstanding) and match the Dashboard's outstanding figure.</div>
+        <div class="note"><span class="icon">ℹ️</span> The standalone <code>/revenue</code> page and the ADR/RevPAR trend charts populate only after several days of real bookings — on a brand-new hotel they're intentionally sparse. Today's money is on the Dashboard + folios.</div>
+        <div class="screenshot-wrap">
+          <div class="screenshot-caption"><span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span> &nbsp; Folio drawer — Room ₹3,125 + Tax ₹375 − ₹2,000 paid = ₹1,500 due</div>
+          <img src="img/11-folio.png" alt="Guest folio" loading="lazy" />
+        </div>
+      </div>
+    </div>
+
+    <!-- 08 ANALYTICS -->
+    <div class="test-block" id="analytics">
+      <div class="test-block-header"><span class="test-num">STEP 08</span><h3>Owner Analytics</h3><span class="url-pill">/owner/dev-hotel/analytics</span></div>
+      <div class="test-block-body">
+        <p class="context">
+          Operational intelligence: live occupancy, at-risk service tickets, SLA compliance, guest check-ins, and
+          trend charts. Most useful after a few days of data, but the demo gives a baseline so you can confirm the
+          charts render.
+        </p>
+        <ul class="steps">
+          <li><span class="step-bullet">1</span> Click <strong>Owner Analytics</strong> under "Analytics" in the menu.</li>
+          <li><span class="step-bullet">2</span> Toggle the range: <strong>Today / Last 7 Days / This Month</strong>. With demo data you'll see <strong>Total Active Issues 2, SLA Compliance 100%, Guest Check-ins 2</strong>.</li>
+          <li><span class="step-bullet">3</span> The <strong>"Tickets Created vs Resolved"</strong> chart now plots the 2 service requests (rising to 2 on Jun 6); review the "At-Risk Tickets" trend ("Rising Risk") too.</li>
+          <li><span class="step-bullet">4</span> For staff-side metrics, open <strong>Ops Manager</strong> (response times, request volume, SLA breaches).</li>
+        </ul>
+        <div class="expect"><span class="icon">✅</span> All cards render, no "NaN"/broken values. Changing the range updates every chart together.</div>
+        <div class="screenshot-wrap">
+          <div class="screenshot-caption"><span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span> &nbsp; Owner Analytics — live ops + 7-day performance health</div>
+          <img src="img/08-analytics.png" alt="Owner Analytics" loading="lazy" />
+        </div>
+      </div>
+    </div>
+
+    <!-- 09 FINANCE -->
+    <div class="test-block" id="finance">
+      <div class="test-block-header"><span class="test-num">STEP 09</span><h3>Finance — Budgets &amp; Expenses</h3><span class="url-pill">/owner/dev-hotel/finance</span></div>
+      <div class="test-block-body">
+        <p class="context">
+          Plan monthly budgets per category (supplies, food, utilities, staff, maintenance) and log actual expenses
+          against them. The top cards show Total Budget, Total Spend, Revenue and Operating Profit for the month.
+        </p>
+        <ul class="steps">
+          <li><span class="step-bullet">1</span> Click <strong>Finance → Overview</strong> in the menu.</li>
+          <li><span class="step-bullet">2</span> Click <strong>Set budgets</strong> (or "Budgets") and add a monthly figure for a category.</li>
+          <li><span class="step-bullet">3</span> Click <strong>Expenses</strong> → log one: category, amount (₹), note, date.</li>
+          <li><span class="step-bullet">4</span> Return to Overview — your budget and expense now show in the Category Breakdown.</li>
+        </ul>
+        <div class="emptynote"><span class="icon">○</span> <strong>Empty state on purpose:</strong> the demo seeds no budgets or expenses, so this screen starts at <strong>₹0 / "No budget data for this month"</strong>. That's exactly what a new hotel sees — the steps above populate it.</div>
+        <div class="expect"><span class="icon">✅</span> A logged expense appears in the right category immediately, and the totals add up.</div>
+        <div class="screenshot-wrap">
+          <div class="screenshot-caption"><span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span> &nbsp; Finance Overview — empty new-hotel state (₹0), ready for first budget/expense</div>
+          <img src="img/14-finance.png" alt="Finance overview" loading="lazy" />
+        </div>
+      </div>
+    </div>
+
+    <!-- 10 PRICING -->
+    <div class="test-block" id="pricing">
+      <div class="test-block-header"><span class="test-num">STEP 10</span><h3>Dynamic Pricing</h3><span class="url-pill">/owner/dev-hotel/pricing</span></div>
+      <div class="test-block-body">
+        <p class="context">
+          Adjust room rates by occupancy, date, or day-of-week. A key safety idea: the engine runs in
+          <strong>Recommend-only</strong> mode (suggests prices, never writes them) until you switch it to
+          <strong>Auto-apply</strong>. Guardrails cap how far a price or a walk-in discount can swing.
+        </p>
+        <ul class="steps">
+          <li><span class="step-bullet">1</span> Click <strong>Dynamic Pricing</strong> in the menu. Top cards show <strong>Occupancy 50% (2/4), Inventory 4 (2 available)</strong>.</li>
+          <li><span class="step-bullet">2</span> Note the <strong>Recommend-only vs Auto-apply</strong> toggle and the <strong>Max price-swing guardrail (25%)</strong>.</li>
+          <li><span class="step-bullet">3</span> In <strong>Price Evaluation</strong>, enter a base price (e.g. 2000) and a stay date, click <strong>Evaluate</strong> to see the recommended rate.</li>
+          <li><span class="step-bullet">4</span> Open <strong>Manage Rules</strong> to add a rule (e.g. weekend +20%), <strong>Rate Calendar</strong> for per-date rates, and <strong>History</strong> for past changes.</li>
+        </ul>
+        <div class="expect"><span class="icon">✅</span> Evaluate returns a recommendation. A new rule saves and shows in the Rate Calendar for its date range.</div>
+        <div class="screenshot-wrap">
+          <div class="screenshot-caption"><span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span> &nbsp; Dynamic Pricing — occupancy, engine mode, guardrails, price evaluation</div>
+          <img src="img/13-pricing.png" alt="Dynamic Pricing" loading="lazy" />
+        </div>
+      </div>
+    </div>
+
+    <!-- 11 SETTINGS -->
+    <div class="test-block" id="settings">
+      <div class="test-block-header"><span class="test-num">STEP 11</span><h3>Hotel Settings</h3><span class="url-pill">/owner/dev-hotel/settings</span></div>
+      <div class="test-block-body">
+        <p class="context">
+          One scrolling form to configure the property: name, address, contact, brand colour/theme, amenities, and
+          (further down) Legal &amp; Invoice settings including GST. This GST rate feeds folio tax automatically. Fill
+          this in first when onboarding a real hotel.
+        </p>
+        <ul class="steps">
+          <li><span class="step-bullet">1</span> Click <strong>Settings</strong> under "System" in the menu.</li>
+          <li><span class="step-bullet">2</span> Top section <strong>Owner Settings</strong>: Name (Dev Test Hotel), read-only Slug, Address, Phone, Email, Logo URL, Brand colour, Theme.</li>
+          <li><span class="step-bullet">3</span> Scroll to <strong>Legal &amp; Invoice Settings</strong> for GST number and tax rate.</li>
+          <li><span class="step-bullet">4</span> Edit a field (e.g. Address) and save; confirm the change persists on reload.</li>
+        </ul>
+        <div class="expect"><span class="icon">✅</span> The form loads pre-filled, changes save without error, and the GST rate flows into the next walk-in's folio.</div>
+        <div class="note"><span class="icon">ℹ️</span> This is a single scrolling form (not tabs). Rooms are managed from the Housekeeping/onboarding flows, not here.</div>
+        <div class="screenshot-wrap">
+          <div class="screenshot-caption"><span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span> &nbsp; Hotel Settings — Owner Settings form (name, contact, brand, amenities)</div>
+          <img src="img/12-settings.png" alt="Hotel settings" loading="lazy" />
+        </div>
+      </div>
+    </div>
+
+    <!-- 12 PAYMENTS -->
+    <div class="test-block" id="payments">
+      <div class="test-block-header"><span class="test-num">STEP 12</span><h3>Payments &amp; Settlements</h3><span class="url-pill">/owner/dev-hotel/payments</span></div>
+      <div class="test-block-body">
+        <p class="context">
+          The money ledger for <strong>online (Razorpay)</strong> payments — what was collected, refunded, the net to
+          your hotel, and the platform fee. Cash/UPI collected at the desk lives on the folio (Step 07); this screen is
+          specifically the online-settlement view, with payout timing (T+1 to T+3) governed by your Razorpay agreement.
+        </p>
+        <ul class="steps">
+          <li><span class="step-bullet">1</span> Click <strong>Payments &amp; Settlements</strong> under "Finance" in the menu.</li>
+          <li><span class="step-bullet">2</span> Review the four cards: <strong>Total Collected, Refunded, Net to Hotel, Platform Fee Retained</strong>.</li>
+          <li><span class="step-bullet">3</span> Use the range tabs (Today / 7 days / 30 days / Month / All time), method and status filters.</li>
+          <li><span class="step-bullet">4</span> <strong>Reconcile</strong> and <strong>Export CSV</strong> help match payouts against your bank statement.</li>
+        </ul>
+        <div class="emptynote"><span class="icon">○</span> <strong>Empty state on purpose:</strong> the demo's payment is a <strong>cash</strong> collection (on the folio), so this Razorpay-only ledger shows <strong>₹0 / "No payments in this window"</strong>. Take a Razorpay payment to see rows here.</div>
+        <div class="expect"><span class="icon">✅</span> Page loads with the four summary cards and filters; once an online payment exists it appears in the list.</div>
+        <div class="screenshot-wrap">
+          <div class="screenshot-caption"><span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span> &nbsp; Payments &amp; Settlements — Razorpay ledger (empty until an online payment is taken)</div>
+          <img src="img/18-payments.png" alt="Payments and Settlements" loading="lazy" />
+        </div>
+      </div>
+    </div>
+
+
+    <!-- GROWTH HUB -->
+    <div id="leads">
+      <div class="section-header">
+        <div class="section-icon" style="background:#fce7f3;">📈</div>
+        <div><h2>Growth Hub <span class="persona-pill pill-owner">Owner</span></h2><p>Turn enquiries into bookings — leads, packages, and local visibility</p></div>
+      </div>
+      <hr class="section-divider"/>
+    </div>
+
+    <!-- 13 LEADS -->
+    <div class="test-block">
+      <div class="test-block-header"><span class="test-num">STEP 13</span><h3>Lead CRM — enquiry to booking</h3><span class="url-pill">/owner/dev-hotel/leads</span></div>
+      <div class="test-block-body">
+        <p class="context">
+          Tracks every enquiry (from the public lead form, a WhatsApp link, or a phone note) through one hospitality
+          lifecycle: <strong>New → Qualified → Quoted → Won/Converted → Lost</strong>. View as a list or a Kanban board.
+        </p>
+        <ul class="steps">
+          <li><span class="step-bullet">1</span> Click the <strong>Open leads</strong> card on the Dashboard, or "Leads" in the menu.</li>
+          <li><span class="step-bullet">2</span> See the demo lead: <strong>"Smoke Test Pilgrim" — Char Dham Yatra Special, status NEW</strong>.</li>
+          <li><span class="step-bullet">3</span> Open it to read the enquiry; move it to <strong>Qualified</strong> (drag in Kanban or use the stage control).</li>
+          <li><span class="step-bullet">4</span> Use <strong>New lead</strong> to add one manually, or <strong>Create Quote Draft</strong> to draft a price (AI Quote Drafts).</li>
+          <li><span class="step-bullet">5</span> When a lead books, convert it — the walk-in form opens pre-filled with their details.</li>
+        </ul>
+        <div class="expect"><span class="icon">✅</span> Lead list/Kanban loads, stage changes save immediately, and conversion pre-fills the check-in.</div>
+        <div class="screenshot-wrap">
+          <div class="screenshot-caption"><span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span> &nbsp; Lead CRM — the demo "Smoke Test Pilgrim" Char Dham enquiry</div>
+          <img src="img/09-leads.png" alt="Lead CRM" loading="lazy" />
+        </div>
+      </div>
+    </div>
+
+    <!-- 14 PACKAGES -->
+    <div class="test-block" id="packages">
+      <div class="test-block-header"><span class="test-num">STEP 14</span><h3>Experience Packages</h3><span class="url-pill">/owner/dev-hotel/packages</span></div>
+      <div class="test-block-body">
+        <p class="context">
+          Bundle room nights with experiences (Char Dham darshan, rafting, sightseeing) into a fixed-price package
+          with a public landing page, shareable on WhatsApp. Governance is built in: packages need owner approval
+          before going live, and prices are flagged "indicative — manually confirm".
+        </p>
+        <ul class="steps">
+          <li><span class="step-bullet">1</span> Click <strong>Experience Packages</strong> in the Growth Hub.</li>
+          <li><span class="step-bullet">2</span> See the demo package: <strong>"Char Dham Yatra Special — 4N" · ACTIVE · Approved · from ₹12,500 per person</strong>.</li>
+          <li><span class="step-bullet">3</span> Click <strong>New package</strong> — add title, category, inclusions, nights, season window, and price.</li>
+          <li><span class="step-bullet">4</span> Save as Draft → it needs approval before it can go Active. Use <strong>View public</strong> to preview the shareable page.</li>
+        </ul>
+        <div class="expect"><span class="icon">✅</span> Package list loads with 1 active package. New packages save as draft; approval flips them to Active.</div>
+        <div class="screenshot-wrap">
+          <div class="screenshot-caption"><span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span> &nbsp; Experience Packages — Char Dham 4N (Active, ₹12,500/person)</div>
+          <img src="img/15-packages.png" alt="Experience Packages" loading="lazy" />
+        </div>
+      </div>
+    </div>
+
+    <!-- 15 VISIBILITY -->
+    <div class="test-block" id="visibility">
+      <div class="test-block-header"><span class="test-num">STEP 15</span><h3>Visibility Score</h3><span class="url-pill">/owner/dev-hotel/visibility</span></div>
+      <div class="test-block-body">
+        <p class="context">
+          An internal 0–100 readiness score across 19 first-party signals (Google Business profile, photos, contact
+          details, etc.) — plus a Google Business checklist. It's a readiness guide, <em>not</em> a guarantee of
+          rankings or bookings. New hotels start low and climb as they complete tasks.
+        </p>
+        <ul class="steps">
+          <li><span class="step-bullet">1</span> Click the <strong>Visibility Score</strong> card on the Dashboard, or open it directly.</li>
+          <li><span class="step-bullet">2</span> Demo score: <strong>13/100 · 3 of 19 signals satisfied · 13 critical gaps</strong>.</li>
+          <li><span class="step-bullet">3</span> Expand <strong>Google Business Checklist</strong> → open a "Critical gap" item to see what's missing and where to fix it.</li>
+          <li><span class="step-bullet">4</span> Self-attest or verify an item (e.g. "Profile claimed on Google Business") → the score increases.</li>
+        </ul>
+        <div class="expect"><span class="icon">✅</span> Score loads at 13/100; completing a checklist item raises it. The score is first-party only (no live Google API calls).</div>
+        <div class="screenshot-wrap">
+          <div class="screenshot-caption"><span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span> &nbsp; Visibility Score — 13/100 with the Google Business checklist</div>
+          <img src="img/16-visibility.png" alt="Visibility Score" loading="lazy" />
+        </div>
+      </div>
+    </div>
+
+
+    <!-- OPERATIONS -->
+    <div id="ops">
+      <div class="section-header">
+        <div class="section-icon" style="background:#d1fae5;">⚙️</div>
+        <div><h2>Operations <span class="persona-pill pill-ops">Staff</span></h2><p>The real-time screens front-desk and kitchen staff work from</p></div>
+      </div>
+      <hr class="section-divider"/>
+    </div>
+
+    <!-- 16 OPS BOARD -->
+    <div class="test-block">
+      <div class="test-block-header"><span class="test-num">STEP 16</span><h3>Ops Board — supervisor view</h3><span class="url-pill">/ops?slug=dev-hotel</span></div>
+      <div class="test-block-body">
+        <p class="context">
+          The live board for duty managers: open service requests (housekeeping calls, maintenance, room service)
+          across New / In-Progress / Blocked / At-Risk columns, each with an SLA timer. Staff update requests from
+          the Staff App; supervisors watch and unblock here.
+        </p>
+        <ul class="steps">
+          <li><span class="step-bullet">1</span> Click <strong>Supervisor</strong> in the menu (or <code>/ops?slug=dev-hotel</code>).</li>
+          <li><span class="step-bullet">2</span> Read the live counters: <strong>Active 2 · 1 New · 1 In Progress · Avg 32m</strong>. <strong>Room Status</strong> highlights <strong>201</strong> (it has open requests).</li>
+          <li><span class="step-bullet">3</span> The two demo requests are Asha's <strong>Extra Towels</strong> (New) and <strong>AC Repair</strong> (In Progress). Click one to assign it, move it through In&nbsp;Progress → Done, and watch the SLA timer.</li>
+          <li><span class="step-bullet">4</span> <strong>Try it live:</strong> from the Guest Portal submit a new service request — it appears here within seconds (realtime).</li>
+        </ul>
+        <div class="expect"><span class="icon">✅</span> The board shows 2 active requests; a new one from the Guest Portal appears without refresh, and SLA timing starts when it opens.</div>
+        <div class="screenshot-wrap">
+          <div class="screenshot-caption"><span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span> &nbsp; Ops Board — 2 active requests (1 New, 1 In Progress), Room 201 flagged</div>
+          <img src="img/06-ops-board.png" alt="Ops Board" loading="lazy" />
+        </div>
+      </div>
+    </div>
+
+    <!-- 17 KITCHEN -->
+    <div class="test-block" id="kitchen">
+      <div class="test-block-header"><span class="test-num">STEP 17</span><h3>Kitchen &amp; Runner Dashboard</h3><span class="url-pill">/kitchen</span></div>
+      <div class="test-block-body">
+        <p class="context">
+          A tablet-friendly screen for kitchen and delivery staff. Food orders from guests flow through
+          <strong>New → Accepted → Preparing → Ready → Delivered</strong>, split into a Kitchen Queue and a Runner
+          Queue, with an SLA-risk panel. Designed to be mounted in the kitchen.
+        </p>
+        <ul class="steps">
+          <li><span class="step-bullet">1</span> Click <strong>Kitchen</strong> under "Staff" in the menu (or <code>/kitchen</code>).</li>
+          <li><span class="step-bullet">2</span> In the <strong>Kitchen Queue</strong>, open the <strong>Preparing (1)</strong> tab to see the demo order: <strong>ORD-1020 · Room 201 · 1× Veg Thali, 2× Masala Chai · ₹300</strong>, with the note "Less spicy".</li>
+          <li><span class="step-bullet">3</span> Tap <strong>Mark Ready</strong> → it moves to the <strong>Runner Queue</strong> (Ready for Pickup), where a runner marks it <strong>Delivered</strong>.</li>
+          <li><span class="step-bullet">4</span> <strong>Try it live:</strong> place another order from the Guest Portal (Step 20) — it lands in <strong>New Orders</strong> in real time.</li>
+        </ul>
+        <div class="expect"><span class="icon">✅</span> The Preparing tab shows ORD-1020; a new Guest-Portal order appears in New Orders without refresh and moves cleanly New → Preparing → Ready → Delivered.</div>
+        <div class="screenshot-wrap">
+          <div class="screenshot-caption"><span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span> &nbsp; Kitchen — order ORD-1020 (Room 201) preparing: Veg Thali + Masala Chai, ₹300</div>
+          <img src="img/07-kitchen.png" alt="Kitchen Dashboard" loading="lazy" />
+        </div>
+      </div>
+    </div>
+
+
+    <!-- GUEST -->
+    <div id="guest">
+      <div class="section-header">
+        <div class="section-icon" style="background:#fce7f3;">📱</div>
+        <div><h2>Guest Portal <span class="persona-pill pill-guest">Guest</span></h2><p>The full in-stay journey on the guest's phone — opened via a room QR code or WhatsApp link</p></div>
+      </div>
+      <hr class="section-divider"/>
+      <div class="note" style="margin-bottom:24px"><span class="icon">📱</span> The next five screens are <strong>mobile</strong> (the guest portal is phone-first). In this demo the guest session is linked to <strong>Asha Verma's live stay in Room 201</strong>, so everything below shows her real data. Open <code>/guest</code> in your browser's device/responsive mode to follow along.</div>
+    </div>
+
+    <!-- 18 GUEST HOME -->
+    <div class="test-block">
+      <div class="test-block-header"><span class="test-num">STEP 18</span><h3>Guest Home — your stay at a glance</h3><span class="url-pill">/guest</span></div>
+      <div class="test-block-body">
+        <p class="context">
+          The guest's home screen. It shows the active stay (hotel, room, nights left, checkout time), the live folio,
+          recent requests/orders, and big actions: Request Service, Track Requests, Call Reception, Checkout. A bottom
+          tab bar switches between Home / Trips / Rewards / Support.
+        </p>
+        <ul class="steps">
+          <li><span class="step-bullet">1</span> Open <code>/guest</code>. The hero shows <strong>Dev Test Hotel · Room 201 · Stay in progress · Day 1 of 2 · Checkout Jun 7, 11:00 AM</strong>.</li>
+          <li><span class="step-bullet">2</span> The <strong>Live Folio</strong> shows Room Charges ₹3,125 + Tax ₹375 (current total ₹5,500) — matching the owner folio (Step 07).</li>
+          <li><span class="step-bullet">3</span> <strong>Recent Requests</strong> shows the live food order <strong>#ORD-1020 · Preparing</strong>.</li>
+          <li><span class="step-bullet">4</span> Tap any big action tile to jump into that flow (next four steps).</li>
+        </ul>
+        <div class="expect"><span class="icon">✅</span> The active stay, live folio, and the in-progress order all load — no "No Stays Found".</div>
+        <div class="screenshot-wrap phone">
+          <div class="screenshot-caption"><span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span> &nbsp; Guest Home — Asha's active stay, Room 201</div>
+          <img src="img/g1-guest-home.png" alt="Guest home" loading="lazy" />
+        </div>
+      </div>
+    </div>
+
+    <!-- 19 REQUEST SERVICE -->
+    <div class="test-block">
+      <div class="test-block-header"><span class="test-num">STEP 19</span><h3>Request a Service</h3><span class="url-pill">/stay/&lt;code&gt;/menu?tab=services</span></div>
+      <div class="test-block-body">
+        <p class="context">
+          Guests request housekeeping, maintenance, or amenities here. Services are grouped by department with an SLA
+          time on each (how fast the hotel promises to respond). Submitting one creates a ticket that lands on the staff
+          Ops Board (Step 16).
+        </p>
+        <ul class="steps">
+          <li><span class="step-bullet">1</span> From Home, tap <strong>Request Service</strong> → the <strong>Services &amp; Amenities</strong> tab.</li>
+          <li><span class="step-bullet">2</span> Browse by type (All / Housekeeping / Maintenance). Demo services: <strong>Extra Towels (20m), Room Cleaning (30m), AC Repair (45m)</strong>.</li>
+          <li><span class="step-bullet">3</span> Tap a service, add an optional note, and submit. It instantly appears on the Ops Board as a new ticket.</li>
+        </ul>
+        <div class="expect"><span class="icon">✅</span> Services list with SLA badges; submitting creates a ticket visible to staff within seconds.</div>
+        <div class="screenshot-wrap phone">
+          <div class="screenshot-caption"><span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span> &nbsp; Request Service — Extra Towels (20m), AC Repair (45m)…</div>
+          <img src="img/g2-request-service.png" alt="Request service" loading="lazy" />
+        </div>
+      </div>
+    </div>
+
+    <!-- 20 ORDER FOOD -->
+    <div class="test-block">
+      <div class="test-block-header"><span class="test-num">STEP 20</span><h3>Order Food (In-Room Dining)</h3><span class="url-pill">/stay/&lt;code&gt;/menu?tab=food</span></div>
+      <div class="test-block-body">
+        <p class="context">
+          The room-service menu. Guests filter by Veg / Non-Veg / Jain / Vegan and by category, add items to a cart,
+          and place an order — which lands on the <strong>Kitchen</strong> dashboard (Step 17) and is tracked in real time.
+        </p>
+        <ul class="steps">
+          <li><span class="step-bullet">1</span> Tap the <strong>In-Room Dining</strong> tab. Demo menu: <strong>Veg Thali ₹220, Paneer Butter Masala ₹280, Masala Chai ₹40, Fresh Lime Soda ₹60</strong>.</li>
+          <li><span class="step-bullet">2</span> Use the diet filters (Veg/Non-Veg/Jain/Vegan) and category chips (Main Course / Beverages).</li>
+          <li><span class="step-bullet">3</span> Tap <strong>Add</strong> on items, then place the order. It appears in the Kitchen Queue and in "Track Requests".</li>
+        </ul>
+        <div class="expect"><span class="icon">✅</span> Menu loads with prices and filters; a placed order shows up on the Kitchen dashboard live.</div>
+        <div class="screenshot-wrap phone">
+          <div class="screenshot-caption"><span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span> &nbsp; In-Room Dining — menu with diet filters and Add buttons</div>
+          <img src="img/g4-food-menu.png" alt="Food menu" loading="lazy" />
+        </div>
+      </div>
+    </div>
+
+    <!-- 21 TRACK -->
+    <div class="test-block">
+      <div class="test-block-header"><span class="test-num">STEP 21</span><h3>Track Requests &amp; Orders</h3><span class="url-pill">/stay/&lt;code&gt;/requests</span></div>
+      <div class="test-block-body">
+        <p class="context">
+          One place for the guest to follow everything they've asked for — service requests and food orders — with live
+          status, split into Services and Food &amp; Beverages, and Active vs History.
+        </p>
+        <ul class="steps">
+          <li><span class="step-bullet">1</span> From Home, tap <strong>Track Requests</strong>.</li>
+          <li><span class="step-bullet">2</span> The <strong>Services</strong> tab shows <strong>Extra Towels #REQ-1062 (Assigning…)</strong> and <strong>AC Repair #REQ-1063 (In Progress)</strong>.</li>
+          <li><span class="step-bullet">3</span> Switch to <strong>Food &amp; Beverages</strong> to follow order <strong>#ORD-1020</strong> as the kitchen updates it.</li>
+          <li><span class="step-bullet">4</span> Tap <strong>Track</strong> on any item for detailed progress and chat with staff.</li>
+        </ul>
+        <div class="expect"><span class="icon">✅</span> Both requests and the order show with the correct live status, matching the Ops Board and Kitchen.</div>
+        <div class="screenshot-wrap phone">
+          <div class="screenshot-caption"><span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span> &nbsp; Track Requests — 2 services (REQ-1062, REQ-1063) with status</div>
+          <img src="img/g3-track-requests.png" alt="Track requests" loading="lazy" />
+        </div>
+      </div>
+    </div>
+
+    <!-- 22 CHECKOUT -->
+    <div class="test-block">
+      <div class="test-block-header"><span class="test-num">STEP 22</span><h3>Express Checkout</h3><span class="url-pill">/guest/checkout</span></div>
+      <div class="test-block-body">
+        <p class="context">
+          The guest reviews their stay and settles the bill before leaving. Checkout closes the folio and, on the
+          owner side, flips the room to "Dirty" on the Housekeeping board — closing the operational loop.
+        </p>
+        <ul class="steps">
+          <li><span class="step-bullet">1</span> From Home, tap <strong>Checkout</strong>. The <strong>Checkout Overview</strong> shows Room 201, dates (Jun 6 → Jun 7, 11:00 AM), and 2 Adults.</li>
+          <li><span class="step-bullet">2</span> Review the <strong>Bill Breakdown</strong> (room, tax, any food/services) and the amount due.</li>
+          <li><span class="step-bullet">3</span> Settle dues, then confirm checkout. (Outstanding must be cleared first — the demo shows ₹1,500 still due on the folio.)</li>
+          <li><span class="step-bullet">4</span> Cross-check on the owner side: the room turns <strong>Dirty</strong> on Housekeeping (Step 04) and the stay leaves Arrivals.</li>
+        </ul>
+        <div class="expect"><span class="icon">✅</span> Checkout summarises the bill correctly; confirming it closes the folio and updates housekeeping.</div>
+        <div class="screenshot-wrap phone">
+          <div class="screenshot-caption"><span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span> &nbsp; Express Checkout — stay summary &amp; bill before leaving</div>
+          <img src="img/g5-checkout.png" alt="Guest checkout" loading="lazy" />
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ============================================================= -->
+    <!-- COMPLETE SCREEN REFERENCE                                     -->
+    <!-- ============================================================= -->
+    <div id="reference">
+      <div class="section-header">
+        <div class="section-icon" style="background:#fef9c3;">🗂️</div>
+        <div><h2>Complete Screen Reference</h2><p>Every remaining screen in the product — grouped by area, each with what it is and what to test</p></div>
+      </div>
+      <hr class="section-divider"/>
+      <div class="ref-intro">
+        The 22 steps above are the guided happy-path. This reference covers <strong>every other screen</strong> VAiyu ships, so the
+        walkthrough is truly end-to-end. Each card shows the live screen, what it does, and a quick test action.
+      </div>
+    </div>
+
+    <!-- Growth Hub full set -->
+    <div id="ref-growth">
+      <div class="section-header" style="margin-top:36px"><div class="section-icon" style="background:#fce7f3;">📈</div>
+        <div><h2>Growth Hub — full set <span class="persona-pill pill-owner">Owner</span></h2><p>The 9 remaining marketing &amp; conversion tools (Leads, Packages, Visibility are Steps 13–15)</p></div></div>
+      <hr class="section-divider"/>
+      <div class="feature-grid">
+        <div class="feature-card"><div class="shot"><img src="img/gh1-follow-up.png" loading="lazy" alt="Action Radar"/></div><div class="body">
+          <h4>Action Radar (Follow-ups) <span class="route">/follow-up</span></h4>
+          <p>Aaj kaunse follow-up karne hain — a daily list of leads needing a nudge, split into Due today / Overdue / Blocked. A manual reminder workspace; nothing auto-sends.</p>
+          <div class="testline"><b>Test:</b> open the overdue lead and add a follow-up note.</div></div></div>
+        <div class="feature-card"><div class="shot"><img src="img/gh2-quote-drafts.png" loading="lazy" alt="AI Quote Drafts"/></div><div class="body">
+          <h4>AI Quote Drafts <span class="route">/quote-drafts</span></h4>
+          <p>Pick a lead, choose a package, type the final price, and generate a copy-paste quote. Deterministic template — no live AI, no auto-send, manual verification required.</p>
+          <div class="testline"><b>Test:</b> generate a draft for the demo lead and copy it.</div></div></div>
+        <div class="feature-card"><div class="shot"><img src="img/gh3-partners.png" loading="lazy" alt="Partner Directory"/></div><div class="body">
+          <h4>Local Partner Directory <span class="route">/partners</span></h4>
+          <p>One place to track trusted vendors and commissionable agents (taxi, guides, activity operators) for the property.</p>
+          <div class="testline"><b>Test:</b> click "Add your first partner".</div></div></div>
+        <div class="feature-card"><div class="shot"><img src="img/gh4-drip.png" loading="lazy" alt="Follow-up Emails"/></div><div class="body">
+          <h4>Follow-up Emails (Drip) <span class="route">/drip</span></h4>
+          <p>Stay-enquiry email sequences with Active / Due 24h / Sent today / Paused counters. Lead-specific nudges, not marketing blasts.</p>
+          <div class="testline"><b>Test:</b> open and review a sequence's steps.</div></div></div>
+        <div class="feature-card"><div class="shot"><img src="img/gh5-assets.png" loading="lazy" alt="Asset Readiness"/></div><div class="body">
+          <h4>Asset Readiness <span class="route">/assets</span></h4>
+          <p>Checklist of photos &amp; brand assets a property needs for listings (signboard, entrance, logo…). Tracks Ready / Missing / Replace with critical flags.</p>
+          <div class="testline"><b>Test:</b> open a missing item to see what's required.</div></div></div>
+        <div class="feature-card"><div class="shot"><img src="img/gh6-seo-planner.png" loading="lazy" alt="Local SEO Planner"/></div><div class="body">
+          <h4>Local SEO Planner <span class="route">/seo-planner</span></h4>
+          <p>Plan and govern local landing-page ideas with a deterministic "Policy Shield" (Safe / Needs proof / Risky). Internal only — publishes nothing.</p>
+          <div class="testline"><b>Test:</b> open the "Risky" item to see the policy reason.</div></div></div>
+        <div class="feature-card"><div class="shot"><img src="img/gh7-seasonal.png" loading="lazy" alt="Seasonal Demand Calendar"/></div><div class="body">
+          <h4>Seasonal Demand Calendar <span class="route">/seasonal</span></h4>
+          <p>Planning guide for regional travel seasons (Char Dham, summer hills, school holidays) with prep checklists per window. No forecasts, no auto-campaigns.</p>
+          <div class="testline"><b>Test:</b> open the Char Dham window, tick a prep item.</div></div></div>
+        <div class="feature-card"><div class="shot"><img src="img/gh8-ota.png" loading="lazy" alt="OTA Optimizer"/></div><div class="body">
+          <h4>OTA Listing Optimizer <span class="route">/ota</span></h4>
+          <p>A self-audit workbook across 8 OTAs (MakeMyTrip, Goibibo, Booking.com…). Internal readiness only — it does <em>not</em> connect to OTA platforms or sync inventory.</p>
+          <div class="testline"><b>Test:</b> open the cold-start wizard for MakeMyTrip.</div></div></div>
+        <div class="feature-card"><div class="shot"><img src="img/gh9-whatsapp.png" loading="lazy" alt="WhatsApp Inbox"/></div><div class="body">
+          <h4>WhatsApp Inbox <span class="route">/whatsapp</span></h4>
+          <p>Guest WhatsApp conversations land here as a unified inbox. Empty until a guest messages the hotel's number.</p>
+          <div class="testline"><b>Test:</b> review the inbox layout (conversation list + thread).</div></div></div>
+      </div>
+    </div>
+
+    <!-- Owner Console more tools -->
+    <div id="ref-owner">
+      <div class="section-header" style="margin-top:36px"><div class="section-icon" style="background:#e0e7ff;">🧰</div>
+        <div><h2>Owner Console — more tools <span class="persona-pill pill-owner">Owner</span></h2><p>Setup, catalog, pricing depth, finance depth, and operational analytics</p></div></div>
+      <hr class="section-divider"/>
+      <div class="feature-grid">
+        <div class="feature-card"><div class="shot"><img src="img/op2-departments.png" loading="lazy" alt="Departments & SLAs"/></div><div class="body">
+          <h4>Departments &amp; SLAs <span class="route">/owner/services</span></h4>
+          <p>Define service departments (Housekeeping, Room Service, Maintenance) and the per-service SLA response times that drive Ops-Board timers. Changes apply to new tickets only.</p>
+          <div class="testline"><b>Test:</b> "Add Service" or change an SLA, then Save.</div></div></div>
+        <div class="feature-card"><div class="shot"><img src="img/op4-menu-mgmt.png" loading="lazy" alt="Food Menu Editor"/></div><div class="body">
+          <h4>Food Menu Editor <span class="route">/owner/:slug/menu</span></h4>
+          <p>The owner-side editor for the room-service menu (name, category, price, veg flag, active). This is what powers the guest "In-Room Dining" tab (Step 20).</p>
+          <div class="testline"><b>Test:</b> add an item or toggle one inactive; check the guest Food tab.</div></div></div>
+        <div class="feature-card"><div class="shot"><img src="img/op5-import-bookings.png" loading="lazy" alt="Import Bookings"/></div><div class="body">
+          <h4>Import Bookings <span class="route">/owner/:slug/import-bookings</span></h4>
+          <p>Bulk-load arrivals/reservations from a PMS export (CSV/XLSX) by drag-and-drop, or use Quick Entry. Includes a downloadable template.</p>
+          <div class="testline"><b>Test:</b> download the template; try a sample CSV.</div></div></div>
+        <div class="feature-card"><div class="shot"><img src="img/op6-qr.png" loading="lazy" alt="QR Sheet"/></div><div class="body">
+          <h4>QR Code Sheet <span class="route">/owner/:slug/qr</span></h4>
+          <p>A printable sheet of QR cards. Cut and place them in rooms / at reception; scanning opens the VAiyu guest menu &amp; services for the property.</p>
+          <div class="testline"><b>Test:</b> Print the sheet, or scan a code with your phone.</div></div></div>
+        <div class="feature-card"><div class="shot"><img src="img/pf1-pricing-rules.png" loading="lazy" alt="Pricing Rules"/></div><div class="body">
+          <h4>Pricing Rules <span class="route">/pricing/rules</span></h4>
+          <p>The list of automatic rate rules (weekend surcharge, occupancy thresholds). New hotels start empty with a clear "Create First Rule" CTA.</p>
+          <div class="testline"><b>Test:</b> "Create First Rule" (e.g. weekend +20%).</div></div></div>
+        <div class="feature-card"><div class="shot"><img src="img/pf3-rate-plans.png" loading="lazy" alt="Rate Plans"/></div><div class="body">
+          <h4>Rate Plans <span class="route">/pricing/plans</span></h4>
+          <p>Best-Available-Rate plus corporate, seasonal, or OTA-specific rate plans. Start with a default BAR plan and layer the rest.</p>
+          <div class="testline"><b>Test:</b> "Create First Plan" (BAR).</div></div></div>
+        <div class="feature-card"><div class="shot"><img src="img/pf2-rate-calendar.png" loading="lazy" alt="Rate Calendar"/></div><div class="body">
+          <h4>Rate Calendar <span class="route">/pricing/calendar</span></h4>
+          <p>The effective nightly rate per date once rules and plans are applied — the day-by-day view of what a guest would be quoted.</p>
+          <div class="testline"><b>Test:</b> pick a future date and read the effective rate.</div></div></div>
+        <div class="feature-card"><div class="shot"><img src="img/pf6-pricing-history.png" loading="lazy" alt="Pricing History"/></div><div class="body">
+          <h4>Pricing History <span class="route">/pricing/history</span></h4>
+          <p>An audit log of every rate change in a month, exportable to CSV — useful for understanding why a night was priced the way it was.</p>
+          <div class="testline"><b>Test:</b> change the month selector; Export CSV.</div></div></div>
+        <div class="feature-card"><div class="shot"><img src="img/pf4-budgets.png" loading="lazy" alt="Budget Planner"/></div><div class="body">
+          <h4>Budget Planner <span class="route">/finance/budgets</span></h4>
+          <p>Set a monthly budget per operational category (F&amp;B, Front Office, Housekeeping, Laundry, Maintenance, Marketing, Staff, Utilities…).</p>
+          <div class="testline"><b>Test:</b> enter a budget for a category, Save Budgets.</div></div></div>
+        <div class="feature-card"><div class="shot"><img src="img/pf5-expenses.png" loading="lazy" alt="Expenses"/></div><div class="body">
+          <h4>Expenses <span class="route">/finance/expenses</span></h4>
+          <p>Log actual operational expenses against categories; these roll up into the Finance Overview's budget-vs-actual (Step 09).</p>
+          <div class="testline"><b>Test:</b> log an expense and confirm it appears in Overview.</div></div></div>
+        <div class="feature-card"><div class="shot"><img src="img/wf1-ops-analytics.png" loading="lazy" alt="Ops Manager Analytics"/></div><div class="body">
+          <h4>Ops Manager Analytics <span class="route">/ops/analytics</span></h4>
+          <p>Operational intelligence for duty managers: SLA compliance, breach rate, tickets created vs resolved, backlog, breach reasons, and agent risk focus.</p>
+          <div class="testline"><b>Test:</b> switch Live (Today) / 7 Days / 30 Days.</div></div></div>
+        <div class="feature-card"><div class="shot"><img src="img/op7-reviews-new.png" loading="lazy" alt="Guest Reviews"/></div><div class="body">
+          <h4>Guest Reviews <span style="font-size:10px;background:#dcfce7;color:#15803d;border-radius:10px;padding:1px 7px;font-weight:700">NEW</span> <span class="route">/owner/:slug/reviews</span></h4>
+          <p>Reputation surface on the live <code>guest_reviews</code> data: every guest review (stars, text, category breakdown, anonymity respected) with header metrics (avg, positive/negative, open escalations). Owner can <b>toggle visibility</b> (public/private) and <b>escalate</b> a review for follow-up. The dashboard's Guest-Satisfaction rating now reads this same source.</p>
+          <div class="testline"><b>Test:</b> Dashboard → "Guest Reviews"; toggle a review public/private, then "Escalate" a low-rated one (watch Open escalations tick up).</div></div></div>
+        <div class="feature-card"><div class="shot"><img src="img/wf2-workforce.png" loading="lazy" alt="Workforce"/></div><div class="body">
+          <h4>Local Workforce <span style="font-size:10px;background:#d1fae5;color:#065f46;border-radius:10px;padding:1px 7px;font-weight:700">BETA</span> <span class="route">/owner/:slug/workforce</span></h4>
+          <p>Post local hiring roles for the property and move applicants to shortlisted / hired in one tap. (Beta — saving requires the workforce tables.)</p>
+          <div class="testline"><b>Test:</b> click "+ New role" and explore the form.</div></div></div>
+      </div>
+    </div>
+
+    <!-- Setup & Check-in -->
+    <div id="ref-setup">
+      <div class="section-header" style="margin-top:36px"><div class="section-icon" style="background:#ede9fe;">🛠️</div>
+        <div><h2>Setup &amp; Check-in <span class="persona-pill pill-owner">Owner</span><span class="persona-pill pill-staff">Staff</span></h2><p>First-run onboarding, team access, and the full staff check-in wizard</p></div></div>
+      <hr class="section-divider"/>
+      <div class="feature-grid">
+        <div class="feature-card"><div class="shot"><img src="img/x2-onboard.png" loading="lazy" alt="Onboarding wizard"/></div><div class="body">
+          <h4>Hotel Onboarding Wizard <span class="route">/onboard</span></h4>
+          <p>The first-run setup for a brand-new property: a 5-step wizard — Hotel Details → Operational Settings → Room Setup → Staff Setup → Enable Features — with a setup-progress bar.</p>
+          <div class="testline"><b>Test:</b> fill Hotel Details, "Save &amp; Continue" through the steps.</div></div></div>
+        <div class="feature-card"><div class="shot"><img src="img/x4-checkin-booking.png" loading="lazy" alt="Check-in wizard"/></div><div class="body">
+          <h4>Staff Check-in Wizard <span class="route">/checkin/booking</span></h4>
+          <p>The desk flow for a guest <em>with</em> a reservation (vs the walk-in in Step 05): <strong>Find Booking → Confirm Details → Assign Room</strong>, looking the guest up by confirmation code, email, or mobile.</p>
+          <div class="testline"><b>Test:</b> search a booking code, then walk Confirm → Assign Room.</div></div></div>
+        <div class="feature-card"><div class="shot"><img src="img/x1-invite-teammate.png" loading="lazy" alt="Invite Teammate"/></div><div class="body">
+          <h4>Invite Teammate <span class="route">Staff &amp; Shifts → Invite</span></h4>
+          <p>Invite staff by email with a role, share the accept link, and revoke pending invites. <b>Consolidated</b> into Staff &amp; Shifts — the old standalone "Property access" screen (<code>/settings/access</code>) was retired (it now redirects here) and its schema bug removed.</p>
+          <div class="testline"><b>Test:</b> Staff &amp; Shifts → "Invite Teammate" → email + role → Send. (A brand-new hotel with only the Owner role first sees a "Set up roles" prompt.)</div></div></div>
+      </div>
+    </div>
+
+    <!-- Staff apps -->
+    <div id="ref-staff">
+      <div class="section-header" style="margin-top:36px"><div class="section-icon" style="background:#dbeafe;">🧑‍🔧</div>
+        <div><h2>Staff Apps <span class="persona-pill pill-staff">Staff</span></h2><p>The focused, role-specific screens front-line staff work from (separate from the Owner Console)</p></div></div>
+      <hr class="section-divider"/>
+      <div class="feature-grid">
+        <div class="feature-card"><div class="shot"><img src="img/sa2-desk.png" loading="lazy" alt="Front Desk app"/></div><div class="body">
+          <h4>Front Desk <span class="route">/desk</span></h4>
+          <p>A combined console for the desk: Housekeeping requests and Kitchen orders side by side (with Accept / Start / Mark Done / Delivered), plus a Chat workspace. Shows the demo Room 201 tickets &amp; orders live.</p>
+          <div class="testline"><b>Test:</b> Accept then Mark Done the "extra towels" request.</div></div></div>
+        <div class="feature-card"><div class="shot"><img src="img/sa3-hk-app.png" loading="lazy" alt="Housekeeping app"/></div><div class="body">
+          <h4>Housekeeping App <span class="route">/hk</span></h4>
+          <p>The housekeeper's task list — every cleaning/amenity request with its SLA and an Accept button, filterable by status. Populated with demo requests across rooms.</p>
+          <div class="testline"><b>Test:</b> Accept a "Room Cleaning" task and complete it.</div></div></div>
+        <div class="feature-card"><div class="shot"><img src="img/sa4-maint-app.png" loading="lazy" alt="Maintenance app"/></div><div class="body">
+          <h4>Maintenance App <span class="route">/maint</span></h4>
+          <p>The maintenance queue — tickets like "AC Repair" and "Maintenance Electric" with NEW / IN_PROGRESS / COMPLETED status and SLA.</p>
+          <div class="testline"><b>Test:</b> progress the "AC Repair" ticket to completion.</div></div></div>
+        <div class="feature-card"><div class="shot"><img src="img/sa1-staff-app.png" loading="lazy" alt="Staff Task Manager"/></div><div class="body">
+          <h4>Staff Task Manager <span class="route">/staff</span></h4>
+          <p>An individual staff member's personal work queue across New / In&nbsp;Progress / Blocked, plus History. Empty until tasks are assigned to that person.</p>
+          <div class="testline"><b>Test:</b> assign yourself a task (from Staff &amp; Shifts) and watch it appear.</div></div></div>
+      </div>
+    </div>
+
+    <!-- Guest more screens -->
+    <div id="ref-guest">
+      <div class="section-header" style="margin-top:36px"><div class="section-icon" style="background:#fce7f3;">📲</div>
+        <div><h2>Guest Portal — more screens <span class="persona-pill pill-guest">Guest</span></h2><p>The rest of the guest app (Home, Service, Food, Track, Checkout are Steps 18–22)</p></div></div>
+      <hr class="section-divider"/>
+      <div class="feature-grid phones">
+        <div class="feature-card phone-card"><div class="shot"><img src="img/g6-trips.png" loading="lazy" alt="Trips"/></div><div class="body">
+          <h4>Trips</h4><p>Stay history across all visits, with nights and spend totals. Demo shows Dev Test Hotel, 2 nights, ₹3,500.</p>
+          <div class="testline"><b>Test:</b> filter by All time / hotel / status.</div></div></div>
+        <div class="feature-card phone-card"><div class="shot"><img src="img/g7-rewards.png" loading="lazy" alt="Rewards"/></div><div class="body">
+          <h4>Rewards &amp; Wallet</h4><p>Loyalty tier (Platinum), available points (35), points expiring, and vouchers (10% off, free upgrade).</p>
+          <div class="testline"><b>Test:</b> tap "Use" on a voucher.</div></div></div>
+        <div class="feature-card phone-card"><div class="shot"><img src="img/g8-bills.png" loading="lazy" alt="Bills & Orders"/></div><div class="body">
+          <h4>Bills &amp; Orders</h4><p>Every stay bill and food order in one place — demo shows ₹3,500 stay bills + ₹620 food orders, with Stay Bills / Food Orders tabs.</p>
+          <div class="testline"><b>Test:</b> open the stay bill and the Food Orders tab.</div></div></div>
+        <div class="feature-card phone-card"><div class="shot"><img src="img/g10-order-history.png" loading="lazy" alt="Order History"/></div><div class="body">
+          <h4>Order History (this stay)</h4><p>Food orders during the current stay with live status — demo shows 2 orders / 4 items / ₹620, both Preparing.</p>
+          <div class="testline"><b>Test:</b> tap "View Details" on an order.</div></div></div>
+        <div class="feature-card phone-card"><div class="shot"><img src="img/g9-support.png" loading="lazy" alt="Support"/></div><div class="body">
+          <h4>Support</h4><p>Help &amp; contact for the guest — reach the front desk and find answers without leaving the portal.</p>
+          <div class="testline"><b>Test:</b> open a help/contact option.</div></div></div>
+      </div>
+    </div>
+
+    <!-- Guest deep-links -->
+    <div id="ref-guestdeep">
+      <div class="section-header" style="margin-top:36px"><div class="section-icon" style="background:#fce7f3;">🔗</div>
+        <div><h2>Guest Deep-Links &amp; Entry Points <span class="persona-pill pill-guest">Guest</span></h2><p>The QR/link landing pages and live trackers a guest reaches outside the main tab bar</p></div></div>
+      <hr class="section-divider"/>
+      <div class="feature-grid phones">
+        <div class="feature-card phone-card"><div class="shot"><img src="img/x10-scan.png" loading="lazy" alt="Scan landing"/></div><div class="body">
+          <h4>QR Scan Landing <span class="route">/scan</span></h4><p>Where a room/reception QR lands: "Welcome to your stay" — open the web menu or jump to WhatsApp.</p>
+          <div class="testline"><b>Test:</b> tap "Open web menu".</div></div></div>
+        <div class="feature-card phone-card"><div class="shot"><img src="img/x11-claim.png" loading="lazy" alt="Claim stay"/></div><div class="body">
+          <h4>Claim Your Stay <span class="route">/claim</span></h4><p>A guest links a booking to their device with the booking code + phone, verified by OTP.</p>
+          <div class="testline"><b>Test:</b> enter code + phone, "Send OTP".</div></div></div>
+        <div class="feature-card phone-card"><div class="shot"><img src="img/x9-precheck.png" loading="lazy" alt="Pre-check-in"/></div><div class="body">
+          <h4>Online Pre-Check-in <span class="route">/precheck/:code</span></h4><p>Guests fill identity (name, phone, Aadhaar/ID), arrival time, party size and requests before they arrive — speeding up the desk.</p>
+          <div class="testline"><b>Test:</b> complete the form and submit.</div></div></div>
+        <div class="feature-card phone-card"><div class="shot"><img src="img/x12-regcard.png" loading="lazy" alt="Registration card"/></div><div class="body">
+          <h4>Digital Registration Card <span class="route">/regcard</span></h4><p>The digital reg-card (name, phone, ID + a consent toggle for an AI stay summary) — replaces the paper form at check-in.</p>
+          <div class="testline"><b>Test:</b> fill it and "Save &amp; Continue".</div></div></div>
+        <div class="feature-card phone-card"><div class="shot"><img src="img/x6-stay-details.png" loading="lazy" alt="Stay details"/></div><div class="body">
+          <h4>Stay Details <span class="route">/guest/stay/:id</span></h4><p>The full view of one stay: room, dates, bill summary (₹3,125 + ₹375 = ₹3,500), download invoice, and "Request stay extension".</p>
+          <div class="testline"><b>Test:</b> tap "Request stay extension".</div></div></div>
+        <div class="feature-card phone-card"><div class="shot"><img src="img/x7-request-tracker.png" loading="lazy" alt="Request tracker"/></div><div class="body">
+          <h4>Service Request Tracker <span class="route">/track/:id</span></h4><p>Live tracking for one request (Extra Towels #DEMO-T001): on-time ring, ETA, and a status timeline (Submitted → Assigning → On the way).</p>
+          <div class="testline"><b>Test:</b> open from "Track Requests" (Step 21).</div></div></div>
+        <div class="feature-card phone-card"><div class="shot"><img src="img/x8-order-tracker.png" loading="lazy" alt="Order tracker"/></div><div class="body">
+          <h4>Food Order Tracker <span class="route">/track-order/:id</span></h4><p>Live tracking for one food order (#DEMO-001): status ring (Late/On-time), ETA, item summary, and a kitchen status timeline.</p>
+          <div class="testline"><b>Test:</b> open an order from Order History.</div></div></div>
+      </div>
+    </div>
+
+    <!-- Public funnel -->
+    <div id="ref-public">
+      <div class="section-header" style="margin-top:36px"><div class="section-icon" style="background:#dcfce7;">🌐</div>
+        <div><h2>Public Funnel <span class="persona-pill pill-guest">Public</span></h2><p>The guest-facing, shareable pages that feed the Lead CRM and Packages</p></div></div>
+      <hr class="section-divider"/>
+      <div class="feature-grid">
+        <div class="feature-card"><div class="shot"><img src="img/pub1-lead-capture.png" loading="lazy" alt="Public enquiry form"/></div><div class="body">
+          <h4>Public Enquiry Form <span class="route">/p/:slug/enquire</span></h4>
+          <p>The shareable enquiry form (WhatsApp/website link). A guest enters name, dates, party size and a note; submitting creates a lead in the CRM (Step 13).</p>
+          <div class="testline"><b>Test:</b> submit an enquiry → confirm it appears in Leads as "New".</div></div></div>
+        <div class="feature-card"><div class="shot"><img src="img/pub2-package-landing.png" loading="lazy" alt="Public package landing"/></div><div class="body">
+          <h4>Public Package Landing <span class="route">/p/:slug/package/:pkg</span></h4>
+          <p>The shareable landing page for a package (inclusions, stay details, price, "Enquire now"). Demo: Char Dham Yatra Special — 4N, from ₹12,500/person.</p>
+          <div class="testline"><b>Test:</b> open from Packages → "View public"; click Enquire now.</div></div></div>
+      </div>
+      <div class="reserved-note">
+        <b>Known issues &amp; non-feature routes found while auditing every screen (your bug-fix list):</b><br><br>
+        <b style="color:#b91c1c">🐞 Real bugs to fix (page errors on load):</b><br>
+        • <b>Grid / IoT (energy)</b> — <code>/grid/devices</code>, <code>/grid/playbooks</code>, <code>/grid/events</code> → "items.reduce is not a function" (whole module currently broken; same root cause — wired to the dead Fastify API)<br>
+        • <span style="color:#15803d">✓ <b>Fixed:</b> Reputation / Reviews — rebuilt as <code>/owner/:slug/reviews</code> on the live <code>guest_reviews</code> system (list + visibility + escalate + metrics); the legacy <code>/owner/reviews</code> Fastify screen is retired and redirects, and the dashboard rating now reads guest reviews.</span><br>
+        • <span style="color:#15803d">✓ <b>Fixed:</b> Team Access (<code>/settings/access</code>) — consolidated "Invite Teammate" into Staff &amp; Shifts; the old route redirects there.</span><br><br>
+        <b style="color:#b45309">🚧 Intentional placeholders (route exists only to avoid a 404 — no feature yet):</b><br>
+        • <code>/owner/:slug/revenue</code> (+ <code>/revenue/adr</code>, <code>/revenue/revpar</code>), <code>/owner/:slug/rooms</code>, <code>/owner/bookings/calendar</code>, <code>/owner/:slug/bookings/pickup</code>, <code>/owner/:slug/hrms</code>, <code>/owner/:slug/hrms/attendance</code>. Excluded above — nothing to test until they're built.<br><br>
+        <b style="color:#475569">➖ Deliberately out of scope (not product-testing surfaces):</b> marketing pages (about / contact / careers / press), auth callbacks &amp; invite-accept links, <code>/admin/*</code>, owner sign-up, and deprecated <code>/guestold</code>.
+      </div>
+    </div>
+
+    <!-- CHECKLIST -->
+    <div id="checklist" style="margin-top: 48px; background: #0f172a; border-radius: 14px; padding: 32px; color: #e2e8f0;">
+      <h2 style="font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 6px;">✅ Testing Completion Checklist</h2>
+      <p style="font-size: 13px; color: #94a3b8; margin-bottom: 20px;">Tick each item once you've verified it end-to-end.</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;"><input type="checkbox" style="margin-top:2px;accent-color:#6366f1"/> Open landing page &amp; reach Owner Console</label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;"><input type="checkbox" style="margin-top:2px;accent-color:#6366f1"/> Dashboard shows Revenue / Occupancy / Outstanding</label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;"><input type="checkbox" style="margin-top:2px;accent-color:#6366f1"/> Arrivals lists Asha &amp; Rohan with balances</label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;"><input type="checkbox" style="margin-top:2px;accent-color:#6366f1"/> Housekeeping shows 101/102 dirty, 201/202 clean</label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;"><input type="checkbox" style="margin-top:2px;accent-color:#6366f1"/> Walk-in registration form opens (Instant Residency)</label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;"><input type="checkbox" style="margin-top:2px;accent-color:#6366f1"/> Folio math checks out (₹3,500 − ₹2,000 = ₹1,500)</label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;"><input type="checkbox" style="margin-top:2px;accent-color:#6366f1"/> Collect Payment records against the balance</label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;"><input type="checkbox" style="margin-top:2px;accent-color:#6366f1"/> Staff &amp; Shifts roster + timeline render</label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;"><input type="checkbox" style="margin-top:2px;accent-color:#6366f1"/> Analytics charts render across date ranges</label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;"><input type="checkbox" style="margin-top:2px;accent-color:#6366f1"/> Finance: budget + expense logged and visible</label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;"><input type="checkbox" style="margin-top:2px;accent-color:#6366f1"/> Pricing: Evaluate returns a recommendation</label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;"><input type="checkbox" style="margin-top:2px;accent-color:#6366f1"/> Settings save and persist on reload</label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;"><input type="checkbox" style="margin-top:2px;accent-color:#6366f1"/> Payments &amp; Settlements page loads (cards + filters)</label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;"><input type="checkbox" style="margin-top:2px;accent-color:#6366f1"/> Lead moved through a pipeline stage</label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;"><input type="checkbox" style="margin-top:2px;accent-color:#6366f1"/> Package created as draft &amp; previewed</label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;"><input type="checkbox" style="margin-top:2px;accent-color:#6366f1"/> Visibility checklist item completed (score rises)</label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;"><input type="checkbox" style="margin-top:2px;accent-color:#6366f1"/> Ops Board shows 2 active requests (New + In Progress)</label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;"><input type="checkbox" style="margin-top:2px;accent-color:#6366f1"/> Kitchen shows ORD-1020 (Preparing) → Mark Ready works</label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;"><input type="checkbox" style="margin-top:2px;accent-color:#6366f1"/> Analytics: Active Issues 2 + tickets chart populated</label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;"><input type="checkbox" style="margin-top:2px;accent-color:#6366f1"/> Guest Home shows Asha's active stay + live folio</label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;"><input type="checkbox" style="margin-top:2px;accent-color:#6366f1"/> Guest: request a service → appears on Ops Board</label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;"><input type="checkbox" style="margin-top:2px;accent-color:#6366f1"/> Guest: order food → appears in Kitchen</label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;"><input type="checkbox" style="margin-top:2px;accent-color:#6366f1"/> Guest: Track Requests shows REQ-1062, REQ-1063, ORD-1020</label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;"><input type="checkbox" style="margin-top:2px;accent-color:#6366f1"/> Guest checkout summarises bill &amp; updates Housekeeping</label>
+      </div>
+    </div>
+
+    <div style="margin-top: 40px; padding-top: 24px; border-top: 1px solid #e2e8f0; color: #94a3b8; font-size: 12px;">
+      <p><strong style="color:#334155">VAiyu</strong> — Hotel Operations Platform · Testing guide generated 06 June 2026 · Local dev instance with demo seed data.</p>
+      <p style="margin-top:6px"><strong style="color:#334155">Reset / re-seed demo data:</strong> run <code style="background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:11px">dashboard-demo-cleanup.sql</code> then <code style="background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:11px">dashboard-demo-seed.sql</code>. If the Dashboard ever errors or revenue reads zero after a database reset, refresh the KPI cache: <code style="background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:11px">REFRESH MATERIALIZED VIEW public.owner_dashboard_kpis;</code></p>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  const anchors = document.querySelectorAll('[id]');
+  const links = document.querySelectorAll('.sidebar a');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const link = document.querySelector('.sidebar a[href="#' + entry.target.id + '"]');
+        if (link) link.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  anchors.forEach(a => observer.observe(a));
+</script>
+</body>
+</html>

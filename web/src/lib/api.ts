@@ -1879,7 +1879,7 @@ export async function unblockTask(
 export async function reassignTask(
   ticketId: string,
   newAssigneeId: string,
-  supervisorId: string,
+  supervisorId: string | null,
   comment?: string
 ) {
   if (IS_SUPABASE_FUNCTIONS) {
@@ -1893,14 +1893,15 @@ export async function reassignTask(
     });
   }
 
-  // Direct Supabase RPC call
   const s = supa();
   if (!s) throw new Error("No Supabase client");
 
+  // p_supervisor_id is ignored by the RPC (derived from auth.uid() server-side
+  // since 20260609000003) — passing null keeps PostgREST happy.
   const { data, error } = await s.rpc("reassign_task", {
     p_ticket_id: ticketId,
     p_new_assignee_id: newAssigneeId,
-    p_supervisor_id: supervisorId,
+    p_supervisor_id: null,
     p_comment: comment,
   });
 

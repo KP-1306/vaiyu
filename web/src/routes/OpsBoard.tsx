@@ -1287,7 +1287,7 @@ export default function OpsBoard() {
             hotelId={hotelId}
             currentAssigneeId={reassignTicket.assignee_id}
             onSelect={async (sid) => {
-              await reassignTask(reassignTicket.id, sid, 'sup', 'Reassigned');
+              await reassignTask(reassignTicket.id, sid, null, 'Reassigned');
               refresh();
               setShowStaffPicker(false);
             }}

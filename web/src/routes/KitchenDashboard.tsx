@@ -325,6 +325,35 @@ export default function KitchenDashboard() {
         }
     };
 
+    // Push a fresh ETA from the kitchen. `minutesFromNow` becomes the new
+    // committed target; it must be strictly later than the current target,
+    // which the RPC validates. Used by the +10 / +20 / +30 buttons on each
+    // in-flight order card.
+    const pushEta = async (orderId: string, minutesFromNow: number, comment?: string) => {
+        try {
+            const client = supa();
+            if (!client) return;
+            const order = orders.find((o: FoodOrder) => o.id === orderId);
+            if (!order || !order.hotel_id) {
+                alert("Missing Hotel ID context. Please refresh the dashboard.");
+                return;
+            }
+            const newTarget = new Date(Date.now() + minutesFromNow * 60000);
+            // Server expects timestamp without time zone (UTC). Strip the Z.
+            const isoUtc = newTarget.toISOString().replace('Z', '');
+            const { error } = await client.rpc('update_food_order_eta', {
+                p_order_id: orderId,
+                p_hotel_id: order.hotel_id,
+                p_new_target_at: isoUtc,
+                p_comment: comment ?? `Kitchen pushed ETA +${minutesFromNow} min`,
+            });
+            if (error) throw error;
+            fetchOrders();
+        } catch (e: any) {
+            alert(`Push ETA failed: ${e.message}`);
+        }
+    };
+
     if (loading) return <div className="text-white p-10">Loading Kitchen Dashboard...</div>;
 
     return (
@@ -383,6 +412,11 @@ export default function KitchenDashboard() {
                                             order.status === 'CREATED' ? 'bg-green-600 hover:bg-green-700' :
                                                 order.status === 'ACCEPTED' ? 'bg-blue-600 hover:bg-blue-700' :
                                                     'bg-orange-500 hover:bg-orange-600'
+                                        }
+                                        onPushEta={
+                                            ['ACCEPTED', 'PREPARING'].includes(order.status)
+                                                ? (mins: number) => pushEta(order.id, mins)
+                                                : undefined
                                         }
                                     />
                                 ))}
@@ -517,7 +551,7 @@ export default function KitchenDashboard() {
     );
 }
 
-function OrderCard({ order, actionLabel, onAction, colorClass, disabled, assignedTo }: { order: FoodOrder, actionLabel: string, onAction?: () => void, colorClass: string, disabled?: boolean, assignedTo?: string }) {
+function OrderCard({ order, actionLabel, onAction, colorClass, disabled, assignedTo, onPushEta }: { order: FoodOrder, actionLabel: string, onAction?: () => void, colorClass: string, disabled?: boolean, assignedTo?: string, onPushEta?: (minutesFromNow: number) => void }) {
 
     return (
         <div className="bg-white rounded-lg p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -560,13 +594,44 @@ function OrderCard({ order, actionLabel, onAction, colorClass, disabled, assigne
             </div>
 
             {onAction && (
-                <button
-                    onClick={onAction}
-                    disabled={disabled}
-                    className={`px-6 py-2 rounded font-bold text-sm text-white shadow-sm transition-all ${disabled ? 'bg-slate-300 cursor-not-allowed' : colorClass}`}
-                >
-                    {actionLabel}
-                </button>
+                <div className="flex flex-col items-stretch md:items-end gap-2">
+                    <button
+                        onClick={onAction}
+                        disabled={disabled}
+                        className={`px-6 py-2 rounded font-bold text-sm text-white shadow-sm transition-all ${disabled ? 'bg-slate-300 cursor-not-allowed' : colorClass}`}
+                    >
+                        {actionLabel}
+                    </button>
+                    {onPushEta && (
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 pr-1">Running late?</span>
+                            <button
+                                onClick={() => onPushEta(10)}
+                                className="px-2 py-1 rounded text-[11px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                                title="Push ETA to 10 minutes from now"
+                            >+10m</button>
+                            <button
+                                onClick={() => onPushEta(20)}
+                                className="px-2 py-1 rounded text-[11px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                                title="Push ETA to 20 minutes from now"
+                            >+20m</button>
+                            <button
+                                onClick={() => onPushEta(30)}
+                                className="px-2 py-1 rounded text-[11px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                                title="Push ETA to 30 minutes from now"
+                            >+30m</button>
+                            <button
+                                onClick={() => {
+                                    const v = window.prompt('Push ETA by how many minutes from now?', '15');
+                                    const n = v ? parseInt(v, 10) : NaN;
+                                    if (Number.isFinite(n) && n > 0) onPushEta(n);
+                                }}
+                                className="px-2 py-1 rounded text-[11px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                                title="Custom minutes"
+                            >…</button>
+                        </div>
+                    )}
+                </div>
             )}
         </div>
     );

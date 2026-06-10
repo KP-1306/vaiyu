@@ -47,6 +47,11 @@ type FoodOrderData = {
     sla?: {
         sla_target_at: string;
         sla_started_at?: string;
+        // Added 2026-06-11: kitchen-owned revised ETA. When present, this is
+        // the fresh committed time and supersedes sla_target_at for display.
+        sla_revised_target_at?: string | null;
+        sla_revised_at?: string | null;
+        sla_revision_count?: number;
     };
     events?: {
         event_type: string;
@@ -283,24 +288,35 @@ export default function FoodOrderTracker() {
     const isCompleted = ['COMPLETED', 'DELIVERED', 'CLOSED', 'RESOLVED'].includes(data.status);
     const isCancelled = data.status === 'CANCELLED';
 
-    // Estimate: If SLA exists, use target. Else default 45 mins?
-    // food_order_sla_state usually has sla_target_at
-    const targetTime = parseDbDate(data.sla?.sla_target_at) || new Date(createdTime.getTime() + slaMinutes * 60000);
+    // Estimate: kitchen's revised target (if set) supersedes the original.
+    // Never falls back to a stale time — falls through original → kitchen
+    // revision → +slaMinutes default in priority order.
+    const originalTarget = parseDbDate(data.sla?.sla_target_at) || new Date(createdTime.getTime() + slaMinutes * 60000);
+    const revisedTarget = parseDbDate(data.sla?.sla_revised_target_at as any) || null;
+    const revisedAt = parseDbDate(data.sla?.sla_revised_at as any) || null;
+    const baseTarget = revisedTarget ?? originalTarget;
 
-    let diffMs = targetTime.getTime() - now.getTime();
-    const totalDuration = targetTime.getTime() - createdTime.getTime();
+    let diffMs = baseTarget.getTime() - now.getTime();
+    const totalDuration = baseTarget.getTime() - createdTime.getTime();
     let percentLeft = Math.max(0, (diffMs / totalDuration) * 100);
 
     if (isCompleted) {
         diffMs = 0;
         percentLeft = 0;
     } else if (diffMs < 0) {
-        percentLeft = 100; // Breached ring full? Or empty? RequestTracker logic:
-        // If breached, diffMs < 0.
+        percentLeft = 100;
     }
 
     const diffMins = Math.ceil(diffMs / 60000);
     const isBreached = diffMs < 0 && !isCompleted && !isCancelled;
+
+    // Defense in depth: if breached and no kitchen revision, never display a
+    // time in the past. Floor the displayed time at now + 10 min so the
+    // guest always sees a forward-looking arrival, while the underlying
+    // "MIN LATE" indicator continues to show the real breach delta.
+    const displayedTarget = (!isCompleted && !isCancelled && isBreached && !revisedTarget)
+        ? new Date(Math.max(baseTarget.getTime(), now.getTime() + 10 * 60000))
+        : baseTarget;
 
     // Ring Style
     const circumference = 2 * Math.PI * 45;
@@ -370,15 +386,15 @@ export default function FoodOrderTracker() {
                         : isCancelled
                             ? 'bg-red-500/10 border-red-500 text-red-500'
                             : isBreached
-                                ? 'bg-amber-500/10 border-transparent text-amber-500'
+                                ? 'bg-red-500/10 border-transparent text-red-500'
                                 : 'bg-orange-500/10 border-transparent text-orange-500'
                         }`}>
                         {isCompleted ? <CheckCircle2 size={32} /> :
                             isCancelled ? <XCircle size={32} /> :
                                 isBreached ? (
                                     <>
-                                        <div className="absolute inset-0 rounded-full border-4 border-amber-500/30" />
-                                        <div className="absolute inset-0 rounded-full border-4 border-t-amber-500 animate-spin" />
+                                        <div className="absolute inset-0 rounded-full border-4 border-red-500/30" />
+                                        <div className="absolute inset-0 rounded-full border-4 border-t-red-500 animate-spin" />
                                         <span className="relative z-10 text-[10px] font-black uppercase tracking-widest">Late</span>
                                     </>
                                 ) : (
@@ -396,7 +412,7 @@ export default function FoodOrderTracker() {
                     <p className="text-slate-500 text-sm">
                         {isCompleted ? "Your order has been delivered." :
                             isCancelled ? "This order was cancelled." :
-                                isBreached ? <span className="text-amber-500/80">Sorry for the delay.<br />We are working to deliver your order as quickly as possible.</span> : "Freshly preparing your items."}
+                                isBreached ? <span className="text-red-500/80">Sorry for the delay.<br />We are working to deliver your order as quickly as possible.</span> : "Freshly preparing your items."}
                     </p>
                 </div>
 
@@ -410,13 +426,18 @@ export default function FoodOrderTracker() {
                             </div>
                             <div className="flex items-baseline gap-2 mb-1">
                                 <span className="text-3xl font-bold text-white font-mono leading-none">
-                                    {isCompleted ? formatIstTime(parseDbDate(data.updated_at) || new Date(), { showLabel: false }) : formatIstTime(targetTime, { showLabel: false })}
+                                    {isCompleted ? formatIstTime(parseDbDate(data.updated_at) || new Date(), { showLabel: false }) : formatIstTime(displayedTarget, { showLabel: false })}
                                 </span>
                                 <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">IST</span>
                             </div>
                             <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
                                 {isCompleted ? "Completed" : isBreached ? "Delayed" : "On Schedule"}
                             </div>
+                            {revisedTarget && revisedAt && !isCompleted && (
+                                <div className="text-[10px] text-slate-400 mt-1">
+                                    Updated by kitchen at {formatIstTime(revisedAt, { showLabel: false })}
+                                </div>
+                            )}
                         </div>
 
                         {/* Timer Ring */}

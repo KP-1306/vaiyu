@@ -26,7 +26,11 @@
     # *.razorpay.com. Without this, default-src 'self' is used as a fallback
     # and every Razorpay iframe is blocked → "Framing 'https://api.razorpay.com/'
     # violates Content Security Policy" in the console.
-    Content-Security-Policy = "default-src 'self'; connect-src 'self' https: wss:; img-src 'self' data: https:; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:; frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://*.razorpay.com; frame-ancestors 'self'; base-uri 'self'"
+    # img-src includes blob: so URL.createObjectURL(file) previews work for
+    # the KYC ID-upload flow (Aadhaar front/back, etc.). Without it Chrome
+    # blocks the blob:https://.../<uuid> URL the preview <img src> uses with
+    # "violates the following Content Security Policy directive: img-src".
+    Content-Security-Policy = "default-src 'self'; connect-src 'self' https: wss:; img-src 'self' data: blob: https:; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:; frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://*.razorpay.com; frame-ancestors 'self'; base-uri 'self'"
 
 # ---------- Old links → new flow
 [[redirects]]

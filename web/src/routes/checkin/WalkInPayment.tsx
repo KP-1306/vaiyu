@@ -435,6 +435,13 @@ export default function WalkInPayment() {
 
     const handlePayment = async () => {
         // Validation gates
+        // Identity is mandatory at check-in (compliance) — the *'d fields on the form.
+        if (!idType) { setPaymentError("Select an ID type."); return; }
+        if (!idNumber.trim()) { setPaymentError("Enter the guest's ID number."); return; }
+        if (idType === 'aadhaar' && idNumber.replace(/\D/g, '').length !== 12) {
+            setPaymentError("Aadhaar number must be 12 digits."); return;
+        }
+        if (!frontImage && !existingFront) { setPaymentError("Capture the front of the guest's ID."); return; }
         if (discountError) { setPaymentError(discountError); return; }
         if (!paymentMode) { setPaymentError("Choose a settlement method to continue."); return; }
 

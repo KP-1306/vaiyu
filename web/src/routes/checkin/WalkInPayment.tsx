@@ -23,8 +23,8 @@ import {
 import { supabase } from "../../lib/supabase";
 import { uploadIdentityDocuments } from "../../lib/storage";
 import { CheckInStepper } from "../../components/CheckInStepper";
-import type { DiscountReason } from "../../types/rate";
-import { DISCOUNT_REASON_LABELS, DISCOUNT_SOFT_CAP_PCT } from "../../types/rate";
+import type { DiscountReason, CompReason } from "../../types/rate";
+import { DISCOUNT_REASON_LABELS, DISCOUNT_SOFT_CAP_PCT, COMP_REASON_LABELS } from "../../types/rate";
 import { canGrantDiscount } from "../../services/rateService";
 import { getPricingSettings } from "../../services/pricingService";
 import {
@@ -84,6 +84,14 @@ export default function WalkInPayment() {
     const [razorpayMode, setRazorpayMode] = useState<"NONE" | "DIRECT" | "ROUTE">("NONE");
     const [paymentError, setPaymentError] = useState<string | null>(null);
 
+    // ─── Complimentary stay ────────────────────────────────
+    // A comp is an authorized full waive (owner's guest, staff, service
+    // recovery). Distinct from a discount; gated to finance managers
+    // (`canDiscount`), bypasses the discount cap, server-audited. When on,
+    // no payment is collected and the stay is flagged for reports.
+    const [compMode, setCompMode] = useState(false);
+    const [compReason, setCompReason] = useState<CompReason | "">("");
+
     useEffect(() => {
         let cancelled = false;
         if (!hotelId) {
@@ -124,8 +132,13 @@ export default function WalkInPayment() {
     }, [hotelId]);
 
     const nights = stayDetails?.nights || 1;
-    const selectionsList: Array<{ room_id: string; room_type_id: string | null; amount_per_night?: number }> =
+    const selectionsList: Array<{ room_id: string; room_type_id: string | null; amount_per_night?: number; has_rate?: boolean }> =
         roomSelections || [{ room_id: selectedRoomId, room_type_id: null }];
+
+    // A room is "unpriced" when Availability resolved no real rate for it.
+    // Such a stay can only proceed as an authorized comp — otherwise we'd be
+    // silently checking a guest in for free.
+    const hasUnpriced = selectionsList.some((s) => !(Number(s.amount_per_night) > 0) && s.has_rate !== true);
 
     // Tax config flows from Availability via location.state.pricing.
     // Default 12% / exclusive matches the previous hardcoded behavior.
@@ -385,9 +398,11 @@ export default function WalkInPayment() {
         const { data: { user: actorUser } } = await supabase.auth.getUser();
         const actorId = actorUser?.id ?? null;
 
-        // 3. Build per-room selections with discount fields
+        // 3. Build per-room selections with discount / comp fields. Comp is a
+        //    booking-level decision here, so every room carries the same flag.
+        //    A comp supersedes any discount (it's a full waive).
         const selections = selectionsList.map((sel) => {
-            const dpn = discountsByRoom[sel.room_id] ?? 0;
+            const dpn = compMode ? 0 : (discountsByRoom[sel.room_id] ?? 0);
             return {
                 room_id: sel.room_id,
                 room_type_id: sel.room_type_id,
@@ -395,6 +410,8 @@ export default function WalkInPayment() {
                 discount_per_night: dpn > 0 ? dpn : undefined,
                 discount_reason: dpn > 0 ? discountReason : undefined,
                 discount_note: dpn > 0 ? (discountNote.trim() || undefined) : undefined,
+                is_complimentary: compMode || undefined,
+                comp_reason: compMode ? (compReason || undefined) : undefined,
             };
         });
 
@@ -442,8 +459,18 @@ export default function WalkInPayment() {
             setPaymentError("Aadhaar number must be 12 digits."); return;
         }
         if (!frontImage && !existingFront) { setPaymentError("Capture the front of the guest's ID."); return; }
-        if (discountError) { setPaymentError(discountError); return; }
-        if (!paymentMode) { setPaymentError("Choose a settlement method to continue."); return; }
+        if (compMode) {
+            // Comp path: authorized full waive. No payment, no discount checks.
+            if (!compReason) { setPaymentError("Pick a reason for the complimentary stay."); return; }
+        } else {
+            if (discountError) { setPaymentError(discountError); return; }
+            // Block silent free check-ins: an unpriced room must be priced or comped.
+            if (hasUnpriced) {
+                setPaymentError("This room has no rate set. Set a rate in Pricing, or mark the stay complimentary.");
+                return;
+            }
+            if (!paymentMode) { setPaymentError("Choose a settlement method to continue."); return; }
+        }
 
         setProcessing(true);
         setPaymentError(null);
@@ -451,11 +478,15 @@ export default function WalkInPayment() {
         let booking: { bookingId: string; bookingCode: string; folioId: string; roomsCount: number; actorId: string | null } | null = null;
 
         try {
-            // Step 1 — booking + charges
+            // Step 1 — booking + charges (RPC flags + audits the comp itself)
             booking = await runCreateWalkInRpc();
 
-            // Step 2 — collect payment based on mode
-            if (paymentMode === "CASH") {
+            // Step 2 — collect payment based on mode. Comp stays nett ₹0 — the
+            // folio already balances, so there is nothing to collect and we
+            // deliberately record NO payment row.
+            if (compMode) {
+                // nothing to collect
+            } else if (paymentMode === "CASH") {
                 // Direct insert. Trigger trg_payment_to_folio creates the
                 // matching folio_entries PAYMENT row when status='COMPLETED'.
                 const { error: payErr } = await supabase.from("payments").insert({
@@ -772,16 +803,23 @@ export default function WalkInPayment() {
                                 <div className="pt-8 border-t border-gold-400/10 flex justify-between items-end px-2">
                                     <div className="space-y-1">
                                         <span className="text-[9px] font-black uppercase tracking-[0.4em] text-gold-400">Net Total</span>
-                                        <p className="text-[8px] font-bold text-white/30 uppercase tracking-widest">Final Payable</p>
+                                        <p className="text-[8px] font-bold text-white/30 uppercase tracking-widest">{compMode ? "Complimentary" : "Final Payable"}</p>
                                     </div>
-                                    <span className="text-4xl font-light text-white tracking-tighter shadow-gold-400/10 drop-shadow-2xl">
-                                        ₹{Math.round(liveTotals.totalPayable).toLocaleString()}
-                                    </span>
+                                    {compMode ? (
+                                        <span className="text-4xl font-light text-emerald-300 tracking-tighter drop-shadow-2xl">₹0</span>
+                                    ) : (
+                                        <span className="text-4xl font-light text-white tracking-tighter shadow-gold-400/10 drop-shadow-2xl">
+                                            ₹{Math.round(liveTotals.totalPayable).toLocaleString()}
+                                        </span>
+                                    )}
                                 </div>
                             </div>
 
-                            {/* ── Front-desk discount panel — gated on canDiscount ── */}
-                            {canDiscount && (
+                            {/* ── Front-desk discount panel — gated on canDiscount.
+                                 Hidden under comp: a comp is a full waive, so a
+                                 partial discount is meaningless (and the server
+                                 ignores it). Avoids a stale, confusing display. ── */}
+                            {canDiscount && !compMode && (
                             <div className="border-t border-white/5 pt-5 pb-2">
                                 <button
                                     type="button"
@@ -1066,8 +1104,77 @@ export default function WalkInPayment() {
                             </div>
                             )}
 
+                            {/* ── Complimentary / no-rate handling ── */}
+                            {(hasUnpriced || compMode || canDiscount) && (
+                            <div className="pt-8 border-t border-white/5 space-y-4">
+                                {/* Unpriced warning when not comping */}
+                                {hasUnpriced && !compMode && (
+                                    <div className="flex items-start gap-3 p-4 rounded-xl border border-amber-500/30 bg-amber-500/[0.06]">
+                                        <AlertTriangle className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-[10px] font-bold uppercase tracking-widest text-amber-300 mb-1">No rate set</div>
+                                            <div className="text-xs text-amber-200/90 leading-relaxed">
+                                                This room has no rate configured. Set a rate in Pricing, or mark this stay complimentary{canDiscount ? " below" : ""}.
+                                                {canDiscount === false && " A manager must authorize a complimentary stay."}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Comp toggle — finance managers only */}
+                                {canDiscount && (
+                                    <div className="space-y-4">
+                                        <button
+                                            type="button"
+                                            onClick={() => { setCompMode((v) => !v); setPaymentError(null); }}
+                                            aria-pressed={compMode}
+                                            className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all text-left ${
+                                                compMode
+                                                    ? "bg-emerald-500/10 border-emerald-500/50"
+                                                    : "bg-white/[0.02] border-white/5 hover:border-emerald-500/30"
+                                            }`}
+                                        >
+                                            <div className="space-y-0.5">
+                                                <div className="text-sm font-medium text-white tracking-tight">Mark stay complimentary</div>
+                                                <div className="text-[8px] font-bold uppercase tracking-widest text-emerald-300/40">Authorized full waive · no payment</div>
+                                            </div>
+                                            <div className={`w-10 h-6 rounded-full p-0.5 transition-all ${compMode ? "bg-emerald-400" : "bg-white/10"}`}>
+                                                <div className={`w-5 h-5 rounded-full bg-white transition-transform ${compMode ? "translate-x-4" : ""}`} />
+                                            </div>
+                                        </button>
+
+                                        {compMode && (
+                                            <div className="space-y-2 pl-1">
+                                                <label className="text-[10px] font-bold uppercase tracking-widest text-white/50">
+                                                    Reason <span className="text-rose-400">*</span>
+                                                </label>
+                                                <select
+                                                    value={compReason}
+                                                    onChange={(e) => setCompReason(e.target.value as CompReason | "")}
+                                                    className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/15 transition"
+                                                >
+                                                    <option value="" className="bg-slate-900">Pick a reason…</option>
+                                                    {(Object.keys(COMP_REASON_LABELS) as CompReason[]).map((k) => (
+                                                        <option key={k} value={k} className="bg-slate-900">{COMP_REASON_LABELS[k]}</option>
+                                                    ))}
+                                                </select>
+                                                <p className="text-[11px] text-white/40">No payment is collected. The stay is flagged complimentary and recorded in the audit log.</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            )}
+
                             {/* ── Settlement & Payment Section ── */}
                             <div className="pt-8 border-t border-white/5 space-y-6">
+                                {compMode ? (
+                                    <div className="flex items-center justify-between p-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.06]">
+                                        <div className="text-sm font-medium text-white tracking-tight">Complimentary stay</div>
+                                        <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-300">No payment · ₹0</div>
+                                    </div>
+                                ) : (
+                                <>
                                 <div className="flex items-center gap-4 px-2">
                                     <CreditCard className="h-4 w-4 text-gold-400/40" />
                                     <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">Settlement Method</span>
@@ -1138,6 +1245,8 @@ export default function WalkInPayment() {
                                         }`} />
                                     </button>
                                 </div>
+                                </>
+                                )}
 
                                 {/* Inline error banner */}
                                 {paymentError && (
@@ -1170,7 +1279,7 @@ export default function WalkInPayment() {
 
                                 <button
                                     onClick={handlePayment}
-                                    disabled={processing || !!discountError || !paymentMode}
+                                    disabled={processing || (compMode ? !compReason : (!!discountError || !paymentMode || hasUnpriced))}
                                     className="w-full py-6 text-2xl font-light tracking-tight text-black bg-gold-400 rounded-2xl hover:bg-gold-300 transition-all duration-500 group relative overflow-hidden shadow-[0_20px_40px_-10px_rgba(212,175,55,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
@@ -1178,17 +1287,18 @@ export default function WalkInPayment() {
                                         <div className="flex items-center justify-center gap-4">
                                             <Loader2 className="h-6 w-6 animate-spin" />
                                             <span className="uppercase tracking-[0.2em] text-[9px] font-black">
-                                                {paymentMode === "ONLINE" ? "Opening Razorpay..." : "Authorizing..."}
+                                                {(!compMode && paymentMode === "ONLINE") ? "Opening Razorpay..." : "Authorizing..."}
                                             </span>
                                         </div>
                                     ) : (
                                         <div className="flex items-center justify-center gap-4">
                                             <span className="uppercase tracking-[0.15em] text-[10px] font-black">
-                                                {paymentMode === "CASH" && `Collect Cash · ₹${Math.round(liveTotals.totalPayable).toLocaleString()}`}
-                                                {paymentMode === "ONLINE" && `Pay Online · ₹${Math.round(liveTotals.totalPayable).toLocaleString()}`}
-                                                {!paymentMode && "Choose settlement method above"}
+                                                {compMode && "Complete Check-in"}
+                                                {!compMode && paymentMode === "CASH" && `Collect Cash · ₹${Math.round(liveTotals.totalPayable).toLocaleString()}`}
+                                                {!compMode && paymentMode === "ONLINE" && `Pay Online · ₹${Math.round(liveTotals.totalPayable).toLocaleString()}`}
+                                                {!compMode && !paymentMode && (hasUnpriced ? "Set a rate or mark complimentary" : "Choose settlement method above")}
                                             </span>
-                                            {paymentMode && <ArrowRight className="h-6 w-6 group-hover:translate-x-2 transition-transform" />}
+                                            {(compMode || paymentMode) && <ArrowRight className="h-6 w-6 group-hover:translate-x-2 transition-transform" />}
                                         </div>
                                     )}
                                 </button>

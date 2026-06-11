@@ -30,6 +30,10 @@ interface Room {
     // otherwise MIN(rate_plan_prices). Resolved via v_effective_room_price.
     base_price: number;
     is_overridden: boolean;
+    // True when the room type has a real configured rate (> 0). False means
+    // v_effective_room_price returned no row (no rate_plan_prices) — we must
+    // NOT silently treat that as ₹0; the desk has to set a rate or comp.
+    has_rate: boolean;
 }
 
 export default function Availability() {
@@ -166,6 +170,9 @@ export default function Availability() {
                     ...r,
                     base_price: ep?.effective_price ?? 0,
                     is_overridden: !!ep?.is_overridden,
+                    // Distinguish "no rate configured" from a real ₹0 so the
+                    // payment step can block silent free check-ins.
+                    has_rate: ep?.effective_price != null && ep.effective_price > 0,
                 };
             });
             setRooms(available);
@@ -247,6 +254,7 @@ export default function Availability() {
                 room_type_name: room.room_types?.name || 'Standard',
                 base_price: room.base_price || 0,
                 is_overridden: !!room.is_overridden,
+                has_rate: !!room.has_rate,
             }
         }));
     };
@@ -298,6 +306,9 @@ export default function Availability() {
                 room_id: sel.room_id,
                 room_type_id: sel.room_type_id,
                 amount_per_night: sel.base_price,
+                // Carry the "has a real rate" signal so the payment step can
+                // tell an unpriced room from a genuine ₹0 and require a comp.
+                has_rate: !!sel.has_rate,
             }));
 
             const { roomTotal, taxes, totalPayable } = getTotalPricing();
@@ -683,13 +694,21 @@ export default function Availability() {
                                                             </div>
                                                             <div className="text-right">
                                                                 <div className="text-[9px] font-bold uppercase tracking-widest text-gold-100/40">{sel.room_type_name}</div>
-                                                                <div className="text-sm font-light text-gold-400">
-                                                                    ₹{sel.base_price.toLocaleString()}
-                                                                    <span className="text-[9px] text-gold-100/40 font-normal ml-1">/ night</span>
-                                                                </div>
-                                                                <div className="text-[10px] text-white/50 mt-0.5">
-                                                                    × {nights} night{nights === 1 ? "" : "s"} = ₹{(sel.base_price * nights).toLocaleString()}
-                                                                </div>
+                                                                {sel.has_rate ? (
+                                                                    <>
+                                                                        <div className="text-sm font-light text-gold-400">
+                                                                            ₹{sel.base_price.toLocaleString()}
+                                                                            <span className="text-[9px] text-gold-100/40 font-normal ml-1">/ night</span>
+                                                                        </div>
+                                                                        <div className="text-[10px] text-white/50 mt-0.5">
+                                                                            × {nights} night{nights === 1 ? "" : "s"} = ₹{(sel.base_price * nights).toLocaleString()}
+                                                                        </div>
+                                                                    </>
+                                                                ) : (
+                                                                    <div className="text-[10px] font-bold uppercase tracking-widest text-amber-400/80 mt-0.5">
+                                                                        No rate set
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     </div>

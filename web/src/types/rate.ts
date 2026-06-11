@@ -133,6 +133,28 @@ export const DISCOUNT_REASON_LABELS: Record<DiscountReason, string> = {
 // Soft cap: warn when discount percentage crosses this. Hard cap = 100%.
 export const DISCOUNT_SOFT_CAP_PCT = 20;
 
+// ─── Complimentary-stay reasons ─────────────────────────────
+// A comp is an authorized, audited full waive — distinct from a discount.
+// Codes are written to pricing_adjustments.reason_code (for comps of priced
+// rooms) and bookings.comp_reason, so they MUST stay in sync with
+// chk_pricing_adjustments_reason (extended in migration 20260611000002).
+export type CompReason =
+  | 'complimentary'
+  | 'staff_stay'
+  | 'owner_guest'
+  | 'service_recovery'
+  | 'loyalty'
+  | 'other';
+
+export const COMP_REASON_LABELS: Record<CompReason, string> = {
+  complimentary: 'Complimentary',
+  staff_stay: 'Staff stay',
+  owner_guest: "Owner's guest",
+  service_recovery: 'Service recovery',
+  loyalty: 'Loyalty / VIP',
+  other: 'Other',
+};
+
 // Helpers for restriction aggregation (used by Availability.tsx to decide
 // which rooms to hide and which min-stay to enforce).
 export type StayRestriction = {

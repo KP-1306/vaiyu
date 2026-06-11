@@ -19,9 +19,7 @@ import {
     Filter,
     KeyRound,
     RefreshCw,
-    MoreVertical,
     X,
-    MoreHorizontal,
     Clock,
     ChevronRight,
     Search,
@@ -31,6 +29,7 @@ import {
 } from 'lucide-react';
 import { SimpleTooltip } from "../components/SimpleTooltip";
 import FolioDrawer from "../components/FolioDrawer";
+import GuestDetailsDrawer from "../components/GuestDetailsDrawer";
 import { parseDbDate } from "../utils/dateUtils";
 import { LogOut } from "lucide-react";
 import "./guestnew/guestnew.css";
@@ -109,6 +108,8 @@ interface OperationalArrival {
     room_type_ids: string[];
     room_numbers: string | null;
     active_stay_id?: string | null;
+    adults_total: number | null;
+    children_total: number | null;
 }
 
 type DateFilter = "TODAY" | "TOMORROW" | "LATE" | "CUSTOM" | "ALL";
@@ -340,6 +341,7 @@ export default function OwnerArrivals() {
     const [loading, setLoading] = useState(true);
     const [arrivals, setArrivals] = useState<OperationalArrival[]>([]);
     const [selectedFolioArrival, setSelectedFolioArrival] = useState<OperationalArrival | null>(null);
+    const [selectedGuestArrival, setSelectedGuestArrival] = useState<OperationalArrival | null>(null);
     // Room Type State
     const [roomTypes, setRoomTypes] = useState<{ id: string, name: string }[]>([]);
     const [roomTypeFilter, setRoomTypeFilter] = useState<string | null>(null);
@@ -862,9 +864,10 @@ export default function OwnerArrivals() {
     };
 
     // Helper component for rendering a single arrival row
-    const ArrivalRow = ({ arrival, onFolioOpen, onApproveCheckout, approvingCheckout }: {
+    const ArrivalRow = ({ arrival, onFolioOpen, onGuestOpen, onApproveCheckout, approvingCheckout }: {
         arrival: OperationalArrival;
         onFolioOpen: (arrival: OperationalArrival) => void;
+        onGuestOpen: (arrival: OperationalArrival) => void;
         onApproveCheckout: (arrival: OperationalArrival, source?: 'GUEST' | 'STAFF') => void;
         approvingCheckout: boolean;
     }) => {
@@ -891,7 +894,10 @@ export default function OwnerArrivals() {
                         )}
                     </div>
                     <div className="ml-4">
-                        <div className="text-sm font-bold text-[var(--text-primary)] group-hover:text-[var(--text-gold)] transition-colors">{arrival.guest_name}</div>
+                        <div
+                            onClick={() => onGuestOpen(arrival)}
+                            className="text-sm font-bold text-[var(--text-primary)] group-hover:text-[var(--text-gold)] transition-colors cursor-pointer hover:underline"
+                        >{arrival.guest_name}</div>
                         {/* Badges */}
                         <div className="flex gap-2 mt-1.5">
                             {arrival.arrival_badge === "VIP" && (
@@ -916,7 +922,10 @@ export default function OwnerArrivals() {
 
             {/* Booking Ref */}
             <td className="px-6 py-4 whitespace-nowrap">
-                <span className="text-[var(--text-gold)] font-black text-xs tracking-wider cursor-pointer hover:underline bg-[var(--gold-400)]/5 px-2 py-1 rounded border border-[var(--border-gold)]/10">
+                <span
+                    onClick={() => onGuestOpen(arrival)}
+                    className="text-[var(--text-gold)] font-black text-xs tracking-wider cursor-pointer hover:underline bg-[var(--gold-400)]/5 px-2 py-1 rounded border border-[var(--border-gold)]/10"
+                >
                     {arrival.booking_code}
                 </span>
             </td>
@@ -944,7 +953,9 @@ export default function OwnerArrivals() {
                     </div>
                     <span className="text-white/10">|</span>
                     <div className="flex items-center gap-2 font-black text-[var(--text-primary)]">
-                        {arrival.rooms_total * 2} <Users className="w-4 h-4 text-[var(--text-gold)]" />
+                        {arrival.adults_total != null
+                            ? (arrival.adults_total + (arrival.children_total ?? 0))
+                            : "—"} <Users className="w-4 h-4 text-[var(--text-gold)]" />
                     </div>
                 </div>
             </td>
@@ -1072,9 +1083,6 @@ export default function OwnerArrivals() {
                         </button>
                     )}
 
-                    <button className="p-2 text-[var(--text-muted)] hover:text-[var(--text-gold)] hover:bg-white/5 rounded-full transition-all">
-                        <MoreVertical className="w-4 h-4" />
-                    </button>
                 </div>
             </td>
         </tr>
@@ -1610,10 +1618,11 @@ export default function OwnerArrivals() {
                             <tbody>
                                 {filteredList.length > 0 ? (
                                     filteredList.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((arrival) => (
-                                        <ArrivalRow 
-                                            key={arrival.booking_id} 
-                                            arrival={arrival} 
+                                        <ArrivalRow
+                                            key={arrival.booking_id}
+                                            arrival={arrival}
                                             onFolioOpen={setSelectedFolioArrival}
+                                            onGuestOpen={setSelectedGuestArrival}
                                             onApproveCheckout={handleApproveCheckout}
                                             approvingCheckout={approvingCheckout === arrival.booking_id}
                                         />
@@ -1751,6 +1760,16 @@ export default function OwnerArrivals() {
                     isOpen={!!selectedFolioArrival}
                     onClose={() => setSelectedFolioArrival(null)}
                     arrival={selectedFolioArrival}
+                />
+
+                <GuestDetailsDrawer
+                    isOpen={!!selectedGuestArrival}
+                    onClose={() => setSelectedGuestArrival(null)}
+                    arrival={selectedGuestArrival}
+                    onOpenFolio={(arrival) => {
+                        setSelectedGuestArrival(null);
+                        setSelectedFolioArrival(arrival);
+                    }}
                 />
 
                 {/* Phase 2 Modal */}

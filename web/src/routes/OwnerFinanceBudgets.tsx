@@ -9,6 +9,7 @@ import {
   listCategories,
   listBudgetPlans,
   upsertBudgetPlan,
+  deleteBudgetPlan,
   ensureCategoriesSeeded,
   currentYearMonth,
 } from "../services/financeService";
@@ -22,7 +23,14 @@ import {
 } from "../components/owner/DarkShell";
 
 type Hotel = { id: string; slug: string; name: string };
-type BudgetRow = { category: FinanceCategory; amount: string; notes: string };
+type BudgetRow = {
+  category: FinanceCategory;
+  amount: string;
+  notes: string;
+  /** True when a plan row exists in the DB for this category+month — a blanked
+   *  amount must then DELETE the row, not be silently skipped on save. */
+  hasSavedPlan: boolean;
+};
 
 export default function OwnerFinanceBudgets() {
   const { slug } = useParams<{ slug: string }>();
@@ -67,6 +75,7 @@ export default function OwnerFinanceBudgets() {
           category: cat,
           amount: planMap.has(cat.id) ? String(planMap.get(cat.id)!.budget_amount) : "",
           notes: planMap.has(cat.id) ? (planMap.get(cat.id)!.notes ?? "") : "",
+          hasSavedPlan: planMap.has(cat.id),
         })),
       );
     } catch (e: unknown) {
@@ -91,13 +100,14 @@ export default function OwnerFinanceBudgets() {
       if (!user) throw new Error("Not authenticated.");
 
       const toSave = rows.filter((r) => r.amount !== "" && !isNaN(Number(r.amount)));
-      if (toSave.length === 0) {
+      const toClear = rows.filter((r) => r.amount === "" && r.hasSavedPlan);
+      if (toSave.length === 0 && toClear.length === 0) {
         setSaveError("Enter at least one budget amount to save.");
         return;
       }
 
-      await Promise.all(
-        toSave.map((r) =>
+      await Promise.all([
+        ...toSave.map((r) =>
           upsertBudgetPlan(
             hotel.id,
             user.id,
@@ -106,6 +116,19 @@ export default function OwnerFinanceBudgets() {
             Number(r.amount),
             r.notes || null,
           ),
+        ),
+        ...toClear.map((r) => deleteBudgetPlan(hotel.id, month, r.category.id)),
+      ]);
+
+      const savedIds = new Set(toSave.map((r) => r.category.id));
+      const clearedIds = new Set(toClear.map((r) => r.category.id));
+      setRows((prev) =>
+        prev.map((r) =>
+          savedIds.has(r.category.id)
+            ? { ...r, hasSavedPlan: true }
+            : clearedIds.has(r.category.id)
+              ? { ...r, notes: "", hasSavedPlan: false }
+              : r,
         ),
       );
       setSaveSuccess(true);

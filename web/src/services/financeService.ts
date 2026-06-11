@@ -107,6 +107,23 @@ export async function upsertBudgetPlan(
   if (error) throw error;
 }
 
+export async function deleteBudgetPlan(
+  hotelId: string,
+  yearMonth: string,
+  categoryId: string,
+): Promise<void> {
+  const monthDate = toMonthStart(yearMonth);
+
+  const { error } = await supabase
+    .from('finance_budget_plans')
+    .delete()
+    .eq('hotel_id', hotelId)
+    .eq('budget_month', monthDate)
+    .eq('category_id', categoryId);
+
+  if (error) throw error;
+}
+
 // ---------------------------------------------------------------------------
 // Expenses
 // ---------------------------------------------------------------------------

@@ -262,15 +262,22 @@ export default function WalkInPayment() {
 
             setLoadingDocs(true);
             try {
-                // 1. Fetch the identity proof record directly
-                const { data: proof } = await supabase
-                    .from('guest_id_documents')
-                    .select('*')
-                    .eq('guest_id', gid)
-                    .eq('is_active', true)
-                    .order('created_at', { ascending: false })
-                    .limit(1)
-                    .maybeSingle();
+                // 1. Fetch the identity proof metadata via the gated RPC. We do
+                //    NOT read guest_id_documents directly — that would hand the
+                //    browser the document_number_hash (brute-forceable on a
+                //    12-digit Aadhaar), raw storage paths, and verification
+                //    internals. The RPC (active-staff-of-this-hotel only,
+                //    audited) returns only { type, number(masked), storage_key }.
+                //    front_image/back_image come back null by design so the
+                //    returning-guest doc is not re-churned by upsert_guest_v2.
+                if (!hotelId) {
+                    setLoadingDocs(false);
+                    return;
+                }
+                const { data: proof } = await supabase.rpc('get_guest_id_proof_for_checkin', {
+                    p_guest_id: gid,
+                    p_hotel_id: hotelId,
+                });
 
                 if (proof) {
                     setExistingProof(proof);

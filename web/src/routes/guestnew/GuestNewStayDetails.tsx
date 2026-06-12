@@ -18,6 +18,8 @@ type Stay = {
     bill_total?: number | null;
     room_type?: string | null;
     booking_code?: string | null;
+    hotel_slug?: string | null;
+    status?: string | null;
     adults?: number;
     children?: number;
     room_charge?: number;
@@ -101,6 +103,8 @@ export default function GuestNewStayDetails() {
                         bill_total: data.bill_total,
                         room_type: data.room_type || "Standard",
                         booking_code: bookingCode,
+                        hotel_slug: data.hotel_slug ?? null,
+                        status: data.status ?? null,
                         // Real party size from the booking (bookings.adults_total/
                         // children_total), surfaced via user_recent_stays. Falls back
                         // to the booking column default (1 adult) only when genuinely
@@ -547,6 +551,21 @@ export default function GuestNewStayDetails() {
                             </div>
                         ))}
                     </div>
+                </div>
+            )}
+
+            {/* Book Again — completed stays only. Routes into the public enquiry
+                funnel (→ leads-public-capture → Lead CRM) with source attribution,
+                so the hotel sees this lead is a returning guest. */}
+            {(stay.status || "").toLowerCase() === "checked_out" && stay.hotel_slug && (
+                <div className="gn-section">
+                    <Link
+                        to={`/p/${stay.hotel_slug}/enquire?utm_source=guest_portal_rebook`}
+                        className="gn-btn gn-btn--primary"
+                        style={{ width: "100%", textAlign: "center", display: "block" }}
+                    >
+                        🏨 Book {stay.hotel.name} again
+                    </Link>
                 </div>
             )}
 

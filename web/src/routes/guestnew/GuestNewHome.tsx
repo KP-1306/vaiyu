@@ -56,6 +56,9 @@ export default function GuestNewHome() {
     // Real hotel policy times for the selected stay's hotel (null → date only).
     const [checkinTime, setCheckinTime] = useState<string | null>(null);
     const [checkoutTime, setCheckoutTime] = useState<string | null>(null);
+    // Google Maps directions to the hotel — built from its real address/city
+    // (null when neither is set → button hidden, never a wrong-place guess).
+    const [directionsUrl, setDirectionsUrl] = useState<string | null>(null);
     const [allStays, setAllStays] = useState<Stay[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeRequests, setActiveRequests] = useState(0);
@@ -303,11 +306,24 @@ export default function GuestNewHome() {
                 // Date-only display when a hotel hasn't configured them.
                 const { data: ht } = await supabase
                     .from("v_public_hotels")
-                    .select("default_checkin_time, default_checkout_time")
+                    .select("default_checkin_time, default_checkout_time, name, address, city")
                     .eq("id", currentStay.hotel_id)
                     .maybeSingle();
                 setCheckinTime(formatPolicyTime(ht?.default_checkin_time));
                 setCheckoutTime(formatPolicyTime(ht?.default_checkout_time));
+
+                // Directions need at least an address or a city — hotel name alone
+                // is too ambiguous to risk routing a guest to the wrong property.
+                if (ht && (ht.address || ht.city)) {
+                    const destination = [ht.name, ht.address, ht.city]
+                        .filter(Boolean)
+                        .join(", ");
+                    setDirectionsUrl(
+                        `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}`
+                    );
+                } else {
+                    setDirectionsUrl(null);
+                }
             } catch (err) {
                 console.error("[GuestNewHome] Error fetching hotel amenities:", err);
             }
@@ -918,6 +934,16 @@ export default function GuestNewHome() {
                                                 <Link to={`/precheckin/${currentStay.precheckin_token}`} className="gn-internal-action-button gn-internal-action--primary">
                                                     <span className="icon">✓</span> Complete Pre Check-In
                                                 </Link>
+                                            )}
+                                            {directionsUrl && (
+                                                <a
+                                                    href={directionsUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="gn-internal-action-button gn-internal-action--secondary"
+                                                >
+                                                    <span className="icon">📍</span> Get Directions
+                                                </a>
                                             )}
                                             <button onClick={() => setIsDetailsModalOpen(true)} className="gn-internal-action-button gn-internal-action--secondary">
                                                 View Details <span className="arrow">›</span>

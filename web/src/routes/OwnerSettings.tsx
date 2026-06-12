@@ -41,6 +41,8 @@ type Hotel = {
   invoice_counter?: number;
   legal_name?: string | null;
   gst_number?: string | null;
+  // Google Maps Place ID — powers the guest post-review "share on Google" link.
+  google_place_id?: string | null;
 
   // Guest Info Fields
   wifi_ssid?: string | null;
@@ -169,6 +171,7 @@ export default function OwnerSettings() {
         invoice_counter: hRaw.invoice_counter ?? 1,
         legal_name: hRaw.legal_name || "",
         gst_number: hRaw.gst_number || "",
+        google_place_id: hRaw.google_place_id ?? null,
 
         // Guest Amenity Fields (from hotel_guest_info joined into sRaw)
         wifi_ssid: sRaw.wifi_ssid || "",
@@ -324,7 +327,16 @@ export default function OwnerSettings() {
         );
       }
 
-
+      // google_place_id is not in the update_hotel_settings_onboarding RPC's
+      // fixed column list, so save it via a direct RLS-protected update
+      // (hotels_write_for_owner_manager). Empty input clears the value.
+      const { error: placeIdErr } = await supabase
+        .from("hotels")
+        .update({ google_place_id: hotel.google_place_id?.trim() || null })
+        .eq("id", hotel.id);
+      if (placeIdErr) {
+        throw new Error(placeIdErr.message || "Failed to save Google Place ID");
+      }
 
       setOk("Saved successfully.");
       await load();
@@ -634,6 +646,28 @@ export default function OwnerSettings() {
                       Allow Late Check-out
                     </label>
                   </div>
+
+                  <label className="text-sm font-medium text-slate-200 block mt-2">
+                    Google Place ID
+                    <input
+                      className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                      value={hotel.google_place_id || ""}
+                      onChange={(e) => patchHotel("google_place_id", e.target.value)}
+                      placeholder="ChIJ…"
+                    />
+                    <span className="block mt-1 text-xs font-normal text-slate-400">
+                      Guests who rate 4★+ get a one-tap "review on Google" link. Find your ID with Google's{" "}
+                      <a
+                        href="https://developers.google.com/maps/documentation/places/web-service/place-id#find-id"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline text-amber-400"
+                      >
+                        Place ID Finder
+                      </a>{" "}
+                      — search your hotel's name.
+                    </span>
+                  </label>
                 </section>
 
                 {/* Guest Amenities / Wi-Fi & Breakfast */}

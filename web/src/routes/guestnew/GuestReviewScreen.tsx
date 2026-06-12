@@ -32,7 +32,7 @@ export default function GuestReviewScreen() {
             // 1. Get Booking
             const { data: booking, error: bError } = await supabase
                 .from("bookings")
-                .select("id, hotel_id, guest_id, guest_name, hotel:hotels(name, slug)")
+                .select("id, hotel_id, guest_id, guest_name, hotel:hotels(name, slug, google_place_id)")
                 .eq("code", bookingCode)
                 .maybeSingle();
 
@@ -139,13 +139,27 @@ export default function GuestReviewScreen() {
                     <h2 className="gn-review-title">Thank you, {bookingDetails.guest_name?.split(' ')[0] || 'there'}!</h2>
                     <p className="gn-review-subtitle" style={{ marginBottom: '24px' }}>Your feedback helps us improve.</p>
 
-                    {/* Google review funnel removed: no hotels.google_place_id exists
-                        to build a real "writereview" deep link, so the CTA pointed at a
-                        placeholder URL. Re-introduce a real Google upsell here once a
-                        per-hotel Place ID field is added. */}
-                    {overallRating < 4 && (
+                    {/* Google review funnel — renders only when the hotel has set its
+                        Place ID (Owner Settings), so the link is always real. */}
+                    {overallRating >= 4 && bookingDetails.hotel?.google_place_id?.trim() ? (
+                        <div className="gn-google-upsell" style={{ animation: 'none', marginBottom: '32px' }}>
+                            <div className="gn-google-icon">G</div>
+                            <div className="gn-google-text">
+                                <div className="gn-google-title">Would you share this on Google?</div>
+                                <div className="gn-google-desc">It helps other travelers find us.</div>
+                            </div>
+                            <a
+                                href={`https://search.google.com/local/writereview?placeid=${encodeURIComponent(bookingDetails.hotel.google_place_id.trim())}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="gn-google-link"
+                            >
+                                Write Review
+                            </a>
+                        </div>
+                    ) : overallRating < 4 ? (
                         <p className="gn-review-subtitle">Our manager has been alerted to your feedback and will look into it.</p>
-                    )}
+                    ) : null}
 
                     <button className="gn-review-btn--primary" onClick={() => navigate("/guest")}>Back to Home</button>
                 </div>

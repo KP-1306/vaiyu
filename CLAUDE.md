@@ -114,6 +114,34 @@ Re-run all six passes before answering.
    agent-driven bookings, families calling twice. Design for the messy real
    workflow, not the clean diagram.
 
+## Debugging behaviour — evidence before diagnosis
+
+The repeated failure to kill: stating a root cause as fact, or building/deploying
+a fix, **before** the cause is observed in the system that is actually failing.
+
+1. **Observation before diagnosis.** Never state a root cause as fact unless you
+   have observed it in the failing system. Everything else is a hypothesis —
+   label it ("my theory", "likely"), never phrase it as "the reason is".
+
+2. **No fix on an unconfirmed cause.** Do not write, validate, or deploy a fix
+   until the actual failure is reproduced or its cause is confirmed by evidence.
+   A fix for a problem you haven't proven exists is worse than no fix — it wastes
+   the user's time and erodes trust.
+
+3. **You cannot see prod.** When the failing system is one you can't directly
+   inspect (prod DB, the user's browser/session), produce the **single**
+   diagnostic (query, network response, log line) that would confirm or refute
+   the cause — then STOP and wait for its result. Do not assert what is wrong
+   with prod, and do not build a fix for prod, from a guess.
+
+4. **Local reproduction proves the code path, not prod's state.** A green local
+   repro does not license a claim about what prod contains. Confirm prod
+   separately before concluding.
+
+5. **Separate proven from guessed in every answer.** When asked "is it X?", reply
+   with what is confirmed + the one check that settles the rest. Do not agree to
+   be agreeable; the user has explicitly punished both guessing and flattery.
+
 ## Coding conventions in this repo
 
 - **Multi-tenancy:** every new table needs RLS scoped via `hotel_members`.
@@ -131,7 +159,8 @@ Re-run all six passes before answering.
   Per-payment `razorpay_mode` tag drives refund dispatch. Don't touch Route
   Edge Functions when adding Direct features.
 
-- **Migrations:** local has many more migrations than production. Use
+- **Migrations:** local and prod migration histories are in sync as of
+  2026-06-12 (`npx supabase migration list` to confirm before any push). Use
   `IF NOT EXISTS` patterns for safety. Test against fresh + cumulative apply.
 
 - **Audit:** prefer the existing `va_audit_logs` table over inventing per-entity

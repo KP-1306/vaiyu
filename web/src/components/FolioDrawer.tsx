@@ -3,6 +3,7 @@ import { X, CheckCircle2, RotateCcw, AlertTriangle, Loader2 } from "lucide-react
 import { supabase } from "../lib/supabase";
 import { RazorpayServiceError } from "../services/razorpayService";
 import { getRazorpayClient } from "../services/razorpayClient";
+import { initialsOf } from "../utils/initials";
 
 interface FolioDrawerProps {
     isOpen: boolean;
@@ -446,8 +447,8 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                     </button>
 
                     <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#8C5D35] to-[#4A2E1A] border-2 border-[#D4A373] p-0.5 shadow-lg overflow-hidden flex items-center justify-center">
-                            <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(arrival.guest_name)}&background=8C5D35&color=F3E6D0`} alt={arrival.guest_name} />
+                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#8C5D35] to-[#4A2E1A] border-2 border-[#D4A373] shadow-lg flex items-center justify-center text-[#F3E6D0] font-bold text-lg tracking-wide">
+                            {initialsOf(arrival.guest_name)}
                         </div>
                         <div>
                             <h2 className="text-xl font-bold tracking-tight text-white mb-0.5">{arrival.guest_name}</h2>
@@ -833,8 +834,8 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                         </div>
 
                         <div className="p-5 flex items-center gap-3 bg-[#F4F1EA]">
-                            <div className="w-10 h-10 rounded-full bg-[#E5DFD3] border border-white flex items-center justify-center overflow-hidden flex-shrink-0">
-                                <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(arrival.guest_name)}&background=8C5D35&color=F3E6D0`} alt={arrival.guest_name} />
+                            <div className="w-10 h-10 rounded-full bg-[#8C5D35] border border-white flex items-center justify-center flex-shrink-0 text-[#F3E6D0] font-bold text-sm tracking-wide">
+                                {initialsOf(arrival.guest_name)}
                             </div>
                             <div className="leading-snug">
                                 <div className="font-bold text-[15px]">{arrival.guest_name}</div>

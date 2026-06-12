@@ -20,14 +20,26 @@ import {
     IdCard,
     CheckCircle2,
     Wallet,
+    LogOut,
+    AlertCircle,
+    Clock,
+    ShieldCheck,
+    ShieldAlert,
+    MessageCircle,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { initialsOf } from "../utils/initials";
+import { computeCheckoutState } from "../utils/checkoutState";
 
 interface GuestDetailsDrawerProps {
     isOpen: boolean;
     onClose: () => void;
     arrival: any; // The row from v_arrival_dashboard_rows
     onOpenFolio?: (arrival: any) => void;
+    /** Staff-initiated checkout for an in-house guest. The parent (OwnerArrivals)
+     *  owns the balance guard + CTD precheck + confirm modal, so the drawer just
+     *  signals intent and closes. */
+    onCheckout?: (arrival: any) => void;
 }
 
 type BookingDetails = {
@@ -44,6 +56,7 @@ type BookingDetails = {
 type IdProof = {
     type: string;
     number: string | null;
+    verification?: "pending" | "verified" | "rejected" | null;
 };
 
 const DOC_TYPE_LABELS: Record<string, string> = {
@@ -51,6 +64,19 @@ const DOC_TYPE_LABELS: Record<string, string> = {
     aadhaar: "Aadhaar",
     driving_license: "Driving Licence",
     other: "Other ID",
+};
+
+/** Compact operational-status pill mirroring the board's StatusBadge, restyled
+ *  for the dark drawer. Display-only label map (business logic lives elsewhere). */
+const STATUS_META: Record<string, { label: string; cls: string }> = {
+    CHECKED_IN: { label: "Checked In", cls: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30" },
+    CHECKOUT_REQUESTED: { label: "Checkout Requested", cls: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
+    PARTIALLY_ARRIVED: { label: "Partially Arrived", cls: "bg-orange-400/15 text-orange-300 border-orange-400/30" },
+    WAITING_HOUSEKEEPING: { label: "Waiting Housekeeping", cls: "bg-blue-500/15 text-blue-300 border-blue-500/30" },
+    WAITING_ROOM_ASSIGNMENT: { label: "Waiting Allocation", cls: "bg-yellow-500/15 text-yellow-300 border-yellow-500/30" },
+    READY_TO_CHECKIN: { label: "Ready", cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
+    EXPECTED: { label: "Expected", cls: "bg-slate-500/15 text-slate-300 border-slate-500/30" },
+    NO_ROOMS: { label: "No Rooms", cls: "bg-red-500/15 text-red-300 border-red-500/30" },
 };
 
 /** Label/value line; renders an em-dash when the value is missing. */
@@ -64,7 +90,7 @@ const DetailLine = ({ icon, label, children }: { icon: ReactNode; label: string;
     </div>
 );
 
-export default function GuestDetailsDrawer({ isOpen, onClose, arrival, onOpenFolio }: GuestDetailsDrawerProps) {
+export default function GuestDetailsDrawer({ isOpen, onClose, arrival, onOpenFolio, onCheckout }: GuestDetailsDrawerProps) {
     const navigate = useNavigate();
     const [details, setDetails] = useState<BookingDetails | null>(null);
     const [idDoc, setIdDoc] = useState<IdProof | null>(null);
@@ -124,6 +150,21 @@ export default function GuestDetailsDrawer({ isOpen, onClose, arrival, onOpenFol
         arrival.arrival_operational_state !== "CHECKED_IN" &&
         arrival.arrival_operational_state !== "CHECKOUT_REQUESTED";
 
+    // In-house guests can be checked out from here (parent owns the guard).
+    const isInHouse =
+        arrival.arrival_operational_state === "CHECKED_IN" ||
+        arrival.arrival_operational_state === "CHECKOUT_REQUESTED";
+
+    // Operational status + departure urgency — the context the board row shows,
+    // carried into the detail view (computed from the same shared util).
+    const statusMeta = STATUS_META[arrival.arrival_operational_state] ?? null;
+    const checkout = computeCheckoutState(arrival, new Date());
+
+    // WhatsApp is the operative channel in this market. Normalise to a wa.me
+    // link: strip non-digits, prefix 91 for a bare 10-digit Indian number.
+    const phoneDigits = (arrival.phone ?? "").replace(/\D/g, "");
+    const waNumber = phoneDigits.length === 10 ? `91${phoneDigits}` : phoneDigits;
+
     return (
         <div className="fixed inset-0 z-50 flex justify-end">
             {/* Backdrop */}
@@ -138,8 +179,8 @@ export default function GuestDetailsDrawer({ isOpen, onClose, arrival, onOpenFol
                     </button>
 
                     <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#8C5D35] to-[#4A2E1A] border-2 border-[#D4A373] p-0.5 shadow-lg overflow-hidden flex items-center justify-center">
-                            <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(arrival.guest_name)}&background=8C5D35&color=F3E6D0`} alt={arrival.guest_name} />
+                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#8C5D35] to-[#4A2E1A] border-2 border-[#D4A373] shadow-lg flex items-center justify-center text-[#F3E6D0] font-bold text-lg tracking-wide shrink-0">
+                            {initialsOf(arrival.guest_name)}
                         </div>
                         <div className="min-w-0">
                             <h2 className="text-xl font-bold tracking-tight text-white mb-0.5 truncate">{arrival.guest_name}</h2>
@@ -154,6 +195,31 @@ export default function GuestDetailsDrawer({ isOpen, onClose, arrival, onOpenFol
                             </p>
                         </div>
                     </div>
+
+                    {/* Operational status + departure urgency — never show less
+                        context than the board row this opened from. */}
+                    {(statusMeta || checkout.state === "overdue" || checkout.state === "today") && (
+                        <div className="flex items-center gap-2 flex-wrap mt-3">
+                            {statusMeta && (
+                                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border ${statusMeta.cls}`}>
+                                    {arrival.arrival_operational_state === "CHECKED_IN" && <CheckCircle2 className="w-3 h-3" />}
+                                    {statusMeta.label}
+                                </span>
+                            )}
+                            {checkout.state === "overdue" && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border bg-rose-500/15 text-rose-300 border-rose-500/30">
+                                    <AlertCircle className="w-3 h-3" />
+                                    Overdue · {checkout.daysLate >= 1 ? `${checkout.daysLate}d late` : `${checkout.hoursLate}h late`}
+                                </span>
+                            )}
+                            {checkout.state === "today" && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border bg-amber-500/15 text-amber-300 border-amber-500/30">
+                                    <LogOut className="w-3 h-3" />
+                                    Departing today
+                                </span>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* Content */}
@@ -175,11 +241,27 @@ export default function GuestDetailsDrawer({ isOpen, onClose, arrival, onOpenFol
                     <div className="bg-[#1A130C] rounded-xl border border-orange-900/20 px-4 py-2">
                         <DetailLine icon={<Phone className="w-4 h-4" />} label="Phone">
                             {arrival.phone ? (
-                                <a href={`tel:${arrival.phone}`} className="text-[#D4A373] hover:text-[#E8BA87] hover:underline">{arrival.phone}</a>
+                                <span className="flex items-center gap-3 flex-wrap">
+                                    <a href={`tel:${arrival.phone}`} className="text-[#D4A373] hover:text-[#E8BA87] hover:underline">{arrival.phone}</a>
+                                    {waNumber && (
+                                        <a
+                                            href={`https://wa.me/${waNumber}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition"
+                                        >
+                                            <MessageCircle className="w-3 h-3" /> WhatsApp
+                                        </a>
+                                    )}
+                                </span>
                             ) : null}
                         </DetailLine>
                         <DetailLine icon={<Mail className="w-4 h-4" />} label="Email">
-                            {loading && !details ? <span className="text-[#F3E6D0]/30">Loading…</span> : details?.email}
+                            {loading && !details ? (
+                                <span className="text-[#F3E6D0]/30">Loading…</span>
+                            ) : details?.email ? (
+                                <a href={`mailto:${details.email}`} className="text-[#D4A373] hover:text-[#E8BA87] hover:underline">{details.email}</a>
+                            ) : null}
                         </DetailLine>
                     </div>
 
@@ -192,6 +274,21 @@ export default function GuestDetailsDrawer({ isOpen, onClose, arrival, onOpenFol
                                 <span className="flex items-center gap-2 flex-wrap">
                                     {DOC_TYPE_LABELS[idDoc.type] ?? idDoc.type}
                                     {idDoc.number && <span className="font-mono text-[#F3E6D0]/60">{idDoc.number}</span>}
+                                    {idDoc.verification === "verified" && (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                                            <ShieldCheck className="w-3 h-3" /> Verified
+                                        </span>
+                                    )}
+                                    {idDoc.verification === "rejected" && (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-rose-500/15 text-rose-300 border border-rose-500/30">
+                                            <ShieldAlert className="w-3 h-3" /> Rejected
+                                        </span>
+                                    )}
+                                    {(!idDoc.verification || idDoc.verification === "pending") && (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                                            <Clock className="w-3 h-3" /> Pending
+                                        </span>
+                                    )}
                                 </span>
                             ) : (
                                 <span className="text-[#F3E6D0]/50">No ID on file</span>
@@ -230,7 +327,7 @@ export default function GuestDetailsDrawer({ isOpen, onClose, arrival, onOpenFol
                     </div>
                 </div>
 
-                {/* Footer */}
+                {/* Footer — the next action, not a dead end */}
                 {canCheckIn && (
                     <div className="px-6 py-4 border-t border-orange-900/30">
                         <button
@@ -238,6 +335,17 @@ export default function GuestDetailsDrawer({ isOpen, onClose, arrival, onOpenFol
                             className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-[#D4A373] to-[#8C5D35] text-[#231A13] text-sm font-black uppercase tracking-widest hover:opacity-90 transition"
                         >
                             <CheckCircle2 className="w-4 h-4" /> Check-In Guest
+                        </button>
+                    </div>
+                )}
+                {isInHouse && onCheckout && (
+                    <div className="px-6 py-4 border-t border-orange-900/30">
+                        <button
+                            onClick={() => onCheckout(arrival)}
+                            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-[#D4A373] to-[#8C5D35] text-[#231A13] text-sm font-black uppercase tracking-widest hover:opacity-90 transition"
+                        >
+                            <LogOut className="w-4 h-4" />
+                            {arrival.arrival_operational_state === "CHECKOUT_REQUESTED" ? "Approve Checkout" : "Checkout Guest"}
                         </button>
                     </div>
                 )}

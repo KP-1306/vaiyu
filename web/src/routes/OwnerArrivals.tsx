@@ -30,50 +30,11 @@ import {
 import { SimpleTooltip } from "../components/SimpleTooltip";
 import FolioDrawer from "../components/FolioDrawer";
 import GuestDetailsDrawer from "../components/GuestDetailsDrawer";
-import { parseDbDate } from "../utils/dateUtils";
+import { computeCheckoutState, type CheckoutState } from "../utils/checkoutState";
 import { LogOut } from "lucide-react";
 import "./guestnew/guestnew.css";
 import "./arrivals.css";
 
-/** ===== Checkout urgency (frontend-only, IST-aware, time-precision) =====
- *  Computes per-row state from `scheduled_checkout_at` so staff can see at a glance
- *  who's overdue or departing today. Time-precision so a guest scheduled to leave
- *  today 11:00 IST shows "overdue" once 11:00 has passed, not "departing today" all day. */
-type CheckoutState = "overdue" | "today" | "future" | "na";
-
-function ymdInIST(d: Date | null): string | null {
-    if (!d) return null;
-    // 'en-CA' formats as YYYY-MM-DD; combined with timeZone gives the IST date string.
-    return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-}
-
-function computeCheckoutState(
-    arrival: { arrival_operational_state: string; scheduled_checkout_at?: string | null },
-    now: Date,
-): { state: CheckoutState; hoursLate: number; daysLate: number } {
-    const isInHouse = [
-        "CHECKED_IN",
-        "PARTIALLY_ARRIVED",
-        "CHECKOUT_REQUESTED",
-    ].includes(arrival.arrival_operational_state);
-    if (!isInHouse || !arrival.scheduled_checkout_at) return { state: "na", hoursLate: 0, daysLate: 0 };
-
-    const checkoutDate = parseDbDate(arrival.scheduled_checkout_at);
-    if (!checkoutDate) return { state: "na", hoursLate: 0, daysLate: 0 };
-
-    const diffMs = now.getTime() - checkoutDate.getTime();
-    if (diffMs > 0) {
-        const hoursLate = Math.max(1, Math.floor(diffMs / 3_600_000));
-        const daysLate = Math.floor(hoursLate / 24);
-        return { state: "overdue", hoursLate, daysLate };
-    }
-
-    // Future — same IST calendar day means "departing today"
-    const checkoutISTDate = ymdInIST(checkoutDate);
-    const nowISTDate = ymdInIST(now);
-    if (checkoutISTDate === nowISTDate) return { state: "today", hoursLate: 0, daysLate: 0 };
-    return { state: "future", hoursLate: 0, daysLate: 0 };
-}
 /* ─────── types ─────── */
 
 interface OperationalArrival {
@@ -448,6 +409,33 @@ export default function OwnerArrivals() {
         } finally {
             setApprovingCheckout(null);
         }
+    };
+
+    // Staff-initiated checkout entry point shared by the board row button and
+    // the Guest Details drawer. Owns the balance guard + confirm; delegates the
+    // actual work (incl. CTD precheck) to handleApproveCheckout.
+    const promptCheckout = (row: OperationalArrival) => {
+        if (row.arrival_operational_state === "CHECKOUT_REQUESTED") {
+            handleApproveCheckout(row, "GUEST");
+            return;
+        }
+        const balance = row.pending_amount || 0;
+        if (balance > 0) {
+            setCheckoutModal({
+                isOpen: true,
+                type: "alert",
+                title: "Balance Pending",
+                message: `Cannot checkout manually. Guest has an unpaid balance of ₹${balance.toLocaleString("en-IN")}.\n\nPlease collect payment via the Folio before checking out.`,
+            });
+            return;
+        }
+        setCheckoutModal({
+            isOpen: true,
+            type: "confirm",
+            title: "Confirm Checkout",
+            message: `Check out Room ${row.room_numbers || "Unassigned"} — ${row.guest_name}?\nBalance: ₹0 (Settled)\n\n⚠️ Guest has NOT requested checkout.\nThis is a staff-initiated action.`,
+            onConfirm: () => handleApproveCheckout(row, "STAFF"),
+        });
     };
 
     // Fetch Room Types
@@ -1770,6 +1758,10 @@ export default function OwnerArrivals() {
                     onOpenFolio={(arrival) => {
                         setSelectedGuestArrival(null);
                         setSelectedFolioArrival(arrival);
+                    }}
+                    onCheckout={(arrival) => {
+                        setSelectedGuestArrival(null);
+                        promptCheckout(arrival);
                     }}
                 />
 

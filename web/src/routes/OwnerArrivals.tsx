@@ -31,6 +31,7 @@ import { SimpleTooltip } from "../components/SimpleTooltip";
 import FolioDrawer from "../components/FolioDrawer";
 import GuestDetailsDrawer from "../components/GuestDetailsDrawer";
 import { computeCheckoutState, type CheckoutState } from "../utils/checkoutState";
+import { initialsOf } from "../utils/initials";
 import { LogOut } from "lucide-react";
 import "./guestnew/guestnew.css";
 import "./arrivals.css";
@@ -895,7 +896,7 @@ export default function OwnerArrivals() {
                 <div className="flex items-center">
                     <div className="h-11 w-11 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] flex items-center justify-center text-[var(--text-gold)] font-black text-base shadow-inner relative overflow-hidden group-hover:border-[var(--border-gold)] transition-colors">
                         <div className="absolute inset-0 bg-gradient-to-br from-[var(--gold-400)]/10 to-transparent"></div>
-                        <span className="relative z-10">{arrival.guest_name.charAt(0)}</span>
+                        <span className="relative z-10">{initialsOf(arrival.guest_name)}</span>
                         {/* VIP Badge on Avatar */}
                         {arrival.vip_flag && (
                             <div className="absolute -top-1 -right-1 bg-gradient-to-r from-purple-500 to-purple-700 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full border border-black z-20 shadow-lg">

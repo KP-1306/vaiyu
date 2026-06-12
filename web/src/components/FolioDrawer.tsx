@@ -426,8 +426,10 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
     const totalCharges = entries.filter(e => !["PAYMENT", "REFUND"].includes(e.entry_type)).reduce((acc, e) => acc + Number(e.amount), 0);
     // Net inflow: PAYMENT entries are stored negative (trg_payment_to_folio
     // inserts -amount); a REFUND stored positive correctly reduces this.
-    // abs() here would count a refund as money received.
-    const totalPayments = -entries.filter(e => ["PAYMENT", "REFUND"].includes(e.entry_type)).reduce((acc, e) => acc + Number(e.amount), 0);
+    // abs() here would count a refund as money received. The `=== 0` guard
+    // normalises negative zero so a no-payment folio renders "₹ 0", not "-0".
+    const paymentEntrySum = entries.filter(e => ["PAYMENT", "REFUND"].includes(e.entry_type)).reduce((acc, e) => acc + Number(e.amount), 0);
+    const totalPayments = paymentEntrySum === 0 ? 0 : -paymentEntrySum;
 
     // Fallback to arrival.pending_amount if no entries yet? Actually arrival view calculates it better.
     // Let's rely on the real-time entries we just fetched.

@@ -34,7 +34,9 @@ export default function GuestNewTrips() {
         hotel: "all",
         status: "all",
     });
-    const [memberSince, setMemberSince] = useState(2024);
+    // Real account-creation year ("member since" = when the account was created,
+    // not a guess from stay history). Null until loaded → line hidden, never faked.
+    const [memberSince, setMemberSince] = useState<number | null>(null);
 
     // Fetch stays
     useEffect(() => {
@@ -42,6 +44,12 @@ export default function GuestNewTrips() {
 
         (async () => {
             try {
+                const { data: sessionData } = await supabase.auth.getSession();
+                const createdAt = sessionData.session?.user?.created_at;
+                if (mounted && createdAt) {
+                    setMemberSince(new Date(createdAt).getFullYear());
+                }
+
                 const { data } = await supabase
                     .from("user_recent_stays")
                     .select("*")
@@ -96,15 +104,6 @@ export default function GuestNewTrips() {
                     }
 
                     setStays(mapped);
-
-                    // Calculate member since
-                    if (mapped.length > 0) {
-                        const oldest = mapped.reduce((min: number, stay: Stay) => {
-                            const year = new Date(stay.check_in).getFullYear();
-                            return year < min ? year : min;
-                        }, new Date().getFullYear());
-                        setMemberSince(oldest);
-                    }
                 }
             } catch (err) {
                 console.error("[GuestNewTrips] Error loading stays:", err);
@@ -137,15 +136,15 @@ export default function GuestNewTrips() {
             // Hotel filter
             if (filters.hotel !== "all" && stay.hotel.name !== filters.hotel) return false;
 
-            // Status filter
+            // Status filter — driven by the real stay lifecycle status, never date
+            // arithmetic (a cancelled stay with past dates must not read "completed").
+            // In-house/checkout-requested stays count as upcoming (not finished yet);
+            // no_show is neither completed nor cancelled, so it appears under All only.
             if (filters.status !== "all") {
-                const now = new Date();
-                const checkout = new Date(stay.check_out);
-                const checkin = new Date(stay.check_in);
-
-                if (filters.status === "completed" && checkout > now) return false;
-                if (filters.status === "upcoming" && checkin < now) return false;
-                if (filters.status === "cancelled" && stay.status !== "cancelled") return false;
+                const s = (stay.status || "").toLowerCase();
+                if (filters.status === "completed" && s !== "checked_out") return false;
+                if (filters.status === "upcoming" && !["reserved", "arriving", "inhouse", "checkout_requested"].includes(s)) return false;
+                if (filters.status === "cancelled" && s !== "cancelled") return false;
             }
 
             return true;
@@ -223,9 +222,13 @@ export default function GuestNewTrips() {
             <div className="gn-page-subtitle">
                 <span>All stays</span>
                 <span>·</span>
-                <span>{totalNights} nights</span>
-                <span>·</span>
-                <span>Member since {memberSince}</span>
+                <span>{totalNights} night{totalNights !== 1 ? "s" : ""}</span>
+                {memberSince != null && (
+                    <>
+                        <span>·</span>
+                        <span>Member since {memberSince}</span>
+                    </>
+                )}
             </div>
 
             {/* Filters */}
@@ -264,7 +267,10 @@ export default function GuestNewTrips() {
                     onClick={() =>
                         setFilters((f) => ({
                             ...f,
-                            status: f.status === "all" ? "completed" : f.status === "completed" ? "upcoming" : "all",
+                            status: f.status === "all" ? "completed"
+                                : f.status === "completed" ? "upcoming"
+                                : f.status === "upcoming" ? "cancelled"
+                                : "all",
                         }))
                     }
                 >

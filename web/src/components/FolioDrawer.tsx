@@ -82,6 +82,12 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
         })();
     }, [isOpen, arrival?.hotel_id]);
 
+    // A failure from one method shouldn't linger after switching to another
+    // (e.g. a dismissed Razorpay checkout still showing when staff pick Cash).
+    useEffect(() => {
+        setPaymentError(null);
+    }, [paymentMethod]);
+
     // Refund modal state
     const [refundFor, setRefundFor] = useState<Transaction | null>(null);
     const [refundAmount, setRefundAmount] = useState<number | "">("");

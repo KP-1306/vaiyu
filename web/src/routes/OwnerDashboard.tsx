@@ -399,7 +399,7 @@ export default function OwnerDashboard() {
       // 1) Hotel (RLS-gated) and Base Member Check
       const { data: hotelRow, error: hErr } = await supabase
         .from("hotels")
-        .select("id,name,slug,city, hotel_members!inner(id, user_id)")
+        .select("id,name,slug,city, hotel_members!inner(id, user_id, role)")
         .eq("slug", slug)
         .eq("hotel_members.user_id", (await supabase.auth.getUser()).data.user?.id)
         .limit(1)
@@ -423,25 +423,33 @@ export default function OwnerDashboard() {
 
       const hotelId = hotelRow.id;
 
-      // 1b) Detailed Role Check (Block regular STAFF)
-      const memberId = hotelRow.hotel_members?.[0]?.id;
+      // 1b) Detailed Role Check (Block regular STAFF).
+      // Accept EITHER the M2M source of truth (hotel_member_roles) OR the legacy
+      // hotel_members.role, both case-insensitively — legacy-only owners (no M2M
+      // row) must not be locked out of their own dashboard.
+      const memberRow = hotelRow.hotel_members?.[0];
+      const memberId = memberRow?.id;
       if (memberId) {
-        const { data: rolesData, error: rolesErr } = await supabase
+        const OWNER_MANAGER_CODES = [
+          "OWNER", "OWNER_0", "HOTEL_OWNER",
+          "ADMIN", "ADMINISTRATOR",
+          "MANAGER", "GENERAL_MANAGER", "OPS_MANAGER",
+        ];
+
+        const { data: rolesData } = await supabase
           .from("hotel_member_roles")
           .select("hotel_roles(code)")
           .eq("hotel_member_id", memberId);
 
-        if (rolesErr || !rolesData || rolesData.length === 0) {
-          setAccessProblem("Access denied: You must be an Owner or Manager to view the property dashboard.");
-          setLoading(false);
-          return;
-        }
-
-        const hasDashboardAccess = rolesData.some((r: any) =>
-          ["OWNER", "ADMIN", "MANAGER", "OPS_MANAGER"].includes(r.hotel_roles?.code)
+        const m2mAccess = (rolesData ?? []).some((r: any) =>
+          OWNER_MANAGER_CODES.includes(String(r.hotel_roles?.code ?? "").toUpperCase())
         );
 
-        if (!hasDashboardAccess) {
+        const legacyAccess = OWNER_MANAGER_CODES.includes(
+          String(memberRow?.role ?? "").toUpperCase()
+        );
+
+        if (!m2mAccess && !legacyAccess) {
           setAccessProblem("Access denied: You must be an Owner or Manager to view the property dashboard.");
           setLoading(false);
           return;

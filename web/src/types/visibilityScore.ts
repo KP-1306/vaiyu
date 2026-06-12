@@ -51,6 +51,7 @@ export type VisibilitySignalKey =
   | 'critical_assets_ready'
   | 'high_assets_ready'
   | 'brand_basics'
+  | 'guest_info_filled'
   // DIRECT_ENQUIRY
   | 'whatsapp_connected'
   | 'booking_url_set'

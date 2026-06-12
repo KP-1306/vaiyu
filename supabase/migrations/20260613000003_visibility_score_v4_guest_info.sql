@@ -1,0 +1,771 @@
+-- Visibility Score v4 — guest-info nudge + Place-ID-aware review link
+--
+-- Two changes, both driven by the guest-portal work shipped 2026-06-12/13:
+--
+-- 1. NEW DIGITAL_ASSETS signal `guest_info_filled` (AUTO_DERIVED, weight 2).
+--    The guest portal renders a Wi-Fi / breakfast-hours card for in-house
+--    guests (GuestNewHome), but only 2 of 11 hotels have populated
+--    hotel_guest_info — the feature is built and invisible. This signal nudges
+--    owners to fill it (Settings → Guest Information). Satisfied when
+--    hotel_guest_info.wifi_ssid is set — the #1 thing every guest asks for.
+--    Breakfast hours stay optional (a hotel without breakfast service must not
+--    be penalized for not having breakfast hours).
+--
+-- 2. `review_link_set` now also satisfied by hotels.google_place_id
+--    (added 20260613000001). The Place ID powers the guest post-review
+--    "share on Google" funnel — strictly stronger than a URL on file. Without
+--    this, an owner who configures the Place ID (the new best practice) would
+--    still see "review link not set": a known incoherence we won't ship.
+--
+-- DIGITAL_ASSETS internal rebalance (stays at 20):
+--   critical_assets_ready  10 → 9  (-1)
+--   high_assets_ready       5 → 5  (unchanged)
+--   brand_basics             5 → 4  (-1)
+--   guest_info_filled        — → 2  (+2 NEW)
+--   ------------------------------------------
+--   Category subtotal:      20 → 20 ✓
+--
+-- No other categories changed. Grand total stays 100.
+--
+-- Effect on existing snapshots:
+--   • Existing snapshots carry formula_version ≤ 3 and remain interpretable
+--   • New snapshots taken after this migration carry formula_version = 4
+--   • The trend chart compares like-for-like via formula_version
+--
+-- TS mirror updated in the same commit: web/src/config/visibilityScore.ts
+-- (version 4 + weights + guest_info_filled catalog entry) and
+-- visibilityScore.test.ts repointed to this file. Vitest parity enforces it.
+
+-- ─── _visibility_weights() v4 ──────────────────────────────────────────────
+
+CREATE OR REPLACE FUNCTION public._visibility_weights()
+RETURNS TABLE (version int, weights jsonb)
+LANGUAGE sql IMMUTABLE
+AS $$
+  SELECT 4::int AS version,
+         jsonb_build_object(
+           -- GMB_READINESS (30) — unchanged
+           'gmb_claimed',              6,
+           'gmb_verified',             6,
+           'gmb_category_set',         4,
+           'address_complete',         5,
+           'map_pin_set',              5,
+           'phone_present',            4,
+           -- TRUST_REPUTATION (25) — unchanged from v3
+           'review_link_set',          3,
+           'reviews_flowing',          6,
+           'off_platform_response',    3,
+           'trust_essentials_assets',  5,
+           'ota_listing_ready',        4,
+           'gbp_checklist_ready',      4,
+           -- DIGITAL_ASSETS (20) — v4: internal rebalance for guest_info_filled
+           'critical_assets_ready',    9,   -- was 10
+           'high_assets_ready',        5,   -- unchanged
+           'brand_basics',             4,   -- was 5
+           'guest_info_filled',        2,   -- NEW
+           -- DIRECT_ENQUIRY (15) — unchanged
+           'whatsapp_connected',       4,
+           'booking_url_set',          3,
+           'payment_ready',            4,
+           'lead_response_time',       4,
+           -- EXPERIENCE_PACKAGES (10) — unchanged
+           'package_live',             5,
+           'seo_blueprint_ready',      5
+         ) AS weights;
+$$;
+COMMENT ON FUNCTION public._visibility_weights() IS
+  'Authoritative weights for the Visibility Score formula. v4: added guest_info_filled (DIGITAL_ASSETS, weight 2); rebalanced critical_assets_ready 10→9 and brand_basics 5→4 to keep category at 20 and total at 100. TS mirror in web/src/config/visibilityScore.ts + vitest parity test enforces no silent drift.';
+
+-- ─── _compute_visibility_score() v4 ────────────────────────────────────────
+-- Full replacement (CREATE OR REPLACE). Body mirrors v3 with:
+--   • new guest_info_filled block in DIGITAL_ASSETS after brand_basics (#13b)
+--   • review_link_set satisfied by review_policy_url OR google_place_id
+-- All other blocks unchanged.
+
+CREATE OR REPLACE FUNCTION public._compute_visibility_score(p_hotel_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY INVOKER
+SET search_path = 'public'
+AS $$
+DECLARE
+  v_weights      jsonb;
+  v_version      int;
+  v_hotel        public.hotels;
+  v_signals      jsonb := '[]'::jsonb;
+  v_cat_scores   jsonb := jsonb_build_object(
+                            'GMB_READINESS', 0,
+                            'TRUST_REPUTATION', 0,
+                            'DIGITAL_ASSETS', 0,
+                            'DIRECT_ENQUIRY', 0,
+                            'EXPERIENCE_PACKAGES', 0);
+  v_sat_count    int := 0;
+  v_total_count  int := 0;
+  v_excl_count   int := 0;
+  v_sum_contrib  numeric := 0;
+  v_sum_max      numeric := 0;
+  v_unlockable   numeric := 0;
+  v_total_score  numeric;
+  v_band         text;
+
+  v_trust_total   int := 0;
+  v_trust_ready   int := 0;
+  v_crit_total    int := 0;
+  v_crit_ready    int := 0;
+  v_high_total    int := 0;
+  v_high_ready    int := 0;
+
+  v_reviews_90d         int := 0;
+  v_packages_active     int := 0;
+  v_seo_ready_safe      int := 0;
+  v_lead_sample         int := 0;
+  v_lead_median_minutes numeric := NULL;
+
+  v_ota_ready     boolean := false;
+  v_gbp_ready     boolean := false;
+  v_wifi_set      boolean := false;  -- v4: guest-info signal
+
+  v_signal_key   text;
+  v_category     text;
+  v_satisfied    boolean;
+  v_included     boolean;
+  v_state        text;
+  v_reason       text;
+  v_weight       numeric;
+  v_contrib      numeric;
+  v_attest       record;
+BEGIN
+  SELECT version, weights INTO v_version, v_weights
+    FROM public._visibility_weights();
+
+  SELECT * INTO v_hotel FROM public.hotels WHERE id = p_hotel_id;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object(
+      'version', v_version,
+      'total_score', 0,
+      'band', 'ONBOARDING',
+      'category_scores', v_cat_scores,
+      'signals_satisfied', 0,
+      'signals_total', 0,
+      'signals_excluded', 0,
+      'max_unlockable_weight', 0,
+      'signals', '[]'::jsonb
+    );
+  END IF;
+
+  BEGIN
+    SELECT
+      COUNT(*) FILTER (WHERE category = 'TRUST_ESSENTIALS'),
+      COUNT(*) FILTER (WHERE category = 'TRUST_ESSENTIALS' AND status IN ('COLLECTED','APPROVED')),
+      COUNT(*) FILTER (WHERE priority = 'CRITICAL'),
+      COUNT(*) FILTER (WHERE priority = 'CRITICAL' AND status IN ('COLLECTED','APPROVED')),
+      COUNT(*) FILTER (WHERE priority = 'HIGH'),
+      COUNT(*) FILTER (WHERE priority = 'HIGH'    AND status IN ('COLLECTED','APPROVED'))
+    INTO v_trust_total, v_trust_ready, v_crit_total, v_crit_ready, v_high_total, v_high_ready
+    FROM public.v_hotel_asset_status
+    WHERE hotel_id = p_hotel_id;
+  EXCEPTION WHEN OTHERS THEN
+    NULL;
+  END;
+
+  SELECT COUNT(*) INTO v_reviews_90d
+    FROM public.reviews
+   WHERE hotel_id = p_hotel_id
+     AND created_at >= now() - interval '90 days';
+
+  SELECT COUNT(*) INTO v_packages_active
+    FROM public.packages
+   WHERE hotel_id = p_hotel_id
+     AND status = 'ACTIVE'
+     AND deleted_at IS NULL;
+
+  SELECT COUNT(*) INTO v_seo_ready_safe
+    FROM public.seo_landing_blueprints
+   WHERE hotel_id = p_hotel_id
+     AND status = 'READY_TO_BUILD'
+     AND risk_classification = 'SAFE_BLUEPRINT'
+     AND deleted_at IS NULL;
+
+  WITH last_leads AS (
+    SELECT l.id, l.created_at
+      FROM public.leads l
+     WHERE l.hotel_id = p_hotel_id
+       AND l.status <> 'NEW'
+       AND l.deleted_at IS NULL
+     ORDER BY l.created_at DESC
+     LIMIT 10
+  ),
+  first_response AS (
+    SELECT ll.id,
+           EXTRACT(EPOCH FROM (MIN(le.occurred_at) - ll.created_at))/60.0 AS minutes
+      FROM last_leads ll
+      JOIN public.lead_events le
+        ON le.lead_id = ll.id
+       AND le.event_type <> 'CREATED'
+     GROUP BY ll.id, ll.created_at
+  )
+  SELECT COUNT(*),
+         (PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY minutes))
+    INTO v_lead_sample, v_lead_median_minutes
+    FROM first_response
+   WHERE minutes >= 0;
+
+  BEGIN
+    v_ota_ready := public._ota_signal_for_visibility(p_hotel_id);
+  EXCEPTION WHEN OTHERS THEN
+    v_ota_ready := false;
+  END;
+
+  BEGIN
+    v_gbp_ready := public._gbp_signal_for_visibility(p_hotel_id);
+  EXCEPTION WHEN OTHERS THEN
+    v_gbp_ready := false;
+  END;
+
+  -- v4 NEW: guest-info data (Wi-Fi SSID is the gate; breakfast optional)
+  SELECT COALESCE(length(btrim(gi.wifi_ssid)), 0) > 0 INTO v_wifi_set
+    FROM public.hotel_guest_info gi
+   WHERE gi.hotel_id = p_hotel_id;
+  v_wifi_set := COALESCE(v_wifi_set, false);
+
+  ----------------------------------------------------------------------------
+  -- CATEGORY: GMB_READINESS
+  ----------------------------------------------------------------------------
+
+  -- 1. gmb_claimed
+  v_signal_key := 'gmb_claimed';  v_category := 'GMB_READINESS';
+  v_weight := (v_weights ->> v_signal_key)::numeric;
+  SELECT * INTO v_attest FROM public.hotel_visibility_attestations
+    WHERE hotel_id = p_hotel_id AND signal_key = v_signal_key;
+  v_state := COALESCE(v_attest.state::text, 'UNCLAIMED');
+  IF v_state = 'MANAGER_VERIFIED' AND v_attest.manager_verified_at < now() - interval '90 days' THEN
+    v_state := 'SELF_ATTESTED';
+    v_reason := 'Manager verification expired (>90d). Re-verify to restore full credit.';
+  ELSIF v_state = 'MANAGER_VERIFIED' THEN
+    v_reason := 'Verified by manager on ' || to_char(v_attest.manager_verified_at, 'YYYY-MM-DD');
+  ELSIF v_state = 'SELF_ATTESTED' THEN
+    v_reason := 'Self-attested by owner. Manager verification unlocks full credit.';
+  ELSE
+    v_reason := 'Not yet claimed on Google Business.';
+  END IF;
+  v_contrib := CASE v_state
+    WHEN 'MANAGER_VERIFIED' THEN v_weight
+    WHEN 'SELF_ATTESTED'    THEN v_weight * 0.5
+    ELSE 0
+  END;
+  v_satisfied := v_state IN ('SELF_ATTESTED','MANAGER_VERIFIED');
+  v_included := true;
+  v_signals := v_signals || jsonb_build_array(jsonb_build_object(
+    'key', v_signal_key, 'category', v_category, 'kind', 'SELF_ATTESTED',
+    'satisfied', v_satisfied, 'included', v_included,
+    'state', v_state, 'contribution', v_contrib, 'max_contribution', v_weight,
+    'reason', v_reason));
+  v_sum_max := v_sum_max + v_weight; v_sum_contrib := v_sum_contrib + v_contrib;
+  v_total_count := v_total_count + 1;
+  IF v_satisfied THEN v_sat_count := v_sat_count + 1; END IF;
+  v_cat_scores := jsonb_set(v_cat_scores, ARRAY[v_category],
+                            to_jsonb(((v_cat_scores->>v_category)::numeric + v_contrib)));
+
+  -- 2. gmb_verified
+  v_signal_key := 'gmb_verified';  v_category := 'GMB_READINESS';
+  v_weight := (v_weights ->> v_signal_key)::numeric;
+  SELECT * INTO v_attest FROM public.hotel_visibility_attestations
+    WHERE hotel_id = p_hotel_id AND signal_key = v_signal_key;
+  v_state := COALESCE(v_attest.state::text, 'UNCLAIMED');
+  IF v_state = 'MANAGER_VERIFIED' AND v_attest.manager_verified_at < now() - interval '90 days' THEN
+    v_state := 'SELF_ATTESTED';
+    v_reason := 'Manager verification expired (>90d).';
+  ELSIF v_state = 'MANAGER_VERIFIED' THEN
+    v_reason := 'Verified by manager on ' || to_char(v_attest.manager_verified_at, 'YYYY-MM-DD');
+  ELSIF v_state = 'SELF_ATTESTED' THEN
+    v_reason := 'Owner attests GMB verification badge is active.';
+  ELSE
+    v_reason := 'GMB verification not confirmed.';
+  END IF;
+  v_contrib := CASE v_state WHEN 'MANAGER_VERIFIED' THEN v_weight
+                            WHEN 'SELF_ATTESTED' THEN v_weight*0.5 ELSE 0 END;
+  v_satisfied := v_state <> 'UNCLAIMED'; v_included := true;
+  v_signals := v_signals || jsonb_build_array(jsonb_build_object(
+    'key', v_signal_key, 'category', v_category, 'kind', 'SELF_ATTESTED',
+    'satisfied', v_satisfied, 'included', v_included,
+    'state', v_state, 'contribution', v_contrib, 'max_contribution', v_weight, 'reason', v_reason));
+  v_sum_max := v_sum_max + v_weight; v_sum_contrib := v_sum_contrib + v_contrib;
+  v_total_count := v_total_count + 1;
+  IF v_satisfied THEN v_sat_count := v_sat_count + 1; END IF;
+  v_cat_scores := jsonb_set(v_cat_scores, ARRAY[v_category],
+                            to_jsonb(((v_cat_scores->>v_category)::numeric + v_contrib)));
+
+  -- 3. gmb_category_set
+  v_signal_key := 'gmb_category_set';  v_category := 'GMB_READINESS';
+  v_weight := (v_weights ->> v_signal_key)::numeric;
+  SELECT * INTO v_attest FROM public.hotel_visibility_attestations
+    WHERE hotel_id = p_hotel_id AND signal_key = v_signal_key;
+  v_state := COALESCE(v_attest.state::text, 'UNCLAIMED');
+  IF v_state = 'MANAGER_VERIFIED' AND v_attest.manager_verified_at < now() - interval '90 days' THEN
+    v_state := 'SELF_ATTESTED';
+    v_reason := 'Manager verification expired (>90d).';
+  ELSIF v_state = 'MANAGER_VERIFIED' THEN
+    v_reason := 'Verified by manager on ' || to_char(v_attest.manager_verified_at, 'YYYY-MM-DD');
+  ELSIF v_state = 'SELF_ATTESTED' THEN
+    v_reason := 'Owner attests correct GMB category (Hotel/Resort/Homestay) is set.';
+  ELSE
+    v_reason := 'Confirm the correct GMB category is set.';
+  END IF;
+  v_contrib := CASE v_state WHEN 'MANAGER_VERIFIED' THEN v_weight
+                            WHEN 'SELF_ATTESTED' THEN v_weight*0.5 ELSE 0 END;
+  v_satisfied := v_state <> 'UNCLAIMED'; v_included := true;
+  v_signals := v_signals || jsonb_build_array(jsonb_build_object(
+    'key', v_signal_key, 'category', v_category, 'kind', 'SELF_ATTESTED',
+    'satisfied', v_satisfied, 'included', v_included,
+    'state', v_state, 'contribution', v_contrib, 'max_contribution', v_weight, 'reason', v_reason));
+  v_sum_max := v_sum_max + v_weight; v_sum_contrib := v_sum_contrib + v_contrib;
+  v_total_count := v_total_count + 1;
+  IF v_satisfied THEN v_sat_count := v_sat_count + 1; END IF;
+  v_cat_scores := jsonb_set(v_cat_scores, ARRAY[v_category],
+                            to_jsonb(((v_cat_scores->>v_category)::numeric + v_contrib)));
+
+  -- 4. address_complete
+  v_signal_key := 'address_complete'; v_category := 'GMB_READINESS';
+  v_weight := (v_weights ->> v_signal_key)::numeric;
+  v_satisfied := COALESCE(length(btrim(v_hotel.address)), 0) > 0
+              AND COALESCE(length(btrim(v_hotel.city)), 0) > 0
+              AND COALESCE(length(btrim(v_hotel.state)), 0) > 0
+              AND COALESCE(length(btrim(v_hotel.country)), 0) > 0
+              AND COALESCE(length(btrim(v_hotel.postal_code)), 0) > 0;
+  v_included := true;
+  v_contrib := CASE WHEN v_satisfied THEN v_weight ELSE 0 END;
+  v_reason := CASE WHEN v_satisfied THEN 'Address, city, state, country and postal code all set.'
+                                     ELSE 'Complete address fields in property settings.' END;
+  v_signals := v_signals || jsonb_build_array(jsonb_build_object(
+    'key', v_signal_key, 'category', v_category, 'kind', 'AUTO_DERIVED',
+    'satisfied', v_satisfied, 'included', v_included, 'state', 'AUTO',
+    'contribution', v_contrib, 'max_contribution', v_weight, 'reason', v_reason));
+  v_sum_max := v_sum_max + v_weight; v_sum_contrib := v_sum_contrib + v_contrib;
+  v_total_count := v_total_count + 1;
+  IF v_satisfied THEN v_sat_count := v_sat_count + 1; END IF;
+  v_cat_scores := jsonb_set(v_cat_scores, ARRAY[v_category],
+                            to_jsonb(((v_cat_scores->>v_category)::numeric + v_contrib)));
+
+  -- 5. map_pin_set
+  v_signal_key := 'map_pin_set'; v_category := 'GMB_READINESS';
+  v_weight := (v_weights ->> v_signal_key)::numeric;
+  v_satisfied := v_hotel.latitude IS NOT NULL AND v_hotel.longitude IS NOT NULL;
+  v_included := true;
+  v_contrib := CASE WHEN v_satisfied THEN v_weight ELSE 0 END;
+  v_reason := CASE WHEN v_satisfied THEN 'Map pin set (lat/long).'
+                                     ELSE 'Add latitude/longitude in property settings.' END;
+  v_signals := v_signals || jsonb_build_array(jsonb_build_object(
+    'key', v_signal_key, 'category', v_category, 'kind', 'AUTO_DERIVED',
+    'satisfied', v_satisfied, 'included', v_included, 'state', 'AUTO',
+    'contribution', v_contrib, 'max_contribution', v_weight, 'reason', v_reason));
+  v_sum_max := v_sum_max + v_weight; v_sum_contrib := v_sum_contrib + v_contrib;
+  v_total_count := v_total_count + 1;
+  IF v_satisfied THEN v_sat_count := v_sat_count + 1; END IF;
+  v_cat_scores := jsonb_set(v_cat_scores, ARRAY[v_category],
+                            to_jsonb(((v_cat_scores->>v_category)::numeric + v_contrib)));
+
+  -- 6. phone_present
+  v_signal_key := 'phone_present'; v_category := 'GMB_READINESS';
+  v_weight := (v_weights ->> v_signal_key)::numeric;
+  v_satisfied := COALESCE(length(btrim(v_hotel.phone)), 0) > 0;
+  v_included := true;
+  v_contrib := CASE WHEN v_satisfied THEN v_weight ELSE 0 END;
+  v_reason := CASE WHEN v_satisfied THEN 'Phone number on file.'
+                                     ELSE 'Add a contact phone number.' END;
+  v_signals := v_signals || jsonb_build_array(jsonb_build_object(
+    'key', v_signal_key, 'category', v_category, 'kind', 'AUTO_DERIVED',
+    'satisfied', v_satisfied, 'included', v_included, 'state', 'AUTO',
+    'contribution', v_contrib, 'max_contribution', v_weight, 'reason', v_reason));
+  v_sum_max := v_sum_max + v_weight; v_sum_contrib := v_sum_contrib + v_contrib;
+  v_total_count := v_total_count + 1;
+  IF v_satisfied THEN v_sat_count := v_sat_count + 1; END IF;
+  v_cat_scores := jsonb_set(v_cat_scores, ARRAY[v_category],
+                            to_jsonb(((v_cat_scores->>v_category)::numeric + v_contrib)));
+
+  ----------------------------------------------------------------------------
+  -- CATEGORY: TRUST_REPUTATION
+  ----------------------------------------------------------------------------
+
+  -- 7. review_link_set — v4: also satisfied by google_place_id (powers the
+  --    guest post-review Google funnel, added 20260613000001)
+  v_signal_key := 'review_link_set'; v_category := 'TRUST_REPUTATION';
+  v_weight := (v_weights ->> v_signal_key)::numeric;
+  v_satisfied := COALESCE(length(btrim(v_hotel.review_policy_url)), 0) > 0
+              OR COALESCE(length(btrim(v_hotel.google_place_id)), 0) > 0;
+  v_included := true;
+  v_contrib := CASE WHEN v_satisfied THEN v_weight ELSE 0 END;
+  v_reason := CASE WHEN v_satisfied THEN 'Google review path configured (review link or Place ID).'
+                                     ELSE 'Add your Google Place ID (Owner Settings) so 4-star-plus guests get a one-tap Google review link.' END;
+  v_signals := v_signals || jsonb_build_array(jsonb_build_object(
+    'key', v_signal_key, 'category', v_category, 'kind', 'AUTO_DERIVED',
+    'satisfied', v_satisfied, 'included', v_included, 'state', 'AUTO',
+    'contribution', v_contrib, 'max_contribution', v_weight, 'reason', v_reason));
+  v_sum_max := v_sum_max + v_weight; v_sum_contrib := v_sum_contrib + v_contrib;
+  v_total_count := v_total_count + 1;
+  IF v_satisfied THEN v_sat_count := v_sat_count + 1; END IF;
+  v_cat_scores := jsonb_set(v_cat_scores, ARRAY[v_category],
+                            to_jsonb(((v_cat_scores->>v_category)::numeric + v_contrib)));
+
+  -- 8. reviews_flowing
+  v_signal_key := 'reviews_flowing'; v_category := 'TRUST_REPUTATION';
+  v_weight := (v_weights ->> v_signal_key)::numeric;
+  IF v_reviews_90d = 0 AND v_hotel.created_at > now() - interval '30 days' THEN
+    v_included := false; v_satisfied := false; v_contrib := 0;
+    v_reason := 'Hotel onboarded recently — review history will be evaluated after 30 days.';
+    v_excl_count := v_excl_count + 1; v_unlockable := v_unlockable + v_weight;
+  ELSE
+    v_satisfied := v_reviews_90d >= 5;
+    v_included := true;
+    v_contrib := CASE WHEN v_satisfied THEN v_weight ELSE 0 END;
+    v_reason := v_reviews_90d || ' review' || CASE WHEN v_reviews_90d=1 THEN '' ELSE 's' END ||
+                ' in last 90 days. Threshold: ≥5.';
+    v_sum_max := v_sum_max + v_weight; v_sum_contrib := v_sum_contrib + v_contrib;
+    v_total_count := v_total_count + 1;
+    IF v_satisfied THEN v_sat_count := v_sat_count + 1; END IF;
+    v_cat_scores := jsonb_set(v_cat_scores, ARRAY[v_category],
+                              to_jsonb(((v_cat_scores->>v_category)::numeric + v_contrib)));
+  END IF;
+  v_signals := v_signals || jsonb_build_array(jsonb_build_object(
+    'key', v_signal_key, 'category', v_category, 'kind', 'AUTO_DERIVED',
+    'satisfied', v_satisfied, 'included', v_included, 'state', 'AUTO',
+    'contribution', v_contrib, 'max_contribution', v_weight, 'reason', v_reason));
+
+  -- 9. off_platform_response
+  v_signal_key := 'off_platform_response'; v_category := 'TRUST_REPUTATION';
+  v_weight := (v_weights ->> v_signal_key)::numeric;
+  SELECT * INTO v_attest FROM public.hotel_visibility_attestations
+    WHERE hotel_id = p_hotel_id AND signal_key = v_signal_key;
+  v_state := COALESCE(v_attest.state::text, 'UNCLAIMED');
+  IF v_state = 'MANAGER_VERIFIED' AND v_attest.manager_verified_at < now() - interval '90 days' THEN
+    v_state := 'SELF_ATTESTED';
+    v_reason := 'Manager verification expired (>90d).';
+  ELSIF v_state = 'MANAGER_VERIFIED' THEN
+    v_reason := 'Verified by manager on ' || to_char(v_attest.manager_verified_at, 'YYYY-MM-DD');
+  ELSIF v_state = 'SELF_ATTESTED' THEN
+    v_reason := 'Owner attests reviews are being responded to on external platforms.';
+  ELSE
+    v_reason := 'Confirm you are responding to reviews on Google/Booking/MMT.';
+  END IF;
+  v_contrib := CASE v_state WHEN 'MANAGER_VERIFIED' THEN v_weight
+                            WHEN 'SELF_ATTESTED' THEN v_weight*0.5 ELSE 0 END;
+  v_satisfied := v_state <> 'UNCLAIMED'; v_included := true;
+  v_signals := v_signals || jsonb_build_array(jsonb_build_object(
+    'key', v_signal_key, 'category', v_category, 'kind', 'SELF_ATTESTED',
+    'satisfied', v_satisfied, 'included', v_included,
+    'state', v_state, 'contribution', v_contrib, 'max_contribution', v_weight, 'reason', v_reason));
+  v_sum_max := v_sum_max + v_weight; v_sum_contrib := v_sum_contrib + v_contrib;
+  v_total_count := v_total_count + 1;
+  IF v_satisfied THEN v_sat_count := v_sat_count + 1; END IF;
+  v_cat_scores := jsonb_set(v_cat_scores, ARRAY[v_category],
+                            to_jsonb(((v_cat_scores->>v_category)::numeric + v_contrib)));
+
+  -- 10. trust_essentials_assets
+  v_signal_key := 'trust_essentials_assets'; v_category := 'TRUST_REPUTATION';
+  v_weight := (v_weights ->> v_signal_key)::numeric;
+  IF v_trust_total = 0 THEN
+    v_included := false; v_satisfied := false; v_contrib := 0;
+    v_reason := 'Trust-essentials asset catalog not visible — check Digital Asset Manager.';
+    v_excl_count := v_excl_count + 1; v_unlockable := v_unlockable + v_weight;
+  ELSE
+    v_satisfied := (v_trust_ready::numeric / v_trust_total::numeric) >= 0.80;
+    v_included := true;
+    v_contrib := CASE WHEN v_satisfied THEN v_weight
+                      ELSE v_weight * (v_trust_ready::numeric / v_trust_total::numeric) END;
+    v_contrib := ROUND(v_contrib::numeric, 1);
+    v_reason := v_trust_ready || ' of ' || v_trust_total || ' trust assets ready (threshold 80%).';
+    v_sum_max := v_sum_max + v_weight; v_sum_contrib := v_sum_contrib + v_contrib;
+    v_total_count := v_total_count + 1;
+    IF v_satisfied THEN v_sat_count := v_sat_count + 1; END IF;
+    v_cat_scores := jsonb_set(v_cat_scores, ARRAY[v_category],
+                              to_jsonb(((v_cat_scores->>v_category)::numeric + v_contrib)));
+  END IF;
+  v_signals := v_signals || jsonb_build_array(jsonb_build_object(
+    'key', v_signal_key, 'category', v_category, 'kind', 'AUTO_DERIVED',
+    'satisfied', v_satisfied, 'included', v_included, 'state', 'AUTO',
+    'contribution', v_contrib, 'max_contribution', v_weight, 'reason', v_reason));
+
+  -- 10b. ota_listing_ready
+  v_signal_key := 'ota_listing_ready'; v_category := 'TRUST_REPUTATION';
+  v_weight := (v_weights ->> v_signal_key)::numeric;
+  v_satisfied := v_ota_ready;
+  v_included := true;
+  v_contrib := CASE WHEN v_satisfied THEN v_weight ELSE 0 END;
+  v_reason := CASE WHEN v_satisfied THEN 'OTA Listing Optimizer reports Moderate or Premium readiness.'
+                                     ELSE 'Complete OTA Listing Optimizer review to reach Moderate readiness (≥50).' END;
+  v_signals := v_signals || jsonb_build_array(jsonb_build_object(
+    'key', v_signal_key, 'category', v_category, 'kind', 'AUTO_DERIVED',
+    'satisfied', v_satisfied, 'included', v_included, 'state', 'AUTO',
+    'contribution', v_contrib, 'max_contribution', v_weight, 'reason', v_reason));
+  v_sum_max := v_sum_max + v_weight; v_sum_contrib := v_sum_contrib + v_contrib;
+  v_total_count := v_total_count + 1;
+  IF v_satisfied THEN v_sat_count := v_sat_count + 1; END IF;
+  v_cat_scores := jsonb_set(v_cat_scores, ARRAY[v_category],
+                            to_jsonb(((v_cat_scores->>v_category)::numeric + v_contrib)));
+
+  -- 10c. gbp_checklist_ready
+  v_signal_key := 'gbp_checklist_ready'; v_category := 'TRUST_REPUTATION';
+  v_weight := (v_weights ->> v_signal_key)::numeric;
+  v_satisfied := v_gbp_ready;
+  v_included := true;
+  v_contrib := CASE WHEN v_satisfied THEN v_weight ELSE 0 END;
+  v_reason := CASE WHEN v_satisfied THEN 'Google Business Checklist meets the ≥70% readiness threshold.'
+                                     ELSE 'Complete more Google Business Checklist items to reach ≥70% readiness.' END;
+  v_signals := v_signals || jsonb_build_array(jsonb_build_object(
+    'key', v_signal_key, 'category', v_category, 'kind', 'AUTO_DERIVED',
+    'satisfied', v_satisfied, 'included', v_included, 'state', 'AUTO',
+    'contribution', v_contrib, 'max_contribution', v_weight, 'reason', v_reason));
+  v_sum_max := v_sum_max + v_weight; v_sum_contrib := v_sum_contrib + v_contrib;
+  v_total_count := v_total_count + 1;
+  IF v_satisfied THEN v_sat_count := v_sat_count + 1; END IF;
+  v_cat_scores := jsonb_set(v_cat_scores, ARRAY[v_category],
+                            to_jsonb(((v_cat_scores->>v_category)::numeric + v_contrib)));
+
+  ----------------------------------------------------------------------------
+  -- CATEGORY: DIGITAL_ASSETS
+  ----------------------------------------------------------------------------
+
+  -- 11. critical_assets_ready — v4 weight 9 (was 10)
+  v_signal_key := 'critical_assets_ready'; v_category := 'DIGITAL_ASSETS';
+  v_weight := (v_weights ->> v_signal_key)::numeric;
+  IF v_crit_total = 0 THEN
+    v_included := false; v_satisfied := false; v_contrib := 0;
+    v_reason := 'Critical-priority asset catalog not visible.';
+    v_excl_count := v_excl_count + 1; v_unlockable := v_unlockable + v_weight;
+  ELSE
+    v_satisfied := (v_crit_ready::numeric / v_crit_total::numeric) >= 0.80;
+    v_included := true;
+    v_contrib := CASE WHEN v_satisfied THEN v_weight
+                      ELSE ROUND(v_weight * (v_crit_ready::numeric / v_crit_total::numeric), 1) END;
+    v_reason := v_crit_ready || ' of ' || v_crit_total || ' critical assets ready (threshold 80%).';
+    v_sum_max := v_sum_max + v_weight; v_sum_contrib := v_sum_contrib + v_contrib;
+    v_total_count := v_total_count + 1;
+    IF v_satisfied THEN v_sat_count := v_sat_count + 1; END IF;
+    v_cat_scores := jsonb_set(v_cat_scores, ARRAY[v_category],
+                              to_jsonb(((v_cat_scores->>v_category)::numeric + v_contrib)));
+  END IF;
+  v_signals := v_signals || jsonb_build_array(jsonb_build_object(
+    'key', v_signal_key, 'category', v_category, 'kind', 'AUTO_DERIVED',
+    'satisfied', v_satisfied, 'included', v_included, 'state', 'AUTO',
+    'contribution', v_contrib, 'max_contribution', v_weight, 'reason', v_reason));
+
+  -- 12. high_assets_ready
+  v_signal_key := 'high_assets_ready'; v_category := 'DIGITAL_ASSETS';
+  v_weight := (v_weights ->> v_signal_key)::numeric;
+  IF v_high_total = 0 THEN
+    v_included := false; v_satisfied := false; v_contrib := 0;
+    v_reason := 'High-priority asset catalog not visible.';
+    v_excl_count := v_excl_count + 1; v_unlockable := v_unlockable + v_weight;
+  ELSE
+    v_satisfied := (v_high_ready::numeric / v_high_total::numeric) >= 0.60;
+    v_included := true;
+    v_contrib := CASE WHEN v_satisfied THEN v_weight
+                      ELSE ROUND(v_weight * (v_high_ready::numeric / v_high_total::numeric), 1) END;
+    v_reason := v_high_ready || ' of ' || v_high_total || ' high-priority assets ready (threshold 60%).';
+    v_sum_max := v_sum_max + v_weight; v_sum_contrib := v_sum_contrib + v_contrib;
+    v_total_count := v_total_count + 1;
+    IF v_satisfied THEN v_sat_count := v_sat_count + 1; END IF;
+    v_cat_scores := jsonb_set(v_cat_scores, ARRAY[v_category],
+                              to_jsonb(((v_cat_scores->>v_category)::numeric + v_contrib)));
+  END IF;
+  v_signals := v_signals || jsonb_build_array(jsonb_build_object(
+    'key', v_signal_key, 'category', v_category, 'kind', 'AUTO_DERIVED',
+    'satisfied', v_satisfied, 'included', v_included, 'state', 'AUTO',
+    'contribution', v_contrib, 'max_contribution', v_weight, 'reason', v_reason));
+
+  -- 13. brand_basics — v4 weight 4 (was 5)
+  v_signal_key := 'brand_basics'; v_category := 'DIGITAL_ASSETS';
+  v_weight := (v_weights ->> v_signal_key)::numeric;
+  v_satisfied := COALESCE(length(btrim(v_hotel.logo_path)), 0) > 0
+              AND COALESCE(length(btrim(v_hotel.brand_color)), 0) > 0;
+  v_included := true;
+  v_contrib := CASE WHEN v_satisfied THEN v_weight ELSE 0 END;
+  v_reason := CASE WHEN v_satisfied THEN 'Logo and brand colour set.'
+                                     ELSE 'Add logo and brand colour (Property settings).' END;
+  v_signals := v_signals || jsonb_build_array(jsonb_build_object(
+    'key', v_signal_key, 'category', v_category, 'kind', 'AUTO_DERIVED',
+    'satisfied', v_satisfied, 'included', v_included, 'state', 'AUTO',
+    'contribution', v_contrib, 'max_contribution', v_weight, 'reason', v_reason));
+  v_sum_max := v_sum_max + v_weight; v_sum_contrib := v_sum_contrib + v_contrib;
+  v_total_count := v_total_count + 1;
+  IF v_satisfied THEN v_sat_count := v_sat_count + 1; END IF;
+  v_cat_scores := jsonb_set(v_cat_scores, ARRAY[v_category],
+                            to_jsonb(((v_cat_scores->>v_category)::numeric + v_contrib)));
+
+  -- 13b. NEW v4: guest_info_filled (AUTO_DERIVED from hotel_guest_info)
+  v_signal_key := 'guest_info_filled'; v_category := 'DIGITAL_ASSETS';
+  v_weight := (v_weights ->> v_signal_key)::numeric;
+  v_satisfied := v_wifi_set;
+  v_included := true;
+  v_contrib := CASE WHEN v_satisfied THEN v_weight ELSE 0 END;
+  v_reason := CASE WHEN v_satisfied THEN 'Guest Wi-Fi details filled — the guest portal shows them to in-house guests.'
+                                     ELSE 'Fill Wi-Fi details (Settings → Guest Information) — the guest portal card stays empty without them.' END;
+  v_signals := v_signals || jsonb_build_array(jsonb_build_object(
+    'key', v_signal_key, 'category', v_category, 'kind', 'AUTO_DERIVED',
+    'satisfied', v_satisfied, 'included', v_included, 'state', 'AUTO',
+    'contribution', v_contrib, 'max_contribution', v_weight, 'reason', v_reason));
+  v_sum_max := v_sum_max + v_weight; v_sum_contrib := v_sum_contrib + v_contrib;
+  v_total_count := v_total_count + 1;
+  IF v_satisfied THEN v_sat_count := v_sat_count + 1; END IF;
+  v_cat_scores := jsonb_set(v_cat_scores, ARRAY[v_category],
+                            to_jsonb(((v_cat_scores->>v_category)::numeric + v_contrib)));
+
+  ----------------------------------------------------------------------------
+  -- CATEGORY: DIRECT_ENQUIRY
+  ----------------------------------------------------------------------------
+
+  -- 14. whatsapp_connected
+  v_signal_key := 'whatsapp_connected'; v_category := 'DIRECT_ENQUIRY';
+  v_weight := (v_weights ->> v_signal_key)::numeric;
+  v_satisfied := COALESCE(length(btrim(v_hotel.wa_phone_number_id)), 0) > 0;
+  v_included := true;
+  v_contrib := CASE WHEN v_satisfied THEN v_weight ELSE 0 END;
+  v_reason := CASE WHEN v_satisfied THEN 'WhatsApp connected.'
+                                     ELSE 'Connect WhatsApp Business (Settings → WhatsApp).' END;
+  v_signals := v_signals || jsonb_build_array(jsonb_build_object(
+    'key', v_signal_key, 'category', v_category, 'kind', 'AUTO_DERIVED',
+    'satisfied', v_satisfied, 'included', v_included, 'state', 'AUTO',
+    'contribution', v_contrib, 'max_contribution', v_weight, 'reason', v_reason));
+  v_sum_max := v_sum_max + v_weight; v_sum_contrib := v_sum_contrib + v_contrib;
+  v_total_count := v_total_count + 1;
+  IF v_satisfied THEN v_sat_count := v_sat_count + 1; END IF;
+  v_cat_scores := jsonb_set(v_cat_scores, ARRAY[v_category],
+                            to_jsonb(((v_cat_scores->>v_category)::numeric + v_contrib)));
+
+  -- 15. booking_url_set
+  v_signal_key := 'booking_url_set'; v_category := 'DIRECT_ENQUIRY';
+  v_weight := (v_weights ->> v_signal_key)::numeric;
+  v_satisfied := COALESCE(length(btrim(v_hotel.booking_url)), 0) > 0;
+  v_included := true;
+  v_contrib := CASE WHEN v_satisfied THEN v_weight ELSE 0 END;
+  v_reason := CASE WHEN v_satisfied THEN 'Direct booking URL set.'
+                                     ELSE 'Add a direct booking URL (Property settings).' END;
+  v_signals := v_signals || jsonb_build_array(jsonb_build_object(
+    'key', v_signal_key, 'category', v_category, 'kind', 'AUTO_DERIVED',
+    'satisfied', v_satisfied, 'included', v_included, 'state', 'AUTO',
+    'contribution', v_contrib, 'max_contribution', v_weight, 'reason', v_reason));
+  v_sum_max := v_sum_max + v_weight; v_sum_contrib := v_sum_contrib + v_contrib;
+  v_total_count := v_total_count + 1;
+  IF v_satisfied THEN v_sat_count := v_sat_count + 1; END IF;
+  v_cat_scores := jsonb_set(v_cat_scores, ARRAY[v_category],
+                            to_jsonb(((v_cat_scores->>v_category)::numeric + v_contrib)));
+
+  -- 16. payment_ready
+  v_signal_key := 'payment_ready'; v_category := 'DIRECT_ENQUIRY';
+  v_weight := (v_weights ->> v_signal_key)::numeric;
+  v_satisfied := (v_hotel.razorpay_account_id IS NOT NULL)
+              OR (COALESCE(length(btrim(v_hotel.upi_id)), 0) > 0);
+  v_included := true;
+  v_contrib := CASE WHEN v_satisfied THEN v_weight ELSE 0 END;
+  v_reason := CASE WHEN v_satisfied THEN 'Online payment configured.'
+                                     ELSE 'Connect Razorpay or set a UPI ID.' END;
+  v_signals := v_signals || jsonb_build_array(jsonb_build_object(
+    'key', v_signal_key, 'category', v_category, 'kind', 'AUTO_DERIVED',
+    'satisfied', v_satisfied, 'included', v_included, 'state', 'AUTO',
+    'contribution', v_contrib, 'max_contribution', v_weight, 'reason', v_reason));
+  v_sum_max := v_sum_max + v_weight; v_sum_contrib := v_sum_contrib + v_contrib;
+  v_total_count := v_total_count + 1;
+  IF v_satisfied THEN v_sat_count := v_sat_count + 1; END IF;
+  v_cat_scores := jsonb_set(v_cat_scores, ARRAY[v_category],
+                            to_jsonb(((v_cat_scores->>v_category)::numeric + v_contrib)));
+
+  -- 17. lead_response_time
+  v_signal_key := 'lead_response_time'; v_category := 'DIRECT_ENQUIRY';
+  v_weight := (v_weights ->> v_signal_key)::numeric;
+  IF v_lead_sample < 5 THEN
+    v_included := false; v_satisfied := false; v_contrib := 0;
+    v_reason := 'Not enough lead history yet (' || v_lead_sample || ' of 5 minimum).';
+    v_excl_count := v_excl_count + 1; v_unlockable := v_unlockable + v_weight;
+  ELSE
+    v_satisfied := v_lead_median_minutes <= 240;
+    v_included := true;
+    v_contrib := CASE WHEN v_satisfied THEN v_weight ELSE 0 END;
+    v_reason := 'Median first-response: ' || ROUND(v_lead_median_minutes)::text || ' min over last ' || v_lead_sample || ' leads (target ≤240 min).';
+    v_sum_max := v_sum_max + v_weight; v_sum_contrib := v_sum_contrib + v_contrib;
+    v_total_count := v_total_count + 1;
+    IF v_satisfied THEN v_sat_count := v_sat_count + 1; END IF;
+    v_cat_scores := jsonb_set(v_cat_scores, ARRAY[v_category],
+                              to_jsonb(((v_cat_scores->>v_category)::numeric + v_contrib)));
+  END IF;
+  v_signals := v_signals || jsonb_build_array(jsonb_build_object(
+    'key', v_signal_key, 'category', v_category, 'kind', 'AUTO_DERIVED',
+    'satisfied', v_satisfied, 'included', v_included, 'state', 'AUTO',
+    'contribution', v_contrib, 'max_contribution', v_weight, 'reason', v_reason));
+
+  ----------------------------------------------------------------------------
+  -- CATEGORY: EXPERIENCE_PACKAGES
+  ----------------------------------------------------------------------------
+
+  -- 18. package_live
+  v_signal_key := 'package_live'; v_category := 'EXPERIENCE_PACKAGES';
+  v_weight := (v_weights ->> v_signal_key)::numeric;
+  v_satisfied := v_packages_active > 0;
+  v_included := true;
+  v_contrib := CASE WHEN v_satisfied THEN v_weight ELSE 0 END;
+  v_reason := CASE WHEN v_satisfied THEN v_packages_active || ' active package' || CASE WHEN v_packages_active=1 THEN '' ELSE 's' END || '.'
+                                     ELSE 'Publish at least one experience package.' END;
+  v_signals := v_signals || jsonb_build_array(jsonb_build_object(
+    'key', v_signal_key, 'category', v_category, 'kind', 'AUTO_DERIVED',
+    'satisfied', v_satisfied, 'included', v_included, 'state', 'AUTO',
+    'contribution', v_contrib, 'max_contribution', v_weight, 'reason', v_reason));
+  v_sum_max := v_sum_max + v_weight; v_sum_contrib := v_sum_contrib + v_contrib;
+  v_total_count := v_total_count + 1;
+  IF v_satisfied THEN v_sat_count := v_sat_count + 1; END IF;
+  v_cat_scores := jsonb_set(v_cat_scores, ARRAY[v_category],
+                            to_jsonb(((v_cat_scores->>v_category)::numeric + v_contrib)));
+
+  -- 19. seo_blueprint_ready
+  v_signal_key := 'seo_blueprint_ready'; v_category := 'EXPERIENCE_PACKAGES';
+  v_weight := (v_weights ->> v_signal_key)::numeric;
+  v_satisfied := v_seo_ready_safe > 0;
+  v_included := true;
+  v_contrib := CASE WHEN v_satisfied THEN v_weight ELSE 0 END;
+  v_reason := CASE WHEN v_satisfied THEN v_seo_ready_safe || ' safe blueprint' || CASE WHEN v_seo_ready_safe=1 THEN '' ELSE 's' END || ' ready.'
+                                     ELSE 'Approve at least one SAFE_BLUEPRINT in Local SEO Planner.' END;
+  v_signals := v_signals || jsonb_build_array(jsonb_build_object(
+    'key', v_signal_key, 'category', v_category, 'kind', 'AUTO_DERIVED',
+    'satisfied', v_satisfied, 'included', v_included, 'state', 'AUTO',
+    'contribution', v_contrib, 'max_contribution', v_weight, 'reason', v_reason));
+  v_sum_max := v_sum_max + v_weight; v_sum_contrib := v_sum_contrib + v_contrib;
+  v_total_count := v_total_count + 1;
+  IF v_satisfied THEN v_sat_count := v_sat_count + 1; END IF;
+  v_cat_scores := jsonb_set(v_cat_scores, ARRAY[v_category],
+                            to_jsonb(((v_cat_scores->>v_category)::numeric + v_contrib)));
+
+  -- ── Final aggregate ───────────────────────────────────────────────────────
+  IF v_total_count < 5 THEN
+    v_band := 'ONBOARDING';
+    v_total_score := 0;
+  ELSE
+    v_total_score := ROUND(v_sum_contrib / v_sum_max * 100, 1);
+    v_band := CASE
+      WHEN v_total_score >= 80 THEN 'STRONG'
+      WHEN v_total_score >= 60 THEN 'GOOD'
+      WHEN v_total_score >= 40 THEN 'NEEDS_ATTENTION'
+      ELSE                          'CRITICAL'
+    END;
+  END IF;
+
+  v_cat_scores := jsonb_build_object(
+    'GMB_READINESS',       ROUND((v_cat_scores->>'GMB_READINESS')::numeric, 1),
+    'TRUST_REPUTATION',    ROUND((v_cat_scores->>'TRUST_REPUTATION')::numeric, 1),
+    'DIGITAL_ASSETS',      ROUND((v_cat_scores->>'DIGITAL_ASSETS')::numeric, 1),
+    'DIRECT_ENQUIRY',      ROUND((v_cat_scores->>'DIRECT_ENQUIRY')::numeric, 1),
+    'EXPERIENCE_PACKAGES', ROUND((v_cat_scores->>'EXPERIENCE_PACKAGES')::numeric, 1)
+  );
+
+  RETURN jsonb_build_object(
+    'version', v_version,
+    'total_score', v_total_score,
+    'band', v_band,
+    'category_scores', v_cat_scores,
+    'signals_satisfied', v_sat_count,
+    'signals_total', v_total_count,
+    'signals_excluded', v_excl_count,
+    'max_unlockable_weight', v_unlockable,
+    'signals', v_signals
+  );
+END;
+$$;
+COMMENT ON FUNCTION public._compute_visibility_score(uuid) IS
+  'Deterministic scoring of one hotel''s visibility readiness. v4: 22 signals (added guest_info_filled in DIGITAL_ASSETS; review_link_set now also satisfied by google_place_id). Loops through all signals, applies per-signal evaluation rules, accumulates contributions with min-sample carve-outs and 90-day manager-verification expiry, and returns a complete jsonb breakdown.';
+
+-- ─── End of Visibility Score v4 migration ──────────────────────────────────

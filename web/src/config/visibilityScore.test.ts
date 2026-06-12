@@ -22,13 +22,13 @@ import {
   bandForScore,
 } from './visibilityScore';
 
-// v3 migration is the latest CREATE OR REPLACE for both _visibility_weights()
-// and _compute_visibility_score(). v1/v2 files are superseded.
-const MIGRATION_V3_PATH = resolve(
+// v4 migration is the latest CREATE OR REPLACE for both _visibility_weights()
+// and _compute_visibility_score(). v1/v2/v3 files are superseded.
+const MIGRATION_V4_PATH = resolve(
   __dirname,
-  '../../../supabase/migrations/20260602000002_visibility_score_v3_gbp_signal.sql',
+  '../../../supabase/migrations/20260613000003_visibility_score_v4_guest_info.sql',
 );
-const migrationSql = readFileSync(MIGRATION_V3_PATH, 'utf8');
+const migrationSql = readFileSync(MIGRATION_V4_PATH, 'utf8');
 
 describe('visibility score formula', () => {
   it('weights sum to exactly 100', () => {

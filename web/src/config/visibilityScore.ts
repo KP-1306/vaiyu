@@ -43,7 +43,7 @@ export const VISIBILITY_DISCLAIMER_HI =
 // vitest parity test asserts both halves match the SQL source.
 
 export const VISIBILITY_FORMULA = {
-  version: 3,
+  version: 4,
   weights: {
     // GMB_READINESS (30)
     gmb_claimed:              6,
@@ -59,10 +59,11 @@ export const VISIBILITY_FORMULA = {
     trust_essentials_assets:  5,
     ota_listing_ready:        4,
     gbp_checklist_ready:      4,
-    // DIGITAL_ASSETS (20)
-    critical_assets_ready:   10,
+    // DIGITAL_ASSETS (20) — v4: rebalanced + guest_info_filled added
+    critical_assets_ready:    9,
     high_assets_ready:        5,
-    brand_basics:             5,
+    brand_basics:             4,
+    guest_info_filled:        2,
     // DIRECT_ENQUIRY (15)
     whatsapp_connected:       4,
     booking_url_set:          3,
@@ -339,6 +340,16 @@ export const VISIBILITY_SIGNALS: Record<VisibilitySignalKey, VisibilitySignalMet
     fixActionPath: '/owner/:slug/settings',
     fixActionLabelEn: 'Open branding settings',
     fixActionLabelHi: 'Branding settings kholiye',
+  },
+  guest_info_filled: {
+    key: 'guest_info_filled', category: 'DIGITAL_ASSETS', kind: 'AUTO_DERIVED',
+    labelEn: 'Guest Wi-Fi info filled',
+    labelHi: 'Guest Wi-Fi info bhari hui hai',
+    descEn: 'Wi-Fi details power the in-stay guest portal card — the #1 thing every guest asks for.',
+    descHi: 'Wi-Fi details se guest portal ka in-stay card chalta hai — har guest sabse pehle yahi poochta hai.',
+    fixActionPath: '/owner/:slug/settings',
+    fixActionLabelEn: 'Fill guest information',
+    fixActionLabelHi: 'Guest information bhariye',
   },
 
   // ─── DIRECT_ENQUIRY ───────────────────────────────────────────────────────

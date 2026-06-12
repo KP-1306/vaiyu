@@ -67,7 +67,21 @@ function formatDate(iso: string | null): string {
 }
 
 export function VisibilitySignalRow({ hotelId, hotelSlug, signal, attestation, isManager }: Props) {
-  const meta = VISIBILITY_SIGNALS[signal.key];
+  // Forward compatibility: a newer formula version (deployed DB-side first) may
+  // return a signal key this bundle's catalog doesn't know yet. Fall back to a
+  // generic entry derived from the SQL payload instead of crashing the page.
+  const meta = VISIBILITY_SIGNALS[signal.key] ?? {
+    key: signal.key,
+    category: signal.category,
+    kind: signal.kind,
+    labelEn: String(signal.key).replace(/_/g, ' '),
+    labelHi: String(signal.key).replace(/_/g, ' '),
+    descEn: signal.reason ?? '',
+    descHi: signal.reason ?? '',
+    fixActionPath: '/owner/:slug/settings',
+    fixActionLabelEn: 'Open settings',
+    fixActionLabelHi: 'Settings kholiye',
+  };
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [evidenceUrl, setEvidenceUrl] = useState('');

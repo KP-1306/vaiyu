@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, ChevronDown, CheckCircle2, RotateCcw, AlertTriangle, Loader2 } from "lucide-react";
+import { X, CheckCircle2, RotateCcw, AlertTriangle, Loader2 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { RazorpayServiceError } from "../services/razorpayService";
 import { getRazorpayClient } from "../services/razorpayClient";
@@ -63,7 +63,6 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
     const [paymentMethod, setPaymentMethod] = useState("CASH");
     const [paymentAmount, setPaymentAmount] = useState<number | "">("");
     const [paymentLoading, setPaymentLoading] = useState(false);
-    const [isPaymentMethodOpen, setIsPaymentMethodOpen] = useState(false);
     const [paymentError, setPaymentError] = useState<string | null>(null);
 
     // Hotel's Razorpay configuration (Owner Settings). NONE hides the online
@@ -196,58 +195,18 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
         setLoading(false);
     };
 
+    // Record a manual / in-person payment (cash, card machine, hotel UPI QR,
+    // bank transfer). This only LOGS money already received — collect_payment
+    // posts the payment row + folio entry. Partial amounts allowed.
     const handleRecordPayment = async () => {
         setPaymentError(null);
-
-        // Razorpay path: amount is computed and verified SERVER-side from the
-        // booking's outstanding folio balance (same proven flow as walk-in:
-        // create order → checkout → verify; verify inserts the payments row,
-        // trg_payment_to_folio posts the folio entry).
-        if (paymentMethod === "RAZORPAY") {
-            setPaymentLoading(true);
-            try {
-                const rzp = getRazorpayClient(razorpayMode);
-                const order = await rzp.createWalkInOrder({
-                    hotelId: arrival.hotel_id,
-                    bookingId: arrival.booking_id,
-                });
-                const outcome = await rzp.openRazorpayCheckout(order);
-                if (!outcome.ok) {
-                    setPaymentError(outcome.reason === "DISMISSED"
-                        ? "Payment cancelled — no money has moved. Retry or switch to a manual method."
-                        : `Payment failed: ${outcome.error?.description ?? "Razorpay rejected the payment"}.`);
-                    return;
-                }
-                await rzp.verifyWalkInPayment({
-                    hotelId: arrival.hotel_id,
-                    bookingId: arrival.booking_id,
-                    folioId: order.folioId,
-                    orderId: outcome.orderId,
-                    paymentId: outcome.paymentId,
-                    signature: outcome.signature,
-                });
-                setShowCollectPayment(false);
-                setPaymentAmount("");
-                fetchFolioAndTransactions();
-                onMutated?.(); // refresh the parent board immediately (staff action)
-            } catch (err: any) {
-                const msg = err instanceof RazorpayServiceError ? err.message : (err?.message ?? "Payment failed");
-                setPaymentError(msg);
-            } finally {
-                setPaymentLoading(false);
-            }
-            return;
-        }
-
         if (!paymentAmount || isNaN(Number(paymentAmount)) || Number(paymentAmount) <= 0) return;
 
         setPaymentLoading(true);
-        const { data: { user } } = await supabase.auth.getUser();
-
-        const { data, error } = await supabase.rpc("collect_payment", {
+        const { error } = await supabase.rpc("collect_payment", {
             p_booking_id: arrival.booking_id,
             p_amount: Number(paymentAmount),
-            p_method: paymentMethod
+            p_method: paymentMethod,
         });
 
         if (!error) {
@@ -259,6 +218,50 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
             setPaymentError("Payment failed: " + error.message);
         }
         setPaymentLoading(false);
+    };
+
+    // Collect online via Razorpay — a distinct action: it MOVES money with a
+    // live, server-verified charge for the full outstanding balance (same proven
+    // flow as walk-in: create order → checkout → verify; verify inserts the
+    // payments row, trg_payment_to_folio posts the folio entry). Kept separate
+    // from the manual methods so the common in-person path stays fastest and the
+    // gateway fee isn't the default at the desk.
+    const handleCollectOnline = async () => {
+        setPaymentError(null);
+        if (outstandingBalance <= 0) return;
+
+        setPaymentLoading(true);
+        try {
+            const rzp = getRazorpayClient(razorpayMode);
+            const order = await rzp.createWalkInOrder({
+                hotelId: arrival.hotel_id,
+                bookingId: arrival.booking_id,
+            });
+            const outcome = await rzp.openRazorpayCheckout(order);
+            if (!outcome.ok) {
+                setPaymentError(outcome.reason === "DISMISSED"
+                    ? "Payment cancelled — no money has moved."
+                    : `Payment failed: ${outcome.error?.description ?? "Razorpay rejected the payment"}.`);
+                return;
+            }
+            await rzp.verifyWalkInPayment({
+                hotelId: arrival.hotel_id,
+                bookingId: arrival.booking_id,
+                folioId: order.folioId,
+                orderId: outcome.orderId,
+                paymentId: outcome.paymentId,
+                signature: outcome.signature,
+            });
+            setShowCollectPayment(false);
+            setPaymentAmount("");
+            fetchFolioAndTransactions();
+            onMutated?.(); // refresh the parent board immediately (staff action)
+        } catch (err: any) {
+            const msg = err instanceof RazorpayServiceError ? err.message : (err?.message ?? "Payment failed");
+            setPaymentError(msg);
+        } finally {
+            setPaymentLoading(false);
+        }
     };
 
     // Build Unified Operational Timeline
@@ -845,87 +848,95 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                                 <span className="text-2xl font-bold text-[#E65F5C]">₹ {outstandingBalance.toLocaleString('en-IN')}</span>
                             </div>
 
-                            {/* Payment Method Selector Dropdown Mock */}
+                            {/* Payment method — manual / in-person methods as
+                                one-tap tiles (no dropdown). These RECORD a payment
+                                already received; they do not move money. */}
                             <div>
-                                <div className="text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wide">Payment Method</div>
-                                <div className="relative">
-                                    <button
-                                        onClick={() => setIsPaymentMethodOpen(!isPaymentMethodOpen)}
-                                        className="w-full flex items-center justify-between px-4 py-3 bg-[#F9F9F9] border border-gray-200 rounded-xl text-left focus:outline-none focus:ring-2 focus:ring-amber-600/20 group"
-                                    >
-                                        <div className="flex items-center gap-3 font-semibold text-gray-900 text-[15px]">
-                                            <span className="text-emerald-600">💵</span> {paymentMethod === "CASH" ? "Cash" : paymentMethod === "CARD" ? "Card (Manual)" : paymentMethod === "UPI" ? "UPI" : paymentMethod === "RAZORPAY" ? "Razorpay (Online)" : "Bank Transfer"}
-                                        </div>
-                                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isPaymentMethodOpen ? "rotate-180" : ""}`} />
-                                    </button>
-
-                                    {/* Dropdown Options */}
-                                    {isPaymentMethodOpen && (
-                                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-100 shadow-lg rounded-xl overflow-hidden z-10 flex flex-col p-1 animate-in fade-in slide-in-from-top-1">
-                                            {[
-                                                { id: "CASH", label: "Cash", icon: "💵", color: "text-emerald-600" },
-                                                { id: "CARD", label: "Card (Manual)", icon: "💳", color: "text-blue-600" },
-                                                { id: "BANK_TRANSFER", label: "Bank Transfer", icon: "🏦", color: "text-amber-700" },
-                                                { id: "UPI", label: "UPI", icon: "📱", color: "text-indigo-600" },
-                                                // Online collection — only when the hotel has Razorpay
-                                                // configured in Owner Settings (DIRECT or ROUTE).
-                                                ...(razorpayMode !== "NONE"
-                                                    ? [{ id: "RAZORPAY", label: "Razorpay (Online)", icon: "⚡", color: "text-sky-600" }]
-                                                    : [])
-                                            ].map(pm => (
-                                                <button
-                                                    key={pm.id}
-                                                    onClick={() => { setPaymentMethod(pm.id); setIsPaymentMethodOpen(false); }}
-                                                    className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-gray-50 text-left transition"
-                                                >
-                                                    <div className="flex items-center gap-3 text-sm font-semibold text-gray-800">
-                                                        <span className={pm.color}>{pm.icon}</span> {pm.label}
-                                                    </div>
-                                                    {paymentMethod === pm.id && <CheckCircle2 className="w-4 h-4 text-gray-400" />}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
+                                <div className="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">Payment Method</div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {[
+                                        { id: "CASH", label: "Cash", icon: "💵" },
+                                        { id: "UPI", label: "UPI", icon: "📱" },
+                                        { id: "CARD", label: "Card", icon: "💳" },
+                                        { id: "BANK_TRANSFER", label: "Bank Transfer", icon: "🏦" },
+                                    ].map(pm => {
+                                        const active = paymentMethod === pm.id;
+                                        return (
+                                            <button
+                                                key={pm.id}
+                                                onClick={() => setPaymentMethod(pm.id)}
+                                                className={`flex items-center gap-2.5 px-3 py-3 rounded-xl border text-left text-[15px] font-semibold transition-all ${active
+                                                    ? "border-amber-500 bg-amber-50 ring-2 ring-amber-500/20 text-gray-900"
+                                                    : "border-gray-200 bg-[#F9F9F9] text-gray-700 hover:border-gray-300"}`}
+                                            >
+                                                <span className="text-lg leading-none">{pm.icon}</span>
+                                                <span className="flex-1">{pm.label}</span>
+                                                {active && <CheckCircle2 className="w-4 h-4 text-amber-600 flex-shrink-0" />}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <div className="mt-2 text-[11px] text-gray-400 leading-snug">
+                                    Records a payment already received from the guest.
                                 </div>
                             </div>
 
                             <div className="space-y-3">
-                                {paymentMethod === "RAZORPAY" ? (
-                                    <div className="px-4 py-3 bg-sky-50 border border-sky-200 rounded-xl text-xs text-sky-800 leading-relaxed">
-                                        Collects the <span className="font-bold">full outstanding balance of ₹{outstandingBalance.toLocaleString('en-IN')}</span> via
-                                        Razorpay checkout. The amount is computed and verified server-side from the folio.
-                                    </div>
-                                ) : (
-                                    <div className="relative">
-                                        <span className="absolute left-4 py-3 text-gray-400 font-bold">₹</span>
-                                        <input
-                                            type="number"
-                                            placeholder="Enter Amount"
-                                            value={paymentAmount}
-                                            onChange={e => setPaymentAmount(e.target.value ? Number(e.target.value) : "")}
-                                            className="w-full pl-9 pr-4 py-3 bg-[#F9F9F9] border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-600/30 font-semibold text-[15px] placeholder-gray-400"
-                                        />
-                                    </div>
-                                )}
-                                {paymentError && (
-                                    <div className="px-4 py-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 leading-relaxed">
-                                        {paymentError}
-                                    </div>
-                                )}
+                                <div className="relative">
+                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">₹</span>
+                                    <input
+                                        type="number"
+                                        placeholder="Enter amount"
+                                        value={paymentAmount}
+                                        onChange={e => setPaymentAmount(e.target.value ? Number(e.target.value) : "")}
+                                        className="w-full pl-9 pr-4 py-3 bg-[#F9F9F9] border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-600/30 font-semibold text-[15px] placeholder-gray-400"
+                                    />
+                                </div>
                                 <input
                                     type="text"
                                     placeholder="Enter a note (optional)"
                                     className="w-full px-4 py-3 bg-[#F9F9F9] border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-600/30 text-sm placeholder-gray-400"
                                 />
+                                {paymentError && (
+                                    <div className="px-4 py-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 leading-relaxed">
+                                        {paymentError}
+                                    </div>
+                                )}
                             </div>
 
                             <button
                                 onClick={handleRecordPayment}
-                                disabled={paymentLoading || (paymentMethod === "RAZORPAY" ? outstandingBalance <= 0 : !paymentAmount)}
-                                className="w-full py-3.5 mt-2 bg-gradient-to-br from-[#CD955B] to-[#AD763D] text-white font-bold text-[15px] rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={paymentLoading || !paymentAmount || Number(paymentAmount) <= 0}
+                                className="w-full py-3.5 bg-gradient-to-br from-[#CD955B] to-[#AD763D] text-white font-bold text-[15px] rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                {paymentLoading ? "Processing..." : paymentMethod === "RAZORPAY" ? "Pay with Razorpay" : "Record Payment"}
+                                {paymentLoading ? "Processing…" : `Record ${paymentAmount ? "₹" + Number(paymentAmount).toLocaleString('en-IN') : "Payment"}`}
                             </button>
+
+                            {/* Online collection — secondary, only when Razorpay is
+                                configured. Distinct from the manual methods: it actually
+                                charges the guest (live, server-verified, full balance)
+                                and usually carries a gateway fee, so it isn't the
+                                default at the desk. */}
+                            {razorpayMode !== "NONE" && (
+                                <div>
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className="flex-1 h-px bg-gray-200" />
+                                        <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">or collect online</span>
+                                        <div className="flex-1 h-px bg-gray-200" />
+                                    </div>
+                                    <button
+                                        onClick={handleCollectOnline}
+                                        disabled={paymentLoading || outstandingBalance <= 0}
+                                        className="w-full py-3 flex items-center justify-center gap-2 bg-white border border-sky-300 text-sky-700 font-semibold text-[14px] rounded-xl hover:bg-sky-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <span>⚡</span>
+                                        {paymentLoading ? "Opening…" : `Collect ₹${outstandingBalance.toLocaleString('en-IN')} via Razorpay`}
+                                    </button>
+                                    <div className="mt-1.5 text-[11px] text-gray-400 text-center leading-snug">
+                                        Charges the guest the full balance now, online.
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

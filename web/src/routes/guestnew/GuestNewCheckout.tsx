@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase } from "../../lib/supabase";
 import {
     Check, CreditCard, ChevronRight, Calendar, Users,
-    Luggage, Clock, Car, SprayCan, HelpCircle, Loader2, AlertTriangle
+    HelpCircle, Loader2, AlertTriangle
 } from "lucide-react";
 import { RazorpayServiceError } from "../../services/razorpayService";
 import { getRazorpayClient } from "../../services/razorpayClient";
@@ -439,24 +439,6 @@ export default function GuestNewCheckout() {
                                     <span className="text-white/60 text-lg gn-serif">Total</span>
                                     <span className="text-2xl text-[#C5A065] font-bold gn-serif">{formatCurrency(total)}</span>
                                 </div>
-                            </div>
-                        </div>
-
-                        {/* Additional Services Grid */}
-                        <div>
-                            <div className="gn-serif text-lg text-white/90 mb-3">Additional Services</div>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                {[
-                                    { icon: Luggage, label: "Baggage\nAssistance" },
-                                    { icon: Clock, label: "Late\nCheckout" },
-                                    { icon: Car, label: "Airport\nTransfer" },
-                                    { icon: SprayCan, label: "Housekeeping\nService" },
-                                ].map((svc, i) => (
-                                    <button key={i} className="gn-inset-card p-3 flex flex-col items-center justify-center text-center gap-2 hover:bg-[#C5A065]/10 hover:border-[#C5A065]/30 transition-all group">
-                                        <svc.icon className="w-5 h-5 text-[#C5A065] group-hover:scale-110 transition-transform" />
-                                        <span className="text-[0.65rem] leading-tight text-white/60 uppercase tracking-wide font-medium whitespace-pre-line">{svc.label}</span>
-                                    </button>
-                                ))}
                             </div>
                         </div>
                     </div>

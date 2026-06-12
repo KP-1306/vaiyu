@@ -5,6 +5,7 @@ import { supabase } from "../../lib/supabase";
 import { getServices } from "../../lib/api";
 import { SimpleTooltip } from "../../components/SimpleTooltip";
 import { formatIstTime, formatRelativeTime, parseDbDate } from "../../utils/dateUtils";
+import { formatPolicyTime } from "../../utils/policyTime";
 import "./guestnew.css";
 import "./HeroMockup.css";
 
@@ -52,6 +53,9 @@ const ConditionalTooltip = ({ children, content, condition }: { children: ReactN
 export default function GuestNewHome() {
     const [displayName, setDisplayName] = useState<string>("Guest");
     const [currentStay, setCurrentStay] = useState<Stay | null>(null);
+    // Real hotel policy times for the selected stay's hotel (null → date only).
+    const [checkinTime, setCheckinTime] = useState<string | null>(null);
+    const [checkoutTime, setCheckoutTime] = useState<string | null>(null);
     const [allStays, setAllStays] = useState<Stay[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeRequests, setActiveRequests] = useState(0);
@@ -294,6 +298,16 @@ export default function GuestNewHome() {
                 if (hotelData?.amenities) {
                     setPropertyAmenities(hotelData.amenities);
                 }
+
+                // Real check-in/out policy times for this hotel (guest-safe view).
+                // Date-only display when a hotel hasn't configured them.
+                const { data: ht } = await supabase
+                    .from("v_public_hotels")
+                    .select("default_checkin_time, default_checkout_time")
+                    .eq("id", currentStay.hotel_id)
+                    .maybeSingle();
+                setCheckinTime(formatPolicyTime(ht?.default_checkin_time));
+                setCheckoutTime(formatPolicyTime(ht?.default_checkout_time));
             } catch (err) {
                 console.error("[GuestNewHome] Error fetching hotel amenities:", err);
             }
@@ -389,16 +403,15 @@ export default function GuestNewHome() {
         }).format(amount);
     };
 
-    // Format date
-    const formatDate = (dateStr: string, includeTime = false) => {
+    // Format date (date only; policy times are rendered separately from real data)
+    const formatDate = (dateStr: string) => {
         try {
             const date = new Date(dateStr);
-            const formatted = date.toLocaleDateString("en-IN", {
+            return date.toLocaleDateString("en-IN", {
                 day: "numeric",
                 month: "long",
                 year: "numeric",
             });
-            return includeTime ? `${formatted} ~ 11:00 AM` : formatted;
         } catch {
             return dateStr;
         }
@@ -887,10 +900,10 @@ export default function GuestNewHome() {
                                             </div>
                                             <div className="hero-mockup-time-stack">
                                                 <div className="hero-mockup-time-item">
-                                                    <span className="hero-mockup-time-label">Arrival:</span> {new Date(currentStay.check_in).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • 2:00 PM
+                                                    <span className="hero-mockup-time-label">Arrival:</span> {new Date(currentStay.check_in).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}{checkinTime ? ` • ${checkinTime}` : ""}
                                                 </div>
                                                 <div className="hero-mockup-time-item">
-                                                    <span className="hero-mockup-time-label">Checkout:</span> {new Date(currentStay.check_out).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • 11:00 AM
+                                                    <span className="hero-mockup-time-label">Checkout:</span> {new Date(currentStay.check_out).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}{checkoutTime ? ` • ${checkoutTime}` : ""}
                                                 </div>
                                                 <div style={{ marginTop: '2px', fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.7)' }}>
                                                     {(currentStay.total_nights || nights)} {(currentStay.total_nights || nights) === 1 ? 'night' : 'nights'}
@@ -933,18 +946,18 @@ export default function GuestNewHome() {
                                                     const label = getNightsRemainingLabel(currentStay.check_in, currentStay.check_out, currentStay.total_nights || nights);
                                                     if (label === "Checkout delayed") return (
                                                         <div style={{ fontSize: '0.85rem', color: '#ef4444', fontWeight: 700 }}>
-                                                            🔴 Checkout delayed — was {new Date(currentStay.check_out).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • 11:00 AM
+                                                            🔴 Checkout delayed — was {new Date(currentStay.check_out).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}{checkoutTime ? ` • ${checkoutTime}` : ""}
                                                         </div>
                                                     );
                                                     if (label === "Checkout today") return (
                                                         <div style={{ fontSize: '0.85rem', color: '#ef4444', fontWeight: 700 }}>
-                                                            🔴 Checkout today • 11:00 AM
+                                                            🔴 Checkout today{checkoutTime ? ` • ${checkoutTime}` : ""}
                                                         </div>
                                                     );
                                                     return (
                                                         <>
                                                             <div className="hero-mockup-time-item">
-                                                                <span className="hero-mockup-time-label">Checkout:</span> {new Date(currentStay.check_out).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • 11:00 AM
+                                                                <span className="hero-mockup-time-label">Checkout:</span> {new Date(currentStay.check_out).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}{checkoutTime ? ` • ${checkoutTime}` : ""}
                                                             </div>
                                                             <div style={{ marginTop: '2px', fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.7)' }}>
                                                                 {label}
@@ -1024,13 +1037,13 @@ export default function GuestNewHome() {
                                                                         );
                                                                         if (label === "Checkout today") return (
                                                                             <div className="hero-mockup-subcard-checkout">
-                                                                                <span style={{ color: '#ef4444', fontWeight: 600 }}>🔴 Checkout today</span> • 11:00 AM
+                                                                                <span style={{ color: '#ef4444', fontWeight: 600 }}>🔴 Checkout today</span>
                                                                             </div>
                                                                         );
                                                                         return (
                                                                             <>
                                                                                 <div className="hero-mockup-subcard-checkout">
-                                                                                    Checkout: {new Date(booking.check_out).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • 11:00 AM
+                                                                                    Checkout: {new Date(booking.check_out).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                                                                 </div>
                                                                                 <div className="hero-mockup-nights-left" style={{ fontSize: '0.8rem', color: '#e5c158' }}>
                                                                                     {label}
@@ -1042,7 +1055,7 @@ export default function GuestNewHome() {
                                                             ) : (
                                                                 <div className="hero-mockup-time-stack" style={{ marginTop: '0', gap: '4px' }}>
                                                                     <div className="hero-mockup-subcard-checkout">
-                                                                        Arrival: {new Date(booking.check_in).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • 2:00 PM
+                                                                        Arrival: {new Date(booking.check_in).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                                                     </div>
                                                                     <div className="hero-mockup-nights-left" style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: '0.8rem' }}>
                                                                         {(booking.total_nights || nights)} {(booking.total_nights || nights) === 1 ? 'night' : 'nights'}
@@ -1121,7 +1134,7 @@ export default function GuestNewHome() {
                 </Link>
 
                 {currentStay?.status === 'arriving' && currentStay?.precheckin_token && !currentStay?.precheckin_used_at ? (
-                    <Link to={`/pre-checkin/${currentStay.precheckin_token}`} className="gn-action-btn gn-action-btn--gold">
+                    <Link to={`/precheckin/${currentStay.precheckin_token}`} className="gn-action-btn gn-action-btn--gold">
                         <div className="gn-action-btn__icon">📝</div>
                         <div className="gn-action-btn__content">
                             <span className="gn-action-btn__title">Complete Pre-Checkin</span>
@@ -1344,11 +1357,11 @@ export default function GuestNewHome() {
                                 <div className="gn-modal-section gn-modal-grid">
                                     <div className="gn-modal-grid-item">
                                         <span className="gn-modal-label">Check-in</span>
-                                        <span className="gn-modal-value">{new Date(currentStay.check_in).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}<br />From 2:00 PM</span>
+                                        <span className="gn-modal-value">{new Date(currentStay.check_in).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}{checkinTime ? <><br />From {checkinTime}</> : null}</span>
                                     </div>
                                     <div className="gn-modal-grid-item">
                                         <span className="gn-modal-label">Check-out</span>
-                                        <span className="gn-modal-value">{new Date(currentStay.check_out).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}<br />By 11:00 AM</span>
+                                        <span className="gn-modal-value">{new Date(currentStay.check_out).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}{checkoutTime ? <><br />By {checkoutTime}</> : null}</span>
                                     </div>
                                 </div>
 
@@ -1465,7 +1478,7 @@ export default function GuestNewHome() {
                                 {currentStay.status === 'arriving' && currentStay.precheckin_token && !currentStay.precheckin_used_at && (
                                     <div className="gn-modal-action-area">
                                         <p className="gn-modal-helper-text">To ensure a smooth arrival, please complete your pre-checkin before you arrive.</p>
-                                        <Link to={`/pre-checkin/${currentStay.precheckin_token}`} className="gn-internal-action-button gn-internal-action--primary">
+                                        <Link to={`/precheckin/${currentStay.precheckin_token}`} className="gn-internal-action-button gn-internal-action--primary">
                                             <span className="icon">✓</span> Complete Pre Check-In
                                         </Link>
                                     </div>

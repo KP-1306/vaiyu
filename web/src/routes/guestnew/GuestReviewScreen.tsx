@@ -94,7 +94,9 @@ export default function GuestReviewScreen() {
                     stay_id: stayId,   // Linked stay (if any)
                     overall_rating: overallRating,
                     review_text: reviewText,
-                    is_public: overallRating >= 4 // Auto-public for high ratings? Or keep private? 
+                    // Policy: 4–5★ publish publicly; 1–3★ stay private and route to the
+                    // manager (handled by the success screen + review moderation).
+                    is_public: overallRating >= 4
                 })
                 .select("id")
                 .single();
@@ -134,19 +136,14 @@ export default function GuestReviewScreen() {
         return (
             <div className="gn-review-screen">
                 <div className="gn-review-card" style={{ textAlign: 'center' }}>
-                    <h2 className="gn-review-title">Thank you, {bookingDetails.guest_name.split(' ')[0]}!</h2>
+                    <h2 className="gn-review-title">Thank you, {bookingDetails.guest_name?.split(' ')[0] || 'there'}!</h2>
                     <p className="gn-review-subtitle" style={{ marginBottom: '24px' }}>Your feedback helps us improve.</p>
 
-                    {overallRating >= 4 ? (
-                        <div className="gn-google-upsell" style={{ animation: 'none', marginBottom: '32px' }}>
-                            <div className="gn-google-icon">G</div>
-                            <div className="gn-google-text">
-                                <div className="gn-google-title">Would you share this on Google?</div>
-                                <div className="gn-google-desc">It helps other travelers find us.</div>
-                            </div>
-                            <a href={`https://search.google.com/local/writereview?placeid=REPLACE_WITH_ACTUAL_ID`} target="_blank" rel="noreferrer" className="gn-google-link">Write Review</a>
-                        </div>
-                    ) : (
+                    {/* Google review funnel removed: no hotels.google_place_id exists
+                        to build a real "writereview" deep link, so the CTA pointed at a
+                        placeholder URL. Re-introduce a real Google upsell here once a
+                        per-hotel Place ID field is added. */}
+                    {overallRating < 4 && (
                         <p className="gn-review-subtitle">Our manager has been alerted to your feedback and will look into it.</p>
                     )}
 
@@ -211,16 +208,6 @@ export default function GuestReviewScreen() {
                             value={reviewText}
                             onChange={(e) => setReviewText(e.target.value)}
                         />
-
-                        {overallRating >= 4 && (
-                            <div className="gn-google-upsell">
-                                <div className="gn-google-icon">G</div>
-                                <div className="gn-google-text">
-                                    <div className="gn-google-title">Share on Google</div>
-                                    <div className="gn-google-desc">Support us by leaving a review on Google as well.</div>
-                                </div>
-                            </div>
-                        )}
 
                         <div className="gn-review-actions">
                             <button className="gn-review-btn--secondary" onClick={() => navigate("/guest")}>Later</button>

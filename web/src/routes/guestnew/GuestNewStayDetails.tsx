@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase } from "../../lib/supabase";
 import RequestExtensionButton from "../../components/guest/RequestExtensionButton";
 import { formatIstDateTime } from "../../utils/dateUtils";
+import { formatPolicyTime } from "../../utils/policyTime";
 
 type Stay = {
     id: string;
@@ -48,6 +49,9 @@ type LedgerBreakdown = {
 export default function GuestNewStayDetails() {
     const { id } = useParams<{ id: string }>();
     const [stay, setStay] = useState<Stay | null>(null);
+    // Real hotel policy times (null when the hotel hasn't configured them → date only).
+    const [checkinTime, setCheckinTime] = useState<string | null>(null);
+    const [checkoutTime, setCheckoutTime] = useState<string | null>(null);
     const [orders, setOrders] = useState<FoodOrder[]>([]);
     const [loading, setLoading] = useState(true);
     const [copied, setCopied] = useState(false);
@@ -106,6 +110,20 @@ export default function GuestNewStayDetails() {
                         room_charge: data.room_charge || (data.bill_total ? data.bill_total * 0.97 : 0),
                         city_tax: data.city_tax || (data.bill_total ? data.bill_total * 0.03 : 0),
                     });
+
+                    // Real hotel check-in/out policy times from the guest-safe view
+                    // (v_public_hotels already exposes them). Date-only if unset.
+                    if (data.hotel_id) {
+                        const { data: ht } = await supabase
+                            .from("v_public_hotels")
+                            .select("default_checkin_time, default_checkout_time")
+                            .eq("id", data.hotel_id)
+                            .maybeSingle();
+                        if (mounted) {
+                            setCheckinTime(formatPolicyTime(ht?.default_checkin_time));
+                            setCheckoutTime(formatPolicyTime(ht?.default_checkout_time));
+                        }
+                    }
 
                     // Fetch food orders for this stay
                     if (bookingCode) {
@@ -167,7 +185,7 @@ export default function GuestNewStayDetails() {
     }, [id]);
 
     // Format date
-    const formatDate = (dateStr: string, includeTime = false) => {
+    const formatDate = (dateStr: string, timeLabel?: string | null) => {
         try {
             const date = new Date(dateStr);
             const formatted = date.toLocaleDateString("en-IN", {
@@ -175,7 +193,7 @@ export default function GuestNewStayDetails() {
                 month: "long",
                 year: "numeric",
             });
-            return includeTime ? `${formatted} ~ 11:00 AM` : formatted;
+            return timeLabel ? `${formatted} ~ ${timeLabel}` : formatted;
         } catch {
             return dateStr;
         }
@@ -386,11 +404,11 @@ export default function GuestNewStayDetails() {
                 <div className="gn-stay-detail__grid">
                     <div className="gn-stay-detail__item">
                         <span className="gn-stay-detail__item-icon">📅</span>
-                        <span>{formatDate(stay.check_in)}</span>
+                        <span>{formatDate(stay.check_in, checkinTime)}</span>
                     </div>
                     <div className="gn-stay-detail__item">
                         <span className="gn-stay-detail__item-icon">📅</span>
-                        <span>{formatDate(stay.check_out, true)} ↗</span>
+                        <span>{formatDate(stay.check_out, checkoutTime)} ↗</span>
                     </div>
                     <div className="gn-stay-detail__item">
                         <span className="gn-stay-detail__item-icon">🌙</span>

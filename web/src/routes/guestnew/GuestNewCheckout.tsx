@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { RazorpayServiceError } from "../../services/razorpayService";
 import { getRazorpayClient } from "../../services/razorpayClient";
+import { formatPolicyTime } from "../../utils/policyTime";
 
 type Stay = {
     id: string; // stay_id
@@ -34,6 +35,8 @@ export default function GuestNewCheckout() {
     const navigate = useNavigate();
     const [stay, setStay] = useState<Stay | null>(null);
     const [guestName, setGuestName] = useState("Guest");
+    // Real hotel checkout policy time (null when unset → date only, no fabrication).
+    const [checkoutTime, setCheckoutTime] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [processing, setProcessing] = useState(false);
     const [completed, setCompleted] = useState(false);
@@ -116,6 +119,16 @@ export default function GuestNewCheckout() {
                         booking_code: active.booking_code,
                         status: stayRow?.status
                     });
+
+                    // Real hotel checkout policy time (v_public_hotels). Date-only if unset.
+                    if (active.hotel_id) {
+                        const { data: ht } = await supabase
+                            .from("v_public_hotels")
+                            .select("default_checkout_time")
+                            .eq("id", active.hotel_id)
+                            .maybeSingle();
+                        setCheckoutTime(formatPolicyTime(ht?.default_checkout_time));
+                    }
 
                     if (stayRow?.status === 'checkout_requested') {
                         setCompleted(true);
@@ -359,7 +372,7 @@ export default function GuestNewCheckout() {
                         </div>
                         <div className="gn-glass-pill px-6 py-2 text-white/90 flex items-center gap-2">
                             <Calendar className="w-4 h-4 text-[#C5A065]" />
-                            {dateRange} ~ 11:00 AM
+                            {dateRange}{checkoutTime ? ` ~ ${checkoutTime}` : ""}
                         </div>
                     </div>
                 </div>
@@ -379,7 +392,7 @@ export default function GuestNewCheckout() {
                                 <div className="gn-inset-card p-4 flex justify-between items-center h-[54px]">
                                     <div className="flex items-center gap-3 text-sm text-white/80 whitespace-nowrap overflow-hidden text-ellipsis">
                                         <Calendar className="w-4 h-4 text-[#C5A065] flex-shrink-0" />
-                                        <span>{new Date(stay.check_out).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - 11:00 AM</span>
+                                        <span>{new Date(stay.check_out).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}{checkoutTime ? ` - ${checkoutTime}` : ""}</span>
                                     </div>
                                     <ChevronRight className="w-4 h-4 opacity-30" />
                                 </div>

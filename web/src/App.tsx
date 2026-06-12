@@ -432,7 +432,6 @@ const GuestNewTrips = lazy(() => import("./routes/guestnew/GuestNewTrips"));
 const GuestNewStayDetails = lazy(() => import("./routes/guestnew/GuestNewStayDetails"));
 const GuestNewRequestService = lazy(() => import("./routes/guestnew/GuestNewRequestService"));
 const GuestNewCheckout = lazy(() => import("./routes/guestnew/GuestNewCheckout"));
-const GuestNewRewards = lazy(() => import("./routes/guestnew/GuestNewRewards"));
 const GuestNewSupport = lazy(() => import("./routes/guestnew/GuestNewSupport"));
 const GuestReviewScreen = lazy(() => import("./routes/guestnew/GuestReviewScreen"));
 
@@ -737,8 +736,9 @@ export default function App() {
               <Route path="stay/:id" element={<GuestNewStayDetails />} />
               <Route path="request-service" element={<GuestNewRequestService />} />
               <Route path="checkout" element={<GuestNewCheckout />} />
-              <Route path="rewards" element={<GuestNewRewards />} />
               <Route path="support" element={<GuestNewSupport />} />
+              {/* Rewards retired (loyalty not built) — send stale links home, not 404. */}
+              <Route path="rewards" element={<Navigate to="/guest" replace />} />
               <Route path="review/:id" element={<GuestReviewScreen />} />
             </Route>
 

@@ -1,4 +1,12 @@
 // GuestNewRewards.tsx — Rewards & Wallet Screen
+//
+// ⚠️ PARKED — unrouted on purpose (removed from the guest nav + router 2026-06).
+// The loyalty program does not exist yet: the tier ("Platinum"), "points earned
+// this year", "expiring", the vouchers, and the Next-Tier progress are all
+// hardcoded fiction, and Redeem/Use are dead. Only `points` (spend/100) and
+// `memberSince` are real. DO NOT re-route this screen until there is a real
+// loyalty backend (points ledger + tiers + redeemable vouchers). Kept as a
+// design reference for that future build.
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 

@@ -14,7 +14,6 @@ type NavItem = {
 const bottomNavItems: NavItem[] = [
     { label: "Home", to: "/guest", icon: "🏠" },
     { label: "Trips", to: "/guest/trips", icon: "🧳" },
-    { label: "Rewards", to: "/guest/rewards", icon: "🎁" },
     { label: "Support", to: "/guest/support", icon: "❓" },
 ];
 
@@ -22,7 +21,6 @@ export default function GuestNewLayout() {
     const location = useLocation();
     const [email, setEmail] = useState<string | null>(null);
     const [displayName, setDisplayName] = useState<string | null>(null);
-    const [tierPoints, setTierPoints] = useState(0);
 
     // Auth guard and user info
     useEffect(() => {
@@ -88,29 +86,8 @@ export default function GuestNewLayout() {
                 </Link>
 
                 <div className="gn-header__actions">
-                    {/* Search (desktop only) */}
-                    <div className="gn-header__search gn-desktop-only">
-                        <span>🔍</span>
-                        <input type="text" placeholder="Search booking, hotel, city..." />
-                        <button className="gn-btn gn-btn--secondary" style={{ padding: "4px 12px" }}>
-                            Search
-                        </button>
-                    </div>
-
-                    {/* Rewards pill */}
-                    <div className="gn-header__pill gn-desktop-only">
-                        <span className="gn-header__tier">Platinum</span>
-                        <span>-</span>
-                        <span className="gn-header__points">{tierPoints} pts</span>
-                    </div>
-
-                    {/* Notifications */}
-                    <button className="gn-btn gn-btn--icon gn-btn--secondary">
-                        🔔
-                    </button>
-
                     {/* Avatar Dropdown */}
-                    <div style={{ marginLeft: "12px", zIndex: 50, position: 'relative' }}>
+                    <div style={{ zIndex: 50, position: 'relative' }}>
                         <AccountControls
                             theme="dark"
                             buttonClassName="h-10 w-10 bg-[#dbae67] text-black text-sm font-bold hover:bg-[#e5bc7d]"

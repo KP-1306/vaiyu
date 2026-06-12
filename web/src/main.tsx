@@ -126,7 +126,6 @@ const GuestNewTrips = lazy(() => import("./routes/guestnew/GuestNewTrips"));
 const GuestNewStayDetails = lazy(() => import("./routes/guestnew/GuestNewStayDetails"));
 const GuestNewRequestService = lazy(() => import("./routes/guestnew/GuestNewRequestService"));
 const GuestNewCheckout = lazy(() => import("./routes/guestnew/GuestNewCheckout"));
-const GuestNewRewards = lazy(() => import("./routes/guestnew/GuestNewRewards"));
 const GuestNewSupport = lazy(() => import("./routes/guestnew/GuestNewSupport"));
 const GuestNewBills = lazy(() => import("./routes/guestnew/GuestNewBills"));
 const GuestReviewScreen = lazy(() => import("./routes/guestnew/GuestReviewScreen"));
@@ -588,8 +587,9 @@ const router = createBrowserRouter([
           { path: "stay/:id", element: <GuestNewStayDetails /> },
           { path: "request-service", element: <GuestNewRequestService /> },
           { path: "checkout", element: <GuestNewCheckout /> },
-          { path: "rewards", element: <GuestNewRewards /> },
           { path: "support", element: <GuestNewSupport /> },
+          // Rewards retired (loyalty not built) — send stale links home, not 404.
+          { path: "rewards", element: <Navigate to="/guest" replace /> },
           { path: "bills", element: <GuestNewBills /> },
           { path: "review/:id", element: <GuestReviewScreen /> },
         ],

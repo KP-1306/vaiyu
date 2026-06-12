@@ -73,8 +73,8 @@ export default function GuestNewSupport() {
                             .single();
                             
                         if (error) {
-                            console.error("[DEBUG] Error fetching hotel from v_public_hotels:", error);
-                            alert("Supabase API Error fetching Hotel Contact Info: " + error.message + "\n\n(Tip: if it says 'column not found', your local Supabase schema cache hasn't updated yet! Run: NOTIFY pgrst, reload_schema; in SQL)");
+                            // Diagnostics stay in the console; never surface DB internals to the guest.
+                            console.error("[Support] Error fetching hotel contact from v_public_hotels:", error);
                         } else if (!hotelData) {
                              console.warn("[DEBUG] No hotel found in v_public_hotels for id:", active.hotel_id);
                         }

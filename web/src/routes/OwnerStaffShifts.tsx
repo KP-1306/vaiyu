@@ -45,6 +45,28 @@ import {
     History,
     ArrowLeft
 } from 'lucide-react';
+import { initialsOf } from '../utils/initials';
+
+// Staff avatar — shows the uploaded photo when present, otherwise locally
+// rendered initials. Replaces the ui-avatars.com fallback, which shipped each
+// staff member's name to a third-party host on every render (avoidable PII
+// egress). `className` carries the size/rounding/ring; initials get the same
+// shell plus a centered accent fill.
+function StaffAvatar({
+    url,
+    name,
+    className,
+    textClassName = "text-sm",
+}: { url?: string | null; name?: string | null; className?: string; textClassName?: string }) {
+    if (url) {
+        return <img src={url} alt={name ?? ""} className={className} />;
+    }
+    return (
+        <div className={`${className ?? ""} flex items-center justify-center bg-indigo-500/80 text-white font-bold select-none`}>
+            <span className={textClassName}>{initialsOf(name)}</span>
+        </div>
+    );
+}
 
 // ----------------------------------------------------------------------
 // Types based on RPC output
@@ -2068,10 +2090,10 @@ export default function OwnerStaffShifts() {
                                                     <div className="flex w-64 shrink-0 items-center justify-between px-8 border-r border-white/5 relative group/staff">
                                                         <div className="flex items-center gap-4 min-w-0">
                                                             <div className="relative">
-                                                                <img
-                                                                    src={staff.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(staff.full_name)}&background=random`}
+                                                                <StaffAvatar
+                                                                    url={staff.avatar_url}
+                                                                    name={staff.full_name}
                                                                     className="h-10 w-10 rounded-xl object-cover ring-1 ring-white/10"
-                                                                    alt=""
                                                                 />
                                                                 {staff.is_verified && (
                                                                     <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-[#0a0a0c] flex items-center justify-center shadow-lg">
@@ -2256,10 +2278,11 @@ export default function OwnerStaffShifts() {
                                                                                         {/* Popover Content */}
                                                                                         <div className="relative p-7 pb-6 flex items-start gap-5">
                                                                                             <div className="relative">
-                                                                                                <img
-                                                                                                    src={staff.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(staff.full_name)}&background=6366f1&color=fff`}
-                                                                                                    alt={staff.full_name}
+                                                                                                <StaffAvatar
+                                                                                                    url={staff.avatar_url}
+                                                                                                    name={staff.full_name}
                                                                                                     className="w-20 h-20 rounded-[24px] object-cover ring-1 ring-white/10"
+                                                                                                    textClassName="text-2xl"
                                                                                                 />
                                                                                                 {staff.is_verified && (
                                                                                                     <div className="absolute -top-1 -right-1 bg-indigo-500 rounded-full p-1 border-2 border-[#0f172a] shadow-lg z-10">
@@ -2511,10 +2534,11 @@ export default function OwnerStaffShifts() {
                                                 <div className="flex items-center justify-between rounded-3xl border border-white/10 bg-white/[0.03] p-8 shadow-2xl relative overflow-hidden group/detail">
                                                     <div className="flex items-center gap-8 relative z-10">
                                                         <div className="relative">
-                                                            <img
-                                                                src={staff.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(staff.full_name)}&background=random`}
+                                                            <StaffAvatar
+                                                                url={staff.avatar_url}
+                                                                name={staff.full_name}
                                                                 className="h-24 w-24 rounded-3xl object-cover ring-2 ring-white/10 shadow-2xl"
-                                                                alt=""
+                                                                textClassName="text-3xl"
                                                             />
                                                             {hasActiveShift && <div className="absolute -bottom-2 -right-2 h-6 w-6 rounded-full border-4 border-[#0a0a0c] bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.5)]" />}
                                                         </div>
@@ -2584,10 +2608,11 @@ export default function OwnerStaffShifts() {
                                                     >
                                                         <div className="flex items-center gap-4">
                                                             <div className="relative">
-                                                                <img
-                                                                    src={staff.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(staff.full_name)}&background=random`}
+                                                                <StaffAvatar
+                                                                    url={staff.avatar_url}
+                                                                    name={staff.full_name}
                                                                     className="h-12 w-12 rounded-xl object-cover ring-1 ring-white/10"
-                                                                    alt=""
+                                                                    textClassName="text-base"
                                                                 />
                                                                 {hasActiveShift && <div className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full border-2 border-[#0a0a0c] bg-green-500 animate-pulse" />}
                                                             </div>
@@ -4231,10 +4256,11 @@ export default function OwnerStaffShifts() {
                     <div className="relative w-full max-w-[400px] bg-[#0f172a] border border-white/10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] rounded-[32px] overflow-hidden font-sans animate-in fade-in zoom-in-95 duration-200 flex flex-col" style={{ maxHeight: '90vh' }}>
 
                         <div className="relative p-7 pb-6 flex items-start gap-5 shrink-0 bg-white/[0.02]">
-                            <img
-                                src={activeAssignStaffData.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(activeAssignStaffData.full_name)}&background=6366f1&color=fff`}
-                                alt={activeAssignStaffData.full_name}
+                            <StaffAvatar
+                                url={activeAssignStaffData.avatar_url}
+                                name={activeAssignStaffData.full_name}
                                 className="w-20 h-20 rounded-[24px] object-cover ring-1 ring-white/10"
+                                textClassName="text-2xl"
                             />
                             <div className="flex-1 pt-1">
                                 <h3 className="text-2xl font-black text-white leading-tight mb-1">{activeAssignStaffData.full_name}</h3>
@@ -4325,10 +4351,11 @@ export default function OwnerStaffShifts() {
                         </div>
                         <div className="p-8 space-y-6">
                             <div className="flex items-center gap-4">
-                                <img
-                                    src={editStaffModal.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(editStaffModal.full_name)}&background=random`}
+                                <StaffAvatar
+                                    url={editStaffModal.avatar_url}
+                                    name={editStaffModal.full_name}
                                     className="w-16 h-16 rounded-2xl border border-white/10 shadow-lg object-cover"
-                                    alt=""
+                                    textClassName="text-xl"
                                 />
                                 <div>
                                     <h4 className="text-lg font-bold text-white leading-tight">{editStaffModal.full_name}</h4>

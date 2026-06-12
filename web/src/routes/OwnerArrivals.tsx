@@ -574,6 +574,28 @@ export default function OwnerArrivals() {
         return () => { supabase.removeChannel(subscription); };
     }, [hotelId, fetchDashboard]);
 
+    // Freshness backstop for changes the staff client didn't initiate — most
+    // importantly a guest paying online from their own device. Realtime is the
+    // instant path while the board is actively watched, but it can lag or drop;
+    // this guarantees the board is current whenever staff actually look at it
+    // (tab refocus / becomes visible) and never more than 60s stale while open.
+    // Staff-initiated mutations refresh synchronously via onMutated, so this is
+    // purely the safety net. (Industry-standard refetch-on-focus + visible poll.)
+    useEffect(() => {
+        if (!hotelId) return;
+        const refreshIfVisible = () => {
+            if (document.visibilityState === "visible") fetchDashboard();
+        };
+        window.addEventListener("focus", refreshIfVisible);
+        document.addEventListener("visibilitychange", refreshIfVisible);
+        const poll = setInterval(refreshIfVisible, 60_000);
+        return () => {
+            window.removeEventListener("focus", refreshIfVisible);
+            document.removeEventListener("visibilitychange", refreshIfVisible);
+            clearInterval(poll);
+        };
+    }, [hotelId, fetchDashboard]);
+
     // Global Filtered Data (Affects KPI, Timeline, AND List)
     const contextArrivals = useMemo(() => {
         let rows = arrivals;

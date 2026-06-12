@@ -1760,6 +1760,7 @@ export default function OwnerArrivals() {
                     isOpen={!!selectedFolioArrival}
                     onClose={() => setSelectedFolioArrival(null)}
                     arrival={selectedFolioArrival}
+                    onMutated={fetchDashboard}
                 />
 
                 <GuestDetailsDrawer

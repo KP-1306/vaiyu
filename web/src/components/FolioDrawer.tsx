@@ -8,6 +8,12 @@ interface FolioDrawerProps {
     isOpen: boolean;
     onClose: () => void;
     arrival: any; // The row from v_arrival_dashboard_rows
+    /** Fired after any balance-changing mutation the staff performs here
+     *  (collect payment, Razorpay capture, refund) so the parent board can
+     *  refetch immediately. This is the optimistic path for a staff-initiated
+     *  action — we already know it succeeded, so we don't wait on the realtime
+     *  channel (which exists for the guest-pays-from-their-own-device case). */
+    onMutated?: () => void;
 }
 
 interface FolioEntry {
@@ -44,7 +50,7 @@ interface ArrivalEvent {
     created_at: string;
 }
 
-export default function FolioDrawer({ isOpen, onClose, arrival }: FolioDrawerProps) {
+export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: FolioDrawerProps) {
     const [activeTab, setActiveTab] = useState<"SUMMARY" | "FOLIO" | "PAYMENTS" | "ACTIVITY">("FOLIO");
     const [entries, setEntries] = useState<FolioEntry[]>([]);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -58,6 +64,23 @@ export default function FolioDrawer({ isOpen, onClose, arrival }: FolioDrawerPro
     const [paymentAmount, setPaymentAmount] = useState<number | "">("");
     const [paymentLoading, setPaymentLoading] = useState(false);
     const [isPaymentMethodOpen, setIsPaymentMethodOpen] = useState(false);
+    const [paymentError, setPaymentError] = useState<string | null>(null);
+
+    // Hotel's Razorpay configuration (Owner Settings). NONE hides the online
+    // option; DIRECT/ROUTE drives client dispatch at call time, same as walk-in.
+    const [razorpayMode, setRazorpayMode] = useState<"NONE" | "DIRECT" | "ROUTE">("NONE");
+    useEffect(() => {
+        if (!isOpen || !arrival?.hotel_id) return;
+        (async () => {
+            const { data } = await supabase
+                .from("hotels")
+                .select("razorpay_mode")
+                .eq("id", arrival.hotel_id)
+                .maybeSingle();
+            const mode = (data?.razorpay_mode ?? "NONE") as "NONE" | "DIRECT" | "ROUTE";
+            setRazorpayMode(mode === "DIRECT" || mode === "ROUTE" ? mode : "NONE");
+        })();
+    }, [isOpen, arrival?.hotel_id]);
 
     // Refund modal state
     const [refundFor, setRefundFor] = useState<Transaction | null>(null);
@@ -101,6 +124,7 @@ export default function FolioDrawer({ isOpen, onClose, arrival }: FolioDrawerPro
             closeRefundModal();
             // Refresh the folio view — payment row + new folio entry will reflect
             fetchFolioAndTransactions();
+            onMutated?.(); // refresh the parent board immediately (staff action)
         } catch (e) {
             const msg = e instanceof RazorpayServiceError ? e.message : String((e as any)?.message ?? e);
             setRefundError(msg);
@@ -167,10 +191,51 @@ export default function FolioDrawer({ isOpen, onClose, arrival }: FolioDrawerPro
     };
 
     const handleRecordPayment = async () => {
+        setPaymentError(null);
+
+        // Razorpay path: amount is computed and verified SERVER-side from the
+        // booking's outstanding folio balance (same proven flow as walk-in:
+        // create order → checkout → verify; verify inserts the payments row,
+        // trg_payment_to_folio posts the folio entry).
+        if (paymentMethod === "RAZORPAY") {
+            setPaymentLoading(true);
+            try {
+                const rzp = getRazorpayClient(razorpayMode);
+                const order = await rzp.createWalkInOrder({
+                    hotelId: arrival.hotel_id,
+                    bookingId: arrival.booking_id,
+                });
+                const outcome = await rzp.openRazorpayCheckout(order);
+                if (!outcome.ok) {
+                    setPaymentError(outcome.reason === "DISMISSED"
+                        ? "Payment cancelled — no money has moved. Retry or switch to a manual method."
+                        : `Payment failed: ${outcome.error?.description ?? "Razorpay rejected the payment"}.`);
+                    return;
+                }
+                await rzp.verifyWalkInPayment({
+                    hotelId: arrival.hotel_id,
+                    bookingId: arrival.booking_id,
+                    folioId: order.folioId,
+                    orderId: outcome.orderId,
+                    paymentId: outcome.paymentId,
+                    signature: outcome.signature,
+                });
+                setShowCollectPayment(false);
+                setPaymentAmount("");
+                fetchFolioAndTransactions();
+                onMutated?.(); // refresh the parent board immediately (staff action)
+            } catch (err: any) {
+                const msg = err instanceof RazorpayServiceError ? err.message : (err?.message ?? "Payment failed");
+                setPaymentError(msg);
+            } finally {
+                setPaymentLoading(false);
+            }
+            return;
+        }
+
         if (!paymentAmount || isNaN(Number(paymentAmount)) || Number(paymentAmount) <= 0) return;
 
         setPaymentLoading(true);
-        const userStr = localStorage.getItem("sb-auth-token") || "{}"; // Simplified fallback for auth
         const { data: { user } } = await supabase.auth.getUser();
 
         const { data, error } = await supabase.rpc("collect_payment", {
@@ -183,8 +248,9 @@ export default function FolioDrawer({ isOpen, onClose, arrival }: FolioDrawerPro
             setShowCollectPayment(false);
             setPaymentAmount("");
             fetchFolioAndTransactions(); // Refresh entries
+            onMutated?.(); // refresh the parent board immediately (staff action)
         } else {
-            alert("Payment failed: " + error.message);
+            setPaymentError("Payment failed: " + error.message);
         }
         setPaymentLoading(false);
     };
@@ -348,7 +414,10 @@ export default function FolioDrawer({ isOpen, onClose, arrival }: FolioDrawerPro
     // totalCharges = all non-payment entries with their stored sign — includes
     // ADJUSTMENT's negative sign so the discount is correctly subtracted.
     const totalCharges = entries.filter(e => !["PAYMENT", "REFUND"].includes(e.entry_type)).reduce((acc, e) => acc + Number(e.amount), 0);
-    const totalPayments = entries.filter(e => ["PAYMENT", "REFUND"].includes(e.entry_type)).reduce((acc, e) => acc + Math.abs(Number(e.amount)), 0);
+    // Net inflow: PAYMENT entries are stored negative (trg_payment_to_folio
+    // inserts -amount); a REFUND stored positive correctly reduces this.
+    // abs() here would count a refund as money received.
+    const totalPayments = -entries.filter(e => ["PAYMENT", "REFUND"].includes(e.entry_type)).reduce((acc, e) => acc + Number(e.amount), 0);
 
     // Fallback to arrival.pending_amount if no entries yet? Actually arrival view calculates it better.
     // Let's rely on the real-time entries we just fetched.
@@ -779,7 +848,7 @@ export default function FolioDrawer({ isOpen, onClose, arrival }: FolioDrawerPro
                                         className="w-full flex items-center justify-between px-4 py-3 bg-[#F9F9F9] border border-gray-200 rounded-xl text-left focus:outline-none focus:ring-2 focus:ring-amber-600/20 group"
                                     >
                                         <div className="flex items-center gap-3 font-semibold text-gray-900 text-[15px]">
-                                            <span className="text-emerald-600">💵</span> {paymentMethod === "CASH" ? "Cash" : paymentMethod === "CARD" ? "Card (Manual)" : paymentMethod === "UPI" ? "UPI" : "Bank Transfer"}
+                                            <span className="text-emerald-600">💵</span> {paymentMethod === "CASH" ? "Cash" : paymentMethod === "CARD" ? "Card (Manual)" : paymentMethod === "UPI" ? "UPI" : paymentMethod === "RAZORPAY" ? "Razorpay (Online)" : "Bank Transfer"}
                                         </div>
                                         <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isPaymentMethodOpen ? "rotate-180" : ""}`} />
                                     </button>
@@ -791,7 +860,12 @@ export default function FolioDrawer({ isOpen, onClose, arrival }: FolioDrawerPro
                                                 { id: "CASH", label: "Cash", icon: "💵", color: "text-emerald-600" },
                                                 { id: "CARD", label: "Card (Manual)", icon: "💳", color: "text-blue-600" },
                                                 { id: "BANK_TRANSFER", label: "Bank Transfer", icon: "🏦", color: "text-amber-700" },
-                                                { id: "UPI", label: "UPI", icon: "📱", color: "text-indigo-600" }
+                                                { id: "UPI", label: "UPI", icon: "📱", color: "text-indigo-600" },
+                                                // Online collection — only when the hotel has Razorpay
+                                                // configured in Owner Settings (DIRECT or ROUTE).
+                                                ...(razorpayMode !== "NONE"
+                                                    ? [{ id: "RAZORPAY", label: "Razorpay (Online)", icon: "⚡", color: "text-sky-600" }]
+                                                    : [])
                                             ].map(pm => (
                                                 <button
                                                     key={pm.id}
@@ -810,16 +884,28 @@ export default function FolioDrawer({ isOpen, onClose, arrival }: FolioDrawerPro
                             </div>
 
                             <div className="space-y-3">
-                                <div className="relative">
-                                    <span className="absolute left-4 py-3 text-gray-400 font-bold">₹</span>
-                                    <input
-                                        type="number"
-                                        placeholder="Enter Amount"
-                                        value={paymentAmount}
-                                        onChange={e => setPaymentAmount(e.target.value ? Number(e.target.value) : "")}
-                                        className="w-full pl-9 pr-4 py-3 bg-[#F9F9F9] border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-600/30 font-semibold text-[15px] placeholder-gray-400"
-                                    />
-                                </div>
+                                {paymentMethod === "RAZORPAY" ? (
+                                    <div className="px-4 py-3 bg-sky-50 border border-sky-200 rounded-xl text-xs text-sky-800 leading-relaxed">
+                                        Collects the <span className="font-bold">full outstanding balance of ₹{outstandingBalance.toLocaleString('en-IN')}</span> via
+                                        Razorpay checkout. The amount is computed and verified server-side from the folio.
+                                    </div>
+                                ) : (
+                                    <div className="relative">
+                                        <span className="absolute left-4 py-3 text-gray-400 font-bold">₹</span>
+                                        <input
+                                            type="number"
+                                            placeholder="Enter Amount"
+                                            value={paymentAmount}
+                                            onChange={e => setPaymentAmount(e.target.value ? Number(e.target.value) : "")}
+                                            className="w-full pl-9 pr-4 py-3 bg-[#F9F9F9] border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-600/30 font-semibold text-[15px] placeholder-gray-400"
+                                        />
+                                    </div>
+                                )}
+                                {paymentError && (
+                                    <div className="px-4 py-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 leading-relaxed">
+                                        {paymentError}
+                                    </div>
+                                )}
                                 <input
                                     type="text"
                                     placeholder="Enter a note (optional)"
@@ -829,10 +915,10 @@ export default function FolioDrawer({ isOpen, onClose, arrival }: FolioDrawerPro
 
                             <button
                                 onClick={handleRecordPayment}
-                                disabled={paymentLoading || !paymentAmount}
+                                disabled={paymentLoading || (paymentMethod === "RAZORPAY" ? outstandingBalance <= 0 : !paymentAmount)}
                                 className="w-full py-3.5 mt-2 bg-gradient-to-br from-[#CD955B] to-[#AD763D] text-white font-bold text-[15px] rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                {paymentLoading ? "Processing..." : "Record Payment"}
+                                {paymentLoading ? "Processing..." : paymentMethod === "RAZORPAY" ? "Pay with Razorpay" : "Record Payment"}
                             </button>
                         </div>
                     </div>

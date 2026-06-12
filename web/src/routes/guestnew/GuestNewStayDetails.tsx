@@ -17,7 +17,8 @@ type Stay = {
     bill_total?: number | null;
     room_type?: string | null;
     booking_code?: string | null;
-    guests?: number;
+    adults?: number;
+    children?: number;
     room_charge?: number;
     city_tax?: number;
 };
@@ -96,7 +97,12 @@ export default function GuestNewStayDetails() {
                         bill_total: data.bill_total,
                         room_type: data.room_type || "Standard",
                         booking_code: bookingCode,
-                        guests: data.guests || 1,
+                        // Real party size from the booking (bookings.adults_total/
+                        // children_total), surfaced via user_recent_stays. Falls back
+                        // to the booking column default (1 adult) only when genuinely
+                        // absent — never a fabricated constant.
+                        adults: data.adults_total ?? 1,
+                        children: data.children_total ?? 0,
                         room_charge: data.room_charge || (data.bill_total ? data.bill_total * 0.97 : 0),
                         city_tax: data.city_tax || (data.bill_total ? data.bill_total * 0.03 : 0),
                     });
@@ -392,7 +398,10 @@ export default function GuestNewStayDetails() {
                     </div>
                     <div className="gn-stay-detail__item">
                         <span className="gn-stay-detail__item-icon">👤</span>
-                        <span>{stay.guests} Adult{stay.guests !== 1 ? "s" : ""}</span>
+                        <span>
+                            {(stay.adults ?? 1)} Adult{(stay.adults ?? 1) !== 1 ? "s" : ""}
+                            {stay.children ? ` · ${stay.children} Child${stay.children !== 1 ? "ren" : ""}` : ""}
+                        </span>
                     </div>
                 </div>
 

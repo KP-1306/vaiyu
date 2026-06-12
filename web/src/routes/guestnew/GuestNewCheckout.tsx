@@ -24,7 +24,8 @@ type Stay = {
     room_charge?: number;
     city_tax?: number;
     room_number?: string;
-    guests?: number;
+    adults?: number;
+    children?: number;
     booking_code?: string;
     status?: string;
 };
@@ -109,7 +110,9 @@ export default function GuestNewCheckout() {
                         room_charge: active.bill_total || 0,
                         city_tax: active.city_tax || 0,
                         room_number: active.room_number || "402",
-                        guests: active.guests || 2,
+                        // Real party size from the booking, not a hardcoded constant.
+                        adults: active.adults_total ?? 1,
+                        children: active.children_total ?? 0,
                         booking_code: active.booking_code,
                         status: stayRow?.status
                     });
@@ -388,7 +391,10 @@ export default function GuestNewCheckout() {
                                 <div className="gn-inset-card p-4 flex justify-between items-center h-[54px] cursor-pointer hover:bg-white/5 transition-colors">
                                     <div className="flex items-center gap-3 text-sm text-white/80">
                                         <Users className="w-4 h-4 size-4" />
-                                        <span>{stay.guests} Adults</span>
+                                        <span>
+                                            {(stay.adults ?? 1)} Adult{(stay.adults ?? 1) !== 1 ? "s" : ""}
+                                            {stay.children ? ` · ${stay.children} Child${stay.children !== 1 ? "ren" : ""}` : ""}
+                                        </span>
                                     </div>
                                     <ChevronRight className="w-4 h-4 opacity-30" />
                                 </div>

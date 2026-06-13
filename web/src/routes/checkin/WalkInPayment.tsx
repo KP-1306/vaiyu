@@ -505,20 +505,24 @@ export default function WalkInPayment() {
             if (compMode) {
                 // nothing to collect
             } else if (paymentMode === "CASH") {
-                // Direct insert. Trigger trg_payment_to_folio creates the
-                // matching folio_entries PAYMENT row when status='COMPLETED'.
-                const { error: payErr } = await supabase.from("payments").insert({
-                    hotel_id: hotelId,
-                    booking_id: booking.bookingId,
-                    folio_id: booking.folioId,
-                    amount: liveTotals.totalPayable,
-                    currency: "INR",
-                    method: "CASH",
-                    status: "COMPLETED",
-                    collected_by: booking.actorId,
-                    notes: "Cash collected at front desk (walk-in)",
+                // Settle the full folio balance via the hardened collect_payment
+                // RPC (booking-locked, overpayment-guarded, idempotent) — the
+                // same path FolioDrawer uses. p_amount=null means "settle in
+                // full", so the cash total is computed server-side from the
+                // folio, never trusted from the client (the client's tax is
+                // unrounded-on-aggregate, the folio's is rounded per room, so
+                // the two can differ by paise). trg_payment_to_folio posts the
+                // matching PAYMENT entry on the COMPLETED insert.
+                const { data: payResult, error: payErr } = await supabase.rpc("collect_payment", {
+                    p_booking_id: booking.bookingId,
+                    p_amount: null,
+                    p_method: "CASH",
+                    p_idempotency_key: crypto.randomUUID(),
                 });
-                if (payErr) throw new Error(`Cash payment record failed: ${payErr.message}`);
+                if (payErr) throw new Error(`Cash payment failed: ${payErr.message}`);
+                if (payResult && (payResult as any).success === false) {
+                    throw new Error((payResult as any).error || "Cash payment failed");
+                }
             } else if (paymentMode === "ONLINE") {
                 // Razorpay flow: facade dispatches to Route or Direct based on
                 // the hotel's razorpay_mode (chosen in Owner Settings).

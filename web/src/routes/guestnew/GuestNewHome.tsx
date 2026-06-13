@@ -37,6 +37,7 @@ type Stay = {
     city_tax?: number | null;
     guests?: number;
     precheckin_token?: string | null;
+    expected_arrival_at?: string | null;
     precheckin_expires_at?: string | null;
     precheckin_used_at?: string | null;
     total_nights?: number | null;
@@ -59,6 +60,11 @@ export default function GuestNewHome() {
     // Google Maps directions to the hotel — built from its real address/city
     // (null when neither is set → button hidden, never a wrong-place guess).
     const [directionsUrl, setDirectionsUrl] = useState<string | null>(null);
+    // Arrival ETA share — "when will you arrive?" on the upcoming card.
+    const [etaPickerOpen, setEtaPickerOpen] = useState(false);
+    const [etaTimeInput, setEtaTimeInput] = useState("");
+    const [etaSaving, setEtaSaving] = useState(false);
+    const [etaError, setEtaError] = useState<string | null>(null);
     const [allStays, setAllStays] = useState<Stay[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeRequests, setActiveRequests] = useState(0);
@@ -131,6 +137,7 @@ export default function GuestNewHome() {
                             outstanding_balance: b.outstanding_balance,
                             city_tax: (b.total_amount || 0) * 0.03,
                             precheckin_token: b.precheckin_token,
+                            expected_arrival_at: b.expected_arrival_at,
                             precheckin_expires_at: b.precheckin_expires_at,
                             precheckin_used_at: b.precheckin_used_at,
                             room_types: b.room_types, // Array of room type names
@@ -926,6 +933,88 @@ export default function GuestNewHome() {
                                                 </div>
                                                 <div style={{ fontSize: '0.85rem', color: '#e5c158', fontWeight: 600 }}>
                                                     {getSmartTimeLabel(currentStay.check_in, 'arrival')}
+                                                </div>
+                                                {/* Arrival ETA share — guest tells the hotel when they'll
+                                                    actually reach (vs the policy check-in time above). */}
+                                                <div style={{ marginTop: '6px', fontSize: '0.85rem' }}>
+                                                    {!etaPickerOpen ? (
+                                                        currentStay.expected_arrival_at ? (
+                                                            <span style={{ color: 'rgba(255,255,255,0.85)' }}>
+                                                                🕐 Your ETA: <strong>{formatIstTime(currentStay.expected_arrival_at)}</strong>
+                                                                {' '}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => { setEtaError(null); setEtaPickerOpen(true); }}
+                                                                    style={{ background: 'none', border: 'none', color: '#e5c158', cursor: 'pointer', textDecoration: 'underline', fontSize: '0.8rem', padding: 0 }}
+                                                                >
+                                                                    Change
+                                                                </button>
+                                                            </span>
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => { setEtaError(null); setEtaPickerOpen(true); }}
+                                                                style={{ background: 'none', border: '1px solid rgba(229,193,88,0.5)', borderRadius: '6px', color: '#e5c158', cursor: 'pointer', fontSize: '0.8rem', padding: '3px 10px' }}
+                                                            >
+                                                                🕐 Share arrival time
+                                                            </button>
+                                                        )
+                                                    ) : (
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                                            <input
+                                                                type="time"
+                                                                value={etaTimeInput}
+                                                                onChange={(e) => setEtaTimeInput(e.target.value)}
+                                                                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px', color: '#fff', fontSize: '0.8rem', padding: '3px 6px' }}
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                disabled={etaSaving || !etaTimeInput}
+                                                                onClick={async () => {
+                                                                    setEtaSaving(true); setEtaError(null);
+                                                                    const { data, error } = await supabase.rpc('set_guest_arrival_eta', {
+                                                                        p_booking_id: currentStay.id,
+                                                                        p_eta_time: etaTimeInput,
+                                                                    });
+                                                                    setEtaSaving(false);
+                                                                    if (error) { setEtaError('Could not save — please try again.'); return; }
+                                                                    setCurrentStay({ ...currentStay, expected_arrival_at: data?.expected_arrival_at ?? null });
+                                                                    setEtaPickerOpen(false);
+                                                                }}
+                                                                style={{ background: '#e5c158', border: 'none', borderRadius: '6px', color: '#0a0a0c', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, padding: '4px 10px', opacity: etaSaving || !etaTimeInput ? 0.5 : 1 }}
+                                                            >
+                                                                {etaSaving ? 'Saving…' : 'Save'}
+                                                            </button>
+                                                            {currentStay.expected_arrival_at && (
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={etaSaving}
+                                                                    onClick={async () => {
+                                                                        setEtaSaving(true); setEtaError(null);
+                                                                        const { error } = await supabase.rpc('set_guest_arrival_eta', {
+                                                                            p_booking_id: currentStay.id,
+                                                                            p_eta_time: null,
+                                                                        });
+                                                                        setEtaSaving(false);
+                                                                        if (error) { setEtaError('Could not clear — please try again.'); return; }
+                                                                        setCurrentStay({ ...currentStay, expected_arrival_at: null });
+                                                                        setEtaPickerOpen(false);
+                                                                    }}
+                                                                    style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontSize: '0.8rem', textDecoration: 'underline', padding: 0 }}
+                                                                >
+                                                                    Clear
+                                                                </button>
+                                                            )}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setEtaPickerOpen(false)}
+                                                                style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontSize: '0.8rem', padding: 0 }}
+                                                            >
+                                                                Cancel
+                                                            </button>
+                                                            {etaError && <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>{etaError}</span>}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>

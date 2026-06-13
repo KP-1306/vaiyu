@@ -72,6 +72,7 @@ interface OperationalArrival {
     active_stay_id?: string | null;
     adults_total: number | null;
     children_total: number | null;
+    expected_arrival_at: string | null;
 }
 
 type DateFilter = "TODAY" | "TOMORROW" | "LATE" | "CUSTOM" | "ALL";
@@ -954,6 +955,12 @@ export default function OwnerArrivals() {
                         </div>
                     )}
                 </div>
+                {/* Guest-shared ETA — only meaningful before any room checks in */}
+                {arrival.expected_arrival_at && arrival.rooms_checked_in === 0 && (
+                    <div className="mt-1 inline-flex items-center gap-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
+                        🕐 Guest ETA {new Date(arrival.expected_arrival_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                )}
             </td>
 
             {/* Rooms / Guests */}

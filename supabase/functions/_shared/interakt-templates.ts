@@ -222,41 +222,108 @@ const EXTENSION_REJECTED_GUEST_DEF: InteraktTemplateDef = {
   },
 };
 
+// Meta template — name: checkin_welcome · lang: en · category: UTILITY
+//   Body: Welcome to {{1}}, {{2}}! 🎉 You're all checked in to room {{3}}. We
+//         hope you have a wonderful stay — just reply here if you need anything.
+const CHECKIN_WELCOME_DEF: InteraktTemplateDef = {
+  name: 'checkin_welcome',
+  languageCode: 'en',
+  headerKind: 'NONE',
+  mapPayload({ guestName, hotelName, payload }) {
+    const hotel = String(payload.hotel_name || hotelName || 'our hotel');
+    const loc = payload.location;
+    const room = typeof loc === 'string' && loc.trim() ? loc.trim() : 'your room';
+    return { bodyValues: [hotel, guestName || 'Valued Guest', room] };
+  },
+};
+
+// Meta template — name: payment_receipt · lang: en · category: UTILITY
+//   Body: Hi {{1}}, we've received your payment of {{2}} at {{3}}. Thank you!
+//         This message is your confirmation.
+const PAYMENT_RECEIPT_DEF: InteraktTemplateDef = {
+  name: 'payment_receipt',
+  languageCode: 'en',
+  headerKind: 'NONE',
+  mapPayload({ guestName, hotelName, payload }) {
+    const hotel = String(payload.hotel_name || hotelName || 'our hotel');
+    const amountNum = Number(payload.amount) || 0;
+    const currency = String(payload.currency || 'INR');
+    const symbol = currency === 'INR' ? '₹' : `${currency} `;
+    const amount = `${symbol}${amountNum.toLocaleString('en-IN')}`;
+    return { bodyValues: [guestName || 'Valued Guest', amount, hotel] };
+  },
+};
+
+// Meta template — name: checkout_reminder · lang: en · category: UTILITY
+//   Body: Hi {{1}}, a friendly reminder that checkout at {{2}} is today by
+//         {{3}}. Need a late checkout or help with your bags? Just reply here.
+const CHECKOUT_REMINDER_DEF: InteraktTemplateDef = {
+  name: 'checkout_reminder',
+  languageCode: 'en',
+  headerKind: 'NONE',
+  mapPayload({ guestName, hotelName, payload }) {
+    const hotel = String(payload.hotel_name || hotelName || 'our hotel');
+    const t = payload.checkout_time;
+    const time = typeof t === 'string' && t.trim() ? t.trim() : 'your scheduled time';
+    return { bodyValues: [guestName || 'Valued Guest', hotel, time] };
+  },
+};
+
+// ─── Per-template Meta-approval gate ─────────────────────────────────────────
+// Every template below is code-complete. A template only goes LIVE once its
+// Meta template is APPROVED on Interakt — flip its flag to true at that moment.
+// That single boolean is the ONLY change needed (config, not code). Until then
+// it behaves as a placeholder and the worker defers its queued rows cleanly —
+// no premature or failed sends, so prod stays clean while approvals are pending.
+const TEMPLATE_APPROVED: Record<string, boolean> = {
+  service_request_completed: false,
+  precheckin_link:           false,
+  precheckin_reminder_1:     false,
+  precheckin_reminder_2:     false,
+  post_checkout_thankyou:    false,
+  extension_approved_guest:  false,
+  extension_rejected_guest:  false,
+  checkin_welcome:           false,
+  payment_receipt:           false,
+  checkout_reminder:         false,
+};
+
+/** Real def once its Meta template is approved; otherwise the placeholder. */
+function gated(code: string, def: InteraktTemplateDef): InteraktTemplateDef {
+  return TEMPLATE_APPROVED[code] ? def : PLACEHOLDER;
+}
+
 /**
  * Add one row per approved Interakt template. The KEY here must match the
  * `template_code` column in notification_queue (the value enqueue_* functions
- * write today).
+ * write today). Code-complete templates are wired through gated() so they only
+ * activate when their TEMPLATE_APPROVED flag is flipped on Meta approval.
  */
 export const INTERAKT_TEMPLATES: Record<string, InteraktTemplateDef> = {
   // ─── Pre-checkin lifecycle ────────────────────────────────────────────────
-  // Code-complete & active; gated only by Meta approval of the matching
-  // templates (see the *_DEF blocks above). Enqueued today by the precheckin
-  // crons/RPCs.
-  precheckin_link:       PRECHECKIN_LINK_DEF,
-  precheckin_reminder_1: PRECHECKIN_REMINDER_1_DEF,
-  precheckin_reminder_2: PRECHECKIN_REMINDER_2_DEF,
+  precheckin_link:       gated('precheckin_link', PRECHECKIN_LINK_DEF),
+  precheckin_reminder_1: gated('precheckin_reminder_1', PRECHECKIN_REMINDER_1_DEF),
+  precheckin_reminder_2: gated('precheckin_reminder_2', PRECHECKIN_REMINDER_2_DEF),
 
   // ─── Stay lifecycle ──────────────────────────────────────────────────────
-  // checkin_welcome / checkout_reminder have no enqueue path yet (no trigger
-  // writes them) — left as placeholders until that wiring + copy are decided.
-  checkin_welcome:       PLACEHOLDER,
-  checkout_reminder:     PLACEHOLDER,
-  post_checkout_thankyou: POST_CHECKOUT_THANKYOU_DEF,
+  checkin_welcome:        gated('checkin_welcome', CHECKIN_WELCOME_DEF),
+  checkout_reminder:      gated('checkout_reminder', CHECKOUT_REMINDER_DEF),
+  post_checkout_thankyou: gated('post_checkout_thankyou', POST_CHECKOUT_THANKYOU_DEF),
 
   // ─── Stay extension ──────────────────────────────────────────────────────
-  extension_approved_guest: EXTENSION_APPROVED_GUEST_DEF,
-  extension_rejected_guest: EXTENSION_REJECTED_GUEST_DEF,
+  extension_approved_guest: gated('extension_approved_guest', EXTENSION_APPROVED_GUEST_DEF),
+  extension_rejected_guest: gated('extension_rejected_guest', EXTENSION_REJECTED_GUEST_DEF),
 
   // ─── Money ───────────────────────────────────────────────────────────────
-  payment_receipt:       PLACEHOLDER,
+  payment_receipt:       gated('payment_receipt', PAYMENT_RECEIPT_DEF),
 
-  // ─── Sales / leads ───────────────────────────────────────────────────────
+  // ─── Sales / leads (email path, not Interakt) ────────────────────────────
   quote_send_v1:         PLACEHOLDER,
 
-  // ─── Staff onboarding ────────────────────────────────────────────────────
+  // ─── Staff onboarding (email path, not Interakt) ─────────────────────────
   staff_invite:          PLACEHOLDER,
 
-  // ─── Inbound service-request hybrid flow ─────────────────────────────────
+  // ─── Inbound service-request hybrid flow (copy TBD at approval) ──────────
   how_can_we_help:       PLACEHOLDER,
   housekeeping_ack:      PLACEHOLDER,
   food_menu_link:        PLACEHOLDER,
@@ -266,10 +333,7 @@ export const INTERAKT_TEMPLATES: Record<string, InteraktTemplateDef> = {
   which_property:        PLACEHOLDER, // multi-hotel disambiguation
 
   // ─── Outbound service-request lifecycle ──────────────────────────────────
-  // Code-complete & active; gated only by Meta approval of the matching
-  // template (see SERVICE_REQUEST_COMPLETED_DEF above). Enqueued by the
-  // trg_enqueue_service_request_completed DB trigger.
-  service_request_completed: SERVICE_REQUEST_COMPLETED_DEF,
+  service_request_completed: gated('service_request_completed', SERVICE_REQUEST_COMPLETED_DEF),
 };
 
 // ─── Lead drip ────────────────────────────────────────────────────────────

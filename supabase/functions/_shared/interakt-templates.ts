@@ -70,6 +70,37 @@ const PLACEHOLDER: InteraktTemplateDef = {
   },
 };
 
+// ─── service_request_completed (outbound) ────────────────────────────────────
+//
+// Sent when staff complete a guest's service request (enqueued by the
+// trg_enqueue_service_request_completed DB trigger). This is a fully-coded,
+// ACTIVE def — the only remaining step is Meta/Interakt approval of a template
+// whose NAME and BODY match below; on approval it sends with zero code change.
+//
+// Submit this template to Meta via Interakt exactly as:
+//   Name:     service_request_completed
+//   Language: en
+//   Category: UTILITY
+//   Body:     Hi {{1}}, your request for "{{2}}" at {{3}} is now complete.
+//             We hope everything's perfect — just reply here if there's
+//             anything else we can do. 🙏
+//   (no header, no buttons; 3 body variables in this order)
+const SERVICE_REQUEST_COMPLETED_DEF: InteraktTemplateDef = {
+  name: 'service_request_completed',
+  languageCode: 'en',
+  headerKind: 'NONE',
+  mapPayload({ guestName, hotelName, payload }) {
+    const service = String(payload.service_title ?? 'your request').trim() || 'your request';
+    return {
+      bodyValues: [
+        guestName || 'Valued Guest',
+        service,
+        hotelName || 'our hotel',
+      ],
+    };
+  },
+};
+
 /**
  * Add one row per approved Interakt template. The KEY here must match the
  * `template_code` column in notification_queue (the value enqueue_* functions
@@ -107,6 +138,12 @@ export const INTERAKT_TEMPLATES: Record<string, InteraktTemplateDef> = {
   staff_handoff:         PLACEHOLDER,
   unknown_guest:         PLACEHOLDER,
   which_property:        PLACEHOLDER, // multi-hotel disambiguation
+
+  // ─── Outbound service-request lifecycle ──────────────────────────────────
+  // Code-complete & active; gated only by Meta approval of the matching
+  // template (see SERVICE_REQUEST_COMPLETED_DEF above). Enqueued by the
+  // trg_enqueue_service_request_completed DB trigger.
+  service_request_completed: SERVICE_REQUEST_COMPLETED_DEF,
 };
 
 // ─── Lead drip ────────────────────────────────────────────────────────────

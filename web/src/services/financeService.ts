@@ -318,20 +318,24 @@ export async function getFinanceSummary(
    ============================================================ */
 
 export type OutstandingBalanceSummary = {
-  totalOwed: number;          // sum of positive balances across OPEN folios
-  staysWithBalance: number;   // count of OPEN folios with a positive balance
-  totalOpenFolios: number;    // count of all OPEN folios (settled or not)
-  guestRefundOwed: number;    // negative-balance OPEN folios (hotel owes guest)
+  totalOwed: number;          // in-house guests' positive balances (collect now)
+  staysWithBalance: number;   // count of in-house folios with a positive balance
+  totalOpenFolios: number;    // count of in-house (active-stay) OPEN folios
+  guestRefundOwed: number;    // in-house negative balances (hotel owes guest)
+  departedOwed: number;       // receivables: departed guests who still owe (chase)
+  departedCount: number;      // count of departed folios with a positive balance
 };
 
 /**
  * Returns aggregate outstanding-balance numbers for the owner dashboard.
- * Computed by summing folio_entries.amount per OPEN folio (charges positive,
- * payments/discounts negative). Filters out closed folios.
  *
- * Data volume note: scales linearly with active folio entries. Fine up to a
- * few thousand entries per hotel — for larger properties this should move
- * into a server-side view or RPC.
+ * Delegates to the `get_outstanding_balance_summary` RPC, which is the single
+ * source of truth for this money math and is membership-guarded. It splits the
+ * guest ledger (money owed by currently in-house guests — collect at the desk
+ * now) from the city ledger (departed guests who left with a balance via a
+ * forced / auto checkout — receivables to chase). "In-house" is decided by the
+ * stay status, not by folio.status, so the figures are correct regardless of
+ * folio lifecycle state.
  */
 export async function getOutstandingBalanceSummary(
   hotelId: string,
@@ -341,42 +345,26 @@ export async function getOutstandingBalanceSummary(
     staysWithBalance: 0,
     totalOpenFolios: 0,
     guestRefundOwed: 0,
+    departedOwed: 0,
+    departedCount: 0,
   };
   if (!hotelId) return empty;
 
-  // Pull all entries for OPEN folios in one round-trip
-  const { data, error } = await supabase
-    .from('folio_entries')
-    .select('folio_id, amount, folios!inner(status)')
-    .eq('hotel_id', hotelId)
-    .eq('folios.status', 'OPEN');
+  const { data, error } = await supabase.rpc('get_outstanding_balance_summary', {
+    p_hotel_id: hotelId,
+  });
 
-  if (error || !data) return empty;
-
-  // Aggregate per folio
-  const balanceByFolio = new Map<string, number>();
-  for (const row of data as { folio_id: string; amount: number | string }[]) {
-    const cur = balanceByFolio.get(row.folio_id) ?? 0;
-    balanceByFolio.set(row.folio_id, cur + Number(row.amount));
-  }
-
-  let totalOwed = 0;
-  let staysWithBalance = 0;
-  let guestRefundOwed = 0;
-  for (const balance of balanceByFolio.values()) {
-    if (balance > 0.005) {
-      totalOwed += balance;
-      staysWithBalance += 1;
-    } else if (balance < -0.005) {
-      guestRefundOwed += -balance;
-    }
-  }
+  // RPC returns a single-row table → take the first row.
+  const row = Array.isArray(data) ? data[0] : data;
+  if (error || !row) return empty;
 
   return {
-    totalOwed: Math.round(totalOwed * 100) / 100,
-    staysWithBalance,
-    totalOpenFolios: balanceByFolio.size,
-    guestRefundOwed: Math.round(guestRefundOwed * 100) / 100,
+    totalOwed: Number(row.in_house_owed) || 0,
+    staysWithBalance: Number(row.in_house_stays) || 0,
+    totalOpenFolios: Number(row.in_house_open_folios) || 0,
+    guestRefundOwed: Number(row.refund_owed) || 0,
+    departedOwed: Number(row.departed_owed) || 0,
+    departedCount: Number(row.departed_count) || 0,
   };
 }
 

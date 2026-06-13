@@ -3329,12 +3329,14 @@ function OutstandingBalanceCard({
     );
   }
 
-  const { totalOwed, staysWithBalance, totalOpenFolios, guestRefundOwed } = summary;
+  const { totalOwed, staysWithBalance, totalOpenFolios, guestRefundOwed, departedOwed, departedCount } = summary;
   const hasOwed = totalOwed > 0;
   const hasRefund = guestRefundOwed > 0;
+  // Departed guests who left with a balance (forced / auto checkout) — receivables
+  const hasDeparted = departedOwed > 0;
   // Fully settled: there are open folios but every one is at zero balance
   const allSettled = totalOpenFolios > 0 && !hasOwed && !hasRefund;
-  // No active stays at all
+  // No active (in-house) folios at all
   const noActive = totalOpenFolios === 0;
 
   return (
@@ -3348,7 +3350,7 @@ function OutstandingBalanceCard({
             previous always-tinted treatment implied action on a "nothing-to-do"
             card, which read as misleading. */}
         <div className={`h-10 w-10 shrink-0 rounded-xl border flex items-center justify-center ${
-          hasOwed
+          hasOwed || hasDeparted
             ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
             : noActive
               ? "bg-slate-800/40 text-slate-600 border-slate-700/50"
@@ -3395,6 +3397,17 @@ function OutstandingBalanceCard({
         <div className="mt-2 flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-sky-500/20 bg-sky-500/5">
           <span className="text-[10px] font-bold uppercase tracking-widest text-sky-400">Refund pending</span>
           <span className="text-xs font-mono text-sky-300 ml-auto">{fmtINR(guestRefundOwed)}</span>
+        </div>
+      )}
+
+      {/* Departed guests who still owe — receivables (city ledger), chase later.
+          Kept distinct from the in-house figure so front-desk "collect now"
+          isn't conflated with "chase a guest who already left". */}
+      {hasDeparted && (
+        <div className="mt-2 flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-rose-500/20 bg-rose-500/5">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-rose-400">Departed · owes</span>
+          <span className="text-[11px] text-slate-400">{departedCount} {departedCount === 1 ? "guest" : "guests"}</span>
+          <span className="text-xs font-mono text-rose-300 ml-auto">{fmtINR(departedOwed)}</span>
         </div>
       )}
 

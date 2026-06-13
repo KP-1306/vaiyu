@@ -101,6 +101,127 @@ const SERVICE_REQUEST_COMPLETED_DEF: InteraktTemplateDef = {
   },
 };
 
+// ─── Lifecycle template defs (outbound) ──────────────────────────────────────
+//
+// Copy ported faithfully from formatWhatsAppMessage() in the send-notifications
+// worker (the META_DIRECT free-text path), so the Interakt template reads
+// identically to the message that already shipped. Each is ACTIVE — the only
+// remaining step is Meta/Interakt approval of a template whose NAME and BODY
+// match the comment above it; on approval it sends with zero code change.
+//
+// Note on links: these put the deep link in a body variable to match the
+// existing copy. If Meta prefers, the link can instead be a URL button at
+// submission time — adjust the body + add a `buttons` URL spec here to match.
+
+/** Build the guest pre-check-in deep link from payload.link or payload.token. */
+function precheckinLink(payload: Record<string, unknown>): string {
+  const link = payload.link;
+  if (typeof link === 'string' && link.trim()) return link.trim();
+  const token = payload.token;
+  if (typeof token === 'string' && token.trim()) {
+    return `https://vaiyu.co.in/precheckin/${token.trim()}`;
+  }
+  return 'https://vaiyu.co.in';
+}
+
+/** Format an ISO timestamp as the Indian-style date the worker already uses. */
+function formatInDate(value: unknown, fallback: string): string {
+  if (!value) return fallback;
+  const d = new Date(value as string);
+  if (Number.isNaN(d.getTime())) return fallback;
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// Meta template — name: precheckin_link · lang: en · category: UTILITY
+//   Body: Hello {{1}}, please complete your pre-check-in here: {{2}}
+const PRECHECKIN_LINK_DEF: InteraktTemplateDef = {
+  name: 'precheckin_link',
+  languageCode: 'en',
+  headerKind: 'NONE',
+  mapPayload({ guestName, payload }) {
+    return { bodyValues: [guestName || 'Valued Guest', precheckinLink(payload)] };
+  },
+};
+
+// Meta template — name: precheckin_reminder_1 · lang: en · category: UTILITY
+//   Body: Hi {{1}}, your stay is coming up tomorrow! Complete pre-check-in to save time: {{2}}
+const PRECHECKIN_REMINDER_1_DEF: InteraktTemplateDef = {
+  name: 'precheckin_reminder_1',
+  languageCode: 'en',
+  headerKind: 'NONE',
+  mapPayload({ guestName, payload }) {
+    return { bodyValues: [guestName || 'Valued Guest', precheckinLink(payload)] };
+  },
+};
+
+// Meta template — name: precheckin_reminder_2 · lang: en · category: UTILITY
+//   Body: Good morning {{1}}! We look forward to welcoming you today. Quick pre-check-in: {{2}}
+const PRECHECKIN_REMINDER_2_DEF: InteraktTemplateDef = {
+  name: 'precheckin_reminder_2',
+  languageCode: 'en',
+  headerKind: 'NONE',
+  mapPayload({ guestName, payload }) {
+    return { bodyValues: [guestName || 'Valued Guest', precheckinLink(payload)] };
+  },
+};
+
+// Meta template — name: post_checkout_thankyou · lang: en · category: UTILITY
+//   Body: Thank you for staying with us at {{1}}, {{2}}! We hope you had a
+//         wonderful experience. We'd love your feedback — it takes just a
+//         minute: {{3}}
+const POST_CHECKOUT_THANKYOU_DEF: InteraktTemplateDef = {
+  name: 'post_checkout_thankyou',
+  languageCode: 'en',
+  headerKind: 'NONE',
+  mapPayload({ guestName, hotelName, payload }) {
+    const hotel = String(payload.hotel_name || hotelName ||'our hotel');
+    const feedback = payload.feedback_token
+      ? `https://vaiyu.co.in/feedback/${String(payload.feedback_token)}`
+      : 'https://vaiyu.co.in';
+    return { bodyValues: [hotel, guestName || 'Valued Guest', feedback] };
+  },
+};
+
+// Meta template — name: extension_approved_guest · lang: en · category: UTILITY
+//   Body: Hi {{1}}, your stay extension at {{2}} is approved. New checkout:
+//         {{3}} ({{4}}). {{5}}
+//   {{4}} = "N additional night(s)"; {{5}} = charge line (always non-empty so
+//   Meta accepts the variable).
+const EXTENSION_APPROVED_GUEST_DEF: InteraktTemplateDef = {
+  name: 'extension_approved_guest',
+  languageCode: 'en',
+  headerKind: 'NONE',
+  mapPayload({ guestName, hotelName, payload }) {
+    const hotel = String(payload.hotel_name || hotelName ||'the hotel');
+    const newDate = formatInDate(payload.new_checkout_at, 'your new date');
+    const nights = Number(payload.additional_nights) || 1;
+    const nightsLabel = `${nights} additional night${nights === 1 ? '' : 's'}`;
+    const amount = Number(payload.additional_amount) || 0;
+    const chargeLine = amount > 0
+      ? `An additional charge of ₹${amount.toLocaleString('en-IN')} has been added to your folio.`
+      : 'No additional charge applies.';
+    return { bodyValues: [guestName || 'Valued Guest', hotel, newDate, nightsLabel, chargeLine] };
+  },
+};
+
+// Meta template — name: extension_rejected_guest · lang: en · category: UTILITY
+//   Body: Hi {{1}}, we're unable to extend your stay at {{2}} to {{3}}. {{4}}
+//         Please contact the front desk if you'd like to discuss alternatives.
+//   {{4}} = reason line (always non-empty).
+const EXTENSION_REJECTED_GUEST_DEF: InteraktTemplateDef = {
+  name: 'extension_rejected_guest',
+  languageCode: 'en',
+  headerKind: 'NONE',
+  mapPayload({ guestName, hotelName, payload }) {
+    const hotel = String(payload.hotel_name || hotelName ||'the hotel');
+    const reqDate = formatInDate(payload.requested_checkout_at, 'your requested date');
+    const reason = payload.staff_note
+      ? `Reason: ${String(payload.staff_note)}.`
+      : 'We would be glad to discuss other options with you.';
+    return { bodyValues: [guestName || 'Valued Guest', hotel, reqDate, reason] };
+  },
+};
+
 /**
  * Add one row per approved Interakt template. The KEY here must match the
  * `template_code` column in notification_queue (the value enqueue_* functions
@@ -108,18 +229,23 @@ const SERVICE_REQUEST_COMPLETED_DEF: InteraktTemplateDef = {
  */
 export const INTERAKT_TEMPLATES: Record<string, InteraktTemplateDef> = {
   // ─── Pre-checkin lifecycle ────────────────────────────────────────────────
-  precheckin_link:       PLACEHOLDER,
-  precheckin_reminder_1: PLACEHOLDER,
-  precheckin_reminder_2: PLACEHOLDER,
+  // Code-complete & active; gated only by Meta approval of the matching
+  // templates (see the *_DEF blocks above). Enqueued today by the precheckin
+  // crons/RPCs.
+  precheckin_link:       PRECHECKIN_LINK_DEF,
+  precheckin_reminder_1: PRECHECKIN_REMINDER_1_DEF,
+  precheckin_reminder_2: PRECHECKIN_REMINDER_2_DEF,
 
   // ─── Stay lifecycle ──────────────────────────────────────────────────────
+  // checkin_welcome / checkout_reminder have no enqueue path yet (no trigger
+  // writes them) — left as placeholders until that wiring + copy are decided.
   checkin_welcome:       PLACEHOLDER,
   checkout_reminder:     PLACEHOLDER,
-  post_checkout_thankyou: PLACEHOLDER,
+  post_checkout_thankyou: POST_CHECKOUT_THANKYOU_DEF,
 
   // ─── Stay extension ──────────────────────────────────────────────────────
-  extension_approved_guest: PLACEHOLDER,
-  extension_rejected_guest: PLACEHOLDER,
+  extension_approved_guest: EXTENSION_APPROVED_GUEST_DEF,
+  extension_rejected_guest: EXTENSION_REJECTED_GUEST_DEF,
 
   // ─── Money ───────────────────────────────────────────────────────────────
   payment_receipt:       PLACEHOLDER,

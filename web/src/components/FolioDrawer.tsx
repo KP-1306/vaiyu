@@ -65,6 +65,10 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
     const [paymentAmount, setPaymentAmount] = useState<number | "">("");
     const [paymentLoading, setPaymentLoading] = useState(false);
     const [paymentError, setPaymentError] = useState<string | null>(null);
+    // Idempotency key for the manual-collect RPC: fixed for one open dialog
+    // (so a retry/double-tap dedups), regenerated each time the dialog opens
+    // (so a genuine second payment is allowed).
+    const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string>("");
 
     // Hotel's Razorpay configuration (Owner Settings). NONE hides the online
     // option; DIRECT/ROUTE drives client dispatch at call time, same as walk-in.
@@ -87,6 +91,13 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
     useEffect(() => {
         setPaymentError(null);
     }, [paymentMethod]);
+
+    // Fresh idempotency key per dialog open. Within one open dialog the key is
+    // stable, so a network retry / double-tap of the same collection dedups
+    // server-side; reopening for another payment gets a new key.
+    useEffect(() => {
+        if (showCollectPayment) setPaymentIdempotencyKey(crypto.randomUUID());
+    }, [showCollectPayment]);
 
     // Refund modal state
     const [refundFor, setRefundFor] = useState<Transaction | null>(null);
@@ -208,6 +219,7 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
             p_booking_id: arrival.booking_id,
             p_amount: Number(paymentAmount),
             p_method: paymentMethod,
+            p_idempotency_key: paymentIdempotencyKey || crypto.randomUUID(),
         });
 
         if (!error) {

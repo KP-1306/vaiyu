@@ -467,7 +467,13 @@ export default function WalkInPayment() {
         // Identity is mandatory at check-in (compliance) — the *'d fields on the form.
         if (!idType) { setPaymentError("Select an ID type."); return; }
         if (!idNumber.trim()) { setPaymentError("Enter the guest's ID number."); return; }
-        if (idType === 'aadhaar' && idNumber.replace(/\D/g, '').length !== 12) {
+        // A returning guest's ID auto-loads MASKED (e.g. "XXXXXXXX4545") with
+        // idFromExistingDoc=true — it was already validated at its original
+        // capture, so don't re-run the 12-digit check on the masked value (it
+        // would strip to 4 digits and wrongly fail). Clearing the field to type a
+        // fresh number resets idFromExistingDoc, re-engaging the check.
+        const idIsOnFileMasked = idFromExistingDoc || idNumber.toUpperCase().includes("X");
+        if (idType === 'aadhaar' && !idIsOnFileMasked && idNumber.replace(/\D/g, '').length !== 12) {
             setPaymentError("Aadhaar number must be 12 digits."); return;
         }
         if (!frontImage && !existingFront) { setPaymentError("Capture the front of the guest's ID."); return; }

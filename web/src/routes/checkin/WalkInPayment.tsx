@@ -83,6 +83,9 @@ export default function WalkInPayment() {
     // hidden; DIRECT → use hotel's own keys; ROUTE → platform Linked Account.
     const [razorpayMode, setRazorpayMode] = useState<"NONE" | "DIRECT" | "ROUTE">("NONE");
     const [paymentError, setPaymentError] = useState<string | null>(null);
+    // Set when create_walkin_v3 reports the room type is reserved for an arriving
+    // guest (over-commit). A manager can consciously override.
+    const [reservationConflict, setReservationConflict] = useState<string | null>(null);
 
     // ─── Complimentary stay ────────────────────────────────
     // A comp is an authorized full waive (owner's guest, staff, service
@@ -383,7 +386,7 @@ export default function WalkInPayment() {
      * Razorpay flow). Returns the booking metadata needed for the
      * downstream payment step.
      */
-    const runCreateWalkInRpc = async (): Promise<{
+    const runCreateWalkInRpc = async (override = false): Promise<{
         bookingId: string;
         bookingCode: string;
         folioId: string;
@@ -423,7 +426,8 @@ export default function WalkInPayment() {
         });
 
         // 4. Run the RPC
-        const { data, error } = await supabase.rpc("create_walkin_v2", {
+        const { data, error } = await supabase.rpc("create_walkin_v3", {
+            p_override: override,
             p_hotel_id: hotelId,
             p_guest_details: {
                 ...guestDetails,
@@ -457,7 +461,8 @@ export default function WalkInPayment() {
         };
     };
 
-    const handlePayment = async () => {
+    const handlePayment = async (override = false) => {
+        setReservationConflict(null);
         // Validation gates
         // Identity is mandatory at check-in (compliance) — the *'d fields on the form.
         if (!idType) { setPaymentError("Select an ID type."); return; }
@@ -486,7 +491,7 @@ export default function WalkInPayment() {
 
         try {
             // Step 1 — booking + charges (RPC flags + audits the comp itself)
-            booking = await runCreateWalkInRpc();
+            booking = await runCreateWalkInRpc(override);
 
             // Step 2 — collect payment based on mode. Comp stays nett ₹0 — the
             // folio already balances, so there is nothing to collect and we
@@ -551,7 +556,13 @@ export default function WalkInPayment() {
             const msg = err instanceof RazorpayServiceError
                 ? err.message
                 : (err?.message ?? "Payment/Check-in failed");
-            setPaymentError(msg);
+            if (/reservation_conflict/i.test(msg)) {
+                setReservationConflict(
+                    "This room type is reserved for an arriving guest on these dates — no inventory is free. A manager can override to place this walk-in anyway.",
+                );
+            } else {
+                setPaymentError(msg);
+            }
         } finally {
             setProcessing(false);
         }
@@ -1273,6 +1284,33 @@ export default function WalkInPayment() {
                                         </button>
                                     </div>
                                 )}
+
+                                {/* Reservation over-commit — manager override */}
+                                {reservationConflict && (
+                                    <div className="flex items-start gap-3 p-4 rounded-xl border border-amber-500/30 bg-amber-500/[0.06]">
+                                        <AlertTriangle className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-xs font-bold uppercase tracking-widest text-amber-300 mb-1">Room type reserved</div>
+                                            <div className="text-xs text-amber-200/90 leading-relaxed mb-3">{reservationConflict}</div>
+                                            <button
+                                                type="button"
+                                                onClick={() => handlePayment(true)}
+                                                disabled={processing}
+                                                className="px-4 py-2 text-[10px] font-black uppercase tracking-widest text-black bg-amber-400 rounded-lg hover:bg-amber-300 transition disabled:opacity-50"
+                                            >
+                                                Override as manager
+                                            </button>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setReservationConflict(null)}
+                                            className="shrink-0 text-amber-400/60 hover:text-amber-300"
+                                            aria-label="Dismiss"
+                                        >
+                                            <X className="h-3.5 w-3.5" />
+                                        </button>
+                                    </div>
+                                )}
                             </div>
 
                             {/* ── Execute Action ── */}
@@ -1285,7 +1323,7 @@ export default function WalkInPayment() {
                                 </button>
 
                                 <button
-                                    onClick={handlePayment}
+                                    onClick={() => handlePayment(false)}
                                     disabled={processing || (compMode ? !compReason : (!!discountError || !paymentMode || hasUnpriced))}
                                     className="w-full py-6 text-2xl font-light tracking-tight text-black bg-gold-400 rounded-2xl hover:bg-gold-300 transition-all duration-500 group relative overflow-hidden shadow-[0_20px_40px_-10px_rgba(212,175,55,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
                                 >

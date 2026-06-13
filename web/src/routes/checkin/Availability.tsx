@@ -15,7 +15,7 @@ import { CheckInStepper } from "../../components/CheckInStepper";
 import { getEffectivePrices } from "../../services/pricingService";
 import { listRestrictionsForStay } from "../../services/rateService";
 import type { StayRestriction } from "../../types/rate";
-import { Ban, ShieldAlert } from "lucide-react";
+import { Ban, ShieldAlert, AlertTriangle } from "lucide-react";
 
 interface Room {
     id: string;
@@ -53,6 +53,9 @@ export default function Availability() {
     // Restrictions aggregated for this stay's date window. Drives both
     // (a) hiding stop-sell room types and (b) the MinLOS banner/block logic.
     const [restrictionsByType, setRestrictionsByType] = useState<Record<string, StayRestriction>>({});
+    // Reservation-aware warning: room types where confirmed (not-yet-arrived)
+    // reservations leave fewer free than the physically-vacant rooms shown.
+    const [reservationNote, setReservationNote] = useState<string | null>(null);
     const [restrictionsBlock, setRestrictionsBlock] = useState<string | null>(null);
 
     // Multi-room state
@@ -176,6 +179,32 @@ export default function Availability() {
                 };
             });
             setRooms(available);
+
+            // Reservation-aware warning (non-blocking): a physically-vacant room
+            // can still belong to a type that's fully committed to arriving guests.
+            // get_room_type_availability counts type-level reservations the room
+            // list can't see; flag types where free < vacant-rooms-shown.
+            try {
+                const { data: avail } = await supabase.rpc("get_room_type_availability", {
+                    p_hotel_id: hid,
+                    p_checkin_date: stayDetails.checkin_date,
+                    p_checkout_date: stayDetails.checkout_date,
+                });
+                const freeByType = new Map<string, number>((avail || []).map((a: any) => [a.room_type_id, a.free]));
+                const shownByType = new Map<string, number>();
+                for (const r of available) shownByType.set(r.room_type_id, (shownByType.get(r.room_type_id) || 0) + 1);
+                const warns: string[] = [];
+                for (const [tid, shown] of shownByType) {
+                    const free = freeByType.get(tid);
+                    if (free != null && free < shown) {
+                        const name = available.find((r: any) => r.room_type_id === tid)?.room_types?.name ?? "Room";
+                        warns.push(`${name}: ${shown - free} reserved for arriving guests (${free} free)`);
+                    }
+                }
+                setReservationNote(warns.length ? warns.join(" · ") : null);
+            } catch {
+                setReservationNote(null); // never block the screen on this
+            }
 
             // Compute hard blocks up-front so the UI can show a single
             // actionable error instead of letting staff progress and hit
@@ -496,6 +525,15 @@ export default function Availability() {
                         </div>
                     ) : showRoomList ? (
                         <div className="space-y-5 pb-10">
+                            {reservationNote && (
+                                <div className="gn-card border-amber-500/25 bg-amber-500/[0.06] p-4 flex items-start gap-3">
+                                    <AlertTriangle className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+                                    <div className="text-xs text-amber-200/90 leading-relaxed">
+                                        <span className="font-bold uppercase tracking-widest text-amber-300">Reserved for arriving guests</span>
+                                        <span className="block mt-1">{reservationNote}. A vacant room may still be held for a reservation — a manager can override at checkout if needed.</span>
+                                    </div>
+                                </div>
+                            )}
                             {/* Header row: back-to-types + count (only in two-step mode) */}
                             {!shouldFlatten && selectedGroup && (
                                 <div className="flex flex-wrap items-center justify-between gap-3">

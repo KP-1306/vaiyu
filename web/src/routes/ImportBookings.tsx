@@ -831,11 +831,6 @@ export default function ImportBookings() {
                         <h1 className="ib-title">Import Arrivals / Reservations</h1>
                         <p className="ib-subtitle text-sm">Select Hotel: <span className="ib-hotel-badge">{hotelName || "Loading..."}</span></p>
                     </div>
-                    {step === "UPLOAD_AND_MAP" && (
-                        <button onClick={downloadTemplate} className="text-sm text-indigo-400 font-medium hover:text-indigo-300 transition-colors hover:underline flex items-center gap-1">
-                            <Download size={16} /> Download Template
-                        </button>
-                    )}
                 </div>
 
                 {/* --- Step: Processing / Completed --- */}

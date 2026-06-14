@@ -61,6 +61,7 @@ import RouteAnnouncer from "./components/RouteAnnouncer";
 import OnlineStatusBar from "./components/OnlineStatusBar";
 import TopProgressBar from "./components/TopProgressBar";
 import UpdatePrompt from "./components/UpdatePrompt";
+import CommandPalette from "./components/CommandPalette";
 import Spinner from "./components/Spinner";
 
 // Route error UI
@@ -305,6 +306,7 @@ function RootLayout() {
       <PageViewTracker />
       <RouteAnnouncer />
       <UpdatePrompt />
+      <CommandPalette />
       <Outlet />
     </>
   );

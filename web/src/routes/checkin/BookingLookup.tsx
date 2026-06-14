@@ -29,32 +29,24 @@ export default function BookingLookup() {
         setError(null);
 
         try {
-            // Get current hotel ID from context or URL?
-            // Ideally checkin flow has a context. For now, we might need to hardcode or get from URL.
-            // Assuming we are in a multi-tenant context, maybe we should have :slug param?
-            // Since checkin is usually on-site, maybe we can fetch from a local config or assume text is enough for global unique if code?
-            // BUT our RPC requires hotel_id.
-            // Let's assume we can get it from the URL or a configured "Kiosk ID".
-            // For this MVP, let's look up the hotel from the hostname or a fixed ID?
-            // Let's use a placeholder ID for now or try to look it up.
-            // Actually, standard practice for kiosk is to have a config page to set hotel_id.
-            // Whatever, let's just use the first hotel or hardcoded for demo?
-            // Wait, CheckInHome didn't ask for hotel.
-
-            // FIX: We need to know which hotel we are checking in into!
-            // Maybe the route should be /checkin/:slug?
-            // Or simply we fetch the "current" hotel if we have a domain mapping.
-
-            // Let's fetch ANY booking matching the code for now, but the RPC requires hotel_id.
-            // I'll add a temporary "demo" hotel ID or fetch the first one.
-
-            // const { data: hotelData } = await supabase
-            //     .from("hotels")
-            //     .select("id")
-            //     .eq("slug", "TENANT1")
-            //     .maybeSingle();
-
-            const hotelId = null; // hotelData?.id || null; // Force global search for now
+            // Resolve the hotel from the slug in the URL. search_booking is now
+            // member-scoped (the caller must staff this hotel) and rejects a
+            // null/global search — the old "force global search" path was a
+            // cross-hotel PII leak. So pass the real hotel_id for this hotel.
+            if (!slug) {
+                setError("Missing hotel context. Open check-in from your hotel's dashboard.");
+                return;
+            }
+            const { data: hotelRow } = await supabase
+                .from("v_public_hotels")
+                .select("id")
+                .ilike("slug", slug)
+                .maybeSingle();
+            const hotelId = (hotelRow as { id?: string } | null)?.id ?? null;
+            if (!hotelId) {
+                setError("Could not resolve this hotel. Check the link and try again.");
+                return;
+            }
 
             const { data, error: rpcError } = await supabase.rpc("search_booking", {
                 p_query: query,

@@ -1,0 +1,27 @@
+{
+  "bookingNotFound": "Booking not found.",
+  "thankYou": "Thank you, {{name}}!",
+  "thankYouNoName": "Thank you!",
+  "feedbackHelps": "Your feedback helps us improve.",
+  "googleShare": "Would you share this on Google?",
+  "googleHelps": "It helps other travelers find us.",
+  "writeReview": "Write Review",
+  "managerAlerted": "Our manager has been alerted to your feedback and will look into it.",
+  "backToHome": "Back to Home",
+  "howWasStay": "How was your stay?",
+  "thankYouStaying": "Thank you for staying with us at {{hotel}}.",
+  "ratingLabels": {
+    "5": "Exceptional!",
+    "4": "Very Good",
+    "3": "Average",
+    "2": "Poor",
+    "1": "Disappointing"
+  },
+  "rateEach": "Please rate each category below.",
+  "placeholderLow": "What went wrong? Tell us more...",
+  "placeholderHigh": "Tell us about your stay...",
+  "later": "Later",
+  "submit": "Submit Review",
+  "submitting": "Submitting...",
+  "submitFailed": "Failed to submit review. Please try again."
+}

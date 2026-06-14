@@ -11,6 +11,7 @@ import {
   Link,
 } from "react-router-dom";
 import OwnerApplications from "./routes/admin/OwnerApplications";
+import "./i18n"; // initialise i18next (language resolution + lazy locale bundles)
 
 // ────────────── Lazy routes (grouped like your file) ──────────────
 const Scan = React.lazy(() => import("./routes/Scan"));
@@ -62,6 +63,7 @@ import OnlineStatusBar from "./components/OnlineStatusBar";
 import TopProgressBar from "./components/TopProgressBar";
 import UpdatePrompt from "./components/UpdatePrompt";
 import CommandPalette from "./components/CommandPalette";
+import OwnerBreadcrumb from "./components/owner/OwnerBreadcrumb";
 import Spinner from "./components/Spinner";
 
 // Route error UI
@@ -307,6 +309,7 @@ function RootLayout() {
       <RouteAnnouncer />
       <UpdatePrompt />
       <CommandPalette />
+      <OwnerBreadcrumb />
       <Outlet />
     </>
   );

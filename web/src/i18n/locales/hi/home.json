@@ -1,0 +1,131 @@
+{
+  "greeting": {
+    "welcome": "स्वागत है, {{name}}।",
+    "upcoming": "{{name}}, यह रहा आपका आगामी प्रवास।"
+  },
+  "card": {
+    "outstanding": "बकाया:",
+    "room": "कमरा: {{rooms}}",
+    "roomType": "कमरे का प्रकार: {{types}}",
+    "booking": "बुकिंग: {{code}}",
+    "arrival": "आगमन:",
+    "checkout": "चेक-आउट:",
+    "badgeUpcomingStay": "आगामी प्रवास",
+    "badgeUpcoming": "आगामी",
+    "badgeStayInProgress": "प्रवास जारी है"
+  },
+  "nights_one": "{{count}} रात",
+  "nights_other": "{{count}} रातें",
+  "eta": {
+    "yours": "आपका अनुमानित समय:",
+    "share": "आगमन समय साझा करें",
+    "saveError": "सेव नहीं हो सका — कृपया पुनः प्रयास करें।",
+    "clearError": "हटाया नहीं जा सका — कृपया पुनः प्रयास करें।"
+  },
+  "stay": {
+    "dayOf_one": "प्रवास: दिन {{day}} / {{count}} रात",
+    "dayOf_other": "प्रवास: दिन {{day}} / {{count}} रातें",
+    "checkoutDelayed": "चेक-आउट में देरी",
+    "checkoutDelayedWas": "चेक-आउट में देरी — नियत था {{date}}",
+    "checkoutToday": "आज चेक-आउट",
+    "finalNight": "आख़िरी रात",
+    "nightsLeft_one": "{{count}} रात शेष",
+    "nightsLeft_other": "{{count}} रातें शेष"
+  },
+  "smartTime": {
+    "today": "आज",
+    "tomorrow": "कल",
+    "checkinDelayed": "चेक-इन में देरी",
+    "ended": "समाप्त",
+    "startsIn_one": "{{count}} दिन में",
+    "startsIn_other": "{{count}} दिन में",
+    "endsIn_one": "{{count}} दिन में समाप्त",
+    "endsIn_other": "{{count}} दिन में समाप्त"
+  },
+  "buttons": {
+    "completePrecheckin": "प्री चेक-इन पूरा करें",
+    "getDirections": "रास्ता देखें",
+    "requestService": "सेवा अनुरोध",
+    "viewDetails": "विवरण देखें"
+  },
+  "actionGrid": {
+    "requestService": "सेवा अनुरोध",
+    "diningAmenities": "भोजन एवं सुविधाएँ",
+    "trackRequests": "अनुरोध ट्रैक करें",
+    "checkStatus": "स्थिति देखें",
+    "callReception": "रिसेप्शन पर कॉल करें",
+    "guestServices": "अतिथि सेवाएँ",
+    "completePrecheckin": "प्री चेक-इन पूरा करें",
+    "skipFrontDesk": "फ्रंट डेस्क की लाइन छोड़ें",
+    "checkout": "चेक-आउट",
+    "expressExit": "एक्सप्रेस चेक-आउट"
+  },
+  "tooltips": {
+    "afterCheckin": "अपने कमरे में चेक-इन करने के बाद उपलब्ध!",
+    "trackAfterRequest": "एक बार अनुरोध करने पर ट्रैकिंग उपलब्ध हो जाएगी!",
+    "expressCheckout": "एक्सप्रेस चेक-आउट आपके सक्रिय प्रवास के दौरान उपलब्ध है।"
+  },
+  "carousel": { "otherBookings": "अन्य बुकिंग ({{count}})" },
+  "empty": {
+    "noActiveStays": "कोई सक्रिय प्रवास नहीं मिला।",
+    "noStaysTitle": "कोई प्रवास नहीं मिला",
+    "noStaysBody": "आपके खाते से अभी कोई आगामी या सक्रिय प्रवास जुड़ा नहीं है। यदि आपके पास बुकिंग रेफरेंस कोड है, तो उसे देखकर जोड़ सकते हैं।",
+    "lookUpBooking": "बुकिंग देखें"
+  },
+  "folio": {
+    "title": "लाइव फोलियो",
+    "roomCharges": "कमरे का शुल्क",
+    "roomChargesTyped": "कमरे का शुल्क ({{type}})",
+    "foodDining": "भोजन एवं डाइनिंग",
+    "serviceCharges": "सेवा शुल्क",
+    "surcharge": "सरचार्ज",
+    "discount": "छूट",
+    "tax": "टैक्स",
+    "cityTax": "सिटी टैक्स",
+    "paymentsReceived": "प्राप्त भुगतान",
+    "currentTotal": "वर्तमान कुल:",
+    "downloadInvoice": "इनवॉइस डाउनलोड करें",
+    "clearDuesToDownload": "डाउनलोड के लिए बकाया चुकाएँ"
+  },
+  "requests": {
+    "title": "हाल के अनुरोध",
+    "viewAll": "सभी देखें",
+    "none": "अभी कोई सक्रिय अनुरोध नहीं है।"
+  },
+  "info": {
+    "title": "होटल जानकारी एवं सुविधाएँ",
+    "wifiNetwork": "वाई-फाई नेटवर्क",
+    "password": "पासवर्ड:",
+    "availableAfterCheckin": "(चेक-इन के बाद उपलब्ध)",
+    "breakfastHours": "नाश्ते का समय",
+    "guestNotes": "अतिथि नोट्स",
+    "propertyAmenities": "प्रॉपर्टी की सुविधाएँ"
+  },
+  "contact": {
+    "title": "संपर्क करें",
+    "callGuestServices": "अतिथि सेवाओं को कॉल करें",
+    "whatsappUs": "हमें WhatsApp करें",
+    "emailFrontDesk": "फ्रंट डेस्क को ईमेल करें"
+  },
+  "modal": {
+    "bookingDetails": "बुकिंग विवरण",
+    "checkedIn": "चेक-इन हो गया",
+    "checkIn": "चेक-इन",
+    "checkOut": "चेक-आउट",
+    "from": "{{time}} से",
+    "by": "{{time}} तक",
+    "room": "कमरा",
+    "roomType": "कमरे का प्रकार",
+    "guests": "अतिथि",
+    "guestsCount_one": "{{count}} अतिथि",
+    "guestsCount_other": "{{count}} अतिथि",
+    "priceBreakdown": "मूल्य विवरण",
+    "roomCharge": "कमरे का शुल्क",
+    "service": "सेवा",
+    "totalEstimated": "अनुमानित कुल",
+    "propertyOfferings": "प्रॉपर्टी सेवाएँ",
+    "discovering": "उपलब्ध सेवाएँ खोजी जा रही हैं...",
+    "servicesNote": "चेक-इन करते ही ये सेवाएँ और मेन्यू आपके डैशबोर्ड से सीधे अनुरोध के लिए उपलब्ध होंगे!"
+  },
+  "precheckinNote": "सहज आगमन के लिए, कृपया पहुँचने से पहले अपना प्री चेक-इन पूरा करें।"
+}

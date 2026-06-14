@@ -1,6 +1,7 @@
 // GuestNewBills.tsx — Bills and Orders for all stays
 import { Link, useSearchParams } from "react-router-dom";
 import { useState, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { supabase } from "../../lib/supabase";
 
 type Stay = {
@@ -29,6 +30,8 @@ type FoodOrder = {
 };
 
 export default function GuestNewBills() {
+    const { t, i18n } = useTranslation(["bills", "common"]);
+    const dateLocale = i18n.language?.split("-")[0] === "hi" ? "hi-IN-u-nu-latn" : "en-IN";
     const [searchParams, setSearchParams] = useSearchParams();
     const [stays, setStays] = useState<Stay[]>([]);
     const [orders, setOrders] = useState<FoodOrder[]>([]);
@@ -259,7 +262,7 @@ export default function GuestNewBills() {
     };
 
     const formatDate = (dateStr: string) => {
-        return new Date(dateStr).toLocaleDateString("en-IN", {
+        return new Date(dateStr).toLocaleDateString(dateLocale, {
             day: "numeric",
             month: "short",
             year: "numeric",
@@ -277,7 +280,7 @@ export default function GuestNewBills() {
     if (loading) {
         return (
             <div className="gn-container" style={{ paddingTop: "2rem" }}>
-                <div className="gn-greeting" style={{ opacity: 0.5 }}>Loading...</div>
+                <div className="gn-greeting" style={{ opacity: 0.5 }}>{t("common:state.loading")}</div>
             </div>
         );
     }
@@ -286,24 +289,24 @@ export default function GuestNewBills() {
         <div className="gn-container">
             {/* Header */}
             <div className="gn-page-header">
-                <h1 className="gn-page-title">Bills & Orders</h1>
+                <h1 className="gn-page-title">{t("bills:title")}</h1>
                 <p className="gn-page-subtitle">
-                    View all your stay bills and food orders
+                    {t("bills:subtitle")}
                 </p>
             </div>
 
             {/* Summary Card */}
             <div className="gn-card gn-bills-summary">
                 <div className="gn-bills-summary__item">
-                    <span className="gn-bills-summary__label">Total Stay Bills</span>
+                    <span className="gn-bills-summary__label">{t("bills:totalStayBills")}</span>
                     <span className="gn-bills-summary__value">{formatCurrency(totalBills)}</span>
-                    <span className="gn-bills-summary__count">{filteredStays.length} stays</span>
+                    <span className="gn-bills-summary__count">{t("bills:staysCount", { count: filteredStays.length })}</span>
                 </div>
                 <div className="gn-bills-summary__divider" />
                 <div className="gn-bills-summary__item">
-                    <span className="gn-bills-summary__label">Total Food Orders</span>
+                    <span className="gn-bills-summary__label">{t("bills:totalFoodOrders")}</span>
                     <span className="gn-bills-summary__value">{formatCurrency(totalOrders)}</span>
-                    <span className="gn-bills-summary__count">{filteredOrders.length} orders</span>
+                    <span className="gn-bills-summary__count">{t("bills:ordersCount", { count: filteredOrders.length })}</span>
                 </div>
             </div>
 
@@ -314,7 +317,7 @@ export default function GuestNewBills() {
                     value={selectedHotel}
                     onChange={(e) => handleFilterChange(e.target.value, selectedYear)}
                 >
-                    <option value="all">All Hotels</option>
+                    <option value="all">{t("bills:allHotels")}</option>
                     {hotels.map(([id, name]) => (
                         <option key={id} value={id}>{name}</option>
                     ))}
@@ -325,7 +328,7 @@ export default function GuestNewBills() {
                     value={selectedYear}
                     onChange={(e) => handleFilterChange(selectedHotel, e.target.value)}
                 >
-                    <option value="all">All Years</option>
+                    <option value="all">{t("bills:allYears")}</option>
                     {years.map((year) => (
                         <option key={year} value={year.toString()}>{year}</option>
                     ))}
@@ -336,7 +339,7 @@ export default function GuestNewBills() {
                         className="gn-btn gn-btn--ghost"
                         onClick={() => handleFilterChange("all", "all")}
                     >
-                        Reset
+                        {t("bills:reset")}
                     </button>
                 )}
             </div>
@@ -347,13 +350,13 @@ export default function GuestNewBills() {
                     className={`gn-tab ${activeTab === "stays" ? "gn-tab--active" : ""}`}
                     onClick={() => setActiveTab("stays")}
                 >
-                    Stay Bills ({filteredStays.length})
+                    {t("bills:tabStays")} ({filteredStays.length})
                 </button>
                 <button
                     className={`gn-tab ${activeTab === "orders" ? "gn-tab--active" : ""}`}
                     onClick={() => setActiveTab("orders")}
                 >
-                    Food Orders ({filteredOrders.length})
+                    {t("bills:tabOrders")} ({filteredOrders.length})
                 </button>
             </div>
 
@@ -363,7 +366,7 @@ export default function GuestNewBills() {
                     {filteredStays.length === 0 ? (
                         <div className="gn-empty-state">
                             <span>📋</span>
-                            <p>No stay bills found</p>
+                            <p>{t("bills:emptyStays")}</p>
                         </div>
                     ) : (
                         filteredStays.map((stay) => (
@@ -380,6 +383,7 @@ export default function GuestNewBills() {
                                     <div className="gn-bill-row__room">
                                         {stay.room_type || "Standard Room"}
                                     </div>
+                                    {/* room_type is owner-authored data; the English fallback matches Home. */}
                                 </div>
                                 <div className="gn-bill-row__amount">
                                     {stay.bill_total ? formatCurrency(stay.bill_total) : "—"}
@@ -397,7 +401,7 @@ export default function GuestNewBills() {
                     {groupedOrders.length === 0 ? (
                         <div className="gn-empty-state">
                             <span>🍽️</span>
-                            <p>No food orders found</p>
+                            <p>{t("bills:emptyOrders")}</p>
                         </div>
                     ) : (
                         groupedOrders.map((group) => (
@@ -411,11 +415,11 @@ export default function GuestNewBills() {
                                     <div className="gn-bill-row__dates">
                                         {group.check_in && group.check_out
                                             ? `${formatDate(group.check_in)} – ${formatDate(group.check_out)}`
-                                            : `Stay: ${group.booking_code}`
+                                            : t("bills:stayLabel", { code: group.booking_code })
                                         }
                                     </div>
                                     <div className="gn-bill-row__room">
-                                        {group.order_count} order{group.order_count !== 1 ? "s" : ""} · {group.total_items} items
+                                        {t("bills:ordersCount", { count: group.order_count })} · {t("bills:items", { count: group.total_items })}
                                     </div>
                                 </div>
                                 <div className="gn-bill-row__amount">

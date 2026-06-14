@@ -1,0 +1,25 @@
+{
+  "title": "Your journey with Vaiyu",
+  "allStays": "All stays",
+  "nights_one": "{{count}} night",
+  "nights_other": "{{count}} nights",
+  "memberSince": "Member since {{year}}",
+  "filters": {
+    "allTime": "All time",
+    "thisYear": "This year",
+    "lastYear": "Last year",
+    "allHotels": "All hotels",
+    "allStatuses": "All statuses",
+    "reset": "Reset"
+  },
+  "status": {
+    "completed": "Completed",
+    "upcoming": "Upcoming",
+    "cancelled": "Cancelled"
+  },
+  "viewDetails": "View details",
+  "empty": {
+    "noMatch": "No stays found matching your filters.",
+    "clearFilters": "Clear filters"
+  }
+}

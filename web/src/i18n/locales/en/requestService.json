@@ -1,0 +1,22 @@
+{
+  "title": "Request Service",
+  "loadingServices": "Loading services…",
+  "noActiveStay": "No active stay",
+  "inStayOnly": "Service requests are available during an in-progress stay.",
+  "noServices": "No services are currently available to request. Please contact the front desk.",
+  "whatNeed": "What do you need?",
+  "describeRequest": "Describe your request",
+  "additionalNotes": "Additional notes (optional)",
+  "notesPlaceholder": "Any special instructions...",
+  "submitting": "Submitting...",
+  "submit": "Submit Request",
+  "submitted": "Request Submitted",
+  "notifiedRoom": "The front desk has been notified for Room {{room}}. We'll take care of it shortly.",
+  "notified": "The front desk has been notified. We'll take care of it shortly.",
+  "errors": {
+    "loadServices": "Could not load services.",
+    "noRoom": "No room is assigned to your stay yet. Please contact the front desk.",
+    "needDescription": "Please add a short description for this request.",
+    "submitFailed": "Could not submit your request. Please try again."
+  }
+}

@@ -7,6 +7,7 @@
 // catalog (not hardcoded categories) so each maps to a real department + SLA.
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { supabase } from "../../lib/supabase";
 import { createTicket } from "../../lib/api";
 
@@ -40,6 +41,7 @@ function iconFor(label: string): string {
 }
 
 export default function GuestNewRequestService() {
+    const { t } = useTranslation(["requestService", "common"]);
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const preselectedKey = searchParams.get("type");
@@ -100,7 +102,7 @@ export default function GuestNewRequestService() {
 
                 if (mounted && svc) setServices(svc as Service[]);
             } catch (e: unknown) {
-                if (mounted) setError(e instanceof Error ? e.message : "Could not load services.");
+                if (mounted) setError(e instanceof Error ? e.message : t("requestService:errors.loadServices"));
             } finally {
                 if (mounted) setLoading(false);
             }
@@ -125,11 +127,11 @@ export default function GuestNewRequestService() {
     const handleSubmit = async () => {
         if (!selectedService || !stay) return;
         if (!stay.room_id) {
-            setError("No room is assigned to your stay yet. Please contact the front desk.");
+            setError(t("requestService:errors.noRoom"));
             return;
         }
         if (selected?.requires_description && !notes.trim()) {
-            setError("Please add a short description for this request.");
+            setError(t("requestService:errors.needDescription"));
             return;
         }
 
@@ -149,7 +151,7 @@ export default function GuestNewRequestService() {
             setSubmitted(true);
             setTimeout(() => navigate("/guest"), 2200);
         } catch (e: unknown) {
-            setError(e instanceof Error ? e.message : "Could not submit your request. Please try again.");
+            setError(e instanceof Error ? e.message : t("requestService:errors.submitFailed"));
         } finally {
             setSubmitting(false);
         }
@@ -168,9 +170,11 @@ export default function GuestNewRequestService() {
                 >
                     ✓
                 </div>
-                <h2 className="gn-page-title" style={{ marginBottom: "0.5rem" }}>Request Submitted</h2>
+                <h2 className="gn-page-title" style={{ marginBottom: "0.5rem" }}>{t("requestService:submitted")}</h2>
                 <p style={{ color: "var(--text-muted)" }}>
-                    The front desk has been notified{stay?.room_number ? ` for Room ${stay.room_number}` : ""}. We'll take care of it shortly.
+                    {stay?.room_number
+                        ? t("requestService:notifiedRoom", { room: stay.room_number })
+                        : t("requestService:notified")}
                 </p>
             </div>
         );
@@ -181,32 +185,32 @@ export default function GuestNewRequestService() {
             {/* Header */}
             <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1.5rem" }}>
                 <Link to="/guest" className="gn-btn gn-btn--icon gn-btn--secondary">←</Link>
-                <h1 className="gn-page-title" style={{ marginBottom: 0 }}>Request Service</h1>
+                <h1 className="gn-page-title" style={{ marginBottom: 0 }}>{t("requestService:title")}</h1>
             </div>
 
             {loading ? (
-                <div className="gn-section" style={{ color: "var(--text-muted)" }}>Loading services…</div>
+                <div className="gn-section" style={{ color: "var(--text-muted)" }}>{t("requestService:loadingServices")}</div>
             ) : !stay ? (
                 <div className="gn-card" style={{ padding: "1.5rem", textAlign: "center" }}>
                     <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🛎️</div>
                     <div style={{ fontWeight: 600, color: "var(--text-primary)", marginBottom: "0.25rem" }}>
-                        No active stay
+                        {t("requestService:noActiveStay")}
                     </div>
                     <div style={{ color: "var(--text-muted)", fontSize: "var(--text-sm)" }}>
-                        Service requests are available during an in-progress stay.
+                        {t("requestService:inStayOnly")}
                     </div>
                 </div>
             ) : services.length === 0 ? (
                 <div className="gn-card" style={{ padding: "1.5rem", textAlign: "center" }}>
                     <div style={{ color: "var(--text-muted)" }}>
-                        No services are currently available to request. Please contact the front desk.
+                        {t("requestService:noServices")}
                     </div>
                 </div>
             ) : (
                 <>
                     {/* Service Selection */}
                     <div className="gn-section">
-                        <h3 className="gn-section-title">What do you need?</h3>
+                        <h3 className="gn-section-title">{t("requestService:whatNeed")}</h3>
                         <div
                             style={{
                                 display: "grid",
@@ -254,7 +258,7 @@ export default function GuestNewRequestService() {
                     {selectedService && (
                         <div className="gn-section">
                             <h3 className="gn-section-title">
-                                {selected?.requires_description ? "Describe your request" : "Additional notes (optional)"}
+                                {selected?.requires_description ? t("requestService:describeRequest") : t("requestService:additionalNotes")}
                             </h3>
                             <textarea
                                 className="gn-card"
@@ -269,7 +273,7 @@ export default function GuestNewRequestService() {
                                     fontSize: "var(--text-sm)",
                                     resize: "vertical",
                                 }}
-                                placeholder="Any special instructions..."
+                                placeholder={t("requestService:notesPlaceholder")}
                                 value={notes}
                                 onChange={(e) => setNotes(e.target.value)}
                             />
@@ -300,7 +304,7 @@ export default function GuestNewRequestService() {
                             disabled={!selectedService || submitting}
                             onClick={handleSubmit}
                         >
-                            {submitting ? "Submitting..." : "Submit Request"}
+                            {submitting ? t("requestService:submitting") : t("requestService:submit")}
                         </button>
                     </div>
                 </>

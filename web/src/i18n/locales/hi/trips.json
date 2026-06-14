@@ -1,0 +1,25 @@
+{
+  "title": "Vaiyu के साथ आपकी यात्रा",
+  "allStays": "सभी प्रवास",
+  "nights_one": "{{count}} रात",
+  "nights_other": "{{count}} रातें",
+  "memberSince": "{{year}} से सदस्य",
+  "filters": {
+    "allTime": "सभी समय",
+    "thisYear": "इस वर्ष",
+    "lastYear": "पिछले वर्ष",
+    "allHotels": "सभी होटल",
+    "allStatuses": "सभी स्थितियाँ",
+    "reset": "रीसेट"
+  },
+  "status": {
+    "completed": "पूर्ण",
+    "upcoming": "आगामी",
+    "cancelled": "रद्द"
+  },
+  "viewDetails": "विवरण देखें",
+  "empty": {
+    "noMatch": "आपके फ़िल्टर से मेल खाने वाला कोई प्रवास नहीं मिला।",
+    "clearFilters": "फ़िल्टर हटाएँ"
+  }
+}

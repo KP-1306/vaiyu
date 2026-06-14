@@ -1,0 +1,42 @@
+/* web/src/i18n/languageToggle.css — segmented EN | हिं toggle for the guest header */
+.gn-lang-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.gn-lang-toggle__btn {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  min-width: 34px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: rgba(255, 255, 255, 0.6);
+  background: transparent;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.gn-lang-toggle__btn:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.gn-lang-toggle__btn.is-active {
+  color: #0a0a0c;
+  background: #dbae67;
+}
+
+/* Hindi guests: prefer Noto Sans Devanagari for Devanagari glyphs, falling
+   through to the app's stack for Latin. Loaded conditionally (see runtime.ts). */
+html[lang='hi'] .guestnew,
+html[lang='hi'] .gn-lang-toggle__btn[lang='hi'] {
+  font-family: 'Noto Sans Devanagari', system-ui, -apple-system, 'Segoe UI',
+    Roboto, sans-serif;
+}

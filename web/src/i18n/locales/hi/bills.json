@@ -1,0 +1,20 @@
+{
+  "title": "बिल और ऑर्डर",
+  "subtitle": "अपने सभी प्रवास बिल और खाने के ऑर्डर देखें",
+  "totalStayBills": "कुल प्रवास बिल",
+  "staysCount_one": "{{count}} प्रवास",
+  "staysCount_other": "{{count}} प्रवास",
+  "totalFoodOrders": "कुल खाने के ऑर्डर",
+  "ordersCount_one": "{{count}} ऑर्डर",
+  "ordersCount_other": "{{count}} ऑर्डर",
+  "allHotels": "सभी होटल",
+  "allYears": "सभी वर्ष",
+  "reset": "रीसेट",
+  "tabStays": "प्रवास बिल",
+  "tabOrders": "खाने के ऑर्डर",
+  "emptyStays": "कोई प्रवास बिल नहीं मिला",
+  "emptyOrders": "कोई खाने का ऑर्डर नहीं मिला",
+  "items_one": "{{count}} आइटम",
+  "items_other": "{{count}} आइटम",
+  "stayLabel": "प्रवास: {{code}}"
+}

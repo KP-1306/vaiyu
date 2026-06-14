@@ -1,18 +1,21 @@
 // GuestNewSupport.tsx — Support Screen
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { supabase } from "../../lib/supabase";
 
 export default function GuestNewSupport() {
+    const { t } = useTranslation(["support", "common"]);
     const [message, setMessage] = useState("");
     const [sending, setSending] = useState(false);
     const [sent, setSent] = useState(false);
-    
+
     // Accordion State
     const [openFaq, setOpenFaq] = useState<number | null>(null);
-    
-    // Dynamic Hotel Data
-    const [hotelPhone, setHotelPhone] = useState<string>("Contact Front Desk");
+
+    // Dynamic Hotel Data — null until a real number loads (a display fallback is
+    // rendered via t(), so the value is never a magic display string we compare on).
+    const [hotelPhone, setHotelPhone] = useState<string | null>(null);
     const [hotelWhatsapp, setHotelWhatsapp] = useState<string>("");
     const [loading, setLoading] = useState(true);
     const [hasActiveStay, setHasActiveStay] = useState(true);
@@ -118,30 +121,30 @@ export default function GuestNewSupport() {
             {/* Breadcrumb Navigation */}
             <div className="gn-breadcrumb">
                 <Link to="/guest" className="gn-breadcrumb__link">
-                    ← Home
+                    ← {t("common:nav.home")}
                 </Link>
                 <span className="gn-breadcrumb__sep">/</span>
-                <span className="gn-breadcrumb__current">Support</span>
+                <span className="gn-breadcrumb__current">{t("common:nav.support")}</span>
             </div>
 
             {/* Page Header */}
-            <h1 className="gn-page-title">Support</h1>
-            <p className="gn-section-subtitle">We're here to help 24/7</p>
+            <h1 className="gn-page-title">{t("common:nav.support")}</h1>
+            <p className="gn-section-subtitle">{t("support:subtitle")}</p>
 
             {/* Quick Contact Options */}
             <div className="gn-section" style={{ opacity: hasActiveStay ? 1 : 0.5, pointerEvents: hasActiveStay ? "auto" : "none" }}>
-                <h3 className="gn-section-title">Contact Us</h3>
+                <h3 className="gn-section-title">{t("support:contactUs")}</h3>
                 {!hasActiveStay && (
                     <p style={{ color: "var(--text-muted)", fontSize: "var(--text-sm)", marginBottom: "1rem" }}>
-                        You do not have an active stay. Please book a room to access direct hotel support.
+                        {t("support:noStay")}
                     </p>
                 )}
                 <div className="gn-support-options">
-                    <a href={hotelPhone !== "Contact Front Desk" ? `tel:${hotelPhone}` : "#"} className="gn-card gn-support-option" onClick={(e) => hotelPhone === "Contact Front Desk" && e.preventDefault()}>
+                    <a href={hotelPhone ? `tel:${hotelPhone}` : "#"} className="gn-card gn-support-option" onClick={(e) => !hotelPhone && e.preventDefault()}>
                         <div className="gn-support-option__icon">📞</div>
                         <div className="gn-support-option__text">
-                            <div className="gn-support-option__title">Call Guest Services</div>
-                            <div className="gn-support-option__subtitle">{hotelPhone}</div>
+                            <div className="gn-support-option__title">{t("support:callGuestServices")}</div>
+                            <div className="gn-support-option__subtitle">{hotelPhone || t("support:contactFrontDesk")}</div>
                         </div>
                     </a>
 
@@ -149,7 +152,7 @@ export default function GuestNewSupport() {
                         <div className="gn-support-option__icon">💬</div>
                         <div className="gn-support-option__text">
                             <div className="gn-support-option__title">WhatsApp</div>
-                            <div className="gn-support-option__subtitle">Quick chat support</div>
+                            <div className="gn-support-option__subtitle">{t("support:quickChat")}</div>
                         </div>
                         <span className="gn-support-option__arrow">›</span>
                     </a>
@@ -158,7 +161,7 @@ export default function GuestNewSupport() {
 
             {/* Chat Message */}
             <div className="gn-section" style={{ opacity: hasActiveStay ? 1 : 0.5, pointerEvents: hasActiveStay ? "auto" : "none" }}>
-                <h3 className="gn-section-title">Send a Message</h3>
+                <h3 className="gn-section-title">{t("support:sendMessage")}</h3>
                 <div 
                     className="gn-card" 
                     style={{ padding: "0", position: "relative", overflow: "hidden" }}
@@ -177,7 +180,7 @@ export default function GuestNewSupport() {
                                         resize: "vertical",
                                         marginBottom: "1rem",
                                     }}
-                                    placeholder={cleanWhatsapp ? "How can we help you?" : "WhatsApp messaging is unavailable for this hotel"}
+                                    placeholder={cleanWhatsapp ? t("support:placeholder") : t("support:placeholderUnavailable")}
                                     value={message}
                                     onChange={(e) => setMessage(e.target.value)}
                                     disabled={!cleanWhatsapp}
@@ -189,7 +192,7 @@ export default function GuestNewSupport() {
                                     onClick={handleSendMessage}
                                     disabled={!message.trim() || !cleanWhatsapp}
                                 >
-                                    {cleanWhatsapp ? "Send via WhatsApp" : "Unavailable"}
+                                    {cleanWhatsapp ? t("support:sendViaWhatsapp") : t("support:unavailable")}
                                 </button>
                     </div>
                 </div>
@@ -197,26 +200,9 @@ export default function GuestNewSupport() {
 
             {/* FAQ */}
             <div className="gn-section">
-                <h3 className="gn-section-title">Frequently Asked</h3>
+                <h3 className="gn-section-title">{t("support:faqTitle")}</h3>
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                    {[
-                        { 
-                            q: "How do I request early check-in?", 
-                            a: "Head to the 'Home' tab on your dashboard. If you have an upcoming stay, you can click the 'Request Service' or 'Modify Booking' buttons to notify the hotel of your arrival time." 
-                        },
-                        { 
-                            q: "What's included in my stay?", 
-                            a: "You can view all property amenities and your booked room details by tapping on your active stay card on the Home dashboard, or by navigating to the Trips tab to view your full booking history." 
-                        },
-                        { 
-                            q: "How do I download my invoice?", 
-                            a: "Navigate to the 'Trips' tab from the bottom menu. Select your past or current stay to view the Stay Details page. From there, click the 'Download invoice' button under your Bill Summary to get a PDF copy." 
-                        },
-                        { 
-                            q: "How do I redeem my rewards?", 
-                            a: "The Vaiyu Rewards program is currently being revamped. Once active, your eligible stays will automatically accrue points that can be redeemed during checkout or when booking your next stay directly through the platform." 
-                        },
-                    ].map((faq, i) => {
+                    {(t("support:faq", { returnObjects: true }) as Array<{ q: string; a: string }>).map((faq, i) => {
                         const isOpen = openFaq === i;
                         return (
                             <div
@@ -262,10 +248,10 @@ export default function GuestNewSupport() {
                     <span style={{ fontSize: "1.25rem" }}>🚨</span>
                     <div>
                         <div style={{ fontSize: "var(--text-sm)", fontWeight: 500 }}>
-                            Emergency?
+                            {t("support:emergency")}
                         </div>
                         <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
-                            Call the front desk directly: {hotelPhone}
+                            {t("support:emergencyCall", { phone: hotelPhone || t("support:contactFrontDesk") })}
                         </div>
                     </div>
                 </div>

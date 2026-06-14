@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { supabase } from "../../lib/supabase";
 import "./guestnew.css";
 
@@ -10,6 +11,7 @@ type Category = {
 };
 
 export default function GuestReviewScreen() {
+    const { t } = useTranslation(["review", "common"]);
     const { id: bookingCode } = useParams();
     const navigate = useNavigate();
 
@@ -123,21 +125,22 @@ export default function GuestReviewScreen() {
             setSubmitted(true);
         } catch (err) {
             console.error("Submission failed", err);
-            alert("Failed to submit review. Please try again.");
+            alert(t("review:submitFailed"));
         } finally {
             setSubmitting(false);
         }
     };
 
-    if (loading) return <div className="gn-review-screen"><div className="gn-review-card" style={{ textAlign: 'center' }}>Loading...</div></div>;
-    if (!bookingDetails) return <div className="gn-review-screen"><div className="gn-review-card" style={{ textAlign: 'center' }}>Booking not found.</div></div>;
+    if (loading) return <div className="gn-review-screen"><div className="gn-review-card" style={{ textAlign: 'center' }}>{t("common:state.loading")}</div></div>;
+    if (!bookingDetails) return <div className="gn-review-screen"><div className="gn-review-card" style={{ textAlign: 'center' }}>{t("review:bookingNotFound")}</div></div>;
 
     if (submitted) {
+        const firstName = bookingDetails.guest_name?.split(' ')[0];
         return (
             <div className="gn-review-screen">
                 <div className="gn-review-card" style={{ textAlign: 'center' }}>
-                    <h2 className="gn-review-title">Thank you, {bookingDetails.guest_name?.split(' ')[0] || 'there'}!</h2>
-                    <p className="gn-review-subtitle" style={{ marginBottom: '24px' }}>Your feedback helps us improve.</p>
+                    <h2 className="gn-review-title">{firstName ? t("review:thankYou", { name: firstName }) : t("review:thankYouNoName")}</h2>
+                    <p className="gn-review-subtitle" style={{ marginBottom: '24px' }}>{t("review:feedbackHelps")}</p>
 
                     {/* Google review funnel — renders only when the hotel has set its
                         Place ID (Owner Settings), so the link is always real. */}
@@ -145,8 +148,8 @@ export default function GuestReviewScreen() {
                         <div className="gn-google-upsell" style={{ animation: 'none', marginBottom: '32px' }}>
                             <div className="gn-google-icon">G</div>
                             <div className="gn-google-text">
-                                <div className="gn-google-title">Would you share this on Google?</div>
-                                <div className="gn-google-desc">It helps other travelers find us.</div>
+                                <div className="gn-google-title">{t("review:googleShare")}</div>
+                                <div className="gn-google-desc">{t("review:googleHelps")}</div>
                             </div>
                             <a
                                 href={`https://search.google.com/local/writereview?placeid=${encodeURIComponent(bookingDetails.hotel.google_place_id.trim())}`}
@@ -154,14 +157,14 @@ export default function GuestReviewScreen() {
                                 rel="noopener noreferrer"
                                 className="gn-google-link"
                             >
-                                Write Review
+                                {t("review:writeReview")}
                             </a>
                         </div>
                     ) : overallRating < 4 ? (
-                        <p className="gn-review-subtitle">Our manager has been alerted to your feedback and will look into it.</p>
+                        <p className="gn-review-subtitle">{t("review:managerAlerted")}</p>
                     ) : null}
 
-                    <button className="gn-review-btn--primary" onClick={() => navigate("/guest")}>Back to Home</button>
+                    <button className="gn-review-btn--primary" onClick={() => navigate("/guest")}>{t("review:backToHome")}</button>
                 </div>
             </div>
         );
@@ -170,8 +173,8 @@ export default function GuestReviewScreen() {
     return (
         <div className="gn-review-screen">
             <div className="gn-review-card">
-                <h1 className="gn-review-title">How was your stay?</h1>
-                <p className="gn-review-subtitle">Thank you for staying with us at {bookingDetails.hotel.name}.</p>
+                <h1 className="gn-review-title">{t("review:howWasStay")}</h1>
+                <p className="gn-review-subtitle">{t("review:thankYouStaying", { hotel: bookingDetails.hotel.name })}</p>
 
                 <div className="gn-overall-rating">
                     <div className="gn-stars">
@@ -187,14 +190,14 @@ export default function GuestReviewScreen() {
                     </div>
                     {overallRating > 0 && (
                         <p style={{ marginTop: '12px', fontSize: '14px', color: '#dbae67', fontWeight: 600 }}>
-                            {overallRating === 5 ? "Exceptional!" : overallRating === 4 ? "Very Good" : overallRating === 3 ? "Average" : overallRating === 2 ? "Poor" : "Disappointing"}
+                            {t(`review:ratingLabels.${overallRating}`)}
                         </p>
                     )}
                 </div>
 
                 {overallRating > 0 && (
                     <div className="gn-category-list">
-                        <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.6)', marginBottom: '16px', textAlign: 'center' }}>Please rate each category below.</p>
+                        <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.6)', marginBottom: '16px', textAlign: 'center' }}>{t("review:rateEach")}</p>
                         {categories.map((cat) => (
                             <div key={cat.id} className="gn-category-item">
                                 <div className="gn-category-label">
@@ -217,20 +220,20 @@ export default function GuestReviewScreen() {
 
                         <textarea
                             className="gn-review-textarea"
-                            placeholder={overallRating <= 3 ? "What went wrong? Tell us more..." : "Tell us about your stay..."}
+                            placeholder={overallRating <= 3 ? t("review:placeholderLow") : t("review:placeholderHigh")}
                             rows={4}
                             value={reviewText}
                             onChange={(e) => setReviewText(e.target.value)}
                         />
 
                         <div className="gn-review-actions">
-                            <button className="gn-review-btn--secondary" onClick={() => navigate("/guest")}>Later</button>
+                            <button className="gn-review-btn--secondary" onClick={() => navigate("/guest")}>{t("review:later")}</button>
                             <button
                                 className="gn-review-btn--primary"
                                 disabled={submitting || overallRating === 0}
                                 onClick={handleSubmit}
                             >
-                                {submitting ? "Submitting..." : "Submit Review"}
+                                {submitting ? t("review:submitting") : t("review:submit")}
                             </button>
                         </div>
                     </div>

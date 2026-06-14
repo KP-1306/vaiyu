@@ -1,6 +1,7 @@
 // GuestNewCheckout.tsx — Premium Checkout Experience (Grand Hotel Style)
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { supabase } from "../../lib/supabase";
 import {
     Check, CreditCard, ChevronRight, Calendar, Users,
@@ -32,6 +33,8 @@ type Stay = {
 };
 
 export default function GuestNewCheckout() {
+    const { t, i18n } = useTranslation(["checkout", "common"]);
+    const dateLocale = i18n.language?.split("-")[0] === "hi" ? "hi-IN-u-nu-latn" : "en-US";
     const navigate = useNavigate();
     const [stay, setStay] = useState<Stay | null>(null);
     const [guestName, setGuestName] = useState("Guest");
@@ -235,10 +238,10 @@ export default function GuestNewCheckout() {
             const result = await rzp.openRazorpayCheckout(order);
             if (!result.ok) {
                 if (result.reason === "DISMISSED") {
-                    throw new Error("Payment cancelled. You can retry below.");
+                    throw new Error(t("checkout:errors.paymentCancelled"));
                 }
                 throw new Error(
-                    "Payment failed: " + (result.error?.description ?? "unknown reason"),
+                    t("checkout:errors.paymentFailed", { reason: result.error?.description ?? "unknown reason" }),
                 );
             }
             await rzp.verifyWalkInPayment({
@@ -283,8 +286,8 @@ export default function GuestNewCheckout() {
         const start = new Date(stay.check_in);
         const end = new Date(stay.check_out);
         const opts: Intl.DateTimeFormatOptions = { month: 'long', day: 'numeric' };
-        return `${start.toLocaleDateString('en-US', opts)} – ${end.toLocaleDateString('en-US', opts)}`;
-    }, [stay]);
+        return `${start.toLocaleDateString(dateLocale, opts)} – ${end.toLocaleDateString(dateLocale, opts)}`;
+    }, [stay, dateLocale]);
 
     const handleCheckout = async () => {
         if (!stay) return;
@@ -303,27 +306,27 @@ export default function GuestNewCheckout() {
                 // Redirect to the review screen after 4 seconds
                 setTimeout(() => navigate(`/guest/review/${stay.booking_code}`), 4000);
             } else {
-                setError(data?.error || "Checkout failed. Please contact the front desk.");
+                setError(data?.error || t("checkout:errors.checkoutFailed"));
                 console.error("[Checkout] Response Error:", data);
             }
         } catch (err: any) {
             console.error("[Checkout] RPC Error:", err);
-            setError(err.message || "An unexpected error occurred during checkout.");
+            setError(err.message || t("checkout:errors.unexpected"));
         } finally {
             setProcessing(false);
         }
     };
 
-    if (loading) return <div className="gn-loading">Loading...</div>;
+    if (loading) return <div className="gn-loading">{t("common:state.loading")}</div>;
 
     if (completed) {
         return (
             <div className="gn-checkout-page flex items-center justify-center">
                 <div className="gn-glass-card p-12 text-center max-w-md">
                     <div className="w-20 h-20 bg-amber-500/20 rounded-full flex items-center justify-center mx-auto mb-6 text-amber-400 text-4xl">⏳</div>
-                    <h2 className="gn-serif text-3xl text-white mb-2">Checkout Requested</h2>
-                    <p className="text-white/60 mb-8">The front desk has been notified. Thank you for staying with us.</p>
-                    <button onClick={() => navigate("/guest")} className="gn-btn-gold w-full py-4">Return Home</button>
+                    <h2 className="gn-serif text-3xl text-white mb-2">{t("checkout:requestedTitle")}</h2>
+                    <p className="text-white/60 mb-8">{t("checkout:requestedBody")}</p>
+                    <button onClick={() => navigate("/guest")} className="gn-btn-gold w-full py-4">{t("checkout:returnHome")}</button>
                 </div>
             </div>
         );
@@ -357,18 +360,18 @@ export default function GuestNewCheckout() {
                 <header className="flex justify-between items-center mb-8">
                     <div className="gn-serif text-2xl font-bold text-white tracking-wide">Vaiyu</div>
                     <div className="flex items-center gap-4">
-                        <Link to="/guest" className="text-white/60 hover:text-white text-sm transition-colors">Home</Link>
+                        <Link to="/guest" className="text-white/60 hover:text-white text-sm transition-colors">{t("common:nav.home")}</Link>
                     </div>
                 </header>
 
                 {/* Hero */}
                 <div className="mb-10">
-                    <h1 className="gn-serif text-5xl text-white mb-2 tracking-tight">Checkout, {guestName.split(' ')[0]}.</h1>
+                    <h1 className="gn-serif text-5xl text-white mb-2 tracking-tight">{t("checkout:heroTitle", { name: guestName.split(' ')[0] })}</h1>
                     <div className="text-[#C5A065] text-sm font-bold tracking-[0.15em] uppercase mb-6">{stay.hotel.name}</div>
 
                     <div className="flex gap-4">
                         <div className="gn-glass-pill px-6 py-2 text-white/90">
-                            Room {stay.room_number || "402"}
+                            {t("checkout:room", { number: stay.room_number || "402" })}
                         </div>
                         <div className="gn-glass-pill px-6 py-2 text-white/90 flex items-center gap-2">
                             <Calendar className="w-4 h-4 text-[#C5A065]" />
@@ -382,17 +385,17 @@ export default function GuestNewCheckout() {
 
                     {/* Left Column: Overview (60%) */}
                     <div className="col-span-12 lg:col-span-7 p-10 border-r border-white/10 relative">
-                        <div className="gn-serif text-3xl text-white mb-2">Checkout Overview</div>
-                        <p className="text-white/50 text-sm mb-8">Review your stay details and settle your bill before checking out.</p>
+                        <div className="gn-serif text-3xl text-white mb-2">{t("checkout:overviewTitle")}</div>
+                        <p className="text-white/50 text-sm mb-8">{t("checkout:overviewBody")}</p>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8 mb-8">
                             {/* Check-Out Details Box */}
                             <div className="col-span-1">
-                                <div className="gn-serif text-lg text-white/90 mb-3">Check-Out Details</div>
+                                <div className="gn-serif text-lg text-white/90 mb-3">{t("checkout:checkOutDetails")}</div>
                                 <div className="gn-inset-card p-4 flex justify-between items-center h-[54px]">
                                     <div className="flex items-center gap-3 text-sm text-white/80 whitespace-nowrap overflow-hidden text-ellipsis">
                                         <Calendar className="w-4 h-4 text-[#C5A065] flex-shrink-0" />
-                                        <span>{new Date(stay.check_out).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}{checkoutTime ? ` - ${checkoutTime}` : ""}</span>
+                                        <span>{new Date(stay.check_out).toLocaleDateString(dateLocale, { month: 'short', day: 'numeric', year: 'numeric' })}{checkoutTime ? ` - ${checkoutTime}` : ""}</span>
                                     </div>
                                     <ChevronRight className="w-4 h-4 opacity-30" />
                                 </div>
@@ -400,13 +403,13 @@ export default function GuestNewCheckout() {
 
                             {/* Guest Count Box (Simulated to match visual weight of mockup) */}
                             <div className="col-span-1">
-                                <div className="gn-serif text-lg text-white/90 mb-3">Stay Details</div>
+                                <div className="gn-serif text-lg text-white/90 mb-3">{t("checkout:stayDetails")}</div>
                                 <div className="gn-inset-card p-4 flex justify-between items-center h-[54px] cursor-pointer hover:bg-white/5 transition-colors">
                                     <div className="flex items-center gap-3 text-sm text-white/80">
                                         <Users className="w-4 h-4 size-4" />
                                         <span>
-                                            {(stay.adults ?? 1)} Adult{(stay.adults ?? 1) !== 1 ? "s" : ""}
-                                            {stay.children ? ` · ${stay.children} Child${stay.children !== 1 ? "ren" : ""}` : ""}
+                                            {t("checkout:adults", { count: stay.adults ?? 1 })}
+                                            {stay.children ? ` · ${t("checkout:children", { count: stay.children })}` : ""}
                                         </span>
                                     </div>
                                     <ChevronRight className="w-4 h-4 opacity-30" />
@@ -416,46 +419,46 @@ export default function GuestNewCheckout() {
 
                         {/* Bill Breakdown List - Moved to Left Column as per mockup analysis */}
                         <div className="mb-8">
-                            <div className="gn-serif text-lg text-white/90 mb-3">Bill Breakdown</div>
+                            <div className="gn-serif text-lg text-white/90 mb-3">{t("checkout:billBreakdown")}</div>
                             <div className="gn-inset-card p-6 space-y-3">
                                 <div className="flex justify-between text-sm text-white/70">
-                                    <span>Room Charges</span>
+                                    <span>{t("checkout:roomCharges")}</span>
                                     <span className="text-white">{formatCurrency(roomCharges)}</span>
                                 </div>
                                 {roomService > 0 && (
                                     <div className="flex justify-between text-sm text-white/70">
-                                        <span>Food & Dining</span>
+                                        <span>{t("checkout:foodDining")}</span>
                                         <span className="text-white">{formatCurrency(roomService)}</span>
                                     </div>
                                 )}
                                 {serviceCharges > 0 && (
                                     <div className="flex justify-between text-sm text-white/70">
-                                        <span>Service Charges</span>
+                                        <span>{t("checkout:serviceCharges")}</span>
                                         <span className="text-white">{formatCurrency(serviceCharges)}</span>
                                     </div>
                                 )}
                                 {surcharge > 0 && (
                                     <div className="flex justify-between text-sm text-white/70">
-                                        <span>Surcharge</span>
+                                        <span>{t("checkout:surcharge")}</span>
                                         <span className="text-white">{formatCurrency(surcharge)}</span>
                                     </div>
                                 )}
                                 {discount > 0 && (
                                     <div className="flex justify-between text-sm text-emerald-300/90">
-                                        <span>Discount</span>
+                                        <span>{t("checkout:discount")}</span>
                                         <span>−{formatCurrency(discount)}</span>
                                     </div>
                                 )}
                                 <div className="flex justify-between text-sm text-white/70">
-                                    <span>Late Checkout Fee <span className="text-xs opacity-50">(optional)</span></span>
+                                    <span>{t("checkout:lateCheckout")} <span className="text-xs opacity-50">{t("checkout:optional")}</span></span>
                                     <span className="text-white">{formatCurrency(lateCheckout)}</span>
                                 </div>
                                 <div className="flex justify-between text-sm text-white/70 pt-2 border-t border-white/5 mt-2">
-                                    <span>Taxes & Fees</span>
+                                    <span>{t("checkout:taxesFees")}</span>
                                     <span className="text-white">{formatCurrency(taxes)}</span>
                                 </div>
                                 <div className="flex justify-between items-end pt-3 mt-1 border-t border-white/10">
-                                    <span className="text-white/60 text-lg gn-serif">Total</span>
+                                    <span className="text-white/60 text-lg gn-serif">{t("checkout:total")}</span>
                                     <span className="text-2xl text-[#C5A065] font-bold gn-serif">{formatCurrency(total)}</span>
                                 </div>
                             </div>
@@ -466,11 +469,11 @@ export default function GuestNewCheckout() {
                     <div className="col-span-12 lg:col-span-5 p-10 bg-white/[0.02] flex flex-col justify-between relative">
 
                         <div>
-                            <div className="gn-serif text-3xl text-white mb-8">Payment & Balance</div>
+                            <div className="gn-serif text-3xl text-white mb-8">{t("checkout:paymentBalance")}</div>
 
                             <div className="space-y-4 mb-8">
                                 <div className="flex justify-between text-white/60 text-sm">
-                                    <span>Prior Payments</span>
+                                    <span>{t("checkout:priorPayments")}</span>
                                     <span className="text-white font-medium">{formatCurrency(priorPayments)}</span>
                                 </div>
                                 {paymentBreakdown.length > 0 && (
@@ -490,7 +493,7 @@ export default function GuestNewCheckout() {
 
                             <div className="border-t border-white/10 py-6 mb-6">
                                 <div className="flex justify-between items-center mb-2">
-                                    <span className="text-lg text-white/80 gn-serif">Balance Due</span>
+                                    <span className="text-lg text-white/80 gn-serif">{t("checkout:balanceDue")}</span>
                                     <span className="text-3xl text-[#C5A065] font-bold gn-serif tracking-tight">{formatCurrency(balanceDue)}</span>
                                 </div>
                             </div>
@@ -498,9 +501,11 @@ export default function GuestNewCheckout() {
                             <div className="space-y-3">
                                 {error && (
                                     <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-2">
-                                        <p className="text-red-400 text-sm font-medium">{error}</p>
+                                        {/* 'Pending balance exists' is a server error CODE we compare on;
+                                            display its translated message rather than the raw string. */}
+                                        <p className="text-red-400 text-sm font-medium">{error === 'Pending balance exists' ? t('checkout:errors.pendingBalance') : error}</p>
                                         {error === 'Pending balance exists' && (
-                                            <p className="text-red-400/70 text-xs mt-1">Please settle your remaining balance before checking out.</p>
+                                            <p className="text-red-400/70 text-xs mt-1">{t('checkout:errors.pendingBalanceHint')}</p>
                                         )}
                                     </div>
                                 )}
@@ -521,10 +526,10 @@ export default function GuestNewCheckout() {
                                             )}
                                             <div className="text-left">
                                                 <div className="font-medium">
-                                                    {payingOnline ? "Opening secure payment…" : `Settle balance · ₹${balanceDue.toLocaleString("en-IN")}`}
+                                                    {payingOnline ? t("checkout:openingPayment") : t("checkout:settleBalance", { amount: `₹${balanceDue.toLocaleString("en-IN")}` })}
                                                 </div>
                                                 <div className="text-[10px] uppercase tracking-widest opacity-70 mt-0.5">
-                                                    UPI · Card · Netbanking via Razorpay
+                                                    {t("checkout:paymentMethods")}
                                                 </div>
                                             </div>
                                         </div>
@@ -536,7 +541,7 @@ export default function GuestNewCheckout() {
                                     <div className="bg-white/5 border border-white/10 py-4 px-6 rounded-lg flex items-center gap-3 text-white/70">
                                         <CreditCard className="w-5 h-5 text-[#C5A065]/60 shrink-0" />
                                         <span className="text-sm">
-                                            Online payments aren't set up for this hotel yet — please settle at the front desk.
+                                            {t("checkout:noOnlinePayment")}
                                         </span>
                                     </div>
                                 )}
@@ -545,8 +550,8 @@ export default function GuestNewCheckout() {
                                     <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-4 flex items-start gap-3">
                                         <Check className="w-5 h-5 text-emerald-400 mt-0.5 shrink-0" />
                                         <div>
-                                            <p className="text-emerald-300 text-sm font-medium">Payment received</p>
-                                            <p className="text-emerald-300/70 text-xs mt-0.5">Your balance is settled. You can request checkout below.</p>
+                                            <p className="text-emerald-300 text-sm font-medium">{t("checkout:paymentReceived")}</p>
+                                            <p className="text-emerald-300/70 text-xs mt-0.5">{t("checkout:balanceSettled")}</p>
                                         </div>
                                     </div>
                                 )}
@@ -573,10 +578,10 @@ export default function GuestNewCheckout() {
                                             : 'bg-gradient-to-r from-[#8E713C] to-[#C5A065] text-white shadow-lg shadow-[#C5A065]/20 hover:brightness-110 active:scale-[0.98]'
                                             }`}
                                     >
-                                        {processing ? "Processing..." : (
+                                        {processing ? t("checkout:processing") : (
                                             <>
                                                 <Check className="w-5 h-5" />
-                                                <span>Request Checkout</span>
+                                                <span>{t("checkout:requestCheckout")}</span>
                                             </>
                                         )}
                                     </button>
@@ -584,7 +589,7 @@ export default function GuestNewCheckout() {
                                     {balanceDue > 0 && (
                                         <p className="text-sm mt-4 flex items-center justify-center gap-2 animate-in fade-in duration-300" style={{ color: '#A68A64' }}>
                                             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#A68A64', opacity: 0.8 }}></span>
-                                            Please settle your balance to enable checkout
+                                            {t("checkout:settleToCheckout")}
                                         </p>
                                     )}
                                 </div>
@@ -593,7 +598,7 @@ export default function GuestNewCheckout() {
 
                         <div className="mt-8 pt-6 border-t border-white/5 flex items-center justify-end gap-2 text-xs text-white/40">
                             <span>
-                                Need any assistance? Call Front Desk at{" "}
+                                {t("checkout:needAssistance")}{" "}
                                 {stay.hotel.phone ? (
                                     <a href={`tel:${stay.hotel.phone}`} className="text-white/60 hover:text-white transition-colors cursor-pointer">
                                         {stay.hotel.phone}

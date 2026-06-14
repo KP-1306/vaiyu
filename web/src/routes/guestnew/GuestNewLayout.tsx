@@ -1,23 +1,26 @@
 // GuestNewLayout.tsx — Shared layout with persistent bottom navigation
 import { Outlet, NavLink, useLocation, Link } from "react-router-dom";
 import { useState, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { supabase } from "../../lib/supabase";
 import "./guestnew.css";
 import AccountControls from "../../components/AccountControls";
+import { LanguageToggle } from "../../i18n/LanguageToggle";
 
 type NavItem = {
-    label: string;
+    labelKey: string;
     to: string;
     icon: string;
 };
 
 const bottomNavItems: NavItem[] = [
-    { label: "Home", to: "/guest", icon: "🏠" },
-    { label: "Trips", to: "/guest/trips", icon: "🧳" },
-    { label: "Support", to: "/guest/support", icon: "❓" },
+    { labelKey: "common:nav.home", to: "/guest", icon: "🏠" },
+    { labelKey: "common:nav.trips", to: "/guest/trips", icon: "🧳" },
+    { labelKey: "common:nav.support", to: "/guest/support", icon: "❓" },
 ];
 
 export default function GuestNewLayout() {
+    const { t } = useTranslation("common");
     const location = useLocation();
     const [email, setEmail] = useState<string | null>(null);
     const [displayName, setDisplayName] = useState<string | null>(null);
@@ -86,6 +89,7 @@ export default function GuestNewLayout() {
                 </Link>
 
                 <div className="gn-header__actions">
+                    <LanguageToggle />
                     {/* Avatar Dropdown */}
                     <div style={{ zIndex: 50, position: 'relative' }}>
                         <AccountControls
@@ -117,7 +121,7 @@ export default function GuestNewLayout() {
                                 className={`gn-bottom-nav__item ${isActive ? "gn-bottom-nav__item--active" : ""}`}
                             >
                                 <span className="gn-bottom-nav__icon">{item.icon}</span>
-                                <span>{item.label}</span>
+                                <span>{t(item.labelKey)}</span>
                             </NavLink>
                         );
                     })}

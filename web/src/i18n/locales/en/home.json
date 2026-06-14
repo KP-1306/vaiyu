@@ -1,0 +1,131 @@
+{
+  "greeting": {
+    "welcome": "Welcome, {{name}}.",
+    "upcoming": "{{name}}, here is your upcoming stay."
+  },
+  "card": {
+    "outstanding": "Outstanding:",
+    "room": "Room: {{rooms}}",
+    "roomType": "Room Type: {{types}}",
+    "booking": "Booking: {{code}}",
+    "arrival": "Arrival:",
+    "checkout": "Checkout:",
+    "badgeUpcomingStay": "UPCOMING STAY",
+    "badgeUpcoming": "UPCOMING",
+    "badgeStayInProgress": "STAY IN PROGRESS"
+  },
+  "nights_one": "{{count}} night",
+  "nights_other": "{{count}} nights",
+  "eta": {
+    "yours": "Your ETA:",
+    "share": "Share arrival time",
+    "saveError": "Could not save — please try again.",
+    "clearError": "Could not clear — please try again."
+  },
+  "stay": {
+    "dayOf_one": "Stay: Day {{day}} of {{count}} night",
+    "dayOf_other": "Stay: Day {{day}} of {{count}} nights",
+    "checkoutDelayed": "Checkout delayed",
+    "checkoutDelayedWas": "Checkout delayed — was {{date}}",
+    "checkoutToday": "Checkout today",
+    "finalNight": "Final night",
+    "nightsLeft_one": "{{count}} night left",
+    "nightsLeft_other": "{{count}} nights left"
+  },
+  "smartTime": {
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "checkinDelayed": "Check-in delayed",
+    "ended": "Ended",
+    "startsIn_one": "Starts in {{count}} day",
+    "startsIn_other": "Starts in {{count}} days",
+    "endsIn_one": "Ends in {{count}} day",
+    "endsIn_other": "Ends in {{count}} days"
+  },
+  "buttons": {
+    "completePrecheckin": "Complete Pre Check-In",
+    "getDirections": "Get Directions",
+    "requestService": "Request Service",
+    "viewDetails": "View Details"
+  },
+  "actionGrid": {
+    "requestService": "Request Service",
+    "diningAmenities": "Dining & Amenities",
+    "trackRequests": "Track Requests",
+    "checkStatus": "Check Status",
+    "callReception": "Call Reception",
+    "guestServices": "Guest Services",
+    "completePrecheckin": "Complete Pre-Checkin",
+    "skipFrontDesk": "Skip the Front Desk",
+    "checkout": "Checkout",
+    "expressExit": "Express Exit"
+  },
+  "tooltips": {
+    "afterCheckin": "Available after you check-in to your room!",
+    "trackAfterRequest": "Tracking becomes available once you've made a request!",
+    "expressCheckout": "Express checkout is available during your active stay."
+  },
+  "carousel": { "otherBookings": "Other Bookings ({{count}})" },
+  "empty": {
+    "noActiveStays": "No active stays found.",
+    "noStaysTitle": "No Stays Found",
+    "noStaysBody": "You don't have any upcoming or active stays linked to your account yet. If you have a booking reference code, you can look it up to link it.",
+    "lookUpBooking": "Look up Booking"
+  },
+  "folio": {
+    "title": "Live Folio",
+    "roomCharges": "Room Charges",
+    "roomChargesTyped": "Room Charges ({{type}})",
+    "foodDining": "Food & Dining",
+    "serviceCharges": "Service Charges",
+    "surcharge": "Surcharge",
+    "discount": "Discount",
+    "tax": "Tax",
+    "cityTax": "City Tax",
+    "paymentsReceived": "Payments Received",
+    "currentTotal": "Current Total:",
+    "downloadInvoice": "Download Invoice",
+    "clearDuesToDownload": "Clear Dues to Download"
+  },
+  "requests": {
+    "title": "Recent Requests",
+    "viewAll": "View All",
+    "none": "No active requests at the moment."
+  },
+  "info": {
+    "title": "Hotel Info & Amenities",
+    "wifiNetwork": "Wi-Fi Network",
+    "password": "Password:",
+    "availableAfterCheckin": "(Available after Check-In)",
+    "breakfastHours": "Breakfast Hours",
+    "guestNotes": "Guest Notes",
+    "propertyAmenities": "Property Amenities"
+  },
+  "contact": {
+    "title": "Contact Us",
+    "callGuestServices": "Call Guest Services",
+    "whatsappUs": "WhatsApp Us",
+    "emailFrontDesk": "Email Front Desk"
+  },
+  "modal": {
+    "bookingDetails": "Booking Details",
+    "checkedIn": "CHECKED-IN",
+    "checkIn": "Check-in",
+    "checkOut": "Check-out",
+    "from": "From {{time}}",
+    "by": "By {{time}}",
+    "room": "Room",
+    "roomType": "Room Type",
+    "guests": "Guests",
+    "guestsCount_one": "{{count}} Guest",
+    "guestsCount_other": "{{count}} Guests",
+    "priceBreakdown": "Price Breakdown",
+    "roomCharge": "Room Charge",
+    "service": "Service",
+    "totalEstimated": "Total Estimated",
+    "propertyOfferings": "Property Offerings",
+    "discovering": "Discovering available services...",
+    "servicesNote": "These services and menus will be available to request directly from your dashboard once you check-in!"
+  },
+  "precheckinNote": "To ensure a smooth arrival, please complete your pre-checkin before you arrive."
+}

@@ -1,6 +1,7 @@
 // GuestNewTrips.tsx — Trips / Journey Overview Screen
 import { Link } from "react-router-dom";
 import { useState, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { supabase } from "../../lib/supabase";
 
 type Stay = {
@@ -27,6 +28,8 @@ type FilterState = {
 };
 
 export default function GuestNewTrips() {
+    const { t, i18n } = useTranslation(["trips", "common"]);
+    const dateLocale = i18n.language?.split("-")[0] === "hi" ? "hi-IN-u-nu-latn" : "en-US";
     const [stays, setStays] = useState<Stay[]>([]);
     const [loading, setLoading] = useState(true);
     const [filters, setFilters] = useState<FilterState>({
@@ -157,7 +160,7 @@ export default function GuestNewTrips() {
 
         filteredStays.forEach((stay) => {
             const date = new Date(stay.check_in);
-            const key = date.toLocaleDateString("en-US", { month: "long", year: "numeric" }).toUpperCase();
+            const key = date.toLocaleDateString(dateLocale, { month: "long", year: "numeric" }).toUpperCase();
 
             if (!groups[key]) {
                 groups[key] = [];
@@ -166,7 +169,7 @@ export default function GuestNewTrips() {
         });
 
         return groups;
-    }, [filteredStays]);
+    }, [filteredStays, dateLocale]);
 
     // Total nights
     const totalNights = useMemo(() => {
@@ -184,8 +187,8 @@ export default function GuestNewTrips() {
         const end = new Date(checkOut);
         const nights = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
 
-        const startStr = start.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
-        const endStr = end.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+        const startStr = start.toLocaleDateString(dateLocale, { day: "numeric", month: "short" });
+        const endStr = end.toLocaleDateString(dateLocale, { day: "numeric", month: "short", year: "numeric" });
 
         return {
             range: `${startStr} – ${endStr}`,
@@ -210,7 +213,7 @@ export default function GuestNewTrips() {
     if (loading) {
         return (
             <div className="gn-container" style={{ paddingTop: "2rem" }}>
-                <div className="gn-page-title" style={{ opacity: 0.5 }}>Loading...</div>
+                <div className="gn-page-title" style={{ opacity: 0.5 }}>{t("common:state.loading")}</div>
             </div>
         );
     }
@@ -218,15 +221,15 @@ export default function GuestNewTrips() {
     return (
         <div className="gn-container">
             {/* Page Header */}
-            <h1 className="gn-page-title">Your journey with Vaiyu</h1>
+            <h1 className="gn-page-title">{t("trips:title")}</h1>
             <div className="gn-page-subtitle">
-                <span>All stays</span>
+                <span>{t("trips:allStays")}</span>
                 <span>·</span>
-                <span>{totalNights} night{totalNights !== 1 ? "s" : ""}</span>
+                <span>{t("trips:nights", { count: totalNights })}</span>
                 {memberSince != null && (
                     <>
                         <span>·</span>
-                        <span>Member since {memberSince}</span>
+                        <span>{t("trips:memberSince", { year: memberSince })}</span>
                     </>
                 )}
             </div>
@@ -243,7 +246,7 @@ export default function GuestNewTrips() {
                     }
                 >
                     <span className="gn-filter__icon">📅</span>
-                    <span>{filters.time === "all" ? "All time" : filters.time === "this-year" ? "This year" : "Last year"}</span>
+                    <span>{filters.time === "all" ? t("trips:filters.allTime") : filters.time === "this-year" ? t("trips:filters.thisYear") : t("trips:filters.lastYear")}</span>
                     <span>▾</span>
                 </button>
 
@@ -258,7 +261,7 @@ export default function GuestNewTrips() {
                     }}
                 >
                     <span className="gn-filter__icon">🏨</span>
-                    <span>{filters.hotel === "all" ? "All hotels" : filters.hotel}</span>
+                    <span>{filters.hotel === "all" ? t("trips:filters.allHotels") : filters.hotel}</span>
                     <span>▾</span>
                 </button>
 
@@ -275,13 +278,13 @@ export default function GuestNewTrips() {
                     }
                 >
                     <span className="gn-filter__icon">📋</span>
-                    <span>{filters.status === "all" ? "All statuses" : filters.status}</span>
+                    <span>{filters.status === "all" ? t("trips:filters.allStatuses") : t(`trips:status.${filters.status}`)}</span>
                     <span>▾</span>
                 </button>
 
                 {(filters.time !== "all" || filters.hotel !== "all" || filters.status !== "all") && (
                     <button className="gn-btn gn-btn--ghost" onClick={resetFilters}>
-                        Reset
+                        {t("trips:filters.reset")}
                     </button>
                 )}
             </div>
@@ -305,11 +308,11 @@ export default function GuestNewTrips() {
                                 <div className="gn-trip-row__info">
                                     <div className="gn-trip-row__hotel">{stay.hotel.name}</div>
                                     <div className="gn-trip-row__dates">
-                                        {range} · {nights} night{nights !== 1 ? "s" : ""}
+                                        {range} · {t("trips:nights", { count: nights })}
                                     </div>
                                 </div>
                                 {amount && <div className="gn-trip-row__amount">{amount}</div>}
-                                <div className="gn-trip-row__arrow">View details ›</div>
+                                <div className="gn-trip-row__arrow">{t("trips:viewDetails")} ›</div>
                             </Link>
                         );
                     })}
@@ -320,10 +323,10 @@ export default function GuestNewTrips() {
             {Object.keys(groupedStays).length === 0 && (
                 <div className="gn-card" style={{ padding: "2rem", textAlign: "center" }}>
                     <div style={{ color: "var(--text-muted)", marginBottom: "1rem" }}>
-                        No stays found matching your filters.
+                        {t("trips:empty.noMatch")}
                     </div>
                     <button className="gn-btn gn-btn--secondary" onClick={resetFilters}>
-                        Clear filters
+                        {t("trips:empty.clearFilters")}
                     </button>
                 </div>
             )}

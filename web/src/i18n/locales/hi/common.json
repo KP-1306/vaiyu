@@ -1,0 +1,18 @@
+{
+  "language": { "label": "भाषा" },
+  "actions": {
+    "viewDetails": "विवरण देखें",
+    "viewAll": "सभी देखें",
+    "save": "सेव करें",
+    "saving": "सेव हो रहा है…",
+    "cancel": "रद्द करें",
+    "clear": "हटाएँ",
+    "change": "बदलें",
+    "copy": "कॉपी करें",
+    "copied": "कॉपी हो गया!",
+    "needHelp": "मदद चाहिए?"
+  },
+  "state": { "loading": "लोड हो रहा है…" },
+  "terms": { "guest": "अतिथि", "hotel": "होटल" },
+  "nav": { "home": "होम", "trips": "यात्राएँ", "support": "सहायता" }
+}

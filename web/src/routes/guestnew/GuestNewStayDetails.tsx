@@ -1,6 +1,7 @@
 // GuestNewStayDetails.tsx — Stay Details Screen
 import { Link, useParams } from "react-router-dom";
 import { useState, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { supabase } from "../../lib/supabase";
 import RequestExtensionButton from "../../components/guest/RequestExtensionButton";
 import { formatIstDateTime } from "../../utils/dateUtils";
@@ -49,6 +50,8 @@ type LedgerBreakdown = {
 };
 
 export default function GuestNewStayDetails() {
+    const { t, i18n } = useTranslation(["stayDetails", "common"]);
+    const dateLocale = i18n.language?.split("-")[0] === "hi" ? "hi-IN-u-nu-latn" : "en-IN";
     const { id } = useParams<{ id: string }>();
     const [stay, setStay] = useState<Stay | null>(null);
     // Real hotel policy times (null when the hotel hasn't configured them → date only).
@@ -188,11 +191,12 @@ export default function GuestNewStayDetails() {
         };
     }, [id]);
 
-    // Format date
-    const formatDate = (dateStr: string, timeLabel?: string | null) => {
+    // Format date for the on-screen UI (locale-aware). The printed Tax Invoice
+    // below stays en-IN intentionally (formal financial document).
+    const formatDate = (dateStr: string, timeLabel?: string | null, locale: string = dateLocale) => {
         try {
             const date = new Date(dateStr);
-            const formatted = date.toLocaleDateString("en-IN", {
+            const formatted = date.toLocaleDateString(locale, {
                 day: "numeric",
                 month: "long",
                 year: "numeric",
@@ -313,11 +317,11 @@ export default function GuestNewStayDetails() {
         <div class="dates">
             <div class="date-item">
                 <div class="date-label">Check-in</div>
-                <div>${formatDate(stay.check_in)}</div>
+                <div>${formatDate(stay.check_in, null, "en-IN")}</div>
             </div>
             <div class="date-item">
                 <div class="date-label">Check-out</div>
-                <div>${formatDate(stay.check_out)}</div>
+                <div>${formatDate(stay.check_out, null, "en-IN")}</div>
             </div>
             <div class="date-item">
                 <div class="date-label">Nights</div>
@@ -364,7 +368,7 @@ export default function GuestNewStayDetails() {
     if (loading) {
         return (
             <div className="gn-container" style={{ paddingTop: "2rem" }}>
-                <div className="gn-page-title" style={{ opacity: 0.5 }}>Loading...</div>
+                <div className="gn-page-title" style={{ opacity: 0.5 }}>{t("common:state.loading")}</div>
             </div>
         );
     }
@@ -372,9 +376,9 @@ export default function GuestNewStayDetails() {
     if (!stay) {
         return (
             <div className="gn-container" style={{ paddingTop: "2rem" }}>
-                <div className="gn-page-title">Stay not found</div>
+                <div className="gn-page-title">{t("stayDetails:notFound")}</div>
                 <Link to="/guest/trips" className="gn-btn gn-btn--secondary" style={{ marginTop: "1rem" }}>
-                    Back to trips
+                    {t("stayDetails:backToTrips")}
                 </Link>
             </div>
         );
@@ -385,14 +389,14 @@ export default function GuestNewStayDetails() {
             {/* Breadcrumb Navigation */}
             <div className="gn-breadcrumb">
                 <Link to="/guest/bills" className="gn-breadcrumb__link">
-                    ← Bills
+                    ← {t("stayDetails:breadcrumbBills")}
                 </Link>
                 <span className="gn-breadcrumb__sep">/</span>
                 <span className="gn-breadcrumb__current">{stay.hotel.name}</span>
             </div>
 
             {/* Page Header */}
-            <h1 className="gn-page-title">Stay Details</h1>
+            <h1 className="gn-page-title">{t("stayDetails:title")}</h1>
 
             {/* Stay Card */}
             <div className="gn-card gn-stay-detail">
@@ -402,7 +406,7 @@ export default function GuestNewStayDetails() {
                 </div>
 
                 <div className="gn-stay-detail__room">
-                    Room <span>{stay.room_type}</span>
+                    {t("stayDetails:roomLabel")} <span>{stay.room_type}</span>
                 </div>
 
                 <div className="gn-stay-detail__grid">
@@ -416,20 +420,20 @@ export default function GuestNewStayDetails() {
                     </div>
                     <div className="gn-stay-detail__item">
                         <span className="gn-stay-detail__item-icon">🌙</span>
-                        <span>{nights} Night{nights !== 1 ? "s" : ""}</span>
+                        <span>{t("stayDetails:nights", { count: nights })}</span>
                     </div>
                     <div className="gn-stay-detail__item">
                         <span className="gn-stay-detail__item-icon">👤</span>
                         <span>
-                            {(stay.adults ?? 1)} Adult{(stay.adults ?? 1) !== 1 ? "s" : ""}
-                            {stay.children ? ` · ${stay.children} Child${stay.children !== 1 ? "ren" : ""}` : ""}
+                            {t("stayDetails:adults", { count: stay.adults ?? 1 })}
+                            {stay.children ? ` · ${t("stayDetails:children", { count: stay.children })}` : ""}
                         </span>
                     </div>
                 </div>
 
                 <div className="gn-stay-detail__booking-id">
-                    <span>Booking ID: {stay.booking_code}</span>
-                    <button className="gn-stay-detail__copy" onClick={copyBookingId} title="Copy booking ID">
+                    <span>{t("stayDetails:bookingId", { code: stay.booking_code })}</span>
+                    <button className="gn-stay-detail__copy" onClick={copyBookingId} title={t("stayDetails:copyBookingId")}>
                         {copied ? "✓" : "📋"}
                     </button>
                 </div>
@@ -445,47 +449,47 @@ export default function GuestNewStayDetails() {
 
             {/* Bill Summary */}
             <div className="gn-card gn-bill">
-                <h3 className="gn-bill__title">Bill summary</h3>
+                <h3 className="gn-bill__title">{t("stayDetails:billSummary")}</h3>
 
                 <div className="gn-bill__row">
-                    <span className="gn-bill__row--label">Room</span>
+                    <span className="gn-bill__row--label">{t("stayDetails:room")}</span>
                     <span className="gn-bill__row--value">{formatCurrency(billRoom)}</span>
                 </div>
                 {billDiscount > 0 && (
                     <div className="gn-bill__row" style={{ color: "#6ee7b7" }}>
-                        <span className="gn-bill__row--label">Discount</span>
+                        <span className="gn-bill__row--label">{t("stayDetails:discount")}</span>
                         <span className="gn-bill__row--value">−{formatCurrency(billDiscount)}</span>
                     </div>
                 )}
                 {billSurcharge > 0 && (
                     <div className="gn-bill__row">
-                        <span className="gn-bill__row--label">Surcharge</span>
+                        <span className="gn-bill__row--label">{t("stayDetails:surcharge")}</span>
                         <span className="gn-bill__row--value">{formatCurrency(billSurcharge)}</span>
                     </div>
                 )}
                 <div className="gn-bill__row">
-                    <span className="gn-bill__row--label">{billTax > 0 || !ledger ? "Tax" : "City Tax"}</span>
+                    <span className="gn-bill__row--label">{billTax > 0 || !ledger ? t("stayDetails:tax") : t("stayDetails:cityTax")}</span>
                     <span className="gn-bill__row--value">{formatCurrency(billTax)}</span>
                 </div>
                 <div className="gn-bill__row">
-                    <span className="gn-bill__row--label">Food</span>
+                    <span className="gn-bill__row--label">{t("stayDetails:food")}</span>
                     <span className="gn-bill__row--value">
                         {formatCurrency(ledger ? billFood : totalFoodBill)}
                     </span>
                 </div>
                 {billService > 0 && (
                     <div className="gn-bill__row">
-                        <span className="gn-bill__row--label">Service</span>
+                        <span className="gn-bill__row--label">{t("stayDetails:service")}</span>
                         <span className="gn-bill__row--value">{formatCurrency(billService)}</span>
                     </div>
                 )}
                 <div className="gn-bill__row gn-bill__row--total">
-                    <span className="gn-bill__row--label">Total</span>
+                    <span className="gn-bill__row--label">{t("stayDetails:total")}</span>
                     <span className="gn-bill__row--value">{formatCurrency(grandTotal)}</span>
                 </div>
 
                 <div className="gn-bill__action">
-                    <span className="gn-bill__action-label">Download invoice</span>
+                    <span className="gn-bill__action-label">{t("stayDetails:downloadInvoice")}</span>
                     <button className="gn-btn gn-btn--secondary" onClick={downloadInvoice}>
                         ⬇ {formatCurrency(grandTotal)?.replace("₹", "₹ ")} ›
                     </button>
@@ -497,23 +501,23 @@ export default function GuestNewStayDetails() {
                 <div className="gn-section">
                     <h3 className="gn-section-title">
                         <span style={{ marginRight: "8px" }}>🍽️</span>
-                        Food Orders
+                        {t("stayDetails:foodOrders")}
                     </h3>
 
                     {/* Total Summary Card */}
                     <div className="gn-card gn-orders-summary">
                         <div className="gn-orders-summary__total">
-                            <span className="gn-orders-summary__label">Total Food Bill</span>
+                            <span className="gn-orders-summary__label">{t("stayDetails:totalFoodBill")}</span>
                             <span className="gn-orders-summary__amount">
                                 {formatCurrency(orders.reduce((sum, o) => sum + (o.total_amount || 0), 0))}
                             </span>
                         </div>
                         <div className="gn-orders-summary__stats">
                             <span className="gn-orders-summary__stat">
-                                {orders.length} Order{orders.length !== 1 ? "s" : ""}
+                                {t("stayDetails:ordersCount", { count: orders.length })}
                             </span>
                             <span className="gn-orders-summary__stat">
-                                {orders.reduce((sum, o) => sum + (o.total_items || 0), 0)} Items
+                                {t("stayDetails:itemsCount", { count: orders.reduce((sum, o) => sum + (o.total_items || 0), 0) })}
                             </span>
                         </div>
                     </div>
@@ -524,7 +528,7 @@ export default function GuestNewStayDetails() {
                             <div key={order.order_id} className="gn-order-card">
                                 <div className="gn-order-card__header">
                                     <span className="gn-order-card__id">
-                                        Order #{order.display_id}
+                                        {t("stayDetails:orderId", { id: order.display_id })}
                                     </span>
                                     <span className={`gn - order - card__status gn - order - card__status--${order.status?.toLowerCase()} `}>
                                         {order.status}
@@ -544,7 +548,7 @@ export default function GuestNewStayDetails() {
                                     ))}
                                     {Array.isArray(order.items) && order.items.length > 3 && (
                                         <span className="gn-order-card__item gn-order-card__item--more">
-                                            +{order.items.length - 3} more
+                                            {t("stayDetails:more", { count: order.items.length - 3 })}
                                         </span>
                                     )}
                                 </div>
@@ -564,19 +568,19 @@ export default function GuestNewStayDetails() {
                         className="gn-btn gn-btn--primary"
                         style={{ width: "100%", textAlign: "center", display: "block" }}
                     >
-                        🏨 Book {stay.hotel.name} again
+                        🏨 {t("stayDetails:bookAgain", { hotel: stay.hotel.name })}
                     </Link>
                 </div>
             )}
 
             {/* Need assistance? */}
             <div className="gn-section">
-                <h3 className="gn-section-title">Need assistance?</h3>
+                <h3 className="gn-section-title">{t("stayDetails:needAssistance")}</h3>
                 <div className="gn-support-options">
                     <Link to="/guest/support" className="gn-card gn-support-option">
                         <div className="gn-support-option__icon">💬</div>
                         <div className="gn-support-option__text">
-                            <div className="gn-support-option__title">Chat with Us</div>
+                            <div className="gn-support-option__title">{t("stayDetails:chatWithUs")}</div>
                         </div>
                         <span className="gn-support-option__arrow">›</span>
                     </Link>
@@ -584,7 +588,7 @@ export default function GuestNewStayDetails() {
                     <a href={`tel:${stay.hotel.phone} `} className="gn-card gn-support-option">
                         <div className="gn-support-option__icon">📞</div>
                         <div className="gn-support-option__text">
-                            <div className="gn-support-option__title">Call Guest Services</div>
+                            <div className="gn-support-option__title">{t("stayDetails:callGuestServices")}</div>
                             <div className="gn-support-option__subtitle">{stay.hotel.phone}</div>
                         </div>
                     </a>

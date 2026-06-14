@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
     Loader2,
     Check,
@@ -97,11 +98,13 @@ const ID_TYPES = [
     { value: "other", label: "Other", placeholder: "Enter ID number" },
 ];
 
-const STEPS = ["Details", "ID Proof", "Done"];
+const STEP_KEYS = ["precheckin:step.guestDetails", "precheckin:step.idProof", "precheckin:step.done"];
 
 // ─── Component ───────────────────────────────────────────────
 export default function PreCheckin() {
     const { token } = useParams<{ token: string }>();
+    const { t, i18n } = useTranslation(["precheckin", "common"]);
+    const dateLocale = i18n.language?.split("-")[0] === "hi" ? "hi-IN-u-nu-latn" : "en-IN";
 
     // State
     const [loading, setLoading] = useState(true);
@@ -239,7 +242,7 @@ export default function PreCheckin() {
                     }
                 }
             } catch (err: any) {
-                setBooking({ valid: false, error: err.message || "Failed to validate token" });
+                setBooking({ valid: false, error: err.message || t("precheckin:errors.validateFailed") });
             } finally {
                 setLoading(false);
             }
@@ -250,14 +253,14 @@ export default function PreCheckin() {
     const checkinFormatted = useMemo(() => {
         if (!booking?.scheduled_checkin_at) return "";
         const d = new Date(booking.scheduled_checkin_at);
-        return d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
-    }, [booking?.scheduled_checkin_at]);
+        return d.toLocaleDateString(dateLocale, { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+    }, [booking?.scheduled_checkin_at, dateLocale]);
 
     const checkoutFormatted = useMemo(() => {
         if (!booking?.scheduled_checkout_at) return "";
         const d = new Date(booking.scheduled_checkout_at);
-        return d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
-    }, [booking?.scheduled_checkout_at]);
+        return d.toLocaleDateString(dateLocale, { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+    }, [booking?.scheduled_checkout_at, dateLocale]);
 
     const checkinTime = useMemo(() => {
         if (!booking?.scheduled_checkin_at) return "2:00 PM";
@@ -313,17 +316,18 @@ export default function PreCheckin() {
                 setBooking(prev => prev ? { ...prev, ...result } : result);
                 setStep(3); // Success
             } else {
-                setSubmitError(result?.error || "Submission failed");
+                setSubmitError(result?.error || t("precheckin:errors.submissionFailed"));
             }
         } catch (err: any) {
-            const raw = err.message || "Something went wrong";
-            // Friendly messages for constraint violations
+            const raw = err.message || t("precheckin:errors.somethingWrong");
+            // Friendly messages for constraint violations (match on the raw DB
+            // constraint name — a code, not display text — then show translated copy).
             if (raw.includes("uq_global_guest_mobile") || raw.includes("mobile_normalized")) {
-                setSubmitError("This mobile number is already registered with another guest. Please use a different number or contact the hotel for assistance.");
+                setSubmitError(t("precheckin:errors.mobileTaken"));
             } else if (raw.includes("uq_global_guest_email") || raw.includes("email_normalized")) {
-                setSubmitError("This email address is already registered with another guest. Please use a different email or contact the hotel for assistance.");
+                setSubmitError(t("precheckin:errors.emailTaken"));
             } else if (raw.includes("duplicate key") || raw.includes("unique constraint") || raw.includes("violates unique")) {
-                setSubmitError("A guest with these details already exists. Please verify your information or contact the hotel.");
+                setSubmitError(t("precheckin:errors.duplicate"));
             } else {
                 setSubmitError(raw);
             }
@@ -338,7 +342,7 @@ export default function PreCheckin() {
             <div className="min-h-screen bg-[#0a0a0c] flex items-center justify-center">
                 <div className="text-center space-y-4">
                     <Loader2 className="h-8 w-8 animate-spin text-[#d4af37] mx-auto" />
-                    <p className="text-[#b8b3a8] text-sm">Verifying your link...</p>
+                    <p className="text-[#b8b3a8] text-sm">{t("precheckin:verifying")}</p>
                 </div>
             </div>
         );
@@ -353,19 +357,25 @@ export default function PreCheckin() {
                         <AlertTriangle className="h-8 w-8 text-red-400" />
                     </div>
                     <h1 className="text-xl font-semibold text-white">
+                        {/* booking.error is a server CODE we compare on; show its translated title. */}
                         {booking?.error === "Pre-check-in already completed"
-                            ? "Already Completed"
+                            ? t("precheckin:errorTitle.alreadyCompleted")
                             : booking?.error === "This link has expired"
-                                ? "Link Expired"
-                                : "Invalid Link"
+                                ? t("precheckin:errorTitle.linkExpired")
+                                : t("precheckin:errorTitle.invalid")
                         }
                     </h1>
                     <p className="text-[#b8b3a8] text-sm">
-                        {booking?.error || "This pre-check-in link is not valid. Please contact the hotel for a new link."}
+                        {booking?.error === "Pre-check-in already completed"
+                            ? t("precheckin:errorBody.alreadyCompleted")
+                            : booking?.error === "This link has expired"
+                                ? t("precheckin:errorBody.linkExpired")
+                                : (booking?.error || t("precheckin:errorBody.invalidFallback"))
+                        }
                     </p>
                     {booking?.completed_at && (
                         <p className="text-[#7a756a] text-xs">
-                            Completed on {new Date(booking.completed_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                            {t("precheckin:completedOn", { date: new Date(booking.completed_at).toLocaleDateString(dateLocale, { day: "numeric", month: "short", year: "numeric" }) })}
                         </p>
                     )}
 
@@ -375,7 +385,7 @@ export default function PreCheckin() {
                                 href="/guest"
                                 className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#d4af37] text-black font-bold text-sm hover:bg-[#b8942d] transition-colors"
                             >
-                                Go to Stay Portal
+                                {t("precheckin:goToPortal")}
                                 <ChevronRight className="h-4 w-4" />
                             </a>
                         </div>
@@ -388,7 +398,7 @@ export default function PreCheckin() {
     // ─── Step Indicator ────────────────────────────────────────
     const StepIndicator = () => (
         <div className="flex items-center justify-center gap-3 py-6">
-            {STEPS.map((s, i) => {
+            {STEP_KEYS.map((s, i) => {
                 const stepIdx = i + 1; // 1=details, 2=id, 3=done
                 const isCompleted = step > stepIdx;
                 const isCurrent = step === stepIdx;
@@ -407,10 +417,10 @@ export default function PreCheckin() {
                                 {isCompleted ? <Check className="h-4 w-4" /> : stepIdx}
                             </div>
                             <span className={`text-xs font-medium ${isCurrent ? "text-white" : "text-[#7a756a]"}`}>
-                                {s}
+                                {t(s)}
                             </span>
                         </div>
-                        {i < STEPS.length - 1 && (
+                        {i < STEP_KEYS.length - 1 && (
                             <div className="w-8 h-[2px] bg-[#1c1916]">
                                 <div className={`h-full transition-all duration-500 ${step > stepIdx ? "bg-[#d4af37] w-full" : "w-0"}`} />
                             </div>
@@ -423,7 +433,7 @@ export default function PreCheckin() {
 
     // ─── Welcome Screen (Step 0) ──────────────────────────────
     if (step === 0) {
-        const firstName = booking.guest_name?.split(" ")[0] || "Guest";
+        const firstName = booking.guest_name?.split(" ")[0] || t("common:terms.guest");
 
         return (
             <div className="min-h-screen bg-[#0a0a0c] px-4 py-8">
@@ -437,9 +447,9 @@ export default function PreCheckin() {
                     {/* Welcome */}
                     <div className="text-center space-y-2">
                         <h1 className="text-2xl font-light text-white">
-                            Welcome, <span className="text-[#d4af37] font-medium">{firstName}</span>!
+                            {t("precheckin:welcomePrefix")} <span className="text-[#d4af37] font-medium">{firstName}</span>!
                         </h1>
-                        <p className="text-[#b8b3a8] text-sm">Complete your pre-check-in to skip the front desk</p>
+                        <p className="text-[#b8b3a8] text-sm">{t("precheckin:welcomeSub")}</p>
                     </div>
 
                     {/* Booking Card */}
@@ -455,7 +465,7 @@ export default function PreCheckin() {
                             <div className="space-y-6">
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-2 text-[#9ca3af] text-xs font-medium uppercase tracking-wide">
-                                        <Calendar className="h-4 w-4" /> Check-in
+                                        <Calendar className="h-4 w-4" /> {t("precheckin:checkin")}
                                     </div>
                                     <div className="text-[#fceea7] font-bold text-sm">
                                         {checkinFormatted} <span className="text-[#d4af37]/70">|</span> {checkinTime}
@@ -464,7 +474,7 @@ export default function PreCheckin() {
 
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-2 text-[#9ca3af] text-xs font-medium uppercase tracking-wide">
-                                        <Calendar className="h-4 w-4" /> Check-out
+                                        <Calendar className="h-4 w-4" /> {t("precheckin:checkout")}
                                     </div>
                                     <div className="text-[#fceea7] font-bold text-sm">
                                         {checkoutFormatted} <span className="text-[#d4af37]/70">|</span> 11:00 AM
@@ -476,7 +486,7 @@ export default function PreCheckin() {
                             <div className="space-y-6">
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-2 text-[#9ca3af] text-xs font-medium uppercase tracking-wide">
-                                        <Key className="h-4 w-4" /> Room Type
+                                        <Key className="h-4 w-4" /> {t("precheckin:roomType")}
                                     </div>
                                     <div className="text-[#fceea7] font-bold text-sm">
                                         {booking.room_type || "Deluxe Suite"}
@@ -485,13 +495,13 @@ export default function PreCheckin() {
 
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-2 text-[#9ca3af] text-xs font-medium uppercase tracking-wide">
-                                        <Users className="h-4 w-4" /> Guests
+                                        <Users className="h-4 w-4" /> {t("precheckin:guests")}
                                     </div>
                                     <div className="text-[#fceea7] font-bold text-sm">
                                         {booking.rooms_total && booking.rooms_total > 1 ? (
-                                            <span className="mr-2">{booking.rooms_total} Rooms |</span>
+                                            <span className="mr-2">{t("precheckin:rooms", { count: booking.rooms_total })} |</span>
                                         ) : null}
-                                        {booking.adults || 0} Adult{booking.adults !== 1 ? 's' : ''}, {booking.children || 0} Child{booking.children !== 1 ? 'ren' : ''}
+                                        {t("precheckin:adults", { count: booking.adults || 0 })}, {t("precheckin:children", { count: booking.children || 0 })}
                                     </div>
                                 </div>
                             </div>
@@ -502,7 +512,7 @@ export default function PreCheckin() {
                                 <QrCode className="w-8 h-8 text-[#fceea7]" />
                             </div>
                             <div>
-                                <div className="text-[#9ca3af] text-xs font-medium mb-0.5">Booking Code:</div>
+                                <div className="text-[#9ca3af] text-xs font-medium mb-0.5">{t("precheckin:bookingCode")}</div>
                                 <div className="text-[#d4af37] font-bold text-lg tracking-wider leading-none">
                                     {booking.booking_code}
                                 </div>
@@ -512,13 +522,13 @@ export default function PreCheckin() {
 
                     {/* Stepper Preview */}
                     <div className="flex items-center justify-center gap-4 text-xs text-[#7a756a]">
-                        {["Guest Details", "ID Proof", "Done"].map((s, i) => (
+                        {STEP_KEYS.map((s, i) => (
                             <div key={i} className="flex items-center gap-2">
                                 <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${i === 0 ? "bg-[#d4af37] text-black" : "bg-[#1c1916] border border-[#d4af37]/15 text-[#7a756a]"
                                     }`}>
                                     {i + 1}
                                 </div>
-                                <span>{s}</span>
+                                <span>{t(s)}</span>
                                 {i < 2 && <ChevronRight className="h-3 w-3 text-[#3a3530]" />}
                             </div>
                         ))}
@@ -529,14 +539,14 @@ export default function PreCheckin() {
                         onClick={() => setStep(1)}
                         className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b8942d] text-black font-bold text-sm tracking-wide shadow-lg shadow-[#d4af37]/20 hover:shadow-[#d4af37]/40 transition-all duration-300 flex items-center justify-center gap-2"
                     >
-                        Start Pre-Check-In
+                        {t("precheckin:startPrecheckin")}
                         <ChevronRight className="h-4 w-4" />
                     </button>
 
                     {/* Security note */}
                     <div className="flex items-center justify-center gap-1.5 text-[#7a756a] text-xs">
                         <Lock className="h-3 w-3" />
-                        <span>Your data is encrypted and secure</span>
+                        <span>{t("precheckin:encrypted")}</span>
                     </div>
                 </div>
             </div>
@@ -555,21 +565,21 @@ export default function PreCheckin() {
                                 <div className="mx-auto w-12 h-12 rounded-full bg-[#d4af37]/10 flex items-center justify-center mb-2">
                                     <User className="h-6 w-6 text-[#d4af37]" />
                                 </div>
-                                <h3 className="text-white text-lg font-bold">Existing Guest Found</h3>
+                                <h3 className="text-white text-lg font-bold">{t("precheckin:existingGuest")}</h3>
                                 <p className="text-[#8e8e93] text-xs leading-relaxed">
-                                    We found a guest profile associated with <strong>{guestForm.email}</strong>.
-                                    <br />Do you want to use the saved details?
+                                    {t("precheckin:existingGuestBody1")} <strong>{guestForm.email}</strong>.
+                                    <br />{t("precheckin:existingGuestBody2")}
                                 </p>
                             </div>
 
                             <div className="bg-[#2c2c2e]/50 rounded-xl p-3 text-xs space-y-1 border border-white/5">
                                 <div className="flex justify-between">
-                                    <span className="text-[#8e8e93]">Name:</span>
+                                    <span className="text-[#8e8e93]">{t("precheckin:nameLabel")}</span>
                                     <span className="text-white font-medium">{emailConflictGuest.full_name}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-[#8e8e93]">Saved Mobile:</span>
-                                    <span className="text-white font-medium">{emailConflictGuest.mobile || 'N/A'}</span>
+                                    <span className="text-[#8e8e93]">{t("precheckin:savedMobile")}</span>
+                                    <span className="text-white font-medium">{emailConflictGuest.mobile || t("precheckin:na")}</span>
                                 </div>
                             </div>
 
@@ -578,7 +588,7 @@ export default function PreCheckin() {
                                     onClick={() => setEmailConflictGuest(null)} // Cancel
                                     className="flex-1 py-3 rounded-xl border border-[#3a3a3c] text-[#8e8e93] text-sm font-semibold hover:bg-[#2c2c2e] transition-colors"
                                 >
-                                    No, Keep Mine
+                                    {t("precheckin:keepMine")}
                                 </button>
                                 <button
                                     onClick={() => {
@@ -587,7 +597,7 @@ export default function PreCheckin() {
                                     }}
                                     className="flex-1 py-3 rounded-xl bg-[#d4af37] text-black text-sm font-bold hover:bg-[#b8942d] transition-colors"
                                 >
-                                    Yes, Autofill
+                                    {t("precheckin:yesAutofill")}
                                 </button>
                             </div>
                         </div>
@@ -600,9 +610,9 @@ export default function PreCheckin() {
                         <div className="flex items-center justify-between text-[#d4af37] text-sm font-medium">
                             <span className="flex items-center gap-2">
                                 <span className="w-6 h-6 rounded-full bg-[#d4af37] text-black flex items-center justify-center text-xs font-bold">1</span>
-                                Step 1 of 3
+                                {t("precheckin:stepOf", { current: 1, total: 3 })}
                             </span>
-                            <span className="text-[#7a756a]">Guest Details</span>
+                            <span className="text-[#7a756a]">{t("precheckin:step.guestDetails")}</span>
                         </div>
                         <div className="flex gap-2 h-1">
                             <div className="flex-1 bg-[#d4af37] rounded-full" />
@@ -613,7 +623,7 @@ export default function PreCheckin() {
 
                     {/* Primary Guest Section */}
                     <div className="space-y-4">
-                        <h2 className="text-[#d4af37] text-base font-semibold text-left">Primary Guest</h2>
+                        <h2 className="text-[#d4af37] text-base font-semibold text-left">{t("precheckin:primaryGuest")}</h2>
 
                         {/* Autofill Banner */}
                         {lookupSource && (
@@ -625,10 +635,10 @@ export default function PreCheckin() {
                                 </div>
                                 <div className="flex-1">
                                     <p className="text-[#fceea7] text-xs font-medium">
-                                        Details loaded from previous stay
+                                        {t("precheckin:detailsLoaded")}
                                     </p>
                                     <p className="text-[#7a756a] text-[10px]">
-                                        Matched via {lookupSource === "mobile" ? "mobile number" : "email address"}
+                                        {t("precheckin:matchedVia", { method: lookupSource === "mobile" ? t("precheckin:matchMobile") : t("precheckin:matchEmail") })}
                                     </p>
                                 </div>
                                 <button
@@ -646,13 +656,13 @@ export default function PreCheckin() {
                         {/* Full Name */}
                         <div className="bg-[#1c1c1e] rounded-2xl border border-[#d4af37]/30 px-4 py-3 relative flex items-center justify-between">
                             <div className="flex-1">
-                                <label className="block text-[#8e8e93] text-xs mb-1">Full Name</label>
+                                <label className="block text-[#8e8e93] text-xs mb-1">{t("precheckin:fullName")}</label>
                                 <input
                                     type="text"
                                     value={guestForm.guest_name}
                                     onChange={(e) => setGuestForm({ ...guestForm, guest_name: e.target.value })}
                                     className="w-full bg-transparent text-white text-base font-medium outline-none placeholder-[#3a3a3c]"
-                                    placeholder="Enter Name"
+                                    placeholder={t("precheckin:enterName")}
                                 />
                             </div>
                             {guestForm.guest_name && <Check className="h-5 w-5 text-[#d4af37]" />}
@@ -661,7 +671,7 @@ export default function PreCheckin() {
                         {/* Mobile */}
                         <div className="bg-[#1c1c1e] rounded-2xl border border-[#d4af37]/30 px-4 py-3 relative flex items-center justify-between">
                             <div className="flex-1">
-                                <label className="block text-[#8e8e93] text-xs mb-1">Mobile</label>
+                                <label className="block text-[#8e8e93] text-xs mb-1">{t("precheckin:mobile")}</label>
                                 <input
                                     type="tel"
                                     value={guestForm.phone}
@@ -679,7 +689,7 @@ export default function PreCheckin() {
 
                         {/* Email */}
                         <div className="bg-[#1c1c1e] rounded-2xl border border-[#d4af37]/30 px-4 py-3 relative">
-                            <label className="block text-[#8e8e93] text-xs mb-1">Email</label>
+                            <label className="block text-[#8e8e93] text-xs mb-1">{t("precheckin:email")}</label>
                             <input
                                 type="email"
                                 value={guestForm.email}
@@ -693,14 +703,14 @@ export default function PreCheckin() {
                         {/* Nationality */}
                         <div className="bg-[#1c1c1e] rounded-2xl border border-[#d4af37]/30 px-4 py-3 relative flex items-center justify-between">
                             <div className="flex-1">
-                                <label className="block text-[#8e8e93] text-xs mb-1">Nationality</label>
+                                <label className="block text-[#8e8e93] text-xs mb-1">{t("precheckin:nationality")}</label>
                                 <select
                                     value={guestForm.nationality}
                                     onChange={(e) => setGuestForm({ ...guestForm, nationality: e.target.value })}
                                     className="w-full bg-transparent text-white text-base font-medium outline-none appearance-none"
                                 >
-                                    <option value="Indian">Indian</option>
-                                    <option value="Other">Other</option>
+                                    <option value="Indian">{t("precheckin:natIndian")}</option>
+                                    <option value="Other">{t("precheckin:natOther")}</option>
                                 </select>
                             </div>
                             <ChevronDown className="h-5 w-5 text-[#d4af37]" />
@@ -708,28 +718,29 @@ export default function PreCheckin() {
 
                         {/* Address */}
                         <div className="bg-[#1c1c1e] rounded-2xl border border-[#d4af37]/30 px-4 py-3 relative">
-                            <label className="block text-[#8e8e93] text-xs mb-1">Address</label>
+                            <label className="block text-[#8e8e93] text-xs mb-1">{t("precheckin:address")}</label>
                             <input
                                 type="text"
                                 value={guestForm.address}
                                 onChange={(e) => setGuestForm({ ...guestForm, address: e.target.value })}
                                 className="w-full bg-transparent text-white text-base font-medium outline-none placeholder-[#3a3a3c]"
-                                placeholder="City, Country"
+                                placeholder={t("precheckin:addressPlaceholder")}
                             />
                         </div>
                     </div>
 
                     {/* Additional Guests Section */}
                     <div className="space-y-4">
-                        <h2 className="text-[#d4af37] text-base font-semibold text-left">Additional Guests</h2>
+                        <h2 className="text-[#d4af37] text-base font-semibold text-left">{t("precheckin:additionalGuests")}</h2>
 
                         <div className="bg-transparent border border-[#d4af37] rounded-3xl p-5 space-y-4">
                             {guestForm.additional_guests.map((g, i) => (
                                 <div key={i} className="flex items-center justify-between pb-4 border-b border-[#3a3a3c] last:border-0 last:pb-0">
                                     <div>
-                                        <div className="text-[#8e8e93] text-xs mb-1">Guest {i + 2}</div>
+                                        <div className="text-[#8e8e93] text-xs mb-1">{t("precheckin:guestN", { n: i + 2 })}</div>
                                         <div className="text-white text-base font-semibold">
-                                            {g.name} <span className="text-[#8e8e93] font-normal">({g.type}{g.age ? `, Age ${g.age}` : ""})</span>
+                                            {/* g.type is the stored VALUE ("Adult"/"Child"); translate only for display */}
+                                            {g.name} <span className="text-[#8e8e93] font-normal">({t(`precheckin:type.${g.type}`)}{g.age ? `, ${t("precheckin:ageWithValue", { age: g.age })}` : ""})</span>
                                         </div>
                                     </div>
                                     <button
@@ -740,7 +751,7 @@ export default function PreCheckin() {
                                             setGuestForm({ ...guestForm, additional_guests: updated });
                                         }}
                                     >
-                                        <X className="h-3 w-3" /> Remove
+                                        <X className="h-3 w-3" /> {t("precheckin:remove")}
                                     </button>
                                 </div>
                             ))}
@@ -752,7 +763,7 @@ export default function PreCheckin() {
                                 }}
                                 className="w-full flex items-center justify-center gap-2 text-[#d4af37] text-sm font-semibold pt-2"
                             >
-                                <Plus className="h-4 w-4" /> Add Guest
+                                <Plus className="h-4 w-4" /> {t("precheckin:addGuest")}
                             </button>
                         </div>
                     </div>
@@ -762,27 +773,28 @@ export default function PreCheckin() {
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
                             <div className="bg-[#1c1c1e] w-full max-w-sm rounded-2xl border border-[#d4af37]/30 shadow-2xl p-6 space-y-6 animate-in fade-in zoom-in duration-200">
                                 <div className="space-y-1 text-center">
-                                    <h3 className="text-white text-lg font-bold">Add Guest</h3>
-                                    <p className="text-[#8e8e93] text-xs">Enter details for the additional guest</p>
+                                    <h3 className="text-white text-lg font-bold">{t("precheckin:addGuest")}</h3>
+                                    <p className="text-[#8e8e93] text-xs">{t("precheckin:addGuestSub")}</p>
                                 </div>
 
                                 <div className="space-y-4">
                                     {/* Name Input */}
                                     <div className="space-y-1.5">
-                                        <label className="text-[#8e8e93] text-xs font-medium ml-1">Full Name</label>
+                                        <label className="text-[#8e8e93] text-xs font-medium ml-1">{t("precheckin:fullName")}</label>
                                         <input
                                             type="text"
                                             value={tempGuest.name}
                                             onChange={(e) => setTempGuest({ ...tempGuest, name: e.target.value })}
                                             className="w-full bg-[#2c2c2e] text-white text-sm px-4 py-3 rounded-xl border border-[#3a3a3c] focus:border-[#d4af37] focus:outline-none transition-colors"
-                                            placeholder="Guest Name"
+                                            placeholder={t("precheckin:guestNamePlaceholder")}
                                             autoFocus
                                         />
                                     </div>
 
-                                    {/* Type Selection */}
+                                    {/* Type Selection — the value stays "Adult"/"Child" (used in logic
+                                        and the submit payload); only the label is translated. */}
                                     <div className="space-y-1.5">
-                                        <label className="text-[#8e8e93] text-xs font-medium ml-1">Guest Type</label>
+                                        <label className="text-[#8e8e93] text-xs font-medium ml-1">{t("precheckin:guestType")}</label>
                                         <div className="grid grid-cols-2 gap-3">
                                             {["Adult", "Child"].map((type) => (
                                                 <button
@@ -793,7 +805,7 @@ export default function PreCheckin() {
                                                         : "bg-[#2c2c2e] border-[#3a3a3c] text-[#8e8e93] hover:bg-[#3a3a3c]"
                                                         }`}
                                                 >
-                                                    {type}
+                                                    {t(`precheckin:type.${type}`)}
                                                 </button>
                                             ))}
                                         </div>
@@ -802,13 +814,13 @@ export default function PreCheckin() {
                                     {/* Age Input (Child Only) */}
                                     {tempGuest.type === "Child" && (
                                         <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
-                                            <label className="text-[#8e8e93] text-xs font-medium ml-1">Age</label>
+                                            <label className="text-[#8e8e93] text-xs font-medium ml-1">{t("precheckin:ageLabel")}</label>
                                             <input
                                                 type="number"
                                                 value={tempGuest.age}
                                                 onChange={(e) => setTempGuest({ ...tempGuest, age: e.target.value })}
                                                 className="w-full bg-[#2c2c2e] text-white text-sm px-4 py-3 rounded-xl border border-[#3a3a3c] focus:border-[#d4af37] focus:outline-none transition-colors"
-                                                placeholder="Age (e.g. 5)"
+                                                placeholder={t("precheckin:agePlaceholder")}
                                             />
                                         </div>
                                     )}
@@ -819,7 +831,7 @@ export default function PreCheckin() {
                                         onClick={() => setIsAddGuestModalOpen(false)}
                                         className="flex-1 py-3 rounded-xl border border-[#3a3a3c] text-[#8e8e93] text-sm font-semibold hover:bg-[#2c2c2e] transition-colors"
                                     >
-                                        Cancel
+                                        {t("precheckin:cancel")}
                                     </button>
                                     <button
                                         onClick={() => {
@@ -840,7 +852,7 @@ export default function PreCheckin() {
                                         disabled={!tempGuest.name.trim()}
                                         className="flex-1 py-3 rounded-xl bg-[#d4af37] text-black text-sm font-bold hover:bg-[#b8942d] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                     >
-                                        Add Guest
+                                        {t("precheckin:addGuest")}
                                     </button>
                                 </div>
                             </div>
@@ -852,18 +864,18 @@ export default function PreCheckin() {
                         <button
                             onClick={() => {
                                 if (!guestForm.guest_name || !guestForm.phone) {
-                                    alert("Please fill in name and phone number");
+                                    alert(t("precheckin:alertNamePhone"));
                                     return;
                                 }
                                 if (guestForm.phone.length !== 10) {
-                                    alert("Please enter a valid 10-digit mobile number");
+                                    alert(t("precheckin:alertValidMobile"));
                                     return;
                                 }
                                 setStep(2);
                             }}
                             className="w-full py-4 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b8942d] text-black font-bold text-lg shadow-lg shadow-[#d4af37]/20 hover:shadow-[#d4af37]/40 transition-all duration-300"
                         >
-                            Continue to ID Verification
+                            {t("precheckin:continueToId")}
                         </button>
                     </div>
                 </div>

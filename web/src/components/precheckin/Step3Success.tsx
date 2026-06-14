@@ -1,5 +1,6 @@
 import { Check, Calendar, BedDouble, FileText, MapPin, Phone, MessageSquare } from "lucide-react";
 import QRCode from "react-qr-code";
+import { useTranslation } from "react-i18next";
 import "./Step3Success.css";
 
 interface Step3Props {
@@ -10,10 +11,11 @@ interface Step3Props {
 }
 
 export function Step3Success({ booking, checkinFormatted, checkinTime, token }: Step3Props) {
+    const { t } = useTranslation(["precheckin", "common"]);
     // Helper for "Add to Calendar"
     const addToCalendar = () => {
         const start = booking.scheduled_checkin_at ? new Date(booking.scheduled_checkin_at) : new Date();
-        const title = `Check-in: ${booking.hotel_name || "Hotel"}`;
+        const title = t("precheckin:calendarTitle", { hotel: booking.hotel_name || t("common:terms.hotel") });
         const icsContent = [
             "BEGIN:VCALENDAR",
             "VERSION:2.0",
@@ -44,24 +46,24 @@ export function Step3Success({ booking, checkinFormatted, checkinTime, token }: 
             </div>
 
             {/* Headings */}
-            <h1 className="step3-hero-title">You’re All Set!</h1>
+            <h1 className="step3-hero-title">{t("precheckin:allSet")}</h1>
             <p className="step3-hero-subtitle">
-                Pre-check-in complete. Just walk in and collect your key.
+                {t("precheckin:allSetSub")}
             </p>
 
             {/* Booking Details Card */}
             <div className="step3-card">
-                <span className="step3-card-header">Booking Details</span>
+                <span className="step3-card-header">{t("precheckin:bookingDetails")}</span>
 
                 <div className="step3-details-grid">
                     {/* Check-in */}
                     <div className="step3-detail-row">
                         <div className="step3-detail-label">
                             <Calendar className="step3-detail-icon" />
-                            <span>Check-in:</span>
+                            <span>{t("precheckin:checkinColon")}</span>
                         </div>
                         <div className="step3-detail-value">
-                            {checkinFormatted} at {checkinTime}
+                            {t("precheckin:atTime", { date: checkinFormatted, time: checkinTime })}
                         </div>
                     </div>
 
@@ -69,10 +71,10 @@ export function Step3Success({ booking, checkinFormatted, checkinTime, token }: 
                     <div className="step3-detail-row">
                         <div className="step3-detail-label">
                             <BedDouble className="step3-detail-icon" />
-                            <span>Room:</span>
+                            <span>{t("precheckin:roomColon")}</span>
                         </div>
                         <div className="step3-detail-value">
-                            {booking.room_type || "To be assigned"}
+                            {booking.room_type || t("precheckin:toBeAssigned")}
                         </div>
                     </div>
 
@@ -80,7 +82,7 @@ export function Step3Success({ booking, checkinFormatted, checkinTime, token }: 
                     <div className="step3-detail-row">
                         <div className="step3-detail-label">
                             <FileText className="step3-detail-icon" />
-                            <span>Booking:</span>
+                            <span>{t("precheckin:bookingColon")}</span>
                         </div>
                         <div className="step3-detail-value">
                             {booking.booking_code}
@@ -107,13 +109,13 @@ export function Step3Success({ booking, checkinFormatted, checkinTime, token }: 
                             )}
                         </div>
                     </div>
-                    <span className="step3-qr-text">Show at reception</span>
+                    <span className="step3-qr-text">{t("precheckin:showReception")}</span>
                 </div>
             </div>
 
             {/* Quick Tips */}
             <div className="step3-tips-section">
-                <span className="step3-tips-header">Quick Tips</span>
+                <span className="step3-tips-header">{t("precheckin:quickTips")}</span>
 
                 {(booking.hotel_latitude && booking.hotel_longitude) || booking.hotel_address ? (
                     <a
@@ -128,12 +130,12 @@ export function Step3Success({ booking, checkinFormatted, checkinTime, token }: 
                         style={{ textDecoration: 'none' }}
                     >
                         <MapPin className="step3-tip-icon" />
-                        <span className="step3-tip-text">Directions to Hotel</span>
+                        <span className="step3-tip-text">{t("precheckin:directions")}</span>
                     </a>
                 ) : (
                     <div className="step3-tip-row">
                         <MapPin className="step3-tip-icon" />
-                        <span className="step3-tip-text">Directions to Hotel</span>
+                        <span className="step3-tip-text">{t("precheckin:directions")}</span>
                     </div>
                 )}
 
@@ -149,7 +151,7 @@ export function Step3Success({ booking, checkinFormatted, checkinTime, token }: 
                 ) : (
                     <div className="step3-tip-row">
                         <Phone className="step3-tip-icon" />
-                        <span className="step3-tip-text">Contact Number</span>
+                        <span className="step3-tip-text">{t("precheckin:contactNumber")}</span>
                     </div>
                 )}
             </div>
@@ -161,13 +163,13 @@ export function Step3Success({ booking, checkinFormatted, checkinTime, token }: 
                     className="step3-btn-primary"
                     style={{ background: "#d4af37", color: "black", marginBottom: "12px" }}
                 >
-                    Go to Stay Portal
+                    {t("precheckin:goToPortal")}
                 </button>
                 <button onClick={addToCalendar} className="step3-btn-secondary">
-                    Add to Calendar
+                    {t("precheckin:addToCalendar")}
                 </button>
                 <button onClick={() => window.location.href = "/"} className="step3-btn-secondary">
-                    Back to Home
+                    {t("precheckin:backToHome")}
                 </button>
             </div>
         </div>

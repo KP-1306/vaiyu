@@ -1,12 +1,14 @@
 import { useRef, ChangeEvent, useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Camera, Check, ChevronDown, Lock, Shield, Upload, AlertTriangle, Loader2, FileText, Eye, X } from "lucide-react";
 import "./Step2IdentityVerification.css";
 
+// value = stored code (English, never translated); label resolved via i18n at render.
 const ID_TYPES = [
-    { value: "aadhaar", label: "Aadhaar Card", placeholder: "XXXX-XXXX-XXXX" },
-    { value: "passport", label: "Passport", placeholder: "A1234567" },
-    { value: "driving_license", label: "Driving License", placeholder: "DL-1234567890123" },
-    { value: "voter_id", label: "Voter ID", placeholder: "ABC1234567" },
+    { value: "aadhaar", placeholder: "XXXX-XXXX-XXXX" },
+    { value: "passport", placeholder: "A1234567" },
+    { value: "driving_license", placeholder: "DL-1234567890123" },
+    { value: "voter_id", placeholder: "ABC1234567" },
 ];
 
 interface Step2Props {
@@ -21,8 +23,9 @@ interface Step2Props {
 }
 
 export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, submitting, submitError, setStep, booking, token }: Step2Props) {
+    const { t } = useTranslation("precheckin");
     const normalizedIdType = (idForm.id_type === 'aadhar') ? 'aadhaar' : idForm.id_type;
-    const selectedIdType = ID_TYPES.find((t) => t.value === normalizedIdType) || ID_TYPES[0];
+    const selectedIdType = ID_TYPES.find((x) => x.value === normalizedIdType) || ID_TYPES[0];
     const frontInputRef = useRef<HTMLInputElement>(null);
     const backInputRef = useRef<HTMLInputElement>(null);
 
@@ -137,7 +140,7 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
             <div className="step2-container">
 
                 {/* Step Header */}
-                <p className="step2-header-text">Step 2 of 3 — Identity Proof</p>
+                <p className="step2-header-text">{t("stepOf", { current: 2, total: 3 })} — {t("identityProof")}</p>
 
                 {/* Progress Bar */}
                 <div className="step2-progress-track">
@@ -155,7 +158,7 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
                             </svg>
                         </div>
                     </div>
-                    <h2 className="step2-title">Identity Verification</h2>
+                    <h2 className="step2-title">{t("identityVerification")}</h2>
                 </div>
 
                 {/* Dropdown */}
@@ -165,8 +168,8 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
                         onChange={(e) => setIdForm({ ...idForm, id_type: e.target.value })}
                         className="step2-select"
                     >
-                        {ID_TYPES.map((t) => (
-                            <option key={t.value} value={t.value}>{t.label}</option>
+                        {ID_TYPES.map((idt) => (
+                            <option key={idt.value} value={idt.value}>{t(`idType.${idt.value}`)}</option>
                         ))}
                     </select>
                     <ChevronDown className="step2-select-arrow" />
@@ -174,7 +177,7 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
 
                 {/* ID Number */}
                 <div className="step2-input-group">
-                    <label className="step2-input-label">{selectedIdType.label} Number</label>
+                    <label className="step2-input-label">{t("idNumberLabel", { type: t(`idType.${selectedIdType.value}`) })}</label>
                     <input
                         type="text"
                         value={idForm.id_number}
@@ -230,13 +233,13 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
                             <div className="flex items-center justify-between">
                                 <div className="step2-capture-title">
                                     {frontPreview
-                                        ? "Front Side Captured"
+                                        ? t("capture.frontCaptured")
                                         : (idForm.front_captured || remoteFrontUrl)
-                                            ? "Front Side Saved"
-                                            : "Capture Front Side"}
+                                            ? t("capture.frontSaved")
+                                            : t("capture.captureFront")}
                                 </div>
                                 {(frontPreview || remoteFrontUrl) && (
-                                    <div 
+                                    <div
                                         className="step2-view-link flex items-center gap-1"
                                         onClick={(e) => {
                                             e.stopPropagation();
@@ -244,16 +247,16 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
                                         }}
                                     >
                                         <Eye className="w-3 h-3" />
-                                        View Proof
+                                        {t("capture.viewProof")}
                                     </div>
                                 )}
                             </div>
                             <div className="step2-capture-subtitle">
                                 {frontPreview
-                                    ? "Tap to retake"
+                                    ? t("capture.tapRetake")
                                     : (idForm.front_captured || remoteFrontUrl)
-                                        ? "Document on file • Tap to replace"
-                                        : "(Required)"}
+                                        ? t("capture.onFile")
+                                        : t("capture.required")}
                             </div>
                         </div>
                     </button>
@@ -293,13 +296,13 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
                             <div className="flex items-center justify-between">
                                 <div className="step2-capture-title">
                                     {backPreview
-                                        ? "Back Side Uploaded"
+                                        ? t("capture.backUploaded")
                                         : (idForm.back_uploaded || remoteBackUrl)
-                                            ? "Back Side Saved"
-                                            : "Upload Back Side"}
+                                            ? t("capture.backSaved")
+                                            : t("capture.uploadBack")}
                                 </div>
                                 {(backPreview || remoteBackUrl) && (
-                                    <div 
+                                    <div
                                         className="step2-view-link flex items-center gap-1"
                                         onClick={(e) => {
                                             e.stopPropagation();
@@ -307,16 +310,16 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
                                         }}
                                     >
                                         <Eye className="w-3 h-3" />
-                                        View Proof
+                                        {t("capture.viewProof")}
                                     </div>
                                 )}
                             </div>
                             <div className="step2-capture-subtitle">
                                 {backPreview
-                                    ? "Tap to change"
+                                    ? t("capture.tapChange")
                                     : (idForm.back_uploaded || remoteBackUrl)
-                                        ? "Document on file • Tap to replace"
-                                        : "(Optional)"}
+                                        ? t("capture.onFile")
+                                        : t("capture.optional")}
                             </div>
                         </div>
                     </button>
@@ -325,7 +328,7 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
                 {/* Encryption Notice */}
                 <div className="step2-encrypt-notice">
                     <Lock size={16} />
-                    <span>Documents encrypted and stored securely</span>
+                    <span>{t("docsEncrypted")}</span>
                 </div>
 
                 {/* Submit */}
@@ -336,7 +339,7 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
                         if (currentType === "aadhaar") {
                             const isMasked = idForm.id_number.includes("XXXX");
                             if (!isMasked && idForm.id_number.length !== 12) {
-                                alert("Please enter a valid 12-digit Aadhaar number");
+                                alert(t("alertAadhaar"));
                                 return;
                             }
                         }
@@ -347,10 +350,10 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
                     {submitting ? (
                         <>
                             <Loader2 className="animate-spin" />
-                            Processing...
+                            {t("processing")}
                         </>
                     ) : (
-                        "Submit and Complete"
+                        t("submitComplete")
                     )}
                 </button>
             </div>
@@ -364,9 +367,9 @@ export function Step2IdentityVerification({ idForm, setIdForm, handleSubmit, sub
                         </button>
                         
                         <div className="step2-modal-image-wrapper" onClick={e => e.stopPropagation()}>
-                            <img src={previewUrl} className="step2-modal-image" alt="Proof Review" />
+                            <img src={previewUrl} className="step2-modal-image" alt={t("proofReview")} />
                             <div className="step2-modal-footer-badge">
-                                <p>Secure Document Review Node</p>
+                                <p>{t("secureNode")}</p>
                             </div>
                         </div>
                     </div>

@@ -6,8 +6,10 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Loader2, CheckCircle, AlertCircle, Send, Tent } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { LanguageToggle } from '../i18n/LanguageToggle';
 import { getPackagePublic } from '../services/packageService';
 import type { PublicPackagePayload } from '../types/package';
 
@@ -47,6 +49,7 @@ const EMPTY_FORM: FormState = {
 };
 
 export default function PublicLeadCapture() {
+  const { t } = useTranslation('publicEnquiry');
   const { hotelSlug } = useParams<{ hotelSlug: string }>();
   const [searchParams] = useSearchParams();
   const packageSlug = searchParams.get('package');
@@ -116,16 +119,16 @@ export default function PublicLeadCapture() {
 
   function clientValidate(): Record<string, string> {
     const errors: Record<string, string> = {};
-    if (!form.contact_name.trim()) errors.contact_name = 'Name is required';
+    if (!form.contact_name.trim()) errors.contact_name = t('validate.nameRequired');
     if (!form.contact_phone.trim() && !form.contact_email.trim()) {
-      errors.contact_phone = 'Phone or email is required';
-      errors.contact_email = 'Phone or email is required';
+      errors.contact_phone = t('validate.phoneOrEmail');
+      errors.contact_email = t('validate.phoneOrEmail');
     }
     if (form.check_in && form.check_out && form.check_out <= form.check_in) {
-      errors.check_out = 'Check-out must be after check-in';
+      errors.check_out = t('validate.checkoutAfter');
     }
-    if (form.party_adults < 1) errors.party_adults = 'At least 1 adult required';
-    if (form.room_count < 1) errors.room_count = 'At least 1 room required';
+    if (form.party_adults < 1) errors.party_adults = t('validate.adultMin');
+    if (form.room_count < 1) errors.room_count = t('validate.roomMin');
     return errors;
   }
 
@@ -162,17 +165,18 @@ export default function PublicLeadCapture() {
 
       if (error || !data?.ok) {
         const code = data?.code ?? 'UNKNOWN_ERROR';
+        // code is a server contract value; map it to a translated message.
         const message = code === 'RATE_LIMITED'
-          ? 'Too many requests. Please try again in a few minutes.'
+          ? t('submitErr.rateLimited')
           : code === 'INVALID_CONTACT'
-          ? 'Please provide a phone or email so we can reach you.'
+          ? t('submitErr.invalidContact')
           : code === 'INVALID_NAME'
-          ? 'Please provide your name.'
+          ? t('submitErr.invalidName')
           : code === 'INVALID_DATES'
-          ? 'Check-out must be after check-in.'
+          ? t('submitErr.invalidDates')
           : code === 'INVALID_REQUEST'
-          ? 'Could not submit. Please check your entries.'
-          : 'Could not submit. Please try again shortly.';
+          ? t('submitErr.invalidRequest')
+          : t('submitErr.generic');
         setMode({ kind: 'error', message });
         return;
       }
@@ -184,7 +188,7 @@ export default function PublicLeadCapture() {
     } catch (err) {
       setMode({
         kind: 'error',
-        message: (err as Error).message ?? 'Network error',
+        message: (err as Error).message ?? t('submitErr.network'),
       });
     }
   }
@@ -194,8 +198,8 @@ export default function PublicLeadCapture() {
       <div className="min-h-screen flex items-center justify-center bg-[#0a0c11] text-white px-4">
         <div className="text-center">
           <AlertCircle className="h-10 w-10 text-red-400 mx-auto mb-3" />
-          <h1 className="text-lg font-semibold mb-1">Page not found</h1>
-          <p className="text-sm text-white/60">We couldn't find that hotel.</p>
+          <h1 className="text-lg font-semibold mb-1">{t('pageNotFound')}</h1>
+          <p className="text-sm text-white/60">{t('hotelNotFound')}</p>
         </div>
       </div>
     );
@@ -219,9 +223,9 @@ export default function PublicLeadCapture() {
           <div className="rounded-full bg-emerald-500/15 p-3 ring-1 ring-emerald-500/30 inline-flex mb-4">
             <CheckCircle className="h-8 w-8 text-emerald-300" />
           </div>
-          <h1 className="text-xl font-semibold mb-2">Thanks — we'll be in touch</h1>
+          <h1 className="text-xl font-semibold mb-2">{t('thanksTitle')}</h1>
           <p className="text-sm text-white/60">
-            We've received your enquiry for {hotel.name}. Our team will reach out shortly.
+            {t('thanksBody', { hotel: hotel.name })}
           </p>
         </div>
       </div>
@@ -236,15 +240,18 @@ export default function PublicLeadCapture() {
   return (
     <div className="min-h-screen bg-[#0a0c11] text-white">
       <div className="mx-auto max-w-md px-4 py-10">
+        <div className="flex justify-end mb-2">
+          <LanguageToggle />
+        </div>
         <header className="mb-6 text-center">
-          <h1 className="text-2xl font-semibold mb-1">Enquire at {hotel.name}</h1>
+          <h1 className="text-2xl font-semibold mb-1">{t('enquireAt', { hotel: hotel.name })}</h1>
           <p className="text-sm text-white/60">
-            Share a few details and we'll get back to you with availability and rates.
+            {t('enquireSub')}
           </p>
           {packageContext && (
             <div className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-200">
               <Tent className="h-3.5 w-3.5" aria-hidden />
-              <span>About: {packageContext.package.name}</span>
+              <span>{t('about', { package: packageContext.package.name })}</span>
             </div>
           )}
         </header>
@@ -254,7 +261,7 @@ export default function PublicLeadCapture() {
           onSubmit={handleSubmit}
           className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.02] p-5"
         >
-          <Field label="Your name" required error={fieldErrors.contact_name}>
+          <Field label={t('field.yourName')} required error={fieldErrors.contact_name}>
             <input
               type="text"
               value={form.contact_name}
@@ -266,7 +273,7 @@ export default function PublicLeadCapture() {
           </Field>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Field label="Phone" error={fieldErrors.contact_phone}>
+            <Field label={t('field.phone')} error={fieldErrors.contact_phone}>
               <input
                 type="tel"
                 inputMode="tel"
@@ -277,7 +284,7 @@ export default function PublicLeadCapture() {
                 className={inputCls(!!fieldErrors.contact_phone)}
               />
             </Field>
-            <Field label="Email" error={fieldErrors.contact_email}>
+            <Field label={t('field.email')} error={fieldErrors.contact_email}>
               <input
                 type="email"
                 inputMode="email"
@@ -290,7 +297,7 @@ export default function PublicLeadCapture() {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Check-in" error={fieldErrors.check_in}>
+            <Field label={t('field.checkin')} error={fieldErrors.check_in}>
               <input
                 type="date"
                 value={form.check_in}
@@ -298,7 +305,7 @@ export default function PublicLeadCapture() {
                 className={inputCls(!!fieldErrors.check_in)}
               />
             </Field>
-            <Field label="Check-out" error={fieldErrors.check_out}>
+            <Field label={t('field.checkout')} error={fieldErrors.check_out}>
               <input
                 type="date"
                 value={form.check_out}
@@ -309,7 +316,7 @@ export default function PublicLeadCapture() {
           </div>
 
           <div className="grid grid-cols-3 gap-3">
-            <Field label="Adults" error={fieldErrors.party_adults}>
+            <Field label={t('field.adults')} error={fieldErrors.party_adults}>
               <input
                 type="number"
                 inputMode="numeric"
@@ -319,7 +326,7 @@ export default function PublicLeadCapture() {
                 className={inputCls(!!fieldErrors.party_adults)}
               />
             </Field>
-            <Field label="Children">
+            <Field label={t('field.children')}>
               <input
                 type="number"
                 inputMode="numeric"
@@ -329,7 +336,7 @@ export default function PublicLeadCapture() {
                 className={inputCls(false)}
               />
             </Field>
-            <Field label="Rooms" error={fieldErrors.room_count}>
+            <Field label={t('field.rooms')} error={fieldErrors.room_count}>
               <input
                 type="number"
                 inputMode="numeric"
@@ -341,10 +348,10 @@ export default function PublicLeadCapture() {
             </Field>
           </div>
 
-          <Field label="Anything else?">
+          <Field label={t('field.anythingElse')}>
             <textarea
               rows={3}
-              placeholder="Special requests, dietary preferences, etc."
+              placeholder={t('notesPlaceholder')}
               value={form.notes}
               onChange={(e) => update('notes', e.target.value)}
               className={`${inputCls(false)} resize-y`}
@@ -367,18 +374,18 @@ export default function PublicLeadCapture() {
             {mode.kind === 'submitting' ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Sending…
+                {t('sending')}
               </>
             ) : (
               <>
                 <Send className="h-4 w-4" />
-                Send enquiry
+                {t('sendEnquiry')}
               </>
             )}
           </button>
 
           <p className="text-[10px] text-white/40 text-center">
-            By submitting, you agree to be contacted by {hotel.name} about your enquiry.
+            {t('consent', { hotel: hotel.name })}
           </p>
         </form>
       </div>

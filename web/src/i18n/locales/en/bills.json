@@ -1,0 +1,20 @@
+{
+  "title": "Bills & Orders",
+  "subtitle": "View all your stay bills and food orders",
+  "totalStayBills": "Total Stay Bills",
+  "staysCount_one": "{{count}} stay",
+  "staysCount_other": "{{count}} stays",
+  "totalFoodOrders": "Total Food Orders",
+  "ordersCount_one": "{{count}} order",
+  "ordersCount_other": "{{count}} orders",
+  "allHotels": "All Hotels",
+  "allYears": "All Years",
+  "reset": "Reset",
+  "tabStays": "Stay Bills",
+  "tabOrders": "Food Orders",
+  "emptyStays": "No stay bills found",
+  "emptyOrders": "No food orders found",
+  "items_one": "{{count}} item",
+  "items_other": "{{count}} items",
+  "stayLabel": "Stay: {{code}}"
+}

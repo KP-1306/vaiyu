@@ -1,0 +1,42 @@
+name: RPC Security Guard
+
+# Ratchet for the 2026-06-14 authorization sweep: fails the build if any new
+# migration introduces an anon-callable, mutating, SECURITY DEFINER function with
+# no authorization guard (the class Postgres' PUBLIC default-execute grant makes
+# easy to reintroduce). The assertion + reviewed allowlist live in
+# supabase/tests/rpc_exposure_guard.sql.
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rpc-guard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rpc-exposure-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Postgres
+        run: supabase db start
+
+      - name: Apply all migrations (guarantees a fully-migrated schema)
+        run: supabase migration up
+
+      - name: Run RPC exposure guard
+        # Non-zero exit (RAISE EXCEPTION) fails the build. The SQL self-checks that
+        # the schema is migrated, so it can never give a false pass on an empty DB.
+        run: supabase db query --local --file supabase/tests/rpc_exposure_guard.sql

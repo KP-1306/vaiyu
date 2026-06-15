@@ -1,0 +1,70 @@
+{
+  "yourRequest": "Your Request",
+  "requestNotFound": "Request not found",
+  "requestNotFoundDesc": "We couldn't locate this request.",
+  "backToDashboard": "Back to Dashboard",
+  "loadError": "Could not load request details.",
+  "alerts": {
+    "uploadFailed": "Failed to upload photo.",
+    "messageFailed": "Failed to send message.",
+    "reopenFailed": "Failed to reopen ticket",
+    "updateFailed": "Failed to update details."
+  },
+  "badge": {
+    "delayed": "Delayed",
+    "onTime": "On Time"
+  },
+  "hero": {
+    "completed": "Request Completed",
+    "inProgress": "Your request is in progress"
+  },
+  "heroDesc": {
+    "completedLine1": "Your request has been completed by our team.",
+    "completedLine2": "Wishing you a wonderful stay. ✨",
+    "delayLine1": "Sorry for the delay.",
+    "delayLine2": "We are working to resolve this as quickly as possible.",
+    "preparing": "Our team is preparing to assist you."
+  },
+  "serviceDeliveredIn": "SERVICE DELIVERED IN",
+  "estimatedResponse": "ESTIMATED RESPONSE TIME",
+  "minSuffix": "{{count}} min",
+  "statusCompleted": "Completed",
+  "statusBreached": "SLA Breached",
+  "statusOnSchedule": "On Schedule",
+  "statusNotStarted": "Not Started (Assigning...)",
+  "minLate": "Min Late",
+  "minLeft": "Min Left",
+  "min": "Min",
+  "requestSummary": "Request Summary",
+  "publicArea": "Public Area",
+  "roomLabel": "Room {{number}}",
+  "requestId": "Request ID:",
+  "notes": "Notes:",
+  "statusUpdates": "Status Updates",
+  "todayAt": "Today • {{time}}",
+  "conversation": "Conversation",
+  "today": "Today",
+  "yesterday": "Yesterday",
+  "messagePlaceholder": "Type a message...",
+  "reopenRequest": "Reopen Request",
+  "addMoreDetails": "Add More Details",
+  "uploading": "Uploading...",
+  "addPhoto": "Add Photo",
+  "cancelRequest": "Cancel Request",
+  "postedPhotos": "Posted Photos",
+  "addDetails": "Add Details",
+  "addDetailsPlaceholder": "Add more context or details...",
+  "submitUpdate": "Submit Update",
+  "reopenModal": {
+    "body": "This will reopen the request for the staff."
+  },
+  "reopenReasonPlaceholder": "Reason (optional)...",
+  "cancel": "Cancel",
+  "confirm": "Confirm",
+  "steps": {
+    "submitted": "Submitted",
+    "assigning": "Assigning to Team",
+    "onTheWay": "Staff on the way",
+    "completed": "Completed"
+  }
+}

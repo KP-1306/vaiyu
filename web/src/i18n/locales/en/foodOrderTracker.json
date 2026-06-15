@@ -1,0 +1,44 @@
+{
+  "yourOrder": "Your Order",
+  "backToDashboard": "Back to Dashboard",
+  "orderNotFound": "Order not found",
+  "orderNotFoundDesc": "We couldn't locate this order.",
+  "loadError": "Could not load order details.",
+  "payCancelled": "Payment cancelled.",
+  "payFailed": "Payment failed: {{reason}}",
+  "lateBadge": "Late",
+  "hero": {
+    "completed": "Enjoy your meal!",
+    "cancelled": "Order Cancelled",
+    "inProgress": "Order is in progress"
+  },
+  "heroDesc": {
+    "completed": "Your order has been delivered.",
+    "cancelled": "This order was cancelled.",
+    "delayLine1": "Sorry for the delay.",
+    "delayLine2": "We are working to deliver your order as quickly as possible.",
+    "preparing": "Freshly preparing your items."
+  },
+  "deliveredAt": "DELIVERED AT",
+  "estimatedArrival": "ESTIMATED ARRIVAL",
+  "statusCompleted": "Completed",
+  "statusDelayed": "Delayed",
+  "statusOnSchedule": "On Schedule",
+  "updatedByKitchen": "Updated by kitchen at {{time}}",
+  "minLate": "Min Late",
+  "minLeft": "Min Left",
+  "orderSummary": "Order Summary",
+  "total": "Total",
+  "statusUpdates": "Status Updates",
+  "openingPayment": "Opening secure payment…",
+  "payFolio": "Pay folio balance · {{amount}}",
+  "paymentReceived": "Payment received. Your folio is settled.",
+  "needHelp": "Need Help? Call Front Desk",
+  "steps": {
+    "received": "Order Received",
+    "accepted": "Order Accepted",
+    "preparing": "Kitchen Preparing",
+    "onTheWay": "On the way",
+    "delivered": "Delivered"
+  }
+}

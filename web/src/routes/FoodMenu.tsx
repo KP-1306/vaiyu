@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams, useNavigate, Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   getServices,
   getMenu,
@@ -153,6 +154,7 @@ const injectAnimationStyles = () => {
 };
 
 export default function FoodMenu() {
+  const { t } = useTranslation(["foodMenu", "common"]);
   const { code: routeCode = "DEMO" } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -431,7 +433,7 @@ export default function FoodMenu() {
   const placeOrder = async () => {
     if (!cartItems.length) return;
     if (!resolvedStayId || !resolvedRoomId) {
-      alert("Stay context missing. Please ensure you scanned a valid QR code.");
+      alert(t("foodMenu:alerts.stayMissing"));
       return;
     }
 
@@ -466,10 +468,10 @@ export default function FoodMenu() {
       if (targetId) {
         navigate(`/track-order/${targetId}`);
       } else {
-        alert("Request placed successfully! Kitchen will review shortly.");
+        alert(t("foodMenu:alerts.orderPlaced"));
       }
     } catch (e: any) {
-      alert("Failed to place order: " + e.message);
+      alert(t("foodMenu:alerts.orderFailed") + e.message);
     }
   };
 
@@ -483,7 +485,7 @@ export default function FoodMenu() {
     try {
       const effectiveHotelId = resolvedHotelId || hotelId;
       if (!resolvedRoomId && !resolvedZoneId) {
-        alert("We could not verify your room location. Please rescan your room QR code.");
+        alert(t("foodMenu:alerts.roomUnverified"));
         return;
       }
 
@@ -523,10 +525,10 @@ export default function FoodMenu() {
 
       if (friendlyId) navigate(`/track/${friendlyId}`);
       else if (uuid) navigate(`/track/${uuid}`);
-      else alert("Service request sent!");
+      else alert(t("foodMenu:alerts.serviceSent"));
 
     } catch (e: any) {
-      alert(e?.message || "Could not create service request.");
+      alert(e?.message || t("foodMenu:alerts.serviceFailed"));
     }
   }
 
@@ -548,30 +550,30 @@ export default function FoodMenu() {
           <div>
             {/* Breadcrumb */}
             <nav className="flex items-center gap-2 text-sm mb-3">
-              <Link to="/guest" className="text-[#b8b3a8] hover:text-white transition-colors">Guest</Link>
+              <Link to="/guest" className="text-[#b8b3a8] hover:text-white transition-colors">{t("foodMenu:breadcrumbGuest")}</Link>
               <span className="text-[#7a756a]">›</span>
-              <span className="text-[#d4af37] font-medium">Room Service</span>
+              <span className="text-[#d4af37] font-medium">{t("foodMenu:roomService")}</span>
             </nav>
             <div className="flex items-center gap-3 mb-2">
               <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#d4af37]/10 border border-[#d4af37]/20 text-[#d4af37]">
                 {stayCode}
               </span>
-              {resolvedRoomId && <span className="text-xs text-[#d4af37] font-medium">Room Verified</span>}
+              {resolvedRoomId && <span className="text-xs text-[#d4af37] font-medium">{t("foodMenu:roomVerified")}</span>}
             </div>
-            <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">Room Service</h1>
-            <p className="text-[#b8b3a8] mt-1 max-w-md">Experience exceptional dining and hospitality, delivered directly to your room.</p>
+            <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">{t("foodMenu:roomService")}</h1>
+            <p className="text-[#b8b3a8] mt-1 max-w-md">{t("foodMenu:subtitle")}</p>
           </div>
 
           <div className="flex gap-3">
             <Link to={`/stay/${encodeURIComponent(stayCode)}/orders`} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#141210]/80 hover:bg-[#1c1916] text-sm font-medium transition-colors border border-[#d4af37]/10">
               <Receipt size={16} />
-              My Orders
+              {t("foodMenu:myOrders")}
             </Link>
             <Link to="/guest" className="px-4 py-2 rounded-lg bg-[#141210]/80 hover:bg-[#1c1916] text-sm font-medium transition-colors border border-[#d4af37]/10">
-              Back to Guest
+              {t("foodMenu:backToGuest")}
             </Link>
             <Link to="/guest" className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#d4af37] to-[#b8942d] hover:from-[#e9c55a] hover:to-[#d4af37] text-black text-sm font-medium transition-colors shadow-lg shadow-[#d4af37]/20">
-              Dashboard
+              {t("foodMenu:dashboard")}
             </Link>
           </div>
         </header>
@@ -582,14 +584,14 @@ export default function FoodMenu() {
             onClick={() => setTab("food")}
             className={`pb-4 text-sm font-medium transition-all relative ${tab === 'food' ? 'text-white' : 'text-[#b8b3a8] hover:text-white'}`}
           >
-            In-Room Dining
+            {t("foodMenu:tabDining")}
             {tab === 'food' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[#d4af37] to-[#b8942d] rounded-t-full" />}
           </button>
           <button
             onClick={() => setTab("services")}
             className={`pb-4 text-sm font-medium transition-all relative ${tab === 'services' ? 'text-white' : 'text-[#b8b3a8] hover:text-white'}`}
           >
-            Services & Amenities
+            {t("foodMenu:tabServices")}
             {tab === 'services' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[#d4af37] to-[#b8942d] rounded-t-full" />}
           </button>
         </div>
@@ -609,7 +611,7 @@ export default function FoodMenu() {
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7a756a]" />
                   <input
                     type="text"
-                    placeholder="Search menu items..."
+                    placeholder={t("foodMenu:searchPlaceholder")}
                     className="w-full bg-[#0a0a0c] border border-[#d4af37]/12 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-[#7a756a] focus:outline-none focus:border-[#d4af37]/40 transition-colors"
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
@@ -618,10 +620,10 @@ export default function FoodMenu() {
 
                 {/* Dietary Toggles */}
                 <div className="flex flex-wrap gap-3">
-                  <FilterButton active={filters.veg} onClick={() => setFilters(f => ({ ...f, veg: !f.veg }))} color="text-green-400" border="border-green-500/30" bg="bg-green-500/10">Veg</FilterButton>
-                  <FilterButton active={filters.nonVeg} onClick={() => setFilters(f => ({ ...f, nonVeg: !f.nonVeg }))} color="text-red-400" border="border-red-500/30" bg="bg-red-500/10">Non-Veg</FilterButton>
-                  <FilterButton active={filters.jain} onClick={() => setFilters(f => ({ ...f, jain: !f.jain }))} color="text-amber-400" border="border-amber-500/30" bg="bg-amber-500/10">Jain</FilterButton>
-                  <FilterButton active={filters.vegan} onClick={() => setFilters(f => ({ ...f, vegan: !f.vegan }))} color="text-emerald-400" border="border-emerald-500/30" bg="bg-emerald-500/10">Vegan</FilterButton>
+                  <FilterButton active={filters.veg} onClick={() => setFilters(f => ({ ...f, veg: !f.veg }))} color="text-green-400" border="border-green-500/30" bg="bg-green-500/10">{t("foodMenu:filter.veg")}</FilterButton>
+                  <FilterButton active={filters.nonVeg} onClick={() => setFilters(f => ({ ...f, nonVeg: !f.nonVeg }))} color="text-red-400" border="border-red-500/30" bg="bg-red-500/10">{t("foodMenu:filter.nonVeg")}</FilterButton>
+                  <FilterButton active={filters.jain} onClick={() => setFilters(f => ({ ...f, jain: !f.jain }))} color="text-amber-400" border="border-amber-500/30" bg="bg-amber-500/10">{t("foodMenu:filter.jain")}</FilterButton>
+                  <FilterButton active={filters.vegan} onClick={() => setFilters(f => ({ ...f, vegan: !f.vegan }))} color="text-emerald-400" border="border-emerald-500/30" bg="bg-emerald-500/10">{t("foodMenu:filter.vegan")}</FilterButton>
                 </div>
 
                 {/* Categories */}
@@ -635,7 +637,7 @@ export default function FoodMenu() {
                         }`}
                     >
                       <Utensils size={14} className={selectedCategory === "All" ? "text-black" : "text-[#7a756a] group-hover:text-white transition-colors"} />
-                      All Items
+                      {t("foodMenu:allItems")}
                     </button>
 
                     {displayCategories.map(cat => {
@@ -690,8 +692,8 @@ export default function FoodMenu() {
                               <div className={`w-3.5 h-3.5 rounded-sm border-2 ${isVeg ? 'border-green-500' : 'border-red-500'} flex items-center justify-center`}>
                                 <div className={`w-1.5 h-1.5 rounded-full ${isVeg ? 'bg-green-500' : 'bg-red-500'}`} />
                               </div>
-                              {meta.jain && <span className="text-[10px] bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded border border-amber-500/20">Jain</span>}
-                              {meta.vegan && <span className="text-[10px] bg-emerald-500/10 text-emerald-500 px-1.5 py-0.5 rounded border border-emerald-500/20">Vegan</span>}
+                              {meta.jain && <span className="text-[10px] bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded border border-amber-500/20">{t("foodMenu:filter.jain")}</span>}
+                              {meta.vegan && <span className="text-[10px] bg-emerald-500/10 text-emerald-500 px-1.5 py-0.5 rounded border border-emerald-500/20">{t("foodMenu:filter.vegan")}</span>}
                             </div>
                             <h3 className="font-semibold text-white leading-tight mb-1 group-hover:text-[#f5f3ef] transition-colors">{item.name}</h3>
                             {item.internal_notes && (
@@ -713,7 +715,7 @@ export default function FoodMenu() {
                               onClick={() => addToCart(item)}
                               className="px-5 py-2 rounded-lg bg-gradient-to-r from-[#d4af37]/20 to-[#d4af37]/10 border border-[#d4af37]/25 text-xs font-bold uppercase tracking-wider text-[#d4af37] hover:from-[#d4af37]/30 hover:to-[#d4af37]/15 hover:border-[#d4af37]/40 transition-all shadow-sm active:scale-95"
                             >
-                              Add
+                              {t("foodMenu:add")}
                             </button>
                           )}
                         </div>
@@ -724,7 +726,7 @@ export default function FoodMenu() {
 
                 {filteredFood.length === 0 && (
                   <div className="col-span-full py-12 text-center text-slate-500">
-                    No items found matching your filters.
+                    {t("foodMenu:noItems")}
                   </div>
                 )}
               </div>
@@ -736,10 +738,10 @@ export default function FoodMenu() {
                 <div className="p-5 border-b border-[#d4af37]/12 bg-[#1c1916]/80 flex items-center justify-between sticky top-0 z-10">
                   <div className="flex items-center gap-2">
                     <ShoppingBag size={18} className="text-[#d4af37]" />
-                    <h3 className="font-bold text-white">Current Order</h3>
+                    <h3 className="font-bold text-white">{t("foodMenu:currentOrder")}</h3>
                   </div>
                   <span className="bg-[#0a0a0c] text-[#b8b3a8] text-xs font-mono px-2 py-1 rounded border border-[#d4af37]/12">
-                    {cartCount} Items
+                    {t("foodMenu:itemsCount", { count: cartCount })}
                   </span>
                 </div>
 
@@ -752,8 +754,8 @@ export default function FoodMenu() {
                           <Plus size={10} className="text-[#d4af37]/50" />
                         </div>
                       </div>
-                      <div className="text-sm font-medium">Your cart is empty</div>
-                      <div className="text-xs mt-1 opacity-60">Add items from the menu</div>
+                      <div className="text-sm font-medium">{t("foodMenu:cartEmpty")}</div>
+                      <div className="text-xs mt-1 opacity-60">{t("foodMenu:cartEmptyHint")}</div>
                     </div>
                   ) : (
                     cartItems.map(({ item, qty }) => (
@@ -774,19 +776,19 @@ export default function FoodMenu() {
 
                 <div className="p-5 border-t border-[#d4af37]/12 bg-[#0a0a0c]">
                   <div className="flex justify-between items-center mb-4">
-                    <span className="text-[#b8b3a8] text-sm">Total Amount</span>
+                    <span className="text-[#b8b3a8] text-sm">{t("foodMenu:totalAmount")}</span>
                     <span className="text-xl font-bold text-[#d4af37] font-mono">₹{cartTotal}</span>
                   </div>
 
                   {/* Special Instructions Input */}
                   <div className="mb-4">
                     <label className="block text-xs font-bold text-[#b8b3a8] mb-1 uppercase tracking-wider">
-                      Special Instructions (Optional)
+                      {t("foodMenu:specialInstructions")}
                     </label>
                     <textarea
                       value={specialInstructions}
                       onChange={(e) => setSpecialInstructions(e.target.value)}
-                      placeholder="e.g. Less spicy, no onions, deliver after 9 PM..."
+                      placeholder={t("foodMenu:specialInstructionsPlaceholder")}
                       className="w-full bg-[#141210] border border-[#d4af37]/12 rounded-lg p-2 text-sm text-white placeholder-[#7a756a] focus:outline-none focus:border-[#d4af37]/40 resize-none h-20"
                     />
                   </div>
@@ -795,7 +797,7 @@ export default function FoodMenu() {
                     disabled={cartItems.length === 0}
                     className="w-full py-3 bg-gradient-to-r from-[#d4af37] to-[#b8942d] text-black font-bold rounded-xl hover:from-[#e9c55a] hover:to-[#d4af37] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-[#d4af37]/20"
                   >
-                    PLACE REQUEST
+                    {t("foodMenu:placeRequest")}
                   </button>
                 </div>
               </div>
@@ -820,7 +822,7 @@ export default function FoodMenu() {
                     onClick={() => setServiceCategory("All")}
                     className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${serviceCategory === "All" ? 'bg-gradient-to-r from-[#d4af37] to-[#b8942d] text-black shadow-lg shadow-[#d4af37]/20' : 'bg-[#141210] text-[#b8b3a8] border border-[#d4af37]/12'}`}
                   >
-                    All Types
+                    {t("foodMenu:allTypes")}
                   </button>
                   {Array.from(new Set(servicesState.items.map(s => s.department_name || "General"))).sort().map(dept => (
                     <button
@@ -857,10 +859,10 @@ export default function FoodMenu() {
                           </span>
                         </div>
                         <h3 className="font-bold text-white mb-1 group-hover:text-[#d4af37] transition-colors">{s.label_en || s.label || s.key}</h3>
-                        <p className="text-xs text-[#7a756a] line-clamp-2 mb-4">{s.description_en || "Request this service to your room."}</p>
+                        <p className="text-xs text-[#7a756a] line-clamp-2 mb-4">{s.description_en || t("foodMenu:serviceFallbackDesc")}</p>
 
                         <div className="flex items-center gap-2 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
-                          <span className="text-xs font-bold text-[#d4af37] underline underline-offset-4 decoration-[#d4af37]/30">Request</span>
+                          <span className="text-xs font-bold text-[#d4af37] underline underline-offset-4 decoration-[#d4af37]/30">{t("foodMenu:request")}</span>
                           <ArrowDownRight size={14} className="text-[#d4af37]" />
                         </div>
                       </button>
@@ -933,6 +935,7 @@ function ServiceRequestModal({
   onClose: () => void,
   onConfirm: (data: { note: string; priority: string; locationType: string; publicLocation: string; zoneId?: string; media_urls?: string[] }) => void
 }) {
+  const { t } = useTranslation(["foodMenu", "common"]);
   const [note, setNote] = useState("");
   const [priority, setPriority] = useState("normal");
   const [locationType, setLocationType] = useState("room");
@@ -984,7 +987,7 @@ function ServiceRequestModal({
       }
       setMediaUrls(prev => [...prev, ...newUrls]);
     } catch (err: any) {
-      alert("Upload failed: " + err.message);
+      alert(t("foodMenu:alerts.uploadFailed") + err.message);
     } finally {
       setUploading(false);
       e.target.value = "";
@@ -993,11 +996,11 @@ function ServiceRequestModal({
 
   const handleSubmit = async () => {
     if (service.requires_description && !note.trim()) {
-      alert("Please describe what you need.");
+      alert(t("foodMenu:alerts.describeNeeded"));
       return;
     }
     if (locationType === 'public' && !selectedZoneId) {
-      alert("Please select a specific area.");
+      alert(t("foodMenu:alerts.selectArea"));
       return;
     }
     setSubmitting(true);
@@ -1031,7 +1034,7 @@ function ServiceRequestModal({
               <Bell size={20} />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-white">Guest Request</h3>
+              <h3 className="text-lg font-bold text-white">{t("foodMenu:modal.guestRequest")}</h3>
               <p className="text-xs text-gray-400 font-medium">{service.label_en || service.label || service.key}</p>
             </div>
           </div>
@@ -1042,43 +1045,43 @@ function ServiceRequestModal({
 
         <div className="p-5 space-y-6">
           <div>
-            <label className="block text-sm font-medium text-white mb-2">Request Details {service.requires_description && <span className="text-red-500">*</span>}</label>
-            <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Describe your request..." className="w-full h-32 p-4 rounded-xl bg-[#27272a] border border-white/10 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-blue-500 transition-all resize-none" autoFocus />
+            <label className="block text-sm font-medium text-white mb-2">{t("foodMenu:modal.requestDetails")} {service.requires_description && <span className="text-red-500">*</span>}</label>
+            <textarea value={note} onChange={e => setNote(e.target.value)} placeholder={t("foodMenu:modal.describePlaceholder")} className="w-full h-32 p-4 rounded-xl bg-[#27272a] border border-white/10 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-blue-500 transition-all resize-none" autoFocus />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-white mb-2">Location</label>
+            <label className="block text-sm font-medium text-white mb-2">{t("foodMenu:modal.location")}</label>
             <div className="flex bg-[#27272a] rounded-lg p-1 border border-white/5">
-              <button onClick={() => setLocationType("room")} className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${locationType === "room" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"}`}>In Room</button>
-              <button onClick={() => setLocationType("public")} className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${locationType === "public" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"}`}>Public Area</button>
+              <button onClick={() => setLocationType("room")} className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${locationType === "room" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"}`}>{t("foodMenu:modal.inRoom")}</button>
+              <button onClick={() => setLocationType("public")} className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${locationType === "public" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"}`}>{t("foodMenu:modal.publicArea")}</button>
             </div>
             {locationType === "public" && (
               <div className="mt-3">
-                <label className="text-xs text-gray-400 mb-1.5 block">Select Area</label>
-                {loadingZones ? <div className="text-sm text-gray-500">Loading...</div> : <CustomZoneSelect value={selectedZoneId} onChange={setSelectedZoneId} groupedZones={groupedZones} />}
+                <label className="text-xs text-gray-400 mb-1.5 block">{t("foodMenu:modal.selectArea")}</label>
+                {loadingZones ? <div className="text-sm text-gray-500">{t("common:state.loading")}</div> : <CustomZoneSelect value={selectedZoneId} onChange={setSelectedZoneId} groupedZones={groupedZones} />}
               </div>
             )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-white mb-2">Priority</label>
+            <label className="block text-sm font-medium text-white mb-2">{t("foodMenu:modal.priority")}</label>
             <div className="flex gap-3">
-              {[{ id: 'low', label: 'Low', color: 'bg-green-500' }, { id: 'normal', label: 'Normal', color: 'bg-blue-500' }, { id: 'high', label: 'High', color: 'bg-red-500' }].map(p => (
+              {[{ id: 'low', labelKey: 'modal.priorityLow', color: 'bg-green-500' }, { id: 'normal', labelKey: 'modal.priorityNormal', color: 'bg-blue-500' }, { id: 'high', labelKey: 'modal.priorityHigh', color: 'bg-red-500' }].map(p => (
                 <label key={p.id} className={`flex-1 cursor-pointer rounded-xl px-2 py-3 flex items-center justify-center gap-2 border ${priority === p.id ? "bg-[#27272a] border-white/20" : "bg-transparent border-white/10"}`}>
                   <input type="radio" name="priority" value={p.id} checked={priority === p.id} onChange={() => setPriority(p.id)} className="hidden" />
                   <span className={`w-2 h-2 rounded-full ${p.color} ${priority === p.id ? 'ring-2 ring-offset-2 ring-offset-[#18181b]' : 'opacity-50'}`} />
-                  <span className={`text-sm font-medium ${priority === p.id ? 'text-white' : 'text-gray-500'}`}>{p.label}</span>
+                  <span className={`text-sm font-medium ${priority === p.id ? 'text-white' : 'text-gray-500'}`}>{t(`foodMenu:${p.labelKey}`)}</span>
                 </label>
               ))}
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-white mb-2">Attachments</label>
+            <label className="block text-sm font-medium text-white mb-2">{t("foodMenu:modal.attachments")}</label>
             <div className="flex flex-wrap gap-2">
               <input type="file" id="u" multiple accept="image/*,video/*" className="hidden" onChange={handleUpload} />
               <label htmlFor="u" className={`flex items-center gap-2 px-4 py-3 rounded-xl border border-white/10 bg-[#27272a] text-gray-300 hover:text-white transition-colors text-sm font-medium cursor-pointer w-full justify-center ${uploading ? 'opacity-50' : ''}`}>
-                <Camera size={16} /> <span>{uploading ? 'Uploading...' : 'Attach Photo/Video'}</span>
+                <Camera size={16} /> <span>{uploading ? t("foodMenu:modal.uploading") : t("foodMenu:modal.attachPhoto")}</span>
               </label>
               {mediaUrls.length > 0 && (
                 <div className="grid grid-cols-4 gap-2 w-full mt-2">
@@ -1096,7 +1099,7 @@ function ServiceRequestModal({
 
         <div className="p-5 pt-2 bg-[#18181b] sticky bottom-0 z-10 border-t border-white/5">
           <button onClick={handleSubmit} disabled={submitting} className="w-full py-3.5 rounded-xl font-bold text-sm shadow-lg flex items-center justify-center gap-2 bg-[#3b82f6] hover:bg-blue-600 text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-            {submitting ? 'Sending...' : 'Submit Request'}
+            {submitting ? t("foodMenu:modal.sending") : t("foodMenu:modal.submit")}
           </button>
         </div>
       </div>

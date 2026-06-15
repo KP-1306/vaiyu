@@ -1,0 +1,26 @@
+{
+  "seoTitle": "Scan to open guest menu",
+  "scanToOpen": "Scan to open",
+  "welcomeBefore": "Welcome to ",
+  "welcomeAfter": "",
+  "yourStay": "your stay",
+  "intro": "You just scanned a QR at the property. Choose how you want to open the guest menu and services.",
+  "poweredBy": "Powered by VAiyu",
+  "loadingProperty": "Loading property…",
+  "thisProperty": "this property",
+  "openWebMenu": "Open web menu",
+  "openWhatsApp": "Open in WhatsApp",
+  "howTitle": "How this works:",
+  "howWebMenuTerm": "Web menu",
+  "howWebMenuDesc": "opens the in-room menu and services directly in your browser.",
+  "howWhatsAppTerm": "WhatsApp",
+  "howWhatsAppDesc": "opens a chat with a pre-filled link to this property's menu. You can pin/save that chat for quick access.",
+  "liveBookingNote": "If you have a live booking, your link may include your stay code so that requests automatically reach the right room.",
+  "urlLabel": "URL:",
+  "waMessage": "Hello, I'd like to see the menu for {{hotel}}.",
+  "errors": {
+    "loadFailed": "We couldn't load full property details — you can still open the menu below.",
+    "noContext": "We couldn't detect which property this QR belongs to. Please scan the VAiyu QR at your hotel (or ask the front desk) and try again.",
+    "noMenuLink": "We can't build a menu link because this page doesn't include a hotel or stay code. Please scan the VAiyu QR at the property again."
+  }
+}

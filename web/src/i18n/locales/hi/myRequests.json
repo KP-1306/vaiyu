@@ -1,0 +1,113 @@
+{
+  "breadcrumbGuest": "अतिथि",
+  "breadcrumbRequests": "अनुरोध",
+  "title": "आपके अनुरोध",
+  "subtitle": "अपने सेवा अनुरोध ट्रैक करें और प्रबंधित करें",
+  "searchPlaceholder": "अनुरोध / ऑर्डर आईडी से खोजें (REQ-1047, ORD-3321)",
+  "tab": {
+    "track": "ट्रैक",
+    "services": "सेवाएँ",
+    "food": "भोजन एवं पेय",
+    "active": "सक्रिय",
+    "history": "इतिहास"
+  },
+  "empty": {
+    "noRequests": "अभी कोई अनुरोध नहीं।",
+    "noActive": "कोई सक्रिय अनुरोध नहीं",
+    "noHistory": "अभी कोई इतिहास नहीं",
+    "noFood": "अभी कोई खाने का ऑर्डर नहीं।"
+  },
+  "reopenDialog": {
+    "title": "अनुरोध फिर से खोलें",
+    "body": "इससे स्टाफ़ के लिए अनुरोध फिर से खुल जाएगा।",
+    "reasonPlaceholder": "कारण (वैकल्पिक)...",
+    "reopening": "फिर से खोला जा रहा है...",
+    "confirm": "पुष्टि करें"
+  },
+  "cancelDialog": {
+    "title": "अनुरोध रद्द करें",
+    "notesPlaceholder": "अतिरिक्त नोट्स..."
+  },
+  "detail": {
+    "myNote": "मेरा नोट",
+    "updates": "अपडेट",
+    "conversation": "बातचीत",
+    "messagePlaceholder": "संदेश लिखें..."
+  },
+  "reopen": "फिर से खोलें",
+  "reopenRequest": "अनुरोध फिर से खोलें",
+  "cancelRequest": "अनुरोध रद्द करें",
+  "cancel": "रद्द करें",
+  "assigning": "असाइन किया जा रहा है...",
+  "alerts": {
+    "commentEmpty": "कृपया एक टिप्पणी दर्ज करें",
+    "commentTooLong": "टिप्पणी बहुत लंबी है (अधिकतम 500 अक्षर)",
+    "reopenFailed": "अनुरोध फिर से नहीं खुल सका: ",
+    "commentFailed": "टिप्पणी नहीं जोड़ी जा सकी: ",
+    "cancelFailed": "अनुरोध रद्द नहीं हो सका",
+    "retry": "कृपया पुनः प्रयास करें"
+  },
+  "ticketStatus": {
+    "submitted": "सबमिट किया गया",
+    "assigned": "असाइन किया गया",
+    "inProgress": "प्रगति में",
+    "completed": "पूर्ण",
+    "onHold": "रोका गया",
+    "cancelled": "रद्द"
+  },
+  "foodStatus": {
+    "created": "लंबित",
+    "accepted": "स्वीकृत",
+    "preparing": "तैयार हो रहा है",
+    "ready": "तैयार",
+    "delivered": "डिलीवर हो गया",
+    "cancelled": "रद्द"
+  },
+  "blockedReason": {
+    "guest_inside_room": "एक्सेस की प्रतीक्षा",
+    "supervisor_approval": "अनुमोदन की प्रतीक्षा",
+    "parts_unavailable": "सामग्री की प्रतीक्षा",
+    "guest_unavailable": "आपकी प्रतीक्षा",
+    "staff_unavailable": "स्टाफ़ की प्रतीक्षा",
+    "equipment_unavailable": "उपकरण की प्रतीक्षा",
+    "external_dependency": "बाहरी सेवा की प्रतीक्षा",
+    "fallbackWaiting": "प्रतीक्षारत",
+    "fallbackOnHold": "रोका गया"
+  },
+  "timeAgo": {
+    "justNow": "अभी",
+    "minAgo": "{{count}}मि पहले",
+    "hourAgo": "{{count}}घं पहले",
+    "dayAgo": "{{count}}दि पहले"
+  },
+  "newRequest": "नया अनुरोध",
+  "orderFood": "खाना ऑर्डर करें",
+  "completed": "पूर्ण",
+  "delayed": "विलंबित",
+  "slaLate": "+{{count}}मि देरी",
+  "slaLeft": "{{count}}मि शेष",
+  "trackProgress": "विस्तृत प्रगति और बातचीत ट्रैक करें",
+  "closeDetails": "विवरण बंद करें",
+  "quickDetails": "↓  त्वरित विवरण और चैट  ↓",
+  "dialogBack": "वापस",
+  "cancelling": "रद्द हो रहा है...",
+  "noMessages": "अभी कोई संदेश नहीं।",
+  "today": "आज",
+  "yesterday": "कल",
+  "orderLabel": "ऑर्डर {{id}}",
+  "roomLabel": "कमरा {{number}}",
+  "noRoom": "कोई कमरा नहीं",
+  "noItemsSummary": "कोई आइटम नहीं",
+  "moreItems": " +{{count}} और",
+  "trackOrderDetails": "ऑर्डर विवरण ट्रैक करें",
+  "timeline": {
+    "submitted": "अनुरोध सबमिट किया गया",
+    "staffTakingCare": "स्टाफ़ इसका ध्यान रख रहा है",
+    "paused": "रोका गया: {{reason}}",
+    "requestPaused": "अनुरोध रोका गया",
+    "resumed": "फिर से शुरू",
+    "completed": "पूर्ण",
+    "cancelled": "रद्द",
+    "reopened": "फिर से खोला गया"
+  }
+}

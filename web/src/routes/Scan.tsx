@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useSearchParams, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import SEO from "../components/SEO";
 import Spinner from "../components/Spinner";
 import { getHotel, isDemo } from "../lib/api";
@@ -24,6 +25,7 @@ function useQueryParams() {
 }
 
 export default function Scan() {
+  const { t, i18n } = useTranslation(["scan", "common"]);
   const navigate = useNavigate();
   const location = useLocation();
   const { hotelSlug, stayCode } = useQueryParams();
@@ -52,8 +54,8 @@ export default function Scan() {
   const hotelLabel = useMemo(() => {
     if (hotel?.name) return hotel.name;
     if (hotelSlug) return hotelSlug;
-    return "this property";
-  }, [hotelSlug, hotel]);
+    return t("scan:thisProperty");
+  }, [hotelSlug, hotel, i18n.language]);
 
   // ─────────────────────────────────────────────
   // Load hotel details (for nicer text + branding), but fail gracefully
@@ -87,9 +89,7 @@ export default function Scan() {
       } catch (e: any) {
         if (!cancelled) {
           console.warn("[Scan] Could not load property details", e);
-          setError(
-            "हम अभी प्रॉपर्टी की पूरी जानकारी नहीं ला पाए — आप फिर भी नीचे से मेनू खोल सकते हैं।"
-          );
+          setError(t("scan:errors.loadFailed"));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -107,10 +107,7 @@ export default function Scan() {
   function handleOpenWebMenu() {
     if (!menuPath) {
       // No hotel / stay information → avoid sending to /menu (404)
-      setError(
-        "We couldn’t detect which property this QR belongs to. " +
-          "Please scan the VAiyu QR at your hotel (or ask the front desk) and try again."
-      );
+      setError(t("scan:errors.noContext"));
       return;
     }
     setError(null);
@@ -119,10 +116,7 @@ export default function Scan() {
 
   function handleOpenWhatsApp() {
     if (!menuPath) {
-      setError(
-        "We can’t build a menu link because this page doesn’t include a hotel or stay code. " +
-          "Please scan the VAiyu QR at the property again."
-      );
+      setError(t("scan:errors.noMenuLink"));
       return;
     }
 
@@ -132,7 +126,7 @@ export default function Scan() {
     const fullUrl = `${base}${menuPath}`;
 
     const textLines = [
-      `नमस्ते, मुझे ${hotelLabel} का मेनू देखना है।`,
+      t("scan:waMessage", { hotel: hotelLabel }),
       "",
       fullUrl,
     ];
@@ -148,23 +142,23 @@ export default function Scan() {
 
   return (
     <>
-      <SEO title="Scan to open guest menu" noIndex />
+      <SEO title={t("scan:seoTitle")} noIndex />
 
       <main className="min-h-[60vh] px-4 py-6 flex items-center justify-center">
         <div className="w-full max-w-md space-y-4">
           <header className="space-y-1 text-center">
             <p className="text-xs uppercase tracking-wide text-gray-500">
-              Scan to open
+              {t("scan:scanToOpen")}
             </p>
             <h1 className="text-xl font-semibold">
-              Welcome to{" "}
+              {t("scan:welcomeBefore")}
               <span style={{ color: themeColor }}>
-                {hotel?.name || "your stay"}
+                {hotel?.name || t("scan:yourStay")}
               </span>
+              {t("scan:welcomeAfter")}
             </h1>
             <p className="text-sm text-gray-600">
-              You just scanned a QR at the property. Choose how you want to open
-              the guest menu and services.
+              {t("scan:intro")}
             </p>
           </header>
 
@@ -191,7 +185,7 @@ export default function Scan() {
                   className="rounded-full px-2 py-1 text-[11px] font-medium text-white"
                   style={{ backgroundColor: themeColor }}
                 >
-                  Powered by VAiyu
+                  {t("scan:poweredBy")}
                 </div>
               </div>
             </section>
@@ -200,7 +194,7 @@ export default function Scan() {
           {/* Status / errors */}
           {loading && (
             <div className="mt-2">
-              <Spinner label="Loading property…" />
+              <Spinner label={t("scan:loadingProperty")} />
             </div>
           )}
 
@@ -217,7 +211,7 @@ export default function Scan() {
               onClick={handleOpenWebMenu}
               className="inline-flex w-full items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-800 shadow-sm hover:bg-gray-50"
             >
-              Open web menu
+              {t("scan:openWebMenu")}
             </button>
 
             <button
@@ -229,30 +223,26 @@ export default function Scan() {
               <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-lg leading-none">
                 💬
               </span>
-              Open in WhatsApp
+              {t("scan:openWhatsApp")}
             </button>
           </section>
 
           {/* Explanation */}
           <section className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600 space-y-1.5">
-            <p className="font-medium text-gray-700">How this works:</p>
+            <p className="font-medium text-gray-700">{t("scan:howTitle")}</p>
             <ol className="list-decimal pl-4 space-y-1">
               <li>
-                <b>Web menu</b> opens the in-room menu and services directly in
-                your browser.
+                <b>{t("scan:howWebMenuTerm")}</b> {t("scan:howWebMenuDesc")}
               </li>
               <li>
-                <b>WhatsApp</b> opens a chat with a pre-filled link to this
-                property&apos;s menu. You can pin/save that chat for quick
-                access.
+                <b>{t("scan:howWhatsAppTerm")}</b> {t("scan:howWhatsAppDesc")}
               </li>
             </ol>
             <p className="text-[11px] text-gray-500">
-              If you have a live booking, your link may include your stay code
-              so that requests automatically reach the right room.
+              {t("scan:liveBookingNote")}
             </p>
             <p className="text-[10px] text-gray-400">
-              URL: <code>{location.pathname + location.search}</code>
+              {t("scan:urlLabel")} <code>{location.pathname + location.search}</code>
             </p>
           </section>
         </div>

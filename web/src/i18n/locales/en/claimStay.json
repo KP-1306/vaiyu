@@ -1,0 +1,37 @@
+{
+  "seoTitle": "Claim your stay",
+  "title": "Claim your stay",
+  "backToDashboard": "← Back to dashboard",
+  "welcome": "Welcome to VAiyu",
+  "welcomeDesc": "Verify your booking with a quick OTP sent to the phone number on your reservation. Once verified, we'll open your in-room menu and services.",
+  "step1Title": "Verify details",
+  "step1Desc": "Enter your booking code and the phone number used for your reservation.",
+  "step2Title": "Enter OTP",
+  "step2Desc": "Type the 6-digit code we send to your phone and access your stay.",
+  "secureTitle": "Secure & simple",
+  "secureDesc": "Your details are used only to confirm your stay and unlock the VAiyu guest menu.",
+  "demoHint": {
+    "pre": "Demo mode is ON. Use booking code",
+    "mid": "and OTP",
+    "post": "to test."
+  },
+  "bookingCodeLabel": "Booking code",
+  "phoneLabel": "Phone on your booking",
+  "phoneHint": "Digits only, 8–15 characters.",
+  "sending": "Sending…",
+  "sendOtp": "Send OTP",
+  "demoOtpLabel": "Demo OTP:",
+  "enterOtpLabel": "Enter OTP",
+  "verifying": "Verifying…",
+  "verifyOpen": "Verify & open menu",
+  "startOver": "Start over",
+  "otpSent": "We've sent a one-time code to your phone.",
+  "demoOtpInfo": "Demo mode: use OTP {{otp}}",
+  "validation": {
+    "enterCode": "Please enter your booking code.",
+    "invalidPhone": "Enter a valid phone number (8–15 digits).",
+    "enterOtp": "Please enter the OTP.",
+    "claimFailed": "Could not start claim.",
+    "verifyFailed": "Could not verify OTP."
+  }
+}

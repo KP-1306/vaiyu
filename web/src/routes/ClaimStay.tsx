@@ -1,6 +1,7 @@
 // web/src/routes/ClaimStay.tsx
 import { FormEvent, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { claimInit, claimVerify, isDemo } from "../lib/api";
 import SEO from "../components/SEO";
 import Spinner from "../components/Spinner";
@@ -8,6 +9,7 @@ import Spinner from "../components/Spinner";
 type Step = "form" | "otp";
 
 export default function ClaimStay() {
+  const { t } = useTranslation(["claimStay", "common"]);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -36,11 +38,11 @@ export default function ClaimStay() {
     const cleanedPhone = normalizePhone(phone);
 
     if (!trimmedCode) {
-      setErr("Please enter your booking code.");
+      setErr(t("claimStay:validation.enterCode"));
       return;
     }
     if (!/^\d{8,15}$/.test(cleanedPhone)) {
-      setErr("Enter a valid phone number (8–15 digits).");
+      setErr(t("claimStay:validation.invalidPhone"));
       return;
     }
 
@@ -49,18 +51,18 @@ export default function ClaimStay() {
       const res: any = await claimInit(trimmedCode, cleanedPhone);
 
       if (res && res.ok === false) {
-        throw new Error(res.error || "Could not start claim.");
+        throw new Error(res.error || t("claimStay:validation.claimFailed"));
       }
 
       setStep("otp");
 
       if (isDemo() && res?.otp_hint) {
-        setInfo(`Demo mode: use OTP ${res.otp_hint}`);
+        setInfo(t("claimStay:demoOtpInfo", { otp: res.otp_hint }));
       } else {
-        setInfo("We’ve sent a one-time code to your phone.");
+        setInfo(t("claimStay:otpSent"));
       }
     } catch (e: any) {
-      setErr(e?.message || "Could not start claim.");
+      setErr(e?.message || t("claimStay:validation.claimFailed"));
     } finally {
       setBusy(false);
     }
@@ -75,7 +77,7 @@ export default function ClaimStay() {
     const trimmedOtp = otp.trim();
 
     if (!trimmedOtp) {
-      setErr("Please enter the OTP.");
+      setErr(t("claimStay:validation.enterOtp"));
       return;
     }
 
@@ -84,7 +86,7 @@ export default function ClaimStay() {
       const res: any = await claimVerify(trimmedCode, trimmedOtp);
 
       if (res && res.ok === false) {
-        throw new Error(res.error || "Could not verify OTP.");
+        throw new Error(res.error || t("claimStay:validation.verifyFailed"));
       }
 
       // --- Robustly extract booking + hotel info from any response shape ---
@@ -136,7 +138,7 @@ export default function ClaimStay() {
       // Fallback: guest dashboard (unchanged behaviour)
       navigate("/guest", { replace: true });
     } catch (e: any) {
-      setErr(e?.message || "Could not verify OTP.");
+      setErr(e?.message || t("claimStay:validation.verifyFailed"));
     } finally {
       setBusy(false);
     }
@@ -144,7 +146,7 @@ export default function ClaimStay() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50">
-      <SEO title="Claim your stay" />
+      <SEO title={t("claimStay:seoTitle")} />
 
       {/* Top bar with single nav control */}
       <header className="sticky top-0 z-10 backdrop-blur bg-white/70 border-b">
@@ -160,10 +162,10 @@ export default function ClaimStay() {
                 />
               </svg>
             </span>
-            <span className="font-semibold">Claim your stay</span>
+            <span className="font-semibold">{t("claimStay:title")}</span>
           </div>
           <Link to="/guest" className="btn btn-light">
-            ← Back to dashboard
+            {t("claimStay:backToDashboard")}
           </Link>
         </div>
       </header>
@@ -175,32 +177,28 @@ export default function ClaimStay() {
             <div className="relative rounded-3xl overflow-hidden border shadow-sm bg-white">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-emerald-50 to-amber-50" />
               <div className="relative p-8">
-                <h2 className="text-2xl font-semibold">Welcome to VAiyu</h2>
+                <h2 className="text-2xl font-semibold">{t("claimStay:welcome")}</h2>
                 <p className="text-slate-600 mt-2">
-                  Verify your booking with a quick OTP sent to the phone number
-                  on your reservation. Once verified, we’ll open your in-room
-                  menu and services.
+                  {t("claimStay:welcomeDesc")}
                 </p>
 
                 {/* Stepper */}
                 <ol className="mt-6 space-y-4">
                   <Step
                     num={1}
-                    title="Verify details"
+                    title={t("claimStay:step1Title")}
                     active={step === "form"}
                     done={step === "otp"}
                   >
-                    Enter your booking code and the phone number used for your
-                    reservation.
+                    {t("claimStay:step1Desc")}
                   </Step>
                   <Step
                     num={2}
-                    title="Enter OTP"
+                    title={t("claimStay:step2Title")}
                     active={step === "otp"}
                     done={false}
                   >
-                    Type the 6-digit code we send to your phone and access your
-                    stay.
+                    {t("claimStay:step2Desc")}
                   </Step>
                 </ol>
 
@@ -223,18 +221,17 @@ export default function ClaimStay() {
                       </svg>
                     </span>
                     <div>
-                      <div className="font-medium">Secure & simple</div>
+                      <div className="font-medium">{t("claimStay:secureTitle")}</div>
                       <div className="text-sm text-slate-600">
-                        Your details are used only to confirm your stay and
-                        unlock the VAiyu guest menu.
+                        {t("claimStay:secureDesc")}
                       </div>
                     </div>
                   </div>
                   {isDemo() && (
                     <p className="mt-3 text-xs text-slate-500">
-                      Demo mode is ON. Use booking code{" "}
-                      <span className="font-mono">ABC123</span> and OTP{" "}
-                      <span className="font-mono">123456</span> to test.
+                      {t("claimStay:demoHint.pre")}{" "}
+                      <span className="font-mono">ABC123</span> {t("claimStay:demoHint.mid")}{" "}
+                      <span className="font-mono">123456</span> {t("claimStay:demoHint.post")}
                     </p>
                   )}
                 </div>
@@ -271,7 +268,7 @@ export default function ClaimStay() {
             {step === "form" ? (
               <form className="grid gap-5" onSubmit={handleInit}>
                 <div>
-                  <label className="text-sm font-medium">Booking code</label>
+                  <label className="text-sm font-medium">{t("claimStay:bookingCodeLabel")}</label>
                   <div className="mt-1 relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
                       <svg
@@ -301,7 +298,7 @@ export default function ClaimStay() {
 
                 <div>
                   <label className="text-sm font-medium">
-                    Phone on your booking
+                    {t("claimStay:phoneLabel")}
                   </label>
                   <div className="mt-1 relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
@@ -318,7 +315,7 @@ export default function ClaimStay() {
                     />
                   </div>
                   <p className="text-xs text-slate-500 mt-1">
-                    Digits only, 8–15 characters.
+                    {t("claimStay:phoneHint")}
                   </p>
                 </div>
 
@@ -327,19 +324,19 @@ export default function ClaimStay() {
                   type="submit"
                   disabled={busy}
                 >
-                  {busy ? "Sending…" : "Send OTP"}
+                  {busy ? t("claimStay:sending") : t("claimStay:sendOtp")}
                 </button>
 
                 {isDemo() && (
                   <div className="text-xs text-slate-500 text-center">
-                    Demo OTP: <span className="font-mono">123456</span>
+                    {t("claimStay:demoOtpLabel")} <span className="font-mono">123456</span>
                   </div>
                 )}
               </form>
             ) : (
               <form className="grid gap-5" onSubmit={handleVerify}>
                 <div>
-                  <label className="text-sm font-medium">Enter OTP</label>
+                  <label className="text-sm font-medium">{t("claimStay:enterOtpLabel")}</label>
                   <input
                     className="mt-1 w-full rounded-xl border px-4 py-2.5 tracking-widest text-center text-lg outline-none focus:border-blue-500 focus:bg-blue-50/20 transition"
                     value={otp}
@@ -356,7 +353,7 @@ export default function ClaimStay() {
                     type="submit"
                     disabled={busy}
                   >
-                    {busy ? "Verifying…" : "Verify & open menu"}
+                    {busy ? t("claimStay:verifying") : t("claimStay:verifyOpen")}
                   </button>
                   <button
                     type="button"
@@ -369,7 +366,7 @@ export default function ClaimStay() {
                     }}
                     disabled={busy}
                   >
-                    Start over
+                    {t("claimStay:startOver")}
                   </button>
                 </div>
 

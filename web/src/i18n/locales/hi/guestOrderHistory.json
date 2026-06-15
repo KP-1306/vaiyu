@@ -1,0 +1,27 @@
+{
+  "title": "ऑर्डर इतिहास",
+  "subtitle": "इस प्रवास के दौरान आपके खाने के ऑर्डर",
+  "totalBill": "कुल बिल",
+  "ordersCount_one": "{{count}} ऑर्डर",
+  "ordersCount_other": "{{count}} ऑर्डर",
+  "itemsCount_one": "{{count}} आइटम",
+  "itemsCount_other": "{{count}} आइटम",
+  "paid": "भुगतान: {{amount}}",
+  "paymentComplete": "भुगतान पूर्ण",
+  "allSettled": "सभी ऑर्डर का भुगतान हो गया है।",
+  "noOrders": "अभी कोई ऑर्डर नहीं",
+  "hungry": "भूख लगी है? हमारा मेन्यू देखें!",
+  "browseMenu": "मेन्यू देखें",
+  "orderNum": "ऑर्डर #{{id}}",
+  "moreItems": "+ {{count}} और आइटम...",
+  "viewDetails": "विवरण देखें",
+  "status": {
+    "created": "बनाया गया",
+    "accepted": "स्वीकृत",
+    "preparing": "तैयार हो रहा है",
+    "ready": "तैयार",
+    "delivered": "डिलीवर हो गया",
+    "completed": "पूर्ण",
+    "cancelled": "रद्द"
+  }
+}

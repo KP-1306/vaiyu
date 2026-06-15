@@ -1,0 +1,44 @@
+{
+  "yourOrder": "आपका ऑर्डर",
+  "backToDashboard": "डैशबोर्ड पर वापस",
+  "orderNotFound": "ऑर्डर नहीं मिला",
+  "orderNotFoundDesc": "हम यह ऑर्डर नहीं ढूँढ सके।",
+  "loadError": "ऑर्डर विवरण लोड नहीं हो सका।",
+  "payCancelled": "भुगतान रद्द किया गया।",
+  "payFailed": "भुगतान विफल: {{reason}}",
+  "lateBadge": "देरी",
+  "hero": {
+    "completed": "भोजन का आनंद लें!",
+    "cancelled": "ऑर्डर रद्द",
+    "inProgress": "ऑर्डर तैयार हो रहा है"
+  },
+  "heroDesc": {
+    "completed": "आपका ऑर्डर डिलीवर हो गया है।",
+    "cancelled": "यह ऑर्डर रद्द कर दिया गया था।",
+    "delayLine1": "देरी के लिए क्षमा करें।",
+    "delayLine2": "हम आपका ऑर्डर जल्द से जल्द पहुँचाने का प्रयास कर रहे हैं।",
+    "preparing": "आपके आइटम ताज़ा तैयार किए जा रहे हैं।"
+  },
+  "deliveredAt": "डिलीवर हुआ",
+  "estimatedArrival": "अनुमानित समय",
+  "statusCompleted": "पूर्ण",
+  "statusDelayed": "विलंबित",
+  "statusOnSchedule": "समय पर",
+  "updatedByKitchen": "रसोई द्वारा {{time}} पर अपडेट किया गया",
+  "minLate": "मि देरी",
+  "minLeft": "मि शेष",
+  "orderSummary": "ऑर्डर सारांश",
+  "total": "कुल",
+  "statusUpdates": "स्थिति अपडेट",
+  "openingPayment": "सुरक्षित भुगतान खुल रहा है…",
+  "payFolio": "बिल का भुगतान करें · {{amount}}",
+  "paymentReceived": "भुगतान प्राप्त हुआ। आपका बिल चुका दिया गया है।",
+  "needHelp": "मदद चाहिए? फ्रंट डेस्क को कॉल करें",
+  "steps": {
+    "received": "ऑर्डर प्राप्त हुआ",
+    "accepted": "ऑर्डर स्वीकृत",
+    "preparing": "रसोई तैयार कर रही है",
+    "onTheWay": "रास्ते में",
+    "delivered": "डिलीवर हो गया"
+  }
+}

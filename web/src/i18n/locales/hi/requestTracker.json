@@ -1,0 +1,70 @@
+{
+  "yourRequest": "आपका अनुरोध",
+  "requestNotFound": "अनुरोध नहीं मिला",
+  "requestNotFoundDesc": "हम यह अनुरोध नहीं ढूँढ सके।",
+  "backToDashboard": "डैशबोर्ड पर वापस",
+  "loadError": "अनुरोध विवरण लोड नहीं हो सका।",
+  "alerts": {
+    "uploadFailed": "फ़ोटो अपलोड नहीं हो सकी।",
+    "messageFailed": "संदेश नहीं भेजा जा सका।",
+    "reopenFailed": "अनुरोध फिर से नहीं खुल सका",
+    "updateFailed": "विवरण अपडेट नहीं हो सका।"
+  },
+  "badge": {
+    "delayed": "विलंबित",
+    "onTime": "समय पर"
+  },
+  "hero": {
+    "completed": "अनुरोध पूर्ण",
+    "inProgress": "आपका अनुरोध प्रगति में है"
+  },
+  "heroDesc": {
+    "completedLine1": "हमारी टीम ने आपका अनुरोध पूरा कर दिया है।",
+    "completedLine2": "आपके सुखद प्रवास की कामना करते हैं। ✨",
+    "delayLine1": "देरी के लिए क्षमा करें।",
+    "delayLine2": "हम इसे जल्द से जल्द हल करने का प्रयास कर रहे हैं।",
+    "preparing": "हमारी टीम आपकी सहायता के लिए तैयार हो रही है।"
+  },
+  "serviceDeliveredIn": "सेवा पूरी हुई",
+  "estimatedResponse": "अनुमानित प्रतिक्रिया समय",
+  "minSuffix": "{{count}} मिनट",
+  "statusCompleted": "पूर्ण",
+  "statusBreached": "SLA पार",
+  "statusOnSchedule": "समय पर",
+  "statusNotStarted": "शुरू नहीं हुआ (असाइन हो रहा है...)",
+  "minLate": "मि देरी",
+  "minLeft": "मि शेष",
+  "min": "मिनट",
+  "requestSummary": "अनुरोध सारांश",
+  "publicArea": "सार्वजनिक क्षेत्र",
+  "roomLabel": "कमरा {{number}}",
+  "requestId": "अनुरोध आईडी:",
+  "notes": "नोट्स:",
+  "statusUpdates": "स्थिति अपडेट",
+  "todayAt": "आज • {{time}}",
+  "conversation": "बातचीत",
+  "today": "आज",
+  "yesterday": "कल",
+  "messagePlaceholder": "संदेश लिखें...",
+  "reopenRequest": "अनुरोध फिर से खोलें",
+  "addMoreDetails": "और विवरण जोड़ें",
+  "uploading": "अपलोड हो रहा है...",
+  "addPhoto": "फ़ोटो जोड़ें",
+  "cancelRequest": "अनुरोध रद्द करें",
+  "postedPhotos": "पोस्ट की गई फ़ोटो",
+  "addDetails": "विवरण जोड़ें",
+  "addDetailsPlaceholder": "और संदर्भ या विवरण जोड़ें...",
+  "submitUpdate": "अपडेट सबमिट करें",
+  "reopenModal": {
+    "body": "इससे स्टाफ़ के लिए अनुरोध फिर से खुल जाएगा।"
+  },
+  "reopenReasonPlaceholder": "कारण (वैकल्पिक)...",
+  "cancel": "रद्द करें",
+  "confirm": "पुष्टि करें",
+  "steps": {
+    "submitted": "सबमिट किया गया",
+    "assigning": "टीम को असाइन किया जा रहा है",
+    "onTheWay": "स्टाफ़ रास्ते में है",
+    "completed": "पूर्ण"
+  }
+}

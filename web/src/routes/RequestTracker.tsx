@@ -1,6 +1,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { supabase } from "../lib/supabase";
 import {
   ArrowLeft,
@@ -50,6 +51,7 @@ type TrackerData = {
 };
 
 export default function RequestTracker() {
+  const { t } = useTranslation(["requestTracker", "common"]);
   const { displayId } = useParams();
   const [data, setData] = useState<TrackerData | null>(null);
   const [comments, setComments] = useState<any[]>([]);
@@ -89,7 +91,7 @@ export default function RequestTracker() {
       }
     } catch (err: any) {
       console.error("Error fetching ticket:", err);
-      setError("Could not load request details.");
+      setError(t("requestTracker:loadError"));
     } finally {
       setLoading(false);
     }
@@ -128,7 +130,7 @@ export default function RequestTracker() {
       await fetchTicket();
     } catch (error: any) {
       console.error("Upload failed", error);
-      alert("Failed to upload photo.");
+      alert(t("requestTracker:alerts.uploadFailed"));
     } finally {
       setUploading(false);
     }
@@ -149,7 +151,7 @@ export default function RequestTracker() {
       await fetchTicket();
     } catch (err) {
       console.error("Comment failed", err);
-      alert("Failed to send message.");
+      alert(t("requestTracker:alerts.messageFailed"));
     } finally {
       setSubmittingComment(false);
     }
@@ -172,7 +174,7 @@ export default function RequestTracker() {
       setShowReopenModal(false);
     } catch (err: any) {
       console.error("Reopen failed", err);
-      alert(err.message || "Failed to reopen ticket");
+      alert(err.message || t("requestTracker:alerts.reopenFailed"));
     } finally {
       setLoading(false);
     }
@@ -193,7 +195,7 @@ export default function RequestTracker() {
       setShowDetailsModal(false);
     } catch (err) {
       console.error("Update failed", err);
-      alert("Failed to update details.");
+      alert(t("requestTracker:alerts.updateFailed"));
     } finally {
       setIsUpdating(false);
     }
@@ -211,10 +213,10 @@ export default function RequestTracker() {
     return (
       <div className="min-h-screen bg-[#020202] flex flex-col items-center justify-center p-6 text-center">
         <XCircle className="w-12 h-12 text-red-500 mb-4" />
-        <h2 className="text-white text-lg font-bold">Request not found</h2>
-        <p className="text-zinc-500 mt-2">{error || "We couldn't locate this request."}</p>
+        <h2 className="text-white text-lg font-bold">{t("requestTracker:requestNotFound")}</h2>
+        <p className="text-zinc-500 mt-2">{error || t("requestTracker:requestNotFoundDesc")}</p>
         <Link to="/guest" className="mt-8 px-6 py-3 bg-white text-black font-bold rounded-full">
-          Back to Dashboard
+          {t("requestTracker:backToDashboard")}
         </Link>
       </div>
     );
@@ -260,19 +262,19 @@ export default function RequestTracker() {
   const isCompleted = data.status === "COMPLETED";
 
   const steps = [
-    { label: "Submitted", time: createdTime, active: true, completed: true },
+    { label: t("requestTracker:steps.submitted"), time: createdTime, active: true, completed: true },
     {
-      label: "Assigning to Team",
+      label: t("requestTracker:steps.assigning"),
       active: true,
       completed: isAssigned || isInProgress || isCompleted
     },
     {
-      label: "Staff on the way",
+      label: t("requestTracker:steps.onTheWay"),
       active: isInProgress || isCompleted,
       completed: isCompleted
     },
     {
-      label: "Completed",
+      label: t("requestTracker:steps.completed"),
       active: isCompleted,
       completed: isCompleted
     }
@@ -289,7 +291,7 @@ export default function RequestTracker() {
           <Link to={`/stay/${sessionStorage.getItem('vaiyu:stay_code') || data.booking_code || data.stay_id}/requests`} className="w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center border border-slate-700/50 hover:bg-slate-700 transition-colors">
             <ArrowLeft size={18} className="text-white" />
           </Link>
-          <h1 className="text-lg font-bold text-white">Your Request</h1>
+          <h1 className="text-lg font-bold text-white">{t("requestTracker:yourRequest")}</h1>
         </header>
 
         {/* Status Hero */}
@@ -309,7 +311,7 @@ export default function RequestTracker() {
                     <div className="absolute inset-0 rounded-full border-4 border-amber-500/30" />
                     <div className="absolute inset-0 rounded-full border-4 border-t-amber-500 animate-spin" />
                     {/* Static Text */}
-                    <span className="relative z-10 text-[10px] font-black uppercase tracking-widest">Delayed</span>
+                    <span className="relative z-10 text-[10px] font-black uppercase tracking-widest">{t("requestTracker:badge.delayed")}</span>
                   </>
                 )
                 : (
@@ -318,23 +320,23 @@ export default function RequestTracker() {
                     <div className="absolute inset-0 rounded-full border-4 border-blue-500/30" />
                     <div className="absolute inset-0 rounded-full border-4 border-t-blue-500 animate-spin" />
                     {/* Static Text */}
-                    <span className="relative z-10 text-[10px] font-black uppercase tracking-widest">On Time</span>
+                    <span className="relative z-10 text-[10px] font-black uppercase tracking-widest">{t("requestTracker:badge.onTime")}</span>
                   </>
                 )
             }
           </div>
           <h2 className="text-2xl font-bold text-white mb-1">
             {['COMPLETED', 'RESOLVED', 'CLOSED'].includes(data.status)
-              ? "Request Completed"
-              : "Your request is in progress"
+              ? t("requestTracker:hero.completed")
+              : t("requestTracker:hero.inProgress")
             }
           </h2>
           <p className="text-slate-500 text-sm">
             {['COMPLETED', 'RESOLVED', 'CLOSED'].includes(data.status)
-              ? <span>Your request has been completed by our team.<br />Wishing you a wonderful stay. ✨</span>
+              ? <span>{t("requestTracker:heroDesc.completedLine1")}<br />{t("requestTracker:heroDesc.completedLine2")}</span>
               : isBreached
-                ? <span className="text-amber-500/80">Sorry for the delay.<br />We are working to resolve this as quickly as possible.</span>
-                : "Our team is preparing to assist you."
+                ? <span className="text-amber-500/80">{t("requestTracker:heroDesc.delayLine1")}<br />{t("requestTracker:heroDesc.delayLine2")}</span>
+                : t("requestTracker:heroDesc.preparing")
             }
           </p>
         </div>
@@ -346,12 +348,12 @@ export default function RequestTracker() {
             <div className="z-10">
               <div className="flex items-center gap-2 text-slate-400 text-sm mb-2">
                 <Clock size={16} />
-                <span>{data.completed_at ? "SERVICE DELIVERED IN" : "ESTIMATED RESPONSE TIME"}</span>
+                <span>{data.completed_at ? t("requestTracker:serviceDeliveredIn") : t("requestTracker:estimatedResponse")}</span>
               </div>
 
               {data.completed_at ? (
                 <div className="text-3xl font-bold text-white font-mono mb-1">
-                  {Math.max(1, Math.ceil(((parseDbDate(data.completed_at) || new Date()).getTime() - (parseDbDate(data.created_at) || new Date()).getTime()) / 60000))} min
+                  {t("requestTracker:minSuffix", { count: Math.max(1, Math.ceil(((parseDbDate(data.completed_at) || new Date()).getTime() - (parseDbDate(data.created_at) || new Date()).getTime()) / 60000)) })}
                 </div>
               ) : (
                 <div className="text-3xl font-bold text-white font-mono mb-1">
@@ -362,10 +364,10 @@ export default function RequestTracker() {
               {/* Status Label */}
               <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
                 {data.completed_at
-                  ? "Completed"
+                  ? t("requestTracker:statusCompleted")
                   : data.sla_started_at
-                    ? (isBreached ? "SLA Breached" : "On Schedule")
-                    : "Not Started (Assigning...)"}
+                    ? (isBreached ? t("requestTracker:statusBreached") : t("requestTracker:statusOnSchedule"))
+                    : t("requestTracker:statusNotStarted")}
               </div>
             </div>
 
@@ -397,7 +399,7 @@ export default function RequestTracker() {
                       {isBreached ? `+${Math.abs(diffMins)}` : `${diffMins}`}
                     </div>
                     <div className={`text-[10px] uppercase font-bold ${isBreached ? 'text-red-500' : 'text-blue-500'}`}>
-                      {isBreached ? 'Min Late' : 'Min Left'}
+                      {isBreached ? t("requestTracker:minLate") : t("requestTracker:minLeft")}
                     </div>
                   </>
                 ) : (
@@ -406,7 +408,7 @@ export default function RequestTracker() {
                       {slaMinutes}
                     </div>
                     <div className="text-[10px] uppercase font-bold text-zinc-500">
-                      Min
+                      {t("requestTracker:min")}
                     </div>
                   </>
                 )}
@@ -421,7 +423,7 @@ export default function RequestTracker() {
         {/* Summary Details */}
         <div className="bg-slate-900/40 border border-slate-800/60 rounded-3xl overflow-hidden mb-6 animate-fade-in-up animation-delay-200">
           <div className="p-4 border-b border-slate-800/60 flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Request Summary</span>
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{t("requestTracker:requestSummary")}</span>
           </div>
 
           <div className="p-4 space-y-4">
@@ -430,7 +432,7 @@ export default function RequestTracker() {
                 <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-xl shadow-inner">✨</div>
                 <div>
                   <div className="text-white font-bold">{data.service?.label}</div>
-                  <div className="text-xs text-slate-500">{data.zone?.name || (data.room ? `Room ${data.room.number}` : "Public Area")}</div>
+                  <div className="text-xs text-slate-500">{data.zone?.name || (data.room ? t("requestTracker:roomLabel", { number: data.room.number }) : t("requestTracker:publicArea"))}</div>
                 </div>
               </div>
               <ChevronRight size={16} className="text-slate-600" />
@@ -440,13 +442,13 @@ export default function RequestTracker() {
 
             <div className="flex items-center gap-3 text-sm text-zinc-400">
               <Hash size={14} className="text-zinc-600" />
-              <span>Request ID: <span className="text-zinc-300 font-mono">#{data.display_id}</span></span>
+              <span>{t("requestTracker:requestId")} <span className="text-zinc-300 font-mono">#{data.display_id}</span></span>
             </div>
 
             {data.description && (
               <div className="flex items-center gap-3 text-sm text-zinc-400">
                 <FileText size={14} className="text-zinc-600" />
-                <span>Notes: <span className="text-zinc-300 italic">"{data.description}"</span></span>
+                <span>{t("requestTracker:notes")} <span className="text-zinc-300 italic">"{data.description}"</span></span>
               </div>
             )}
           </div>
@@ -454,7 +456,7 @@ export default function RequestTracker() {
 
         {/* Timeline */}
         <div className="bg-slate-900/40 border border-slate-800/60 rounded-3xl p-6 mb-8 animate-fade-in-up animation-delay-300">
-          <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-6">Status Updates</div>
+          <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-6">{t("requestTracker:statusUpdates")}</div>
           <div className="relative pl-2 space-y-8">
             {/* Vertical Line */}
             <div className="absolute left-[15px] top-2 bottom-2 w-0.5 bg-zinc-800 rounded-full" />
@@ -467,7 +469,7 @@ export default function RequestTracker() {
                 </div>
                 <div className="pt-1">
                   <div className={`text-sm font-bold ${step.active ? 'text-white' : 'text-zinc-500'}`}>{step.label}</div>
-                  {step.time && <div className="text-xs text-zinc-500 mt-0.5">Today • {step.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>}
+                  {step.time && <div className="text-xs text-zinc-500 mt-0.5">{t("requestTracker:todayAt", { time: step.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) })}</div>}
                 </div>
               </div>
             ))}
@@ -479,7 +481,7 @@ export default function RequestTracker() {
           <div className="bg-slate-900/40 border border-slate-800/60 rounded-3xl p-6 mb-8 animate-fade-in-up animation-delay-300">
             <div className="flex items-center gap-2 mb-6">
               <MessageSquare size={14} className="text-slate-500" />
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Conversation</span>
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{t("requestTracker:conversation")}</span>
             </div>
 
             <div className="space-y-4">
@@ -493,10 +495,10 @@ export default function RequestTracker() {
                 // Helper for grouping labels
                 const getDayLabel = (d: Date) => {
                   const now = new Date();
-                  if (d.toDateString() === now.toDateString()) return 'Today';
+                  if (d.toDateString() === now.toDateString()) return t("requestTracker:today");
                   const yesterday = new Date(now);
                   yesterday.setDate(now.getDate() - 1);
-                  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+                  if (d.toDateString() === yesterday.toDateString()) return t("requestTracker:yesterday");
                   return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
                 };
 
@@ -532,7 +534,7 @@ export default function RequestTracker() {
                   type="text"
                   value={commentText}
                   onChange={(e) => setCommentText(e.target.value)}
-                  placeholder="Type a message..."
+                  placeholder={t("requestTracker:messagePlaceholder")}
                   className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/50 transition-all"
                   onKeyDown={(e) => e.key === 'Enter' && handleSendComment()}
                 />
@@ -554,7 +556,7 @@ export default function RequestTracker() {
             onClick={handleReopen}
             className="w-full bg-slate-800 border border-slate-700 hover:bg-slate-700 text-white py-4 rounded-xl text-sm font-bold transition-all shadow-lg flex items-center justify-center gap-2"
           >
-            <RefreshCcw size={18} /> Reopen Request
+            <RefreshCcw size={18} /> {t("requestTracker:reopenRequest")}
           </button>
         ) : (
           <>
@@ -563,7 +565,7 @@ export default function RequestTracker() {
                 onClick={() => setShowDetailsModal(true)}
                 className="flex items-center justify-center gap-2 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-white py-3.5 rounded-xl text-sm font-bold transition-all shadow-lg"
               >
-                <Edit2 size={16} /> Add More Details
+                <Edit2 size={16} /> {t("requestTracker:addMoreDetails")}
               </button>
               <button
                 onClick={() => fileInputRef.current?.click()}
@@ -571,7 +573,7 @@ export default function RequestTracker() {
                 className="flex items-center justify-center gap-2 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-white py-3.5 rounded-xl text-sm font-bold transition-all disabled:opacity-50 shadow-lg"
               >
                 {uploading ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
-                {uploading ? "Uploading..." : "Add Photo"}
+                {uploading ? t("requestTracker:uploading") : t("requestTracker:addPhoto")}
               </button>
               <input
                 type="file"
@@ -586,7 +588,7 @@ export default function RequestTracker() {
               onClick={() => setShowCancelModal(true)}
               className="w-full bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20 py-3.5 rounded-xl text-sm font-bold transition-all"
             >
-              Cancel Request
+              {t("requestTracker:cancelRequest")}
             </button>
           </>
         )}
@@ -594,7 +596,7 @@ export default function RequestTracker() {
         {/* Attachments List */}
         {data.attachments && data.attachments.length > 0 && (
           <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-4 mb-6">
-            <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">Posted Photos</div>
+            <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">{t("requestTracker:postedPhotos")}</div>
             <div className="flex gap-3 overflow-x-auto pb-2">
               {data.attachments.map((file, idx) => (
                 <a key={idx} href={supabase.storage.from('ticket-attachments').getPublicUrl(file.file_path).data.publicUrl} target="_blank" rel="noreferrer" className="block shrink-0">
@@ -611,7 +613,7 @@ export default function RequestTracker() {
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
           <div className="w-full max-w-lg bg-[#1a1a1a] rounded-t-3xl sm:rounded-3xl border border-white/10 p-6 space-y-4">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-bold text-white">Add Details</h3>
+              <h3 className="text-lg font-bold text-white">{t("requestTracker:addDetails")}</h3>
               <button onClick={() => setShowDetailsModal(false)} className="p-2 bg-zinc-800 rounded-full text-zinc-400 hover:text-white">
                 <XCircle size={20} />
               </button>
@@ -619,7 +621,7 @@ export default function RequestTracker() {
 
             <textarea
               className="w-full h-32 bg-zinc-900/50 border border-white/10 rounded-xl p-4 text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition-colors resize-none"
-              placeholder="Add more context or details..."
+              placeholder={t("requestTracker:addDetailsPlaceholder")}
               id="details-input"
             />
 
@@ -631,7 +633,7 @@ export default function RequestTracker() {
               disabled={isUpdating}
               className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {isUpdating ? <Loader2 size={18} className="animate-spin" /> : "Submit Update"}
+              {isUpdating ? <Loader2 size={18} className="animate-spin" /> : t("requestTracker:submitUpdate")}
             </button>
           </div>
         </div>
@@ -644,13 +646,13 @@ export default function RequestTracker() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
             <div className="w-full max-w-md bg-[#1a1a1a] rounded-3xl border border-white/10 p-6 space-y-4 shadow-2xl">
               <div>
-                <h3 className="text-xl font-bold text-white mb-1">Reopen Request</h3>
-                <p className="text-zinc-400 text-sm">This will reopen the request for the staff.</p>
+                <h3 className="text-xl font-bold text-white mb-1">{t("requestTracker:reopenRequest")}</h3>
+                <p className="text-zinc-400 text-sm">{t("requestTracker:reopenModal.body")}</p>
               </div>
 
               <textarea
                 className="w-full h-24 bg-zinc-900/50 border border-white/10 rounded-xl p-4 text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500 transition-colors resize-none"
-                placeholder="Reason (optional)..."
+                placeholder={t("requestTracker:reopenReasonPlaceholder")}
                 value={reopenReason}
                 onChange={(e) => setReopenReason(e.target.value)}
               />
@@ -660,14 +662,14 @@ export default function RequestTracker() {
                   onClick={() => setShowReopenModal(false)}
                   className="flex-1 py-3.5 rounded-xl text-zinc-400 font-bold hover:bg-white/5 transition-colors"
                 >
-                  Cancel
+                  {t("requestTracker:cancel")}
                 </button>
                 <button
                   onClick={submitReopen}
                   disabled={loading}
                   className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-emerald-900/20 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  {loading ? <Loader2 size={18} className="animate-spin" /> : "Confirm"}
+                  {loading ? <Loader2 size={18} className="animate-spin" /> : t("requestTracker:confirm")}
                 </button>
               </div>
             </div>

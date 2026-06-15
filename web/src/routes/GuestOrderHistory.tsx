@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { supabase } from "../lib/supabase";
 import { ArrowLeft, Receipt, Clock, ChevronRight, ShoppingBag, Utensils, IndianRupee } from "lucide-react";
 
@@ -20,6 +21,8 @@ type OrderHistoryItem = {
 };
 
 export default function GuestOrderHistory() {
+    const { t, i18n } = useTranslation(["guestOrderHistory", "common"]);
+    const dateLocale = i18n.language === "hi" ? "hi-IN-u-nu-latn" : "en-US";
     const { code } = useParams();
     const [orders, setOrders] = useState<OrderHistoryItem[]>([]);
     const [loading, setLoading] = useState(true);
@@ -111,6 +114,11 @@ export default function GuestOrderHistory() {
         }
     };
 
+    const getStatusLabel = (status: string) =>
+        t(`guestOrderHistory:status.${status.toLowerCase()}`, {
+            defaultValue: status.replace('_', ' '),
+        });
+
     if (loading) {
         return (
             <div className="min-h-screen bg-[#0b1120] flex items-center justify-center">
@@ -130,8 +138,8 @@ export default function GuestOrderHistory() {
                         <ArrowLeft size={18} className="text-white" />
                     </Link>
                     <div>
-                        <h1 className="text-lg font-bold text-white">Order History</h1>
-                        <p className="text-xs text-slate-400">Your food orders during this stay</p>
+                        <h1 className="text-lg font-bold text-white">{t("guestOrderHistory:title")}</h1>
+                        <p className="text-xs text-slate-400">{t("guestOrderHistory:subtitle")}</p>
                     </div>
                 </header>
 
@@ -140,21 +148,21 @@ export default function GuestOrderHistory() {
                     <div className="absolute top-0 right-0 p-4 opacity-10">
                         <IndianRupee size={80} />
                     </div>
-                    <p className="text-sm text-slate-400 font-medium mb-1">Total Bill</p>
+                    <p className="text-sm text-slate-400 font-medium mb-1">{t("guestOrderHistory:totalBill")}</p>
                     <div className="flex items-baseline gap-1">
                         <span className="text-3xl font-bold text-white">
                             {new Intl.NumberFormat('en-IN', { style: 'currency', currency }).format(grandTotal)}
                         </span>
                     </div>
                     <div className="mt-4 flex gap-2 text-xs text-slate-500">
-                        <span className="bg-white/5 px-2 py-1 rounded-md">{orders.length} Orders</span>
-                        <span className="bg-white/5 px-2 py-1 rounded-md">{orders.reduce((sum, o) => sum + o.total_items, 0)} Items</span>
+                        <span className="bg-white/5 px-2 py-1 rounded-md">{t("guestOrderHistory:ordersCount", { count: orders.length })}</span>
+                        <span className="bg-white/5 px-2 py-1 rounded-md">{t("guestOrderHistory:itemsCount", { count: orders.reduce((sum, o) => sum + o.total_items, 0) })}</span>
                     </div>
 
                     {totalPaid > 0 && (
                         <div className="mt-2 text-xs text-emerald-400 flex items-center gap-1">
                             <span className="bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
-                                Paid: ₹{totalPaid.toLocaleString()}
+                                {t("guestOrderHistory:paid", { amount: `₹${totalPaid.toLocaleString('en-IN')}` })}
                             </span>
                         </div>
                     )}
@@ -165,8 +173,8 @@ export default function GuestOrderHistory() {
                             <div className="bg-emerald-500/20 text-emerald-400 p-4 rounded-full mb-3 border border-emerald-500/30 ring-4 ring-emerald-500/10">
                                 <Receipt size={32} />
                             </div>
-                            <h3 className="text-lg font-semibold text-white mb-1">Payment Complete</h3>
-                            <p className="text-sm text-slate-400">All orders have been settled.</p>
+                            <h3 className="text-lg font-semibold text-white mb-1">{t("guestOrderHistory:paymentComplete")}</h3>
+                            <p className="text-sm text-slate-400">{t("guestOrderHistory:allSettled")}</p>
                         </div>
                     )}
                 </div>
@@ -178,10 +186,10 @@ export default function GuestOrderHistory() {
                             <div className="w-16 h-16 bg-slate-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
                                 <ShoppingBag className="text-slate-500" />
                             </div>
-                            <h3 className="text-white font-medium mb-1">No orders yet</h3>
-                            <p className="text-sm text-slate-500 mb-6">Hungry? Check out our menu!</p>
+                            <h3 className="text-white font-medium mb-1">{t("guestOrderHistory:noOrders")}</h3>
+                            <p className="text-sm text-slate-500 mb-6">{t("guestOrderHistory:hungry")}</p>
                             <Link to={`/stay/${bookingCode}/menu`} className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-full font-medium text-sm transition-colors">
-                                Browse Menu
+                                {t("guestOrderHistory:browseMenu")}
                             </Link>
                         </div>
                     ) : (
@@ -195,16 +203,16 @@ export default function GuestOrderHistory() {
                                     <div>
                                         <div className="flex items-center gap-2 mb-1">
                                             <span className="text-white font-medium text-sm">
-                                                Order #{order.display_id?.replace('ORD-', '') || '...'}
+                                                {t("guestOrderHistory:orderNum", { id: order.display_id?.replace('ORD-', '') || '...' })}
                                             </span>
                                             <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium uppercase tracking-wider ${getStatusColor(order.status)}`}>
-                                                {order.status.replace('_', ' ')}
+                                                {getStatusLabel(order.status)}
                                             </span>
                                         </div>
                                         <div className="flex items-center gap-1.5 text-xs text-slate-400">
                                             <Clock size={12} />
                                             <span>
-                                                {new Date(order.created_at).toLocaleString('en-US', {
+                                                {new Date(order.created_at).toLocaleString(dateLocale, {
                                                     month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
                                                 })}
                                             </span>
@@ -224,13 +232,13 @@ export default function GuestOrderHistory() {
                                     ))}
                                     {(order.items?.length || 0) > 2 && (
                                         <div className="text-xs text-slate-500 italic">
-                                            + {(order.items?.length || 0) - 2} more items...
+                                            {t("guestOrderHistory:moreItems", { count: (order.items?.length || 0) - 2 })}
                                         </div>
                                     )}
                                 </div>
 
                                 <div className="flex items-center text-xs text-blue-400 font-medium group-hover:translate-x-1 transition-transform">
-                                    View Details <ChevronRight size={14} />
+                                    {t("guestOrderHistory:viewDetails")} <ChevronRight size={14} />
                                 </div>
                             </Link>
                         ))

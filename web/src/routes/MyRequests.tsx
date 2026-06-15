@@ -1,6 +1,7 @@
 // web/src/routes/MyRequests.tsx
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { getGuestTickets, reopenTicket, addGuestComment, getTicketComments, supa, getCancelReasons, cancelTicketByGuest, getGuestFoodOrders } from "../lib/api";
 import { parseDbDate, formatIstTime } from "../utils/dateUtils";
 
@@ -53,18 +54,11 @@ function buildMenuLink(stayCode: string) {
     return `/stay/${stayCode}/menu?${params.toString()}`;
 }
 
-// Guest-friendly reason code mapping
-const guestFriendlyReasons: Record<string, string> = {
-    'guest_inside_room': 'Waiting for access',
-    'supervisor_approval': 'Waiting for approval',
-    'parts_unavailable': 'Waiting for supplies',
-    'guest_unavailable': 'Waiting for you',
-    'staff_unavailable': 'Waiting for staff',
-    'equipment_unavailable': 'Waiting for equipment',
-    'external_dependency': 'Waiting for external service',
-};
+// Guest-friendly BLOCKED reason codes are translated via the
+// myRequests:blockedReason.* keys at the render sites.
 
 export default function MyRequests() {
+    const { t } = useTranslation(["myRequests", "common"]);
     const { code } = useParams<{ code: string }>();
     const [tickets, setTickets] = useState<GuestTicket[]>([]);
     const [loading, setLoading] = useState(true);
@@ -171,7 +165,7 @@ export default function MyRequests() {
             setCancelTicketId(null);
         } catch (error: any) {
             console.error('Failed to cancel ticket:', error);
-            alert(error.message || 'Failed to cancel request');
+            alert(error.message || t('myRequests:alerts.cancelFailed'));
         } finally {
             setCancelling(null);
         }
@@ -303,7 +297,7 @@ export default function MyRequests() {
             setReopenTicketId(null);
         } catch (error: any) {
             console.error('Failed to reopen ticket:', error);
-            alert(`Failed to reopen request: ${error.message || 'Please try again'}`);
+            alert(t('myRequests:alerts.reopenFailed') + (error.message || t('myRequests:alerts.retry')));
         } finally {
             setReopening(null);
         }
@@ -312,12 +306,12 @@ export default function MyRequests() {
     const handleAddComment = async (ticketId: string) => {
         const comment = commentText[ticketId]?.trim();
         if (!comment) {
-            alert('Please enter a comment');
+            alert(t('myRequests:alerts.commentEmpty'));
             return;
         }
 
         if (comment.length > 500) {
-            alert('Comment is too long (max 500 characters)');
+            alert(t('myRequests:alerts.commentTooLong'));
             return;
         }
 
@@ -333,7 +327,7 @@ export default function MyRequests() {
             setTicketComments(prev => ({ ...prev, [ticketId]: comments }));
         } catch (error: any) {
             console.error('Failed to add comment:', error);
-            alert(`Failed to add comment: ${error.message || 'Please try again'}`);
+            alert(t('myRequests:alerts.commentFailed') + (error.message || t('myRequests:alerts.retry')));
         } finally {
             setSubmittingComment(null);
         }
@@ -356,15 +350,15 @@ export default function MyRequests() {
                 {reopenDialogOpen && (
                     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                         <div className="bg-zinc-900 border border-white/10 rounded-3xl shadow-2xl max-w-sm w-full p-6 animate-in fade-in zoom-in-95 duration-200">
-                            <h3 className="text-lg font-semibold text-white mb-2">Reopen Request</h3>
+                            <h3 className="text-lg font-semibold text-white mb-2">{t('myRequests:reopenDialog.title')}</h3>
                             <p className="text-sm text-zinc-400 mb-4">
-                                This will reopen the request for the staff.
+                                {t('myRequests:reopenDialog.body')}
                             </p>
 
                             <textarea
                                 value={reopenReason}
                                 onChange={(e) => setReopenReason(e.target.value)}
-                                placeholder="Reason (optional)..."
+                                placeholder={t('myRequests:reopenDialog.reasonPlaceholder')}
                                 className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none transition-all"
                                 rows={3}
                                 maxLength={200}
@@ -379,14 +373,14 @@ export default function MyRequests() {
                                     }}
                                     className="flex-1 px-4 py-3 rounded-xl text-sm font-medium text-zinc-400 hover:bg-white/5 transition-colors"
                                 >
-                                    Cancel
+                                    {t('myRequests:cancel')}
                                 </button>
                                 <button
                                     onClick={confirmReopen}
                                     disabled={reopening !== null}
                                     className="flex-1 px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-medium shadow-lg shadow-emerald-900/20 transition-all active:scale-[0.98]"
                                 >
-                                    {reopening ? 'Reopening...' : 'Confirm'}
+                                    {reopening ? t('myRequests:reopenDialog.reopening') : t('myRequests:reopenDialog.confirm')}
                                 </button>
                             </div>
                         </div>
@@ -397,7 +391,7 @@ export default function MyRequests() {
                 {cancelDialogOpen && (
                     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                         <div className="bg-zinc-900 border border-white/10 rounded-3xl shadow-2xl max-w-sm w-full p-6 animate-in fade-in zoom-in-95 duration-200">
-                            <h3 className="text-lg font-semibold text-white mb-2">Cancel Request</h3>
+                            <h3 className="text-lg font-semibold text-white mb-2">{t('myRequests:cancelDialog.title')}</h3>
                             <div className="space-y-2 mb-4 max-h-[50vh] overflow-y-auto">
                                 {cancelReasons.map((reason) => (
                                     <button
@@ -419,7 +413,7 @@ export default function MyRequests() {
                             <textarea
                                 value={cancelComment}
                                 onChange={(e) => setCancelComment(e.target.value)}
-                                placeholder="Additional notes..."
+                                placeholder={t('myRequests:cancelDialog.notesPlaceholder')}
                                 className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-red-500/50 resize-none transition-all"
                                 rows={2}
                             />
@@ -434,14 +428,14 @@ export default function MyRequests() {
                                     }}
                                     className="flex-1 px-4 py-3 rounded-xl text-sm font-medium text-zinc-400 hover:bg-white/5 transition-all"
                                 >
-                                    Back
+                                    {t('myRequests:dialogBack')}
                                 </button>
                                 <button
                                     onClick={confirmCancel}
                                     disabled={!selectedCancelReason || cancelling !== null}
                                     className="flex-1 px-4 py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl text-sm font-medium shadow-lg shadow-red-900/20 transition-all active:scale-[0.98] disabled:opacity-50"
                                 >
-                                    {cancelling ? 'Cancelling...' : 'Cancel Request'}
+                                    {cancelling ? t('myRequests:cancelling') : t('myRequests:cancelRequest')}
                                 </button>
                             </div>
                         </div>
@@ -459,16 +453,16 @@ export default function MyRequests() {
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                             </svg>
-                            Guest
+                            {t('myRequests:breadcrumbGuest', 'Guest')}
                         </Link>
                         <span className="mx-2 opacity-50">/</span>
-                        <span className="text-zinc-200 font-medium">Requests</span>
+                        <span className="text-zinc-200 font-medium">{t('myRequests:breadcrumbRequests')}</span>
                     </nav>
 
                     <div className="flex items-center justify-between">
                         <div>
-                            <h1 className="text-2xl font-bold text-white tracking-tight">Your Requests</h1>
-                            <p className="text-sm text-zinc-500 mt-1">Track and manage your service requests</p>
+                            <h1 className="text-2xl font-bold text-white tracking-tight">{t('myRequests:title')}</h1>
+                            <p className="text-sm text-zinc-500 mt-1">{t('myRequests:subtitle')}</p>
                         </div>
                         <Link
                             to="/guest"
@@ -493,7 +487,7 @@ export default function MyRequests() {
                             </div>
                             <input
                                 type="text"
-                                placeholder="Search by Request / Order ID (REQ-1047, ORD-3321)"
+                                placeholder={t('myRequests:searchPlaceholder')}
                                 value={trackId}
                                 onChange={(e) => setTrackId(e.target.value)}
                                 className="w-full bg-black/40 border border-white/10 rounded-2xl pl-12 pr-32 py-4 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all shadow-xl"
@@ -503,7 +497,7 @@ export default function MyRequests() {
                                 disabled={!trackId.trim()}
                                 className="absolute right-2 top-2 bottom-2 px-6 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-medium transition-all shadow-lg shadow-emerald-900/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                             >
-                                <span>Track</span>
+                                <span>{t('myRequests:tab.track')}</span>
                                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                                 </svg>
@@ -525,7 +519,7 @@ export default function MyRequests() {
                                 }`}
                         >
                             <span className="text-lg">🛎️</span>
-                            <span>Services</span>
+                            <span>{t('myRequests:tab.services')}</span>
                             {tickets.length > 0 && (
                                 <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${mainTab === 'services' ? 'bg-white/20 text-white' : 'bg-white/10 text-zinc-400'}`}>
                                     {tickets.length}
@@ -540,7 +534,7 @@ export default function MyRequests() {
                                 }`}
                         >
                             <span className="text-lg">🍽️</span>
-                            <span>Food & Beverages</span>
+                            <span>{t('myRequests:tab.food')}</span>
                             {foodOrders.length > 0 && (
                                 <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${mainTab === 'food' ? 'bg-white/20 text-white' : 'bg-white/10 text-zinc-400'}`}>
                                     {foodOrders.length}
@@ -563,7 +557,7 @@ export default function MyRequests() {
                                         : 'text-zinc-500 hover:text-zinc-400 hover:bg-white/5'
                                         }`}
                                 >
-                                    <span className="relative z-10 uppercase tracking-wider">Active</span>
+                                    <span className="relative z-10 uppercase tracking-wider">{t('myRequests:tab.active')}</span>
                                     {activeTickets.length > 0 && (
                                         <span className={`px-1.5 py-0.5 rounded-full text-[9px] ${activeTab === 'active' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-white/5 text-zinc-600'}`}>
                                             {activeTickets.length}
@@ -577,7 +571,7 @@ export default function MyRequests() {
                                         : 'text-zinc-500 hover:text-zinc-400 hover:bg-white/5'
                                         }`}
                                 >
-                                    <span className="relative z-10 uppercase tracking-wider">History</span>
+                                    <span className="relative z-10 uppercase tracking-wider">{t('myRequests:tab.history')}</span>
                                     {completedTickets.length > 0 && (
                                         <span className={`px-1.5 py-0.5 rounded-full text-[9px] ${activeTab === 'history' ? 'bg-white/10 text-slate-300' : 'bg-white/5 text-zinc-600'}`}>
                                             {completedTickets.length}
@@ -594,12 +588,12 @@ export default function MyRequests() {
                         ) : tickets.length === 0 ? (
                             <div className="text-center py-20 rounded-3xl border border-dashed border-white/10 bg-white/5">
                                 <div className="text-4xl mb-4 opacity-50">🛎️</div>
-                                <p className="text-zinc-400 mb-6">No requests yet.</p>
+                                <p className="text-zinc-400 mb-6">{t('myRequests:empty.noRequests')}</p>
                                 <Link
                                     to={code ? buildMenuLink(code) : '/menu'}
                                     className="inline-flex px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full font-medium transition-all shadow-lg shadow-emerald-900/40"
                                 >
-                                    New Request
+                                    {t('myRequests:newRequest')}
                                 </Link>
                             </div>
                         ) : (
@@ -632,7 +626,7 @@ export default function MyRequests() {
                                         ) : (
                                             <div className="text-center py-12 text-zinc-500">
                                                 <div className="text-2xl mb-2 opacity-50">✨</div>
-                                                <p>No active requests</p>
+                                                <p>{t('myRequests:empty.noActive')}</p>
                                             </div>
                                         )}
                                     </div>
@@ -665,7 +659,7 @@ export default function MyRequests() {
                                         ) : (
                                             <div className="text-center py-12 text-zinc-500">
                                                 <div className="text-2xl mb-2 opacity-50">📜</div>
-                                                <p>No history yet</p>
+                                                <p>{t('myRequests:empty.noHistory')}</p>
                                             </div>
                                         )}
                                     </div>
@@ -685,12 +679,12 @@ export default function MyRequests() {
                         ) : foodOrders.length === 0 ? (
                             <div className="text-center py-20 rounded-3xl border border-dashed border-white/10 bg-white/5">
                                 <div className="text-4xl mb-4 opacity-50">🍽️</div>
-                                <p className="text-zinc-400 mb-6">No food orders yet.</p>
+                                <p className="text-zinc-400 mb-6">{t('myRequests:empty.noFood')}</p>
                                 <Link
                                     to={code ? `/stay/${code}/menu?tab=food` : '/menu?tab=food'}
                                     className="inline-flex px-6 py-3 bg-amber-600 hover:bg-amber-500 text-white rounded-full font-medium transition-all shadow-lg shadow-amber-900/40"
                                 >
-                                    Order Food
+                                    {t('myRequests:orderFood')}
                                 </Link>
                             </div>
                         ) : (
@@ -707,27 +701,29 @@ export default function MyRequests() {
     );
 }
 
-// Guest-friendly system message mapping
-const getGuestFriendlyMessage = (event: any, ticket: GuestTicket): string | null => {
+// Guest-friendly system message mapping. `t` is passed in because this is a
+// module-level helper (no hook scope).
+type TFunc = (key: string, opts?: Record<string, unknown>) => string;
+const getGuestFriendlyMessage = (event: any, ticket: GuestTicket, t: TFunc): string | null => {
     switch (event.event_type) {
         case 'CREATED':
-            return 'Request submitted'; // Matching image tone
+            return t('myRequests:timeline.submitted');
         case 'STARTED':
-            return "Staff is taking care of it";
+            return t('myRequests:timeline.staffTakingCare');
         case 'BLOCKED':
             if (ticket.reason_code) {
-                const friendlyReason = guestFriendlyReasons[ticket.reason_code] || 'Waiting';
-                return `Paused: ${friendlyReason}`;
+                const friendlyReason = t(`myRequests:blockedReason.${ticket.reason_code}`, { defaultValue: t('myRequests:blockedReason.fallbackWaiting') });
+                return t('myRequests:timeline.paused', { reason: friendlyReason });
             }
-            return 'Request paused';
+            return t('myRequests:timeline.requestPaused');
         case 'UNBLOCKED':
-            return 'Resumed';
+            return t('myRequests:timeline.resumed');
         case 'COMPLETED':
-            return 'Completed';
+            return t('myRequests:timeline.completed');
         case 'CANCELLED':
-            return 'Cancelled';
+            return t('myRequests:timeline.cancelled');
         case 'REOPENED':
-            return 'Reopened';
+            return t('myRequests:timeline.reopened');
         default:
             return null;
     }
@@ -762,6 +758,7 @@ function TicketCard({
     onCancel: ((id: string) => void) | null;
     cancelling: boolean;
 }) {
+    const { t } = useTranslation(["myRequests", "common"]);
     // --- Timer Logic Ported from RequestTracker ---
     const [now, setNow] = useState(new Date());
 
@@ -833,13 +830,13 @@ function TicketCard({
     // };
 
     const statusLabels: Record<string, string> = {
-        NEW: 'Submitted',
-        REQUESTED: 'Submitted',
-        ACCEPTED: 'Assigned',
-        IN_PROGRESS: 'In Progress',
-        COMPLETED: 'Completed',
-        BLOCKED: 'On Hold',
-        CANCELLED: 'Cancelled',
+        NEW: t('myRequests:ticketStatus.submitted'),
+        REQUESTED: t('myRequests:ticketStatus.submitted'),
+        ACCEPTED: t('myRequests:ticketStatus.assigned'),
+        IN_PROGRESS: t('myRequests:ticketStatus.inProgress'),
+        COMPLETED: t('myRequests:ticketStatus.completed'),
+        BLOCKED: t('myRequests:ticketStatus.onHold'),
+        CANCELLED: t('myRequests:ticketStatus.cancelled'),
     };
 
     const timeAgo = (dateStr: string) => {
@@ -851,16 +848,16 @@ function TicketCard({
         const now = new Date();
         const diffMs = Math.max(0, now.getTime() - date.getTime());
         const diffMins = Math.floor(diffMs / 60000);
-        if (diffMins < 1) return "just now";
-        if (diffMins < 60) return `${diffMins}m ago`;
+        if (diffMins < 1) return t("myRequests:timeAgo.justNow");
+        if (diffMins < 60) return t("myRequests:timeAgo.minAgo", { count: diffMins });
         const diffHours = Math.floor(diffMins / 60);
-        if (diffHours < 24) return `${diffHours}h ago`;
-        return `${Math.floor(diffHours / 24)}d ago`;
+        if (diffHours < 24) return t("myRequests:timeAgo.hourAgo", { count: diffHours });
+        return t("myRequests:timeAgo.dayAgo", { count: Math.floor(diffHours / 24) });
     };
 
     // const config = statusConfig[ticket.status] || statusConfig.NEW;
     const label = ticket.status === 'BLOCKED' && ticket.reason_code
-        ? (guestFriendlyReasons[ticket.reason_code] || 'On Hold')
+        ? t(`myRequests:blockedReason.${ticket.reason_code}`, { defaultValue: t('myRequests:blockedReason.fallbackOnHold') })
         : (statusLabels[ticket.status] || ticket.status);
 
     const canComment = ['NEW', 'IN_PROGRESS', 'BLOCKED'].includes(ticket.status);
@@ -931,18 +928,18 @@ function TicketCard({
                             {/* Timer / ETA Badge */}
                             {ticket.status === 'COMPLETED' ? (
                                 <div className="px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide border bg-teal-500/10 text-teal-400 border-teal-500/20">
-                                    Completed
+                                    {t('myRequests:completed')}
                                 </div>
                             ) : slaState ? (
                                 <div className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide border ${slaState.isBreached
                                     ? 'bg-red-500/10 text-red-400 border-red-500/20'
                                     : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                                     }`}>
-                                    {slaState.isBreached ? `+${Math.floor(Math.abs(slaState.diffMs) / 60000)}m LATE` : `${Math.ceil(slaState.diffMs / 60000)}m LEFT`}
+                                    {slaState.isBreached ? t('myRequests:slaLate', { count: Math.floor(Math.abs(slaState.diffMs) / 60000) }) : t('myRequests:slaLeft', { count: Math.ceil(slaState.diffMs / 60000) })}
                                 </div>
                             ) : (
                                 <div className="text-[11px] font-medium text-zinc-500">
-                                    {ticket.status === 'NEW' ? 'Assigning...' : (statusLabels[ticket.status] || ticket.status)}
+                                    {ticket.status === 'NEW' ? t('myRequests:assigning') : (statusLabels[ticket.status] || ticket.status)}
                                 </div>
                             )}
                         </div>
@@ -959,7 +956,7 @@ function TicketCard({
 
                             {slaState?.isBreached && ticket.status !== 'COMPLETED' && (
                                 <div className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                                    Delayed
+                                    {t('myRequests:delayed')}
                                 </div>
                             )}
                         </div>
@@ -974,10 +971,10 @@ function TicketCard({
                         className="w-full flex items-center justify-between px-4 py-3 rounded-2xl bg-white/[0.04] border border-white/5 hover:bg-white/[0.08] hover:border-emerald-500/30 transition-all group/track"
                     >
                         <span className="text-xs font-medium text-zinc-400 group-hover/track:text-emerald-400 transition-colors">
-                            Track detailed progress & conversation
+                            {t('myRequests:trackProgress')}
                         </span>
                         <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
-                            Track <span className="text-lg leading-none transform group-hover/track:translate-x-1 transition-transform">→</span>
+                            {t('myRequests:tab.track')} <span className="text-lg leading-none transform group-hover/track:translate-x-1 transition-transform">→</span>
                         </div>
                     </Link>
                 </div>
@@ -994,7 +991,7 @@ function TicketCard({
                             text-[11px] font-black uppercase tracking-[0.2em] transition-colors duration-300
                             ${expanded ? 'text-emerald-400' : 'text-zinc-400'}
                         `}>
-                            {expanded ? 'Close Details' : '↓  Quick Details & Chat  ↓'}
+                            {expanded ? t('myRequests:closeDetails') : t('myRequests:quickDetails')}
                         </span>
                         <div className={`
                             flex items-center justify-center w-7 h-7 rounded-full transition-all duration-300
@@ -1023,7 +1020,7 @@ function TicketCard({
                     {/* Details Block */}
                     {ticket.description && (
                         <div className="mb-6 bg-black/20 rounded-xl p-4 border border-white/5">
-                            <h4 className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mb-2">My Note</h4>
+                            <h4 className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mb-2">{t('myRequests:detail.myNote')}</h4>
                             <p className="text-sm text-zinc-300 leading-relaxed">
                                 {ticket.description}
                             </p>
@@ -1035,20 +1032,20 @@ function TicketCard({
                         {/* Auto-generated Activity */}
                         {!loadingComments && comments.length > 0 && (
                             <div>
-                                <h4 className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mb-3 pl-1">Updates</h4>
+                                <h4 className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mb-3 pl-1">{t('myRequests:detail.updates')}</h4>
                                 <div className="space-y-4 relative pl-4 opacity-100 transition-opacity">
                                     {/* Vertical line */}
                                     <div className="absolute left-0 top-1 bottom-1 w-px bg-white/10" />
 
                                     {comments
-                                        .filter(e => e.event_type !== 'COMMENT_ADDED' && getGuestFriendlyMessage(e, ticket))
+                                        .filter(e => e.event_type !== 'COMMENT_ADDED' && getGuestFriendlyMessage(e, ticket, t))
                                         .map((event, idx) => {
                                             const isLatest = idx === comments.filter(e => e.event_type !== 'COMMENT_ADDED').length - 1;
                                             return (
                                                 <div key={event.id} className="relative pl-4 group">
                                                     <div className={`absolute left-[-4px] top-1.5 w-2 h-2 rounded-full border border-zinc-900 ${isLatest ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-zinc-700'}`} />
                                                     <div className={`text-sm ${isLatest ? 'text-white font-medium' : 'text-zinc-500'}`}>
-                                                        {getGuestFriendlyMessage(event, ticket)}
+                                                        {getGuestFriendlyMessage(event, ticket, t)}
                                                     </div>
                                                     <div className="text-[10px] text-zinc-600 mt-0.5 font-mono">
                                                         {new Date(event.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -1062,7 +1059,7 @@ function TicketCard({
 
                         {/* Chat / Comments */}
                         <div>
-                            <h4 className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mb-3 pl-1">Conversation</h4>
+                            <h4 className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mb-3 pl-1">{t('myRequests:detail.conversation')}</h4>
                             <div className="space-y-3 mb-4">
                                 {comments.filter(c => c.event_type === 'COMMENT_ADDED').map((c, index, arr) => {
                                     const date = new Date(c.created_at);
@@ -1072,10 +1069,10 @@ function TicketCard({
                                     // Helper for grouping labels
                                     const getDayLabel = (d: Date) => {
                                         const now = new Date();
-                                        if (d.toDateString() === now.toDateString()) return 'Today';
+                                        if (d.toDateString() === now.toDateString()) return t('myRequests:today');
                                         const yesterday = new Date(now);
                                         yesterday.setDate(now.getDate() - 1);
-                                        if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+                                        if (d.toDateString() === yesterday.toDateString()) return t('myRequests:yesterday');
                                         return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
                                     };
 
@@ -1104,7 +1101,7 @@ function TicketCard({
                                 })}
                                 {comments.filter(c => c.event_type === 'COMMENT_ADDED').length === 0 && (
                                     <div className="text-center py-4 text-xs text-zinc-600 italic">
-                                        No messages yet.
+                                        {t('myRequests:noMessages')}
                                     </div>
                                 )}
                             </div>
@@ -1115,7 +1112,7 @@ function TicketCard({
                                     <textarea
                                         value={commentText}
                                         onChange={(e) => onCommentChange(e.target.value)}
-                                        placeholder="Type a message..."
+                                        placeholder={t('myRequests:detail.messagePlaceholder')}
                                         className="w-full bg-black/40 border border-white/10 rounded-2xl pl-4 pr-12 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 resize-none transition-all"
                                         rows={1}
                                         disabled={submittingComment}
@@ -1149,7 +1146,7 @@ function TicketCard({
                                     disabled={cancelling}
                                     className="px-4 py-2 rounded-lg bg-red-500/10 text-red-400 text-xs font-medium hover:bg-red-500/20 border border-red-500/20 transition-all"
                                 >
-                                    Cancel Request
+                                    {t('myRequests:cancelRequest')}
                                 </button>
                             )}
                             {onReopen && ticket.status === 'COMPLETED' && (
@@ -1158,7 +1155,7 @@ function TicketCard({
                                     disabled={reopening}
                                     className="px-4 py-2 rounded-lg bg-white/5 text-zinc-300 text-xs font-medium hover:bg-white/10 border border-white/5 transition-all"
                                 >
-                                    Reopen
+                                    {t('myRequests:reopen')}
                                 </button>
                             )}
                         </div>
@@ -1171,16 +1168,19 @@ function TicketCard({
 
 // Food Order Card Component
 function FoodOrderCard({ order }: { order: GuestFoodOrder }) {
-    const statusConfig: Record<string, { bg: string; text: string; label: string }> = {
-        CREATED: { bg: 'bg-blue-500/10', text: 'text-blue-400', label: 'Pending' },
-        ACCEPTED: { bg: 'bg-emerald-500/10', text: 'text-emerald-400', label: 'Accepted' },
-        PREPARING: { bg: 'bg-amber-500/10', text: 'text-amber-400', label: 'Preparing' },
-        READY: { bg: 'bg-purple-500/10', text: 'text-purple-400', label: 'Ready' },
-        DELIVERED: { bg: 'bg-zinc-500/10', text: 'text-zinc-400', label: 'Delivered' },
-        CANCELLED: { bg: 'bg-red-500/10', text: 'text-red-400', label: 'Cancelled' },
+    const { t } = useTranslation(["myRequests", "common"]);
+    // bg/text styling keyed by status code; the label is translated at render.
+    const statusConfig: Record<string, { bg: string; text: string; key: string }> = {
+        CREATED: { bg: 'bg-blue-500/10', text: 'text-blue-400', key: 'created' },
+        ACCEPTED: { bg: 'bg-emerald-500/10', text: 'text-emerald-400', key: 'accepted' },
+        PREPARING: { bg: 'bg-amber-500/10', text: 'text-amber-400', key: 'preparing' },
+        READY: { bg: 'bg-purple-500/10', text: 'text-purple-400', key: 'ready' },
+        DELIVERED: { bg: 'bg-zinc-500/10', text: 'text-zinc-400', key: 'delivered' },
+        CANCELLED: { bg: 'bg-red-500/10', text: 'text-red-400', key: 'cancelled' },
     };
 
     const config = statusConfig[order.status] || statusConfig.CREATED;
+    const statusLabel = t(`myRequests:foodStatus.${config.key}`);
 
     const timeAgo = (dateStr: string) => {
         // parseDbDate appends 'Z' when the timestamp arrives without a TZ
@@ -1191,16 +1191,16 @@ function FoodOrderCard({ order }: { order: GuestFoodOrder }) {
         const now = new Date();
         const diffMs = Math.max(0, now.getTime() - date.getTime());
         const diffMins = Math.floor(diffMs / 60000);
-        if (diffMins < 1) return "just now";
-        if (diffMins < 60) return `${diffMins}m ago`;
+        if (diffMins < 1) return t("myRequests:timeAgo.justNow");
+        if (diffMins < 60) return t("myRequests:timeAgo.minAgo", { count: diffMins });
         const diffHours = Math.floor(diffMins / 60);
-        if (diffHours < 24) return `${diffHours}h ago`;
-        return `${Math.floor(diffHours / 24)}d ago`;
+        if (diffHours < 24) return t("myRequests:timeAgo.hourAgo", { count: diffHours });
+        return t("myRequests:timeAgo.dayAgo", { count: Math.floor(diffHours / 24) });
     };
 
     // Format items summary
-    const itemsSummary = order.items?.slice(0, 2).map(i => `${i.quantity}x ${i.name}`).join(', ') || 'No items';
-    const moreItems = order.total_items > 2 ? ` +${order.total_items - 2} more` : '';
+    const itemsSummary = order.items?.slice(0, 2).map(i => `${i.quantity}x ${i.name}`).join(', ') || t('myRequests:noItemsSummary');
+    const moreItems = order.total_items > 2 ? t('myRequests:moreItems', { count: order.total_items - 2 }) : '';
 
     return (
         <Link
@@ -1219,10 +1219,10 @@ function FoodOrderCard({ order }: { order: GuestFoodOrder }) {
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2 mb-1">
                             <h3 className="font-semibold text-zinc-100 text-[15px]">
-                                Order {order.display_id}
+                                {t('myRequests:orderLabel', { id: order.display_id })}
                             </h3>
                             <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide border ${config.bg} ${config.text} border-current/20`}>
-                                {config.label}
+                                {statusLabel}
                             </span>
                         </div>
 
@@ -1233,7 +1233,7 @@ function FoodOrderCard({ order }: { order: GuestFoodOrder }) {
                         <div className="flex items-center gap-3 mt-2 text-xs text-zinc-500">
                             <span>₹{order.total_amount?.toFixed(0) || '0'}</span>
                             <span>•</span>
-                            <span>{order.room_number ? `Room ${order.room_number}` : 'No room'}</span>
+                            <span>{order.room_number ? t('myRequests:roomLabel', { number: order.room_number }) : t('myRequests:noRoom')}</span>
                             <span>•</span>
                             <span>{timeAgo(order.created_at)}</span>
                         </div>
@@ -1245,7 +1245,7 @@ function FoodOrderCard({ order }: { order: GuestFoodOrder }) {
             <div className="border-t border-white/10 bg-gradient-to-r from-white/[0.02] to-white/[0.04] group-hover:from-white/[0.04] group-hover:to-white/[0.06] transition-all duration-300">
                 <div className="flex items-center justify-between px-5 py-4">
                     <span className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-400 group-hover:text-amber-400 transition-colors">
-                        →  Track Order Details  →
+                        →  {t('myRequests:trackOrderDetails')}  →
                     </span>
                     <div className="flex items-center justify-center w-7 h-7 rounded-full bg-amber-500/10 border border-amber-500/20 shadow-[0_0_8px_rgba(245,158,11,0.15)] group-hover:shadow-[0_0_12px_rgba(245,158,11,0.3)] transition-all duration-300">
                         <svg

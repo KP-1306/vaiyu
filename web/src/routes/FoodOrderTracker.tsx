@@ -1,6 +1,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { supabase } from "../lib/supabase";
 import {
     ArrowLeft,
@@ -60,6 +61,7 @@ type FoodOrderData = {
 };
 
 export default function FoodOrderTracker() {
+    const { t } = useTranslation(["foodOrderTracker", "common"]);
     const { id } = useParams(); // UUID
     const [data, setData] = useState<FoodOrderData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -84,8 +86,8 @@ export default function FoodOrderTracker() {
             });
             const result = await rzp.openRazorpayCheckout(order);
             if (!result.ok) {
-                if (result.reason === "DISMISSED") throw new Error("Payment cancelled.");
-                throw new Error("Payment failed: " + (result.error?.description ?? "unknown"));
+                if (result.reason === "DISMISSED") throw new Error(t("foodOrderTracker:payCancelled"));
+                throw new Error(t("foodOrderTracker:payFailed", { reason: result.error?.description ?? "unknown" }));
             }
             await rzp.verifyWalkInPayment({
                 hotelId: data.hotel_id,
@@ -250,7 +252,7 @@ export default function FoodOrderTracker() {
 
         } catch (err: any) {
             console.error("Error fetching food order:", err);
-            setError("Could not load order details.");
+            setError(t("foodOrderTracker:loadError"));
         } finally {
             setLoading(false);
         }
@@ -274,10 +276,10 @@ export default function FoodOrderTracker() {
         return (
             <div className="min-h-screen bg-[#020202] flex flex-col items-center justify-center p-6 text-center">
                 <XCircle className="w-12 h-12 text-red-500 mb-4" />
-                <h2 className="text-white text-lg font-bold">Order not found</h2>
-                <p className="text-zinc-500 mt-2">{error || "We couldn't locate this order."}</p>
+                <h2 className="text-white text-lg font-bold">{t("foodOrderTracker:orderNotFound")}</h2>
+                <p className="text-zinc-500 mt-2">{error || t("foodOrderTracker:orderNotFoundDesc")}</p>
                 <Link to="/guest" className="mt-8 px-6 py-3 bg-white text-black font-bold rounded-full">
-                    Back to Dashboard
+                    {t("foodOrderTracker:backToDashboard")}
                 </Link>
             </div>
         );
@@ -338,27 +340,27 @@ export default function FoodOrderTracker() {
     const isAccepted = ['ACCEPTED', 'PREPARING', 'READY', 'DELIVERED', 'COMPLETED', 'CLOSED'].includes(data.status);
 
     const steps = [
-        { label: "Order Received", time: createdTime, active: true, completed: true },
+        { label: t("foodOrderTracker:steps.received"), time: createdTime, active: true, completed: true },
         {
-            label: "Order Accepted",
+            label: t("foodOrderTracker:steps.accepted"),
             time: acceptedTime,
             active: isAccepted,
             completed: isAccepted
         },
         {
-            label: "Kitchen Preparing",
+            label: t("foodOrderTracker:steps.preparing"),
             time: preparingTime,
             active: ['PREPARING', 'READY', 'DELIVERED', 'COMPLETED', 'CLOSED'].includes(data.status),
             completed: ['READY', 'DELIVERED', 'COMPLETED', 'CLOSED'].includes(data.status)
         },
         {
-            label: "On the way",
+            label: t("foodOrderTracker:steps.onTheWay"),
             time: readyTime,
             active: ['READY', 'DELIVERED', 'COMPLETED', 'CLOSED'].includes(data.status),
             completed: ['DELIVERED', 'COMPLETED', 'CLOSED'].includes(data.status)
         },
         {
-            label: "Delivered",
+            label: t("foodOrderTracker:steps.delivered"),
             time: deliveredTime,
             active: ['DELIVERED', 'COMPLETED', 'CLOSED'].includes(data.status),
             completed: ['DELIVERED', 'COMPLETED', 'CLOSED'].includes(data.status)
@@ -376,7 +378,7 @@ export default function FoodOrderTracker() {
                     <Link to={data.booking_code ? `/stay/${data.booking_code}/requests?tab=food` : '/'} className="w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center border border-slate-700/50 hover:bg-slate-700 transition-colors">
                         <ArrowLeft size={18} className="text-white" />
                     </Link>
-                    <h1 className="text-lg font-bold text-white">Your Order</h1>
+                    <h1 className="text-lg font-bold text-white">{t("foodOrderTracker:yourOrder")}</h1>
                 </header>
 
                 {/* Status Hero */}
@@ -395,7 +397,7 @@ export default function FoodOrderTracker() {
                                     <>
                                         <div className="absolute inset-0 rounded-full border-4 border-red-500/30" />
                                         <div className="absolute inset-0 rounded-full border-4 border-t-red-500 animate-spin" />
-                                        <span className="relative z-10 text-[10px] font-black uppercase tracking-widest">Late</span>
+                                        <span className="relative z-10 text-[10px] font-black uppercase tracking-widest">{t("foodOrderTracker:lateBadge")}</span>
                                     </>
                                 ) : (
                                     <>
@@ -407,12 +409,12 @@ export default function FoodOrderTracker() {
                     </div>
 
                     <h2 className="text-2xl font-bold text-white mb-1">
-                        {isCompleted ? "Enjoy your meal!" : isCancelled ? "Order Cancelled" : "Order is in progress"}
+                        {isCompleted ? t("foodOrderTracker:hero.completed") : isCancelled ? t("foodOrderTracker:hero.cancelled") : t("foodOrderTracker:hero.inProgress")}
                     </h2>
                     <p className="text-slate-500 text-sm">
-                        {isCompleted ? "Your order has been delivered." :
-                            isCancelled ? "This order was cancelled." :
-                                isBreached ? <span className="text-red-500/80">Sorry for the delay.<br />We are working to deliver your order as quickly as possible.</span> : "Freshly preparing your items."}
+                        {isCompleted ? t("foodOrderTracker:heroDesc.completed") :
+                            isCancelled ? t("foodOrderTracker:heroDesc.cancelled") :
+                                isBreached ? <span className="text-red-500/80">{t("foodOrderTracker:heroDesc.delayLine1")}<br />{t("foodOrderTracker:heroDesc.delayLine2")}</span> : t("foodOrderTracker:heroDesc.preparing")}
                     </p>
                 </div>
 
@@ -422,7 +424,7 @@ export default function FoodOrderTracker() {
                         <div className="z-10">
                             <div className="flex items-center gap-2 text-slate-400 text-sm mb-2">
                                 <Clock size={16} />
-                                <span>{isCompleted ? "DELIVERED AT" : "ESTIMATED ARRIVAL"}</span>
+                                <span>{isCompleted ? t("foodOrderTracker:deliveredAt") : t("foodOrderTracker:estimatedArrival")}</span>
                             </div>
                             <div className="flex items-baseline gap-2 mb-1">
                                 <span className="text-3xl font-bold text-white font-mono leading-none">
@@ -431,11 +433,11 @@ export default function FoodOrderTracker() {
                                 <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">IST</span>
                             </div>
                             <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                                {isCompleted ? "Completed" : isBreached ? "Delayed" : "On Schedule"}
+                                {isCompleted ? t("foodOrderTracker:statusCompleted") : isBreached ? t("foodOrderTracker:statusDelayed") : t("foodOrderTracker:statusOnSchedule")}
                             </div>
                             {revisedTarget && revisedAt && !isCompleted && (
                                 <div className="text-[10px] text-slate-400 mt-1">
-                                    Updated by kitchen at {formatIstTime(revisedAt, { showLabel: false })}
+                                    {t("foodOrderTracker:updatedByKitchen", { time: formatIstTime(revisedAt, { showLabel: false }) })}
                                 </div>
                             )}
                         </div>
@@ -466,7 +468,7 @@ export default function FoodOrderTracker() {
                                             {Math.abs(diffMins)}
                                         </div>
                                         <div className={`text-[10px] uppercase font-bold ${isBreached ? 'text-red-500' : 'text-orange-500'}`}>
-                                            {isBreached ? 'Min Late' : 'Min Left'}
+                                            {isBreached ? t("foodOrderTracker:minLate") : t("foodOrderTracker:minLeft")}
                                         </div>
                                     </>
                                 )}
@@ -478,7 +480,7 @@ export default function FoodOrderTracker() {
                 {/* Order Summary */}
                 <div className="bg-slate-900/40 border border-slate-800/60 rounded-3xl overflow-hidden mb-6 animate-fade-in-up animation-delay-200">
                     <div className="p-4 border-b border-slate-800/60 flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Order Summary</span>
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{t("foodOrderTracker:orderSummary")}</span>
                         <span className="text-xs font-mono text-slate-400">#{data.display_id}</span>
                     </div>
                     <div className="p-4 space-y-3">
@@ -495,7 +497,7 @@ export default function FoodOrderTracker() {
                         ))}
                         <div className="h-px bg-white/5 my-2" />
                         <div className="flex justify-between items-center font-bold text-white">
-                            <span>Total</span>
+                            <span>{t("foodOrderTracker:total")}</span>
                             <span className="font-mono">₹{data.total_amount}</span>
                         </div>
                     </div>
@@ -503,7 +505,7 @@ export default function FoodOrderTracker() {
 
                 {/* Timeline */}
                 <div className="bg-slate-900/40 border border-slate-800/60 rounded-3xl p-6 mb-8 animate-fade-in-up animation-delay-300">
-                    <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-6">Status Updates</div>
+                    <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-6">{t("foodOrderTracker:statusUpdates")}</div>
                     <div className="relative pl-2 space-y-8">
                         <div className="absolute left-[15px] top-2 bottom-2 w-0.5 bg-zinc-800 rounded-full" />
                         {steps.map((step, i) => (
@@ -536,12 +538,12 @@ export default function FoodOrderTracker() {
                             {payingFolio ? (
                                 <>
                                     <Loader2 size={16} className="animate-spin" />
-                                    Opening secure payment…
+                                    {t("foodOrderTracker:openingPayment")}
                                 </>
                             ) : (
                                 <>
                                     <CreditCard size={16} />
-                                    Pay folio balance · ₹{(data.balance_due ?? 0).toLocaleString("en-IN")}
+                                    {t("foodOrderTracker:payFolio", { amount: `₹${(data.balance_due ?? 0).toLocaleString("en-IN")}` })}
                                 </>
                             )}
                         </button>
@@ -550,7 +552,7 @@ export default function FoodOrderTracker() {
                 {paySuccess && (
                     <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 mb-3 flex items-center gap-2 text-emerald-300 text-sm">
                         <CheckCircle2 className="w-4 h-4 shrink-0" />
-                        Payment received. Your folio is settled.
+                        {t("foodOrderTracker:paymentReceived")}
                     </div>
                 )}
                 {payError && (
@@ -563,7 +565,7 @@ export default function FoodOrderTracker() {
                 {/* Action Buttons */}
                 {!isCompleted && !isCancelled && (
                     <button className="w-full bg-slate-800 border border-slate-700 hover:bg-slate-700 text-white py-4 rounded-xl text-sm font-bold transition-all shadow-lg flex items-center justify-center gap-2">
-                        <RefreshCcw size={16} /> Need Help? Call Front Desk
+                        <RefreshCcw size={16} /> {t("foodOrderTracker:needHelp")}
                     </button>
                 )}
 

@@ -1,0 +1,113 @@
+{
+  "breadcrumbGuest": "Guest",
+  "breadcrumbRequests": "Requests",
+  "title": "Your Requests",
+  "subtitle": "Track and manage your service requests",
+  "searchPlaceholder": "Search by Request / Order ID (REQ-1047, ORD-3321)",
+  "tab": {
+    "track": "Track",
+    "services": "Services",
+    "food": "Food & Beverages",
+    "active": "Active",
+    "history": "History"
+  },
+  "empty": {
+    "noRequests": "No requests yet.",
+    "noActive": "No active requests",
+    "noHistory": "No history yet",
+    "noFood": "No food orders yet."
+  },
+  "reopenDialog": {
+    "title": "Reopen Request",
+    "body": "This will reopen the request for the staff.",
+    "reasonPlaceholder": "Reason (optional)...",
+    "reopening": "Reopening...",
+    "confirm": "Confirm"
+  },
+  "cancelDialog": {
+    "title": "Cancel Request",
+    "notesPlaceholder": "Additional notes..."
+  },
+  "detail": {
+    "myNote": "My Note",
+    "updates": "Updates",
+    "conversation": "Conversation",
+    "messagePlaceholder": "Type a message..."
+  },
+  "reopen": "Reopen",
+  "reopenRequest": "Reopen Request",
+  "cancelRequest": "Cancel Request",
+  "cancel": "Cancel",
+  "assigning": "Assigning...",
+  "alerts": {
+    "commentEmpty": "Please enter a comment",
+    "commentTooLong": "Comment is too long (max 500 characters)",
+    "reopenFailed": "Failed to reopen request: ",
+    "commentFailed": "Failed to add comment: ",
+    "cancelFailed": "Failed to cancel request",
+    "retry": "Please try again"
+  },
+  "ticketStatus": {
+    "submitted": "Submitted",
+    "assigned": "Assigned",
+    "inProgress": "In Progress",
+    "completed": "Completed",
+    "onHold": "On Hold",
+    "cancelled": "Cancelled"
+  },
+  "foodStatus": {
+    "created": "Pending",
+    "accepted": "Accepted",
+    "preparing": "Preparing",
+    "ready": "Ready",
+    "delivered": "Delivered",
+    "cancelled": "Cancelled"
+  },
+  "blockedReason": {
+    "guest_inside_room": "Waiting for access",
+    "supervisor_approval": "Waiting for approval",
+    "parts_unavailable": "Waiting for supplies",
+    "guest_unavailable": "Waiting for you",
+    "staff_unavailable": "Waiting for staff",
+    "equipment_unavailable": "Waiting for equipment",
+    "external_dependency": "Waiting for external service",
+    "fallbackWaiting": "Waiting",
+    "fallbackOnHold": "On Hold"
+  },
+  "timeAgo": {
+    "justNow": "just now",
+    "minAgo": "{{count}}m ago",
+    "hourAgo": "{{count}}h ago",
+    "dayAgo": "{{count}}d ago"
+  },
+  "newRequest": "New Request",
+  "orderFood": "Order Food",
+  "completed": "Completed",
+  "delayed": "Delayed",
+  "slaLate": "+{{count}}m LATE",
+  "slaLeft": "{{count}}m LEFT",
+  "trackProgress": "Track detailed progress & conversation",
+  "closeDetails": "Close Details",
+  "quickDetails": "↓  Quick Details & Chat  ↓",
+  "dialogBack": "Back",
+  "cancelling": "Cancelling...",
+  "noMessages": "No messages yet.",
+  "today": "Today",
+  "yesterday": "Yesterday",
+  "orderLabel": "Order {{id}}",
+  "roomLabel": "Room {{number}}",
+  "noRoom": "No room",
+  "noItemsSummary": "No items",
+  "moreItems": " +{{count}} more",
+  "trackOrderDetails": "Track Order Details",
+  "timeline": {
+    "submitted": "Request submitted",
+    "staffTakingCare": "Staff is taking care of it",
+    "paused": "Paused: {{reason}}",
+    "requestPaused": "Request paused",
+    "resumed": "Resumed",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "reopened": "Reopened"
+  }
+}

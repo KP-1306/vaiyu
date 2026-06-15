@@ -85,6 +85,7 @@ type FoodItem = {
 
 type MenuCategory = {
   id: string;
+  key?: string;
   name: string;
   display_order?: number;
 };
@@ -154,7 +155,7 @@ const injectAnimationStyles = () => {
 };
 
 export default function FoodMenu() {
-  const { t } = useTranslation(["foodMenu", "common"]);
+  const { t, i18n } = useTranslation(["foodMenu", "common"]);
   const { code: routeCode = "DEMO" } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -351,7 +352,7 @@ export default function FoodMenu() {
             const { supabase } = await import("../lib/supabase");
             const { data: catData } = await supabase
               .from('menu_categories')
-              .select('id, name, display_order')
+              .select('id, key, name, display_order')
               .eq('hotel_id', resolvedHotelId || hotelId)
               .eq('active', true)
               .order('display_order');
@@ -402,7 +403,7 @@ export default function FoodMenu() {
   const displayCategories = useMemo(() => {
     if (categories.length > 0) return categories;
     const names = Array.from(new Set(foodState.items.map(i => i.category || "General").filter(Boolean)));
-    return names.sort().map(name => ({ id: name, name }));
+    return names.sort().map((name): MenuCategory => ({ id: name, name }));
   }, [categories, foodState.items]);
 
   // --- Cart Actions (Food) ---
@@ -653,7 +654,12 @@ export default function FoodMenu() {
                             }`}
                         >
                           <Icon size={14} className={isActive ? "text-black" : "text-[#7a756a] group-hover:text-white transition-colors"} />
-                          {cat.name}
+                          {/* Categories carry a canonical key (BREAKFAST, LUNCH…); localize the
+                              standard set by key, but keep the owner's name in English and as the
+                              fallback for any custom/unknown category. */}
+                          {cat.key && i18n.language !== "en"
+                            ? t(`foodMenu:category.${cat.key}`, { defaultValue: cat.name })
+                            : cat.name}
                         </button>
                       );
                     })}

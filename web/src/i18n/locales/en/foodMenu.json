@@ -11,6 +11,16 @@
   "searchPlaceholder": "Search menu items...",
   "filter": { "veg": "Veg", "nonVeg": "Non-Veg", "jain": "Jain", "vegan": "Vegan" },
   "allItems": "All Items",
+  "category": {
+    "ALL_DAY": "All Day",
+    "BREAKFAST": "Breakfast",
+    "LUNCH": "Lunch",
+    "DINNER": "Dinner",
+    "BEVERAGES": "Beverages",
+    "SNACKS": "Snacks",
+    "DESSERTS": "Desserts",
+    "KIDS": "Kids Menu"
+  },
   "add": "Add",
   "noItems": "No items found matching your filters.",
   "currentOrder": "Current Order",

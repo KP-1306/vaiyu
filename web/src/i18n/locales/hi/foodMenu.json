@@ -11,6 +11,16 @@
   "searchPlaceholder": "मेन्यू आइटम खोजें...",
   "filter": { "veg": "शाकाहारी", "nonVeg": "मांसाहारी", "jain": "जैन", "vegan": "वीगन" },
   "allItems": "सभी आइटम",
+  "category": {
+    "ALL_DAY": "पूरे दिन",
+    "BREAKFAST": "नाश्ता",
+    "LUNCH": "लंच",
+    "DINNER": "डिनर",
+    "BEVERAGES": "पेय पदार्थ",
+    "SNACKS": "स्नैक्स",
+    "DESSERTS": "मिठाई",
+    "KIDS": "बच्चों का मेन्यू"
+  },
   "add": "जोड़ें",
   "noItems": "आपके फ़िल्टर से मेल खाने वाला कोई आइटम नहीं मिला।",
   "currentOrder": "वर्तमान ऑर्डर",

@@ -7,6 +7,7 @@ import { getServices } from "../../lib/api";
 import { SimpleTooltip } from "../../components/SimpleTooltip";
 import { formatIstTime, formatRelativeTime, parseDbDate } from "../../utils/dateUtils";
 import { formatPolicyTime } from "../../utils/policyTime";
+import { localizeRoomType, localizeRoomTypeList } from "../../i18n/localizeRoomType";
 import "./guestnew.css";
 import "./HeroMockup.css";
 
@@ -945,7 +946,7 @@ export default function GuestNewHome() {
                                             <div className="hero-mockup-room">
                                                 {currentStay.room_numbers && currentStay.room_numbers !== 'Unassigned'
                                                     ? t("home:card.room", { rooms: currentStay.room_numbers })
-                                                    : t("home:card.roomType", { types: currentStay.room_types?.join(', ') || 'Standard Room' })
+                                                    : t("home:card.roomType", { types: localizeRoomTypeList(currentStay.room_types, i18n.language, 'Standard Room') })
                                                 }
                                             </div>
                                             <div className="hero-mockup-status-row">
@@ -1160,7 +1161,7 @@ export default function GuestNewHome() {
                                                     <div className="hero-mockup-subcard-room">
                                                         {booking.room_numbers && booking.room_numbers !== 'Unassigned'
                                                             ? t("home:card.room", { rooms: booking.room_numbers })
-                                                            : `${booking.room_types?.[0] || 'Standard Room'}`
+                                                            : localizeRoomType(booking.room_types?.[0] || 'Standard Room', i18n.language)
                                                         }
                                                     </div>
                                                     <div className="hero-mockup-subcard-footer">
@@ -1344,7 +1345,7 @@ export default function GuestNewHome() {
                         <div className="gn-folio" style={{ marginTop: 0 }}>
                             {folioItems.map((item, i) => (
                                 <div key={i} className="gn-folio-row">
-                                    <span>{item.labelKey ? t(item.labelKey, item.labelParams) : item.label}</span>
+                                    <span>{item.labelKey ? t(item.labelKey, typeof item.labelParams?.type === "string" ? { ...item.labelParams, type: localizeRoomType(item.labelParams.type, i18n.language) } : item.labelParams) : item.label}</span>
                                     <span>{formatCurrency(item.amount)}</span>
                                 </div>
                             ))}
@@ -1523,7 +1524,7 @@ export default function GuestNewHome() {
                                         <span className="gn-modal-value">
                                             {currentStay.room_numbers && currentStay.room_numbers !== 'Unassigned'
                                                 ? currentStay.room_numbers
-                                                : (currentStay.room_types?.join(', ') || 'Standard Room')
+                                                : localizeRoomTypeList(currentStay.room_types, i18n.language, 'Standard Room')
                                             }
                                         </span>
                                     </div>

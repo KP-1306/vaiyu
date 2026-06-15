@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { supabase } from "../../lib/supabase";
+import { localizeRoomType } from "../../i18n/localizeRoomType";
 
 type Stay = {
     id: string;
@@ -381,9 +382,9 @@ export default function GuestNewBills() {
                                         {formatDate(stay.check_in)} – {formatDate(stay.check_out)}
                                     </div>
                                     <div className="gn-bill-row__room">
-                                        {stay.room_type || "Standard Room"}
+                                        {localizeRoomType(stay.room_type || "Standard Room", i18n.language)}
                                     </div>
-                                    {/* room_type is owner-authored data; the English fallback matches Home. */}
+                                    {/* room_type is owner-authored data; localized for display via the curated dictionary (raw fallback for custom names). */}
                                 </div>
                                 <div className="gn-bill-row__amount">
                                     {stay.bill_total ? formatCurrency(stay.bill_total) : "—"}

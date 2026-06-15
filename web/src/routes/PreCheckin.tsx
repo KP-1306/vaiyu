@@ -7,6 +7,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { localizeRoomType } from "../i18n/localizeRoomType";
 import {
     Loader2,
     Check,
@@ -489,7 +490,7 @@ export default function PreCheckin() {
                                         <Key className="h-4 w-4" /> {t("precheckin:roomType")}
                                     </div>
                                     <div className="text-[#fceea7] font-bold text-sm">
-                                        {booking.room_type || "Deluxe Suite"}
+                                        {localizeRoomType(booking.room_type || "Deluxe Suite", i18n.language)}
                                     </div>
                                 </div>
 

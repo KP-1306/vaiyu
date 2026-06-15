@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { supabase } from "../../lib/supabase";
+import { localizeRoomType } from "../../i18n/localizeRoomType";
 import RequestExtensionButton from "../../components/guest/RequestExtensionButton";
 import { formatIstDateTime } from "../../utils/dateUtils";
 import { formatPolicyTime } from "../../utils/policyTime";
@@ -406,7 +407,7 @@ export default function GuestNewStayDetails() {
                 </div>
 
                 <div className="gn-stay-detail__room">
-                    {t("stayDetails:roomLabel")} <span>{stay.room_type}</span>
+                    {t("stayDetails:roomLabel")} <span>{localizeRoomType(stay.room_type, i18n.language)}</span>
                 </div>
 
                 <div className="gn-stay-detail__grid">

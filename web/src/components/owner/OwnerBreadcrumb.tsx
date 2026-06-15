@@ -10,8 +10,9 @@
 import { Link, useLocation } from "react-router-dom";
 import { OWNER_NAV } from "../../lib/ownerNav";
 
-// Subpaths whose pages already render their own (OwnerDarkPage) breadcrumbs.
-const SELF_BREADCRUMB = /^(finance|pricing|workforce)(\/|$)/;
+// Subpaths whose pages render their own breadcrumbs (OwnerDarkPage pages; the
+// booking detail page renders its own "… / Booking <code>").
+const SELF_BREADCRUMB = /^(finance|pricing|workforce|booking)(\/|$)/;
 
 // First-segment words that are NOT hotel slugs — they're literal owner routes
 // (e.g. /owner/bookings/calendar, /owner/dashboard/:slug, /owner/invite/accept/:token).

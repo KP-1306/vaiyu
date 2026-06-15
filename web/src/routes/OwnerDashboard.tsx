@@ -60,7 +60,7 @@ import { VisibilityScoreCard } from "../components/owner/VisibilityScoreCard";
 import { VISIBILITY_SCORE_ENABLED } from "../config/visibilityScore";
 import { listPendingExtensions } from "../services/stayExtensionService";
 import { getPricingSettings, listPricingRules } from "../services/pricingService";
-import { Wallet, Sparkles, CalendarPlus, Tag } from "lucide-react";
+import { Wallet, Sparkles, CalendarPlus, Tag, Search } from "lucide-react";
 
 /** ========= Types ========= */
 type Hotel = { id: string; name: string; slug: string; city: string | null };
@@ -1305,7 +1305,21 @@ export default function OwnerDashboard() {
             </div>
           </div>
 
-
+          {/* Global search — opens the ⌘K command palette (find bookings/guests,
+              jump to any feature). Visible bar for discoverability; the palette
+              itself handles typing + keyboard nav. */}
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new Event("vaiyu:open-search"))}
+            aria-label="Search bookings, guests, and pages (Command or Control + K)"
+            className="group flex w-full items-center gap-3 rounded-xl border border-slate-800 bg-[#151A25] px-4 py-2.5 text-left text-sm text-slate-400 hover:border-indigo-500/40 hover:bg-[#1a2030] transition-colors"
+          >
+            <Search size={16} className="text-slate-500 group-hover:text-indigo-400 transition-colors" />
+            <span className="flex-1 truncate">Search bookings, guests, or jump to any page…</span>
+            <kbd className="hidden sm:inline-flex items-center rounded bg-white/5 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
+              {/Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl"} K
+            </kbd>
+          </button>
         </header>
 
         <div className="mt-6 flex flex-col lg:grid gap-6 lg:grid-cols-[180px,1fr,260px] xl:grid-cols-[200px,1fr,300px]">

@@ -112,6 +112,13 @@ export default function CommandPalette() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  /* open from anywhere via a custom event (e.g. the dashboard header search bar) */
+  useEffect(() => {
+    const openFromEvent = () => setOpen(true);
+    window.addEventListener("vaiyu:open-search", openFromEvent);
+    return () => window.removeEventListener("vaiyu:open-search", openFromEvent);
+  }, []);
+
   /* on open: reset + focus */
   useEffect(() => {
     if (open) {
@@ -207,11 +214,10 @@ export default function CommandPalette() {
       pushRecent(item.nav.id);
       navigate(item.nav.to(slug));
     } else {
-      // Deep-link to the arrivals/bookings board focused on this booking: the
-      // board reads ?focus=<code>, switches to the all-dates view and pre-fills
-      // its search so the matching row surfaces and can be acted on (folio,
-      // check-in/out).
-      navigate(`/owner/${slug}/arrivals?focus=${encodeURIComponent(item.hit.code)}`);
+      // Open the booking's detail/folio page (works for any status, incl.
+      // checked-out/cancelled). Pass the hit via router state so the header
+      // renders instantly while the folio loads.
+      navigate(`/owner/${slug}/booking/${item.hit.booking_id}`, { state: { booking: item.hit } });
     }
     setOpen(false);
   }, [slug, navigate, pushRecent]);
@@ -227,20 +233,24 @@ export default function CommandPalette() {
 
   const showRecentsHeader = !query.trim() && recents.length > 0;
   let runningIdx = 0;
+  // The dashboard root has its own header search bar, so skip the floating pill there.
+  const onDashboardRoot = /^\/owner\/[^/]+\/?$/.test(location.pathname);
 
   return (
     <>
-      {/* discoverable trigger */}
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label="Open search (Command or Control + K)"
-        className="fixed bottom-5 right-5 z-[60] flex items-center gap-2 rounded-full border border-white/10 bg-[#16181b]/90 px-3.5 py-2 text-xs font-medium text-slate-300 shadow-xl backdrop-blur hover:border-indigo-500/40 hover:text-white transition"
-      >
-        <Search size={14} />
-        <span className="hidden sm:inline">Search</span>
-        <kbd className="hidden sm:inline rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-slate-400">{IS_MAC ? "⌘" : "Ctrl"} K</kbd>
-      </button>
+      {/* discoverable trigger (floating pill on non-dashboard owner pages) */}
+      {!onDashboardRoot && (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label="Open search (Command or Control + K)"
+          className="fixed bottom-5 right-5 z-[60] flex items-center gap-2 rounded-full border border-white/10 bg-[#16181b]/90 px-3.5 py-2 text-xs font-medium text-slate-300 shadow-xl backdrop-blur hover:border-indigo-500/40 hover:text-white transition"
+        >
+          <Search size={14} />
+          <span className="hidden sm:inline">Search</span>
+          <kbd className="hidden sm:inline rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-slate-400">{IS_MAC ? "⌘" : "Ctrl"} K</kbd>
+        </button>
+      )}
 
       {open && (
         <div

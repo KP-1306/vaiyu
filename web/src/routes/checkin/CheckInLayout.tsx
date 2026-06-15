@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { Outlet, useSearchParams, useNavigate, Link, useLocation } from "react-router-dom";
-import { Home, ChevronRight } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import Spinner from "../../components/Spinner";
 import "../guestnew/guestnew.css";
@@ -108,11 +107,18 @@ export default function CheckInLayout() {
                         </span>
                     </Link>
 
-                    {/* Simple Title instead of Owner Breadcrumbs */}
-                    {location.pathname.includes('/walkin') && (
-                        <div className="hidden md:flex items-center gap-3 pl-4 border-l border-white/10 text-sm text-gold-100/40 font-medium italic">
-                            Walk-In Registration
-                        </div>
+                    {/* Breadcrumb back to the owner console (slug present = reached
+                        from the owner dashboard). Themed to the check-in header. */}
+                    {slug && (
+                        <nav aria-label="Breadcrumb" className="hidden md:flex items-center gap-2 pl-4 border-l border-white/10 text-xs font-medium">
+                            <Link to="/owner" className="text-gold-100/50 hover:text-white transition-colors">Console</Link>
+                            <span className="text-gold-100/30">/</span>
+                            <Link to={`/owner/${slug}`} className="text-gold-100/50 hover:text-white transition-colors">Dashboard</Link>
+                            <span className="text-gold-100/30">/</span>
+                            <span className="text-white font-semibold">
+                                {location.pathname.includes('/walkin') ? "Walk-In Check-In" : "Front Desk"}
+                            </span>
+                        </nav>
                     )}
                 </div>
 

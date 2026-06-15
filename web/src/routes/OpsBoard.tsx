@@ -982,6 +982,8 @@ export default function OpsBoard() {
       {/* Breadcrumb Header */}
       <header className="flex h-10 items-center border-b border-white/10 bg-[#0B0B0B] px-6 shadow-sm shrink-0">
         <div className="flex items-center gap-2 text-xs">
+          <Link to="/owner" className="font-medium text-slate-400 hover:text-white">Console</Link>
+          <span className="text-slate-600">›</span>
           <Link to={hotelSlug ? `/owner/${hotelSlug}` : '/owner'} className="font-medium text-slate-400 hover:text-white">
             Dashboard
           </Link>

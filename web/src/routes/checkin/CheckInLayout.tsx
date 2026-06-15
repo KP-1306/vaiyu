@@ -88,6 +88,21 @@ export default function CheckInLayout() {
         );
     }
 
+    // Breadcrumb back to the owner console (slug present = reached from the
+    // owner dashboard). Shared between the desktop inline strip (in the header)
+    // and the mobile strip (its own row below the header — the header has no
+    // room for it next to the logo + actions on a phone).
+    const crumbLabel = location.pathname.includes("/walkin") ? "Walk-In Check-In" : "Front Desk";
+    const crumbInner = slug ? (
+        <>
+            <Link to="/owner" className="text-gold-100/50 hover:text-white transition-colors">Console</Link>
+            <span className="text-gold-100/30">/</span>
+            <Link to={`/owner/${slug}`} className="text-gold-100/50 hover:text-white transition-colors">Dashboard</Link>
+            <span className="text-gold-100/30">/</span>
+            <span className="text-white font-semibold">{crumbLabel}</span>
+        </>
+    ) : null;
+
     return (
         <div className="guestnew checkin-container">
             {/* Header */}
@@ -107,17 +122,10 @@ export default function CheckInLayout() {
                         </span>
                     </Link>
 
-                    {/* Breadcrumb back to the owner console (slug present = reached
-                        from the owner dashboard). Themed to the check-in header. */}
-                    {slug && (
+                    {/* Desktop: inline breadcrumb next to the logo. */}
+                    {crumbInner && (
                         <nav aria-label="Breadcrumb" className="hidden md:flex items-center gap-2 pl-4 border-l border-white/10 text-xs font-medium">
-                            <Link to="/owner" className="text-gold-100/50 hover:text-white transition-colors">Console</Link>
-                            <span className="text-gold-100/30">/</span>
-                            <Link to={`/owner/${slug}`} className="text-gold-100/50 hover:text-white transition-colors">Dashboard</Link>
-                            <span className="text-gold-100/30">/</span>
-                            <span className="text-white font-semibold">
-                                {location.pathname.includes('/walkin') ? "Walk-In Check-In" : "Front Desk"}
-                            </span>
+                            {crumbInner}
                         </nav>
                     )}
                 </div>
@@ -131,6 +139,15 @@ export default function CheckInLayout() {
                     </button>
                 </div>
             </header>
+
+            {/* Mobile: the header row has no room for the inline breadcrumb next
+                to the logo + actions, so render it as its own strip below the
+                header (<md only). Solid dark bg = readable gold/white text. */}
+            {crumbInner && (
+                <nav aria-label="Breadcrumb" className="md:hidden flex items-center gap-2 px-4 py-2 border-b border-white/10 bg-[#141210] text-xs font-medium">
+                    {crumbInner}
+                </nav>
+            )}
 
             {/* Main Content */}
             <main className="guestnew-content mx-auto max-w-5xl px-4 py-8 md:px-6 lg:py-12 animate-in fade-in duration-700">

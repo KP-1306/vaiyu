@@ -32,7 +32,6 @@ import {
   ReferenceLine,
 } from "recharts";
 import {
-  fetchOwnerRevenue,
   type OwnerRevenueResponse,
 } from "../lib/api";
 
@@ -143,7 +142,7 @@ function SectionHeader({
 // ============================================================================
 // Overview Page (Revenue overview)
 // Default export for /owner/:slug/revenue
-// Uses fetchOwnerRevenue(slug, range) from lib/api
+// Reads the folio-backed owner_revenue_daily_v view (single source of truth).
 // ============================================================================
 export default function OwnerRevenue() {
   const { slug } = useParams<{ slug: string }>();
@@ -182,10 +181,55 @@ export default function OwnerRevenue() {
         }
         setHotel(h || null);
 
-        // Revenue overview from backend (preferred path)
-        const res = await fetchOwnerRevenue(slug, range);
+        const emptySummary = {
+          totalRevenue: 0,
+          roomRevenue: 0,
+          fnbRevenue: 0,
+          avgDailyRevenue: 0,
+        };
+
+        if (!h?.id) {
+          setData({ hotelSlug: slug, range, summary: emptySummary, series: [] });
+          return;
+        }
+
+        // Revenue from the folio-backed view owner_revenue_daily_v — the single
+        // source of truth (same view ADR/RevPAR read). No legacy backend.
+        const days = range === "7d" ? 7 : range === "90d" ? 90 : 30;
+        const to = new Date();
+        const from = addDays(to, -(days - 1));
+        const { data: rows, error: revErr } = await supabase
+          .from("owner_revenue_daily_v")
+          .select("day,room_revenue,fnb_revenue,total_revenue")
+          .eq("hotel_id", h.id)
+          .gte("day", isoDay(from))
+          .lte("day", isoDay(to))
+          .order("day", { ascending: true });
+
         if (!alive) return;
-        setData(res);
+        if (revErr) throw revErr;
+
+        const series = (rows ?? []).map((r: any) => ({
+          day: r.day as string,
+          totalRevenue: Number(r.total_revenue) || 0,
+          roomRevenue: Number(r.room_revenue) || 0,
+          fnbRevenue: Number(r.fnb_revenue) || 0,
+        }));
+        const sum = (k: "totalRevenue" | "roomRevenue" | "fnbRevenue") =>
+          series.reduce((acc, p) => acc + (p[k] || 0), 0);
+        const totalRevenue = sum("totalRevenue");
+
+        setData({
+          hotelSlug: slug,
+          range,
+          summary: {
+            totalRevenue,
+            roomRevenue: sum("roomRevenue"),
+            fnbRevenue: sum("fnbRevenue"),
+            avgDailyRevenue: days > 0 ? totalRevenue / days : 0,
+          },
+          series,
+        });
       } catch (e: any) {
         if (!alive) return;
         console.error(e);

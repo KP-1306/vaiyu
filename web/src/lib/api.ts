@@ -2829,29 +2829,11 @@ export async function fetchOwnerOccupancy(
   return res.json();
 }
 
-export async function fetchOwnerRevenue(
-  slug: string,
-  range: string = "30d"
-): Promise<OwnerRevenueResponse> {
-  const params = new URLSearchParams({
-    metric: "revenue",
-    slug,
-    range,
-  });
-
-  const res = await fetch(
-    `${API_URL}/owner/${encodeURIComponent(slug)}/revenue?${params.toString()}`,
-    {
-      credentials: "include",
-    }
-  );
-
-  if (!res.ok) {
-    throw new Error(`Failed to load revenue for ${slug}`);
-  }
-
-  return res.json();
-}
+// fetchOwnerRevenue (legacy `${API_URL}/owner/:slug/revenue` backend) was
+// removed 2026-06-16 — that route never existed in the api/ service, so the
+// overview always failed. Revenue now reads the folio-backed
+// owner_revenue_daily_v view directly in OwnerRevenue.tsx. The
+// OwnerRevenueResponse/Summary/Point types above are retained (used there).
 
 // ---------------------------------------------------------------------------
 // Rooms API

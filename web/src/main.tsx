@@ -212,6 +212,7 @@ const OwnerRevPAR = lazy(() =>
   import("./routes/OwnerRevenue").then((m) => ({ default: m.OwnerRevPAR })),
 );
 // Real owner pages that were previously masked by inline "avoid 404" stubs.
+const OwnerRevenue = lazy(() => import("./routes/OwnerRevenue"));
 const OwnerPickup = lazy(() => import("./routes/OwnerPickup"));
 const OwnerHRMS = lazy(() => import("./routes/OwnerHRMS"));
 
@@ -721,14 +722,10 @@ const router = createBrowserRouter([
       },
       // NEW: /owner/:slug/revenue (Revenue & forecast entry)
       {
-        // Revenue overview's legacy backend (fetchOwnerRevenue → api.vaiyu.app)
-        // no longer exists, so the full overview can't render without an F&B
-        // aggregation rebuild (follow-up). Point /revenue at the real,
-        // Supabase-backed ADR page so the link is a working revenue view.
         path: "owner/:slug/revenue",
         element: (
           <AuthGate>
-            <OwnerADR />
+            <OwnerRevenue />
           </AuthGate>
         ),
       },

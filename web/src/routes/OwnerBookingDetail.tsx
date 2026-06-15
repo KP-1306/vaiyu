@@ -128,12 +128,12 @@ export default function OwnerBookingDetail() {
       <div className="mx-auto max-w-3xl px-4 sm:px-6 py-5">
         {/* Breadcrumb + back */}
         <div className="mb-4 flex items-center justify-between gap-3">
-          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-[11px] font-medium text-slate-500">
-            <Link to="/owner" className="hover:text-indigo-300 transition-colors">Console</Link>
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs font-medium">
+            <Link to="/owner" className="text-slate-400 hover:text-white transition-colors">Console</Link>
             <span className="text-slate-600">/</span>
-            <Link to={`/owner/${slug}`} className="hover:text-indigo-300 transition-colors">Dashboard</Link>
+            <Link to={`/owner/${slug}`} className="text-slate-400 hover:text-white transition-colors">Dashboard</Link>
             <span className="text-slate-600">/</span>
-            <span className="text-slate-300">Booking{booking?.code ? ` ${booking.code}` : ""}</span>
+            <span className="text-slate-100 font-semibold">Booking{booking?.code ? ` ${booking.code}` : ""}</span>
           </nav>
           <button onClick={() => navigate(-1)} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white hover:border-indigo-500/40 transition">
             <ArrowLeft size={14} /> Back

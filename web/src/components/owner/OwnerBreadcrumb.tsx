@@ -47,18 +47,22 @@ export default function OwnerBreadcrumb() {
   }
 
   return (
-    <div className="w-full border-b border-white/[0.05] bg-black/30 px-4 sm:px-6 py-2 backdrop-blur-sm">
+    // Solid dark bar (NOT translucent): the strip sits above each page's own
+    // background in RootLayout, so a `bg-black/30` overlay rendered light-grey on
+    // the body and washed out the text. Solid dark + light text = readable on
+    // every owner page.
+    <div className="w-full border-b border-white/10 bg-[#0f1113] px-4 sm:px-6 py-2.5">
       <nav
         aria-label="Breadcrumb"
-        className="mx-auto flex max-w-[1400px] items-center gap-2 text-[11px] font-medium text-slate-400"
+        className="mx-auto flex max-w-[1400px] items-center gap-2 text-xs font-medium"
       >
-        <Link to="/owner" className="hover:text-indigo-300 transition-colors">Console</Link>
+        <Link to="/owner" className="text-slate-400 hover:text-white transition-colors">Console</Link>
         <span className="text-slate-600">/</span>
-        <Link to={`/owner/${slug}`} className="hover:text-indigo-300 transition-colors">Dashboard</Link>
+        <Link to={`/owner/${slug}`} className="text-slate-400 hover:text-white transition-colors">Dashboard</Link>
         {current && (
           <>
             <span className="text-slate-600">/</span>
-            <span className="text-slate-200">{current}</span>
+            <span className="text-slate-100 font-semibold">{current}</span>
           </>
         )}
       </nav>

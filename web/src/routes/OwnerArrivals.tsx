@@ -1,6 +1,6 @@
 // web/src/routes/OwnerArrivals.tsx
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import PendingExtensionsCard from "../components/owner/PendingExtensionsCard";
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
@@ -300,6 +300,7 @@ const RoomReadyBadge = ({ clean, dirty, inspected, total }: { clean: number, dir
 export default function OwnerArrivals() {
     const { slug } = useParams();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const [hotelId, setHotelId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [arrivals, setArrivals] = useState<OperationalArrival[]>([]);
@@ -464,6 +465,16 @@ export default function OwnerArrivals() {
     const [roomSearch, setRoomSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState<string | null>(null);
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>({ key: 'scheduled_checkin_at', direction: 'asc' });
+
+    // Deep-link from the command palette (?focus=<booking code>): show the
+    // all-dates view and pre-fill the search so the matching booking surfaces.
+    useEffect(() => {
+        const focus = searchParams.get("focus");
+        if (focus) {
+            setDateFilter("ALL");
+            setSearch(focus);
+        }
+    }, [searchParams]);
 
     // Google-Level Architectural State
     const [selectedTimelineLabel, setSelectedTimelineLabel] = useState<string | null>(null);
@@ -1654,9 +1665,15 @@ export default function OwnerArrivals() {
                                                     <Search className="w-16 h-16 text-[var(--text-gold)]/20 relative" />
                                                 </div>
                                                 <div className="space-y-1 relative">
-                                                    <h3 className="text-xl font-bold text-[var(--text-primary)] tracking-tight">No Matching Arrivals</h3>
+                                                    <h3 className="text-xl font-bold text-[var(--text-primary)] tracking-tight">
+                                                        {searchParams.get("focus") ? "Not on the active board" : "No Matching Arrivals"}
+                                                    </h3>
                                                     <p className="text-[var(--text-muted)] text-sm max-w-xs mx-auto">
-                                                        We couldn't find any results matching your current filters or search criteria.
+                                                        {searchParams.get("focus") ? (
+                                                            <>Booking <span className="font-semibold text-[var(--text-primary)]">{searchParams.get("focus")}</span> isn't on the arrivals board — it's likely checked out or cancelled. Open Payments or the guest's folio to review it.</>
+                                                        ) : (
+                                                            "We couldn't find any results matching your current filters or search criteria."
+                                                        )}
                                                     </p>
                                                 </div>
                                                 <button 

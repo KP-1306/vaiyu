@@ -207,9 +207,11 @@ export default function CommandPalette() {
       pushRecent(item.nav.id);
       navigate(item.nav.to(slug));
     } else {
-      // Land on the arrivals/bookings board (no edit to that page); the result
-      // row already shows the booking's code/status/dates inline.
-      navigate(`/owner/${slug}/arrivals`);
+      // Deep-link to the arrivals/bookings board focused on this booking: the
+      // board reads ?focus=<code>, switches to the all-dates view and pre-fills
+      // its search so the matching row surfaces and can be acted on (folio,
+      // check-in/out).
+      navigate(`/owner/${slug}/arrivals?focus=${encodeURIComponent(item.hit.code)}`);
     }
     setOpen(false);
   }, [slug, navigate, pushRecent]);

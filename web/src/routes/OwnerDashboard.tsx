@@ -2747,9 +2747,10 @@ function TodayHero({
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-white/5">
-        {/* Revenue */}
+        {/* Revenue — drills into the folio-backed Revenue overview */}
         <HeroStat
           label="Revenue"
+          to={`/owner/${hotelSlug}/revenue`}
           value={hasRevenue ? fmtINR(metrics.revenue) : "—"}
           empty={!hasRevenue}
           emptyHint={metrics.hasYesterday ? "No revenue today" : "First booking awaited"}
@@ -2814,6 +2815,7 @@ function HeroStat({
   emptyHint,
   delta,
   recency,
+  to,
 }: {
   label: string;
   value: string;
@@ -2822,6 +2824,7 @@ function HeroStat({
   emptyHint?: string;
   delta: { pct: number; abs: string; unit?: string } | null;
   recency?: string;
+  to?: string;
 }) {
   const up = delta != null && delta.pct > 0.5;
   const down = delta != null && delta.pct < -0.5;
@@ -2830,9 +2833,15 @@ function HeroStat({
   const deltaTone = up ? "text-emerald-400" : down ? "text-rose-400" : "text-slate-500";
   const arrow = up ? "↑" : down ? "↓" : "·";
 
-  return (
-    <div className="px-5 py-6 sm:py-7 flex flex-col gap-2 min-w-0">
-      <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">{label}</div>
+  const rootClass = "px-5 py-6 sm:py-7 flex flex-col gap-2 min-w-0";
+  const inner = (
+    <>
+      {/* Label row — when this stat drills into a detail page (`to`), a chevron
+          appears so the tile reads as clickable; it brightens on hover. */}
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">{label}</span>
+        {to && <ArrowRight size={13} className="shrink-0 text-slate-600 group-hover:text-emerald-300 transition-colors" />}
+      </div>
       {/* `tabular-nums` gives column-aligned digits without forcing the mono
           font's awkward `%` glyph (which previously made "0%" read as a
           rendering bug). Display font for the body keeps the percent + digit
@@ -2868,8 +2877,21 @@ function HeroStat({
           )}
         </>
       )}
-    </div>
+    </>
   );
+
+  if (to) {
+    return (
+      <Link
+        to={to}
+        aria-label={`${label} — view detail`}
+        className={`${rootClass} group cursor-pointer hover:bg-white/[0.03] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:ring-inset`}
+      >
+        {inner}
+      </Link>
+    );
+  }
+  return <div className={rootClass}>{inner}</div>;
 }
 
 /** Small honest "metrics last fetched" stamp next to the refresh button.

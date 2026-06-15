@@ -5,11 +5,11 @@
 
 import type { LucideIcon } from "lucide-react";
 import {
-  LayoutDashboard, PlaneLanding, BedDouble, Sparkles, Users2, CalendarClock,
+  LayoutDashboard, PlaneLanding, Sparkles, Users2, CalendarClock,
   ClipboardList, Wallet, TrendingUp, LineChart, Tag, CalendarRange, SlidersHorizontal,
   History, ReceiptText, PiggyBank, Megaphone, Radar, FileText, Handshake, Workflow,
   Package, Globe, Gauge, MessageCircle, CalendarDays, Star, Image, Upload, Settings,
-  QrCode, UtensilsCrossed, Building2, BarChart3, ClipboardCheck,
+  QrCode, UtensilsCrossed, Building2, BarChart3,
 } from "lucide-react";
 
 export type OwnerNavItem = {
@@ -32,19 +32,17 @@ export const OWNER_NAV: OwnerNavItem[] = [
   // ── Operations ──
   { id: "dashboard", label: "Dashboard", group: "Operations", icon: LayoutDashboard, keywords: "home overview kpi", to: (s) => slugBase(s) },
   { id: "arrivals", label: "Arrivals & Bookings", group: "Operations", icon: PlaneLanding, keywords: "checkin check-in guests today bookings front desk", to: (s) => `${slugBase(s)}/arrivals` },
-  { id: "rooms", label: "Rooms", group: "Operations", icon: BedDouble, keywords: "inventory room status", to: (s) => `${slugBase(s)}/rooms`, hidden: true },
   { id: "housekeeping", label: "Housekeeping", group: "Operations", icon: Sparkles, keywords: "hk cleaning dirty clean inspect", to: (s) => `${slugBase(s)}/housekeeping` },
-  { id: "pickup", label: "Pickup Report", group: "Operations", icon: CalendarClock, keywords: "bookings pickup pace", to: (s) => `${slugBase(s)}/bookings/pickup`, hidden: true },
+  { id: "pickup", label: "Pickup Report", group: "Operations", icon: CalendarClock, keywords: "bookings pickup pace", to: (s) => `${slugBase(s)}/bookings/pickup` },
   { id: "workforce", label: "Workforce", group: "Operations", icon: Users2, keywords: "staff team employees", to: (s) => `${slugBase(s)}/workforce` },
   { id: "staff-shifts", label: "Staff & Shifts", group: "Operations", icon: CalendarClock, keywords: "roster schedule shift board", to: (s) => `${slugBase(s)}/staff-shifts` },
-  { id: "hrms", label: "HRMS", group: "Operations", icon: ClipboardList, keywords: "hr attendance leave payroll", to: (s) => `${slugBase(s)}/hrms`, hidden: true },
-  { id: "hrms-attendance", label: "Attendance", group: "Operations", icon: ClipboardCheck, keywords: "hrms present absent", to: (s) => `${slugBase(s)}/hrms/attendance`, hidden: true },
+  { id: "hrms", label: "HRMS", group: "Operations", icon: ClipboardList, keywords: "hr attendance leave payroll", to: (s) => `${slugBase(s)}/hrms` },
   { id: "menu", label: "Food Menu", group: "Operations", icon: UtensilsCrossed, keywords: "restaurant items dishes f&b", to: (s) => `${slugBase(s)}/menu` },
   { id: "qr", label: "QR Codes", group: "Operations", icon: QrCode, keywords: "table room qr scan", to: (s) => `${slugBase(s)}/qr` },
 
   // ── Revenue & Money ──
   { id: "payments", label: "Payments", group: "Revenue & Money", icon: Wallet, keywords: "folio collect refund cash razorpay", to: (s) => `${slugBase(s)}/payments` },
-  { id: "revenue", label: "Revenue", group: "Revenue & Money", icon: TrendingUp, keywords: "adr revpar occupancy income", to: (s) => `${slugBase(s)}/revenue`, hidden: true },
+  { id: "revenue", label: "Revenue", group: "Revenue & Money", icon: TrendingUp, keywords: "adr revpar occupancy income", to: (s) => `${slugBase(s)}/revenue` },
   { id: "analytics", label: "Analytics", group: "Revenue & Money", icon: BarChart3, keywords: "reports metrics insights", to: (s) => `${slugBase(s)}/analytics` },
   { id: "pricing", label: "Dynamic Pricing", group: "Revenue & Money", icon: LineChart, keywords: "rate price auto yield", to: (s) => `${slugBase(s)}/pricing` },
   { id: "pricing-plans", label: "Rate Plans", group: "Revenue & Money", icon: Tag, keywords: "pricing plan tariff", to: (s) => `${slugBase(s)}/pricing/plans` },

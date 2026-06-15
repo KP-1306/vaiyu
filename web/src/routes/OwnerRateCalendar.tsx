@@ -549,11 +549,7 @@ export default function OwnerRateCalendar() {
           <CalendarDays className="w-10 h-10 text-slate-600 mx-auto mb-3" />
           <p className="font-bold text-slate-200">No room types configured</p>
           <p className="text-sm text-slate-500 mt-1">
-            Add room types in{" "}
-            <Link to={`${base}/rooms`} className="text-indigo-400 hover:text-indigo-300">
-              Rooms
-            </Link>{" "}
-            before pricing.
+            Add room types during hotel setup before pricing.
           </p>
         </DarkCard>
       ) : (

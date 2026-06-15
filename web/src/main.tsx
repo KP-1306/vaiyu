@@ -211,6 +211,9 @@ const OwnerADR = lazy(() =>
 const OwnerRevPAR = lazy(() =>
   import("./routes/OwnerRevenue").then((m) => ({ default: m.OwnerRevPAR })),
 );
+// Real owner pages that were previously masked by inline "avoid 404" stubs.
+const OwnerPickup = lazy(() => import("./routes/OwnerPickup"));
+const OwnerHRMS = lazy(() => import("./routes/OwnerHRMS"));
 
 // Grid (VPP)
 const GridDevices = lazy(() => import("./routes/GridDevices"));
@@ -316,168 +319,6 @@ function RootLayout() {
   );
 }
 
-// ================= Simple owner detail pages to avoid 404s =================
-
-// /owner/:slug/rooms
-function OwnerRooms() {
-  const { slug } = useParams();
-
-  return (
-    <main className="max-w-6xl mx-auto p-6">
-      <h1 className="text-2xl font-semibold mb-2">Rooms & occupancy</h1>
-      <p className="text-sm text-muted-foreground mb-4">
-        This page will host a detailed rooms and occupancy view for{" "}
-        {slug || "this hotel"}. For now, the Occupancy card on the Owner
-        Dashboard remains the primary view.
-      </p>
-      <div className="rounded-xl border bg-white p-4 text-sm text-muted-foreground">
-        <p>
-          There&apos;s no extra logic here yet—this route exists so that{" "}
-          <strong>See rooms</strong> opens a valid page instead of a 404. You
-          can safely extend this component later with room lists or charts.
-        </p>
-      </div>
-    </main>
-  );
-}
-
-// /owner/:slug/bookings/pickup
-function OwnerPickup() {
-  const { slug } = useParams();
-  const [searchParams] = useSearchParams();
-  const windowLabel = searchParams.get("window") || "7d";
-
-  return (
-    <main className="max-w-6xl mx-auto p-6">
-      <h1 className="text-2xl font-semibold mb-2">
-        Pick-up<span className="text-base font-normal"> ({windowLabel})</span>
-      </h1>
-      <p className="text-sm text-muted-foreground mb-4">
-        This page will show booking pick-up trends for {slug || "this hotel"}{" "}
-        across the selected window.
-      </p>
-      <div className="rounded-xl border bg-white p-4 text-sm text-muted-foreground">
-        <p>
-          In this build, the dedicated analytics are not wired yet. The route is
-          present so the <strong>View pick-up</strong> link works and does not
-          throw a 404. You can still monitor demand using the Pick-up card on
-          the Owner Dashboard and the Ops board.
-        </p>
-      </div>
-    </main>
-  );
-}
-
-// NEW: Revenue overview route backing /owner/:slug/revenue
-function OwnerRevenueOverview() {
-  const { slug } = useParams<{ slug?: string }>();
-
-  const baseSlug = slug || "";
-  const hasSlug = Boolean(slug);
-
-  return (
-    <main className="max-w-6xl mx-auto p-6">
-      <h1 className="text-2xl font-semibold mb-2">Revenue &amp; forecast</h1>
-      <p className="text-sm text-muted-foreground mb-4">
-        This page will host a focused revenue and forecast view for{" "}
-        {slug || "this hotel"}. For now, use the Revenue cards on the Owner
-        Dashboard plus the ADR and RevPAR detail tabs.
-      </p>
-      <div className="rounded-xl border bg-white p-4 text-sm text-muted-foreground space-y-3">
-        <p className="font-medium">Quick links</p>
-        <ul className="list-disc list-inside space-y-1">
-          {hasSlug ? (
-            <>
-              <li>
-                <Link
-                  className="text-blue-600 underline"
-                  to={`/owner/${baseSlug}/revenue/adr`}
-                >
-                  ADR detail view
-                </Link>
-              </li>
-              <li>
-                <Link
-                  className="text-blue-600 underline"
-                  to={`/owner/${baseSlug}/revenue/revpar`}
-                >
-                  RevPAR detail view
-                </Link>
-              </li>
-              <li>
-                <Link
-                  className="text-blue-600 underline"
-                  to={`/owner/${baseSlug}`}
-                >
-                  Back to Owner dashboard
-                </Link>
-              </li>
-            </>
-          ) : (
-            <li>
-              <Link className="text-blue-600 underline" to="/owner">
-                Go to Owner home
-              </Link>
-            </li>
-          )}
-        </ul>
-        <p className="text-xs text-muted-foreground">
-          This is a safe placeholder so the <strong>Revenue &amp; forecast</strong>{" "}
-          card can open without a 404. You can extend this later with charts and
-          filters.
-        </p>
-      </div>
-    </main>
-  );
-}
-
-// NEW: HRMS placeholder backing /owner/:slug/hrms
-function OwnerHRMS() {
-  const { slug } = useParams<{ slug?: string }>();
-  return (
-    <main className="max-w-6xl mx-auto p-6">
-      <h1 className="text-2xl font-semibold mb-2">HRMS &amp; attendance</h1>
-      <p className="text-sm text-muted-foreground mb-4">
-        This route is reserved for an HR and attendance snapshot for{" "}
-        {slug || "this hotel"}. It exists so the{" "}
-        <strong>Attendance snapshot</strong> link on the Owner dashboard no
-        longer shows a 404.
-      </p>
-      <div className="rounded-xl border bg-white p-4 text-sm text-muted-foreground">
-        <p>
-          You can safely wire staff rosters, shifts, and attendance widgets here
-          later. For now, please continue using your existing HR processes while
-          we design this module.
-        </p>
-      </div>
-    </main>
-  );
-}
-
-// NEW: HRMS attendance detail backing /owner/:slug/hrms/attendance
-function OwnerHRMSAttendance() {
-  const { slug } = useParams<{ slug?: string }>();
-  return (
-    <main className="max-w-6xl mx-auto p-6">
-      <h1 className="text-2xl font-semibold mb-2">
-        Attendance details{slug ? ` — ${slug}` : ""}
-      </h1>
-      <p className="text-sm text-muted-foreground mb-4">
-        This page is reserved for a detailed attendance breakdown (present,
-        late, absent, trends) for {slug || "this hotel"}. It exists so{" "}
-        <strong>See details</strong> from the Attendance snapshot opens a valid
-        page instead of a 404.
-      </p>
-      <div className="rounded-xl border bg-white p-4 text-sm text-muted-foreground">
-        <p>
-          Future versions can show per-staff timelines, shift compliance, and
-          alerts. For now, please continue using your existing HRMS while this
-          module is being designed.
-        </p>
-      </div>
-    </main>
-  );
-}
 
 // ================= Router =================
 const router = createBrowserRouter([
@@ -851,14 +692,6 @@ const router = createBrowserRouter([
           </AuthGate>
         ),
       },
-      {
-        path: "owner/:slug/rooms",
-        element: (
-          <AuthGate>
-            <OwnerRooms />
-          </AuthGate>
-        ),
-      },
       // NEW: /owner/:slug/workforce (Workforce & hiring)
       {
         path: "owner/:slug/workforce",
@@ -888,10 +721,14 @@ const router = createBrowserRouter([
       },
       // NEW: /owner/:slug/revenue (Revenue & forecast entry)
       {
+        // Revenue overview's legacy backend (fetchOwnerRevenue → api.vaiyu.app)
+        // no longer exists, so the full overview can't render without an F&B
+        // aggregation rebuild (follow-up). Point /revenue at the real,
+        // Supabase-backed ADR page so the link is a working revenue view.
         path: "owner/:slug/revenue",
         element: (
           <AuthGate>
-            <OwnerRevenueOverview />
+            <OwnerADR />
           </AuthGate>
         ),
       },
@@ -941,15 +778,6 @@ const router = createBrowserRouter([
         element: (
           <AuthGate>
             <OwnerHRMS />
-          </AuthGate>
-        ),
-      },
-      // NEW: /owner/:slug/hrms/attendance (See details)
-      {
-        path: "owner/:slug/hrms/attendance",
-        element: (
-          <AuthGate>
-            <OwnerHRMSAttendance />
           </AuthGate>
         ),
       },

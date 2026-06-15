@@ -5206,18 +5206,6 @@ INSERT INTO "public"."reward_vouchers" ("id", "code", "user_id", "hotel_id", "am
 
 
 --
--- Data for Name: services_restore_test; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-INSERT INTO "public"."services_restore_test" ("id", "hotel_id", "key", "label", "sla_minutes", "active") VALUES
-	('fa7f52d1-ce12-42cf-825c-a6b9566a1595', '139c6002-bdd7-4924-9db4-16f14e283d89', 'LAUNDRY', 'Laundry', 60, true),
-	('8149dbc7-f358-455d-877c-73470da96c0a', '139c6002-bdd7-4924-9db4-16f14e283d89', 'ROOM_SERVICE', 'Room Service', 30, true),
-	('2322b579-6c73-4f49-9d76-ec0e750eb21d', '139c6002-bdd7-4924-9db4-16f14e283d89', 'room_cleaning', 'Room cleaning', 30, true),
-	('0d227251-2104-4335-8f0d-ec01b85bd93c', '139c6002-bdd7-4924-9db4-16f14e283d89', 'extra_pillow', 'Extra pillow', 10, true),
-	('fad83850-4d2c-404b-8e6d-3cef0711df82', '139c6002-bdd7-4924-9db4-16f14e283d89', 'HOUSEKEEPING', 'Housekeeping', 25, true);
-
-
---
 -- Data for Name: shift_audit_log; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 

@@ -164,16 +164,19 @@ export default function CommandPalette() {
 
   /* nav matches (filtered + scored) */
   const navMatches = useMemo(() => {
+    // Search surfaces only real, available features — never stub/"coming soon"
+    // routes (hidden:true), which exist solely to back a dashboard signpost.
+    const searchable = OWNER_NAV.filter((n) => !n.hidden);
     const q = query.trim();
     if (!q) {
       const recentItems = recents
-        .map((id) => OWNER_NAV.find((n) => n.id === id))
+        .map((id) => searchable.find((n) => n.id === id))
         .filter(Boolean) as OwnerNavItem[];
-      const rest = OWNER_NAV.filter((n) => !recents.includes(n.id));
+      const rest = searchable.filter((n) => !recents.includes(n.id));
       return [...recentItems, ...rest].map((nav) => ({ nav, ranges: [] as Array<[number, number]> }));
     }
     const scored: Array<{ nav: OwnerNavItem; ranges: Array<[number, number]>; score: number }> = [];
-    for (const nav of OWNER_NAV) {
+    for (const nav of searchable) {
       const onLabel = matchLabel(nav.label, q);
       const onKw = nav.keywords ? matchLabel(nav.keywords, q) : null;
       const best = onLabel && (!onKw || onLabel.score >= onKw.score) ? onLabel : onKw;

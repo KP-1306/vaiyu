@@ -93,8 +93,12 @@ export default function PublicLeadCapture() {
     if (!hotelSlug) return;
     let cancelled = false;
     (async () => {
+      // Resolve via v_public_hotels (anon-safe view), NOT the raw hotels table:
+      // hotels RLS only exposes rows to members, so an anonymous enquirer reading
+      // `hotels` directly gets zero rows ("Hotel not found") on prod. The public
+      // view bypasses that membership filter and only exposes active hotels.
       const { data, error } = await supabase
-        .from('hotels')
+        .from('v_public_hotels')
         .select('id, name')
         .eq('slug', hotelSlug)
         .maybeSingle();

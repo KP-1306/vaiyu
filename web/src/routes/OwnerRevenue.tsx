@@ -59,10 +59,10 @@ const formatPct = (n?: number | null) =>
 
 function badgeTone(t: "green" | "amber" | "red" | "grey") {
   return {
-    green: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
-    amber: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
-    red: "bg-rose-50 text-rose-700 ring-1 ring-rose-200",
-    grey: "bg-slate-50 text-slate-600 ring-1 ring-slate-200",
+    green: "bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30",
+    amber: "bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30",
+    red: "bg-rose-500/15 text-rose-300 ring-1 ring-rose-500/30",
+    grey: "bg-white/10 text-slate-300 ring-1 ring-white/15",
   }[t];
 }
 
@@ -132,7 +132,7 @@ function SectionHeader({
     <div className="flex items-start justify-between gap-4 mb-3">
       <div>
         <h1 className="text-xl font-semibold">{title}</h1>
-        {desc && <p className="text-sm text-muted-foreground">{desc}</p>}
+        {desc && <p className="text-sm text-slate-400">{desc}</p>}
       </div>
       {action}
     </div>
@@ -263,12 +263,13 @@ export default function OwnerRevenue() {
   ];
 
   return (
-    <main className="max-w-6xl mx-auto p-6 space-y-4">
+    <main className="min-h-screen bg-[#0f1113] text-white">
+     <div className="max-w-6xl mx-auto p-6 space-y-4">
       {/* Header */}
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="text-xl font-semibold">Revenue overview</div>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-slate-400">
             {hotel
               ? `Control view for ${hotel.name}. Track room and F&B revenue over time.`
               : "Track room and F&B revenue over time for this property."}
@@ -276,7 +277,7 @@ export default function OwnerRevenue() {
         </div>
         <div className="flex flex-col items-end gap-2">
           {/* Range selector */}
-          <div className="inline-flex items-center rounded-full bg-slate-100 p-0.5 text-xs">
+          <div className="inline-flex items-center rounded-full bg-white/10 p-0.5 text-xs">
             {ranges.map((r) => (
               <button
                 key={r.value}
@@ -284,8 +285,8 @@ export default function OwnerRevenue() {
                 onClick={() => setRange(r.value)}
                 className={`px-3 py-1 rounded-full transition ${
                   range === r.value
-                    ? "bg-white shadow-sm text-slate-900"
-                    : "text-slate-600 hover:text-slate-900"
+                    ? "bg-white/15 text-white"
+                    : "text-slate-300 hover:text-white"
                 }`}
               >
                 {r.label}
@@ -296,7 +297,7 @@ export default function OwnerRevenue() {
           {/* Deep links */}
           {slug && (
             <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="text-muted-foreground">Deep dives:</span>
+              <span className="text-slate-400">Deep dives:</span>
               <Link
                 to={`/owner/${encodeURIComponent(slug)}/revenue/adr`}
                 className="btn btn-light"
@@ -327,20 +328,20 @@ export default function OwnerRevenue() {
       </header>
 
       {/* Status / KPIs */}
-      <section className="rounded-xl border bg-white p-4">
+      <section className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
         {loading ? (
-          <div className="text-sm text-muted-foreground">Loading…</div>
+          <div className="text-sm text-slate-400">Loading…</div>
         ) : error ? (
-          <div className="text-sm text-rose-600">{error}</div>
+          <div className="text-sm text-rose-400">{error}</div>
         ) : !summary ? (
-          <div className="text-sm text-muted-foreground">
+          <div className="text-sm text-slate-400">
             No revenue data available for this range.
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {/* Total revenue */}
-            <div className="rounded-lg border border-slate-100 bg-slate-50 px-4 py-3">
-              <div className="text-xs font-medium text-slate-600">
+            <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3">
+              <div className="text-xs font-medium text-slate-300">
                 Total revenue
               </div>
               <div className="mt-1 text-2xl font-semibold">
@@ -352,8 +353,8 @@ export default function OwnerRevenue() {
             </div>
 
             {/* Room revenue */}
-            <div className="rounded-lg border border-slate-100 bg-white px-4 py-3">
-              <div className="text-xs font-medium text-slate-600">
+            <div className="rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3">
+              <div className="text-xs font-medium text-slate-300">
                 Room revenue
               </div>
               <div className="mt-1 text-2xl font-semibold">
@@ -365,8 +366,8 @@ export default function OwnerRevenue() {
             </div>
 
             {/* F&B revenue */}
-            <div className="rounded-lg border border-slate-100 bg-white px-4 py-3">
-              <div className="text-xs font-medium text-slate-600">
+            <div className="rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3">
+              <div className="text-xs font-medium text-slate-300">
                 F&amp;B revenue
               </div>
               <div className="mt-1 text-2xl font-semibold">
@@ -378,8 +379,8 @@ export default function OwnerRevenue() {
             </div>
 
             {/* Avg daily revenue */}
-            <div className="rounded-lg border border-slate-100 bg-white px-4 py-3">
-              <div className="text-xs font-medium text-slate-600">
+            <div className="rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3">
+              <div className="text-xs font-medium text-slate-300">
                 Avg revenue / day
               </div>
               <div className="mt-1 text-2xl font-semibold">
@@ -395,13 +396,13 @@ export default function OwnerRevenue() {
 
       {/* Charts */}
       {!loading && !error && chartData.length > 0 && (
-        <section className="rounded-xl border bg-white p-4">
+        <section className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
           <div className="flex items-start justify-between mb-2">
             <div>
               <h2 className="text-sm font-semibold">
                 Revenue breakdown over time
               </h2>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-slate-400">
                 Total vs Room vs F&amp;B revenue for the selected window.
               </p>
             </div>
@@ -412,17 +413,19 @@ export default function OwnerRevenue() {
                 data={chartData}
                 margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
               >
-                <CartesianGrid strokeDasharray="3 3" />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
                 <XAxis
                   dataKey="day"
-                  tick={{ fontSize: 12 }}
+                  tick={{ fontSize: 12, fill: "#94a3b8" }}
                   minTickGap={28}
                   tickFormatter={formatShortDate}
                 />
-                <YAxis tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12, fill: "#94a3b8" }} />
                 <Tooltip
                   formatter={(v) => formatINR(v as number)}
                   labelFormatter={(v) => `Day: ${formatShortDate(v as string)}`}
+                  contentStyle={{ background: "#16181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#fff" }}
+                  labelStyle={{ color: "#94a3b8" }}
                 />
                 <Line
                   type="monotone"
@@ -450,6 +453,7 @@ export default function OwnerRevenue() {
           </div>
         </section>
       )}
+     </div>
     </main>
   );
 }
@@ -542,11 +546,12 @@ export function OwnerADR() {
   const tone = adrTone(deltaPct);
 
   return (
-    <main className="max-w-6xl mx-auto p-6">
+    <main className="min-h-screen bg-[#0f1113] text-white">
+     <div className="max-w-6xl mx-auto p-6">
       <div className="flex items-center justify-between mb-2">
         <div>
           <div className="text-2xl font-semibold">ADR</div>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-slate-400">
             Average rate for occupied rooms. Aim to be above your baseline for
             the day of week.
           </p>
@@ -562,51 +567,51 @@ export function OwnerADR() {
       </div>
 
       {/* Filters */}
-      <div className="rounded-xl border bg-white p-4 mb-4">
+      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 mb-4">
         <div className="flex flex-wrap items-end gap-3">
           <div>
-            <label className="block text-xs text-muted-foreground mb-1">
+            <label className="block text-xs text-slate-400 mb-1">
               From
             </label>
             <input
               type="date"
               value={fromDay}
               onChange={(e) => setFromDay(e.target.value)}
-              className="border rounded px-2 py-1 text-sm"
+              className="border border-white/10 bg-white/5 text-white rounded px-2 py-1 text-sm [color-scheme:dark]"
             />
           </div>
           <div>
-            <label className="block text-xs text-muted-foreground mb-1">
+            <label className="block text-xs text-slate-400 mb-1">
               To
             </label>
             <input
               type="date"
               value={toDay}
               onChange={(e) => setToDay(e.target.value)}
-              className="border rounded px-2 py-1 text-sm"
+              className="border border-white/10 bg-white/5 text-white rounded px-2 py-1 text-sm [color-scheme:dark]"
             />
           </div>
         </div>
       </div>
 
       {/* KPI header */}
-      <div className="rounded-xl border bg-white p-4 mb-4">
+      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 mb-4">
         {loading ? (
-          <div className="text-sm text-muted-foreground">Loading…</div>
+          <div className="text-sm text-slate-400">Loading…</div>
         ) : series.length === 0 ? (
-          <div className="text-sm text-muted-foreground">
+          <div className="text-sm text-slate-400">
             No revenue data for this period.
           </div>
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <div className="text-xs text-muted-foreground">Today</div>
+              <div className="text-xs text-slate-400">Today</div>
               <div className="text-2xl font-semibold">
                 {formatINR(todayRow?.adr as number | undefined)}
               </div>
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">
+              <div className="text-xs text-slate-400">
                 Baseline (same weekday)
               </div>
               <div className="text-lg">
@@ -631,18 +636,18 @@ export function OwnerADR() {
       </div>
 
       {/* Chart */}
-      <div className="rounded-xl border bg-white p-4">
+      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
         <div className="flex items-start justify-between mb-2">
           <div>
             <h2 className="text-lg font-semibold">ADR over time</h2>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-slate-400">
               Track price trend across the selected dates. Use pricing to nudge
               soft days.
             </p>
           </div>
         </div>
         {series.length === 0 ? (
-          <div className="text-sm text-muted-foreground">No data to chart.</div>
+          <div className="text-sm text-slate-400">No data to chart.</div>
         ) : (
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -650,10 +655,10 @@ export function OwnerADR() {
                 data={series}
                 margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
               >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" tick={{ fontSize: 12 }} minTickGap={28} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip formatter={(v) => formatINR(v as number)} />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                <XAxis dataKey="day" tick={{ fontSize: 12, fill: "#94a3b8" }} minTickGap={28} />
+                <YAxis tick={{ fontSize: 12, fill: "#94a3b8" }} />
+                <Tooltip formatter={(v) => formatINR(v as number)} contentStyle={{ background: "#16181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#fff" }} labelStyle={{ color: "#94a3b8" }} />
                 <Line
                   type="monotone"
                   dataKey="adr"
@@ -675,6 +680,7 @@ export function OwnerADR() {
           </div>
         )}
       </div>
+     </div>
     </main>
   );
 }
@@ -766,11 +772,12 @@ export function OwnerRevPAR() {
   const tone = revparTone(deltaPct);
 
   return (
-    <main className="max-w-6xl mx-auto p-6">
+    <main className="min-h-screen bg-[#0f1113] text-white">
+     <div className="max-w-6xl mx-auto p-6">
       <div className="flex items-center justify-between mb-2">
         <div>
           <div className="text-2xl font-semibold">RevPAR</div>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-slate-400">
             Revenue per available room — the north star for yield. Higher than
             baseline is great.
           </p>
@@ -789,51 +796,51 @@ export function OwnerRevPAR() {
       </div>
 
       {/* Filters */}
-      <div className="rounded-xl border bg-white p-4 mb-4">
+      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 mb-4">
         <div className="flex flex-wrap items-end gap-3">
           <div>
-            <label className="block text-xs text-muted-foreground mb-1">
+            <label className="block text-xs text-slate-400 mb-1">
               From
             </label>
             <input
               type="date"
               value={fromDay}
               onChange={(e) => setFromDay(e.target.value)}
-              className="border rounded px-2 py-1 text-sm"
+              className="border border-white/10 bg-white/5 text-white rounded px-2 py-1 text-sm [color-scheme:dark]"
             />
           </div>
           <div>
-            <label className="block text-xs text-muted-foreground mb-1">
+            <label className="block text-xs text-slate-400 mb-1">
               To
             </label>
             <input
               type="date"
               value={toDay}
               onChange={(e) => setToDay(e.target.value)}
-              className="border rounded px-2 py-1 text-sm"
+              className="border border-white/10 bg-white/5 text-white rounded px-2 py-1 text-sm [color-scheme:dark]"
             />
           </div>
         </div>
       </div>
 
       {/* KPI header */}
-      <div className="rounded-xl border bg-white p-4 mb-4">
+      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 mb-4">
         {loading ? (
-          <div className="text-sm text-muted-foreground">Loading…</div>
+          <div className="text-sm text-slate-400">Loading…</div>
         ) : series.length === 0 ? (
-          <div className="text-sm text-muted-foreground">
+          <div className="text-sm text-slate-400">
             No revenue data for this period.
           </div>
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <div className="text-xs text-muted-foreground">Today</div>
+              <div className="text-xs text-slate-400">Today</div>
               <div className="text-2xl font-semibold">
                 {formatINR(todayRow?.revpar as number | undefined)}
               </div>
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">
+              <div className="text-xs text-slate-400">
                 Baseline (same weekday)
               </div>
               <div className="text-lg">
@@ -858,17 +865,17 @@ export function OwnerRevPAR() {
       </div>
 
       {/* Chart */}
-      <div className="rounded-xl border bg-white p-4">
+      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
         <div className="flex items-start justify-between mb-2">
           <div>
             <h2 className="text-lg font-semibold">RevPAR over time</h2>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-slate-400">
               Watch revenue per available room across the selected dates.
             </p>
           </div>
         </div>
         {series.length === 0 ? (
-          <div className="text-sm text-muted-foreground">No data to chart.</div>
+          <div className="text-sm text-slate-400">No data to chart.</div>
         ) : (
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -876,10 +883,10 @@ export function OwnerRevPAR() {
                 data={series}
                 margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
               >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" tick={{ fontSize: 12 }} minTickGap={28} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip formatter={(v) => formatINR(v as number)} />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                <XAxis dataKey="day" tick={{ fontSize: 12, fill: "#94a3b8" }} minTickGap={28} />
+                <YAxis tick={{ fontSize: 12, fill: "#94a3b8" }} />
+                <Tooltip formatter={(v) => formatINR(v as number)} contentStyle={{ background: "#16181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#fff" }} labelStyle={{ color: "#94a3b8" }} />
                 <Line
                   type="monotone"
                   dataKey="revpar"
@@ -901,6 +908,7 @@ export function OwnerRevPAR() {
           </div>
         )}
       </div>
+     </div>
     </main>
   );
 }

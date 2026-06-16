@@ -2428,11 +2428,12 @@ function SidebarNav({ slug, onNavClick }: { slug: string; onNavClick?: () => voi
           <NavItem to={`/owner/${slug}/pricing/history`} label="↳ History" onClick={onNavClick} />
         </div>
       </div>
-      {/* Finance */}
+      {/* Revenue & Finance — top-line revenue through to cash settlement */}
       <div className="pt-2">
-        <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-3 px-3">Finance</div>
+        <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-3 px-3">Revenue &amp; Finance</div>
         <div className="space-y-1">
-          <NavItem to={`/owner/${slug}/finance`} label="Overview" onClick={onNavClick} />
+          <NavItem to={`/owner/${slug}/revenue`} label="Revenue" onClick={onNavClick} />
+          <NavItem to={`/owner/${slug}/finance`} label="P&L Overview" onClick={onNavClick} />
           <NavItem to={`/owner/${slug}/finance/budgets`} label="↳ Budgets" onClick={onNavClick} />
           <NavItem to={`/owner/${slug}/finance/expenses`} label="↳ Expenses" onClick={onNavClick} />
           <NavItem to={`/owner/${slug}/payments`} label="Payments & Settlements" onClick={onNavClick} />

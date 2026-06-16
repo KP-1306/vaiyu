@@ -35,6 +35,7 @@ import {
 import {
   type OwnerRevenueResponse,
 } from "../lib/api";
+import { TrendingUp, Gauge, BedDouble, Tag } from "lucide-react";
 
 // ------------------------------- Types --------------------------------------
 type Hotel = { id: string; name: string; slug: string };
@@ -186,6 +187,7 @@ export default function OwnerRevenue() {
           totalRevenue: 0,
           roomRevenue: 0,
           fnbRevenue: 0,
+          serviceRevenue: 0,
           avgDailyRevenue: 0,
         };
 
@@ -201,7 +203,7 @@ export default function OwnerRevenue() {
         const from = addDays(to, -(days - 1));
         const { data: rows, error: revErr } = await supabase
           .from("owner_revenue_daily_v")
-          .select("day,room_revenue,fnb_revenue,total_revenue")
+          .select("day,room_revenue,fnb_revenue,service_revenue,total_revenue")
           .eq("hotel_id", h.id)
           .gte("day", isoDay(from))
           .lte("day", isoDay(to))
@@ -215,9 +217,11 @@ export default function OwnerRevenue() {
           totalRevenue: Number(r.total_revenue) || 0,
           roomRevenue: Number(r.room_revenue) || 0,
           fnbRevenue: Number(r.fnb_revenue) || 0,
+          serviceRevenue: Number(r.service_revenue) || 0,
         }));
-        const sum = (k: "totalRevenue" | "roomRevenue" | "fnbRevenue") =>
-          series.reduce((acc, p) => acc + (p[k] || 0), 0);
+        const sum = (
+          k: "totalRevenue" | "roomRevenue" | "fnbRevenue" | "serviceRevenue"
+        ) => series.reduce((acc, p) => acc + (p[k] || 0), 0);
         const totalRevenue = sum("totalRevenue");
 
         setData({
@@ -227,6 +231,7 @@ export default function OwnerRevenue() {
             totalRevenue,
             roomRevenue: sum("roomRevenue"),
             fnbRevenue: sum("fnbRevenue"),
+            serviceRevenue: sum("serviceRevenue"),
             avgDailyRevenue: days > 0 ? totalRevenue / days : 0,
           },
           series,
@@ -255,7 +260,14 @@ export default function OwnerRevenue() {
     totalRevenue: p.totalRevenue ?? 0,
     roomRevenue: p.roomRevenue ?? 0,
     fnbRevenue: p.fnbRevenue ?? 0,
+    serviceRevenue: p.serviceRevenue ?? 0,
   }));
+
+  // Service is a real revenue stream the folio supports (SERVICE_CHARGE) and is
+  // already folded into total_revenue. Surface it as its own card + line only
+  // when present, so Total always equals the sum of the plotted streams and
+  // single-stream hotels stay uncluttered.
+  const hasService = (summary?.serviceRevenue ?? 0) > 0;
 
   const ranges: { value: "7d" | "30d" | "90d"; label: string }[] = [
     { value: "7d", label: "7 days" },
@@ -301,27 +313,27 @@ export default function OwnerRevenue() {
               <span className="text-slate-400">Deep dives:</span>
               <Link
                 to={`/owner/${encodeURIComponent(slug)}/revenue/adr`}
-                className="btn btn-light"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-400/30 bg-indigo-400/10 px-3 py-1.5 font-medium text-indigo-200 transition hover:bg-indigo-400/20 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/50"
               >
-                ADR
+                <TrendingUp className="h-3.5 w-3.5" /> ADR
               </Link>
               <Link
                 to={`/owner/${encodeURIComponent(slug)}/revenue/revpar`}
-                className="btn btn-light"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 font-medium text-emerald-200 transition hover:bg-emerald-400/20 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50"
               >
-                RevPAR
+                <Gauge className="h-3.5 w-3.5" /> RevPAR
               </Link>
               <Link
-                to={`/owner/${encodeURIComponent(slug)}/occupancy`}
-                className="btn btn-light"
+                to={`/owner/${encodeURIComponent(slug)}/revenue/occupancy`}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-1.5 font-medium text-amber-200 transition hover:bg-amber-400/20 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50"
               >
-                Occupancy
+                <BedDouble className="h-3.5 w-3.5" /> Occupancy
               </Link>
               <Link
                 to={`/owner/${encodeURIComponent(slug)}/pricing`}
-                className="btn"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 font-semibold text-white transition hover:bg-blue-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60"
               >
-                Open pricing
+                <Tag className="h-3.5 w-3.5" /> Open pricing
               </Link>
             </div>
           )}
@@ -339,7 +351,11 @@ export default function OwnerRevenue() {
             No revenue data available for this range.
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div
+            className={`grid gap-4 sm:grid-cols-2 ${
+              hasService ? "lg:grid-cols-5" : "lg:grid-cols-4"
+            }`}
+          >
             {/* Total revenue */}
             <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3">
               <div className="text-xs font-medium text-slate-300">
@@ -349,7 +365,8 @@ export default function OwnerRevenue() {
                 {formatINR(summary.totalRevenue)}
               </div>
               <div className="mt-1 text-[11px] text-slate-500">
-                Room + F&amp;B for the selected period.
+                Room + F&amp;B{hasService ? " + Service" : ""} for the selected
+                period.
               </div>
             </div>
 
@@ -379,6 +396,21 @@ export default function OwnerRevenue() {
               </div>
             </div>
 
+            {/* Service revenue — only when the hotel posts service charges */}
+            {hasService && (
+              <div className="rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3">
+                <div className="text-xs font-medium text-slate-300">
+                  Service revenue
+                </div>
+                <div className="mt-1 text-2xl font-semibold">
+                  {formatINR(summary.serviceRevenue)}
+                </div>
+                <div className="mt-1 text-[11px] text-slate-500">
+                  Spa, laundry, transfers &amp; other service charges.
+                </div>
+              </div>
+            )}
+
             {/* Avg daily revenue */}
             <div className="rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3">
               <div className="text-xs font-medium text-slate-300">
@@ -404,7 +436,8 @@ export default function OwnerRevenue() {
                 Revenue breakdown over time
               </h2>
               <p className="text-xs text-slate-400">
-                Total vs Room vs F&amp;B revenue for the selected window.
+                Total vs Room vs F&amp;B{hasService ? " vs Service" : ""} revenue
+                for the selected window.
               </p>
             </div>
           </div>
@@ -453,6 +486,16 @@ export default function OwnerRevenue() {
                   dot={false}
                   strokeWidth={2}
                 />
+                {hasService && (
+                  <Line
+                    type="monotone"
+                    dataKey="serviceRevenue"
+                    name="Service"
+                    stroke="#f472b6"
+                    dot={false}
+                    strokeWidth={2}
+                  />
+                )}
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -667,6 +710,7 @@ export function OwnerADR() {
                 <Line
                   type="monotone"
                   dataKey="adr"
+                  stroke="#a5b4fc"
                   dot={false}
                   strokeWidth={2}
                 />
@@ -895,6 +939,7 @@ export function OwnerRevPAR() {
                 <Line
                   type="monotone"
                   dataKey="revpar"
+                  stroke="#34d399"
                   dot={false}
                   strokeWidth={2}
                 />
@@ -905,6 +950,235 @@ export function OwnerRevPAR() {
                     label={{
                       position: "insideTopRight",
                       value: "Baseline",
+                    }}
+                  />
+                )}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+     </div>
+    </main>
+  );
+}
+
+// ============================================================================
+// Occupancy Page (Supabase view-backed, mirrors ADR/RevPAR)
+// Export for /owner/:slug/revenue/occupancy
+// Occupancy (%) = rooms_sold / rooms_available, from owner_revenue_daily_v
+// (the folio-backed single source of truth). No legacy backend.
+// ============================================================================
+export function OwnerOccupancy() {
+  const { slug } = useParams();
+  const nav = useNavigate();
+  const [, setHotel] = useState<Hotel | null>(null);
+  const [fromDay, setFromDay] = useState<string>(() =>
+    isoDay(addDays(new Date(), -30))
+  );
+  const [toDay, setToDay] = useState<string>(() => isoDay(new Date()));
+  const [rows, setRows] = useState<Row[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      if (!slug) {
+        setLoading(false);
+        return;
+      }
+      const { data: h } = await supabase
+        .from("hotels")
+        .select("id,name,slug")
+        .eq("slug", slug)
+        .maybeSingle();
+      if (!alive) return;
+      setHotel(h || null);
+      const hotelId = h?.id;
+      if (!hotelId) {
+        setLoading(false);
+        return;
+      }
+      const { data } = await supabase
+        .from("owner_revenue_daily_v")
+        .select("day,rooms_available,rooms_sold,room_revenue")
+        .eq("hotel_id", hotelId)
+        .gte("day", fromDay)
+        .lte("day", toDay)
+        .order("day", { ascending: true });
+      if (!alive) return;
+      setRows(data || []);
+      setLoading(false);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [slug, fromDay, toDay]);
+
+  const series = useMemo(
+    () =>
+      rows.map((r) => ({
+        day: r.day,
+        occ: computeOccupancyPct(r),
+      })),
+    [rows]
+  );
+
+  // Baseline: median occupancy for same weekday across current window
+  const baselineByWd = useMemo(() => {
+    const map: Record<number, number> = {};
+    const grouped: Record<number, number[]> = {};
+    for (const r of rows) {
+      const wd = weekdayKey(r.day);
+      const v = computeOccupancyPct(r);
+      if (v == null) continue;
+      (grouped[wd] ||= []).push(v);
+    }
+    for (const wd in grouped) {
+      const m = median(grouped[wd]);
+      if (m != null) map[Number(wd)] = m;
+    }
+    return map;
+  }, [rows]);
+
+  const todayRow = series[series.length - 1];
+  const todayBaseline = todayRow
+    ? baselineByWd[weekdayKey(todayRow.day)]
+    : undefined;
+  const deltaPct =
+    todayRow &&
+    todayRow.occ != null &&
+    todayBaseline != null &&
+    todayBaseline !== 0
+      ? ((todayRow.occ - todayBaseline) / todayBaseline) * 100
+      : undefined;
+  const tone = revparTone(deltaPct); // higher occupancy vs baseline is better
+
+  return (
+    <main className="min-h-screen bg-[#0f1113] text-white">
+     <div className="max-w-6xl mx-auto p-6">
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <div className="text-2xl font-semibold">Occupancy</div>
+          <p className="text-sm text-slate-400">
+            Share of available rooms sold each night. Higher than baseline means
+            stronger demand capture.
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center justify-between mb-2">
+        <div />
+        <div className="flex items-center gap-2">
+          <button className="btn btn-light" onClick={() => nav(-1)}>
+            ← Back
+          </button>
+          <Link className="btn" to={`/owner/${slug}/pricing`}>
+            Open pricing
+          </Link>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 mb-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="block text-xs text-slate-400 mb-1">From</label>
+            <input
+              type="date"
+              value={fromDay}
+              onChange={(e) => setFromDay(e.target.value)}
+              className="border border-white/10 bg-white/5 text-white rounded px-2 py-1 text-sm [color-scheme:dark]"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-slate-400 mb-1">To</label>
+            <input
+              type="date"
+              value={toDay}
+              onChange={(e) => setToDay(e.target.value)}
+              className="border border-white/10 bg-white/5 text-white rounded px-2 py-1 text-sm [color-scheme:dark]"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* KPI header */}
+      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 mb-4">
+        {loading ? (
+          <div className="text-sm text-slate-400">Loading…</div>
+        ) : series.length === 0 ? (
+          <div className="text-sm text-slate-400">
+            No occupancy data for this period.
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-xs text-slate-400">Today</div>
+              <div className="text-2xl font-semibold">
+                {formatPct(todayRow?.occ)}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-400">
+                Baseline (same weekday)
+              </div>
+              <div className="text-lg">{formatPct(todayBaseline)}</div>
+            </div>
+            <div>
+              <span
+                className={`px-2 py-0.5 rounded-full text-xs ${badgeTone(tone)}`}
+              >
+                {deltaPct == null
+                  ? "N/A"
+                  : `${deltaPct > 0 ? "+" : ""}${Math.round(
+                      deltaPct
+                    )}% vs baseline`}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Chart */}
+      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+        <div className="flex items-start justify-between mb-2">
+          <div>
+            <h2 className="text-lg font-semibold">Occupancy over time</h2>
+            <p className="text-sm text-slate-400">
+              Track the share of rooms sold across the selected dates.
+            </p>
+          </div>
+        </div>
+        {series.length === 0 ? (
+          <div className="text-sm text-slate-400">No data to chart.</div>
+        ) : (
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={series}
+                margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                <XAxis dataKey="day" tick={{ fontSize: 12, fill: "#94a3b8" }} minTickGap={28} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 12, fill: "#94a3b8" }} tickFormatter={(v) => `${v}%`} />
+                <Tooltip formatter={(v) => formatPct(v as number)} contentStyle={{ background: "#16181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#fff" }} labelStyle={{ color: "#94a3b8" }} />
+                <Line
+                  type="monotone"
+                  dataKey="occ"
+                  stroke="#fbbf24"
+                  dot={false}
+                  strokeWidth={2}
+                />
+                {todayBaseline != null && (
+                  <ReferenceLine
+                    y={todayBaseline}
+                    stroke="rgba(255,255,255,0.35)"
+                    strokeDasharray="4 4"
+                    label={{
+                      position: "insideTopRight",
+                      value: "Baseline",
+                      fill: "#94a3b8",
+                      fontSize: 12,
                     }}
                   />
                 )}

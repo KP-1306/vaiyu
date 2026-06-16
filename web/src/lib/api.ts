@@ -2765,36 +2765,21 @@ export const api = {
   fetchCheckoutContext,
 };
 
-// ---------------- Owner – Occupancy & Revenue ----------------
-
-export type OwnerOccupancySnapshot = {
-  roomsTotal: number | null;
-  occupiedRooms: number;
-  occupancyPercent: number;
-};
-
-export type OwnerOccupancyPoint = {
-  day: string;
-  occupancyPercent: number;
-};
-
-export type OwnerOccupancyResponse = {
-  hotelSlug: string;
-  snapshot: OwnerOccupancySnapshot;
-  history: OwnerOccupancyPoint[];
-};
+// ---------------- Owner – Revenue ----------------
 
 export type OwnerRevenuePoint = {
   day: string;
   totalRevenue: number;
   roomRevenue: number;
   fnbRevenue: number;
+  serviceRevenue: number;
 };
 
 export type OwnerRevenueSummary = {
   totalRevenue: number;
   roomRevenue: number;
   fnbRevenue: number;
+  serviceRevenue: number;
   avgDailyRevenue: number;
 };
 
@@ -2804,30 +2789,6 @@ export type OwnerRevenueResponse = {
   summary: OwnerRevenueSummary;
   series: OwnerRevenuePoint[];
 };
-
-export async function fetchOwnerOccupancy(
-  slug: string
-): Promise<OwnerOccupancyResponse> {
-  const params = new URLSearchParams({
-    metric: "occupancy",
-    slug,
-  });
-
-  const res = await fetch(
-    `${API_URL}/owner/${encodeURIComponent(
-      slug
-    )}/occupancy?${params.toString()}`,
-    {
-      credentials: "include",
-    }
-  );
-
-  if (!res.ok) {
-    throw new Error(`Failed to load occupancy for ${slug}`);
-  }
-
-  return res.json();
-}
 
 // fetchOwnerRevenue (legacy `${API_URL}/owner/:slug/revenue` backend) was
 // removed 2026-06-16 — that route never existed in the api/ service, so the

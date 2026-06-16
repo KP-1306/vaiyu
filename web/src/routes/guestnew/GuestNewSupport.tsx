@@ -116,6 +116,15 @@ export default function GuestNewSupport() {
         setMessage("");
     };
 
+    // The 'support' namespace is lazy-loaded (useSuspense:false), so on the first
+    // render t() can return the key string instead of the FAQ array. Guard with
+    // Array.isArray so we render an empty list (then re-render once loaded)
+    // rather than crashing on `.map` of a string.
+    const rawFaqs = t("support:faq", { returnObjects: true });
+    const faqs: Array<{ q: string; a: string }> = Array.isArray(rawFaqs)
+        ? (rawFaqs as Array<{ q: string; a: string }>)
+        : [];
+
     return (
         <div className="gn-container">
             {/* Breadcrumb Navigation */}
@@ -202,7 +211,7 @@ export default function GuestNewSupport() {
             <div className="gn-section">
                 <h3 className="gn-section-title">{t("support:faqTitle")}</h3>
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                    {(t("support:faq", { returnObjects: true }) as Array<{ q: string; a: string }>).map((faq, i) => {
+                    {faqs.map((faq, i) => {
                         const isOpen = openFaq === i;
                         return (
                             <div

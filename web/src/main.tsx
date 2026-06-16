@@ -94,7 +94,7 @@ const queryClient = new QueryClient({
 const SignIn = lazy(() => import("./routes/SignIn"));
 const AuthCallback = lazy(() => import("./routes/AuthCallback"));
 const Logout = lazy(() => import("./routes/Logout"));
-const App = lazy(() => import("./App"));
+const HomeRoute = lazy(() => import("./routes/HomeRoute"));
 const AboutUs = lazy(() => import("./routes/AboutUs"));
 const AboutAI = lazy(() => import("./routes/AboutAI"));
 const Press = lazy(() => import("./routes/Press"));
@@ -210,6 +210,9 @@ const OwnerADR = lazy(() =>
 );
 const OwnerRevPAR = lazy(() =>
   import("./routes/OwnerRevenue").then((m) => ({ default: m.OwnerRevPAR })),
+);
+const OwnerOccupancy = lazy(() =>
+  import("./routes/OwnerRevenue").then((m) => ({ default: m.OwnerOccupancy })),
 );
 // Real owner pages that were previously masked by inline "avoid 404" stubs.
 const OwnerRevenue = lazy(() => import("./routes/OwnerRevenue"));
@@ -328,7 +331,7 @@ const router = createBrowserRouter([
     element: <RootLayout />,
     errorElement: <RouteErrorElement />,
     children: [
-      { index: true, element: withBoundary(<App />) },
+      { index: true, element: withBoundary(<HomeRoute />) },
       { path: "ok", element: <MinimalOK /> },
 
       // Public
@@ -742,6 +745,14 @@ const router = createBrowserRouter([
         element: (
           <AuthGate>
             <OwnerRevPAR />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "owner/:slug/revenue/occupancy",
+        element: (
+          <AuthGate>
+            <OwnerOccupancy />
           </AuthGate>
         ),
       },

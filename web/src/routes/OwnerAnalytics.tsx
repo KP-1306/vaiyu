@@ -364,7 +364,8 @@ export default function OwnerAnalytics() {
         const total = completed + breached;
         return {
             compliance: total > 0 ? Math.round((completed / total) * 100) : 100,
-            breachRate: total > 0 ? Math.round((breached / total) * 100) : 0
+            breachRate: total > 0 ? Math.round((breached / total) * 100) : 0,
+            total
         };
     }, [prevTrend]);
 
@@ -476,6 +477,28 @@ export default function OwnerAnalytics() {
     const atRisk = kpi?.at_risk_tickets ?? 0;
     const active = kpi?.total_tickets ?? 0;
 
+    // Tickets per occupied room — real: active (NEW/IN_PROGRESS) tickets ÷ occupied
+    // rooms. Null when no rooms are occupied (can't divide). Replaces the old
+    // hardcoded "1.8".
+    const occupiedRooms = occupancy?.occupied_rooms ?? 0;
+    const ticketsPerRoom = occupiedRooms > 0 ? active / occupiedRooms : null;
+
+    // At-risk risk-direction — real: derived from the daily SLA breach series
+    // (activeTrend), the same window the rest of the dashboard uses. Replaces the
+    // old hardcoded "Rising Risk" + mock sparkline. Direction compares the recent
+    // half of the window vs the earlier half.
+    const breachSeries = activeTrend.map((d) => ({ val: d.breached_sla || 0 }));
+    const riskDirection = (() => {
+        const n = breachSeries.length;
+        if (n < 2) return { label: "Stable", color: "#64748b" };
+        const half = Math.floor(n / 2);
+        const first = breachSeries.slice(0, half).reduce((a, c) => a + c.val, 0);
+        const last = breachSeries.slice(half).reduce((a, c) => a + c.val, 0);
+        if (last > first) return { label: "Rising Risk", color: "#f59e0b" };
+        if (last < first) return { label: "Easing", color: "#10b981" };
+        return { label: "Stable", color: "#64748b" };
+    })();
+
     // For specific charts, use activeTrend
     const pieDataTrend = [
         { name: 'Within SLA', value: rangeCompleted },
@@ -491,6 +514,7 @@ export default function OwnerAnalytics() {
             trendLabel: "vs Prev Period",
             color: "text-emerald-500",
             isUpGood: true,
+            hasBaseline: prevKpi.total > 0,
         },
         {
             label: "SLA Breach Rate",
@@ -499,6 +523,7 @@ export default function OwnerAnalytics() {
             trendLabel: "vs Prev Period",
             color: "text-rose-500",
             isUpGood: false,
+            hasBaseline: prevKpi.total > 0,
         },
         {
             label: "Guest Check-Ins",
@@ -507,6 +532,7 @@ export default function OwnerAnalytics() {
             trendLabel: "vs Prev Period",
             color: "text-blue-400",
             isUpGood: true,
+            hasBaseline: prevCheckins.length > 0,
         }
     ];
 
@@ -597,18 +623,24 @@ export default function OwnerAnalytics() {
                         <div className="text-[12px] font-semibold text-slate-400 mb-2 uppercase tracking-wider">{s.label}</div>
                         <div className="flex items-end gap-2 mb-2">
                             <div className={`text-4xl font-bold ${s.color}`}>{s.value}</div>
-                            <div className={`flex items-center gap-0.5 text-sm font-bold mb-1.5 ${s.trend === 0 ? 'text-slate-500' :
+                            {s.hasBaseline && (
+                                <div className={`flex items-center gap-0.5 text-sm font-bold mb-1.5 ${s.trend === 0 ? 'text-slate-500' :
+                                    (s.isUpGood ? (s.trend > 0 ? 'text-emerald-500' : 'text-rose-500') : (s.trend > 0 ? 'text-rose-500' : 'text-emerald-500'))
+                                    }`}>
+                                    {s.trend !== 0 && (s.trend > 0 ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />)}
+                                </div>
+                            )}
+                        </div>
+                        {s.hasBaseline ? (
+                            <div className={`text-[12px] font-medium flex items-center gap-1.5 ${s.trend === 0 ? 'text-slate-500' :
                                 (s.isUpGood ? (s.trend > 0 ? 'text-emerald-500' : 'text-rose-500') : (s.trend > 0 ? 'text-rose-500' : 'text-emerald-500'))
                                 }`}>
-                                {s.trend !== 0 && (s.trend > 0 ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />)}
+                                <span>{s.trend > 0 ? '+' : ''}{s.trend}</span>
+                                <span className="text-slate-500 font-normal">{s.trendLabel}</span>
                             </div>
-                        </div>
-                        <div className={`text-[12px] font-medium flex items-center gap-1.5 ${s.trend === 0 ? 'text-slate-500' :
-                            (s.isUpGood ? (s.trend > 0 ? 'text-emerald-500' : 'text-rose-500') : (s.trend > 0 ? 'text-rose-500' : 'text-emerald-500'))
-                            }`}>
-                            <span>{s.trend > 0 ? '+' : ''}{s.trend}</span>
-                            <span className="text-slate-500 font-normal">{s.trendLabel}</span>
-                        </div>
+                        ) : (
+                            <div className="text-[12px] font-medium text-slate-500">No prior-period data</div>
+                        )}
                     </div>
                 ))}
             </div>
@@ -702,18 +734,14 @@ export default function OwnerAnalytics() {
                     <div className="rounded-2xl bg-[#151A25] p-6 border border-slate-800/50 flex flex-col justify-between h-[140px]">
                         <div>
                             <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Tickets Per Occupied Room</h3>
-                            <div className="mt-2 text-4xl font-bold text-slate-100 flex items-baseline gap-2">
-                                1.8
-                                <span className="text-xs font-bold text-rose-500 flex items-center gap-0.5">
-                                    <ArrowUpRight size={12} /> vs Average
-                                </span>
+                            <div className="mt-2 text-4xl font-bold text-slate-100">
+                                {ticketsPerRoom === null ? "—" : ticketsPerRoom.toFixed(1)}
                             </div>
-                        </div>
-                        {/* Mock Sparkbar/Decoration */}
-                        <div className="flex gap-1 h-1.5 mt-4 opacity-50">
-                            <div className="w-1/4 bg-slate-700 rounded-full"></div>
-                            <div className="w-1/2 bg-blue-500 rounded-full"></div>
-                            <div className="w-1/4 bg-slate-700 rounded-full"></div>
+                            <div className="mt-1 text-xs text-slate-500">
+                                {ticketsPerRoom === null
+                                    ? "No occupied rooms right now"
+                                    : `${active} active ticket${active === 1 ? "" : "s"} · ${occupiedRooms} occupied room${occupiedRooms === 1 ? "" : "s"}`}
+                            </div>
                         </div>
                     </div>
 
@@ -726,16 +754,16 @@ export default function OwnerAnalytics() {
                                     <AlertTriangle className="text-amber-500" size={24} />
                                 </div>
                                 <div>
-                                    <div className="text-lg font-bold text-amber-500">Rising Risk</div>
-                                    <div className="text-[10px] text-slate-500">Last 7 Days</div>
+                                    <div className="text-lg font-bold" style={{ color: riskDirection.color }}>{riskDirection.label}</div>
+                                    <div className="text-[10px] text-slate-500">{atRisk} at risk now · SLA breaches, {breachSeries.length}d</div>
                                 </div>
                             </div>
                         </div>
-                        {/* Mock Trend Line */}
+                        {/* Real daily SLA-breach series for the active window */}
                         <div className="h-10 w-full mt-2">
                             <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={[{ val: 2 }, { val: 3 }, { val: 2 }, { val: 4 }, { val: 5 }, { val: 7 }, { val: 8 }]}>
-                                    <Line type="monotone" dataKey="val" stroke="#f59e0b" strokeWidth={2} dot={false} />
+                                <LineChart data={breachSeries}>
+                                    <Line type="monotone" dataKey="val" stroke={riskDirection.color} strokeWidth={2} dot={false} />
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>

@@ -299,10 +299,12 @@ export default function OwnerAnalytics() {
     const COLORS = ['#f97316', '#a855f7', '#3b82f6', '#22c55e', '#6366f1'];
 
     // Utility to get Local ISO date string (YYYY-MM-DD)
-    const getISODate = (d: Date) => {
-        const offset = d.getTimezoneOffset() * 60000;
-        return new Date(d.getTime() - offset).toISOString().split('T')[0];
-    };
+    // Bucket days in UTC to match the views, which group by date(created_at) and
+    // compare against CURRENT_DATE (both UTC on the server). Using the browser's
+    // local date here previously drifted the window/"Today" filter by a day for
+    // non-UTC users (e.g. IST). (Full hotel-timezone business-day alignment would
+    // require the views to bucket in the hotel tz — tracked separately.)
+    const getISODate = (d: Date) => d.toISOString().split('T')[0];
 
     // Derived Data based on Time Range
     const getActiveWindow = (arr: any[]) => {
@@ -499,6 +501,26 @@ export default function OwnerAnalytics() {
         return { label: "Stable", color: "#64748b" };
     })();
 
+    // Activity (Created vs Resolved) chart data + empty-state flag. The view
+    // returns a zero-filled daily spine, so a quiet hotel yields all-zero rows;
+    // render an explicit empty state instead of a blank/near-flat chart.
+    const activityWindow = getActiveWindow(activity);
+    const activityChartData = activityWindow
+        .slice()
+        .reverse()
+        .map((d) => ({
+            ...d,
+            // Tiny visual offset so the two lines don't perfectly overlap when
+            // equal (the tooltip floors this back to the real integer).
+            created_display:
+                d.created_count > 0 && d.created_count === d.resolved_count
+                    ? d.created_count + 0.1
+                    : d.created_count,
+        }));
+    const hasActivity = activityWindow.some(
+        (d) => (d.created_count || 0) + (d.resolved_count || 0) > 0
+    );
+
     // For specific charts, use activeTrend
     const pieDataTrend = [
         { name: 'Within SLA', value: rangeCompleted },
@@ -663,19 +685,10 @@ export default function OwnerAnalytics() {
                         </div>
                     </div>
                     <div className="h-[250px] w-full">
+                      {hasActivity ? (
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart 
-                                data={getActiveWindow(activity)
-                                    .slice()
-                                    .reverse()
-                                    .map(d => ({
-                                        ...d,
-                                        // Add a tiny visual offset so lines don't perfectly overlap
-                                        created_display: d.created_count > 0 && d.created_count === d.resolved_count 
-                                            ? d.created_count + 0.1 
-                                            : d.created_count
-                                    }))
-                                } 
+                            <AreaChart
+                                data={activityChartData}
                                 margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
                             >
                                 <defs>
@@ -725,6 +738,14 @@ export default function OwnerAnalytics() {
                                 />
                             </AreaChart>
                         </ResponsiveContainer>
+                      ) : (
+                        <div className="h-full grid place-items-center text-center">
+                            <div>
+                                <div className="text-sm text-slate-400 font-medium">No ticket activity in this period</div>
+                                <div className="text-xs text-slate-600 mt-1">Created vs resolved will appear here once tickets are raised.</div>
+                            </div>
+                        </div>
+                      )}
                     </div>
                 </div>
 

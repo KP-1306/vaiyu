@@ -28,6 +28,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
@@ -427,17 +428,20 @@ export default function OwnerRevenue() {
                   contentStyle={{ background: "#16181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#fff" }}
                   labelStyle={{ color: "#94a3b8" }}
                 />
+                <Legend wrapperStyle={{ fontSize: 12, color: "#cbd5e1", paddingTop: 8 }} />
                 <Line
                   type="monotone"
                   dataKey="totalRevenue"
                   name="Total"
+                  stroke="#a5b4fc"
                   dot={false}
-                  strokeWidth={2}
+                  strokeWidth={2.5}
                 />
                 <Line
                   type="monotone"
                   dataKey="roomRevenue"
                   name="Room"
+                  stroke="#34d399"
                   dot={false}
                   strokeWidth={2}
                 />
@@ -445,6 +449,7 @@ export default function OwnerRevenue() {
                   type="monotone"
                   dataKey="fnbRevenue"
                   name="F&B"
+                  stroke="#fbbf24"
                   dot={false}
                   strokeWidth={2}
                 />

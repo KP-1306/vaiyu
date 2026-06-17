@@ -9,7 +9,6 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronRight, Compass, AlertTriangle, ClipboardList } from 'lucide-react';
 
-import { supabase } from '../../lib/supabase';
 import {
   OTA_BAND_LABEL,
   OTA_BAND_TONE,
@@ -30,10 +29,9 @@ import { useOTAReadinessRealtime } from '../../hooks/useOTAReadinessRealtime';
 import type { OTAReadinessBand } from '../../types/otaOptimizer';
 
 interface Props {
+  hotelId: string;
   hotelSlug: string;
 }
-
-interface HotelRow { id: string; slug: string }
 
 const BAND_BADGE_CLS: Record<OTAReadinessBand, string> = {
   PREMIUM:  'border-emerald-500/40 bg-emerald-500/15 text-emerald-200',
@@ -53,25 +51,12 @@ const BAND_RING_STROKE: Record<OTAReadinessBand, string> = {
   CRITICAL: 'stroke-rose-400',
 };
 
-export function OTAReadinessCard({ hotelSlug }: Props) {
+export function OTAReadinessCard({ hotelId, hotelSlug }: Props) {
   if (!OTA_LISTING_OPTIMIZER_V0_ENABLED) return null;
 
-  const hotelQ = useQuery<HotelRow | null>({
-    queryKey: ['ota-optimizer', 'hotel-by-slug', hotelSlug],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('hotels')
-        .select('id, slug')
-        .eq('slug', hotelSlug)
-        .maybeSingle();
-      if (error) throw error;
-      return data as HotelRow | null;
-    },
-    enabled: !!hotelSlug,
-    staleTime: 60_000,
-  });
-  const hotelId = hotelQ.data?.id ?? null;
-  useOTAReadinessRealtime(hotelId ?? undefined);
+  // hotelId is passed by the parent (OwnerDashboard already resolved slug->id),
+  // so there is no redundant per-card hotels lookup.
+  useOTAReadinessRealtime(hotelId);
 
   const summaryQ = useQuery({
     queryKey: hotelId ? otaOptimizerQueryKeys.summary(hotelId) : ['ota-optimizer', 'noop-summary'],
@@ -88,8 +73,8 @@ export function OTAReadinessCard({ hotelSlug }: Props) {
   });
 
   const summary = summarizeOtaReadiness(summaryQ.data ?? null, byOtaQ.data ?? []);
-  const isLoading = hotelQ.isLoading || summaryQ.isLoading || byOtaQ.isLoading;
-  const isError = hotelQ.isError || summaryQ.isError || byOtaQ.isError;
+  const isLoading = summaryQ.isLoading || byOtaQ.isLoading;
+  const isError = summaryQ.isError || byOtaQ.isError;
 
   // Wizard incomplete check
   const wizardIncomplete = summary !== null && !summary.wizardCompletedAt;

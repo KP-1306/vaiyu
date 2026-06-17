@@ -7,37 +7,22 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronRight, Tent, Eye, FileText, CircleAlert } from 'lucide-react';
 import { useMemo } from 'react';
-import { supabase } from '../../lib/supabase';
 import { PACKAGE_BUILDER_V0_ENABLED } from '../../config/packages';
 import { listPackages, getPackageAnalytics } from '../../services/packageService';
 import { packageQueryKeys } from '../../services/packageQueryKeys';
 import { usePackagesRealtime } from '../../hooks/usePackagesRealtime';
 
 interface Props {
+  hotelId: string;
   hotelSlug: string;
 }
 
-interface HotelRow { id: string; slug: string }
-
-export function PackageBuilderCard({ hotelSlug }: Props) {
+export function PackageBuilderCard({ hotelId, hotelSlug }: Props) {
   if (!PACKAGE_BUILDER_V0_ENABLED) return null;
 
-  const hotelQ = useQuery<HotelRow | null>({
-    queryKey: ['package-card-hotel', hotelSlug],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('hotels')
-        .select('id, slug')
-        .eq('slug', hotelSlug)
-        .maybeSingle();
-      if (error) throw error;
-      return data as HotelRow | null;
-    },
-    enabled: !!hotelSlug,
-    staleTime: 60_000,
-  });
-  const hotelId = hotelQ.data?.id ?? null;
-  usePackagesRealtime(hotelId ?? undefined);
+  // hotelId is passed by the parent (OwnerDashboard already resolved slug->id),
+  // so there is no redundant per-card hotels lookup.
+  usePackagesRealtime(hotelId);
 
   const listQ = useQuery({
     queryKey: hotelId ? packageQueryKeys.list(hotelId) : ['packages', 'noop'],

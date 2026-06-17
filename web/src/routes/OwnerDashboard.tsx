@@ -1825,12 +1825,12 @@ export default function OwnerDashboard() {
 
             {/* Experience Package Builder — Position 5 */}
             {PACKAGE_BUILDER_V0_ENABLED && (
-              <PackageBuilderCard hotelSlug={hotel.slug} />
+              <PackageBuilderCard hotelId={hotel.id} hotelSlug={hotel.slug} />
             )}
 
             {/* Local SEO Landing Planner — Position 7 */}
             {LOCAL_SEO_LANDING_PLANNER_V0_ENABLED && (
-              <LocalSeoPlannerCard hotelSlug={hotel.slug} />
+              <LocalSeoPlannerCard hotelId={hotel.id} hotelSlug={hotel.slug} />
             )}
 
             {/* Local Partner Directory — Position 4 */}
@@ -1850,12 +1850,12 @@ export default function OwnerDashboard() {
 
             {/* Seasonal Demand Calendar — Position 8 */}
             {SEASONAL_DEMAND_CALENDAR_V0_ENABLED && (
-              <SeasonalCalendarCard hotelSlug={hotel.slug} />
+              <SeasonalCalendarCard hotelId={hotel.id} hotelSlug={hotel.slug} />
             )}
 
             {/* OTA Listing Optimizer — Position 10 */}
             {OTA_LISTING_OPTIMIZER_V0_ENABLED && (
-              <OTAReadinessCard hotelSlug={hotel.slug} />
+              <OTAReadinessCard hotelId={hotel.id} hotelSlug={hotel.slug} />
             )}
           </div>
         </section>

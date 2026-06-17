@@ -6,37 +6,22 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronRight, ShieldCheck, ShieldAlert, ShieldQuestion, CircleAlert } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
 import { LOCAL_SEO_LANDING_PLANNER_V0_ENABLED } from '../../config/localSeoPlanner';
 import { getSeoBlueprintSummary } from '../../services/seoBlueprintService';
 import { seoBlueprintQueryKeys } from '../../services/seoBlueprintQueryKeys';
 import { useSeoBlueprintsRealtime } from '../../hooks/useSeoBlueprintsRealtime';
 
 interface Props {
+  hotelId: string;
   hotelSlug: string;
 }
 
-interface HotelRow { id: string; slug: string }
-
-export function LocalSeoPlannerCard({ hotelSlug }: Props) {
+export function LocalSeoPlannerCard({ hotelId, hotelSlug }: Props) {
   if (!LOCAL_SEO_LANDING_PLANNER_V0_ENABLED) return null;
 
-  const hotelQ = useQuery<HotelRow | null>({
-    queryKey: ['seo-planner-card-hotel', hotelSlug],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('hotels')
-        .select('id, slug')
-        .eq('slug', hotelSlug)
-        .maybeSingle();
-      if (error) throw error;
-      return data as HotelRow | null;
-    },
-    enabled: !!hotelSlug,
-    staleTime: 60_000,
-  });
-  const hotelId = hotelQ.data?.id ?? null;
-  useSeoBlueprintsRealtime(hotelId ?? undefined);
+  // hotelId is passed by the parent (OwnerDashboard already resolved slug->id),
+  // so there is no redundant per-card hotels lookup.
+  useSeoBlueprintsRealtime(hotelId);
 
   const summaryQ = useQuery({
     queryKey: hotelId ? seoBlueprintQueryKeys.summary(hotelId) : ['seo-blueprint-summary', 'noop'],

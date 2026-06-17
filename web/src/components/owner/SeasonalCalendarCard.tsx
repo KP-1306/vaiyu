@@ -8,7 +8,6 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CalendarDays, ChevronRight, Flame, Clock, Eye } from 'lucide-react';
 
-import { supabase } from '../../lib/supabase';
 import {
   SEASONAL_DEMAND_CALENDAR_V0_ENABLED,
   formatDaysUntil,
@@ -22,30 +21,16 @@ import { seasonalCalendarQueryKeys } from '../../services/seasonalCalendarQueryK
 import { useSeasonalWindowsRealtime } from '../../hooks/useSeasonalWindowsRealtime';
 
 interface Props {
+  hotelId: string;
   hotelSlug: string;
 }
 
-interface HotelRow { id: string; slug: string }
-
-export function SeasonalCalendarCard({ hotelSlug }: Props) {
+export function SeasonalCalendarCard({ hotelId, hotelSlug }: Props) {
   if (!SEASONAL_DEMAND_CALENDAR_V0_ENABLED) return null;
 
-  const hotelQ = useQuery<HotelRow | null>({
-    queryKey: seasonalCalendarQueryKeys.hotelByslug(hotelSlug),
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('hotels')
-        .select('id, slug')
-        .eq('slug', hotelSlug)
-        .maybeSingle();
-      if (error) throw error;
-      return data as HotelRow | null;
-    },
-    enabled: !!hotelSlug,
-    staleTime: 60_000,
-  });
-  const hotelId = hotelQ.data?.id ?? null;
-  useSeasonalWindowsRealtime(hotelId ?? undefined);
+  // hotelId is passed by the parent (OwnerDashboard already resolved slug->id),
+  // so there is no redundant per-card hotels lookup.
+  useSeasonalWindowsRealtime(hotelId);
 
   const listQ = useQuery({
     queryKey: hotelId

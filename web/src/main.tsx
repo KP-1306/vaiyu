@@ -192,6 +192,7 @@ const OwnerFinance = lazy(() => import("./routes/OwnerFinance"));
 const OwnerFinanceBudgets = lazy(() => import("./routes/OwnerFinanceBudgets"));
 const OwnerFinanceExpenses = lazy(() => import("./routes/OwnerFinanceExpenses"));
 const FinanceRoleGuard = lazy(() => import("./components/owner/FinanceRoleGuard"));
+const AnalyticsRoleGuard = lazy(() => import("./components/owner/AnalyticsRoleGuard"));
 const FinanceErrorBoundary = lazy(() => import("./components/owner/FinanceErrorBoundary"));
 const OwnerMenu = lazy(() => import("./routes/OwnerMenu")); // NEW
 const OwnerWorkforce = lazy(() => import("./routes/OwnerWorkforce")); // NEW (fix /owner/:slug/workforce)
@@ -710,7 +711,9 @@ const router = createBrowserRouter([
         path: "owner/:slug/analytics",
         element: (
           <AuthGate>
-            <OwnerAnalytics />
+            <AnalyticsRoleGuard>
+              <OwnerAnalytics />
+            </AnalyticsRoleGuard>
           </AuthGate>
         ),
       },

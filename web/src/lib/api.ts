@@ -82,6 +82,7 @@ export type Service = {
   hotel_id?: string | null;
   department_id?: string | null;
   department_name?: string | null;
+  department_code?: string | null; // canonical department code (FRONT_DESK, HOUSEKEEPING…) for display localization
   description_en?: string; // [NEW] Description
   requires_description?: boolean; // [NEW] If true, user must provide details
 };
@@ -1390,7 +1391,7 @@ export async function getServices(hotelKey?: string | null) {
       let query = s
         .from("services")
         .select(
-          "id, hotel_id, key, label, sla_minutes, priority_weight, active, department_id, description_en, requires_description, departments!inner(name, is_active)"
+          "id, hotel_id, key, label, sla_minutes, priority_weight, active, department_id, description_en, requires_description, departments!inner(name, code, is_active)"
         )
         .eq("active", true)
         .eq("departments.is_active", true);
@@ -1422,6 +1423,8 @@ export async function getServices(hotelKey?: string | null) {
           requires_description: row.requires_description, // [NEW]
           // @ts-ignore
           department_name: row.departments?.name || "General",
+          // @ts-ignore
+          department_code: row.departments?.code || null,
         }));
 
       return { items };

@@ -830,13 +830,20 @@ export default function FoodMenu() {
                   >
                     {t("foodMenu:allTypes")}
                   </button>
-                  {Array.from(new Set(servicesState.items.map(s => s.department_name || "General"))).sort().map(dept => (
+                  {/* Departments carry a canonical code (FRONT_DESK, HOUSEKEEPING…); localize the
+                      tab label by code, keep filtering/selection on department_name (unchanged),
+                      and fall back to the name for English or any custom department. */}
+                  {Array.from(
+                    new Map(servicesState.items.map(s => [s.department_name || "General", s.department_code || null])).entries()
+                  ).sort((a, b) => a[0].localeCompare(b[0])).map(([deptName, deptCode]) => (
                     <button
-                      key={dept}
-                      onClick={() => setServiceCategory(dept)}
-                      className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${serviceCategory === dept ? 'bg-gradient-to-r from-[#d4af37] to-[#b8942d] text-black shadow-lg shadow-[#d4af37]/20' : 'bg-[#141210] text-[#b8b3a8] border border-[#d4af37]/12'}`}
+                      key={deptName}
+                      onClick={() => setServiceCategory(deptName)}
+                      className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${serviceCategory === deptName ? 'bg-gradient-to-r from-[#d4af37] to-[#b8942d] text-black shadow-lg shadow-[#d4af37]/20' : 'bg-[#141210] text-[#b8b3a8] border border-[#d4af37]/12'}`}
                     >
-                      {dept}
+                      {deptCode && i18n.language !== "en"
+                        ? t(`foodMenu:department.${deptCode}`, { defaultValue: deptName })
+                        : deptName}
                     </button>
                   ))}
                 </div>
@@ -864,8 +871,11 @@ export default function FoodMenu() {
                             {s.sla_minutes}m
                           </span>
                         </div>
-                        <h3 className="font-bold text-white mb-1 group-hover:text-[#d4af37] transition-colors">{s.label_en || s.label || s.key}</h3>
-                        <p className="text-xs text-[#7a756a] line-clamp-2 mb-4">{s.description_en || t("foodMenu:serviceFallbackDesc")}</p>
+                        {/* Canonical services carry a stable key (maintenance_plumbing…); localize
+                            title + description by key for non-English, keep owner's label/description
+                            in English and as the fallback for custom services. */}
+                        <h3 className="font-bold text-white mb-1 group-hover:text-[#d4af37] transition-colors">{i18n.language !== "en" ? t(`foodMenu:service.${s.key}.title`, { defaultValue: s.label_en || s.label || s.key }) : (s.label_en || s.label || s.key)}</h3>
+                        <p className="text-xs text-[#7a756a] line-clamp-2 mb-4">{i18n.language !== "en" ? t(`foodMenu:service.${s.key}.desc`, { defaultValue: s.description_en || t("foodMenu:serviceFallbackDesc") }) : (s.description_en || t("foodMenu:serviceFallbackDesc"))}</p>
 
                         <div className="flex items-center gap-2 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
                           <span className="text-xs font-bold text-[#d4af37] underline underline-offset-4 decoration-[#d4af37]/30">{t("foodMenu:request")}</span>
@@ -941,7 +951,7 @@ function ServiceRequestModal({
   onClose: () => void,
   onConfirm: (data: { note: string; priority: string; locationType: string; publicLocation: string; zoneId?: string; media_urls?: string[] }) => void
 }) {
-  const { t } = useTranslation(["foodMenu", "common"]);
+  const { t, i18n } = useTranslation(["foodMenu", "common"]);
   const [note, setNote] = useState("");
   const [priority, setPriority] = useState("normal");
   const [locationType, setLocationType] = useState("room");
@@ -1041,7 +1051,7 @@ function ServiceRequestModal({
             </div>
             <div>
               <h3 className="text-lg font-bold text-white">{t("foodMenu:modal.guestRequest")}</h3>
-              <p className="text-xs text-gray-400 font-medium">{service.label_en || service.label || service.key}</p>
+              <p className="text-xs text-gray-400 font-medium">{i18n.language !== "en" ? t(`foodMenu:service.${service.key}.title`, { defaultValue: service.label_en || service.label || service.key }) : (service.label_en || service.label || service.key)}</p>
             </div>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors">

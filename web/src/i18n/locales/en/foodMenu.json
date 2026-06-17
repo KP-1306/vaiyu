@@ -21,6 +21,30 @@
     "DESSERTS": "Desserts",
     "KIDS": "Kids Menu"
   },
+  "department": {
+    "FRONT_DESK": "Front Desk & Guest Services",
+    "FRONT_OFFICE": "Front Office",
+    "HOUSEKEEPING": "Housekeeping",
+    "KITCHEN": "Kitchen / F&B",
+    "MAINTENANCE": "Maintenance & Engineering",
+    "ENGINEERING": "Engineering",
+    "CONCIERGE": "Concierge",
+    "LAUNDRY": "Laundry"
+  },
+  "service": {
+    "extra_towels": { "title": "Extra Towels", "desc": "Request additional towels to be delivered to your room." },
+    "food_delay": { "title": "Food Delivery Delay", "desc": "Report issues such as food delivery delays or missing food items." },
+    "key_card_issue": { "title": "Key Card Issue", "desc": "Request help if your room key card is not working or needs replacement." },
+    "late_checkout": { "title": "Late Checkout Request", "desc": "Request approval for late check-out. Subject to availability." },
+    "laundry": { "title": "Laundry", "desc": "Request laundry service for clothes. Please mention quantity and any special instructions." },
+    "maintenance_ac": { "title": "AC – Not Cooling", "desc": "Report air conditioning issues such as room not cooling or heating properly." },
+    "maintenance_electric": { "title": "Electrical Issue", "desc": "Report electrical issues like lights not working, power outage, or faulty switches." },
+    "maintenance_plumbing": { "title": "Bathroom / Plumbing Issue", "desc": "Report plumbing issues like water leakage, clogged drains, or low water pressure." },
+    "missing_cutlery": { "title": "Missing Cutlery", "desc": "Request missing plates, cutlery, or serving items." },
+    "room_cleaning": { "title": "Room Cleaning", "desc": "Request full cleaning of your room. You may mention preferred timing or instructions." },
+    "room_service": { "title": "Room Service", "desc": "Request in-room dining service. Food ordering is handled in the dedicated menu." },
+    "turn_down_service": { "title": "Turn Down Service", "desc": "Evening housekeeping service including bed preparation and a light room refresh." }
+  },
   "add": "Add",
   "noItems": "No items found matching your filters.",
   "currentOrder": "Current Order",

@@ -131,7 +131,9 @@ export default function SLAExplanationDrawer({
                         </ResponsiveContainer>
                     </div>
                     <p className="text-xs text-slate-500 mt-2 text-center italic">
-                        "Housekeeping breaches reduced your score by {impactData.find(i => i.department_name === 'Housekeeping')?.impact_percent ?? 0}%"
+                        {impactData.length > 0 && (impactData[0].breached_count || 0) > 0
+                            ? `${impactData[0].department_name} accounted for the most SLA breaches (${impactData[0].breached_count}) this period.`
+                            : "No SLA breaches in this period."}
                     </p>
                 </div>
 

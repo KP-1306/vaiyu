@@ -262,9 +262,13 @@ export default function OwnerAnalytics() {
                 const [kpiRes, trendRes, breachesRes, blockRes, staffRes, activityRes, checkinRes, impactRes, riskRes, activityBreakdownRes, occupancyRes] = await Promise.all([
                     supabase.from("v_owner_kpi_summary").select("*").eq("hotel_id", hotel.id).maybeSingle(),
                     supabase.from("v_owner_sla_trend_daily").select("*").eq("hotel_id", hotel.id).order("day", { ascending: true }).limit(60),
-                    supabase.from("v_owner_sla_breach_breakdown").select("*").eq("hotel_id", hotel.id).limit(10),
-                    supabase.from("v_owner_block_reason_analysis").select("*").eq("hotel_id", hotel.id).limit(10),
-                    supabase.from("v_owner_staff_performance").select("*").eq("hotel_id", hotel.id).order("completed_tasks", { ascending: false }).limit(6),
+                    // These are 30-day, daily-grain views aggregated + windowed CLIENT-side,
+                    // so fetch by most-recent day with a high cap. A small .limit() here
+                    // truncates BEFORE the client window/aggregation and silently drops
+                    // recent rows (e.g. staff showed "no tasks" when it had plenty).
+                    supabase.from("v_owner_sla_breach_breakdown").select("*").eq("hotel_id", hotel.id).order("day", { ascending: false }).limit(1000),
+                    supabase.from("v_owner_block_reason_analysis").select("*").eq("hotel_id", hotel.id).order("day", { ascending: false }).limit(1000),
+                    supabase.from("v_owner_staff_performance").select("*").eq("hotel_id", hotel.id).order("day", { ascending: false }).limit(1000),
                     supabase.from("v_owner_ticket_activity").select("*").eq("hotel_id", hotel.id).limit(60),
                     supabase.from("v_owner_checkin_trend_daily").select("*").eq("hotel_id", hotel.id).order("day", { ascending: true }).limit(60),
                     supabase.from("v_owner_sla_impact_waterfall").select("*").eq("hotel_id", hotel.id).limit(180),
@@ -282,7 +286,16 @@ export default function OwnerAnalytics() {
                     setActivity(activityRes.data || []);
                     setCheckinTrend(checkinRes.data || []);
                     setImpact(impactRes.data || []);
-                    setRisks(riskRes.data || []);
+                    // v_owner_at_risk_breakdown exposes `risk_count`, but the drawer's
+                    // RiskBreakdownRow uses `ticket_count` — map it so the drawer doesn't
+                    // sum `undefined` into NaN ("Breakdown of NaN tickets").
+                    setRisks(
+                        (riskRes.data || []).map((r: any) => ({
+                            hotel_id: r.hotel_id,
+                            risk_category: r.risk_category,
+                            ticket_count: Number(r.risk_count) || 0,
+                        }))
+                    );
                     setActivityBreakdown(activityBreakdownRes.data || []);
                     setOccupancy(occupancyRes.data || null);
                 }
@@ -475,6 +488,9 @@ export default function OwnerAnalytics() {
     const dynamicCompliance = rangeTotal > 0
         ? Math.round((rangeCompleted / rangeTotal) * 100)
         : (kpi?.sla_compliance_percent ?? 0); // Fallback if no data in range
+    // Honest display: with no completed/breached tickets in range there is no
+    // compliance figure — show "—" rather than a misleading 0% (or 100%).
+    const complianceDisplay = rangeTotal > 0 ? `${dynamicCompliance}%` : "—";
 
     const atRisk = kpi?.at_risk_tickets ?? 0;
     const active = kpi?.total_tickets ?? 0;
@@ -521,6 +537,35 @@ export default function OwnerAnalytics() {
         (d) => (d.created_count || 0) + (d.resolved_count || 0) > 0
     );
 
+    // Risk & Escalation insights — REAL, computed from the data. Replaces the
+    // previously hardcoded placeholders ("Room 216 / spare parts / night shift")
+    // that displayed identical fake text on every hotel.
+    const periodLabel = timeRange === "today" ? "today" : timeRange === "7d" ? "in the last 7 days" : "this month";
+    const riskInsights: { tone: "rose" | "blue" | "amber"; title: string; text: string }[] = [];
+    if (aggregatedImpact.length > 0 && (aggregatedImpact[0].breached_count || 0) > 0) {
+        const top = aggregatedImpact[0];
+        riskInsights.push({
+            tone: "rose",
+            title: "Top breach area",
+            text: `${top.department_name} had the most SLA breaches (${top.breached_count}) ${periodLabel}. Worth a closer look.`,
+        });
+    }
+    if (aggregatedBlocks.length > 0) {
+        const top = aggregatedBlocks[0];
+        riskInsights.push({
+            tone: "blue",
+            title: "Most common blocker",
+            text: `"${top.reason_code.replace(/_/g, " ")}" blocked ${top.block_count} ticket${top.block_count === 1 ? "" : "s"} ${periodLabel}.`,
+        });
+    }
+    if (atRisk > 0) {
+        riskInsights.push({
+            tone: "amber",
+            title: "Tickets at risk",
+            text: `${atRisk} ticket${atRisk === 1 ? "" : "s"} within 30 min of breaching SLA right now; risk trend is ${riskDirection.label.toLowerCase()}.`,
+        });
+    }
+
     // For specific charts, use activeTrend
     const pieDataTrend = [
         { name: 'Within SLA', value: rangeCompleted },
@@ -531,7 +576,7 @@ export default function OwnerAnalytics() {
     const kpiCards = [
         {
             label: "SLA Compliance",
-            value: `${calculatedKpi.compliance}%`,
+            value: calculatedKpi.total > 0 ? `${calculatedKpi.compliance}%` : "—",
             trend: diffSla,
             trendLabel: "vs Prev Period",
             color: "text-emerald-500",
@@ -540,7 +585,7 @@ export default function OwnerAnalytics() {
         },
         {
             label: "SLA Breach Rate",
-            value: `${calculatedKpi.breachRate}%`,
+            value: calculatedKpi.total > 0 ? `${calculatedKpi.breachRate}%` : "—",
             trend: diffBreach,
             trendLabel: "vs Prev Period",
             color: "text-rose-500",
@@ -810,7 +855,7 @@ export default function OwnerAnalytics() {
                         {/* Left: Compliance Donut */}
                         <div className="col-span-1 flex flex-col items-center border-r border-slate-800/50 pr-6">
                             <div className="flex items-baseline gap-2 mb-2 w-full justify-center">
-                                <span className="text-5xl font-bold text-emerald-400 tracking-tight">{dynamicCompliance}%</span>
+                                <span className="text-5xl font-bold text-emerald-400 tracking-tight">{complianceDisplay}</span>
                                 <span className="text-[10px] uppercase font-bold text-amber-500">
                                     SLA Compliance
                                 </span>
@@ -836,7 +881,7 @@ export default function OwnerAnalytics() {
                                     </PieChart>
                                 </ResponsiveContainer>
                                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                    <div className="text-3xl font-bold text-white">{dynamicCompliance}%</div>
+                                    <div className="text-3xl font-bold text-white">{complianceDisplay}</div>
                                     <div className="text-[9px] text-slate-500 uppercase mt-1">Compliance</div>
                                 </div>
                             </div>
@@ -985,7 +1030,10 @@ export default function OwnerAnalytics() {
                 </div>
 
                 {/* Breaches Donut & List - Exact Match */}
-                <div className="rounded-2xl bg-[#151A25] p-6 border border-slate-800/50 flex flex-col">
+                <div
+                    onClick={() => setSlaDrawerOpen(true)}
+                    className="rounded-2xl bg-[#151A25] p-6 border border-slate-800/50 flex flex-col cursor-pointer hover:border-blue-500/30 transition"
+                >
                     <SectionTitle title="SLA Failure Causes" action={<MoreHorizontal size={16} className="text-slate-600" />} />
 
                     <div className="flex flex-col lg:flex-row gap-6 h-full">
@@ -1103,6 +1151,7 @@ export default function OwnerAnalytics() {
                                 </div>
                             </div>
                         ))}
+                        {aggregatedStaff.length === 0 && <div className="text-xs text-slate-500 italic">No completed tasks in range.</div>}
                     </div>
                 </div>
 
@@ -1137,41 +1186,26 @@ export default function OwnerAnalytics() {
                     <SectionTitle title="Risk & Escalation Insight" action={<MoreHorizontal size={14} className="text-slate-600" />} />
 
                     <div className="space-y-5">
-                        <div className="flex gap-3">
-                            <div className="mt-0.5 h-6 w-6 shrink-0 rounded-full bg-rose-500/10 flex items-center justify-center text-rose-500">
-                                <ShieldAlert size={14} />
-                            </div>
-                            <div>
-                                <h4 className="text-xs font-bold text-rose-400 mb-0.5">Frequent Breaches</h4>
-                                <p className="text-[11px] text-slate-400 leading-relaxed">
-                                    Room 216 had 4 SLA Breaches {timeRange === 'today' ? 'today' : (timeRange === '7d' ? 'in the last week' : 'this month')}. Investigation recommended.
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="flex gap-3">
-                            <div className="mt-0.5 h-6 w-6 shrink-0 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
-                                <ArrowUpRight size={14} />
-                            </div>
-                            <div>
-                                <h4 className="text-xs font-bold text-blue-400 mb-0.5">Frequent Exceptions</h4>
-                                <p className="text-[11px] text-slate-400 leading-relaxed">
-                                    "Spare parts unavailable" granted 12 times. Check inventory levels.
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="flex gap-3">
-                            <div className="mt-0.5 h-6 w-6 shrink-0 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500">
-                                <Clock size={14} />
-                            </div>
-                            <div>
-                                <h4 className="text-xs font-bold text-amber-400 mb-0.5">At Risk Shift</h4>
-                                <p className="text-[11px] text-slate-400 leading-relaxed">
-                                    Night shift (22:00-06:00) has 12 At Risk tasks and 6 Breaches.
-                                </p>
-                            </div>
-                        </div>
+                        {riskInsights.length === 0 ? (
+                            <div className="text-xs text-slate-500 italic">No risk signals in this period — SLAs look healthy.</div>
+                        ) : (
+                            riskInsights.map((ins, i) => {
+                                const Icon = ins.tone === "rose" ? ShieldAlert : ins.tone === "blue" ? ArrowUpRight : Clock;
+                                const dotCls = ins.tone === "rose" ? "bg-rose-500/10 text-rose-500" : ins.tone === "blue" ? "bg-blue-500/10 text-blue-500" : "bg-amber-500/10 text-amber-500";
+                                const titleCls = ins.tone === "rose" ? "text-rose-400" : ins.tone === "blue" ? "text-blue-400" : "text-amber-400";
+                                return (
+                                    <div key={i} className="flex gap-3">
+                                        <div className={`mt-0.5 h-6 w-6 shrink-0 rounded-full flex items-center justify-center ${dotCls}`}>
+                                            <Icon size={14} />
+                                        </div>
+                                        <div>
+                                            <h4 className={`text-xs font-bold mb-0.5 ${titleCls}`}>{ins.title}</h4>
+                                            <p className="text-[11px] text-slate-400 leading-relaxed">{ins.text}</p>
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        )}
                     </div>
                 </div>
 

@@ -312,12 +312,11 @@ export default function OwnerAnalytics() {
     const COLORS = ['#f97316', '#a855f7', '#3b82f6', '#22c55e', '#6366f1'];
 
     // Utility to get Local ISO date string (YYYY-MM-DD)
-    // Bucket days in UTC to match the views, which group by date(created_at) and
-    // compare against CURRENT_DATE (both UTC on the server). Using the browser's
-    // local date here previously drifted the window/"Today" filter by a day for
-    // non-UTC users (e.g. IST). (Full hotel-timezone business-day alignment would
-    // require the views to bucket in the hotel tz — tracked separately.)
-    const getISODate = (d: Date) => d.toISOString().split('T')[0];
+    // Bucket days in the hotel timezone (IST / Asia/Kolkata) to match the views,
+    // which bucket date(...) and "today" in Asia/Kolkata (migration
+    // 20260617000001). en-CA formats as YYYY-MM-DD, matching the view's `day`.
+    const getISODate = (d: Date) =>
+        new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(d);
 
     // Derived Data based on Time Range
     const getActiveWindow = (arr: any[]) => {

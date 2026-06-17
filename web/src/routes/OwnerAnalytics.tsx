@@ -854,9 +854,8 @@ export default function OwnerAnalytics() {
                     <div className="grid lg:grid-cols-3 gap-8 h-full">
                         {/* Left: Compliance Donut */}
                         <div className="col-span-1 flex flex-col items-center border-r border-slate-800/50 pr-6">
-                            <div className="flex items-baseline gap-2 mb-2 w-full justify-center">
-                                <span className="text-5xl font-bold text-emerald-400 tracking-tight">{complianceDisplay}</span>
-                                <span className="text-[10px] uppercase font-bold text-amber-500">
+                            <div className="mb-1 w-full text-center">
+                                <span className="text-[10px] uppercase font-bold tracking-widest text-amber-500">
                                     SLA Compliance
                                 </span>
                             </div>

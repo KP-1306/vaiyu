@@ -478,7 +478,9 @@ const router = createBrowserRouter([
         path: "ops/analytics",
         element: (
           <AuthGate>
-            <OpsManagerAnalytics />
+            <AnalyticsRoleGuard>
+              <OpsManagerAnalytics />
+            </AnalyticsRoleGuard>
           </AuthGate>
         ),
       },

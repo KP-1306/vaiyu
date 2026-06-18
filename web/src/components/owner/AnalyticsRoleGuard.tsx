@@ -1,18 +1,23 @@
 // web/src/components/owner/AnalyticsRoleGuard.tsx
-// Route-level authorization for the Owner Analytics page.
-// Uses the SAME server-authoritative predicate the v_owner_* analytics views
-// enforce (vaiyu_can_view_hotel_analytics), so the UI gate and the data scope
-// can never drift: a non-manager is denied the page here AND would get zero
-// rows from the views. Normal staff must not see analytics at all.
+// Route-level authorization for the Owner Analytics AND Ops Manager Analytics
+// pages. Uses the SAME server-authoritative predicate the v_owner_*/v_ops_*
+// analytics views enforce (vaiyu_can_view_hotel_analytics), so the UI gate and
+// the data scope can never drift: a non-manager is denied the page here AND
+// would get zero rows from the views. Normal staff must not see analytics at all.
 // Mirrors FinanceRoleGuard (vaiyu_is_hotel_finance_manager) for the finance pages.
+//
+// Slug source: path param (/owner/:slug/analytics) OR ?slug= query param
+// (/ops/analytics?slug=…), so one guard covers both analytics routes.
 
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import { DarkLoading, DarkErrorPanel } from "./DarkShell";
 
 export default function AnalyticsRoleGuard({ children }: { children: React.ReactNode }) {
-  const { slug } = useParams<{ slug: string }>();
+  const params = useParams<{ slug?: string }>();
+  const [searchParams] = useSearchParams();
+  const slug = params.slug ?? searchParams.get("slug") ?? undefined;
   const [state, setState] = useState<"loading" | "allowed" | "denied" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 

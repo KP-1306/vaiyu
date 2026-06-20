@@ -1,0 +1,91 @@
+{
+  "title": "Payments & Settlements",
+  "subtitle": "Money in, money out, and what Razorpay has settled to your Linked Account.",
+  "reconcile": {
+    "toggleOpen": "Close reconciliation",
+    "toggleClosed": "Reconcile",
+    "toggleTitle": "Audit our DB against Razorpay’s API for a date range"
+  },
+  "exportCsv": "Export CSV",
+  "period": {
+    "today": "Today",
+    "7d": "Last 7 days",
+    "30d": "Last 30 days",
+    "month": "This month",
+    "all": "All time"
+  },
+  "pending": {
+    "title_one": "{{count}} refund pending review",
+    "title_other": "{{count}} refunds pending review",
+    "note": "· auto-flagged when bookings were cancelled; not yet sent to Razorpay",
+    "hide": "Hide",
+    "review": "Review",
+    "processing": "Processing…",
+    "processAll": "Process all",
+    "submitted_one": "{{count}} refund submitted to Razorpay.",
+    "submitted_other": "{{count}} refunds submitted to Razorpay.",
+    "autoFlagged": "Auto-flagged",
+    "sending": "Sending",
+    "process": "Process"
+  },
+  "stuck": {
+    "title_one": "{{count}} refund awaiting Razorpay confirmation",
+    "title_other": "{{count}} refunds awaiting Razorpay confirmation",
+    "note": "· submitted to Razorpay; webhook hasn’t arrived yet",
+    "submitted": "Submitted",
+    "checking": "Checking",
+    "refreshStatus": "Refresh status"
+  },
+  "recon": {
+    "title": "Reconciliation",
+    "desc": "Audit our payments + refunds against Razorpay’s API for a date range. Max 31 days per run.",
+    "from": "From",
+    "to": "To",
+    "auditing": "Auditing…",
+    "run": "Run reconciliation",
+    "notOnRazorpay": "This hotel isn’t on Razorpay (mode=NONE). Configure DIRECT or ROUTE in Owner Settings first.",
+    "statPayments": "Payments checked",
+    "statRefunds": "Refunds checked",
+    "statDiscrepancies": "Discrepancies",
+    "ran": "Ran {{time}} IST",
+    "allClear": "All clear — our records match Razorpay for this window.",
+    "idle": "Pick a date range and run. We’ll fetch each payment + refund from Razorpay and report any mismatches.",
+    "ours": "Ours"
+  },
+  "refresh": {
+    "synced": "Refund now {{status}} — synced from Razorpay.",
+    "stillReports": "Razorpay still reports “{{status}}” — try again in a few minutes."
+  },
+  "summary": {
+    "collected": "Total collected",
+    "collectedSub": "{{count}} completed",
+    "refunded": "Refunded",
+    "refundedSub": "{{count}} processed",
+    "net": "Net to hotel",
+    "netSub": "Collected − refunded − fee",
+    "fee": "Platform fee retained",
+    "feeSub": "{{pct}}% on Razorpay only"
+  },
+  "search": { "placeholder": "Search booking, guest, or reference" },
+  "filter": { "allMethods": "All methods", "allStatuses": "All statuses" },
+  "table": {
+    "date": "Date",
+    "booking": "Booking",
+    "guest": "Guest",
+    "method": "Method",
+    "amount": "Amount",
+    "fee": "Fee",
+    "refunded": "Refunded",
+    "status": "Status",
+    "ref": "Ref",
+    "loading": "Loading payments…",
+    "empty": "No payments in this window.",
+    "refundCount_one": "{{count}} refund",
+    "refundCount_other": "{{count}} refunds",
+    "refundsAgainst": "Refunds against this payment",
+    "noReason": "No reason given",
+    "refresh": "Refresh",
+    "checking": "Checking"
+  },
+  "footer": "Showing the most recent {{shown}} of {{total}} payments for the selected window. Settlement timing for Razorpay payouts to your Linked Account is governed by your Razorpay agreement (usually T+1 to T+3 business days). The amounts here reflect what was captured, not what has hit your bank account."
+}

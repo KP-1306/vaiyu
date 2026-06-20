@@ -83,6 +83,8 @@
     "UNPAID": "अनपेड",
     "PARTIAL": "पार्शियल",
     "REFUNDED": "रिफंड हुआ",
+    "FAILED": "फेल",
+    "PROCESSED": "प्रोसेस्ड",
     "CLEAN": "साफ़",
     "DIRTY": "गंदा",
     "INSPECTED": "जांचा गया",
@@ -101,6 +103,9 @@
     "CARD": "कार्ड",
     "UPI": "UPI",
     "ONLINE": "ऑनलाइन",
+    "BANK_TRANSFER": "बैंक ट्रांसफर",
+    "WALLET": "वॉलेट",
+    "OTHER": "अन्य",
     "DIRECT": "डायरेक्ट",
     "ROUTE": "रूट"
   }

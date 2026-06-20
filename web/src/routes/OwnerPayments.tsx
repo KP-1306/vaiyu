@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import OwnerGate from "../components/OwnerGate";
+import { useOwnerT, useOwnerCommonT, useOwnerLocale, localizeCode, type OwnerT } from "../i18n/useOwnerT";
 import {
     RazorpayServiceError,
     type ReconcileDiscrepancy,
@@ -96,6 +97,9 @@ const PERIOD_OPTIONS: { key: PeriodKey; label: string }[] = [
 
 export default function OwnerPayments() {
     const { slug } = useParams<{ slug: string }>();
+    const t = useOwnerT("owner-payments");
+    const tc = useOwnerCommonT();
+    const locale = useOwnerLocale();
     const [loading, setLoading] = useState(true);
     const [hotelId, setHotelId] = useState<string | null>(null);
     const [platformFeePct, setPlatformFeePct] = useState<number>(0);
@@ -296,9 +300,9 @@ export default function OwnerPayments() {
         try {
             const out = await clientForRefund(r).refreshRefundStatus(r.id);
             if (out.changed) {
-                setRefreshMessage(`Refund now ${out.ourStatus.toLowerCase()} — synced from Razorpay.`);
+                setRefreshMessage(t("refresh.synced", "Refund now {{status}} — synced from Razorpay.", { status: out.ourStatus.toLowerCase() }));
             } else {
-                setRefreshMessage(`Razorpay still reports "${out.razorpayStatus}" — try again in a few minutes.`);
+                setRefreshMessage(t("refresh.stillReports", "Razorpay still reports “{{status}}” — try again in a few minutes.", { status: out.razorpayStatus }));
             }
         } catch (e) {
             setRefreshMessage(
@@ -312,7 +316,7 @@ export default function OwnerPayments() {
     async function runReconcile() {
         if (!hotelId) return;
         if (hotelRazorpayMode === "NONE") {
-            setReconError("This hotel isn't on Razorpay (mode=NONE). Configure DIRECT or ROUTE in Owner Settings first.");
+            setReconError(t("recon.notOnRazorpay", "This hotel isn’t on Razorpay (mode=NONE). Configure DIRECT or ROUTE in Owner Settings first."));
             return;
         }
         setReconRunning(true);
@@ -384,19 +388,19 @@ export default function OwnerPayments() {
     /* ---------- Render ---------- */
     return (
         <OwnerGate>
-            <div className="min-h-screen bg-slate-950 text-slate-100">
+            <div className="vaiyu-owner min-h-screen bg-slate-950 text-slate-100">
                 <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
                     {/* Header */}
                     <header className="flex items-start justify-between gap-4 mb-6">
                         <div>
                             <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-                                <Link to={`/owner/${slug}`} className="hover:text-slate-300 transition-colors">Dashboard</Link>
+                                <Link to={`/owner/${slug}`} className="hover:text-slate-300 transition-colors">{tc("nav.dashboard", "Dashboard")}</Link>
                                 <span>/</span>
-                                <span className="text-slate-300">Payments &amp; Settlements</span>
+                                <span className="text-slate-300">{t("title", "Payments & Settlements")}</span>
                             </div>
-                            <h1 className="text-2xl font-bold text-white tracking-tight">Payments &amp; Settlements</h1>
+                            <h1 className="text-2xl font-bold text-white tracking-tight">{t("title", "Payments & Settlements")}</h1>
                             <p className="mt-1 text-sm text-slate-400">
-                                Money in, money out, and what Razorpay has settled to your Linked Account.
+                                {t("subtitle", "Money in, money out, and what Razorpay has settled to your Linked Account.")}
                             </p>
                         </div>
                         <div className="flex items-center gap-2">
@@ -406,10 +410,10 @@ export default function OwnerPayments() {
                                     ? "border-sky-500/40 bg-sky-500/10 text-sky-200 hover:bg-sky-500/20"
                                     : "border-slate-700 bg-slate-800/50 text-slate-200 hover:bg-slate-800"
                                     }`}
-                                title="Audit our DB against Razorpay's API for a date range"
+                                title={t("reconcile.toggleTitle", "Audit our DB against Razorpay’s API for a date range")}
                             >
                                 <Shield size={14} />
-                                {showReconcile ? "Close reconciliation" : "Reconcile"}
+                                {showReconcile ? t("reconcile.toggleOpen", "Close reconciliation") : t("reconcile.toggleClosed", "Reconcile")}
                             </button>
                             <button
                                 onClick={exportCSV}
@@ -417,7 +421,7 @@ export default function OwnerPayments() {
                                 className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/50 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                                 <Download size={14} />
-                                Export CSV
+                                {t("exportCsv", "Export CSV")}
                             </button>
                         </div>
                     </header>
@@ -433,7 +437,7 @@ export default function OwnerPayments() {
                                     : "text-slate-400 hover:text-white border border-transparent"
                                     }`}
                             >
-                                {p.label}
+                                {t(`period.${p.key}`, p.label)}
                             </button>
                         ))}
                     </div>
@@ -446,10 +450,10 @@ export default function OwnerPayments() {
                                 <div className="flex items-center gap-2 min-w-0">
                                     <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
                                     <span className="text-sm font-bold text-amber-200">
-                                        {pendingRefunds.length} {pendingRefunds.length === 1 ? "refund" : "refunds"} pending review
+                                        {t("pending.title", "{{count}} refunds pending review", { count: pendingRefunds.length })}
                                     </span>
                                     <span className="text-xs text-amber-300/70 truncate">
-                                        · auto-flagged when bookings were cancelled; not yet sent to Razorpay
+                                        {t("pending.note", "· auto-flagged when bookings were cancelled; not yet sent to Razorpay")}
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0">
@@ -457,7 +461,7 @@ export default function OwnerPayments() {
                                         onClick={() => setShowPendingPanel((v) => !v)}
                                         className="text-[11px] font-semibold text-amber-200 hover:text-white"
                                     >
-                                        {showPendingPanel ? "Hide" : "Review"}
+                                        {showPendingPanel ? t("pending.hide", "Hide") : t("pending.review", "Review")}
                                     </button>
                                     <button
                                         onClick={processAllPending}
@@ -465,7 +469,7 @@ export default function OwnerPayments() {
                                         className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg border bg-amber-500/15 hover:bg-amber-500/25 text-amber-200 hover:text-white border-amber-500/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                     >
                                         {batchProcessing ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}
-                                        {batchProcessing ? "Processing…" : "Process all"}
+                                        {batchProcessing ? t("pending.processing", "Processing…") : t("pending.processAll", "Process all")}
                                     </button>
                                 </div>
                             </div>
@@ -479,7 +483,7 @@ export default function OwnerPayments() {
                             {pendingProcessOk > 0 && !pendingProcessError && (
                                 <div className="px-4 py-2 text-xs text-emerald-300 bg-emerald-500/10 border-b border-emerald-500/20 flex items-center gap-2">
                                     <CheckCircle2 className="w-3 h-3 shrink-0" />
-                                    {pendingProcessOk} {pendingProcessOk === 1 ? "refund" : "refunds"} submitted to Razorpay.
+                                    {t("pending.submitted", "{{count}} refunds submitted to Razorpay.", { count: pendingProcessOk })}
                                 </div>
                             )}
 
@@ -493,10 +497,10 @@ export default function OwnerPayments() {
                                                     ₹{Number(r.amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                                                 </div>
                                                 <div className="flex-1 min-w-0 text-slate-300 truncate">
-                                                    {r.reason ?? "Auto-flagged"}
+                                                    {r.reason ?? t("pending.autoFlagged", "Auto-flagged")}
                                                 </div>
                                                 <div className="text-slate-500 font-mono text-[10px] hidden sm:block">
-                                                    {new Date(r.initiated_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                                                    {new Date(r.initiated_at).toLocaleDateString(locale, { day: "numeric", month: "short" })}
                                                 </div>
                                                 <button
                                                     onClick={() => processOnePending(r)}
@@ -504,7 +508,7 @@ export default function OwnerPayments() {
                                                     className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md border bg-amber-500/10 hover:bg-amber-500/20 text-amber-200 border-amber-500/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                                 >
                                                     {isProcessing ? <Loader2 size={10} className="animate-spin" /> : <RotateCcw size={10} />}
-                                                    {isProcessing ? "Sending" : "Process"}
+                                                    {isProcessing ? t("pending.sending", "Sending") : t("pending.process", "Process")}
                                                 </button>
                                             </div>
                                         );
@@ -523,10 +527,10 @@ export default function OwnerPayments() {
                                 <div className="flex items-center gap-2 min-w-0">
                                     <Clock className="w-4 h-4 text-sky-400 shrink-0" />
                                     <span className="text-sm font-bold text-sky-200">
-                                        {stuckRefunds.length} {stuckRefunds.length === 1 ? "refund" : "refunds"} awaiting Razorpay confirmation
+                                        {t("stuck.title", "{{count}} refunds awaiting Razorpay confirmation", { count: stuckRefunds.length })}
                                     </span>
                                     <span className="text-xs text-sky-300/70 truncate hidden sm:inline">
-                                        · submitted to Razorpay; webhook hasn't arrived yet
+                                        {t("stuck.note", "· submitted to Razorpay; webhook hasn’t arrived yet")}
                                     </span>
                                 </div>
                             </div>
@@ -548,8 +552,8 @@ export default function OwnerPayments() {
                                                 {r.razorpay_refund_id}
                                             </div>
                                             <div className="text-slate-500 font-mono text-[10px] hidden sm:block">
-                                                Submitted{" "}
-                                                {new Date(r.initiated_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                                                {t("stuck.submitted", "Submitted")}{" "}
+                                                {new Date(r.initiated_at).toLocaleDateString(locale, { day: "numeric", month: "short" })}
                                             </div>
                                             <button
                                                 onClick={() => runRefresh(r)}
@@ -557,7 +561,7 @@ export default function OwnerPayments() {
                                                 className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md border bg-sky-500/10 hover:bg-sky-500/20 text-sky-200 border-sky-500/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                             >
                                                 {isRefreshing ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
-                                                {isRefreshing ? "Checking" : "Refresh status"}
+                                                {isRefreshing ? t("stuck.checking", "Checking") : t("stuck.refreshStatus", "Refresh status")}
                                             </button>
                                         </div>
                                     );
@@ -574,14 +578,14 @@ export default function OwnerPayments() {
                                 <div className="flex items-center gap-2 min-w-0">
                                     <Shield className="w-4 h-4 text-sky-400 shrink-0" />
                                     <div className="min-w-0">
-                                        <div className="text-sm font-bold text-slate-200">Reconciliation</div>
+                                        <div className="text-sm font-bold text-slate-200">{t("recon.title", "Reconciliation")}</div>
                                         <div className="text-[11px] text-slate-500">
-                                            Audit our payments + refunds against Razorpay's API for a date range. Max 31 days per run.
+                                            {t("recon.desc", "Audit our payments + refunds against Razorpay’s API for a date range. Max 31 days per run.")}
                                         </div>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">From</label>
+                                    <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{t("recon.from", "From")}</label>
                                     <input
                                         type="date"
                                         value={reconFrom}
@@ -589,7 +593,7 @@ export default function OwnerPayments() {
                                         max={reconTo}
                                         className="rounded-lg border border-slate-700 bg-slate-900/50 px-2 py-1.5 text-xs text-slate-200"
                                     />
-                                    <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">To</label>
+                                    <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{t("recon.to", "To")}</label>
                                     <input
                                         type="date"
                                         value={reconTo}
@@ -604,7 +608,7 @@ export default function OwnerPayments() {
                                         className="inline-flex items-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/15 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-sky-200 hover:bg-sky-500/25 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                     >
                                         {reconRunning ? <Loader2 size={12} className="animate-spin" /> : <Shield size={12} />}
-                                        {reconRunning ? "Auditing…" : "Run reconciliation"}
+                                        {reconRunning ? t("recon.auditing", "Auditing…") : t("recon.run", "Run reconciliation")}
                                     </button>
                                 </div>
                             </div>
@@ -619,27 +623,27 @@ export default function OwnerPayments() {
                             {reconResult && (
                                 <div className="px-4 py-3">
                                     <div className="flex items-center gap-4 mb-3 flex-wrap">
-                                        <ReconStat label="Payments checked" value={reconResult.paymentsChecked} />
-                                        <ReconStat label="Refunds checked" value={reconResult.refundsChecked} />
+                                        <ReconStat label={t("recon.statPayments", "Payments checked")} value={reconResult.paymentsChecked} />
+                                        <ReconStat label={t("recon.statRefunds", "Refunds checked")} value={reconResult.refundsChecked} />
                                         <ReconStat
-                                            label="Discrepancies"
+                                            label={t("recon.statDiscrepancies", "Discrepancies")}
                                             value={reconResult.discrepancies.length}
                                             tone={reconResult.discrepancies.length === 0 ? "ok" : "warn"}
                                         />
                                         <div className="text-[10px] text-slate-500 font-mono ml-auto">
-                                            Ran {new Date(reconResult.ranAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kolkata" })} IST
+                                            {t("recon.ran", "Ran {{time}} IST", { time: new Date(reconResult.ranAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kolkata" }) })}
                                         </div>
                                     </div>
 
                                     {reconResult.discrepancies.length === 0 ? (
                                         <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/[0.06] px-3 py-3 text-xs text-emerald-200 flex items-center gap-2">
                                             <CheckCircle2 className="w-4 h-4 shrink-0" />
-                                            All clear — our records match Razorpay for this window.
+                                            {t("recon.allClear", "All clear — our records match Razorpay for this window.")}
                                         </div>
                                     ) : (
                                         <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
                                             {reconResult.discrepancies.map((d, i) => (
-                                                <DiscrepancyCard key={`${d.ourId}-${i}`} d={d} />
+                                                <DiscrepancyCard key={`${d.ourId}-${i}`} d={d} t={t} />
                                             ))}
                                         </div>
                                     )}
@@ -648,7 +652,7 @@ export default function OwnerPayments() {
 
                             {!reconResult && !reconError && !reconRunning && (
                                 <div className="px-4 py-3 text-xs text-slate-500">
-                                    Pick a date range and run. We'll fetch each payment + refund from Razorpay and report any mismatches.
+                                    {t("recon.idle", "Pick a date range and run. We’ll fetch each payment + refund from Razorpay and report any mismatches.")}
                                 </div>
                             )}
                         </div>
@@ -658,30 +662,30 @@ export default function OwnerPayments() {
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                         <SummaryCard
                             icon={IndianRupee}
-                            label="Total collected"
+                            label={t("summary.collected", "Total collected")}
                             value={fmtINR(totals.collected)}
-                            sub={`${totals.completedCount} completed`}
+                            sub={t("summary.collectedSub", "{{count}} completed", { count: totals.completedCount })}
                             tone="emerald"
                         />
                         <SummaryCard
                             icon={RotateCcw}
-                            label="Refunded"
+                            label={t("summary.refunded", "Refunded")}
                             value={fmtINR(totals.refunded)}
-                            sub={`${totals.processedRefundCount} processed`}
+                            sub={t("summary.refundedSub", "{{count}} processed", { count: totals.processedRefundCount })}
                             tone="amber"
                         />
                         <SummaryCard
                             icon={TrendingUp}
-                            label="Net to hotel"
+                            label={t("summary.net", "Net to hotel")}
                             value={fmtINR(totals.netToHotel)}
-                            sub="Collected − refunded − fee"
+                            sub={t("summary.netSub", "Collected − refunded − fee")}
                             tone="sky"
                         />
                         <SummaryCard
                             icon={PercentCircle}
-                            label="Platform fee retained"
+                            label={t("summary.fee", "Platform fee retained")}
                             value={fmtINR(totals.platformFee)}
-                            sub={`${platformFeePct}% on Razorpay only`}
+                            sub={t("summary.feeSub", "{{pct}}% on Razorpay only", { pct: platformFeePct })}
                             tone="neutral"
                         />
                     </div>
@@ -693,7 +697,7 @@ export default function OwnerPayments() {
                             <input
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
-                                placeholder="Search booking, guest, or reference"
+                                placeholder={t("search.placeholder", "Search booking, guest, or reference")}
                                 className="w-full rounded-lg border border-slate-700 bg-slate-900/50 pl-9 pr-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
                             />
                         </div>
@@ -704,24 +708,24 @@ export default function OwnerPayments() {
                                 onChange={(e) => setMethodFilter(e.target.value as any)}
                                 className="rounded-lg border border-slate-700 bg-slate-900/50 px-2 py-2 text-sm text-slate-200"
                             >
-                                <option value="">All methods</option>
-                                <option value="UPI">UPI</option>
-                                <option value="CARD">Card</option>
-                                <option value="WALLET">Wallet</option>
-                                <option value="BANK_TRANSFER">Bank transfer</option>
-                                <option value="CASH">Cash</option>
-                                <option value="OTHER">Other</option>
+                                <option value="">{t("filter.allMethods", "All methods")}</option>
+                                <option value="UPI">{tc("mode.UPI", "UPI")}</option>
+                                <option value="CARD">{tc("mode.CARD", "Card")}</option>
+                                <option value="WALLET">{tc("mode.WALLET", "Wallet")}</option>
+                                <option value="BANK_TRANSFER">{tc("mode.BANK_TRANSFER", "Bank transfer")}</option>
+                                <option value="CASH">{tc("mode.CASH", "Cash")}</option>
+                                <option value="OTHER">{tc("mode.OTHER", "Other")}</option>
                             </select>
                             <select
                                 value={statusFilter}
                                 onChange={(e) => setStatusFilter(e.target.value as any)}
                                 className="rounded-lg border border-slate-700 bg-slate-900/50 px-2 py-2 text-sm text-slate-200"
                             >
-                                <option value="">All statuses</option>
-                                <option value="COMPLETED">Completed</option>
-                                <option value="PENDING">Pending</option>
-                                <option value="FAILED">Failed</option>
-                                <option value="REFUNDED">Refunded</option>
+                                <option value="">{t("filter.allStatuses", "All statuses")}</option>
+                                <option value="COMPLETED">{tc("status.COMPLETED", "Completed")}</option>
+                                <option value="PENDING">{tc("status.PENDING", "Pending")}</option>
+                                <option value="FAILED">{tc("status.FAILED", "Failed")}</option>
+                                <option value="REFUNDED">{tc("status.REFUNDED", "Refunded")}</option>
                             </select>
                         </div>
                     </div>
@@ -731,26 +735,26 @@ export default function OwnerPayments() {
                         {loading ? (
                             <div className="flex items-center justify-center gap-2 py-16 text-slate-400 text-sm">
                                 <Loader2 className="w-4 h-4 animate-spin" />
-                                Loading payments…
+                                {t("table.loading", "Loading payments…")}
                             </div>
                         ) : filtered.length === 0 ? (
                             <div className="py-16 text-center text-sm text-slate-500">
-                                No payments in this window.
+                                {t("table.empty", "No payments in this window.")}
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="min-w-full divide-y divide-slate-800">
                                     <thead className="bg-slate-900/60">
                                         <tr>
-                                            <Th>Date</Th>
-                                            <Th>Booking</Th>
-                                            <Th>Guest</Th>
-                                            <Th>Method</Th>
-                                            <Th align="right">Amount</Th>
-                                            <Th align="right">Fee</Th>
-                                            <Th align="right">Refunded</Th>
-                                            <Th>Status</Th>
-                                            <Th>Ref</Th>
+                                            <Th>{t("table.date", "Date")}</Th>
+                                            <Th>{t("table.booking", "Booking")}</Th>
+                                            <Th>{t("table.guest", "Guest")}</Th>
+                                            <Th>{t("table.method", "Method")}</Th>
+                                            <Th align="right">{t("table.amount", "Amount")}</Th>
+                                            <Th align="right">{t("table.fee", "Fee")}</Th>
+                                            <Th align="right">{t("table.refunded", "Refunded")}</Th>
+                                            <Th>{t("table.status", "Status")}</Th>
+                                            <Th>{t("table.ref", "Ref")}</Th>
                                             <Th />
                                         </tr>
                                     </thead>
@@ -766,7 +770,7 @@ export default function OwnerPayments() {
                                                 <>
                                                     <tr key={p.id} className="hover:bg-slate-800/40 transition-colors">
                                                         <td className="px-4 py-3 text-sm text-slate-300 whitespace-nowrap">
-                                                            {new Date(p.created_at).toLocaleDateString("en-IN", {
+                                                            {new Date(p.created_at).toLocaleDateString(locale, {
                                                                 day: "numeric", month: "short", timeZone: "Asia/Kolkata",
                                                             })}
                                                             <div className="text-[11px] text-slate-500">
@@ -782,7 +786,7 @@ export default function OwnerPayments() {
                                                             {p.booking?.guest_name ?? "—"}
                                                         </td>
                                                         <td className="px-4 py-3 text-sm whitespace-nowrap">
-                                                            <MethodChip method={p.method} isRazorpay={isRazorpay(p)} />
+                                                            <MethodChip method={p.method} isRazorpay={isRazorpay(p)} tc={tc} />
                                                         </td>
                                                         <td className="px-4 py-3 text-sm text-right font-mono text-slate-100">
                                                             ₹{p.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
@@ -794,7 +798,7 @@ export default function OwnerPayments() {
                                                             {refundedTotal > 0 ? `−₹${refundedTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : "—"}
                                                         </td>
                                                         <td className="px-4 py-3 text-sm">
-                                                            <StatusBadge status={p.status} />
+                                                            <StatusBadge status={p.status} tc={tc} />
                                                         </td>
                                                         <td className="px-4 py-3 text-[11px] font-mono text-slate-500 whitespace-nowrap">
                                                             {p.razorpay_payment_id ? p.razorpay_payment_id.slice(0, 18) + "…" : "—"}
@@ -805,7 +809,7 @@ export default function OwnerPayments() {
                                                                     onClick={() => setExpanded(isExpanded ? null : p.id)}
                                                                     className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-slate-400 hover:text-white"
                                                                 >
-                                                                    {refundList.length} {refundList.length === 1 ? "refund" : "refunds"}
+                                                                    {t("table.refundCount", "{{count}} refunds", { count: refundList.length })}
                                                                     {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                                                                 </button>
                                                             )}
@@ -814,7 +818,7 @@ export default function OwnerPayments() {
                                                     {isExpanded && refundList.length > 0 && (
                                                         <tr className="bg-slate-900/60">
                                                             <td colSpan={10} className="px-4 py-3">
-                                                                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">Refunds against this payment</div>
+                                                                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">{t("table.refundsAgainst", "Refunds against this payment")}</div>
                                                                 <div className="space-y-1.5">
                                                                     {refundList.map((r) => {
                                                                         const canRefresh = r.status === "PENDING" && !!r.razorpay_refund_id;
@@ -825,9 +829,9 @@ export default function OwnerPayments() {
                                                                                     <span className="font-mono text-amber-400 shrink-0">
                                                                                         −₹{Number(r.amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                                                                                     </span>
-                                                                                    <RefundStatusBadge status={r.status} />
+                                                                                    <RefundStatusBadge status={r.status} tc={tc} />
                                                                                     <span className="text-slate-400 truncate">
-                                                                                        {r.reason || "No reason given"}
+                                                                                        {r.reason || t("table.noReason", "No reason given")}
                                                                                     </span>
                                                                                 </div>
                                                                                 <div className="flex items-center gap-2 shrink-0">
@@ -839,12 +843,12 @@ export default function OwnerPayments() {
                                                                                             title="Ask Razorpay for the current refund status"
                                                                                         >
                                                                                             {isRefreshing ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
-                                                                                            {isRefreshing ? "Checking" : "Refresh"}
+                                                                                            {isRefreshing ? t("table.checking", "Checking") : t("table.refresh", "Refresh")}
                                                                                         </button>
                                                                                     )}
                                                                                     <div className="text-slate-500 font-mono text-[10px]">
                                                                                         {r.razorpay_refund_id || r.id.slice(0, 8)} ·{" "}
-                                                                                        {new Date(r.initiated_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                                                                                        {new Date(r.initiated_at).toLocaleDateString(locale, { day: "numeric", month: "short" })}
                                                                                     </div>
                                                                                 </div>
                                                                             </div>
@@ -864,10 +868,7 @@ export default function OwnerPayments() {
                     </div>
 
                     <p className="text-[11px] text-slate-500 mt-4">
-                        Showing the most recent {filtered.length} of {payments.length} payments for the selected window.
-                        Settlement timing for Razorpay payouts to your Linked Account is governed by your Razorpay
-                        agreement (usually T+1 to T+3 business days). The amounts here reflect what was captured, not
-                        what has hit your bank account.
+                        {t("footer", "Showing the most recent {{shown}} of {{total}} payments for the selected window. Settlement timing for Razorpay payouts to your Linked Account is governed by your Razorpay agreement (usually T+1 to T+3 business days). The amounts here reflect what was captured, not what has hit your bank account.", { shown: filtered.length, total: payments.length })}
                     </p>
                 </div>
             </div>
@@ -914,8 +915,9 @@ function SummaryCard({
     );
 }
 
-function MethodChip({ method, isRazorpay }: { method: PaymentMethod; isRazorpay: boolean }) {
-    const label = isRazorpay ? `${methodLabel(method)} · Razorpay` : methodLabel(method);
+function MethodChip({ method, isRazorpay, tc }: { method: PaymentMethod; isRazorpay: boolean; tc: OwnerT }) {
+    const base = localizeCode(tc, "mode", method);
+    const label = isRazorpay ? `${base} · Razorpay` : base;
     const cls = isRazorpay
         ? "bg-sky-500/10 text-sky-300 border-sky-500/30"
         : "bg-slate-800 text-slate-300 border-slate-700";
@@ -926,7 +928,7 @@ function MethodChip({ method, isRazorpay }: { method: PaymentMethod; isRazorpay:
     );
 }
 
-function StatusBadge({ status }: { status: PaymentStatus }) {
+function StatusBadge({ status, tc }: { status: PaymentStatus; tc: OwnerT }) {
     const cls: Record<PaymentStatus, string> = {
         COMPLETED: "bg-emerald-500/10 text-emerald-300 border-emerald-500/30",
         PENDING: "bg-amber-500/10 text-amber-300 border-amber-500/30",
@@ -935,12 +937,12 @@ function StatusBadge({ status }: { status: PaymentStatus }) {
     };
     return (
         <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${cls[status]}`}>
-            {status.toLowerCase()}
+            {localizeCode(tc, "status", status)}
         </span>
     );
 }
 
-function RefundStatusBadge({ status }: { status: "PENDING" | "PROCESSED" | "FAILED" }) {
+function RefundStatusBadge({ status, tc }: { status: "PENDING" | "PROCESSED" | "FAILED"; tc: OwnerT }) {
     const cls: Record<typeof status, string> = {
         PROCESSED: "bg-emerald-500/10 text-emerald-300 border-emerald-500/30",
         PENDING: "bg-sky-500/10 text-sky-300 border-sky-500/30",
@@ -948,7 +950,7 @@ function RefundStatusBadge({ status }: { status: "PENDING" | "PROCESSED" | "FAIL
     };
     return (
         <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${cls[status]}`}>
-            {status.toLowerCase()}
+            {localizeCode(tc, "status", status)}
         </span>
     );
 }
@@ -967,14 +969,6 @@ function Th({ children, align = "left" }: { children?: React.ReactNode; align?: 
 
 function isRazorpay(p: PaymentRow): boolean {
     return !!p.razorpay_payment_id;
-}
-
-function methodLabel(m: PaymentMethod): string {
-    switch (m) {
-        case "BANK_TRANSFER": return "Bank";
-        case "WALLET": return "Wallet";
-        default: return m.charAt(0) + m.slice(1).toLowerCase();
-    }
 }
 
 function fmtINR(v: number): string {
@@ -1061,7 +1055,7 @@ function ReconStat({ label, value, tone }: { label: string; value: number; tone?
     );
 }
 
-function DiscrepancyCard({ d }: { d: ReconcileDiscrepancy }) {
+function DiscrepancyCard({ d, t }: { d: ReconcileDiscrepancy; t: OwnerT }) {
     const sev = {
         ERROR: { border: "border-rose-500/30", bg: "bg-rose-500/[0.06]", text: "text-rose-200", icon: AlertTriangle, iconColor: "text-rose-400" },
         WARN: { border: "border-amber-500/30", bg: "bg-amber-500/[0.06]", text: "text-amber-200", icon: AlertTriangle, iconColor: "text-amber-400" },
@@ -1087,7 +1081,7 @@ function DiscrepancyCard({ d }: { d: ReconcileDiscrepancy }) {
                     <div className="text-xs text-slate-200">{d.message}</div>
                     <div className="mt-1.5 grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-0.5 text-[10px] font-mono text-slate-500">
                         <div>
-                            Ours: status=<span className="text-slate-300">{String(d.our?.status ?? "—")}</span>
+                            {t("recon.ours", "Ours")}: status=<span className="text-slate-300">{String(d.our?.status ?? "—")}</span>
                             {ourAmt !== undefined && (
                                 <> · amount=<span className="text-slate-300">₹{Number(ourAmt).toFixed(2)}</span></>
                             )}

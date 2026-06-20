@@ -83,6 +83,8 @@
     "UNPAID": "Unpaid",
     "PARTIAL": "Partial",
     "REFUNDED": "Refunded",
+    "FAILED": "Failed",
+    "PROCESSED": "Processed",
     "CLEAN": "Clean",
     "DIRTY": "Dirty",
     "INSPECTED": "Inspected",
@@ -101,6 +103,9 @@
     "CARD": "Card",
     "UPI": "UPI",
     "ONLINE": "Online",
+    "BANK_TRANSFER": "Bank transfer",
+    "WALLET": "Wallet",
+    "OTHER": "Other",
     "DIRECT": "Direct",
     "ROUTE": "Route"
   }

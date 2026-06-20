@@ -1,0 +1,91 @@
+{
+  "title": "पेमेंट्स और सेटलमेंट",
+  "subtitle": "पैसा आना, पैसा जाना, और Razorpay ने आपके Linked Account में क्या सेटल किया।",
+  "reconcile": {
+    "toggleOpen": "रिकंसिलिएशन बंद करें",
+    "toggleClosed": "रिकंसाइल",
+    "toggleTitle": "किसी तारीख रेंज के लिए हमारे DB का Razorpay API से ऑडिट करें"
+  },
+  "exportCsv": "CSV एक्सपोर्ट",
+  "period": {
+    "today": "आज",
+    "7d": "पिछले 7 दिन",
+    "30d": "पिछले 30 दिन",
+    "month": "इस महीने",
+    "all": "सभी समय"
+  },
+  "pending": {
+    "title_one": "{{count}} रिफंड समीक्षा हेतु लंबित",
+    "title_other": "{{count}} रिफंड समीक्षा हेतु लंबित",
+    "note": "· बुकिंग कैंसल होने पर अपने आप फ्लैग हुए; अभी Razorpay को नहीं भेजे गए",
+    "hide": "छिपाएँ",
+    "review": "समीक्षा",
+    "processing": "प्रोसेस हो रहा है…",
+    "processAll": "सभी प्रोसेस करें",
+    "submitted_one": "{{count}} रिफंड Razorpay को भेजा गया।",
+    "submitted_other": "{{count}} रिफंड Razorpay को भेजे गए।",
+    "autoFlagged": "अपने आप फ्लैग हुआ",
+    "sending": "भेजा जा रहा है",
+    "process": "प्रोसेस"
+  },
+  "stuck": {
+    "title_one": "{{count}} रिफंड Razorpay की पुष्टि का इंतज़ार",
+    "title_other": "{{count}} रिफंड Razorpay की पुष्टि का इंतज़ार",
+    "note": "· Razorpay को भेजे जा चुके; webhook अभी नहीं आया",
+    "submitted": "भेजा गया",
+    "checking": "जांच रहे हैं",
+    "refreshStatus": "स्टेटस रिफ्रेश करें"
+  },
+  "recon": {
+    "title": "रिकंसिलिएशन",
+    "desc": "किसी तारीख रेंज के लिए हमारे पेमेंट्स + रिफंड का Razorpay API से ऑडिट करें। प्रति रन अधिकतम 31 दिन।",
+    "from": "से",
+    "to": "तक",
+    "auditing": "ऑडिट हो रहा है…",
+    "run": "रिकंसिलिएशन चलाएँ",
+    "notOnRazorpay": "यह होटल Razorpay पर नहीं है (mode=NONE)। पहले Owner Settings में DIRECT या ROUTE कॉन्फ़िगर करें।",
+    "statPayments": "जांचे गए पेमेंट्स",
+    "statRefunds": "जांचे गए रिफंड",
+    "statDiscrepancies": "विसंगतियाँ",
+    "ran": "{{time}} IST पर चला",
+    "allClear": "सब ठीक — इस अवधि के लिए हमारे रिकॉर्ड Razorpay से मेल खाते हैं।",
+    "idle": "एक तारीख रेंज चुनें और चलाएँ। हम हर पेमेंट + रिफंड Razorpay से लाकर किसी भी अंतर की रिपोर्ट देंगे।",
+    "ours": "हमारा"
+  },
+  "refresh": {
+    "synced": "रिफंड अब {{status}} — Razorpay से सिंक हुआ।",
+    "stillReports": "Razorpay अब भी “{{status}}” बता रहा है — कुछ मिनट बाद फिर कोशिश करें।"
+  },
+  "summary": {
+    "collected": "कुल वसूली",
+    "collectedSub": "{{count}} पूरे हुए",
+    "refunded": "रिफंड किया",
+    "refundedSub": "{{count}} प्रोसेस्ड",
+    "net": "होटल को नेट",
+    "netSub": "वसूली − रिफंड − फीस",
+    "fee": "प्लेटफ़ॉर्म फीस रखी गई",
+    "feeSub": "{{pct}}% केवल Razorpay पर"
+  },
+  "search": { "placeholder": "बुकिंग, गेस्ट या रेफरेंस खोजें" },
+  "filter": { "allMethods": "सभी तरीके", "allStatuses": "सभी स्टेटस" },
+  "table": {
+    "date": "तारीख",
+    "booking": "बुकिंग",
+    "guest": "गेस्ट",
+    "method": "तरीका",
+    "amount": "राशि",
+    "fee": "फीस",
+    "refunded": "रिफंड",
+    "status": "स्टेटस",
+    "ref": "रेफ",
+    "loading": "पेमेंट्स लोड हो रहे हैं…",
+    "empty": "इस अवधि में कोई पेमेंट नहीं।",
+    "refundCount_one": "{{count}} रिफंड",
+    "refundCount_other": "{{count}} रिफंड",
+    "refundsAgainst": "इस पेमेंट के विरुद्ध रिफंड",
+    "noReason": "कोई कारण नहीं दिया",
+    "refresh": "रिफ्रेश",
+    "checking": "जांच रहे हैं"
+  },
+  "footer": "चुनी गई अवधि के {{total}} में से सबसे हाल के {{shown}} पेमेंट्स दिख रहे हैं। आपके Linked Account में Razorpay पेआउट का सेटलमेंट समय आपके Razorpay एग्रीमेंट के अनुसार होता है (आमतौर पर T+1 से T+3 कार्यदिवस)। यहाँ दी राशियाँ कैप्चर हुई रकम दर्शाती हैं, बैंक खाते में पहुँची रकम नहीं।"
+}

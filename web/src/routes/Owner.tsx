@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Spinner from "../components/Spinner";
+import { useOwnerT, useOwnerCommonT, localizeCode } from "../i18n/useOwnerT";
 
 /* ─── Fallback cover images (curated Unsplash hotel/resort shots) ─── */
 const FALLBACK_COVERS = [
@@ -61,6 +62,7 @@ function PlusIcon() {
 /* ─── Main Component ─── */
 export default function Owner() {
   const nav = useNavigate();
+  const t = useOwnerT("owner-landing");
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [hotels, setHotels] = useState<HotelCard[]>([]);
@@ -155,8 +157,8 @@ export default function Owner() {
   /* ── Loading ── */
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#1a1c2e] grid place-items-center">
-        <Spinner label="Loading your properties..." />
+      <div className="vaiyu-owner min-h-screen bg-[#1a1c2e] grid place-items-center">
+        <Spinner label={t("loading", "Loading your properties...")} />
       </div>
     );
   }
@@ -164,13 +166,13 @@ export default function Owner() {
   /* ── Error ── */
   if (err) {
     return (
-      <div className="min-h-screen bg-[#1a1c2e] grid place-items-center">
+      <div className="vaiyu-owner min-h-screen bg-[#1a1c2e] grid place-items-center">
         <div className="max-w-xl mx-auto p-6 rounded-2xl border border-white/10 bg-white/5 backdrop-blur shadow-lg">
-          <div className="font-semibold text-rose-400 mb-2">Couldn't load your properties</div>
+          <div className="font-semibold text-rose-400 mb-2">{t("error.title", "Couldn’t load your properties")}</div>
           <div className="text-sm text-slate-300 mb-3">{err}</div>
           <ul className="text-xs list-disc ml-5 space-y-1 text-slate-400">
-            <li>Check that you're signed in with the invited/owner email.</li>
-            <li>Make sure RLS policies allow <code className="text-slate-300">SELECT</code> on <code className="text-slate-300">hotel_members</code> and <code className="text-slate-300">hotels</code>.</li>
+            <li>{t("error.hint1", "Check that you’re signed in with the invited/owner email.")}</li>
+            <li>{t("error.hint2", "Make sure RLS policies allow SELECT on hotel_members and hotels.")}</li>
           </ul>
         </div>
       </div>
@@ -178,7 +180,7 @@ export default function Owner() {
   }
 
   return (
-    <div className="min-h-screen bg-[#1a1c2e]">
+    <div className="vaiyu-owner min-h-screen bg-[#1a1c2e]">
       {/* ── Header ── */}
       <header className="sticky top-0 z-30 bg-[#222540]/90 backdrop-blur-md border-b border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
@@ -186,7 +188,7 @@ export default function Owner() {
             Vai<span className="text-indigo-400">yu</span>
           </div>
           <div className="text-slate-400 text-sm font-medium hidden sm:block">
-            Select a property to continue
+            {t("header.selectProperty", "Select a property to continue")}
           </div>
           <UserAvatar email={userEmail} />
         </div>
@@ -201,7 +203,7 @@ export default function Owner() {
             </div>
             <input
               type="text"
-              placeholder="Search property..."
+              placeholder={t("search.placeholder", "Search property...")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-11 pr-4 py-3 rounded-xl border border-white/10 bg-white/[0.06] text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-400/40 transition-all"
@@ -212,7 +214,7 @@ export default function Owner() {
             className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold text-white bg-indigo-600 shadow-lg shadow-indigo-600/25 transition-all hover:bg-indigo-500 hover:shadow-indigo-500/30 hover:scale-[1.02] active:scale-[0.98]"
           >
             <PlusIcon />
-            Add property
+            {t("addProperty", "Add property")}
           </Link>
         </div>
 
@@ -222,14 +224,14 @@ export default function Owner() {
             {hotels.length === 0 ? (
               <>
                 <div className="text-4xl mb-3">🏨</div>
-                <div className="font-semibold text-slate-200 mb-1">No properties yet</div>
-                <div className="text-sm text-slate-400">Add a property or accept an invite sent to your email.</div>
+                <div className="font-semibold text-slate-200 mb-1">{t("empty.noneTitle", "No properties yet")}</div>
+                <div className="text-sm text-slate-400">{t("empty.noneBody", "Add a property or accept an invite sent to your email.")}</div>
               </>
             ) : (
               <>
                 <div className="text-4xl mb-3">🔍</div>
-                <div className="font-semibold text-slate-200 mb-1">No matches found</div>
-                <div className="text-sm text-slate-400">Try a different search term.</div>
+                <div className="font-semibold text-slate-200 mb-1">{t("empty.noMatchTitle", "No matches found")}</div>
+                <div className="text-sm text-slate-400">{t("empty.noMatchBody", "Try a different search term.")}</div>
               </>
             )}
           </div>
@@ -244,7 +246,7 @@ export default function Owner() {
         {/* ── Footer Count ── */}
         {hotels.length > 0 && (
           <div className="mt-8 text-sm text-slate-500 font-medium">
-            {hotels.length} {hotels.length === 1 ? "property" : "properties"}
+            {t("count.properties", "{{count}} properties", { count: hotels.length })}
           </div>
         )}
       </main>
@@ -254,17 +256,12 @@ export default function Owner() {
 
 /* ─── Property Card ─── */
 function PropertyCard({ hotel, index }: { hotel: HotelCard; index: number }) {
+  const t = useOwnerT("owner-landing");
+  const tc = useOwnerCommonT();
   const coverUrl =
     hotel.cover_image_path || FALLBACK_COVERS[index % FALLBACK_COVERS.length];
 
-  const roleLabel =
-    hotel.role === "owner"
-      ? "Owner"
-      : hotel.role === "manager"
-        ? "Manager"
-        : hotel.role === "staff"
-          ? "Staff"
-          : hotel.role;
+  const roleLabel = localizeCode(tc, "role", (hotel.role || "").toUpperCase());
 
   const roleColor =
     hotel.role === "owner"
@@ -318,7 +315,7 @@ function PropertyCard({ hotel, index }: { hotel: HotelCard; index: number }) {
             {hotel.rooms_total != null && (
               <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-400">
                 <BuildingIcon />
-                {hotel.rooms_total} Rooms
+                {t("card.roomsCount", "{{count}} Rooms", { count: hotel.rooms_total })}
               </span>
             )}
             {/* Role badge */}
@@ -330,7 +327,7 @@ function PropertyCard({ hotel, index }: { hotel: HotelCard; index: number }) {
           </div>
 
           <span className="text-xs font-semibold text-indigo-400 group-hover:text-indigo-300 transition-colors whitespace-nowrap">
-            Open Console ›
+            {t("card.openConsole", "Open Console")} ›
           </span>
         </div>
       </div>
@@ -340,6 +337,7 @@ function PropertyCard({ hotel, index }: { hotel: HotelCard; index: number }) {
 
 /* ─── User Avatar ─── */
 function UserAvatar({ email }: { email: string | null }) {
+  const t = useOwnerT("owner-landing");
   const [open, setOpen] = useState(false);
   const initial = email ? email[0].toUpperCase() : "U";
 
@@ -353,7 +351,7 @@ function UserAvatar({ email }: { email: string | null }) {
       <button
         onClick={() => setOpen(!open)}
         className="w-9 h-9 rounded-full bg-white/10 border border-white/15 flex items-center justify-center text-slate-300 font-bold text-sm hover:bg-white/15 hover:text-white transition-colors"
-        title={email ?? "Account"}
+        title={email ?? t("account", "Account")}
       >
         {initial}
       </button>
@@ -371,7 +369,7 @@ function UserAvatar({ email }: { email: string | null }) {
               onClick={handleSignOut}
               className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors"
             >
-              Sign out
+              {t("signOut", "Sign out")}
             </button>
           </div>
         </>

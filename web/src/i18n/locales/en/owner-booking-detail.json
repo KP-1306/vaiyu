@@ -1,0 +1,18 @@
+{
+  "breadcrumb": { "console": "Console", "booking": "Booking" },
+  "notFound": {
+    "title": "Booking not found",
+    "body": "This booking doesn’t exist, or you don’t have access to it for this hotel.",
+    "cta": "Go to Arrivals"
+  },
+  "room": "Room {{rooms}}",
+  "via": "via {{source}}",
+  "balance": {
+    "outstanding": "Outstanding balance",
+    "refund": "Refund owed to guest",
+    "settled": "Settled"
+  },
+  "collect": "Collect {{amount}} · Cash",
+  "folio": { "empty": "No folio entries yet." },
+  "payments": { "title": "Payments" }
+}

@@ -1,0 +1,27 @@
+{
+  "header": { "selectProperty": "Select a property to continue" },
+  "search": { "placeholder": "Search property..." },
+  "addProperty": "Add property",
+  "empty": {
+    "noneTitle": "No properties yet",
+    "noneBody": "Add a property or accept an invite sent to your email.",
+    "noMatchTitle": "No matches found",
+    "noMatchBody": "Try a different search term."
+  },
+  "count": {
+    "properties_one": "{{count}} property",
+    "properties_other": "{{count}} properties"
+  },
+  "card": {
+    "roomsCount": "{{count}} Rooms",
+    "openConsole": "Open Console"
+  },
+  "account": "Account",
+  "signOut": "Sign out",
+  "loading": "Loading your properties...",
+  "error": {
+    "title": "Couldn’t load your properties",
+    "hint1": "Check that you’re signed in with the invited/owner email.",
+    "hint2": "Make sure RLS policies allow SELECT on hotel_members and hotels."
+  }
+}

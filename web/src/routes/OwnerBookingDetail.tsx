@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import { ArrowLeft, Wallet, BedDouble, Phone, CalendarRange, Loader2, AlertCircle } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { useOwnerT, useOwnerCommonT, useOwnerLocale, localizeCode } from "../i18n/useOwnerT";
 
 type Booking = {
   id: string;
@@ -29,14 +30,18 @@ type Payment = { id: string; amount: number; method: string; status: string; cre
 
 const fmtINR = (n: number) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(n || 0);
-const fmtDate = (s: string | null | undefined) =>
-  s ? new Date(s).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
+const fmtDate = (s: string | null | undefined, locale = "en-IN") =>
+  s ? new Date(s).toLocaleString(locale, { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
 const PAYABLE_STATUSES = new Set(["CHECKED_IN", "INHOUSE", "PRE_CHECKED_IN"]);
 
 export default function OwnerBookingDetail() {
   const { slug, bookingId } = useParams<{ slug: string; bookingId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const t = useOwnerT("owner-booking-detail");
+  const tc = useOwnerCommonT();
+  const locale = useOwnerLocale();
+  const dt = (s: string | null | undefined) => fmtDate(s, locale);
   // The palette passes the clicked booking so the header renders instantly.
   const seed = (location.state as { booking?: any } | null)?.booking;
 
@@ -124,31 +129,31 @@ export default function OwnerBookingDetail() {
   const backToArrivals = () => navigate(`/owner/${slug}/arrivals`);
 
   return (
-    <div className="min-h-screen w-full bg-[#0f1113] text-white font-['Outfit']">
+    <div className="vaiyu-owner min-h-screen w-full bg-[#0f1113] text-white font-['Outfit']">
       <div className="mx-auto max-w-3xl px-4 sm:px-6 py-5">
         {/* Breadcrumb + back */}
         <div className="mb-4 flex items-center justify-between gap-3">
           <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs font-medium">
-            <Link to="/owner" className="text-slate-400 hover:text-white transition-colors">Console</Link>
+            <Link to="/owner" className="text-slate-400 hover:text-white transition-colors">{t("breadcrumb.console", "Console")}</Link>
             <span className="text-slate-600">/</span>
-            <Link to={`/owner/${slug}`} className="text-slate-400 hover:text-white transition-colors">Dashboard</Link>
+            <Link to={`/owner/${slug}`} className="text-slate-400 hover:text-white transition-colors">{tc("nav.dashboard", "Dashboard")}</Link>
             <span className="text-slate-600">/</span>
-            <span className="text-slate-100 font-semibold">Booking{booking?.code ? ` ${booking.code}` : ""}</span>
+            <span className="text-slate-100 font-semibold">{t("breadcrumb.booking", "Booking")}{booking?.code ? ` ${booking.code}` : ""}</span>
           </nav>
           <button onClick={() => navigate(-1)} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white hover:border-indigo-500/40 transition">
-            <ArrowLeft size={14} /> Back
+            <ArrowLeft size={14} /> {tc("actions.back", "Back")}
           </button>
         </div>
 
         {notFound ? (
           <div className="rounded-2xl border border-white/[0.06] bg-[#16181b] px-6 py-16 text-center">
             <AlertCircle className="mx-auto mb-3 h-10 w-10 text-slate-600" />
-            <h2 className="text-lg font-bold text-slate-200">Booking not found</h2>
+            <h2 className="text-lg font-bold text-slate-200">{t("notFound.title", "Booking not found")}</h2>
             <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
-              This booking doesn't exist, or you don't have access to it for this hotel.
+              {t("notFound.body", "This booking doesn’t exist, or you don’t have access to it for this hotel.")}
             </p>
             <button onClick={backToArrivals} className="mt-5 inline-flex items-center gap-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-4 py-2 text-xs font-semibold text-indigo-200 hover:bg-indigo-500/20 transition">
-              Go to Arrivals
+              {t("notFound.cta", "Go to Arrivals")}
             </button>
           </div>
         ) : (
@@ -158,10 +163,10 @@ export default function OwnerBookingDetail() {
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2.5 flex-wrap">
-                    <h1 className="text-xl font-bold tracking-tight text-white truncate">{booking?.guest_name || "Guest"}</h1>
+                    <h1 className="text-xl font-bold tracking-tight text-white truncate">{booking?.guest_name || tc("terms.guest", "Guest")}</h1>
                     {booking?.status && (
                       <span className="rounded-full bg-white/5 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-300">
-                        {booking.status.replace(/_/g, " ")}
+                        {localizeCode(tc, "status", booking.status)}
                       </span>
                     )}
                   </div>
@@ -170,10 +175,10 @@ export default function OwnerBookingDetail() {
               </div>
 
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                <div className="flex items-center gap-2 text-slate-400"><CalendarRange size={15} className="text-slate-500 shrink-0" /><span>{fmtDate(booking?.scheduled_checkin_at)} → {fmtDate(booking?.scheduled_checkout_at)}</span></div>
-                {rooms.length > 0 && <div className="flex items-center gap-2 text-slate-400"><BedDouble size={15} className="text-slate-500 shrink-0" /><span>Room {rooms.join(", ")}</span></div>}
+                <div className="flex items-center gap-2 text-slate-400"><CalendarRange size={15} className="text-slate-500 shrink-0" /><span>{dt(booking?.scheduled_checkin_at)} → {dt(booking?.scheduled_checkout_at)}</span></div>
+                {rooms.length > 0 && <div className="flex items-center gap-2 text-slate-400"><BedDouble size={15} className="text-slate-500 shrink-0" /><span>{t("room", "Room {{rooms}}", { rooms: rooms.join(", ") })}</span></div>}
                 {booking?.phone && <div className="flex items-center gap-2 text-slate-400"><Phone size={15} className="text-slate-500 shrink-0" /><span>{booking.phone}</span></div>}
-                {booking?.source && <div className="text-slate-500 text-xs uppercase tracking-wide self-center">via {booking.source.replace(/_/g, " ")}</div>}
+                {booking?.source && <div className="text-slate-500 text-xs uppercase tracking-wide self-center">{t("via", "via {{source}}", { source: booking.source.replace(/_/g, " ") })}</div>}
               </div>
             </div>
 
@@ -186,7 +191,7 @@ export default function OwnerBookingDetail() {
                   </div>
                   <div>
                     <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                      {balance > 0.005 ? "Outstanding balance" : balance < -0.005 ? "Refund owed to guest" : "Settled"}
+                      {balance > 0.005 ? t("balance.outstanding", "Outstanding balance") : balance < -0.005 ? t("balance.refund", "Refund owed to guest") : t("balance.settled", "Settled")}
                     </div>
                     <div className={`font-mono text-lg font-bold ${balance > 0.005 ? "text-amber-300" : balance < -0.005 ? "text-sky-300" : "text-emerald-400"}`}>
                       {balance < -0.005 ? fmtINR(-balance) : fmtINR(balance)}
@@ -196,7 +201,7 @@ export default function OwnerBookingDetail() {
                 {canCollect && (
                   <button onClick={collect} disabled={collecting} className="inline-flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/15 px-4 py-2 text-sm font-semibold text-amber-200 hover:bg-amber-500/25 disabled:opacity-50 transition">
                     {collecting ? <Loader2 size={15} className="animate-spin" /> : <Wallet size={15} />}
-                    Collect {fmtINR(balance)} · Cash
+                    {t("collect", "Collect {{amount}} · Cash", { amount: fmtINR(balance) })}
                   </button>
                 )}
               </div>
@@ -205,18 +210,18 @@ export default function OwnerBookingDetail() {
 
             {/* Folio */}
             <div className="mt-4 rounded-2xl border border-white/[0.06] bg-[#16181b] p-5">
-              <h2 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">Folio</h2>
+              <h2 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">{tc("terms.folio", "Folio")}</h2>
               {loading && entries.length === 0 ? (
                 <div className="space-y-2">{[0, 1, 2].map((i) => <div key={i} className="h-9 rounded-lg bg-white/[0.03] animate-pulse" />)}</div>
               ) : entries.length === 0 ? (
-                <p className="py-6 text-center text-sm text-slate-500">No folio entries yet.</p>
+                <p className="py-6 text-center text-sm text-slate-500">{t("folio.empty", "No folio entries yet.")}</p>
               ) : (
                 <div className="divide-y divide-white/[0.04]">
                   {entries.map((e) => (
                     <div key={e.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                       <div className="min-w-0">
                         <span className="block truncate text-slate-200">{e.description || e.entry_type}</span>
-                        <span className="text-[11px] uppercase tracking-wide text-slate-600">{e.entry_type.replace(/_/g, " ")} · {fmtDate(e.created_at)}</span>
+                        <span className="text-[11px] uppercase tracking-wide text-slate-600">{e.entry_type.replace(/_/g, " ")} · {dt(e.created_at)}</span>
                       </div>
                       <span className={`font-mono shrink-0 ${Number(e.amount) < 0 ? "text-emerald-400" : "text-slate-200"}`}>{fmtINR(Number(e.amount))}</span>
                     </div>
@@ -228,13 +233,13 @@ export default function OwnerBookingDetail() {
             {/* Payments */}
             {payments.length > 0 && (
               <div className="mt-4 rounded-2xl border border-white/[0.06] bg-[#16181b] p-5">
-                <h2 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">Payments</h2>
+                <h2 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">{t("payments.title", "Payments")}</h2>
                 <div className="divide-y divide-white/[0.04]">
                   {payments.map((p) => (
                     <div key={p.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                       <div className="min-w-0">
-                        <span className="block text-slate-200">{p.method}</span>
-                        <span className="text-[11px] uppercase tracking-wide text-slate-600">{p.status} · {fmtDate(p.created_at)}</span>
+                        <span className="block text-slate-200">{localizeCode(tc, "mode", p.method)}</span>
+                        <span className="text-[11px] uppercase tracking-wide text-slate-600">{p.status} · {dt(p.created_at)}</span>
                       </div>
                       <span className="font-mono shrink-0 text-slate-200">{fmtINR(Number(p.amount))}</span>
                     </div>

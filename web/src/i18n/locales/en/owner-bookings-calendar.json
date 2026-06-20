@@ -1,0 +1,9 @@
+{
+  "breadcrumb": { "calendar": "Calendar" },
+  "title": "Bookings calendar",
+  "subtitle": "Reserved space for a visual arrivals / in-house / departures calendar for this property.",
+  "openStays": "Open stays list",
+  "openOps": "Open ops board",
+  "body1": "In this version, the calendar is intentionally read-only and not yet wired to live data.",
+  "body2": "You can continue using the Stays view and Ops board for day-to-day planning. Once your bookings calendar is ready, this page can show a grid of dates and rooms with simple colour codes."
+}

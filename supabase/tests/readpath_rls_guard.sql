@@ -58,11 +58,15 @@ BEGIN
       'hotels_for_user',        -- self-filters by auth.uid()
       'user_bills_overview',    -- self-filters (returns 0 to plain anon)
       'v_guest_food_orders',    -- guest portal, self-filters by current_guest_id()
-      'v_guest_tickets',        -- guest portal, self-filters
-      'v_food_orders_sla_risk', -- self-filters (0 rows to anon)
-      'v_api_24h',              -- observability, self-filters (0 to anon)
-      'v_api_top_fns_24h'       -- observability, self-filters (0 to anon)
+      'v_guest_tickets'         -- guest portal, self-filters
     ]);
+    -- REMOVED from this allowlist 2026-06-21 (both now sealed, no longer anon-readable):
+    --  • v_food_orders_sla_risk — was NOT self-filtering (no tenant predicate; spanned
+    --    3 hotels on prod) → real cross-tenant leak. Sealed by 20260621000001
+    --    (security_invoker + REVOKE anon).
+    --  • v_api_24h / v_api_top_fns_24h — aggregate ops telemetry that was anon-readable
+    --    only because obs.ts authenticated as anon. obs.ts moved to the service-role
+    --    key; sealed by 20260621000002 (security_invoker + REVOKE anon,authenticated).
 
   -- ── R2: base tables with an anon/public USING(true) SELECT policy ──────────
   SELECT string_agg(p.tablename || '.' || p.policyname, E'\n  ' ORDER BY p.tablename, p.policyname)

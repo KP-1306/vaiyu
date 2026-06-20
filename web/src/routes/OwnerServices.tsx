@@ -15,6 +15,7 @@ import ConfirmDialog from "../components/ConfirmDialog";
 import OwnerMenuManagement from "../components/OwnerMenuManagement";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
+import { useOwnerT, useOwnerCommonT } from "../i18n/useOwnerT";
 import styles from "./OwnerServices.module.css";
 
 interface Service {
@@ -47,6 +48,8 @@ interface Department {
 }
 
 export default function OwnerServices() {
+  const t = useOwnerT("owner-services");
+  const tc = useOwnerCommonT();
   const [searchParams] = useSearchParams();
   const hotelSlug = searchParams.get("slug");
   const [hotelId, setHotelId] = useState<string | null>(null);
@@ -130,7 +133,7 @@ export default function OwnerServices() {
 
   const loadData = useCallback(async () => {
     if (!hotelSlug) {
-      setError("Hotel slug is required");
+      setError(t("dialog.hotelSlugRequired", "Hotel slug is required"));
       setLoading(false);
       return;
     }
@@ -140,7 +143,7 @@ export default function OwnerServices() {
       setError(null);
 
       const { data: hotel } = await supabase.from("hotels").select("id").eq("slug", hotelSlug).single();
-      if (!hotel) throw new Error("Hotel not found");
+      if (!hotel) throw new Error(t("dialog.hotelNotFound", "Hotel not found"));
       setHotelId(hotel.id);
 
       const { data: depts, error: deptsError } = await supabase
@@ -188,11 +191,11 @@ export default function OwnerServices() {
         }))
       );
     } catch (err: any) {
-      setError(err.message || "Failed to load data");
+      setError(err.message || t("dialog.loadFailed", "Failed to load data"));
     } finally {
       setLoading(false);
     }
-  }, [hotelSlug]);
+  }, [hotelSlug, t]);
 
   // Helper to handle SLA field changes with smart detection
   const handleSLAChange = (deptId: string, field: keyof SLAPolicyData, value: string) => {
@@ -266,7 +269,7 @@ export default function OwnerServices() {
       isOpen: true,
       title,
       message,
-      confirmText: 'OK',
+      confirmText: t('dialog.ok', 'OK'),
       showCancel: false,
       confirmVariant: variant,
       onConfirm: () => setConfirmDialog(prev => ({ ...prev, isOpen: false })),
@@ -308,7 +311,7 @@ export default function OwnerServices() {
   const handleAddCustomService = () => {
     if (!customServiceName.trim()) return;
     if (!activeTab) {
-      showAlert('Department Required', "Please select a department to add the service to.", 'danger');
+      showAlert(t('dialog.deptRequiredTitle', 'Department Required'), t('dialog.deptRequiredMsg', "Please select a department to add the service to."), 'danger');
       return;
     }
 
@@ -326,7 +329,7 @@ export default function OwnerServices() {
     // Check for Duplicates
     const alreadyExists = services.some(s => s.key === newKey && s.department_id === activeTab);
     if (alreadyExists) {
-      showAlert('Duplicate Service', "A service with this name already exists in this department!", 'danger');
+      showAlert(t('dialog.dupServiceTitle', 'Duplicate Service'), t('dialog.dupServiceMsg', "A service with this name already exists in this department!"), 'danger');
       return;
     }
 
@@ -362,7 +365,7 @@ export default function OwnerServices() {
     }
 
     if (!hotelId) {
-      showAlert('Error', "Hotel context missing", 'danger');
+      showAlert(t('dialog.errorTitle', 'Error'), t('dialog.hotelMissing', "Hotel context missing"), 'danger');
       return;
     }
 
@@ -408,12 +411,12 @@ export default function OwnerServices() {
     if (duplicates.length > 0) {
       // If we were trying to add just one and it failed
       if (servicesToAdd.length === 1) {
-        const deptName = departments.find(d => d.id === servicesToAdd[0].departmentId)?.name || 'selected department';
-        showAlert('Duplicate Service', `A service with this name already exists in ${deptName}!`, 'danger');
+        const deptName = departments.find(d => d.id === servicesToAdd[0].departmentId)?.name || t('dialog.selectedDept', 'selected department');
+        showAlert(t('dialog.dupServiceTitle', 'Duplicate Service'), t('dialog.dupServiceMsgDept', "A service with this name already exists in {{dept}}!", { dept: deptName }), 'danger');
         return;
       } else {
         // Warn about duplicates but proceed with others if any
-        showAlert('Duplicate Services', `Skipped ${duplicates.length} services that already exist: ${duplicates.join(', ')}`, 'danger');
+        showAlert(t('dialog.dupServicesTitle', 'Duplicate Services'), t('dialog.dupServicesMsg', "Skipped {{count}} services that already exist: {{list}}", { count: duplicates.length, list: duplicates.join(', ') }), 'danger');
       }
     }
 
@@ -424,7 +427,7 @@ export default function OwnerServices() {
     // 4. Update Local State (No DB Write)
     setServices((prev) => [...prev, ...servicesToInsert]);
 
-    showAlert('Service Added', `Added ${servicesToInsert.length} service(s) to draft`, 'success');
+    showAlert(t('dialog.serviceAddedTitle', 'Service Added'), t('dialog.serviceAddedMsg', "Added {{count}} service(s) to draft", { count: servicesToInsert.length }), 'success');
     setDirty(true);
 
     // Navigate if needed (if single add to specific dept)
@@ -451,7 +454,7 @@ export default function OwnerServices() {
       await loadData();
       setEditingSLADeptId(null);
     } catch (err: any) {
-      showAlert('Save Failed', `Failed to save: ${err.message}`, 'danger');
+      showAlert(t('dialog.saveFailedTitle', 'Save Failed'), t('dialog.saveFailedMsg', "Failed to save: {{msg}}", { msg: err.message }), 'danger');
     }
   };
 
@@ -578,7 +581,7 @@ export default function OwnerServices() {
       // 3. Save Service changes
       const invalid = services.find((s) => !s.key.trim() || !s.label.trim());
       if (invalid) {
-        showAlert('Validation Error', "All services must have a key and label", 'danger');
+        showAlert(t('dialog.validationTitle', 'Validation Error'), t('dialog.validationMsg', "All services must have a key and label"), 'danger');
         return;
       }
 
@@ -608,7 +611,7 @@ export default function OwnerServices() {
         setActiveTab(newDeptToFocus);
       }
     } catch (err: any) {
-      showAlert('Error', `Failed: ${err.message}`, 'danger');
+      showAlert(t('dialog.errorTitle', 'Error'), t('dialog.failedMsg', "Failed: {{msg}}", { msg: err.message }), 'danger');
     } finally {
       setSaving(false);
     }
@@ -617,10 +620,10 @@ export default function OwnerServices() {
   const handleRevert = () => {
     setConfirmDialog({
       isOpen: true,
-      title: "Discard Changes?",
-      message: "Are you sure you want to discard your unsaved changes?",
-      confirmText: "Discard",
-      cancelText: "Cancel",
+      title: t('dialog.discardTitle', "Discard Changes?"),
+      message: t('dialog.discardMsg', "Are you sure you want to discard your unsaved changes?"),
+      confirmText: t('dialog.discard', "Discard"),
+      cancelText: tc('actions.cancel', "Cancel"),
       confirmVariant: 'danger',
       showCancel: true,
       onConfirm: () => {
@@ -635,9 +638,9 @@ export default function OwnerServices() {
   const handleArchiveDepartment = async (deptId: string, deptName: string) => {
     setConfirmDialog({
       isOpen: true,
-      title: `Archive "${deptName}"?`,
-      message: `This department will be hidden from new ticket creation but all existing tickets and history will remain intact.\n\nYou can reactivate it later if needed.`,
-      confirmText: 'Archive',
+      title: t('dialog.archiveDeptTitle', 'Archive “{{dept}}”?', { dept: deptName }),
+      message: t('dialog.archiveDeptMsg', "This department will be hidden from new ticket creation but all existing tickets and history will remain intact.\n\nYou can reactivate it later if needed."),
+      confirmText: t('dialog.archive', 'Archive'),
       variant: 'danger',
       icon: (
         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -661,9 +664,9 @@ export default function OwnerServices() {
             setSelectedDeptId(null);
           }
 
-          alert('Department archived successfully!');
+          alert(t('dialog.archived', 'Department archived successfully!'));
         } catch (err: any) {
-          alert(`Failed to archive department: ${err.message}`);
+          alert(t('dialog.archiveFailed', "Failed to archive department: {{msg}}", { msg: err.message }));
         } finally {
           setSaving(false);
         }
@@ -674,9 +677,9 @@ export default function OwnerServices() {
   const handleReactivateDepartment = async (deptId: string, deptName: string) => {
     setConfirmDialog({
       isOpen: true,
-      title: `Activate "${deptName}"?`,
-      message: `This department will be available for new ticket creation again.`,
-      confirmText: 'Activate',
+      title: t('dialog.activateDeptTitle', 'Activate “{{dept}}”?', { dept: deptName }),
+      message: t('dialog.activateDeptMsg', "This department will be available for new ticket creation again."),
+      confirmText: t('dialog.activate', 'Activate'),
       variant: 'success',
       icon: (
         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -696,9 +699,9 @@ export default function OwnerServices() {
 
           await loadData();
 
-          alert('Department activated successfully!');
+          alert(t('dialog.activated', 'Department activated successfully!'));
         } catch (err: any) {
-          alert(`Failed to activate department: ${err.message}`);
+          alert(t('dialog.activateFailed', "Failed to activate department: {{msg}}", { msg: err.message }));
         } finally {
           setSaving(false);
         }
@@ -748,7 +751,7 @@ export default function OwnerServices() {
 
     } catch (err: any) {
       console.error(err);
-      alert(`Failed to add departments: ${err.message}`);
+      alert(t('dialog.addDeptsFailed', "Failed to add departments: {{msg}}", { msg: err.message }));
     }
   };
 
@@ -759,7 +762,7 @@ export default function OwnerServices() {
     }
 
     if (!hotelSlug || !newDepartmentName.trim()) {
-      alert("Please enter department name");
+      alert(t('dialog.enterDeptName', "Please enter department name"));
       return;
     }
 
@@ -815,7 +818,7 @@ export default function OwnerServices() {
 
     } catch (err: any) {
       console.error(err);
-      alert(`Failed to add department: ${err.message}`);
+      alert(t('dialog.addDeptFailed', "Failed to add department: {{msg}}", { msg: err.message }));
     }
   };
 
@@ -833,16 +836,16 @@ export default function OwnerServices() {
 
   if (loading) {
     return (
-      <div className={styles.loadingContainer}>
-        <div className={styles.loadingText}>Loading...</div>
+      <div className={`vaiyu-owner ${styles.loadingContainer}`}>
+        <div className={styles.loadingText}>{tc('state.loading', 'Loading…')}</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className={styles.loadingContainer}>
-        <div className={styles.errorText}>Error: {error}</div>
+      <div className={`vaiyu-owner ${styles.loadingContainer}`}>
+        <div className={styles.errorText}>{t('errorPrefix', 'Error: {{msg}}', { msg: error })}</div>
       </div>
     );
   }
@@ -851,15 +854,15 @@ export default function OwnerServices() {
     <>
       <SEO title="Services & SLAs" noIndex />
       <OwnerGate roles={["owner", "manager"]}>
-        <div className="flex flex-col min-h-screen">
+        <div className="vaiyu-owner flex flex-col min-h-screen">
           {/* Header / Breadcrumb */}
           <header className="flex h-10 items-center border-b border-white/10 bg-[#1A2040] px-4 shadow-sm shrink-0">
             <div className="flex items-center gap-2 text-xs">
               <Link to={hotelSlug ? `/owner/${hotelSlug}` : '/owner'} className="font-medium text-slate-400 hover:text-white">
-                Dashboard
+                {tc('nav.dashboard', 'Dashboard')}
               </Link>
               <span className="text-slate-600">›</span>
-              <span className="font-semibold text-white">Departments/Services & SLAs</span>
+              <span className="font-semibold text-white">{t('breadcrumb', 'Departments/Services & SLAs')}</span>
             </div>
           </header>
 
@@ -868,8 +871,8 @@ export default function OwnerServices() {
               {/* Header */}
               <div className={styles.pageHeader}>
                 <div>
-                  <h1 className={styles.pageTitle}>Services & SLAs</h1>
-                  <p className={styles.pageSubtitle}>Manage guest services and response times</p>
+                  <h1 className={styles.pageTitle}>{t('title', 'Services & SLAs')}</h1>
+                  <p className={styles.pageSubtitle}>{t('subtitle', 'Manage guest services and response times')}</p>
                 </div>
                 <div className={styles.headerActions}>
                   <button
@@ -883,7 +886,7 @@ export default function OwnerServices() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
-                    Manage Departments & SLAs
+                    {t('manageDepartments', 'Manage Departments & SLAs')}
                   </button>
                   <button
                     onClick={() => setShowAddServiceSelectionModal(true)}
@@ -892,7 +895,7 @@ export default function OwnerServices() {
                     <svg className={styles.iconSmall} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
-                    Add Service
+                    {t('addService', 'Add Service')}
                   </button>
                 </div>
               </div>
@@ -917,14 +920,17 @@ export default function OwnerServices() {
                     <div className={styles.slaSummaryText}>
                       <span className={styles.slaSummaryLabel}>{activeDept.name.toUpperCase()}</span>
                       {" — "}
-                      SLA: {activeDept.sla_policy.target_minutes} min · Starts: {formatStartTrigger(activeDept.sla_policy.sla_start_trigger)} · Escalates: +
-                      {activeDept.sla_policy.escalate_minutes} min
+                      {t('sla.summary', 'SLA: {{target}} min · Starts: {{trigger}} · Escalates: +{{escalate}} min', {
+                        target: activeDept.sla_policy.target_minutes,
+                        trigger: t(`trigger.${activeDept.sla_policy.sla_start_trigger}`, formatStartTrigger(activeDept.sla_policy.sla_start_trigger)),
+                        escalate: activeDept.sla_policy.escalate_minutes,
+                      })}
                     </div>
                     <button
                       onClick={() => setEditingSLADeptId(activeTab)}
                       className={styles.editDepartmentButton}
                     >
-                      Edit Department SLA
+                      {t('sla.editDept', 'Edit Department SLA')}
                     </button>
                   </div>
 
@@ -944,7 +950,7 @@ export default function OwnerServices() {
                           fontSize: '14px'
                         }}
                       >
-                        Services & SLAs
+                        {t('subtab.services', 'Services & SLAs')}
                       </button>
                       <button
                         onClick={() => setActiveSubTab('menu')}
@@ -959,7 +965,7 @@ export default function OwnerServices() {
                           fontSize: '14px'
                         }}
                       >
-                        Menu & Food Items
+                        {t('subtab.menu', 'Menu & Food Items')}
                       </button>
                     </div>
                   )}
@@ -974,41 +980,41 @@ export default function OwnerServices() {
 
                       {/* Section Header */}
                       <div className={styles.sectionHeader}>
-                        <h2 className={styles.sectionTitle}>{activeDept?.name} Services</h2>
+                        <h2 className={styles.sectionTitle}>{t('section.deptServices', '{{dept}} Services', { dept: activeDept?.name })}</h2>
                         <label className={styles.showInactiveToggle}>
                           <input
                             type="checkbox"
                             checked={showInactiveServices}
                             onChange={(e) => setShowInactiveServices(e.target.checked)}
                           />
-                          Show inactive
+                          {t('section.showInactive', 'Show inactive')}
                         </label>
                       </div>
 
                       {/* Table Header */}
                       <div className={styles.tableHeader}>
-                        <div>Key</div>
+                        <div>{t('table.key', 'Key')}</div>
                         <div></div>
                         <div className={styles.tableHeaderCenter}>
                           <span className={styles.tooltipContainer}>
-                            SLA (min)
+                            {t('table.slaMin', 'SLA (min)')}
                             <span className={styles.infoIcon}>
                               <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
                             </span>
-                            <span className={styles.tooltip}>Service-level agreement: maximum response time</span>
+                            <span className={styles.tooltip}>{t('table.slaTooltip', 'Service-level agreement: maximum response time')}</span>
                           </span>
                         </div>
                         <div className={styles.tableHeaderCenter}>
                           <span className={styles.tooltipContainer}>
-                            Active
+                            {t('table.active', 'Active')}
                             <span className={styles.infoIcon}>
                               <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
                             </span>
-                            <span className={styles.tooltip}>Inactive services won't appear for new tickets</span>
+                            <span className={styles.tooltip}>{t('table.activeTooltip', "Inactive services won’t appear for new tickets")}</span>
                           </span>
                         </div>
                         <div></div>
@@ -1032,7 +1038,7 @@ export default function OwnerServices() {
                                     <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                                   </svg>
                                 </span>
-                                <span className={styles.tooltip}>Custom SLA: {service.sla_minutes} min (overrides department default)</span>
+                                <span className={styles.tooltip}>{t('table.customSla', 'Custom SLA: {{min}} min (overrides department default)', { min: service.sla_minutes })}</span>
                               </span>
                             )}
                           </div>
@@ -1063,7 +1069,7 @@ export default function OwnerServices() {
                                 checked={service.active}
                                 onChange={(e) => handleUpdateService(index, { active: e.target.checked })}
                                 className="sr-only peer"
-                                title={service.active ? "Deactivate service" : "Activate service (won't appear for new tickets)"}
+                                title={service.active ? t('table.deactivate', "Deactivate service") : t('table.activate', "Activate service (won’t appear for new tickets)")}
                               />
                               <div className="w-[38px] h-[22px] bg-gray-600 peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer peer-checked:after:translate-x-4 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:bg-[#4A7CFF]"></div>
                             </label>
@@ -1090,13 +1096,13 @@ export default function OwnerServices() {
                             }}
                             style={{ marginRight: '12px' }}
                           >
-                            + Add from Service Templates
+                            {t('addFromTemplates', '+ Add from Service Templates')}
                           </button>
                           <button
                             className={styles.addServicesButton}
                             onClick={() => setShowAddServiceForm(true)}
                           >
-                            + Create Custom Service
+                            {t('createCustom', '+ Create Custom Service')}
                           </button>
                         </div>
                       )}
@@ -1109,13 +1115,13 @@ export default function OwnerServices() {
               {showAddServiceForm && (
                 <div className={styles.addServicesSection}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                    <h3 className={styles.addServicesTitle} style={{ margin: 0 }}>Add New Service</h3>
+                    <h3 className={styles.addServicesTitle} style={{ margin: 0 }}>{t('addForm.title', 'Add New Service')}</h3>
                     <button
                       onClick={() => setShowAddServiceForm(false)}
                       className={styles.cancelButton}
                       style={{ background: 'none', border: 'none', color: '#9CA3AF', cursor: 'pointer', fontSize: '14px' }}
                     >
-                      Cancel
+                      {tc('actions.cancel', 'Cancel')}
                     </button>
                   </div>
                   <div className={styles.inlineAddServiceForm}>
@@ -1123,7 +1129,7 @@ export default function OwnerServices() {
                     {/* Service Name Column */}
                     <div className={styles.serviceNameColumn}>
                       <label className={styles.fieldLabel}>
-                        Service Name
+                        {t('addForm.serviceName', 'Service Name')}
                       </label>
                       <input
                         id="custom-service-input"
@@ -1131,7 +1137,7 @@ export default function OwnerServices() {
                         value={customServiceName}
                         onChange={(e) => setCustomServiceName(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && handleAddCustomService()}
-                        placeholder="e.g. Extra Pillow"
+                        placeholder={t('addForm.namePlaceholder', 'e.g. Extra Pillow')}
                         className={styles.addServicesInput}
                         style={{ width: '100%', marginBottom: 0 }}
                         autoFocus
@@ -1142,7 +1148,7 @@ export default function OwnerServices() {
                           englishValue={customServiceName}
                           value={customServiceNameHi}
                           onChange={setCustomServiceNameHi}
-                          placeholder="अतिथि को हिंदी में दिखेगा"
+                          placeholder={t('addForm.hiPlaceholder', 'अतिथि को हिंदी में दिखेगा')}
                           inputClassName={styles.addServicesInput}
                         />
                       </div>
@@ -1151,7 +1157,7 @@ export default function OwnerServices() {
                     {/* SLA Override Column */}
                     <div className={styles.slaColumn}>
                       <label className={styles.fieldLabel}>
-                        SLA Override
+                        {t('addForm.slaOverride', 'SLA Override')}
                       </label>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                         <input
@@ -1162,17 +1168,17 @@ export default function OwnerServices() {
                           className={styles.slaOverrideInput}
                           style={{ width: '100px', marginBottom: 0, textAlign: 'center' }}
                         />
-                        <span className={styles.minLabel}>min</span>
+                        <span className={styles.minLabel}>{t('addForm.min', 'min')}</span>
                       </div>
                       <div className={styles.helperText}>
-                        Default: {activeDept?.sla_policy?.target_minutes || 30}m · Effective: <span style={{ color: '#60A5FA' }}>{customServiceSLA ? customServiceSLA : (activeDept?.sla_policy?.target_minutes || 30)}m</span>
+                        {t('addForm.effective', 'Default: {{default}}m · Effective: {{effective}}m', { default: activeDept?.sla_policy?.target_minutes || 30, effective: customServiceSLA ? customServiceSLA : (activeDept?.sla_policy?.target_minutes || 30) })}
                       </div>
                     </div>
 
                     {/* Active Toggle Column */}
                     <div className={styles.availabilityColumn}>
                       <label className={styles.fieldLabel}>
-                        Availability
+                        {t('addForm.availability', 'Availability')}
                       </label>
                       <div style={{ display: 'flex', alignItems: 'center', height: '36px', marginBottom: '4px' }}>
                         <label className="relative inline-flex items-center cursor-pointer">
@@ -1186,7 +1192,7 @@ export default function OwnerServices() {
                         </label>
                       </div>
                       <div className={styles.helperText}>
-                        {customServiceActive ? "Available immediately" : "Starts inactive"}
+                        {customServiceActive ? t('addForm.availableNow', "Available immediately") : t('addForm.startsInactive', "Starts inactive")}
                       </div>
                     </div>
 
@@ -1205,7 +1211,7 @@ export default function OwnerServices() {
                         <svg className={styles.iconSmall} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                         </svg>
-                        Add Service
+                        {t('addForm.add', 'Add Service')}
                       </button>
                     </div>
                   </div>
@@ -1219,8 +1225,8 @@ export default function OwnerServices() {
                     <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                   </svg>
                   <div className={styles.warningTextContainer}>
-                    <div className={styles.warningTitle}>Changes apply to NEW tickets only</div>
-                    <div className={styles.warningDescription}>Existing tickets will continue with their original SLA</div>
+                    <div className={styles.warningTitle}>{t('warning.title', 'Changes apply to NEW tickets only')}</div>
+                    <div className={styles.warningDescription}>{t('warning.body', 'Existing tickets will continue with their original SLA')}</div>
                   </div>
                 </div>
               </div>
@@ -1231,18 +1237,18 @@ export default function OwnerServices() {
                   onClick={handleRevert}
                   className={styles.cancelButton}
                 >
-                  Cancel
+                  {tc('actions.cancel', 'Cancel')}
                 </button>
                 <div className={styles.footerActionsRight}>
                   <button className={styles.cancelButton}>
-                    Cancel
+                    {tc('actions.cancel', 'Cancel')}
                   </button>
                   <button
                     onClick={handleSave}
                     disabled={saving}
                     className={styles.saveButton}
                   >
-                    {saving ? "Saving..." : "Save Settings"}
+                    {saving ? tc('actions.saving', "Saving…") : t('footer.saveSettings', "Save Settings")}
                   </button>
                 </div>
               </div>
@@ -1289,7 +1295,7 @@ export default function OwnerServices() {
                 <div className={styles.modalContainer} onClick={(e) => e.stopPropagation()}>
                   {/* Modal Header */}
                   <div className={styles.modalHeader}>
-                    <h2 className={styles.modalTitle}>Manage Departments & SLAs</h2>
+                    <h2 className={styles.modalTitle}>{t('manage.title', 'Manage Departments & SLAs')}</h2>
                     <button
                       className={styles.modalClose}
                       onClick={() => {
@@ -1309,7 +1315,7 @@ export default function OwnerServices() {
                     {/* Department List */}
                     <div className={styles.departmentListSection}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                        <div className={styles.sectionLabel}>Departments</div>
+                        <div className={styles.sectionLabel}>{t('manage.departments', 'Departments')}</div>
                         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'rgba(255, 255, 255, 0.7)', cursor: 'pointer' }}>
                           <input
                             type="checkbox"
@@ -1317,7 +1323,7 @@ export default function OwnerServices() {
                             onChange={(e) => setShowInactiveDepartments(e.target.checked)}
                             style={{ cursor: 'pointer' }}
                           />
-                          Show inactive
+                          {t('section.showInactive', 'Show inactive')}
                         </label>
                       </div>
 
@@ -1333,7 +1339,7 @@ export default function OwnerServices() {
                                   {dept.name}
                                 </div>
                                 {!dept.is_active && (
-                                  <span className={styles.inactiveBadge}>Inactive</span>
+                                  <span className={styles.inactiveBadge}>{t('manage.inactiveBadge', 'Inactive')}</span>
                                 )}
                               </div>
 
@@ -1342,7 +1348,7 @@ export default function OwnerServices() {
                                   className={`${styles.departmentSettingsButton} ${selectedDeptId === dept.id ? styles.active : ''}`}
                                   onClick={() => !dept.is_active ? null : setSelectedDeptId(selectedDeptId === dept.id ? null : dept.id)}
                                   disabled={!dept.is_active}
-                                  title={!dept.is_active ? "Activate department to edit SLA settings" : "Configure SLA"}
+                                  title={!dept.is_active ? t('manage.activateToEdit', "Activate department to edit SLA settings") : t('manage.configureSla', "Configure SLA")}
                                 >
                                   <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -1353,7 +1359,7 @@ export default function OwnerServices() {
                                   <button
                                     className={styles.departmentArchiveButton}
                                     onClick={() => handleArchiveDepartment(dept.id, dept.name)}
-                                    title="Archive department (hides from new tickets, preserves history)"
+                                    title={t('manage.archiveTitle', "Archive department (hides from new tickets, preserves history)")}
                                   >
                                     <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
@@ -1363,7 +1369,7 @@ export default function OwnerServices() {
                                   <button
                                     className={styles.departmentReactivateButton}
                                     onClick={() => handleReactivateDepartment(dept.id, dept.name)}
-                                    title="Activate department"
+                                    title={t('manage.reactivateTitle', "Activate department")}
                                   >
                                     <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1376,19 +1382,19 @@ export default function OwnerServices() {
                             {/* SLA Configuration Panel */}
                             {selectedDeptId === dept.id && (
                               <div className={styles.slaConfigPanel}>
-                                <div className={styles.slaConfigTitle}>SLA Configuration</div>
+                                <div className={styles.slaConfigTitle}>{t('manage.slaConfig', 'SLA Configuration')}</div>
 
                                 {/* Target Time */}
                                 <div className={styles.slaField}>
                                   <label className={styles.slaFieldLabel}>
-                                    Target Time <span style={{ color: 'red' }}>*</span>
+                                    {t('manage.targetTime', 'Target Time')} <span style={{ color: 'red' }}>*</span>
                                     <span className={styles.tooltipContainer}>
                                       <span className={styles.infoIcon}>
                                         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
                                       </span>
-                                      <span className={styles.tooltip}>Maximum time to complete service request</span>
+                                      <span className={styles.tooltip}>{t('manage.targetTooltip', 'Maximum time to complete service request')}</span>
                                     </span>
                                   </label>
                                   <input
@@ -1403,14 +1409,14 @@ export default function OwnerServices() {
                                 {/* Warning Threshold */}
                                 <div className={styles.slaField}>
                                   <label className={styles.slaFieldLabel}>
-                                    Warning Threshold <span style={{ color: 'red' }}>*</span>
+                                    {t('manage.warnThreshold', 'Warning Threshold')} <span style={{ color: 'red' }}>*</span>
                                     <span className={styles.tooltipContainer}>
                                       <span className={styles.infoIcon}>
                                         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
                                       </span>
-                                      <span className={styles.tooltip}>Time before SLA breach to show warning</span>
+                                      <span className={styles.tooltip}>{t('manage.warnTooltip', 'Time before SLA breach to show warning')}</span>
                                     </span>
                                   </label>
                                   <input
@@ -1425,14 +1431,14 @@ export default function OwnerServices() {
                                 {/* Start Trigger */}
                                 <div className={styles.slaField}>
                                   <label className={styles.slaFieldLabel}>
-                                    Start Trigger
+                                    {t('manage.startTrigger', 'Start Trigger')}
                                     <span className={styles.tooltipContainer}>
                                       <span className={styles.infoIcon}>
                                         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
                                       </span>
-                                      <span className={styles.tooltip}>When SLA timer starts counting</span>
+                                      <span className={styles.tooltip}>{t('manage.startTooltip', 'When SLA timer starts counting')}</span>
                                     </span>
                                   </label>
                                   <select
@@ -1440,23 +1446,23 @@ export default function OwnerServices() {
                                     className={styles.slaFieldSelect}
                                     onChange={(e) => handleSLAChange(dept.id, 'sla_start_trigger', e.target.value)}
                                   >
-                                    <option value="ON_CREATE">On Create</option>
-                                    <option value="ON_ASSIGN">On Assign</option>
-                                    <option value="ON_ACCEPT">On Accept</option>
+                                    <option value="ON_CREATE">{t('trigger.ON_CREATE', 'On Create')}</option>
+                                    <option value="ON_ASSIGN">{t('trigger.ON_ASSIGN', 'On Assign')}</option>
+                                    <option value="ON_ACCEPT">{t('trigger.ON_ACCEPT', 'On Accept')}</option>
                                   </select>
                                 </div>
 
                                 {/* Escalate After */}
                                 <div className={styles.slaField}>
                                   <label className={styles.slaFieldLabel}>
-                                    Escalate After <span style={{ color: 'red' }}>*</span>
+                                    {t('manage.escalateAfter', 'Escalate After')} <span style={{ color: 'red' }}>*</span>
                                     <span className={styles.tooltipContainer}>
                                       <span className={styles.infoIcon}>
                                         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
                                       </span>
-                                      <span className={styles.tooltip}>Time before escalating to supervisor</span>
+                                      <span className={styles.tooltip}>{t('manage.escalateTooltip', 'Time before escalating to supervisor')}</span>
                                     </span>
                                   </label>
                                   <input
@@ -1481,13 +1487,13 @@ export default function OwnerServices() {
                           <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                           </svg>
-                          Add Department
+                          {t('manage.addDepartment', 'Add Department')}
                         </button>
                       ) : (
                         <div>
                           {/* New Department Row - Just shows it's selected */}
                           <div className={`${styles.departmentRow} ${styles.active}`}>
-                            <div className={styles.departmentName}>New Department</div>
+                            <div className={styles.departmentName}>{t('manage.newDepartment', 'New Department')}</div>
                             <div className={styles.departmentActions}>
                               <button
                                 className={`${styles.departmentSettingsButton} ${styles.active}`}
@@ -1503,14 +1509,14 @@ export default function OwnerServices() {
                           {/* Configuration Panel for New Department */}
                           <div className={styles.slaConfigPanel}>
                             {/* Department Details Section */}
-                            <div className={styles.slaConfigTitle}>Department Details</div>
+                            <div className={styles.slaConfigTitle}>{t('manage.deptDetails', 'Department Details')}</div>
 
                             {/* Department Name */}
                             <div className={styles.slaField}>
-                              <label className={styles.slaFieldLabel}>Department Name <span style={{ color: 'red' }}>*</span></label>
+                              <label className={styles.slaFieldLabel}>{t('manage.deptName', 'Department Name')} <span style={{ color: 'red' }}>*</span></label>
                               <input
                                 type="text"
-                                placeholder="e.g., Housekeeping"
+                                placeholder={t('manage.deptNamePlaceholder', 'e.g., Housekeeping')}
                                 value={newDepartmentName}
                                 onChange={(e) => setNewDepartmentName(e.target.value)}
                                 className={styles.slaFieldInput}
@@ -1525,15 +1531,15 @@ export default function OwnerServices() {
                                 className={styles.addDescriptionButton}
                                 type="button"
                               >
-                                + Add description (optional)
+                                {t('manage.addDescription', '+ Add description (optional)')}
                               </button>
                             ) : (
                               <div className={styles.slaField}>
                                 <label className={styles.slaFieldLabel}>
-                                  Description (optional)
+                                  {t('manage.descriptionLabel', 'Description (optional)')}
                                 </label>
                                 <textarea
-                                  placeholder="e.g., Handles all room cleaning and linen services"
+                                  placeholder={t('manage.descriptionPlaceholder', 'e.g., Handles all room cleaning and linen services')}
                                   value={newDepartmentDescription}
                                   onChange={(e) => setNewDepartmentDescription(e.target.value)}
                                   className={styles.descriptionTextarea}
@@ -1543,19 +1549,19 @@ export default function OwnerServices() {
                             )}
 
                             {/* SLA Configuration Section */}
-                            <div className={styles.slaConfigTitle} style={{ marginTop: '20px' }}>SLA Configuration</div>
+                            <div className={styles.slaConfigTitle} style={{ marginTop: '20px' }}>{t('manage.slaConfig', 'SLA Configuration')}</div>
 
                             {/* Target Time */}
                             <div className={styles.slaField}>
                               <label className={styles.slaFieldLabel}>
-                                Target Time <span style={{ color: 'red' }}>*</span>
+                                {t('manage.targetTime', 'Target Time')} <span style={{ color: 'red' }}>*</span>
                                 <span className={styles.tooltipContainer}>
                                   <span className={styles.infoIcon}>
                                     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
                                   </span>
-                                  <span className={styles.tooltip}>Maximum time to complete service request</span>
+                                  <span className={styles.tooltip}>{t('manage.targetTooltip', 'Maximum time to complete service request')}</span>
                                 </span>
                               </label>
                               <input
@@ -1570,14 +1576,14 @@ export default function OwnerServices() {
                             {/* Warning Threshold */}
                             <div className={styles.slaField}>
                               <label className={styles.slaFieldLabel}>
-                                Warning Threshold <span style={{ color: 'red' }}>*</span>
+                                {t('manage.warnThreshold', 'Warning Threshold')} <span style={{ color: 'red' }}>*</span>
                                 <span className={styles.tooltipContainer}>
                                   <span className={styles.infoIcon}>
                                     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
                                   </span>
-                                  <span className={styles.tooltip}>Time before SLA breach to show warning</span>
+                                  <span className={styles.tooltip}>{t('manage.warnTooltip', 'Time before SLA breach to show warning')}</span>
                                 </span>
                               </label>
                               <input
@@ -1592,14 +1598,14 @@ export default function OwnerServices() {
                             {/* Start Trigger */}
                             <div className={styles.slaField}>
                               <label className={styles.slaFieldLabel}>
-                                Start Trigger
+                                {t('manage.startTrigger', 'Start Trigger')}
                                 <span className={styles.tooltipContainer}>
                                   <span className={styles.infoIcon}>
                                     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
                                   </span>
-                                  <span className={styles.tooltip}>When SLA timer starts counting</span>
+                                  <span className={styles.tooltip}>{t('manage.startTooltip', 'When SLA timer starts counting')}</span>
                                 </span>
                               </label>
                               <select
@@ -1607,23 +1613,23 @@ export default function OwnerServices() {
                                 className={styles.slaFieldSelect}
                                 onChange={(e) => handleSLAChange('new-dept-temp', 'sla_start_trigger', e.target.value)}
                               >
-                                <option value="ON_CREATE">On Create</option>
-                                <option value="ON_ASSIGN">On Assign</option>
-                                <option value="ON_ACCEPT">On Accept</option>
+                                <option value="ON_CREATE">{t('trigger.ON_CREATE', 'On Create')}</option>
+                                <option value="ON_ASSIGN">{t('trigger.ON_ASSIGN', 'On Assign')}</option>
+                                <option value="ON_ACCEPT">{t('trigger.ON_ACCEPT', 'On Accept')}</option>
                               </select>
                             </div>
 
                             {/* Escalate After */}
                             <div className={styles.slaField}>
                               <label className={styles.slaFieldLabel}>
-                                Escalate After <span style={{ color: 'red' }}>*</span>
+                                {t('manage.escalateAfter', 'Escalate After')} <span style={{ color: 'red' }}>*</span>
                                 <span className={styles.tooltipContainer}>
                                   <span className={styles.infoIcon}>
                                     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
                                   </span>
-                                  <span className={styles.tooltip}>Time before escalating to supervisor</span>
+                                  <span className={styles.tooltip}>{t('manage.escalateTooltip', 'Time before escalating to supervisor')}</span>
                                 </span>
                               </label>
                               <input
@@ -1652,7 +1658,7 @@ export default function OwnerServices() {
                                 className={styles.cancelAddButton}
                                 type="button"
                               >
-                                Cancel
+                                {tc('actions.cancel', 'Cancel')}
                               </button>
                               <button
                                 onClick={handleAddDepartment}
@@ -1660,7 +1666,7 @@ export default function OwnerServices() {
                                 className={styles.confirmAddButton}
                                 type="button"
                               >
-                                {saving ? 'Adding...' : 'Add Department'}
+                                {saving ? t('manage.adding', 'Adding…') : t('manage.addDepartment', 'Add Department')}
                               </button>
                             </div>
                           </div>
@@ -1677,7 +1683,7 @@ export default function OwnerServices() {
                           <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                           </svg>
-                          Unsaved changes
+                          {t('manage.unsavedChanges', 'Unsaved changes')}
                         </div>
                       )}
                       <div style={{ flex: 1 }}></div>
@@ -1689,7 +1695,7 @@ export default function OwnerServices() {
                           setSelectedDeptId(null);
                         }}
                       >
-                        Cancel
+                        {tc('actions.cancel', 'Cancel')}
                       </button>
                       <button
                         className={styles.modalSaveButton}
@@ -1697,15 +1703,15 @@ export default function OwnerServices() {
                         disabled={saving || !hasUnsavedChanges || hasInvalidChanges || (selectedDeptId ? departments.find(d => d.id === selectedDeptId)?.is_active === false : false)}
                         title={
                           selectedDeptId && departments.find(d => d.id === selectedDeptId)?.is_active === false
-                            ? "Cannot save changes while department is inactive"
+                            ? t('manage.cannotSaveInactive', "Cannot save changes while department is inactive")
                             : hasInvalidChanges
-                              ? "Please fix invalid values (empty or negative) before saving"
+                              ? t('manage.fixInvalid', "Please fix invalid values (empty or negative) before saving")
                               : !hasUnsavedChanges
-                                ? "No changes to save"
+                                ? t('manage.noChanges', "No changes to save")
                                 : ""
                         }
                       >
-                        {saving ? 'Saving...' : 'Save Changes'}
+                        {saving ? t('manage.saving', 'Saving…') : t('manage.saveChanges', 'Save Changes')}
                       </button>
                     </div>
                   )}

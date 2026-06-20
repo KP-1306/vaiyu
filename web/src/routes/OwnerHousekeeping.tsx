@@ -7,6 +7,7 @@ import {
   CheckCircle2, Sparkles, Eye, Play, Pause, WrenchIcon, User,
   Timer, ChevronRight, Bed, Building2, ChevronLeft, BedDouble, Wrench
 } from "lucide-react";
+import { useOwnerT, useOwnerCommonT, useOwnerLocale } from "../i18n/useOwnerT";
 
 /* ─────── types ─────── */
 interface HKRoom {
@@ -49,6 +50,8 @@ interface HKEvent {
 
 /* ── Inspect Modal ── */
 const InspectModal = ({ room, onConfirm, onClose, loading }: { room: HKRoom; onConfirm: (a: string) => void; onClose: () => void; loading: boolean }) => {
+  const t = useOwnerT("owner-housekeeping");
+  const tc = useOwnerCommonT();
   const cleanedAt = room.last_task_completed_at ? new Date(room.last_task_completed_at) : null;
   const startedAt = room.last_task_started_at ? new Date(room.last_task_started_at) : null;
   const duration = cleanedAt && startedAt ? Math.round((cleanedAt.getTime() - startedAt.getTime()) / 60000) : null;
@@ -58,48 +61,48 @@ const InspectModal = ({ room, onConfirm, onClose, loading }: { room: HKRoom; onC
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200">
         <div className="bg-slate-800 px-6 py-4 flex justify-between items-center text-white">
-          <h3 className="text-lg font-bold">Inspect Room</h3>
+          <h3 className="text-lg font-bold">{t("inspect.title", "Inspect Room")}</h3>
           <button onClick={onClose} className="p-1 hover:bg-white/10 rounded-full transition"><X className="w-5 h-5" /></button>
         </div>
         <div className="p-6">
           <div className="mb-6">
-            <h2 className="text-xl font-black text-slate-900">Room {room.room_number}</h2>
-            <p className="text-sm text-slate-500">{room.room_type_name || "Standard Room"}</p>
+            <h2 className="text-xl font-black text-slate-900">{t("roomNum", "Room {{n}}", { n: room.room_number })}</h2>
+            <p className="text-sm text-slate-500">{room.room_type_name || t("fallback.standardRoom", "Standard Room")}</p>
           </div>
 
           <div className="space-y-4 mb-8">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center text-violet-600 font-bold text-xs uppercase">{room.last_cleaner_name?.charAt(0) || "U"}</div>
-              <span className="text-sm font-semibold text-slate-700">{room.last_cleaner_name || "Unassigned"}</span>
+              <span className="text-sm font-semibold text-slate-700">{room.last_cleaner_name || t("fallback.unassigned", "Unassigned")}</span>
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-emerald-600">
                 <CheckCircle2 className="w-4 h-4" />
-                <span className="text-sm font-bold">Cleaned {timeAgo !== null ? `${timeAgo} mins ago` : "recently"}</span>
+                <span className="text-sm font-bold">{timeAgo !== null ? t("inspect.cleanedAgo", "Cleaned {{mins}} mins ago", { mins: timeAgo }) : t("inspect.cleanedRecently", "Cleaned recently")}</span>
               </div>
               <div className="flex items-center gap-2 text-slate-400">
                 <Clock className="w-4 h-4" />
-                <span className="text-xs">{duration !== null ? `${duration} min duration` : "Unknown duration"}</span>
+                <span className="text-xs">{duration !== null ? t("inspect.duration", "{{mins}} min duration", { mins: duration }) : t("inspect.unknownDuration", "Unknown duration")}</span>
               </div>
             </div>
 
             <div className="pt-4 border-t border-slate-100">
               <div className="flex items-center gap-2 text-slate-400 text-xs">
                 <Building2 className="w-3.5 h-3.5" />
-                <span>Floor {room.floor} · {room.room_type_name}</span>
+                <span>{t("inspect.floorType", "Floor {{floor}} · {{type}}", { floor: room.floor, type: room.room_type_name })}</span>
               </div>
             </div>
           </div>
 
           <div className="space-y-3">
             <button onClick={() => onConfirm("mark_inspected")} disabled={loading} className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg shadow-emerald-500/20">
-              <CheckCircle2 className="w-5 h-5" /> Mark Inspected
+              <CheckCircle2 className="w-5 h-5" /> {t("inspect.markInspected", "Mark Inspected")}
             </button>
             <button onClick={() => onConfirm("reopen")} disabled={loading} className="w-full py-4 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold transition flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg shadow-orange-500/20">
-              <RefreshCw className="w-5 h-5" /> Reopen Cleaning
+              <RefreshCw className="w-5 h-5" /> {t("inspect.reopenCleaning", "Reopen Cleaning")}
             </button>
-            <button onClick={onClose} className="w-full py-3 text-slate-500 font-bold hover:text-slate-700 transition">Cancel</button>
+            <button onClick={onClose} className="w-full py-3 text-slate-500 font-bold hover:text-slate-700 transition">{tc("actions.cancel", "Cancel")}</button>
           </div>
         </div>
       </div>
@@ -108,42 +111,46 @@ const InspectModal = ({ room, onConfirm, onClose, loading }: { room: HKRoom; onC
 };
 
 /* ── Resolve Modal ── */
-const ResolveModal = ({ room, onConfirm, onClose, loading }: { room: HKRoom; onConfirm: (a: string) => void; onClose: () => void; loading: boolean }) => (
+const ResolveModal = ({ room, onConfirm, onClose, loading }: { room: HKRoom; onConfirm: (a: string) => void; onClose: () => void; loading: boolean }) => {
+  const t = useOwnerT("owner-housekeeping");
+  const tc = useOwnerCommonT();
+  return (
   <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
       <div className="bg-slate-800 px-6 py-4 flex justify-between items-center text-white">
-        <h3 className="text-lg font-bold">Resolve Room</h3>
+        <h3 className="text-lg font-bold">{t("resolve.title", "Resolve Room")}</h3>
         <button onClick={onClose} className="p-1 hover:bg-white/10 rounded-full transition"><X className="w-5 h-5" /></button>
       </div>
       <div className="p-6">
         <div className="flex items-center gap-3 mb-6">
-          <h2 className="text-xl font-black text-slate-900">Room {room.room_number}</h2>
-          <span className="px-2 py-0.5 bg-red-100 text-red-600 text-[10px] font-black rounded uppercase">Out of Order</span>
+          <h2 className="text-xl font-black text-slate-900">{t("roomNum", "Room {{n}}", { n: room.room_number })}</h2>
+          <span className="px-2 py-0.5 bg-red-100 text-red-600 text-[10px] font-black rounded uppercase">{t("resolve.oooBadge", "Out of Order")}</span>
         </div>
 
         <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 mb-8">
           <div className="flex gap-3">
             <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
             <div>
-              <p className="text-sm font-bold text-amber-900 mb-1">Resolve Out of Order Status</p>
-              <p className="text-xs text-amber-700">Mark this room as available for cleaning? Current out of order status and notes will be cleared.</p>
+              <p className="text-sm font-bold text-amber-900 mb-1">{t("resolve.heading", "Resolve Out of Order Status")}</p>
+              <p className="text-xs text-amber-700">{t("resolve.body", "Mark this room as available for cleaning? Current out of order status and notes will be cleared.")}</p>
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3 mb-3">
           <button onClick={() => onConfirm("resolve_dirty")} disabled={loading} className="py-4 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold transition flex items-center justify-center gap-2 disabled:opacity-50">
-            <RefreshCw className="w-4 h-4" /> Mark Dirty
+            <RefreshCw className="w-4 h-4" /> {t("resolve.markDirty", "Mark Dirty")}
           </button>
           <button onClick={() => onConfirm("resolve_clean")} disabled={loading} className="py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition flex items-center justify-center gap-2 disabled:opacity-50">
-            <CheckCircle2 className="w-4 h-4" /> Mark Clean
+            <CheckCircle2 className="w-4 h-4" /> {t("resolve.markClean", "Mark Clean")}
           </button>
         </div>
-        <button onClick={onClose} className="w-full py-3 text-slate-500 font-bold hover:text-slate-700 transition">Cancel</button>
+        <button onClick={onClose} className="w-full py-3 text-slate-500 font-bold hover:text-slate-700 transition">{tc("actions.cancel", "Cancel")}</button>
       </div>
     </div>
   </div>
-);
+  );
+};
 
 const KPICard = ({ label, count, bg, active, onClick, icon }: {
   label: string; count: number; bg: string; icon: any;
@@ -177,6 +184,7 @@ const KPICard = ({ label, count, bg, active, onClick, icon }: {
 };
 
 const PhysicalStatusBadge = ({ room }: { room: HKRoom }) => {
+  const t = useOwnerT("owner-housekeeping");
   const base = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black border shadow-sm whitespace-nowrap uppercase tracking-wider";
   const s = room.housekeeping_status;
   const ts = room.task_status;
@@ -185,22 +193,23 @@ const PhysicalStatusBadge = ({ room }: { room: HKRoom }) => {
     return (
       <div className="flex items-center gap-1.5">
         <span className={`${base} bg-red-500/10 text-red-400 border-red-500/20`}>
-          <div className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_8px_red]" /> Dirty
+          <div className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_8px_red]" /> {t("physical.dirty", "Dirty")}
         </span>
-        <span className="text-[10px] text-blue-400 font-bold">▸ Progress</span>
+        <span className="text-[10px] text-blue-400 font-bold">▸ {t("physical.progress", "Progress")}</span>
       </div>
     );
   }
-  if (s === "dirty") return <span className={`${base} bg-red-500/10 text-red-400 border-red-500/20`}><div className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_8px_red]" /> Dirty</span>;
-  if (s === "in_progress") return <span className={`${base} bg-blue-500/10 text-blue-400 border-blue-500/20`}><div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse shadow-[0_0_8px_blue]" /> Cleaning</span>;
-  if (s === "pickup") return <span className={`${base} bg-amber-500/10 text-amber-400 border-amber-500/20`}><Pause className="w-3 h-3" /> Paused</span>;
-  if (s === "clean") return <span className={`${base} bg-emerald-500/10 text-emerald-400 border-emerald-500/20`}><div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_emerald]" /> Clean</span>;
-  if (s === "inspected") return <span className={`${base} bg-blue-500/10 text-blue-400 border-blue-500/20`}><div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_blue]" /> Inspected</span>;
-  if (s === "out_of_order") return <span className={`${base} bg-gray-500/10 text-gray-400 border-gray-500/20`}>OOO</span>;
-  return <span className={`${base} bg-white/5 text-gray-400 border-white/10`}>Unknown</span>;
+  if (s === "dirty") return <span className={`${base} bg-red-500/10 text-red-400 border-red-500/20`}><div className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_8px_red]" /> {t("physical.dirty", "Dirty")}</span>;
+  if (s === "in_progress") return <span className={`${base} bg-blue-500/10 text-blue-400 border-blue-500/20`}><div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse shadow-[0_0_8px_blue]" /> {t("physical.cleaning", "Cleaning")}</span>;
+  if (s === "pickup") return <span className={`${base} bg-amber-500/10 text-amber-400 border-amber-500/20`}><Pause className="w-3 h-3" /> {t("physical.paused", "Paused")}</span>;
+  if (s === "clean") return <span className={`${base} bg-emerald-500/10 text-emerald-400 border-emerald-500/20`}><div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_emerald]" /> {t("physical.clean", "Clean")}</span>;
+  if (s === "inspected") return <span className={`${base} bg-blue-500/10 text-blue-400 border-blue-500/20`}><div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_blue]" /> {t("physical.inspected", "Inspected")}</span>;
+  if (s === "out_of_order") return <span className={`${base} bg-gray-500/10 text-gray-400 border-gray-500/20`}>{t("physical.ooo", "OOO")}</span>;
+  return <span className={`${base} bg-white/5 text-gray-400 border-white/10`}>{t("physical.unknown", "Unknown")}</span>;
 };
 
 const ArrivalImpactCell = ({ room }: { room: HKRoom }) => {
+  const t = useOwnerT("owner-housekeeping");
   const s = room.housekeeping_status;
   const mins = room.arrival_needed_in_minutes;
   const base = "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border";
@@ -211,14 +220,14 @@ const ArrivalImpactCell = ({ room }: { room: HKRoom }) => {
   // CASE F: Out of Order + Arrival
   if (s === "out_of_order") return (
     <span className={`${base} bg-gray-900 text-white border-gray-700`}>
-      <AlertTriangle className="w-3 h-3" /> BLOCKED
+      <AlertTriangle className="w-3 h-3" /> {t("impact.blocked", "Blocked")}
     </span>
   );
 
   // CASE B: Room is already ready (clean/inspected)
   if (s === "clean" || s === "inspected") return (
     <span className={`${base} bg-emerald-50 text-emerald-700 border-emerald-200`}>
-      <CheckCircle2 className="w-3 h-3" /> On Track
+      <CheckCircle2 className="w-3 h-3" /> {t("impact.onTrack", "On Track")}
     </span>
   );
 
@@ -226,7 +235,7 @@ const ArrivalImpactCell = ({ room }: { room: HKRoom }) => {
   if (mins <= 60) return (
     <div className="flex flex-col gap-0.5">
       <span className={`${base} bg-red-100 text-red-700 border-red-200 animate-pulse`}>
-        <AlertTriangle className="w-3 h-3" /> CRITICAL · {mins}m
+        <AlertTriangle className="w-3 h-3" /> {t("impact.critical", "Critical · {{mins}}m", { mins })}
       </span>
       {room.arrival_guest_name && <span className="text-[10px] text-gray-500">{room.arrival_guest_name}</span>}
     </div>
@@ -234,30 +243,32 @@ const ArrivalImpactCell = ({ room }: { room: HKRoom }) => {
   if (mins <= 180) return (
     <div className="flex flex-col gap-0.5">
       <span className={`${base} bg-orange-50 text-orange-600 border-orange-200`}>
-        <Clock className="w-3 h-3" /> HIGH · {Math.floor(mins / 60)}h {mins % 60}m
+        <Clock className="w-3 h-3" /> {t("impact.high", "High · {{h}}h {{m}}m", { h: Math.floor(mins / 60), m: mins % 60 })}
       </span>
       {room.arrival_guest_name && <span className="text-[10px] text-gray-500">{room.arrival_guest_name}</span>}
     </div>
   );
   return (
     <span className={`${base} bg-blue-50 text-blue-600 border-blue-100`}>
-      <Clock className="w-3 h-3" /> MEDIUM · {Math.floor(mins / 60)}h
+      <Clock className="w-3 h-3" /> {t("impact.medium", "Medium · {{h}}h", { h: Math.floor(mins / 60) })}
     </span>
   );
 };
 
 const WorkflowCell = ({ room }: { room: HKRoom }) => {
+  const t = useOwnerT("owner-housekeeping");
   const s = room.housekeeping_status;
-  const map: Record<string, { label: string; cls: string }> = {
-    dirty: { label: "Waiting Cleaning", cls: "text-red-600" },
-    in_progress: { label: "Cleaning", cls: "text-blue-600" },
-    pickup: { label: "Pickup", cls: "text-amber-600" },
-    clean: { label: "Pending Inspection", cls: "text-violet-600" },
-    inspected: { label: "Ready", cls: "text-emerald-600" },
-    out_of_order: { label: "Maintenance", cls: "text-gray-600" },
+  const clsMap: Record<string, string> = {
+    dirty: "text-red-600",
+    in_progress: "text-blue-600",
+    pickup: "text-amber-600",
+    clean: "text-violet-600",
+    inspected: "text-emerald-600",
+    out_of_order: "text-gray-600",
   };
-  const m = map[s] || { label: s.replace(/_/g, " "), cls: "text-gray-500" };
-  return <span className={`text-sm font-semibold ${m.cls}`}>{m.label}</span>;
+  const cls = clsMap[s] || "text-gray-500";
+  const label = t(`workflow.${s}`, s.replace(/_/g, " "));
+  return <span className={`text-sm font-semibold ${cls}`}>{label}</span>;
 };
 
 const ActionButton = ({ label, icon, cls, onClick, disabled }: {
@@ -271,7 +282,9 @@ const ActionButton = ({ label, icon, cls, onClick, disabled }: {
 /* ─────── Status Confirmation Popup ─────── */
 const StatusConfirmPopup = ({ room, onClose, onConfirm, loading }: {
   room: HKRoom; onClose: () => void; onConfirm: (a: string) => void; loading: boolean;
-}) => (
+}) => {
+  const t = useOwnerT("owner-housekeeping");
+  return (
   <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md" onClick={onClose}>
     <div className="bg-[#1a1c1e] border border-white/10 rounded-3xl shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] w-full max-w-sm mx-4 overflow-hidden animate-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
       <div className="bg-gradient-to-r from-indigo-600/20 to-blue-600/20 px-6 py-5 border-b border-white/5 flex items-center justify-between">
@@ -280,40 +293,42 @@ const StatusConfirmPopup = ({ room, onClose, onConfirm, loading }: {
             <Bed className="w-5 h-5 text-indigo-400" />
           </div>
           <div>
-            <div className="text-white font-black text-lg">Room {room.room_number}</div>
-            <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">{room.room_type_name || "Standard"}</div>
+            <div className="text-white font-black text-lg">{t("roomNum", "Room {{n}}", { n: room.room_number })}</div>
+            <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">{room.room_type_name || t("fallback.standard", "Standard")}</div>
           </div>
         </div>
         <button onClick={onClose} className="text-slate-500 hover:text-white transition"><X className="w-5 h-5" /></button>
       </div>
-      
+
       <div className="p-6 space-y-3">
-        <h3 className="font-black text-white text-center text-sm uppercase tracking-widest mb-4 opacity-50">Confirm Status Update</h3>
+        <h3 className="font-black text-white text-center text-sm uppercase tracking-widest mb-4 opacity-50">{t("popup.title", "Confirm Status Update")}</h3>
         <button onClick={() => onConfirm("dirty")} disabled={loading} className="w-full flex items-center justify-between px-5 py-4 rounded-2xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-500 font-black text-sm transition group active:scale-[0.98]">
-          <span className="flex items-center gap-3"><X className="w-5 h-5" /> Mark Dirty</span>
+          <span className="flex items-center gap-3"><X className="w-5 h-5" /> {t("popup.markDirty", "Mark Dirty")}</span>
           <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition" />
         </button>
         <button onClick={() => onConfirm("vacant_clean")} disabled={loading} className="w-full flex items-center justify-between px-5 py-4 rounded-2xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-500 font-black text-sm transition group active:scale-[0.98]">
-          <span className="flex items-center gap-3"><Sparkles className="w-5 h-5" /> Vacant Clean</span>
+          <span className="flex items-center gap-3"><Sparkles className="w-5 h-5" /> {t("popup.vacantClean", "Vacant Clean")}</span>
           <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition" />
         </button>
         <button onClick={() => onConfirm("occupied_clean")} disabled={loading} className="w-full flex items-center justify-between px-5 py-4 rounded-2xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-blue-400 font-black text-sm transition group active:scale-[0.98]">
-          <span className="flex items-center gap-3"><User className="w-5 h-5" /> Occupied Clean</span>
+          <span className="flex items-center gap-3"><User className="w-5 h-5" /> {t("popup.occupiedClean", "Occupied Clean")}</span>
           <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition" />
         </button>
         <button onClick={() => onConfirm("pause")} disabled={loading} className="w-full flex items-center justify-between px-5 py-4 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-500 font-black text-sm transition group active:scale-[0.98]">
-          <span className="flex items-center gap-3"><Pause className="w-5 h-5" /> Pause Tracking</span>
+          <span className="flex items-center gap-3"><Pause className="w-5 h-5" /> {t("popup.pause", "Pause Tracking")}</span>
           <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition" />
         </button>
-        
-        <button onClick={onClose} className="w-full py-3 text-slate-500 font-bold text-xs uppercase tracking-widest hover:text-slate-300 transition mt-4">Dismiss</button>
+
+        <button onClick={onClose} className="w-full py-3 text-slate-500 font-bold text-xs uppercase tracking-widest hover:text-slate-300 transition mt-4">{t("popup.dismiss", "Dismiss")}</button>
       </div>
     </div>
   </div>
-);
+  );
+};
 
 /* ─────── Arrival Dashboard Sidebar ─────── */
 const ArrivalDashboard = ({ rooms, onClose }: { rooms: HKRoom[]; onClose: () => void }) => {
+  const t = useOwnerT("owner-housekeeping");
   const criticalRooms = rooms.filter(r => r.arrival_blocked && r.arrival_urgency && ["CRITICAL", "HIGH"].includes(r.arrival_urgency));
   const allBlockedRooms = rooms
     .filter(r => r.arrival_blocked)
@@ -335,17 +350,17 @@ const ArrivalDashboard = ({ rooms, onClose }: { rooms: HKRoom[]; onClose: () => 
   return (
     <div className="w-[320px] bg-[#1a1c1e] border-l border-white/5 flex flex-col h-full shrink-0 overflow-hidden shadow-2xl">
       <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
-        <h2 className="font-black text-white text-sm uppercase tracking-widest">Arrival Monitor</h2>
+        <h2 className="font-black text-white text-sm uppercase tracking-widest">{t("arrivals.monitor", "Arrival Monitor")}</h2>
         <button onClick={onClose} className="text-slate-500 hover:text-white transition"><X className="w-4 h-4" /></button>
       </div>
 
       <div className="px-4 pt-4 flex gap-2">
         <button onClick={() => setTab("all")} className={`flex-1 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition relative ${tab === "all" ? "bg-red-600 text-white shadow-lg shadow-red-600/20" : "bg-white/5 text-slate-500 hover:bg-white/10"}`}>
-          Alerts
+          {t("arrivals.alerts", "Alerts")}
           {criticalRooms.length > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-[8px] flex items-center justify-center text-white font-black">{criticalRooms.length}</span>}
         </button>
         <button onClick={() => setTab("urgency")} className={`flex-1 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition relative ${tab === "urgency" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20" : "bg-white/5 text-slate-500 hover:bg-white/10"}`}>
-          Queue
+          {t("arrivals.queue", "Queue")}
           {allBlockedRooms.length > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-indigo-500 text-[8px] flex items-center justify-center text-white font-black">{allBlockedRooms.length}</span>}
         </button>
       </div>
@@ -355,10 +370,10 @@ const ArrivalDashboard = ({ rooms, onClose }: { rooms: HKRoom[]; onClose: () => 
           <div className="text-center py-12">
             <Sparkles className="w-10 h-10 text-slate-800 mx-auto mb-3" />
             <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
-              {tab === "all" ? "No Critical Alerts" : "All Rooms Ready"}
+              {tab === "all" ? t("arrivals.emptyAlerts", "No Critical Alerts") : t("arrivals.emptyQueue", "All Rooms Ready")}
             </p>
             <p className="text-[9px] text-slate-700 mt-1">
-              {tab === "all" ? "No guests arriving with unready rooms" : "No arrival-blocked rooms in queue"}
+              {tab === "all" ? t("arrivals.emptyAlertsSub", "No guests arriving with unready rooms") : t("arrivals.emptyQueueSub", "No arrival-blocked rooms in queue")}
             </p>
           </div>
         )}
@@ -368,8 +383,8 @@ const ArrivalDashboard = ({ rooms, onClose }: { rooms: HKRoom[]; onClose: () => 
             <div key={room.room_id} className={`bg-white/5 border border-white/5 rounded-2xl overflow-hidden hover:border-white/10 transition-colors`}>
               <div className={`${c.bg} px-3 py-2 border-b ${c.border} flex items-center justify-between`}>
                 <div className="flex items-center gap-2">
-                  <span className={`font-black text-[11px] ${c.text}`}>ROOM {room.room_number}</span>
-                  <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase ${c.badge}`}>{room.arrival_urgency}</span>
+                  <span className={`font-black text-[11px] ${c.text}`}>{t("arrivals.room", "ROOM {{n}}", { n: room.room_number })}</span>
+                  <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase ${c.badge}`}>{room.arrival_urgency ? t(`urgency.${room.arrival_urgency}`, room.arrival_urgency) : ""}</span>
                 </div>
                 {room.arrival_needed_in_minutes != null && (
                   <div className="flex items-center gap-1.5 animate-pulse">
@@ -386,7 +401,7 @@ const ArrivalDashboard = ({ rooms, onClose }: { rooms: HKRoom[]; onClose: () => 
                 {room.arrival_guest_name && (
                   <div className="space-y-0.5">
                     <div className="text-[11px] font-black text-slate-100 uppercase">{room.arrival_guest_name}</div>
-                    <div className="text-[10px] text-slate-500 font-bold tracking-tight">Booking: {room.arrival_booking_code}</div>
+                    <div className="text-[10px] text-slate-500 font-bold tracking-tight">{t("arrivals.booking", "Booking: {{code}}", { code: room.arrival_booking_code })}</div>
                   </div>
                 )}
               </div>
@@ -399,15 +414,15 @@ const ArrivalDashboard = ({ rooms, onClose }: { rooms: HKRoom[]; onClose: () => 
       <div className="px-4 py-3 border-t border-white/5 bg-white/[0.01] grid grid-cols-3 gap-2 text-center">
         <div>
           <div className="text-[16px] font-black text-red-400">{rooms.filter(r => r.arrival_blocked && r.arrival_urgency === "CRITICAL").length}</div>
-          <div className="text-[8px] font-bold text-slate-600 uppercase">Critical</div>
+          <div className="text-[8px] font-bold text-slate-600 uppercase">{t("arrivals.critical", "Critical")}</div>
         </div>
         <div>
           <div className="text-[16px] font-black text-orange-400">{rooms.filter(r => r.arrival_blocked && r.arrival_urgency === "HIGH").length}</div>
-          <div className="text-[8px] font-bold text-slate-600 uppercase">High</div>
+          <div className="text-[8px] font-bold text-slate-600 uppercase">{t("arrivals.high", "High")}</div>
         </div>
         <div>
           <div className="text-[16px] font-black text-amber-400">{allBlockedRooms.length}</div>
-          <div className="text-[8px] font-bold text-slate-600 uppercase">Total</div>
+          <div className="text-[8px] font-bold text-slate-600 uppercase">{t("arrivals.total", "Total")}</div>
         </div>
       </div>
     </div>
@@ -415,6 +430,7 @@ const ArrivalDashboard = ({ rooms, onClose }: { rooms: HKRoom[]; onClose: () => 
 };
 
 const ArrivalImpactCard = ({ room }: { room: HKRoom }) => {
+  const t = useOwnerT("owner-housekeeping");
   if (!room.arrival_blocked) return null;
   const isCritical = room.arrival_urgency === "CRITICAL";
   return (
@@ -422,10 +438,10 @@ const ArrivalImpactCard = ({ room }: { room: HKRoom }) => {
       <div className="flex items-center gap-2 mb-1">
         <AlertTriangle className={`w-4 h-4 ${isCritical ? "text-red-600" : "text-amber-600"}`} />
         <span className={`font-bold text-sm ${isCritical ? "text-red-700" : "text-amber-700"}`}>
-          Arrival {room.arrival_urgency} — {room.arrival_needed_in_minutes}m
+          {t("impactCard.arrival", "Arrival {{urgency}} — {{mins}}m", { urgency: room.arrival_urgency ? t(`urgency.${room.arrival_urgency}`, room.arrival_urgency) : "", mins: room.arrival_needed_in_minutes })}
         </span>
       </div>
-      <p className="text-xs text-gray-600">Room needed for <strong>{room.arrival_guest_name}</strong>. Booking: {room.arrival_booking_code}</p>
+      <p className="text-xs text-gray-600">{t("impactCard.needed", "Room needed for {{name}}. Booking: {{code}}", { name: room.arrival_guest_name, code: room.arrival_booking_code })}</p>
     </div>
   );
 };
@@ -435,6 +451,8 @@ const RoomDrawer = ({ room, events, onClose, onAction, actionLoading }: {
   room: HKRoom; events: HKEvent[]; onClose: () => void;
   onAction: (a: string, id: string) => void; actionLoading: boolean;
 }) => {
+  const t = useOwnerT("owner-housekeeping");
+  const locale = useOwnerLocale();
   const [checklist, setChecklist] = useState({
     bedding: false,
     bath: false,
@@ -448,8 +466,8 @@ const RoomDrawer = ({ room, events, onClose, onAction, actionLoading }: {
     <div className="w-[400px] bg-[#1a1c1e] border-l border-white/5 flex flex-col h-full overflow-hidden shadow-2xl">
       <div className="bg-gradient-to-r from-[#111315] to-[#1a1c1e] px-6 py-6 border-b border-white/5 flex items-center justify-between shrink-0">
         <div>
-          <div className="text-white font-black text-2xl tracking-tight">Room {room.room_number}</div>
-          <div className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-1">{room.room_type_name || "Standard Unit"} · Floor {room.floor || "—"}</div>
+          <div className="text-white font-black text-2xl tracking-tight">{t("roomNum", "Room {{n}}", { n: room.room_number })}</div>
+          <div className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-1">{t("inspect.floorType", "Floor {{floor}} · {{type}}", { floor: room.floor || "—", type: room.room_type_name || t("fallback.standardUnit", "Standard Unit") })}</div>
         </div>
         <button onClick={onClose} className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition text-slate-500 hover:text-white"><X className="w-5 h-5" /></button>
       </div>
@@ -457,13 +475,13 @@ const RoomDrawer = ({ room, events, onClose, onAction, actionLoading }: {
       <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-8">
         {/* ── Status Section ── */}
         <div className="space-y-4">
-          <h4 className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Operational Status</h4>
+          <h4 className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{t("drawer.operationalStatus", "Operational Status")}</h4>
           <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400">Current Standing</span>
+            <span className="text-xs font-bold text-slate-400">{t("drawer.currentStanding", "Current Standing")}</span>
             <PhysicalStatusBadge room={room} />
           </div>
           <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400">Assigned Personnel</span>
+            <span className="text-xs font-bold text-slate-400">{t("drawer.assignedPersonnel", "Assigned Personnel")}</span>
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-[10px] font-black">{room.assigned_staff_name?.charAt(0)}</div>
               <span className="text-sm font-black text-slate-200">{room.assigned_staff_name}</span>
@@ -476,14 +494,14 @@ const RoomDrawer = ({ room, events, onClose, onAction, actionLoading }: {
           <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
             <h4 className="text-[10px] font-black text-indigo-500 uppercase tracking-widest flex items-center gap-2">
               <span className="w-1 h-1 rounded-full bg-indigo-500"></span>
-              Sanitation Protocol
+              {t("drawer.sanitationProtocol", "Sanitation Protocol")}
             </h4>
             <div className="space-y-2">
               {[
-                { id: 'bedding', label: "Bedding Replacement", icon: Bed },
-                { id: 'bath', label: "Bath Sanitation", icon: Sparkles },
-                { id: 'minibar', label: "Refresh Minibar", icon: RefreshCw },
-                { id: 'surface', label: "Surface Disinfection", icon: CheckCircle2 }
+                { id: 'bedding', label: t("drawer.check.bedding", "Bedding Replacement"), icon: Bed },
+                { id: 'bath', label: t("drawer.check.bath", "Bath Sanitation"), icon: Sparkles },
+                { id: 'minibar', label: t("drawer.check.minibar", "Refresh Minibar"), icon: RefreshCw },
+                { id: 'surface', label: t("drawer.check.surface", "Surface Disinfection"), icon: CheckCircle2 }
               ].map(item => (
                 <button
                   key={item.id}
@@ -506,16 +524,16 @@ const RoomDrawer = ({ room, events, onClose, onAction, actionLoading }: {
 
         {/* ── Actions Section ── */}
         <div className="space-y-4">
-          <h4 className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Available Operations</h4>
+          <h4 className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{t("drawer.availableOps", "Available Operations")}</h4>
           <div className="grid grid-cols-1 gap-2.5">
             {room.housekeeping_status === "dirty" && !room.task_status?.includes("in_progress") && (
               <button onClick={() => onAction("start", room.room_id)} disabled={actionLoading} className="w-full flex items-center gap-4 px-5 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-sm transition shadow-lg shadow-indigo-600/10">
-                <Play className="w-5 h-5" /> Initiate Cleaning Protocol
+                <Play className="w-5 h-5" /> {t("drawer.initiate", "Initiate Cleaning Protocol")}
               </button>
             )}
             {(room.task_status === "in_progress" || room.housekeeping_status === "in_progress") && (
               <button onClick={() => onAction("complete_popup", room.room_id)} disabled={actionLoading} className="w-full flex items-center gap-4 px-5 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-sm transition shadow-lg shadow-emerald-600/10">
-                <CheckCircle2 className="w-5 h-5" /> Finalize Sanitation
+                <CheckCircle2 className="w-5 h-5" /> {t("drawer.finalize", "Finalize Sanitation")}
               </button>
             )}
             {room.housekeeping_status === "clean" && (
@@ -529,19 +547,19 @@ const RoomDrawer = ({ room, events, onClose, onAction, actionLoading }: {
                     : "bg-white/5 text-slate-600 cursor-not-allowed border border-white/5"
                   }`}
                 >
-                  <Eye className="w-5 h-5" /> {isComplete ? "Dispatch Inspector" : "Complete Protocol to Inspect"}
+                  <Eye className="w-5 h-5" /> {isComplete ? t("drawer.dispatchInspector", "Dispatch Inspector") : t("drawer.completeToInspect", "Complete Protocol to Inspect")}
                 </button>
-                {!isComplete && <p className="text-[10px] text-center text-slate-600 font-bold uppercase tracking-widest animate-pulse">Check all protocol items to proceed</p>}
+                {!isComplete && <p className="text-[10px] text-center text-slate-600 font-bold uppercase tracking-widest animate-pulse">{t("drawer.checkAll", "Check all protocol items to proceed")}</p>}
               </div>
             )}
             {room.housekeeping_status === "inspected" && (
               <button onClick={() => onAction("reopen", room.room_id)} disabled={actionLoading} className="w-full flex items-center gap-4 px-5 py-4 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl font-black text-sm transition shadow-lg shadow-amber-600/10">
-                <RefreshCw className="w-5 h-5" /> De-certify & Reopen
+                <RefreshCw className="w-5 h-5" /> {t("drawer.decertify", "De-certify & Reopen")}
               </button>
             )}
             {room.housekeeping_status === "out_of_order" && (
               <button onClick={() => onAction("resolve", room.room_id)} disabled={actionLoading} className="w-full flex items-center gap-4 px-5 py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-black text-sm transition shadow-lg shadow-orange-600/10">
-                <Wrench className="w-5 h-5" /> Resolve Maintenance Flag
+                <Wrench className="w-5 h-5" /> {t("drawer.resolveFlag", "Resolve Maintenance Flag")}
               </button>
             )}
           </div>
@@ -549,10 +567,10 @@ const RoomDrawer = ({ room, events, onClose, onAction, actionLoading }: {
 
         {/* ── Timeline Section ── */}
         <div className="space-y-6">
-          <h4 className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Event Log</h4>
+          <h4 className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{t("drawer.eventLog", "Event Log")}</h4>
           <div className="space-y-6 relative before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-px before:bg-white/5">
             {events.length === 0 ? (
-              <p className="text-xs text-slate-600 italic">No operational events logged.</p>
+              <p className="text-xs text-slate-600 italic">{t("drawer.noEvents", "No operational events logged.")}</p>
             ) : (
               events.map(evt => (
                 <div key={evt.id} className="relative pl-8">
@@ -560,8 +578,8 @@ const RoomDrawer = ({ room, events, onClose, onAction, actionLoading }: {
                     <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
                   </div>
                   <div>
-                    <div className="text-[11px] font-black text-slate-200 uppercase tracking-wide">{evt.event_type?.replace(/_/g, " ") || "Status Transition"}</div>
-                    <div className="text-[10px] text-slate-500 font-bold mt-0.5">{new Date(evt.changed_at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
+                    <div className="text-[11px] font-black text-slate-200 uppercase tracking-wide">{evt.event_type?.replace(/_/g, " ") || t("drawer.statusTransition", "Status Transition")}</div>
+                    <div className="text-[10px] text-slate-500 font-bold mt-0.5">{new Date(evt.changed_at).toLocaleString(locale, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
                     {evt.notes && <div className="mt-2 p-2 bg-white/[0.02] border border-white/5 rounded-lg text-[10px] text-slate-400 leading-relaxed">{evt.notes}</div>}
                   </div>
                 </div>
@@ -580,6 +598,7 @@ const RoomDrawer = ({ room, events, onClose, onAction, actionLoading }: {
 
 export default function OwnerHousekeeping() {
   const { slug } = useParams();
+  const t = useOwnerT("owner-housekeeping");
   const [hotelId, setHotelId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [rooms, setRooms] = useState<HKRoom[]>([]);
@@ -945,10 +964,10 @@ export default function OwnerHousekeeping() {
     finally { setBulkLoading(false); }
   };
 
-  if (loading) return <div className="p-8 text-center text-gray-500">Loading Housekeeping Board...</div>;
+  if (loading) return <div className="vaiyu-owner p-8 text-center text-gray-500">{t("loading", "Loading Housekeeping Board…")}</div>;
 
   return (
-    <div className="min-h-screen lg:h-screen w-full flex flex-col lg:flex-row bg-[#0f1113] text-white overflow-y-auto lg:overflow-hidden font-['Outfit']">
+    <div className="vaiyu-owner min-h-screen lg:h-screen w-full flex flex-col lg:flex-row bg-[#0f1113] text-white overflow-y-auto lg:overflow-hidden font-['Outfit']">
       {/* ───── LEFT: Main Board ───── */}
       <div className="flex-1 flex flex-col min-w-0 lg:overflow-hidden">
         {/* Header Section */}
@@ -960,14 +979,14 @@ export default function OwnerHousekeeping() {
               </div>
               <div>
                 <h1 className="text-2xl font-black tracking-tight flex items-center gap-2">
-                  Housekeeping <span className="text-indigo-400">Management</span>
+                  {t("header.title", "Housekeeping")} <span className="text-indigo-400">{t("header.titleAccent", "Management")}</span>
                 </h1>
-                <p className="text-xs text-slate-400 font-medium">{rooms.length} rooms total · Real-time Operational Board</p>
+                <p className="text-xs text-slate-400 font-medium">{t("header.subtitle", "{{count}} rooms total · Real-time Operational Board", { count: rooms.length })}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-full border border-white/10">
-                <span className="text-[10px] font-bold text-slate-500">Auto-Priority</span>
+                <span className="text-[10px] font-bold text-slate-500">{t("header.autoPriority", "Auto-Priority")}</span>
                 <button
                   onClick={() => setAutoPriority(!autoPriority)}
                   className={`w-8 h-4 rounded-full transition-colors relative ${autoPriority ? "bg-indigo-600" : "bg-white/10"}`}
@@ -983,13 +1002,13 @@ export default function OwnerHousekeeping() {
 
           {/* KPI Row - Responsive */}
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-            <KPICard label="Dirty Rooms" count={stats.dirty} bg="bg-red-500" icon={<AlertTriangle className="w-4 h-4" />} active={statusFilter === "dirty"} onClick={() => setStatusFilter(statusFilter === "dirty" ? null : "dirty")} />
-            <KPICard label="In Progress" count={stats.inProgress} bg="bg-orange-500" icon={<Play className="w-4 h-4" />} active={statusFilter === "in_progress"} onClick={() => setStatusFilter(statusFilter === "in_progress" ? null : "in_progress")} />
-            <KPICard label="Ready / Clean" count={stats.clean} bg="bg-emerald-500" icon={<CheckCircle2 className="w-4 h-4" />} active={statusFilter === "clean"} onClick={() => setStatusFilter(statusFilter === "clean" ? null : "clean")} />
-            <KPICard label="Inspection Pending" count={stats.inspectionPending} bg="bg-blue-600" icon={<Eye className="w-4 h-4" />} active={statusFilter === "inspection"} onClick={() => setStatusFilter(statusFilter === "inspection" ? null : "inspection")} />
-            <KPICard label="Arrival Criticals" count={stats.arrivalCritical} bg="bg-pink-600" icon={<AlertTriangle className="w-4 h-4 text-white" />} active={statusFilter === "arrival_urgent"} onClick={() => setStatusFilter(statusFilter === "arrival_urgent" ? null : "arrival_urgent")} />
-            <KPICard label="Arrival CDOR" count={stats.arrivalCDOR} bg="bg-slate-700" icon={<Timer className="w-4 h-4" />} active={statusFilter === "arrival_cdor"} onClick={() => setStatusFilter(statusFilter === "arrival_cdor" ? null : "arrival_cdor")} />
-            <KPICard label="Out of Order" count={stats.outOfOrder} bg="bg-gray-600" icon={<WrenchIcon className="w-4 h-4" />} active={statusFilter === "ooo"} onClick={() => setStatusFilter(statusFilter === "ooo" ? null : "ooo")} />
+            <KPICard label={t("kpi.dirty", "Dirty Rooms")} count={stats.dirty} bg="bg-red-500" icon={<AlertTriangle className="w-4 h-4" />} active={statusFilter === "dirty"} onClick={() => setStatusFilter(statusFilter === "dirty" ? null : "dirty")} />
+            <KPICard label={t("kpi.inProgress", "In Progress")} count={stats.inProgress} bg="bg-orange-500" icon={<Play className="w-4 h-4" />} active={statusFilter === "in_progress"} onClick={() => setStatusFilter(statusFilter === "in_progress" ? null : "in_progress")} />
+            <KPICard label={t("kpi.ready", "Ready / Clean")} count={stats.clean} bg="bg-emerald-500" icon={<CheckCircle2 className="w-4 h-4" />} active={statusFilter === "clean"} onClick={() => setStatusFilter(statusFilter === "clean" ? null : "clean")} />
+            <KPICard label={t("kpi.inspectionPending", "Inspection Pending")} count={stats.inspectionPending} bg="bg-blue-600" icon={<Eye className="w-4 h-4" />} active={statusFilter === "inspection"} onClick={() => setStatusFilter(statusFilter === "inspection" ? null : "inspection")} />
+            <KPICard label={t("kpi.arrivalCriticals", "Arrival Criticals")} count={stats.arrivalCritical} bg="bg-pink-600" icon={<AlertTriangle className="w-4 h-4 text-white" />} active={statusFilter === "arrival_urgent"} onClick={() => setStatusFilter(statusFilter === "arrival_urgent" ? null : "arrival_urgent")} />
+            <KPICard label={t("kpi.arrivalCdor", "Arrival CDOR")} count={stats.arrivalCDOR} bg="bg-slate-700" icon={<Timer className="w-4 h-4" />} active={statusFilter === "arrival_cdor"} onClick={() => setStatusFilter(statusFilter === "arrival_cdor" ? null : "arrival_cdor")} />
+            <KPICard label={t("kpi.outOfOrder", "Out of Order")} count={stats.outOfOrder} bg="bg-gray-600" icon={<WrenchIcon className="w-4 h-4" />} active={statusFilter === "ooo"} onClick={() => setStatusFilter(statusFilter === "ooo" ? null : "ooo")} />
           </div>
         </div>
 
@@ -1002,7 +1021,7 @@ export default function OwnerHousekeeping() {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Filter rooms, guests..."
+                placeholder={t("filter.search", "Filter rooms, guests…")}
                 className="pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/40 w-full sm:w-64 transition"
               />
             </div>
@@ -1011,7 +1030,7 @@ export default function OwnerHousekeeping() {
               onChange={(e) => setRoomTypeFilter(e.target.value || null)}
               className="appearance-none px-3 py-2 bg-[#1a1c1e] border border-white/10 rounded-xl text-xs font-bold text-slate-400 focus:outline-none focus:border-indigo-500/40"
             >
-              <option value="">All Room Types</option>
+              <option value="">{t("filter.allRoomTypes", "All Room Types")}</option>
               {roomTypes.map(rt => <option key={rt.id} value={rt.id}>{rt.name}</option>)}
             </select>
             <select
@@ -1019,27 +1038,27 @@ export default function OwnerHousekeeping() {
               onChange={(e) => setStatusFilter(e.target.value || null)}
               className="appearance-none px-3 py-2 bg-[#1a1c1e] border border-white/10 rounded-xl text-xs font-bold text-slate-400 focus:outline-none focus:border-indigo-500/40"
             >
-              <option value="">Status: All</option>
-              <option value="dirty">Dirty</option>
-              <option value="in_progress">Cleaning</option>
-              <option value="clean">Clean</option>
-              <option value="inspection">Inspection</option>
-              <option value="ooo">Out of Order</option>
+              <option value="">{t("filter.statusAll", "Status: All")}</option>
+              <option value="dirty">{t("filter.dirty", "Dirty")}</option>
+              <option value="in_progress">{t("filter.cleaning", "Cleaning")}</option>
+              <option value="clean">{t("filter.clean", "Clean")}</option>
+              <option value="inspection">{t("filter.inspection", "Inspection")}</option>
+              <option value="ooo">{t("filter.ooo", "Out of Order")}</option>
             </select>
             <select
               value={floorFilter || ""}
               onChange={(e) => setFloorFilter(e.target.value || null)}
               className="appearance-none px-3 py-2 bg-[#1a1c1e] border border-white/10 rounded-xl text-xs font-bold text-slate-400 focus:outline-none focus:border-indigo-500/40"
             >
-              <option value="">Zone: All</option>
-              {floors.map(f => <option key={f} value={f.toString()}>Floor {f}</option>)}
+              <option value="">{t("filter.zoneAll", "Zone: All")}</option>
+              {floors.map(f => <option key={f} value={f.toString()}>{t("filter.floor", "Floor {{f}}", { f })}</option>)}
             </select>
             <select
               value={assignedFilter || ""}
               onChange={(e) => setAssignedFilter(e.target.value || null)}
               className="appearance-none px-3 py-2 bg-[#1a1c1e] border border-white/10 rounded-xl text-xs font-bold text-slate-400 focus:outline-none focus:border-indigo-500/40"
             >
-              <option value="">Assigned To: All</option>
+              <option value="">{t("filter.assignedAll", "Assigned To: All")}</option>
               {staffList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
             <select
@@ -1047,14 +1066,14 @@ export default function OwnerHousekeeping() {
               onChange={(e) => setArrivalFilter(e.target.value || null)}
               className="appearance-none px-3 py-2 bg-[#1a1c1e] border border-white/10 rounded-xl text-xs font-bold text-slate-400 focus:outline-none focus:border-indigo-500/40"
             >
-              <option value="">Arrival Priority: All</option>
-              <option value="blocked">Arrival Blocked</option>
+              <option value="">{t("filter.arrivalAll", "Arrival Priority: All")}</option>
+              <option value="blocked">{t("filter.arrivalBlocked", "Arrival Blocked")}</option>
             </select>
-            
+
             <div className="flex items-center gap-2 ml-auto sm:ml-0">
               {!showArrivalPanel && (
                 <button onClick={() => setShowArrivalPanel(true)} className="flex items-center gap-1.5 px-3 py-2 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-indigo-500/20 transition">
-                  <ChevronLeft className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Show Arrival Dashboard</span> <span className="sm:hidden">Arrivals</span>
+                  <ChevronLeft className="w-3.5 h-3.5" /> <span className="hidden sm:inline">{t("filter.showArrivals", "Show Arrival Dashboard")}</span> <span className="sm:hidden">{t("filter.arrivalsShort", "Arrivals")}</span>
                 </button>
               )}
             </div>
@@ -1075,22 +1094,22 @@ export default function OwnerHousekeeping() {
               <div className="flex flex-wrap items-center gap-2 mb-6">
                 {dirtyCount > 0 && (
                   <button onClick={selectAllDirty} className="px-3 py-1.5 rounded-full bg-red-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-red-700 transition shadow-lg shadow-red-500/10 flex items-center gap-1.5">
-                    Select All Dirty <span className="bg-white/20 px-1.5 py-0.5 rounded-full text-[9px]">{dirtyCount}</span>
+                    {t("quick.allDirty", "Select All Dirty")} <span className="bg-white/20 px-1.5 py-0.5 rounded-full text-[9px]">{dirtyCount}</span>
                   </button>
                 )}
                 {pendingInspCount > 0 && (
                   <button onClick={selectAllPendingInspection} className="px-3 py-1.5 rounded-full bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition shadow-lg shadow-blue-500/10 flex items-center gap-1.5">
-                    Select Pending Inspection <span className="bg-white/20 px-1.5 py-0.5 rounded-full text-[9px]">{pendingInspCount}</span>
+                    {t("quick.pendingInspection", "Select Pending Inspection")} <span className="bg-white/20 px-1.5 py-0.5 rounded-full text-[9px]">{pendingInspCount}</span>
                   </button>
                 )}
                 {arrivalCritCount > 0 && (
                   <button onClick={selectArrivalCritical} className="px-3 py-1.5 rounded-full bg-pink-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-pink-700 transition shadow-lg shadow-pink-500/10 flex items-center gap-1.5">
-                    Select Arrival Criticals <span className="bg-white/20 px-1.5 py-0.5 rounded-full text-[9px]">{arrivalCritCount}</span>
+                    {t("quick.arrivalCriticals", "Select Arrival Criticals")} <span className="bg-white/20 px-1.5 py-0.5 rounded-full text-[9px]">{arrivalCritCount}</span>
                   </button>
                 )}
                 {unassignedCount > 0 && (
                   <button onClick={selectUnassigned} className="px-3 py-1.5 rounded-full bg-amber-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-amber-700 transition shadow-lg shadow-amber-500/10 flex items-center gap-1.5">
-                    Select Unassigned <span className="bg-white/20 px-1.5 py-0.5 rounded-full text-[9px]">{unassignedCount}</span>
+                    {t("quick.unassigned", "Select Unassigned")} <span className="bg-white/20 px-1.5 py-0.5 rounded-full text-[9px]">{unassignedCount}</span>
                   </button>
                 )}
                 {floors.length > 0 && (
@@ -1099,13 +1118,13 @@ export default function OwnerHousekeeping() {
                     onChange={(e) => { if (e.target.value) { selectFloor(parseInt(e.target.value)); e.target.value = ""; } }}
                     className="appearance-none px-3 py-1.5 rounded-full bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 text-[10px] font-black uppercase tracking-widest cursor-pointer focus:outline-none focus:border-indigo-500/60 hover:bg-indigo-600/30 transition"
                   >
-                    <option value="" disabled>Select by Floor ▾</option>
-                    {floors.map(f => <option key={f} value={f.toString()}>Floor {f}</option>)}
+                    <option value="" disabled>{t("quick.byFloor", "Select by Floor ▾")}</option>
+                    {floors.map(f => <option key={f} value={f.toString()}>{t("filter.floor", "Floor {{f}}", { f })}</option>)}
                   </select>
                 )}
                 {selectedRows.size > 0 && (
                   <button onClick={() => setSelectedRows(new Set())} className="px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-slate-400 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition flex items-center gap-1">
-                    Clear Selection <X className="w-3 h-3" />
+                    {t("quick.clear", "Clear Selection")} <X className="w-3 h-3" />
                   </button>
                 )}
               </div>
@@ -1119,33 +1138,33 @@ export default function OwnerHousekeeping() {
                 <div className="w-10 h-10 rounded-xl bg-blue-600/20 flex items-center justify-center text-blue-400 font-black">
                   {selectedRows.size}
                 </div>
-                <div className="text-xs font-black uppercase tracking-widest text-slate-100">Rooms Selected</div>
+                <div className="text-xs font-black uppercase tracking-widest text-slate-100">{t("bulk.selected", "Rooms Selected")}</div>
               </div>
-              
+
               <div className="flex items-center gap-2">
-                <select 
-                  value={bulkAssignStaff || ""} 
+                <select
+                  value={bulkAssignStaff || ""}
                   onChange={e => setBulkAssignStaff(e.target.value || null)}
                   className="appearance-none px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-[10px] font-black text-slate-300 focus:outline-none focus:border-blue-500/60"
                 >
-                  <option value="">Select staff...</option>
+                  <option value="">{t("bulk.selectStaff", "Select staff…")}</option>
                   {staffList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
-                <button onClick={handleBulkAssign} disabled={bulkLoading || !bulkAssignStaff} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition disabled:opacity-50">Assign Staff</button>
+                <button onClick={handleBulkAssign} disabled={bulkLoading || !bulkAssignStaff} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition disabled:opacity-50">{t("bulk.assignStaff", "Assign Staff")}</button>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
                 <button onClick={handleBulkStart} disabled={bulkLoading} className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition flex items-center gap-2">
-                  <Play className="w-3.5 h-3.5" /> Start Cleaning
+                  <Play className="w-3.5 h-3.5" /> {t("bulk.startCleaning", "Start Cleaning")}
                 </button>
                 <button onClick={handleBulkMarkClean} disabled={bulkLoading} className="px-4 py-2 bg-emerald-600/10 hover:bg-emerald-600/20 border border-emerald-500/30 text-emerald-500 text-[10px] font-black uppercase tracking-wider rounded-xl transition flex items-center gap-2">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Mark Clean
+                  <CheckCircle2 className="w-3.5 h-3.5" /> {t("bulk.markClean", "Mark Clean")}
                 </button>
                 <button onClick={handleBulkMarkInspected} disabled={bulkLoading} className="px-4 py-2 bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 text-[10px] font-black uppercase tracking-wider rounded-xl transition flex items-center gap-2">
-                  <Eye className="w-3.5 h-3.5" /> Mark Inspected
+                  <Eye className="w-3.5 h-3.5" /> {t("bulk.markInspected", "Mark Inspected")}
                 </button>
                 <button onClick={handleBulkOOO} disabled={bulkLoading} className="px-4 py-2 bg-red-600/10 hover:bg-red-600/20 border border-red-500/30 text-red-500 text-[10px] font-black uppercase tracking-wider rounded-xl transition flex items-center gap-2">
-                  <WrenchIcon className="w-3.5 h-3.5" /> Mark OOO
+                  <WrenchIcon className="w-3.5 h-3.5" /> {t("bulk.markOoo", "Mark OOO")}
                 </button>
               </div>
             </div>
@@ -1165,13 +1184,13 @@ export default function OwnerHousekeeping() {
                         className="w-4 h-4 rounded border-white/10 bg-white/5 text-indigo-600 focus:ring-indigo-500/40"
                       />
                     </th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Room</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Physical Status</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Arrival Impact</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Workflow</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Assigned</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">ETA / Est</th>
-                    <th className="px-6 py-4 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">Actions</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">{t("table.room", "Room")}</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">{t("table.physicalStatus", "Physical Status")}</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">{t("table.arrivalImpact", "Arrival Impact")}</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">{t("table.workflow", "Workflow")}</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">{t("table.assigned", "Assigned")}</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">{t("table.eta", "ETA / Est")}</th>
+                    <th className="px-6 py-4 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">{t("table.actions", "Actions")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/[0.03]">
@@ -1198,7 +1217,7 @@ export default function OwnerHousekeeping() {
                             </div>
                             <div>
                               <div className="text-xs font-black text-slate-200 uppercase">{room.room_type_name}</div>
-                              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Floor {room.floor}</div>
+                              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{t("table.floor", "Floor {{f}}", { f: room.floor })}</div>
                             </div>
                           </div>
                         </td>
@@ -1216,9 +1235,9 @@ export default function OwnerHousekeeping() {
                             const s = room.housekeeping_status;
                             if (s === "in_progress" && room.task_started_at) {
                               const remaining = Math.max(0, 30 - Math.round((Date.now() - new Date(room.task_started_at).getTime()) / 60000));
-                              return <span className="text-xs font-black text-indigo-400">{remaining > 0 ? `${remaining}m left` : "OVERDUE"}</span>;
+                              return <span className="text-xs font-black text-indigo-400">{remaining > 0 ? t("table.minsLeft", "{{m}}m left", { m: remaining }) : t("table.overdue", "OVERDUE")}</span>;
                             }
-                            if (s === "dirty") return <span className="text-xs font-bold text-slate-500">~30m</span>;
+                            if (s === "dirty") return <span className="text-xs font-bold text-slate-500">{t("table.estimate", "~30m")}</span>;
                             return <span className="text-slate-700 text-xs">—</span>;
                           })()}
                         </td>
@@ -1227,27 +1246,27 @@ export default function OwnerHousekeeping() {
                              {/* Contextual Actions - Solid Colors for High Visibility */}
                             {room.housekeeping_status === "dirty" && (
                               <button onClick={() => handleAction("start", room.room_id)} disabled={actionLoading} className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition text-[11px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-blue-500/20">
-                                <Play className="w-3.5 h-3.5 fill-white" /> Start Cleaning
+                                <Play className="w-3.5 h-3.5 fill-white" /> {t("table.start", "Start Cleaning")}
                               </button>
                             )}
                             {room.housekeeping_status === "in_progress" && (
                               <button onClick={() => handleAction("clean", room.room_id)} disabled={actionLoading} className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition text-[11px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-emerald-500/20">
-                                <CheckCircle2 className="w-3.5 h-3.5" /> Mark Clean
+                                <CheckCircle2 className="w-3.5 h-3.5" /> {t("table.markClean", "Mark Clean")}
                               </button>
                             )}
                             {room.housekeeping_status === "clean" && (
                               <button onClick={() => handleAction("inspect", room.room_id)} disabled={actionLoading} className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition text-[11px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-indigo-500/20">
-                                <Eye className="w-3.5 h-3.5" /> Mark Inspected
+                                <Eye className="w-3.5 h-3.5" /> {t("table.markInspected", "Mark Inspected")}
                               </button>
                             )}
                             {room.housekeeping_status === "out_of_order" && (
                               <button onClick={() => setResolveRoom(room)} disabled={actionLoading} className="px-6 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl transition text-[11px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-orange-500/20">
-                                <WrenchIcon className="w-3.5 h-3.5" /> Resolve
+                                <WrenchIcon className="w-3.5 h-3.5" /> {t("table.resolve", "Resolve")}
                               </button>
                             )}
                             {room.housekeeping_status === "inspected" && (
                               <button onClick={() => setInspectRoom(room)} disabled={actionLoading} className="px-6 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl transition text-[11px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-orange-500/20">
-                                <RefreshCw className="w-3.5 h-3.5" /> Reopen
+                                <RefreshCw className="w-3.5 h-3.5" /> {t("table.reopen", "Reopen")}
                               </button>
                             )}
                           </div>
@@ -1260,8 +1279,8 @@ export default function OwnerHousekeeping() {
                       <td colSpan={8} className="px-6 py-20 text-center">
                         <div className="flex flex-col items-center">
                           <Sparkles className="w-12 h-12 text-slate-700 mb-4" />
-                          <h3 className="text-slate-300 font-black uppercase text-sm tracking-widest">No rooms found</h3>
-                          <p className="text-xs text-slate-600 mt-1">Adjust filters or search query</p>
+                          <h3 className="text-slate-300 font-black uppercase text-sm tracking-widest">{t("table.emptyTitle", "No rooms found")}</h3>
+                          <p className="text-xs text-slate-600 mt-1">{t("table.emptyBody", "Adjust filters or search query")}</p>
                         </div>
                       </td>
                     </tr>
@@ -1274,7 +1293,7 @@ export default function OwnerHousekeeping() {
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="mt-8 flex items-center justify-between px-6">
-              <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Showing {paginatedRooms.length} of {filteredRooms.length} rooms</p>
+              <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{t("pagination", "Showing {{shown}} of {{total}} rooms", { shown: paginatedRooms.length, total: filteredRooms.length })}</p>
               <div className="flex items-center gap-2">
                 <button
                   disabled={currentPage === 1}

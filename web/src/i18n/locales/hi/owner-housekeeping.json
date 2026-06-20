@@ -1,0 +1,178 @@
+{
+  "loading": "हाउसकीपिंग बोर्ड लोड हो रहा है…",
+  "roomNum": "रूम {{n}}",
+  "fallback": {
+    "standardRoom": "स्टैंडर्ड रूम",
+    "standard": "स्टैंडर्ड",
+    "standardUnit": "स्टैंडर्ड यूनिट",
+    "unassigned": "अनअसाइन्ड"
+  },
+  "header": {
+    "title": "हाउसकीपिंग",
+    "titleAccent": "मैनेजमेंट",
+    "subtitle": "{{count}} कुल रूम्स · रियल-टाइम ऑपरेशनल बोर्ड",
+    "autoPriority": "ऑटो-प्रायोरिटी"
+  },
+  "kpi": {
+    "dirty": "गंदे रूम्स",
+    "inProgress": "चल रहे",
+    "ready": "तैयार / साफ़",
+    "inspectionPending": "इंस्पेक्शन बाकी",
+    "arrivalCriticals": "अराइवल क्रिटिकल",
+    "arrivalCdor": "अराइवल CDOR",
+    "outOfOrder": "सेवा से बाहर"
+  },
+  "filter": {
+    "search": "रूम्स, गेस्ट खोजें…",
+    "allRoomTypes": "सभी रूम टाइप",
+    "statusAll": "स्टेटस: सभी",
+    "dirty": "गंदा",
+    "cleaning": "क्लीनिंग",
+    "clean": "साफ़",
+    "inspection": "इंस्पेक्शन",
+    "ooo": "सेवा से बाहर",
+    "zoneAll": "ज़ोन: सभी",
+    "floor": "फ्लोर {{f}}",
+    "assignedAll": "असाइन: सभी",
+    "arrivalAll": "अराइवल प्रायोरिटी: सभी",
+    "arrivalBlocked": "अराइवल ब्लॉक्ड",
+    "showArrivals": "अराइवल डैशबोर्ड दिखाएँ",
+    "arrivalsShort": "अराइवल्स"
+  },
+  "quick": {
+    "allDirty": "सभी गंदे चुनें",
+    "pendingInspection": "इंस्पेक्शन बाकी चुनें",
+    "arrivalCriticals": "अराइवल क्रिटिकल चुनें",
+    "unassigned": "अनअसाइन्ड चुनें",
+    "byFloor": "फ्लोर से चुनें ▾",
+    "clear": "चयन हटाएँ"
+  },
+  "bulk": {
+    "selected": "रूम्स चुने गए",
+    "selectStaff": "स्टाफ़ चुनें…",
+    "assignStaff": "स्टाफ़ असाइन करें",
+    "startCleaning": "क्लीनिंग शुरू करें",
+    "markClean": "साफ़ मार्क करें",
+    "markInspected": "इंस्पेक्टेड मार्क करें",
+    "markOoo": "OOO मार्क करें"
+  },
+  "table": {
+    "room": "रूम",
+    "physicalStatus": "फिजिकल स्टेटस",
+    "arrivalImpact": "अराइवल इम्पैक्ट",
+    "workflow": "वर्कफ़्लो",
+    "assigned": "असाइन",
+    "eta": "ETA / अनुमान",
+    "actions": "एक्शन",
+    "floor": "फ्लोर {{f}}",
+    "minsLeft": "{{m}}m बाकी",
+    "overdue": "ओवरड्यू",
+    "estimate": "~30m",
+    "start": "क्लीनिंग शुरू करें",
+    "markClean": "साफ़ मार्क करें",
+    "markInspected": "इंस्पेक्टेड मार्क करें",
+    "resolve": "रिज़ॉल्व",
+    "reopen": "रीओपन",
+    "emptyTitle": "कोई रूम नहीं मिला",
+    "emptyBody": "फ़िल्टर या सर्च बदलें"
+  },
+  "pagination": "{{total}} में से {{shown}} रूम्स दिख रहे हैं",
+  "physical": {
+    "dirty": "गंदा",
+    "cleaning": "क्लीनिंग",
+    "paused": "पॉज़्ड",
+    "clean": "साफ़",
+    "inspected": "इंस्पेक्टेड",
+    "ooo": "OOO",
+    "unknown": "अज्ञात",
+    "progress": "प्रोग्रेस"
+  },
+  "workflow": {
+    "dirty": "क्लीनिंग का इंतज़ार",
+    "in_progress": "क्लीनिंग",
+    "pickup": "पिकअप",
+    "clean": "इंस्पेक्शन बाकी",
+    "inspected": "तैयार",
+    "out_of_order": "मेंटेनेंस"
+  },
+  "urgency": {
+    "CRITICAL": "क्रिटिकल",
+    "HIGH": "हाई",
+    "MEDIUM": "मीडियम",
+    "LOW": "लो"
+  },
+  "impact": {
+    "blocked": "ब्लॉक्ड",
+    "onTrack": "ऑन ट्रैक",
+    "critical": "क्रिटिकल · {{mins}}m",
+    "high": "हाई · {{h}}h {{m}}m",
+    "medium": "मीडियम · {{h}}h"
+  },
+  "inspect": {
+    "title": "रूम इंस्पेक्ट करें",
+    "cleanedAgo": "{{mins}} मिनट पहले साफ़ हुआ",
+    "cleanedRecently": "हाल ही में साफ़ हुआ",
+    "duration": "{{mins}} मिनट का समय",
+    "unknownDuration": "समय अज्ञात",
+    "floorType": "फ्लोर {{floor}} · {{type}}",
+    "markInspected": "इंस्पेक्टेड मार्क करें",
+    "reopenCleaning": "क्लीनिंग फिर खोलें"
+  },
+  "resolve": {
+    "title": "रूम रिज़ॉल्व करें",
+    "oooBadge": "सेवा से बाहर",
+    "heading": "आउट ऑफ़ ऑर्डर स्टेटस रिज़ॉल्व करें",
+    "body": "इस रूम को क्लीनिंग के लिए उपलब्ध मार्क करें? मौजूदा आउट-ऑफ़-ऑर्डर स्टेटस और नोट्स हट जाएँगे।",
+    "markDirty": "गंदा मार्क करें",
+    "markClean": "साफ़ मार्क करें"
+  },
+  "popup": {
+    "title": "स्टेटस अपडेट कन्फर्म करें",
+    "markDirty": "गंदा मार्क करें",
+    "vacantClean": "वेकेंट क्लीन",
+    "occupiedClean": "ऑक्यूपाइड क्लीन",
+    "pause": "ट्रैकिंग पॉज़ करें",
+    "dismiss": "बंद करें"
+  },
+  "arrivals": {
+    "monitor": "अराइवल मॉनिटर",
+    "alerts": "अलर्ट",
+    "queue": "क्यू",
+    "emptyAlerts": "कोई क्रिटिकल अलर्ट नहीं",
+    "emptyQueue": "सभी रूम्स तैयार",
+    "emptyAlertsSub": "अनरेडी रूम वाले कोई गेस्ट नहीं आ रहे",
+    "emptyQueueSub": "क्यू में कोई अराइवल-ब्लॉक्ड रूम नहीं",
+    "room": "रूम {{n}}",
+    "booking": "बुकिंग: {{code}}",
+    "critical": "क्रिटिकल",
+    "high": "हाई",
+    "total": "कुल"
+  },
+  "impactCard": {
+    "arrival": "अराइवल {{urgency}} — {{mins}}m",
+    "needed": "{{name}} के लिए रूम चाहिए। बुकिंग: {{code}}"
+  },
+  "drawer": {
+    "operationalStatus": "ऑपरेशनल स्टेटस",
+    "currentStanding": "मौजूदा स्थिति",
+    "assignedPersonnel": "असाइन किया स्टाफ़",
+    "sanitationProtocol": "सैनिटेशन प्रोटोकॉल",
+    "check": {
+      "bedding": "बेडिंग बदलना",
+      "bath": "बाथ सैनिटेशन",
+      "minibar": "मिनीबार रिफ्रेश",
+      "surface": "सरफेस डिसइंफेक्शन"
+    },
+    "availableOps": "उपलब्ध ऑपरेशन",
+    "initiate": "क्लीनिंग प्रोटोकॉल शुरू करें",
+    "finalize": "सैनिटेशन फ़ाइनल करें",
+    "dispatchInspector": "इंस्पेक्टर भेजें",
+    "completeToInspect": "इंस्पेक्ट हेतु प्रोटोकॉल पूरा करें",
+    "checkAll": "आगे बढ़ने के लिए सभी प्रोटोकॉल आइटम चेक करें",
+    "decertify": "डी-सर्टिफ़ाई & रीओपन",
+    "resolveFlag": "मेंटेनेंस फ्लैग रिज़ॉल्व करें",
+    "eventLog": "इवेंट लॉग",
+    "noEvents": "कोई ऑपरेशनल इवेंट दर्ज नहीं।",
+    "statusTransition": "स्टेटस ट्रांज़िशन"
+  }
+}

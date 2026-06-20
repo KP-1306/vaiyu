@@ -1,0 +1,178 @@
+{
+  "loading": "Loading Housekeeping Board…",
+  "roomNum": "Room {{n}}",
+  "fallback": {
+    "standardRoom": "Standard Room",
+    "standard": "Standard",
+    "standardUnit": "Standard Unit",
+    "unassigned": "Unassigned"
+  },
+  "header": {
+    "title": "Housekeeping",
+    "titleAccent": "Management",
+    "subtitle": "{{count}} rooms total · Real-time Operational Board",
+    "autoPriority": "Auto-Priority"
+  },
+  "kpi": {
+    "dirty": "Dirty Rooms",
+    "inProgress": "In Progress",
+    "ready": "Ready / Clean",
+    "inspectionPending": "Inspection Pending",
+    "arrivalCriticals": "Arrival Criticals",
+    "arrivalCdor": "Arrival CDOR",
+    "outOfOrder": "Out of Order"
+  },
+  "filter": {
+    "search": "Filter rooms, guests…",
+    "allRoomTypes": "All Room Types",
+    "statusAll": "Status: All",
+    "dirty": "Dirty",
+    "cleaning": "Cleaning",
+    "clean": "Clean",
+    "inspection": "Inspection",
+    "ooo": "Out of Order",
+    "zoneAll": "Zone: All",
+    "floor": "Floor {{f}}",
+    "assignedAll": "Assigned To: All",
+    "arrivalAll": "Arrival Priority: All",
+    "arrivalBlocked": "Arrival Blocked",
+    "showArrivals": "Show Arrival Dashboard",
+    "arrivalsShort": "Arrivals"
+  },
+  "quick": {
+    "allDirty": "Select All Dirty",
+    "pendingInspection": "Select Pending Inspection",
+    "arrivalCriticals": "Select Arrival Criticals",
+    "unassigned": "Select Unassigned",
+    "byFloor": "Select by Floor ▾",
+    "clear": "Clear Selection"
+  },
+  "bulk": {
+    "selected": "Rooms Selected",
+    "selectStaff": "Select staff…",
+    "assignStaff": "Assign Staff",
+    "startCleaning": "Start Cleaning",
+    "markClean": "Mark Clean",
+    "markInspected": "Mark Inspected",
+    "markOoo": "Mark OOO"
+  },
+  "table": {
+    "room": "Room",
+    "physicalStatus": "Physical Status",
+    "arrivalImpact": "Arrival Impact",
+    "workflow": "Workflow",
+    "assigned": "Assigned",
+    "eta": "ETA / Est",
+    "actions": "Actions",
+    "floor": "Floor {{f}}",
+    "minsLeft": "{{m}}m left",
+    "overdue": "OVERDUE",
+    "estimate": "~30m",
+    "start": "Start Cleaning",
+    "markClean": "Mark Clean",
+    "markInspected": "Mark Inspected",
+    "resolve": "Resolve",
+    "reopen": "Reopen",
+    "emptyTitle": "No rooms found",
+    "emptyBody": "Adjust filters or search query"
+  },
+  "pagination": "Showing {{shown}} of {{total}} rooms",
+  "physical": {
+    "dirty": "Dirty",
+    "cleaning": "Cleaning",
+    "paused": "Paused",
+    "clean": "Clean",
+    "inspected": "Inspected",
+    "ooo": "OOO",
+    "unknown": "Unknown",
+    "progress": "Progress"
+  },
+  "workflow": {
+    "dirty": "Waiting Cleaning",
+    "in_progress": "Cleaning",
+    "pickup": "Pickup",
+    "clean": "Pending Inspection",
+    "inspected": "Ready",
+    "out_of_order": "Maintenance"
+  },
+  "urgency": {
+    "CRITICAL": "Critical",
+    "HIGH": "High",
+    "MEDIUM": "Medium",
+    "LOW": "Low"
+  },
+  "impact": {
+    "blocked": "Blocked",
+    "onTrack": "On Track",
+    "critical": "Critical · {{mins}}m",
+    "high": "High · {{h}}h {{m}}m",
+    "medium": "Medium · {{h}}h"
+  },
+  "inspect": {
+    "title": "Inspect Room",
+    "cleanedAgo": "Cleaned {{mins}} mins ago",
+    "cleanedRecently": "Cleaned recently",
+    "duration": "{{mins}} min duration",
+    "unknownDuration": "Unknown duration",
+    "floorType": "Floor {{floor}} · {{type}}",
+    "markInspected": "Mark Inspected",
+    "reopenCleaning": "Reopen Cleaning"
+  },
+  "resolve": {
+    "title": "Resolve Room",
+    "oooBadge": "Out of Order",
+    "heading": "Resolve Out of Order Status",
+    "body": "Mark this room as available for cleaning? Current out of order status and notes will be cleared.",
+    "markDirty": "Mark Dirty",
+    "markClean": "Mark Clean"
+  },
+  "popup": {
+    "title": "Confirm Status Update",
+    "markDirty": "Mark Dirty",
+    "vacantClean": "Vacant Clean",
+    "occupiedClean": "Occupied Clean",
+    "pause": "Pause Tracking",
+    "dismiss": "Dismiss"
+  },
+  "arrivals": {
+    "monitor": "Arrival Monitor",
+    "alerts": "Alerts",
+    "queue": "Queue",
+    "emptyAlerts": "No Critical Alerts",
+    "emptyQueue": "All Rooms Ready",
+    "emptyAlertsSub": "No guests arriving with unready rooms",
+    "emptyQueueSub": "No arrival-blocked rooms in queue",
+    "room": "ROOM {{n}}",
+    "booking": "Booking: {{code}}",
+    "critical": "Critical",
+    "high": "High",
+    "total": "Total"
+  },
+  "impactCard": {
+    "arrival": "Arrival {{urgency}} — {{mins}}m",
+    "needed": "Room needed for {{name}}. Booking: {{code}}"
+  },
+  "drawer": {
+    "operationalStatus": "Operational Status",
+    "currentStanding": "Current Standing",
+    "assignedPersonnel": "Assigned Personnel",
+    "sanitationProtocol": "Sanitation Protocol",
+    "check": {
+      "bedding": "Bedding Replacement",
+      "bath": "Bath Sanitation",
+      "minibar": "Refresh Minibar",
+      "surface": "Surface Disinfection"
+    },
+    "availableOps": "Available Operations",
+    "initiate": "Initiate Cleaning Protocol",
+    "finalize": "Finalize Sanitation",
+    "dispatchInspector": "Dispatch Inspector",
+    "completeToInspect": "Complete Protocol to Inspect",
+    "checkAll": "Check all protocol items to proceed",
+    "decertify": "De-certify & Reopen",
+    "resolveFlag": "Resolve Maintenance Flag",
+    "eventLog": "Event Log",
+    "noEvents": "No operational events logged.",
+    "statusTransition": "Status Transition"
+  }
+}

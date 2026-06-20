@@ -502,7 +502,7 @@ export default function OwnerWorkforce() {
       <>
         <SEO title="Local workforce" noIndex />
         <OwnerGate>
-          <main className="min-h-[60vh] grid place-items-center bg-slate-50">
+          <main className="min-h-[60vh] grid place-items-center bg-[#0B0E14] text-slate-200">
             <Spinner label="Loading Workforce…" />
           </main>
         </OwnerGate>
@@ -515,13 +515,13 @@ export default function OwnerWorkforce() {
       <>
         <SEO title="Local workforce" noIndex />
         <OwnerGate>
-          <main className="max-w-3xl mx-auto p-6 bg-slate-50">
+          <main className="max-w-3xl mx-auto p-6 min-h-screen bg-[#0B0E14] text-slate-200">
 
-            <div className="mt-4 rounded-2xl border bg-white p-6 shadow-sm">
+            <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-6 shadow-sm">
               <div className="mb-2 text-lg font-semibold">
                 Workforce not available
               </div>
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-slate-400">
                 We couldn’t find this property. Open it from the Owner Home
                 screen and try again.
               </p>
@@ -541,39 +541,39 @@ export default function OwnerWorkforce() {
     <>
       <SEO title="Local workforce" noIndex />
       <OwnerGate>
-        <main className="min-h-screen bg-slate-50">
+        <main className="min-h-screen bg-[#0B0E14] text-slate-200">
           <div className="mx-auto max-w-7xl space-y-5 px-4 py-4 lg:px-6 lg:py-6">
             {/* Breadcrumb */}
             <div className="flex items-center gap-2 text-xs font-medium text-slate-500 mb-2">
-              <Link to={hotel && hotel.slug ? `/owner/${hotel.slug}` : '/owner'} className="hover:text-emerald-700 transition">Dashboard</Link>
+              <Link to={hotel && hotel.slug ? `/owner/${hotel.slug}` : '/owner'} className="hover:text-white transition">Dashboard</Link>
               <span className="text-slate-300">/</span>
-              <span className="text-slate-700">Workforce</span>
+              <span className="text-slate-200">Workforce</span>
             </div>
 
             {/* Top header */}
-            <header className="flex flex-col gap-3 rounded-3xl border border-slate-100 bg-white/90 px-4 py-4 shadow-sm shadow-slate-200/60 lg:flex-row lg:items-center lg:justify-between">
+            <header className="flex flex-col gap-3 rounded-3xl border border-white/10 bg-white/5 px-4 py-4 shadow-sm shadow-slate-200/60 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-semibold tracking-tight text-slate-900">
+                  <h1 className="text-xl font-semibold tracking-tight text-white">
                     Local workforce
                   </h1>
-                  <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 ring-1 ring-emerald-200">
+                  <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-300 ring-1 ring-emerald-500/30">
                     Beta
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-slate-600">
+                <p className="mt-1 text-xs text-slate-400">
                   Create open roles for this property, see applicants in one
                   place, and move them to shortlisted or hired in a single tap.
                 </p>
                 {!workforceEnabled && (
-                  <p className="mt-1 text-[11px] text-amber-700">
+                  <p className="mt-1 text-[11px] text-amber-300">
                     Workforce is not fully enabled yet in this project. The UI
                     is safe to explore; saving requires the{" "}
-                    <code className="rounded bg-slate-100 px-1 text-[10px]">
+                    <code className="rounded bg-white/10 px-1 text-[10px]">
                       workforce_jobs
                     </code>{" "}
                     and{" "}
-                    <code className="rounded bg-slate-100 px-1 text-[10px]">
+                    <code className="rounded bg-white/10 px-1 text-[10px]">
                       workforce_applications
                     </code>{" "}
                     tables to exist.
@@ -582,7 +582,7 @@ export default function OwnerWorkforce() {
               </div>
               <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
                 <div className="flex flex-col items-end text-right text-[11px] text-slate-500">
-                  <span className="font-medium text-slate-800">
+                  <span className="font-medium text-slate-200">
                     {hotel.name}
                   </span>
                   <span>
@@ -622,13 +622,13 @@ export default function OwnerWorkforce() {
                   cityOptions={cityOptions}
                 />
 
-                <div className="rounded-2xl border border-slate-100 bg-white/95 px-3 py-3 shadow-sm">
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3 shadow-sm">
                   <SectionHeader
                     title="Roles for this property"
                     desc="Every role here is scoped to this hotel only. No cross-property confusion."
                   />
                   {jobsError && (
-                    <div className="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    <div className="mb-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-300 ring-1 ring-amber-500/20">
                       {jobsError}
                     </div>
                   )}
@@ -674,7 +674,7 @@ export default function OwnerWorkforce() {
                             return (
                               <tr
                                 key={job.id}
-                                className={`cursor-pointer border-t text-[11px] transition-colors hover:bg-slate-50 ${isSelected ? "bg-sky-50/60" : ""
+                                className={`cursor-pointer border-t border-white/10 text-[11px] transition-colors hover:bg-white/5 ${isSelected ? "bg-indigo-500/15" : ""
                                   }`}
                                 onClick={() => {
                                   setSelectedJobId(job.id);
@@ -683,7 +683,7 @@ export default function OwnerWorkforce() {
                                 }}
                               >
                                 <td className="py-2 pr-3">
-                                  <div className="font-medium text-slate-900">
+                                  <div className="font-medium text-white">
                                     {job.title || "Untitled role"}
                                   </div>
                                   <div className="text-[10px] text-slate-500">
@@ -727,7 +727,7 @@ export default function OwnerWorkforce() {
 
               {/* Right: detail + applicants / form */}
               <div className="lg:col-span-5">
-                <div className="rounded-2xl border border-slate-100 bg-white/95 px-3 py-3 shadow-sm">
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3 shadow-sm">
                   {mode === "create" && (
                     <RoleForm
                       mode="create"
@@ -773,7 +773,7 @@ export default function OwnerWorkforce() {
 
             {/* Footer helper */}
             <footer className="pt-2">
-              <div className="rounded-2xl border border-slate-100 bg-white px-4 py-3 text-[11px] text-slate-600 shadow-sm">
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-[11px] text-slate-400 shadow-sm">
                 Tip: In the next phase, workforce can plug directly into your
                 “Invisible staff shortage” radar — so if rooms and tickets are
                 suffering because of hiring gaps, you’ll see it here first.
@@ -816,18 +816,18 @@ function FilterBar(props: {
   } = props;
 
   return (
-    <div className="flex flex-col gap-2 rounded-2xl border border-slate-100 bg-white/80 px-3 py-3 shadow-sm md:flex-row md:items-center md:justify-between">
+    <div className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-3 shadow-sm md:flex-row md:items-center md:justify-between">
       <div className="flex-1">
         <input
-          className="h-9 w-full rounded-full border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+          className="h-9 w-full rounded-full border border-white/10 bg-white/5 px-3 text-xs text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
           placeholder="Search by role, department, city, status…"
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
         />
       </div>
-      <div className="flex flex-wrap gap-2 text-[11px] text-slate-600 md:justify-end">
+      <div className="flex flex-wrap gap-2 text-[11px] text-slate-400 md:justify-end">
         <select
-          className="h-8 rounded-full border border-slate-200 bg-slate-50 px-2"
+          className="h-8 rounded-full border border-white/10 bg-white/5 px-2"
           value={status}
           onChange={(e) => onStatusChange(e.target.value)}
         >
@@ -838,7 +838,7 @@ function FilterBar(props: {
           ))}
         </select>
         <select
-          className="h-8 rounded-full border border-slate-200 bg-slate-50 px-2"
+          className="h-8 rounded-full border border-white/10 bg-white/5 px-2"
           value={department}
           onChange={(e) => onDepartmentChange(e.target.value)}
         >
@@ -849,7 +849,7 @@ function FilterBar(props: {
           ))}
         </select>
         <select
-          className="h-8 rounded-full border border-slate-200 bg-slate-50 px-2"
+          className="h-8 rounded-full border border-white/10 bg-white/5 px-2"
           value={city}
           onChange={(e) => onCityChange(e.target.value)}
         >
@@ -876,7 +876,7 @@ function SectionHeader({
   return (
     <div className="mb-3 flex items-start justify-between gap-3">
       <div>
-        <h2 className="text-sm font-semibold tracking-tight text-slate-900">
+        <h2 className="text-sm font-semibold tracking-tight text-white">
           {title}
         </h2>
         {desc && <p className="mt-0.5 text-xs text-slate-500">{desc}</p>}
@@ -894,10 +894,10 @@ function StatusPill({
   tone: "green" | "amber" | "red" | "grey";
 }) {
   const map = {
-    green: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-    amber: "bg-amber-50 text-amber-700 ring-amber-200",
-    red: "bg-rose-50 text-rose-700 ring-rose-200",
-    grey: "bg-slate-50 text-slate-600 ring-slate-200",
+    green: "bg-emerald-500/15 text-emerald-300 ring-emerald-500/30",
+    amber: "bg-amber-500/15 text-amber-300 ring-amber-500/30",
+    red: "bg-rose-500/15 text-rose-300 ring-rose-500/30",
+    grey: "bg-white/10 text-slate-300 ring-white/20",
   }[tone];
   return (
     <span
@@ -937,11 +937,11 @@ function RoleForm({
       />
       <div className="grid gap-2 text-xs md:grid-cols-2">
         <div className="space-y-1">
-          <label className="text-[11px] font-medium text-slate-700">
+          <label className="text-[11px] font-medium text-slate-200">
             Role title
           </label>
           <input
-            className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-xs"
+            className="h-8 w-full rounded-md border border-white/10 bg-white/5 px-2 text-xs"
             required
             value={draft.title || ""}
             onChange={(e) => updateField("title", e.target.value)}
@@ -949,33 +949,33 @@ function RoleForm({
           />
         </div>
         <div className="space-y-1">
-          <label className="text-[11px] font-medium text-slate-700">
+          <label className="text-[11px] font-medium text-slate-200">
             Department
           </label>
           <input
-            className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-xs"
+            className="h-8 w-full rounded-md border border-white/10 bg-white/5 px-2 text-xs"
             value={draft.department || ""}
             onChange={(e) => updateField("department", e.target.value)}
             placeholder="Front Desk, Housekeeping, F&B, Engineering…"
           />
         </div>
         <div className="space-y-1">
-          <label className="text-[11px] font-medium text-slate-700">
+          <label className="text-[11px] font-medium text-slate-200">
             City / Locality
           </label>
           <input
-            className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-xs"
+            className="h-8 w-full rounded-md border border-white/10 bg-white/5 px-2 text-xs"
             value={draft.city || ""}
             onChange={(e) => updateField("city", e.target.value)}
             placeholder="Use property city by default"
           />
         </div>
         <div className="space-y-1">
-          <label className="text-[11px] font-medium text-slate-700">
+          <label className="text-[11px] font-medium text-slate-200">
             Status
           </label>
           <select
-            className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-xs"
+            className="h-8 w-full rounded-md border border-white/10 bg-white/5 px-2 text-xs"
             value={draft.status || "open"}
             onChange={(e) => updateField("status", e.target.value)}
           >
@@ -986,11 +986,11 @@ function RoleForm({
           </select>
         </div>
         <div className="space-y-1">
-          <label className="text-[11px] font-medium text-slate-700">
+          <label className="text-[11px] font-medium text-slate-200">
             Priority
           </label>
           <select
-            className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-xs"
+            className="h-8 w-full rounded-md border border-white/10 bg-white/5 px-2 text-xs"
             value={draft.priority || "normal"}
             onChange={(e) => updateField("priority", e.target.value)}
           >
@@ -1001,35 +1001,35 @@ function RoleForm({
           </select>
         </div>
         <div className="space-y-1">
-          <label className="text-[11px] font-medium text-slate-700">
+          <label className="text-[11px] font-medium text-slate-200">
             Shift type
           </label>
           <input
-            className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-xs"
+            className="h-8 w-full rounded-md border border-white/10 bg-white/5 px-2 text-xs"
             value={draft.shift_type || ""}
             onChange={(e) => updateField("shift_type", e.target.value)}
             placeholder="Rotational, Morning, Night-only…"
           />
         </div>
         <div className="space-y-1">
-          <label className="text-[11px] font-medium text-slate-700">
+          <label className="text-[11px] font-medium text-slate-200">
             Salary band (optional)
           </label>
           <input
-            className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-xs"
+            className="h-8 w-full rounded-md border border-white/10 bg-white/5 px-2 text-xs"
             value={draft.salary_band || ""}
             onChange={(e) => updateField("salary_band", e.target.value)}
             placeholder="e.g. ₹16k–₹20k per month"
           />
         </div>
         <div className="space-y-1">
-          <label className="text-[11px] font-medium text-slate-700">
+          <label className="text-[11px] font-medium text-slate-200">
             No. of openings
           </label>
           <input
             type="number"
             min={1}
-            className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-xs"
+            className="h-8 w-full rounded-md border border-white/10 bg-white/5 px-2 text-xs"
             value={draft.openings ?? 1}
             onChange={(e) =>
               updateField("openings", Number(e.target.value) || 1)
@@ -1038,19 +1038,19 @@ function RoleForm({
         </div>
       </div>
       <div className="space-y-1 text-xs">
-        <label className="text-[11px] font-medium text-slate-700">
+        <label className="text-[11px] font-medium text-slate-200">
           Notes for hiring team (internal)
         </label>
         <textarea
           rows={3}
-          className="w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs"
+          className="w-full rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs"
           value={draft.notes || ""}
           onChange={(e) => updateField("notes", e.target.value)}
           placeholder="What kind of profile works best? Any hard constraints or must-have qualities?"
         />
       </div>
       {saveState.status === "error" && (
-        <div className="rounded-md bg-rose-50 px-3 py-2 text-[11px] text-rose-800">
+        <div className="rounded-md bg-rose-500/10 px-3 py-2 text-[11px] text-rose-300 ring-1 ring-rose-500/20">
           {saveState.message}
         </div>
       )}
@@ -1103,7 +1103,7 @@ function RoleDetail({
         : ("green" as const);
 
   return (
-    <div className="space-y-3 text-xs text-slate-700">
+    <div className="space-y-3 text-xs text-slate-200">
       <SectionHeader
         title={job.title || "Untitled role"}
         desc={
@@ -1136,34 +1136,34 @@ function RoleDetail({
           />
         )}
         {job.shift_type && (
-          <span className="rounded-full bg-slate-50 px-2 py-0.5 text-[11px] text-slate-600 ring-1 ring-slate-200">
+          <span className="rounded-full bg-white/5 px-2 py-0.5 text-[11px] text-slate-400 ring-1 ring-white/15">
             {job.shift_type} shift
           </span>
         )}
         {job.openings != null && (
-          <span className="rounded-full bg-slate-50 px-2 py-0.5 text-[11px] text-slate-600 ring-1 ring-slate-200">
+          <span className="rounded-full bg-white/5 px-2 py-0.5 text-[11px] text-slate-400 ring-1 ring-white/15">
             {job.openings} opening{job.openings === 1 ? "" : "s"}
           </span>
         )}
       </div>
       {job.salary_band && (
-        <div className="text-[11px] text-slate-600">
+        <div className="text-[11px] text-slate-400">
           Salary band: {job.salary_band}
         </div>
       )}
       {job.notes && (
-        <div className="rounded-md bg-slate-50 px-3 py-2 text-[11px] text-slate-700">
+        <div className="rounded-md bg-white/5 px-3 py-2 text-[11px] text-slate-200">
           {job.notes}
         </div>
       )}
 
-      <div className="mt-2 border-t pt-3">
+      <div className="mt-2 border-t border-white/10 pt-3">
         <SectionHeader
           title="Applicants for this role"
           desc="Shortlist or move someone to hired in one tap."
         />
         {applicantsError && (
-          <div className="mb-2 rounded-md bg-rose-50 px-3 py-2 text-[11px] text-rose-800">
+          <div className="mb-2 rounded-md bg-rose-500/10 px-3 py-2 text-[11px] text-rose-300 ring-1 ring-rose-500/20">
             {applicantsError}
           </div>
         )}
@@ -1208,9 +1208,9 @@ function ApplicantRow({
           : "grey";
 
   return (
-    <div className="flex items-start justify-between gap-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-[11px]">
+    <div className="flex items-start justify-between gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px]">
       <div>
-        <div className="font-medium text-slate-900">
+        <div className="font-medium text-white">
           {applicant.full_name || "Unnamed applicant"}
         </div>
         <div className="text-[10px] text-slate-500">
@@ -1224,12 +1224,12 @@ function ApplicantRow({
           </div>
         )}
         {applicant.message && (
-          <div className="mt-1 text-[10px] text-slate-600">
+          <div className="mt-1 text-[10px] text-slate-400">
             {applicant.message}
           </div>
         )}
         {applicant.notes && (
-          <div className="mt-1 text-[10px] text-slate-600">
+          <div className="mt-1 text-[10px] text-slate-400">
             {applicant.notes}
           </div>
         )}
@@ -1240,21 +1240,21 @@ function ApplicantRow({
           <button
             type="button"
             onClick={() => onUpdateStage(applicant.id, "shortlisted")}
-            className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] text-emerald-700 ring-1 ring-emerald-200"
+            className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-300 ring-1 ring-emerald-500/30"
           >
             Shortlist
           </button>
           <button
             type="button"
             onClick={() => onUpdateStage(applicant.id, "hired")}
-            className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] text-sky-700 ring-1 ring-sky-200"
+            className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] text-sky-300 ring-1 ring-sky-500/30"
           >
             Mark hired
           </button>
           <button
             type="button"
             onClick={() => onUpdateStage(applicant.id, "rejected")}
-            className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] text-rose-700 ring-1 ring-rose-200"
+            className="rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] text-rose-300 ring-1 ring-rose-500/30"
           >
             Reject
           </button>
@@ -1266,8 +1266,8 @@ function ApplicantRow({
 
 function EmptyDetailCard() {
   return (
-    <div className="space-y-2 text-xs text-slate-600">
-      <div className="font-medium text-slate-800">
+    <div className="space-y-2 text-xs text-slate-400">
+      <div className="font-medium text-slate-200">
         Select a role on the left
       </div>
       <p>

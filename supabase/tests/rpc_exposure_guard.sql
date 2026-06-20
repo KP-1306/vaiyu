@@ -60,7 +60,8 @@ BEGIN
       'record_package_view',       -- public package-page view analytics
       'submit_precheckin',         -- guest; validates the precheckin token internally
       'submit_public_feedback',    -- guest; validates the feedback token internally
-      'validate_precheckin_token'  -- guest; validates the token it is handed
+      'validate_precheckin_token', -- guest; validates the token it is handed
+      'va_rate_limit_hit'          -- public rate-limiter (api_hits 20260620000008): anon edge fns must call it and anon has no identity to guard on; it writes only a benign (key, ts) hit row, bounded by the prune_api_hits cron. api_hits itself is locked to service_role/owner.
     ]);
 
   IF v_violations IS NOT NULL THEN

@@ -1,0 +1,107 @@
+{
+  "language": { "label": "Language" },
+  "actions": {
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "close": "Close",
+    "confirm": "Confirm",
+    "back": "Back",
+    "retry": "Retry",
+    "refresh": "Refresh",
+    "export": "Export",
+    "import": "Import",
+    "print": "Print",
+    "download": "Download",
+    "search": "Search",
+    "filter": "Filter",
+    "clear": "Clear",
+    "apply": "Apply",
+    "reset": "Reset",
+    "viewAll": "View all",
+    "viewDetails": "View details",
+    "loadMore": "Load more",
+    "copy": "Copy",
+    "copied": "Copied!",
+    "next": "Next",
+    "previous": "Previous",
+    "done": "Done"
+  },
+  "state": {
+    "loading": "Loading…",
+    "empty": "Nothing here yet",
+    "noResults": "No results",
+    "error": "Something went wrong"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "backToDashboard": "Back to dashboard"
+  },
+  "toast": {
+    "saved": "Saved",
+    "saveFailed": "Couldn’t save — please try again",
+    "deleted": "Deleted",
+    "deleteFailed": "Couldn’t delete — please try again",
+    "networkError": "Network error — check your connection",
+    "unauthorized": "You don’t have permission for this"
+  },
+  "confirm": {
+    "delete": "Delete this? This can’t be undone.",
+    "discard": "Discard unsaved changes?"
+  },
+  "terms": {
+    "booking": "Booking",
+    "room": "Room",
+    "guest": "Guest",
+    "housekeeping": "Housekeeping",
+    "payment": "Payment",
+    "folio": "Folio",
+    "occupancy": "Occupancy",
+    "revenue": "Revenue",
+    "staff": "Staff",
+    "service": "Service",
+    "settings": "Settings",
+    "arrivals": "Arrivals",
+    "pickup": "Pickup"
+  },
+  "status": {
+    "CONFIRMED": "Confirmed",
+    "PENDING": "Pending",
+    "CHECKED_IN": "Checked in",
+    "CHECKED_OUT": "Checked out",
+    "CANCELLED": "Cancelled",
+    "NO_SHOW": "No show",
+    "COMPLETED": "Completed",
+    "OPEN": "Open",
+    "CLOSED": "Closed",
+    "IN_PROGRESS": "In progress",
+    "ON_HOLD": "On hold",
+    "PAID": "Paid",
+    "UNPAID": "Unpaid",
+    "PARTIAL": "Partial",
+    "REFUNDED": "Refunded",
+    "CLEAN": "Clean",
+    "DIRTY": "Dirty",
+    "INSPECTED": "Inspected",
+    "OUT_OF_SERVICE": "Out of service"
+  },
+  "role": {
+    "OWNER": "Owner",
+    "MANAGER": "Manager",
+    "STAFF": "Staff",
+    "FRONT_DESK": "Front desk",
+    "HOUSEKEEPING": "Housekeeping",
+    "KITCHEN": "Kitchen"
+  },
+  "mode": {
+    "CASH": "Cash",
+    "CARD": "Card",
+    "UPI": "UPI",
+    "ONLINE": "Online",
+    "DIRECT": "Direct",
+    "ROUTE": "Route"
+  }
+}

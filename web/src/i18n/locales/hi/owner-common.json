@@ -1,0 +1,107 @@
+{
+  "language": { "label": "भाषा" },
+  "actions": {
+    "save": "सेव करें",
+    "saving": "सेव हो रहा है…",
+    "cancel": "कैंसल",
+    "delete": "डिलीट",
+    "edit": "एडिट",
+    "add": "जोड़ें",
+    "close": "बंद करें",
+    "confirm": "कन्फर्म करें",
+    "back": "वापस",
+    "retry": "फिर कोशिश करें",
+    "refresh": "रिफ्रेश",
+    "export": "एक्सपोर्ट",
+    "import": "इम्पोर्ट",
+    "print": "प्रिंट",
+    "download": "डाउनलोड",
+    "search": "खोजें",
+    "filter": "फ़िल्टर",
+    "clear": "क्लियर",
+    "apply": "लागू करें",
+    "reset": "रीसेट",
+    "viewAll": "सभी देखें",
+    "viewDetails": "विवरण देखें",
+    "loadMore": "और देखें",
+    "copy": "कॉपी",
+    "copied": "कॉपी हो गया!",
+    "next": "आगे",
+    "previous": "पीछे",
+    "done": "हो गया"
+  },
+  "state": {
+    "loading": "लोड हो रहा है…",
+    "empty": "अभी यहाँ कुछ नहीं",
+    "noResults": "कोई परिणाम नहीं",
+    "error": "कुछ गड़बड़ हो गई"
+  },
+  "nav": {
+    "dashboard": "डैशबोर्ड",
+    "backToDashboard": "डैशबोर्ड पर वापस"
+  },
+  "toast": {
+    "saved": "सेव हो गया",
+    "saveFailed": "सेव नहीं हो सका — फिर कोशिश करें",
+    "deleted": "डिलीट हो गया",
+    "deleteFailed": "डिलीट नहीं हो सका — फिर कोशिश करें",
+    "networkError": "नेटवर्क त्रुटि — कनेक्शन जांचें",
+    "unauthorized": "आपको इसकी अनुमति नहीं है"
+  },
+  "confirm": {
+    "delete": "इसे डिलीट करें? यह वापस नहीं होगा।",
+    "discard": "बिना सेव किए बदलाव छोड़ दें?"
+  },
+  "terms": {
+    "booking": "बुकिंग",
+    "room": "रूम",
+    "guest": "गेस्ट",
+    "housekeeping": "हाउसकीपिंग",
+    "payment": "पेमेंट",
+    "folio": "फोलियो",
+    "occupancy": "ऑक्यूपेंसी",
+    "revenue": "रेवेन्यू",
+    "staff": "स्टाफ़",
+    "service": "सर्विस",
+    "settings": "सेटिंग्स",
+    "arrivals": "अराइवल्स",
+    "pickup": "पिकअप"
+  },
+  "status": {
+    "CONFIRMED": "कन्फर्म्ड",
+    "PENDING": "पेंडिंग",
+    "CHECKED_IN": "चेक-इन",
+    "CHECKED_OUT": "चेक-आउट",
+    "CANCELLED": "कैंसल्ड",
+    "NO_SHOW": "नो-शो",
+    "COMPLETED": "पूरा हुआ",
+    "OPEN": "ओपन",
+    "CLOSED": "क्लोज़्ड",
+    "IN_PROGRESS": "चल रहा है",
+    "ON_HOLD": "होल्ड पर",
+    "PAID": "पेड",
+    "UNPAID": "अनपेड",
+    "PARTIAL": "पार्शियल",
+    "REFUNDED": "रिफंड हुआ",
+    "CLEAN": "साफ़",
+    "DIRTY": "गंदा",
+    "INSPECTED": "जांचा गया",
+    "OUT_OF_SERVICE": "सेवा से बाहर"
+  },
+  "role": {
+    "OWNER": "मालिक",
+    "MANAGER": "मैनेजर",
+    "STAFF": "स्टाफ़",
+    "FRONT_DESK": "फ्रंट डेस्क",
+    "HOUSEKEEPING": "हाउसकीपिंग",
+    "KITCHEN": "किचन"
+  },
+  "mode": {
+    "CASH": "कैश",
+    "CARD": "कार्ड",
+    "UPI": "UPI",
+    "ONLINE": "ऑनलाइन",
+    "DIRECT": "डायरेक्ट",
+    "ROUTE": "रूट"
+  }
+}

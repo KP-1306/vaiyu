@@ -1,0 +1,15 @@
+/* web/src/i18n/ownerConsole.css
+   Devanagari rendering for the owner console in Hindi mode.
+
+   The owner shells base their type on Outfit. Outfit has no Devanagari glyphs,
+   so we append the self-hosted Noto Sans Devanagari to the fallback chain:
+   Latin (English-retained terms, numbers, ₹) keeps Outfit; Devanagari characters
+   fall through to Noto, per-glyph. Scoped to `.vaiyu-owner` (added to each owner
+   shell root) so it never touches the rest of the app.
+
+   The Noto webfont is loaded on demand by runtime.ts (ensureFontForLang) only
+   when the active language is Hindi — no extra load for English owners. */
+html[lang='hi'] .vaiyu-owner {
+  font-family: 'Outfit', 'Noto Sans Devanagari', system-ui, -apple-system,
+    'Segoe UI', Roboto, sans-serif;
+}

@@ -3,16 +3,20 @@
 // RootLayout. Renders only on /owner/:slug/<sub> routes, and NOT on:
 //   • the dashboard root (/owner/:slug) — it has its own breadcrumb,
 //   • /owner, /owner/services, /owner/register — no hotel slug,
-//   • finance/*, pricing/*, workforce — those pages render OwnerDarkPage's own
-//     breadcrumbs (avoid duplicates).
+//   • finance/*, pricing/*, workforce, staff-shifts, analytics, settings,
+//     payments — those pages render their OWN "Dashboard / …" breadcrumb header,
+//     so the global strip is suppressed to avoid duplicates.
 // The current page label is auto-derived from the OWNER_NAV manifest.
 
 import { Link, useLocation } from "react-router-dom";
 import { OWNER_NAV } from "../../lib/ownerNav";
 
 // Subpaths whose pages render their own breadcrumbs (OwnerDarkPage pages; the
-// booking detail page renders its own "… / Booking <code>").
-const SELF_BREADCRUMB = /^(finance|pricing|workforce|booking)(\/|$)/;
+// booking detail page renders its own "… / Booking <code>"; and several owner
+// pages that render an inline "Dashboard / <Page>" header). Pages NOT listed here
+// (e.g. housekeeping, arrivals) have no own breadcrumb and rely on this strip —
+// do not add a page here unless it renders its own breadcrumb.
+const SELF_BREADCRUMB = /^(finance|pricing|workforce|booking|staff-shifts|analytics|settings|payments)(\/|$)/;
 
 // First-segment words that are NOT hotel slugs — they're literal owner routes
 // (e.g. /owner/bookings/calendar, /owner/dashboard/:slug, /owner/invite/accept/:token).

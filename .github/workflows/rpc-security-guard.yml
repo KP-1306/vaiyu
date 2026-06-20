@@ -7,6 +7,9 @@ name: RLS & RPC Security Guards
 #   • writepath_rls_guard.sql — an RLS-off base table, or a permissive policy that
 #     lets a client role INSERT/UPDATE/DELETE unscoped (the 2026-06-20 write-path
 #     audit, migrations 20260620000010-0014).
+#   • readpath_rls_guard.sql  — an anon-readable SECURITY DEFINER view, or a base
+#     table with an anon USING(true) SELECT policy (the 2026-06 read perimeter +
+#     view sweeps, migrations 20260616000006 / 20260620000001-0016).
 # Each guard carries its own reviewed allowlist for intentional public-by-design
 # exceptions.
 
@@ -49,3 +52,8 @@ jobs:
         # Fails if a migration left an RLS-off base table or an unscoped client
         # write policy. Self-checks the schema is migrated (no false pass on empty).
         run: supabase db query --local --file supabase/tests/writepath_rls_guard.sql
+
+      - name: Run read-path RLS guard
+        # Fails if a migration left an anon-readable SECURITY DEFINER view or an
+        # anon USING(true) base-table read policy. Self-checks the schema is migrated.
+        run: supabase db query --local --file supabase/tests/readpath_rls_guard.sql

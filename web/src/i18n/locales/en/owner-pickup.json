@@ -1,0 +1,34 @@
+{
+  "title": "Pick-up",
+  "subtitle": "New room-nights booked in the selected window. Green is good — steady inflow means healthy demand.",
+  "openPricing": "Open pricing",
+  "openCalendar": "Open calendar",
+  "filter": { "from": "From", "to": "To" },
+  "empty": { "window": "No new bookings in this window." },
+  "kpi": {
+    "newNights": "New nights",
+    "bookings": "Bookings",
+    "avgStay": "Avg stay length",
+    "nightsValue": "{{value}} nights"
+  },
+  "trend": { "above": "Above trend", "attention": "Needs attention" },
+  "chart": {
+    "title": "Daily pick-up",
+    "subtitle": "Bars show new nights added per day; the line shows cumulative nights within this window.",
+    "noData": "No data to chart.",
+    "series": { "nights": "Nights", "cumulative": "Cumulative" }
+  },
+  "recent": {
+    "title": "Recent bookings",
+    "subtitle": "Last few bookings created in this window.",
+    "empty": "Nothing new yet — promotions can help lift pick-up."
+  },
+  "table": {
+    "created": "Created",
+    "guest": "Guest",
+    "room": "Room",
+    "checkIn": "Check-in",
+    "checkOut": "Check-out",
+    "nights": "Nights"
+  }
+}

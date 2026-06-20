@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, Area, ReferenceLine } from "recharts";
+import { useOwnerT, useOwnerCommonT, useOwnerLocale } from "../i18n/useOwnerT";
 
 // ------------------------------- Types --------------------------------------
 type Hotel = { id: string; name: string; slug: string };
@@ -62,6 +63,9 @@ function perfTone(deltaPct?: number){
 export default function OwnerPickup(){
   const { slug } = useParams();
   const nav = useNavigate();
+  const t = useOwnerT("owner-pickup");
+  const tc = useOwnerCommonT();
+  const locale = useOwnerLocale();
 
   const [hotel, setHotel] = useState<Hotel|null>(null);
   const [fromDay, setFromDay] = useState<string>(()=> isoDay(addDays(new Date(), -7)));
@@ -161,16 +165,16 @@ export default function OwnerPickup(){
   }, [daily]);
 
   return (
-    <main className="max-w-6xl mx-auto p-6">
+    <main className="vaiyu-owner max-w-6xl mx-auto p-6">
       <div className="flex items-center justify-between mb-2">
         <div>
-          <div className="text-2xl font-semibold">Pick‑up</div>
-          <p className="text-sm text-muted-foreground">New room‑nights booked in the selected window. Green is good — steady inflow means healthy demand.</p>
+          <div className="text-2xl font-semibold">{t("title", "Pick-up")}</div>
+          <p className="text-sm text-muted-foreground">{t("subtitle", "New room-nights booked in the selected window. Green is good — steady inflow means healthy demand.")}</p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="btn btn-light" onClick={()=>nav(-1)}>← Back</button>
-          <Link className="btn" to={`/owner/${slug}/pricing`}>Open pricing</Link>
-          <Link className="btn btn-light" to={`/owner/${slug}/bookings/calendar`}>Open calendar</Link>
+          <button className="btn btn-light" onClick={()=>nav(-1)}>← {tc("actions.back", "Back")}</button>
+          <Link className="btn" to={`/owner/${slug}/pricing`}>{t("openPricing", "Open pricing")}</Link>
+          <Link className="btn btn-light" to={`/owner/${slug}/bookings/calendar`}>{t("openCalendar", "Open calendar")}</Link>
         </div>
       </div>
 
@@ -178,11 +182,11 @@ export default function OwnerPickup(){
       <div className="rounded-xl border bg-white p-4 mb-4">
         <div className="flex flex-wrap items-end gap-3">
           <div>
-            <label className="block text-xs text-muted-foreground mb-1">From</label>
+            <label className="block text-xs text-muted-foreground mb-1">{t("filter.from", "From")}</label>
             <input type="date" value={fromDay} onChange={(e)=>setFromDay(e.target.value)} className="border rounded px-2 py-1 text-sm" />
           </div>
           <div>
-            <label className="block text-xs text-muted-foreground mb-1">To</label>
+            <label className="block text-xs text-muted-foreground mb-1">{t("filter.to", "To")}</label>
             <input type="date" value={toDay} onChange={(e)=>setToDay(e.target.value)} className="border rounded px-2 py-1 text-sm" />
           </div>
           <div className="flex gap-2 ml-auto text-xs">
@@ -196,25 +200,25 @@ export default function OwnerPickup(){
       {/* KPI header */}
       <div className="rounded-xl border bg-white p-4 mb-4">
         {loading ? (
-          <div className="text-sm text-muted-foreground">Loading…</div>
+          <div className="text-sm text-muted-foreground">{tc("state.loading", "Loading…")}</div>
         ) : daily.length===0 ? (
-          <div className="text-sm text-muted-foreground">No new bookings in this window.</div>
+          <div className="text-sm text-muted-foreground">{t("empty.window", "No new bookings in this window.")}</div>
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <div className="text-xs text-muted-foreground">New nights</div>
+              <div className="text-xs text-muted-foreground">{t("kpi.newNights", "New nights")}</div>
               <div className="text-2xl font-semibold">{totals.nights}</div>
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">Bookings</div>
+              <div className="text-xs text-muted-foreground">{t("kpi.bookings", "Bookings")}</div>
               <div className="text-lg">{totals.bookings}</div>
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">Avg stay length</div>
-              <div className="text-lg">{totals.avgLos.toFixed(1)} nights</div>
+              <div className="text-xs text-muted-foreground">{t("kpi.avgStay", "Avg stay length")}</div>
+              <div className="text-lg">{t("kpi.nightsValue", "{{value}} nights", { value: totals.avgLos.toFixed(1) })}</div>
             </div>
             <div>
-              <span className={`px-2 py-0.5 rounded-full text-xs ${badgeTone(tone as any)}`}>{tone==='grey' ? '—' : (tone==='green'?'Above trend':'Needs attention')}</span>
+              <span className={`px-2 py-0.5 rounded-full text-xs ${badgeTone(tone as any)}`}>{tone==='grey' ? '—' : (tone==='green'? t("trend.above", "Above trend") : t("trend.attention", "Needs attention"))}</span>
             </div>
           </div>
         )}
@@ -224,12 +228,12 @@ export default function OwnerPickup(){
       <div className="rounded-xl border bg-white p-4">
         <div className="flex items-start justify-between mb-2">
           <div>
-            <h2 className="text-lg font-semibold">Daily pick‑up</h2>
-            <p className="text-sm text-muted-foreground">Bars show new nights added per day; the line shows cumulative nights within this window.</p>
+            <h2 className="text-lg font-semibold">{t("chart.title", "Daily pick-up")}</h2>
+            <p className="text-sm text-muted-foreground">{t("chart.subtitle", "Bars show new nights added per day; the line shows cumulative nights within this window.")}</p>
           </div>
         </div>
         {daily.length===0 ? (
-          <div className="text-sm text-muted-foreground">No data to chart.</div>
+          <div className="text-sm text-muted-foreground">{t("chart.noData", "No data to chart.")}</div>
         ) : (
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -238,8 +242,8 @@ export default function OwnerPickup(){
                 <XAxis dataKey="day" tick={{ fontSize: 12 }} minTickGap={28} />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip />
-                <Bar dataKey="nights" name="Nights" />
-                <Line type="monotone" dataKey="cum" name="Cumulative" dot={false} strokeWidth={2} />
+                <Bar dataKey="nights" name={t("chart.series.nights", "Nights")} />
+                <Line type="monotone" dataKey="cum" name={t("chart.series.cumulative", "Cumulative")} dot={false} strokeWidth={2} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
@@ -250,33 +254,33 @@ export default function OwnerPickup(){
       <div className="rounded-xl border bg-white p-4 mt-4">
         <div className="flex items-start justify-between mb-2">
           <div>
-            <h2 className="text-lg font-semibold">Recent bookings</h2>
-            <p className="text-sm text-muted-foreground">Last few bookings created in this window.</p>
+            <h2 className="text-lg font-semibold">{t("recent.title", "Recent bookings")}</h2>
+            <p className="text-sm text-muted-foreground">{t("recent.subtitle", "Last few bookings created in this window.")}</p>
           </div>
         </div>
         {recent.length===0 ? (
-          <div className="text-sm text-muted-foreground">Nothing new yet — promotions can help lift pick‑up.</div>
+          <div className="text-sm text-muted-foreground">{t("recent.empty", "Nothing new yet — promotions can help lift pick-up.")}</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="text-sm w-full">
               <thead className="text-left text-muted-foreground">
                 <tr>
-                  <th className="py-1 pr-3">Created</th>
-                  <th className="py-1 pr-3">Guest</th>
-                  <th className="py-1 pr-3">Room</th>
-                  <th className="py-1 pr-3">Check‑in</th>
-                  <th className="py-1 pr-3">Check‑out</th>
-                  <th className="py-1 pr-3">Nights</th>
+                  <th className="py-1 pr-3">{t("table.created", "Created")}</th>
+                  <th className="py-1 pr-3">{t("table.guest", "Guest")}</th>
+                  <th className="py-1 pr-3">{t("table.room", "Room")}</th>
+                  <th className="py-1 pr-3">{t("table.checkIn", "Check-in")}</th>
+                  <th className="py-1 pr-3">{t("table.checkOut", "Check-out")}</th>
+                  <th className="py-1 pr-3">{t("table.nights", "Nights")}</th>
                 </tr>
               </thead>
               <tbody>
                 {recent.map(r => (
                   <tr key={r.id} className="border-t">
-                    <td className="py-1 pr-3">{r.created_at ? new Date(r.created_at).toLocaleString() : (r.booked_at ? new Date(r.booked_at).toLocaleString() : '—')}</td>
+                    <td className="py-1 pr-3">{r.created_at ? new Date(r.created_at).toLocaleString(locale) : (r.booked_at ? new Date(r.booked_at).toLocaleString(locale) : '—')}</td>
                     <td className="py-1 pr-3">{r.guest_id ? (guests[r.guest_id]?.full_name || r.guest_id.slice(0,8)) : '—'}</td>
                     <td className="py-1 pr-3">{r.room || '—'}</td>
-                    <td className="py-1 pr-3">{r.check_in_start ? new Date(r.check_in_start).toLocaleDateString() : '—'}</td>
-                    <td className="py-1 pr-3">{r.check_out_end ? new Date(r.check_out_end).toLocaleDateString() : '—'}</td>
+                    <td className="py-1 pr-3">{r.check_in_start ? new Date(r.check_in_start).toLocaleDateString(locale) : '—'}</td>
+                    <td className="py-1 pr-3">{r.check_out_end ? new Date(r.check_out_end).toLocaleDateString(locale) : '—'}</td>
                     <td className="py-1 pr-3">{nightsBetween(r.check_in_start, r.check_out_end)}</td>
                   </tr>
                 ))}

@@ -61,6 +61,22 @@ export function useOwnerCommonT(): OwnerT {
 }
 
 /**
+ * Locale tag for date/number formatting in the owner console. Subscribes to
+ * language changes (re-renders the caller). Respects the reveal-gate: while
+ * gated it's always 'en-IN' (Indian-English: DD/MM/YYYY, Latin digits — already
+ * an improvement over the browser default); after reveal it follows Hindi with
+ * 'hi-IN-u-nu-latn' (Hindi month/day names, Latin digits — matches the guest
+ * portal). Money stays 'en-IN' everywhere (₹ + Latin digits).
+ */
+export function useOwnerLocale(): string {
+  const { i18n } = useTranslation();
+  const isHi =
+    OWNER_I18N_ENABLED &&
+    (i18n.resolvedLanguage || i18n.language || 'en').startsWith('hi');
+  return isHi ? 'hi-IN-u-nu-latn' : 'en-IN';
+}
+
+/**
  * Humanise a logic CODE into an English fallback label, e.g.
  * "CHECKED_IN" -> "Checked in", "NO_SHOW" -> "No show".
  * Used as the defaultValue when localising a status/role/mode code so an

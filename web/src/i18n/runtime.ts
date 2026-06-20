@@ -13,9 +13,15 @@ export function applyHtmlLang(lang: AppLang): void {
 // Load Noto Sans Devanagari ONLY when a Devanagari-script language is active.
 // English-default users never download the (~heavy) Devanagari webfont; a Hindi
 // guest pays it once on first switch, then it's cached. Idempotent.
+//
+// Self-hosted via @fontsource (no third-party CDN — no Google Fonts request, no
+// extra DNS/preconnect, works behind strict CSPs, and the font is fingerprinted
+// and served from our own origin). Each weight's CSS + woff2 is code-split by
+// Vite into an on-demand chunk, so the lazy "only for Hindi" behaviour is kept.
+// We pull the Devanagari subset only (`devanagari-*`); Latin glyphs fall back to
+// the system stack declared in languageToggle.css. font-display: swap is built
+// into the @fontsource CSS, so text stays visible in a fallback face while it loads.
 const DEVANAGARI_LANGS: readonly AppLang[] = ['hi'];
-const FONT_HREF =
-  'https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap';
 
 let devanagariRequested = false;
 
@@ -25,18 +31,8 @@ export function ensureFontForLang(lang: AppLang): void {
   if (devanagariRequested) return;
   devanagariRequested = true;
 
-  // Preconnect for a faster first paint, then the stylesheet (font-display: swap
-  // keeps text visible in a fallback face while the Devanagari font loads).
-  const pre1 = document.createElement('link');
-  pre1.rel = 'preconnect';
-  pre1.href = 'https://fonts.googleapis.com';
-  const pre2 = document.createElement('link');
-  pre2.rel = 'preconnect';
-  pre2.href = 'https://fonts.gstatic.com';
-  pre2.crossOrigin = 'anonymous';
-  const sheet = document.createElement('link');
-  sheet.rel = 'stylesheet';
-  sheet.href = FONT_HREF;
-
-  document.head.append(pre1, pre2, sheet);
+  void import('@fontsource/noto-sans-devanagari/devanagari-400.css');
+  void import('@fontsource/noto-sans-devanagari/devanagari-500.css');
+  void import('@fontsource/noto-sans-devanagari/devanagari-600.css');
+  void import('@fontsource/noto-sans-devanagari/devanagari-700.css');
 }

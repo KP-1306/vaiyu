@@ -39,7 +39,7 @@ export const HINDI_MENU_DICT: Record<string, string> = {
   rajma: "राजमा", chole: "छोले", chana: "चना", chhole: "छोले", kadhi: "कढ़ी",
   raita: "रायता", papad: "पापड़", achar: "अचार", chutney: "चटनी", manchurian: "मंचूरियन",
   hakka: "हक्का", schezwan: "शेज़वान", spring: "स्प्रिंग", roll: "रोल", rolls: "रोल",
-  momo: "मोमो", momos: "मोमोज़", maggi: "मैगी", omelette: "ऑमलेट", omelet: "ऑमलेट",
+  momo: "मोमो", momos: "मोमोज़", maggi: "मैगी", maggie: "मैगी", omelette: "ऑमलेट", omelet: "ऑमलेट",
   bhurji: "भुर्जी", thali: "थाली", platter: "प्लैटर", combo: "कॉम्बो",
 
   // ---- breads ----

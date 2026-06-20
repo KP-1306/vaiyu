@@ -637,7 +637,11 @@ export default function GuestDashboard() {
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <MiniAction label="Scan QR" to="/scan" hint="Check-in" icon="⌁" />
-                  <MiniAction label="Find booking" to="/claim" hint="Code" icon="⌕" />
+                  {/* Claim-Stay ("Find booking" by code+OTP) deferred to a future build:
+                      the flow is a demo stub in prod (VITE_API_URL=localhost:4000) and never
+                      completes; in-stay access already works via QR (resolve_stay_by_code) and
+                      the pre-checkin link. Entry hidden so guests don't hit a "Demo Guest"
+                      dead-end. Restore when the OTP delivery channel (SMS/WhatsApp) is live. */}
                   <MiniAction label="Rewards" to="/rewards" hint="Wallet" icon="✶" />
                   <MiniAction label="Bills" to="/bills" hint="Invoices" icon="⌁" />
                 </div>
@@ -772,7 +776,8 @@ export default function GuestDashboard() {
                       icon="🧑‍🍳"
                       to={jobsUrl || "/workforce/profile"}
                     />
-                    <QuickTile title="Find my booking" subtitle="Use booking code" icon="🔎" to="/claim" />
+                    {/* Claim-Stay deferred (future build) — demo stub; see the note at the
+                        "Quick actions" MiniAction list above. Restore with the OTP channel. */}
                     <QuickTile title="Download invoices" subtitle="Bills & reports" icon="🧾" to="/bills" />
                   </div>
                 </div>

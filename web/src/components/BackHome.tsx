@@ -34,7 +34,6 @@ const APP_PREFIXES = [
   "/grid",
   "/stay",
   "/menu",
-  "/precheck",
   "/regcard",
   "/bill",
   "/admin",

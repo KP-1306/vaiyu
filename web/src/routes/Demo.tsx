@@ -12,7 +12,6 @@ type DemoLink = {
 
 const guest: DemoLink[] = [
   { to: "/hotel/sunrise", title: "Property microsite", subtitle: "Public-facing page guests see", emoji: "🏖️" },
-  { to: "/precheck/DEMO", title: "Pre-check-in", subtitle: "Faster arrivals with e-reg", emoji: "🧾" },
   { to: "/stay/DEMO/menu", title: "Guest menu", subtitle: "One-tap requests & tracking", emoji: "📱" },
 ];
 
@@ -56,7 +55,6 @@ export default function Demo() {
   }
 
   const micrositeUrl = new URL("/hotel/sunrise", location.origin).toString();
-  const precheckUrl = new URL("/precheck/DEMO", location.origin).toString();
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-white to-gray-50 text-gray-900">
@@ -130,7 +128,6 @@ export default function Demo() {
         {/* QR Panel */}
         <div className="mt-6 grid md:grid-cols-2 gap-3">
           <QRCard title="Property microsite" url={micrositeUrl} hint="Scan to open on phone" />
-          <QRCard title="Pre-check-in (demo)" url={precheckUrl} hint="Try the guest flow live" />
         </div>
 
         {/* Sections */}

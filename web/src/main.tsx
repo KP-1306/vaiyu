@@ -113,7 +113,6 @@ const GuestOrderHistory = lazy(() => import("./routes/GuestOrderHistory"));
 const RequestTracker = lazy(() => import("./routes/RequestTracker"));
 const FoodOrderTracker = lazy(() => import("./routes/FoodOrderTracker"));
 const Bill = lazy(() => import("./routes/Bill"));
-const Precheck = lazy(() => import("./routes/Precheck"));
 const PreCheckin = lazy(() => import("./routes/PreCheckin"));
 const Regcard = lazy(() => import("./routes/Regcard"));
 const ClaimStay = lazy(() => import("./routes/ClaimStay"));
@@ -384,7 +383,6 @@ const router = createBrowserRouter([
       { path: "track/:displayId", element: <RequestTracker /> },
       { path: "track-order/:id", element: <FoodOrderTracker /> },
       { path: "bill", element: <Bill /> },
-      { path: "precheck/:code", element: <Precheck /> },
       { path: "precheckin/:token", element: <PreCheckin /> },
       { path: "feedback/:token", element: <GuestFeedback /> },
       { path: "regcard", element: <Regcard /> },

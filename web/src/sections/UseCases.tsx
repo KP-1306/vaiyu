@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 type Case = {
   title: string;
   body: string;
-  cta: { label: string; to: string };
+  cta?: { label: string; to: string };
   badge?: string;
   extra?: JSX.Element;
 };
@@ -13,7 +13,6 @@ const cases: Case[] = [
   {
     title: "Pre-check-in",
     body: "Guests share ID & ETA ahead of arrival; faster front-desk flow.",
-    cta: { label: "Try pre-check-in", to: "/precheck/DEMO" },
   },
   {
     title: "Guest Menu & Services",
@@ -61,11 +60,13 @@ export default function UseCases() {
             </div>
             <p className="text-sm text-gray-600 mt-2">{c.body}</p>
             {c.extra}
-            <div className="mt-4">
-              <Link to={c.cta.to} className="px-3 py-2 rounded-xl border hover:bg-gray-50 text-sm">
-                {c.cta.label}
-              </Link>
-            </div>
+            {c.cta && (
+              <div className="mt-4">
+                <Link to={c.cta.to} className="px-3 py-2 rounded-xl border hover:bg-gray-50 text-sm">
+                  {c.cta.label}
+                </Link>
+              </div>
+            )}
           </li>
         ))}
       </ul>

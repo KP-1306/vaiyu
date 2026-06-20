@@ -1,10 +1,14 @@
-name: RPC Security Guard
+name: RLS & RPC Security Guards
 
-# Ratchet for the 2026-06-14 authorization sweep: fails the build if any new
-# migration introduces an anon-callable, mutating, SECURITY DEFINER function with
-# no authorization guard (the class Postgres' PUBLIC default-execute grant makes
-# easy to reintroduce). The assertion + reviewed allowlist live in
-# supabase/tests/rpc_exposure_guard.sql.
+# Ratchets for the 2026-06 authorization + RLS sweeps. Fail the build if a new
+# migration reintroduces a closed hole:
+#   • rpc_exposure_guard.sql  — anon-callable, mutating, SECURITY DEFINER function
+#     with no authorization guard (the 2026-06-14 RPC authorization sweep).
+#   • writepath_rls_guard.sql — an RLS-off base table, or a permissive policy that
+#     lets a client role INSERT/UPDATE/DELETE unscoped (the 2026-06-20 write-path
+#     audit, migrations 20260620000010-0014).
+# Each guard carries its own reviewed allowlist for intentional public-by-design
+# exceptions.
 
 on:
   push:
@@ -40,3 +44,8 @@ jobs:
         # Non-zero exit (RAISE EXCEPTION) fails the build. The SQL self-checks that
         # the schema is migrated, so it can never give a false pass on an empty DB.
         run: supabase db query --local --file supabase/tests/rpc_exposure_guard.sql
+
+      - name: Run write-path RLS guard
+        # Fails if a migration left an RLS-off base table or an unscoped client
+        # write policy. Self-checks the schema is migrated (no false pass on empty).
+        run: supabase db query --local --file supabase/tests/writepath_rls_guard.sql

@@ -28,6 +28,11 @@
     "title": "अनुरोध रद्द करें",
     "notesPlaceholder": "अतिरिक्त नोट्स..."
   },
+  "cancelReason": {
+    "GUEST_RESOLVED_SELF": { "label": "मैंने स्वयं हल कर लिया", "description": "अतिथि ने समस्या स्वयं हल कर ली" },
+    "REQUEST_MADE_BY_MISTAKE": { "label": "गलती से अनुरोध किया", "description": "अतिथि ने गलती से अनुरोध बना दिया" },
+    "REQUEST_NO_LONGER_REQUIRED": { "label": "अब आवश्यकता नहीं", "description": "अतिथि को अब इस सेवा की ज़रूरत नहीं" }
+  },
   "detail": {
     "myNote": "मेरा नोट",
     "updates": "अपडेट",

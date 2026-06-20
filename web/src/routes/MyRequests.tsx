@@ -4,12 +4,14 @@ import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next";
 import { getGuestTickets, reopenTicket, addGuestComment, getTicketComments, supa, getCancelReasons, cancelTicketByGuest, getGuestFoodOrders } from "../lib/api";
 import { parseDbDate, formatIstTime } from "../utils/dateUtils";
+import { resolveLabel, localizeServiceName } from "../i18n/resolveLabel";
 
 type GuestTicket = {
     id: string;
     display_id: string; // Added for RPC
     service_key: string;
     service_name: string;
+    service_name_i18n?: Record<string, string> | null;
     service_icon: string;
     status: string;
     reason_code: string | null;
@@ -34,7 +36,7 @@ type GuestFoodOrder = {
     total_amount: number;
     currency: string;
     room_number?: string;
-    items: { name: string; quantity: number; price: number }[];
+    items: { name: string; name_i18n?: Record<string, string> | null; quantity: number; price: number }[];
     total_items: number;
     sla_target_at?: string;
     sla_minutes_remaining?: number;
@@ -403,8 +405,8 @@ export default function MyRequests() {
                                             }`}
                                     >
                                         <div className="flex-1">
-                                            <div className="font-medium text-sm">{reason.label}</div>
-                                            <div className="text-xs opacity-70 mt-0.5">{reason.description}</div>
+                                            <div className="font-medium text-sm">{t(`myRequests:cancelReason.${reason.code}.label`, { defaultValue: reason.label })}</div>
+                                            <div className="text-xs opacity-70 mt-0.5">{t(`myRequests:cancelReason.${reason.code}.description`, { defaultValue: reason.description })}</div>
                                         </div>
                                     </button>
                                 ))}
@@ -758,7 +760,7 @@ function TicketCard({
     onCancel: ((id: string) => void) | null;
     cancelling: boolean;
 }) {
-    const { t } = useTranslation(["myRequests", "common"]);
+    const { t, i18n } = useTranslation(["myRequests", "common", "foodMenu"]);
     // --- Timer Logic Ported from RequestTracker ---
     const [now, setNow] = useState(new Date());
 
@@ -922,7 +924,7 @@ function TicketCard({
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2 mb-0.5">
                             <h3 className="font-semibold text-zinc-100 truncate text-[15px]">
-                                {ticket.service_name || ticket.service_key}
+                                {localizeServiceName(t, i18n.language, { key: ticket.service_key, label: ticket.service_name || ticket.service_key, name_i18n: ticket.service_name_i18n })}
                             </h3>
 
                             {/* Timer / ETA Badge */}
@@ -1168,7 +1170,7 @@ function TicketCard({
 
 // Food Order Card Component
 function FoodOrderCard({ order }: { order: GuestFoodOrder }) {
-    const { t } = useTranslation(["myRequests", "common"]);
+    const { t, i18n } = useTranslation(["myRequests", "common"]);
     // bg/text styling keyed by status code; the label is translated at render.
     const statusConfig: Record<string, { bg: string; text: string; key: string }> = {
         CREATED: { bg: 'bg-blue-500/10', text: 'text-blue-400', key: 'created' },
@@ -1199,7 +1201,7 @@ function FoodOrderCard({ order }: { order: GuestFoodOrder }) {
     };
 
     // Format items summary
-    const itemsSummary = order.items?.slice(0, 2).map(i => `${i.quantity}x ${i.name}`).join(', ') || t('myRequests:noItemsSummary');
+    const itemsSummary = order.items?.slice(0, 2).map(i => `${i.quantity}x ${resolveLabel(i.name_i18n, i18n.language, i.name)}`).join(', ') || t('myRequests:noItemsSummary');
     const moreItems = order.total_items > 2 ? t('myRequests:moreItems', { count: order.total_items - 2 }) : '';
 
     return (

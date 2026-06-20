@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { setCatalogNameI18n } from "../lib/api";
 import Spinner from "./Spinner";
 import AddFoodItemModal, { FoodItemData } from "./AddFoodItemModal";
 
@@ -12,6 +13,7 @@ type EditableMenuItem = {
     id?: string; // Optional for new items
     item_key?: string;
     name: string;
+    name_i18n?: Record<string, string>; // owner-supplied localized names; {} = English only
     category_id: string; // Now using ID
     price: number | "";
     isVeg: boolean;
@@ -44,6 +46,27 @@ export default function OwnerMenuManagement({ hotelId }: OwnerMenuManagementProp
 
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingItem, setEditingItem] = useState<EditableMenuItem | null>(null);
+    const [suggestingAll, setSuggestingAll] = useState(false);
+
+    // Bulk "Review & translate": offline-suggest a Hindi name for every item
+    // that doesn't have one yet. Owner reviews the inline column, then Save
+    // persists. No translation API; suggestions are editable.
+    async function suggestAllHindi() {
+        setSuggestingAll(true);
+        try {
+            const { transliterateHi } = await import("../i18n/transliterateHi");
+            setItems((prev) =>
+                prev.map((it) => {
+                    if (it.name_i18n?.hi || !it.name.trim()) return it; // keep existing / skip blank
+                    const s = transliterateHi(it.name);
+                    return s ? { ...it, name_i18n: { ...(it.name_i18n || {}), hi: s } } : it;
+                })
+            );
+            if (ok) setOk(null);
+        } finally {
+            setSuggestingAll(false);
+        }
+    }
 
     // Load menu_items and categories
     useEffect(() => {
@@ -107,6 +130,7 @@ export default function OwnerMenuManagement({ hotelId }: OwnerMenuManagementProp
                 id: r.id,
                 item_key: r.item_key,
                 name: (r.name ?? "").toString(),
+                name_i18n: r.name_i18n || {},
                 category_id: r.category_id, // Might be null if legacy data
                 price:
                     typeof r.price === "number"
@@ -158,6 +182,7 @@ export default function OwnerMenuManagement({ hotelId }: OwnerMenuManagementProp
                     return {
                         ...item,
                         name: data.name,
+                        name_i18n: data.name_i18n,
                         item_key: data.key,
                         category_id: data.category_id,
                         price: data.price,
@@ -178,6 +203,7 @@ export default function OwnerMenuManagement({ hotelId }: OwnerMenuManagementProp
                 ...prev,
                 {
                     name: data.name,
+                    name_i18n: data.name_i18n,
                     item_key: data.key,
                     category_id: data.category_id,
                     price: data.price,
@@ -255,6 +281,10 @@ export default function OwnerMenuManagement({ hotelId }: OwnerMenuManagementProp
                     console.error("Update RPC Error:", updateErr);
                     throw updateErr;
                 }
+
+                // Persist the owner-supplied Hindi name (additive; '{}' clears it).
+                // Separate from the RPC so the live create/update path is untouched.
+                await setCatalogNameI18n('menu_items', item.id!, hotelId, item.name_i18n || {});
             }
 
             // Insert new items via RPC
@@ -281,11 +311,18 @@ export default function OwnerMenuManagement({ hotelId }: OwnerMenuManagementProp
                         p_hide_outside: i.availability?.hide_outside ?? true
                     };
 
-                    const { error: rpcErr } = await supabase.rpc('create_menu_item', rpcParams);
+                    const { data: newItemId, error: rpcErr } = await supabase.rpc('create_menu_item', rpcParams);
 
                     if (rpcErr) {
                         console.error("RPC Error:", rpcErr);
                         throw rpcErr;
+                    }
+
+                    // Persist the owner-supplied Hindi name on the freshly created
+                    // row (create_menu_item returns the new uuid). Only when set.
+                    const i18n = i.name_i18n || {};
+                    if (newItemId && Object.keys(i18n).length > 0) {
+                        await setCatalogNameI18n('menu_items', newItemId as string, hotelId, i18n);
                     }
                 }
             }
@@ -330,13 +367,24 @@ export default function OwnerMenuManagement({ hotelId }: OwnerMenuManagementProp
                             Manage food and beverage items available for guests to order.
                         </p>
                     </div>
-                    <button
-                        type="button"
-                        className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-md transition-colors"
-                        onClick={openAddModal}
-                    >
-                        + Add item
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            className="px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-sm font-medium rounded-md transition-colors disabled:opacity-40"
+                            onClick={suggestAllHindi}
+                            disabled={suggestingAll || items.length === 0}
+                            title="Offline suggestion — fills a Hindi name for items that don't have one yet. Review, then Save."
+                        >
+                            {suggestingAll ? "…" : "Suggest Hindi (all)"}
+                        </button>
+                        <button
+                            type="button"
+                            className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-md transition-colors"
+                            onClick={openAddModal}
+                        >
+                            + Add item
+                        </button>
+                    </div>
                 </div>
 
                 <div className="overflow-x-auto">
@@ -345,6 +393,7 @@ export default function OwnerMenuManagement({ hotelId }: OwnerMenuManagementProp
                             <tr>
                                 <th className="px-3 py-3 rounded-tl-md w-16"></th>
                                 <th className="px-3 py-3">Name</th>
+                                <th className="px-3 py-3">Hindi (हिं)</th>
                                 <th className="px-3 py-3">Category</th>
                                 <th className="px-3 py-3">Price</th>
                                 <th className="px-3 py-3 text-center">Veg</th>
@@ -372,6 +421,18 @@ export default function OwnerMenuManagement({ hotelId }: OwnerMenuManagementProp
                                                 updateItem(idx, { name: e.target.value })
                                             }
                                             placeholder="e.g. Masala Tea"
+                                        />
+                                    </td>
+                                    <td className="px-3 py-2">
+                                        <input
+                                            lang="hi"
+                                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-white focus:border-blue-500 focus:outline-none placeholder-slate-600"
+                                            value={item.name_i18n?.hi || ""}
+                                            onChange={(e) => {
+                                                const v = e.target.value;
+                                                updateItem(idx, { name_i18n: v ? { ...(item.name_i18n || {}), hi: v } : {} });
+                                            }}
+                                            placeholder="वैकल्पिक"
                                         />
                                     </td>
                                     <td className="px-3 py-2">
@@ -445,7 +506,7 @@ export default function OwnerMenuManagement({ hotelId }: OwnerMenuManagementProp
                             {items.length === 0 && (
                                 <tr>
                                     <td
-                                        colSpan={7}
+                                        colSpan={8}
                                         className="px-3 py-8 text-center text-slate-500 italic"
                                     >
                                         No items yet. Click "+ Add item" to create your first dish.
@@ -475,6 +536,7 @@ export default function OwnerMenuManagement({ hotelId }: OwnerMenuManagementProp
                 hotelId={hotelId}
                 initialData={editingItem ? {
                     name: editingItem.name,
+                    name_i18n: editingItem.name_i18n || {},
                     key: editingItem.item_key || slugifyKey(editingItem.name),
                     category_id: editingItem.category_id,
                     price: typeof editingItem.price === 'number' ? editingItem.price : 0,

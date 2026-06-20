@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { supabase } from "../../lib/supabase";
 import { localizeRoomType } from "../../i18n/localizeRoomType";
+import { resolveLabel } from "../../i18n/resolveLabel";
 import RequestExtensionButton from "../../components/guest/RequestExtensionButton";
 import { formatIstDateTime } from "../../utils/dateUtils";
 import { formatPolicyTime } from "../../utils/policyTime";
@@ -35,7 +36,7 @@ type FoodOrder = {
     created_at: string;
     total_amount: number;
     currency: string;
-    items: { name: string; quantity: number; price: number }[];
+    items: { name: string; name_i18n?: Record<string, string> | null; quantity: number; price: number }[];
     total_items: number;
 };
 
@@ -544,7 +545,7 @@ export default function GuestNewStayDetails() {
                                 <div className="gn-order-card__items">
                                     {Array.isArray(order.items) && order.items.slice(0, 3).map((item, i) => (
                                         <span key={i} className="gn-order-card__item">
-                                            {item.quantity}x {item.name}
+                                            {item.quantity}x {resolveLabel(item.name_i18n, i18n.language, item.name)}
                                         </span>
                                     ))}
                                     {Array.isArray(order.items) && order.items.length > 3 && (

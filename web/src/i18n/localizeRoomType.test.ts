@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { localizeRoomType, localizeRoomTypeList } from "./localizeRoomType";
+import {
+  localizeRoomType,
+  localizeRoomTypeList,
+  roomTypeLocalizationCoverage,
+} from "./localizeRoomType";
 
 describe("localizeRoomType", () => {
   it("passes English (and any non-hi lang) through unchanged", () => {
@@ -54,6 +58,50 @@ describe("localizeRoomType", () => {
   it("returns empty string for nullish input", () => {
     expect(localizeRoomType(null, "hi")).toBe("");
     expect(localizeRoomType(undefined, "hi")).toBe("");
+  });
+});
+
+describe("roomTypeLocalizationCoverage (controlled-vocabulary guard)", () => {
+  // The curated dictionary must fully cover the realistic hospitality catalog.
+  // If a new common name appears uncovered, add the token rather than building a
+  // per-hotel override — that's the whole point of the controlled-vocabulary call.
+  it("fully covers a broad set of common Indian-hotel room types (hi)", () => {
+    const names = [
+      "Standard Room", "Deluxe Room", "Super Deluxe Room", "Premium Room",
+      "Executive Room", "Executive Suite", "Junior Suite", "Presidential Suite",
+      "Luxury Suite", "Family Room", "Twin Room", "Double Room", "Single Room",
+      "Triple Room", "King Room", "Queen Room", "Studio Apartment", "Luxury Villa",
+      "Garden Cottage", "Pool View Room", "Sea Facing Room", "Lake View Suite",
+      "Mountain View Room", "Valley View Cottage", "Riverside Room", "Heritage Room",
+      "Club Room", "Business Suite", "Cozy Room", "Non-AC Room", "Deluxe AC Room",
+      "Maharaja Suite", "Honeymoon Suite", "Courtyard Room", "Penthouse Suite",
+      "Beach Villa", "Resort Cottage", "Signature Suite", "Garden Villa", "Treehouse",
+      "Houseboat",
+    ];
+    const gaps: string[] = [];
+    for (const name of names) {
+      const cov = roomTypeLocalizationCoverage(name, "hi");
+      if (!cov.fullyCovered) gaps.push(`${name} -> unresolved: ${cov.unresolved.join(", ")}`);
+      expect(cov.localized, `'${name}'`).not.toMatch(/[A-Za-z]/);
+    }
+    expect(gaps, `add these tokens to ROOM_TYPE_TOKENS.hi:\n${gaps.join("\n")}`).toEqual([]);
+  });
+
+  it("flags genuinely-custom tokens as unresolved (so they can be surfaced)", () => {
+    const cov = roomTypeLocalizationCoverage("Zenith Nest", "hi");
+    expect(cov.fullyCovered).toBe(false);
+    expect(cov.unresolved).toContain("zenith");
+    expect(cov.unresolved).toContain("nest");
+  });
+
+  it("ignores numeric/punctuation tokens", () => {
+    const cov = roomTypeLocalizationCoverage("Deluxe Room 2", "hi");
+    expect(cov.fullyCovered).toBe(true);
+    expect(cov.unresolved).toEqual([]);
+  });
+
+  it("treats a known multi-word catalog name as fully covered", () => {
+    expect(roomTypeLocalizationCoverage("Deluxe Valley View Room", "hi").fullyCovered).toBe(true);
   });
 });
 

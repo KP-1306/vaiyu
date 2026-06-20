@@ -22,6 +22,7 @@ import {
   type LucideIcon
 } from "lucide-react";
 import { CustomZoneSelect } from "../components/CustomZoneSelect";
+import { resolveLabel, localizeServiceName } from "../i18n/resolveLabel";
 
 // --- Icons & Helpers ---
 
@@ -61,6 +62,7 @@ type FoodItem = {
   id: string;
   item_key: string;
   name: string;
+  name_i18n?: Record<string, string> | null;
   base_price: number;
   category_id?: string;
   category?: string;
@@ -410,7 +412,7 @@ export default function FoodMenu() {
   const addToCart = (item: FoodItem) => {
     setCart(prev => ({ ...prev, [item.item_key]: (prev[item.item_key] || 0) + 1 }));
     triggerHaptic();
-    setToast({ message: `${item.name} added`, key: Date.now() });
+    setToast({ message: t("foodMenu:itemAddedToast", { name: resolveLabel(item.name_i18n, i18n.language, item.name) }), key: Date.now() });
   };
 
   const removeFromCart = (item: FoodItem) => {
@@ -683,7 +685,7 @@ export default function FoodMenu() {
                       {/* Photo-Forward Image */}
                       <div className="w-28 h-28 flex-shrink-0 rounded-xl bg-gradient-to-br from-[#1c1916] to-[#0a0a0c] border border-[#d4af37]/12 overflow-hidden relative">
                         {meta.image_url ? (
-                          <img src={meta.image_url} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                          <img src={meta.image_url} alt={resolveLabel(item.name_i18n, i18n.language, item.name)} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#d4af37]/10 to-transparent">
                             <Utensils key="u-icon" size={28} className="text-[#d4af37]/30" />
@@ -701,7 +703,7 @@ export default function FoodMenu() {
                               {meta.jain && <span className="text-[10px] bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded border border-amber-500/20">{t("foodMenu:filter.jain")}</span>}
                               {meta.vegan && <span className="text-[10px] bg-emerald-500/10 text-emerald-500 px-1.5 py-0.5 rounded border border-emerald-500/20">{t("foodMenu:filter.vegan")}</span>}
                             </div>
-                            <h3 className="font-semibold text-white leading-tight mb-1 group-hover:text-[#f5f3ef] transition-colors">{item.name}</h3>
+                            <h3 className="font-semibold text-white leading-tight mb-1 group-hover:text-[#f5f3ef] transition-colors">{resolveLabel(item.name_i18n, i18n.language, item.name)}</h3>
                             {item.internal_notes && (
                               <p className="text-xs text-[#b8b3a8] line-clamp-2 mt-1 mb-2">{item.internal_notes}</p>
                             )}
@@ -767,7 +769,7 @@ export default function FoodMenu() {
                     cartItems.map(({ item, qty }) => (
                       <div key={item.item_key} className="flex items-start justify-between group">
                         <div className="flex-1 pr-4">
-                          <div className="text-sm font-medium text-[#f5f3ef]">{item.name}</div>
+                          <div className="text-sm font-medium text-[#f5f3ef]">{resolveLabel(item.name_i18n, i18n.language, item.name)}</div>
                           <div className="text-xs text-[#7a756a] mt-1">₹{item.base_price} x {qty}</div>
                         </div>
                         <div className="flex items-center gap-2 bg-[#0a0a0c] rounded px-1 border border-[#d4af37]/12">
@@ -874,7 +876,7 @@ export default function FoodMenu() {
                         {/* Canonical services carry a stable key (maintenance_plumbing…); localize
                             title + description by key for non-English, keep owner's label/description
                             in English and as the fallback for custom services. */}
-                        <h3 className="font-bold text-white mb-1 group-hover:text-[#d4af37] transition-colors">{i18n.language !== "en" ? t(`foodMenu:service.${s.key}.title`, { defaultValue: s.label_en || s.label || s.key }) : (s.label_en || s.label || s.key)}</h3>
+                        <h3 className="font-bold text-white mb-1 group-hover:text-[#d4af37] transition-colors">{localizeServiceName(t, i18n.language, { key: s.key, label: s.label_en || s.label || s.key, name_i18n: s.name_i18n })}</h3>
                         <p className="text-xs text-[#7a756a] line-clamp-2 mb-4">{i18n.language !== "en" ? t(`foodMenu:service.${s.key}.desc`, { defaultValue: s.description_en || t("foodMenu:serviceFallbackDesc") }) : (s.description_en || t("foodMenu:serviceFallbackDesc"))}</p>
 
                         <div className="flex items-center gap-2 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
@@ -1051,7 +1053,7 @@ function ServiceRequestModal({
             </div>
             <div>
               <h3 className="text-lg font-bold text-white">{t("foodMenu:modal.guestRequest")}</h3>
-              <p className="text-xs text-gray-400 font-medium">{i18n.language !== "en" ? t(`foodMenu:service.${service.key}.title`, { defaultValue: service.label_en || service.label || service.key }) : (service.label_en || service.label || service.key)}</p>
+              <p className="text-xs text-gray-400 font-medium">{localizeServiceName(t, i18n.language, { key: service.key, label: service.label_en || service.label || service.key, name_i18n: service.name_i18n })}</p>
             </div>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors">

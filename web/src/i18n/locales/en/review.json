@@ -18,6 +18,13 @@
     "1": "Disappointing"
   },
   "rateEach": "Please rate each category below.",
+  "category": {
+    "cleanliness": "Cleanliness",
+    "location": "Location",
+    "room": "Room Comfort",
+    "service": "Service Quality",
+    "staff": "Staff Service"
+  },
   "placeholderLow": "What went wrong? Tell us more...",
   "placeholderHigh": "Tell us about your stay...",
   "later": "Later",

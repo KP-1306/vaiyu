@@ -28,6 +28,11 @@
     "title": "Cancel Request",
     "notesPlaceholder": "Additional notes..."
   },
+  "cancelReason": {
+    "GUEST_RESOLVED_SELF": { "label": "Resolved by guest", "description": "Guest resolved the issue themselves" },
+    "REQUEST_MADE_BY_MISTAKE": { "label": "Request made by mistake", "description": "Guest accidentally created the request" },
+    "REQUEST_NO_LONGER_REQUIRED": { "label": "Request no longer required", "description": "Guest no longer needs this service" }
+  },
   "detail": {
     "myNote": "My Note",
     "updates": "Updates",

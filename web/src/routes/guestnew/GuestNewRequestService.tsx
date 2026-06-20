@@ -10,10 +10,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { supabase } from "../../lib/supabase";
 import { createTicket } from "../../lib/api";
+import { localizeServiceName } from "../../i18n/resolveLabel";
 
 type Service = {
     id: string;
+    key?: string;
     label: string;
+    name_i18n?: Record<string, string> | null;
     description: string | null;
     requires_description: boolean;
 };
@@ -41,7 +44,7 @@ function iconFor(label: string): string {
 }
 
 export default function GuestNewRequestService() {
-    const { t } = useTranslation(["requestService", "common"]);
+    const { t, i18n } = useTranslation(["requestService", "common", "foodMenu"]);
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const preselectedKey = searchParams.get("type");
@@ -95,7 +98,7 @@ export default function GuestNewRequestService() {
 
                 const { data: svc } = await supabase
                     .from("services")
-                    .select("id, label, description, requires_description")
+                    .select("id, key, label, name_i18n, description, requires_description")
                     .eq("hotel_id", hotelId)
                     .eq("active", true)
                     .order("label", { ascending: true });
@@ -236,7 +239,7 @@ export default function GuestNewRequestService() {
                                         {iconFor(service.label)}
                                     </div>
                                     <div style={{ fontWeight: 600, color: "var(--text-primary)" }}>
-                                        {service.label}
+                                        {localizeServiceName(t, i18n.language, { key: service.key, label: service.label, name_i18n: service.name_i18n })}
                                     </div>
                                     {service.description && (
                                         <div

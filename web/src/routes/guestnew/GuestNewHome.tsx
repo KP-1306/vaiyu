@@ -8,6 +8,7 @@ import { SimpleTooltip } from "../../components/SimpleTooltip";
 import { formatIstTime, formatRelativeTime, parseDbDate } from "../../utils/dateUtils";
 import { formatPolicyTime } from "../../utils/policyTime";
 import { localizeRoomType, localizeRoomTypeList } from "../../i18n/localizeRoomType";
+import { localizeServiceName } from "../../i18n/resolveLabel";
 import "./guestnew.css";
 import "./HeroMockup.css";
 
@@ -54,7 +55,7 @@ const ConditionalTooltip = ({ children, content, condition }: { children: ReactN
 };
 
 export default function GuestNewHome() {
-    const { t, i18n } = useTranslation(["home", "common"]);
+    const { t, i18n } = useTranslation(["home", "common", "foodMenu"]);
     // Hindi month names with Latin numerals (the most readable choice for Indian
     // guests); falls back to en-IN. Currency stays en-IN everywhere (₹ + Latin).
     const dateLocale = i18n.language?.split("-")[0] === "hi" ? "hi-IN-u-nu-latn" : "en-US";
@@ -356,7 +357,7 @@ export default function GuestNewHome() {
                 // 2) Fetch Menu Categories
                 const { data: categories } = await supabase
                     .from('menu_categories')
-                    .select('id, name')
+                    .select('id, name, key')
                     .eq('hotel_id', currentStay.hotel_id)
                     .eq('active', true)
                     .order('display_order');
@@ -490,6 +491,8 @@ export default function GuestNewHome() {
                         type: 'ticket',
                         id: t.id,
                         title: t.service_name || "Service Request",
+                        service_key: t.service_key,
+                        service_name_i18n: t.service_name_i18n,
                         status: t.status,
                         created_at: t.created_at,
                         eta: "15m"
@@ -1321,7 +1324,7 @@ export default function GuestNewHome() {
                                     <div key={req.id} className="gn-req-row">
                                         <div className="gn-req-item">
                                             <span style={{ fontSize: '1.2rem' }}>{req.type === 'ticket' ? '🛎️' : '🍽️'}</span>
-                                            <span>{req.title}</span>
+                                            <span>{req.type === 'ticket' ? localizeServiceName(t, i18n.language, { key: (req as any).service_key, label: req.title, name_i18n: (req as any).service_name_i18n }) : req.title}</span>
                                         </div>
                                         <div className={`gn-pill gn-pill--${getStatusColor(req.status)}`}>
                                             {req.status}
@@ -1606,16 +1609,17 @@ export default function GuestNewHome() {
                                             </div>
                                         ) : (
                                             <>
-                                                {/* Show Menu Categories */}
+                                                {/* Show Menu Categories — localize off the canonical key
+                                                    (same pattern as FoodMenu tabs); English keeps owner name. */}
                                                 {menuCategories.map(cat => (
                                                     <div key={cat.id} className="gn-modal-service-pill">
-                                                        {getOfferingEmoji(cat.name)} {cat.name}
+                                                        {getOfferingEmoji(cat.name)} {cat.key && i18n.language !== "en" ? t(`foodMenu:category.${cat.key}`, { defaultValue: cat.name }) : cat.name}
                                                     </div>
                                                 ))}
                                                 {/* Show Services (limit to 20 total offerings including categories) */}
                                                 {serviceOfferings.slice(0, Math.max(0, 20 - menuCategories.length)).map(svc => (
                                                     <div key={svc.id || svc.key} className="gn-modal-service-pill">
-                                                        {getOfferingEmoji(svc.label_en || svc.label || svc.key)} {svc.label_en || svc.label || svc.key}
+                                                        {getOfferingEmoji(svc.label_en || svc.label || svc.key)} {localizeServiceName(t, i18n.language, { key: svc.key, label: svc.label_en || svc.label || svc.key, name_i18n: svc.name_i18n })}
                                                     </div>
                                                 ))}
                                             </>

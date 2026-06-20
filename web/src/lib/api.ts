@@ -75,6 +75,7 @@ export type Service = {
   key: string;
   label?: string; // [NEW] Primary label from services table
   label_en?: string; // [NEW] Optional English label
+  name_i18n?: Record<string, string> | null; // owner-supplied localized labels; empty = canonical/as-authored
   sla_minutes: number;
   id?: string; // [NEW] Link to Services table
   /** new, backward-compatible fields for editor/UI */
@@ -1391,7 +1392,7 @@ export async function getServices(hotelKey?: string | null) {
       let query = s
         .from("services")
         .select(
-          "id, hotel_id, key, label, sla_minutes, priority_weight, active, department_id, description_en, requires_description, departments!inner(name, code, is_active)"
+          "id, hotel_id, key, label, name_i18n, sla_minutes, priority_weight, active, department_id, description_en, requires_description, departments!inner(name, code, is_active)"
         )
         .eq("active", true)
         .eq("departments.is_active", true);
@@ -1415,6 +1416,7 @@ export async function getServices(hotelKey?: string | null) {
           id: row.id, // [NEW] Expose ID
           label: row.label, // [NEW] Primary label
           label_en: row.label, // Map label to label_en for backwards compatibility
+          name_i18n: row.name_i18n || {}, // owner-supplied localized labels (empty = canonical/as-authored)
           sla_minutes: row.sla_minutes || 0,
           active: row.active,
           hotel_id: row.hotel_id,
@@ -1479,6 +1481,30 @@ export async function saveServices(
     method: "POST",
     body: JSON.stringify({ items }),
   });
+}
+
+/**
+ * Persist owner-supplied localized display names on a catalog row.
+ * Direct PostgREST UPDATE, gated by the table's existing hotel-member RLS
+ * (menu_items_staff_write / services_members_update / room_types "Staff can
+ * manage"); the row's *_i18n CHECK validates the {en,hi} shape server-side.
+ * Pass an empty object to clear the override (reverts to as-authored display).
+ * Additive: never touches any other column, so existing rows/flows are intact.
+ */
+export async function setCatalogNameI18n(
+  table: "menu_items" | "services",
+  id: string,
+  hotelId: string,
+  nameI18n: Record<string, string>
+): Promise<void> {
+  const s = supa();
+  if (!s) throw new Error("No Supabase client");
+  const { error } = await s
+    .from(table)
+    .update({ name_i18n: nameI18n || {} })
+    .eq("id", id)
+    .eq("hotel_id", hotelId);
+  if (error) throw error;
 }
 
 /** Generic helpers some owner pages use. */
@@ -1634,6 +1660,7 @@ export async function getMenu(hotelKey?: string) {
           id: row.id, // [NEW] UUID needed for orders
           item_key: row.item_key,
           name: row.name,
+          name_i18n: row.name_i18n || {}, // owner-supplied localized names (empty = render `name`)
           base_price: row.price || row.base_price || 0, // [FIX] map DB 'price' column to frontend 'base_price'
           category_id: row.category_id, // [NEW] for filtering
           category: row.category,

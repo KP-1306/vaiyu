@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import { parseDbDate, formatIstTime } from "../utils/dateUtils";
+import { resolveLabel } from "../i18n/resolveLabel";
 import { RazorpayServiceError } from "../services/razorpayService";
 import { getRazorpayClient } from "../services/razorpayClient";
 
@@ -42,6 +43,7 @@ type FoodOrderData = {
     items: {
         id: string;
         item_name: string;
+        item_name_i18n?: Record<string, string> | null;
         quantity: number;
         total_price: number;
     }[];
@@ -61,7 +63,7 @@ type FoodOrderData = {
 };
 
 export default function FoodOrderTracker() {
-    const { t } = useTranslation(["foodOrderTracker", "common"]);
+    const { t, i18n } = useTranslation(["foodOrderTracker", "common"]);
     const { id } = useParams(); // UUID
     const [data, setData] = useState<FoodOrderData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -490,7 +492,7 @@ export default function FoodOrderTracker() {
                                     <div className="w-5 h-5 rounded bg-slate-800 text-slate-400 flex items-center justify-center text-xs font-bold shrink-0">
                                         {item.quantity}x
                                     </div>
-                                    <span className="text-slate-200 font-medium">{item.item_name}</span>
+                                    <span className="text-slate-200 font-medium">{resolveLabel(item.item_name_i18n, i18n.language, item.item_name)}</span>
                                 </div>
                                 <span className="text-slate-400 font-mono">₹{item.total_price}</span>
                             </div>

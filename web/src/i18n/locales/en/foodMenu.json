@@ -46,6 +46,7 @@
     "turn_down_service": { "title": "Turn Down Service", "desc": "Evening housekeeping service including bed preparation and a light room refresh." }
   },
   "add": "Add",
+  "itemAddedToast": "{{name}} added",
   "noItems": "No items found matching your filters.",
   "currentOrder": "Current Order",
   "itemsCount_one": "{{count}} Item",

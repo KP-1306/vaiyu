@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { supabase } from "../lib/supabase";
 import { ArrowLeft, Receipt, Clock, ChevronRight, ShoppingBag, Utensils, IndianRupee } from "lucide-react";
+import { resolveLabel } from "../i18n/resolveLabel";
 
 type OrderHistoryItem = {
     order_id: string;
@@ -13,6 +14,7 @@ type OrderHistoryItem = {
     currency: string;
     items: {
         name: string;
+        name_i18n?: Record<string, string> | null;
         price: number;
         quantity: number;
     }[];
@@ -227,7 +229,7 @@ export default function GuestOrderHistory() {
                                 <div className="space-y-1 mb-3">
                                     {order.items?.slice(0, 2).map((item, idx) => (
                                         <div key={idx} className="flex justify-between text-xs text-slate-400">
-                                            <span>{item.quantity}x {item.name}</span>
+                                            <span>{item.quantity}x {resolveLabel(item.name_i18n, i18n.language, item.name)}</span>
                                         </div>
                                     ))}
                                     {(order.items?.length || 0) > 2 && (

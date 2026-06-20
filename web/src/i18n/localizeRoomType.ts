@@ -87,6 +87,59 @@ const ROOM_TYPE_TOKENS: Record<string, Record<string, string>> = {
     view: "व्यू",
     facing: "फेसिंग",
     balcony: "बालकनी",
+    // brand / class tiers commonly used by Indian hotels
+    heritage: "हेरिटेज",
+    palace: "पैलेस",
+    signature: "सिग्नेचर",
+    club: "क्लब",
+    business: "बिज़नेस",
+    comfort: "कम्फर्ट",
+    smart: "स्मार्ट",
+    compact: "कॉम्पैक्ट",
+    value: "वैल्यू",
+    regular: "रेगुलर",
+    mini: "मिनी",
+    maharaja: "महाराजा",
+    maharani: "महारानी",
+    raja: "राजा",
+    rani: "रानी",
+    nawab: "नवाब",
+    honeymoon: "हनीमून",
+    couple: "कपल",
+    // unit / property types
+    resort: "रिज़ॉर्ट",
+    inn: "इन",
+    spa: "स्पा",
+    homestay: "होमस्टे",
+    guesthouse: "गेस्टहाउस",
+    duplex: "डुप्लेक्स",
+    loft: "लॉफ्ट",
+    chalet: "शैले",
+    treehouse: "ट्रीहाउस",
+    houseboat: "हाउसबोट",
+    cabana: "कबाना",
+    tower: "टावर",
+    courtyard: "कोर्टयार्ड",
+    terrace: "टेरेस",
+    annexe: "एनेक्स",
+    annex: "एनेक्स",
+    wing: "विंग",
+    block: "ब्लॉक",
+    // views / locations
+    beach: "बीच",
+    beachfront: "बीचफ्रंट",
+    ocean: "ओशन",
+    oceanfront: "ओशनफ्रंट",
+    forest: "फॉरेस्ट",
+    woods: "वुड्स",
+    jungle: "जंगल",
+    hilltop: "हिलटॉप",
+    lakeside: "लेकसाइड",
+    lakefront: "लेकफ्रंट",
+    seaview: "सी व्यू",
+    lakeview: "लेक व्यू",
+    poolview: "पूल व्यू",
+    gardenview: "गार्डन व्यू",
     // connectors guests commonly type
     with: "विद",
     and: "एंड",
@@ -117,6 +170,30 @@ export function localizeRoomType(
       return hit ? `${pre}${hit}${post}` : tok;
     })
     .join("");
+}
+
+/**
+ * Coverage guard for the controlled-vocabulary approach: report whether every
+ * alphabetic token of `name` is known to the `lang` dictionary, and which are
+ * not. Used (a) at authoring time to show the owner an honest Hindi preview and
+ * flag words that will stay English, and (b) in a CI test to catch dictionary
+ * gaps as the catalog grows. Numeric / punctuation tokens are ignored.
+ */
+export function roomTypeLocalizationCoverage(
+  name: string | null | undefined,
+  lang: string,
+): { localized: string; fullyCovered: boolean; unresolved: string[] } {
+  const localized = localizeRoomType(name, lang);
+  if (!name || !name.trim()) return { localized, fullyCovered: true, unresolved: [] };
+  const dict = ROOM_TYPE_TOKENS[lang];
+  const unresolved: string[] = [];
+  for (const tok of name.split(/\s+/)) {
+    const m = tok.match(/^[^\p{L}\p{N}]*(.*?)[^\p{L}\p{N}]*$/u);
+    const core = (m?.[1] ?? "").toLowerCase();
+    if (!core || /^\p{N}+$/u.test(core)) continue; // skip empties + pure numbers
+    if (!dict || !dict[core]) unresolved.push(core);
+  }
+  return { localized, fullyCovered: unresolved.length === 0, unresolved };
 }
 
 /**

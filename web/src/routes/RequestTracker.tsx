@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { supabase } from "../lib/supabase";
+import { localizeServiceName } from "../i18n/resolveLabel";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -33,7 +34,9 @@ type TrackerData = {
   description: string;
   sla_started_at?: string;
   service: {
+    key?: string;
     label: string;
+    name_i18n?: Record<string, string> | null;
     sla_minutes: number;
     description_en?: string;
   };
@@ -51,7 +54,7 @@ type TrackerData = {
 };
 
 export default function RequestTracker() {
-  const { t } = useTranslation(["requestTracker", "common"]);
+  const { t, i18n } = useTranslation(["requestTracker", "common", "foodMenu"]);
   const { displayId } = useParams();
   const [data, setData] = useState<TrackerData | null>(null);
   const [comments, setComments] = useState<any[]>([]);
@@ -431,7 +434,7 @@ export default function RequestTracker() {
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-xl shadow-inner">✨</div>
                 <div>
-                  <div className="text-white font-bold">{data.service?.label}</div>
+                  <div className="text-white font-bold">{localizeServiceName(t, i18n.language, { key: data.service?.key, label: data.service?.label || "", name_i18n: data.service?.name_i18n })}</div>
                   <div className="text-xs text-slate-500">{data.zone?.name || (data.room ? t("requestTracker:roomLabel", { number: data.room.number }) : t("requestTracker:publicArea"))}</div>
                 </div>
               </div>

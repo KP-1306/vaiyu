@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
+import BilingualNameField from "./BilingualNameField";
 
 interface MenuCategory {
     id: string;
@@ -8,6 +9,7 @@ interface MenuCategory {
 
 export interface FoodItemData {
     name: string;
+    name_i18n: Record<string, string>; // owner-supplied localized names; {} = English only
     key: string;
     category_id: string;
     price: number;
@@ -44,6 +46,7 @@ export default function AddFoodItemModal({ isOpen, onClose, onSave, hotelId, ini
 
     // Form State
     const [name, setName] = useState("");
+    const [nameHi, setNameHi] = useState("");
     const [itemKey, setItemKey] = useState("");
     const [categoryId, setCategoryId] = useState("");
     const [price, setPrice] = useState<string>("");
@@ -85,6 +88,7 @@ export default function AddFoodItemModal({ isOpen, onClose, onSave, hotelId, ini
     useEffect(() => {
         if (isOpen && initialData) {
             setName(initialData.name);
+            setNameHi(initialData.name_i18n?.hi || "");
             setItemKey(initialData.key);
             setCategoryId(initialData.category_id);
             setPrice(initialData.price.toString());
@@ -111,6 +115,7 @@ export default function AddFoodItemModal({ isOpen, onClose, onSave, hotelId, ini
         } else if (isOpen && !initialData) {
             // Reset for fresh add
             setName("");
+            setNameHi("");
             setItemKey("");
             // Keep category if set, or let loadCategories set default
             setPrice("");
@@ -216,6 +221,7 @@ export default function AddFoodItemModal({ isOpen, onClose, onSave, hotelId, ini
 
         const data: FoodItemData = {
             name,
+            name_i18n: nameHi.trim() ? { hi: nameHi.trim() } : {},
             key: itemKey,
             category_id: categoryId,
             price: parseFloat(price),
@@ -320,6 +326,14 @@ export default function AddFoodItemModal({ isOpen, onClose, onSave, hotelId, ini
                                             placeholder="e.g. Pasta Alfredo"
                                         />
                                     </div>
+
+                                    <BilingualNameField
+                                        kind="dish"
+                                        englishValue={name}
+                                        value={nameHi}
+                                        onChange={setNameHi}
+                                        placeholder="जैसे पास्ता अल्फ्रेडो"
+                                    />
 
                                     <div>
                                         <label className="block text-xs font-medium text-slate-400 mb-1">Item Key</label>

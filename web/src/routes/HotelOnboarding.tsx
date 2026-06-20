@@ -13,10 +13,31 @@ import {
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { ImageUpload } from "../components/ImageUpload";
+import { roomTypeLocalizationCoverage } from "../i18n/localizeRoomType";
 
 /* ─────────────────────────────────────────────────────── */
 /*  TYPES                                                  */
 /* ─────────────────────────────────────────────────────── */
+
+// Read-only Hindi preview for a room-type name. Room types are localized for
+// guests by the curated localizeRoomType dictionary (controlled vocabulary, no
+// per-hotel override). This shows the owner exactly what a Hindi guest will see
+// and transparently flags any word the dictionary doesn't know yet.
+function RoomTypeHindiPreview({ name }: { name: string }) {
+    if (!name.trim()) return null;
+    const cov = roomTypeLocalizationCoverage(name, "hi");
+    return (
+        <div className="mt-1.5 text-[11px] leading-relaxed">
+            <span className="text-slate-500">Hindi guests see: </span>
+            <span className="text-slate-200" lang="hi">{cov.localized}</span>
+            {!cov.fullyCovered && (
+                <div className="text-amber-400/80 mt-0.5">
+                    “{cov.unresolved.join("”, “")}” will stay in English.
+                </div>
+            )}
+        </div>
+    );
+}
 interface HotelForm {
     name: string; slug: string; description: string; phone: string; email: string;
     address: string; city: string; state: string; country: string; postal_code: string;
@@ -3238,6 +3259,7 @@ export default function HotelOnboarding() {
                                                     onChange={e => setCustomRoomForm({ ...customRoomForm, name: e.target.value })}
                                                     autoFocus
                                                 />
+                                                <RoomTypeHindiPreview name={customRoomForm.name} />
                                             </div>
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div>
@@ -3316,6 +3338,7 @@ export default function HotelOnboarding() {
                                             onChange={e => updateRoomType(editingRoomTypeIdx, "name", e.target.value)}
                                             autoFocus
                                         />
+                                        <RoomTypeHindiPreview name={roomTypes[editingRoomTypeIdx].name} />
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import BilingualNameField from "./BilingualNameField";
 
 export interface AddServiceModalProps {
     isOpen: boolean;
@@ -9,7 +10,7 @@ export interface AddServiceModalProps {
         sla_policy?: { target_minutes: number };
     }[];
     initialDepartmentId?: string;
-    onSave: (serviceData: { name: string; sla: number; departmentId: string; active: boolean; isCustom?: boolean; templateId?: string | null }) => void;
+    onSave: (serviceData: { name: string; name_i18n: Record<string, string>; sla: number; departmentId: string; active: boolean; isCustom?: boolean; templateId?: string | null }) => void;
     onClose: () => void;
 }
 
@@ -21,6 +22,7 @@ export default function AddServiceModal({
     onClose,
 }: AddServiceModalProps) {
     const [name, setName] = useState("");
+    const [nameHi, setNameHi] = useState("");
     const [nameError, setNameError] = useState("");
     const [sla, setSla] = useState("");
     const [isActive, setIsActive] = useState(true);
@@ -29,6 +31,7 @@ export default function AddServiceModal({
     useEffect(() => {
         if (isOpen) {
             setName("");
+            setNameHi("");
             setNameError("");
             setSla("");
             setIsActive(true);
@@ -53,6 +56,7 @@ export default function AddServiceModal({
 
         onSave({
             name: name.trim(),
+            name_i18n: nameHi.trim() ? { hi: nameHi.trim() } : {},
             sla: slaValue,
             departmentId: selectedDeptId,
             active: isActive,
@@ -136,6 +140,16 @@ export default function AddServiceModal({
                             <p className="text-xs text-red-500 mt-1.5">{nameError}</p>
                         )}
                     </div>
+
+                    {/* Hindi name (optional) */}
+                    <BilingualNameField
+                        kind="service"
+                        englishValue={name}
+                        value={nameHi}
+                        onChange={setNameHi}
+                        placeholder="अतिथि को हिंदी में दिखेगा"
+                        inputClassName="w-full px-4 py-2.5 bg-[#2a2a2a] border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
 
                     {/* SLA Override */}
                     <div>

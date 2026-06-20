@@ -6,6 +6,7 @@ import SEO from "../components/SEO";
 import SLAPolicyModal, { SLAPolicyData } from "../components/SLAPolicyModal";
 import EditServiceModal from "../components/EditServiceModal";
 import AddServiceModal from "../components/AddServiceModal";
+import BilingualNameField from "../components/BilingualNameField";
 import AddServiceTemplateModal from "../components/AddServiceTemplateModal";
 import AddServiceSelectionModal from "../components/AddServiceSelectionModal";
 import AddDepartmentSelectionModal from "../components/AddDepartmentSelectionModal";
@@ -20,6 +21,7 @@ interface Service {
   id?: string;
   key: string;
   label: string;
+  name_i18n?: Record<string, string>; // owner-supplied localized labels; {} = English only
   sla_minutes: number;
   department_id: string;
   active: boolean;
@@ -59,6 +61,7 @@ export default function OwnerServices() {
   const [error, setError] = useState<string | null>(null);
 
   const [customServiceName, setCustomServiceName] = useState("");
+  const [customServiceNameHi, setCustomServiceNameHi] = useState("");
   const [customServiceSLA, setCustomServiceSLA] = useState("");
   const [customServiceActive, setCustomServiceActive] = useState(true);
   const [showAddDepartmentSelectionModal, setShowAddDepartmentSelectionModal] = useState(false);
@@ -176,6 +179,7 @@ export default function OwnerServices() {
           id: s.id,
           key: s.key,
           label: s.label || s.label_en || "",
+          name_i18n: s.name_i18n || {},
           sla_minutes: s.sla_minutes || 30,
           department_id: s.department_id,
           active: s.active ?? s.is_active ?? true,
@@ -289,9 +293,14 @@ export default function OwnerServices() {
     setDirty(true);
   };
 
-  const handleEditService = (name: string, sla: number) => {
+  const handleEditService = (name: string, sla: number, nameHi: string) => {
     if (editingServiceIndex === null) return;
-    handleUpdateService(editingServiceIndex, { label: name, sla_minutes: sla });
+    const trimmed = (nameHi || "").trim();
+    handleUpdateService(editingServiceIndex, {
+      label: name,
+      sla_minutes: sla,
+      name_i18n: trimmed ? { hi: trimmed } : {},
+    });
   };
 
 
@@ -327,6 +336,7 @@ export default function OwnerServices() {
         id: self.crypto.randomUUID(), // Maintain client-side ID for robust saving
         key: newKey,
         label: customServiceName,
+        name_i18n: customServiceNameHi.trim() ? { hi: customServiceNameHi.trim() } : {},
         sla_minutes: sla,
         department_id: activeTab,
         active: customServiceActive,
@@ -336,13 +346,14 @@ export default function OwnerServices() {
     ]);
 
     setCustomServiceName("");
+    setCustomServiceNameHi("");
     setCustomServiceSLA("");
     setCustomServiceActive(true);
     setDirty(true);
   };
 
-  const handleGlobalAddService = async (data: { name: string; sla: number; departmentId: string; active: boolean; isTemplate?: boolean; templateCode?: string; templateId?: string | null; isCustom?: boolean } | { services: { name: string; sla: number; departmentId: string; active: boolean; isTemplate?: boolean; templateCode?: string; templateId?: string | null; isCustom?: boolean }[] }) => {
-    let servicesToAdd: { name: string; sla: number; departmentId: string; active: boolean; isTemplate?: boolean; templateCode?: string; templateId?: string | null; isCustom?: boolean }[] = [];
+  const handleGlobalAddService = async (data: { name: string; name_i18n?: Record<string, string>; sla: number; departmentId: string; active: boolean; isTemplate?: boolean; templateCode?: string; templateId?: string | null; isCustom?: boolean } | { services: { name: string; name_i18n?: Record<string, string>; sla: number; departmentId: string; active: boolean; isTemplate?: boolean; templateCode?: string; templateId?: string | null; isCustom?: boolean }[] }) => {
+    let servicesToAdd: { name: string; name_i18n?: Record<string, string>; sla: number; departmentId: string; active: boolean; isTemplate?: boolean; templateCode?: string; templateId?: string | null; isCustom?: boolean }[] = [];
 
     if ('services' in data) {
       servicesToAdd = data.services;
@@ -386,6 +397,7 @@ export default function OwnerServices() {
         department_id: s.departmentId,
         key: key,
         label: s.name,
+        name_i18n: s.name_i18n || {},
         sla_minutes: finalSla,
         active: s.active,
         template_id: s.templateId || null,
@@ -577,6 +589,7 @@ export default function OwnerServices() {
         department_id: s.department_id,
         key: s.key,
         label: s.label,
+        name_i18n: s.name_i18n || {},
         sla_minutes: s.sla_minutes,
         active: s.active,
         template_id: s.template_id || null,
@@ -1123,6 +1136,16 @@ export default function OwnerServices() {
                         style={{ width: '100%', marginBottom: 0 }}
                         autoFocus
                       />
+                      <div style={{ marginTop: 8 }}>
+                        <BilingualNameField
+                          kind="service"
+                          englishValue={customServiceName}
+                          value={customServiceNameHi}
+                          onChange={setCustomServiceNameHi}
+                          placeholder="अतिथि को हिंदी में दिखेगा"
+                          inputClassName={styles.addServicesInput}
+                        />
+                      </div>
                     </div>
 
                     {/* SLA Override Column */}
@@ -1248,6 +1271,7 @@ export default function OwnerServices() {
               <EditServiceModal
                 isOpen={editingServiceIndex !== null}
                 serviceName={editingService.label}
+                serviceNameHi={editingService.name_i18n?.hi || ""}
                 slaMinutes={editingService.sla_minutes}
                 departmentName={activeDept?.name || ""}
                 onSave={handleEditService}

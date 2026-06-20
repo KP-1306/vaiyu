@@ -1,30 +1,35 @@
 // web/src/components/EditServiceModal.tsx
 import { useState, useEffect } from "react";
+import BilingualNameField from "./BilingualNameField";
 
 interface EditServiceModalProps {
     isOpen: boolean;
     serviceName: string;
+    serviceNameHi?: string;
     slaMinutes: number;
     departmentName: string;
-    onSave: (name: string, sla: number) => void;
+    onSave: (name: string, sla: number, nameHi: string) => void;
     onClose: () => void;
 }
 
 export default function EditServiceModal({
     isOpen,
     serviceName,
+    serviceNameHi = "",
     slaMinutes,
     departmentName,
     onSave,
     onClose,
 }: EditServiceModalProps) {
     const [name, setName] = useState(serviceName);
+    const [nameHi, setNameHi] = useState(serviceNameHi);
     const [sla, setSla] = useState(slaMinutes);
 
     useEffect(() => {
         setName(serviceName);
+        setNameHi(serviceNameHi);
         setSla(slaMinutes);
-    }, [serviceName, slaMinutes, isOpen]);
+    }, [serviceName, serviceNameHi, slaMinutes, isOpen]);
 
     if (!isOpen) return null;
 
@@ -33,7 +38,7 @@ export default function EditServiceModal({
             alert("Service name is required");
             return;
         }
-        onSave(name, sla);
+        onSave(name, sla, nameHi);
         onClose();
     };
 
@@ -63,6 +68,15 @@ export default function EditServiceModal({
                             className="w-full px-4 py-2.5 bg-[#2a3142] border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                     </div>
+
+                    {/* Hindi name (optional) */}
+                    <BilingualNameField
+                        kind="service"
+                        englishValue={name}
+                        value={nameHi}
+                        onChange={setNameHi}
+                        placeholder="अतिथि को हिंदी में दिखेगा"
+                    />
 
                     {/* SLA */}
                     <div>

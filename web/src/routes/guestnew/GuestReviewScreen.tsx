@@ -202,7 +202,7 @@ export default function GuestReviewScreen() {
                             <div key={cat.id} className="gn-category-item">
                                 <div className="gn-category-label">
                                     <span>{cat.code === 'cleanliness' ? '✨' : cat.code === 'staff' ? '🧑‍💼' : cat.code === 'room' ? '🛌' : cat.code === 'service' ? '🛎️' : cat.code === 'location' ? '📍' : '⭐'}</span>
-                                    {cat.label}
+                                    {t(`review:category.${cat.code}`, { defaultValue: cat.label })}
                                 </div>
                                 <div className="gn-mini-stars">
                                     {[1, 2, 3, 4, 5].map((s) => (

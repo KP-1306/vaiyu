@@ -32,6 +32,7 @@ import FolioDrawer from "../components/FolioDrawer";
 import GuestDetailsDrawer from "../components/GuestDetailsDrawer";
 import { computeCheckoutState, type CheckoutState } from "../utils/checkoutState";
 import { initialsOf } from "../utils/initials";
+import { useOwnerT, useOwnerLocale } from "../i18n/useOwnerT";
 import { LogOut } from "lucide-react";
 import "./guestnew/guestnew.css";
 import "./arrivals.css";
@@ -122,6 +123,7 @@ const CheckoutAttentionStrip = ({
     onViewOverdue: () => void;
     onViewDepartingToday: () => void;
 }) => {
+    const t = useOwnerT("owner-arrivals");
     if (overdue === 0 && departingToday === 0) return null;
     const top: "rose" | "amber" = overdue > 0 ? "rose" : "amber";
     const shellClass = top === "rose"
@@ -133,11 +135,11 @@ const CheckoutAttentionStrip = ({
                 <div className="flex items-center gap-2">
                     <span className={`h-2 w-2 rounded-full ${top === "rose" ? "bg-rose-400 animate-pulse" : "bg-amber-400"}`} />
                     <span className={`text-[11px] font-black uppercase tracking-[0.18em] ${top === "rose" ? "text-rose-300" : "text-amber-300"}`}>
-                        Checkout attention
+                        {t("checkoutAttention.title", "Checkout attention")}
                     </span>
                 </div>
                 <span className="text-[11px] text-slate-500 font-medium">
-                    Always-on · independent of date filter
+                    {t("checkoutAttention.alwaysOn", "Always-on · independent of date filter")}
                 </span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-white/5">
@@ -148,15 +150,15 @@ const CheckoutAttentionStrip = ({
                         </div>
                         <div className="min-w-0 flex-1">
                             <div className="text-sm font-bold text-white">
-                                {overdue} overdue checkout{overdue === 1 ? "" : "s"}
+                                {t("checkoutAttention.overdue", "{{count}} overdue checkouts", { count: overdue })}
                             </div>
-                            <div className="text-xs text-slate-400">Past scheduled checkout time and still in-house.</div>
+                            <div className="text-xs text-slate-400">{t("checkoutAttention.overdueDesc", "Past scheduled checkout time and still in-house.")}</div>
                         </div>
                         <button
                             onClick={onViewOverdue}
                             className="shrink-0 inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider px-3 py-1.5 rounded-lg border bg-rose-500/15 hover:bg-rose-500/25 text-rose-200 hover:text-white border-rose-500/30 transition-colors"
                         >
-                            View <ArrowRight className="w-3 h-3" />
+                            {t("checkoutAttention.view", "View")} <ArrowRight className="w-3 h-3" />
                         </button>
                     </div>
                 )}
@@ -167,15 +169,15 @@ const CheckoutAttentionStrip = ({
                         </div>
                         <div className="min-w-0 flex-1">
                             <div className="text-sm font-bold text-white">
-                                {departingToday} departing today
+                                {t("checkoutAttention.departing", "{{count}} departing today", { count: departingToday })}
                             </div>
-                            <div className="text-xs text-slate-400">Scheduled to check out later today.</div>
+                            <div className="text-xs text-slate-400">{t("checkoutAttention.departingDesc", "Scheduled to check out later today.")}</div>
                         </div>
                         <button
                             onClick={onViewDepartingToday}
                             className="shrink-0 inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider px-3 py-1.5 rounded-lg border bg-amber-500/15 hover:bg-amber-500/25 text-amber-200 hover:text-white border-amber-500/30 transition-colors"
                         >
-                            View <ArrowRight className="w-3 h-3" />
+                            {t("checkoutAttention.view", "View")} <ArrowRight className="w-3 h-3" />
                         </button>
                     </div>
                 )}
@@ -186,110 +188,113 @@ const CheckoutAttentionStrip = ({
 
 /** Inline departure-urgency pill — pairs color with shape (icon + text) for a11y. */
 const DepartureBadge = ({ state, hoursLate, daysLate }: { state: CheckoutState; hoursLate: number; daysLate: number }) => {
+    const t = useOwnerT("owner-arrivals");
     if (state === "na" || state === "future") return null;
     const baseClasses = "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black border uppercase tracking-wider w-fit";
     if (state === "overdue") {
-        const lateLabel = daysLate >= 1 ? `${daysLate}d late` : `${hoursLate}h late`;
+        const lateLabel = daysLate >= 1 ? t("departure.daysLate", "{{count}}d late", { count: daysLate }) : t("departure.hoursLate", "{{count}}h late", { count: hoursLate });
         const tooltipDuration = daysLate >= 1
-            ? `${daysLate} day${daysLate === 1 ? "" : "s"} past the scheduled checkout`
-            : `${hoursLate} hour${hoursLate === 1 ? "" : "s"} past the scheduled checkout time`;
+            ? t("departure.tooltipDays", "{{count}} days past the scheduled checkout", { count: daysLate })
+            : t("departure.tooltipHours", "{{count}} hours past the scheduled checkout time", { count: hoursLate });
         return (
-            <SimpleTooltip content={`${tooltipDuration} and the guest is still in-house. Process the checkout or extend the stay.`}>
+            <SimpleTooltip content={t("departure.tooltipOverdue", "{{duration}} and the guest is still in-house. Process the checkout or extend the stay.", { duration: tooltipDuration })}>
                 <span className={`${baseClasses} bg-rose-500/10 text-rose-300 border-rose-500/30`}>
                     <AlertCircle className="w-2.5 h-2.5" />
-                    Overdue · {lateLabel}
+                    {t("departure.overdue", "Overdue · {{late}}", { late: lateLabel })}
                 </span>
             </SimpleTooltip>
         );
     }
     // state === "today"
     return (
-        <SimpleTooltip content="Scheduled to check out later today.">
+        <SimpleTooltip content={t("departure.tooltipToday", "Scheduled to check out later today.")}>
             <span className={`${baseClasses} bg-amber-500/10 text-amber-300 border-amber-500/30`}>
                 <LogOut className="w-2.5 h-2.5" />
-                Departing today
+                {t("departure.departingToday", "Departing today")}
             </span>
         </SimpleTooltip>
     );
 };
 
 const StatusBadge = ({ state, urgency }: { state: string, urgency: string }) => {
+    const t = useOwnerT("owner-arrivals");
     const baseClasses = "inline-flex items-center px-3 py-1.5 rounded-full text-[10px] font-bold border shadow-sm uppercase tracking-wider";
 
     if (state === "ARRIVED") return (
-        <SimpleTooltip content="Arrived (Waiting): The guest has arrived at the property and is waiting for their check-in process to complete.">
-            <span className={`${baseClasses} bg-orange-500/10 text-orange-400 border-orange-500/20`}>Arrived, Waiting...</span>
+        <SimpleTooltip content={t("statusBadge.arrivedWaitingTip", "Arrived (Waiting): The guest has arrived at the property and is waiting for their check-in process to complete.")}>
+            <span className={`${baseClasses} bg-orange-500/10 text-orange-400 border-orange-500/20`}>{t("statusBadge.arrivedWaiting", "Arrived, Waiting...")}</span>
         </SimpleTooltip>
     );
     if (state === "CHECKOUT_REQUESTED") return (
-        <SimpleTooltip content="Checkout Requested: The guest has requested to check out. Review folios and approve.">
+        <SimpleTooltip content={t("statusBadge.checkoutRequestedTip", "Checkout Requested: The guest has requested to check out. Review folios and approve.")}>
             <span className={`${baseClasses} bg-amber-500/10 text-amber-400 border-amber-500/20 font-bold gap-1.5`}>
-                Checkout Requested
+                {t("statusBadge.checkoutRequested", "Checkout Requested")}
             </span>
         </SimpleTooltip>
     );
     if (state === "PARTIALLY_ARRIVED") return (
-        <SimpleTooltip content="Partially Arrived: Some rooms in the booking are checked in, while others are still expected.">
-            <span className={`${baseClasses} bg-orange-400/10 text-orange-300 border-orange-400/20`}>Partially Arrived</span>
+        <SimpleTooltip content={t("statusBadge.partiallyArrivedTip", "Partially Arrived: Some rooms in the booking are checked in, while others are still expected.")}>
+            <span className={`${baseClasses} bg-orange-400/10 text-orange-300 border-orange-400/20`}>{t("statusBadge.partiallyArrived", "Partially Arrived")}</span>
         </SimpleTooltip>
     );
     if (state === "WAITING_HOUSEKEEPING") return (
-        <SimpleTooltip content="Waiting Housekeeping: The guest can't check in yet because their assigned room(s) are still being cleaned.">
-            <span className={`${baseClasses} bg-blue-500/10 text-blue-400 border-blue-500/20`}>Waiting Housekeeping</span>
+        <SimpleTooltip content={t("statusBadge.waitingHousekeepingTip", "Waiting Housekeeping: The guest can’t check in yet because their assigned room(s) are still being cleaned.")}>
+            <span className={`${baseClasses} bg-blue-500/10 text-blue-400 border-blue-500/20`}>{t("statusBadge.waitingHousekeeping", "Waiting Housekeeping")}</span>
         </SimpleTooltip>
     );
     if (state === "WAITING_ROOM_ASSIGNMENT") return (
-        <SimpleTooltip content="Waiting Allocation: A physical room number hasn't been assigned to this booking yet.">
-            <span className={`${baseClasses} bg-yellow-500/10 text-yellow-400 border-yellow-500/20`}>Waiting Allocation</span>
+        <SimpleTooltip content={t("statusBadge.waitingAllocationTip", "Waiting Allocation: A physical room number hasn’t been assigned to this booking yet.")}>
+            <span className={`${baseClasses} bg-yellow-500/10 text-yellow-400 border-yellow-500/20`}>{t("statusBadge.waitingAllocation", "Waiting Allocation")}</span>
         </SimpleTooltip>
     );
     if (state === "CHECKED_IN") return (
-        <SimpleTooltip content="Checked In: The guest has successfully checked in to all rooms in their booking.">
+        <SimpleTooltip content={t("statusBadge.checkedInTip", "Checked In: The guest has successfully checked in to all rooms in their booking.")}>
             <span className={`${baseClasses} bg-indigo-500/10 text-indigo-400 border-indigo-500/20 font-bold gap-1.5`}>
-                <CheckCircle2 className="w-3.5 h-3.5" /> Checked In
+                <CheckCircle2 className="w-3.5 h-3.5" /> {t("statusBadge.checkedIn", "Checked In")}
             </span>
         </SimpleTooltip>
     );
     if (state === "NO_ROOMS") return (
-        <SimpleTooltip content="No Rooms: This booking currently has zero rooms. This is likely an administrative entry.">
-            <span className={`${baseClasses} bg-red-500/10 text-red-400 border-red-500/20`}>No Rooms</span>
+        <SimpleTooltip content={t("statusBadge.noRoomsTip", "No Rooms: This booking currently has zero rooms. This is likely an administrative entry.")}>
+            <span className={`${baseClasses} bg-red-500/10 text-red-400 border-red-500/20`}>{t("statusBadge.noRooms", "No Rooms")}</span>
         </SimpleTooltip>
     );
 
     // Ready
     return (
-        <SimpleTooltip content="Ready: All rooms are assigned and clean. The guest is ready for check-in.">
+        <SimpleTooltip content={t("statusBadge.readyTip", "Ready: All rooms are assigned and clean. The guest is ready for check-in.")}>
             <span className={`${baseClasses} bg-emerald-500/10 text-emerald-400 border-emerald-500/20 gap-1.5`}>
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></div> Ready
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></div> {t("statusBadge.ready", "Ready")}
             </span>
         </SimpleTooltip>
     );
 };
 
 const RoomReadyBadge = ({ clean, dirty, inspected, total }: { clean: number, dirty: number, inspected: number, total: number }) => {
+    const t = useOwnerT("owner-arrivals");
     // "Button" look: Solid colors, rounded-md, shadow-sm, white text
     if (dirty > 0) {
         return (
-            <SimpleTooltip content={`${dirty} assigned room(s) are currently dirty and need housekeeping attention.`}>
+            <SimpleTooltip content={t("roomReady.dirtyTip", "{{count}} assigned room(s) are currently dirty and need housekeeping attention.", { count: dirty })}>
                 <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20 min-w-[70px] uppercase tracking-wider">
-                    {dirty} Dirty
+                    {t("roomReady.dirty", "{{count}} Dirty", { count: dirty })}
                 </span>
             </SimpleTooltip>
         );
     }
     if (clean === total && total > 0) {
         return (
-            <SimpleTooltip content="All assigned rooms are clean and ready for the guest.">
+            <SimpleTooltip content={t("roomReady.cleanTip", "All assigned rooms are clean and ready for the guest.")}>
                 <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 min-w-[70px] uppercase tracking-wider">
-                    Clean
+                    {t("roomReady.clean", "Clean")}
                 </span>
             </SimpleTooltip>
         );
     }
     return (
-        <SimpleTooltip content={total > 0 && clean === 0 ? "No rooms are ready yet. This is usually because no physical rooms have been assigned to the booking." : `${clean} of ${total} rooms are currently ready.`}>
+        <SimpleTooltip content={total > 0 && clean === 0 ? t("roomReady.readyTipNone", "No rooms are ready yet. This is usually because no physical rooms have been assigned to the booking.") : t("roomReady.readyTipSome", "{{clean}} of {{total}} rooms are currently ready.", { clean, total })}>
             <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-[10px] font-bold bg-gray-500/10 text-gray-400 border border-gray-500/20 min-w-[70px] uppercase tracking-wider">
-                {clean}/{total} Ready
+                {t("roomReady.ready", "{{clean}}/{{total}} Ready", { clean, total })}
             </span>
         </SimpleTooltip>
     );
@@ -300,6 +305,8 @@ const RoomReadyBadge = ({ clean, dirty, inspected, total }: { clean: number, dir
 export default function OwnerArrivals() {
     const { slug } = useParams();
     const navigate = useNavigate();
+    const t = useOwnerT("owner-arrivals");
+    const locale = useOwnerLocale();
     const [searchParams] = useSearchParams();
     const [hotelId, setHotelId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -325,8 +332,8 @@ export default function OwnerArrivals() {
             setCheckoutModal({
                 isOpen: true,
                 type: 'alert',
-                title: 'Checkout Failed',
-                message: 'Cannot checkout: This booking is missing an active room stay record (expected status "inhouse"). The check-in flow may not have completed properly.'
+                title: t('dialog.checkoutFailed', 'Checkout Failed'),
+                message: t('dialog.missingStay', 'Cannot checkout: This booking is missing an active room stay record (expected status "inhouse"). The check-in flow may not have completed properly.')
             });
             return;
         }
@@ -345,17 +352,15 @@ export default function OwnerArrivals() {
                     setCheckoutModal({
                         isOpen: true,
                         type: 'confirm',
-                        title: 'Closed to Departure',
+                        title: t('dialog.ctdTitle', 'Closed to Departure'),
                         message: (
                             <>
                                 <p>
-                                    Today (<span className="font-semibold">{today}</span>) is flagged
-                                    <span className="font-semibold"> closed to departure</span> for this room type.
+                                    {t('dialog.ctdLine1Pre', 'Today (')}<span className="font-semibold">{today}</span>{t('dialog.ctdLine1Post', ') is flagged ')}
+                                    <span className="font-semibold">{t('dialog.ctdClosed', 'closed to departure')}</span>{t('dialog.ctdLine1End', ' for this room type.')}
                                 </p>
                                 <p className="mt-2 text-sm text-slate-400">
-                                    Typical reasons: peak-night minimum-stay enforcement, group-block
-                                    integrity. Confirming will bypass the block — make sure this is
-                                    authorized by a manager.
+                                    {t('dialog.ctdLine2', 'Typical reasons: peak-night minimum-stay enforcement, group-block integrity. Confirming will bypass the block — make sure this is authorized by a manager.')}
                                 </p>
                             </>
                         ),
@@ -389,15 +394,15 @@ export default function OwnerArrivals() {
                 setCheckoutModal({
                     isOpen: true,
                     type: 'alert',
-                    title: 'Checkout Failed',
-                    message: internalError || error?.message || 'Unknown error occurred.'
+                    title: t('dialog.checkoutFailed', 'Checkout Failed'),
+                    message: internalError || error?.message || t('dialog.unknownError', 'Unknown error occurred.')
                 });
             } else {
                 setCheckoutModal({
                     isOpen: true,
                     type: 'success',
-                    title: 'Checked Out',
-                    message: `Successfully checked out Room ${row.room_numbers || "Unassigned"}.`
+                    title: t('dialog.checkedOutTitle', 'Checked Out'),
+                    message: t('dialog.checkedOutMsg', 'Successfully checked out Room {{room}}.', { room: row.room_numbers || t('fallback.unassigned', 'Unassigned') })
                 });
                 fetchDashboard(); // Immediate refresh after success
             }
@@ -406,8 +411,8 @@ export default function OwnerArrivals() {
             setCheckoutModal({
                 isOpen: true,
                 type: 'alert',
-                title: 'Unexpected Error',
-                message: err.message || 'An unknown error occurred while checking out.'
+                title: t('dialog.unexpectedTitle', 'Unexpected Error'),
+                message: err.message || t('dialog.unexpectedMsg', 'An unknown error occurred while checking out.')
             });
         } finally {
             setApprovingCheckout(null);
@@ -427,16 +432,16 @@ export default function OwnerArrivals() {
             setCheckoutModal({
                 isOpen: true,
                 type: "alert",
-                title: "Balance Pending",
-                message: `Cannot checkout manually. Guest has an unpaid balance of ₹${balance.toLocaleString("en-IN")}.\n\nPlease collect payment via the Folio before checking out.`,
+                title: t('dialog.balancePending', "Balance Pending"),
+                message: t('dialog.balancePendingMsg', "Cannot checkout manually. Guest has an unpaid balance of ₹{{amount}}.\n\nPlease collect payment via the Folio before checking out.", { amount: balance.toLocaleString("en-IN") }),
             });
             return;
         }
         setCheckoutModal({
             isOpen: true,
             type: "confirm",
-            title: "Confirm Checkout",
-            message: `Check out Room ${row.room_numbers || "Unassigned"} — ${row.guest_name}?\nBalance: ₹0 (Settled)\n\n⚠️ Guest has NOT requested checkout.\nThis is a staff-initiated action.`,
+            title: t('dialog.confirmCheckout', "Confirm Checkout"),
+            message: t('dialog.confirmCheckoutMsg', "Check out Room {{room}} — {{guest}}?\nBalance: ₹0 (Settled)\n\n⚠️ Guest has NOT requested checkout.\nThis is a staff-initiated action.", { room: row.room_numbers || t('fallback.unassigned', "Unassigned"), guest: row.guest_name }),
             onConfirm: () => handleApproveCheckout(row, "STAFF"),
         });
     };
@@ -836,19 +841,19 @@ export default function OwnerArrivals() {
                         <div className="flex justify-between items-center gap-4">
                             <span className="text-[10px] font-bold text-[var(--text-gold)] uppercase tracking-wider flex items-center gap-2">
                                 <div className="w-1.5 h-1.5 bg-[var(--gold-400)] rounded-full"></div>
-                                Arrived
+                                {t("timeline.arrived", "Arrived")}
                             </span>
                             <span className="text-sm font-black text-[var(--text-gold)]">{arrived}</span>
                         </div>
                         <div className="flex justify-between items-center gap-4">
                             <span className="text-[10px] font-bold text-[var(--text-gold)]/40 uppercase tracking-wider flex items-center gap-2">
                                 <div className="w-1.5 h-1.5 bg-[var(--gold-400)]/20 rounded-full border border-[var(--gold-400)]/30"></div>
-                                Expected
+                                {t("timeline.expected", "Expected")}
                             </span>
                             <span className="text-sm font-black text-[var(--text-gold)]/40">{expected}</span>
                         </div>
                         <div className="pt-2 mt-2 border-t border-[var(--border-subtle)] flex justify-between items-center">
-                            <span className="text-[9px] font-black text-[var(--text-muted)] uppercase">Total</span>
+                            <span className="text-[9px] font-black text-[var(--text-muted)] uppercase">{t("timeline.total", "Total")}</span>
                             <span className="text-xs font-black text-[var(--text-primary)]">
                                 {Number(arrived) + Number(expected)}
                             </span>
@@ -860,11 +865,11 @@ export default function OwnerArrivals() {
         return null;
     };
 
-    if (loading) return <div className="p-8 text-center text-gray-500">Loading Dashboard...</div>;
+    if (loading) return <div className="vaiyu-owner p-8 text-center text-gray-500">{t("loading", "Loading Dashboard…")}</div>;
 
     const getFormattedDateHeader = () => {
         const today = new Date();
-        const formatter = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' });
+        const formatter = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short' });
 
         if (dateFilter === "TODAY") {
             return formatter.format(today);
@@ -875,14 +880,14 @@ export default function OwnerArrivals() {
         } else if (dateFilter === "LATE") {
             const yesterday = new Date(today);
             yesterday.setDate(yesterday.getDate() - 1);
-            return `Before ${formatter.format(today)}`;
+            return t("dateHeader.before", "Before {{date}}", { date: formatter.format(today) });
         } else if (dateFilter === "CUSTOM") {
             if (customFromDate && customToDate) {
                 return `${formatter.format(new Date(customFromDate))} - ${formatter.format(new Date(customToDate))}`;
             }
-            return "Custom Range";
+            return t("dateHeader.custom", "Custom Range");
         } else {
-            return "All Dates";
+            return t("dateHeader.all", "All Dates");
         }
     };
 
@@ -935,7 +940,7 @@ export default function OwnerArrivals() {
                             )}
                             {arrival.urgency_level === "CRITICAL" && !["CHECKED_IN", "PARTIALLY_ARRIVED"].includes(arrival.arrival_operational_state) && (
                                 <span className="bg-red-500/10 text-red-400 border border-red-500/20 text-[9px] font-black px-2 py-0.5 rounded flex items-center gap-1 tracking-widest uppercase">
-                                    <AlertCircle className="w-2.5 h-2.5" /> Late
+                                    <AlertCircle className="w-2.5 h-2.5" /> {t("row.late", "Late")}
                                 </span>
                             )}
                         </div>
@@ -969,7 +974,7 @@ export default function OwnerArrivals() {
                 {/* Guest-shared ETA — only meaningful before any room checks in */}
                 {arrival.expected_arrival_at && arrival.rooms_checked_in === 0 && (
                     <div className="mt-1 inline-flex items-center gap-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
-                        🕐 Guest ETA {new Date(arrival.expected_arrival_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        🕐 {t("row.guestEta", "Guest ETA {{time}}", { time: new Date(arrival.expected_arrival_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) })}
                     </div>
                 )}
             </td>
@@ -1017,12 +1022,12 @@ export default function OwnerArrivals() {
                     />
                     {arrival.cleaning_minutes_remaining !== null && arrival.rooms_dirty > 0 && (
                         <span className="text-[9px] font-black text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20 flex items-center gap-1 uppercase tracking-widest">
-                            Cleaning - {Math.round(arrival.cleaning_minutes_remaining)}m left
+                            {t("row.cleaningLeft", "Cleaning - {{m}}m left", { m: Math.round(arrival.cleaning_minutes_remaining) })}
                         </span>
                     )}
                     {arrival.rooms_dirty > 0 && arrival.cleaning_minutes_remaining === null && (
                         <span className="text-[9px] font-black text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded border border-orange-500/20 flex items-center gap-1 uppercase tracking-widest">
-                            Cleaning...
+                            {t("row.cleaning", "Cleaning...")}
                         </span>
                     )}
                 </div>
@@ -1033,16 +1038,16 @@ export default function OwnerArrivals() {
                 <div className="flex flex-col gap-1.5 items-start">
                     {(arrival.pending_amount || 0) <= 0 && (arrival.total_amount || 0) > 0 ? (
                         <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1.5 rounded-lg text-[9px] font-black tracking-widest inline-flex items-center gap-1.5 shadow-sm uppercase">
-                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div> PAID
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div> {t("row.paid", "PAID")}
                         </span>
                     ) : (arrival.pending_amount || 0) > 0 && (arrival.paid_amount || 0) > 0 ? (
                         <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2.5 py-1.5 rounded-lg text-[9px] font-black tracking-widest inline-flex items-center gap-1.5 shadow-sm uppercase">
-                            <div className="w-1.5 h-1.5 rounded-full bg-amber-400"></div> PARTIAL
+                            <div className="w-1.5 h-1.5 rounded-full bg-amber-400"></div> {t("row.partial", "PARTIAL")}
                             <span className="ml-1 opacity-80 font-bold tracking-normal text-xs text-white/90">₹{(arrival.pending_amount || 0).toLocaleString('en-IN')}</span>
                         </span>
                     ) : (arrival.pending_amount || 0) > 0 ? (
                         <span className="bg-red-500/10 text-red-400 border border-red-500/20 px-2.5 py-1.5 rounded-lg text-[9px] font-black tracking-widest inline-flex items-center gap-1.5 shadow-sm uppercase">
-                            <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse"></div> UNPAID
+                            <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse"></div> {t("row.unpaid", "UNPAID")}
                             <span className="ml-1 opacity-80 font-bold tracking-normal text-xs text-white/90">₹{(arrival.pending_amount || 0).toLocaleString('en-IN')}</span>
                         </span>
                     ) : (
@@ -1058,7 +1063,7 @@ export default function OwnerArrivals() {
                         onClick={() => onFolioOpen(arrival)}
                         className={`gn-btn ${arrival.pending_amount > 0 ? "gn-btn--primary" : "gn-btn--secondary"} px-4 py-2 text-[11px] font-black uppercase tracking-widest transition-all`}
                     >
-                        {arrival.pending_amount > 0 ? "Collect" : "Folio"}
+                        {arrival.pending_amount > 0 ? t("row.collect", "Collect") : t("row.folio", "Folio")}
                     </button>
 
                     {arrival.arrival_operational_state === "CHECKOUT_REQUESTED" && (
@@ -1068,7 +1073,7 @@ export default function OwnerArrivals() {
                             className={`gn-btn ${arrival.pending_amount > 0 ? 'bg-red-500/20 text-red-400 border-red-500/30 font-black hover:bg-red-500/30' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 font-black hover:bg-emerald-500/30'} px-4 py-2 text-[11px] font-black uppercase tracking-widest flex items-center gap-1.5 disabled:opacity-50 transition-all`}
                         >
                             {approvingCheckout ? <RefreshCw className="w-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
-                            {arrival.pending_amount > 0 ? "Force Checkout" : "Approve"}
+                            {arrival.pending_amount > 0 ? t("row.forceCheckout", "Force Checkout") : t("row.approve", "Approve")}
                         </button>
                     )}
 
@@ -1080,16 +1085,16 @@ export default function OwnerArrivals() {
                                     setCheckoutModal({
                                         isOpen: true,
                                         type: 'alert',
-                                        title: 'Balance Pending',
-                                        message: `Cannot checkout manually. Guest has an unpaid balance of ₹${balance.toLocaleString('en-IN')}.\n\nPlease collect payment via the Folio before checking out.`
+                                        title: t('dialog.balancePending', 'Balance Pending'),
+                                        message: t('dialog.balancePendingMsg', "Cannot checkout manually. Guest has an unpaid balance of ₹{{amount}}.\n\nPlease collect payment via the Folio before checking out.", { amount: balance.toLocaleString('en-IN') })
                                     });
                                     return;
                                 }
                                 setCheckoutModal({
                                     isOpen: true,
                                     type: 'confirm',
-                                    title: 'Confirm Checkout',
-                                    message: `Check out Room ${arrival.room_numbers || "Unassigned"} — ${arrival.guest_name}?\nBalance: ₹0 (Settled)\n\n⚠️ Guest has NOT requested checkout.\nThis is a staff-initiated action.`,
+                                    title: t('dialog.confirmCheckout', 'Confirm Checkout'),
+                                    message: t('dialog.confirmCheckoutMsg', "Check out Room {{room}} — {{guest}}?\nBalance: ₹0 (Settled)\n\n⚠️ Guest has NOT requested checkout.\nThis is a staff-initiated action.", { room: arrival.room_numbers || t('fallback.unassigned', "Unassigned"), guest: arrival.guest_name }),
                                     onConfirm: () => onApproveCheckout(arrival, 'STAFF')
                                 });
                             }}
@@ -1097,7 +1102,7 @@ export default function OwnerArrivals() {
                             className="gn-btn bg-orange-500/15 text-orange-400 border border-orange-500/25 hover:bg-orange-500/25 px-4 py-2 text-[11px] font-black uppercase tracking-widest flex items-center gap-1.5 disabled:opacity-50 transition-all"
                         >
                             {approvingCheckout ? <RefreshCw className="w-3 animate-spin" /> : <KeyRound className="w-3 h-3" />}
-                            Checkout
+                            {t("row.checkout", "Checkout")}
                         </button>
                     )}
 
@@ -1108,7 +1113,7 @@ export default function OwnerArrivals() {
                             onClick={() => navigate(`/checkin/booking?code=${arrival.booking_code}`)}
                             className="gn-btn gn-btn--primary px-4 py-2 text-[11px] font-black uppercase tracking-widest flex items-center gap-2"
                         >
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Check-In
+                            <CheckCircle2 className="w-3.5 h-3.5" /> {t("row.checkin", "Check-In")}
                         </button>
                     )}
 
@@ -1120,7 +1125,7 @@ export default function OwnerArrivals() {
 
 
     return (
-        <div className="arrivals-board min-h-screen font-sans">
+        <div className="vaiyu-owner arrivals-board min-h-screen font-sans">
             <div className="arrivals-board-content p-6 space-y-6">
 
                 {/* Always-on checkout attention banner — independent of dateFilter */}
@@ -1138,7 +1143,7 @@ export default function OwnerArrivals() {
                 <div className="flex justify-between items-center gn-card p-6 shadow-2xl">
                     <div>
                         <h1 className="text-3xl font-black text-[var(--text-primary)] flex items-center gap-3 tracking-tighter">
-                            Morning Arrivals <span className="text-[var(--text-gold)] text-xl font-light italic">– {getFormattedDateHeader()}</span>
+                            {t("header.title", "Morning Arrivals")} <span className="text-[var(--text-gold)] text-xl font-light italic">– {getFormattedDateHeader()}</span>
                         </h1>
                     </div>
 
@@ -1146,15 +1151,15 @@ export default function OwnerArrivals() {
                         <button 
                             onClick={() => fetchDashboard()} 
                             className="gn-btn gn-btn--secondary gn-btn-icon border border-[var(--border-gold)]/30 hover:shadow-[0_0_20px_rgba(212,175,55,0.15)]"
-                            title="Refresh Data"
+                            title={t("header.refreshData", "Refresh Data")}
                         >
                             <RefreshCw className={`w-5 h-5 text-[var(--text-gold)] ${loading ? 'animate-spin' : ''}`} />
                         </button>
-                        <button 
+                        <button
                             onClick={exportToCSV}
                             className="gn-btn gn-btn--secondary border border-[var(--border-gold)]/30 hover:shadow-[0_0_20px_rgba(212,175,55,0.15)]"
                         >
-                            <Download className="w-4 h-4 text-[var(--text-gold)]" /> Export CSV
+                            <Download className="w-4 h-4 text-[var(--text-gold)]" /> {t("header.exportCsv", "Export CSV")}
                         </button>
                         <button 
                             onClick={() => {
@@ -1163,19 +1168,19 @@ export default function OwnerArrivals() {
                             }}
                             className="gn-btn gn-btn--secondary border border-[var(--border-gold)]/10 opacity-60 hover:opacity-100 transition-all cursor-pointer"
                         >
-                            <Bed className="w-4 h-4 text-[var(--text-gold)]" /> Bulk Assign Rooms
+                            <Bed className="w-4 h-4 text-[var(--text-gold)]" /> {t("header.bulkAssign", "Bulk Assign Rooms")}
                         </button>
                         <button 
                             onClick={() => setShowPhase2Modal(true)}
                             className="gn-btn gn-btn--secondary border border-[var(--border-gold)]/10 opacity-60 hover:opacity-100 transition-all cursor-pointer"
                         >
-                            <Check className="w-4 h-4 text-[var(--text-gold)]" /> Send Reminder
+                            <Check className="w-4 h-4 text-[var(--text-gold)]" /> {t("header.sendReminder", "Send Reminder")}
                         </button>
                         <button 
                             onClick={() => setShowPhase2Modal(true)}
                             className="gn-btn gn-btn--primary px-8 opacity-60 hover:opacity-100 transition-all cursor-pointer"
                         >
-                            <span className="text-lg">+</span> Bulk Check-In
+                            <span className="text-lg">+</span> {t("header.bulkCheckin", "Bulk Check-In")}
                         </button>
                     </div>
                 </div>
@@ -1191,7 +1196,7 @@ export default function OwnerArrivals() {
                             </div>
                             <input
                                 type="text"
-                                placeholder="Search guest or booking code..."
+                                placeholder={t("search.main", "Search guest or booking code...")}
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 className="block w-full pl-11 pr-4 py-3 border-none rounded-xl bg-white/5 text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-400)]/30 focus:bg-white/10 transition-all text-sm font-semibold"
@@ -1213,15 +1218,15 @@ export default function OwnerArrivals() {
                                         const today = new Date();
                                         const tomorrow = new Date(today);
                                         tomorrow.setDate(tomorrow.getDate() + 1);
-                                        const formatter = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' });
+                                        const formatter = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short' });
 
                                         return (
                                             <>
-                                                <option value="TODAY">Today ({formatter.format(today)})</option>
-                                                <option value="TOMORROW">Tomorrow ({formatter.format(tomorrow)})</option>
-                                                <option value="LATE">Late (Before {formatter.format(today)})</option>
-                                                <option value="CUSTOM">Custom Range</option>
-                                                <option value="ALL">All Dates</option>
+                                                <option value="TODAY">{t("dateFilter.today", "Today ({{date}})", { date: formatter.format(today) })}</option>
+                                                <option value="TOMORROW">{t("dateFilter.tomorrow", "Tomorrow ({{date}})", { date: formatter.format(tomorrow) })}</option>
+                                                <option value="LATE">{t("dateFilter.late", "Late (Before {{date}})", { date: formatter.format(today) })}</option>
+                                                <option value="CUSTOM">{t("dateFilter.custom", "Custom Range")}</option>
+                                                <option value="ALL">{t("dateFilter.all", "All Dates")}</option>
                                             </>
                                         );
                                     })()}
@@ -1253,14 +1258,14 @@ export default function OwnerArrivals() {
                                     onChange={(e) => setStatusFilter(e.target.value || null)}
                                     className="gn-filter-select py-3 pl-4 pr-10 min-w-[160px] font-bold"
                                 >
-                                    <option value="">All Status</option>
-                                    <option value="EXPECTED">Expected</option>
-                                    <option value="WAITING_HOUSEKEEPING">Waiting HK</option>
-                                    <option value="WAITING_ROOM">Assignment Fail</option>
-                                    <option value="READY">Ready</option>
-                                    <option value="PARTIALLY_ARRIVED">Partial</option>
-                                    <option value="ARRIVED">Checked In</option>
-                                    <option value="CHECKOUT_REQUESTED">Checkout Requested</option>
+                                    <option value="">{t("statusFilter.all", "All Status")}</option>
+                                    <option value="EXPECTED">{t("statusFilter.expected", "Expected")}</option>
+                                    <option value="WAITING_HOUSEKEEPING">{t("statusFilter.waitingHk", "Waiting HK")}</option>
+                                    <option value="WAITING_ROOM">{t("statusFilter.assignmentFail", "Assignment Fail")}</option>
+                                    <option value="READY">{t("statusFilter.ready", "Ready")}</option>
+                                    <option value="PARTIALLY_ARRIVED">{t("statusFilter.partial", "Partial")}</option>
+                                    <option value="ARRIVED">{t("statusFilter.checkedIn", "Checked In")}</option>
+                                    <option value="CHECKOUT_REQUESTED">{t("statusFilter.checkoutRequested", "Checkout Requested")}</option>
                                 </select>
                             </div>
 
@@ -1271,7 +1276,7 @@ export default function OwnerArrivals() {
                                     onChange={(e) => setRoomTypeFilter(e.target.value || null)}
                                     className="gn-filter-select py-3 pl-4 pr-10 min-w-[180px] max-w-[240px] truncate font-bold"
                                 >
-                                    <option value="">All Room Types</option>
+                                    <option value="">{t("allRoomTypes", "All Room Types")}</option>
                                     {roomTypes.map(rt => (
                                         <option key={rt.id} value={rt.id}>{rt.name}</option>
                                     ))}
@@ -1292,7 +1297,7 @@ export default function OwnerArrivals() {
                                     }}
                                     className="flex items-center gap-2 px-4 py-2 text-xs font-black text-[var(--text-gold)] hover:text-[var(--gold-300)] transition-colors uppercase tracking-widest"
                                 >
-                                    <X className="w-4 h-4" /> Clear Filters
+                                    <X className="w-4 h-4" /> {t("clearFilters", "Clear Filters")}
                                 </button>
                             )}
                         </div>
@@ -1305,18 +1310,18 @@ export default function OwnerArrivals() {
 
                     <div className="flex justify-between items-center mb-6 relative z-10">
                         <h3 className="text-xs font-black text-[var(--text-secondary)] uppercase tracking-[0.2em] flex items-center gap-3">
-                            {dateFilter === "TODAY" || dateFilter === "TOMORROW" ? "Hourly Arrivals" : "Daily Arrival Trend"}
+                            {dateFilter === "TODAY" || dateFilter === "TOMORROW" ? t("timeline.hourly", "Hourly Arrivals") : t("timeline.daily", "Daily Arrival Trend")}
                             {peakInsight && (
                                 <span className="text-[9px] font-bold text-[var(--text-gold)] px-2 py-0.5 bg-[var(--gold-400)]/10 rounded-full border border-[var(--gold-400)]/20 normal-case tracking-normal">
-                                    Peak: {peakInsight.label} ({peakInsight.total} arrivals)
+                                    {t("timeline.peak", "Peak: {{label}} ({{count}} arrivals)", { label: peakInsight.label, count: peakInsight.total })}
                                 </span>
                             )}
                             {selectedTimelineLabel && (
-                                <button 
+                                <button
                                     onClick={() => setSelectedTimelineLabel(null)}
                                     className="text-[9px] font-black text-red-400/80 hover:text-red-400 transition-colors flex items-center gap-1 uppercase tracking-widest pl-2 border-l border-[var(--border-subtle)]"
                                 >
-                                    <X className="w-3 h-3" /> Clear Filter
+                                    <X className="w-3 h-3" /> {t("timeline.clearFilter", "Clear Filter")}
                                 </button>
                             )}
                         </h3>
@@ -1325,15 +1330,15 @@ export default function OwnerArrivals() {
                                 onClick={() => setVisibleSeries(prev => ({ ...prev, arrived: !prev.arrived }))}
                                 className={`flex items-center gap-2 transition-all ${visibleSeries.arrived ? 'opacity-100' : 'opacity-30 grayscale hover:opacity-50'}`}
                             >
-                                <div className="w-3 h-3 bg-[var(--gold-400)] rounded-full shadow-[0_0_8px_rgba(212,175,55,0.4)]"></div> 
-                                Arrived
+                                <div className="w-3 h-3 bg-[var(--gold-400)] rounded-full shadow-[0_0_8px_rgba(212,175,55,0.4)]"></div>
+                                {t("timeline.arrived", "Arrived")}
                             </button>
                             <button 
                                 onClick={() => setVisibleSeries(prev => ({ ...prev, expected: !prev.expected }))}
                                 className={`flex items-center gap-2 transition-all ${visibleSeries.expected ? 'opacity-100' : 'opacity-30 grayscale hover:opacity-50'}`}
                             >
-                                <div className="w-3 h-3 bg-[var(--gold-400)]/20 rounded-full border border-[var(--gold-400)]/40"></div> 
-                                Expected
+                                <div className="w-3 h-3 bg-[var(--gold-400)]/20 rounded-full border border-[var(--gold-400)]/40"></div>
+                                {t("timeline.expected", "Expected")}
                             </button>
                         </div>
                     </div>
@@ -1346,8 +1351,8 @@ export default function OwnerArrivals() {
                                         <BarChart2 className="w-5 h-5" />
                                     </div>
                                     <div className="text-center">
-                                        <p className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em]">No Activity Found</p>
-                                        <p className="text-[9px] text-[var(--text-muted)] mt-1">Adjust filters to see trends</p>
+                                        <p className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em]">{t("timeline.noActivity", "No Activity Found")}</p>
+                                        <p className="text-[9px] text-[var(--text-muted)] mt-1">{t("timeline.adjustFilters", "Adjust filters to see trends")}</p>
                                     </div>
                                     <button 
                                         onClick={() => {
@@ -1361,7 +1366,7 @@ export default function OwnerArrivals() {
                                         }}
                                         className="mt-2 text-[9px] font-black text-[var(--text-gold)] hover:text-[var(--gold-300)] uppercase tracking-widest border-b border-[var(--border-gold)]/20 pb-0.5 transition-all"
                                     >
-                                        Reset All
+                                        {t("timeline.resetAll", "Reset All")}
                                     </button>
                                 </div>
                             </div>
@@ -1429,28 +1434,28 @@ export default function OwnerArrivals() {
                 {/* Metric Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <MetricCard
-                        label="Total Arrivals"
+                        label={t("metric.total", "Total Arrivals")}
                         count={stats.total}
                         color={`bg-gradient-to-br transition-all ${statusFilter === null || statusFilter === "TOTAL" ? "from-[#145AF2] to-[#0A2E7A] ring-4 ring-blue-500/30 scale-[1.02]" : "from-[#145AF2]/60 to-[#0A2E7A]/60 opacity-80"}`}
                         icon={<Users className="w-7 h-7 text-white" />}
                         onClick={() => setStatusFilter(null)}
                     />
                     <MetricCard
-                        label="Arrived"
+                        label={t("metric.arrived", "Arrived")}
                         count={stats.arrived}
                         color={`bg-gradient-to-br transition-all ${statusFilter === "ARRIVED" ? "from-[#F97316] to-[#C2410C] ring-4 ring-orange-500/30 scale-[1.02]" : "from-[#F97316]/60 to-[#C2410C]/60 opacity-80"}`}
                         icon={<Check className="w-7 h-7 text-white" />}
                         onClick={() => setStatusFilter(statusFilter === "ARRIVED" ? null : "ARRIVED")}
                     />
                     <MetricCard
-                        label="Ready to Check-In"
+                        label={t("metric.ready", "Ready to Check-In")}
                         count={stats.ready}
                         color={`bg-gradient-to-br transition-all ${statusFilter === "READY" ? "from-[#10B981] to-[#047857] ring-4 ring-emerald-500/30 scale-[1.02]" : "from-[#10B981]/60 to-[#047857]/60 opacity-80"}`}
                         icon={<Bed className="w-7 h-7 text-white" />}
                         onClick={() => setStatusFilter(statusFilter === "READY" ? null : "READY")}
                     />
                     <MetricCard
-                        label="Pre-Checked-In"
+                        label={t("metric.preChecked", "Pre-Checked-In")}
                         count={stats.preChecked}
                         color={`bg-gradient-to-br transition-all ${statusFilter === "PRE_CHECKED" ? "from-[#14B8A6] to-[#0F766E] ring-4 ring-teal-500/30 scale-[1.02]" : "from-[#14B8A6]/60 to-[#0F766E]/60 opacity-80"}`}
                         icon={<Clock className="w-7 h-7 text-white" />}
@@ -1461,7 +1466,7 @@ export default function OwnerArrivals() {
                 {/* Quick Filter Pills */}
                 <div className="flex gap-4 overflow-x-auto py-2 gn-scrollbar">
                     <QuickFilterPill
-                        label="Ready to Check-In"
+                        label={t("pill.ready", "Ready to Check-In")}
                         count={stats.ready}
                         icon={<Check className="w-4 h-4" />}
                         color="text-emerald-400"
@@ -1469,7 +1474,7 @@ export default function OwnerArrivals() {
                         onClick={() => setStatusFilter(statusFilter === "READY" ? null : "READY")}
                     />
                     <QuickFilterPill
-                        label="Waiting Assignment"
+                        label={t("pill.waitingAssignment", "Waiting Assignment")}
                         count={stats.waitingRoom}
                         icon={<Bed className="w-4 h-4" />}
                         color="text-orange-400"
@@ -1477,7 +1482,7 @@ export default function OwnerArrivals() {
                         onClick={() => setStatusFilter(statusFilter === "WAITING_ROOM" ? null : "WAITING_ROOM")}
                     />
                     <QuickFilterPill
-                        label="Payment Pending"
+                        label={t("pill.paymentPending", "Payment Pending")}
                         count={stats.paymentPending}
                         icon={<AlertCircle className="w-4 h-4" />}
                         color="text-red-400"
@@ -1485,7 +1490,7 @@ export default function OwnerArrivals() {
                         onClick={() => setStatusFilter(statusFilter === "PAYMENT_PENDING" ? null : "PAYMENT_PENDING")}
                     />
                     <QuickFilterPill
-                        label="VIP Guests"
+                        label={t("pill.vip", "VIP Guests")}
                         count={stats.vip}
                         icon={<User className="w-4 h-4" />}
                         color="text-purple-400"
@@ -1493,7 +1498,7 @@ export default function OwnerArrivals() {
                         onClick={() => setStatusFilter(statusFilter === "VIP" ? null : "VIP")}
                     />
                     <QuickFilterPill
-                        label="Checkout Requested"
+                        label={t("pill.checkoutRequested", "Checkout Requested")}
                         count={stats.checkoutRequested}
                         icon={<ArrowRight className="w-4 h-4" />}
                         color="text-amber-400"
@@ -1501,7 +1506,7 @@ export default function OwnerArrivals() {
                         onClick={() => setStatusFilter(statusFilter === "CHECKOUT_REQUESTED" ? null : "CHECKOUT_REQUESTED")}
                     />
                     <QuickFilterPill
-                        label="Departing Today"
+                        label={t("pill.departingToday", "Departing Today")}
                         count={stats.departingToday}
                         icon={<LogOut className="w-4 h-4" />}
                         color="text-amber-400"
@@ -1513,7 +1518,7 @@ export default function OwnerArrivals() {
                         }}
                     />
                     <QuickFilterPill
-                        label="Overdue"
+                        label={t("pill.overdue", "Overdue")}
                         count={stats.overdue}
                         icon={<AlertCircle className="w-4 h-4" />}
                         color="text-rose-400"
@@ -1538,7 +1543,7 @@ export default function OwnerArrivals() {
                                                 className="flex items-center gap-2 cursor-pointer hover:text-[var(--text-gold)] transition-colors"
                                                 onClick={() => handleSort('guest_name')}
                                             >
-                                                <span>Guest</span>
+                                                <span>{t("table.guest", "Guest")}</span>
                                                 {sortConfig?.key === 'guest_name' ? (
                                                     sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-[var(--text-gold)]" /> : <ArrowDown className="w-3 h-3 text-[var(--text-gold)]" />
                                                 ) : (
@@ -1551,7 +1556,7 @@ export default function OwnerArrivals() {
                                                     type="text"
                                                     value={guestSearch}
                                                     onChange={(e) => setGuestSearch(e.target.value)}
-                                                    placeholder="Filter Guest..."
+                                                    placeholder={t("table.filterGuest", "Filter Guest...")}
                                                     className="w-full bg-white/5 border border-[var(--border-subtle)] focus:border-[var(--border-gold)]/50 focus:ring-1 focus:ring-[var(--border-gold)]/30 rounded px-7 py-1.5 text-[10px] lowercase placeholder:uppercase placeholder:text-[var(--text-muted)] outline-none transition-all font-bold"
                                                 />
                                                 {guestSearch && (
@@ -1568,7 +1573,7 @@ export default function OwnerArrivals() {
                                                 className="flex items-center gap-2 cursor-pointer hover:text-[var(--text-gold)] transition-colors"
                                                 onClick={() => handleSort('booking_code')}
                                             >
-                                                <span>Booking Ref</span>
+                                                <span>{t("table.bookingRef", "Booking Ref")}</span>
                                                 {sortConfig?.key === 'booking_code' ? (
                                                     sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-[var(--text-gold)]" /> : <ArrowDown className="w-3 h-3 text-[var(--text-gold)]" />
                                                 ) : (
@@ -1581,7 +1586,7 @@ export default function OwnerArrivals() {
                                                     type="text"
                                                     value={refSearch}
                                                     onChange={(e) => setRefSearch(e.target.value)}
-                                                    placeholder="Filter Ref..."
+                                                    placeholder={t("table.filterRef", "Filter Ref...")}
                                                     className="w-full bg-white/5 border border-[var(--border-subtle)] focus:border-[var(--border-gold)]/50 focus:ring-1 focus:ring-[var(--border-gold)]/30 rounded px-7 py-1.5 text-[10px] lowercase placeholder:uppercase placeholder:text-[var(--text-muted)] outline-none transition-all font-bold"
                                                 />
                                                 {refSearch && (
@@ -1597,7 +1602,7 @@ export default function OwnerArrivals() {
                                             className="flex items-center gap-2 cursor-pointer hover:text-[var(--text-gold)] transition-colors"
                                             onClick={() => handleSort('scheduled_checkin_at')}
                                         >
-                                            <span>Arrival Time</span>
+                                            <span>{t("table.arrivalTime", "Arrival Time")}</span>
                                             {sortConfig?.key === 'scheduled_checkin_at' ? (
                                                 sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-[var(--text-gold)]" /> : <ArrowDown className="w-3 h-3 text-[var(--text-gold)]" />
                                             ) : (
@@ -1605,18 +1610,18 @@ export default function OwnerArrivals() {
                                             )}
                                         </div>
                                     </th>
-                                    <th className="px-6 py-5 text-left text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] whitespace-nowrap">Rooms / Guests</th>
-                                    <th className="px-6 py-5 text-left text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em]">Status</th>
+                                    <th className="px-6 py-5 text-left text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] whitespace-nowrap">{t("table.roomsGuests", "Rooms / Guests")}</th>
+                                    <th className="px-6 py-5 text-left text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em]">{t("table.status", "Status")}</th>
                                     <th className="px-6 py-5 text-left text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em]">
                                         <div className="flex flex-col gap-2">
-                                            <span>Room</span>
+                                            <span>{t("table.room", "Room")}</span>
                                             <div className="relative group/search">
                                                 <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[var(--text-muted)] group-focus-within/search:text-[var(--text-gold)] transition-colors" />
                                                 <input 
                                                     type="text"
                                                     value={roomSearch}
                                                     onChange={(e) => setRoomSearch(e.target.value)}
-                                                    placeholder="Filter Room..."
+                                                    placeholder={t("table.filterRoom", "Filter Room...")}
                                                     className="w-full bg-white/5 border border-[var(--border-subtle)] focus:border-[var(--border-gold)]/50 focus:ring-1 focus:ring-[var(--border-gold)]/30 rounded px-7 py-1.5 text-[10px] lowercase placeholder:uppercase placeholder:text-[var(--text-muted)] outline-none transition-all font-bold"
                                                 />
                                                 {roomSearch && (
@@ -1627,13 +1632,13 @@ export default function OwnerArrivals() {
                                             </div>
                                         </div>
                                     </th>
-                                    <th className="px-6 py-5 text-left text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] whitespace-nowrap">Room Ready</th>
+                                    <th className="px-6 py-5 text-left text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] whitespace-nowrap">{t("table.roomReady", "Room Ready")}</th>
                                     <th className="px-6 py-5 text-left text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] group">
                                         <div 
                                             className="flex items-center gap-2 cursor-pointer hover:text-[var(--text-gold)] transition-colors"
                                             onClick={() => handleSort('pending_amount')}
                                         >
-                                            <span>Balance</span>
+                                            <span>{t("table.balance", "Balance")}</span>
                                             {sortConfig?.key === 'pending_amount' ? (
                                                 sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-[var(--text-gold)]" /> : <ArrowDown className="w-3 h-3 text-[var(--text-gold)]" />
                                             ) : (
@@ -1641,7 +1646,7 @@ export default function OwnerArrivals() {
                                             )}
                                         </div>
                                     </th>
-                                    <th className="px-6 py-5 text-right text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] sticky right-0 bg-[#0a0a10] z-20 w-48 shadow-[-10px_0_20px_rgba(0,0,0,0.5)]">Actions</th>
+                                    <th className="px-6 py-5 text-right text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] sticky right-0 bg-[#0a0a10] z-20 w-48 shadow-[-10px_0_20px_rgba(0,0,0,0.5)]">{t("table.actions", "Actions")}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1666,13 +1671,13 @@ export default function OwnerArrivals() {
                                                 </div>
                                                 <div className="space-y-1 relative">
                                                     <h3 className="text-xl font-bold text-[var(--text-primary)] tracking-tight">
-                                                        {searchParams.get("focus") ? "Not on the active board" : "No Matching Arrivals"}
+                                                        {searchParams.get("focus") ? t("empty.focusTitle", "Not on the active board") : t("empty.noMatchTitle", "No Matching Arrivals")}
                                                     </h3>
                                                     <p className="text-[var(--text-muted)] text-sm max-w-xs mx-auto">
                                                         {searchParams.get("focus") ? (
-                                                            <>Booking <span className="font-semibold text-[var(--text-primary)]">{searchParams.get("focus")}</span> isn't on the arrivals board — it's likely checked out or cancelled. Open Payments or the guest's folio to review it.</>
+                                                            <>{t("empty.focusBodyPre", "Booking ")}<span className="font-semibold text-[var(--text-primary)]">{searchParams.get("focus")}</span>{t("empty.focusBodyPost", " isn’t on the arrivals board — it’s likely checked out or cancelled. Open Payments or the guest’s folio to review it.")}</>
                                                         ) : (
-                                                            "We couldn't find any results matching your current filters or search criteria."
+                                                            t("empty.noMatchBody", "We couldn’t find any results matching your current filters or search criteria.")
                                                         )}
                                                     </p>
                                                 </div>
@@ -1686,7 +1691,7 @@ export default function OwnerArrivals() {
                                                     }}
                                                     className="gn-btn gn-btn--secondary border border-[var(--border-gold)]/20 text-[10px] uppercase tracking-widest py-2 px-6 mt-4 hover:bg-[var(--text-gold)]/5 transition-all"
                                                 >
-                                                    Clear All Filters
+                                                    {t("empty.clearAll", "Clear All Filters")}
                                                 </button>
                                             </div>
                                         </td>
@@ -1699,7 +1704,7 @@ export default function OwnerArrivals() {
                     {/* Pagination Footer */}
                     <div className="bg-white/5 px-6 py-6 flex items-center justify-between border-t border-[var(--border-subtle)]">
                         <div className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest">
-                            Showing <span className="text-[var(--text-primary)]">{(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, flattenedRows.length)}</span> of <span className="text-[var(--text-primary)]">{flattenedRows.length}</span>
+                            {t("pagination.showing", "Showing {{from}} - {{to}} of {{total}}", { from: (currentPage - 1) * pageSize + 1, to: Math.min(currentPage * pageSize, flattenedRows.length), total: flattenedRows.length })}
                         </div>
                         <div className="flex gap-2">
                             <button
@@ -1707,7 +1712,7 @@ export default function OwnerArrivals() {
                                 disabled={currentPage === 1}
                                 className="gn-btn gn-btn--secondary px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] disabled:opacity-30 transition-all"
                             >
-                                Prev
+                                {t("pagination.prev", "Prev")}
                             </button>
                             <div className="flex gap-1.5">
                                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -1732,7 +1737,7 @@ export default function OwnerArrivals() {
                                 disabled={currentPage === totalPages}
                                 className="gn-btn gn-btn--secondary px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] disabled:opacity-30 transition-all"
                             >
-                                Next
+                                {t("pagination.next", "Next")}
                             </button>
                         </div>
                     </div>
@@ -1760,7 +1765,7 @@ export default function OwnerArrivals() {
                                         onClick={() => setCheckoutModal(prev => ({ ...prev, isOpen: false }))}
                                         className="px-4 py-2 text-xs font-black text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors uppercase tracking-widest"
                                     >
-                                        {checkoutModal.type === 'confirm' ? 'Cancel' : 'Close'}
+                                        {checkoutModal.type === 'confirm' ? t('dialog.cancel', 'Cancel') : t('dialog.close', 'Close')}
                                     </button>
                                 )}
                                 {checkoutModal.type === 'confirm' && (
@@ -1775,7 +1780,7 @@ export default function OwnerArrivals() {
                                         className="gn-btn gn-btn--primary px-5 py-2.5 text-xs font-black tracking-wider uppercase flex items-center gap-2"
                                     >
                                         <CheckCircle2 className="w-4 h-4" />
-                                        Force Checkout
+                                        {t('dialog.forceCheckout', 'Force Checkout')}
                                     </button>
                                 )}
                                 {checkoutModal.type === 'success' && (
@@ -1783,7 +1788,7 @@ export default function OwnerArrivals() {
                                         onClick={() => setCheckoutModal(prev => ({ ...prev, isOpen: false }))}
                                         className="gn-btn gn-btn--primary px-5 py-2.5 text-xs font-black tracking-wider uppercase"
                                     >
-                                        Okay
+                                        {t('dialog.okay', 'Okay')}
                                     </button>
                                 )}
                             </div>
@@ -1823,9 +1828,9 @@ export default function OwnerArrivals() {
                             </div>
 
                             <div className="space-y-3">
-                                <h3 className="text-2xl font-black text-[var(--text-primary)] tracking-tighter uppercase font-sans">Phase 2 Incoming</h3>
+                                <h3 className="text-2xl font-black text-[var(--text-primary)] tracking-tighter uppercase font-sans">{t("phase2.title", "Phase 2 Incoming")}</h3>
                                 <p className="text-[var(--text-secondary)] text-sm leading-relaxed font-medium">
-                                    This advanced automated feature is currently under high-precision development and will be available in the <span className="text-[var(--text-gold)] font-black">Phase 2 Release</span>.
+                                    {t("phase2.bodyPre", "This advanced automated feature is currently under high-precision development and will be available in the ")}<span className="text-[var(--text-gold)] font-black">{t("phase2.release", "Phase 2 Release")}</span>{t("phase2.bodyPost", ".")}
                                 </p>
                             </div>
 
@@ -1834,12 +1839,12 @@ export default function OwnerArrivals() {
                                     onClick={() => setShowPhase2Modal(false)}
                                     className="gn-btn gn-btn--primary w-full py-4 font-black tracking-[0.2em] uppercase text-xs"
                                 >
-                                    Understood
+                                    {t("phase2.understood", "Understood")}
                                 </button>
                             </div>
 
                             <p className="text-[10px] text-[var(--text-muted)] font-black uppercase tracking-widest opacity-50">
-                                Vaiyu Enterprise Suite • v2.0 Roadmap
+                                {t("phase2.roadmap", "Vaiyu Enterprise Suite • v2.0 Roadmap")}
                             </p>
                         </div>
                     </div>

@@ -15,13 +15,15 @@ async function rateLimitOrThrow(req: Request, keyHint: string, limit = 120) {
     (req as any).cf?.connectingIP ||
     "0.0.0.0";
   const key = `${keyHint}:${ip}`;
-  await supa.from("api_hits").insert({ key }).select().limit(1);
-  const { count } = await supa
-    .from("api_hits")
-    .select("ts", { count: "exact", head: true })
-    .eq("key", key)
-    .gte("ts", new Date(Date.now() - 60_000).toISOString());
-  if ((count ?? 0) > limit) throw new Error("Rate limit exceeded");
+  // Rate-limit via SECURITY DEFINER RPC (api_hits is locked to service_role/owner;
+  // anon only has EXECUTE on the RPC, not table access). Fail-open on RPC error.
+  const { data: rlOk, error: rlErr } = await supa.rpc("va_rate_limit_hit", {
+    p_key: key,
+    p_window_seconds: 60,
+    p_limit: limit,
+  });
+  if (rlErr) { console.error("rate-limit rpc error", rlErr); return; }
+  if (rlOk === false) throw new Error("Rate limit exceeded");
 }
 
 function encCursor(dt: string, id: string) { return btoa(`${dt}::${id}`); }

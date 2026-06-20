@@ -102,11 +102,12 @@ serve(async (req) => {
     if (meErr || !me?.user) return J(401, { ok: false, error: "Unauthorized" });
     const actor = me.user.email ?? me.user.id ?? null;
 
-    // 2) Rate limit the caller
-    await rateLimitOrThrow(anon, req, "ops-update", 150);
-
-    // 3) Service client for minimal cross-table work
+    // 2) Service client — also used for the rate-limit insert/count so api_hits
+    //    can stay locked to service_role/owner (no anon table access).
     const svc = supabaseService();
+
+    // 3) Rate limit the caller (via service_role; api_hits is no longer anon-readable)
+    await rateLimitOrThrow(svc, req, "ops-update", 150);
 
     const body = await req.json().catch(() => ({} as any));
     const action = String(body?.action || "");

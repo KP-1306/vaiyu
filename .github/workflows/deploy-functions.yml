@@ -85,6 +85,13 @@ jobs:
             auth-otp-verify
             catalog-services
             catalog-menu
+            # Rate-limited public/quote fns that use the shared limiter (now via the
+            # va_rate_limit_hit RPC). Listed so they pick up the limiter change and
+            # keep enforcement after api_hits was locked to service_role/owner.
+            reviews-public
+            ai-generate-quote
+            send-quote
+            render-quote-pdf
           )
 
           echo "Project: $SUPABASE_PROJECT_REF"

@@ -231,27 +231,19 @@ export async function rateLimitOrThrow(
     (req as any).cf?.connectingIP ||
     "0.0.0.0";
   const key = `${keyHint}:${ip}`;
-  const now = new Date();
-
-  const { error: insErr } = await (svc as any)
-    .from("api_hits")
-    .insert({ key, ts: now.toISOString() });
-  if (insErr) console.error("rate-limit insert error", insErr);
-
-  // Count rows in the last minute for this key
-  const { data, error } = await (svc as any)
-    .from("api_hits")
-    .select("ts")
-    .gte("ts", new Date(now.getTime() - 60_000).toISOString())
-    .eq("key", key);
-
+  // Rate-limit via the SECURITY DEFINER RPC so api_hits stays locked to
+  // service_role/owner. Works whether `svc` is an anon or service_role client
+  // (anon only needs EXECUTE on the RPC, not table access). Fail-open on error.
+  const { data, error } = await (svc as any).rpc("va_rate_limit_hit", {
+    p_key: key,
+    p_window_seconds: 60,
+    p_limit: limit,
+  });
   if (error) {
-    console.error("rate-limit count error", error);
-    return; // if counting fails, don't block
+    console.error("rate-limit rpc error", error);
+    return; // if the limiter errors, don't block
   }
-
-  const count = Array.isArray(data) ? data.length : 0;
-  if (count > limit) {
+  if (data === false) {
     throw new Error("Rate limit exceeded. Try again in a minute.");
   }
 }
@@ -275,31 +267,18 @@ export async function rateLimitForUser(
   windowSec = 60,
 ): Promise<{ allowed: boolean; retryAfterSec?: number }> {
   const key = `${keyHint}:user:${userId}`;
-  const now = new Date();
-
-  // Best-effort insert (don't block on its outcome — count is what matters)
-  await (svc as any)
-    .from("api_hits")
-    .insert({ key, ts: now.toISOString(), fn: keyHint })
-    .then(() => null)
-    .catch(() => null);
-
-  const since = new Date(now.getTime() - windowSec * 1000).toISOString();
-  const { data, error } = await (svc as any)
-    .from("api_hits")
-    .select("ts")
-    .gte("ts", since)
-    .eq("key", key);
-
+  // Rate-limit via the SECURITY DEFINER RPC (api_hits locked to service_role/owner).
+  // Fail-open on RPC error — don't 500 a payment flow over a limiter hiccup.
+  const { data, error } = await (svc as any).rpc("va_rate_limit_hit", {
+    p_key: key,
+    p_window_seconds: windowSec,
+    p_limit: limit,
+  });
   if (error) {
-    // Fail-open — log so we can detect ongoing limiter outages without
-    // breaking payment flows.
-    console.error("[rateLimitForUser] count error — failing open", error);
+    console.error("[rateLimitForUser] rpc error — failing open", error);
     return { allowed: true };
   }
-
-  const count = Array.isArray(data) ? data.length : 0;
-  if (count > limit) {
+  if (data === false) {
     return { allowed: false, retryAfterSec: windowSec };
   }
   return { allowed: true };

@@ -19,6 +19,7 @@ type Hotel = {
 type EditableMenuItem = {
   id?: string;
   name: string;
+  name_i18n?: Record<string, string>; // owner-supplied localized names; {} = English only
   category: string;
   price: number | "" ;
   isVeg: boolean;
@@ -42,6 +43,7 @@ function OwnerMenuInner() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
+  const [suggestingAll, setSuggestingAll] = useState(false);
 
   // Load hotel + menu_items for that hotel
   useEffect(() => {
@@ -81,6 +83,8 @@ function OwnerMenuInner() {
         const normalized: EditableMenuItem[] = (rows || []).map((r: any) => ({
           id: r.id,
           name: (r.name ?? "").toString(),
+          name_i18n:
+            r.name_i18n && typeof r.name_i18n === "object" ? r.name_i18n : {},
           category: (r.category ?? "All-day").toString(),
           price:
             typeof r.base_price === "number"
@@ -135,6 +139,25 @@ function OwnerMenuInner() {
     ]);
   }
 
+  // Offline-suggest a Hindi name for every item that doesn't have one yet.
+  // Owner reviews the inline column, then Save persists. No translation API;
+  // suggestions are editable (curated dictionary + phonetic fallback).
+  async function suggestAllHindi() {
+    setSuggestingAll(true);
+    try {
+      const { transliterateHi } = await import("../i18n/transliterateHi");
+      setItems((prev) =>
+        prev.map((it) => {
+          if (it.name_i18n?.hi || !it.name.trim()) return it; // keep existing / skip blank
+          const s = transliterateHi(it.name);
+          return s ? { ...it, name_i18n: { ...(it.name_i18n || {}), hi: s } } : it;
+        }),
+      );
+    } finally {
+      setSuggestingAll(false);
+    }
+  }
+
   async function save() {
     if (!hotel) return;
     setSaving(true);
@@ -166,6 +189,9 @@ function OwnerMenuInner() {
           .update({
             item_key: slugifyKey(item.name),
             name: item.name.trim(),
+            // Owner-supplied Hindi (additive; '{}' = English only). CHECK
+            // constraint validates keys⊆{en,hi} + string values.
+            name_i18n: item.name_i18n || {},
             category: item.category.trim() || "All-day",
             base_price: priceNumber,
             is_veg: !!item.isVeg,
@@ -188,6 +214,7 @@ function OwnerMenuInner() {
             hotel_id: hotel.id,
             item_key: slugifyKey(i.name),
             name: i.name.trim(),
+            name_i18n: i.name_i18n || {},
             category: i.category.trim() || "All-day",
             base_price: priceNumber,
             is_veg: !!i.isVeg,
@@ -216,6 +243,8 @@ function OwnerMenuInner() {
       const normalized: EditableMenuItem[] = (rows || []).map((r: any) => ({
         id: r.id,
         name: (r.name ?? "").toString(),
+        name_i18n:
+          r.name_i18n && typeof r.name_i18n === "object" ? r.name_i18n : {},
         category: (r.category ?? "All-day").toString(),
         price:
           typeof r.base_price === "number"
@@ -296,13 +325,24 @@ function OwnerMenuInner() {
       <section className="bg-white rounded shadow p-4 space-y-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="font-medium">Items</h2>
-          <button
-            type="button"
-            className="btn btn-light !py-2 !px-3 text-sm"
-            onClick={addItem}
-          >
-            + Add item
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="btn btn-light !py-2 !px-3 text-sm"
+              onClick={suggestAllHindi}
+              disabled={suggestingAll || items.length === 0}
+              title="Offline suggestion — fills a Hindi name for items that don't have one yet. Review, then Save."
+            >
+              {suggestingAll ? "…" : "Suggest Hindi (all)"}
+            </button>
+            <button
+              type="button"
+              className="btn btn-light !py-2 !px-3 text-sm"
+              onClick={addItem}
+            >
+              + Add item
+            </button>
+          </div>
         </div>
         <p className="text-xs text-gray-500">
           Keep names short and clear. Prices are in your default currency. Use{" "}
@@ -314,6 +354,7 @@ function OwnerMenuInner() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="text-left px-3 py-2 border-b">Name</th>
+                <th className="text-left px-3 py-2 border-b">Hindi (हिं)</th>
                 <th className="text-left px-3 py-2 border-b">Category</th>
                 <th className="text-left px-3 py-2 border-b">Price</th>
                 <th className="text-left px-3 py-2 border-b">Veg</th>
@@ -331,6 +372,22 @@ function OwnerMenuInner() {
                         updateItem(idx, { name: e.target.value })
                       }
                       placeholder="Masala Tea"
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <input
+                      lang="hi"
+                      className="w-full rounded-md border px-2 py-1"
+                      value={item.name_i18n?.hi || ""}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        updateItem(idx, {
+                          name_i18n: v
+                            ? { ...(item.name_i18n || {}), hi: v }
+                            : {},
+                        });
+                      }}
+                      placeholder="वैकल्पिक (हिंदी नाम)"
                     />
                   </td>
                   <td className="px-3 py-2">
@@ -382,7 +439,7 @@ function OwnerMenuInner() {
               {items.length === 0 && (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="px-3 py-6 text-center text-gray-500"
                   >
                     No items yet. Click <strong>+ Add item</strong> to create

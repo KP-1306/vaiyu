@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useSearchParams, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Spinner from "../components/Spinner";
+import { useOwnerT } from "../i18n/useOwnerT";
 
 import { useTicketsRealtime } from "../hooks/useTicketsRealtime";
 import UsageMeter from "../components/UsageMeter";
@@ -2242,6 +2243,7 @@ export default function OwnerDashboard() {
 /** ========= UI (dark) components ========= */
 
 function UserProfileMenu({ slug, role }: { slug: string; role?: DashboardRole | null }) {
+  const t = useOwnerT("owner-dashboard");
   const [userProfile, setUserProfile] = useState<{ fullName: string; role: string } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -2258,11 +2260,11 @@ function UserProfileMenu({ slug, role }: { slug: string; role?: DashboardRole | 
 
       setUserProfile({
         fullName: profile?.full_name || user.email?.split('@')[0] || "User",
-        role: role ? `${roleLabel(role)} View` : "Member View",
+        role: role ? t("profile.roleView", "{{role}} View", { role: roleLabel(role) }) : t("profile.memberView", "Member View"),
       });
     }
     loadUser();
-  }, [role]);
+  }, [role, t]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -2307,14 +2309,14 @@ function UserProfileMenu({ slug, role }: { slug: string; role?: DashboardRole | 
               onClick={() => setMenuOpen(false)}
             >
               <Settings className="h-4 w-4" />
-              Settings
+              {t("profile.settings", "Settings")}
             </Link>
             <button
               onClick={handleLogout}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-white/5 transition-colors text-left"
             >
               <LogOut className="h-4 w-4" />
-              Sign Out
+              {t("profile.signOut", "Sign Out")}
             </button>
           </div>
         </>
@@ -2338,6 +2340,7 @@ function DashboardTopBar({
   slug: string;
   onMenuClick?: () => void;
 }) {
+  const t = useOwnerT("owner-dashboard");
   return (
     <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between pb-6 border-b border-zinc-900">
       <div className="min-w-0">
@@ -2356,7 +2359,7 @@ function DashboardTopBar({
           to="/owner"
           className="hidden lg:inline-flex items-center rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
         >
-          Switch Property
+          {t("topbar.switchProperty", "Switch Property")}
         </Link>
 
         {HAS_PRICING && (
@@ -2364,7 +2367,7 @@ function DashboardTopBar({
             to={`/owner/${slug}/pricing`}
             className="inline-flex items-center rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
           >
-            Pricing
+            {t("topbar.pricing", "Pricing")}
           </Link>
         )}
 
@@ -2372,7 +2375,7 @@ function DashboardTopBar({
           type="button"
           onClick={() => window.location.reload()}
           className="inline-flex items-center justify-center rounded-md border border-zinc-800 bg-zinc-900/50 p-2 hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-white"
-          title="Sync"
+          title={t("topbar.sync", "Sync")}
         >
           <SvgSync />
         </button>
@@ -2383,7 +2386,7 @@ function DashboardTopBar({
           type="button"
           onClick={onMenuClick}
           className="inline-flex lg:hidden items-center justify-center rounded-md border border-zinc-800 bg-zinc-900/50 p-2 hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-white"
-          title="Menu"
+          title={t("topbar.menu", "Menu")}
         >
           <SvgMenu />
         </button>
@@ -2393,6 +2396,7 @@ function DashboardTopBar({
 }
 
 function SidebarNav({ slug, onNavClick }: { slug: string; onNavClick?: () => void }) {
+  const t = useOwnerT("owner-dashboard");
   const encodedSlug = encodeURIComponent(slug);
   const servicesHref = `/owner/services?slug=${encodedSlug}`;
   const opsAnalyticsHref = `/ops/analytics?slug=${encodedSlug}`;
@@ -2402,60 +2406,60 @@ function SidebarNav({ slug, onNavClick }: { slug: string; onNavClick?: () => voi
     <nav aria-label="Owner dashboard navigation" className="space-y-4 text-sm">
       {/* Operations */}
       <div>
-        <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-3 px-3">Operations</div>
+        <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-3 px-3">{t("nav.operations", "Operations")}</div>
         <div className="space-y-1">
-          <NavItem href="#top" label="Overview" active onClick={onNavClick} />
-          <NavItem to={`/ops?slug=${encodedSlug}`} label="Supervisor" onClick={onNavClick} />
-          <NavItem to={`/owner/${slug}/arrivals`} label="Arrivals" onClick={onNavClick} />
-          <NavItem to={`/owner/${slug}/housekeeping`} label="Housekeeping" onClick={onNavClick} />
-          <NavItem to={`/checkin?slug=${encodedSlug}`} label="Front Desk" onClick={onNavClick} />
+          <NavItem href="#top" label={t("nav.overview", "Overview")} active onClick={onNavClick} />
+          <NavItem to={`/ops?slug=${encodedSlug}`} label={t("nav.supervisor", "Supervisor")} onClick={onNavClick} />
+          <NavItem to={`/owner/${slug}/arrivals`} label={t("nav.arrivals", "Arrivals")} onClick={onNavClick} />
+          <NavItem to={`/owner/${slug}/housekeeping`} label={t("nav.housekeeping", "Housekeeping")} onClick={onNavClick} />
+          <NavItem to={`/checkin?slug=${encodedSlug}`} label={t("nav.frontDesk", "Front Desk")} onClick={onNavClick} />
         </div>
       </div>
       {/* Analytics */}
       <div className="pt-2">
-        <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-3 px-3">Analytics</div>
+        <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-3 px-3">{t("nav.analytics", "Analytics")}</div>
         <div className="space-y-1">
-          <NavItem to={`/owner/${slug}/analytics`} label="Owner Analytics" onClick={onNavClick} />
-          <NavItem to={opsAnalyticsHref} label="Ops Manager" onClick={onNavClick} />
+          <NavItem to={`/owner/${slug}/analytics`} label={t("nav.ownerAnalytics", "Owner Analytics")} onClick={onNavClick} />
+          <NavItem to={opsAnalyticsHref} label={t("nav.opsManager", "Ops Manager")} onClick={onNavClick} />
         </div>
       </div>
       {/* Dynamic Pricing */}
       <div className="pt-2">
-        <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-3 px-3">Pricing</div>
+        <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-3 px-3">{t("nav.pricing", "Pricing")}</div>
         <div className="space-y-1">
-          <NavItem to={`/owner/${slug}/pricing`} label="Dynamic Pricing" onClick={onNavClick} />
-          <NavItem to={`/owner/${slug}/pricing/rules`} label="↳ Rules" onClick={onNavClick} />
-          <NavItem to={`/owner/${slug}/pricing/history`} label="↳ History" onClick={onNavClick} />
+          <NavItem to={`/owner/${slug}/pricing`} label={t("nav.dynamicPricing", "Dynamic Pricing")} onClick={onNavClick} />
+          <NavItem to={`/owner/${slug}/pricing/rules`} label={t("nav.rules", "↳ Rules")} onClick={onNavClick} />
+          <NavItem to={`/owner/${slug}/pricing/history`} label={t("nav.history", "↳ History")} onClick={onNavClick} />
         </div>
       </div>
       {/* Revenue & Finance — top-line revenue through to cash settlement */}
       <div className="pt-2">
-        <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-3 px-3">Revenue &amp; Finance</div>
+        <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-3 px-3">{t("nav.revenueFinance", "Revenue & Finance")}</div>
         <div className="space-y-1">
-          <NavItem to={`/owner/${slug}/revenue`} label="Revenue" onClick={onNavClick} />
-          <NavItem to={`/owner/${slug}/finance`} label="P&L Overview" onClick={onNavClick} />
-          <NavItem to={`/owner/${slug}/finance/budgets`} label="↳ Budgets" onClick={onNavClick} />
-          <NavItem to={`/owner/${slug}/finance/expenses`} label="↳ Expenses" onClick={onNavClick} />
-          <NavItem to={`/owner/${slug}/payments`} label="Payments & Settlements" onClick={onNavClick} />
+          <NavItem to={`/owner/${slug}/revenue`} label={t("nav.revenue", "Revenue")} onClick={onNavClick} />
+          <NavItem to={`/owner/${slug}/finance`} label={t("nav.plOverview", "P&L Overview")} onClick={onNavClick} />
+          <NavItem to={`/owner/${slug}/finance/budgets`} label={t("nav.budgets", "↳ Budgets")} onClick={onNavClick} />
+          <NavItem to={`/owner/${slug}/finance/expenses`} label={t("nav.expenses", "↳ Expenses")} onClick={onNavClick} />
+          <NavItem to={`/owner/${slug}/payments`} label={t("nav.payments", "Payments & Settlements")} onClick={onNavClick} />
         </div>
       </div>
       {/* Staff */}
       <div className="pt-2">
-        <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-3 px-3">Staff</div>
+        <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-3 px-3">{t("nav.staff", "Staff")}</div>
         <div className="space-y-1">
-          <NavItem to={servicesHref} label="Departments & SLAs" onClick={onNavClick} />
-          <NavItem to={`/owner/${slug}/staff-shifts`} label="Staff & Shifts" onClick={onNavClick} />
-          <NavItem to="/staff" label="Staff App" onClick={onNavClick} />
-          <NavItem to="/kitchen" label="Kitchen" onClick={onNavClick} />
+          <NavItem to={servicesHref} label={t("nav.departmentsSlas", "Departments & SLAs")} onClick={onNavClick} />
+          <NavItem to={`/owner/${slug}/staff-shifts`} label={t("nav.staffShifts", "Staff & Shifts")} onClick={onNavClick} />
+          <NavItem to="/staff" label={t("nav.staffApp", "Staff App")} onClick={onNavClick} />
+          <NavItem to="/kitchen" label={t("nav.kitchen", "Kitchen")} onClick={onNavClick} />
         </div>
       </div>
       {/* System */}
       <div className="pt-2">
-        <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-3 px-3">System</div>
+        <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-3 px-3">{t("nav.system", "System")}</div>
         <div className="space-y-1">
-          <NavItem to={`/owner/${slug}/import-bookings`} label="Import Bookings" onClick={onNavClick} />
-          <NavItem to={settingsHref} label="Settings" onClick={onNavClick} />
-          {HAS_CALENDAR && <NavItem to="../bookings/calendar" label="Calendar" onClick={onNavClick} />}
+          <NavItem to={`/owner/${slug}/import-bookings`} label={t("nav.importBookings", "Import Bookings")} onClick={onNavClick} />
+          <NavItem to={settingsHref} label={t("nav.settings", "Settings")} onClick={onNavClick} />
+          {HAS_CALENDAR && <NavItem to="../bookings/calendar" label={t("nav.calendar", "Calendar")} onClick={onNavClick} />}
         </div>
       </div>
     </nav>
@@ -2931,10 +2935,11 @@ function DashboardTabs({
   onChange: (next: "today" | "week" | "pipeline") => void;
   showWeekTab?: boolean;
 }) {
+  const t = useOwnerT("owner-dashboard");
   const allTabs: { key: "today" | "week" | "pipeline"; label: string; sub: string }[] = [
-    { key: "today",    label: "Today",     sub: "Live ops" },
-    { key: "week",     label: "This Week", sub: "Last 7 days" },
-    { key: "pipeline", label: "Pipeline",  sub: "What's coming" },
+    { key: "today",    label: t("tabs.today", "Today"),        sub: t("tabs.todaySub", "Live ops") },
+    { key: "week",     label: t("tabs.week", "This Week"),     sub: t("tabs.weekSub", "Last 7 days") },
+    { key: "pipeline", label: t("tabs.pipeline", "Pipeline"),  sub: t("tabs.pipelineSub", "What’s coming") },
   ];
   const tabs = showWeekTab ? allTabs : allTabs.filter((t) => t.key !== "week");
   return (

@@ -1,0 +1,52 @@
+{
+  "profile": {
+    "memberView": "Member View",
+    "roleView": "{{role}} View",
+    "settings": "Settings",
+    "signOut": "Sign Out"
+  },
+  "topbar": {
+    "switchProperty": "Switch Property",
+    "pricing": "Pricing",
+    "sync": "Sync",
+    "menu": "Menu"
+  },
+  "tabs": {
+    "today": "Today",
+    "todaySub": "Live ops",
+    "week": "This Week",
+    "weekSub": "Last 7 days",
+    "pipeline": "Pipeline",
+    "pipelineSub": "What’s coming"
+  },
+  "nav": {
+    "operations": "Operations",
+    "overview": "Overview",
+    "supervisor": "Supervisor",
+    "arrivals": "Arrivals",
+    "housekeeping": "Housekeeping",
+    "frontDesk": "Front Desk",
+    "analytics": "Analytics",
+    "ownerAnalytics": "Owner Analytics",
+    "opsManager": "Ops Manager",
+    "pricing": "Pricing",
+    "dynamicPricing": "Dynamic Pricing",
+    "rules": "↳ Rules",
+    "history": "↳ History",
+    "revenueFinance": "Revenue & Finance",
+    "revenue": "Revenue",
+    "plOverview": "P&L Overview",
+    "budgets": "↳ Budgets",
+    "expenses": "↳ Expenses",
+    "payments": "Payments & Settlements",
+    "staff": "Staff",
+    "departmentsSlas": "Departments & SLAs",
+    "staffShifts": "Staff & Shifts",
+    "staffApp": "Staff App",
+    "kitchen": "Kitchen",
+    "system": "System",
+    "importBookings": "Import Bookings",
+    "settings": "Settings",
+    "calendar": "Calendar"
+  }
+}

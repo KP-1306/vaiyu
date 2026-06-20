@@ -1,0 +1,52 @@
+{
+  "profile": {
+    "memberView": "मेंबर व्यू",
+    "roleView": "{{role}} व्यू",
+    "settings": "सेटिंग्स",
+    "signOut": "साइन आउट"
+  },
+  "topbar": {
+    "switchProperty": "प्रॉपर्टी बदलें",
+    "pricing": "प्राइसिंग",
+    "sync": "सिंक",
+    "menu": "मेन्यू"
+  },
+  "tabs": {
+    "today": "आज",
+    "todaySub": "लाइव ऑप्स",
+    "week": "इस हफ़्ते",
+    "weekSub": "पिछले 7 दिन",
+    "pipeline": "पाइपलाइन",
+    "pipelineSub": "आगे क्या है"
+  },
+  "nav": {
+    "operations": "ऑपरेशंस",
+    "overview": "ओवरव्यू",
+    "supervisor": "सुपरवाइज़र",
+    "arrivals": "अराइवल्स",
+    "housekeeping": "हाउसकीपिंग",
+    "frontDesk": "फ्रंट डेस्क",
+    "analytics": "एनालिटिक्स",
+    "ownerAnalytics": "ओनर एनालिटिक्स",
+    "opsManager": "ऑप्स मैनेजर",
+    "pricing": "प्राइसिंग",
+    "dynamicPricing": "डायनामिक प्राइसिंग",
+    "rules": "↳ नियम",
+    "history": "↳ हिस्ट्री",
+    "revenueFinance": "रेवेन्यू और फाइनेंस",
+    "revenue": "रेवेन्यू",
+    "plOverview": "P&L ओवरव्यू",
+    "budgets": "↳ बजट",
+    "expenses": "↳ खर्च",
+    "payments": "पेमेंट्स और सेटलमेंट",
+    "staff": "स्टाफ़",
+    "departmentsSlas": "डिपार्टमेंट और SLA",
+    "staffShifts": "स्टाफ़ और शिफ्ट",
+    "staffApp": "स्टाफ़ ऐप",
+    "kitchen": "किचन",
+    "system": "सिस्टम",
+    "importBookings": "बुकिंग्स इम्पोर्ट",
+    "settings": "सेटिंग्स",
+    "calendar": "कैलेंडर"
+  }
+}

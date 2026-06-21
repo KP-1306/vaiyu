@@ -26,13 +26,15 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      # Pin the CLI to a known-good version to avoid surprise breaking changes.
-      - name: Install Supabase CLI (pinned)
-        run: |
-          set -euo pipefail
-          curl -L https://github.com/supabase/cli/releases/download/v1.187.8/supabase_linux_amd64.tar.gz \
-            | sudo tar -xz -C /usr/local/bin supabase
-          supabase --version
+      # Pinned to a known-good 2.x. The old pin (v1.187.8) had been failing every
+      # run since ~May 2026: the 1.x `functions deploy` path is incompatible with
+      # Supabase's current backend (fails regardless of code). 2.107.0 deploys all
+      # current functions cleanly (verified locally) and matches the CLI used by the
+      # RLS/RPC guard workflow.
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.107.0
 
       - name: Validate secrets & login
         env:

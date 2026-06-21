@@ -1,5 +1,6 @@
 // web/src/components/ObservabilityCard.tsx
 import { useEffect, useMemo, useState } from "react";
+import { Activity } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
 type Row24h = { hour_bucket: string; calls: number; avg_ms: number; err_4xx: number; err_5xx: number };
@@ -18,7 +19,7 @@ export default function ObservabilityCard() {
         setLoading(true);
         setErr(null);
 
-        // The obs endpoint is staff-gated — send the caller's Supabase JWT.
+        // The obs endpoint is platform-admin-gated — send the caller's Supabase JWT.
         const { data: { session } } = await supabase.auth.getSession();
         const headers: HeadersInit = session?.access_token
           ? { Authorization: `Bearer ${session.access_token}` }
@@ -51,36 +52,43 @@ export default function ObservabilityCard() {
   }, [series]);
 
   return (
-    <div className="p-4 rounded-2xl shadow bg-white">
-      <div className="text-lg font-semibold">System Health (24h)</div>
+    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+      <div className="flex items-center gap-2 mb-3">
+        <div className="rounded-lg bg-sky-500/10 p-1.5 ring-1 ring-sky-500/20">
+          <Activity className="h-4 w-4 text-sky-300" />
+        </div>
+        <span className="text-xs font-semibold uppercase tracking-wider text-white/60">
+          System Health · 24h
+        </span>
+      </div>
 
       {loading ? (
         <div className="mt-3 space-y-2">
-          <div className="h-4 rounded bg-gray-100 animate-pulse" />
-          <div className="h-4 rounded bg-gray-100 animate-pulse" />
-          <div className="h-4 rounded bg-gray-100 animate-pulse" />
+          <div className="h-4 rounded bg-white/[0.06] animate-pulse" />
+          <div className="h-4 rounded bg-white/[0.06] animate-pulse" />
+          <div className="h-4 rounded bg-white/[0.06] animate-pulse" />
         </div>
       ) : err ? (
-        <div className="mt-3 text-sm text-amber-700">{err}</div>
+        <div className="mt-3 text-sm text-amber-300">{err}</div>
       ) : (
         <>
-          <div className="grid grid-cols-3 gap-3 mt-3">
+          <div className="grid grid-cols-3 gap-3">
             <Metric label="Calls (24h)" value={totals.calls.toLocaleString()} />
             <Metric label="Avg latency" value={`${totals.avg} ms`} />
             <Metric label="Errors (4xx/5xx)" value={totals.errors.toLocaleString()} />
           </div>
 
           <div className="mt-4">
-            <div className="text-sm opacity-70 mb-1">Top Functions</div>
+            <div className="text-[11px] uppercase tracking-wider text-white/50 mb-1.5">Top Functions</div>
             <ul className="text-sm space-y-1">
               {topFns?.length
                 ? topFns.map((r) => (
-                    <li key={r.fn} className="flex justify-between">
+                    <li key={r.fn} className="flex justify-between text-white/80">
                       <span className="truncate">{r.fn}</span>
-                      <span className="shrink-0">{r.calls} · {r.avg_ms}ms</span>
+                      <span className="shrink-0 tabular-nums text-white/60">{r.calls} · {r.avg_ms}ms</span>
                     </li>
                   ))
-                : <li className="opacity-70">No data</li>}
+                : <li className="text-white/40">No data</li>}
             </ul>
           </div>
         </>
@@ -91,9 +99,9 @@ export default function ObservabilityCard() {
 
 function Metric({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-xl p-3 shadow-sm bg-gray-50">
-      <div className="text-xs opacity-70">{label}</div>
-      <div className="text-xl font-semibold">{value}</div>
+    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+      <div className="text-[11px] text-white/50">{label}</div>
+      <div className="text-lg font-semibold text-white tabular-nums">{value}</div>
     </div>
   );
 }

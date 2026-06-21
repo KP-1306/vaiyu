@@ -13,6 +13,7 @@ import { useOwnerT } from "../i18n/useOwnerT";
 
 import { useTicketsRealtime } from "../hooks/useTicketsRealtime";
 import UsageMeter from "../components/UsageMeter";
+import ObservabilityCard from "../components/ObservabilityCard";
 import {
   Users,
   Filter,
@@ -375,6 +376,20 @@ export default function OwnerDashboard() {
   const [activeDrawer, setActiveDrawer] = useState<DrawerType>(null);
 
   const [accessProblem, setAccessProblem] = useState<string | null>(null);
+
+  // VAiyu platform admin? Gates the platform-wide System Health card below. This is
+  // the canonical check (public.is_platform_admin() → active row in platform_admins),
+  // independent of hotel role. Fails closed: stays false on any error.
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const { data, error } = await supabase.rpc("is_platform_admin");
+      if (alive && !error) setIsPlatformAdmin(data === true);
+    })();
+    return () => { alive = false; };
+  }, []);
+
   const inviteToken = params.get("invite");
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const todayStartISO = useMemo(() => dayStartISO(today), [today]);
@@ -1860,6 +1875,26 @@ export default function OwnerDashboard() {
             )}
           </div>
         </section>
+
+        {/* ─── Platform (admin-only) ──────────────────────────────────────
+            System Health is VAiyu-wide infrastructure telemetry (all hotels'
+            edge-function traffic), so it renders ONLY for platform admins —
+            never for hotel owners/managers. Gate mirrors public.is_platform_admin().
+            Reachable because a platform admin viewing this dashboard is, by the
+            access check above, also an owner/manager of this hotel. */}
+        {isPlatformAdmin && (
+          <section className="mt-8 pt-5 border-t border-slate-800/50" data-testid="platform-admin-grid">
+            <header className="mb-3 flex items-baseline justify-between">
+              <h2 className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">
+                Platform
+              </h2>
+              <span className="text-[10px] text-slate-500">VAiyu-wide infrastructure health · admin only</span>
+            </header>
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 auto-rows-fr [&>div]:h-full">
+              <ObservabilityCard />
+            </div>
+          </section>
+        )}
 
         {/* ─── Quick Links footer strip ──────────────────────────────────
             These are jump-points the operator may reach for at the end of a

@@ -63,6 +63,11 @@ jobs:
         run: |
           set -euo pipefail
 
+          # NOTE: deploy with --use-api (server-side bundling). The default bundler
+          # shells out to Docker, which the CI runner doesn't provide to it → the
+          # deploy step exited 127 (docker: command not found) on every run since
+          # ~May 2026. --use-api uploads + bundles on Supabase's side, no Docker.
+
           # Required functions — fail the job if any of these fail to deploy.
           required=(
             tickets
@@ -100,12 +105,12 @@ jobs:
           echo "supabase CLI: $(supabase --version)"
           for fn in "${required[@]}"; do
             echo "→ Deploying $fn"
-            supabase functions deploy "$fn" --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt --debug
+            supabase functions deploy "$fn" --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt --use-api
           done
 
           for fn in "${optional[@]}"; do
             echo "→ Deploying (optional) $fn"
-            supabase functions deploy "$fn" --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt --debug || echo "   (skipped: not present)"
+            supabase functions deploy "$fn" --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt --use-api || echo "   (skipped: not present)"
           done
 
       - name: Summary

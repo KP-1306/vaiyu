@@ -63,55 +63,51 @@ jobs:
         run: |
           set -euo pipefail
 
-          # NOTE: deploy with --use-api (server-side bundling). The default bundler
-          # shells out to Docker, which the CI runner doesn't provide to it → the
-          # deploy step exited 127 (docker: command not found) on every run since
-          # ~May 2026. --use-api uploads + bundles on Supabase's side, no Docker.
-
-          # Required functions — fail the job if any of these fail to deploy.
-          required=(
-            tickets
-            ticket-get
-            orders
-            reviews
-            ops-list
-            ops-update
-            ticket-get
-            upload-import-csv
-            process-import-rows
-            send-notifications
-            generate-reminders
-            get-document-url
-            upload-guest-id
-            ai-scheduler
-          )
-
-          # Optional legacy/aux functions — won't fail the job if missing.
-          optional=(
-            auth-otp-send
-            auth-otp-verify
-            catalog-services
-            catalog-menu
-            # Rate-limited public/quote fns that use the shared limiter (now via the
-            # va_rate_limit_hit RPC). Listed so they pick up the limiter change and
-            # keep enforcement after api_hits was locked to service_role/owner.
-            reviews-public
-            ai-generate-quote
-            send-quote
-            render-quote-pdf
-          )
-
+          # Deploy EVERY function present in supabase/functions/ (any directory with
+          # an index.ts). We glob the directory instead of maintaining a hand-written
+          # list so coverage is self-maintaining: a new function is deployed the
+          # moment it lands on main, and nothing can silently drift out of CI (the
+          # old list deployed only ~22 of 52 — incl. none of the razorpay fns).
+          # _shared/ has no index.ts, so it is skipped automatically.
+          #
+          # Flags:
+          #   --use-api        server-side bundling. The default bundler shells out
+          #                    to Docker, which the CI runner doesn't provide → the
+          #                    deploy step exited 127 (docker: command not found) on
+          #                    every run since ~May 2026.
+          #   --no-verify-jwt  matches the current prod posture for ALL functions:
+          #                    each does its own auth via _shared/auth.ts, and the
+          #                    public/webhook fns are anon by design. Every function
+          #                    is already deployed this way — globbing is a coverage
+          #                    change, NOT an auth/behaviour change. (config.toml's
+          #                    per-fn verify_jwt=false blocks stay consistent with it.)
+          #
+          # Strict: we attempt all functions, then fail the job if ANY failed (so one
+          # failure surfaces every other failure in the same run rather than masking).
           echo "Project: $SUPABASE_PROJECT_REF"
           echo "supabase CLI: $(supabase --version)"
-          for fn in "${required[@]}"; do
+
+          deployed=0
+          failed=()
+          for dir in supabase/functions/*/; do
+            fn="$(basename "$dir")"
+            [ -f "${dir}index.ts" ] || continue   # skip _shared and any non-function dir
             echo "→ Deploying $fn"
-            supabase functions deploy "$fn" --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt --use-api
+            if supabase functions deploy "$fn" \
+                 --project-ref "$SUPABASE_PROJECT_REF" \
+                 --no-verify-jwt --use-api; then
+              deployed=$((deployed + 1))
+            else
+              echo "::error::Failed to deploy $fn"
+              failed+=("$fn")
+            fi
           done
 
-          for fn in "${optional[@]}"; do
-            echo "→ Deploying (optional) $fn"
-            supabase functions deploy "$fn" --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt --use-api || echo "   (skipped: not present)"
-          done
+          echo "Deployed ${deployed} function(s)."
+          if [ "${#failed[@]}" -gt 0 ]; then
+            echo "::error::${#failed[@]} function(s) failed to deploy: ${failed[*]}"
+            exit 1
+          fi
 
       - name: Summary
         run: echo "✅ Supabase Edge Functions deployed to ${{ secrets.SUPABASE_PROJECT_REF }}"

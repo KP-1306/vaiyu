@@ -28,7 +28,12 @@ export const handler: Handler = async (event) => {
   try {
     if (!SERVICE_ROLE_KEY) {
       // Misconfiguration, not a client error — make it obvious in logs/monitoring.
-      return { statusCode: 500, body: "obs: SUPABASE_SERVICE_ROLE_KEY is not set" };
+      // TEMP DIAGNOSTIC (revert once confirmed): list the Supabase-ish env-var NAMES
+      // (never values) the function runtime can actually see, so we can tell whether
+      // the var is reaching functions vs a deploy-propagation issue. Names are not
+      // secrets (they're in .env.example).
+      const seen = Object.keys(process.env).filter(k => /SUPABASE|SERVICE_ROLE/i.test(k)).sort();
+      return { statusCode: 500, body: `obs v2: SUPABASE_SERVICE_ROLE_KEY is not set. fn env keys seen: ${seen.join(",") || "(none)"}` };
     }
     const last = (event.path || "").split("/").pop() || "";
     if (last === "v_api_24h" || last === "v_api_top_fns_24h") {

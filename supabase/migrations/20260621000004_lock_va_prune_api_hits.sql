@@ -1,0 +1,11 @@
+-- ============================================================================
+-- Lock va_prune_api_hits() to owner/cron only (rpc_exposure_guard fix)
+-- ============================================================================
+-- 20260621000003 created va_prune_api_hits() (SECURITY DEFINER, mutating: DELETE)
+-- and did REVOKE ALL ... FROM PUBLIC — but that is NOT sufficient on Supabase,
+-- which grants EXECUTE on public functions to anon/authenticated DIRECTLY (not only
+-- via PUBLIC). So anon/authenticated could still call it. It is a maintenance
+-- function invoked ONLY by pg_cron (which runs as postgres, the function owner, and
+-- is unaffected by these grants). Revoke from every client role.
+-- (Caught by supabase/tests/rpc_exposure_guard.sql in CI.)
+REVOKE ALL ON FUNCTION public.va_prune_api_hits() FROM PUBLIC, anon, authenticated;

@@ -1,3 +1,5 @@
+import { withObs as __withObs } from "../_shared/http-telemetry.ts";
+const __serveObs = (h: (req: Request) => Response | Promise<Response>) => Deno.serve(__withObs("upload-import-csv", h));
 import { createClient } from "npm:@supabase/supabase-js";
 import Papa from "npm:papaparse";
 
@@ -8,7 +10,7 @@ const corsHeaders = {
 
 const CHUNK_SIZE = 1000;
 
-Deno.serve(async (req: Request) => {
+__serveObs(async (req: Request) => {
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }

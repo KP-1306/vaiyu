@@ -5,7 +5,9 @@
 //   1. Requires refunds.razorpay_mode == 'DIRECT' (mode-routing safety).
 //   2. Razorpay GET /refunds/{id} uses HOTEL's basic auth.
 
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { serve as __serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { withObs as __withObs } from "../_shared/http-telemetry.ts";
+const serve = (h: (req: Request) => Response | Promise<Response>) => __serve(__withObs("razorpay-direct-refresh-refund", h));
 import {
   CORS_HEADERS,
   json,

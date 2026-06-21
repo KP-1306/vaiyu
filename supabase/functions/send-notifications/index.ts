@@ -1,3 +1,5 @@
+import { withObs as __withObs } from "../_shared/http-telemetry.ts";
+const __serveObs = (h: (req: Request) => Response | Promise<Response>) => Deno.serve(__withObs("send-notifications", h));
 import { createClient } from "npm:@supabase/supabase-js";
 import { Resend } from "npm:resend";
 import {
@@ -529,7 +531,7 @@ async function formatEmailMessage(
 
 // ─── Main Worker (Loop-Drain Pattern) ───────────────────────────────────────
 
-Deno.serve(async (req) => {
+__serveObs(async (req) => {
     console.log(`Incoming request: ${req.method} ${req.url}`);
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });

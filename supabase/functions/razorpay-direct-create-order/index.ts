@@ -12,7 +12,9 @@
 // The Route version remains 100% untouched. The frontend facade routes
 // to this function only when hotels.razorpay_mode === 'DIRECT'.
 
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { serve as __serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { withObs as __withObs } from "../_shared/http-telemetry.ts";
+const serve = (h: (req: Request) => Response | Promise<Response>) => __serve(__withObs("razorpay-direct-create-order", h));
 import {
   CORS_HEADERS,
   json,

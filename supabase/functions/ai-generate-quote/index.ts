@@ -1,3 +1,5 @@
+import { withObs as __withObs } from "../_shared/http-telemetry.ts";
+const __serveObs = (h: (req: Request) => Response | Promise<Response>) => Deno.serve(__withObs("ai-generate-quote", h));
 // supabase/functions/ai-generate-quote/index.ts
 //
 // Phase 8B — AI-assisted quote-draft generation.
@@ -54,7 +56,7 @@ const RATE_LIMIT_PER_MIN = 10;
 const DEFAULT_MODEL = "claude-haiku-4-5";
 const MAX_OUTPUT_TOKENS = 1500;
 
-Deno.serve(async (req: Request) => {
+__serveObs(async (req: Request) => {
   if (req.method === "OPTIONS") return preflight();
   if (req.method !== "POST") return json(405, { ok: false, code: "METHOD_NOT_ALLOWED" });
 

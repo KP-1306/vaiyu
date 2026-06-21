@@ -11,7 +11,9 @@
 // Hotel routing: caller passes hotelId in the body (Meta routes inbound
 // messages per phone_number_id which is hotel-specific).
 
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { serve as __serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { withObs as __withObs } from "../_shared/http-telemetry.ts";
+const serve = (h: (req: Request) => Response | Promise<Response>) => __serve(__withObs("chat-inbound", h));
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;

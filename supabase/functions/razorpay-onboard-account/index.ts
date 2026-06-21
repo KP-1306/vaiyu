@@ -25,7 +25,9 @@
 //     activation_url?: string   // only in live mode when KYC is pending
 //   }
 
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { serve as __serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { withObs as __withObs } from "../_shared/http-telemetry.ts";
+const serve = (h: (req: Request) => Response | Promise<Response>) => __serve(__withObs("razorpay-onboard-account", h));
 import {
   CORS_HEADERS,
   json,

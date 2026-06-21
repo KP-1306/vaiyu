@@ -1,3 +1,5 @@
+import { withObs as __withObs } from "../_shared/http-telemetry.ts";
+const __serveObs = (h: (req: Request) => Response | Promise<Response>) => Deno.serve(__withObs("render-quote-pdf", h));
 // supabase/functions/render-quote-pdf/index.ts
 //
 // Renders a quote_draft to PDF and saves it to the private `quote-pdfs`
@@ -37,7 +39,7 @@ interface BodyShape {
   quote_id?: string;
 }
 
-Deno.serve(async (req: Request) => {
+__serveObs(async (req: Request) => {
   if (req.method === "OPTIONS") return preflight();
   if (req.method !== "POST") return json(405, { ok: false, code: "METHOD_NOT_ALLOWED" });
 

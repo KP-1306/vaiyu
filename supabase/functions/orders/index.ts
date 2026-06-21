@@ -1,5 +1,7 @@
 // supabase/functions/orders/index.ts
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { serve as __serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { withObs as __withObs } from "../_shared/http-telemetry.ts";
+const serve = (h: (req: Request) => Response | Promise<Response>) => __serve(__withObs("orders", h));
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { j } from "../_shared/cors.ts";
 import { alertError } from "../_shared/alert.ts";

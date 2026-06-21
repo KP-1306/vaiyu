@@ -22,7 +22,9 @@
 // env var AUTO_APPLY_CRON_SECRET. No user JWT is needed. Inside, the
 // function uses the SERVICE_ROLE_KEY to call apply_pricing_change_system.
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve as __serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { withObs as __withObs } from "../_shared/http-telemetry.ts";
+const serve = (h: (req: Request) => Response | Promise<Response>) => __serve(__withObs("auto-apply-pricing", h));
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { allowCors, j } from "../_shared/cors.ts";
 

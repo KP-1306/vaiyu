@@ -1,3 +1,5 @@
+import { withObs as __withObs } from "../_shared/http-telemetry.ts";
+const __serveObs = (h: (req: Request) => Response | Promise<Response>) => Deno.serve(__withObs("packages-track-view", h));
 // supabase/functions/packages-track-view/index.ts
 //
 // Anon-callable view tracker for the public package landing page.
@@ -61,7 +63,7 @@ function todayUtcStr(): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
 }
 
-Deno.serve(async (req: Request) => {
+__serveObs(async (req: Request) => {
   if (req.method === "OPTIONS") return preflight();
   if (req.method !== "POST") return json(405, { ok: false, code: "METHOD_NOT_ALLOWED" });
 

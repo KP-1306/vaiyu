@@ -7,7 +7,9 @@
 //   3. payments.razorpay_mode = 'DIRECT' is set at insert time so a future
 //      refund knows to use the hotel's keys.
 
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { serve as __serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { withObs as __withObs } from "../_shared/http-telemetry.ts";
+const serve = (h: (req: Request) => Response | Promise<Response>) => __serve(__withObs("razorpay-direct-verify-payment", h));
 import {
   CORS_HEADERS,
   json,

@@ -1,7 +1,9 @@
 // supabase/functions/owner/index.ts
 // Fixes CORS for both OPTIONS and POST. Accepts subpaths like /owner/register
 
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { serve as __serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { withObs as __withObs } from "../_shared/http-telemetry.ts";
+const serve = (h: (req: Request) => Response | Promise<Response>) => __serve(__withObs("owner", h));
 
 const ALLOW_ORIGIN = Deno.env.get("CORS_ALLOW_ORIGIN") ?? "*"; // or "https://vaiyu.co.in"
 const CORS_HEADERS = {

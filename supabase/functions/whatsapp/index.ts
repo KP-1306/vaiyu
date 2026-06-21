@@ -12,7 +12,9 @@
 // NOTE: This uses the SERVICE ROLE key because this webhook has no user JWT.
 // Keep the endpoint URL secret; Meta will call it directly.
 
-import { serve } from "https://deno.land/std@0.192.0/http/server.ts";
+import { serve as __serve } from "https://deno.land/std@0.192.0/http/server.ts";
+import { withObs as __withObs } from "../_shared/http-telemetry.ts";
+const serve = (h: (req: Request) => Response | Promise<Response>) => __serve(__withObs("whatsapp", h));
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;

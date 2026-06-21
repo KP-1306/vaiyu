@@ -1,3 +1,5 @@
+import { withObs as __withObs } from "../_shared/http-telemetry.ts";
+const __serveObs = (h: (req: Request) => Response | Promise<Response>) => Deno.serve(__withObs("leads-export-csv", h));
 // supabase/functions/leads-export-csv/index.ts
 //
 // Owner-side CSV export of leads. JWT-required, RLS-respected.
@@ -79,7 +81,7 @@ function rowToCsv(row: LeadRow): string {
   return CSV_COLUMNS.map((col) => csvField((row as Record<string, unknown>)[col])).join(",");
 }
 
-Deno.serve(async (req: Request) => {
+__serveObs(async (req: Request) => {
   if (req.method === "OPTIONS") return preflight();
   if (req.method !== "POST") return json(405, { ok: false, code: "METHOD_NOT_ALLOWED" });
 

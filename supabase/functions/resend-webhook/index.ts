@@ -1,3 +1,5 @@
+import { withObs as __withObs } from "../_shared/http-telemetry.ts";
+const __serveObs = (h: (req: Request) => Response | Promise<Response>) => Deno.serve(__withObs("resend-webhook", h));
 // supabase/functions/resend-webhook/index.ts
 //
 // Receives Resend webhook events (email.sent / email.delivered / email.bounced
@@ -35,7 +37,7 @@ interface ResendEvent {
   };
 }
 
-Deno.serve(async (req: Request): Promise<Response> => {
+__serveObs(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204 });
   }

@@ -1,3 +1,5 @@
+import { withObs as __withObs } from "../_shared/http-telemetry.ts";
+const __serveObs = (h: (req: Request) => Response | Promise<Response>) => Deno.serve(__withObs("leads-public-capture", h));
 // supabase/functions/leads-public-capture/index.ts
 //
 // Public lead-capture endpoint for hotel website enquiry forms.
@@ -36,7 +38,7 @@ interface PublicCaptureBody {
 const RATE_LIMIT_PER_MIN = 5; // 5/min = 300/hr — generous for real form usage; blocks bots
 const ALLOWED_SOURCES = new Set(["WEBSITE", "OTHER"]);
 
-Deno.serve(async (req: Request) => {
+__serveObs(async (req: Request) => {
   if (req.method === "OPTIONS") return preflight();
   if (req.method !== "POST") return json(405, { ok: false, code: "METHOD_NOT_ALLOWED" });
 

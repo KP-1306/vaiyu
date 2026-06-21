@@ -1,5 +1,6 @@
 // web/src/components/ObservabilityCard.tsx
 import { useEffect, useMemo, useState } from "react";
+import { supabase } from "../lib/supabase";
 
 type Row24h = { hour_bucket: string; calls: number; avg_ms: number; err_4xx: number; err_5xx: number };
 type TopFn = { fn: string; calls: number; avg_ms: number };
@@ -17,9 +18,15 @@ export default function ObservabilityCard() {
         setLoading(true);
         setErr(null);
 
+        // The obs endpoint is staff-gated — send the caller's Supabase JWT.
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers: HeadersInit = session?.access_token
+          ? { Authorization: `Bearer ${session.access_token}` }
+          : {};
+
         const [a, b] = await Promise.all([
-          fetch("/api/obs/v_api_24h").then(x => x.ok ? x.json() : Promise.reject(x.status)),
-          fetch("/api/obs/v_api_top_fns_24h").then(x => x.ok ? x.json() : Promise.reject(x.status)),
+          fetch("/api/obs/v_api_24h", { headers }).then(x => x.ok ? x.json() : Promise.reject(x.status)),
+          fetch("/api/obs/v_api_top_fns_24h", { headers }).then(x => x.ok ? x.json() : Promise.reject(x.status)),
         ]);
 
         if (!cancel) {

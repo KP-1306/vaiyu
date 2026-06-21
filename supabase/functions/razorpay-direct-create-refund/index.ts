@@ -9,7 +9,9 @@
 //      function handles ROUTE payments; the frontend facade routes by mode).
 //   4. Tags refunds.razorpay_mode = 'DIRECT'.
 
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { serve as __serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { withObs as __withObs } from "../_shared/http-telemetry.ts";
+const serve = (h: (req: Request) => Response | Promise<Response>) => __serve(__withObs("razorpay-direct-create-refund", h));
 import {
   CORS_HEADERS,
   json,

@@ -14,7 +14,9 @@
 // Razorpay treats non-2xx as retry-needed and will hammer the function
 // every minute for 24h.
 
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { serve as __serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { withObs as __withObs } from "../_shared/http-telemetry.ts";
+const serve = (h: (req: Request) => Response | Promise<Response>) => __serve(__withObs("razorpay-webhook", h));
 import { CORS_HEADERS, supabaseService } from "../_shared/auth.ts";
 import { hmacHex, timingSafeEqualHex, mapRazorpayMethod } from "../_shared/razorpay.ts";
 import { logError, logWarn, logInfo } from "../_shared/observability.ts";

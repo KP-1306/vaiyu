@@ -41,7 +41,7 @@ export async function getPlatformAdmin(env: AdminEnv, token: string): Promise<Ad
 /** Panels each admin tier may read. super_admin sees everything. */
 export function canSeePanel(role: string, panel: string): boolean {
   if (role === "super_admin") return true;
-  const COMMON = ["me", "fleet", "health", "tenants"]; // any active admin
+  const COMMON = ["me", "summary", "fleet", "health", "tenants"]; // any active admin
   if (COMMON.includes(panel)) return true;
   if (panel === "payments") return role === "finance_admin";
   if (panel === "onboarding") return role === "support_admin";

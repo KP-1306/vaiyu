@@ -70,7 +70,7 @@ function tally<T extends string>(rows: any[], key: string): Record<string, numbe
 
 async function fleet() {
   const rows = await svcGet("hotels?select=plan,plan_status,city,created_at");
-  const new7 = daysAgoISO(7), new30 = daysAgoISO(30);
+  const new7 = daysAgoISO(7), new30 = daysAgoISO(30), new60 = daysAgoISO(60);
   const cityTally = tally(rows, "city");
   const topCities = Object.entries(cityTally)
     .sort((a, b) => b[1] - a[1]).slice(0, 6).map(([city, n]) => ({ city, n }));
@@ -80,17 +80,39 @@ async function fleet() {
     byPlan: tally(rows, "plan"),
     new7d: rows.filter((r) => String(r.created_at) >= new7).length,
     new30d: rows.filter((r) => String(r.created_at) >= new30).length,
+    // prior 30d window [60d, 30d) for the signups trend delta
+    new30dPrev: rows.filter((r) => String(r.created_at) >= new60 && String(r.created_at) < new30).length,
     topCities,
   };
 }
 
+// One-glance platform status: turns raw signals into an actionable issue list.
+async function summary() {
+  const since24 = daysAgoISO(1);
+  const [cron, err5xx, pastDue, failedPay] = await Promise.all([
+    svcRpc("va_admin_cron_health").catch(() => [] as any[]),
+    svcCount(`api_hits?select=id&status=gte.500&at=gte.${since24}`),
+    svcCount(`hotels?select=id&plan_status=eq.past_due`),
+    svcCount(`payments?select=id&status=eq.FAILED&created_at=gte.${since24}`).catch(() => 0),
+  ]);
+  const cronFails = (cron as any[]).filter((c) => num(c.fails_24h) > 0);
+  const issues: { level: "warn" | "bad"; label: string; detail?: string; link?: string }[] = [];
+  if (cronFails.length) issues.push({ level: "bad", label: `${cronFails.length} cron job(s) failing`, detail: cronFails.map((c) => c.jobname).join(", ") });
+  if (err5xx > 0) issues.push({ level: err5xx >= 10 ? "bad" : "warn", label: `${err5xx} server error(s) (5xx) in 24h` });
+  if (pastDue > 0) issues.push({ level: "warn", label: `${pastDue} hotel(s) past due` });
+  if (failedPay > 0) issues.push({ level: "warn", label: `${failedPay} failed payment(s) in 24h` });
+  return { ok: issues.length === 0, issues };
+}
+
 async function health() {
-  const [series, topFnsRaw, recent5xx, rateLimitHits24h, cron] = await Promise.all([
+  const [series, topFnsRaw, recent5xx, rateLimitHits24h, cron, prevCalls] = await Promise.all([
     svcGet("v_api_24h?select=*&order=hour_bucket.asc"),
     svcGet("v_api_top_fns_24h?select=*"),
     svcGet("api_hits?select=fn,status,path,at&status=gte.500&order=at.desc&limit=15"),
     svcCount(`api_hits?select=id&fn=is.null&at=gte.${daysAgoISO(1)}`),
     svcRpc("va_admin_cron_health").catch(() => []),
+    // prior 24h call volume [48h,24h) for the trend delta (api_hits keeps 7d)
+    svcCount(`api_hits?select=id&fn=not.is.null&at=gte.${daysAgoISO(2)}&at=lt.${daysAgoISO(1)}`),
   ]);
   const calls = series.reduce((n, r) => n + num(r.calls), 0);
   const avg = series.length ? Math.round(series.reduce((n, r) => n + num(r.avg_ms), 0) / series.length) : 0;
@@ -100,6 +122,7 @@ async function health() {
   const slowest = [...topFns].sort((a, b) => b.avg_ms - a.avg_ms).slice(0, 5);
   return {
     totals: { calls, avg_ms: avg, errors },
+    prevCalls,
     series, topFns: topFns.slice(0, 8), slowest,
     rateLimitHits24h, recent5xx, cron,
   };
@@ -123,13 +146,16 @@ async function tenants() {
 }
 
 async function payments() {
-  const rows = await svcGet(
-    `payments?select=amount,status,method,created_at&created_at=gte.${daysAgoISO(30)}`,
-  );
+  const [rows, prices, hotels] = await Promise.all([
+    svcGet(`payments?select=amount,status,method,created_at&created_at=gte.${daysAgoISO(30)}`),
+    svcGet("plan_prices?select=plan,monthly_inr"),
+    svcGet("hotels?select=plan,plan_status,plan_renews_at"),
+  ]);
+  const round2 = (x: number) => Math.round(x * 100) / 100;
   const sumWhere = (pred: (r: any) => boolean) =>
-    Math.round(rows.filter(pred).reduce((n, r) => n + num(r.amount), 0) * 100) / 100;
+    round2(rows.filter(pred).reduce((n, r) => n + num(r.amount), 0));
   const completed = (r: any) => String(r.status).toUpperCase() === "COMPLETED";
-  const c24 = daysAgoISO(1), c7 = daysAgoISO(7);
+  const c24 = daysAgoISO(1), c7 = daysAgoISO(7), c14 = daysAgoISO(14);
   const byStatus: Record<string, { count: number; sum: number }> = {};
   const byMethod: Record<string, { count: number; sum: number }> = {};
   for (const r of rows) {
@@ -138,14 +164,32 @@ async function payments() {
     (byStatus[s] ||= { count: 0, sum: 0 }); byStatus[s].count++; byStatus[s].sum += num(r.amount);
     (byMethod[m] ||= { count: 0, sum: 0 }); byMethod[m].count++; byMethod[m].sum += num(r.amount);
   }
-  for (const k in byStatus) byStatus[k].sum = Math.round(byStatus[k].sum * 100) / 100;
-  for (const k in byMethod) byMethod[k].sum = Math.round(byMethod[k].sum * 100) / 100;
+  for (const k in byStatus) byStatus[k].sum = round2(byStatus[k].sum);
+  for (const k in byMethod) byMethod[k].sum = round2(byMethod[k].sum);
+
+  // ── MRR from editable plan_prices × active subscriptions ──────────────────
+  const priceOf: Record<string, number> = {};
+  for (const p of prices) priceOf[p.plan] = num(p.monthly_inr);
+  const nowISO = new Date().toISOString();
+  const in30ISO = new Date(Date.now() + 30 * 86400000).toISOString();
+  let mrr = 0, mrrAtRisk = 0, renewals30dValue = 0;
+  for (const h of hotels) {
+    const pr = priceOf[h.plan] || 0;
+    if (h.plan_status === "active") mrr += pr;
+    else if (h.plan_status === "past_due") mrrAtRisk += pr;
+    const rn = h.plan_renews_at;
+    if (rn && String(rn) >= nowISO && String(rn) <= in30ISO) renewals30dValue += pr;
+  }
+
   return {
     gmv24h: sumWhere((r) => completed(r) && String(r.created_at) >= c24),
     gmv7d: sumWhere((r) => completed(r) && String(r.created_at) >= c7),
+    gmv7dPrev: sumWhere((r) => completed(r) && String(r.created_at) >= c14 && String(r.created_at) < c7),
     gmv30d: sumWhere(completed),
     txns30d: rows.length,
     byStatus, byMethod,
+    mrr: round2(mrr), mrrAtRisk: round2(mrrAtRisk), renewals30dValue: round2(renewals30dValue),
+    pricesSet: Object.values(priceOf).some((v) => v > 0),
   };
 }
 
@@ -166,7 +210,7 @@ async function audit() {
 }
 
 const PANELS: Record<string, () => Promise<unknown>> = {
-  fleet, health, tenants, payments, onboarding, audit,
+  summary, fleet, health, tenants, payments, onboarding, audit,
 };
 
 export const handler: Handler = async (event) => {

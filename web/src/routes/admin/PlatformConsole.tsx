@@ -6,16 +6,20 @@
 // decide which panels to render (so a support_admin never fires a 403'd request).
 //
 // Route is gated by PlatformAdminGate (is_platform_admin). Theme matches the owner
-// dashboard (dark: bg-[#0B0E14], border-white/10, bg-white/[0.02]).
-import { useEffect, useState, type ReactNode } from "react";
+// dashboard (dark). Live: 60s auto-refresh + manual refresh; status rollup + trend
+// deltas + tenant search/sort/filter/CSV.
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Activity, Building2, CreditCard, UserPlus, ShieldCheck, Server } from "lucide-react";
+import { Activity, AlertTriangle, Building2, CheckCircle2, CreditCard, Download, RefreshCw, ShieldCheck, Server, UserPlus } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 
 const inr0 = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 const n0 = new Intl.NumberFormat("en-IN");
 const fmtDate = (s?: string | null) =>
   s ? new Date(s).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—";
+
+// ── data layer (auth + auto-refresh) ───────────────────────────────────────
+const RefreshCtx = createContext(0);
 
 async function adminFetch<T>(panel: string): Promise<T> {
   const { data: { session } } = await supabase.auth.getSession();
@@ -26,19 +30,21 @@ async function adminFetch<T>(panel: string): Promise<T> {
 }
 
 function useAdminData<T>(panel: string, enabled = true) {
+  const tick = useContext(RefreshCtx);
   const [data, setData] = useState<T | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(enabled);
   useEffect(() => {
     if (!enabled) { setLoading(false); return; }
     let alive = true;
-    setLoading(true); setErr(null);
+    setLoading((d) => d || data === null); setErr(null);
     adminFetch<T>(panel)
       .then((d) => { if (alive) setData(d); })
       .catch((e) => { if (alive) setErr(String(e?.message || e)); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [panel, enabled]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [panel, enabled, tick]);
   return { data, err, loading };
 }
 
@@ -65,14 +71,20 @@ function Section({ icon, title, subtitle, children }: { icon: ReactNode; title: 
     </section>
   );
 }
-function Stat({ label, value, sub }: { label: string; value: ReactNode; sub?: string }) {
+function Stat({ label, value, sub }: { label: string; value: ReactNode; sub?: ReactNode }) {
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
       <div className="text-[11px] text-white/50">{label}</div>
       <div className="text-xl font-semibold text-white tabular-nums">{value}</div>
-      {sub && <div className="text-[11px] text-white/40 mt-0.5">{sub}</div>}
+      {sub != null && <div className="text-[11px] text-white/40 mt-0.5">{sub}</div>}
     </div>
   );
+}
+function Delta({ cur, prev, suffix = "" }: { cur: number; prev: number; suffix?: string }) {
+  if (!prev || prev <= 0) return <span className="text-white/30">no prior data</span>;
+  const pct = Math.round(((cur - prev) / prev) * 100);
+  const up = pct >= 0;
+  return <span className={up ? "text-emerald-300/90" : "text-red-300/90"}>{up ? "▲" : "▼"} {Math.abs(pct)}%{suffix} vs prev</span>;
 }
 function Pill({ label, n, tone = "default" }: { label: string; n: number; tone?: "default" | "good" | "warn" | "bad" }) {
   const tones: Record<string, string> = {
@@ -90,11 +102,8 @@ function Pill({ label, n, tone = "default" }: { label: string; n: number; tone?:
 function Skeleton() {
   return <div className="space-y-2"><div className="h-4 rounded bg-white/[0.06] animate-pulse" /><div className="h-4 rounded bg-white/[0.06] animate-pulse w-2/3" /></div>;
 }
-function Empty({ text = "No data yet." }: { text?: string }) {
-  return <div className="text-sm text-white/40">{text}</div>;
-}
+function Empty({ text = "No data yet." }: { text?: string }) { return <div className="text-sm text-white/40">{text}</div>; }
 
-// 24h calls sparkline (inline SVG; error hours tinted red)
 function Sparkline({ series }: { series: Array<{ calls: number; err_5xx: number; err_4xx: number }> }) {
   if (!series.length) return <Empty text="No traffic in the last 24h." />;
   const w = 520, h = 56, max = Math.max(1, ...series.map((s) => s.calls));
@@ -104,36 +113,71 @@ function Sparkline({ series }: { series: Array<{ calls: number; err_5xx: number;
       {series.map((s, i) => {
         const bh = Math.max(1, (s.calls / max) * (h - 6));
         const err = (s.err_5xx || 0) + (s.err_4xx || 0) > 0;
-        return <rect key={i} x={i * bw + 1} y={h - bh} width={Math.max(1, bw - 2)} height={bh}
-          className={err ? "fill-red-400/70" : "fill-sky-400/50"} rx="1" />;
+        return <rect key={i} x={i * bw + 1} y={h - bh} width={Math.max(1, bw - 2)} height={bh} className={err ? "fill-red-400/70" : "fill-sky-400/50"} rx="1" />;
       })}
     </svg>
   );
 }
 
+function csvExport(filename: string, rows: Record<string, any>[], cols: { key: string; label: string }[]) {
+  const esc = (v: any) => { const s = String(v ?? ""); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  const body = [cols.map((c) => c.label).join(","), ...rows.map((r) => cols.map((c) => esc(r[c.key])).join(","))].join("\n");
+  const url = URL.createObjectURL(new Blob([body], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a"); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url);
+}
+
+// ── status rollup banner ────────────────────────────────────────────────────
+type Summary = { ok: boolean; issues: { level: "warn" | "bad"; label: string; detail?: string }[] };
+function StatusBanner() {
+  const { data, loading } = useAdminData<Summary>("summary");
+  if (loading && !data) return null;
+  if (!data) return null;
+  if (data.ok) {
+    return (
+      <div className="mt-4 flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-300">
+        <CheckCircle2 className="h-4 w-4" /> All systems normal — no issues detected.
+      </div>
+    );
+  }
+  const hasBad = data.issues.some((i) => i.level === "bad");
+  return (
+    <div className={`mt-4 rounded-xl border px-4 py-3 ${hasBad ? "border-red-500/25 bg-red-500/10" : "border-amber-500/25 bg-amber-500/10"}`}>
+      <div className={`flex items-center gap-2 text-sm font-semibold ${hasBad ? "text-red-300" : "text-amber-300"}`}>
+        <AlertTriangle className="h-4 w-4" /> {data.issues.length} thing{data.issues.length === 1 ? "" : "s"} need attention
+      </div>
+      <ul className="mt-2 space-y-1">
+        {data.issues.map((i, idx) => (
+          <li key={idx} className="flex items-start gap-2 text-sm text-white/80">
+            <span className={`mt-1 h-1.5 w-1.5 rounded-full shrink-0 ${i.level === "bad" ? "bg-red-400" : "bg-amber-400"}`} />
+            <span>{i.label}{i.detail ? <span className="text-white/40"> — {i.detail}</span> : null}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 // ── panels ─────────────────────────────────────────────────────────────────
-type Fleet = { total: number; byStatus: Record<string, number>; byPlan: Record<string, number>; new7d: number; new30d: number; topCities: { city: string; n: number }[] };
+type Fleet = { total: number; byStatus: Record<string, number>; byPlan: Record<string, number>; new7d: number; new30d: number; new30dPrev: number; topCities: { city: string; n: number }[] };
 function FleetPanel() {
   const { data, loading, err } = useAdminData<Fleet>("fleet");
   return (
     <Section icon={<Building2 className="h-3.5 w-3.5" />} title="Fleet" subtitle="all hotels">
-      {loading ? <Card><Skeleton /></Card> : err ? <Card><Empty text={`Unavailable (${err})`} /></Card> : data && (
+      {loading && !data ? <Card><Skeleton /></Card> : err ? <Card><Empty text={`Unavailable (${err})`} /></Card> : data && (
         <>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             <Stat label="Total hotels" value={n0.format(data.total)} />
             <Stat label="Active" value={n0.format(data.byStatus.active || 0)} />
             <Stat label="Trial" value={n0.format(data.byStatus.trial || 0)} />
             <Stat label="Past due / canceled" value={n0.format((data.byStatus.past_due || 0) + (data.byStatus.canceled || 0))} />
-            <Stat label="New (30d)" value={n0.format(data.new30d)} sub={`${data.new7d} in last 7d`} />
+            <Stat label="New (30d)" value={n0.format(data.new30d)} sub={<Delta cur={data.new30d} prev={data.new30dPrev} />} />
           </div>
           <Card className="mt-3">
             <div className="flex flex-wrap gap-2">
               {Object.entries(data.byPlan).sort((a, b) => b[1] - a[1]).map(([p, c]) => <Pill key={p} label={p} n={c} />)}
             </div>
             {data.topCities.length > 0 && (
-              <div className="mt-3 text-[11px] text-white/40">
-                Top cities: {data.topCities.map((c) => `${c.city || "—"} (${c.n})`).join(" · ")}
-              </div>
+              <div className="mt-3 text-[11px] text-white/40">Top cities: {data.topCities.map((c) => `${c.city || "—"} (${c.n})`).join(" · ")}</div>
             )}
           </Card>
         </>
@@ -143,23 +187,21 @@ function FleetPanel() {
 }
 
 type Health = {
-  totals: { calls: number; avg_ms: number; errors: number };
+  totals: { calls: number; avg_ms: number; errors: number }; prevCalls: number;
   series: Array<{ calls: number; err_4xx: number; err_5xx: number }>;
-  topFns: { fn: string; calls: number; avg_ms: number }[];
-  slowest: { fn: string; calls: number; avg_ms: number }[];
-  rateLimitHits24h: number;
-  recent5xx: { fn: string; status: number; path: string; at: string }[];
+  topFns: { fn: string; calls: number; avg_ms: number }[]; slowest: { fn: string; calls: number; avg_ms: number }[];
+  rateLimitHits24h: number; recent5xx: { fn: string; status: number; path: string; at: string }[];
   cron: { jobname: string; schedule: string; active: boolean; last_run: string | null; last_status: string | null; runs_24h: number; fails_24h: number }[];
 };
 function HealthPanel() {
   const { data, loading, err } = useAdminData<Health>("health");
   return (
     <Section icon={<Activity className="h-3.5 w-3.5" />} title="System Health" subtitle="VAiyu-wide · 24h">
-      {loading ? <Card><Skeleton /></Card> : err ? <Card><Empty text={`Unavailable (${err})`} /></Card> : data && (
+      {loading && !data ? <Card><Skeleton /></Card> : err ? <Card><Empty text={`Unavailable (${err})`} /></Card> : data && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
           <Card className="lg:col-span-2">
             <div className="grid grid-cols-4 gap-3">
-              <Stat label="Calls (24h)" value={n0.format(data.totals.calls)} />
+              <Stat label="Calls (24h)" value={n0.format(data.totals.calls)} sub={<Delta cur={data.totals.calls} prev={data.prevCalls} />} />
               <Stat label="Avg latency" value={`${data.totals.avg_ms} ms`} />
               <Stat label="Errors" value={n0.format(data.totals.errors)} />
               <Stat label="Rate-limit hits" value={n0.format(data.rateLimitHits24h)} />
@@ -168,40 +210,23 @@ function HealthPanel() {
             <div className="grid grid-cols-2 gap-4 mt-4">
               <div>
                 <div className="text-[11px] uppercase tracking-wider text-white/50 mb-1.5">Top functions</div>
-                <ul className="text-sm space-y-1">
-                  {data.topFns.length ? data.topFns.map((f) => (
-                    <li key={f.fn} className="flex justify-between text-white/80"><span className="truncate">{f.fn}</span><span className="shrink-0 tabular-nums text-white/60">{f.calls} · {f.avg_ms}ms</span></li>
-                  )) : <Empty />}
-                </ul>
+                <ul className="text-sm space-y-1">{data.topFns.length ? data.topFns.map((f) => (<li key={f.fn} className="flex justify-between text-white/80"><span className="truncate">{f.fn}</span><span className="shrink-0 tabular-nums text-white/60">{f.calls} · {f.avg_ms}ms</span></li>)) : <Empty />}</ul>
               </div>
               <div>
                 <div className="text-[11px] uppercase tracking-wider text-white/50 mb-1.5">Slowest</div>
-                <ul className="text-sm space-y-1">
-                  {data.slowest.length ? data.slowest.map((f) => (
-                    <li key={f.fn} className="flex justify-between text-white/80"><span className="truncate">{f.fn}</span><span className="shrink-0 tabular-nums text-amber-300/80">{f.avg_ms}ms</span></li>
-                  )) : <Empty />}
-                </ul>
+                <ul className="text-sm space-y-1">{data.slowest.length ? data.slowest.map((f) => (<li key={f.fn} className="flex justify-between text-white/80"><span className="truncate">{f.fn}</span><span className="shrink-0 tabular-nums text-amber-300/80">{f.avg_ms}ms</span></li>)) : <Empty />}</ul>
               </div>
             </div>
           </Card>
           <Card>
             <div className="text-[11px] uppercase tracking-wider text-white/50 mb-2">Cron jobs</div>
-            <ul className="text-sm space-y-1.5">
-              {data.cron.length ? data.cron.map((c) => (
-                <li key={c.jobname} className="flex items-center justify-between gap-2">
-                  <span className="truncate text-white/80" title={c.schedule}>{c.jobname}</span>
-                  <span className={`shrink-0 text-[11px] tabular-nums ${c.fails_24h > 0 ? "text-red-300" : c.last_status === "succeeded" ? "text-emerald-300/80" : "text-white/40"}`}>
-                    {c.fails_24h > 0 ? `${c.fails_24h} fail` : c.last_status || "—"}
-                  </span>
-                </li>
-              )) : <Empty />}
-            </ul>
+            <ul className="text-sm space-y-1.5">{data.cron.length ? data.cron.map((c) => (
+              <li key={c.jobname} className="flex items-center justify-between gap-2">
+                <span className="truncate text-white/80" title={c.schedule}>{c.jobname}</span>
+                <span className={`shrink-0 text-[11px] tabular-nums ${c.fails_24h > 0 ? "text-red-300" : c.last_status === "succeeded" ? "text-emerald-300/80" : "text-white/40"}`}>{c.fails_24h > 0 ? `${c.fails_24h} fail` : c.last_status || "—"}</span>
+              </li>)) : <Empty />}</ul>
             <div className="text-[11px] uppercase tracking-wider text-white/50 mt-4 mb-2">Recent 5xx</div>
-            <ul className="text-xs space-y-1">
-              {data.recent5xx.length ? data.recent5xx.slice(0, 6).map((e, i) => (
-                <li key={i} className="flex justify-between gap-2 text-white/70"><span className="truncate">{e.fn || e.path}</span><span className="shrink-0 text-red-300 tabular-nums">{e.status}</span></li>
-              )) : <Empty text="No 5xx in 24h ✓" />}
-            </ul>
+            <ul className="text-xs space-y-1">{data.recent5xx.length ? data.recent5xx.slice(0, 6).map((e, i) => (<li key={i} className="flex justify-between gap-2 text-white/70"><span className="truncate">{e.fn || e.path}</span><span className="shrink-0 text-red-300 tabular-nums">{e.status}</span></li>)) : <Empty text="No 5xx in 24h ✓" />}</ul>
           </Card>
         </div>
       )}
@@ -209,34 +234,33 @@ function HealthPanel() {
   );
 }
 
-type Payments = { gmv24h: number; gmv7d: number; gmv30d: number; txns30d: number; byStatus: Record<string, { count: number; sum: number }>; byMethod: Record<string, { count: number; sum: number }> };
+type Payments = { gmv24h: number; gmv7d: number; gmv7dPrev: number; gmv30d: number; txns30d: number; byStatus: Record<string, { count: number; sum: number }>; byMethod: Record<string, { count: number; sum: number }>; mrr: number; mrrAtRisk: number; renewals30dValue: number; pricesSet: boolean };
 function PaymentsPanel() {
   const { data, loading, err } = useAdminData<Payments>("payments");
   return (
-    <Section icon={<CreditCard className="h-3.5 w-3.5" />} title="Payments & GMV" subtitle="cross-tenant · finance">
-      {loading ? <Card><Skeleton /></Card> : err ? <Card><Empty text={`Unavailable (${err})`} /></Card> : data && (
+    <Section icon={<CreditCard className="h-3.5 w-3.5" />} title="Payments & Revenue" subtitle="cross-tenant · finance">
+      {loading && !data ? <Card><Skeleton /></Card> : err ? <Card><Empty text={`Unavailable (${err})`} /></Card> : data && (
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Stat label="GMV (24h)" value={inr0.format(data.gmv24h)} />
-            <Stat label="GMV (7d)" value={inr0.format(data.gmv7d)} />
+            <Stat label="GMV (7d)" value={inr0.format(data.gmv7d)} sub={<Delta cur={data.gmv7d} prev={data.gmv7dPrev} />} />
             <Stat label="GMV (30d)" value={inr0.format(data.gmv30d)} />
             <Stat label="Txns (30d)" value={n0.format(data.txns30d)} />
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
+            <Stat label="MRR (active)" value={data.pricesSet ? inr0.format(data.mrr) : "—"} sub={data.pricesSet ? undefined : "set plan_prices to compute"} />
+            <Stat label="MRR at risk (past due)" value={data.pricesSet ? inr0.format(data.mrrAtRisk) : "—"} />
+            <Stat label="Renewals (30d)" value={data.pricesSet ? inr0.format(data.renewals30dValue) : "—"} />
           </div>
           <Card className="mt-3">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <div className="text-[11px] uppercase tracking-wider text-white/50 mb-1.5">By status</div>
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(data.byStatus).map(([s, v]) => (
-                    <Pill key={s} label={s} n={v.count} tone={s === "COMPLETED" ? "good" : s === "FAILED" ? "bad" : "default"} />
-                  ))}
-                </div>
+                <div className="flex flex-wrap gap-2">{Object.entries(data.byStatus).map(([s, v]) => <Pill key={s} label={s} n={v.count} tone={s === "COMPLETED" ? "good" : s === "FAILED" ? "bad" : "default"} />)}</div>
               </div>
               <div>
                 <div className="text-[11px] uppercase tracking-wider text-white/50 mb-1.5">By method</div>
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(data.byMethod).map(([m, v]) => <Pill key={m} label={m} n={v.count} />)}
-                </div>
+                <div className="flex flex-wrap gap-2">{Object.entries(data.byMethod).map(([m, v]) => <Pill key={m} label={m} n={v.count} />)}</div>
               </div>
             </div>
           </Card>
@@ -251,7 +275,7 @@ function OnboardingPanel() {
   const { data, loading, err } = useAdminData<Onboarding>("onboarding");
   return (
     <Section icon={<UserPlus className="h-3.5 w-3.5" />} title="Onboarding" subtitle="applications → activations · support">
-      {loading ? <Card><Skeleton /></Card> : err ? <Card><Empty text={`Unavailable (${err})`} /></Card> : data && (
+      {loading && !data ? <Card><Skeleton /></Card> : err ? <Card><Empty text={`Unavailable (${err})`} /></Card> : data && (
         <Card>
           <div className="flex flex-wrap items-center gap-2 mb-3">
             <Pill label="pending" n={data.byStatus.pending || 0} tone="warn" />
@@ -261,37 +285,73 @@ function OnboardingPanel() {
             <Link to="/admin/owner-applications" className="ml-auto text-[11px] text-sky-300/80 hover:text-sky-200">Open pipeline →</Link>
           </div>
           <div className="text-[11px] uppercase tracking-wider text-white/50 mb-1.5">Recent applications</div>
-          <ul className="text-sm divide-y divide-white/[0.06]">
-            {data.recent.length ? data.recent.map((a, i) => (
-              <li key={i} className="flex items-center justify-between py-1.5">
-                <span className="text-white/80 truncate">{a.hotel_name || "—"} <span className="text-white/40">· {a.city || "—"}</span></span>
-                <span className="shrink-0 text-[11px] text-white/50">{a.status} · {fmtDate(a.created_at)}</span>
-              </li>
-            )) : <Empty />}
-          </ul>
+          <ul className="text-sm divide-y divide-white/[0.06]">{data.recent.length ? data.recent.map((a, i) => (
+            <li key={i} className="flex items-center justify-between py-1.5"><span className="text-white/80 truncate">{a.hotel_name || "—"} <span className="text-white/40">· {a.city || "—"}</span></span><span className="shrink-0 text-[11px] text-white/50">{a.status} · {fmtDate(a.created_at)}</span></li>
+          )) : <Empty />}</ul>
         </Card>
       )}
     </Section>
   );
 }
 
-type Tenants = { rows: { slug: string; name: string; city: string; plan: string; plan_status: string; created_at: string; revenueToday: number }[] };
+type TenantRow = { slug: string; name: string; city: string; plan: string; plan_status: string; created_at: string; revenueToday: number };
+type Tenants = { rows: TenantRow[] };
 function TenantsPanel() {
   const { data, loading, err } = useAdminData<Tenants>("tenants");
+  const [q, setQ] = useState("");
+  const [plan, setPlan] = useState("");
+  const [status, setStatus] = useState("");
+  const [sortKey, setSortKey] = useState<keyof TenantRow>("created_at");
+  const [sortDir, setSortDir] = useState<1 | -1>(-1);
+  const rows = data?.rows ?? [];
+
+  const planOpts = useMemo(() => Array.from(new Set(rows.map((r) => r.plan).filter(Boolean))).sort(), [rows]);
+  const statusOpts = useMemo(() => Array.from(new Set(rows.map((r) => r.plan_status).filter(Boolean))).sort(), [rows]);
+  const filtered = useMemo(() => {
+    const ql = q.trim().toLowerCase();
+    const out = rows.filter((r) =>
+      (!ql || `${r.name} ${r.slug} ${r.city}`.toLowerCase().includes(ql)) &&
+      (!plan || r.plan === plan) && (!status || r.plan_status === status));
+    out.sort((a, b) => {
+      const av = a[sortKey] ?? "", bv = b[sortKey] ?? "";
+      return (av < bv ? -1 : av > bv ? 1 : 0) * sortDir;
+    });
+    return out;
+  }, [rows, q, plan, status, sortKey, sortDir]);
+
+  const sortBy = (k: keyof TenantRow) => { if (k === sortKey) setSortDir((d) => (d === 1 ? -1 : 1)); else { setSortKey(k); setSortDir(1); } };
+  const arrow = (k: keyof TenantRow) => (sortKey === k ? (sortDir === 1 ? " ▲" : " ▼") : "");
+  const selCls = "rounded-lg border border-white/10 bg-[#151A25] px-2 py-1 text-xs text-white/80";
+
   return (
-    <Section icon={<Server className="h-3.5 w-3.5" />} title="Tenants" subtitle="click a hotel to open its dashboard">
-      {loading ? <Card><Skeleton /></Card> : err ? <Card><Empty text={`Unavailable (${err})`} /></Card> : data && (
+    <Section icon={<Server className="h-3.5 w-3.5" />} title="Tenants" subtitle="search · filter · click a hotel to open its dashboard">
+      {loading && !data ? <Card><Skeleton /></Card> : err ? <Card><Empty text={`Unavailable (${err})`} /></Card> : (
         <Card className="overflow-x-auto">
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name / slug / city…" className={`${selCls} w-56`} />
+            <select value={plan} onChange={(e) => setPlan(e.target.value)} className={selCls}><option value="">All plans</option>{planOpts.map((p) => <option key={p} value={p}>{p}</option>)}</select>
+            <select value={status} onChange={(e) => setStatus(e.target.value)} className={selCls}><option value="">All statuses</option>{statusOpts.map((s) => <option key={s} value={s}>{s}</option>)}</select>
+            <span className="text-[11px] text-white/40">{filtered.length} of {rows.length}</span>
+            <button onClick={() => csvExport(`vaiyu-tenants-${new Date().toISOString().slice(0, 10)}.csv`, filtered, [
+              { key: "name", label: "Hotel" }, { key: "slug", label: "Slug" }, { key: "city", label: "City" },
+              { key: "plan", label: "Plan" }, { key: "plan_status", label: "Status" }, { key: "revenueToday", label: "Revenue today (INR)" }, { key: "created_at", label: "Joined" },
+            ])} className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs text-white/70 hover:bg-white/[0.06]">
+              <Download className="h-3.5 w-3.5" /> CSV
+            </button>
+          </div>
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-[11px] uppercase tracking-wider text-white/40 text-left">
-                <th className="pb-2 font-medium">Hotel</th><th className="pb-2 font-medium">City</th>
-                <th className="pb-2 font-medium">Plan</th><th className="pb-2 font-medium">Status</th>
-                <th className="pb-2 font-medium text-right">Revenue today</th><th className="pb-2 font-medium">Joined</th>
+              <tr className="text-[11px] uppercase tracking-wider text-white/40 text-left select-none">
+                <th className="pb-2 font-medium cursor-pointer" onClick={() => sortBy("name")}>Hotel{arrow("name")}</th>
+                <th className="pb-2 font-medium cursor-pointer" onClick={() => sortBy("city")}>City{arrow("city")}</th>
+                <th className="pb-2 font-medium cursor-pointer" onClick={() => sortBy("plan")}>Plan{arrow("plan")}</th>
+                <th className="pb-2 font-medium cursor-pointer" onClick={() => sortBy("plan_status")}>Status{arrow("plan_status")}</th>
+                <th className="pb-2 font-medium text-right cursor-pointer" onClick={() => sortBy("revenueToday")}>Revenue today{arrow("revenueToday")}</th>
+                <th className="pb-2 font-medium cursor-pointer" onClick={() => sortBy("created_at")}>Joined{arrow("created_at")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.06]">
-              {data.rows.length ? data.rows.map((h) => (
+              {filtered.length ? filtered.map((h) => (
                 <tr key={h.slug} className="hover:bg-white/[0.03]">
                   <td className="py-1.5"><Link to={`/owner/${h.slug}`} className="text-sky-300/90 hover:text-sky-200">{h.name || h.slug}</Link></td>
                   <td className="py-1.5 text-white/60">{h.city || "—"}</td>
@@ -300,7 +360,7 @@ function TenantsPanel() {
                   <td className="py-1.5 text-right tabular-nums text-white/80">{h.revenueToday ? inr0.format(h.revenueToday) : "—"}</td>
                   <td className="py-1.5 text-white/50">{fmtDate(h.created_at)}</td>
                 </tr>
-              )) : <tr><td colSpan={6}><Empty /></td></tr>}
+              )) : <tr><td colSpan={6}><Empty text="No hotels match." /></td></tr>}
             </tbody>
           </table>
         </Card>
@@ -314,17 +374,14 @@ function AuditPanel() {
   const { data, loading, err } = useAdminData<Audit>("audit");
   return (
     <Section icon={<ShieldCheck className="h-3.5 w-3.5" />} title="Audit & Security" subtitle="recent platform actions · super admin">
-      {loading ? <Card><Skeleton /></Card> : err ? <Card><Empty text={`Unavailable (${err})`} /></Card> : data && (
+      {loading && !data ? <Card><Skeleton /></Card> : err ? <Card><Empty text={`Unavailable (${err})`} /></Card> : data && (
         <Card className="overflow-x-auto">
-          <ul className="text-xs space-y-1">
-            {data.rows.length ? data.rows.map((r, i) => (
-              <li key={i} className="flex items-center gap-2 text-white/70">
-                <span className="text-white/40 tabular-nums shrink-0 w-28">{fmtDate(r.at)}</span>
-                <span className="text-white/90 truncate">{r.action}</span>
-                <span className="text-white/40 truncate">{r.entity}{r.entity_id ? `:${String(r.entity_id).slice(0, 8)}` : ""}</span>
-              </li>
-            )) : <Empty />}
-          </ul>
+          <ul className="text-xs space-y-1">{data.rows.length ? data.rows.map((r, i) => (
+            <li key={i} className="flex items-center gap-2 text-white/70">
+              <span className="text-white/40 tabular-nums shrink-0 w-28">{fmtDate(r.at)}</span>
+              <span className="text-white/90 truncate">{r.action}</span>
+              <span className="text-white/40 truncate">{r.entity}{r.entity_id ? `:${String(r.entity_id).slice(0, 8)}` : ""}</span>
+            </li>)) : <Empty />}</ul>
         </Card>
       )}
     </Section>
@@ -332,31 +389,57 @@ function AuditPanel() {
 }
 
 // ── page ───────────────────────────────────────────────────────────────────
+function relAgo(sec: number) { return sec < 60 ? `${sec}s` : `${Math.round(sec / 60)}m`; }
+
 export default function PlatformConsole() {
-  const { data: me } = useAdminData<{ role: string }>("me");
-  const role = me?.role || "";
+  const [tick, setTick] = useState(0);
+  const [lastSync, setLastSync] = useState(() => Date.now());
+  const [, force] = useState(0);
+
+  // 60s auto-refresh + a 10s heartbeat purely for the "updated Xs ago" label
+  useEffect(() => { const id = setInterval(() => setTick((t) => t + 1), 60000); return () => clearInterval(id); }, []);
+  useEffect(() => { setLastSync(Date.now()); }, [tick]);
+  useEffect(() => { const id = setInterval(() => force((x) => x + 1), 10000); return () => clearInterval(id); }, []);
+  const agoSec = Math.max(0, Math.round((Date.now() - lastSync) / 1000));
 
   return (
-    <main className="min-h-screen bg-[#0B0E14] text-slate-200">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
-        <header className="flex items-center justify-between border-b border-slate-800/50 pb-4">
-          <div>
-            <h1 className="text-lg font-bold text-white">VAiyu Operator Console</h1>
-            <p className="text-xs text-slate-500">Platform-wide health, money & onboarding across all hotels.</p>
-          </div>
-          <div className="flex items-center gap-3">
-            {role && <span className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] text-white/60">{role}</span>}
-            <Link to="/owner" className="text-[11px] text-slate-400 hover:text-white">← Dashboard</Link>
-          </div>
-        </header>
+    <RefreshCtx.Provider value={tick}>
+      <RoleAware>
+        {(role) => (
+          <main className="min-h-screen bg-[#0B0E14] text-slate-200">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+              <header className="flex items-center justify-between border-b border-slate-800/50 pb-4">
+                <div>
+                  <h1 className="text-lg font-bold text-white">VAiyu Operator Console</h1>
+                  <p className="text-xs text-slate-500">Platform-wide health, money &amp; onboarding across all hotels.</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-[11px] text-slate-500">updated {relAgo(agoSec)} ago</span>
+                  <button onClick={() => setTick((t) => t + 1)} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] text-white/70 hover:bg-white/[0.06]" title="Refresh now">
+                    <RefreshCw className="h-3.5 w-3.5" /> Refresh
+                  </button>
+                  {role && <span className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] text-white/60">{role}</span>}
+                  <Link to="/owner" className="text-[11px] text-slate-400 hover:text-white">← Dashboard</Link>
+                </div>
+              </header>
 
-        <FleetPanel />
-        <HealthPanel />
-        {canSee(role, "payments") && <PaymentsPanel />}
-        {canSee(role, "onboarding") && <OnboardingPanel />}
-        <TenantsPanel />
-        {canSee(role, "audit") && <AuditPanel />}
-      </div>
-    </main>
+              <StatusBanner />
+              <FleetPanel />
+              <HealthPanel />
+              {canSee(role, "payments") && <PaymentsPanel />}
+              {canSee(role, "onboarding") && <OnboardingPanel />}
+              <TenantsPanel />
+              {canSee(role, "audit") && <AuditPanel />}
+            </div>
+          </main>
+        )}
+      </RoleAware>
+    </RefreshCtx.Provider>
   );
+}
+
+// resolves the admin's role (for panel gating) and exposes it to children
+function RoleAware({ children }: { children: (role: string) => ReactNode }) {
+  const { data } = useAdminData<{ role: string }>("me");
+  return <>{children(data?.role || "")}</>;
 }

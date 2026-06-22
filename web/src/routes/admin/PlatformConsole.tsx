@@ -8,7 +8,7 @@
 // Route is gated by PlatformAdminGate (is_platform_admin). Theme matches the owner
 // dashboard (dark). Live: 60s auto-refresh + manual refresh; status rollup + trend
 // deltas + tenant search/sort/filter/CSV.
-import { Component, createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Component, createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Activity, AlertTriangle, Building2, CheckCircle2, CreditCard, Download, RefreshCw, ShieldCheck, Server, UserPlus } from "lucide-react";
 import { supabase } from "../../lib/supabase";
@@ -157,7 +157,8 @@ function Skeleton() {
 function Empty({ text = "No data yet." }: { text?: string }) { return <div className="text-sm text-white/40">{text}</div>; }
 
 function Sparkline({ series }: { series: Array<{ calls: number; err_5xx: number; err_4xx: number }> }) {
-  if (!series.length) return <Empty text="No traffic in the last 24h." />;
+  // The series is gap-filled (every bucket present), so "empty" = every bucket zero.
+  if (!series.length || series.every((s) => !s.calls)) return <Empty text="No traffic in this window." />;
   const w = 520, h = 56, max = Math.max(1, ...series.map((s) => s.calls));
   const bw = w / series.length;
   return (
@@ -371,72 +372,99 @@ function OnboardingPanel() {
 }
 
 type TenantRow = { slug: string; name: string; city: string; plan: string; plan_status: string; created_at: string; revenueToday: number };
-type Tenants = { rows: TenantRow[]; total: number; nextOffset: number | null };
+type Tenants = { rows: TenantRow[]; total: number; nextOffset: number | null; plans: string[]; statuses: string[] };
+type TenantSortKey = "name" | "city" | "plan" | "plan_status" | "revenueToday" | "created_at";
+
 function TenantsPanel() {
   const tick = useContext(RefreshCtx);
   const [rows, setRows] = useState<TenantRow[]>([]);
   const [total, setTotal] = useState(0);
   const [nextOffset, setNextOffset] = useState<number | null>(null);
+  const [plans, setPlans] = useState<string[]>([]);
+  const [statuses, setStatuses] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
   const [plan, setPlan] = useState("");
   const [status, setStatus] = useState("");
-  const [sortKey, setSortKey] = useState<keyof TenantRow>("created_at");
+  const [sortKey, setSortKey] = useState<TenantSortKey>("created_at");
   const [sortDir, setSortDir] = useState<1 | -1>(-1);
+  const seq = useRef(0); // drops out-of-order responses (fast typing / rapid filter changes)
+
+  useEffect(() => { const t = setTimeout(() => setDebouncedQ(q.trim()), 300); return () => clearTimeout(t); }, [q]);
+
+  // All filtering/sorting/paging is server-side; compose the query the same way for
+  // page loads, "Load more", and CSV-all.
+  const qparams = (extra: Record<string, string | number> = {}) => {
+    const p = new URLSearchParams();
+    if (debouncedQ) p.set("q", debouncedQ);
+    if (plan) p.set("plan", plan);
+    if (status) p.set("status", status);
+    p.set("sort", sortKey);
+    p.set("dir", sortDir === 1 ? "asc" : "desc");
+    for (const [k, v] of Object.entries(extra)) p.set(k, String(v));
+    return p.toString();
+  };
 
   async function load(reset: boolean) {
+    const my = ++seq.current;
     try {
       reset ? setLoading(true) : setLoadingMore(true);
       setErr(null);
       const off = reset ? 0 : (nextOffset ?? 0);
-      const d = await adminFetch<Tenants>("tenants", `offset=${off}`);
+      const d = await adminFetch<Tenants>("tenants", qparams({ offset: off }));
+      if (my !== seq.current) return; // a newer request superseded this one
       setTotal(d.total);
       setNextOffset(d.nextOffset);
+      if (d.plans?.length) setPlans(d.plans);
+      if (d.statuses?.length) setStatuses(d.statuses);
       setRows((prev) => (reset ? d.rows : [...prev, ...d.rows]));
+    } catch (e) {
+      if (my === seq.current) setErr(String((e as Error)?.message || e));
+    } finally {
+      if (my === seq.current) { setLoading(false); setLoadingMore(false); }
+    }
+  }
+  // Refetch from page 1 on any filter/sort change or auto-refresh; "Load more" appends.
+  useEffect(() => { load(true); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [debouncedQ, plan, status, sortKey, sortDir, tick]);
+
+  // Text columns default to A→Z, numeric/date columns to high→low (most useful first).
+  const sortBy = (k: TenantSortKey) => {
+    if (k === sortKey) setSortDir((d) => (d === 1 ? -1 : 1));
+    else { setSortKey(k); setSortDir(k === "name" || k === "city" || k === "plan" || k === "plan_status" ? 1 : -1); }
+  };
+  const arrow = (k: TenantSortKey) => (sortKey === k ? (sortDir === 1 ? " ▲" : " ▼") : "");
+  const selCls = "rounded-lg border border-white/10 bg-[#151A25] px-2 py-1 text-xs text-white/80";
+
+  async function exportCsv() {
+    try {
+      setExporting(true);
+      const d = await adminFetch<Tenants>("tenants", qparams({ offset: 0, limit: 5000 }));
+      csvExport(`vaiyu-tenants-${new Date().toISOString().slice(0, 10)}.csv`, d.rows, [
+        { key: "name", label: "Hotel" }, { key: "slug", label: "Slug" }, { key: "city", label: "City" },
+        { key: "plan", label: "Plan" }, { key: "plan_status", label: "Status" }, { key: "revenueToday", label: "Revenue today (INR)" }, { key: "created_at", label: "Joined" },
+      ]);
     } catch (e) {
       setErr(String((e as Error)?.message || e));
     } finally {
-      setLoading(false);
-      setLoadingMore(false);
+      setExporting(false);
     }
   }
-  // Auto-refresh resets to page 1 (matches the Audit panel); manual "Load more" appends.
-  useEffect(() => { load(true); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tick]);
-
-  const planOpts = useMemo(() => Array.from(new Set(rows.map((r) => r.plan).filter(Boolean))).sort(), [rows]);
-  const statusOpts = useMemo(() => Array.from(new Set(rows.map((r) => r.plan_status).filter(Boolean))).sort(), [rows]);
-  const filtered = useMemo(() => {
-    const ql = q.trim().toLowerCase();
-    const out = rows.filter((r) =>
-      (!ql || `${r.name} ${r.slug} ${r.city}`.toLowerCase().includes(ql)) &&
-      (!plan || r.plan === plan) && (!status || r.plan_status === status));
-    out.sort((a, b) => {
-      const av = a[sortKey] ?? "", bv = b[sortKey] ?? "";
-      return (av < bv ? -1 : av > bv ? 1 : 0) * sortDir;
-    });
-    return out;
-  }, [rows, q, plan, status, sortKey, sortDir]);
-
-  const sortBy = (k: keyof TenantRow) => { if (k === sortKey) setSortDir((d) => (d === 1 ? -1 : 1)); else { setSortKey(k); setSortDir(1); } };
-  const arrow = (k: keyof TenantRow) => (sortKey === k ? (sortDir === 1 ? " ▲" : " ▼") : "");
-  const selCls = "rounded-lg border border-white/10 bg-[#151A25] px-2 py-1 text-xs text-white/80";
 
   return (
-    <Section icon={<Server className="h-3.5 w-3.5" />} title="Tenants" subtitle="search · filter · click a hotel to open its dashboard">
+    <Section icon={<Server className="h-3.5 w-3.5" />} title="Tenants" subtitle="search · filter · sort — server-side across all hotels">
       {loading ? <Card><Skeleton /></Card> : err ? <Card><Empty text={`Unavailable (${err})`} /></Card> : (
         <Card className="overflow-x-auto">
           <div className="flex flex-wrap items-center gap-2 mb-3">
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name / slug / city…" className={`${selCls} w-56`} />
-            <select value={plan} onChange={(e) => setPlan(e.target.value)} className={selCls}><option value="">All plans</option>{planOpts.map((p) => <option key={p} value={p}>{p}</option>)}</select>
-            <select value={status} onChange={(e) => setStatus(e.target.value)} className={selCls}><option value="">All statuses</option>{statusOpts.map((s) => <option key={s} value={s}>{s}</option>)}</select>
-            <span className="text-[11px] text-white/40">{filtered.length} shown · {rows.length} of {total} loaded</span>
-            <button onClick={() => csvExport(`vaiyu-tenants-${new Date().toISOString().slice(0, 10)}.csv`, filtered, [
-              { key: "name", label: "Hotel" }, { key: "slug", label: "Slug" }, { key: "city", label: "City" },
-              { key: "plan", label: "Plan" }, { key: "plan_status", label: "Status" }, { key: "revenueToday", label: "Revenue today (INR)" }, { key: "created_at", label: "Joined" },
-            ])} className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs text-white/70 hover:bg-white/[0.06]">
-              <Download className="h-3.5 w-3.5" /> CSV
+            <select value={plan} onChange={(e) => setPlan(e.target.value)} className={selCls}><option value="">All plans</option>{plans.map((p) => <option key={p} value={p}>{p}</option>)}</select>
+            <select value={status} onChange={(e) => setStatus(e.target.value)} className={selCls}><option value="">All statuses</option>{statuses.map((s) => <option key={s} value={s}>{s}</option>)}</select>
+            <span className="text-[11px] text-white/40">{rows.length} of {total}</span>
+            <button onClick={exportCsv} disabled={exporting} className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs text-white/70 hover:bg-white/[0.06] disabled:opacity-50">
+              <Download className="h-3.5 w-3.5" /> {exporting ? "Exporting…" : "CSV"}
             </button>
           </div>
           <table className="w-full text-sm">
@@ -451,7 +479,7 @@ function TenantsPanel() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.06]">
-              {filtered.length ? filtered.map((h) => (
+              {rows.length ? rows.map((h) => (
                 <tr key={h.slug} className="hover:bg-white/[0.03]">
                   <td className="py-1.5"><Link to={`/owner/${h.slug}`} className="text-sky-300/90 hover:text-sky-200">{h.name || h.slug}</Link></td>
                   <td className="py-1.5 text-white/60">{h.city || "—"}</td>
@@ -464,7 +492,7 @@ function TenantsPanel() {
             </tbody>
           </table>
           {nextOffset != null && (
-            <div className="mt-3 flex items-center gap-3">
+            <div className="mt-3">
               <button
                 onClick={() => load(false)}
                 disabled={loadingMore}
@@ -472,7 +500,6 @@ function TenantsPanel() {
               >
                 {loadingMore ? "Loading…" : `Load more (${total - rows.length} more)`}
               </button>
-              {(q || plan || status) && <span className="text-[11px] text-amber-300/70">Search/filter covers the {rows.length} loaded — load more to include all {total}.</span>}
             </div>
           )}
         </Card>

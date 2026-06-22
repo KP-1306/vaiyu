@@ -40,17 +40,6 @@ async function svcCount(path: string): Promise<number> {
   return total && total !== "*" ? parseInt(total, 10) || 0 : 0;
 }
 
-// Page of rows + the exact total (for server-side pagination "X of N").
-async function svcGetCounted<T = any>(path: string): Promise<{ rows: T[]; total: number }> {
-  const r = await fetch(`${ENV.url}/rest/v1/${path}`, {
-    headers: { ...svcHeaders, Prefer: "count=exact" },
-  });
-  if (!r.ok) throw new Error(`${path} -> ${r.status}`);
-  const j = await r.json().catch(() => []);
-  const cr = r.headers.get("content-range"); // e.g. "0-49/123"
-  const total = cr?.split("/")[1];
-  return { rows: Array.isArray(j) ? j : [], total: total && total !== "*" ? parseInt(total, 10) || 0 : 0 };
-}
 
 async function svcRpc<T = any>(fn: string, body: Record<string, unknown> = {}): Promise<T[]> {
   const r = await fetch(`${ENV.url}/rest/v1/rpc/${fn}`, {
@@ -65,12 +54,6 @@ async function svcRpc<T = any>(fn: string, body: Record<string, unknown> = {}): 
 
 const num = (v: unknown) => (typeof v === "number" ? v : Number(v) || 0);
 const daysAgoISO = (d: number) => new Date(Date.now() - d * 86400000).toISOString();
-function istDayStartISO(): string {
-  const IST = 5.5 * 3600 * 1000;
-  const ist = new Date(Date.now() + IST);
-  ist.setUTCHours(0, 0, 0, 0);
-  return new Date(ist.getTime() - IST).toISOString();
-}
 function tally<T extends string>(rows: any[], key: string): Record<string, number> {
   const out: Record<string, number> = {};
   for (const r of rows) {
@@ -152,15 +135,16 @@ async function health(q: Record<string, string | undefined> = {}) {
     svcRpc("va_admin_api_latency", { p_hours: hours }).catch(() => [] as any[]),
   ]);
   const calls = series.reduce((n, r) => n + num(r.calls), 0);
-  const avg = series.length ? Math.round(series.reduce((n, r) => n + num(r.avg_ms), 0) / series.length) : 0;
   const errors = series.reduce((n, r) => n + num(r.err_4xx) + num(r.err_5xx), 0);
+  // avg/p95/p99 all come from the latency RPC (true aggregates over raw ms in the
+  // window) — not an unweighted mean of per-bucket averages.
   const lat = (latency as any[])[0] || {};
   const topFns = topFnsRaw.map((r) => ({ fn: r.fn, calls: num(r.calls), avg_ms: num(r.avg_ms) }))
     .sort((a, b) => b.calls - a.calls);
   const slowest = [...topFns].sort((a, b) => b.avg_ms - a.avg_ms).slice(0, 5);
   return {
     hours,
-    totals: { calls, avg_ms: avg, errors, p95_ms: num(lat.p95_ms), p99_ms: num(lat.p99_ms) },
+    totals: { calls, avg_ms: num(lat.avg_ms), errors, p95_ms: num(lat.p95_ms), p99_ms: num(lat.p99_ms) },
     prevCalls,
     series: series.map((r) => ({ calls: num(r.calls), err_4xx: num(r.err_4xx), err_5xx: num(r.err_5xx) })),
     topFns: topFns.slice(0, 8), slowest,
@@ -168,32 +152,35 @@ async function health(q: Record<string, string | undefined> = {}) {
   };
 }
 
-// Server-paginated (?offset=, 50/page) so the table reaches every hotel rather
-// than silently capping at 100. Revenue-today is fetched only for the page's
-// hotels (not the whole fleet). The UI appends pages ("Load more") and runs
-// search/sort/filter over the loaded set, with the true total surfaced as "of N".
+// Fully server-side: search (name/slug/city) + plan/status filter + sort (incl.
+// computed revenue_today) + pagination, all in va_admin_tenants so the result is
+// correct past one page rather than only over the loaded set. ?offset,q,plan,
+// status,sort,dir. The exact match total rides on each row; facets (distinct
+// plan/status across the whole fleet) drive the filter dropdowns.
 const TENANTS_PAGE = 50;
 async function tenants(q: Record<string, string | undefined> = {}) {
   const offset = Math.max(0, parseInt(String(q.offset ?? "0"), 10) || 0);
-  const { rows: hotels, total } = await svcGetCounted(
-    `hotels?select=id,slug,name,city,plan,plan_status,created_at,updated_at&order=created_at.desc&limit=${TENANTS_PAGE}&offset=${offset}`,
-  );
-  const ids = hotels.map((h) => h.id).filter(Boolean);
-  const pays = ids.length
-    ? await svcGet(
-        `payments?select=hotel_id,amount&status=eq.COMPLETED&created_at=gte.${istDayStartISO()}&hotel_id=in.(${ids.join(",")})`,
-      )
-    : [];
-  const revByHotel: Record<string, number> = {};
-  for (const p of pays) revByHotel[p.hotel_id] = (revByHotel[p.hotel_id] || 0) + num(p.amount);
-  const nextOffset = offset + hotels.length < total ? offset + hotels.length : null;
+  // default page size; a larger limit (capped server-side at 5000) backs CSV-all
+  const limit = Math.min(5000, Math.max(1, parseInt(String(q.limit ?? TENANTS_PAGE), 10) || TENANTS_PAGE));
+  const [rows, facets] = await Promise.all([
+    svcRpc("va_admin_tenants", {
+      p_offset: offset, p_limit: limit,
+      p_q: q.q || null, p_plan: q.plan || null, p_status: q.status || null,
+      p_sort: q.sort || "created_at", p_dir: q.dir === "asc" ? "asc" : "desc",
+    }),
+    svcRpc("va_admin_tenant_facets").catch(() => [] as any[]),
+  ]);
+  const total = rows.length ? num(rows[0].total) : 0;
+  const nextOffset = offset + rows.length < total ? offset + rows.length : null;
+  const f = (facets as any[])[0] || {};
   return {
-    rows: hotels.map((h) => ({
-      slug: h.slug, name: h.name, city: h.city, plan: h.plan, plan_status: h.plan_status,
-      created_at: h.created_at, revenueToday: Math.round((revByHotel[h.id] || 0) * 100) / 100,
+    rows: rows.map((r) => ({
+      slug: r.slug, name: r.name, city: r.city, plan: r.plan, plan_status: r.plan_status,
+      created_at: r.created_at, revenueToday: num(r.revenue_today),
     })),
-    total,
-    nextOffset,
+    total, nextOffset,
+    plans: Array.isArray(f.plans) ? f.plans : [],
+    statuses: Array.isArray(f.statuses) ? f.statuses : [],
   };
 }
 

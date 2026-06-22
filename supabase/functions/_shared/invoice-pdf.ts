@@ -7,10 +7,11 @@
 // rather than crashing the render); amounts use "Rs." for the same reason.
 import { PDFDocument, PDFFont, StandardFonts, rgb } from "npm:pdf-lib@1.17.1";
 
-export interface InvoiceLine { label: string; amount: number }
+export interface InvoiceLine { label: string; amount: number; sac?: string }
 export interface InvoiceData {
   registered: boolean;
   docTitle: string; // "TAX INVOICE" | "BILL OF SUPPLY"
+  copyLabel?: string; // e.g. "ORIGINAL FOR RECIPIENT" (Rule 48)
   hotel: { legalName: string; tradeName?: string; address?: string; cityState?: string; gstin?: string; sac?: string; phone?: string; email?: string };
   invoiceNo: string;
   invoiceDate: string;
@@ -18,6 +19,8 @@ export interface InvoiceData {
   checkIn?: string;
   checkOut?: string;
   nights?: number;
+  placeOfSupply?: string; // GST Rule 46 — for accommodation = hotel's state
+  reverseCharge?: boolean; // GST Rule 46(m) — almost always false for hotels
   guest: { name: string; gstin?: string; legalName?: string };
   lineItems: InvoiceLine[];
   taxableValue: number;
@@ -79,6 +82,7 @@ export async function generateInvoicePdf(d: InvoiceData): Promise<Uint8Array> {
   // Title
   T(d.docTitle, M, y, { size: 18, b: true });
   R(d.registered ? "GST Invoice" : "Receipt", W - M, y + 2, { size: 9, c: grey });
+  if (d.copyLabel) R(d.copyLabel, W - M, y - 9, { size: 7, c: grey });
   y -= 26; hr(y); y -= 18;
 
   // Seller (hotel) block — left; meta — right
@@ -92,10 +96,11 @@ export async function generateInvoicePdf(d: InvoiceData): Promise<Uint8Array> {
 
   let my = top;
   const metaX = 360;
-  R("Invoice No", W - M - 130, my, { size: 9, c: grey }); R(d.invoiceNo, W - M, my, { b: true }); my -= 14;
-  R("Date", W - M - 130, my, { size: 9, c: grey }); R(d.invoiceDate, W - M, my); my -= 14;
-  if (d.bookingCode) { R("Booking", W - M - 130, my, { size: 9, c: grey }); R(d.bookingCode, W - M, my); my -= 14; }
-  if (d.checkIn || d.checkOut) { R("Stay", W - M - 130, my, { size: 9, c: grey }); R(`${d.checkIn ?? "-"} - ${d.checkOut ?? "-"}${d.nights ? `  (${d.nights}n)` : ""}`, W - M, my, { size: 9 }); my -= 14; }
+  R("Invoice No", W - M - 165, my, { size: 9, c: grey }); R(d.invoiceNo, W - M, my, { b: true }); my -= 14;
+  R("Date", W - M - 165, my, { size: 9, c: grey }); R(d.invoiceDate, W - M, my); my -= 14;
+  if (d.bookingCode) { R("Booking", W - M - 165, my, { size: 9, c: grey }); R(d.bookingCode, W - M, my); my -= 14; }
+  if (d.checkIn || d.checkOut) { R("Stay", W - M - 165, my, { size: 9, c: grey }); R(`${d.checkIn ?? "-"} - ${d.checkOut ?? "-"}${d.nights ? `  (${d.nights}n)` : ""}`, W - M, my, { size: 9 }); my -= 14; }
+  if (d.placeOfSupply) { R("Place of Supply", W - M - 165, my, { size: 9, c: grey }); R(d.placeOfSupply, W - M, my, { size: 9 }); my -= 14; }
   void metaX;
 
   y = Math.min(y, my) - 8; hr(y); y -= 16;
@@ -107,13 +112,19 @@ export async function generateInvoicePdf(d: InvoiceData): Promise<Uint8Array> {
   if (d.guest.gstin) { T(`GSTIN: ${d.guest.gstin}`, M, y, { size: 9, b: true }); y -= 12; }
   y -= 6;
 
-  // Line items table
+  // Line items table — HSN/SAC column shown only for registered (GST) invoices.
   const cAmt = W - M;
+  const showSac = d.registered && d.lineItems.some((li) => li.sac);
+  const sacXr = cAmt - 6 - 130; // right edge of the HSN/SAC column
   page.drawRectangle({ x: M, y: y - 4, width: W - 2 * M, height: 18, color: rgb(0.96, 0.96, 0.97) });
-  T("Description", M + 6, y, { size: 9, b: true }); R("Amount", cAmt - 6, y, { size: 9, b: true });
+  T("Description", M + 6, y, { size: 9, b: true });
+  if (showSac) R("HSN/SAC", sacXr, y, { size: 9, b: true });
+  R("Amount", cAmt - 6, y, { size: 9, b: true });
   y -= 20;
   for (const li of d.lineItems) {
-    T(li.label, M + 6, y, { size: 10 }); R(money(li.amount), cAmt - 6, y, { size: 10 });
+    T(li.label, M + 6, y, { size: 10 });
+    if (showSac && li.sac) R(li.sac, sacXr, y, { size: 9, c: grey });
+    R(money(li.amount), cAmt - 6, y, { size: 10 });
     y -= 16;
   }
   hr(y + 4); y -= 14;
@@ -138,7 +149,9 @@ export async function generateInvoicePdf(d: InvoiceData): Promise<Uint8Array> {
   T("Amount in words:", M, y, { size: 9, b: true, c: grey }); y -= 12;
   T(amountInWords(d.grandTotal), M, y, { size: 9 }); y -= 22;
 
-  if (!d.registered) {
+  if (d.registered) {
+    T(`Tax payable on reverse charge basis: ${d.reverseCharge ? "Yes" : "No"}`, M, y, { size: 8, c: grey }); y -= 12;
+  } else {
     T("This is a Bill of Supply. The supplier is not registered under GST; no tax is charged.", M, y, { size: 8, c: grey }); y -= 12;
   }
 

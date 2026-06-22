@@ -19,6 +19,24 @@ const LABELS: Record<string, string> = {
   ADJUSTMENT: "Adjustment",
   SERVICE_CHARGE: "Service Charge",
 };
+// SAC (Service Accounting Code) per charge type — accommodation vs restaurant
+// differ. ROOM falls back to the hotel's configured SAC. Adjustments carry none.
+const SAC_BY_TYPE: Record<string, string> = {
+  FOOD_CHARGE: "996331",
+  SERVICE_CHARGE: "999799",
+};
+// GST state codes (first two digits of a GSTIN). Used for the Place-of-Supply line.
+const STATE_CODES: Record<string, string> = {
+  "jammu and kashmir": "01", "himachal pradesh": "02", "punjab": "03", "chandigarh": "04",
+  "uttarakhand": "05", "haryana": "06", "delhi": "07", "rajasthan": "08", "uttar pradesh": "09",
+  "bihar": "10", "sikkim": "11", "arunachal pradesh": "12", "nagaland": "13", "manipur": "14",
+  "mizoram": "15", "tripura": "16", "meghalaya": "17", "assam": "18", "west bengal": "19",
+  "jharkhand": "20", "odisha": "21", "chhattisgarh": "22", "madhya pradesh": "23", "gujarat": "24",
+  "maharashtra": "27", "karnataka": "29", "goa": "30", "kerala": "32", "tamil nadu": "33",
+  "puducherry": "34", "telangana": "36", "andhra pradesh": "37", "ladakh": "38",
+};
+// Edge runtime is UTC; pin IST so a stay date near midnight isn't off by a day.
+const fmtDate = (d: Date) => d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
 
 async function handler(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") return preflight();
@@ -45,7 +63,7 @@ async function handler(req: Request): Promise<Response> {
   // Fetch hotel + booking + entries (service-role; authorize below)
   const [{ data: hotel }, { data: booking }, { data: entries }] = await Promise.all([
     svc.from("hotels").select("name, legal_name, address, city, state, gst_number, sac_code, tax_percentage, phone, email").eq("id", folio.hotel_id).maybeSingle(),
-    svc.from("bookings").select("code, guest_name, guest_profile_id").eq("id", folio.booking_id).maybeSingle(),
+    svc.from("bookings").select("code, guest_name, guest_profile_id, scheduled_checkin_at, scheduled_checkout_at").eq("id", folio.booking_id).maybeSingle(),
     svc.from("folio_entries").select("entry_type, amount").eq("folio_id", folio.id),
   ]);
   if (!hotel) return json(404, { ok: false, code: "HOTEL_NOT_FOUND" });
@@ -86,7 +104,25 @@ async function handler(req: Request): Promise<Response> {
   const lineItems: InvoiceLine[] = Object.entries(byType)
     .filter(([t]) => t !== "TAX" && t !== "PAYMENT")
     .filter(([, v]) => Math.abs(v) >= 0.01)
-    .map(([t, v]) => ({ label: LABELS[t] ?? t.replace(/_/g, " "), amount: r2(v) }));
+    .map(([t, v]) => ({
+      label: LABELS[t] ?? t.replace(/_/g, " "),
+      amount: r2(v),
+      sac: t === "ROOM_CHARGE" ? (hotel.sac_code || "996311") : SAC_BY_TYPE[t],
+    }));
+
+  // Stay period (a hotel invoice should show the dates served).
+  const ci = booking?.scheduled_checkin_at ? new Date(booking.scheduled_checkin_at) : null;
+  const co = booking?.scheduled_checkout_at ? new Date(booking.scheduled_checkout_at) : null;
+  const nights = ci && co ? Math.max(1, Math.round((co.getTime() - ci.getTime()) / 86400000)) : undefined;
+
+  // Place of supply — for hotel accommodation this is always the hotel's state
+  // (IGST Act §12(3), immovable-property rule), hence the intra-state CGST/SGST split.
+  let placeOfSupply: string | undefined;
+  if (registered && hotel.state && String(hotel.state).trim()) {
+    const st = String(hotel.state).trim();
+    const code = STATE_CODES[st.toLowerCase()];
+    placeOfSupply = code ? `${st} (${code})` : st;
+  }
 
   const taxRate = num(hotel.tax_percentage);
   let pdfBytes: Uint8Array;
@@ -94,6 +130,7 @@ async function handler(req: Request): Promise<Response> {
     pdfBytes = await generateInvoicePdf({
       registered,
       docTitle: registered ? "TAX INVOICE" : "BILL OF SUPPLY",
+      copyLabel: registered ? "ORIGINAL FOR RECIPIENT" : undefined,
       hotel: {
         legalName: hotel.legal_name || hotel.name || "Hotel",
         tradeName: hotel.name || undefined,
@@ -105,8 +142,13 @@ async function handler(req: Request): Promise<Response> {
         email: hotel.email || undefined,
       },
       invoiceNo: String(invNo),
-      invoiceDate: new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+      invoiceDate: fmtDate(new Date()),
       bookingCode: booking?.code || undefined,
+      checkIn: ci ? fmtDate(ci) : undefined,
+      checkOut: co ? fmtDate(co) : undefined,
+      nights,
+      placeOfSupply,
+      reverseCharge: false,
       guest: {
         name: folio.guest_legal_name || booking?.guest_name || "Guest",
         gstin: folio.guest_gstin || undefined,

@@ -29,7 +29,7 @@ async function adminFetch<T>(panel: string, query = ""): Promise<T> {
   return r.json() as Promise<T>;
 }
 
-function useAdminData<T>(panel: string, enabled = true) {
+function useAdminData<T>(panel: string, enabled = true, query = "") {
   const tick = useContext(RefreshCtx);
   const [data, setData] = useState<T | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -38,13 +38,13 @@ function useAdminData<T>(panel: string, enabled = true) {
     if (!enabled) { setLoading(false); return; }
     let alive = true;
     setLoading((d) => d || data === null); setErr(null);
-    adminFetch<T>(panel)
+    adminFetch<T>(panel, query)
       .then((d) => { if (alive) setData(d); })
       .catch((e) => { if (alive) setErr(String(e?.message || e)); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [panel, enabled, tick]);
+  }, [panel, enabled, query, tick]);
   return { data, err, loading };
 }
 
@@ -59,16 +59,37 @@ const canSee = (role: string, panel: string) =>
 function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <div className={`rounded-2xl border border-white/10 bg-white/[0.02] p-5 ${className}`}>{children}</div>;
 }
-function Section({ id, icon, title, subtitle, children }: { id?: string; icon: ReactNode; title: string; subtitle?: string; children: ReactNode }) {
+function Section({ id, icon, title, subtitle, right, children }: { id?: string; icon: ReactNode; title: string; subtitle?: string; right?: ReactNode; children: ReactNode }) {
   return (
     <section id={id} className="mt-8 scroll-mt-24 rounded-2xl transition-shadow duration-500">
       <header className="mb-3 flex items-center gap-2">
         <span className="text-slate-400">{icon}</span>
         <h2 className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">{title}</h2>
         {subtitle && <span className="text-[10px] text-slate-500">· {subtitle}</span>}
+        {right && <div className="ml-auto">{right}</div>}
       </header>
       {children}
     </section>
+  );
+}
+
+// Segmented range toggle (used by the System Health panel). Options are capped at
+// the api_hits 7-day retention — we never offer a window the telemetry can't fill.
+function RangeToggle({ value, onChange, options }: { value: number; onChange: (v: number) => void; options: { label: string; hours: number }[] }) {
+  return (
+    <div className="inline-flex rounded-lg border border-white/10 bg-white/[0.02] p-0.5">
+      {options.map((o) => (
+        <button
+          key={o.hours}
+          onClick={() => onChange(o.hours)}
+          className={`rounded-md px-2 py-0.5 text-[11px] font-medium tabular-nums transition-colors ${
+            value === o.hours ? "bg-white/10 text-white" : "text-white/45 hover:text-white/70"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -232,30 +253,36 @@ function FleetPanel() {
 }
 
 type Health = {
+  hours: number;
   totals: { calls: number; avg_ms: number; errors: number; p95_ms: number; p99_ms: number }; prevCalls: number;
   series: Array<{ calls: number; err_4xx: number; err_5xx: number }>;
   topFns: { fn: string; calls: number; avg_ms: number }[]; slowest: { fn: string; calls: number; avg_ms: number }[];
-  rateLimitHits24h: number; recent5xx: { fn: string; status: number; path: string; at: string }[];
+  rateLimitHits: number; recent5xx: { fn: string; status: number; path: string; at: string }[];
   cron: { jobname: string; schedule: string; active: boolean; last_run: string | null; last_status: string | null; runs_24h: number; fails_24h: number }[];
 };
+const HEALTH_RANGES = [{ label: "24h", hours: 24 }, { label: "7d", hours: 168 }];
 function HealthPanel() {
-  const { data, loading, err } = useAdminData<Health>("health");
+  const [hours, setHours] = useState(24);
+  const { data, loading, err } = useAdminData<Health>("health", true, `hours=${hours}`);
+  const win = hours >= 168 ? "7d" : `${hours}h`;
+  const bucket = hours <= 48 ? "hour" : "6h";
   return (
-    <Section id="panel-health" icon={<Activity className="h-3.5 w-3.5" />} title="System Health" subtitle="VAiyu-wide · 24h">
+    <Section id="panel-health" icon={<Activity className="h-3.5 w-3.5" />} title="System Health" subtitle={`VAiyu-wide · ${win}`}
+      right={<RangeToggle value={hours} onChange={setHours} options={HEALTH_RANGES} />}>
       {loading && !data ? <Card><Skeleton /></Card> : err ? <Card><Empty text={`Unavailable (${err})`} /></Card> : data && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
           <Card className="lg:col-span-2">
             <div className="grid grid-cols-4 gap-3">
-              <Stat label="Calls (24h)" value={n0.format(data.totals.calls)} sub={<Delta cur={data.totals.calls} prev={data.prevCalls} />} />
+              <Stat label={`Calls (${win})`} value={n0.format(data.totals.calls)} sub={<Delta cur={data.totals.calls} prev={data.prevCalls} />} />
               {(() => {
                 const rate = data.totals.calls ? (data.totals.errors / data.totals.calls) * 100 : 0;
                 const tone = rate >= 1 ? "text-red-300" : rate >= 0.1 ? "text-amber-300" : "text-white";
-                return <Stat label="Error rate (24h)" value={<span className={tone}>{rate.toFixed(2)}%</span>} sub={`${n0.format(data.totals.errors)} of ${n0.format(data.totals.calls)}`} />;
+                return <Stat label={`Error rate (${win})`} value={<span className={tone}>{rate.toFixed(2)}%</span>} sub={`${n0.format(data.totals.errors)} of ${n0.format(data.totals.calls)}`} />;
               })()}
               <Stat label="p95 latency" value={`${n0.format(data.totals.p95_ms)} ms`} sub={`avg ${data.totals.avg_ms} · p99 ${n0.format(data.totals.p99_ms)} ms`} />
-              <Stat label="Rate-limit hits" value={n0.format(data.rateLimitHits24h)} />
+              <Stat label={`Rate-limit hits (${win})`} value={n0.format(data.rateLimitHits)} />
             </div>
-            <div className="mt-4"><div className="text-[11px] uppercase tracking-wider text-white/50 mb-1.5">Calls / hour (red = had errors)</div><Sparkline series={data.series} /></div>
+            <div className="mt-4"><div className="text-[11px] uppercase tracking-wider text-white/50 mb-1.5">Calls / {bucket} (red = had errors)</div><Sparkline series={data.series} /></div>
             <div className="grid grid-cols-2 gap-4 mt-4">
               <div>
                 <div className="text-[11px] uppercase tracking-wider text-white/50 mb-1.5">Top functions</div>
@@ -344,15 +371,39 @@ function OnboardingPanel() {
 }
 
 type TenantRow = { slug: string; name: string; city: string; plan: string; plan_status: string; created_at: string; revenueToday: number };
-type Tenants = { rows: TenantRow[] };
+type Tenants = { rows: TenantRow[]; total: number; nextOffset: number | null };
 function TenantsPanel() {
-  const { data, loading, err } = useAdminData<Tenants>("tenants");
+  const tick = useContext(RefreshCtx);
+  const [rows, setRows] = useState<TenantRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [nextOffset, setNextOffset] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [plan, setPlan] = useState("");
   const [status, setStatus] = useState("");
   const [sortKey, setSortKey] = useState<keyof TenantRow>("created_at");
   const [sortDir, setSortDir] = useState<1 | -1>(-1);
-  const rows = data?.rows ?? [];
+
+  async function load(reset: boolean) {
+    try {
+      reset ? setLoading(true) : setLoadingMore(true);
+      setErr(null);
+      const off = reset ? 0 : (nextOffset ?? 0);
+      const d = await adminFetch<Tenants>("tenants", `offset=${off}`);
+      setTotal(d.total);
+      setNextOffset(d.nextOffset);
+      setRows((prev) => (reset ? d.rows : [...prev, ...d.rows]));
+    } catch (e) {
+      setErr(String((e as Error)?.message || e));
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }
+  // Auto-refresh resets to page 1 (matches the Audit panel); manual "Load more" appends.
+  useEffect(() => { load(true); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tick]);
 
   const planOpts = useMemo(() => Array.from(new Set(rows.map((r) => r.plan).filter(Boolean))).sort(), [rows]);
   const statusOpts = useMemo(() => Array.from(new Set(rows.map((r) => r.plan_status).filter(Boolean))).sort(), [rows]);
@@ -374,13 +425,13 @@ function TenantsPanel() {
 
   return (
     <Section icon={<Server className="h-3.5 w-3.5" />} title="Tenants" subtitle="search · filter · click a hotel to open its dashboard">
-      {loading && !data ? <Card><Skeleton /></Card> : err ? <Card><Empty text={`Unavailable (${err})`} /></Card> : (
+      {loading ? <Card><Skeleton /></Card> : err ? <Card><Empty text={`Unavailable (${err})`} /></Card> : (
         <Card className="overflow-x-auto">
           <div className="flex flex-wrap items-center gap-2 mb-3">
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name / slug / city…" className={`${selCls} w-56`} />
             <select value={plan} onChange={(e) => setPlan(e.target.value)} className={selCls}><option value="">All plans</option>{planOpts.map((p) => <option key={p} value={p}>{p}</option>)}</select>
             <select value={status} onChange={(e) => setStatus(e.target.value)} className={selCls}><option value="">All statuses</option>{statusOpts.map((s) => <option key={s} value={s}>{s}</option>)}</select>
-            <span className="text-[11px] text-white/40">{filtered.length} of {rows.length}</span>
+            <span className="text-[11px] text-white/40">{filtered.length} shown · {rows.length} of {total} loaded</span>
             <button onClick={() => csvExport(`vaiyu-tenants-${new Date().toISOString().slice(0, 10)}.csv`, filtered, [
               { key: "name", label: "Hotel" }, { key: "slug", label: "Slug" }, { key: "city", label: "City" },
               { key: "plan", label: "Plan" }, { key: "plan_status", label: "Status" }, { key: "revenueToday", label: "Revenue today (INR)" }, { key: "created_at", label: "Joined" },
@@ -412,6 +463,18 @@ function TenantsPanel() {
               )) : <tr><td colSpan={6}><Empty text="No hotels match." /></td></tr>}
             </tbody>
           </table>
+          {nextOffset != null && (
+            <div className="mt-3 flex items-center gap-3">
+              <button
+                onClick={() => load(false)}
+                disabled={loadingMore}
+                className="text-xs text-white/60 hover:text-white/90 border border-white/10 rounded px-3 py-1.5 disabled:opacity-50"
+              >
+                {loadingMore ? "Loading…" : `Load more (${total - rows.length} more)`}
+              </button>
+              {(q || plan || status) && <span className="text-[11px] text-amber-300/70">Search/filter covers the {rows.length} loaded — load more to include all {total}.</span>}
+            </div>
+          )}
         </Card>
       )}
     </Section>

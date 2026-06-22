@@ -40,6 +40,18 @@ async function svcCount(path: string): Promise<number> {
   return total && total !== "*" ? parseInt(total, 10) || 0 : 0;
 }
 
+// Page of rows + the exact total (for server-side pagination "X of N").
+async function svcGetCounted<T = any>(path: string): Promise<{ rows: T[]; total: number }> {
+  const r = await fetch(`${ENV.url}/rest/v1/${path}`, {
+    headers: { ...svcHeaders, Prefer: "count=exact" },
+  });
+  if (!r.ok) throw new Error(`${path} -> ${r.status}`);
+  const j = await r.json().catch(() => []);
+  const cr = r.headers.get("content-range"); // e.g. "0-49/123"
+  const total = cr?.split("/")[1];
+  return { rows: Array.isArray(j) ? j : [], total: total && total !== "*" ? parseInt(total, 10) || 0 : 0 };
+}
+
 async function svcRpc<T = any>(fn: string, body: Record<string, unknown> = {}): Promise<T[]> {
   const r = await fetch(`${ENV.url}/rest/v1/rpc/${fn}`, {
     method: "POST",
@@ -120,16 +132,24 @@ async function summary() {
   return { ok: issues.length === 0, issues, lastAlertAt };
 }
 
-async function health() {
-  const [series, topFnsRaw, recent5xx, rateLimitHits24h, cron, prevCalls, latency] = await Promise.all([
-    svcGet("v_api_24h?select=*&order=hour_bucket.asc"),
-    svcGet("v_api_top_fns_24h?select=*"),
+// Windowed by ?hours= (the console's 24h / 7d toggle). Capped at 168h because
+// api_hits retains 7 days — never serve a range the data can't honestly fill.
+// Series/top-fns come from parameterized RPCs (the fixed 24h views stay for the
+// owner card). Latency RPC is already windowed; cron + recent5xx are not windowed
+// (cron health and the latest-errors feed are independent of the analytics range).
+async function health(q: Record<string, string | undefined> = {}) {
+  const hours = Math.min(168, Math.max(1, parseInt(String(q.hours ?? "24"), 10) || 24));
+  const sinceISO = new Date(Date.now() - hours * 3600000).toISOString();
+  const prevStartISO = new Date(Date.now() - 2 * hours * 3600000).toISOString();
+  const [series, topFnsRaw, recent5xx, rateLimitHits, cron, prevCalls, latency] = await Promise.all([
+    svcRpc("va_admin_api_series", { p_hours: hours }),
+    svcRpc("va_admin_api_top_fns", { p_hours: hours }),
     svcGet("api_hits?select=fn,status,path,at&status=gte.500&order=at.desc&limit=15"),
-    svcCount(`api_hits?select=id&fn=is.null&at=gte.${daysAgoISO(1)}`),
+    svcCount(`api_hits?select=id&fn=is.null&at=gte.${sinceISO}`),
     svcRpc("va_admin_cron_health").catch(() => []),
-    // prior 24h call volume [48h,24h) for the trend delta (api_hits keeps 7d)
-    svcCount(`api_hits?select=id&fn=not.is.null&at=gte.${daysAgoISO(2)}&at=lt.${daysAgoISO(1)}`),
-    svcRpc("va_admin_api_latency", { p_hours: 24 }).catch(() => [] as any[]),
+    // prior equal-length window [2w, w) for the trend delta (>7d falls past retention -> 0)
+    svcCount(`api_hits?select=id&fn=not.is.null&at=gte.${prevStartISO}&at=lt.${sinceISO}`),
+    svcRpc("va_admin_api_latency", { p_hours: hours }).catch(() => [] as any[]),
   ]);
   const calls = series.reduce((n, r) => n + num(r.calls), 0);
   const avg = series.length ? Math.round(series.reduce((n, r) => n + num(r.avg_ms), 0) / series.length) : 0;
@@ -139,27 +159,41 @@ async function health() {
     .sort((a, b) => b.calls - a.calls);
   const slowest = [...topFns].sort((a, b) => b.avg_ms - a.avg_ms).slice(0, 5);
   return {
+    hours,
     totals: { calls, avg_ms: avg, errors, p95_ms: num(lat.p95_ms), p99_ms: num(lat.p99_ms) },
     prevCalls,
-    series, topFns: topFns.slice(0, 8), slowest,
-    rateLimitHits24h, recent5xx, cron,
+    series: series.map((r) => ({ calls: num(r.calls), err_4xx: num(r.err_4xx), err_5xx: num(r.err_5xx) })),
+    topFns: topFns.slice(0, 8), slowest,
+    rateLimitHits, recent5xx, cron,
   };
 }
 
-async function tenants() {
-  const rows = await svcGet(
-    "hotels?select=id,slug,name,city,plan,plan_status,created_at,updated_at&order=created_at.desc&limit=100",
+// Server-paginated (?offset=, 50/page) so the table reaches every hotel rather
+// than silently capping at 100. Revenue-today is fetched only for the page's
+// hotels (not the whole fleet). The UI appends pages ("Load more") and runs
+// search/sort/filter over the loaded set, with the true total surfaced as "of N".
+const TENANTS_PAGE = 50;
+async function tenants(q: Record<string, string | undefined> = {}) {
+  const offset = Math.max(0, parseInt(String(q.offset ?? "0"), 10) || 0);
+  const { rows: hotels, total } = await svcGetCounted(
+    `hotels?select=id,slug,name,city,plan,plan_status,created_at,updated_at&order=created_at.desc&limit=${TENANTS_PAGE}&offset=${offset}`,
   );
-  const pays = await svcGet(
-    `payments?select=hotel_id,amount&status=eq.COMPLETED&created_at=gte.${istDayStartISO()}`,
-  );
+  const ids = hotels.map((h) => h.id).filter(Boolean);
+  const pays = ids.length
+    ? await svcGet(
+        `payments?select=hotel_id,amount&status=eq.COMPLETED&created_at=gte.${istDayStartISO()}&hotel_id=in.(${ids.join(",")})`,
+      )
+    : [];
   const revByHotel: Record<string, number> = {};
   for (const p of pays) revByHotel[p.hotel_id] = (revByHotel[p.hotel_id] || 0) + num(p.amount);
+  const nextOffset = offset + hotels.length < total ? offset + hotels.length : null;
   return {
-    rows: rows.map((h) => ({
+    rows: hotels.map((h) => ({
       slug: h.slug, name: h.name, city: h.city, plan: h.plan, plan_status: h.plan_status,
       created_at: h.created_at, revenueToday: Math.round((revByHotel[h.id] || 0) * 100) / 100,
     })),
+    total,
+    nextOffset,
   };
 }
 

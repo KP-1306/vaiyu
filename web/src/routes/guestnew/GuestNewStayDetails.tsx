@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { supabase } from "../../lib/supabase";
+import { requestInvoice } from "../../services/invoiceService";
 import { localizeRoomType } from "../../i18n/localizeRoomType";
 import { resolveLabel } from "../../i18n/resolveLabel";
 import RequestExtensionButton from "../../components/guest/RequestExtensionButton";
@@ -67,6 +68,11 @@ export default function GuestNewStayDetails() {
     // bookings have nothing, in which case we fall back to stay.bill_total
     // and the legacy 97/3 split below).
     const [ledger, setLedger] = useState<LedgerBreakdown | null>(null);
+    const [bookingId, setBookingId] = useState<string | null>(null);
+    const [downloading, setDownloading] = useState(false);
+    const [showGst, setShowGst] = useState(false);
+    const [gstin, setGstin] = useState("");
+    const [bizName, setBizName] = useState("");
 
     // Fetch stay details and food orders
     useEffect(() => {
@@ -158,6 +164,7 @@ export default function GuestNewStayDetails() {
                             .maybeSingle();
 
                         if (mounted && bookingRow?.id) {
+                            setBookingId(bookingRow.id);
                             const { data: ledgerRow } = await supabase
                                 .from("v_arrival_payment_state")
                                 .select(
@@ -257,114 +264,23 @@ export default function GuestNewStayDetails() {
         ? (billRoom + billTax + billFood + billService + billSurcharge - billDiscount)
         : ((stay?.bill_total || 0) + totalFoodBill);
 
-    // Download/Print Invoice
-    const downloadInvoice = () => {
-        if (!stay) return;
-
-        const invoiceWindow = window.open("", "_blank");
-        if (!invoiceWindow) return;
-
-        const invoiceHtml = `
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Invoice - ${stay.booking_code}</title>
-    <style>
-        body { font-family: 'Segoe UI', system-ui, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333; }
-        .platform-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; border-bottom: 1px solid #eee; margin-bottom: 25px; }
-        .platform-logo { display: flex; align-items: center; gap: 10px; }
-        .platform-logo img { height: 40px; }
-        .platform-logo span { font-size: 24px; font-weight: 700; color: #d4a574; }
-        .platform-tagline { font-size: 12px; color: #999; }
-        h1 { font-size: 22px; margin-bottom: 5px; margin-top: 0; }
-        .subtitle { color: #666; margin-bottom: 20px; }
-        .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 25px; }
-        .booking-id { font-size: 14px; color: #666; text-align: right; }
-        .booking-label { font-size: 11px; color: #999; text-transform: uppercase; }
-        .section { margin-bottom: 25px; }
-        .section-title { font-weight: 600; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #eee; }
-        .row { display: flex; justify-content: space-between; padding: 8px 0; }
-        .row.total { border-top: 2px solid #333; font-weight: 600; font-size: 18px; margin-top: 10px; padding-top: 15px; }
-        .dates { display: flex; gap: 30px; }
-        .date-item { }
-        .date-label { font-size: 12px; color: #666; }
-        .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 11px; color: #999; text-align: center; }
-        .footer-logo { color: #d4a574; font-weight: 600; }
-        @media print { body { margin: 0; } .platform-header { page-break-inside: avoid; } }
-    </style>
-</head>
-<body>
-    <!-- Vaiyu Platform Header -->
-    <div class="platform-header">
-        <div class="platform-logo">
-            <img src="/brand/vaiyu-logo.webp" alt="Vaiyu" onerror="this.style.display='none'" />
-            <span>Vaiyu</span>
-        </div>
-        <div class="platform-tagline">Tax Invoice</div>
-    </div>
-
-    <!-- Hotel & Booking Details -->
-    <div class="header">
-        <div>
-            <h1>${stay.hotel.name}</h1>
-            <div class="subtitle">${stay.hotel.city || ""}</div>
-        </div>
-        <div class="booking-id">
-            <div class="booking-label">Booking ID</div>
-            <div>${stay.booking_code}</div>
-        </div>
-    </div>
-    
-    <div class="section">
-        <div class="dates">
-            <div class="date-item">
-                <div class="date-label">Check-in</div>
-                <div>${formatDate(stay.check_in, null, "en-IN")}</div>
-            </div>
-            <div class="date-item">
-                <div class="date-label">Check-out</div>
-                <div>${formatDate(stay.check_out, null, "en-IN")}</div>
-            </div>
-            <div class="date-item">
-                <div class="date-label">Nights</div>
-                <div>${nights}</div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="section">
-        <div class="section-title">Stay Charges</div>
-        <div class="row"><span>Room</span><span>${formatCurrency(billRoom)}</span></div>
-        ${billDiscount > 0 ? `<div class="row" style="color:#0a8a4a"><span>Discount</span><span>-${formatCurrency(billDiscount)}</span></div>` : ""}
-        ${billSurcharge > 0 ? `<div class="row"><span>Surcharge</span><span>${formatCurrency(billSurcharge)}</span></div>` : ""}
-        <div class="row"><span>${billTax > 0 || !ledger ? "Tax" : "City Tax"}</span><span>${formatCurrency(billTax)}</span></div>
-        ${billService > 0 ? `<div class="row"><span>Service</span><span>${formatCurrency(billService)}</span></div>` : ""}
-    </div>
-    
-    ${orders.length > 0 ? `
-    <div class="section">
-        <div class="section-title">Food Orders (${orders.length})</div>
-        ${orders.map(o => `
-            <div class="row"><span>Order #${o.display_id}</span><span>${formatCurrency(o.total_amount)}</span></div>
-        `).join("")}
-    </div>
-    ` : ""}
-    
-    <div class="section">
-        <div class="row total"><span>Grand Total</span><span>${formatCurrency(grandTotal)}</span></div>
-    </div>
-    
-    <div class="footer">
-        <div>Generated on ${new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</div>
-        <div style="margin-top: 8px;">Booked via <span class="footer-logo">Vaiyu</span> · vaiyu.co.in</div>
-    </div>
-    
-    <script>window.print();</script>
-</body>
-</html>`;
-
-        invoiceWindow.document.write(invoiceHtml);
-        invoiceWindow.document.close();
+    // Download Invoice — server-rendered, GST-compliant PDF (render-invoice fn).
+    // Optional B2B fields (guest GSTIN + business name) print on the invoice.
+    const downloadInvoice = async () => {
+        if (downloading) return;
+        setDownloading(true);
+        try {
+            const { url } = await requestInvoice({
+                bookingId: bookingId ?? undefined,
+                gstin: gstin.trim() || undefined,
+                legalName: bizName.trim() || undefined,
+            });
+            window.open(url, "_blank");
+        } catch {
+            alert(t("stayDetails:invoiceError", "Could not generate the invoice. Please try again."));
+        } finally {
+            setDownloading(false);
+        }
     };
 
     if (loading) {
@@ -492,9 +408,26 @@ export default function GuestNewStayDetails() {
 
                 <div className="gn-bill__action">
                     <span className="gn-bill__action-label">{t("stayDetails:downloadInvoice")}</span>
-                    <button className="gn-btn gn-btn--secondary" onClick={downloadInvoice}>
-                        ⬇ {formatCurrency(grandTotal)?.replace("₹", "₹ ")} ›
+                    <button className="gn-btn gn-btn--secondary" onClick={downloadInvoice} disabled={downloading}>
+                        {downloading ? t("stayDetails:generating", "Generating…") : <>⬇ {formatCurrency(grandTotal)?.replace("₹", "₹ ")} ›</>}
                     </button>
+                </div>
+
+                {/* B2B: optional GST invoice (business name + GSTIN print on the invoice) */}
+                <div className="gn-bill__gst" style={{ marginTop: ".5rem" }}>
+                    {!showGst ? (
+                        <button type="button" className="gn-link" style={{ background: "none", border: 0, padding: 0, cursor: "pointer", color: "#6b7280", fontSize: ".8rem", textDecoration: "underline" }} onClick={() => setShowGst(true)}>
+                            {t("stayDetails:needGstInvoice", "Need a GST invoice? (for business / input credit)")}
+                        </button>
+                    ) : (
+                        <div style={{ display: "grid", gap: ".4rem", marginTop: ".25rem" }}>
+                            <input value={bizName} onChange={(e) => setBizName(e.target.value)} placeholder={t("stayDetails:businessName", "Registered business name")}
+                                style={{ padding: ".5rem .6rem", border: "1px solid #e5e7eb", borderRadius: ".5rem", fontSize: ".85rem" }} />
+                            <input value={gstin} onChange={(e) => setGstin(e.target.value.toUpperCase())} placeholder={t("stayDetails:gstin", "GSTIN (15 characters)")} maxLength={15}
+                                style={{ padding: ".5rem .6rem", border: "1px solid #e5e7eb", borderRadius: ".5rem", fontSize: ".85rem", textTransform: "uppercase" }} />
+                            <span style={{ fontSize: ".72rem", color: "#9ca3af" }}>{t("stayDetails:gstHint", "Enter these, then tap download above to get a GST tax invoice.")}</span>
+                        </div>
+                    )}
                 </div>
             </div>
 

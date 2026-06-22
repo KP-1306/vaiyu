@@ -89,12 +89,13 @@ async function fleet() {
 // One-glance platform status: turns raw signals into an actionable issue list.
 async function summary() {
   const since24 = daysAgoISO(1);
-  const [cron, err5xx, pastDue, failedPay, httpFail] = await Promise.all([
+  const [cron, err5xx, pastDue, failedPay, httpFail, alertState] = await Promise.all([
     svcRpc("va_admin_cron_health").catch(() => [] as any[]),
     svcCount(`api_hits?select=id&status=gte.500&at=gte.${since24}`),
     svcCount(`hotels?select=id&plan_status=eq.past_due`),
     svcCount(`payments?select=id&status=eq.FAILED&created_at=gte.${since24}`).catch(() => 0),
     svcRpc("va_admin_http_failures", { p_minutes: 60 }).catch(() => [] as any[]),
+    svcGet("platform_alert_state?select=sent_at&kind=eq.watch&limit=1").catch(() => [] as any[]),
   ]);
   const cronFails = (cron as any[]).filter((c) => num(c.fails_24h) > 0);
   const issues: { level: "warn" | "bad"; label: string; detail?: string; link?: string }[] = [];
@@ -115,11 +116,12 @@ async function summary() {
     if (hfTimeouts) parts.push(`${hfTimeouts} timeout`);
     issues.push({ level: "bad", label: "edge-function calls failing (cron->fn)", detail: `${parts.join(", ")} in 60m` });
   }
-  return { ok: issues.length === 0, issues };
+  const lastAlertAt = (alertState as any[])[0]?.sent_at || null;
+  return { ok: issues.length === 0, issues, lastAlertAt };
 }
 
 async function health() {
-  const [series, topFnsRaw, recent5xx, rateLimitHits24h, cron, prevCalls] = await Promise.all([
+  const [series, topFnsRaw, recent5xx, rateLimitHits24h, cron, prevCalls, latency] = await Promise.all([
     svcGet("v_api_24h?select=*&order=hour_bucket.asc"),
     svcGet("v_api_top_fns_24h?select=*"),
     svcGet("api_hits?select=fn,status,path,at&status=gte.500&order=at.desc&limit=15"),
@@ -127,15 +129,17 @@ async function health() {
     svcRpc("va_admin_cron_health").catch(() => []),
     // prior 24h call volume [48h,24h) for the trend delta (api_hits keeps 7d)
     svcCount(`api_hits?select=id&fn=not.is.null&at=gte.${daysAgoISO(2)}&at=lt.${daysAgoISO(1)}`),
+    svcRpc("va_admin_api_latency", { p_hours: 24 }).catch(() => [] as any[]),
   ]);
   const calls = series.reduce((n, r) => n + num(r.calls), 0);
   const avg = series.length ? Math.round(series.reduce((n, r) => n + num(r.avg_ms), 0) / series.length) : 0;
   const errors = series.reduce((n, r) => n + num(r.err_4xx) + num(r.err_5xx), 0);
+  const lat = (latency as any[])[0] || {};
   const topFns = topFnsRaw.map((r) => ({ fn: r.fn, calls: num(r.calls), avg_ms: num(r.avg_ms) }))
     .sort((a, b) => b.calls - a.calls);
   const slowest = [...topFns].sort((a, b) => b.avg_ms - a.avg_ms).slice(0, 5);
   return {
-    totals: { calls, avg_ms: avg, errors },
+    totals: { calls, avg_ms: avg, errors, p95_ms: num(lat.p95_ms), p99_ms: num(lat.p99_ms) },
     prevCalls,
     series, topFns: topFns.slice(0, 8), slowest,
     rateLimitHits24h, recent5xx, cron,

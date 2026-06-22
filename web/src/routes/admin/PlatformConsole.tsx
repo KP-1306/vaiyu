@@ -8,7 +8,7 @@
 // Route is gated by PlatformAdminGate (is_platform_admin). Theme matches the owner
 // dashboard (dark). Live: 60s auto-refresh + manual refresh; status rollup + trend
 // deltas + tenant search/sort/filter/CSV.
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Component, createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Activity, AlertTriangle, Building2, CheckCircle2, CreditCard, Download, RefreshCw, ShieldCheck, Server, UserPlus } from "lucide-react";
 import { supabase } from "../../lib/supabase";
@@ -59,9 +59,9 @@ const canSee = (role: string, panel: string) =>
 function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <div className={`rounded-2xl border border-white/10 bg-white/[0.02] p-5 ${className}`}>{children}</div>;
 }
-function Section({ icon, title, subtitle, children }: { icon: ReactNode; title: string; subtitle?: string; children: ReactNode }) {
+function Section({ id, icon, title, subtitle, children }: { id?: string; icon: ReactNode; title: string; subtitle?: string; children: ReactNode }) {
   return (
-    <section className="mt-8">
+    <section id={id} className="mt-8 scroll-mt-24 rounded-2xl transition-shadow duration-500">
       <header className="mb-3 flex items-center gap-2">
         <span className="text-slate-400">{icon}</span>
         <h2 className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">{title}</h2>
@@ -70,6 +70,37 @@ function Section({ icon, title, subtitle, children }: { icon: ReactNode; title: 
       {children}
     </section>
   );
+}
+
+// Scroll to a panel by id + briefly ring-highlight it (used by the status banner).
+function focusPanel(id: string) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.scrollIntoView({ behavior: "smooth", block: "start" });
+  el.classList.add("ring-2", "ring-sky-400/50", "shadow-[0_0_0_4px_rgba(56,189,248,0.08)]");
+  window.setTimeout(() => el.classList.remove("ring-2", "ring-sky-400/50", "shadow-[0_0_0_4px_rgba(56,189,248,0.08)]"), 1800);
+}
+
+// Map a status-banner issue label to the panel that explains it.
+function panelForIssue(label: string): string | null {
+  const l = label.toLowerCase();
+  if (/cron|5xx|server error|edge-function|timeout/.test(l)) return "panel-health";
+  if (/payment|past due|mrr|gmv/.test(l)) return "panel-payments";
+  if (/onboard|application/.test(l)) return "panel-onboarding";
+  return null;
+}
+
+// Isolate a panel render failure so one bad panel can't white-screen the console.
+class PanelBoundary extends Component<{ name: string; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch(err: unknown) { console.error(`[PlatformConsole] ${this.props.name} panel crashed`, err); }
+  render() {
+    if (this.state.failed) {
+      return <div className="mt-8"><Card><Empty text={`${this.props.name} panel failed to render — the rest of the console is unaffected.`} /></Card></div>;
+    }
+    return this.props.children;
+  }
 }
 function Stat({ label, value, sub }: { label: string; value: ReactNode; sub?: ReactNode }) {
   return (
@@ -127,15 +158,22 @@ function csvExport(filename: string, rows: Record<string, any>[], cols: { key: s
 }
 
 // ── status rollup banner ────────────────────────────────────────────────────
-type Summary = { ok: boolean; issues: { level: "warn" | "bad"; label: string; detail?: string }[] };
+type Summary = { ok: boolean; issues: { level: "warn" | "bad"; label: string; detail?: string }[]; lastAlertAt?: string | null };
+function AlertStamp({ at }: { at?: string | null }) {
+  if (!at) return null;
+  return <div className="mt-2 text-[11px] text-white/30">Last alert email: {fmtDate(at)}</div>;
+}
 function StatusBanner() {
   const { data, loading } = useAdminData<Summary>("summary");
   if (loading && !data) return null;
   if (!data) return null;
   if (data.ok) {
     return (
-      <div className="mt-4 flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-300">
-        <CheckCircle2 className="h-4 w-4" /> All systems normal — no issues detected.
+      <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5">
+        <div className="flex items-center gap-2 text-sm text-emerald-300">
+          <CheckCircle2 className="h-4 w-4" /> All systems normal — no issues detected.
+        </div>
+        <AlertStamp at={data.lastAlertAt} />
       </div>
     );
   }
@@ -146,13 +184,20 @@ function StatusBanner() {
         <AlertTriangle className="h-4 w-4" /> {data.issues.length} thing{data.issues.length === 1 ? "" : "s"} need attention
       </div>
       <ul className="mt-2 space-y-1">
-        {data.issues.map((i, idx) => (
-          <li key={idx} className="flex items-start gap-2 text-sm text-white/80">
-            <span className={`mt-1 h-1.5 w-1.5 rounded-full shrink-0 ${i.level === "bad" ? "bg-red-400" : "bg-amber-400"}`} />
-            <span>{i.label}{i.detail ? <span className="text-white/40"> — {i.detail}</span> : null}</span>
-          </li>
-        ))}
+        {data.issues.map((i, idx) => {
+          const target = panelForIssue(i.label);
+          const body = <><span>{i.label}{i.detail ? <span className="text-white/40"> — {i.detail}</span> : null}</span>{target && <span className="text-white/30 group-hover:text-sky-300/70">→</span>}</>;
+          return (
+            <li key={idx} className="flex items-start gap-2 text-sm text-white/80">
+              <span className={`mt-1 h-1.5 w-1.5 rounded-full shrink-0 ${i.level === "bad" ? "bg-red-400" : "bg-amber-400"}`} />
+              {target
+                ? <button onClick={() => focusPanel(target)} className="group flex items-center gap-1.5 text-left hover:text-white" title="Jump to the panel that explains this">{body}</button>
+                : <span className="flex items-center gap-1.5">{body}</span>}
+            </li>
+          );
+        })}
       </ul>
+      <AlertStamp at={data.lastAlertAt} />
     </div>
   );
 }
@@ -187,7 +232,7 @@ function FleetPanel() {
 }
 
 type Health = {
-  totals: { calls: number; avg_ms: number; errors: number }; prevCalls: number;
+  totals: { calls: number; avg_ms: number; errors: number; p95_ms: number; p99_ms: number }; prevCalls: number;
   series: Array<{ calls: number; err_4xx: number; err_5xx: number }>;
   topFns: { fn: string; calls: number; avg_ms: number }[]; slowest: { fn: string; calls: number; avg_ms: number }[];
   rateLimitHits24h: number; recent5xx: { fn: string; status: number; path: string; at: string }[];
@@ -196,14 +241,18 @@ type Health = {
 function HealthPanel() {
   const { data, loading, err } = useAdminData<Health>("health");
   return (
-    <Section icon={<Activity className="h-3.5 w-3.5" />} title="System Health" subtitle="VAiyu-wide · 24h">
+    <Section id="panel-health" icon={<Activity className="h-3.5 w-3.5" />} title="System Health" subtitle="VAiyu-wide · 24h">
       {loading && !data ? <Card><Skeleton /></Card> : err ? <Card><Empty text={`Unavailable (${err})`} /></Card> : data && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
           <Card className="lg:col-span-2">
             <div className="grid grid-cols-4 gap-3">
               <Stat label="Calls (24h)" value={n0.format(data.totals.calls)} sub={<Delta cur={data.totals.calls} prev={data.prevCalls} />} />
-              <Stat label="Avg latency" value={`${data.totals.avg_ms} ms`} />
-              <Stat label="Errors" value={n0.format(data.totals.errors)} />
+              {(() => {
+                const rate = data.totals.calls ? (data.totals.errors / data.totals.calls) * 100 : 0;
+                const tone = rate >= 1 ? "text-red-300" : rate >= 0.1 ? "text-amber-300" : "text-white";
+                return <Stat label="Error rate (24h)" value={<span className={tone}>{rate.toFixed(2)}%</span>} sub={`${n0.format(data.totals.errors)} of ${n0.format(data.totals.calls)}`} />;
+              })()}
+              <Stat label="p95 latency" value={`${n0.format(data.totals.p95_ms)} ms`} sub={`avg ${data.totals.avg_ms} · p99 ${n0.format(data.totals.p99_ms)} ms`} />
               <Stat label="Rate-limit hits" value={n0.format(data.rateLimitHits24h)} />
             </div>
             <div className="mt-4"><div className="text-[11px] uppercase tracking-wider text-white/50 mb-1.5">Calls / hour (red = had errors)</div><Sparkline series={data.series} /></div>
@@ -238,7 +287,7 @@ type Payments = { gmv24h: number; gmv7d: number; gmv7dPrev: number; gmv30d: numb
 function PaymentsPanel() {
   const { data, loading, err } = useAdminData<Payments>("payments");
   return (
-    <Section icon={<CreditCard className="h-3.5 w-3.5" />} title="Payments & Revenue" subtitle="cross-tenant · finance">
+    <Section id="panel-payments" icon={<CreditCard className="h-3.5 w-3.5" />} title="Payments & Revenue" subtitle="cross-tenant · finance">
       {loading && !data ? <Card><Skeleton /></Card> : err ? <Card><Empty text={`Unavailable (${err})`} /></Card> : data && (
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -274,7 +323,7 @@ type Onboarding = { total: number; byStatus: Record<string, number>; recent: { h
 function OnboardingPanel() {
   const { data, loading, err } = useAdminData<Onboarding>("onboarding");
   return (
-    <Section icon={<UserPlus className="h-3.5 w-3.5" />} title="Onboarding" subtitle="applications → activations · support">
+    <Section id="panel-onboarding" icon={<UserPlus className="h-3.5 w-3.5" />} title="Onboarding" subtitle="applications → activations · support">
       {loading && !data ? <Card><Skeleton /></Card> : err ? <Card><Empty text={`Unavailable (${err})`} /></Card> : data && (
         <Card>
           <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -459,9 +508,16 @@ export default function PlatformConsole() {
   const [lastSync, setLastSync] = useState(() => Date.now());
   const [, force] = useState(0);
 
-  // 60s auto-refresh + a 10s heartbeat purely for the "updated Xs ago" label
-  useEffect(() => { const id = setInterval(() => setTick((t) => t + 1), 60000); return () => clearInterval(id); }, []);
+  // 60s auto-refresh — but skip while the tab is hidden (don't hammer the
+  // cross-tenant service-role endpoints for a backgrounded tab); refetch on return.
+  useEffect(() => {
+    const id = setInterval(() => { if (!document.hidden) setTick((t) => t + 1); }, 60000);
+    const onVis = () => { if (!document.hidden) setTick((t) => t + 1); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { clearInterval(id); document.removeEventListener("visibilitychange", onVis); };
+  }, []);
   useEffect(() => { setLastSync(Date.now()); }, [tick]);
+  // 10s heartbeat purely for the "updated Xs ago" label (no data fetch)
   useEffect(() => { const id = setInterval(() => force((x) => x + 1), 10000); return () => clearInterval(id); }, []);
   const agoSec = Math.max(0, Math.round((Date.now() - lastSync) / 1000));
 
@@ -486,13 +542,13 @@ export default function PlatformConsole() {
                 </div>
               </header>
 
-              <StatusBanner />
-              <FleetPanel />
-              <HealthPanel />
-              {canSee(role, "payments") && <PaymentsPanel />}
-              {canSee(role, "onboarding") && <OnboardingPanel />}
-              <TenantsPanel />
-              {canSee(role, "audit") && <AuditPanel />}
+              <PanelBoundary name="Status"><StatusBanner /></PanelBoundary>
+              <PanelBoundary name="Fleet"><FleetPanel /></PanelBoundary>
+              <PanelBoundary name="System Health"><HealthPanel /></PanelBoundary>
+              {canSee(role, "payments") && <PanelBoundary name="Payments"><PaymentsPanel /></PanelBoundary>}
+              {canSee(role, "onboarding") && <PanelBoundary name="Onboarding"><OnboardingPanel /></PanelBoundary>}
+              <PanelBoundary name="Tenants"><TenantsPanel /></PanelBoundary>
+              {canSee(role, "audit") && <PanelBoundary name="Audit"><AuditPanel /></PanelBoundary>}
             </div>
           </main>
         )}

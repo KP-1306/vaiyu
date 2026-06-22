@@ -75,6 +75,7 @@ import {
 // Auth guards
 import AuthGate from "./components/AuthGate";
 import AdminGate from "./components/AdminGate";
+import PlatformAdminGate from "./components/PlatformAdminGate";
 
 // Auth context provider
 import { AuthProvider } from "./context/AuthContext";
@@ -203,6 +204,7 @@ const HotelOnboarding = lazy(() => import("./routes/HotelOnboarding")); // NEW
 const InviteValidation = lazy(() => import("./routes/InviteValidation"));
 const InviteAcceptance = lazy(() => import("./routes/InviteAcceptance"));
 const AdminOps = lazy(() => import("./pages/AdminOps"));
+const PlatformConsole = lazy(() => import("./routes/admin/PlatformConsole"));
 
 // ADR & RevPAR detail pages (from routes/OwnerRevenue.tsx)
 const OwnerADR = lazy(() =>
@@ -1013,6 +1015,18 @@ const router = createBrowserRouter([
           <AdminGate>
             <OwnerApplications />
           </AdminGate>
+        ),
+      },
+
+      // Platform Operator Console — platform_admins only (canonical gate)
+      {
+        path: "admin/platform",
+        element: (
+          <AuthGate>
+            <PlatformAdminGate>
+              <PlatformConsole />
+            </PlatformAdminGate>
+          </AuthGate>
         ),
       },
 

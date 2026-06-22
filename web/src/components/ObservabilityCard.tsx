@@ -1,5 +1,6 @@
 // web/src/components/ObservabilityCard.tsx
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Activity } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
@@ -52,13 +53,22 @@ export default function ObservabilityCard() {
   }, [series]);
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-      <div className="flex items-center gap-2 mb-3">
-        <div className="rounded-lg bg-sky-500/10 p-1.5 ring-1 ring-sky-500/20">
-          <Activity className="h-4 w-4 text-sky-300" />
+    <Link
+      to="/admin/platform"
+      data-testid="observability-card"
+      className="block rounded-2xl border border-white/10 bg-white/[0.02] p-5 hover:bg-white/[0.04] hover:border-white/20 transition-colors group"
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className="rounded-lg bg-sky-500/10 p-1.5 ring-1 ring-sky-500/20">
+            <Activity className="h-4 w-4 text-sky-300" />
+          </div>
+          <span className="text-xs font-semibold uppercase tracking-wider text-white/60">
+            System Health · 24h
+          </span>
         </div>
-        <span className="text-xs font-semibold uppercase tracking-wider text-white/60">
-          System Health · 24h
+        <span className="text-[11px] text-white/40 group-hover:text-white/70 transition-colors shrink-0">
+          Open console →
         </span>
       </div>
 
@@ -93,7 +103,7 @@ export default function ObservabilityCard() {
           </div>
         </>
       )}
-    </div>
+    </Link>
   );
 }
 

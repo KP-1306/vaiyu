@@ -45,6 +45,12 @@
   to = "/.netlify/functions/obs/:splat"
   status = 200
 
+# ---------- Platform Operator Console data API (MORE SPECIFIC; before /api/*)
+[[redirects]]
+  from = "/api/admin/*"
+  to = "/.netlify/functions/admin-metrics/:splat"
+  status = 200
+
 # ---------- API reverse proxy (generic)
 [[redirects]]
   from = "/api/*"

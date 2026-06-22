@@ -63,6 +63,25 @@ async function computeIssues(): Promise<Issue[]> {
     if (failedPay > 0) issues.push({ level: "warn", label: `${failedPay} failed payment(s) in 24h` });
   } catch { /* ignore */ }
 
+  // edge-function call failures (cron->fn) via pg_net — a cron can report
+  // "succeeded" (it merely enqueues the post) while the HTTP call errors/times out,
+  // so cron health alone misses these. 60m window so a low-frequency cron (e.g.
+  // */30) still registers; ANY 4xx/5xx is a real worker error, but timeouts need
+  // >=3 to ignore transient cold starts.
+  try {
+    const { data } = await svc().rpc("va_admin_http_failures", { p_minutes: 60 });
+    const r = (Array.isArray(data) ? data[0] : data) as { http_4xx?: number; http_5xx?: number; timeouts?: number } | null;
+    const httpErr = Number(r?.http_4xx ?? 0) + Number(r?.http_5xx ?? 0);
+    const timeouts = Number(r?.timeouts ?? 0);
+    if (httpErr >= 1 || timeouts >= 3) {
+      const parts: string[] = [];
+      if (Number(r?.http_5xx)) parts.push(`${r!.http_5xx} HTTP 5xx`);
+      if (Number(r?.http_4xx)) parts.push(`${r!.http_4xx} HTTP 4xx`);
+      if (timeouts) parts.push(`${timeouts} timeout`);
+      issues.push({ level: "bad", label: "edge-function calls failing (cron->fn)", detail: `${parts.join(", ")} in 60m` });
+    }
+  } catch { /* ignore */ }
+
   return issues;
 }
 

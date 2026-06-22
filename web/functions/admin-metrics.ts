@@ -89,11 +89,12 @@ async function fleet() {
 // One-glance platform status: turns raw signals into an actionable issue list.
 async function summary() {
   const since24 = daysAgoISO(1);
-  const [cron, err5xx, pastDue, failedPay] = await Promise.all([
+  const [cron, err5xx, pastDue, failedPay, httpFail] = await Promise.all([
     svcRpc("va_admin_cron_health").catch(() => [] as any[]),
     svcCount(`api_hits?select=id&status=gte.500&at=gte.${since24}`),
     svcCount(`hotels?select=id&plan_status=eq.past_due`),
     svcCount(`payments?select=id&status=eq.FAILED&created_at=gte.${since24}`).catch(() => 0),
+    svcRpc("va_admin_http_failures", { p_minutes: 60 }).catch(() => [] as any[]),
   ]);
   const cronFails = (cron as any[]).filter((c) => num(c.fails_24h) > 0);
   const issues: { level: "warn" | "bad"; label: string; detail?: string; link?: string }[] = [];
@@ -101,6 +102,19 @@ async function summary() {
   if (err5xx > 0) issues.push({ level: err5xx >= 10 ? "bad" : "warn", label: `${err5xx} server error(s) (5xx) in 24h` });
   if (pastDue > 0) issues.push({ level: "warn", label: `${pastDue} hotel(s) past due` });
   if (failedPay > 0) issues.push({ level: "warn", label: `${failedPay} failed payment(s) in 24h` });
+  // edge-function call failures (cron->fn) via pg_net — cron reports "succeeded"
+  // while the HTTP call errors/times out, so cron health alone misses these. Mirrors
+  // admin-alerts: ANY 4xx/5xx fires (real worker error); timeouts need >=3 (cold starts).
+  const hf = ((httpFail as any[])[0] || {}) as { http_4xx?: number; http_5xx?: number; timeouts?: number };
+  const httpErr = num(hf.http_4xx) + num(hf.http_5xx);
+  const hfTimeouts = num(hf.timeouts);
+  if (httpErr >= 1 || hfTimeouts >= 3) {
+    const parts: string[] = [];
+    if (num(hf.http_5xx)) parts.push(`${hf.http_5xx} HTTP 5xx`);
+    if (num(hf.http_4xx)) parts.push(`${hf.http_4xx} HTTP 4xx`);
+    if (hfTimeouts) parts.push(`${hfTimeouts} timeout`);
+    issues.push({ level: "bad", label: "edge-function calls failing (cron->fn)", detail: `${parts.join(", ")} in 60m` });
+  }
   return { ok: issues.length === 0, issues };
 }
 

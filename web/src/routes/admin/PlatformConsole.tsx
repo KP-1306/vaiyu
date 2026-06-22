@@ -21,10 +21,10 @@ const fmtDate = (s?: string | null) =>
 // ── data layer (auth + auto-refresh) ───────────────────────────────────────
 const RefreshCtx = createContext(0);
 
-async function adminFetch<T>(panel: string): Promise<T> {
+async function adminFetch<T>(panel: string, query = ""): Promise<T> {
   const { data: { session } } = await supabase.auth.getSession();
   const headers: HeadersInit = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
-  const r = await fetch(`/api/admin/${panel}`, { headers });
+  const r = await fetch(`/api/admin/${panel}${query ? `?${query}` : ""}`, { headers });
   if (!r.ok) throw new Error(`${panel}: ${r.status}`);
   return r.json() as Promise<T>;
 }
@@ -369,21 +369,84 @@ function TenantsPanel() {
   );
 }
 
-type Audit = { rows: { at: string; action: string; actor: string; hotel_id: string; entity: string; entity_id: string }[] };
+type AuditRow = { at: string; action: string; actor: string; actorEmail?: string; system: boolean; hotel: string | null; entity: string; detail: string };
+type Audit = { rows: AuditRow[]; actions: string[]; nextBefore: number | null };
+const humanizeAction = (a: string) => a.replace(/[._]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
 function AuditPanel() {
-  const { data, loading, err } = useAdminData<Audit>("audit");
+  const tick = useContext(RefreshCtx);
+  const [rows, setRows] = useState<AuditRow[]>([]);
+  const [actions, setActions] = useState<string[]>([]);
+  const [action, setAction] = useState("");
+  const [nextBefore, setNextBefore] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function load(reset: boolean) {
+    try {
+      reset ? setLoading(true) : setLoadingMore(true);
+      setErr(null);
+      const q = new URLSearchParams();
+      if (action) q.set("action", action);
+      if (!reset && nextBefore) q.set("before", String(nextBefore));
+      const d = await adminFetch<Audit>("audit", q.toString());
+      if (d.actions?.length) setActions(d.actions);
+      setNextBefore(d.nextBefore);
+      setRows((prev) => (reset ? d.rows : [...prev, ...d.rows]));
+    } catch (e) {
+      setErr(String((e as Error)?.message || e));
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }
+
+  useEffect(() => { load(true); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [action, tick]);
+
   return (
     <Section icon={<ShieldCheck className="h-3.5 w-3.5" />} title="Audit & Security" subtitle="recent platform actions · super admin">
-      {loading && !data ? <Card><Skeleton /></Card> : err ? <Card><Empty text={`Unavailable (${err})`} /></Card> : data && (
-        <Card className="overflow-x-auto">
-          <ul className="text-xs space-y-1">{data.rows.length ? data.rows.map((r, i) => (
-            <li key={i} className="flex items-center gap-2 text-white/70">
-              <span className="text-white/40 tabular-nums shrink-0 w-28">{fmtDate(r.at)}</span>
-              <span className="text-white/90 truncate">{r.action}</span>
-              <span className="text-white/40 truncate">{r.entity}{r.entity_id ? `:${String(r.entity_id).slice(0, 8)}` : ""}</span>
-            </li>)) : <Empty />}</ul>
-        </Card>
-      )}
+      <Card className="overflow-x-auto">
+        <div className="mb-2 flex items-center gap-2">
+          <select
+            value={action}
+            onChange={(e) => setAction(e.target.value)}
+            className="bg-white/5 border border-white/10 rounded px-2 py-1 text-xs text-white/80 focus:outline-none focus:border-white/30"
+          >
+            <option value="">All actions</option>
+            {actions.map((a) => <option key={a} value={a}>{humanizeAction(a)}</option>)}
+          </select>
+          {action && <button onClick={() => setAction("")} className="text-xs text-white/40 hover:text-white/70">clear</button>}
+        </div>
+        {loading ? <Skeleton /> : err ? <Empty text={`Unavailable (${err})`} /> : (
+          <>
+            <div className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-white/30 pb-1 border-b border-white/5">
+              <span className="shrink-0 w-28">Time</span>
+              <span className="shrink-0 w-40">Action</span>
+              <span className="shrink-0 w-36">Actor</span>
+              <span className="shrink-0 w-28">Hotel</span>
+              <span>Detail</span>
+            </div>
+            <ul className="text-xs space-y-1 mt-1">{rows.length ? rows.map((r, i) => (
+              <li key={i} className="flex items-center gap-2 text-white/70">
+                <span className="text-white/40 tabular-nums shrink-0 w-28">{fmtDate(r.at)}</span>
+                <span className="text-white/90 shrink-0 w-40 truncate" title={r.action}>{humanizeAction(r.action)}</span>
+                <span className={`shrink-0 w-36 truncate ${r.system ? "text-white/30 italic" : "text-sky-300/80"}`} title={r.actorEmail || r.actor}>{r.actor}</span>
+                <span className="text-white/40 shrink-0 w-28 truncate" title={r.hotel || ""}>{r.hotel || "—"}</span>
+                <span className="text-white/50 truncate" title={r.detail}>{r.detail}</span>
+              </li>)) : <Empty />}</ul>
+            {nextBefore && (
+              <button
+                onClick={() => load(false)}
+                disabled={loadingMore}
+                className="mt-3 text-xs text-white/60 hover:text-white/90 border border-white/10 rounded px-3 py-1.5 disabled:opacity-50"
+              >
+                {loadingMore ? "Loading…" : "Load more"}
+              </button>
+            )}
+          </>
+        )}
+      </Card>
     </Section>
   );
 }

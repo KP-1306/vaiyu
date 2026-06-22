@@ -216,14 +216,72 @@ async function onboarding() {
   return { total: apps.length, byStatus: tally(apps, "status"), recent, activated30d };
 }
 
-async function audit() {
-  const rows = await svcGet(
-    "va_audit_logs?select=at,action,actor,hotel_id,entity,entity_id&order=at.desc&limit=50",
-  );
-  return { rows };
+// Turn the audit row's meta jsonb (+ entity) into a human one-liner.
+function summarizeMeta(meta: any, entity: string, entityId: string): string {
+  const m = meta && typeof meta === "object" ? meta : {};
+  const bits: string[] = [];
+  if (m.document_type) bits.push(String(m.document_type).toUpperCase());
+  if (m.context) bits.push(String(m.context).replace(/_/g, " "));
+  if (m.band) bits.push(String(m.band));
+  if (m.total_score != null) bits.push(`score ${m.total_score}`);
+  if (m.trigger) bits.push(String(m.trigger).toLowerCase());
+  if (m.status) bits.push(String(m.status));
+  if (bits.length) return bits.join(" · ");
+  return entity ? `${entity}${entityId ? ` ${String(entityId).slice(0, 8)}` : ""}` : "";
 }
 
-const PANELS: Record<string, () => Promise<unknown>> = {
+// Recent platform actions, enriched (actor + hotel resolved, meta summarized) with
+// an action filter + id-cursor pagination. Query: ?action=&before=<id>&limit=.
+async function audit(q: Record<string, string | undefined> = {}) {
+  const action = (q.action || "").trim();
+  const beforeId = q.before ? parseInt(q.before, 10) : null;
+  const limit = Math.min(100, Math.max(10, parseInt(q.limit || "50", 10) || 50));
+
+  let path = `va_audit_logs?select=id,at,action,actor,hotel_id,entity,entity_id,meta&order=id.desc&limit=${limit + 1}`;
+  if (action) path += `&action=eq.${encodeURIComponent(action)}`;
+  if (beforeId) path += `&id=lt.${beforeId}`;
+  const raw = await svcGet(path);
+  const hasMore = raw.length > limit;
+  const page = raw.slice(0, limit);
+
+  const isUuid = (s: string) => /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(s);
+  const hotelIds = [...new Set(page.map((r) => r.hotel_id).filter(Boolean))];
+  const actorIds = [...new Set(page.map((r) => r.actor).filter((a) => a && a !== "system" && isUuid(a)))];
+
+  const hotelMap: Record<string, string> = {};
+  if (hotelIds.length) {
+    const hs = await svcGet(`hotels?select=id,name&id=in.(${hotelIds.join(",")})`).catch(() => []);
+    for (const h of hs) hotelMap[h.id] = h.name;
+  }
+  const actorMap: Record<string, { name?: string; email?: string }> = {};
+  if (actorIds.length) {
+    const ps = await svcGet(`profiles?select=id,full_name,email&id=in.(${actorIds.join(",")})`).catch(() => []);
+    for (const p of ps) actorMap[p.id] = { name: p.full_name, email: p.email };
+  }
+
+  const rows = page.map((r) => {
+    const sys = r.actor === "system";
+    const prof = !sys ? actorMap[r.actor] : undefined;
+    return {
+      at: r.at,
+      action: r.action,
+      actor: sys ? "system" : (prof?.name || prof?.email || (r.actor ? String(r.actor).slice(0, 8) : "—")),
+      actorEmail: prof?.email,
+      system: sys,
+      hotel: r.hotel_id ? (hotelMap[r.hotel_id] || `${String(r.hotel_id).slice(0, 8)}…`) : null,
+      entity: r.entity,
+      detail: summarizeMeta(r.meta, r.entity, r.entity_id),
+    };
+  });
+
+  // Distinct actions for the filter dropdown (table is small).
+  const allActions = await svcGet("va_audit_logs?select=action&limit=2000").catch(() => []);
+  const actions = [...new Set(allActions.map((a) => a.action).filter(Boolean))].sort();
+
+  return { rows, actions, nextBefore: hasMore ? page[page.length - 1].id : null };
+}
+
+const PANELS: Record<string, (q: Record<string, string | undefined>) => Promise<unknown>> = {
   summary, fleet, health, tenants, payments, onboarding, audit,
 };
 
@@ -246,7 +304,7 @@ export const handler: Handler = async (event) => {
     if (!(panel in PANELS)) return { statusCode: 404, body: "not found" };
     if (!canSeePanel(ctx.role, panel)) return { statusCode: 403, body: "forbidden" };
 
-    const data = await PANELS[panel]();
+    const data = await PANELS[panel](event.queryStringParameters || {});
     return { statusCode: 200, headers: { "content-type": "application/json" }, body: JSON.stringify(data) };
   } catch (e: any) {
     return { statusCode: 500, body: e?.message || "error" };

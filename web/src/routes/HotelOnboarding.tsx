@@ -103,7 +103,7 @@ const STEPS = [
     { key: "ops", label: "Operational Settings", icon: Settings2, desc: "GST, timings, tax & invoicing" },
     { key: "rooms", label: "Room Setup", icon: BedDouble, desc: "Define room types and manage your inventory efficiently" },
     { key: "staff", label: "Staff Setup", icon: Users, desc: "Add your staff & assign roles" },
-    { key: "features", label: "Enable Features", icon: Zap, desc: "Select the features you want" },
+    { key: "features", label: "Included Features", icon: Zap, desc: "Capabilities active on go-live" },
 ];
 
 const AMENITY_LIST = [
@@ -123,14 +123,6 @@ const PERM_MODULES = [
     { key: 'maintenance', label: 'Maintenance', subs: ['View Requests', 'Handle Requests', 'Mark Out of Order', 'Complete Task'] },
     { key: 'security', label: 'Security', subs: ['Access Reports', 'Manage Access', 'View Logs'] },
 ] as const;
-
-const CRITICAL_PERMS = new Set([
-    'sla.Override SLA', 'sla.Approve SLA Exception',
-    'financials.Approve SLA Override', 'financials.Modify Tickets',
-    'tickets.Issue Refunds', 'tickets.Reopen Ticket', 'tickets.Request Supervisor',
-    'room_service.Issue Refunds',
-    'maintenance.Mark Out of Order',
-]);
 
 type PermKey = string; // module.sub key
 interface RolePermRow {
@@ -355,12 +347,6 @@ export default function HotelOnboarding() {
     const [selectedRoleIdx, setSelectedRoleIdx] = useState<number | null>(null);
     const [roleVersion, setRoleVersion] = useState("v1.4");
     const [roleChangeLog] = useState<any[]>(() => []);
-    const togglePerm = (roleIdx: number, permKey: string) => {
-        setRolePerms(p => p.map((r, i) => i === roleIdx ? { ...r, perms: { ...r.perms, [permKey]: !r.perms[permKey] } } : r));
-    };
-    const updateScope = (roleIdx: number, modKey: string, val: string) => {
-        setRolePerms(p => p.map((r, i) => i === roleIdx ? { ...r, scopes: { ...r.scopes, [modKey]: val } } : r));
-    };
 
     /* ── Access Logs State ── */
     const [accessLogs] = useState<any[]>(() => []);
@@ -953,9 +939,6 @@ export default function HotelOnboarding() {
     const toggleAllStaff = (v: boolean) => setStaffMembers(p => p.map(s => ({ ...s, selected: v })));
     const deleteSelectedStaff = () => setStaffMembers(p => p.filter(s => !s.selected));
     const selectedStaffCount = useMemo(() => staffMembers.filter(s => s.selected).length, [staffMembers]);
-
-    const toggleFeature = (key: string) =>
-        setFeatures(p => p.map(f => f.key === key ? { ...f, enabled: !f.enabled } : f));
 
     const animateStep = (n: number) => { setTransitioning(true); setTimeout(() => { setStep(n); setTransitioning(false); }, 180); };
 
@@ -2446,28 +2429,20 @@ export default function HotelOnboarding() {
                                         );
                                     })()}
 
-                                    {/* ── Roles & Permissions Tab ── */}
+                                    {/* ── Roles Tab — role-based access; granular per-permission config intentionally omitted ── */}
                                     {staffTab === 'roles' && (() => {
                                         const filteredRoles = rolesSearch.trim()
                                             ? rolePerms.filter(r => r.roleLabel.toLowerCase().includes(rolesSearch.toLowerCase()))
                                             : rolePerms;
                                         return (
                                             <div className="space-y-5 text-slate-200 font-sans pt-2">
-                                                {/* ═══ Header ═══ */}
                                                 <div className="flex flex-wrap items-center justify-between gap-4">
                                                     <div>
-                                                        <h1 className="text-[24px] font-semibold text-white tracking-tight leading-none mb-1.5">Roles & Permissions</h1>
-                                                        <p className="text-sm text-slate-400 font-medium">Define and manage staff roles and permissions efficiently</p>
-                                                    </div>
-                                                    <div className="flex items-center gap-3">
-                                                        <button type="button" className="flex items-center gap-2 px-4 py-2 bg-[#1b192e] border border-slate-700/50 rounded-lg text-sm font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition">
-                                                            <Download size={16} /> Access <ChevronDown size={14} className="text-slate-500" />
-                                                        </button>
+                                                        <h1 className="text-[24px] font-semibold text-white tracking-tight leading-none mb-1.5">Roles</h1>
+                                                        <p className="text-sm text-slate-400 font-medium">Define the staff roles you&rsquo;ll assign under Manage Staff. Access is role-based.</p>
                                                     </div>
                                                 </div>
-
-                                                {/* Action Bar */}
-                                                <div className="flex flex-wrap items-center gap-3 pb-2 pt-1">
+                                                <div className="flex flex-wrap items-center gap-3">
                                                     <button type="button" onClick={() => setShowAddRoleModal(true)} className="flex items-center gap-1.5 bg-[#00d084] hover:bg-[#00e691] text-slate-900 font-bold text-sm px-4 py-2 rounded-lg transition shadow-lg shadow-[#00d084]/20 cursor-pointer">
                                                         <Plus size={16} className="!stroke-[2.5]" /> Add Role
                                                     </button>
@@ -2475,181 +2450,28 @@ export default function HotelOnboarding() {
                                                         <Search className="absolute left-3 top-2.5 text-slate-500" size={16} />
                                                         <input className="pl-9 pr-4 py-2 bg-[#1a1c27] border border-slate-700/50 rounded-lg text-sm text-slate-200 placeholder-slate-500 focus:border-indigo-500/50 focus:outline-none w-64 shadow-sm" placeholder="Search roles..." value={rolesSearch} onChange={e => setRolesSearch(e.target.value)} />
                                                     </div>
-                                                    <div className="relative">
-                                                        <select className="pl-4 pr-10 py-2 bg-[#1a1c27] border border-slate-700/50 rounded-lg text-sm text-slate-300 font-medium focus:outline-none shadow-sm appearance-none outline-none cursor-pointer">
-                                                            <option value="">Status</option>
-                                                            <option>Active</option>
-                                                            <option>Inactive</option>
-                                                        </select>
-                                                        <ChevronDown className="absolute right-3 top-2.5 text-slate-500 pointer-events-none" size={14} />
-                                                    </div>
-                                                    <div className="flex-1" />
-                                                    <button type="button" className="flex items-center gap-2 px-4 py-2 bg-slate-800/40 border border-slate-700/30 text-slate-400 hover:text-slate-200 rounded-lg text-sm font-semibold shadow-sm transition">
-                                                        <Filter size={14} /> Auto Tilt <ChevronDown size={14} className="text-slate-500" />
-                                                    </button>
                                                 </div>
-
-                                                {/* ═══ Main Table Container ═══ */}
-                                                <div className="rounded-xl bg-[#1e202e] border border-slate-700/40 shadow-lg overflow-hidden flex flex-col">
-                                                    <div className="px-5 py-3 border-b border-slate-700/50 flex items-center justify-between text-sm bg-[#151723]">
-                                                        <div className="text-slate-400 font-medium tracking-wide">
-                                                            Roles <span className="font-bold text-white ml-1">1 : 5</span> <span className="text-slate-600 mx-1">○</span> <span className="font-bold text-white">5</span>
-                                                        </div>
-                                                    </div>
-                                                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-700">
-                                                        <table className="w-full text-sm text-slate-300 border-collapse" style={{ minWidth: '1100px' }}>
-                                                            <thead>
-                                                                <tr className="bg-[#1b1c28] border-b border-slate-700/50 shadow-sm">
-                                                                    <th className="text-left text-[10px] uppercase font-bold text-slate-500 px-5 py-3 w-56 tracking-wider">Module</th>
-                                                                    <th className="text-left text-[10px] uppercase font-bold text-slate-500 px-2 py-3 w-32 border-r border-slate-700/30 tracking-wider">Scope <ChevronDown size={14} className="inline ml-1 text-slate-400" /></th>
-                                                                    <th className="text-center text-[10px] uppercase font-bold text-slate-500 px-3 py-3 border-r border-slate-700/30 tracking-wider">Housekeeping</th>
-                                                                    <th className="text-center text-[10px] uppercase font-bold text-slate-500 px-3 py-3 border-r border-slate-700/30 tracking-wider">SLA Management</th>
-                                                                    <th className="text-center text-[10px] uppercase font-bold text-slate-500 px-3 py-3 border-r border-slate-700/30 tracking-wider">Financials</th>
-                                                                    <th className="text-center text-[10px] uppercase font-bold text-slate-500 px-3 py-3 border-r border-slate-700/30 tracking-wider">Ticket Lifecycle</th>
-                                                                    <th className="text-center text-[10px] uppercase font-bold text-slate-500 px-3 py-3 border-r border-slate-700/30 tracking-wider">Room Service</th>
-                                                                    <th className="text-center text-[10px] uppercase font-bold text-slate-500 px-3 py-3 border-r border-slate-700/30 tracking-wider">Maintenance</th>
-                                                                    <th className="text-center text-[10px] uppercase font-bold text-slate-500 px-3 py-3 tracking-wider">Security</th>
-                                                                </tr>
-                                                                {/* Secondary Header Row */}
-                                                                <tr className="bg-[#181924] border-b border-slate-700/50">
-                                                                    <td className="px-5 py-3 text-slate-400 text-xs font-semibold">Module</td>
-                                                                    <td className="px-2 py-3 border-r border-slate-700/30">
-                                                                        <select className="bg-slate-800 border border-slate-700 text-slate-300 text-[11px] rounded px-2 py-1 pr-6 appearance-none shadow-sm w-full font-semibold outline-none">
-                                                                            <option>Global</option>
-                                                                        </select>
-                                                                    </td>
-                                                                    {[
-                                                                        { v: 'Global', d: 'varge 15', c: 'border-slate-700/30' },
-                                                                        { v: 'Assigned Zones Only', d: 'Boonasa 13', c: 'bg-indigo-500/10 border border-slate-700/30 text-indigo-300' },
-                                                                        { v: 'Global', d: 'Boonasa 13', c: 'border-slate-700/30' },
-                                                                        { v: 'Global', d: 'Boonasa 13', c: 'border-slate-700/30' },
-                                                                        { v: 'Global', d: 'Boonasa 13', c: 'border-slate-700/30' },
-                                                                        { v: 'Global', d: 'Rlimnage 15', c: 'border-slate-700/30' },
-                                                                        { v: 'Global', d: 'Acpper 15', c: '' }
-                                                                    ].map((opt, i) => (
-                                                                        <td key={i} className={`px-2 py-2 text-center align-top border-r ${opt.c.includes('border-r') ? '' : opt.c}`}>
-                                                                            <div className="flex flex-col items-center gap-1.5">
-                                                                                <select className={`text-xs rounded px-2 py-1 pr-6 outline-none appearance-none shadow-sm w-[110px] bg-slate-800 border border-slate-700 text-slate-300 font-medium ${opt.v.includes('Zones') ? 'bg-indigo-500/20 border-indigo-500/30 text-indigo-300' : ''}`} defaultValue={opt.v}>
-                                                                                    <option>{opt.v}</option>
-                                                                                    <option>Global</option>
-                                                                                </select>
-                                                                                <span className="text-[10px] text-slate-500 flex items-center justify-center gap-1 font-medium">
-                                                                                    <span className="flex items-center justify-center w-[12px] h-[12px] rounded-full border border-slate-600">
-                                                                                        <span className="w-1.5 h-1.5 bg-slate-500 rounded-full" />
-                                                                                    </span>
-                                                                                    {opt.d}
-                                                                                </span>
-                                                                            </div>
-                                                                        </td>
-                                                                    ))}
-                                                                </tr>
-                                                            </thead>
-                                                            <tbody className="divide-y divide-slate-700/30 bg-[#1e202e]">
-                                                                {filteredRoles.map((role, ri) => {
-                                                                    const isCompact = ['Manager', 'Receptionist', 'Housekeeper', 'Security Guard'].includes(role.roleLabel);
-                                                                    return (
-                                                                        <tr key={ri} className={`transition ${!isCompact ? 'bg-[#1b1c28]' : 'hover:bg-slate-800/20'}`}>
-                                                                            {/* Name & Avatar */}
-                                                                            <td className={`px-4 py-3 align-top ${!isCompact ? 'pt-4' : ''}`}>
-                                                                                <div className="flex items-start gap-3">
-                                                                                    <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(role.roleLabel)}&background=random&color=fff`} className="w-9 h-9 rounded-full shadow-sm object-cover" alt="" />
-                                                                                    <div className="min-w-0 pt-0.5">
-                                                                                        <p className="text-[15px] font-bold text-slate-200 tracking-tight">{role.roleLabel}</p>
-                                                                                        {role.contact ? <p className="text-xs text-slate-400 whitespace-nowrap">{role.contact}</p> : <p className="text-xs text-slate-500 italic">pecery misionstiot Avr...</p>}
-                                                                                    </div>
-                                                                                </div>
-                                                                            </td>
-                                                                            {/* Primary Scope */}
-                                                                            <td className={`px-2 py-3 align-top border-r border-slate-700/30 ${!isCompact ? 'pt-4' : ''}`}>
-                                                                                {!isCompact ? (
-                                                                                    <div className="flex items-center justify-between px-2 py-1 bg-slate-800 border border-slate-700 rounded text-xs font-semibold text-slate-300 shadow-sm w-[90px] cursor-pointer">
-                                                                                        Global <ChevronDown size={14} className="text-slate-500" />
-                                                                                    </div>
-                                                                                ) : null}
-                                                                            </td>
-
-                                                                            {/* Module Loop */}
-                                                                            {PERM_MODULES.map((mod, mi) => {
-                                                                                const isLast = mi === PERM_MODULES.length - 1;
-                                                                                return (
-                                                                                    <td key={mod.key} className={`px-3 py-3 align-top border-r border-slate-700/30 ${isLast ? 'border-r-0' : ''}`}>
-                                                                                        {!isCompact && (
-                                                                                            <div className={`mb-3 flex items-center justify-between px-2 py-1 bg-slate-800 rounded text-xs font-semibold shadow-sm w-full cursor-pointer border ${role.scopes[mod.key] === 'Assigned Zones Only' ? 'bg-[#1b2b24] border-[#294d3f] text-[#4edb9a]' : 'border-slate-700 text-slate-300'}`}>
-                                                                                                {role.scopes[mod.key] === 'Assigned Zones Only' ? 'Assigned Zones Only' : 'Global'} <ChevronDown size={14} className="text-slate-500" />
-                                                                                            </div>
-                                                                                        )}
-                                                                                        <div className={`flex ${isCompact ? 'flex-row items-center justify-center gap-2 mt-2' : 'flex-col gap-2'}`}>
-                                                                                            {mod.subs.map((sub, si) => {
-                                                                                                const pk = `${mod.key}.${sub}`;
-                                                                                                const on = role.perms[pk];
-                                                                                                const isCritical = CRITICAL_PERMS.has(pk);
-                                                                                                // For compact roles, randomly limit rendering to 2 or 1 checkbox to match design visuals closely instead of mapping all subs.
-                                                                                                if (isCompact && si >= (mi < 4 ? 2 : 1)) return null;
-
-                                                                                                return (
-                                                                                                    <div key={sub} className="flex items-center gap-2">
-                                                                                                        <button type="button" onClick={() => togglePerm(ri, pk)}
-                                                                                                            className={`w-[18px] h-[18px] rounded flex items-center justify-center text-[10px] font-bold transition shadow-sm ${on
-                                                                                                                ? isCritical
-                                                                                                                    ? 'bg-rose-500 text-white'
-                                                                                                                    : 'bg-[#48947f] text-white border border-[#3d7a69]'
-                                                                                                                : 'bg-white border border-slate-300 text-transparent hover:border-slate-400'
-                                                                                                                }`}
-                                                                                                        >
-                                                                                                            {on ? (isCritical ? '!' : '✓') : '✓'}
-                                                                                                        </button>
-                                                                                                        {!isCompact && (
-                                                                                                            <span className={`text-[11px] font-bold truncate tracking-tight ${on ? (isCritical ? 'text-rose-500' : 'text-[#48947f]') : 'text-slate-500'}`}>{sub}</span>
-                                                                                                        )}
-                                                                                                    </div>
-                                                                                                );
-                                                                                            })}
-                                                                                        </div>
-
-                                                                                        {/* Actions appended in last column */}
-                                                                                        {isLast && (
-                                                                                            <div className={`flex flex-col gap-2 mt-2 items-end float-right absolute right-12 ${!isCompact ? 'mt-8' : ''}`}>
-                                                                                                <button type="button" className="p-1.5 text-slate-400 hover:text-indigo-600 border border-slate-200 rounded-md shadow-sm bg-white transition cursor-pointer">
-                                                                                                    <Pencil size={12} strokeWidth={2.5} />
-                                                                                                </button>
-                                                                                                <button type="button" onClick={() => setRolePerms(p => p.filter((_, i) => i !== ri))} className="p-1.5 text-rose-300 hover:text-rose-500 border border-rose-100 rounded-md shadow-sm bg-rose-50/30 transition cursor-pointer">
-                                                                                                    <Trash2 size={12} strokeWidth={2.5} />
-                                                                                                </button>
-                                                                                            </div>
-                                                                                        )}
-                                                                                    </td>
-                                                                                );
-                                                                            })}
-                                                                        </tr>
-                                                                    );
-                                                                })}
-                                                            </tbody>
-                                                        </table>
-                                                    </div>
-
-                                                    {/* Footer Pagination Row */}
-                                                    <div className="flex items-center justify-between px-6 py-4 bg-[#f8f7fa] border-t border-slate-200">
-                                                        <span className="text-sm font-semibold text-slate-600">Total Staff: {rolePerms.length}</span>
-                                                        <div className="flex items-center gap-8 text-sm text-slate-600 font-medium">
-                                                            <span>1 - {filteredRoles.length} of {filteredRoles.length}</span>
-                                                            <div className="flex items-center gap-3">
-                                                                <span>1-{filteredRoles.length} of 5</span>
-                                                                <div className="flex items-center gap-1 border border-slate-200 bg-white rounded-lg p-1 shadow-sm">
-                                                                    <button type="button" className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded"><ArrowLeft size={16} /></button>
-                                                                    <button type="button" className="p-1 px-3 text-slate-800 font-bold hover:bg-slate-50 rounded">4</button>
-                                                                    <button type="button" className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded"><ArrowRight size={16} /></button>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
+                                                <div className="rounded-xl bg-[#1e202e] border border-slate-700/40 shadow-lg overflow-hidden">
+                                                    {filteredRoles.length === 0 ? (
+                                                        <div className="px-5 py-10 text-center text-sm text-slate-500">No roles yet &mdash; add the roles your hotel uses (e.g. Manager, Front Desk, Housekeeping).</div>
+                                                    ) : (
+                                                        <ul className="divide-y divide-slate-700/30">
+                                                            {filteredRoles.map((role, ri) => (
+                                                                <li key={ri} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-800/20 transition">
+                                                                    <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(role.roleLabel)}&background=random&color=fff`} className="w-9 h-9 rounded-full shadow-sm object-cover shrink-0" alt="" />
+                                                                    <div className="min-w-0 flex-1">
+                                                                        <p className="text-[15px] font-bold text-slate-200 tracking-tight truncate">{role.roleLabel}</p>
+                                                                        {role.contact ? <p className="text-xs text-slate-400 truncate">{role.contact}</p> : null}
+                                                                    </div>
+                                                                    <button type="button" onClick={() => setRolePerms(p => p.filter((_, i) => i !== ri))} className="p-2 text-rose-300 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition cursor-pointer shrink-0" title="Remove role">
+                                                                        <Trash2 size={15} strokeWidth={2.5} />
+                                                                    </button>
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    )}
                                                 </div>
-
-                                                {/* Reset Button */}
-                                                <div className="pt-2">
-                                                    <button type="button" className="px-6 py-2.5 bg-[#eae8f0] text-slate-700 font-semibold rounded-lg hover:bg-[#e0dceb] transition shadow-sm text-sm">
-                                                        Reset
-                                                    </button>
-                                                </div>
+                                                <p className="text-[11px] text-slate-500">Access is governed by the assigned role &mdash; VAiyu uses fixed role capabilities (no per-permission toggles).</p>
                                             </div>
                                         );
                                     })()}
@@ -2947,28 +2769,16 @@ export default function HotelOnboarding() {
                             {/* ═══════════════════════════════════════════ */}
                             {step === 4 && (
                                 <div className="space-y-3">
+                                    <p className="text-sm text-slate-400 mb-1">These capabilities are included for every hotel and active on go-live. Per-hotel / plan-based feature gating isn&rsquo;t configurable yet.</p>
                                     {features.map(f => (
-                                        <div
-                                            key={f.key}
-                                            onClick={() => toggleFeature(f.key)}
-                                            className={`
-                                        group flex items-center gap-4 p-5 rounded-2xl border cursor-pointer transition-all duration-200
-                                        ${f.enabled
-                                                    ? "bg-indigo-500/8 border-indigo-500/30"
-                                                    : "bg-slate-800/20 border-slate-700/30 hover:border-slate-600/50"
-                                                }
-                                    `}
-                                        >
+                                        <div key={f.key} className="flex items-center gap-4 p-5 rounded-2xl border bg-slate-800/20 border-slate-700/30">
                                             <div className="flex-1">
-                                                <h4 className={`text-sm font-bold ${f.enabled ? "text-white" : "text-slate-400"}`}>{f.label}</h4>
-                                                <p className={`text-xs mt-0.5 leading-relaxed ${f.enabled ? "text-slate-400" : "text-slate-600"}`}>{f.desc}</p>
+                                                <h4 className="text-sm font-bold text-white">{f.label}</h4>
+                                                <p className="text-xs mt-0.5 leading-relaxed text-slate-400">{f.desc}</p>
                                             </div>
-                                            <div className={`
-                                        relative w-14 h-8 rounded-full transition-all duration-300 shrink-0
-                                        ${f.enabled ? "bg-gradient-to-r from-indigo-500 to-violet-500 shadow-lg shadow-indigo-500/20" : "bg-slate-700"}
-                                    `}>
-                                                <div className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow transition-all duration-300 ${f.enabled ? "left-[26px]" : "left-1"}`} />
-                                            </div>
+                                            <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400 shrink-0">
+                                                <Check size={15} strokeWidth={2.5} /> Included
+                                            </span>
                                         </div>
                                     ))}
                                 </div>

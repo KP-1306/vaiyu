@@ -396,6 +396,13 @@ export default function HotelOnboarding() {
         setParseTags([]);
         setPreviewRooms([]);
         setInventorySearch("");
+        // Belt-and-suspenders: clear the backing localStorage immediately. The
+        // setState calls above re-persist clean defaults via useStickyState, but
+        // an explicit wipe guarantees a stale value can't survive into the next
+        // onboarding session even if the component unmounts before those effects
+        // flush (e.g. the post-success redirect). Keys MUST match the
+        // useStickyState keys (roomTypes/staff/roles are the _v2 variants).
+        ["vaiyu_ob_step", "vaiyu_ob_form", "vaiyu_ob_roomTypes_v2", "vaiyu_ob_inventory", "vaiyu_ob_staff_v2", "vaiyu_ob_roles_v2", "vaiyu_ob_features", "vaiyu_ob_hotel_id"].forEach(k => window.localStorage.removeItem(k));
     }, []);
 
     /* ── Hotel Search & Auto-Population ── */
@@ -1165,8 +1172,18 @@ export default function HotelOnboarding() {
                 if (activateErr) throw activateErr;
 
                 setSuccess(true);
-                ["vaiyu_ob_step", "vaiyu_ob_form", "vaiyu_ob_roomTypes", "vaiyu_ob_inventory", "vaiyu_ob_staff", "vaiyu_ob_roles", "vaiyu_ob_features", "vaiyu_ob_hotel_id"].forEach(k => window.localStorage.removeItem(k));
-                setTimeout(() => navigate(`/owner/${form.slug}`), 3000);
+                // Capture the slug before any reset blanks the form — needed for the
+                // post-onboarding redirect below.
+                const completedSlug = form.slug;
+                // Clear the backing storage IMMEDIATELY so closing the tab during the 3s
+                // redirect window can't leave this completed hotel behind as a "resume"
+                // draft. Keys MUST match the useStickyState keys (roomTypes/staff/roles
+                // are the _v2 variants).
+                ["vaiyu_ob_step", "vaiyu_ob_form", "vaiyu_ob_roomTypes_v2", "vaiyu_ob_inventory", "vaiyu_ob_staff_v2", "vaiyu_ob_roles_v2", "vaiyu_ob_features", "vaiyu_ob_hotel_id"].forEach(k => window.localStorage.removeItem(k));
+                // Then reset the in-memory sticky state before navigating away — this also
+                // defeats the useStickyState remount re-persist of stale values, so the
+                // NEXT hotel onboarded in this browser starts clean.
+                setTimeout(() => { resetOnboardingState(); navigate(`/owner/${completedSlug}`); }, 3000);
             }
         } catch (err: any) {
             setError(err.message || "Failed to save step data");

@@ -425,7 +425,18 @@ const router = createBrowserRouter([
       },
 
       // Hotel Onboarding & Invitations
-      { path: "onboard", element: <HotelOnboarding /> },
+      // Onboarding is a VAiyu-operated flow (platform staff onboard the hotel and add
+      // the owner during it) — platform-admin only, matching the create/mark RPC guards.
+      {
+        path: "onboard",
+        element: (
+          <AuthGate>
+            <PlatformAdminGate>
+              <HotelOnboarding />
+            </PlatformAdminGate>
+          </AuthGate>
+        ),
+      },
       { path: "invite/:token", element: <InviteValidation /> },
       { path: "invite/accept/:token", element: <InviteAcceptance /> },
 

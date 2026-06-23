@@ -221,6 +221,9 @@ export default function HotelOnboarding() {
     const [error, setError] = useState("");
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
     const [success, setSuccess] = useState(false);
+    // Captured at activation so the handoff screen shows stable values (the form is
+    // only reset when the operator chooses "Onboard another", not on success).
+    const [completion, setCompletion] = useState<{ name: string; slug: string; invited: number } | null>(null);
     const [transitioning, setTransitioning] = useState(false);
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
@@ -1171,19 +1174,20 @@ export default function HotelOnboarding() {
                 const { error: activateErr } = await supabase.rpc('activate_hotel', { p_hotel_id: hotelId });
                 if (activateErr) throw activateErr;
 
-                setSuccess(true);
-                // Capture the slug before any reset blanks the form — needed for the
-                // post-onboarding redirect below.
-                const completedSlug = form.slug;
-                // Clear the backing storage IMMEDIATELY so closing the tab during the 3s
-                // redirect window can't leave this completed hotel behind as a "resume"
-                // draft. Keys MUST match the useStickyState keys (roomTypes/staff/roles
-                // are the _v2 variants).
+                // Capture handoff facts before showing the terminal screen.
+                setCompletion({
+                    name: form.name,
+                    slug: form.slug,
+                    invited: staffMembers.filter(s => s.email.trim()).length,
+                });
+                // Clear the backing storage IMMEDIATELY so closing the tab on the success
+                // screen can't leave this completed hotel behind as a "resume" draft. Keys
+                // MUST match the useStickyState keys (roomTypes/staff/roles are the _v2
+                // variants). In-memory sticky state is reset only when the operator picks
+                // "Onboard another" — the handoff screen reads from `completion`, not `form`,
+                // so showing it with the form still populated is harmless.
                 ["vaiyu_ob_step", "vaiyu_ob_form", "vaiyu_ob_roomTypes_v2", "vaiyu_ob_inventory", "vaiyu_ob_staff_v2", "vaiyu_ob_roles_v2", "vaiyu_ob_features", "vaiyu_ob_hotel_id"].forEach(k => window.localStorage.removeItem(k));
-                // Then reset the in-memory sticky state before navigating away — this also
-                // defeats the useStickyState remount re-persist of stale values, so the
-                // NEXT hotel onboarded in this browser starts clean.
-                setTimeout(() => { resetOnboardingState(); navigate(`/owner/${completedSlug}`); }, 3000);
+                setSuccess(true);
             }
         } catch (err: any) {
             setError(err.message || "Failed to save step data");
@@ -1211,17 +1215,46 @@ export default function HotelOnboarding() {
     if (success) {
         return (
             <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
-                <div className="text-center space-y-6 animate-[fadeUp_0.6s_ease-out]">
+                <div className="w-full max-w-md text-center space-y-6 animate-[fadeUp_0.6s_ease-out]">
                     <div className="relative mx-auto w-24 h-24">
                         <div className="absolute inset-0 rounded-full bg-emerald-500/20 animate-ping" />
                         <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-xl shadow-emerald-500/30">
                             <Check className="w-12 h-12 text-white" strokeWidth={3} />
                         </div>
                     </div>
-                    <h1 className="text-4xl font-extrabold text-white tracking-tight">You're all set! 🎉</h1>
-                    <p className="text-slate-400 text-lg"><span className="text-indigo-400 font-bold">{form.name}</span> is now live.</p>
-                    <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
-                        <Loader2 size={14} className="animate-spin" /> Redirecting…
+                    <div className="space-y-2">
+                        <h1 className="text-4xl font-extrabold text-white tracking-tight">Hotel is live! 🎉</h1>
+                        <p className="text-slate-400 text-lg"><span className="text-indigo-400 font-bold">{completion?.name}</span> has been activated.</p>
+                    </div>
+
+                    {/* Handoff: the operator isn't a member of this hotel — the owner & team
+                        gain access through their email invites, not through this console. */}
+                    <div className="rounded-2xl border border-slate-800/80 bg-slate-900/50 p-4 text-left flex items-start gap-3">
+                        <div className="mt-0.5 shrink-0 w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+                            <Mail size={16} className="text-indigo-400" />
+                        </div>
+                        <div className="text-sm text-slate-300 leading-relaxed">
+                            <span className="font-semibold text-white">
+                                {completion?.invited ?? 0} invitation{completion?.invited === 1 ? "" : "s"} sent
+                            </span>{" "}
+                            by email — including the owner. They’ll get access once they accept; you don’t
+                            need to enter the property yourself.
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col gap-3 pt-1">
+                        <button
+                            onClick={() => { setSuccess(false); setCompletion(null); resetOnboardingState(); }}
+                            className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 text-white font-semibold shadow-lg shadow-indigo-500/20 hover:from-indigo-400 hover:to-violet-500 transition-all"
+                        >
+                            <Plus size={18} /> Onboard another hotel
+                        </button>
+                        <button
+                            onClick={() => navigate("/admin/platform")}
+                            className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-slate-700 text-slate-300 font-medium hover:bg-slate-800/60 hover:text-white transition-all"
+                        >
+                            Go to Operator Console <ArrowRight size={16} />
+                        </button>
                     </div>
                 </div>
                 <style>{`@keyframes fadeUp { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }`}</style>

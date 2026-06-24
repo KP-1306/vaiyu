@@ -11,6 +11,7 @@ import { SourceFilterDropdown } from './SourceFilterDropdown';
 import { AssigneeFilterDropdown } from './AssigneeFilterDropdown';
 import { SortDropdown } from './SortDropdown';
 import { FilterSheet } from './FilterSheet';
+import { useOwnerT } from '../../i18n/useOwnerT';
 import {
   DEFAULT_FILTERS,
   activeFilterCount,
@@ -27,6 +28,7 @@ interface Props {
 const SEARCH_DEBOUNCE_MS = 250;
 
 export function LeadsFilterBar({ filters, onChange }: Props) {
+  const t = useOwnerT('owner-leads');
   const [sheetOpen, setSheetOpen] = useState(false);
   // Local search state — debounced to avoid spamming the network on every keystroke
   const [searchInput, setSearchInput] = useState(filters.q ?? '');
@@ -71,15 +73,15 @@ export function LeadsFilterBar({ filters, onChange }: Props) {
               type="search"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Search name, phone, email…"
+              placeholder={t('filterBar.searchPlaceholder', 'Search name, phone, email…')}
               data-testid="leads-search-input"
-              aria-label="Search leads"
+              aria-label={t('filterBar.searchAria', 'Search leads')}
               className="w-full pl-9 pr-9 py-2 rounded-lg bg-black/30 border border-white/10 text-sm text-white placeholder:text-white/40 focus:border-emerald-400 focus:outline-none"
             />
             {searchInput && (
               <button
                 type="button"
-                aria-label="Clear search"
+                aria-label={t('filterBar.clearSearch', 'Clear search')}
                 onClick={() => setSearchInput('')}
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-white/40 hover:text-white"
               >
@@ -121,7 +123,7 @@ export function LeadsFilterBar({ filters, onChange }: Props) {
             `}
           >
             <SlidersHorizontal className="h-3.5 w-3.5" />
-            Filters{fCount > 0 ? ` (${fCount})` : ''}
+            {t('filterBar.filters', 'Filters')}{fCount > 0 ? ` (${fCount})` : ''}
           </button>
 
           {/* Sort always visible */}
@@ -135,14 +137,14 @@ export function LeadsFilterBar({ filters, onChange }: Props) {
         {anyActive && (
           <div className="flex items-center gap-3 mt-2 text-xs">
             <span className="text-white/50">
-              {fCount} filter{fCount === 1 ? '' : 's'} active
+              {t('filterBar.filtersActive', '{{count}} filters active', { count: fCount })}
             </span>
             <button
               type="button"
               onClick={clearAll}
               className="text-emerald-300 hover:text-emerald-200 underline-offset-2 hover:underline"
             >
-              Clear all
+              {t('filterBar.clearAll', 'Clear all')}
             </button>
           </div>
         )}

@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useSearchParams, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Spinner from "../components/Spinner";
-import { useOwnerT } from "../i18n/useOwnerT";
+import { useOwnerT, useOwnerLocale, useOwnerCommonT, localizeCode } from "../i18n/useOwnerT";
 
 import { useTicketsRealtime } from "../hooks/useTicketsRealtime";
 import UsageMeter from "../components/UsageMeter";
@@ -259,11 +259,6 @@ function canSee(role: DashboardRole | null, section: keyof typeof SECTION_VISIBI
   return !allowed || allowed.includes(role);
 }
 
-function roleLabel(role: DashboardRole | null): string {
-  if (!role) return "—";
-  return role.charAt(0).toUpperCase() + role.slice(1);
-}
-
 /** ========= Small helpers to sanitize slug ========= */
 function normalizeSlug(raw?: string) {
   const s = (raw || "").trim();
@@ -292,6 +287,8 @@ function computeAvgResponseMin(slaSeries?: any[] | null): number | null {
 
 /** ========= Page ========= */
 export default function OwnerDashboard() {
+  const t = useOwnerT("owner-dashboard");
+  const ownerLocale = useOwnerLocale();
   const paramsHook = useParams();
   const rawSlug = paramsHook.slug;
   const slug = normalizeSlug(rawSlug);
@@ -988,15 +985,15 @@ export default function OwnerDashboard() {
   /** ======= UI States ======= */
   if (loading) {
     return (
-      <main className="min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200">
-        <Spinner label="Loading property dashboard…" />
+      <main className="vaiyu-owner min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200">
+        <Spinner label={t("loading", "Loading property dashboard…")} />
       </main>
     );
   }
 
   if (accessProblem) {
     return (
-      <main className="min-h-screen bg-[#0B0E14] text-slate-200">
+      <main className="vaiyu-owner min-h-screen bg-[#0B0E14] text-slate-200">
         <div className="max-w-3xl mx-auto p-6">
           <AccessHelp
             slug={slug}
@@ -1010,13 +1007,13 @@ export default function OwnerDashboard() {
 
   if (!hotel) {
     return (
-      <main className="min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200">
+      <main className="vaiyu-owner min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200">
         <div className="rounded-2xl border border-slate-800/50 bg-[#151A25] p-8 text-center max-w-md">
           <div className="text-4xl mb-3">🏨</div>
-          <div className="text-lg font-semibold mb-2 text-white">No property to show</div>
-          <p className="text-sm text-slate-400">Open your property from the Owner Home.</p>
+          <div className="text-lg font-semibold mb-2 text-white">{t("noProperty.title", "No property to show")}</div>
+          <p className="text-sm text-slate-400">{t("noProperty.body", "Open your property from the Owner Home.")}</p>
           <div className="mt-4">
-            <Link to="/owner" className="inline-flex items-center rounded-lg border border-slate-700 bg-[#0B0E14] px-4 py-2 text-sm text-slate-200 hover:bg-slate-800 transition-colors">Owner Home</Link>
+            <Link to="/owner" className="inline-flex items-center rounded-lg border border-slate-700 bg-[#0B0E14] px-4 py-2 text-sm text-slate-200 hover:bg-slate-800 transition-colors">{t("noProperty.cta", "Owner Home")}</Link>
           </div>
         </div>
       </main>
@@ -1092,7 +1089,7 @@ export default function OwnerDashboard() {
   const blockedCount = slaBreached != null ? slaBreached : null;
 
   const now = new Date();
-  const dateLabel = now.toLocaleDateString(undefined, {
+  const dateLabel = now.toLocaleDateString(ownerLocale, {
     weekday: "short",
     day: "2-digit",
     month: "short",
@@ -1100,7 +1097,7 @@ export default function OwnerDashboard() {
 
   /** ======= Shift-aware greeting ======= */
   const hour = now.getHours();
-  const shiftGreeting = hour >= 6 && hour < 12 ? "Good morning" : hour >= 12 && hour < 17 ? "Good afternoon" : hour >= 17 && hour < 22 ? "Good evening" : "Night operations";
+  const shiftGreeting = hour >= 6 && hour < 12 ? t("greeting.morning", "Good morning") : hour >= 12 && hour < 17 ? t("greeting.afternoon", "Good afternoon") : hour >= 17 && hour < 22 ? t("greeting.evening", "Good evening") : t("greeting.night", "Night operations");
   const shiftIcon = hour >= 6 && hour < 12 ? "☀️" : hour >= 12 && hour < 17 ? "🌤️" : hour >= 17 && hour < 22 ? "🌙" : "🌃";
 
   /** ======= Attention strip — single source of truth for "what needs me right now" =======
@@ -1113,9 +1110,9 @@ export default function OwnerDashboard() {
       key: "sla",
       severity: "critical",
       icon: AlertTriangle,
-      title: `${blockedCount} SLA breach${blockedCount === 1 ? "" : "es"}`,
-      subtitle: "Service requests past their target response time.",
-      cta: { label: "Open ops board", to: `/ops?slug=${encodeURIComponent(hotel.slug)}` },
+      title: t("attn.slaBreach", "{{count}} SLA breaches", { count: blockedCount }),
+      subtitle: t("attn.slaBreachSub", "Service requests past their target response time."),
+      cta: { label: t("attn.openOpsBoard", "Open ops board"), to: `/ops?slug=${encodeURIComponent(hotel.slug)}` },
     });
   }
 
@@ -1124,9 +1121,9 @@ export default function OwnerDashboard() {
       key: "atRisk",
       severity: "critical",
       icon: Clock,
-      title: `${tasksAtRisk} task${tasksAtRisk === 1 ? "" : "s"} at risk`,
-      subtitle: "Approaching SLA threshold — triage now.",
-      cta: { label: "Triage", to: `/ops?slug=${encodeURIComponent(hotel.slug)}` },
+      title: t("attn.tasksAtRisk", "{{count}} tasks at risk", { count: tasksAtRisk }),
+      subtitle: t("attn.atRiskSub", "Approaching SLA threshold — triage now."),
+      cta: { label: t("attn.triage", "Triage"), to: `/ops?slug=${encodeURIComponent(hotel.slug)}` },
     });
   }
 
@@ -1135,11 +1132,11 @@ export default function OwnerDashboard() {
       key: "departures",
       severity: "warning",
       icon: LogOut,
-      title: `${departuresCount} pending departure${departuresCount === 1 ? "" : "s"}`,
+      title: t("attn.departures", "{{count}} pending departures", { count: departuresCount }),
       subtitle: departuresCount === 1
-        ? "Process checkout to free the room and close the folio."
-        : "Process checkouts to free rooms and close folios.",
-      cta: { label: "Process", to: `/owner/${hotel.slug}/arrivals` },
+        ? t("attn.departuresSub_one", "Process checkout to free the room and close the folio.")
+        : t("attn.departuresSub_other", "Process checkouts to free rooms and close folios."),
+      cta: { label: t("attn.process", "Process"), to: `/owner/${hotel.slug}/arrivals` },
     });
   }
 
@@ -1148,11 +1145,11 @@ export default function OwnerDashboard() {
       key: "extensions",
       severity: "warning",
       icon: CalendarPlus,
-      title: `${pendingExtensionCount} stay extension${pendingExtensionCount === 1 ? "" : "s"} awaiting approval`,
+      title: t("attn.extensions", "{{count}} stay extensions awaiting approval", { count: pendingExtensionCount }),
       subtitle: pendingExtensionCount === 1
-        ? "Guest requested a longer stay — approve or decline before checkout."
-        : "Guests requested longer stays — approve or decline before checkout.",
-      cta: { label: "Review", to: `/owner/${hotel.slug}/arrivals` },
+        ? t("attn.extensionsSub_one", "Guest requested a longer stay — approve or decline before checkout.")
+        : t("attn.extensionsSub_other", "Guests requested longer stays — approve or decline before checkout."),
+      cta: { label: t("attn.review", "Review"), to: `/owner/${hotel.slug}/arrivals` },
     });
   }
 
@@ -1164,9 +1161,9 @@ export default function OwnerDashboard() {
       key: "hiring",
       severity: "info",
       icon: Users,
-      title: `${openJobsCount} open hiring role${openJobsCount === 1 ? "" : "s"}`,
-      subtitle: "Review applicants to close staffing gaps.",
-      cta: { label: "Review", to: `/owner/${hotel.slug}/staff-shifts` },
+      title: t("attn.hiring", "{{count}} open hiring roles", { count: openJobsCount }),
+      subtitle: t("attn.hiringSub", "Review applicants to close staffing gaps."),
+      cta: { label: t("attn.review", "Review"), to: `/owner/${hotel.slug}/staff-shifts` },
     });
   }
 
@@ -1175,9 +1172,9 @@ export default function OwnerDashboard() {
       key: "pricing-review",
       severity: "info",
       icon: Tag,
-      title: `Pricing on manual review · ${pricingReviewActive.rulesCount} rule${pricingReviewActive.rulesCount === 1 ? "" : "s"} active`,
-      subtitle: "Engine is producing recommendations but not auto-applying. Review tonight's rates.",
-      cta: { label: "Review rates", to: `/owner/${hotel.slug}/pricing` },
+      title: t("attn.pricingReview", "Pricing on manual review · {{count}} rules active", { count: pricingReviewActive.rulesCount }),
+      subtitle: t("attn.pricingReviewSub", "Engine is producing recommendations but not auto-applying. Review tonight's rates."),
+      cta: { label: t("attn.reviewRates", "Review rates"), to: `/owner/${hotel.slug}/pricing` },
     });
   }
 
@@ -1237,13 +1234,13 @@ export default function OwnerDashboard() {
 
   /** ======= Render (operations command center) ======= */
   return (
-    <main className="min-h-screen bg-[#0B0E14] text-slate-200 font-sans selection:bg-emerald-500/30">
+    <main className="vaiyu-owner min-h-screen bg-[#0B0E14] text-slate-200 font-sans selection:bg-emerald-500/30">
       {/* Breadcrumb strip */}
       <div className="flex items-center gap-2 px-4 sm:px-6 py-3 text-xs font-medium text-slate-400 border-b border-slate-800/50 bg-[#0B0E14] sticky top-0 z-50 backdrop-blur-md">
         <div className="flex items-center gap-1.5 min-w-0">
-          <Link to="/owner" className="hover:text-white transition-colors truncate">Console</Link>
+          <Link to="/owner" className="hover:text-white transition-colors truncate">{t("chrome.console", "Console")}</Link>
           <span className="text-slate-700">/</span>
-          <span className="text-slate-200 truncate">Dashboard</span>
+          <span className="text-slate-200 truncate">{t("chrome.dashboard", "Dashboard")}</span>
         </div>
         <div className="ml-auto flex items-center gap-2 shrink-0" />
         {/* Removed loud "Live" indicator — it overpromised. Realtime only covers
@@ -1257,7 +1254,7 @@ export default function OwnerDashboard() {
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowMobileNav(false)} />
           <aside className="fixed inset-y-0 left-0 w-72 bg-[#0B0E14] border-r border-slate-800/50 p-6 overflow-y-auto">
             <div className="flex items-center justify-between mb-8">
-              <div className="text-sm font-bold text-white uppercase tracking-widest">Navigation</div>
+              <div className="text-sm font-bold text-white uppercase tracking-widest">{t("chrome.navigation", "Navigation")}</div>
               <button onClick={() => setShowMobileNav(false)} className="p-2 text-slate-400 hover:text-white">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
               </button>
@@ -1277,7 +1274,7 @@ export default function OwnerDashboard() {
                 type="button"
                 onClick={() => setShowMobileNav(true)}
                 className="inline-flex lg:hidden items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-2.5 hover:bg-emerald-500/20 transition-colors text-emerald-400 shrink-0"
-                title="Menu"
+                title={t("chrome.menu", "Menu")}
               >
                 <SvgMenu />
               </button>
@@ -1313,7 +1310,7 @@ export default function OwnerDashboard() {
                 type="button"
                 onClick={() => window.location.reload()}
                 className="inline-flex items-center justify-center rounded-lg border border-slate-800 bg-[#151A25] p-2.5 hover:bg-slate-800 transition-colors text-slate-400 hover:text-white"
-                title="Refresh metrics (revenue, occupancy, trends). Realtime data updates automatically."
+                title={t("chrome.refreshTitle", "Refresh metrics (revenue, occupancy, trends). Realtime data updates automatically.")}
               >
                 <SvgSync />
               </button>
@@ -1327,11 +1324,11 @@ export default function OwnerDashboard() {
           <button
             type="button"
             onClick={() => window.dispatchEvent(new Event("vaiyu:open-search"))}
-            aria-label="Search bookings, guests, and pages (Command or Control + K)"
+            aria-label={t("chrome.searchAria", "Search bookings, guests, and pages (Command or Control + K)")}
             className="group flex w-full items-center gap-3 rounded-xl border border-slate-800 bg-[#151A25] px-4 py-2.5 text-left text-sm text-slate-400 hover:border-indigo-500/40 hover:bg-[#1a2030] transition-colors"
           >
             <Search size={16} className="text-slate-500 group-hover:text-indigo-400 transition-colors" />
-            <span className="flex-1 truncate">Search bookings, guests, or jump to any page…</span>
+            <span className="flex-1 truncate">{t("chrome.searchPlaceholder", "Search bookings, guests, or jump to any page…")}</span>
             <kbd className="hidden sm:inline-flex items-center rounded bg-white/5 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
               {/Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl"} K
             </kbd>
@@ -1357,23 +1354,23 @@ export default function OwnerDashboard() {
             <div className="grid grid-cols-3 gap-2 lg:hidden">
               <Link to={`/checkin?slug=${encodeURIComponent(hotel.slug)}`} className="flex flex-col items-center justify-center px-2 py-3 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
                 <div className="text-base mb-0.5">🛎️</div>
-                <div className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Front Desk</div>
+                <div className="text-[9px] font-bold uppercase tracking-widest text-slate-400">{t("quick.frontDesk", "Front Desk")}</div>
               </Link>
               <Link to={`/owner/${hotel.slug}/arrivals`} className="flex flex-col items-center justify-center px-2 py-3 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
                 <div className="text-base mb-0.5">🛬</div>
-                <div className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Arrivals</div>
+                <div className="text-[9px] font-bold uppercase tracking-widest text-slate-400">{t("quick.arrivals", "Arrivals")}</div>
               </Link>
               <Link to={`/owner/${hotel.slug}/housekeeping`} className="flex flex-col items-center justify-center px-2 py-3 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
                 <div className="text-base mb-0.5">🧹</div>
-                <div className="text-[9px] font-bold uppercase tracking-widest text-slate-400">HK</div>
+                <div className="text-[9px] font-bold uppercase tracking-widest text-slate-400">{t("quick.hk", "HK")}</div>
               </Link>
               <Link to={`/ops?slug=${encodeURIComponent(hotel.slug)}`} className="flex flex-col items-center justify-center px-2 py-3 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
                 <div className="text-base mb-0.5">🕹️</div>
-                <div className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Ops Board</div>
+                <div className="text-[9px] font-bold uppercase tracking-widest text-slate-400">{t("quick.opsBoard", "Ops Board")}</div>
               </Link>
               <Link to={`/owner/${hotel.slug}/leads`} className="flex flex-col items-center justify-center px-2 py-3 rounded-xl border border-slate-800 bg-[#151A25] hover:bg-slate-800 transition-colors">
                 <div className="text-base mb-0.5">📞</div>
-                <div className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Leads</div>
+                <div className="text-[9px] font-bold uppercase tracking-widest text-slate-400">{t("quick.leads", "Leads")}</div>
               </Link>
               <button
                 type="button"
@@ -1381,7 +1378,7 @@ export default function OwnerDashboard() {
                 className="flex flex-col items-center justify-center px-2 py-3 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] hover:bg-emerald-500/15 transition-colors text-emerald-300"
               >
                 <div className="text-base mb-0.5">▤</div>
-                <div className="text-[9px] font-bold uppercase tracking-widest">More menu</div>
+                <div className="text-[9px] font-bold uppercase tracking-widest">{t("quick.moreMenu", "More menu")}</div>
               </button>
             </div>
 
@@ -1432,40 +1429,40 @@ export default function OwnerDashboard() {
               >
                 <Clock size={14} className="text-slate-500" />
                 <div className="flex items-baseline gap-2">
-                  <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Service ops</span>
-                  <span className="text-xs text-slate-500">all quiet · 0 open · — avg · awaiting first rating</span>
+                  <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">{t("serviceOps.label", "Service ops")}</span>
+                  <span className="text-xs text-slate-500">{t("serviceOps.summary", "all quiet · 0 open · — avg · awaiting first rating")}</span>
                 </div>
               </button>
             ) : (
               <div className="grid gap-2 grid-cols-2 lg:grid-cols-4">
                 <OpsChip
-                  label="Active Tasks"
+                  label={t("ops.activeTasks", "Active Tasks")}
                   value={`${tasksTotal}`}
-                  sub={tasksTotal === 0 ? "All clear" : "Open requests"}
+                  sub={tasksTotal === 0 ? t("ops.allClear", "All clear") : t("ops.openRequests", "Open requests")}
                   tone={tasksTotal > 0 ? "amber" : "neutral"}
                   icon={Clock}
                   onClick={() => setActiveDrawer('tasks')}
                 />
                 <OpsChip
-                  label="At Risk"
+                  label={t("ops.atRisk", "At Risk")}
                   value={`${tasksAtRisk}`}
-                  sub={tasksAtRisk === 0 ? "Under SLA" : "Exceeding targets"}
+                  sub={tasksAtRisk === 0 ? t("ops.underSla", "Under SLA") : t("ops.exceedingTargets", "Exceeding targets")}
                   tone={tasksAtRisk > 0 ? "rose" : "neutral"}
                   icon={AlertTriangle}
                   onClick={() => setActiveDrawer('atRisk')}
                 />
                 <OpsChip
-                  label="Avg Response"
+                  label={t("ops.avgResponse", "Avg Response")}
                   value={avgResponseMin == null ? "—" : `${avgResponseMin}m`}
-                  sub={avgResponseMin == null ? "Awaiting first ticket" : "SLA performance"}
+                  sub={avgResponseMin == null ? t("ops.awaitingFirstTicket", "Awaiting first ticket") : t("ops.slaPerformance", "SLA performance")}
                   tone="neutral"
                   icon={LayoutDashboard}
                   onClick={() => setActiveDrawer('sla')}
                 />
                 <OpsChip
-                  label="Guest Satisfaction"
+                  label={t("ops.guestSatisfaction", "Guest Satisfaction")}
                   value={guestPrimary ?? "—"}
-                  sub={typeof npsScore === "number" && (npsResponses ?? 0) > 0 ? `NPS · ${npsResponses} res` : typeof avgRating30d === "number" ? "Avg rating" : "First ratings appear here"}
+                  sub={typeof npsScore === "number" && (npsResponses ?? 0) > 0 ? t("ops.npsRes", "NPS · {{count}} res", { count: npsResponses }) : typeof avgRating30d === "number" ? t("ops.avgRating", "Avg rating") : t("ops.firstRatings", "First ratings appear here")}
                   tone={guestTone === "green" ? "emerald" : guestTone === "amber" ? "amber" : guestTone === "red" ? "rose" : "neutral"}
                   icon={MessageSquare}
                   onClick={() => setActiveDrawer('satisfaction')}
@@ -1490,33 +1487,33 @@ export default function OwnerDashboard() {
             <div className="grid gap-4 xl:grid-cols-3">
               <DarkCard className="p-5">
                 <CardHeader
-                  title="Shift Workload"
+                  title={t("pulse.shiftWorkload", "Shift Workload")}
                   right={
                     <StatusBadge
-                      label={slaPct == null ? "SLA —" : slaToneLevel === "green" ? "On track" : slaToneLevel === "amber" ? "Watch" : "Risk"}
+                      label={slaPct == null ? t("pulse.slaDash", "SLA —") : slaToneLevel === "green" ? t("pulse.onTrack", "On track") : slaToneLevel === "amber" ? t("pulse.watch", "Watch") : t("pulse.risk", "Risk")}
                       tone={slaToneLevel}
                     />
                   }
                 />
                 <div className="mt-4 flex flex-col gap-3">
-                  <BreakRow label="Open Requests" value={tasksTotal} tone={tasksTotal > 0 ? "green" : "grey"} />
-                  <BreakRow label="At Risk (> SLA)" value={tasksAtRisk} tone={tasksAtRisk > 0 ? "amber" : "grey"} />
-                  <BreakRow label="Blocked Issues" value={blockedCount ?? 0} tone={(blockedCount ?? 0) > 0 ? "red" : "grey"} />
+                  <BreakRow label={t("pulse.openRequests", "Open Requests")} value={tasksTotal} tone={tasksTotal > 0 ? "green" : "grey"} />
+                  <BreakRow label={t("pulse.atRiskSla", "At Risk (> SLA)")} value={tasksAtRisk} tone={tasksAtRisk > 0 ? "amber" : "grey"} />
+                  <BreakRow label={t("pulse.blockedIssues", "Blocked Issues")} value={blockedCount ?? 0} tone={(blockedCount ?? 0) > 0 ? "red" : "grey"} />
                 </div>
               </DarkCard>
 
               <DarkCard className="p-5 xl:col-span-2">
                 <CardHeader
-                  title="Operations Pulse"
-                  subtitle="Request volume (live data)"
+                  title={t("pulse.operationsPulse", "Operations Pulse")}
+                  subtitle={t("pulse.requestVolume", "Request volume (live data)")}
                   right={
                     /* Only render badges when they carry signal — a "0 at
                        risk · Occ 0%" pair is noise that competes for the eye
                        with the actual chart. */
                     (tasksAtRisk > 0 || occPct > 0) ? (
                       <div className="flex items-center gap-2">
-                        {tasksAtRisk > 0 && <MiniBadge label={`${tasksAtRisk} at risk`} tone="amber" />}
-                        {occPct > 0 && <MiniBadge label={`Occ ${occPct}%`} tone={occupancyTone(occPct)} />}
+                        {tasksAtRisk > 0 && <MiniBadge label={t("pulse.nAtRisk", "{{count}} at risk", { count: tasksAtRisk })} tone="amber" />}
+                        {occPct > 0 && <MiniBadge label={t("pulse.occPct", "Occ {{pct}}%", { pct: occPct })} tone={occupancyTone(occPct)} />}
                       </div>
                     ) : null
                   }
@@ -1528,7 +1525,7 @@ export default function OwnerDashboard() {
                     <div className="rounded-xl border border-dashed border-slate-700 bg-[#0B0E14] px-4 py-3 flex items-center gap-3">
                       <div className="text-lg">📊</div>
                       <div className="text-xs text-slate-400">
-                        No request volume today. The hourly chart will appear once tickets start flowing.
+                        {t("pulse.noVolume", "No request volume today. The hourly chart will appear once tickets start flowing.")}
                       </div>
                     </div>
                   )}
@@ -1552,11 +1549,11 @@ export default function OwnerDashboard() {
             <div className={`grid gap-4 ${showIssueBreakdown ? "xl:grid-cols-3" : ""}`}>
               <DarkCard className={`p-5 ${showIssueBreakdown ? "xl:col-span-2" : ""}`}>
                 <CardHeader
-                  title="Live Requests"
-                  subtitle="Latest open service requests"
+                  title={t("live.liveRequests", "Live Requests")}
+                  subtitle={t("live.latestOpen", "Latest open service requests")}
                   right={
                     <Link to={`/ops?slug=${encodeURIComponent(hotel.slug)}`} className="text-xs text-emerald-400 hover:text-emerald-300 font-medium bg-emerald-500/10 px-2.5 py-1.5 rounded-lg transition-colors border border-emerald-500/20">
-                      Open Ops Board →
+                      {t("live.openOpsBoard", "Open Ops Board →")}
                     </Link>
                   }
                 />
@@ -1564,16 +1561,16 @@ export default function OwnerDashboard() {
                   {liveTasks.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-slate-700 bg-[#0B0E14] px-4 py-3 flex items-center gap-3">
                       <div className="text-lg">✅</div>
-                      <div className="text-xs text-slate-400">No live requests right now — operations are running smoothly.</div>
+                      <div className="text-xs text-slate-400">{t("live.noLive", "No live requests right now — operations are running smoothly.")}</div>
                     </div>
                   ) : (
                     <DarkTable>
                       <thead>
                         <tr>
-                          <Th>Task</Th>
-                          <Th className="hidden sm:table-cell">Status</Th>
-                          <Th>Age</Th>
-                          <Th className="text-right">SLA</Th>
+                          <Th>{t("live.thTask", "Task")}</Th>
+                          <Th className="hidden sm:table-cell">{t("live.thStatus", "Status")}</Th>
+                          <Th>{t("live.thAge", "Age")}</Th>
+                          <Th className="text-right">{t("live.thSla", "SLA")}</Th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1587,9 +1584,9 @@ export default function OwnerDashboard() {
                                 <div className="text-[11px] text-slate-500 sm:hidden">{o.status}</div>
                               </Td>
                               <Td className="hidden sm:table-cell"><span className="text-slate-200">{o.status}</span></Td>
-                              <Td><span className={`font-mono text-sm ${breach ? "text-rose-400" : "text-slate-200"}`}>{mins}m</span></Td>
+                              <Td><span className={`font-mono text-sm ${breach ? "text-rose-400" : "text-slate-200"}`}>{t("live.ageMin", "{{m}}m", { m: mins })}</span></Td>
                               <Td className="text-right">
-                                <StatusBadge label={breach ? "At risk" : "On time"} tone={breach ? "amber" : "green"} />
+                                <StatusBadge label={breach ? t("live.atRiskBadge", "At risk") : t("live.onTime", "On time")} tone={breach ? "amber" : "green"} />
                               </Td>
                             </tr>
                           );
@@ -1602,36 +1599,36 @@ export default function OwnerDashboard() {
 
               {showIssueBreakdown && (
               <DarkCard className="p-5">
-                <CardHeader title="Issue Breakdown" subtitle="Open requests by state" />
+                <CardHeader title={t("live.issueBreakdown", "Issue Breakdown")} subtitle={t("live.openByState", "Open requests by state")} />
                 <div className="mt-3">
                   {liveTasks.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-slate-700 bg-[#0B0E14] p-4 text-center text-sm text-slate-500">All clear</div>
+                    <div className="rounded-xl border border-dashed border-slate-700 bg-[#0B0E14] p-4 text-center text-sm text-slate-500">{t("live.allClear", "All clear")}</div>
                   ) : (
                     <IssueBreakdown orders={liveTasks} targetMin={targetMin} />
                   )}
                 </div>
 
                 <div className="mt-4 border-t border-white/10 pt-3">
-                  <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Recent feedback</div>
+                  <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">{t("live.recentFeedback", "Recent feedback")}</div>
                   <div className="mt-2">
                     {typeof npsScore === "number" && (npsResponses ?? 0) > 0 ? (
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className="text-sm text-slate-100 font-semibold">NPS {npsScore}</div>
-                          <div className="text-[11px] text-slate-400">{npsResponses} responses (30d)</div>
+                          <div className="text-sm text-slate-100 font-semibold">{t("live.nps", "NPS {{score}}", { score: npsScore })}</div>
+                          <div className="text-[11px] text-slate-400">{t("live.npsResponses", "{{count}} responses (30d)", { count: npsResponses })}</div>
                         </div>
-                        <StatusBadge label="Guest" tone="green" />
+                        <StatusBadge label={t("live.guest", "Guest")} tone="green" />
                       </div>
                     ) : typeof avgRating30d === "number" ? (
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className="text-sm text-slate-100 font-semibold">Rating {avgRating30d.toFixed(1)}/5</div>
-                          <div className="text-[11px] text-slate-400">Last 30 days</div>
+                          <div className="text-sm text-slate-100 font-semibold">{t("live.ratingScore", "Rating {{rating}}/5", { rating: avgRating30d.toFixed(1) })}</div>
+                          <div className="text-[11px] text-slate-400">{t("live.last30days", "Last 30 days")}</div>
                         </div>
-                        <StatusBadge label="Guest" tone={ratingTone(avgRating30d)} />
+                        <StatusBadge label={t("live.guest", "Guest")} tone={ratingTone(avgRating30d)} />
                       </div>
                     ) : (
-                      <div className="text-sm text-slate-500">No feedback data yet</div>
+                      <div className="text-sm text-slate-500">{t("live.noFeedback", "No feedback data yet")}</div>
                     )}
                   </div>
                 </div>
@@ -1650,10 +1647,10 @@ export default function OwnerDashboard() {
               <div className="grid gap-4 xl:grid-cols-3">
                 <DarkCard className="p-5 xl:col-span-2">
                   <CardHeader
-                    title="SLA Performance"
-                    subtitle={`Resolution trend (target ${targetMin}m)`}
+                    title={t("slaPerf.title", "SLA Performance")}
+                    subtitle={t("slaPerf.resolutionTrend", "Resolution trend (target {{m}}m)", { m: targetMin })}
                     right={
-                      slaPct == null ? <MiniBadge label="SLA —" tone="grey" /> : <MiniBadge label={`SLA ${slaPct}%`} tone={slaToneLevel} />
+                      slaPct == null ? <MiniBadge label={t("slaPerf.slaDash", "SLA —")} tone="grey" /> : <MiniBadge label={t("slaPerf.slaPct", "SLA {{pct}}%", { pct: slaPct })} tone={slaToneLevel} />
                     }
                   />
                   <div className="mt-3">
@@ -1662,7 +1659,7 @@ export default function OwnerDashboard() {
                     ) : (
                       <div className="rounded-xl border border-dashed border-slate-700 bg-[#0B0E14] px-4 py-3 flex items-center gap-3">
                         <div className="text-lg">📉</div>
-                        <div className="text-xs text-slate-400">SLA trend appears after a few tickets are processed.</div>
+                        <div className="text-xs text-slate-400">{t("slaPerf.trendAppears", "SLA trend appears after a few tickets are processed.")}</div>
                       </div>
                     )}
                   </div>
@@ -1689,7 +1686,7 @@ export default function OwnerDashboard() {
               className="cursor-pointer rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B0E14]"
             >
               <DarkCard className="p-4 hover:border-slate-700 transition-colors">
-                <CardHeader title="Today's Snapshot" subtitle={`Guest flow · ${dateLabel}`} />
+                <CardHeader title={t("snapshot.title", "Today's Snapshot")} subtitle={t("snapshot.guestFlow", "Guest flow · {{date}}", { date: dateLabel })} />
                 {(() => {
                   const inhouseCount = Array.isArray(inhouse) ? inhouse.length : 0;
                   const allZero = arrivalsCount === 0 && inhouseCount === 0 && departuresCount === 0;
@@ -1701,28 +1698,28 @@ export default function OwnerDashboard() {
                     return (
                       <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-800/60 bg-[#0B0E14]">
                         <span className="h-1.5 w-1.5 rounded-full bg-slate-600" />
-                        <span className="text-xs text-slate-400">Quiet day · no arrivals, in-house, or departures</span>
+                        <span className="text-xs text-slate-400">{t("snapshot.quietDay", "Quiet day · no arrivals, in-house, or departures")}</span>
                       </div>
                     );
                   }
                   return (
                     <div className="mt-3 flex flex-col gap-2">
                       <SnapshotRow
-                        label="Arrivals today"
-                        hint="Expected check-ins"
+                        label={t("snapshot.arrivalsToday", "Arrivals today")}
+                        hint={t("snapshot.expectedCheckins", "Expected check-ins")}
                         value={arrivalsCount}
                         dotClass={arrivalsCount > 0 ? "bg-blue-400" : "bg-slate-600"}
                       />
                       <SnapshotRow
-                        label="In-house now"
-                        hint="Guests physically checked in"
+                        label={t("snapshot.inHouseNow", "In-house now")}
+                        hint={t("snapshot.checkedIn", "Guests physically checked in")}
                         value={inhouseCount}
                         dotClass={inhouseCount > 0 ? "bg-emerald-400" : "bg-slate-600"}
                         tone="emerald"
                       />
                       <SnapshotRow
-                        label="Departures today"
-                        hint="Expected check-outs"
+                        label={t("snapshot.departuresToday", "Departures today")}
+                        hint={t("snapshot.expectedCheckouts", "Expected check-outs")}
                         value={departuresCount}
                         dotClass={departuresCount > 0 ? "bg-amber-400" : "bg-slate-600"}
                       />
@@ -1734,7 +1731,7 @@ export default function OwnerDashboard() {
                   <div className="mt-3 flex items-start gap-2 px-3 py-2 rounded-lg border border-amber-500/20 bg-amber-500/5 text-[11px] leading-snug text-amber-200/90">
                     <AlertTriangle size={12} className="mt-0.5 shrink-0 text-amber-400" />
                     <span>
-                      <span className="font-semibold">Heads up:</span> {departuresCount} departure{departuresCount === 1 ? "" : "s"} expected today, but no guests are marked in-house — check-in records may be missing.
+                      <span className="font-semibold">{t("snapshot.headsUp", "Heads up:")}</span> {t("snapshot.headsUpMsg", "{{count}} departures expected today, but no guests are marked in-house — check-in records may be missing.", { count: departuresCount })}
                     </span>
                   </div>
                 )}
@@ -1768,15 +1765,15 @@ export default function OwnerDashboard() {
               className="cursor-pointer rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B0E14]"
             >
               <DarkCard className="p-4 hover:border-slate-700 transition-colors">
-                <CardHeader title="Staff On Duty" subtitle="Active team members" />
+                <CardHeader title={t("staffCard.title", "Staff On Duty")} subtitle={t("staffCard.activeTeam", "Active team members")} />
                 <div className="mt-3">
                   <StaffList data={staffPerf} />
                 </div>
                 {HAS_HRMS && (
                   <div className="mt-4 border-t border-white/10 pt-3">
                     <div className="flex items-center justify-between">
-                      <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Attendance</div>
-                      <Link to={`/owner/${hotel.slug}/hrms`} className="text-[11px] text-slate-300 hover:text-slate-100 underline">Open →</Link>
+                      <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">{t("staffCard.attendance", "Attendance")}</div>
+                      <Link to={`/owner/${hotel.slug}/hrms`} className="text-[11px] text-slate-300 hover:text-slate-100 underline">{t("staffCard.open", "Open →")}</Link>
                     </div>
                     <div className="mt-2"><AttendanceMini data={hrms} /></div>
                   </div>
@@ -1787,7 +1784,7 @@ export default function OwnerDashboard() {
             {/* Guest Satisfaction conditionally shown */}
             {(typeof npsScore === "number" || typeof avgRating30d === "number") && (
               <DarkCard className="p-4">
-                <CardHeader title="Guest Satisfaction" subtitle="NPS / Rating signal" />
+                <CardHeader title={t("satCard.title", "Guest Satisfaction")} subtitle={t("satCard.signal", "NPS / Rating signal")} />
                 <div className="mt-3">
                   <SatisfactionPanel hotelName={hotel.name} npsScore={npsScore} npsResponses={npsResponses} avgRating30d={avgRating30d} />
                 </div>
@@ -1800,7 +1797,7 @@ export default function OwnerDashboard() {
                 not occupy a slot. The card reappears as soon as a job exists. */}
             {HAS_WORKFORCE && canSee(currentRole, 'hr') && !workforceLoading && (workforceJobs?.length ?? 0) > 0 && (
               <DarkCard className="p-4">
-                <CardHeader title="Workforce" subtitle="Open roles" />
+                <CardHeader title={t("workforceCard.title", "Workforce")} subtitle={t("workforceCard.openRoles", "Open roles")} />
                 <div className="mt-3"><WorkforceMini jobs={workforceJobs} loading={workforceLoading} /></div>
               </DarkCard>
             )}
@@ -1819,10 +1816,10 @@ export default function OwnerDashboard() {
         <section className="mt-8" data-testid="growth-hub-grid">
           <header className="mb-3 flex items-baseline justify-between">
             <h2 className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">
-              Growth Hub
+              {t("growth.title", "Growth Hub")}
             </h2>
             <span className="text-[10px] text-slate-500">
-              Lead capture · packages · SEO · partners · seasonal · OTA · assets · drips
+              {t("growth.subtitle", "Lead capture · packages · SEO · partners · seasonal · OTA · assets · drips")}
             </span>
           </header>
           <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 auto-rows-fr [&>a]:h-full [&>div]:h-full">
@@ -1904,25 +1901,25 @@ export default function OwnerDashboard() {
         <section className="mt-8 pt-5 border-t border-slate-800/50">
           <div className="flex items-baseline justify-between mb-3">
             <h2 className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">
-              Quick Links
+              {t("quickLinks.title", "Quick Links")}
             </h2>
-            <span className="text-[10px] text-slate-500">Deep links into the rest of the console</span>
+            <span className="text-[10px] text-slate-500">{t("quickLinks.subtitle", "Deep links into the rest of the console")}</span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <Link to={`/owner/${hotel.slug}/analytics`} className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-[#151A25] px-3 py-2.5 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors">
-              Owner Analytics <span className="text-slate-600">→</span>
+              {t("quickLinks.ownerAnalytics", "Owner Analytics")} <span className="text-slate-600">→</span>
             </Link>
             <Link to={`/owner/${hotel.slug}/reviews`} className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-[#151A25] px-3 py-2.5 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors">
-              Guest Reviews <span className="text-slate-600">→</span>
+              {t("quickLinks.guestReviews", "Guest Reviews")} <span className="text-slate-600">→</span>
             </Link>
             <Link to={`/ops/analytics?slug=${encodeURIComponent(hotel.slug)}`} className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-[#151A25] px-3 py-2.5 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors">
-              Ops Manager <span className="text-slate-600">→</span>
+              {t("quickLinks.opsManager", "Ops Manager")} <span className="text-slate-600">→</span>
             </Link>
             <Link to={`/checkin?slug=${encodeURIComponent(hotel.slug)}`} className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-[#151A25] px-3 py-2.5 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors">
-              Front Desk <span className="text-slate-600">→</span>
+              {t("quickLinks.frontDesk", "Front Desk")} <span className="text-slate-600">→</span>
             </Link>
             <a href="mailto:support@vaiyu.co.in?subject=Owner%20Dashboard%20help" className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-[#151A25] px-3 py-2.5 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors">
-              Contact Support <span className="text-slate-600">→</span>
+              {t("quickLinks.contactSupport", "Contact Support")} <span className="text-slate-600">→</span>
             </a>
           </div>
         </section>
@@ -1934,13 +1931,13 @@ export default function OwnerDashboard() {
           <div className="relative w-full sm:max-w-2xl bg-[#0B0E14] h-full shadow-3xl overflow-y-auto border-l border-slate-800/50" style={{ animation: 'slideInRight 0.3s ease-out' }}>
             <div className="sticky top-0 z-10 bg-[#0B0E14]/95 backdrop-blur-md border-b border-slate-800/50 px-4 sm:px-6 py-4 flex items-center justify-between">
               <h2 className="text-lg font-bold text-white">
-                {activeDrawer === 'rooms' && '🏨 Room Occupancy Details'}
-                {activeDrawer === 'tasks' && '📋 Active Tasks'}
-                {activeDrawer === 'atRisk' && '⚠️ At-Risk Analysis'}
-                {activeDrawer === 'sla' && '📈 SLA Performance'}
-                {activeDrawer === 'satisfaction' && '⭐ Guest Satisfaction'}
-                {activeDrawer === 'staff' && '👥 Staff On Duty'}
-                {activeDrawer === 'arrivals' && '🛬 Today\'s Guest Movement'}
+                {activeDrawer === 'rooms' && t("drawers.roomsTitle", "🏨 Room Occupancy Details")}
+                {activeDrawer === 'tasks' && t("drawers.tasksTitle", "📋 Active Tasks")}
+                {activeDrawer === 'atRisk' && t("drawers.atRiskTitle", "⚠️ At-Risk Analysis")}
+                {activeDrawer === 'sla' && t("drawers.slaTitle", "📈 SLA Performance")}
+                {activeDrawer === 'satisfaction' && t("drawers.satisfactionTitle", "⭐ Guest Satisfaction")}
+                {activeDrawer === 'staff' && t("drawers.staffTitle", "👥 Staff On Duty")}
+                {activeDrawer === 'arrivals' && t("drawers.arrivalsTitle", "🛬 Today's Guest Movement")}
               </h2>
               <button onClick={() => setActiveDrawer(null)} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
@@ -1953,44 +1950,44 @@ export default function OwnerDashboard() {
                 <>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-[#151A25] rounded-xl border border-slate-800/50 p-4">
-                      <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">Total Rooms</div>
+                      <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">{t("drawers.totalRooms", "Total Rooms")}</div>
                       <div className="text-3xl font-bold text-white">{total || 0}</div>
                     </div>
                     <div className="bg-[#151A25] rounded-xl border border-emerald-500/20 p-4">
-                      <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">Occupied</div>
+                      <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">{t("drawers.occupied", "Occupied")}</div>
                       <div className="text-3xl font-bold text-emerald-400">{occupied || 0}</div>
-                      <div className="text-xs text-slate-500 mt-1">{occPct || 0}% occupancy</div>
+                      <div className="text-xs text-slate-500 mt-1">{t("drawers.occupancyPct", "{{pct}}% occupancy", { pct: occPct || 0 })}</div>
                     </div>
                   </div>
                   <div className="bg-[#151A25] rounded-xl border border-slate-800/50 p-5">
-                    <div className="text-sm font-semibold text-slate-200 mb-4">Today's Guest Flow</div>
+                    <div className="text-sm font-semibold text-slate-200 mb-4">{t("drawers.guestFlow", "Today's Guest Flow")}</div>
                     <div className="grid grid-cols-3 gap-3">
                       <div className="text-center p-3 rounded-lg bg-[#0B0E14] border border-slate-800/50">
                         <div className="text-2xl font-bold text-blue-400">{arrivalsCount}</div>
-                        <div className="text-[10px] uppercase text-slate-500 mt-1">Arrivals</div>
+                        <div className="text-[10px] uppercase text-slate-500 mt-1">{t("drawers.arrivals", "Arrivals")}</div>
                       </div>
                       <div className="text-center p-3 rounded-lg bg-[#0B0E14] border border-slate-800/50">
                         <div className="text-2xl font-bold text-emerald-400">{Array.isArray(inhouse) ? inhouse.length : 0}</div>
-                        <div className="text-[10px] uppercase text-slate-500 mt-1">In-House</div>
+                        <div className="text-[10px] uppercase text-slate-500 mt-1">{t("drawers.inHouse", "In-House")}</div>
                       </div>
                       <div className="text-center p-3 rounded-lg bg-[#0B0E14] border border-slate-800/50">
                         <div className="text-2xl font-bold text-amber-400">{departuresCount}</div>
-                        <div className="text-[10px] uppercase text-slate-500 mt-1">Departures</div>
+                        <div className="text-[10px] uppercase text-slate-500 mt-1">{t("drawers.departures", "Departures")}</div>
                       </div>
                     </div>
                   </div>
                   {arrivals.length > 0 && (
                     <div className="bg-[#151A25] rounded-xl border border-slate-800/50 p-5">
-                      <div className="text-sm font-semibold text-slate-200 mb-3">Expected Arrivals</div>
+                      <div className="text-sm font-semibold text-slate-200 mb-3">{t("drawers.expectedArrivals", "Expected Arrivals")}</div>
                       <div className="space-y-2">
                         {arrivals.slice(0, 10).map(a => (
                           <div key={a.id} className="flex items-center justify-between p-3 rounded-lg bg-[#0B0E14] border border-slate-800/50">
                             <div>
-                              <div className="text-sm font-medium text-slate-200">Room {a.room || 'TBD'}</div>
-                              <div className="text-[11px] text-slate-500">Guest ID: {a.guest_id?.slice(0, 8)}...</div>
+                              <div className="text-sm font-medium text-slate-200">{t("drawers.room", "Room {{room}}", { room: a.room || t("drawers.tbd", "TBD") })}</div>
+                              <div className="text-[11px] text-slate-500">{t("drawers.guestId", "Guest ID: {{id}}...", { id: a.guest_id?.slice(0, 8) })}</div>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="text-xs text-slate-400">{a.check_in_start ? new Date(a.check_in_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</span>
+                              <span className="text-xs text-slate-400">{a.check_in_start ? new Date(a.check_in_start).toLocaleTimeString(ownerLocale, { hour: '2-digit', minute: '2-digit' }) : '—'}</span>
                             </div>
                           </div>
                         ))}
@@ -2006,33 +2003,33 @@ export default function OwnerDashboard() {
                   <div className="grid grid-cols-3 gap-3">
                     <div className="bg-[#151A25] rounded-xl border border-emerald-500/20 p-4 text-center">
                       <div className="text-2xl font-bold text-emerald-400">{tasksTotal}</div>
-                      <div className="text-[10px] uppercase text-slate-500 mt-1">Active</div>
+                      <div className="text-[10px] uppercase text-slate-500 mt-1">{t("drawers.active", "Active")}</div>
                     </div>
                     <div className="bg-[#151A25] rounded-xl border border-amber-500/20 p-4 text-center">
                       <div className="text-2xl font-bold text-amber-400">{tasksAtRisk}</div>
-                      <div className="text-[10px] uppercase text-slate-500 mt-1">At Risk</div>
+                      <div className="text-[10px] uppercase text-slate-500 mt-1">{t("drawers.atRisk", "At Risk")}</div>
                     </div>
                     <div className="bg-[#151A25] rounded-xl border border-rose-500/20 p-4 text-center">
                       <div className="text-2xl font-bold text-rose-400">{blockedCount || 0}</div>
-                      <div className="text-[10px] uppercase text-slate-500 mt-1">Blocked</div>
+                      <div className="text-[10px] uppercase text-slate-500 mt-1">{t("drawers.blocked", "Blocked")}</div>
                     </div>
                   </div>
                   <div className="bg-[#151A25] rounded-xl border border-slate-800/50 p-5">
-                    <div className="text-sm font-semibold text-slate-200 mb-3">All Open Requests ({liveTasks.length})</div>
+                    <div className="text-sm font-semibold text-slate-200 mb-3">{t("drawers.allOpen", "All Open Requests ({{count}})", { count: liveTasks.length })}</div>
                     {liveTasks.length === 0 ? (
-                      <div className="text-center py-8 text-slate-500">No open requests. Operations are running smoothly. ✅</div>
+                      <div className="text-center py-8 text-slate-500">{t("drawers.noOpen", "No open requests. Operations are running smoothly. ✅")}</div>
                     ) : (
                       <div className="space-y-2">
-                        {liveTasks.map(t => {
-                          const mins = ageMin(t.created_at);
+                        {liveTasks.map(task => {
+                          const mins = ageMin(task.created_at);
                           const breach = mins > targetMin;
                           return (
-                            <div key={t.id} className={`flex items-center justify-between p-3 rounded-lg bg-[#0B0E14] border ${breach ? 'border-rose-500/30' : 'border-slate-800/50'}`}>
+                            <div key={task.id} className={`flex items-center justify-between p-3 rounded-lg bg-[#0B0E14] border ${breach ? 'border-rose-500/30' : 'border-slate-800/50'}`}>
                               <div className="min-w-0">
-                                <div className="text-sm font-medium text-slate-200 truncate">{t.title || `#${t.id.slice(0, 8)}`}</div>
-                                <div className="text-[11px] text-slate-500">{t.status} · {mins}m ago</div>
+                                <div className="text-sm font-medium text-slate-200 truncate">{task.title || `#${task.id.slice(0, 8)}`}</div>
+                                <div className="text-[11px] text-slate-500">{t("drawers.statusAge", "{{status}} · {{m}}m ago", { status: task.status, m: mins })}</div>
                               </div>
-                              <StatusBadge label={breach ? 'At risk' : 'On time'} tone={breach ? 'amber' : 'green'} />
+                              <StatusBadge label={breach ? t("drawers.atRiskBadge", "At risk") : t("drawers.onTime", "On time")} tone={breach ? 'amber' : 'green'} />
                             </div>
                           );
                         })}
@@ -2048,28 +2045,28 @@ export default function OwnerDashboard() {
                   <div className="bg-[#151A25] rounded-xl border border-rose-500/20 p-5">
                     <div className="flex items-center gap-3 mb-3">
                       <AlertTriangle size={20} className="text-rose-400" />
-                      <div className="text-sm font-semibold text-slate-200">Risk Summary</div>
+                      <div className="text-sm font-semibold text-slate-200">{t("drawers.riskSummary", "Risk Summary")}</div>
                     </div>
                     <div className="text-3xl font-bold text-rose-400">{tasksAtRisk}</div>
-                    <div className="text-xs text-slate-500 mt-1">Tasks exceeding {targetMin}m SLA target</div>
+                    <div className="text-xs text-slate-500 mt-1">{t("drawers.exceedingTarget", "Tasks exceeding {{m}}m SLA target", { m: targetMin })}</div>
                   </div>
                   <div className="bg-[#151A25] rounded-xl border border-slate-800/50 p-5">
-                    <div className="text-sm font-semibold text-slate-200 mb-3">Overdue Tasks</div>
-                    {liveTasks.filter(t => ageMin(t.created_at) > targetMin).length === 0 ? (
-                      <div className="text-center py-8 text-slate-500">No tasks currently at risk. All clear! ✅</div>
+                    <div className="text-sm font-semibold text-slate-200 mb-3">{t("drawers.overdueTasks", "Overdue Tasks")}</div>
+                    {liveTasks.filter(task => ageMin(task.created_at) > targetMin).length === 0 ? (
+                      <div className="text-center py-8 text-slate-500">{t("drawers.noneAtRisk", "No tasks currently at risk. All clear! ✅")}</div>
                     ) : (
                       <div className="space-y-2">
-                        {liveTasks.filter(t => ageMin(t.created_at) > targetMin).map(t => {
-                          const mins = ageMin(t.created_at);
+                        {liveTasks.filter(task => ageMin(task.created_at) > targetMin).map(task => {
+                          const mins = ageMin(task.created_at);
                           return (
-                            <div key={t.id} className="flex items-center justify-between p-3 rounded-lg bg-[#0B0E14] border border-rose-500/20">
+                            <div key={task.id} className="flex items-center justify-between p-3 rounded-lg bg-[#0B0E14] border border-rose-500/20">
                               <div className="min-w-0">
-                                <div className="text-sm font-medium text-slate-200 truncate">{t.title || `#${t.id.slice(0, 8)}`}</div>
-                                <div className="text-[11px] text-slate-500">{t.status}</div>
+                                <div className="text-sm font-medium text-slate-200 truncate">{task.title || `#${task.id.slice(0, 8)}`}</div>
+                                <div className="text-[11px] text-slate-500">{task.status}</div>
                               </div>
                               <div className="text-right">
-                                <div className="text-sm font-bold font-mono text-rose-400">{mins}m</div>
-                                <div className="text-[10px] text-slate-500">overdue by {mins - targetMin}m</div>
+                                <div className="text-sm font-bold font-mono text-rose-400">{t("live.ageMin", "{{m}}m", { m: mins })}</div>
+                                <div className="text-[10px] text-slate-500">{t("drawers.overdueBy", "overdue by {{m}}m", { m: mins - targetMin })}</div>
                               </div>
                             </div>
                           );
@@ -2078,18 +2075,18 @@ export default function OwnerDashboard() {
                     )}
                   </div>
                   <div className="bg-[#151A25] rounded-xl border border-slate-800/50 p-5">
-                    <div className="text-sm font-semibold text-slate-200 mb-3">Blocked Tasks</div>
+                    <div className="text-sm font-semibold text-slate-200 mb-3">{t("drawers.blockedTasks", "Blocked Tasks")}</div>
                     {(blockedCount ?? 0) === 0 ? (
-                      <div className="text-center py-4 text-slate-500">No blocked tasks</div>
+                      <div className="text-center py-4 text-slate-500">{t("drawers.noBlocked", "No blocked tasks")}</div>
                     ) : (
                       <div className="space-y-2">
-                        {liveTasks.filter(t => ['blocked', 'paused', 'hold'].some(k => (t.status || '').toLowerCase().includes(k))).map(t => (
-                          <div key={t.id} className="flex items-center justify-between p-3 rounded-lg bg-[#0B0E14] border border-amber-500/20">
+                        {liveTasks.filter(task => ['blocked', 'paused', 'hold'].some(k => (task.status || '').toLowerCase().includes(k))).map(task => (
+                          <div key={task.id} className="flex items-center justify-between p-3 rounded-lg bg-[#0B0E14] border border-amber-500/20">
                             <div className="min-w-0">
-                              <div className="text-sm font-medium text-slate-200 truncate">{t.title || `#${t.id.slice(0, 8)}`}</div>
-                              <div className="text-[11px] text-slate-500">{t.status} · {ageMin(t.created_at)}m</div>
+                              <div className="text-sm font-medium text-slate-200 truncate">{task.title || `#${task.id.slice(0, 8)}`}</div>
+                              <div className="text-[11px] text-slate-500">{t("drawers.statusMin", "{{status}} · {{m}}m", { status: task.status, m: ageMin(task.created_at) })}</div>
                             </div>
-                            <StatusBadge label="Blocked" tone="red" />
+                            <StatusBadge label={t("drawers.blockedBadge", "Blocked")} tone="red" />
                           </div>
                         ))}
                       </div>
@@ -2103,27 +2100,27 @@ export default function OwnerDashboard() {
                 <>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-[#151A25] rounded-xl border border-slate-800/50 p-4">
-                      <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">Avg Response</div>
+                      <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">{t("drawers.avgResponse", "Avg Response")}</div>
                       <div className="text-3xl font-bold text-white">{avgResponseMin == null ? '—' : `${avgResponseMin}m`}</div>
                     </div>
                     <div className={`bg-[#151A25] rounded-xl border p-4 ${slaToneLevel === 'green' ? 'border-emerald-500/20' : slaToneLevel === 'amber' ? 'border-amber-500/20' : 'border-rose-500/20'}`}>
-                      <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">SLA Compliance</div>
+                      <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">{t("drawers.slaCompliance", "SLA Compliance")}</div>
                       <div className={`text-3xl font-bold ${slaToneLevel === 'green' ? 'text-emerald-400' : slaToneLevel === 'amber' ? 'text-amber-400' : 'text-rose-400'}`}>{slaPct == null ? '—' : `${slaPct}%`}</div>
-                      <div className="text-xs text-slate-500 mt-1">Target: {targetMin}m</div>
+                      <div className="text-xs text-slate-500 mt-1">{t("drawers.target", "Target: {{m}}m", { m: targetMin })}</div>
                     </div>
                   </div>
                   <div className="bg-[#151A25] rounded-xl border border-slate-800/50 p-5">
-                    <div className="text-sm font-semibold text-slate-200 mb-3">SLA Performance Chart</div>
+                    <div className="text-sm font-semibold text-slate-200 mb-3">{t("drawers.chartTitle", "SLA Performance Chart")}</div>
                     {hasSeries(slaSeries) ? (
                       <SlaPerformanceChart data={slaSeries || []} loading={false} />
                     ) : (
-                      <div className="text-center py-8 text-slate-500">SLA data will appear after requests are processed.</div>
+                      <div className="text-center py-8 text-slate-500">{t("drawers.dataAppears", "SLA data will appear after requests are processed.")}</div>
                     )}
                   </div>
                   <div className="bg-[#151A25] rounded-xl border border-slate-800/50 p-5">
-                    <div className="text-sm font-semibold text-slate-200 mb-3">For detailed analytics</div>
+                    <div className="text-sm font-semibold text-slate-200 mb-3">{t("drawers.detailedAnalytics", "For detailed analytics")}</div>
                     <Link to={`/owner/${hotel.slug}/analytics`} className="inline-flex items-center gap-2 text-sm text-emerald-400 hover:text-emerald-300 font-medium bg-emerald-500/10 px-4 py-2 rounded-lg border border-emerald-500/20 transition-colors">
-                      Open Owner Analytics →
+                      {t("drawers.openAnalytics", "Open Owner Analytics →")}
                     </Link>
                   </div>
                 </>
@@ -2135,34 +2132,34 @@ export default function OwnerDashboard() {
                   <div className="grid grid-cols-2 gap-4">
                     {typeof npsScore === 'number' && (npsResponses ?? 0) > 0 && (
                       <div className="bg-[#151A25] rounded-xl border border-emerald-500/20 p-4">
-                        <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">NPS Score</div>
+                        <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">{t("drawers.npsScore", "NPS Score")}</div>
                         <div className="text-3xl font-bold text-emerald-400">{npsScore}</div>
-                        <div className="text-xs text-slate-500 mt-1">{npsResponses} responses (30d)</div>
+                        <div className="text-xs text-slate-500 mt-1">{t("drawers.npsResponses", "{{count}} responses (30d)", { count: npsResponses })}</div>
                       </div>
                     )}
                     {typeof avgRating30d === 'number' && (
                       <div className="bg-[#151A25] rounded-xl border border-blue-500/20 p-4">
-                        <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">Avg Rating</div>
-                        <div className="text-3xl font-bold text-blue-400">{avgRating30d.toFixed(1)}/5</div>
-                        <div className="text-xs text-slate-500 mt-1">Last 30 days</div>
+                        <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">{t("drawers.avgRating", "Avg Rating")}</div>
+                        <div className="text-3xl font-bold text-blue-400">{t("drawers.ratingOutOf", "{{rating}}/5", { rating: avgRating30d.toFixed(1) })}</div>
+                        <div className="text-xs text-slate-500 mt-1">{t("drawers.last30days", "Last 30 days")}</div>
                       </div>
                     )}
                   </div>
                   {npsSnapshot && (
                     <div className="bg-[#151A25] rounded-xl border border-slate-800/50 p-5">
-                      <div className="text-sm font-semibold text-slate-200 mb-3">NPS Breakdown</div>
+                      <div className="text-sm font-semibold text-slate-200 mb-3">{t("drawers.npsBreakdown", "NPS Breakdown")}</div>
                       <div className="grid grid-cols-3 gap-3">
                         <div className="text-center p-3 rounded-lg bg-[#0B0E14] border border-emerald-500/20">
                           <div className="text-2xl font-bold text-emerald-400">{npsSnapshot.promoters}</div>
-                          <div className="text-[10px] uppercase text-slate-500 mt-1">Promoters</div>
+                          <div className="text-[10px] uppercase text-slate-500 mt-1">{t("drawers.promoters", "Promoters")}</div>
                         </div>
                         <div className="text-center p-3 rounded-lg bg-[#0B0E14] border border-amber-500/20">
                           <div className="text-2xl font-bold text-amber-400">{npsSnapshot.passives}</div>
-                          <div className="text-[10px] uppercase text-slate-500 mt-1">Passives</div>
+                          <div className="text-[10px] uppercase text-slate-500 mt-1">{t("drawers.passives", "Passives")}</div>
                         </div>
                         <div className="text-center p-3 rounded-lg bg-[#0B0E14] border border-rose-500/20">
                           <div className="text-2xl font-bold text-rose-400">{npsSnapshot.detractors}</div>
-                          <div className="text-[10px] uppercase text-slate-500 mt-1">Detractors</div>
+                          <div className="text-[10px] uppercase text-slate-500 mt-1">{t("drawers.detractors", "Detractors")}</div>
                         </div>
                       </div>
                     </div>
@@ -2170,7 +2167,7 @@ export default function OwnerDashboard() {
                   {typeof npsScore !== 'number' && typeof avgRating30d !== 'number' && (
                     <div className="bg-[#151A25] rounded-xl border border-slate-800/50 p-8 text-center">
                       <div className="text-2xl mb-2">📊</div>
-                      <div className="text-sm text-slate-400">Guest satisfaction data will appear once feedback is collected.</div>
+                      <div className="text-sm text-slate-400">{t("drawers.satNoData", "Guest satisfaction data will appear once feedback is collected.")}</div>
                     </div>
                   )}
                 </>
@@ -2181,7 +2178,7 @@ export default function OwnerDashboard() {
                 <>
                   {staffPerf && staffPerf.length > 0 ? (
                     <div className="bg-[#151A25] rounded-xl border border-slate-800/50 p-5">
-                      <div className="text-sm font-semibold text-slate-200 mb-3">Full Staff Roster ({staffPerf.length})</div>
+                      <div className="text-sm font-semibold text-slate-200 mb-3">{t("drawers.fullRoster", "Full Staff Roster ({{count}})", { count: staffPerf.length })}</div>
                       <div className="space-y-2">
                         {staffPerf.map(r => (
                           <div key={r.staff_id} className="flex items-center justify-between p-3 rounded-lg bg-[#0B0E14] border border-slate-800/50">
@@ -2189,22 +2186,22 @@ export default function OwnerDashboard() {
                               <div className="text-sm font-medium text-slate-200 truncate">{r.display_name}</div>
                               <div className="text-[11px] text-slate-500">{r.department_name || r.role}</div>
                             </div>
-                            <StatusBadge label={r.is_online ? 'Online' : 'Away'} tone={r.is_online ? 'green' : 'grey'} />
+                            <StatusBadge label={r.is_online ? t("drawers.online", "Online") : t("drawers.away", "Away")} tone={r.is_online ? 'green' : 'grey'} />
                           </div>
                         ))}
                       </div>
                     </div>
                   ) : (
-                    <div className="text-center py-8 text-slate-500">No staff data available</div>
+                    <div className="text-center py-8 text-slate-500">{t("drawers.noStaff", "No staff data available")}</div>
                   )}
                   {hrms && (
                     <div className="bg-[#151A25] rounded-xl border border-slate-800/50 p-5">
-                      <div className="text-sm font-semibold text-slate-200 mb-3">Attendance Summary</div>
+                      <div className="text-sm font-semibold text-slate-200 mb-3">{t("drawers.attendanceSummary", "Attendance Summary")}</div>
                       <div className="grid grid-cols-2 gap-3">
-                        <MiniStat label="Present" value={hrms.present_today} tone={hrms.attendance_pct_today >= 85 ? 'green' : 'amber'} />
-                        <MiniStat label="Absent" value={hrms.absent_today} tone={hrms.absent_today > 0 ? 'amber' : 'grey'} />
-                        <MiniStat label="Late" value={hrms.late_today} tone={hrms.late_today > 0 ? 'amber' : 'grey'} />
-                        <MiniStat label="Att %" value={`${hrms.attendance_pct_today}%`} tone={hrms.attendance_pct_today >= 85 ? 'green' : 'amber'} />
+                        <MiniStat label={t("drawers.present", "Present")} value={hrms.present_today} tone={hrms.attendance_pct_today >= 85 ? 'green' : 'amber'} />
+                        <MiniStat label={t("drawers.absent", "Absent")} value={hrms.absent_today} tone={hrms.absent_today > 0 ? 'amber' : 'grey'} />
+                        <MiniStat label={t("drawers.late", "Late")} value={hrms.late_today} tone={hrms.late_today > 0 ? 'amber' : 'grey'} />
+                        <MiniStat label={t("drawers.attPct", "Att %")} value={`${hrms.attendance_pct_today}%`} tone={hrms.attendance_pct_today >= 85 ? 'green' : 'amber'} />
                       </div>
                     </div>
                   )}
@@ -2217,26 +2214,26 @@ export default function OwnerDashboard() {
                   <div className="grid grid-cols-3 gap-3">
                     <div className="bg-[#151A25] rounded-xl border border-blue-500/20 p-4 text-center">
                       <div className="text-2xl font-bold text-blue-400">{arrivalsCount}</div>
-                      <div className="text-[10px] uppercase text-slate-500 mt-1">Arrivals</div>
+                      <div className="text-[10px] uppercase text-slate-500 mt-1">{t("drawers.arrivals", "Arrivals")}</div>
                     </div>
                     <div className="bg-[#151A25] rounded-xl border border-emerald-500/20 p-4 text-center">
                       <div className="text-2xl font-bold text-emerald-400">{Array.isArray(inhouse) ? inhouse.length : 0}</div>
-                      <div className="text-[10px] uppercase text-slate-500 mt-1">In-House</div>
+                      <div className="text-[10px] uppercase text-slate-500 mt-1">{t("drawers.inHouse", "In-House")}</div>
                     </div>
                     <div className="bg-[#151A25] rounded-xl border border-amber-500/20 p-4 text-center">
                       <div className="text-2xl font-bold text-amber-400">{departuresCount}</div>
-                      <div className="text-[10px] uppercase text-slate-500 mt-1">Departures</div>
+                      <div className="text-[10px] uppercase text-slate-500 mt-1">{t("drawers.departures", "Departures")}</div>
                     </div>
                   </div>
                   {arrivals.length > 0 && (
                     <div className="bg-[#151A25] rounded-xl border border-slate-800/50 p-5">
-                      <div className="text-sm font-semibold text-slate-200 mb-3">Arrivals ({arrivals.length})</div>
+                      <div className="text-sm font-semibold text-slate-200 mb-3">{t("drawers.arrivalsCount", "Arrivals ({{count}})", { count: arrivals.length })}</div>
                       <div className="space-y-2">
                         {arrivals.map(a => (
                           <div key={a.id} className="flex items-center justify-between p-3 rounded-lg bg-[#0B0E14] border border-slate-800/50">
                             <div>
-                              <div className="text-sm font-medium text-slate-200">Room {a.room || 'TBD'}</div>
-                              <div className="text-[11px] text-slate-500">Guest ID: {a.guest_id?.slice(0, 8)}...</div>
+                              <div className="text-sm font-medium text-slate-200">{t("drawers.room", "Room {{room}}", { room: a.room || t("drawers.tbd", "TBD") })}</div>
+                              <div className="text-[11px] text-slate-500">{t("drawers.guestId", "Guest ID: {{id}}...", { id: a.guest_id?.slice(0, 8) })}</div>
                             </div>
                           </div>
                         ))}
@@ -2245,13 +2242,13 @@ export default function OwnerDashboard() {
                   )}
                   {departures.length > 0 && (
                     <div className="bg-[#151A25] rounded-xl border border-slate-800/50 p-5">
-                      <div className="text-sm font-semibold text-slate-200 mb-3">Departures ({departures.length})</div>
+                      <div className="text-sm font-semibold text-slate-200 mb-3">{t("drawers.departuresCount", "Departures ({{count}})", { count: departures.length })}</div>
                       <div className="space-y-2">
                         {departures.map(d => (
                           <div key={d.id} className="flex items-center justify-between p-3 rounded-lg bg-[#0B0E14] border border-slate-800/50">
                             <div>
-                              <div className="text-sm font-medium text-slate-200">Room {d.room || 'TBD'}</div>
-                              <div className="text-[11px] text-slate-500">Guest ID: {d.guest_id?.slice(0, 8)}...</div>
+                              <div className="text-sm font-medium text-slate-200">{t("drawers.room", "Room {{room}}", { room: d.room || t("drawers.tbd", "TBD") })}</div>
+                              <div className="text-[11px] text-slate-500">{t("drawers.guestId", "Guest ID: {{id}}...", { id: d.guest_id?.slice(0, 8) })}</div>
                             </div>
                           </div>
                         ))}
@@ -2279,6 +2276,7 @@ export default function OwnerDashboard() {
 
 function UserProfileMenu({ slug, role }: { slug: string; role?: DashboardRole | null }) {
   const t = useOwnerT("owner-dashboard");
+  const tc = useOwnerCommonT();
   const [userProfile, setUserProfile] = useState<{ fullName: string; role: string } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -2295,11 +2293,14 @@ function UserProfileMenu({ slug, role }: { slug: string; role?: DashboardRole | 
 
       setUserProfile({
         fullName: profile?.full_name || user.email?.split('@')[0] || "User",
-        role: role ? t("profile.roleView", "{{role}} View", { role: roleLabel(role) }) : t("profile.memberView", "Member View"),
+        // Role label is localised via the owner-common role display-map (keyed by
+        // the UPPERCASE code) so it stays Hindi post-reveal; the code itself is
+        // never translated, only its display.
+        role: role ? t("profile.roleView", "{{role}} View", { role: localizeCode(tc, 'role', role.toUpperCase()) }) : t("profile.memberView", "Member View"),
       });
     }
     loadUser();
-  }, [role, t]);
+  }, [role, t, tc]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -2438,7 +2439,7 @@ function SidebarNav({ slug, onNavClick }: { slug: string; onNavClick?: () => voi
   const settingsHref = `/owner/${slug}/settings`;
 
   return (
-    <nav aria-label="Owner dashboard navigation" className="space-y-4 text-sm">
+    <nav aria-label={t("nav.ariaLabel", "Owner dashboard navigation")} className="space-y-4 text-sm">
       {/* Operations */}
       <div>
         <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-3 px-3">{t("nav.operations", "Operations")}</div>
@@ -2596,6 +2597,7 @@ function AttentionStrip({
   items: AttentionItem[];
   topSeverity: AttentionSeverity | null;
 }) {
+  const t = useOwnerT("owner-dashboard");
   // Empty state — slim inline chip (was a full-row banner). When there's no
   // attention required, the dashboard shouldn't shout at the operator with a
   // big green panel; a quiet status pill aligned with the timestamp area is
@@ -2604,7 +2606,7 @@ function AttentionStrip({
     return (
       <div className="inline-flex items-center gap-2 self-start px-2.5 py-1 rounded-full border border-emerald-500/15 bg-emerald-500/[0.06]">
         <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-        <span className="text-[11px] text-emerald-300/80 font-medium">All clear · nothing needs attention</span>
+        <span className="text-[11px] text-emerald-300/80 font-medium">{t("attention.allClear", "All clear · nothing needs attention")}</span>
       </div>
     );
   }
@@ -2643,11 +2645,11 @@ function AttentionStrip({
         <div className="flex items-center gap-2">
           <span className={`h-2 w-2 rounded-full ${top === "critical" ? "bg-rose-400" : top === "warning" ? "bg-amber-400" : "bg-sky-400"}`} />
           <span className={`text-[11px] font-bold uppercase tracking-[0.18em] ${headlineTone[top]}`}>
-            Needs your attention
+            {t("attention.needsAttention", "Needs your attention")}
           </span>
         </div>
         <span className="text-[11px] text-slate-500 font-medium">
-          {items.length} item{items.length === 1 ? "" : "s"}
+          {t("attention.items", "{{count}} items", { count: items.length })}
         </span>
       </div>
 
@@ -2677,7 +2679,7 @@ function AttentionStrip({
 
       {overflow > 0 && (
         <div className="px-4 py-2 border-t border-white/5 text-[11px] text-slate-400 font-medium">
-          +{overflow} more — scroll down for the full ops view.
+          {t("attention.overflow", "+{{count}} more — scroll down for the full ops view.", { count: overflow })}
         </div>
       )}
     </div>
@@ -2718,6 +2720,7 @@ function TodayHero({
   dateLabel: string;
   hotelSlug: string;
 }) {
+  const t = useOwnerT("owner-dashboard");
   const hasRevenue = metrics.revenue > 0;
   // `hasOccupancy` here = "rooms are configured", which drives whether the
   // HeroStat shows "0%" or "—" for the value cell. Different from the
@@ -2744,10 +2747,10 @@ function TodayHero({
         <div className="flex items-center gap-2.5 min-w-0">
           <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-400 animate-pulse" />
           <div className="min-w-0">
-            <div className="text-sm font-semibold text-slate-100">No revenue, occupancy, or ADR yet today</div>
+            <div className="text-sm font-semibold text-slate-100">{t("today.allEmpty", "No revenue, occupancy, or ADR yet today")}</div>
             {(metrics.last7Revenue > 0 || metrics.last7AvgOcc > 0) && (
               <div className="text-[11px] text-emerald-400/80 font-medium mt-0.5">
-                Last 7d: {fmtINR(metrics.last7Revenue)} revenue · {Math.round(metrics.last7AvgOcc)}% avg occ
+                {t("today.last7Summary", "Last 7d: {{rev}} revenue · {{occ}}% avg occ", { rev: fmtINR(metrics.last7Revenue), occ: Math.round(metrics.last7AvgOcc) })}
               </div>
             )}
           </div>
@@ -2757,13 +2760,13 @@ function TodayHero({
             to={`/owner/${hotelSlug}/analytics`}
             className="text-[11px] font-semibold text-slate-400 hover:text-white inline-flex items-center gap-1 whitespace-nowrap"
           >
-            Full analytics <ArrowRight size={11} />
+            {t("today.fullAnalytics", "Full analytics")} <ArrowRight size={11} />
           </Link>
           <Link
             to={`/checkin?slug=${hotelSlug}`}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-100 text-xs font-semibold transition-colors whitespace-nowrap"
           >
-            Walk-in check-in <ArrowRight size={12} />
+            {t("today.walkinCheckin", "Walk-in check-in")} <ArrowRight size={12} />
           </Link>
         </div>
       </div>
@@ -2775,25 +2778,25 @@ function TodayHero({
       <div className="flex items-center justify-between px-5 py-2.5 border-b border-white/5">
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-300">Today</span>
+          <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-300">{t("today.eyebrow", "Today")}</span>
           <span className="text-[11px] text-slate-500 font-medium">· {dateLabel}</span>
         </div>
         <Link
           to={`/owner/${hotelSlug}/analytics`}
           className="text-[11px] font-semibold text-slate-400 hover:text-white inline-flex items-center gap-1"
         >
-          Full analytics <ArrowRight size={11} />
+          {t("today.fullAnalytics", "Full analytics")} <ArrowRight size={11} />
         </Link>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-white/5">
         {/* Revenue — drills into the folio-backed Revenue overview */}
         <HeroStat
-          label="Revenue"
+          label={t("hero.revenue", "Revenue")}
           to={`/owner/${hotelSlug}/revenue`}
           value={hasRevenue ? fmtINR(metrics.revenue) : "—"}
           empty={!hasRevenue}
-          emptyHint={metrics.hasYesterday ? "No revenue today" : "First booking awaited"}
+          emptyHint={metrics.hasYesterday ? t("hero.noRevenueToday", "No revenue today") : t("hero.firstBookingAwaited", "First booking awaited")}
           delta={
             metrics.revenueDeltaPct == null
               ? null
@@ -2803,16 +2806,16 @@ function TodayHero({
                 }
           }
           recency={!hasRevenue && metrics.last7Revenue > 0
-            ? `Last 7d: ${fmtINR(metrics.last7Revenue)} · ${fmtINR(metrics.last7AvgRevenue)}/day avg`
+            ? t("hero.revRecency", "Last 7d: {{total}} · {{avg}}/day avg", { total: fmtINR(metrics.last7Revenue), avg: fmtINR(metrics.last7AvgRevenue) })
             : undefined}
         />
         {/* Occupancy */}
         <HeroStat
-          label="Occupancy"
+          label={t("hero.occupancy", "Occupancy")}
           value={hasOccupancy ? `${Math.round(metrics.occPct)}%` : "—"}
           empty={!hasOccupancy}
-          emptyHint="No rooms configured"
-          subValue={hasOccupancy ? `${metrics.occupiedRooms} of ${metrics.totalRooms} rooms · sold today` : undefined}
+          emptyHint={t("hero.noRoomsConfigured", "No rooms configured")}
+          subValue={hasOccupancy ? t("hero.roomsSoldToday", "{{occupied}} of {{total}} rooms · sold today", { occupied: metrics.occupiedRooms, total: metrics.totalRooms }) : undefined}
           delta={
             metrics.hasYesterday
               ? {
@@ -2823,23 +2826,23 @@ function TodayHero({
               : null
           }
           recency={metrics.occPct === 0 && metrics.last7AvgOcc > 0
-            ? `Last 7d avg: ${Math.round(metrics.last7AvgOcc)}%`
+            ? t("hero.occRecency", "Last 7d avg: {{occ}}%", { occ: Math.round(metrics.last7AvgOcc) })
             : undefined}
         />
         {/* ADR */}
         <HeroStat
-          label="ADR"
+          label={t("hero.adr", "ADR")}
           value={metrics.adr > 0 ? fmtINR(metrics.adr) : "—"}
           empty={metrics.adr <= 0}
-          emptyHint={metrics.occupiedRooms === 0 ? "No occupied rooms today" : "—"}
-          subValue="Avg daily rate"
+          emptyHint={metrics.occupiedRooms === 0 ? t("hero.noOccupiedToday", "No occupied rooms today") : "—"}
+          subValue={t("hero.avgDailyRate", "Avg daily rate")}
           delta={
             metrics.adrDeltaPct == null
               ? null
               : { pct: metrics.adrDeltaPct, abs: `${Math.abs(Math.round(metrics.adrDeltaPct))}%` }
           }
           recency={metrics.adr <= 0 && metrics.last7AvgAdr > 0
-            ? `Last 7d avg: ${fmtINR(metrics.last7AvgAdr)}`
+            ? t("hero.adrRecency", "Last 7d avg: {{adr}}", { adr: fmtINR(metrics.last7AvgAdr) })
             : undefined}
         />
       </div>
@@ -2866,6 +2869,7 @@ function HeroStat({
   recency?: string;
   to?: string;
 }) {
+  const t = useOwnerT("owner-dashboard");
   const up = delta != null && delta.pct > 0.5;
   const down = delta != null && delta.pct < -0.5;
   const flat = delta != null && !up && !down;
@@ -2910,10 +2914,10 @@ function HeroStat({
                 {delta.abs}
                 {delta.unit ? "" : delta.pct !== 0 ? ` (${Math.abs(Math.round(delta.pct))}%)` : ""}
               </span>
-              <span className="text-slate-500 font-medium">{flat ? "flat vs yesterday" : "vs yesterday"}</span>
+              <span className="text-slate-500 font-medium">{flat ? t("hero.flatVsYesterday", "flat vs yesterday") : t("hero.vsYesterday", "vs yesterday")}</span>
             </div>
           ) : (
-            <div className="text-xs text-slate-500">No yesterday data yet</div>
+            <div className="text-xs text-slate-500">{t("hero.noYesterday", "No yesterday data yet")}</div>
           )}
         </>
       )}
@@ -2939,6 +2943,7 @@ function HeroStat({
  *  own channels — this stamp specifically tracks one-shot RPC freshness so
  *  the user knows when revenue/occupancy/SLA charts were last refetched. */
 function FreshnessStamp({ fetchedAt }: { fetchedAt: Date }) {
+  const t = useOwnerT("owner-dashboard");
   const ageMs = Date.now() - fetchedAt.getTime();
   const ageMin = Math.floor(ageMs / 60_000);
   const istTime = fetchedAt.toLocaleTimeString("en-IN", {
@@ -2947,15 +2952,19 @@ function FreshnessStamp({ fetchedAt }: { fetchedAt: Date }) {
     hour12: false,
     timeZone: "Asia/Kolkata",
   });
-  const ageLabel = ageMin < 1 ? "just now" : ageMin < 60 ? `${ageMin}m ago` : `${Math.floor(ageMin / 60)}h ago`;
+  const ageLabel = ageMin < 1
+    ? t("freshness.justNow", "just now")
+    : ageMin < 60
+      ? t("freshness.minAgo", "{{m}}m ago", { m: ageMin })
+      : t("freshness.hrAgo", "{{h}}h ago", { h: Math.floor(ageMin / 60) });
   // Past ~10 minutes, the data may be growing stale — nudge with amber tone
   const stale = ageMin >= 10;
   return (
     <div
       className={`hidden sm:flex flex-col items-end leading-tight ${stale ? "text-amber-400/80" : "text-slate-500"}`}
-      title={`Metrics fetched at ${istTime} IST. Realtime cards update independently.`}
+      title={t("freshness.title", "Metrics fetched at {{time}} IST. Realtime cards update independently.", { time: istTime })}
     >
-      <span className="text-[9px] font-bold uppercase tracking-widest">Metrics</span>
+      <span className="text-[9px] font-bold uppercase tracking-widest">{t("freshness.metrics", "Metrics")}</span>
       <span className="text-[10px] font-mono">{istTime} · {ageLabel}</span>
     </div>
   );
@@ -3021,6 +3030,7 @@ function WeekView({
   last7AvgAdr: number;
   hotelSlug: string;
 }) {
+  const t = useOwnerT("owner-dashboard");
   const revLast7 = revenueHistory.slice(-7);
   const occLast7 = occupancyHistory.slice(-7);
   const peakRev = revLast7.reduce((m, d) => Math.max(m, d.revenue || 0), 0);
@@ -3030,7 +3040,7 @@ function WeekView({
     return (
       <div className="rounded-2xl border border-dashed border-slate-700 bg-[#0B0E14] p-8 text-center">
         <div className="text-2xl mb-2">📈</div>
-        <div className="text-sm text-slate-400">Trend data will appear after a few days of activity.</div>
+        <div className="text-sm text-slate-400">{t("week.empty", "Trend data will appear after a few days of activity.")}</div>
       </div>
     );
   }
@@ -3042,34 +3052,34 @@ function WeekView({
         <div className="flex items-center justify-between px-5 py-3 border-b border-white/5">
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-emerald-400" />
-            <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-300">This week</span>
-            <span className="text-[11px] text-slate-500 font-medium">· last 7 days</span>
+            <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-300">{t("week.thisWeek", "This week")}</span>
+            <span className="text-[11px] text-slate-500 font-medium">{t("week.last7days", "· last 7 days")}</span>
           </div>
           <Link to={`/owner/${hotelSlug}/analytics`} className="text-[11px] font-semibold text-slate-300 hover:text-white inline-flex items-center gap-1">
-            Full analytics <ArrowRight size={11} />
+            {t("week.fullAnalytics", "Full analytics")} <ArrowRight size={11} />
           </Link>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-white/5">
           <div className="px-5 py-5 flex flex-col gap-1">
-            <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Revenue</div>
+            <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">{t("week.revenue", "Revenue")}</div>
             <div className="text-2xl sm:text-3xl font-bold tracking-tight font-mono text-white">
               {last7Revenue > 0 ? fmtINR(last7Revenue) : "—"}
             </div>
-            <div className="text-xs text-slate-400">7-day total</div>
+            <div className="text-xs text-slate-400">{t("week.sevenDayTotal", "7-day total")}</div>
           </div>
           <div className="px-5 py-5 flex flex-col gap-1">
-            <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Avg occupancy</div>
+            <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">{t("week.avgOccupancy", "Avg occupancy")}</div>
             <div className="text-2xl sm:text-3xl font-bold tracking-tight font-mono text-white">
               {last7AvgOcc > 0 ? `${Math.round(last7AvgOcc)}%` : "—"}
             </div>
-            <div className="text-xs text-slate-400">across {occLast7.length} day{occLast7.length === 1 ? "" : "s"}</div>
+            <div className="text-xs text-slate-400">{t("week.acrossDays", "across {{count}} days", { count: occLast7.length })}</div>
           </div>
           <div className="px-5 py-5 flex flex-col gap-1">
-            <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Avg ADR</div>
+            <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">{t("week.avgAdr", "Avg ADR")}</div>
             <div className="text-2xl sm:text-3xl font-bold tracking-tight font-mono text-white">
               {last7AvgAdr > 0 ? fmtINR(last7AvgAdr) : "—"}
             </div>
-            <div className="text-xs text-slate-400">7-day avg daily rate</div>
+            <div className="text-xs text-slate-400">{t("week.sevenDayAvgRate", "7-day avg daily rate")}</div>
           </div>
         </div>
       </div>
@@ -3077,8 +3087,8 @@ function WeekView({
       {/* Revenue trend */}
       <div className="rounded-2xl border border-slate-800/60 bg-[#151A25] overflow-hidden">
         <div className="flex items-center justify-between px-5 py-2.5 border-b border-white/5">
-          <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-300">Revenue trend</span>
-          <span className="text-[11px] text-slate-500 font-medium">peak: {peakRev > 0 ? fmtINR(peakRev) : "—"}</span>
+          <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-300">{t("week.revenueTrend", "Revenue trend")}</span>
+          <span className="text-[11px] text-slate-500 font-medium">{t("week.peak", "peak: {{value}}", { value: peakRev > 0 ? fmtINR(peakRev) : "—" })}</span>
         </div>
         <div className={`grid grid-cols-${revLast7.length || 1} divide-x divide-white/5`}>
           {revLast7.map((d, i) => {
@@ -3103,8 +3113,8 @@ function WeekView({
       {/* Occupancy trend */}
       <div className="rounded-2xl border border-slate-800/60 bg-[#151A25] overflow-hidden">
         <div className="flex items-center justify-between px-5 py-2.5 border-b border-white/5">
-          <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-sky-300">Occupancy trend</span>
-          <span className="text-[11px] text-slate-500 font-medium">peak: {peakOcc > 0 ? `${Math.round(peakOcc)}%` : "—"}</span>
+          <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-sky-300">{t("week.occupancyTrend", "Occupancy trend")}</span>
+          <span className="text-[11px] text-slate-500 font-medium">{t("week.peak", "peak: {{value}}", { value: peakOcc > 0 ? `${Math.round(peakOcc)}%` : "—" })}</span>
         </div>
         <div className={`grid grid-cols-${occLast7.length || 1} divide-x divide-white/5`}>
           {occLast7.map((d, i) => {
@@ -3139,6 +3149,7 @@ function PipelineView({
   hotelSlug: string;
   vipStays: VipStay[] | null;
 }) {
+  const t = useOwnerT("owner-dashboard");
   return (
     <div className="flex flex-col gap-4">
       {/* Reuse the same forecast strip — it's the right size for this surface */}
@@ -3147,11 +3158,11 @@ function PipelineView({
       <div className="rounded-2xl border border-slate-800/60 bg-[#151A25] p-5">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-purple-300">VIP arrivals</div>
-            <div className="text-xs text-slate-500 mt-0.5">Flagged guests in the upcoming window</div>
+            <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-purple-300">{t("pipeline.vipArrivals", "VIP arrivals")}</div>
+            <div className="text-xs text-slate-500 mt-0.5">{t("pipeline.vipSub", "Flagged guests in the upcoming window")}</div>
           </div>
           <Link to={`/owner/${hotelSlug}/arrivals`} className="text-[11px] font-semibold text-slate-300 hover:text-white inline-flex items-center gap-1">
-            All arrivals <ArrowRight size={11} />
+            {t("pipeline.allArrivals", "All arrivals")} <ArrowRight size={11} />
           </Link>
         </div>
         {Array.isArray(vipStays) && vipStays.length > 0 ? (
@@ -3160,14 +3171,14 @@ function PipelineView({
               <div key={s.stay_id} className="flex items-center justify-between rounded-xl border border-purple-500/20 bg-purple-500/[0.04] px-3 py-2">
                 <div className="min-w-0">
                   <div className="text-sm font-medium text-slate-100 truncate">
-                    {s.room ? `Room ${s.room}` : "Room TBD"}
+                    {s.room ? t("pipeline.room", "Room {{room}}", { room: s.room }) : t("pipeline.roomTbd", "Room TBD")}
                   </div>
                   <div className="text-[11px] text-slate-400 truncate">
-                    Arrives {s.check_in_start ? new Date(s.check_in_start).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }) : "—"}
+                    {t("pipeline.arrives", "Arrives {{date}}", { date: s.check_in_start ? new Date(s.check_in_start).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }) : "—" })}
                   </div>
                 </div>
                 <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md bg-purple-500/15 text-purple-300 border border-purple-500/30">
-                  VIP
+                  {t("pipeline.vip", "VIP")}
                 </span>
               </div>
             ))}
@@ -3175,7 +3186,7 @@ function PipelineView({
         ) : (
           <div className="rounded-xl border border-dashed border-slate-700 bg-[#0B0E14] px-4 py-3 flex items-center gap-3">
             <div className="text-lg">⭐</div>
-            <div className="text-xs text-slate-400">No VIP arrivals in the upcoming window.</div>
+            <div className="text-xs text-slate-400">{t("pipeline.noVip", "No VIP arrivals in the upcoming window.")}</div>
           </div>
         )}
       </div>
@@ -3190,6 +3201,7 @@ function ForecastStrip({
   summary: ForecastSummary | null;
   hotelSlug: string;
 }) {
+  const t = useOwnerT("owner-dashboard");
   if (!summary) {
     return <div className="rounded-2xl border border-slate-800/60 bg-[#151A25] h-[88px] animate-pulse" />;
   }
@@ -3203,14 +3215,14 @@ function ForecastStrip({
     return (
       <div className="rounded-2xl border border-slate-800/60 bg-[#151A25] flex items-center gap-2.5 px-4 py-3">
         <span className="h-2 w-2 rounded-full bg-slate-600 shrink-0" />
-        <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 whitespace-nowrap shrink-0">Next 7 days</span>
-        <span className="text-xs text-slate-500 truncate min-w-0">· No arrivals expected</span>
+        <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 whitespace-nowrap shrink-0">{t("forecast.next7days", "Next 7 days")}</span>
+        <span className="text-xs text-slate-500 truncate min-w-0">{t("forecast.noArrivals", "· No arrivals expected")}</span>
         <Link
           to={`/owner/${hotelSlug}/arrivals`}
           className="ml-auto shrink-0 text-[11px] font-semibold text-slate-300 hover:text-white inline-flex items-center gap-1"
         >
-          <span className="hidden sm:inline">View calendar</span>
-          <span className="sm:hidden">Calendar</span>
+          <span className="hidden sm:inline">{t("forecast.viewCalendar", "View calendar")}</span>
+          <span className="sm:hidden">{t("forecast.calendar", "Calendar")}</span>
           <ArrowRight size={11} />
         </Link>
       </div>
@@ -3232,14 +3244,14 @@ function ForecastStrip({
         <div className="flex items-center gap-2 min-w-0">
           <span className={`h-2 w-2 rounded-full ${dotClass}`} />
           <span className={`text-[11px] font-bold uppercase tracking-[0.18em] ${eyebrowTone}`}>
-            Next 7 days
+            {t("forecast.next7days", "Next 7 days")}
           </span>
           <span className="text-[11px] text-slate-500 font-medium truncate">
             {totalArrivals === 0
-              ? "· No arrivals expected"
-              : `· ${totalArrivals} ${totalArrivals === 1 ? "arrival" : "arrivals"}`}
+              ? t("forecast.noArrivals", "· No arrivals expected")
+              : t("forecast.arrivalsCount", "· {{count}} arrivals", { count: totalArrivals })}
             {peakDay && peakDay.arrivals > 1 && (
-              <span> · peak {peakDay.dayLabel} ({peakDay.arrivals})</span>
+              <span>{t("forecast.peak", " · peak {{day}} ({{count}})", { day: peakDay.dayLabel, count: peakDay.arrivals })}</span>
             )}
           </span>
         </div>
@@ -3247,7 +3259,7 @@ function ForecastStrip({
           to={`/owner/${hotelSlug}/arrivals`}
           className="text-[11px] font-semibold text-slate-300 hover:text-white inline-flex items-center gap-1 shrink-0"
         >
-          View calendar <ArrowRight size={11} />
+          {t("forecast.viewCalendar", "View calendar")} <ArrowRight size={11} />
         </Link>
       </div>
       <div className="grid grid-cols-7 divide-x divide-white/5">
@@ -3288,6 +3300,7 @@ function HousekeepingStrip({
   summary: HousekeepingSummary | null;
   hotelSlug: string;
 }) {
+  const t = useOwnerT("owner-dashboard");
   // Loading skeleton — same height as live state so the page doesn't jump
   if (!summary) {
     return (
@@ -3321,11 +3334,11 @@ function HousekeepingStrip({
   // (Pickup / In progress / OOO) are exception states; hide them when zero
   // so the row stops paying full pixel rent for "0 · 0 · 0".
   const cells: Cell[] = [
-    { count: ready,      label: "Ready",       tone: "emerald" },
-    { count: dirty,      label: "Dirty",       tone: "amber"   },
-    ...(pickup > 0     ? [{ count: pickup,     label: "Pickup",      tone: "amber" as const }] : []),
-    ...(inProgress > 0 ? [{ count: inProgress, label: "In progress", tone: "sky"   as const }] : []),
-    ...(outOfOrder > 0 ? [{ count: outOfOrder, label: "OOO",         tone: "rose"  as const }] : []),
+    { count: ready,      label: t("hkStrip.ready", "Ready"),       tone: "emerald" },
+    { count: dirty,      label: t("hkStrip.dirty", "Dirty"),       tone: "amber"   },
+    ...(pickup > 0     ? [{ count: pickup,     label: t("hkStrip.pickup", "Pickup"),      tone: "amber" as const }] : []),
+    ...(inProgress > 0 ? [{ count: inProgress, label: t("hkStrip.inProgress", "In progress"), tone: "sky"   as const }] : []),
+    ...(outOfOrder > 0 ? [{ count: outOfOrder, label: t("hkStrip.ooo", "OOO"),         tone: "rose"  as const }] : []),
   ];
   // Adapt grid column count to the actual number of cells so we don't end up
   // with 2 wide cells in a 5-col grid (gets visually awkward).
@@ -3349,27 +3362,27 @@ function HousekeepingStrip({
         <div className="flex items-center gap-2 min-w-0">
           <span className={`h-2 w-2 rounded-full ${dotClass}`} />
           <span className={`text-[11px] font-bold uppercase tracking-[0.18em] ${eyebrowClass}`}>
-            Housekeeping
+            {t("hkStrip.housekeeping", "Housekeeping")}
           </span>
           <span className="text-[11px] text-slate-500 font-medium truncate">
-            · {ready} of {total} ready ({readyPct}%)
+            {t("hkStrip.readySummary", "· {{ready}} of {{total}} ready ({{pct}}%)", { ready, total, pct: readyPct })}
           </span>
         </div>
         <Link
           to={`/owner/${hotelSlug}/housekeeping`}
           className="text-[11px] font-semibold text-slate-300 hover:text-white inline-flex items-center gap-1 shrink-0"
         >
-          Open board <ArrowRight size={11} />
+          {t("hkStrip.openBoard", "Open board")} <ArrowRight size={11} />
         </Link>
       </div>
       <div className={`grid ${gridColsClass} divide-x divide-y sm:divide-y-0 divide-white/5`}>
         {cells.map((c) => {
-          const t = toneClasses[c.tone];
+          const tc = toneClasses[c.tone];
           const muted = c.count === 0;
           return (
             <div key={c.label} className="px-4 py-3 flex items-center gap-3 min-w-0">
               <div className={`h-8 w-8 shrink-0 rounded-lg border flex items-center justify-center ${
-                muted ? "bg-slate-800/60 text-slate-500 border-slate-700/50" : t.tile
+                muted ? "bg-slate-800/60 text-slate-500 border-slate-700/50" : tc.tile
               }`}>
                 <Sparkles size={14} />
               </div>
@@ -3377,7 +3390,7 @@ function HousekeepingStrip({
                 <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 truncate">
                   {c.label}
                 </div>
-                <div className={`text-sm font-bold ${muted ? "text-slate-600" : t.value}`}>
+                <div className={`text-sm font-bold ${muted ? "text-slate-600" : tc.value}`}>
                   {c.count}
                 </div>
               </div>
@@ -3396,11 +3409,12 @@ function OutstandingBalanceCard({
   summary: OutstandingBalanceSummary | null;
   hotelSlug: string;
 }) {
+  const t = useOwnerT("owner-dashboard");
   // Loading state — neutral placeholder so the rail doesn't jump
   if (!summary) {
     return (
       <DarkCard className="p-4">
-        <CardHeader title="Outstanding Balance" subtitle="Active folios" />
+        <CardHeader title={t("outstanding.title", "Outstanding Balance")} subtitle={t("outstanding.activeFolios", "Active folios")} />
         <div className="mt-3 h-12 rounded-lg bg-slate-800/40 animate-pulse" />
       </DarkCard>
     );
@@ -3418,7 +3432,7 @@ function OutstandingBalanceCard({
 
   return (
     <DarkCard className="p-4">
-      <CardHeader title="Outstanding Balance" subtitle="Money owed by in-house guests" />
+      <CardHeader title={t("outstanding.title", "Outstanding Balance")} subtitle={t("outstanding.subtitle", "Money owed by in-house guests")} />
 
       <div className="mt-3 flex items-center gap-3">
         {/* Icon tone follows the data: warm amber when money is owed (action
@@ -3439,7 +3453,7 @@ function OutstandingBalanceCard({
           {noActive ? (
             <>
               <div className="text-base font-bold text-slate-400">—</div>
-              <div className="text-xs text-slate-500">No active folios</div>
+              <div className="text-xs text-slate-500">{t("outstanding.noActiveFolios", "No active folios")}</div>
             </>
           ) : hasOwed ? (
             <>
@@ -3447,23 +3461,23 @@ function OutstandingBalanceCard({
                 {fmtINR(totalOwed)}
               </div>
               <div className="text-xs text-slate-400">
-                across {staysWithBalance} {staysWithBalance === 1 ? "stay" : "stays"}
+                {t("outstanding.acrossStays", "across {{count}} stays", { count: staysWithBalance })}
                 {totalOpenFolios > staysWithBalance && (
-                  <span className="text-slate-500"> · {totalOpenFolios - staysWithBalance} settled</span>
+                  <span className="text-slate-500">{t("outstanding.settled", " · {{count}} settled", { count: totalOpenFolios - staysWithBalance })}</span>
                 )}
               </div>
             </>
           ) : allSettled ? (
             <>
-              <div className="text-base font-bold text-emerald-400">All settled</div>
+              <div className="text-base font-bold text-emerald-400">{t("outstanding.allSettled", "All settled")}</div>
               <div className="text-xs text-slate-400">
-                {totalOpenFolios} open {totalOpenFolios === 1 ? "folio" : "folios"} at ₹0
+                {t("outstanding.openFoliosZero", "{{count}} open folios at ₹0", { count: totalOpenFolios })}
               </div>
             </>
           ) : (
             <>
-              <div className="text-base font-bold text-slate-200">No balance owed</div>
-              <div className="text-xs text-slate-400">{totalOpenFolios} active</div>
+              <div className="text-base font-bold text-slate-200">{t("outstanding.noBalanceOwed", "No balance owed")}</div>
+              <div className="text-xs text-slate-400">{t("outstanding.active", "{{count}} active", { count: totalOpenFolios })}</div>
             </>
           )}
         </div>
@@ -3472,7 +3486,7 @@ function OutstandingBalanceCard({
       {/* Hotel owes guest a refund — separate signal, less common */}
       {hasRefund && (
         <div className="mt-2 flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-sky-500/20 bg-sky-500/5">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-sky-400">Refund pending</span>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-sky-400">{t("outstanding.refundPending", "Refund pending")}</span>
           <span className="text-xs font-mono text-sky-300 ml-auto">{fmtINR(guestRefundOwed)}</span>
         </div>
       )}
@@ -3482,8 +3496,8 @@ function OutstandingBalanceCard({
           isn't conflated with "chase a guest who already left". */}
       {hasDeparted && (
         <div className="mt-2 flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-rose-500/20 bg-rose-500/5">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-rose-400">Departed · owes</span>
-          <span className="text-[11px] text-slate-400">{departedCount} {departedCount === 1 ? "guest" : "guests"}</span>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-rose-400">{t("outstanding.departedOwes", "Departed · owes")}</span>
+          <span className="text-[11px] text-slate-400">{t("outstanding.guests", "{{count}} guests", { count: departedCount })}</span>
           <span className="text-xs font-mono text-rose-300 ml-auto">{fmtINR(departedOwed)}</span>
         </div>
       )}
@@ -3493,7 +3507,7 @@ function OutstandingBalanceCard({
           to={`/owner/${hotelSlug}/arrivals`}
           className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-amber-200 hover:text-white bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 px-3 py-1.5 rounded-lg transition-colors w-full justify-center"
         >
-          Review &amp; collect
+          {t("outstanding.reviewCollect", "Review & collect")}
           <ArrowRight size={12} />
         </Link>
       )}
@@ -3723,6 +3737,7 @@ function Td({ children, className = "" }: { children: ReactNode; className?: str
 /** ========= Breakdown ========= */
 
 function IssueBreakdown({ orders, targetMin }: { orders: LiveTask[]; targetMin: number }) {
+  const t = useOwnerT("owner-dashboard");
   const classify = (status: string) => {
     const s = (status || "").toLowerCase();
     const isNew = ["open", "new", "created", "requested"].some((k) => s.includes(k));
@@ -3741,13 +3756,13 @@ function IssueBreakdown({ orders, targetMin }: { orders: LiveTask[]; targetMin: 
 
   return (
     <div className="space-y-2">
-      <BreakRow label="New" value={newCount} tone={newCount > 0 ? "green" : "grey"} />
-      <BreakRow label="In progress" value={inProgress} tone={inProgress > 0 ? "amber" : "grey"} />
-      <BreakRow label="Blocked" value={blocked} tone={blocked > 0 ? "red" : "grey"} />
-      <BreakRow label={`Overdue (> ${targetMin}m)`} value={overdue} tone={overdue > 0 ? "amber" : "grey"} />
-      <BreakRow label="Other" value={other} tone={other > 0 ? "grey" : "grey"} />
+      <BreakRow label={t("breakdown.new", "New")} value={newCount} tone={newCount > 0 ? "green" : "grey"} />
+      <BreakRow label={t("breakdown.inProgress", "In progress")} value={inProgress} tone={inProgress > 0 ? "amber" : "grey"} />
+      <BreakRow label={t("breakdown.blocked", "Blocked")} value={blocked} tone={blocked > 0 ? "red" : "grey"} />
+      <BreakRow label={t("breakdown.overdue", "Overdue (> {{min}}m)", { min: targetMin })} value={overdue} tone={overdue > 0 ? "amber" : "grey"} />
+      <BreakRow label={t("breakdown.other", "Other")} value={other} tone={other > 0 ? "grey" : "grey"} />
       <div className="pt-2 text-[11px] text-slate-400">
-        Service-type breakdown is not available in this view.
+        {t("breakdown.noServiceBreakdown", "Service-type breakdown is not available in this view.")}
       </div>
     </div>
   );
@@ -3776,7 +3791,8 @@ function BreakRow({
 /** ========= Right rail blocks ========= */
 
 function StaffList({ data }: { data: StaffPerf[] | null }) {
-  if (!data || data.length === 0) return <EmptyState text="Not available" />;
+  const t = useOwnerT("owner-dashboard");
+  if (!data || data.length === 0) return <EmptyState text={t("rail.notAvailable", "Not available")} />;
 
   return (
     <div className="space-y-2">
@@ -3799,34 +3815,35 @@ function StaffList({ data }: { data: StaffPerf[] | null }) {
                 title={extraCount > 0 ? fullRoleString : undefined}
               >
                 {primary}
-                {extraCount > 0 && <span className="text-slate-500"> · +{extraCount} more</span>}
+                {extraCount > 0 && <span className="text-slate-500">{t("rail.moreSuffix", " · +{{count}} more", { count: extraCount })}</span>}
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <StatusBadge label={r.is_online ? "Online" : "Away"} tone={r.is_online ? "green" : "grey"} />
+              <StatusBadge label={r.is_online ? t("rail.online", "Online") : t("rail.away", "Away")} tone={r.is_online ? "green" : "grey"} />
             </div>
           </div>
         );
       })}
       {data.length > 6 ? (
-        <div className="text-[11px] text-slate-400">+{data.length - 6} more</div>
+        <div className="text-[11px] text-slate-400">{t("rail.moreCount", "+{{count}} more", { count: data.length - 6 })}</div>
       ) : null}
     </div>
   );
 }
 
 function AttendanceMini({ data }: { data: HrmsSnapshot | null }) {
-  if (!data) return <EmptyState text="Not available" />;
+  const t = useOwnerT("owner-dashboard");
+  if (!data) return <EmptyState text={t("rail.notAvailable", "Not available")} />;
 
   const tone =
     data.attendance_pct_today >= 85 ? "green" : data.attendance_pct_today >= 70 ? "amber" : "red";
 
   return (
     <div className="grid grid-cols-2 gap-2">
-      <MiniStat label="Present" value={data.present_today} tone={tone} />
-      <MiniStat label="Absent" value={data.absent_today} tone={data.absent_today > 0 ? "amber" : "grey"} />
-      <MiniStat label="Late" value={data.late_today} tone={data.late_today > 0 ? "amber" : "grey"} />
-      <MiniStat label="Attendance" value={`${data.attendance_pct_today}%`} tone={tone} />
+      <MiniStat label={t("rail.present", "Present")} value={data.present_today} tone={tone} />
+      <MiniStat label={t("rail.absent", "Absent")} value={data.absent_today} tone={data.absent_today > 0 ? "amber" : "grey"} />
+      <MiniStat label={t("rail.late", "Late")} value={data.late_today} tone={data.late_today > 0 ? "amber" : "grey"} />
+      <MiniStat label={t("rail.attendance", "Attendance")} value={`${data.attendance_pct_today}%`} tone={tone} />
     </div>
   );
 }
@@ -3842,10 +3859,11 @@ function SatisfactionPanel({
   npsResponses: number | null;
   avgRating30d: number | null;
 }) {
+  const t = useOwnerT("owner-dashboard");
   const hasNps = typeof npsScore === "number" && (npsResponses ?? 0) > 0;
   const hasRating = typeof avgRating30d === "number" && !Number.isNaN(avgRating30d);
 
-  if (!hasNps && !hasRating) return <EmptyState text="Not available" />;
+  if (!hasNps && !hasRating) return <EmptyState text={t("rail.notAvailable", "Not available")} />;
 
   return (
     <div className="space-y-2">
@@ -3855,12 +3873,12 @@ function SatisfactionPanel({
         </div>
         <div className="mt-1 flex items-center justify-between">
           <div className="text-sm font-semibold text-slate-100">
-            {hasNps ? `NPS ${npsScore}` : `Rating ${avgRating30d!.toFixed(1)}/5`}
+            {hasNps ? t("rail.nps", "NPS {{score}}", { score: npsScore }) : t("rail.rating", "Rating {{rating}}/5", { rating: avgRating30d!.toFixed(1) })}
           </div>
-          <StatusBadge label="Guest" tone={hasNps ? "green" : ratingTone(avgRating30d)} />
+          <StatusBadge label={t("rail.guest", "Guest")} tone={hasNps ? "green" : ratingTone(avgRating30d)} />
         </div>
         <div className="mt-1 text-[11px] text-slate-400">
-          {hasNps ? `${npsResponses} responses (30d)` : "Avg rating (30d)"}
+          {hasNps ? t("rail.npsResponses", "{{count}} responses (30d)", { count: npsResponses }) : t("rail.avgRating30d", "Avg rating (30d)")}
         </div>
       </div>
     </div>
@@ -3874,8 +3892,9 @@ function WorkforceMini({
   jobs: WorkforceJobSummary[] | null;
   loading: boolean;
 }) {
-  if (loading) return <EmptyState text="Loading roles…" />;
-  if (!jobs || jobs.length === 0) return <EmptyState text="Not available" />;
+  const t = useOwnerT("owner-dashboard");
+  if (loading) return <EmptyState text={t("rail.loadingRoles", "Loading roles…")} />;
+  if (!jobs || jobs.length === 0) return <EmptyState text={t("rail.notAvailable", "Not available")} />;
 
   const openJobs = jobs.filter((j) =>
     (j.status || "open").toLowerCase().includes("open")
@@ -3885,9 +3904,9 @@ function WorkforceMini({
     <div className="space-y-2">
       <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
         <div className="text-sm font-semibold text-slate-100">
-          {openJobs} open role{openJobs === 1 ? "" : "s"}
+          {t("rail.openRoles", "{{count}} open roles", { count: openJobs })}
         </div>
-        <div className="text-[11px] text-slate-400">{jobs.length} total roles</div>
+        <div className="text-[11px] text-slate-400">{t("rail.totalRoles", "{{count}} total roles", { count: jobs.length })}</div>
       </div>
 
       {jobs.slice(0, 3).map((j) => {
@@ -3900,13 +3919,13 @@ function WorkforceMini({
           >
             <div className="min-w-0">
               <div className="text-sm font-medium text-slate-100 truncate">
-                {j.title || j.department || "Role"}
+                {j.title || j.department || t("rail.roleFallback", "Role")}
               </div>
               <div className="text-[11px] text-slate-400 truncate">
-                {(j.city || "").trim() || "Local"} · {j.status || "Open"}
+                {(j.city || "").trim() || t("rail.localFallback", "Local")} · {j.status || t("rail.openFallback", "Open")}
               </div>
             </div>
-            <StatusBadge label={isOpen ? "Hiring" : "Closed"} tone={isOpen ? "green" : "grey"} />
+            <StatusBadge label={isOpen ? t("rail.hiring", "Hiring") : t("rail.closed", "Closed")} tone={isOpen ? "green" : "grey"} />
           </div>
         );
       })}
@@ -3923,6 +3942,7 @@ function AiOpsMiniSummary({
   heatmap: OpsHeatmapPoint[] | null;
   staffingPlan: StaffingPlanRow[] | null;
 }) {
+  const t = useOwnerT("owner-dashboard");
   const plan = staffingPlan || [];
   const heat = heatmap || [];
 
@@ -3930,10 +3950,10 @@ function AiOpsMiniSummary({
     <div className="space-y-3">
       <div className="rounded-xl border border-white/10 bg-white/5 p-3">
         <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-          Suggested staffing (today)
+          {t("ai.suggestedStaffing", "Suggested staffing (today)")}
         </div>
         {plan.length === 0 ? (
-          <div className="mt-2 text-sm text-slate-300">Not available</div>
+          <div className="mt-2 text-sm text-slate-300">{t("ai.notAvailable", "Not available")}</div>
         ) : (
           <div className="mt-2 space-y-2">
             {plan.slice(0, 3).map((row) => (
@@ -3943,11 +3963,10 @@ function AiOpsMiniSummary({
                     {row.department}
                   </div>
                   <div className="text-[11px] text-slate-400">
-                    Recommend {row.recommended_count} (min {row.min_count}, max{" "}
-                    {row.max_count})
+                    {t("ai.recommend", "Recommend {{rec}} (min {{min}}, max {{max}})", { rec: row.recommended_count, min: row.min_count, max: row.max_count })}
                   </div>
                 </div>
-                <StatusBadge label="AI" tone="grey" />
+                <StatusBadge label={t("ai.badge", "AI")} tone="grey" />
               </div>
             ))}
           </div>
@@ -3956,13 +3975,13 @@ function AiOpsMiniSummary({
 
       <div className="rounded-xl border border-white/10 bg-white/5 p-3">
         <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-          Heatmap (7d)
+          {t("ai.heatmap", "Heatmap (7d)")}
         </div>
         {heat.length === 0 ? (
-          <div className="mt-2 text-sm text-slate-300">Not available</div>
+          <div className="mt-2 text-sm text-slate-300">{t("ai.notAvailable", "Not available")}</div>
         ) : (
           <div className="mt-2 text-[11px] text-slate-400">
-            {heat.length} buckets analyzed. Open full view in Ops Analytics for details.
+            {t("ai.bucketsAnalyzed", "{{count}} buckets analyzed. Open full view in Ops Analytics for details.", { count: heat.length })}
           </div>
         )}
       </div>
@@ -3980,11 +3999,12 @@ function AccessHelp({
   message: string;
   inviteToken?: string;
 }) {
+  const t = useOwnerT("owner-dashboard");
   const hasValidSlug = !!normalizeSlug(slug);
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
       <div className="mb-1 text-lg font-semibold text-slate-100">
-        Property access needed
+        {t("access.needed", "Property access needed")}
       </div>
       <p className="mb-4 text-sm text-slate-300">{message}</p>
       <div className="flex flex-wrap gap-2">
@@ -3992,12 +4012,11 @@ function AccessHelp({
           to="/staff"
           className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-100 hover:bg-white/10"
         >
-          Return to Staff App
+          {t("access.returnToStaff", "Return to Staff App")}
         </Link>
       </div>
       <p className="mt-3 text-xs text-slate-400">
-        Tip: If you received an email invite, open it on this device so we can
-        auto-fill your invite code.
+        {t("access.tip", "Tip: If you received an email invite, open it on this device so we can auto-fill your invite code.")}
       </p>
     </div>
   );

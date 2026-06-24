@@ -11,18 +11,19 @@ import { Loader2, Clock } from 'lucide-react';
 import type { Lead } from '../../types/lead';
 import { LeadSourceIcon } from './LeadSourceIcon';
 import { isOptimisticLead, type OptimisticLead } from './LeadQuickAddModal.optimistic';
+import { useOwnerT, type OwnerT } from '../../i18n/useOwnerT';
 
-function formatRelative(iso: string): string {
+function formatRelative(iso: string, t: OwnerT): string {
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return '';
   const diffMin = Math.round((Date.now() - then) / 60000);
-  if (diffMin < 1) return 'now';
-  if (diffMin < 60) return `${diffMin}m`;
+  if (diffMin < 1) return t('relShort.now', 'now');
+  if (diffMin < 60) return t('relShort.m', '{{m}}m', { m: diffMin });
   const diffHr = Math.round(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h`;
+  if (diffHr < 24) return t('relShort.h', '{{h}}h', { h: diffHr });
   const diffDay = Math.round(diffHr / 24);
-  if (diffDay < 30) return `${diffDay}d`;
-  return `${Math.round(diffDay / 30)}mo`;
+  if (diffDay < 30) return t('relShort.d', '{{d}}d', { d: diffDay });
+  return t('relShort.mo', '{{mo}}mo', { mo: Math.round(diffDay / 30) });
 }
 
 function formatINR(n: number | null): string | null {
@@ -41,6 +42,7 @@ interface BodyProps {
 }
 
 function CardBody({ lead, ghost, overlay }: BodyProps) {
+  const t = useOwnerT('owner-leads');
   const optimistic = isOptimisticLead(lead);
   const value = formatINR(lead.value_estimate);
 
@@ -58,7 +60,7 @@ function CardBody({ lead, ghost, overlay }: BodyProps) {
       {optimistic && (
         <div className="absolute right-2 top-2 inline-flex items-center gap-1 text-[10px] text-amber-300">
           <Loader2 className="h-3 w-3 animate-spin" />
-          Saving
+          {t('card.savingShort', 'Saving')}
         </div>
       )}
 
@@ -77,7 +79,7 @@ function CardBody({ lead, ghost, overlay }: BodyProps) {
         <span className="truncate">{value ?? '—'}</span>
         <span className="inline-flex items-center gap-0.5 shrink-0">
           <Clock className="h-3 w-3" aria-hidden="true" />
-          {formatRelative(lead.last_activity_at)}
+          {formatRelative(lead.last_activity_at, t)}
         </span>
       </div>
     </div>

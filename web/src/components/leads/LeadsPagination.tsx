@@ -5,6 +5,7 @@
 // Mobile: prev / "Page X of Y" / next.
 
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   page: number;
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export function LeadsPagination({ page, total, pageSize, onPageChange }: Props) {
+  const t = useOwnerT('owner-leads');
   if (total === null || total <= pageSize) return null;
 
   const lastPage = Math.max(1, Math.ceil(total / pageSize));
@@ -41,12 +43,11 @@ export function LeadsPagination({ page, total, pageSize, onPageChange }: Props) 
   return (
     <nav
       data-testid="leads-pagination"
-      aria-label="Leads pagination"
+      aria-label={t('pagination.ariaLabel', 'Leads pagination')}
       className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6 text-sm"
     >
       <div className="text-white/60 text-xs">
-        Showing <span className="text-white">{from}–{to}</span> of{' '}
-        <span className="text-white">{total}</span>
+        {t('pagination.showing', 'Showing {{from}}–{{to}} of {{total}}', { from, to, total })}
       </div>
 
       <div className="flex items-center gap-1">
@@ -54,11 +55,11 @@ export function LeadsPagination({ page, total, pageSize, onPageChange }: Props) 
           type="button"
           onClick={() => go(page - 1)}
           disabled={!canPrev}
-          aria-label="Previous page"
+          aria-label={t('pagination.prevPage', 'Previous page')}
           className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-white/70 hover:bg-white/[0.06] disabled:opacity-30 disabled:cursor-not-allowed"
         >
           <ChevronLeft className="h-4 w-4" />
-          <span className="hidden sm:inline">Prev</span>
+          <span className="hidden sm:inline">{t('pagination.prev', 'Prev')}</span>
         </button>
 
         {/* Desktop: page numbers with gaps */}
@@ -89,17 +90,17 @@ export function LeadsPagination({ page, total, pageSize, onPageChange }: Props) 
 
         {/* Mobile: compact label */}
         <div className="sm:hidden text-xs text-white/70 px-2">
-          Page {page} of {lastPage}
+          {t('pagination.pageOf', 'Page {{page}} of {{last}}', { page, last: lastPage })}
         </div>
 
         <button
           type="button"
           onClick={() => go(page + 1)}
           disabled={!canNext}
-          aria-label="Next page"
+          aria-label={t('pagination.nextPage', 'Next page')}
           className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-white/70 hover:bg-white/[0.06] disabled:opacity-30 disabled:cursor-not-allowed"
         >
-          <span className="hidden sm:inline">Next</span>
+          <span className="hidden sm:inline">{t('pagination.next', 'Next')}</span>
           <ChevronRight className="h-4 w-4" />
         </button>
       </div>

@@ -23,6 +23,7 @@ import type {
   SeasonalChecklistItem,
   VisibleSeasonalWindow,
 } from '../../types/seasonalCalendar';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   hotelId: string;
@@ -33,6 +34,7 @@ interface Props {
 }
 
 export function SeasonalChecklist({ hotelId, hotelSlug, window, language, disabled }: Props) {
+  const t = useOwnerT('owner-seasonal');
   const qc = useQueryClient();
   const items = window.prep_checklist_seed ?? [];
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -55,7 +57,7 @@ export function SeasonalChecklist({ hotelId, hotelSlug, window, language, disabl
     },
     onError: (err) => {
       const code = extractSeasonalErrorCode(err);
-      setErrorMsg(friendlySeasonalError(code, 'Could not save. Please try again.'));
+      setErrorMsg(friendlySeasonalError(code, t('checklist.saveError', 'Could not save. Please try again.')));
     },
     onSettled: () => {
       setPendingKey(null);
@@ -65,9 +67,7 @@ export function SeasonalChecklist({ hotelId, hotelSlug, window, language, disabl
   if (items.length === 0) {
     return (
       <p className="text-[12px] text-slate-500">
-        {language === 'en'
-          ? 'No checklist items defined for this window yet.'
-          : 'Is window ke liye abhi koi checklist items nahi hain.'}
+        {t('checklist.noItems', 'No checklist items defined for this window yet.')}
       </p>
     );
   }
@@ -112,9 +112,12 @@ function ChecklistRow({
   disabled?: boolean;
   onToggle: (next: boolean) => void;
 }) {
+  const t = useOwnerT('owner-seasonal');
   const label = language === 'en' ? item.label_en : item.label_hi;
   const linkRoute = seasonalConnectedModuleRoute(hotelSlug, item.link_target ?? null);
-  const moduleLabel = item.link_target ? SEASONAL_CONNECTED_MODULE_LABEL[item.link_target] : null;
+  const moduleLabel = item.link_target
+    ? t(`module.${item.link_target}`, SEASONAL_CONNECTED_MODULE_LABEL[item.link_target])
+    : null;
 
   return (
     <li className="flex items-start gap-2.5 rounded-md border border-slate-200 bg-white px-2.5 py-2 hover:bg-slate-50">
@@ -147,7 +150,7 @@ function ChecklistRow({
             to={linkRoute}
             className="mt-0.5 inline-flex items-center gap-0.5 text-[11px] text-emerald-700 hover:underline"
           >
-            Open {moduleLabel} <ExternalLink className="h-3 w-3" aria-hidden />
+            {t('checklist.openModule', 'Open {{module}}', { module: moduleLabel })} <ExternalLink className="h-3 w-3" aria-hidden />
           </Link>
         )}
       </div>

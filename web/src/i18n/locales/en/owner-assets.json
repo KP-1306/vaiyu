@@ -1,0 +1,100 @@
+{
+  "nav": {
+    "back": "Back to dashboard"
+  },
+  "page": {
+    "workspaceLabel": "Asset Readiness Workspace"
+  },
+  "action": {
+    "showHinglish": "Show Hinglish",
+    "hideHinglish": "Hide Hinglish"
+  },
+  "state": {
+    "notEnabled": "Digital Asset Manager is currently disabled.",
+    "loading": "Loading…",
+    "notFound": "Hotel not found.",
+    "loadingAssets": "Loading assets…"
+  },
+  "readyLabel": "Ready",
+  "category": {
+    "VERIFICATION_PROOF": "Verification Proof",
+    "TRUST_ESSENTIALS": "Trust Essentials",
+    "OPERATIONAL": "Operational Assets",
+    "EXPERIENCE": "Experience Content"
+  },
+  "subtitle": {
+    "VERIFICATION_PROOF": "Business identity for Google verification + VAiyu onboarding dossier",
+    "TRUST_ESSENTIALS": "Photos guests see before booking — microsite, packages, quotes",
+    "OPERATIONAL": "Day-to-day operational visuals",
+    "EXPERIENCE": "Local attractions + package + seasonal content"
+  },
+  "section": {
+    "ready": "Ready",
+    "needAttention": "{{count}} need attention",
+    "noReqs": "No requirements in this category."
+  },
+  "status": {
+    "MISSING": "Missing",
+    "COLLECTED": "Collected",
+    "APPROVED": "Approved",
+    "REJECTED": "Rejected",
+    "NEEDS_REPLACEMENT": "Needs replacement"
+  },
+  "priority": {
+    "CRITICAL": "CRITICAL",
+    "HIGH": "HIGH",
+    "MEDIUM": "MEDIUM",
+    "LOW": "LOW"
+  },
+  "banner": {
+    "privacyTitle": "Privacy — DO NOT upload personal IDs",
+    "disclaimerTitle": "No guarantees"
+  },
+  "row": {
+    "linkedFromSettings": "linked from Hotel Settings",
+    "linkedTitle": "Linked from Hotel Settings — manage there",
+    "why": "Why:",
+    "tip": "Tip:",
+    "rejected": "Rejected:",
+    "addNote": "Add a note",
+    "notesPlaceholder": "Anything VAiyu or your team should know? (e.g. 'Waiting on signboard installer next week')",
+    "cancel": "Cancel",
+    "saveNote": "Save note",
+    "fileCount_one": "{{count}} file",
+    "fileCount_other": "{{count}} files",
+    "manage": "Manage",
+    "addFiles": "Add files",
+    "markNeedsReplacement": "Mark as needs replacement",
+    "confirmReplace": "Mark this asset as needing replacement? It will not be hidden, but a status flag will show it needs updating.",
+    "saveNoteError": "Could not save note."
+  },
+  "upload": {
+    "dropFiles": "Drop files or click to upload",
+    "dropFile": "Drop a file or click to upload",
+    "specs": "JPG / PNG / WEBP / PDF · ≤10 MB",
+    "uploading": "Uploading…",
+    "privateNote": "Private vault — viewable via signed link only.",
+    "uploadFailed": "Upload failed."
+  },
+  "drawer": {
+    "kicker": "Manage files",
+    "subtitleMulti": "Upload as many as you have. Drag the handle or use the arrows to reorder.",
+    "subtitleSingle": "One file per requirement. Re-uploading replaces the existing file.",
+    "closeAria": "Close drawer (Esc)",
+    "filesHeader": "Files ({{count}})",
+    "savingOrder": "Saving order…",
+    "loadingFiles": "Loading files…",
+    "noFiles": "No files yet.",
+    "removeFile": "Remove file",
+    "moveUp": "Move file up",
+    "moveDown": "Move file down",
+    "confirmRemove": "Remove this file?",
+    "removeError": "Could not remove file.",
+    "reorderError": "Could not save the new order.",
+    "altTextLabel": "Alt text",
+    "altTextPlaceholder": "Describe what's in this image (helps SEO + accessibility)",
+    "save": "Save",
+    "saveAltError": "Could not save alt text.",
+    "dialogLabel": "Manage files"
+  }
+}

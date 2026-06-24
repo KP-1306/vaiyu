@@ -23,6 +23,7 @@ import {
   ThumbsDown,
   ShieldAlert,
 } from "lucide-react";
+import { useOwnerT } from "../i18n/useOwnerT";
 
 type Review = {
   id: string;
@@ -38,8 +39,9 @@ type Review = {
 type CatRating = { review_id: string; rating: number; label: string };
 
 function Stars({ n }: { n: number }) {
+  const t = useOwnerT('owner-reviews');
   return (
-    <span className="inline-flex items-center gap-0.5" aria-label={`${n} star`}>
+    <span className="inline-flex items-center gap-0.5" aria-label={t('aria.starCount', '{{count}} stars', { count: n })}>
       {[1, 2, 3, 4, 5].map((i) => (
         <Star
           key={i}
@@ -53,6 +55,7 @@ function Stars({ n }: { n: number }) {
 
 export default function OwnerReviews() {
   const { slug } = useParams();
+  const t = useOwnerT('owner-reviews');
   const [hotelId, setHotelId] = useState<string | null>(null);
   const [rows, setRows] = useState<Review[]>([]);
   const [catsByReview, setCatsByReview] = useState<Record<string, CatRating[]>>({});
@@ -66,7 +69,6 @@ export default function OwnerReviews() {
     setErr(null);
     setLoading(true);
     try {
-      // 1. Resolve the hotel from the slug
       const { data: h, error: hErr } = await supabase
         .from("hotels")
         .select("id")
@@ -76,7 +78,6 @@ export default function OwnerReviews() {
       const hid = h.id as string;
       setHotelId(hid);
 
-      // 2. Reviews (guest name joined; respected only when not anonymous)
       const { data: revs, error: rErr } = await supabase
         .from("guest_reviews")
         .select(
@@ -87,7 +88,6 @@ export default function OwnerReviews() {
       if (rErr) throw rErr;
       setRows((revs as any as Review[]) || []);
 
-      // 3. Open escalations → mark which reviews are flagged
       const { data: flags } = await supabase
         .from("review_flags")
         .select("review_id, status")
@@ -97,7 +97,6 @@ export default function OwnerReviews() {
       for (const f of flags || []) fmap[(f as any).review_id] = true;
       setFlagged(fmap);
 
-      // 4. Category ratings (best-effort — never blocks the page)
       try {
         const { data: cats } = await supabase
           .from("review_ratings")
@@ -118,7 +117,7 @@ export default function OwnerReviews() {
         setCatsByReview({});
       }
     } catch (e: any) {
-      setErr(e?.message || "Failed to load reviews");
+      setErr(e?.message || t('state.loadFailed', 'Failed to load reviews'));
     } finally {
       setLoading(false);
     }
@@ -139,7 +138,6 @@ export default function OwnerReviews() {
     );
   }, [rows, q]);
 
-  // Header metrics — computed from loaded rows (no view dependency)
   const metrics = useMemo(() => {
     const total = rows.length;
     const avg = total
@@ -164,7 +162,7 @@ export default function OwnerReviews() {
         prev.map((x) => (x.id === r.id ? { ...x, is_public: !x.is_public } : x))
       );
     } catch (e: any) {
-      setErr(e?.message || "Could not change visibility");
+      setErr(e?.message || t('state.visibilityFailed', 'Could not change visibility'));
     } finally {
       setBusyId(null);
     }
@@ -181,12 +179,11 @@ export default function OwnerReviews() {
         review_id: r.id,
         flag_type,
         severity,
-        // status defaults to 'open'
       });
       if (error) throw error;
       setFlagged((prev) => ({ ...prev, [r.id]: true }));
     } catch (e: any) {
-      setErr(e?.message || "Could not escalate");
+      setErr(e?.message || t('state.escalateFailed', 'Could not escalate'));
     } finally {
       setBusyId(null);
     }
@@ -194,26 +191,26 @@ export default function OwnerReviews() {
 
   return (
     <OwnerGate>
-      <SEO title="Guest Reviews" noIndex />
-      <main className="max-w-4xl mx-auto p-4 space-y-4">
+      <SEO title={t('seo.title', 'Guest Reviews')} noIndex />
+      <main className="vaiyu-owner max-w-4xl mx-auto p-4 space-y-4">
         {/* Header */}
         <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="text-xl font-semibold">Guest Reviews</h1>
+            <h1 className="text-xl font-semibold">{t('page.title', 'Guest Reviews')}</h1>
             <div className="text-sm text-gray-600">
-              Real reviews left by your guests. Control what's public and escalate the ones that need attention.
+              {t('page.subtitle', "Real reviews left by your guests. Control what's public and escalate the ones that need attention.")}
             </div>
           </div>
           <div className="flex items-center gap-2">
             <input
               className="input"
-              placeholder="Search reviews…"
+              placeholder={t('action.searchPlaceholder', 'Search reviews…')}
               value={q}
               onChange={(e) => setQ(e.target.value)}
               style={{ width: 240 }}
             />
             <button className="btn btn-light" onClick={load} disabled={loading}>
-              <RefreshCw size={15} className={loading ? "animate-spin" : ""} /> Refresh
+              <RefreshCw size={15} className={loading ? "animate-spin" : ""} /> {t('action.refresh', 'Refresh')}
             </button>
           </div>
         </header>
@@ -224,29 +221,29 @@ export default function OwnerReviews() {
             <div className="text-2xl font-bold flex items-center justify-center gap-1">
               {metrics.avg || "—"} <Star size={18} className="text-amber-500 fill-amber-500" />
             </div>
-            <div className="text-xs text-gray-500 mt-1">Average rating</div>
+            <div className="text-xs text-gray-500 mt-1">{t('metric.average', 'Average rating')}</div>
           </div>
           <div className="card text-center">
             <div className="text-2xl font-bold">{metrics.total}</div>
-            <div className="text-xs text-gray-500 mt-1">Total reviews</div>
+            <div className="text-xs text-gray-500 mt-1">{t('metric.total', 'Total reviews')}</div>
           </div>
           <div className="card text-center">
             <div className="text-2xl font-bold text-emerald-600 flex items-center justify-center gap-1">
               <ThumbsUp size={16} /> {metrics.positive}
             </div>
-            <div className="text-xs text-gray-500 mt-1">Positive (4–5★)</div>
+            <div className="text-xs text-gray-500 mt-1">{t('metric.positive', 'Positive (4–5★)')}</div>
           </div>
           <div className="card text-center">
             <div className="text-2xl font-bold text-rose-600 flex items-center justify-center gap-1">
               <ThumbsDown size={16} /> {metrics.negative}
             </div>
-            <div className="text-xs text-gray-500 mt-1">Negative (1–2★)</div>
+            <div className="text-xs text-gray-500 mt-1">{t('metric.negative', 'Negative (1–2★)')}</div>
           </div>
           <div className="card text-center">
             <div className="text-2xl font-bold text-amber-600 flex items-center justify-center gap-1">
               <ShieldAlert size={16} /> {metrics.escalations}
             </div>
-            <div className="text-xs text-gray-500 mt-1">Open escalations</div>
+            <div className="text-xs text-gray-500 mt-1">{t('metric.escalations', 'Open escalations')}</div>
           </div>
         </div>
 
@@ -257,13 +254,13 @@ export default function OwnerReviews() {
         )}
         {loading && (
           <div className="card flex items-center gap-2 text-gray-600">
-            <Loader2 size={16} className="animate-spin" /> Loading reviews…
+            <Loader2 size={16} className="animate-spin" /> {t('state.loading', 'Loading reviews…')}
           </div>
         )}
         {!loading && rows.length === 0 && !err && (
           <div className="card text-center text-gray-600">
             <MessageSquare size={22} className="mx-auto mb-2 text-gray-400" />
-            No guest reviews yet. They appear here as guests submit them at checkout.
+            {t('state.noReviews', 'No guest reviews yet. They appear here as guests submit them at checkout.')}
           </div>
         )}
 
@@ -272,8 +269,8 @@ export default function OwnerReviews() {
           {filtered.map((r) => {
             const cats = catsByReview[r.id] || [];
             const name = r.is_anonymous
-              ? "Anonymous guest"
-              : r.guests?.full_name || "Guest";
+              ? t('row.anon', 'Anonymous guest')
+              : r.guests?.full_name || t('row.guest', 'Guest');
             const isFlagged = !!flagged[r.id];
             const busy = busyId === r.id;
             return (
@@ -293,11 +290,11 @@ export default function OwnerReviews() {
                             : "bg-gray-100 text-gray-500"
                         }`}
                       >
-                        {r.is_public ? "Public" : "Private"}
+                        {r.is_public ? t('row.public', 'Public') : t('row.private', 'Private')}
                       </span>
                       {isFlagged && (
                         <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
-                          Escalated
+                          {t('row.escalated', 'Escalated')}
                         </span>
                       )}
                     </div>
@@ -326,7 +323,7 @@ export default function OwnerReviews() {
                       className="btn btn-light"
                       onClick={() => toggleVisibility(r)}
                       disabled={busy}
-                      title={r.is_public ? "Hide from public" : "Show publicly"}
+                      title={r.is_public ? t('row.hideTitle', 'Hide from public') : t('row.showTitle', 'Show publicly')}
                     >
                       {busy ? (
                         <Loader2 size={14} className="animate-spin" />
@@ -335,15 +332,15 @@ export default function OwnerReviews() {
                       ) : (
                         <Eye size={14} />
                       )}
-                      {r.is_public ? "Make private" : "Make public"}
+                      {r.is_public ? t('row.makePrivate', 'Make private') : t('row.makePublic', 'Make public')}
                     </button>
                     <button
                       className="btn btn-outline"
                       onClick={() => escalate(r)}
                       disabled={busy || isFlagged}
-                      title={isFlagged ? "Already escalated" : "Escalate for follow-up"}
+                      title={isFlagged ? t('row.alreadyEscalatedTitle', 'Already escalated') : t('row.escalateTitle', 'Escalate for follow-up')}
                     >
-                      <Flag size={14} /> {isFlagged ? "Escalated" : "Escalate"}
+                      <Flag size={14} /> {isFlagged ? t('row.escalated', 'Escalated') : t('row.escalateBtn', 'Escalate')}
                     </button>
                   </div>
                 </div>

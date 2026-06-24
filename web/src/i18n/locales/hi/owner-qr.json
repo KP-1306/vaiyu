@@ -1,0 +1,23 @@
+{
+  "seo": { "title": "QR Sheet – Guest Menu" },
+  "header": {
+    "title": "QR शीट — गेस्ट मेनू",
+    "property": "होटल:",
+    "desc": "यह शीट प्रिंट करें, कार्ड काटें और रूम / रिसेप्शन पर रखें। स्कैन करने पर इस संपत्ति का VAiyu गेस्ट मेनू खुलेगा।",
+    "print": "प्रिंट"
+  },
+  "state": {
+    "loading": "होटल लोड हो रहा है…"
+  },
+  "card": {
+    "scanFor": "{{name}} सेवाएं और मेनू के लिए स्कैन करें",
+    "poweredBy": "Powered by VAiyu"
+  },
+  "footer": {
+    "guestLink": "गेस्ट मेनू लिंक:"
+  },
+  "err": {
+    "missingSlug": "होटल स्लग गायब है। इस पेज को /owner/<slug>/qr की तरह खोलें।",
+    "generic": "होटल लोड नहीं हो सका"
+  }
+}

@@ -13,6 +13,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Banknote, ClipboardCheck, Lightbulb, ShieldAlert } from 'lucide-react';
 import { getEffectivePrices, listRoomTypes, type EffectivePrice } from '../../services/pricingService';
 import type { QuoteVerifiedInputs, QuoteLeadSnapshot } from '../../types/quoteDraft';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   hotelId: string;
@@ -27,6 +28,7 @@ function inr(n: number): string {
 }
 
 export function QuoteVerifiedDetails({ hotelId, verified, onChange, lead }: Props) {
+  const t = useOwnerT('owner-quote');
   // Room types
   const roomTypesQ = useQuery({
     queryKey: ['quote-drafts', 'room-types', hotelId],
@@ -73,12 +75,12 @@ export function QuoteVerifiedDetails({ hotelId, verified, onChange, lead }: Prop
     <div className="rounded-2xl border border-slate-800 bg-[#0F1320] p-4 space-y-4">
       <h3 className="text-sm font-semibold text-slate-100 inline-flex items-center gap-2">
         <ClipboardCheck className="h-4 w-4 text-emerald-300" aria-hidden />
-        Verified details (manual)
+        {t('verified.title', 'Verified details (manual)')}
       </h3>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {/* Room type */}
-        <Field label="Room type">
+        <Field label={t('verified.roomType', 'Room type')}>
           <select
             data-testid="quote-room-type-picker"
             value={verified.roomTypeId ?? ''}
@@ -92,20 +94,20 @@ export function QuoteVerifiedDetails({ hotelId, verified, onChange, lead }: Prop
             }}
             className="w-full rounded-md border border-slate-700 bg-[#0B0E14] px-3 py-2 text-sm text-slate-100 focus:border-emerald-400 focus:outline-none"
           >
-            <option value="">— Select room type —</option>
+            <option value="">{t('verified.selectRoomType', '— Select room type —')}</option>
             {(roomTypesQ.data ?? []).map((rt) => (
               <option key={rt.id} value={rt.id}>{rt.name}</option>
             ))}
           </select>
           {roomTypesQ.isError && (
             <p className="mt-1 text-[11px] text-red-300">
-              Couldn't load room types: {(roomTypesQ.error as Error).message}
+              {t('verified.roomTypeError', "Couldn't load room types: {{msg}}", { msg: (roomTypesQ.error as Error).message })}
             </p>
           )}
         </Field>
 
         {/* Nights */}
-        <Field label="Nights">
+        <Field label={t('verified.nights', 'Nights')}>
           <input
             type="number"
             inputMode="numeric"
@@ -125,7 +127,7 @@ export function QuoteVerifiedDetails({ hotelId, verified, onChange, lead }: Prop
             label={
               <span className="inline-flex items-center gap-2">
                 <Banknote className="h-3.5 w-3.5 text-emerald-300" aria-hidden />
-                Final price (typed manually — what you commit to the guest)
+                {t('verified.finalPrice', 'Final price (typed manually — what you commit to the guest)')}
               </span>
             }
           >
@@ -134,7 +136,7 @@ export function QuoteVerifiedDetails({ hotelId, verified, onChange, lead }: Prop
               data-testid="quote-manual-price"
               value={verified.manualPriceText}
               onChange={(e) => patch({ manualPriceText: e.target.value })}
-              placeholder="e.g. ₹8,500 per room per night (inclusive of breakfast)"
+              placeholder={t('verified.pricePlaceholder', 'e.g. ₹8,500 per room per night (inclusive of breakfast)')}
               className="w-full rounded-md border border-slate-700 bg-[#0B0E14] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 focus:border-emerald-400 focus:outline-none"
             />
           </Field>
@@ -143,9 +145,7 @@ export function QuoteVerifiedDetails({ hotelId, verified, onChange, lead }: Prop
             <div className="mt-2 inline-flex items-start gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-2.5 py-1.5 text-[11px] text-emerald-200">
               <Lightbulb className="h-3 w-3 mt-0.5 shrink-0" aria-hidden />
               <span>
-                Suggested base rate from your rate engine:{' '}
-                <span className="font-semibold">{inr(suggestedRate)}</span> per night.
-                For reference only — type your final price above.
+                {t('verified.suggestedRate', 'Suggested base rate from your rate engine: {{rate}} per night. For reference only — type your final price above.', { rate: inr(suggestedRate) })}
               </span>
             </div>
           )}
@@ -153,12 +153,12 @@ export function QuoteVerifiedDetails({ hotelId, verified, onChange, lead }: Prop
 
         {/* Owner notes */}
         <div className="sm:col-span-2">
-          <Field label="Notes to the guest (optional)">
+          <Field label={t('verified.notesLabel', 'Notes to the guest (optional)')}>
             <textarea
               rows={3}
               value={verified.ownerNotes}
               onChange={(e) => patch({ ownerNotes: e.target.value })}
-              placeholder="e.g. Early check-in subject to room readiness, complimentary fruit basket on arrival."
+              placeholder={t('verified.notesPlaceholder', 'e.g. Early check-in subject to room readiness, complimentary fruit basket on arrival.')}
               className="w-full resize-y rounded-md border border-slate-700 bg-[#0B0E14] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 focus:border-emerald-400 focus:outline-none"
             />
           </Field>
@@ -169,18 +169,18 @@ export function QuoteVerifiedDetails({ hotelId, verified, onChange, lead }: Prop
       <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
         <div className="text-[10px] font-semibold uppercase tracking-wide text-amber-200 inline-flex items-center gap-1.5">
           <ShieldAlert className="h-3 w-3" aria-hidden />
-          Operator approval required before copy
+          {t('verified.approvalTitle', 'Operator approval required before copy')}
         </div>
         <Checkbox
           checked={verified.availabilityConfirmed}
           onChange={(v) => patch({ availabilityConfirmed: v })}
-          label="I verified room type, price and availability manually."
+          label={t('verified.cbAvailability', 'I verified room type, price and availability manually.')}
           testId="quote-cb-availability"
         />
         <Checkbox
           checked={verified.termsConfirmed}
           onChange={(v) => patch({ termsConfirmed: v })}
-          label="I understand this is a draft proposal, not a confirmed booking."
+          label={t('verified.cbTerms', 'I understand this is a draft proposal, not a confirmed booking.')}
           testId="quote-cb-terms"
         />
       </div>

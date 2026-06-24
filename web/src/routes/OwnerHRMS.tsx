@@ -8,6 +8,7 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { useOwnerT, useOwnerCommonT, useOwnerLocale } from "../i18n/useOwnerT";
 
 /* ----------- tiny UI helpers ------------- */
 
@@ -83,27 +84,31 @@ function downloadCSV(filename: string, rows: any[]) {
 function HRMSLayout({ children }: { children?: ReactNode }) {
   const { slug } = useParams();
   const [sp] = useSearchParams();
+  const t = useOwnerT("owner-hrms");
+  const tc = useOwnerCommonT();
 
   const currentTab = sp.get("tab") || "attendance";
   const tabs = [
-    { key: "attendance", label: "Attendance" },
-    { key: "leaves", label: "Leaves" },
-    { key: "staff", label: "Staff" },
+    { key: "attendance", label: t("tab.attendance", "Attendance") },
+    { key: "leaves", label: t("tab.leaves", "Leaves") },
+    { key: "staff", label: t("tab.staff", "Staff") },
   ];
 
   return (
-    <main className="max-w-6xl mx-auto p-6">
+    <main className="vaiyu-owner max-w-6xl mx-auto p-6">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <div className="text-2xl font-semibold">HRMS</div>
+          <div className="text-2xl font-semibold">{t("title", "HRMS")}</div>
           <p className="text-sm text-muted-foreground">
-            Quick team hub — mark presence, approve leaves, and keep staff info
-            up to date.
+            {t(
+              "subtitle",
+              "Quick team hub — mark presence, approve leaves, and keep staff info up to date."
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Link className="btn btn-light" to={`/owner/${slug}`}>
-            ← Back to dashboard
+            ← {tc("nav.backToDashboard", "Back to dashboard")}
           </Link>
         </div>
       </div>
@@ -137,6 +142,8 @@ function HRMSLayout({ children }: { children?: ReactNode }) {
 
 function AttendancePage() {
   const { slug } = useParams();
+  const t = useOwnerT("owner-hrms");
+  const tc = useOwnerCommonT();
   const [fromDay, setFromDay] = useState(() =>
     new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10)
   );
@@ -198,7 +205,10 @@ function AttendancePage() {
       } catch {
         if (!alive) return;
         setErrorText(
-          "Attendance table not found yet. You can create a table attendance(user_id, hotel_id, day, status, check_in, check_out)."
+          t(
+            "att.notFound",
+            "Attendance table not found yet. You can create a table attendance(user_id, hotel_id, day, status, check_in, check_out)."
+          )
         );
         setRows([]);
       } finally {
@@ -221,14 +231,17 @@ function AttendancePage() {
   return (
     <>
       <Section
-        title="Attendance"
-        desc="Past week by default — filter any dates. Green is present, red is absent."
+        title={t("att.title", "Attendance")}
+        desc={t(
+          "att.desc",
+          "Past week by default — filter any dates. Green is present, red is absent."
+        )}
         right={
           <button
             className="btn btn-light"
             onClick={() => downloadCSV("attendance.csv", csv)}
           >
-            Export CSV
+            {t("exportCsv", "Export CSV")}
           </button>
         }
       />
@@ -236,7 +249,7 @@ function AttendancePage() {
         <div className="mb-3 flex flex-wrap items-end gap-3">
           <div>
             <label className="mb-1 block text-xs text-muted-foreground">
-              From
+              {t("from", "From")}
             </label>
             <input
               type="date"
@@ -259,25 +272,27 @@ function AttendancePage() {
         </div>
 
         {loading ? (
-          <div className="text-sm text-muted-foreground">Loading…</div>
+          <div className="text-sm text-muted-foreground">
+            {tc("state.loading", "Loading…")}
+          </div>
         ) : errorText ? (
           <div className="rounded border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
             {errorText}
           </div>
         ) : rows.length === 0 ? (
           <div className="text-sm text-muted-foreground">
-            No attendance recorded for this period.
+            {t("att.empty", "No attendance recorded for this period.")}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-left text-muted-foreground">
                 <tr>
-                  <th className="py-1 pr-3">Day</th>
-                  <th className="py-1 pr-3">Staff</th>
-                  <th className="py-1 pr-3">Status</th>
-                  <th className="py-1 pr-3">Check-in</th>
-                  <th className="py-1 pr-3">Check-out</th>
+                  <th className="py-1 pr-3">{t("att.colDay", "Day")}</th>
+                  <th className="py-1 pr-3">{t("att.colStaff", "Staff")}</th>
+                  <th className="py-1 pr-3">{t("att.colStatus", "Status")}</th>
+                  <th className="py-1 pr-3">{t("att.colCheckIn", "Check-in")}</th>
+                  <th className="py-1 pr-3">{t("att.colCheckOut", "Check-out")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -296,7 +311,7 @@ function AttendancePage() {
                       </td>
                       <td className="py-1 pr-3">
                         <Badge tone={tone as any}>
-                          {r.status || "—"}
+                          {r.status ? t(`att.status.${r.status}`, r.status) : "—"}
                         </Badge>
                       </td>
                       <td className="py-1 pr-3">{r.check_in || "—"}</td>
@@ -317,6 +332,9 @@ function AttendancePage() {
 
 function LeavesPage() {
   const { slug } = useParams();
+  const t = useOwnerT("owner-hrms");
+  const tc = useOwnerCommonT();
+  const ownerLocale = useOwnerLocale();
   const [status, setStatus] = useState<"all" | "pending" | "approved" | "denied">(
     "all"
   );
@@ -385,7 +403,10 @@ function LeavesPage() {
       } catch {
         if (!alive) return;
         setErrorText(
-          "Leaves table not found yet. You can create leaves(user_id, hotel_id, start_date, end_date, type, status)."
+          t(
+            "leave.notFound",
+            "Leaves table not found yet. You can create leaves(user_id, hotel_id, start_date, end_date, type, status)."
+          )
         );
         setRows([]);
       } finally {
@@ -409,14 +430,17 @@ function LeavesPage() {
   return (
     <>
       <Section
-        title="Leaves"
-        desc="Review and track time-off. Pending items show in amber."
+        title={t("leave.title", "Leaves")}
+        desc={t(
+          "leave.desc",
+          "Review and track time-off. Pending items show in amber."
+        )}
         right={
           <button
             className="btn btn-light"
             onClick={() => downloadCSV("leaves.csv", csv)}
           >
-            Export CSV
+            {t("exportCsv", "Export CSV")}
           </button>
         }
       />
@@ -424,7 +448,7 @@ function LeavesPage() {
         <div className="mb-3 flex flex-wrap items-end gap-3">
           <div>
             <label className="mb-1 block text-xs text-muted-foreground">
-              Status
+              {t("leave.status", "Status")}
             </label>
             <select
               className="border rounded px-2 py-1 text-sm"
@@ -433,15 +457,15 @@ function LeavesPage() {
                 setStatus(e.target.value as "all" | "pending" | "approved" | "denied")
               }
             >
-              <option value="all">All</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="denied">Denied</option>
+              <option value="all">{t("leave.filter.all", "All")}</option>
+              <option value="pending">{t("leave.filter.pending", "Pending")}</option>
+              <option value="approved">{t("leave.filter.approved", "Approved")}</option>
+              <option value="denied">{t("leave.filter.denied", "Denied")}</option>
             </select>
           </div>
           <div>
             <label className="mb-1 block text-xs text-muted-foreground">
-              From
+              {t("from", "From")}
             </label>
             <input
               type="date"
@@ -452,7 +476,7 @@ function LeavesPage() {
           </div>
           <div>
             <label className="mb-1 block text-xs text-muted-foreground">
-              To
+              {t("to", "To")}
             </label>
             <input
               type="date"
@@ -464,26 +488,28 @@ function LeavesPage() {
         </div>
 
         {loading ? (
-          <div className="text-sm text-muted-foreground">Loading…</div>
+          <div className="text-sm text-muted-foreground">
+            {tc("state.loading", "Loading…")}
+          </div>
         ) : errorText ? (
           <div className="rounded border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
             {errorText}
           </div>
         ) : rows.length === 0 ? (
           <div className="text-sm text-muted-foreground">
-            No leaves in this period.
+            {t("leave.empty", "No leaves in this period.")}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-left text-muted-foreground">
                 <tr>
-                  <th className="py-1 pr-3">Created</th>
-                  <th className="py-1 pr-3">Staff</th>
-                  <th className="py-1 pr-3">Type</th>
-                  <th className="py-1 pr-3">Status</th>
-                  <th className="py-1 pr-3">From</th>
-                  <th className="py-1 pr-3">To</th>
+                  <th className="py-1 pr-3">{t("leave.colCreated", "Created")}</th>
+                  <th className="py-1 pr-3">{t("leave.colStaff", "Staff")}</th>
+                  <th className="py-1 pr-3">{t("leave.colType", "Type")}</th>
+                  <th className="py-1 pr-3">{t("leave.colStatus", "Status")}</th>
+                  <th className="py-1 pr-3">{t("leave.colFrom", "From")}</th>
+                  <th className="py-1 pr-3">{t("leave.colTo", "To")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -498,7 +524,7 @@ function LeavesPage() {
                     <tr key={r.id} className="border-t">
                       <td className="py-1 pr-3">
                         {r.created_at
-                          ? new Date(r.created_at).toLocaleString()
+                          ? new Date(r.created_at).toLocaleString(ownerLocale)
                           : "—"}
                       </td>
                       <td className="py-1 pr-3">
@@ -507,7 +533,7 @@ function LeavesPage() {
                       <td className="py-1 pr-3">{r.type || "—"}</td>
                       <td className="py-1 pr-3">
                         <Badge tone={tone as any}>
-                          {r.status || "—"}
+                          {r.status ? t(`leave.badge.${r.status}`, r.status) : "—"}
                         </Badge>
                       </td>
                       <td className="py-1 pr-3">{r.start_date}</td>
@@ -528,6 +554,8 @@ function LeavesPage() {
 
 function StaffPage() {
   const { slug } = useParams();
+  const t = useOwnerT("owner-hrms");
+  const tc = useOwnerCommonT();
   const [rows, setRows] = useState<any[]>([]);
   const [q, setQ] = useState("");
   const [role, setRole] = useState<"all" | string>("all");
@@ -594,32 +622,35 @@ function StaffPage() {
   return (
     <>
       <Section
-        title="Staff"
-        desc="Your people directory — search by name, filter by role, and contact quickly."
+        title={t("staff.title", "Staff")}
+        desc={t(
+          "staff.desc",
+          "Your people directory — search by name, filter by role, and contact quickly."
+        )}
       />
       <div className="rounded-xl border bg-white p-4">
         <div className="mb-3 flex flex-wrap items-end gap-3">
           <div className="min-w-[220px] flex-1">
             <label className="mb-1 block text-xs text-muted-foreground">
-              Search
+              {t("staff.search", "Search")}
             </label>
             <input
               className="w-full rounded border px-2 py-1 text-sm"
-              placeholder="Type a name or email"
+              placeholder={t("staff.searchPlaceholder", "Type a name or email")}
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
           </div>
           <div>
             <label className="mb-1 block text-xs text-muted-foreground">
-              Role
+              {t("staff.role", "Role")}
             </label>
             <select
               className="rounded border px-2 py-1 text-sm"
               value={role}
               onChange={(e) => setRole(e.target.value)}
             >
-              <option value="all">All</option>
+              <option value="all">{t("staff.roleAll", "All")}</option>
               {roles.map((r) => (
                 <option key={r} value={r}>
                   {r}
@@ -630,17 +661,19 @@ function StaffPage() {
         </div>
 
         {loading ? (
-          <div className="text-sm text-muted-foreground">Loading…</div>
+          <div className="text-sm text-muted-foreground">
+            {tc("state.loading", "Loading…")}
+          </div>
         ) : filtered.length === 0 ? (
           <div className="text-sm text-muted-foreground">
-            No staff match your filters.
+            {t("staff.empty", "No staff match your filters.")}
           </div>
         ) : (
           <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((p: any) => (
               <li key={p.id} className="rounded-xl border p-4">
                 <div className="font-medium">
-                  {p.full_name || "Unnamed"}
+                  {p.full_name || t("staff.unnamed", "Unnamed")}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {p.role || "—"}
@@ -651,18 +684,20 @@ function StaffPage() {
                       className="mr-3 underline"
                       href={`tel:${p.phone}`}
                     >
-                      Call
+                      {t("staff.call", "Call")}
                     </a>
                   )}
                   {p.email && (
                     <a className="underline" href={`mailto:${p.email}`}>
-                      Email
+                      {t("staff.email", "Email")}
                     </a>
                   )}
                 </div>
                 <div className="mt-2">
                   <Badge tone={p.status === "active" ? "green" : "grey"}>
-                    {p.status || "unknown"}
+                    {p.status
+                      ? t(`staff.status.${p.status}`, p.status)
+                      : t("staff.status.unknown", "unknown")}
                   </Badge>
                 </div>
               </li>

@@ -7,6 +7,7 @@ import type { Lead } from '../../types/lead';
 import { updateLeadBasics, LeadServiceError } from '../../services/leadService';
 import { humanizeError } from './LeadQuickAddModal.errorMapping';
 import { fieldInputCls } from './leadDetailStyles';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   lead: Lead;
@@ -47,6 +48,7 @@ export function LeadDetailBasicsSection({
   onDirtyChange,
   onSavedRefresh,
 }: Props) {
+  const t = useOwnerT('owner-leads');
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<FormState>(initialState(lead));
@@ -92,7 +94,7 @@ export function LeadDetailBasicsSection({
       });
     },
     onSuccess: () => {
-      showToast('Stay details updated', 'success');
+      showToast(t('basics.updatedToast', 'Stay details updated'), 'success');
       setEditing(false);
       setError(null);
       queryClient.invalidateQueries({ queryKey: ['lead', lead.id] });
@@ -101,7 +103,7 @@ export function LeadDetailBasicsSection({
     },
     onError: (err) => {
       const lse = err as LeadServiceError;
-      const msg = humanizeError(lse);
+      const msg = humanizeError(lse, t);
       setError(msg);
       showToast(msg, 'error');
     },
@@ -116,11 +118,16 @@ export function LeadDetailBasicsSection({
   function handleSubmit() {
     setError(null);
     if (form.checkIn && form.checkOut && form.checkOut <= form.checkIn) {
-      setError('Check-out must be after check-in');
+      setError(t('basics.checkoutAfterCheckin', 'Check-out must be after check-in'));
       return;
     }
     mutation.mutate();
   }
+
+  const partyStr =
+    lead.party_children > 0
+      ? `${t('basics.adults', '{{count}} adults', { count: lead.party_adults })}, ${t('basics.children', '{{count}} children', { count: lead.party_children })}`
+      : t('basics.adults', '{{count}} adults', { count: lead.party_adults });
 
   return (
     <section
@@ -128,7 +135,7 @@ export function LeadDetailBasicsSection({
       className="border-b border-white/10 px-5 py-4"
     >
       <header className="flex items-center justify-between mb-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-white/60">Stay details</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-white/60">{t('basics.heading', 'Stay details')}</h3>
         {!editing && canEdit && (
           <button
             type="button"
@@ -136,30 +143,25 @@ export function LeadDetailBasicsSection({
             className="inline-flex items-center gap-1 text-xs text-emerald-300 hover:text-emerald-200"
           >
             <Edit2 className="h-3 w-3" />
-            Edit
+            {t('basics.edit', 'Edit')}
           </button>
         )}
       </header>
 
       {!editing ? (
         <dl className="space-y-1.5 text-sm">
-          <Row label="Check-in" value={lead.requested_check_in ?? '—'} />
-          <Row label="Check-out" value={lead.requested_check_out ?? '—'} />
-          <Row
-            label="Party"
-            value={`${lead.party_adults} adult${lead.party_adults !== 1 ? 's' : ''}${
-              lead.party_children > 0 ? `, ${lead.party_children} children` : ''
-            }`}
-          />
-          <Row label="Rooms" value={String(lead.room_count)} />
-          <Row label="Value" value={lead.value_estimate != null ? `₹${lead.value_estimate}` : '—'} />
-          <Row label="Source detail" value={lead.source_detail ?? '—'} />
-          <Row label="Tags" value={lead.tags.length > 0 ? lead.tags.join(', ') : '—'} />
+          <Row label={t('basics.checkIn', 'Check-in')} value={lead.requested_check_in ?? '—'} />
+          <Row label={t('basics.checkOut', 'Check-out')} value={lead.requested_check_out ?? '—'} />
+          <Row label={t('basics.party', 'Party')} value={partyStr} />
+          <Row label={t('basics.rooms', 'Rooms')} value={String(lead.room_count)} />
+          <Row label={t('basics.value', 'Value')} value={lead.value_estimate != null ? `₹${lead.value_estimate}` : '—'} />
+          <Row label={t('basics.sourceDetail', 'Source detail')} value={lead.source_detail ?? '—'} />
+          <Row label={t('basics.tags', 'Tags')} value={lead.tags.length > 0 ? lead.tags.join(', ') : '—'} />
         </dl>
       ) : (
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Check-in">
+            <Field label={t('basics.checkIn', 'Check-in')}>
               <input
                 type="date"
                 value={form.checkIn}
@@ -168,7 +170,7 @@ export function LeadDetailBasicsSection({
                 className={fieldInputCls(false)}
               />
             </Field>
-            <Field label="Check-out">
+            <Field label={t('basics.checkOut', 'Check-out')}>
               <input
                 type="date"
                 value={form.checkOut}
@@ -179,7 +181,7 @@ export function LeadDetailBasicsSection({
             </Field>
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <Field label="Adults">
+            <Field label={t('basics.adultsField', 'Adults')}>
               <input
                 type="number"
                 min={0}
@@ -189,7 +191,7 @@ export function LeadDetailBasicsSection({
                 className={fieldInputCls(false)}
               />
             </Field>
-            <Field label="Children">
+            <Field label={t('basics.childrenField', 'Children')}>
               <input
                 type="number"
                 min={0}
@@ -199,7 +201,7 @@ export function LeadDetailBasicsSection({
                 className={fieldInputCls(false)}
               />
             </Field>
-            <Field label="Rooms">
+            <Field label={t('basics.roomsField', 'Rooms')}>
               <input
                 type="number"
                 min={1}
@@ -210,7 +212,7 @@ export function LeadDetailBasicsSection({
               />
             </Field>
           </div>
-          <Field label="Value estimate (₹)">
+          <Field label={t('basics.valueEstimate', 'Value estimate (₹)')}>
             <input
               type="number"
               min={0}
@@ -220,7 +222,7 @@ export function LeadDetailBasicsSection({
               className={fieldInputCls(false)}
             />
           </Field>
-          <Field label="Source detail">
+          <Field label={t('basics.sourceDetail', 'Source detail')}>
             <input
               type="text"
               value={form.sourceDetail}
@@ -229,13 +231,13 @@ export function LeadDetailBasicsSection({
               className={fieldInputCls(false)}
             />
           </Field>
-          <Field label="Tags (comma-separated)">
+          <Field label={t('basics.tagsField', 'Tags (comma-separated)')}>
             <input
               type="text"
               value={form.tagsCsv}
               onChange={(e) => setForm({ ...form, tagsCsv: e.target.value })}
               disabled={mutation.isPending}
-              placeholder="honeymoon, repeat_guest"
+              placeholder={t('basics.tagsPlaceholder', 'honeymoon, repeat_guest')}
               className={fieldInputCls(false)}
             />
           </Field>
@@ -249,7 +251,7 @@ export function LeadDetailBasicsSection({
               disabled={mutation.isPending}
               className="px-3 py-1.5 text-xs text-white/70 hover:text-white disabled:opacity-50"
             >
-              Cancel
+              {t('basics.cancel', 'Cancel')}
             </button>
             <button
               type="button"
@@ -258,7 +260,7 @@ export function LeadDetailBasicsSection({
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-500 text-xs font-medium text-white hover:bg-emerald-400 disabled:opacity-50"
             >
               {mutation.isPending && <Loader2 className="h-3 w-3 animate-spin" />}
-              Save
+              {t('basics.save', 'Save')}
             </button>
           </div>
         </div>

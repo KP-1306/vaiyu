@@ -7,13 +7,13 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 
 import {
   SEASONAL_CATEGORY_LABEL,
-  SEASONAL_CATEGORY_LABEL_HI,
 } from '../../config/seasonalCalendar';
 import type {
   SeasonalCategory,
   VisibleSeasonalWindow,
 } from '../../types/seasonalCalendar';
 import { SeasonalWindowCard } from './SeasonalWindowCard';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   hotelId: string;
@@ -35,6 +35,7 @@ export function SeasonalCategorySection({
   defaultOpen = true,
   hideManagerActions,
 }: Props) {
+  const t = useOwnerT('owner-seasonal');
   const [open, setOpen] = useState(defaultOpen);
   const total = windows.length;
   const ready = windows.filter((w) => w.review_status === 'READY').length;
@@ -54,17 +55,17 @@ export function SeasonalCategorySection({
       >
         <div className="flex min-w-0 items-center gap-2">
           <h2 className="text-sm font-semibold text-slate-900">
-            {language === 'en' ? SEASONAL_CATEGORY_LABEL[category] : SEASONAL_CATEGORY_LABEL_HI[category]}
+            {t(`category.${category}`, SEASONAL_CATEGORY_LABEL[category])}
           </h2>
         </div>
         <div className="flex items-center gap-3">
           {urgentNow > 0 && (
             <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10.5px] font-semibold text-rose-700">
-              {urgentNow} now
+              {t('section.urgentNow', '{{count}} now', { count: urgentNow })}
             </span>
           )}
           <div className="text-right">
-            <div className="text-[10.5px] font-medium uppercase tracking-wider text-slate-400">Ready</div>
+            <div className="text-[10.5px] font-medium uppercase tracking-wider text-slate-400">{t('section.ready', 'Ready')}</div>
             <div className="text-sm font-semibold text-slate-900">
               {ready}<span className="text-slate-400">/{total}</span>
             </div>

@@ -21,6 +21,7 @@ import {
 } from '../../config/packages';
 import type { Package, PackageCategory } from '../../types/package';
 import type { Lead } from '../../types/lead';
+import { useOwnerT, type OwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   lead: Lead;
@@ -35,7 +36,7 @@ interface ScoredPackage {
 }
 
 /** Heuristic scoring — returns 0+ score with reason strings. */
-function scorePackageForLead(pkg: Package, lead: Lead): ScoredPackage {
+function scorePackageForLead(pkg: Package, lead: Lead, t: OwnerT): ScoredPackage {
   const reasons: string[] = [];
   let score = 0;
 
@@ -43,7 +44,7 @@ function scorePackageForLead(pkg: Package, lead: Lead): ScoredPackage {
   const adults = lead.party_adults ?? 0;
   if (adults >= pkg.min_party_adults && (pkg.max_party_adults == null || adults <= pkg.max_party_adults)) {
     score += 3;
-    reasons.push(`Fits party (${adults} adults)`);
+    reasons.push(t('suggest.reasonFitsParty', 'Fits party ({{count}} adults)', { count: adults }));
   } else if (adults > 0 && adults < pkg.min_party_adults) {
     score -= 1;
   }
@@ -53,7 +54,7 @@ function scorePackageForLead(pkg: Package, lead: Lead): ScoredPackage {
     const checkInMonth = new Date(lead.requested_check_in).getMonth() + 1;
     if (Number.isFinite(checkInMonth) && seasonMatches(pkg.season_months, new Date(lead.requested_check_in))) {
       score += 3;
-      reasons.push('In season for the requested dates');
+      reasons.push(t('suggest.reasonInSeason', 'In season for the requested dates'));
     } else if (pkg.season_months.length > 0 && pkg.season_months.length < 12) {
       // Out of season — penalty
       score -= 2;
@@ -68,14 +69,14 @@ function scorePackageForLead(pkg: Package, lead: Lead): ScoredPackage {
   // Children → favour FAMILY_STAY
   if ((lead.party_children ?? 0) > 0 && pkg.category === 'FAMILY_STAY') {
     score += 2;
-    reasons.push('Family stay (kids in party)');
+    reasons.push(t('suggest.reasonFamily', 'Family stay (kids in party)'));
   }
 
   // Couple signal — 2 adults, 0 kids, 1 room → favour couple retreats
   if (adults === 2 && (lead.party_children ?? 0) === 0 && (lead.room_count ?? 1) === 1
       && pkg.category === 'COUPLE_RETREAT') {
     score += 2;
-    reasons.push('Looks like a couple booking');
+    reasons.push(t('suggest.reasonCouple', 'Looks like a couple booking'));
   }
 
   // Category tag/keyword hints from source_detail or tags
@@ -96,7 +97,11 @@ function scorePackageForLead(pkg: Package, lead: Lead): ScoredPackage {
   const matched = categoryKeywords[pkg.category].some((kw) => haystack.includes(kw));
   if (matched) {
     score += 2;
-    reasons.push(`Matches "${PACKAGE_CATEGORY_LABEL[pkg.category]}" keywords`);
+    reasons.push(
+      t('suggest.reasonKeywords', 'Matches "{{category}}" keywords', {
+        category: t(`packageCategory.${pkg.category}`, PACKAGE_CATEGORY_LABEL[pkg.category]),
+      }),
+    );
   }
 
   return { pkg, score, reasons };
@@ -105,6 +110,7 @@ function scorePackageForLead(pkg: Package, lead: Lead): ScoredPackage {
 export function LeadPackageSuggestPanel({ lead }: Props) {
   if (!PACKAGE_BUILDER_V0_ENABLED) return null;
 
+  const t = useOwnerT('owner-leads');
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
 
   const hotelQ = useQuery<HotelRow | null>({
@@ -129,10 +135,11 @@ export function LeadPackageSuggestPanel({ lead }: Props) {
 
   const top3 = useMemo<ScoredPackage[]>(() => {
     const all = (pkgQ.data ?? [])
-      .map((p) => scorePackageForLead(p, lead))
+      .map((p) => scorePackageForLead(p, lead, t))
       .filter((s) => s.score > 0)
       .sort((a, b) => b.score - a.score);
     return all.slice(0, 3);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pkgQ.data, lead]);
 
   async function copyUrl(slug: string) {
@@ -144,7 +151,7 @@ export function LeadPackageSuggestPanel({ lead }: Props) {
       window.setTimeout(() => setCopiedSlug((c) => (c === slug ? null : c)), 1500);
     } catch {
       // Fallback for browsers that block clipboard API
-      window.prompt('Copy this URL', url);
+      window.prompt(t('suggest.copyPrompt', 'Copy this URL'), url);
     }
   }
 
@@ -160,19 +167,19 @@ export function LeadPackageSuggestPanel({ lead }: Props) {
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold text-slate-100 inline-flex items-center gap-2">
           <Tent className="h-4 w-4 text-emerald-300" aria-hidden />
-          Suggested packages
+          {t('suggest.heading', 'Suggested packages')}
         </h3>
         <Link
           to={`/owner/${hotelQ.data.slug}/packages`}
           className="text-[11px] text-slate-400 hover:text-slate-200"
         >
-          Manage all →
+          {t('suggest.manageAll', 'Manage all →')}
         </Link>
       </div>
 
       {top3.length === 0 ? (
         <p className="text-[11px] text-slate-500">
-          No packages match this lead's party / season profile. Try editing the lead basics or build a matching package.
+          {t('suggest.noMatch', "No packages match this lead's party / season profile. Try editing the lead basics or build a matching package.")}
         </p>
       ) : (
         <ul className="space-y-2">
@@ -185,7 +192,7 @@ export function LeadPackageSuggestPanel({ lead }: Props) {
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-slate-100 truncate">{pkg.name}</p>
                   <p className="mt-0.5 text-[11px] text-slate-400">
-                    {PACKAGE_CATEGORY_LABEL[pkg.category]} · {pkg.duration_nights} night{pkg.duration_nights === 1 ? '' : 's'} · {pkg.starting_price_text}
+                    {t(`packageCategory.${pkg.category}`, PACKAGE_CATEGORY_LABEL[pkg.category])} · {t('suggest.nights', '{{count}} nights', { count: pkg.duration_nights })} · {pkg.starting_price_text}
                   </p>
                 </div>
               </div>
@@ -206,12 +213,12 @@ export function LeadPackageSuggestPanel({ lead }: Props) {
                   {copiedSlug === pkg.slug ? (
                     <>
                       <Check className="h-3 w-3 text-emerald-300" aria-hidden />
-                      Copied
+                      {t('suggest.copied', 'Copied')}
                     </>
                   ) : (
                     <>
                       <Copy className="h-3 w-3" aria-hidden />
-                      Copy URL
+                      {t('suggest.copyUrl', 'Copy URL')}
                     </>
                   )}
                 </button>
@@ -222,7 +229,7 @@ export function LeadPackageSuggestPanel({ lead }: Props) {
                   className="inline-flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800/60 px-2 py-1 text-[11px] text-slate-200 hover:bg-slate-800"
                 >
                   <ExternalLink className="h-3 w-3" aria-hidden />
-                  Open
+                  {t('suggest.open', 'Open')}
                 </Link>
               </div>
             </li>
@@ -231,7 +238,7 @@ export function LeadPackageSuggestPanel({ lead }: Props) {
       )}
 
       <p className="text-[10px] text-slate-500">
-        Pick a package, copy the link, share via WhatsApp. Final price confirmed by staff.
+        {t('suggest.footer', 'Pick a package, copy the link, share via WhatsApp. Final price confirmed by staff.')}
       </p>
     </section>
   );

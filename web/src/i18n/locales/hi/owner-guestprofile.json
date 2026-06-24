@@ -1,0 +1,88 @@
+{
+  "nav": {
+    "back": "← Owner हब पर वापस"
+  },
+  "page": {
+    "title": "गेस्ट प्रोफाइल",
+    "subtitle": "इस गेस्ट का एकीकृत दृश्य — स्टे, टिकट, ऑर्डर, रिव्यू और क्रेडिट। OTA का नहीं, आपके होटल का।"
+  },
+  "demo": {
+    "badge": "डेमो डेटा (प्रोफाइल API कनेक्ट नहीं)"
+  },
+  "header": {
+    "guestAnchor": "गेस्ट एंकर:",
+    "property": "होटल:",
+    "firstSeen": "पहली बार देखा:",
+    "lastVisit": "अंतिम विज़िट:"
+  },
+  "metric": {
+    "totalStays": "कुल स्टे",
+    "roomRequests": "रूम अनुरोध",
+    "orders": "ऑर्डर",
+    "lifetimeValue": "लाइफटाइम वैल्यू",
+    "nights_one": "{{count}} रात",
+    "nights_other": "{{count}} रातें",
+    "slaOnTime": "{{pct}}% समय पर हल",
+    "slaNA": "SLA ट्रेंड अभी उपलब्ध नहीं",
+    "fbDelivered": "F&B और सेवाएं डिलीवर",
+    "noOrders": "अभी कोई ऑर्डर नहीं",
+    "credits": "{{amount}} क्रेडिट उपलब्ध",
+    "noCredits": "अभी कोई क्रेडिट नहीं"
+  },
+  "stays": {
+    "title": "स्टे इतिहास",
+    "count_one": "{{count}} स्टे दर्ज",
+    "count_other": "{{count}} स्टे दर्ज",
+    "none": "गेस्ट की पहली स्टे पूरी होने पर टाइमलाइन यहाँ दिखेगी।",
+    "room": "रूम",
+    "countNone": "अभी तक कोई स्टे दर्ज नहीं",
+    "stayNumber": "स्टे #{{code}}"
+  },
+  "prefs": {
+    "title": "प्राथमिकताएं और संकेत",
+    "empty": "चेक-इन या स्टे के दौरान प्राथमिकताएं नोट करें — अगली बार यहाँ दिखेंगी।"
+  },
+  "credits": {
+    "title": "क्रेडिट और रिवॉर्ड",
+    "balance": "वर्तमान बैलेंस",
+    "added": "जोड़ा गया:",
+    "expires": "समाप्ति:",
+    "noEntries": "अभी कोई क्रेडिट एंट्री नहीं।",
+    "empty": "VAiyu Credits उपयोग शुरू होने पर इस गेस्ट के रिवॉर्ड यहाँ दिखेंगे।"
+  },
+  "tickets": {
+    "title": "रूम अनुरोध",
+    "count_one": "{{count}} अनुरोध",
+    "count_other": "{{count}} अनुरोध",
+    "empty": "अभी कोई टिकट नहीं। इस गेस्ट के हाउसकीपिंग और सर्विस टिकट यहाँ दिखेंगे।",
+    "room": "रूम",
+    "raised": "उठाया",
+    "sla": "SLA",
+    "slaBreach": "SLA उल्लंघन",
+    "serviceFallback": "सर्विस"
+  },
+  "orders": {
+    "title": "ऑर्डर",
+    "count_one": "{{count}} ऑर्डर",
+    "count_other": "{{count}} ऑर्डर",
+    "empty": "इस गेस्ट के रूम डाइनिंग या सर्विस ऑर्डर यहाँ दिखेंगे।",
+    "room": "रूम",
+    "orderNumber": "ऑर्डर #{{code}}",
+    "itemFallback": "आइटम"
+  },
+  "reviews": {
+    "title": "रिव्यू",
+    "count_one": "{{count}} रिव्यू",
+    "count_other": "{{count}} रिव्यू",
+    "empty": "गेस्ट के सभी स्टे के फीडबैक यहाँ दिखेंगे।",
+    "forStay": "{{code}} का रिव्यू",
+    "stayFallback": "स्टे",
+    "stayPrefix": "स्टे {{code}}"
+  },
+  "loading": "इस गेस्ट का नवीनतम डेटा लोड हो रहा है…",
+  "err": {
+    "missingId": "होटल या गेस्ट ID गायब है।",
+    "loadFailed": "गेस्ट प्रोफाइल लोड नहीं हुई; डेमो डेटा दिख रहा है।",
+    "fetchFailed": "गेस्ट प्रोफाइल फेच विफल ({{status}})"
+  }
+}

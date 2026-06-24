@@ -53,6 +53,7 @@ import type {
   VisibleSeasonalWindow,
 } from '../../types/seasonalCalendar';
 import { SeasonalChecklist } from './SeasonalChecklist';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   hotelId: string;
@@ -78,6 +79,7 @@ const PRIORITY_DOT: Record<string, string> = {
 };
 
 export function SeasonalWindowCard({ hotelId, hotelSlug, window: w, language, hideManagerActions }: Props) {
+  const t = useOwnerT('owner-seasonal');
   const qc = useQueryClient();
   const tone = SEASONAL_URGENCY_TONE[w.computed_urgency];
   const isDismissed = w.review_status === 'DISMISSED';
@@ -92,10 +94,6 @@ export function SeasonalWindowCard({ hotelId, hotelSlug, window: w, language, hi
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // ── Notes (debounced save) ──
-  // localDirty prevents two failure modes:
-  //   (1) realtime invalidation arriving mid-typing (before the 700ms debounce
-  //       fires) would clobber the user's unsaved input via the sync useEffect
-  //   (2) after a successful save we re-enable external sync
   const [ownerNotes, setOwnerNotes] = useState(w.owner_notes ?? '');
   const [localDirty, setLocalDirty] = useState(false);
   const [notesSaving, setNotesSaving] = useState(false);
@@ -104,9 +102,6 @@ export function SeasonalWindowCard({ hotelId, hotelSlug, window: w, language, hi
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    // Sync external (realtime) value into the textarea ONLY when the user
-    // hasn't typed anything uncommitted. This protects unsaved local input
-    // from being clobbered by a refetch.
     if ((w.owner_notes ?? '') !== ownerNotes && !notesSaving && !localDirty) {
       setOwnerNotes(w.owner_notes ?? '');
     }
@@ -129,11 +124,8 @@ export function SeasonalWindowCard({ hotelId, hotelSlug, window: w, language, hi
         qc.invalidateQueries({ queryKey: seasonalCalendarQueryKeys.list(hotelId) });
       } catch (err) {
         const code = extractSeasonalErrorCode(err);
-        // Clear the stale "Saved" indicator so we don't show "Saved" alongside
-        // a save-failed error from a later change. localDirty stays true so the
-        // user's unsaved input isn't clobbered by realtime sync.
         setNotesSavedAt(null);
-        setNotesErrorMsg(friendlySeasonalError(code, 'Could not save notes. Try again.'));
+        setNotesErrorMsg(friendlySeasonalError(code, t('error.saveNotes', 'Could not save notes. Try again.')));
       } finally {
         setNotesSaving(false);
       }
@@ -144,17 +136,17 @@ export function SeasonalWindowCard({ hotelId, hotelSlug, window: w, language, hi
   const markReady = useMutation({
     mutationFn: () => markSeasonalWindowReady({ hotelId, windowCode: w.window_code }),
     onSuccess: () => qc.invalidateQueries({ queryKey: seasonalCalendarQueryKeys.list(hotelId) }),
-    onError: (err) => setErrorMsg(friendlySeasonalError(extractSeasonalErrorCode(err), 'Could not mark ready.')),
+    onError: (err) => setErrorMsg(friendlySeasonalError(extractSeasonalErrorCode(err), t('error.markReady', 'Could not mark ready.'))),
   });
   const returnToPlanning = useMutation({
     mutationFn: () => returnSeasonalWindowToPlanning({ hotelId, windowCode: w.window_code }),
     onSuccess: () => qc.invalidateQueries({ queryKey: seasonalCalendarQueryKeys.list(hotelId) }),
-    onError: (err) => setErrorMsg(friendlySeasonalError(extractSeasonalErrorCode(err), 'Could not return to planning.')),
+    onError: (err) => setErrorMsg(friendlySeasonalError(extractSeasonalErrorCode(err), t('error.returnToPlanning', 'Could not return to planning.'))),
   });
   const resume = useMutation({
     mutationFn: () => resumeSeasonalWindow({ hotelId, windowCode: w.window_code }),
     onSuccess: () => qc.invalidateQueries({ queryKey: seasonalCalendarQueryKeys.list(hotelId) }),
-    onError: (err) => setErrorMsg(friendlySeasonalError(extractSeasonalErrorCode(err), 'Could not resume.')),
+    onError: (err) => setErrorMsg(friendlySeasonalError(extractSeasonalErrorCode(err), t('error.resume', 'Could not resume.'))),
   });
   const dismiss = useMutation({
     mutationFn: (r: string) => dismissSeasonalWindowForYear({ hotelId, windowCode: w.window_code, reason: r }),
@@ -163,7 +155,7 @@ export function SeasonalWindowCard({ hotelId, hotelSlug, window: w, language, hi
       setActionFormOpen(null);
       setReason('');
     },
-    onError: (err) => setErrorMsg(friendlySeasonalError(extractSeasonalErrorCode(err), 'Could not dismiss.')),
+    onError: (err) => setErrorMsg(friendlySeasonalError(extractSeasonalErrorCode(err), t('error.dismiss', 'Could not dismiss.'))),
   });
   const override = useMutation({
     mutationFn: ({ urgency, r }: { urgency: SeasonalWindowUrgency | null; r?: string }) =>
@@ -173,7 +165,7 @@ export function SeasonalWindowCard({ hotelId, hotelSlug, window: w, language, hi
       setActionFormOpen(null);
       setReason('');
     },
-    onError: (err) => setErrorMsg(friendlySeasonalError(extractSeasonalErrorCode(err), 'Could not override.')),
+    onError: (err) => setErrorMsg(friendlySeasonalError(extractSeasonalErrorCode(err), t('error.override', 'Could not override.'))),
   });
   const setHidden = useMutation({
     mutationFn: ({ hidden, r }: { hidden: boolean; r?: string }) =>
@@ -183,7 +175,7 @@ export function SeasonalWindowCard({ hotelId, hotelSlug, window: w, language, hi
       setActionFormOpen(null);
       setReason('');
     },
-    onError: (err) => setErrorMsg(friendlySeasonalError(extractSeasonalErrorCode(err), 'Could not update.')),
+    onError: (err) => setErrorMsg(friendlySeasonalError(extractSeasonalErrorCode(err), t('error.update', 'Could not update.'))),
   });
 
   const title = language === 'en' ? w.display_name_en : w.display_name_hi;
@@ -207,7 +199,7 @@ export function SeasonalWindowCard({ hotelId, hotelSlug, window: w, language, hi
           <div className="flex items-center gap-2">
             <span
               className={`inline-block h-2 w-2 shrink-0 rounded-full ${PRIORITY_DOT[w.priority] ?? PRIORITY_DOT.MEDIUM}`}
-              aria-label={`Priority: ${SEASONAL_PRIORITY_LABEL[w.priority]}`}
+              aria-label={t('card.priorityAria', 'Priority: {{label}}', { label: SEASONAL_PRIORITY_LABEL[w.priority] })}
             />
             <h3 className="truncate text-base font-semibold text-slate-900 sm:text-[15px]">{title}</h3>
           </div>
@@ -220,17 +212,17 @@ export function SeasonalWindowCard({ hotelId, hotelSlug, window: w, language, hi
                 endMonth: w.end_month,
                 endDay: w.end_day,
                 isApproximate: w.is_approximate,
-              })}
+              }, t)}
             </span>
             <span className="text-slate-300">·</span>
             <span className="font-medium text-slate-700">
-              {formatDaysUntil(w.days_to_start, w.computed_urgency)}
+              {formatDaysUntil(w.days_to_start, w.computed_urgency, t)}
             </span>
             {!w.is_regional_match && (
               <>
                 <span className="text-slate-300">·</span>
                 <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-600">
-                  May not apply to your region
+                  {t('card.mayNotApply', 'May not apply to your region')}
                 </span>
               </>
             )}
@@ -240,18 +232,18 @@ export function SeasonalWindowCard({ hotelId, hotelSlug, window: w, language, hi
         <div className="flex shrink-0 items-center gap-1.5">
           {isDismissed ? (
             <span className="rounded-md border border-slate-300 bg-slate-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-              {SEASONAL_REVIEW_STATUS_LABEL.DISMISSED}
+              {t('reviewStatus.DISMISSED', SEASONAL_REVIEW_STATUS_LABEL.DISMISSED)}
             </span>
           ) : isReady ? (
             <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
-              <CheckCircle2 className="h-3 w-3" aria-hidden /> {SEASONAL_REVIEW_STATUS_LABEL.READY}
+              <CheckCircle2 className="h-3 w-3" aria-hidden /> {t('reviewStatus.READY', SEASONAL_REVIEW_STATUS_LABEL.READY)}
             </span>
           ) : (
             <span
               className={`rounded-md border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${URGENCY_BADGE[tone]}`}
             >
-              {SEASONAL_URGENCY_LABEL[w.computed_urgency]}
-              {w.urgency_override && <span className="ml-1 text-[9px] normal-case opacity-80">(override)</span>}
+              {t(`urgency.${w.computed_urgency}`, SEASONAL_URGENCY_LABEL[w.computed_urgency])}
+              {w.urgency_override && <span className="ml-1 text-[9px] normal-case opacity-80">{t('card.overrideTag', '(override)')}</span>}
             </span>
           )}
           {isHidden && (
@@ -259,7 +251,7 @@ export function SeasonalWindowCard({ hotelId, hotelSlug, window: w, language, hi
               className="rounded-md border border-slate-300 bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600"
               title={w.permanently_hidden_reason ?? undefined}
             >
-              Hidden
+              {t('card.hiddenBadge', 'Hidden')}
             </span>
           )}
         </div>
@@ -276,13 +268,13 @@ export function SeasonalWindowCard({ hotelId, hotelSlug, window: w, language, hi
       <div className="mt-3 grid gap-2 text-[12.5px] text-slate-700 sm:grid-cols-2">
         <div className="rounded-md border border-slate-100 bg-slate-50/60 px-2.5 py-2">
           <div className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            {language === 'en' ? 'Why it matters' : 'Kyun important hai'}
+            {t('card.whyItMatters', 'Why it matters')}
           </div>
           <p className="leading-snug">{why}</p>
         </div>
         <div className="rounded-md border border-slate-100 bg-slate-50/60 px-2.5 py-2">
           <div className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            {language === 'en' ? 'Recommended action' : 'Recommended action'}
+            {t('card.recommendedAction', 'Recommended action')}
           </div>
           <p className="leading-snug">{reco}</p>
         </div>
@@ -290,12 +282,12 @@ export function SeasonalWindowCard({ hotelId, hotelSlug, window: w, language, hi
 
       {segment && (
         <p className="mt-2 text-[11.5px] text-slate-500">
-          <span className="font-semibold">{language === 'en' ? 'Guests: ' : 'Guests: '}</span>{segment}
+          <span className="font-semibold">{t('card.guests', 'Guests:')} </span>{segment}
         </p>
       )}
       {pkgIdea && (
         <p className="mt-1 text-[11.5px] text-slate-500">
-          <span className="font-semibold">{language === 'en' ? 'Package idea: ' : 'Package idea: '}</span>{pkgIdea}
+          <span className="font-semibold">{t('card.packageIdea', 'Package idea:')} </span>{pkgIdea}
         </p>
       )}
 
@@ -303,10 +295,10 @@ export function SeasonalWindowCard({ hotelId, hotelSlug, window: w, language, hi
       <div className="mt-3 border-t border-slate-100 pt-3">
         <div className="mb-2 flex items-center justify-between">
           <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-            {language === 'en' ? 'Preparation checklist' : 'Taiyaari checklist'}
+            {t('card.preparationChecklist', 'Preparation checklist')}
           </div>
           <div className="text-[11px] text-slate-500">
-            {w.checklist_done} / {w.checklist_total} done
+            {t('card.checklistDone', '{{done}} / {{total}} done', { done: w.checklist_done, total: w.checklist_total })}
           </div>
         </div>
         <SeasonalChecklist
@@ -321,7 +313,7 @@ export function SeasonalWindowCard({ hotelId, hotelSlug, window: w, language, hi
       {/* ── Owner notes ── */}
       <div className="mt-3 border-t border-slate-100 pt-3">
         <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
-          {language === 'en' ? 'Your notes' : 'Aapke notes'}
+          {t('card.yourNotes', 'Your notes')}
         </label>
         <textarea
           value={ownerNotes}
@@ -329,19 +321,12 @@ export function SeasonalWindowCard({ hotelId, hotelSlug, window: w, language, hi
           onChange={(e) => {
             setOwnerNotes(e.target.value);
             setLocalDirty(true);
-            // Clear the stale "Saved" indicator the moment the user starts a
-            // new edit. Otherwise it lingers misleadingly until the next save
-            // completes ~700ms later.
             if (notesSavedAt !== null) setNotesSavedAt(null);
             saveNotes(e.target.value);
           }}
           disabled={isDismissed || isHidden}
           rows={2}
-          placeholder={
-            language === 'en'
-              ? 'e.g. Asha confirmed photos by Friday; pending: heater service.'
-              : 'jaise: Asha ne Friday tak photos confirm ki; pending: heater service.'
-          }
+          placeholder={t('card.notesPlaceholder', 'e.g. Asha confirmed photos by Friday; pending: heater service.')}
           className={`mt-1 w-full rounded-md border px-2.5 py-1.5 text-[13px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 disabled:bg-slate-50 disabled:text-slate-500 ${
             notesErrorMsg
               ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500'
@@ -351,14 +336,14 @@ export function SeasonalWindowCard({ hotelId, hotelSlug, window: w, language, hi
         <div className="mt-0.5 flex items-center justify-end gap-1.5 text-[10px]">
           {notesSaving ? (
             <span className="flex items-center gap-1 text-slate-400">
-              <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> Saving…
+              <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> {t('card.notesSaving', 'Saving…')}
             </span>
           ) : notesErrorMsg ? (
             <span className="flex items-center gap-1 text-rose-600">
               <AlertTriangle className="h-3 w-3" aria-hidden /> {notesErrorMsg}
             </span>
           ) : notesSavedAt ? (
-            <span className="text-slate-400">Saved</span>
+            <span className="text-slate-400">{t('card.notesSaved', 'Saved')}</span>
           ) : null}
         </div>
       </div>
@@ -376,7 +361,7 @@ export function SeasonalWindowCard({ hotelId, hotelSlug, window: w, language, hi
                   className="inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[12px] font-medium text-emerald-800 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {markReady.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-                  {language === 'en' ? 'Mark READY' : 'Mark READY'}
+                  {t('actions.markReady', 'Mark READY')}
                 </button>
               )}
               {isReady && (
@@ -386,7 +371,7 @@ export function SeasonalWindowCard({ hotelId, hotelSlug, window: w, language, hi
                   disabled={returnToPlanning.isPending}
                   className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[12px] font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <RotateCcw className="h-3 w-3" /> Return to planning
+                  <RotateCcw className="h-3 w-3" /> {t('actions.returnToPlanning', 'Return to planning')}
                 </button>
               )}
               {isDismissed ? (
@@ -396,7 +381,7 @@ export function SeasonalWindowCard({ hotelId, hotelSlug, window: w, language, hi
                   disabled={resume.isPending}
                   className="inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[12px] font-medium text-emerald-800 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <RotateCcw className="h-3 w-3" /> Resume
+                  <RotateCcw className="h-3 w-3" /> {t('actions.resume', 'Resume')}
                 </button>
               ) : (
                 <button
@@ -404,7 +389,7 @@ export function SeasonalWindowCard({ hotelId, hotelSlug, window: w, language, hi
                   onClick={() => setActionFormOpen('dismiss')}
                   className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[12px] text-slate-600 hover:bg-slate-50"
                 >
-                  <X className="h-3 w-3" /> Dismiss for this cycle
+                  <X className="h-3 w-3" /> {t('actions.dismiss', 'Dismiss for this cycle')}
                 </button>
               )}
               {!isDismissed && (
@@ -416,7 +401,9 @@ export function SeasonalWindowCard({ hotelId, hotelSlug, window: w, language, hi
                   }}
                   className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[12px] text-slate-600 hover:bg-slate-50"
                 >
-                  <AlertTriangle className="h-3 w-3" /> {w.urgency_override ? 'Edit override' : 'Override urgency'}
+                  <AlertTriangle className="h-3 w-3" /> {w.urgency_override
+                    ? t('actions.editOverride', 'Edit override')
+                    : t('actions.overrideUrgency', 'Override urgency')}
                 </button>
               )}
               {w.urgency_override && (
@@ -426,7 +413,7 @@ export function SeasonalWindowCard({ hotelId, hotelSlug, window: w, language, hi
                   disabled={override.isPending}
                   className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[12px] text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Clear override
+                  {t('actions.clearOverride', 'Clear override')}
                 </button>
               )}
               {isHidden ? (
@@ -436,7 +423,7 @@ export function SeasonalWindowCard({ hotelId, hotelSlug, window: w, language, hi
                   disabled={setHidden.isPending}
                   className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[12px] text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <Eye className="h-3 w-3" /> Unhide
+                  <Eye className="h-3 w-3" /> {t('actions.unhide', 'Unhide')}
                 </button>
               ) : (
                 <button
@@ -444,7 +431,7 @@ export function SeasonalWindowCard({ hotelId, hotelSlug, window: w, language, hi
                   onClick={() => setActionFormOpen('hide')}
                   className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[12px] text-slate-500 hover:bg-slate-50"
                 >
-                  <EyeOff className="h-3 w-3" /> Hide forever
+                  <EyeOff className="h-3 w-3" /> {t('actions.hideForever', 'Hide forever')}
                 </button>
               )}
             </div>
@@ -458,7 +445,6 @@ export function SeasonalWindowCard({ hotelId, hotelSlug, window: w, language, hi
               onOverrideChange={setOverrideValue}
               reason={reason}
               onReasonChange={setReason}
-              language={language}
               busy={dismiss.isPending || override.isPending || setHidden.isPending}
               onCancel={() => {
                 setActionFormOpen(null);
@@ -476,17 +462,17 @@ export function SeasonalWindowCard({ hotelId, hotelSlug, window: w, language, hi
           {/* Dismissal reason display when dismissed */}
           {isDismissed && w.dismissed_reason && (
             <p className="mt-2 text-[11.5px] text-slate-600">
-              <span className="font-semibold">Reason:</span> {w.dismissed_reason}
+              <span className="font-semibold">{t('card.dismissReason', 'Reason:')}</span> {w.dismissed_reason}
             </p>
           )}
           {isHidden && w.permanently_hidden_reason && (
             <p className="mt-2 text-[11.5px] text-slate-600">
-              <span className="font-semibold">Hide reason:</span> {w.permanently_hidden_reason}
+              <span className="font-semibold">{t('card.hideReason', 'Hide reason:')}</span> {w.permanently_hidden_reason}
             </p>
           )}
           {w.urgency_override && w.urgency_override_reason && (
             <p className="mt-2 text-[11.5px] text-slate-600">
-              <span className="font-semibold">Override reason:</span> {w.urgency_override_reason}
+              <span className="font-semibold">{t('card.overrideReason', 'Override reason:')}</span> {w.urgency_override_reason}
             </p>
           )}
         </div>
@@ -515,7 +501,7 @@ export function SeasonalWindowCard({ hotelId, hotelSlug, window: w, language, hi
           className="flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-700"
         >
           <Clock className="h-3 w-3" aria-hidden />
-          {showTimeline ? 'Hide history' : 'View history'}
+          {showTimeline ? t('card.hideHistory', 'Hide history') : t('card.viewHistory', 'View history')}
           {showTimeline ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         </button>
         {showTimeline && (
@@ -536,7 +522,6 @@ function InlineReasonForm({
   onOverrideChange,
   reason,
   onReasonChange,
-  language,
   busy,
   onCancel,
   onSubmit,
@@ -546,23 +531,23 @@ function InlineReasonForm({
   onOverrideChange: (v: SeasonalWindowUrgency) => void;
   reason: string;
   onReasonChange: (v: string) => void;
-  language: 'en' | 'hi';
   busy: boolean;
   onCancel: () => void;
   onSubmit: () => void;
 }) {
+  const t = useOwnerT('owner-seasonal');
   const title =
-    variant === 'dismiss' ? (language === 'en' ? 'Dismiss for this cycle' : 'Iss cycle ke liye dismiss karein')
-    : variant === 'override' ? (language === 'en' ? 'Override urgency' : 'Urgency override karein')
-    : (language === 'en' ? 'Hide forever' : 'Hamesha ke liye hide karein');
+    variant === 'dismiss' ? t('form.dismissTitle', 'Dismiss for this cycle')
+    : variant === 'override' ? t('form.overrideTitle', 'Override urgency')
+    : t('form.hideTitle', 'Hide forever');
   const hint =
-    variant === 'dismiss' ? 'e.g. Boutique stay, not targeting pilgrim segment this year.'
-    : variant === 'override' ? 'e.g. We are running staff training this month; suppress urgency.'
-    : 'e.g. We never serve this segment.';
+    variant === 'dismiss' ? t('form.dismissHint', 'e.g. Boutique stay, not targeting pilgrim segment this year.')
+    : variant === 'override' ? t('form.overrideHint', 'e.g. We are running staff training this month; suppress urgency.')
+    : t('form.hideHint', 'e.g. We never serve this segment.');
   const submitLabel =
-    variant === 'dismiss' ? 'Dismiss'
-    : variant === 'override' ? 'Save override'
-    : 'Hide forever';
+    variant === 'dismiss' ? t('form.submitDismiss', 'Dismiss')
+    : variant === 'override' ? t('form.submitOverride', 'Save override')
+    : t('form.submitHide', 'Hide forever');
 
   const disabled = busy || !reason.trim();
 
@@ -571,7 +556,7 @@ function InlineReasonForm({
       <div className="mb-1.5 text-[12px] font-semibold text-slate-800">{title}</div>
       {variant === 'override' && (
         <div className="mb-2">
-          <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Force urgency to:</label>
+          <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{t('form.forceUrgencyTo', 'Force urgency to:')}</label>
           <div className="mt-1 flex flex-wrap gap-1">
             {(['NOW', 'PREPARE', 'WATCH', 'QUIET'] as SeasonalWindowUrgency[]).map((u) => (
               <button
@@ -584,7 +569,7 @@ function InlineReasonForm({
                     : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
                 }`}
               >
-                {u}
+                {t(`urgency.${u}`, u)}
               </button>
             ))}
           </div>
@@ -603,7 +588,7 @@ function InlineReasonForm({
           onClick={onCancel}
           className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[12px] text-slate-700 hover:bg-slate-50"
         >
-          Cancel
+          {t('form.cancel', 'Cancel')}
         </button>
         <button
           type="button"
@@ -627,6 +612,7 @@ function TimelineList({
   windowCode: string;
   seasonYear: number;
 }) {
+  const t = useOwnerT('owner-seasonal');
   const q = useQuery({
     queryKey: seasonalCalendarQueryKeys.timeline(hotelId, windowCode, seasonYear),
     queryFn: () => getSeasonalWindowTimeline(hotelId, windowCode, seasonYear, 20),
@@ -636,27 +622,27 @@ function TimelineList({
   if (q.isLoading) {
     return (
       <div className="mt-2 flex items-center gap-1.5 text-[11px] text-slate-500">
-        <Loader2 className="h-3 w-3 animate-spin" /> Loading history…
+        <Loader2 className="h-3 w-3 animate-spin" /> {t('timeline.loading', 'Loading history…')}
       </div>
     );
   }
   if (q.isError) {
     return (
       <div className="mt-2 flex items-center gap-1.5 text-[11px] text-rose-600">
-        <AlertTriangle className="h-3 w-3" aria-hidden /> Could not load history.{' '}
+        <AlertTriangle className="h-3 w-3" aria-hidden /> {t('timeline.loadError', 'Could not load history.')}{' '}
         <button
           type="button"
           onClick={() => q.refetch()}
           className="underline hover:no-underline"
         >
-          Retry
+          {t('timeline.retry', 'Retry')}
         </button>
       </div>
     );
   }
   const events = q.data ?? [];
   if (events.length === 0) {
-    return <p className="mt-2 text-[11px] text-slate-500">No activity yet.</p>;
+    return <p className="mt-2 text-[11px] text-slate-500">{t('timeline.empty', 'No activity yet.')}</p>;
   }
   return (
     <ol className="mt-2 space-y-1.5">
@@ -668,13 +654,13 @@ function TimelineList({
           <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400" aria-hidden />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-baseline gap-1.5">
-              <span className="font-medium text-slate-800">{SEASONAL_EVENT_LABEL[e.event_type]}</span>
-              {e.actor_name && <span className="text-slate-500">by {e.actor_name}</span>}
-              <span className="text-slate-400">{formatRelativeTime(e.occurred_at)}</span>
+              <span className="font-medium text-slate-800">{t(`timeline.event.${e.event_type}`, SEASONAL_EVENT_LABEL[e.event_type])}</span>
+              {e.actor_name && <span className="text-slate-500">{t('timeline.actorBy', 'by {{name}}', { name: e.actor_name })}</span>}
+              <span className="text-slate-400">{formatRelativeTime(e.occurred_at, t)}</span>
             </div>
             {e.payload && Object.keys(e.payload).length > 0 && (
               <div className="text-[10.5px] text-slate-500">
-                {renderPayloadHint(e.payload)}
+                {renderPayloadHint(e.payload, t)}
               </div>
             )}
           </div>
@@ -684,22 +670,24 @@ function TimelineList({
   );
 }
 
-function formatRelativeTime(iso: string): string {
+type TimelineT = (key: string, en: string, vars?: Record<string, unknown>) => string;
+
+function formatRelativeTime(iso: string, t: TimelineT): string {
   const then = new Date(iso).getTime();
   const now = Date.now();
   const diffMin = Math.round((now - then) / 60_000);
-  if (diffMin < 1) return 'just now';
-  if (diffMin < 60) return `${diffMin}m ago`;
-  if (diffMin < 1440) return `${Math.round(diffMin / 60)}h ago`;
-  return `${Math.round(diffMin / 1440)}d ago`;
+  if (diffMin < 1) return t('timeline.relative.justNow', 'just now');
+  if (diffMin < 60) return t('timeline.relative.min', '{{n}}m ago', { n: diffMin });
+  if (diffMin < 1440) return t('timeline.relative.hour', '{{n}}h ago', { n: Math.round(diffMin / 60) });
+  return t('timeline.relative.day', '{{n}}d ago', { n: Math.round(diffMin / 1440) });
 }
 
-function renderPayloadHint(payload: Record<string, unknown>): string {
-  if (typeof payload.item_key === 'string') return `item: ${payload.item_key}`;
-  if (typeof payload.reason === 'string') return `reason: ${payload.reason}`;
-  if (typeof payload.from === 'string' && typeof payload.to === 'string') return `${payload.from} → ${payload.to}`;
+function renderPayloadHint(payload: Record<string, unknown>, t: TimelineT): string {
+  if (typeof payload.item_key === 'string') return t('timeline.payload.item', 'item: {{key}}', { key: payload.item_key });
+  if (typeof payload.reason === 'string') return t('timeline.payload.reason', 'reason: {{reason}}', { reason: payload.reason });
+  if (typeof payload.from === 'string' && typeof payload.to === 'string') return t('timeline.payload.fromTo', '{{from}} → {{to}}', { from: payload.from, to: payload.to });
   if (typeof payload.checklist_done === 'number' && typeof payload.checklist_total === 'number') {
-    return `${payload.checklist_done}/${payload.checklist_total} done`;
+    return t('timeline.payload.checklist', '{{done}}/{{total}} done', { done: payload.checklist_done, total: payload.checklist_total });
   }
   return '';
 }

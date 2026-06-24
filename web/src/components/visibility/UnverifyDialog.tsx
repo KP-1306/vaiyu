@@ -6,6 +6,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   open: boolean;
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export function UnverifyDialog({ open, signalLabel, busy, errorText, onCancel, onConfirm }: Props) {
+  const t = useOwnerT('owner-visibility');
   const [reason, setReason] = useState('');
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -45,7 +47,7 @@ export function UnverifyDialog({ open, signalLabel, busy, errorText, onCancel, o
 
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-black/60 px-4"
+      className="vaiyu-owner fixed inset-0 z-50 grid place-items-center bg-black/60 px-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="unverify-dialog-title"
@@ -56,7 +58,7 @@ export function UnverifyDialog({ open, signalLabel, busy, errorText, onCancel, o
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <h2 id="unverify-dialog-title" className="text-[14px] font-semibold text-slate-100">
-              Unverify attestation
+              {t('unverifyDialog.title', 'Unverify attestation')}
             </h2>
             <p className="mt-0.5 text-[12px] text-slate-400">
               <span className="text-slate-300">{signalLabel}</span>
@@ -66,19 +68,18 @@ export function UnverifyDialog({ open, signalLabel, busy, errorText, onCancel, o
             type="button"
             onClick={onCancel}
             className="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-            aria-label="Close"
+            aria-label={t('unverifyDialog.closeAriaLabel', 'Close')}
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
         <p className="mt-3 text-[12px] text-slate-300">
-          This will demote the signal back to Self-attested (50% credit). The owner who attested it
-          will be notified via the audit log. Please share the reason — it stays in the audit trail.
+          {t('unverifyDialog.body', 'This will demote the signal back to Self-attested (50% credit). The owner who attested it will be notified via the audit log. Please share the reason — it stays in the audit trail.')}
         </p>
 
         <label className="mt-3 block text-[11px] uppercase tracking-wide text-slate-400">
-          Reason <span className="text-rose-400">*</span>
+          {t('unverifyDialog.reasonLabel', 'Reason')} <span className="text-rose-400">*</span>
         </label>
         <textarea
           ref={inputRef}
@@ -86,7 +87,7 @@ export function UnverifyDialog({ open, signalLabel, busy, errorText, onCancel, o
           onChange={(e) => setReason(e.target.value)}
           rows={3}
           maxLength={500}
-          placeholder="e.g. Evidence link no longer valid; GMB profile was unverified by Google."
+          placeholder={t('unverifyDialog.reasonPlaceholder', 'e.g. Evidence link no longer valid; GMB profile was unverified by Google.')}
           className="mt-1 block w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-[12px] text-slate-100 placeholder:text-slate-500 focus:border-slate-500 focus:outline-none"
           data-testid="unverify-dialog-reason"
         />
@@ -106,7 +107,7 @@ export function UnverifyDialog({ open, signalLabel, busy, errorText, onCancel, o
             onClick={onCancel}
             className="rounded border border-slate-700 px-3 py-1.5 text-[12px] text-slate-200 hover:bg-slate-800"
           >
-            Cancel
+            {t('unverifyDialog.cancel', 'Cancel')}
           </button>
           <button
             type="button"
@@ -115,7 +116,7 @@ export function UnverifyDialog({ open, signalLabel, busy, errorText, onCancel, o
             className="rounded bg-rose-500/20 px-3 py-1.5 text-[12px] text-rose-200 hover:bg-rose-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
             data-testid="unverify-dialog-confirm"
           >
-            {busy ? 'Unverifying…' : 'Unverify'}
+            {busy ? t('unverifyDialog.confirming', 'Unverifying…') : t('unverifyDialog.confirm', 'Unverify')}
           </button>
         </div>
       </div>

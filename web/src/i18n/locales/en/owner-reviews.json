@@ -1,0 +1,45 @@
+{
+  "seo": {
+    "title": "Guest Reviews"
+  },
+  "page": {
+    "title": "Guest Reviews",
+    "subtitle": "Real reviews left by your guests. Control what's public and escalate the ones that need attention."
+  },
+  "action": {
+    "searchPlaceholder": "Search reviews…",
+    "refresh": "Refresh"
+  },
+  "metric": {
+    "average": "Average rating",
+    "total": "Total reviews",
+    "positive": "Positive (4–5★)",
+    "negative": "Negative (1–2★)",
+    "escalations": "Open escalations"
+  },
+  "state": {
+    "loading": "Loading reviews…",
+    "loadFailed": "Failed to load reviews",
+    "visibilityFailed": "Could not change visibility",
+    "escalateFailed": "Could not escalate",
+    "noReviews": "No guest reviews yet. They appear here as guests submit them at checkout."
+  },
+  "aria": {
+    "starCount_one": "{{count}} star",
+    "starCount_other": "{{count}} stars"
+  },
+  "row": {
+    "anon": "Anonymous guest",
+    "guest": "Guest",
+    "public": "Public",
+    "private": "Private",
+    "escalated": "Escalated",
+    "makePrivate": "Make private",
+    "makePublic": "Make public",
+    "hideTitle": "Hide from public",
+    "showTitle": "Show publicly",
+    "escalateBtn": "Escalate",
+    "escalateTitle": "Escalate for follow-up",
+    "alreadyEscalatedTitle": "Already escalated"
+  }
+}

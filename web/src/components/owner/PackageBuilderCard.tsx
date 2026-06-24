@@ -11,6 +11,7 @@ import { PACKAGE_BUILDER_V0_ENABLED } from '../../config/packages';
 import { listPackages, getPackageAnalytics } from '../../services/packageService';
 import { packageQueryKeys } from '../../services/packageQueryKeys';
 import { usePackagesRealtime } from '../../hooks/usePackagesRealtime';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   hotelId: string;
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export function PackageBuilderCard({ hotelId, hotelSlug }: Props) {
+  const t = useOwnerT('owner-cards');
   if (!PACKAGE_BUILDER_V0_ENABLED) return null;
 
   // hotelId is passed by the parent (OwnerDashboard already resolved slug->id),
@@ -68,13 +70,13 @@ export function PackageBuilderCard({ hotelId, hotelSlug }: Props) {
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <h3 className="text-sm font-semibold text-slate-100">Experience Packages</h3>
+              <h3 className="text-sm font-semibold text-slate-100">{t('packageBuilder.title', 'Experience Packages')}</h3>
               <span className="inline-flex items-center rounded-md border border-emerald-500/40 bg-emerald-500/15 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-200">
                 v0
               </span>
             </div>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Curate & publish stay packages — share via WhatsApp or link
+              {t('packageBuilder.subtitle', 'Curate & publish stay packages — share via WhatsApp or link')}
             </p>
           </div>
         </div>
@@ -85,21 +87,21 @@ export function PackageBuilderCard({ hotelId, hotelSlug }: Props) {
         <div className="rounded-lg border border-slate-800 bg-[#0B0E14] px-2.5 py-2">
           <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-slate-500">
             <Tent className="h-3 w-3" aria-hidden />
-            Active
+            {t('packageBuilder.active', 'Active')}
           </div>
           <div className="mt-0.5 text-base font-semibold text-emerald-200">{counts.active}</div>
         </div>
         <div className="rounded-lg border border-slate-800 bg-[#0B0E14] px-2.5 py-2">
           <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-slate-500">
             <FileText className="h-3 w-3" aria-hidden />
-            Drafts
+            {t('packageBuilder.drafts', 'Drafts')}
           </div>
           <div className="mt-0.5 text-base font-semibold text-slate-200">{counts.drafts}</div>
         </div>
         <div className="rounded-lg border border-slate-800 bg-[#0B0E14] px-2.5 py-2">
           <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-slate-500">
             <Eye className="h-3 w-3" aria-hidden />
-            7d views
+            {t('packageBuilder.views7d', '7d views')}
           </div>
           <div className="mt-0.5 text-base font-semibold text-sky-200">{views7d}</div>
         </div>
@@ -109,15 +111,15 @@ export function PackageBuilderCard({ hotelId, hotelSlug }: Props) {
         <div className="mt-3 flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-200">
           <CircleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden />
           <span>
-            {counts.pendingReview > 0 && `${counts.pendingReview} awaiting review`}
+            {counts.pendingReview > 0 && t('packageBuilder.pendingReview', '{{count}} awaiting review', { count: counts.pendingReview })}
             {counts.pendingReview > 0 && counts.changesRequested > 0 && ' · '}
-            {counts.changesRequested > 0 && `${counts.changesRequested} need changes`}
+            {counts.changesRequested > 0 && t('packageBuilder.changesRequested', '{{count}} need changes', { count: counts.changesRequested })}
           </span>
         </div>
       )}
 
       <p className="mt-3 text-[10px] text-slate-500">
-        Owner approval required before any package goes live. Final rate manually confirmed.
+        {t('packageBuilder.footer', 'Owner approval required before any package goes live. Final rate manually confirmed.')}
       </p>
     </Link>
   );

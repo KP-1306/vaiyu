@@ -1,0 +1,20 @@
+{
+  "title": "Budget",
+  "titleAccent": "Planner",
+  "subtitle": "Set monthly operational budgets per category.",
+  "crumbFinance": "Finance",
+  "crumbBudgets": "Budgets",
+  "loading": "Loading budgets…",
+  "hotelNotFound": "Hotel not found.",
+  "loadFailed": "Failed to load budget data.",
+  "notAuthenticated": "Not authenticated.",
+  "enterAmount": "Enter at least one budget amount to save.",
+  "saveFailed": "Save failed.",
+  "colCategory": "Category",
+  "colBudget": "Budget (₹)",
+  "colNotes": "Notes",
+  "notePlaceholder": "Optional note",
+  "total": "Total",
+  "saved": "Budgets saved successfully.",
+  "saveBudgets": "Save Budgets"
+}

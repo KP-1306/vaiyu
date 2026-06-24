@@ -1,4 +1,5 @@
 import { useRef, useEffect } from "react";
+import { useOwnerT, useOwnerCommonT } from "../i18n/useOwnerT";
 
 interface AddDepartmentSelectionModalProps {
     isOpen: boolean;
@@ -13,6 +14,8 @@ export default function AddDepartmentSelectionModal({
     onSelectTemplate,
     onSelectCustom,
 }: AddDepartmentSelectionModalProps) {
+    const t = useOwnerT("owner-services");
+    const tc = useOwnerCommonT();
     const modalRef = useRef<HTMLDivElement>(null);
 
     // Close on Escape or Click Outside
@@ -40,6 +43,7 @@ export default function AddDepartmentSelectionModal({
 
     return (
         <div
+            className="vaiyu-owner"
             style={{
                 position: "fixed",
                 top: 0,
@@ -68,7 +72,7 @@ export default function AddDepartmentSelectionModal({
             >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                     <h2 style={{ fontSize: "24px", fontWeight: 600, color: "white", margin: 0 }}>
-                        Add Department
+                        {t("modals.addDeptSelection.title", "Add Department")}
                     </h2>
                     <button
                         onClick={onClose}
@@ -87,7 +91,7 @@ export default function AddDepartmentSelectionModal({
                 </div>
 
                 <p style={{ color: "#9CA3AF", fontSize: "14px", marginBottom: "32px" }}>
-                    Choose how you want to add a department
+                    {t("modals.addDeptSelection.subtitle", "Choose how you want to add a department")}
                 </p>
 
 
@@ -123,10 +127,10 @@ export default function AddDepartmentSelectionModal({
                                 </svg>
                             </div>
                             <h3 style={{ fontSize: "18px", fontWeight: 600, color: "white", marginBottom: "8px" }}>
-                                Add from Templates
+                                {t("modals.addDeptSelection.fromTemplates", "Add from Templates")}
                             </h3>
                             <p style={{ color: "#9CA3AF", fontSize: "14px", lineHeight: "1.5" }}>
-                                Quickly add standard departments with predefined settings.
+                                {t("modals.addDeptSelection.fromTemplatesDesc", "Quickly add standard departments with predefined settings.")}
                             </p>
                         </div>
                         <button
@@ -142,7 +146,7 @@ export default function AddDepartmentSelectionModal({
                                 cursor: "pointer"
                             }}
                         >
-                            Add from Templates
+                            {t("modals.addDeptSelection.fromTemplates", "Add from Templates")}
                         </button>
                     </div>
 
@@ -177,10 +181,10 @@ export default function AddDepartmentSelectionModal({
                                 </svg>
                             </div>
                             <h3 style={{ fontSize: "18px", fontWeight: 600, color: "white", marginBottom: "8px" }}>
-                                Create Custom Department
+                                {t("modals.addDeptSelection.customDept", "Create Custom Department")}
                             </h3>
                             <p style={{ color: "#9CA3AF", fontSize: "14px", lineHeight: "1.5" }}>
-                                Manually configure a new department with specific settings.
+                                {t("modals.addDeptSelection.customDesc", "Manually configure a new department with specific settings.")}
                             </p>
                         </div>
                         <button
@@ -196,7 +200,7 @@ export default function AddDepartmentSelectionModal({
                                 cursor: "pointer"
                             }}
                         >
-                            Create Custom Department
+                            {t("modals.addDeptSelection.customDept", "Create Custom Department")}
                         </button>
                     </div>
                 </div>
@@ -215,7 +219,7 @@ export default function AddDepartmentSelectionModal({
                             fontWeight: 500
                         }}
                     >
-                        Cancel
+                        {tc("actions.cancel", "Cancel")}
                     </button>
                 </div>
             </div>

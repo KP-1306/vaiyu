@@ -1,5 +1,7 @@
 {
-  "language": { "label": "भाषा" },
+  "language": {
+    "label": "भाषा"
+  },
   "actions": {
     "save": "सेव करें",
     "saving": "सेव हो रहा है…",
@@ -38,7 +40,63 @@
   },
   "nav": {
     "dashboard": "डैशबोर्ड",
-    "backToDashboard": "डैशबोर्ड पर वापस"
+    "backToDashboard": "डैशबोर्ड पर वापस",
+    "arrivals": "अराइवल्स और बुकिंग",
+    "housekeeping": "हाउसकीपिंग",
+    "pickup": "पिकअप रिपोर्ट",
+    "workforce": "वर्कफोर्स",
+    "staff-shifts": "स्टाफ और शिफ्ट",
+    "hrms": "HRMS",
+    "menu": "फूड मेनू",
+    "qr": "QR कोड",
+    "payments": "पेमेंट",
+    "revenue": "रेवेन्यू",
+    "analytics": "एनालिटिक्स",
+    "pricing": "डायनामिक प्राइसिंग",
+    "pricing-plans": "रेट प्लान",
+    "pricing-calendar": "रेट कैलेंडर",
+    "pricing-rules": "प्राइसिंग रूल्स",
+    "pricing-history": "प्राइसिंग इतिहास",
+    "finance": "फाइनेंस",
+    "finance-budgets": "बजट",
+    "finance-expenses": "खर्च",
+    "leads": "लीड्स (CRM)",
+    "follow-up": "फॉलो-अप रडार",
+    "quote-drafts": "कोट ड्राफ्ट",
+    "partners": "पार्टनर",
+    "drip": "ड्रिप कैम्पेन",
+    "packages": "पैकेज",
+    "seo-planner": "Local SEO Planner",
+    "visibility": "विज़िबिलिटी स्कोर",
+    "whatsapp": "WhatsApp इनबॉक्स",
+    "seasonal": "सीज़नल कैलेंडर",
+    "ota": "OTA ऑप्टिमाइज़र",
+    "reviews": "रिव्यू",
+    "assets": "डिजिटल एसेट",
+    "import-bookings": "बुकिंग इम्पोर्ट",
+    "settings": "सेटिंग्स",
+    "services": "सर्विस और SLA"
+  },
+  "group": {
+    "operations": "ऑपरेशन",
+    "revenueAndMoney": "रेवेन्यू और मनी",
+    "growth": "ग्रोथ",
+    "setup": "सेटअप"
+  },
+  "palette": {
+    "open": "खोज खोलें (Command या Control + K)",
+    "dialog": "कमांड पैलेट",
+    "search": "खोजें",
+    "close": "बंद करें",
+    "placeholder": "फ़ीचर, बुकिंग, गेस्ट खोजें…",
+    "searching": "खोज रहे हैं…",
+    "noMatches": "कोई मिलान नहीं। फ़ीचर नाम, बुकिंग कोड या गेस्ट नाम आज़माएँ।",
+    "recentsHeader": "हाल के और सभी फ़ीचर",
+    "featuresHeader": "फ़ीचर",
+    "bookingsHeader": "बुकिंग और गेस्ट",
+    "navigateHint": "नेविगेट",
+    "openHint": "खोलें",
+    "closeHint": "बंद करने के लिए esc"
   },
   "toast": {
     "saved": "सेव हो गया",
@@ -96,7 +154,8 @@
     "STAFF": "स्टाफ़",
     "FRONT_DESK": "फ्रंट डेस्क",
     "HOUSEKEEPING": "हाउसकीपिंग",
-    "KITCHEN": "किचन"
+    "KITCHEN": "किचन",
+    "VIEWER": "व्यूअर"
   },
   "mode": {
     "CASH": "कैश",

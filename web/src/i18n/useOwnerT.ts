@@ -32,7 +32,7 @@ import { useTranslation } from 'react-i18next';
 // Master switch for the whole owner console. OFF during the multi-tranche build:
 // prod owner console stays fully English no matter the saved language. Flip to
 // true in the final tranche, after 100% is translated and screenshot-QA'd.
-export const OWNER_I18N_ENABLED = false;
+export const OWNER_I18N_ENABLED = true;
 
 export type OwnerT = (
   key: string,
@@ -74,6 +74,20 @@ export function useOwnerLocale(): string {
     OWNER_I18N_ENABLED &&
     (i18n.resolvedLanguage || i18n.language || 'en').startsWith('hi');
   return isHi ? 'hi-IN-u-nu-latn' : 'en-IN';
+}
+
+/**
+ * Returns 'hi' when the owner console is in Hindi mode, 'en' otherwise.
+ * Respects the reveal-gate (always 'en' while OWNER_I18N_ENABLED = false).
+ * Use this to pick bilingual data fields (e.g. meta.labelEn vs meta.labelHi)
+ * without routing them through the i18n translation system.
+ */
+export function useOwnerLang(): 'en' | 'hi' {
+  const { i18n } = useTranslation();
+  if (!OWNER_I18N_ENABLED) return 'en';
+  return (i18n.resolvedLanguage || i18n.language || 'en').startsWith('hi')
+    ? 'hi'
+    : 'en';
 }
 
 /**

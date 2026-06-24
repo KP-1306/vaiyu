@@ -21,7 +21,6 @@ import {
   SEASONAL_DISCLAIMER_EN,
   SEASONAL_DISCLAIMER_HI,
   SEASONAL_CATEGORY_ORDER,
-  SEASONAL_URGENCY_LABEL,
   formatDaysUntil,
 } from '../../config/seasonalCalendar';
 import {
@@ -34,6 +33,7 @@ import type {
   SeasonalCategory,
   VisibleSeasonalWindow,
 } from '../../types/seasonalCalendar';
+import { useOwnerT, useOwnerLang } from '../../i18n/useOwnerT';
 
 import { SeasonalDisclaimerBanner } from '../../components/seasonal/SeasonalDisclaimerBanner';
 import { SeasonalCategorySection } from '../../components/seasonal/SeasonalCategorySection';
@@ -44,6 +44,8 @@ interface Hotel { id: string; name: string; slug: string; state: string | null }
 export default function SeasonalCalendar() {
   const { slug: rawSlug } = useParams();
   const slug = (rawSlug ?? '').trim();
+  const t = useOwnerT('owner-seasonal');
+  const ownerLang = useOwnerLang();
   const [hotel, setHotel] = useState<Hotel | null>(null);
   const [hotelLoading, setHotelLoading] = useState(true);
   const [showHinglish, setShowHinglish] = useState(false);
@@ -78,7 +80,9 @@ export default function SeasonalCalendar() {
     staleTime: 15_000,
   });
 
-  const language: 'en' | 'hi' = showHinglish ? 'hi' : 'en';
+  // Bilingual catalog data field selection. When owner UI is Hindi (reveal-gate ON
+  // + lang=hi) OR the explicit Hinglish toggle is on, pick the *_hi data fields.
+  const language: 'en' | 'hi' = ownerLang === 'hi' || showHinglish ? 'hi' : 'en';
   const allWindows: VisibleSeasonalWindow[] = listQ.data ?? [];
   const visibleWindows = useMemo(() => allWindows.filter((w) => !w.is_permanently_hidden), [allWindows]);
   const hiddenWindows = useMemo(() => allWindows.filter((w) => w.is_permanently_hidden), [allWindows]);
@@ -111,9 +115,9 @@ export default function SeasonalCalendar() {
 
   if (!SEASONAL_DEMAND_CALENDAR_V0_ENABLED) {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-10 text-slate-600">
+      <main className="vaiyu-owner mx-auto max-w-3xl px-4 py-10 text-slate-600">
         <p className="rounded-md border border-slate-200 bg-white px-4 py-3 text-[13px]">
-          Seasonal Demand Calendar is currently disabled.
+          {t('state.notEnabled', 'Seasonal Demand Calendar is currently disabled.')}
         </p>
       </main>
     );
@@ -121,24 +125,24 @@ export default function SeasonalCalendar() {
 
   if (hotelLoading) {
     return (
-      <main className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-10 text-slate-500">
-        <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…
+      <main className="vaiyu-owner mx-auto flex max-w-6xl items-center gap-2 px-4 py-10 text-slate-500">
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> {t('state.loading', 'Loading…')}
       </main>
     );
   }
 
   if (!hotel) {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-10 text-slate-600">
+      <main className="vaiyu-owner mx-auto max-w-3xl px-4 py-10 text-slate-600">
         <p className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] text-rose-700">
-          Hotel not found.
+          {t('state.notFound', 'Hotel not found.')}
         </p>
       </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <main className="vaiyu-owner min-h-screen bg-slate-50">
       <div className="mx-auto max-w-5xl px-3 py-5 sm:px-4 sm:py-6">
         <div className="mb-3 flex items-center justify-between text-[11px] text-slate-500">
           <Link
@@ -146,7 +150,7 @@ export default function SeasonalCalendar() {
             className="inline-flex items-center gap-1 hover:text-slate-700"
             data-testid="seasonal-back"
           >
-            <ChevronLeft className="h-3 w-3" aria-hidden /> Back to dashboard
+            <ChevronLeft className="h-3 w-3" aria-hidden /> {t('nav.back', 'Back to dashboard')}
           </Link>
           <button
             type="button"
@@ -159,7 +163,7 @@ export default function SeasonalCalendar() {
             aria-pressed={showHinglish}
           >
             <Languages className="h-3 w-3" aria-hidden />
-            {showHinglish ? 'Hide Hinglish' : 'Show Hinglish'}
+            {showHinglish ? t('action.hideHinglish', 'Hide Hinglish') : t('action.showHinglish', 'Show Hinglish')}
           </button>
         </div>
 
@@ -172,23 +176,23 @@ export default function SeasonalCalendar() {
               </div>
               <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700">
-                  Seasonal Planning Workspace
+                  {t('page.workspaceLabel', 'Seasonal Planning Workspace')}
                 </p>
                 <h1 className="mt-0.5 truncate text-lg font-semibold text-slate-900 sm:text-xl">
                   {hotel.name}
                 </h1>
                 {hotel.state && (
-                  <p className="text-[11px] text-slate-500">Region: {hotel.state}</p>
+                  <p className="text-[11px] text-slate-500">{t('page.regionLabel', 'Region: {{state}}', { state: hotel.state })}</p>
                 )}
               </div>
             </div>
             <SummaryRing summary={summary} />
           </div>
           <div className="grid grid-cols-2 gap-px bg-slate-200 sm:grid-cols-4">
-            <SummaryStat label="Now"      value={summary.byUrgency.NOW ?? 0}      tone="rose" />
-            <SummaryStat label="Prepare"  value={summary.byUrgency.PREPARE ?? 0}  tone="amber" />
-            <SummaryStat label="Watch"    value={summary.byUrgency.WATCH ?? 0}    tone="sky" />
-            <SummaryStat label="Ready"    value={summary.byReviewStatus.READY ?? 0} tone="emerald" />
+            <SummaryStat label={t('summary.now', 'Now')}         value={summary.byUrgency.NOW ?? 0}      tone="rose" />
+            <SummaryStat label={t('summary.prepare', 'Prepare')} value={summary.byUrgency.PREPARE ?? 0}  tone="amber" />
+            <SummaryStat label={t('summary.watch', 'Watch')}     value={summary.byUrgency.WATCH ?? 0}    tone="sky" />
+            <SummaryStat label={t('summary.ready', 'Ready')}     value={summary.byReviewStatus.READY ?? 0} tone="emerald" />
           </div>
         </header>
 
@@ -203,7 +207,7 @@ export default function SeasonalCalendar() {
             <div className="mb-2 flex items-center gap-1.5">
               <Flame className="h-3.5 w-3.5 text-rose-500" aria-hidden />
               <h2 className="text-[11px] font-bold uppercase tracking-widest text-slate-600">
-                Next 3 to focus on
+                {t('top3.title', 'Next 3 to focus on')}
               </h2>
             </div>
             <div className="grid gap-2 sm:grid-cols-3">
@@ -218,13 +222,13 @@ export default function SeasonalCalendar() {
                   className="block w-full text-left rounded-lg border border-slate-200 bg-white p-3 hover:border-emerald-300"
                 >
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                    {SEASONAL_URGENCY_LABEL[w.computed_urgency]}
+                    {t(`urgency.${w.computed_urgency}`, w.computed_urgency)}
                   </div>
                   <div className="mt-0.5 truncate text-[13.5px] font-semibold text-slate-900">
-                    {showHinglish ? w.display_name_hi : w.display_name_en}
+                    {language === 'hi' ? w.display_name_hi : w.display_name_en}
                   </div>
                   <div className="mt-0.5 text-[11px] text-slate-500">
-                    {formatDaysUntil(w.days_to_start, w.computed_urgency)} · {w.checklist_done}/{w.checklist_total} prep done
+                    {formatDaysUntil(w.days_to_start, w.computed_urgency, t)} · {t('top3.prepProgress', '{{done}}/{{total}} prep done', { done: w.checklist_done, total: w.checklist_total })}
                   </div>
                 </button>
               ))}
@@ -236,18 +240,18 @@ export default function SeasonalCalendar() {
         <section className="mt-4 space-y-3">
           {listQ.isLoading && (
             <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-[13px] text-slate-500">
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading planning windows…
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> {t('state.loadingWindows', 'Loading planning windows…')}
             </div>
           )}
           {listQ.isError && (
             <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] text-rose-800">
-              Could not load planning windows.{' '}
+              {t('state.loadError', 'Could not load planning windows.')}{' '}
               <button
                 type="button"
                 onClick={() => listQ.refetch()}
                 className="underline hover:no-underline"
               >
-                Retry
+                {t('state.retry', 'Retry')}
               </button>
             </div>
           )}
@@ -278,7 +282,7 @@ export default function SeasonalCalendar() {
               onClick={() => setShowHidden((v) => !v)}
               className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-left text-[12px] text-slate-700 hover:bg-slate-50"
             >
-              <span>Permanently hidden ({hiddenWindows.length})</span>
+              <span>{t('state.hiddenAccordion', 'Permanently hidden ({{count}})', { count: hiddenWindows.length })}</span>
               <span className="text-slate-400">{showHidden ? '−' : '+'}</span>
             </button>
             {showHidden && (
@@ -303,11 +307,12 @@ export default function SeasonalCalendar() {
           <p className="mt-1 text-[10.5px] text-slate-400">{SEASONAL_DISCLAIMER_HI}</p>
         </footer>
       </div>
-    </div>
+    </main>
   );
 }
 
 function SummaryRing({ summary }: { summary: ReturnType<typeof summarizeSeasonalCalendar> }) {
+  const t = useOwnerT('owner-seasonal');
   const total = summary.total;
   const ready = summary.byReviewStatus.READY ?? 0;
   const pct = total === 0 ? 0 : Math.round((ready / total) * 100);
@@ -335,7 +340,7 @@ function SummaryRing({ summary }: { summary: ReturnType<typeof summarizeSeasonal
         </div>
       </div>
       <div className="text-right">
-        <div className="text-[10.5px] font-bold uppercase tracking-widest text-slate-500">Ready</div>
+        <div className="text-[10.5px] font-bold uppercase tracking-widest text-slate-500">{t('summary.readyLabel', 'Ready')}</div>
         <div className="text-base font-semibold text-slate-900">
           {ready}<span className="text-slate-400">/{total}</span>
         </div>

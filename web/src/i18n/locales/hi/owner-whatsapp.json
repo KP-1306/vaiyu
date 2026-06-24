@@ -1,0 +1,44 @@
+{
+  "nav": {
+    "dashboard": "डैशबोर्ड"
+  },
+  "header": {
+    "title": "WhatsApp · {{name}}",
+    "threadCount_one": "{{count}} थ्रेड",
+    "threadCount_other": "{{count}} थ्रेड्स"
+  },
+  "state": {
+    "notFound": "होटल नहीं मिला।",
+    "noThreads": "अभी कोई बातचीत नहीं। नए मेहमान संदेश यहीं आएंगे।",
+    "selectThread": "संदेश देखने के लिए कोई बातचीत चुनें।",
+    "noMessages": "अभी कोई संदेश नहीं।"
+  },
+  "window": {
+    "open": "{{time}} विंडो",
+    "closed": "विंडो बंद",
+    "openBanner": "फ्री-टेक्स्ट उपलब्ध {{time}}",
+    "closedBanner": "विंडो बंद — केवल टेम्पलेट"
+  },
+  "composer": {
+    "placeholderOpen": "फ्री-टेक्स्ट उत्तर लिखें…",
+    "placeholderClosed": "विंडो बंद — फ्री-टेक्स्ट की अनुमति नहीं। Owner सेटिंग्स से टेम्पलेट उपयोग करें।",
+    "send": "भेजें",
+    "hint": "⌘+Enter से भेजें। अधिकतम 4096 अक्षर।",
+    "errorWindowClosed": "24 घंटे की विंडो बंद। फ्री-टेक्स्ट की अनुमति नहीं — Owner सेटिंग्स से टेम्पलेट उपयोग करें या मेहमान के उत्तर का इंतज़ार करें।",
+    "sendFailed": "भेजने में विफल।"
+  },
+  "msg": {
+    "bot": "bot",
+    "tpl": "tpl"
+  },
+  "relative": {
+    "now": "अभी",
+    "min": "{{n}}मि",
+    "hour": "{{n}}घं"
+  },
+  "time": {
+    "minutes": "{{n}}मि",
+    "hourMinutes": "{{h}}घं {{m}}मि",
+    "zero": "0मि"
+  }
+}

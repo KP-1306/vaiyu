@@ -1,4 +1,5 @@
 import { useRef, useEffect } from "react";
+import { useOwnerT, useOwnerCommonT } from "../i18n/useOwnerT";
 
 interface AddServiceSelectionModalProps {
     isOpen: boolean;
@@ -13,6 +14,8 @@ export default function AddServiceSelectionModal({
     onSelectTemplate,
     onSelectCustom,
 }: AddServiceSelectionModalProps) {
+    const t = useOwnerT("owner-services");
+    const tc = useOwnerCommonT();
     const modalRef = useRef<HTMLDivElement>(null);
 
     // Close on Escape or Click Outside
@@ -40,6 +43,7 @@ export default function AddServiceSelectionModal({
 
     return (
         <div
+            className="vaiyu-owner"
             style={{
                 position: "fixed",
                 top: 0,
@@ -68,7 +72,7 @@ export default function AddServiceSelectionModal({
             >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                     <h2 style={{ fontSize: "24px", fontWeight: 600, color: "white", margin: 0 }}>
-                        Add Service
+                        {t("modals.addServiceSelection.title", "Add Service")}
                     </h2>
                     <button
                         onClick={onClose}
@@ -87,7 +91,7 @@ export default function AddServiceSelectionModal({
                 </div>
 
                 <p style={{ color: "#9CA3AF", fontSize: "14px", marginBottom: "32px" }}>
-                    Choose how you want to add services to this department
+                    {t("modals.addServiceSelection.subtitle", "Choose how you want to add services to this department")}
                 </p>
 
 
@@ -124,12 +128,12 @@ export default function AddServiceSelectionModal({
                                 </svg>
                             </div>
                             <h3 style={{ fontSize: "18px", fontWeight: 600, color: "white", marginBottom: "8px" }}>
-                                Add from Templates
+                                {t("modals.addServiceSelection.fromTemplates", "Add from Templates")}
                             </h3>
                             <p style={{ color: "#9CA3AF", fontSize: "14px", lineHeight: "1.5" }}>
-                                Quickly add predefined services with standard SLAs.
+                                {t("modals.addServiceSelection.fromTemplatesDesc1", "Quickly add predefined services with standard SLAs.")}
                                 <br /><br />
-                                Only templates not already added will appear.
+                                {t("modals.addServiceSelection.fromTemplatesDesc2", "Only templates not already added will appear.")}
                             </p>
                         </div>
                         <button
@@ -145,7 +149,7 @@ export default function AddServiceSelectionModal({
                                 cursor: "pointer"
                             }}
                         >
-                            Add from Templates
+                            {t("modals.addServiceSelection.fromTemplates", "Add from Templates")}
                         </button>
                     </div>
 
@@ -181,10 +185,10 @@ export default function AddServiceSelectionModal({
                                 </svg>
                             </div>
                             <h3 style={{ fontSize: "18px", fontWeight: 600, color: "white", marginBottom: "8px" }}>
-                                Create Custom Service
+                                {t("modals.addServiceSelection.customService", "Create Custom Service")}
                             </h3>
                             <p style={{ color: "#9CA3AF", fontSize: "14px", lineHeight: "1.5" }}>
-                                Create a department-specific service with optional SLA override.
+                                {t("modals.addServiceSelection.customDesc", "Create a department-specific service with optional SLA override.")}
                             </p>
                         </div>
                         <button
@@ -200,7 +204,7 @@ export default function AddServiceSelectionModal({
                                 cursor: "pointer"
                             }}
                         >
-                            Create Custom Service
+                            {t("modals.addServiceSelection.customService", "Create Custom Service")}
                         </button>
                     </div>
                 </div>

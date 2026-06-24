@@ -14,6 +14,7 @@ import {
 } from '../../config/followUpRadar';
 import { listFollowUps } from '../../services/followUpService';
 import { useFollowUpsRealtime } from '../../hooks/useFollowUpsRealtime';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   hotelSlug: string;
@@ -21,6 +22,7 @@ interface Props {
 }
 
 export function ActionRadarCard({ hotelSlug, hotelId }: Props) {
+  const t = useOwnerT('owner-cards');
   useFollowUpsRealtime(hotelId ?? undefined);
 
   const listQ = useQuery({
@@ -52,9 +54,9 @@ export function ActionRadarCard({ hotelSlug, hotelId }: Props) {
             <Radar className="h-4 w-4" aria-hidden />
           </div>
           <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-slate-100">Action Radar</h3>
+            <h3 className="text-sm font-semibold text-slate-100">{t('actionRadar.title', 'Action Radar')}</h3>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Aaj kaunse follow-up karne hain
+              {t('actionRadar.subtitle', "Today's follow-ups to handle")}
             </p>
           </div>
         </div>
@@ -62,23 +64,23 @@ export function ActionRadarCard({ hotelSlug, hotelId }: Props) {
       </div>
 
       <div className="mt-3 grid grid-cols-3 gap-2">
-        <Stat label="Due today" value={counts.dueToday} tone="emerald" />
-        <Stat label="Overdue" value={counts.overdue} tone="red" />
-        <Stat label="Blocked" value={counts.blocked} tone="amber" />
+        <Stat label={t('actionRadar.dueToday', 'Due today')} value={counts.dueToday} tone="emerald" />
+        <Stat label={t('actionRadar.overdue', 'Overdue')} value={counts.overdue} tone="red" />
+        <Stat label={t('actionRadar.blocked', 'Blocked')} value={counts.blocked} tone="amber" />
       </div>
 
       {hasCritical && (
         <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-2 text-[11px] text-red-100">
           <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-red-300" aria-hidden />
           <span>
-            {counts.criticalUnaddressed} critical follow-up{counts.criticalUnaddressed === 1 ? '' : 's'} need attention.
+            {t('actionRadar.criticalAlert', '{{count}} critical follow-ups need attention.', { count: counts.criticalUnaddressed })}
           </span>
         </div>
       )}
 
       {isEmpty && (
         <p className="mt-3 text-[11px] text-slate-500">
-          No follow-ups yet — they'll appear here as your team adds leads.
+          {t('actionRadar.empty', "No follow-ups yet — they'll appear here as your team adds leads.")}
         </p>
       )}
     </Link>

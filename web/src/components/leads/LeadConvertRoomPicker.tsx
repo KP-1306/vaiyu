@@ -5,6 +5,7 @@
 
 import { Check } from 'lucide-react';
 import type { RoomForPicker } from '../../services/roomService';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 export interface SelectedRoom {
   room_id: string;
@@ -35,6 +36,7 @@ export function LeadConvertRoomPicker({
   rateErrors,
   disabled,
 }: Props) {
+  const t = useOwnerT('owner-leads');
   function toggle(room: RoomForPicker) {
     if (disabled) return;
     const next = new Map(selected);
@@ -67,7 +69,7 @@ export function LeadConvertRoomPicker({
     <div data-testid="lead-convert-room-picker" className="space-y-3">
       {rooms.length === 0 ? (
         <div className="text-sm text-white/50 italic text-center py-4">
-          No rooms found for this hotel
+          {t('roomPicker.noRooms', 'No rooms found for this hotel')}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-1">
@@ -94,10 +96,10 @@ export function LeadConvertRoomPicker({
                   className="w-full flex items-center justify-between text-left disabled:opacity-50"
                 >
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold text-white">Room {room.number}</div>
+                    <div className="text-sm font-semibold text-white">{t('roomPicker.room', 'Room {{number}}', { number: room.number })}</div>
                     <div className="text-xs text-white/60 truncate">{room.room_type_name}</div>
                     <div className="text-[11px] text-white/40 mt-0.5">
-                      Default {room.default_rate > 0 ? formatINR(room.default_rate) : '—'}
+                      {t('roomPicker.default', 'Default {{rate}}', { rate: room.default_rate > 0 ? formatINR(room.default_rate) : '—' })}
                     </div>
                   </div>
                   <div
@@ -114,7 +116,7 @@ export function LeadConvertRoomPicker({
                   <div className="mt-3 pt-3 border-t border-white/10">
                     <label className="block">
                       <span className="block text-[11px] text-white/50 mb-1">
-                        Rate per night (₹)
+                        {t('roomPicker.ratePerNight', 'Rate per night (₹)')}
                       </span>
                       <input
                         type="number"
@@ -143,9 +145,9 @@ export function LeadConvertRoomPicker({
       {selected.size > 0 && (
         <div className="flex items-center justify-between rounded-md bg-white/[0.03] px-3 py-2 text-sm">
           <span className="text-white/70">
-            {selected.size} room{selected.size === 1 ? '' : 's'} selected
+            {t('roomPicker.selected', '{{count}} rooms selected', { count: selected.size })}
           </span>
-          <span className="text-white font-semibold">{formatINR(totalPerNight)}/night</span>
+          <span className="text-white font-semibold">{t('roomPicker.perNight', '{{amount}}/night', { amount: formatINR(totalPerNight) })}</span>
         </div>
       )}
     </div>

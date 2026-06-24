@@ -24,6 +24,7 @@ import {
   DarkField,
   darkInputCls,
 } from "../components/owner/DarkShell";
+import { useOwnerT, useOwnerCommonT, type OwnerT } from "../i18n/useOwnerT";
 
 type Hotel = { id: string; slug: string; name: string };
 
@@ -82,10 +83,10 @@ function dateInputToMmdd(s: string): number | null {
   return Number(mm) * 100 + Number(dd);
 }
 
-function timeChip(rule: PricingRule): string | null {
+function timeChip(rule: PricingRule, t: OwnerT): string | null {
   const parts: string[] = [];
   if (rule.applicable_dow && rule.applicable_dow.length > 0 && rule.applicable_dow.length < 7) {
-    parts.push(rule.applicable_dow.map((d) => DOW_LABELS[d].label).join("/"));
+    parts.push(rule.applicable_dow.map((d) => t(`dow.${DOW_LABELS[d].label}`, DOW_LABELS[d].label)).join("/"));
   }
   if (rule.season_start_mmdd != null && rule.season_end_mmdd != null) {
     const fmt = (m: number) =>
@@ -95,15 +96,15 @@ function timeChip(rule: PricingRule): string | null {
   if (rule.lead_time_min_days != null || rule.lead_time_max_days != null) {
     const lo = rule.lead_time_min_days ?? 0;
     const hi = rule.lead_time_max_days ?? "∞";
-    parts.push(`lead ${lo}–${hi}d`);
+    parts.push(t("leadChip", "lead {{lo}}–{{hi}}d", { lo, hi }));
   }
   return parts.length ? parts.join(" · ") : null;
 }
 
-function adjLabel(rule: PricingRule) {
+function adjLabel(rule: PricingRule, t: OwnerT) {
   if (rule.adjustment_type === "increase_pct") return `+${rule.adjustment_value}%`;
   if (rule.adjustment_type === "decrease_pct") return `-${rule.adjustment_value}%`;
-  return `Fixed ${formatINR(rule.adjustment_value)}`;
+  return t("adjFixed", "Fixed {{amount}}", { amount: formatINR(rule.adjustment_value) });
 }
 
 function occupancyRange(rule: PricingRule) {
@@ -113,6 +114,8 @@ function occupancyRange(rule: PricingRule) {
 }
 
 export default function OwnerPricingRules() {
+  const t = useOwnerT("owner-pricing-rules");
+  const tc = useOwnerCommonT();
   const { slug } = useParams<{ slug: string }>();
   const [hotel, setHotel] = useState<Hotel | null>(null);
   const [rules, setRules] = useState<PricingRule[]>([]);
@@ -143,7 +146,7 @@ export default function OwnerPricingRules() {
         .maybeSingle();
 
       if (hErr || !hotelRow) {
-        setError(hErr?.message ?? "Hotel not found.");
+        setError(hErr?.message ?? t("hotelNotFound", "Hotel not found."));
         return;
       }
       setHotel(hotelRow as Hotel);
@@ -155,11 +158,11 @@ export default function OwnerPricingRules() {
       setRules(r);
       setRoomTypes(rt);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to load.");
+      setError(e instanceof Error ? e.message : t("loadFailed", "Failed to load."));
     } finally {
       setLoading(false);
     }
-  }, [slug]);
+  }, [slug, t]);
 
   useEffect(() => {
     load();
@@ -199,33 +202,33 @@ export default function OwnerPricingRules() {
   }
 
   function validateForm(f: PricingRuleFormData): string | null {
-    if (!f.rule_name.trim()) return "Rule name is required.";
-    if (f.adjustment_value <= 0) return "Adjustment value must be greater than 0.";
+    if (!f.rule_name.trim()) return t("vName", "Rule name is required.");
+    if (f.adjustment_value <= 0) return t("vAdjValue", "Adjustment value must be greater than 0.");
     if (f.occupancy_min_pct < 0 || f.occupancy_min_pct > 100)
-      return "Min occupancy must be between 0 and 100.";
+      return t("vMinOcc", "Min occupancy must be between 0 and 100.");
     if (f.occupancy_max_pct != null) {
       if (f.occupancy_max_pct < 0 || f.occupancy_max_pct > 100)
-        return "Max occupancy must be between 0 and 100.";
+        return t("vMaxOcc", "Max occupancy must be between 0 and 100.");
       if (f.occupancy_max_pct <= f.occupancy_min_pct)
-        return "Max occupancy must be greater than min occupancy.";
+        return t("vMaxGtMin", "Max occupancy must be greater than min occupancy.");
     }
-    if (f.min_price != null && f.min_price < 0) return "Min price cannot be negative.";
-    if (f.max_price != null && f.max_price < 0) return "Max price cannot be negative.";
+    if (f.min_price != null && f.min_price < 0) return t("vMinPriceNeg", "Min price cannot be negative.");
+    if (f.max_price != null && f.max_price < 0) return t("vMaxPriceNeg", "Max price cannot be negative.");
     if (f.min_price != null && f.max_price != null && f.max_price < f.min_price)
-      return "Max price must be greater than or equal to min price.";
+      return t("vMaxPriceGteMin", "Max price must be greater than or equal to min price.");
     if (f.scope_type === "room_type" && !f.room_type_id)
-      return "Pick a room type for room-type scoped rules.";
+      return t("vRoomType", "Pick a room type for room-type scoped rules.");
     const seasonStartSet = f.season_start_mmdd != null;
     const seasonEndSet = f.season_end_mmdd != null;
     if (seasonStartSet !== seasonEndSet)
-      return "Set both season start and end, or neither.";
+      return t("vSeason", "Set both season start and end, or neither.");
     if (
       f.lead_time_min_days != null &&
       f.lead_time_max_days != null &&
       f.lead_time_max_days < f.lead_time_min_days
     )
-      return "Lead-time max must be greater than or equal to min.";
-    if (f.priority < 1) return "Priority must be 1 or greater.";
+      return t("vLeadTime", "Lead-time max must be greater than or equal to min.");
+    if (f.priority < 1) return t("vPriority", "Priority must be 1 or greater.");
     return null;
   }
 
@@ -242,7 +245,7 @@ export default function OwnerPricingRules() {
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated.");
+      if (!user) throw new Error(t("notAuthenticated", "Not authenticated."));
 
       if (editingId) {
         // Pass the original updated_at as the optimistic-concurrency token.
@@ -256,7 +259,7 @@ export default function OwnerPricingRules() {
       setEditingUpdatedAt(null);
       await load();
     } catch (e: unknown) {
-      setFormError(e instanceof Error ? e.message : "Save failed.");
+      setFormError(e instanceof Error ? e.message : t("saveFailed", "Save failed."));
     } finally {
       setSaving(false);
     }
@@ -280,56 +283,56 @@ export default function OwnerPricingRules() {
       await deletePricingRule(id);
       setRules((prev) => prev.filter((r) => r.id !== id));
     } catch (e: unknown) {
-      setDeleteError(e instanceof Error ? e.message : "Delete failed.");
+      setDeleteError(e instanceof Error ? e.message : t("deleteFailed", "Delete failed."));
       throw e;
     } finally {
       setDeletingId(null);
     }
   }
 
-  if (loading) return <DarkLoading message="Loading rules…" />;
-  if (error || !hotel) return <DarkErrorPanel message={error ?? "Hotel not found."} />;
+  if (loading) return <DarkLoading message={t("loading", "Loading rules…")} />;
+  if (error || !hotel) return <DarkErrorPanel message={error ?? t("hotelNotFound", "Hotel not found.")} />;
 
   const base = `/owner/${slug}`;
 
   return (
     <OwnerDarkPage
       icon={TrendingUp}
-      title="Pricing"
-      titleAccent="Rules"
+      title={t("title", "Pricing")}
+      titleAccent={t("titleAccent", "Rules")}
       accent="indigo"
-      subtitle={`${rules.length} rule${rules.length === 1 ? "" : "s"} · ${hotel.name}`}
+      subtitle={`${t("rulesCount", "{{count}} rules", { count: rules.length })} · ${hotel.name}`}
       breadcrumbs={[
-        { label: "Dashboard", to: base },
-        { label: "Pricing", to: `${base}/pricing` },
-        { label: "Rules" },
+        { label: tc("nav.dashboard", "Dashboard"), to: base },
+        { label: t("crumbPricing", "Pricing"), to: `${base}/pricing` },
+        { label: t("crumbRules", "Rules") },
       ]}
       actions={
         <button
           onClick={openCreate}
           className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 px-4 py-2 text-sm font-bold text-white transition shadow-lg shadow-indigo-500/20"
         >
-          <Plus className="w-4 h-4" /> Add Rule
+          <Plus className="w-4 h-4" /> {t("addRule", "Add Rule")}
         </button>
       }
     >
       {showForm && (
         <DarkModal
-          title={editingId ? "Edit Rule" : "New Pricing Rule"}
+          title={editingId ? t("editRule", "Edit Rule") : t("newRule", "New Pricing Rule")}
           onClose={() => setShowForm(false)}
         >
           <div className="space-y-4">
-            <DarkField label="Rule Name">
+            <DarkField label={t("fieldRuleName", "Rule Name")}>
               <input
                 className={darkInputCls}
                 value={form.rule_name}
                 onChange={(e) => setForm({ ...form, rule_name: e.target.value })}
-                placeholder="e.g. High-season surge"
+                placeholder={t("ruleNamePlaceholder", "e.g. High-season surge")}
               />
             </DarkField>
 
             <div className="grid grid-cols-2 gap-3">
-              <DarkField label="Min Occupancy (%)">
+              <DarkField label={t("fieldMinOcc", "Min Occupancy (%)")}>
                 <input
                   className={darkInputCls}
                   type="number"
@@ -339,7 +342,7 @@ export default function OwnerPricingRules() {
                   onChange={(e) => setForm({ ...form, occupancy_min_pct: Number(e.target.value) })}
                 />
               </DarkField>
-              <DarkField label="Max Occupancy (%)" hint="Blank = no upper limit">
+              <DarkField label={t("fieldMaxOcc", "Max Occupancy (%)")} hint={t("hintMaxOcc", "Blank = no upper limit")}>
                 <input
                   className={darkInputCls}
                   type="number"
@@ -356,7 +359,7 @@ export default function OwnerPricingRules() {
               </DarkField>
             </div>
 
-            <DarkField label="Adjustment Type">
+            <DarkField label={t("fieldAdjType", "Adjustment Type")}>
               <select
                 className={darkInputCls}
                 value={form.adjustment_type}
@@ -367,17 +370,17 @@ export default function OwnerPricingRules() {
                   })
                 }
               >
-                <option value="increase_pct" style={darkOptionStyle}>Increase by %</option>
-                <option value="decrease_pct" style={darkOptionStyle}>Decrease by %</option>
-                <option value="set_fixed_price" style={darkOptionStyle}>Set Fixed Price (₹)</option>
+                <option value="increase_pct" style={darkOptionStyle}>{t("adjIncrease", "Increase by %")}</option>
+                <option value="decrease_pct" style={darkOptionStyle}>{t("adjDecrease", "Decrease by %")}</option>
+                <option value="set_fixed_price" style={darkOptionStyle}>{t("adjSetFixed", "Set Fixed Price (₹)")}</option>
               </select>
             </DarkField>
 
             <DarkField
               label={
                 form.adjustment_type === "set_fixed_price"
-                  ? "Fixed Price (₹)"
-                  : "Adjustment Value (%)"
+                  ? t("fieldFixedPrice", "Fixed Price (₹)")
+                  : t("fieldAdjValue", "Adjustment Value (%)")
               }
             >
               <input
@@ -390,7 +393,7 @@ export default function OwnerPricingRules() {
             </DarkField>
 
             <div className="grid grid-cols-2 gap-3">
-              <DarkField label="Min Price (₹)" hint="Optional floor">
+              <DarkField label={t("fieldMinPrice", "Min Price (₹)")} hint={t("hintMinPrice", "Optional floor")}>
                 <input
                   className={darkInputCls}
                   type="number"
@@ -401,7 +404,7 @@ export default function OwnerPricingRules() {
                   }
                 />
               </DarkField>
-              <DarkField label="Max Price (₹)" hint="Optional ceiling">
+              <DarkField label={t("fieldMaxPrice", "Max Price (₹)")} hint={t("hintMaxPrice", "Optional ceiling")}>
                 <input
                   className={darkInputCls}
                   type="number"
@@ -415,7 +418,7 @@ export default function OwnerPricingRules() {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <DarkField label="Scope">
+              <DarkField label={t("fieldScope", "Scope")}>
                 <select
                   className={darkInputCls}
                   value={form.scope_type}
@@ -427,12 +430,12 @@ export default function OwnerPricingRules() {
                     })
                   }
                 >
-                  <option value="property" style={darkOptionStyle}>Property-wide</option>
-                  <option value="room_type" style={darkOptionStyle}>Room Type</option>
+                  <option value="property" style={darkOptionStyle}>{t("scopeWide", "Property-wide")}</option>
+                  <option value="room_type" style={darkOptionStyle}>{t("scopeRoomType", "Room Type")}</option>
                 </select>
               </DarkField>
               {form.scope_type === "room_type" && (
-                <DarkField label="Room Type">
+                <DarkField label={t("fieldRoomType", "Room Type")}>
                   <select
                     className={darkInputCls}
                     value={form.room_type_id ?? ""}
@@ -440,7 +443,7 @@ export default function OwnerPricingRules() {
                       setForm({ ...form, room_type_id: e.target.value || null })
                     }
                   >
-                    <option value="" style={darkOptionStyle}>Select…</option>
+                    <option value="" style={darkOptionStyle}>{t("selectPlaceholder", "Select…")}</option>
                     {roomTypes.map((rt) => (
                       <option key={rt.id} value={rt.id} style={darkOptionStyle}>
                         {rt.name}
@@ -451,7 +454,7 @@ export default function OwnerPricingRules() {
               )}
             </div>
 
-            <DarkField label="Priority" hint="Lower number = evaluated first">
+            <DarkField label={t("fieldPriority", "Priority")} hint={t("hintPriority", "Lower number = evaluated first")}>
               <input
                 className={darkInputCls}
                 type="number"
@@ -463,10 +466,10 @@ export default function OwnerPricingRules() {
 
             <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 space-y-3">
               <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Time constraints <span className="font-normal normal-case text-slate-500">(optional)</span>
+                {t("timeConstraints", "Time constraints")} <span className="font-normal normal-case text-slate-500">{t("optional", "(optional)")}</span>
               </div>
 
-              <DarkField label="Days of Week" hint="Leave all unchecked to match every day.">
+              <DarkField label={t("fieldDaysOfWeek", "Days of Week")} hint={t("hintDaysOfWeek", "Leave all unchecked to match every day.")}>
                 <div className="flex flex-wrap gap-2">
                   {DOW_LABELS.map(({ value, label }) => {
                     const selected = form.applicable_dow?.includes(value) ?? false;
@@ -491,7 +494,7 @@ export default function OwnerPricingRules() {
                             : "border-white/10 bg-white/[0.02] text-slate-400 hover:text-slate-200")
                         }
                       >
-                        {label}
+                        {t(`dow.${label}`, label)}
                       </button>
                     );
                   })}
@@ -499,7 +502,7 @@ export default function OwnerPricingRules() {
               </DarkField>
 
               <div className="grid grid-cols-2 gap-3">
-                <DarkField label="Season Start" hint="Year-agnostic (MM-DD)">
+                <DarkField label={t("fieldSeasonStart", "Season Start")} hint={t("hintSeasonStart", "Year-agnostic (MM-DD)")}>
                   <input
                     className={darkInputCls}
                     type="date"
@@ -509,7 +512,7 @@ export default function OwnerPricingRules() {
                     }
                   />
                 </DarkField>
-                <DarkField label="Season End" hint="Wraps across years if end < start">
+                <DarkField label={t("fieldSeasonEnd", "Season End")} hint={t("hintSeasonEnd", "Wraps across years if end < start")}>
                   <input
                     className={darkInputCls}
                     type="date"
@@ -522,7 +525,7 @@ export default function OwnerPricingRules() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <DarkField label="Lead-time Min (days)" hint="Days before stay; blank = no floor">
+                <DarkField label={t("fieldLeadMin", "Lead-time Min (days)")} hint={t("hintLeadMin", "Days before stay; blank = no floor")}>
                   <input
                     className={darkInputCls}
                     type="number"
@@ -536,7 +539,7 @@ export default function OwnerPricingRules() {
                     }
                   />
                 </DarkField>
-                <DarkField label="Lead-time Max (days)" hint="Blank = no ceiling">
+                <DarkField label={t("fieldLeadMax", "Lead-time Max (days)")} hint={t("hintLeadMax", "Blank = no ceiling")}>
                   <input
                     className={darkInputCls}
                     type="number"
@@ -560,7 +563,7 @@ export default function OwnerPricingRules() {
                 onChange={(e) => setForm({ ...form, active: e.target.checked })}
                 className="rounded accent-indigo-500"
               />
-              Active
+              {t("active", "Active")}
             </label>
           </div>
 
@@ -571,14 +574,14 @@ export default function OwnerPricingRules() {
               onClick={() => setShowForm(false)}
               className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-4 py-2 text-sm font-semibold text-slate-200 transition"
             >
-              Cancel
+              {tc("actions.cancel", "Cancel")}
             </button>
             <button
               onClick={handleSave}
               disabled={saving}
               className="rounded-xl bg-indigo-500 hover:bg-indigo-600 px-5 py-2 text-sm font-bold text-white transition disabled:opacity-60 shadow-lg shadow-indigo-500/20"
             >
-              {saving ? "Saving…" : editingId ? "Save Changes" : "Create Rule"}
+              {saving ? tc("actions.saving", "Saving…") : editingId ? t("saveChanges", "Save Changes") : t("createRule", "Create Rule")}
             </button>
           </div>
         </DarkModal>
@@ -587,15 +590,15 @@ export default function OwnerPricingRules() {
       {rules.length === 0 ? (
         <DarkCard className="text-center py-12 border-dashed border-2">
           <TrendingUp className="w-10 h-10 text-slate-600 mx-auto mb-3" />
-          <p className="font-bold text-slate-200">No pricing rules yet</p>
+          <p className="font-bold text-slate-200">{t("emptyTitle", "No pricing rules yet")}</p>
           <p className="text-sm text-slate-500 mt-1 mb-4">
-            Create your first rule to automatically adjust prices based on occupancy.
+            {t("emptyBody", "Create your first rule to automatically adjust prices based on occupancy.")}
           </p>
           <button
             onClick={openCreate}
             className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 px-4 py-2 text-sm font-bold text-white transition shadow-lg shadow-indigo-500/20"
           >
-            <Plus className="w-4 h-4" /> Create First Rule
+            <Plus className="w-4 h-4" /> {t("createFirst", "Create First Rule")}
           </button>
         </DarkCard>
       ) : (
@@ -604,13 +607,21 @@ export default function OwnerPricingRules() {
             <table className="w-full text-sm">
               <thead className="bg-[#1a1c1e] border-b border-white/[0.05]">
                 <tr>
-                  {["Priority", "Rule", "Occupancy Range", "Adjustment", "Scope", "Active", "Actions"].map(
+                  {[
+                    { k: "priority", label: t("colPriority", "Priority") },
+                    { k: "rule", label: t("colRule", "Rule") },
+                    { k: "occRange", label: t("colOccRange", "Occupancy Range") },
+                    { k: "adjustment", label: t("colAdjustment", "Adjustment") },
+                    { k: "scope", label: t("colScope", "Scope") },
+                    { k: "active", label: t("colActive", "Active") },
+                    { k: "actions", label: t("colActions", "Actions") },
+                  ].map(
                     (h) => (
                       <th
-                        key={h}
+                        key={h.k}
                         className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-400"
                       >
-                        {h}
+                        {h.label}
                       </th>
                     ),
                   )}
@@ -622,11 +633,11 @@ export default function OwnerPricingRules() {
                     <td className="px-4 py-3 font-mono text-xs text-slate-500">{rule.priority}</td>
                     <td className="px-4 py-3">
                       <div className="font-semibold text-white">{rule.rule_name}</div>
-                      {timeChip(rule) && (
-                        <div className="mt-0.5 text-[11px] text-slate-500">{timeChip(rule)}</div>
+                      {timeChip(rule, t) && (
+                        <div className="mt-0.5 text-[11px] text-slate-500">{timeChip(rule, t)}</div>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-slate-300">{occupancyRange(rule)}</td>
+                    <td className="px-4 py-3 text-slate-300 tabular-nums">{occupancyRange(rule)}</td>
                     <td className="px-4 py-3">
                       <span
                         className={
@@ -638,14 +649,14 @@ export default function OwnerPricingRules() {
                             : "bg-indigo-500/15 text-indigo-300")
                         }
                       >
-                        {adjLabel(rule)}
+                        {adjLabel(rule, t)}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-xs text-slate-500 capitalize">{rule.scope_type}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500 capitalize">{t(`scopeType.${rule.scope_type}`, rule.scope_type)}</td>
                     <td className="px-4 py-3">
                       <button
                         onClick={() => handleToggleActive(rule)}
-                        title={rule.active ? "Deactivate" : "Activate"}
+                        title={rule.active ? t("deactivate", "Deactivate") : t("activate", "Activate")}
                         className="text-slate-500 hover:text-indigo-400 transition"
                       >
                         {rule.active ? (
@@ -660,7 +671,7 @@ export default function OwnerPricingRules() {
                         <button
                           onClick={() => openEdit(rule)}
                           className="text-slate-400 hover:text-indigo-400 transition"
-                          aria-label="Edit rule"
+                          aria-label={t("editRuleAria", "Edit rule")}
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
@@ -668,7 +679,7 @@ export default function OwnerPricingRules() {
                           onClick={() => setConfirmDelete(rule)}
                           disabled={deletingId === rule.id}
                           className="text-slate-400 hover:text-rose-400 transition disabled:opacity-40"
-                          aria-label="Delete rule"
+                          aria-label={t("deleteRuleAria", "Delete rule")}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -684,19 +695,18 @@ export default function OwnerPricingRules() {
 
       {confirmDelete && (
         <DarkConfirmModal
-          title="Delete pricing rule"
+          title={t("deleteRuleTitle", "Delete pricing rule")}
           message={
             <>
               <p>
-                Delete rule <span className="font-semibold text-white">"{confirmDelete.rule_name}"</span>?
-                This cannot be undone. Historical change-log entries referencing this rule stay intact.
+                {t("deleteMsgPrefix", "Delete rule")} <span className="font-semibold text-white">"{confirmDelete.rule_name}"</span>{t("deleteMsgSuffix", "? This cannot be undone. Historical change-log entries referencing this rule stay intact.")}
               </p>
               {deleteError && (
                 <p className="mt-3 text-sm text-rose-300">{deleteError}</p>
               )}
             </>
           }
-          confirmLabel="Delete rule"
+          confirmLabel={t("deleteRuleConfirm", "Delete rule")}
           variant="danger"
           busy={deletingId === confirmDelete.id}
           onCancel={() => {

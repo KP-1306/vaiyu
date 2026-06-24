@@ -10,6 +10,7 @@ import { Loader2, User } from 'lucide-react';
 import { listLeads } from '../../services/leadService';
 import type { Lead, LeadStatus } from '../../types/lead';
 import type { QuoteLeadSnapshot } from '../../types/quoteDraft';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 const OPEN_STATUSES: LeadStatus[] = ['NEW', 'QUALIFIED', 'QUOTED', 'WON'];
 const LIST_LIMIT = 50;
@@ -35,6 +36,8 @@ function leadToSnapshot(lead: Lead): QuoteLeadSnapshot {
 }
 
 export function QuoteLeadPicker({ hotelId, selectedLeadId, onSelect }: Props) {
+  const t = useOwnerT('owner-quote');
+  const tl = useOwnerT('owner-leads');
   const query = useQuery({
     queryKey: ['quote-drafts', 'leads', hotelId],
     queryFn: async () => {
@@ -67,7 +70,7 @@ export function QuoteLeadPicker({ hotelId, selectedLeadId, onSelect }: Props) {
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold text-slate-100 inline-flex items-center gap-2">
           <User className="h-4 w-4 text-emerald-300" aria-hidden />
-          Pick an enquiry
+          {t('leadPicker.title', 'Pick an enquiry')}
         </h3>
         {query.isFetching && (
           <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-500" aria-hidden />
@@ -75,13 +78,12 @@ export function QuoteLeadPicker({ hotelId, selectedLeadId, onSelect }: Props) {
       </div>
 
       <p className="text-xs text-slate-400">
-        Choose from your open leads (status: New / Qualified / Quoted / Won). PII is read
-        only — nothing is written or persisted by this workspace.
+        {t('leadPicker.desc', 'Choose from your open leads (status: New / Qualified / Quoted / Won). PII is read only — nothing is written or persisted by this workspace.')}
       </p>
 
       {query.isError ? (
         <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-100">
-          Could not load leads. {(query.error as Error).message}
+          {t('leadPicker.loadError', 'Could not load leads. {{msg}}', { msg: (query.error as Error).message })}
         </div>
       ) : (
         <select
@@ -92,7 +94,7 @@ export function QuoteLeadPicker({ hotelId, selectedLeadId, onSelect }: Props) {
           className="w-full rounded-md border border-slate-700 bg-[#0B0E14] px-3 py-2 text-sm text-slate-100 focus:border-emerald-400 focus:outline-none disabled:opacity-50"
         >
           <option value="">
-            {query.isLoading ? 'Loading enquiries…' : '— Select a lead —'}
+            {query.isLoading ? t('leadPicker.loading', 'Loading enquiries…') : t('leadPicker.selectPlaceholder', '— Select a lead —')}
           </option>
           {options.map((lead) => {
             const partyParts: string[] = [];
@@ -104,7 +106,7 @@ export function QuoteLeadPicker({ hotelId, selectedLeadId, onSelect }: Props) {
                 : '';
             return (
               <option key={lead.id} value={lead.id}>
-                {lead.contact_name} ({lead.status}){partyParts.length ? ` · ${partyParts.join('/')}` : ''}{dates}
+                {lead.contact_name} ({tl(`status.${lead.status}`, lead.status)}){partyParts.length ? ` · ${partyParts.join('/')}` : ''}{dates}
               </option>
             );
           })}
@@ -113,7 +115,7 @@ export function QuoteLeadPicker({ hotelId, selectedLeadId, onSelect }: Props) {
 
       {options.length === 0 && !query.isLoading && !query.isError && (
         <p className="text-[11px] text-slate-500">
-          No open leads found for this hotel. Add a lead from the Leads workspace first.
+          {t('leadPicker.noOpenLeads', 'No open leads found for this hotel. Add a lead from the Leads workspace first.')}
         </p>
       )}
     </div>

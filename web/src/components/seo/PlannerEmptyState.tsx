@@ -7,6 +7,7 @@
 import { Compass, Plus } from 'lucide-react';
 import { SEO_CATEGORY_LABEL, SEO_STARTER_IDEAS } from '../../config/localSeoPlanner';
 import type { SeoBlueprintCategory } from '../../types/seoBlueprint';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   onPickStarter: (idea: { title: string; category: SeoBlueprintCategory }) => void;
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export function PlannerEmptyState({ onPickStarter, onCreateBlank }: Props) {
+  const t = useOwnerT('owner-seo');
   return (
     <div
       className="rounded-2xl border border-dashed border-slate-700 bg-[#0F1320] p-6 sm:p-8 text-center space-y-4"
@@ -23,10 +25,9 @@ export function PlannerEmptyState({ onPickStarter, onCreateBlank }: Props) {
         <Compass className="h-5 w-5 text-emerald-300" aria-hidden />
       </div>
       <div className="space-y-1">
-        <h2 className="text-base font-semibold text-slate-100">No blueprints yet</h2>
+        <h2 className="text-base font-semibold text-slate-100">{t('empty.title', 'No blueprints yet')}</h2>
         <p className="text-xs text-slate-400 max-w-md mx-auto">
-          A blueprint is a *page idea* — not a public page. Pick a starter to see how the
-          Policy Shield flags it, or write your own from scratch. Nothing is published.
+          {t('empty.body', 'A blueprint is a *page idea* — not a public page. Pick a starter to see how the Policy Shield flags it, or write your own from scratch. Nothing is published.')}
         </p>
       </div>
       <button
@@ -36,10 +37,10 @@ export function PlannerEmptyState({ onPickStarter, onCreateBlank }: Props) {
         data-testid="planner-empty-create"
       >
         <Plus className="h-3.5 w-3.5" aria-hidden />
-        Start a blank blueprint
+        {t('empty.startBlank', 'Start a blank blueprint')}
       </button>
       <div className="pt-2 text-left">
-        <p className="text-[10px] uppercase tracking-wide text-slate-500 mb-1.5">Or pick a safe starter</p>
+        <p className="text-[10px] uppercase tracking-wide text-slate-500 mb-1.5">{t('empty.orPickStarter', 'Or pick a safe starter')}</p>
         <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
           {SEO_STARTER_IDEAS.map((idea) => (
             <li key={idea.title}>
@@ -50,7 +51,7 @@ export function PlannerEmptyState({ onPickStarter, onCreateBlank }: Props) {
                 data-testid={`planner-starter-${idea.category}`}
               >
                 <span className="block font-medium">{idea.title}</span>
-                <span className="block text-[10px] text-slate-500">{SEO_CATEGORY_LABEL[idea.category]}</span>
+                <span className="block text-[10px] text-slate-500">{t(`category.${idea.category}`, SEO_CATEGORY_LABEL[idea.category])}</span>
               </button>
             </li>
           ))}

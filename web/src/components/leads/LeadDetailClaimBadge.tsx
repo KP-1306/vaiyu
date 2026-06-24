@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Lock, ShieldAlert } from 'lucide-react';
 import type { ClaimStatus } from '../../types/lead';
+import { useOwnerT, type OwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   claim: ClaimStatus | null;
@@ -11,15 +12,16 @@ interface Props {
   onForceRelease?: () => void;
 }
 
-function formatRemaining(expiresAt: string): string {
+function formatRemaining(expiresAt: string, t: OwnerT): string {
   const diffMs = new Date(expiresAt).getTime() - Date.now();
-  if (Number.isNaN(diffMs) || diffMs <= 0) return 'expiring';
+  if (Number.isNaN(diffMs) || diffMs <= 0) return t('claim.expiring', 'expiring');
   const min = Math.round(diffMs / 60000);
-  if (min < 1) return '<1 min remaining';
-  return `${min} min remaining`;
+  if (min < 1) return t('claim.lt1min', '<1 min remaining');
+  return t('claim.minRemaining', '{{min}} min remaining', { min });
 }
 
 export function LeadDetailClaimBadge({ claim, canForceRelease, onForceRelease }: Props) {
+  const t = useOwnerT('owner-leads');
   // Re-render every minute so the countdown updates
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -37,7 +39,7 @@ export function LeadDetailClaimBadge({ claim, canForceRelease, onForceRelease }:
       >
         <Lock className="h-3.5 w-3.5" />
         <span>
-          You&apos;re working on this · {claim.claim_expires_at ? formatRemaining(claim.claim_expires_at) : ''}
+          {t('claim.self', "You're working on this")} · {claim.claim_expires_at ? formatRemaining(claim.claim_expires_at, t) : ''}
         </span>
       </div>
     );
@@ -50,8 +52,8 @@ export function LeadDetailClaimBadge({ claim, canForceRelease, onForceRelease }:
     >
       <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
       <span className="flex-1">
-        Currently being worked by <span className="font-semibold">{claim.claimed_by_name ?? 'someone'}</span>
-        {claim.claim_expires_at ? ` · ${formatRemaining(claim.claim_expires_at)}` : ''}
+        {t('claim.by', 'Currently being worked by {{name}}', { name: claim.claimed_by_name ?? t('claim.someone', 'someone') })}
+        {claim.claim_expires_at ? ` · ${formatRemaining(claim.claim_expires_at, t)}` : ''}
       </span>
       {canForceRelease && onForceRelease && (
         <button
@@ -59,7 +61,7 @@ export function LeadDetailClaimBadge({ claim, canForceRelease, onForceRelease }:
           onClick={onForceRelease}
           className="text-amber-100 hover:text-white underline-offset-2 hover:underline shrink-0"
         >
-          Force release
+          {t('claim.forceRelease', 'Force release')}
         </button>
       )}
     </div>

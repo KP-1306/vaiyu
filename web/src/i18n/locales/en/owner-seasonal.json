@@ -1,0 +1,169 @@
+{
+  "nav": {
+    "back": "Back to dashboard"
+  },
+  "page": {
+    "workspaceLabel": "Seasonal Planning Workspace",
+    "regionLabel": "Region: {{state}}"
+  },
+  "action": {
+    "showHinglish": "Show Hinglish",
+    "hideHinglish": "Hide Hinglish"
+  },
+  "summary": {
+    "now": "Now",
+    "prepare": "Prepare",
+    "watch": "Watch",
+    "ready": "Ready",
+    "readyLabel": "Ready"
+  },
+  "top3": {
+    "title": "Next 3 to focus on",
+    "prepProgress": "{{done}}/{{total}} prep done"
+  },
+  "state": {
+    "loading": "Loading…",
+    "loadingWindows": "Loading planning windows…",
+    "loadError": "Could not load planning windows.",
+    "retry": "Retry",
+    "notFound": "Hotel not found.",
+    "notEnabled": "Seasonal Demand Calendar is currently disabled.",
+    "hiddenAccordion": "Permanently hidden ({{count}})"
+  },
+  "disclaimer": {
+    "heading": "Planning guide — no guarantees"
+  },
+  "category": {
+    "RELIGIOUS_YATRA": "Religious / Yatra",
+    "METRO_ESCAPE": "Metro Escape",
+    "CLIMATE_PEAK": "Climate Peak",
+    "OFF_PEAK_VALUE": "Off-peak Value",
+    "WINTER_SNOW": "Winter / Snow",
+    "LONG_WEEKEND": "Long Weekend",
+    "WELLNESS_WORKATION": "Wellness / Workation",
+    "FAMILY_EVENT": "Family Event"
+  },
+  "section": {
+    "urgentNow": "{{count}} now",
+    "ready": "Ready"
+  },
+  "urgency": {
+    "NOW": "Now",
+    "PREPARE": "Prepare",
+    "WATCH": "Watch",
+    "QUIET": "Quiet"
+  },
+  "reviewStatus": {
+    "PLANNING": "Planning",
+    "READY": "Ready",
+    "DISMISSED": "Dismissed"
+  },
+  "days": {
+    "activeNow": "Active now",
+    "oneDay": "In 1 day",
+    "days": "In {{n}} days",
+    "months": "In ~{{n}} months"
+  },
+  "card": {
+    "priorityAria": "Priority: {{label}}",
+    "mayNotApply": "May not apply to your region",
+    "hiddenBadge": "Hidden",
+    "overrideTag": "(override)",
+    "whyItMatters": "Why it matters",
+    "recommendedAction": "Recommended action",
+    "guests": "Guests:",
+    "packageIdea": "Package idea:",
+    "preparationChecklist": "Preparation checklist",
+    "checklistDone": "{{done}} / {{total}} done",
+    "yourNotes": "Your notes",
+    "notesPlaceholder": "e.g. Asha confirmed photos by Friday; pending: heater service.",
+    "notesSaving": "Saving…",
+    "notesSaved": "Saved",
+    "viewHistory": "View history",
+    "hideHistory": "Hide history",
+    "dismissReason": "Reason:",
+    "hideReason": "Hide reason:",
+    "overrideReason": "Override reason:"
+  },
+  "actions": {
+    "markReady": "Mark READY",
+    "returnToPlanning": "Return to planning",
+    "resume": "Resume",
+    "dismiss": "Dismiss for this cycle",
+    "editOverride": "Edit override",
+    "overrideUrgency": "Override urgency",
+    "clearOverride": "Clear override",
+    "unhide": "Unhide",
+    "hideForever": "Hide forever"
+  },
+  "form": {
+    "dismissTitle": "Dismiss for this cycle",
+    "overrideTitle": "Override urgency",
+    "hideTitle": "Hide forever",
+    "dismissHint": "e.g. Boutique stay, not targeting pilgrim segment this year.",
+    "overrideHint": "e.g. We are running staff training this month; suppress urgency.",
+    "hideHint": "e.g. We never serve this segment.",
+    "submitDismiss": "Dismiss",
+    "submitOverride": "Save override",
+    "submitHide": "Hide forever",
+    "cancel": "Cancel",
+    "forceUrgencyTo": "Force urgency to:"
+  },
+  "timeline": {
+    "loading": "Loading history…",
+    "loadError": "Could not load history.",
+    "retry": "Retry",
+    "empty": "No activity yet.",
+    "actorBy": "by {{name}}",
+    "relative": {
+      "justNow": "just now",
+      "min": "{{n}}m ago",
+      "hour": "{{n}}h ago",
+      "day": "{{n}}d ago"
+    },
+    "payload": {
+      "item": "item: {{key}}",
+      "reason": "reason: {{reason}}",
+      "fromTo": "{{from}} → {{to}}",
+      "checklist": "{{done}}/{{total}} done"
+    },
+    "event": {
+      "CHECKLIST_TICKED": "Ticked checklist item",
+      "CHECKLIST_UNTICKED": "Unticked checklist item",
+      "NOTES_UPDATED": "Updated notes",
+      "URGENCY_OVERRIDDEN": "Overrode urgency",
+      "URGENCY_OVERRIDE_CLEARED": "Cleared urgency override",
+      "DISMISSED_FOR_YEAR": "Dismissed for the year",
+      "RESUMED_FROM_DISMISSAL": "Resumed from dismissal",
+      "MARKED_READY": "Marked READY",
+      "RETURNED_TO_PLANNING": "Returned to planning",
+      "PERMANENTLY_HIDDEN": "Permanently hidden",
+      "PERMANENTLY_HIDDEN_CLEARED": "Permanent hide cleared"
+    }
+  },
+  "checklist": {
+    "noItems": "No checklist items defined for this window yet.",
+    "saveError": "Could not save. Please try again.",
+    "openModule": "Open {{module}}"
+  },
+  "module": {
+    "PACKAGE_BUILDER": "Package Builder",
+    "DRIP": "Follow-up Drip",
+    "DAM": "Asset Manager",
+    "SEO_PLANNER": "Local SEO Planner"
+  },
+  "error": {
+    "saveNotes": "Could not save notes. Try again.",
+    "markReady": "Could not mark ready.",
+    "returnToPlanning": "Could not return to planning.",
+    "resume": "Could not resume.",
+    "dismiss": "Could not dismiss.",
+    "override": "Could not override.",
+    "update": "Could not update."
+  },
+  "approxDay": {
+    "early": "early",
+    "mid": "mid",
+    "late": "late"
+  }
+}

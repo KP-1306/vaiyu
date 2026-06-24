@@ -6,8 +6,10 @@
 
 import { Info, Shield } from 'lucide-react';
 import { QUOTE_DISCLAIMER, QUOTE_GOVERNANCE_LINE } from '../../config/quoteDrafts';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 export function QuoteDisclaimerBanner() {
+  const t = useOwnerT('owner-quote');
   return (
     <div
       role="note"
@@ -16,9 +18,9 @@ export function QuoteDisclaimerBanner() {
       <div className="flex items-start gap-3">
         <Info className="h-4 w-4 mt-0.5 shrink-0 text-amber-300" aria-hidden />
         <div className="space-y-1">
-          <p className="font-medium text-amber-100">Indicative proposal — manual verification required.</p>
-          <p className="text-amber-100/80">{QUOTE_DISCLAIMER}</p>
-          <p className="text-amber-100/70 italic">{QUOTE_GOVERNANCE_LINE}</p>
+          <p className="font-medium text-amber-100">{t('disclaimer.title', 'Indicative proposal — manual verification required.')}</p>
+          <p className="text-amber-100/80">{t('disclaimer.body', QUOTE_DISCLAIMER)}</p>
+          <p className="text-amber-100/70 italic">{t('disclaimer.governance', QUOTE_GOVERNANCE_LINE)}</p>
         </div>
       </div>
     </div>
@@ -26,6 +28,7 @@ export function QuoteDisclaimerBanner() {
 }
 
 export function QuoteAiGovernanceNotice() {
+  const t = useOwnerT('owner-quote');
   return (
     <div
       role="note"
@@ -34,11 +37,9 @@ export function QuoteAiGovernanceNotice() {
       <div className="flex items-start gap-2">
         <Shield className="h-3.5 w-3.5 mt-0.5 shrink-0 text-emerald-300" aria-hidden />
         <div className="space-y-1">
-          <p className="text-slate-200 font-medium">Phase 8A — no live AI in use.</p>
+          <p className="text-slate-200 font-medium">{t('aiNotice.title', 'Phase 8A — no live AI in use.')}</p>
           <p>
-            Draft text is generated from a deterministic template. Real AI generation will be
-            enabled only after AI usage logging, owner approval workflow, prompt safety
-            controls, and audit logs are in place.
+            {t('aiNotice.body', 'Draft text is generated from a deterministic template. Real AI generation will be enabled only after AI usage logging, owner approval workflow, prompt safety controls, and audit logs are in place.')}
           </p>
         </div>
       </div>

@@ -35,6 +35,7 @@ import {
 import SLAExplanationDrawer, { ImpactRow } from "../components/SLAExplanationDrawer";
 import RiskExplanationDrawer, { RiskBreakdownRow } from "../components/RiskExplanationDrawer";
 import ActivityExplanationDrawer, { ActivityBreakdownRow } from "../components/ActivityExplanationDrawer";
+import { useOwnerT, useOwnerCommonT, type OwnerT } from "../i18n/useOwnerT";
 
 /** --- Types --- */
 type KpiSummary = {
@@ -156,15 +157,15 @@ function SectionTitle({ title, action }: { title: string, action?: any }) {
 }
 
 // Custom Tooltip Component for Charts
-function CustomTooltip({ active, payload }: any) {
+function CustomTooltip({ active, payload, t }: any) {
     if (active && payload && payload.length) {
         const data = payload[0].payload;
         return (
             <div className="bg-slate-900 border border-slate-700 p-3 rounded-lg shadow-xl z-50" style={{ backgroundColor: '#0f172a', opacity: 1 }}>
                 <div className="text-sm font-medium text-white mb-1">{data.name}</div>
                 <div className="flex items-center gap-4 text-xs">
-                    <span className="text-slate-400">Count: <span className="text-white font-mono">{data.value}</span></span>
-                    <span className="text-slate-400">Impact: <span className="text-emerald-400 font-mono">{data.percent}%</span></span>
+                    <span className="text-slate-400">{t ? t("tipCount", "Count:") : "Count:"} <span className="text-white font-mono">{data.value}</span></span>
+                    <span className="text-slate-400">{t ? t("tipImpact", "Impact:") : "Impact:"} <span className="text-emerald-400 font-mono">{data.percent}%</span></span>
                 </div>
             </div>
         );
@@ -173,7 +174,7 @@ function CustomTooltip({ active, payload }: any) {
 }
 
 // Custom Tooltip for Daily Trend Bar Chart
-function DailyTrendTooltip({ active, payload, label }: any) {
+function DailyTrendTooltip({ active, payload, label, t }: any) {
     if (active && payload && payload.length) {
         // Deduplicate payload by dataKey to avoid counting/showing the same metric multiple times
         // (e.g. 'completed_within_sla' is used by Bar, Area, and Line)
@@ -192,10 +193,10 @@ function DailyTrendTooltip({ active, payload, label }: any) {
                 <div className="flex flex-col gap-1.5">
                     {uniquePayload.map((entry: any) => {
                         // Map dataKey to Label
-                        let name = "Unknown";
-                        if (entry.dataKey === "completed_within_sla") name = "Completed";
-                        if (entry.dataKey === "breached_sla") name = "Breached";
-                        if (entry.dataKey === "sla_exempted") name = "Exempted";
+                        let name = t ? t("statusUnknown", "Unknown") : "Unknown";
+                        if (entry.dataKey === "completed_within_sla") name = t ? t("statusCompleted", "Completed") : "Completed";
+                        if (entry.dataKey === "breached_sla") name = t ? t("statusBreached", "Breached") : "Breached";
+                        if (entry.dataKey === "sla_exempted") name = t ? t("statusExempted", "Exempted") : "Exempted";
 
                         const percent = total > 0 ? Math.round((entry.value / total) * 100) : 0;
 
@@ -220,6 +221,8 @@ function DailyTrendTooltip({ active, payload, label }: any) {
 }
 
 export default function OwnerAnalytics() {
+    const t = useOwnerT("owner-analytics");
+    const tc = useOwnerCommonT();
     const { slug } = useParams();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -507,13 +510,13 @@ export default function OwnerAnalytics() {
     const breachSeries = activeTrend.map((d) => ({ val: d.breached_sla || 0 }));
     const riskDirection = (() => {
         const n = breachSeries.length;
-        if (n < 2) return { label: "Stable", color: "#64748b" };
+        if (n < 2) return { label: t("riskStable", "Stable"), color: "#64748b" };
         const half = Math.floor(n / 2);
         const first = breachSeries.slice(0, half).reduce((a, c) => a + c.val, 0);
         const last = breachSeries.slice(half).reduce((a, c) => a + c.val, 0);
-        if (last > first) return { label: "Rising Risk", color: "#f59e0b" };
-        if (last < first) return { label: "Easing", color: "#10b981" };
-        return { label: "Stable", color: "#64748b" };
+        if (last > first) return { label: t("riskRising", "Rising Risk"), color: "#f59e0b" };
+        if (last < first) return { label: t("riskEasing", "Easing"), color: "#10b981" };
+        return { label: t("riskStable", "Stable"), color: "#64748b" };
     })();
 
     // Activity (Created vs Resolved) chart data + empty-state flag. The view
@@ -539,80 +542,80 @@ export default function OwnerAnalytics() {
     // Risk & Escalation insights — REAL, computed from the data. Replaces the
     // previously hardcoded placeholders ("Room 216 / spare parts / night shift")
     // that displayed identical fake text on every hotel.
-    const periodLabel = timeRange === "today" ? "today" : timeRange === "7d" ? "in the last 7 days" : "this month";
+    const periodLabel = timeRange === "today" ? t("periodToday", "today") : timeRange === "7d" ? t("period7d", "in the last 7 days") : t("period30d", "this month");
     const riskInsights: { tone: "rose" | "blue" | "amber"; title: string; text: string }[] = [];
     if (aggregatedImpact.length > 0 && (aggregatedImpact[0].breached_count || 0) > 0) {
         const top = aggregatedImpact[0];
         riskInsights.push({
             tone: "rose",
-            title: "Top breach area",
-            text: `${top.department_name} had the most SLA breaches (${top.breached_count}) ${periodLabel}. Worth a closer look.`,
+            title: t("insightTopBreach", "Top breach area"),
+            text: t("insightTopBreachText", "{{dept}} had the most SLA breaches ({{count}}) {{period}}. Worth a closer look.", { dept: top.department_name, count: top.breached_count, period: periodLabel }),
         });
     }
     if (aggregatedBlocks.length > 0) {
         const top = aggregatedBlocks[0];
         riskInsights.push({
             tone: "blue",
-            title: "Most common blocker",
-            text: `"${top.reason_code.replace(/_/g, " ")}" blocked ${top.block_count} ticket${top.block_count === 1 ? "" : "s"} ${periodLabel}.`,
+            title: t("insightBlocker", "Most common blocker"),
+            text: t("insightBlockerText", "\"{{reason}}\" blocked {{count}} tickets {{period}}.", { reason: top.reason_code.replace(/_/g, " "), count: top.block_count, period: periodLabel }),
         });
     }
     if (atRisk > 0) {
         riskInsights.push({
             tone: "amber",
-            title: "Tickets at risk",
-            text: `${atRisk} ticket${atRisk === 1 ? "" : "s"} within 30 min of breaching SLA right now; risk trend is ${riskDirection.label.toLowerCase()}.`,
+            title: t("insightAtRisk", "Tickets at risk"),
+            text: t("insightAtRiskText", "{{count}} tickets within 30 min of breaching SLA right now; risk trend is {{trend}}.", { count: atRisk, trend: riskDirection.label.toLowerCase() }),
         });
     }
 
     // For specific charts, use activeTrend
     const pieDataTrend = [
-        { name: 'Within SLA', value: rangeCompleted },
-        { name: 'Breached', value: rangeBreached },
-        { name: 'Exempt', value: rangeExempted }
+        { name: t("pieWithinSla", "Within SLA"), value: rangeCompleted },
+        { name: t("pieBreached", "Breached"), value: rangeBreached },
+        { name: t("pieExempt", "Exempt"), value: rangeExempted }
     ];
 
     const kpiCards = [
         {
-            label: "SLA Compliance",
+            label: t("kpiSlaCompliance", "SLA Compliance"),
             value: calculatedKpi.total > 0 ? `${calculatedKpi.compliance}%` : "—",
             trend: diffSla,
-            trendLabel: "vs Prev Period",
+            trendLabel: t("kpiVsPrev", "vs Prev Period"),
             color: "text-emerald-500",
             isUpGood: true,
             hasBaseline: prevKpi.total > 0,
         },
         {
-            label: "SLA Breach Rate",
+            label: t("kpiBreachRate", "SLA Breach Rate"),
             value: calculatedKpi.total > 0 ? `${calculatedKpi.breachRate}%` : "—",
             trend: diffBreach,
-            trendLabel: "vs Prev Period",
+            trendLabel: t("kpiVsPrev", "vs Prev Period"),
             color: "text-rose-500",
             isUpGood: false,
             hasBaseline: prevKpi.total > 0,
         },
         {
-            label: "Guest Check-Ins",
+            label: t("kpiCheckins", "Guest Check-Ins"),
             value: `${curCheckins}`,
             trend: checkinDiff,
-            trendLabel: "vs Prev Period",
+            trendLabel: t("kpiVsPrev", "vs Prev Period"),
             color: "text-blue-400",
             isUpGood: true,
             hasBaseline: prevCheckins.length > 0,
         }
     ];
 
-    if (loading) return <div className="min-h-screen grid place-items-center bg-[#0B0E14] text-slate-500">Loading dashboard...</div>;
-    if (error) return <div className="min-h-screen grid place-items-center bg-[#0B0E14] text-rose-500">Error: {error}</div>;
+    if (loading) return <div className="vaiyu-owner min-h-screen grid place-items-center bg-[#0B0E14] text-slate-500">{t("loadingDashboard", "Loading dashboard...")}</div>;
+    if (error) return <div className="vaiyu-owner min-h-screen grid place-items-center bg-[#0B0E14] text-rose-500">{t("errorPrefix", "Error: {{msg}}", { msg: error })}</div>;
 
     return (
-        <div className="min-h-screen bg-[#0B0E14] p-4 text-slate-200 font-sans selection:bg-emerald-500/30">
+        <div className="vaiyu-owner min-h-screen bg-[#0B0E14] p-4 text-slate-200 font-sans selection:bg-emerald-500/30">
             {/* Header / Top Nav - Aligned with Ops Manager */}
             <div className="mb-6">
                 <div className="flex items-center gap-2 text-xs font-medium text-slate-400 mb-2">
-                    <Link to={slug ? `/owner/${slug}` : '/owner'} className="hover:text-white transition">Dashboard</Link>
+                    <Link to={slug ? `/owner/${slug}` : '/owner'} className="hover:text-white transition">{tc("nav.dashboard", "Dashboard")}</Link>
                     <span className="text-slate-600">/</span>
-                    <span className="text-slate-200">Owner Analytics</span>
+                    <span className="text-slate-200">{t("crumbOwnerAnalytics", "Owner Analytics")}</span>
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -621,9 +624,9 @@ export default function OwnerAnalytics() {
                             <LayoutDashboard size={20} />
                         </div>
                         <div>
-                            <h1 className="text-2xl font-bold text-white tracking-tight">Owner Analytics Dashboard</h1>
+                            <h1 className="text-2xl font-bold text-white tracking-tight">{t("pageTitle", "Owner Analytics Dashboard")}</h1>
                             <div className="flex items-center gap-2 text-xs text-slate-500">
-                                <span>Real-time Operations Intelligence</span>
+                                <span>{t("pageSubtitle", "Real-time Operations Intelligence")}</span>
                             </div>
                         </div>
                     </div>
@@ -631,9 +634,9 @@ export default function OwnerAnalytics() {
                     <div className="flex items-center gap-4">
                         {/* Global Time Filter */}
                         <div className="flex bg-[#11141d] rounded-lg p-1 border border-slate-800">
-                            <button onClick={() => setTimeRange('today')} className={`px-4 py-1.5 text-xs font-medium rounded-md transition ${timeRange === 'today' ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-400 hover:text-slate-300'}`}>Today</button>
-                            <button onClick={() => setTimeRange('7d')} className={`px-4 py-1.5 text-xs font-medium rounded-md transition ${timeRange === '7d' ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-400 hover:text-slate-300'}`}>Last 7 Days</button>
-                            <button onClick={() => setTimeRange('30d')} className={`px-4 py-1.5 text-xs font-medium rounded-md transition ${timeRange === '30d' ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-400 hover:text-slate-300'}`}>This Month</button>
+                            <button onClick={() => setTimeRange('today')} className={`px-4 py-1.5 text-xs font-medium rounded-md transition ${timeRange === 'today' ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-400 hover:text-slate-300'}`}>{t("rangeToday", "Today")}</button>
+                            <button onClick={() => setTimeRange('7d')} className={`px-4 py-1.5 text-xs font-medium rounded-md transition ${timeRange === '7d' ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-400 hover:text-slate-300'}`}>{t("range7d", "Last 7 Days")}</button>
+                            <button onClick={() => setTimeRange('30d')} className={`px-4 py-1.5 text-xs font-medium rounded-md transition ${timeRange === '30d' ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-400 hover:text-slate-300'}`}>{t("range30d", "This Month")}</button>
                         </div>
                         <div className="h-8 w-px bg-slate-800" />
                         <div className="flex items-center gap-2">
@@ -641,8 +644,8 @@ export default function OwnerAnalytics() {
                                 OW
                             </div>
                             <div className="text-xs text-slate-300">
-                                <div className="font-medium text-white">Owner View</div>
-                                <div className="text-[10px] text-slate-500">Super Admin</div>
+                                <div className="font-medium text-white">{t("ownerView", "Owner View")}</div>
+                                <div className="text-[10px] text-slate-500">{t("superAdmin", "Super Admin")}</div>
                             </div>
                         </div>
                     </div>
@@ -651,11 +654,11 @@ export default function OwnerAnalytics() {
 
             {/* Section 1: Live Operations */}
             <div className="mb-6">
-                <SectionTitle title="Live Operations (Right Now)" action={<div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />} />
+                <SectionTitle title={t("secLiveOps", "Live Operations (Right Now)")} action={<div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />} />
                 <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
                     <div className="rounded-xl bg-[#151A25] p-5 border border-slate-800/50 flex items-center justify-between shadow-sm">
                         <div>
-                            <div className="text-xs font-semibold text-slate-400 mb-1 tracking-wider uppercase">Live Occupancy</div>
+                            <div className="text-xs font-semibold text-slate-400 mb-1 tracking-wider uppercase">{t("liveOccupancy", "Live Occupancy")}</div>
                             <div className="text-3xl font-bold text-emerald-400">{occupancy ? `${Math.round(occupancy.occupancy_percent)}%` : "0%"}</div>
                         </div>
                         <div className="h-10 w-10 shrink-0 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
@@ -664,7 +667,7 @@ export default function OwnerAnalytics() {
                     </div>
                     <div onClick={() => setRiskDrawerOpen(true)} className="rounded-xl bg-[#151A25] p-5 border border-slate-800/50 flex items-center justify-between shadow-sm cursor-pointer hover:bg-slate-800/50 transition">
                         <div>
-                            <div className="text-xs font-semibold text-slate-400 mb-1 tracking-wider uppercase">At-Risk Tickets</div>
+                            <div className="text-xs font-semibold text-slate-400 mb-1 tracking-wider uppercase">{t("atRiskTickets", "At-Risk Tickets")}</div>
                             <div className="text-3xl font-bold text-amber-500">{atRisk}</div>
                         </div>
                         <div className="h-10 w-10 shrink-0 rounded-full bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
@@ -673,7 +676,7 @@ export default function OwnerAnalytics() {
                     </div>
                     <div className="rounded-xl bg-[#151A25] p-5 border border-slate-800/50 flex items-center justify-between shadow-sm">
                         <div>
-                            <div className="text-xs font-semibold text-slate-400 mb-1 tracking-wider uppercase">Total Active Issues</div>
+                            <div className="text-xs font-semibold text-slate-400 mb-1 tracking-wider uppercase">{t("totalActiveIssues", "Total Active Issues")}</div>
                             <div className="text-3xl font-bold text-rose-400">{active}</div>
                         </div>
                         <div className="h-10 w-10 shrink-0 rounded-full bg-rose-500/10 flex items-center justify-center border border-rose-500/20">
@@ -682,7 +685,7 @@ export default function OwnerAnalytics() {
                     </div>
                 </div>
             </div>
-            <SectionTitle title={`Performance Health (${timeRange === 'today' ? 'Today' : (timeRange === '7d' ? 'Last 7 Days' : 'This Month')})`} />
+            <SectionTitle title={t("secPerfHealth", "Performance Health ({{range}})", { range: timeRange === 'today' ? t("rangeToday", "Today") : (timeRange === '7d' ? t("range7d", "Last 7 Days") : t("range30d", "This Month")) })} />
             <div className="mb-6 grid gap-4 grid-cols-1 lg:grid-cols-3">
                 {kpiCards.map((s, i) => (
                     <div key={i} className="rounded-xl bg-[#151A25] p-5 border border-slate-800/50 shadow-sm flex flex-col justify-between">
@@ -705,7 +708,7 @@ export default function OwnerAnalytics() {
                                 <span className="text-slate-500 font-normal">{s.trendLabel}</span>
                             </div>
                         ) : (
-                            <div className="text-[12px] font-medium text-slate-500">No prior-period data</div>
+                            <div className="text-[12px] font-medium text-slate-500">{t("noPriorData", "No prior-period data")}</div>
                         )}
                     </div>
                 ))}
@@ -722,10 +725,10 @@ export default function OwnerAnalytics() {
                         <TrendingUp size={16} />
                     </div>
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm font-semibold text-slate-200">Tickets Created vs Tickets Resolved</h3>
+                        <h3 className="text-sm font-semibold text-slate-200">{t("activityTitle", "Tickets Created vs Tickets Resolved")}</h3>
                         <div className="hidden lg:flex items-center gap-2 text-xs text-slate-500">
-                            <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500"></div> Tickets Created</span>
-                            <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-500"></div> Tickets Resolved</span>
+                            <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500"></div> {t("ticketsCreated", "Tickets Created")}</span>
+                            <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-500"></div> {t("ticketsResolved", "Tickets Resolved")}</span>
                         </div>
                     </div>
                     <div className="h-[250px] w-full">
@@ -766,7 +769,7 @@ export default function OwnerAnalytics() {
                                     strokeWidth={2}
                                     fillOpacity={0.1}
                                     fill="url(#colorResolved)"
-                                    name="Resolved"
+                                    name={t("seriesResolved", "Resolved")}
                                     dot={{ r: 4, fill: '#10b981', stroke: '#151A25', strokeWidth: 2 }}
                                     activeDot={{ r: 6, strokeWidth: 0 }}
                                 />
@@ -776,7 +779,7 @@ export default function OwnerAnalytics() {
                                     stroke="#3b82f6"
                                     strokeWidth={4}
                                     fillOpacity={0}
-                                    name="Created"
+                                    name={t("seriesCreated", "Created")}
                                     dot={{ r: 6, fill: '#151A25', stroke: '#3b82f6', strokeWidth: 2 }}
                                     activeDot={{ r: 8, strokeWidth: 0 }}
                                 />
@@ -785,8 +788,8 @@ export default function OwnerAnalytics() {
                       ) : (
                         <div className="h-full grid place-items-center text-center">
                             <div>
-                                <div className="text-sm text-slate-400 font-medium">No ticket activity in this period</div>
-                                <div className="text-xs text-slate-600 mt-1">Created vs resolved will appear here once tickets are raised.</div>
+                                <div className="text-sm text-slate-400 font-medium">{t("activityEmpty", "No ticket activity in this period")}</div>
+                                <div className="text-xs text-slate-600 mt-1">{t("activityEmptySub", "Created vs resolved will appear here once tickets are raised.")}</div>
                             </div>
                         </div>
                       )}
@@ -798,14 +801,14 @@ export default function OwnerAnalytics() {
                     {/* 2. Tickets Per Occupied Room */}
                     <div className="rounded-2xl bg-[#151A25] p-6 border border-slate-800/50 flex flex-col justify-between h-[140px]">
                         <div>
-                            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Tickets Per Occupied Room</h3>
+                            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{t("ticketsPerRoom", "Tickets Per Occupied Room")}</h3>
                             <div className="mt-2 text-4xl font-bold text-slate-100">
                                 {ticketsPerRoom === null ? "—" : ticketsPerRoom.toFixed(1)}
                             </div>
                             <div className="mt-1 text-xs text-slate-500">
                                 {ticketsPerRoom === null
-                                    ? "No occupied rooms right now"
-                                    : `${active} active ticket${active === 1 ? "" : "s"} · ${occupiedRooms} occupied room${occupiedRooms === 1 ? "" : "s"}`}
+                                    ? t("noOccupiedRooms", "No occupied rooms right now")
+                                    : t("ticketsRoomsSummary", "{{tickets}} active tickets · {{rooms}} occupied rooms", { tickets: active, rooms: occupiedRooms })}
                             </div>
                         </div>
                     </div>
@@ -813,14 +816,14 @@ export default function OwnerAnalytics() {
                     {/* 3. At-Risk Tickets Trend */}
                     <div className="rounded-2xl bg-[#151A25] p-6 border border-slate-800/50 flex flex-col justify-between h-[155px]">
                         <div>
-                            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">At-Risk Tickets Trend</h3>
+                            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{t("atRiskTrend", "At-Risk Tickets Trend")}</h3>
                             <div className="mt-3 flex items-center gap-3">
                                 <div className="bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
                                     <AlertTriangle className="text-amber-500" size={24} />
                                 </div>
                                 <div>
                                     <div className="text-lg font-bold" style={{ color: riskDirection.color }}>{riskDirection.label}</div>
-                                    <div className="text-[10px] text-slate-500">{atRisk} at risk now · SLA breaches, {breachSeries.length}d</div>
+                                    <div className="text-[10px] text-slate-500">{t("atRiskNow", "{{count}} at risk now · SLA breaches, {{days}}d", { count: atRisk, days: breachSeries.length })}</div>
                                 </div>
                             </div>
                         </div>
@@ -843,7 +846,7 @@ export default function OwnerAnalytics() {
                 <div className="rounded-2xl bg-[#151A25] p-6 border border-slate-800/50 lg:col-span-2 relative overflow-hidden flex flex-col">
                     <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center gap-2">
-                            <SectionTitle title="Overview" />
+                            <SectionTitle title={t("secOverview", "Overview")} />
                         </div>
                         <div className="flex items-center gap-4 text-xs font-medium text-slate-500">
                             {/* Filter removed to respect Global Filter */}
@@ -855,7 +858,7 @@ export default function OwnerAnalytics() {
                         <div className="col-span-1 flex flex-col items-center border-r border-slate-800/50 pr-6">
                             <div className="mb-1 w-full text-center">
                                 <span className="text-[10px] uppercase font-bold tracking-widest text-amber-500">
-                                    SLA Compliance
+                                    {t("kpiSlaCompliance", "SLA Compliance")}
                                 </span>
                             </div>
                             <div className="relative h-48 w-48 my-4">
@@ -880,21 +883,21 @@ export default function OwnerAnalytics() {
                                 </ResponsiveContainer>
                                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                                     <div className="text-3xl font-bold text-white">{complianceDisplay}</div>
-                                    <div className="text-[9px] text-slate-500 uppercase mt-1">Compliance</div>
+                                    <div className="text-[9px] text-slate-500 uppercase mt-1">{t("compliance", "Compliance")}</div>
                                 </div>
                             </div>
                             <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 w-full mt-auto">
                                 <div className="flex items-center gap-2">
                                     <div className="h-2 w-2 rounded-full bg-emerald-500"></div>
-                                    <span className="text-[10px] text-slate-400">Completed within SLA</span>
+                                    <span className="text-[10px] text-slate-400">{t("legendCompletedWithin", "Completed within SLA")}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <div className="h-2 w-2 rounded-full bg-red-500"></div>
-                                    <span className="text-[10px] text-slate-400">Breached SLA</span>
+                                    <span className="text-[10px] text-slate-400">{t("legendBreachedSla", "Breached SLA")}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <div className="h-2 w-2 rounded-full bg-blue-500"></div>
-                                    <span className="text-[10px] text-slate-400">Exceptions</span>
+                                    <span className="text-[10px] text-slate-400">{t("legendExceptions", "Exceptions")}</span>
                                 </div>
                             </div>
                         </div>
@@ -909,11 +912,11 @@ export default function OwnerAnalytics() {
                                         <div>
                                             <div className="flex items-baseline gap-2">
                                                 <span className="text-2xl font-bold text-white">{rangeCompleted}</span>
-                                                <span className="text-[10px] text-slate-400 uppercase font-medium">Completed</span>
+                                                <span className="text-[10px] text-slate-400 uppercase font-medium">{t("statCompleted", "Completed")}</span>
                                             </div>
                                             <div className="mt-2 flex items-center gap-2 text-[10px] text-slate-500">
                                                 <CheckCircle size={10} className="text-emerald-500" />
-                                                <span>within SLA</span>
+                                                <span>{t("statWithinSla", "within SLA")}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -924,11 +927,11 @@ export default function OwnerAnalytics() {
                                         <div>
                                             <div className="flex items-baseline gap-2">
                                                 <span className="text-2xl font-bold text-rose-500">{rangeBreached}</span>
-                                                <span className="text-[10px] text-slate-400 uppercase font-medium">Breached</span>
+                                                <span className="text-[10px] text-slate-400 uppercase font-medium">{t("statBreached", "Breached")}</span>
                                             </div>
                                             <div className="mt-2 flex items-center gap-2 text-[10px] text-slate-500">
                                                 <AlertTriangle size={10} className="text-rose-500" />
-                                                <span>SLA violations</span>
+                                                <span>{t("statSlaViolations", "SLA violations")}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -939,11 +942,11 @@ export default function OwnerAnalytics() {
                                         <div>
                                             <div className="flex items-baseline gap-2">
                                                 <span className="text-2xl font-bold text-blue-400">{rangeExempted}</span>
-                                                <span className="text-[10px] text-slate-400 uppercase font-medium">Exceptions</span>
+                                                <span className="text-[10px] text-slate-400 uppercase font-medium">{t("statExceptions", "Exceptions")}</span>
                                             </div>
                                             <div className="mt-2 flex items-center gap-2 text-[10px] text-slate-500">
                                                 <ShieldAlert size={10} className="text-blue-500" />
-                                                <span>approved overrides</span>
+                                                <span>{t("statApprovedOverrides", "approved overrides")}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -982,7 +985,7 @@ export default function OwnerAnalytics() {
                                             dy={10}
                                         />
                                         <YAxis stroke="#475569" tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                                        <Tooltip content={<DailyTrendTooltip />} cursor={{ fill: '#1e293b', opacity: 0.4 }} wrapperStyle={{ zIndex: 1000 }} />
+                                        <Tooltip content={<DailyTrendTooltip t={t} />} cursor={{ fill: '#1e293b', opacity: 0.4 }} wrapperStyle={{ zIndex: 1000 }} />
 
                                         {/* Bars must render first */}
                                         <Bar dataKey="completed_within_sla" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} barSize={24} />
@@ -1032,7 +1035,7 @@ export default function OwnerAnalytics() {
                     onClick={() => setSlaDrawerOpen(true)}
                     className="rounded-2xl bg-[#151A25] p-6 border border-slate-800/50 flex flex-col cursor-pointer hover:border-blue-500/30 transition"
                 >
-                    <SectionTitle title="SLA Failure Causes" action={<MoreHorizontal size={16} className="text-slate-600" />} />
+                    <SectionTitle title={t("secFailureCauses", "SLA Failure Causes")} action={<MoreHorizontal size={16} className="text-slate-600" />} />
 
                     <div className="flex flex-col lg:flex-row gap-6 h-full">
                         {/* Left: Chart + Stats */}
@@ -1059,7 +1062,7 @@ export default function OwnerAnalytics() {
                                             ))}
                                         </Pie>
 
-                                        <Tooltip content={<CustomTooltip />} wrapperStyle={{ zIndex: 1000, outline: 'none' }} />
+                                        <Tooltip content={<CustomTooltip t={t} />} wrapperStyle={{ zIndex: 1000, outline: 'none' }} />
                                     </PieChart>
                                 </ResponsiveContainer>
 
@@ -1069,7 +1072,7 @@ export default function OwnerAnalytics() {
                                     <div className="text-3xl font-bold text-white">
                                         {pieData.length > 0 ? Math.round((pieData[0].value / pieData.reduce((a, c) => a + c.value, 0)) * 100) : 0}%
                                     </div>
-                                    <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Failure Causes</div>
+                                    <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500">{t("failureCauses", "Failure Causes")}</div>
                                 </div>
                             </div>
 
@@ -1077,15 +1080,15 @@ export default function OwnerAnalytics() {
                             <div className="mt-4 space-y-1.5 pl-2">
                                 <div className="flex items-center gap-2 text-sm text-slate-300">
                                     <span className="font-bold text-white">{rangeBreached}</span>
-                                    <span className="text-slate-400 font-light">Breached SLA</span>
+                                    <span className="text-slate-400 font-light">{t("legendBreachedSla", "Breached SLA")}</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-sm text-slate-300">
                                     <span className="font-bold text-white">{atRisk}</span>
-                                    <span className="text-slate-400 font-light">AT RISK Tasks</span>
+                                    <span className="text-slate-400 font-light">{t("atRiskTasks", "AT RISK Tasks")}</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-sm text-slate-300">
                                     <span className="font-bold text-white">{rangeTotal}</span>
-                                    <span className="text-slate-400 font-light">Total Resolved</span>
+                                    <span className="text-slate-400 font-light">{t("totalResolved", "Total Resolved")}</span>
                                 </div>
                             </div>
                         </div>
@@ -1117,7 +1120,7 @@ export default function OwnerAnalytics() {
                                     </div>
                                 );
                             })}
-                            {pieData.length === 0 && <div className="text-xs text-slate-500">No exceptions logged.</div>}
+                            {pieData.length === 0 && <div className="text-xs text-slate-500">{t("noExceptions", "No exceptions logged.")}</div>}
                         </div>
                     </div>
                 </div>
@@ -1128,7 +1131,7 @@ export default function OwnerAnalytics() {
 
                 {/* Staff Performance */}
                 <div className="rounded-2xl bg-[#151A25] p-6 border border-slate-800/50">
-                    <SectionTitle title="Staff Performance" />
+                    <SectionTitle title={t("secStaffPerf", "Staff Performance")} />
                     <div className="space-y-4">
                         {aggregatedStaff.map((s, i) => (
                             <div key={s.staff_id} className="flex items-center justify-between">
@@ -1138,24 +1141,24 @@ export default function OwnerAnalytics() {
                                     </div>
                                     <div>
                                         <div className="text-sm font-medium text-white">{s.full_name}</div>
-                                        <div className="text-[10px] text-slate-500">{s.completed_tasks} Tasks</div>
+                                        <div className="text-[10px] text-slate-500">{t("tasksCount", "{{count}} Tasks", { count: s.completed_tasks })}</div>
                                     </div>
                                 </div>
                                 <div className="text-right">
                                     <div className={`text-sm font-bold ${s.sla_success_rate >= 90 ? 'text-emerald-400' : 'text-amber-400'}`}>
                                         {s.sla_success_rate}%
                                     </div>
-                                    <div className="text-[10px] text-slate-500 text-center">Score</div>
+                                    <div className="text-[10px] text-slate-500 text-center">{t("score", "Score")}</div>
                                 </div>
                             </div>
                         ))}
-                        {aggregatedStaff.length === 0 && <div className="text-xs text-slate-500 italic">No completed tasks in range.</div>}
+                        {aggregatedStaff.length === 0 && <div className="text-xs text-slate-500 italic">{t("noCompletedTasks", "No completed tasks in range.")}</div>}
                     </div>
                 </div>
 
                 {/* Exception Details (Middle) - Reusing 'blocks' data as proxy if exceptions view is strictly counts */}
                 <div className="rounded-2xl bg-[#151A25] p-6 border border-slate-800/50">
-                    <SectionTitle title="Block & Exception Impact" />
+                    <SectionTitle title={t("secBlockImpact", "Block & Exception Impact")} />
                     <div className="space-y-4">
                         {aggregatedBlocks.map((b, i) => (
                             <div key={i} className="group">
@@ -1175,17 +1178,17 @@ export default function OwnerAnalytics() {
                                 </div>
                             </div>
                         ))}
-                        {aggregatedBlocks.length === 0 && <div className="text-xs text-slate-500 italic">No historical blocks in range.</div>}
+                        {aggregatedBlocks.length === 0 && <div className="text-xs text-slate-500 italic">{t("noBlocks", "No historical blocks in range.")}</div>}
                     </div>
                 </div>
 
                 {/* Risk Insights */}
                 <div className="rounded-2xl bg-[#151A25] p-6 border border-slate-800/50">
-                    <SectionTitle title="Risk & Escalation Insight" action={<MoreHorizontal size={14} className="text-slate-600" />} />
+                    <SectionTitle title={t("secRiskInsight", "Risk & Escalation Insight")} action={<MoreHorizontal size={14} className="text-slate-600" />} />
 
                     <div className="space-y-5">
                         {riskInsights.length === 0 ? (
-                            <div className="text-xs text-slate-500 italic">No risk signals in this period — SLAs look healthy.</div>
+                            <div className="text-xs text-slate-500 italic">{t("noRiskSignals", "No risk signals in this period — SLAs look healthy.")}</div>
                         ) : (
                             riskInsights.map((ins, i) => {
                                 const Icon = ins.tone === "rose" ? ShieldAlert : ins.tone === "blue" ? ArrowUpRight : Clock;

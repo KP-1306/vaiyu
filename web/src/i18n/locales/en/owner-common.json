@@ -1,5 +1,7 @@
 {
-  "language": { "label": "Language" },
+  "language": {
+    "label": "Language"
+  },
   "actions": {
     "save": "Save",
     "saving": "Saving…",
@@ -38,7 +40,63 @@
   },
   "nav": {
     "dashboard": "Dashboard",
-    "backToDashboard": "Back to dashboard"
+    "backToDashboard": "Back to dashboard",
+    "arrivals": "Arrivals & Bookings",
+    "housekeeping": "Housekeeping",
+    "pickup": "Pickup Report",
+    "workforce": "Workforce",
+    "staff-shifts": "Staff & Shifts",
+    "hrms": "HRMS",
+    "menu": "Food Menu",
+    "qr": "QR Codes",
+    "payments": "Payments",
+    "revenue": "Revenue",
+    "analytics": "Analytics",
+    "pricing": "Dynamic Pricing",
+    "pricing-plans": "Rate Plans",
+    "pricing-calendar": "Rate Calendar",
+    "pricing-rules": "Pricing Rules",
+    "pricing-history": "Pricing History",
+    "finance": "Finance",
+    "finance-budgets": "Budgets",
+    "finance-expenses": "Expenses",
+    "leads": "Leads (CRM)",
+    "follow-up": "Follow-up Radar",
+    "quote-drafts": "Quote Drafts",
+    "partners": "Partners",
+    "drip": "Drip Campaigns",
+    "packages": "Packages",
+    "seo-planner": "Local SEO Planner",
+    "visibility": "Visibility Score",
+    "whatsapp": "WhatsApp Inbox",
+    "seasonal": "Seasonal Calendar",
+    "ota": "OTA Optimizer",
+    "reviews": "Reviews",
+    "assets": "Digital Assets",
+    "import-bookings": "Import Bookings",
+    "settings": "Settings",
+    "services": "Services & SLA"
+  },
+  "group": {
+    "operations": "Operations",
+    "revenueAndMoney": "Revenue & Money",
+    "growth": "Growth",
+    "setup": "Setup"
+  },
+  "palette": {
+    "open": "Open search (Command or Control + K)",
+    "dialog": "Command palette",
+    "search": "Search",
+    "close": "Close",
+    "placeholder": "Search features, bookings, guests…",
+    "searching": "Searching…",
+    "noMatches": "No matches. Try a feature name, booking code, or guest name.",
+    "recentsHeader": "Recent & all features",
+    "featuresHeader": "Features",
+    "bookingsHeader": "Bookings & guests",
+    "navigateHint": "navigate",
+    "openHint": "open",
+    "closeHint": "esc to close"
   },
   "toast": {
     "saved": "Saved",
@@ -96,7 +154,8 @@
     "STAFF": "Staff",
     "FRONT_DESK": "Front desk",
     "HOUSEKEEPING": "Housekeeping",
-    "KITCHEN": "Kitchen"
+    "KITCHEN": "Kitchen",
+    "VIEWER": "Viewer"
   },
   "mode": {
     "CASH": "Cash",

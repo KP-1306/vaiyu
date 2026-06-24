@@ -7,6 +7,7 @@ import { ArrowRight } from 'lucide-react';
 import { RiskPill, StatusPill, ReviewPill } from './SeoPills';
 import { SEO_CATEGORY_LABEL } from '../../config/localSeoPlanner';
 import type { SeoBlueprint } from '../../types/seoBlueprint';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   blueprint: SeoBlueprint;
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export function BlueprintCard({ blueprint, onOpen }: Props) {
+  const t = useOwnerT('owner-seo');
   return (
     <button
       type="button"
@@ -24,7 +26,7 @@ export function BlueprintCard({ blueprint, onOpen }: Props) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-1.5">
           <p className="text-sm font-medium text-slate-100 truncate">{blueprint.page_title_concept}</p>
-          <p className="text-[11px] text-slate-400">{SEO_CATEGORY_LABEL[blueprint.target_category]}</p>
+          <p className="text-[11px] text-slate-400">{t(`category.${blueprint.target_category}`, SEO_CATEGORY_LABEL[blueprint.target_category])}</p>
           <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
             <RiskPill risk={blueprint.risk_classification} />
             <StatusPill status={blueprint.status} />

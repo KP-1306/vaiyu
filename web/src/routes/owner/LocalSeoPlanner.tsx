@@ -65,12 +65,14 @@ import { PlannerEmptyState } from '../../components/seo/PlannerEmptyState';
 import { PlannerDisclaimerBanner } from '../../components/seo/PlannerDisclaimerBanner';
 import { RiskPill, StatusPill, ReviewPill } from '../../components/seo/SeoPills';
 import { SeoBlueprintTimeline } from '../../components/seo/SeoBlueprintTimeline';
+import { useOwnerT, type OwnerT } from '../../i18n/useOwnerT';
 
 interface HotelRow { id: string; name: string; slug: string; city: string | null }
 type Mode = { kind: 'list' } | { kind: 'new'; initial: SeoBlueprintFormDraft } | { kind: 'edit'; id: string };
 
 export default function LocalSeoPlanner() {
   const { slug } = useParams<{ slug: string }>();
+  const t = useOwnerT('owner-seo');
   const qc = useQueryClient();
   const [mode, setMode] = useState<Mode>({ kind: 'list' });
   const [actionErr, setActionErr] = useState<string | null>(null);
@@ -146,7 +148,7 @@ export default function LocalSeoPlanner() {
       qc.invalidateQueries({ queryKey: seoBlueprintQueryKeys.events(out.id) });
       setMode({ kind: 'edit', id: out.id });
     },
-    onError: (e) => setActionErr(humanizeErr(e)),
+    onError: (e) => setActionErr(humanizeErr(e, t)),
   });
 
   const updateM = useMutation({
@@ -171,37 +173,37 @@ export default function LocalSeoPlanner() {
         overrideReason: overrideReason || undefined,
       }),
     onSuccess: (_out, vars) => invalidateAfterGovernance(vars.id),
-    onError: (e) => setActionErr(humanizeErr(e)),
+    onError: (e) => setActionErr(humanizeErr(e, t)),
   });
 
   const submitM = useMutation({
     mutationFn: (id: string) => submitSeoBlueprintForReview(id),
     onSuccess: (_d, id) => invalidateAfterGovernance(id),
-    onError: (e) => setActionErr(humanizeErr(e)),
+    onError: (e) => setActionErr(humanizeErr(e, t)),
   });
 
   const approveM = useMutation({
     mutationFn: (id: string) => approveSeoBlueprint(id),
     onSuccess: (_d, id) => invalidateAfterGovernance(id),
-    onError: (e) => setActionErr(humanizeErr(e)),
+    onError: (e) => setActionErr(humanizeErr(e, t)),
   });
 
   const requestChangesM = useMutation({
     mutationFn: ({ id, note }: { id: string; note: string }) => requestSeoBlueprintChanges(id, note),
     onSuccess: (_d, vars) => invalidateAfterGovernance(vars.id),
-    onError: (e) => setActionErr(humanizeErr(e)),
+    onError: (e) => setActionErr(humanizeErr(e, t)),
   });
 
   const holdM = useMutation({
     mutationFn: (id: string) => holdSeoBlueprint(id),
     onSuccess: (_d, id) => invalidateAfterGovernance(id),
-    onError: (e) => setActionErr(humanizeErr(e)),
+    onError: (e) => setActionErr(humanizeErr(e, t)),
   });
 
   const resumeM = useMutation({
     mutationFn: (id: string) => resumeSeoBlueprint(id),
     onSuccess: (_d, id) => invalidateAfterGovernance(id),
-    onError: (e) => setActionErr(humanizeErr(e)),
+    onError: (e) => setActionErr(humanizeErr(e, t)),
   });
 
   const archiveM = useMutation({
@@ -210,7 +212,7 @@ export default function LocalSeoPlanner() {
       qc.invalidateQueries({ queryKey: ['seo-blueprints', hotel?.id] });
       setMode({ kind: 'list' });
     },
-    onError: (e) => setActionErr(humanizeErr(e)),
+    onError: (e) => setActionErr(humanizeErr(e, t)),
   });
 
   const deleteM = useMutation({
@@ -219,7 +221,7 @@ export default function LocalSeoPlanner() {
       qc.invalidateQueries({ queryKey: ['seo-blueprints', hotel?.id] });
       setMode({ kind: 'list' });
     },
-    onError: (e) => setActionErr(humanizeErr(e)),
+    onError: (e) => setActionErr(humanizeErr(e, t)),
   });
 
   const startNew = useCallback((initialDraft?: SeoBlueprintFormDraft) => {
@@ -229,22 +231,22 @@ export default function LocalSeoPlanner() {
 
   if (!LOCAL_SEO_LANDING_PLANNER_V0_ENABLED) {
     return (
-      <main className="min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200">
-        <p className="text-sm text-slate-400">Local SEO Landing Planner is not enabled.</p>
+      <main className="vaiyu-owner min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200">
+        <p className="text-sm text-slate-400">{t('page.notEnabled', 'Local SEO Landing Planner is not enabled.')}</p>
       </main>
     );
   }
   if (hotelQ.isLoading) {
     return (
-      <main className="min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200">
+      <main className="vaiyu-owner min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200">
         <Loader2 className="h-5 w-5 animate-spin text-slate-500" aria-hidden />
       </main>
     );
   }
   if (!hotel) {
     return (
-      <main className="min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200">
-        <p className="text-sm text-slate-300">Hotel not found.</p>
+      <main className="vaiyu-owner min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200">
+        <p className="text-sm text-slate-300">{t('page.hotelNotFound', 'Hotel not found.')}</p>
       </main>
     );
   }
@@ -253,7 +255,7 @@ export default function LocalSeoPlanner() {
   const isEmpty = listQ.isSuccess && blueprints.length === 0 && !filterRisk && !filterStatus && !filterCategory;
 
   return (
-    <main className="min-h-screen bg-[#0B0E14] text-slate-200">
+    <main className="vaiyu-owner min-h-screen bg-[#0B0E14] text-slate-200">
       <div className="mx-auto max-w-5xl px-4 sm:px-6 py-6 space-y-5">
         <header className="space-y-4">
           <Link
@@ -261,14 +263,13 @@ export default function LocalSeoPlanner() {
             className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200"
           >
             <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
-            Back to dashboard
+            {t('page.back', 'Back to dashboard')}
           </Link>
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
-              <h1 className="text-xl sm:text-2xl font-semibold text-slate-50">Local SEO Landing Planner</h1>
+              <h1 className="text-xl sm:text-2xl font-semibold text-slate-50">{t('page.title', 'Local SEO Landing Planner')}</h1>
               <p className="mt-1 text-sm text-slate-400 max-w-2xl">
-                Plan + govern local page ideas. The Policy Shield flags which concepts are safe vs.
-                spammy <em>before</em> any real page gets built. This tool publishes nothing.
+                {t('page.subtitle', 'Plan + govern local page ideas. The Policy Shield flags which concepts are safe vs. spammy before any real page gets built. This tool publishes nothing.')}
               </p>
             </div>
             {mode.kind === 'list' && (
@@ -279,7 +280,7 @@ export default function LocalSeoPlanner() {
                 data-testid="seo-planner-new"
               >
                 <Plus className="h-3.5 w-3.5" aria-hidden />
-                New blueprint
+                {t('action.new', 'New blueprint')}
               </button>
             )}
           </div>
@@ -291,7 +292,7 @@ export default function LocalSeoPlanner() {
           <div className="rounded-md border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-[11px] text-rose-200 inline-flex items-start gap-2">
             <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" aria-hidden />
             <span>{actionErr}</span>
-            <button onClick={() => setActionErr(null)} className="ml-2 text-rose-300 hover:text-rose-100" aria-label="Dismiss">
+            <button onClick={() => setActionErr(null)} className="ml-2 text-rose-300 hover:text-rose-100" aria-label={t('action.dismiss', 'Dismiss')}>
               <X className="h-3 w-3" aria-hidden />
             </button>
           </div>
@@ -302,39 +303,39 @@ export default function LocalSeoPlanner() {
           <>
             <section className="rounded-2xl border border-slate-800 bg-[#0F1320] p-3 space-y-3">
               <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                <span className="text-slate-500">Risk</span>
+                <span className="text-slate-500">{t('filter.risk', 'Risk')}</span>
                 <select
                   value={filterRisk}
                   onChange={(e) => setFilterRisk((e.target.value || '') as SeoBlueprintRisk | '')}
                   className="rounded-md border border-slate-700 bg-[#0B0E14] px-2 py-1 text-xs text-slate-200 focus:border-emerald-400 focus:outline-none"
                 >
-                  <option value="">All</option>
+                  <option value="">{t('filter.all', 'All')}</option>
                   {Object.entries(SEO_RISK_LABEL).map(([v, l]) => (
-                    <option key={v} value={v}>{l}</option>
+                    <option key={v} value={v}>{t(`risk.${v}`, l)}</option>
                   ))}
                 </select>
 
-                <span className="text-slate-500 ml-2">Status</span>
+                <span className="text-slate-500 ml-2">{t('filter.status', 'Status')}</span>
                 <select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus((e.target.value || '') as SeoBlueprintStatus | '')}
                   className="rounded-md border border-slate-700 bg-[#0B0E14] px-2 py-1 text-xs text-slate-200 focus:border-emerald-400 focus:outline-none"
                 >
-                  <option value="">All</option>
+                  <option value="">{t('filter.all', 'All')}</option>
                   {Object.entries(SEO_STATUS_LABEL).map(([v, l]) => (
-                    <option key={v} value={v}>{l}</option>
+                    <option key={v} value={v}>{t(`status.${v}`, l)}</option>
                   ))}
                 </select>
 
-                <span className="text-slate-500 ml-2">Category</span>
+                <span className="text-slate-500 ml-2">{t('filter.category', 'Category')}</span>
                 <select
                   value={filterCategory}
                   onChange={(e) => setFilterCategory((e.target.value || '') as SeoBlueprintCategory | '')}
                   className="rounded-md border border-slate-700 bg-[#0B0E14] px-2 py-1 text-xs text-slate-200 focus:border-emerald-400 focus:outline-none"
                 >
-                  <option value="">All</option>
+                  <option value="">{t('filter.all', 'All')}</option>
                   {SEO_CATEGORY_OPTIONS.map((c) => (
-                    <option key={c} value={c}>{SEO_CATEGORY_LABEL[c]}</option>
+                    <option key={c} value={c}>{t(`category.${c}`, SEO_CATEGORY_LABEL[c])}</option>
                   ))}
                 </select>
               </div>
@@ -357,7 +358,7 @@ export default function LocalSeoPlanner() {
               />
             ) : blueprints.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-slate-700 bg-[#0F1320] p-6 text-center">
-                <p className="text-sm text-slate-300">No blueprints match these filters.</p>
+                <p className="text-sm text-slate-300">{t('list.noMatch', 'No blueprints match these filters.')}</p>
               </div>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">
@@ -376,20 +377,20 @@ export default function LocalSeoPlanner() {
         {mode.kind === 'new' && (
           <section className="rounded-2xl border border-slate-800 bg-[#0F1320] p-4 space-y-3">
             <div className="flex items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold text-slate-100">New blueprint</h2>
+              <h2 className="text-sm font-semibold text-slate-100">{t('list.newSection', 'New blueprint')}</h2>
               <button
                 type="button"
                 onClick={() => setMode({ kind: 'list' })}
                 className="text-[11px] text-slate-400 hover:text-slate-200"
               >
-                Cancel
+                {t('action.cancel', 'Cancel')}
               </button>
             </div>
             <BlueprintForm
               initial={mode.initial}
               proofContext={proofCtx}
               busy={createM.isPending}
-              submitLabel="Create blueprint"
+              submitLabel={t('action.createBlueprint', 'Create blueprint')}
               onSubmit={({ draft }) => createM.mutate({ draft })}
               onCancel={() => setMode({ kind: 'list' })}
             />
@@ -408,10 +409,10 @@ export default function LocalSeoPlanner() {
             onHold={() => holdM.mutate(mode.id)}
             onResume={() => resumeM.mutate(mode.id)}
             onArchive={() => {
-              if (window.confirm('Archive this blueprint?')) archiveM.mutate(mode.id);
+              if (window.confirm(t('confirm.archive', 'Archive this blueprint?'))) archiveM.mutate(mode.id);
             }}
             onDelete={() => {
-              if (window.confirm('Delete this blueprint? (soft-delete; audit preserved)')) deleteM.mutate(mode.id);
+              if (window.confirm(t('confirm.delete', 'Delete this blueprint? (soft-delete; audit preserved)'))) deleteM.mutate(mode.id);
             }}
             busy={updateM.isPending || submitM.isPending || approveM.isPending || requestChangesM.isPending || holdM.isPending || resumeM.isPending || archiveM.isPending || deleteM.isPending}
           />
@@ -441,6 +442,7 @@ function EditView(props: {
   onArchive: () => void;
   onDelete: () => void;
 }) {
+  const t = useOwnerT('owner-seo');
   const blueprintQ = useQuery({
     queryKey: seoBlueprintQueryKeys.detail(props.blueprintId),
     queryFn: () => getSeoBlueprint(props.blueprintId),
@@ -458,7 +460,7 @@ function EditView(props: {
   if (!bp) {
     return (
       <div className="rounded-2xl border border-slate-800 bg-[#0F1320] p-6 text-center text-sm text-slate-300">
-        Blueprint not found.
+        {t('edit.notFound', 'Blueprint not found.')}
       </div>
     );
   }
@@ -482,17 +484,17 @@ function EditView(props: {
       <header className="rounded-2xl border border-slate-800 bg-[#0F1320] p-4 space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs text-slate-500">{SEO_CATEGORY_LABEL[bp.target_category]}</p>
+            <p className="text-xs text-slate-500">{t(`category.${bp.target_category}`, SEO_CATEGORY_LABEL[bp.target_category])}</p>
             <h2 className="text-base font-semibold text-slate-100 truncate">{bp.page_title_concept}</h2>
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <RiskPill risk={bp.risk_classification} />
               <StatusPill status={bp.status} />
               <ReviewPill status={bp.review_status as never} />
-              <span className="text-[10px] text-slate-500">Updated {new Date(bp.updated_at).toLocaleString('en-IN')}</span>
+              <span className="text-[10px] text-slate-500">{t('edit.updated', 'Updated {{when}}', { when: new Date(bp.updated_at).toLocaleString('en-IN') })}</span>
             </div>
             {bp.review_notes && (
               <p className="mt-2 text-[11px] italic text-slate-400">
-                <span className="text-slate-500">Review note: </span>{bp.review_notes}
+                <span className="text-slate-500">{t('edit.reviewNote', 'Review note: ')}</span>{bp.review_notes}
               </p>
             )}
           </div>
@@ -500,7 +502,7 @@ function EditView(props: {
             type="button"
             onClick={props.onClose}
             className="text-[11px] text-slate-400 hover:text-slate-200"
-            aria-label="Back to list"
+            aria-label={t('edit.backToList', 'Back to list')}
           >
             <X className="h-4 w-4" aria-hidden />
           </button>
@@ -517,7 +519,7 @@ function EditView(props: {
               data-testid="blueprint-submit-for-review"
             >
               <Send className="h-3 w-3" aria-hidden />
-              Submit for review
+              {t('action.submitForReview', 'Submit for review')}
             </button>
           )}
           {bp.status === 'IN_REVIEW' && (
@@ -526,24 +528,24 @@ function EditView(props: {
                 type="button"
                 onClick={props.onApprove}
                 disabled={props.busy || approvalBlocked}
-                title={approvalBlocked ? `Cannot approve while risk = ${SEO_RISK_LABEL[bp.risk_classification]}` : undefined}
+                title={approvalBlocked ? t('edit.cannotApprove', 'Cannot approve while risk = {{risk}}', { risk: t(`risk.${bp.risk_classification}`, SEO_RISK_LABEL[bp.risk_classification]) }) : undefined}
                 className="inline-flex items-center gap-1 rounded-md border border-emerald-500/50 bg-emerald-500/15 px-2.5 py-1 text-[11px] font-medium text-emerald-100 hover:bg-emerald-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
                 data-testid="blueprint-approve"
               >
                 <CheckCircle2 className="h-3 w-3" aria-hidden />
-                Approve & mark ready
+                {t('action.approveReady', 'Approve & mark ready')}
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  const note = window.prompt('Reason for requesting changes?');
+                  const note = window.prompt(t('confirm.requestChangesReason', 'Reason for requesting changes?'));
                   if (note && note.trim()) props.onRequestChanges(note.trim());
                 }}
                 disabled={props.busy}
                 className="inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-200 hover:bg-amber-500/20 disabled:opacity-50"
                 data-testid="blueprint-request-changes"
               >
-                Request changes
+                {t('action.requestChanges', 'Request changes')}
               </button>
             </>
           )}
@@ -555,7 +557,7 @@ function EditView(props: {
               className="inline-flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800/60 px-2.5 py-1 text-[11px] text-slate-200 hover:bg-slate-800 disabled:opacity-50"
             >
               <Pause className="h-3 w-3" aria-hidden />
-              Hold
+              {t('action.hold', 'Hold')}
             </button>
           )}
           {bp.status === 'ON_HOLD' && (
@@ -566,7 +568,7 @@ function EditView(props: {
               className="inline-flex items-center gap-1 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-50"
             >
               <Play className="h-3 w-3" aria-hidden />
-              Resume
+              {t('action.resume', 'Resume')}
             </button>
           )}
           {bp.status !== 'ARCHIVED' && (
@@ -576,7 +578,7 @@ function EditView(props: {
               disabled={props.busy}
               className="inline-flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800/60 px-2.5 py-1 text-[11px] text-slate-200 hover:bg-slate-800 disabled:opacity-50"
             >
-              Archive
+              {t('action.archive', 'Archive')}
             </button>
           )}
           <button
@@ -586,7 +588,7 @@ function EditView(props: {
             className="ml-auto inline-flex items-center gap-1 rounded-md border border-rose-500/30 bg-rose-500/5 px-2.5 py-1 text-[11px] text-rose-200 hover:bg-rose-500/15 disabled:opacity-50"
           >
             <Trash2 className="h-3 w-3" aria-hidden />
-            Delete
+            {t('action.delete', 'Delete')}
           </button>
         </div>
 
@@ -594,8 +596,7 @@ function EditView(props: {
           <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-[11px] text-emerald-200 inline-flex items-start gap-2">
             <Check className="h-3.5 w-3.5 mt-0.5 shrink-0" aria-hidden />
             <span>
-              Approved + ready to build. (Phase 2 = a planner-gated publisher; not built yet —
-              this stays an internal signal until then.)
+              {t('edit.readyNote', 'Approved + ready to build. (Phase 2 = a planner-gated publisher; not built yet — this stays an internal signal until then.)')}
             </span>
           </div>
         )}
@@ -607,13 +608,14 @@ function EditView(props: {
           allowOverride
           proofContext={props.proofContext}
           busy={props.busy}
-          submitLabel="Save changes"
+          submitLabel={t('action.saveChanges', 'Save changes')}
           onSubmit={(payload) => props.onUpdate(payload)}
           onCancel={props.onClose}
         />
       ) : (
         <div className="rounded-2xl border border-slate-800 bg-[#0F1320] p-4 text-xs text-slate-400">
-          This blueprint is {SEO_STATUS_LABEL[bp.status].toLowerCase()}. {bp.status === 'READY_TO_BUILD' ? 'Put it on hold to edit.' : 'Editing not allowed in this state.'}
+          {t('edit.notEditable', 'This blueprint is {{status}}. ', { status: t(`status.${bp.status}`, SEO_STATUS_LABEL[bp.status]).toLowerCase() })}
+          {bp.status === 'READY_TO_BUILD' ? t('edit.putOnHold', 'Put it on hold to edit.') : t('edit.editNotAllowed', 'Editing not allowed in this state.')}
         </div>
       )}
 
@@ -630,21 +632,21 @@ function nz(s: string | undefined | null): string | undefined {
   return t ? t : undefined;
 }
 
-function humanizeErr(e: unknown): string {
+function humanizeErr(e: unknown, t: OwnerT): string {
   if (e instanceof SeoBlueprintServiceError) {
     switch (e.code) {
-      case 'NOT_AUTHORIZED': return 'You don\'t have permission for that action.';
-      case 'BLUEPRINT_NOT_FOUND': return 'Blueprint not found.';
-      case 'BLUEPRINT_DELETED': return 'Blueprint has been deleted.';
-      case 'NOT_EDITABLE': return 'This blueprint isn\'t editable in its current state. Hold it first.';
-      case 'INVALID_TRANSITION': return 'That lifecycle change isn\'t allowed from this state.';
-      case 'NOTE_REQUIRED': return 'A note is required when requesting changes.';
-      case 'TITLE_REQUIRED': return 'Page-title concept is required.';
-      case 'OVERRIDE_REASON_REQUIRED': return 'When overriding the risk flag, a reason is required.';
+      case 'NOT_AUTHORIZED': return t('errors.NOT_AUTHORIZED', "You don't have permission for that action.");
+      case 'BLUEPRINT_NOT_FOUND': return t('errors.BLUEPRINT_NOT_FOUND', 'Blueprint not found.');
+      case 'BLUEPRINT_DELETED': return t('errors.BLUEPRINT_DELETED', 'Blueprint has been deleted.');
+      case 'NOT_EDITABLE': return t('errors.NOT_EDITABLE', "This blueprint isn't editable in its current state. Hold it first.");
+      case 'INVALID_TRANSITION': return t('errors.INVALID_TRANSITION', "That lifecycle change isn't allowed from this state.");
+      case 'NOTE_REQUIRED': return t('errors.NOTE_REQUIRED', 'A note is required when requesting changes.');
+      case 'TITLE_REQUIRED': return t('errors.TITLE_REQUIRED', 'Page-title concept is required.');
+      case 'OVERRIDE_REASON_REQUIRED': return t('errors.OVERRIDE_REASON_REQUIRED', 'When overriding the risk flag, a reason is required.');
       case 'RISK_BLOCKS_APPROVAL':
-        return "Can't approve while the Policy Shield flags this blueprint as unsafe (risky / fake / duplicate). Fix the concept or override with a reason first.";
+        return t('errors.RISK_BLOCKS_APPROVAL', "Can't approve while the Policy Shield flags this blueprint as unsafe (risky / fake / duplicate). Fix the concept or override with a reason first.");
       default: return e.message;
     }
   }
-  return (e as Error).message ?? 'Action failed';
+  return (e as Error).message ?? t('errors.actionFailed', 'Action failed');
 }

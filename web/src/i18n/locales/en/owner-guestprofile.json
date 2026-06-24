@@ -1,0 +1,88 @@
+{
+  "nav": {
+    "back": "← Back to Owner hub"
+  },
+  "page": {
+    "title": "Guest profile",
+    "subtitle": "Unified view of this guest across stays, tickets, orders, reviews and credits – owned by your hotel, not the OTA."
+  },
+  "demo": {
+    "badge": "Demo data (profile API not connected)"
+  },
+  "header": {
+    "guestAnchor": "Guest anchor:",
+    "property": "Property:",
+    "firstSeen": "First seen:",
+    "lastVisit": "Last visit:"
+  },
+  "metric": {
+    "totalStays": "Total stays",
+    "roomRequests": "Room requests",
+    "orders": "Orders",
+    "lifetimeValue": "Lifetime value",
+    "nights_one": "{{count}} night",
+    "nights_other": "{{count}} nights",
+    "slaOnTime": "{{pct}}% handled on time",
+    "slaNA": "SLA trend not available yet",
+    "fbDelivered": "F&B & services delivered",
+    "noOrders": "No orders recorded yet",
+    "credits": "{{amount}} in credits available",
+    "noCredits": "No credits linked yet"
+  },
+  "stays": {
+    "title": "Stay history",
+    "count_one": "{{count}} stay recorded",
+    "count_other": "{{count}} stays recorded",
+    "none": "Once the guest completes their first stay, you'll see the timeline here.",
+    "room": "Room",
+    "countNone": "No stays recorded yet",
+    "stayNumber": "Stay #{{code}}"
+  },
+  "prefs": {
+    "title": "Preferences & soft signals",
+    "empty": "Capture preferences during check-in or in-stay interactions and they'll appear here for future visits."
+  },
+  "credits": {
+    "title": "Credits & rewards",
+    "balance": "Current balance",
+    "added": "Added:",
+    "expires": "Expires:",
+    "noEntries": "No individual credit entries recorded yet.",
+    "empty": "When you start using VAiyu Credits, this guest's rewards will be visible here."
+  },
+  "tickets": {
+    "title": "Room requests",
+    "count_one": "{{count}} request",
+    "count_other": "{{count}} requests",
+    "empty": "No tickets yet. Housekeeping and service tickets raised by this guest will appear here.",
+    "room": "Room",
+    "raised": "Raised",
+    "sla": "SLA",
+    "slaBreach": "SLA breach",
+    "serviceFallback": "Service"
+  },
+  "orders": {
+    "title": "Orders",
+    "count_one": "{{count}} order",
+    "count_other": "{{count}} orders",
+    "empty": "Any in-room dining or service orders tied to this guest will be listed here.",
+    "room": "Room",
+    "orderNumber": "Order #{{code}}",
+    "itemFallback": "Item"
+  },
+  "reviews": {
+    "title": "Reviews",
+    "count_one": "{{count}} review",
+    "count_other": "{{count}} reviews",
+    "empty": "When the guest shares feedback, their reviews will appear here across stays.",
+    "forStay": "Review for {{code}}",
+    "stayFallback": "stay",
+    "stayPrefix": "Stay {{code}}"
+  },
+  "loading": "Loading latest data for this guest…",
+  "err": {
+    "missingId": "Missing hotel or guest identifier.",
+    "loadFailed": "Failed to load guest profile; showing demo data.",
+    "fetchFailed": "Guest profile fetch failed ({{status}})"
+  }
+}

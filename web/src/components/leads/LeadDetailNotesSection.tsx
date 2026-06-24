@@ -6,6 +6,7 @@ import { MessageSquarePlus, Loader2, Clock } from 'lucide-react';
 import type { LeadEvent } from '../../types/lead';
 import { addLeadNote, LeadServiceError } from '../../services/leadService';
 import { humanizeError } from './LeadQuickAddModal.errorMapping';
+import { useOwnerT, type OwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   leadId: string;
@@ -16,20 +17,21 @@ interface Props {
 
 const MAX_PREVIEW_NOTES = 5;
 
-function formatRelative(iso: string): string {
+function formatRelative(iso: string, t: OwnerT): string {
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return '';
   const diffMin = Math.round((Date.now() - then) / 60000);
-  if (diffMin < 1) return 'just now';
-  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffMin < 1) return t('rel.justNow', 'just now');
+  if (diffMin < 60) return t('rel.mAgo', '{{m}}m ago', { m: diffMin });
   const diffHr = Math.round(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
+  if (diffHr < 24) return t('rel.hAgo', '{{h}}h ago', { h: diffHr });
   const diffDay = Math.round(diffHr / 24);
-  if (diffDay < 30) return `${diffDay}d ago`;
-  return `${Math.round(diffDay / 30)}mo ago`;
+  if (diffDay < 30) return t('rel.dAgo', '{{d}}d ago', { d: diffDay });
+  return t('rel.moAgo', '{{mo}}mo ago', { mo: Math.round(diffDay / 30) });
 }
 
 export function LeadDetailNotesSection({ leadId, events, canEdit, showToast }: Props) {
+  const t = useOwnerT('owner-leads');
   const queryClient = useQueryClient();
   const [text, setText] = useState('');
 
@@ -38,14 +40,14 @@ export function LeadDetailNotesSection({ leadId, events, canEdit, showToast }: P
   const mutation = useMutation({
     mutationFn: () => addLeadNote(leadId, text.trim()),
     onSuccess: () => {
-      showToast('Note added', 'success');
+      showToast(t('notes.addedToast', 'Note added'), 'success');
       setText('');
       queryClient.invalidateQueries({ queryKey: ['lead', leadId] });
       queryClient.invalidateQueries({ queryKey: ['lead-events', leadId] });
     },
     onError: (err) => {
       const lse = err as LeadServiceError;
-      showToast(humanizeError(lse), 'error');
+      showToast(humanizeError(lse, t), 'error');
     },
   });
 
@@ -67,7 +69,7 @@ export function LeadDetailNotesSection({ leadId, events, canEdit, showToast }: P
       className="border-b border-white/10 px-5 py-4"
     >
       <header className="flex items-center justify-between mb-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-white/60">Notes</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-white/60">{t('notes.heading', 'Notes')}</h3>
       </header>
 
       {canEdit && (
@@ -79,7 +81,7 @@ export function LeadDetailNotesSection({ leadId, events, canEdit, showToast }: P
             onKeyDown={handleKeyDown}
             rows={2}
             disabled={mutation.isPending}
-            placeholder="Add a note (Ctrl+Enter to save)"
+            placeholder={t('notes.placeholder', 'Add a note (Ctrl+Enter to save)')}
             className="w-full rounded-md border border-white/10 bg-black/30 px-2.5 py-1.5 text-sm text-white placeholder:text-white/30 focus:border-emerald-400 focus:outline-none disabled:opacity-50 resize-y"
           />
           <div className="flex items-center justify-end">
@@ -91,14 +93,14 @@ export function LeadDetailNotesSection({ leadId, events, canEdit, showToast }: P
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-500 text-xs font-medium text-white hover:bg-emerald-400 disabled:opacity-50"
             >
               {mutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <MessageSquarePlus className="h-3 w-3" />}
-              Add note
+              {t('notes.addNote', 'Add note')}
             </button>
           </div>
         </div>
       )}
 
       {noteEvents.length === 0 ? (
-        <div className="text-xs text-white/30 italic">No notes yet</div>
+        <div className="text-xs text-white/30 italic">{t('notes.noNotes', 'No notes yet')}</div>
       ) : (
         <ul className="space-y-2">
           {noteEvents.map((event) => {
@@ -112,10 +114,10 @@ export function LeadDetailNotesSection({ leadId, events, canEdit, showToast }: P
                   {event.payload.text}
                 </div>
                 <div className="mt-1.5 flex items-center gap-2 text-[11px] text-white/40">
-                  <span>{event.payload.by_user_name ?? 'unknown'}</span>
+                  <span>{event.payload.by_user_name ?? t('notes.unknown', 'unknown')}</span>
                   <span className="inline-flex items-center gap-0.5">
                     <Clock className="h-3 w-3" aria-hidden="true" />
-                    {formatRelative(event.occurred_at)}
+                    {formatRelative(event.occurred_at, t)}
                   </span>
                 </div>
               </li>
@@ -126,7 +128,7 @@ export function LeadDetailNotesSection({ leadId, events, canEdit, showToast }: P
 
       {events.filter((e) => e.event_type === 'NOTE_ADDED').length > MAX_PREVIEW_NOTES && (
         <div className="mt-2 text-[11px] text-white/40">
-          Showing {MAX_PREVIEW_NOTES} most recent notes — full history in timeline below.
+          {t('notes.showingRecent', 'Showing {{count}} most recent notes — full history in timeline below.', { count: MAX_PREVIEW_NOTES })}
         </div>
       )}
     </section>

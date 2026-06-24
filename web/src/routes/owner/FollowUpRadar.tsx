@@ -60,6 +60,7 @@ import {
 } from '../../services/followUpService';
 import { useFollowUpsRealtime } from '../../hooks/useFollowUpsRealtime';
 import { track } from '../../lib/analytics';
+import { useOwnerT, type OwnerT } from '../../i18n/useOwnerT';
 
 const BUCKET_ORDER: FollowUpBucket[] = [
   'DUE_TODAY',
@@ -136,6 +137,7 @@ function applyFilters(items: FollowUpItem[], f: RadarFilters): FollowUpItem[] {
 }
 
 export default function FollowUpRadar() {
+  const t = useOwnerT('owner-followup');
   const { slug } = useParams<{ slug: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const qc = useQueryClient();
@@ -275,21 +277,22 @@ export default function FollowUpRadar() {
       track('follow_up_sync_from_leads', { created: out.created });
       qc.invalidateQueries({ queryKey: ['follow-ups', 'list', hotel.id] });
     } catch (e) {
-      setSyncError((e as Error).message ?? 'Sync failed');
+      setSyncError((e as Error).message ?? t('page.syncFailed', 'Sync failed'));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hotel?.id, qc]);
 
   if (!FOLLOW_UP_RADAR_V0_ENABLED) {
     return (
-      <main className="min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200">
-        <p className="text-sm text-slate-400">Follow-up Radar is not enabled.</p>
+      <main className="vaiyu-owner min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200">
+        <p className="text-sm text-slate-400">{t('page.notEnabled', 'Follow-up Radar is not enabled.')}</p>
       </main>
     );
   }
 
   if (hotelQ.isLoading) {
     return (
-      <main className="min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200">
+      <main className="vaiyu-owner min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200">
         <Loader2 className="h-5 w-5 animate-spin text-slate-500" aria-hidden />
       </main>
     );
@@ -297,14 +300,14 @@ export default function FollowUpRadar() {
 
   if (!hotel) {
     return (
-      <main className="min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200">
-        <p className="text-sm text-slate-300">Hotel not found.</p>
+      <main className="vaiyu-owner min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200">
+        <p className="text-sm text-slate-300">{t('page.hotelNotFound', 'Hotel not found.')}</p>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#0B0E14] text-slate-200">
+    <main className="vaiyu-owner min-h-screen bg-[#0B0E14] text-slate-200">
       <div className="mx-auto max-w-5xl px-4 sm:px-6 py-6">
         <header className="mb-6 space-y-4">
           <Link
@@ -312,7 +315,7 @@ export default function FollowUpRadar() {
             className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200"
           >
             <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
-            Back to dashboard
+            {t('page.back', 'Back to dashboard')}
           </Link>
 
           <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -320,19 +323,18 @@ export default function FollowUpRadar() {
               <div className="flex items-center gap-2">
                 <Radar className="h-5 w-5 text-emerald-300" aria-hidden />
                 <h1 className="text-xl sm:text-2xl font-semibold text-slate-50">
-                  Follow-up Radar
+                  {t('page.title', 'Follow-up Radar')}
                 </h1>
               </div>
               <p className="mt-1 text-sm text-slate-400 max-w-xl">
-                A safe, manual reminder workspace. New leads auto-create follow-ups; sent
-                quotes auto-create nudge reminders. You decide what to act on next.
+                {t('page.subtitle', 'A safe, manual reminder workspace. New leads auto-create follow-ups; sent quotes auto-create nudge reminders. You decide what to act on next.')}
               </p>
             </div>
 
             <div className="flex items-center gap-2 text-xs">
-              <Badge tone="emerald" label="Due today" value={counts.dueToday} />
-              <Badge tone="red" label="Overdue" value={counts.overdue} />
-              <Badge tone="amber" label="Blocked" value={counts.blocked} />
+              <Badge tone="emerald" label={t('badge.dueToday', 'Due today')} value={counts.dueToday} />
+              <Badge tone="red" label={t('badge.overdue', 'Overdue')} value={counts.overdue} />
+              <Badge tone="amber" label={t('badge.blocked', 'Blocked')} value={counts.blocked} />
             </div>
           </div>
 
@@ -344,17 +346,17 @@ export default function FollowUpRadar() {
               data-testid="follow-up-add-button"
             >
               <Plus className="h-3.5 w-3.5" aria-hidden />
-              Add follow-up
+              {t('page.addFollowUp', 'Add follow-up')}
             </button>
             <button
               type="button"
               onClick={handleSync}
               className="inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800"
               data-testid="follow-up-sync-button"
-              title="Backfill follow-ups for any leads that existed before this feature."
+              title={t('page.syncTitle', 'Backfill follow-ups for any leads that existed before this feature.')}
             >
               <RefreshCw className="h-3.5 w-3.5" aria-hidden />
-              Sync from leads
+              {t('page.syncFromLeads', 'Sync from leads')}
             </button>
             {syncError && (
               <span className="text-[11px] text-red-300">{syncError}</span>
@@ -396,7 +398,7 @@ export default function FollowUpRadar() {
                 <section key={bucket} data-testid={`follow-up-section-${bucket}`}>
                   <div className="flex items-baseline justify-between mb-2">
                     <h2 className={`text-sm font-semibold ${BUCKET_TONE[bucket]}`}>
-                      {BUCKET_LABEL[bucket]}
+                      {t(`bucket.${bucket}`, BUCKET_LABEL[bucket])}
                     </h2>
                     <span className="text-[11px] text-slate-500">{list.length}</span>
                   </div>
@@ -421,9 +423,9 @@ export default function FollowUpRadar() {
 
             {!listQ.isLoading && !isEmpty && filtered.length === 0 && (
               <div className="rounded-2xl border border-dashed border-slate-700 bg-[#0F1320] p-8 text-center">
-                <p className="text-sm text-slate-300">No follow-ups match these filters.</p>
+                <p className="text-sm text-slate-300">{t('noMatch.title', 'No follow-ups match these filters.')}</p>
                 <p className="mt-1 text-xs text-slate-500">
-                  Try clearing one or two pills to widen the view.
+                  {t('noMatch.body', 'Try clearing one or two pills to widen the view.')}
                 </p>
               </div>
             )}
@@ -431,8 +433,7 @@ export default function FollowUpRadar() {
         </div>
 
         <footer className="mt-8 text-[11px] text-slate-500">
-          Follow-up Radar — manual reminder workspace. No messages are sent and no tickets
-          are updated from this page. {summaryLine(items, bucketFor)}
+          {t('footer.note', 'Follow-up Radar — manual reminder workspace. No messages are sent and no tickets are updated from this page.')} {summaryLine(items, bucketFor, t)}
         </footer>
       </div>
 
@@ -451,6 +452,7 @@ export default function FollowUpRadar() {
 function summaryLine(
   items: FollowUpItem[],
   bucketize: (i: FollowUpItem) => FollowUpBucket,
+  t: OwnerT,
 ): string {
   const counts: Record<FollowUpBucket, number> = {
     DUE_TODAY: 0,
@@ -460,7 +462,11 @@ function summaryLine(
     ADDRESSED: 0,
   };
   for (const it of items) counts[bucketize(it)] += 1;
-  return `Snapshot: ${counts.DUE_TODAY} due today, ${counts.OVERDUE} overdue, ${counts.BLOCKED} blocked.`;
+  return t('footer.snapshot', 'Snapshot: {{dueToday}} due today, {{overdue}} overdue, {{blocked}} blocked.', {
+    dueToday: counts.DUE_TODAY,
+    overdue: counts.OVERDUE,
+    blocked: counts.BLOCKED,
+  });
 }
 
 function Badge({

@@ -36,6 +36,7 @@ import {
   DarkErrorPanel,
   darkInputCls,
 } from "../components/owner/DarkShell";
+import { useOwnerT, useOwnerCommonT, useOwnerLocale } from "../i18n/useOwnerT";
 
 type Hotel = { id: string; slug: string; name: string };
 
@@ -100,6 +101,7 @@ function GuardrailPanel({
   description?: string;
   defaultValue?: number;
 }) {
+  const t = useOwnerT("owner-pricing");
   const enabled = value != null;
   const fallback = defaultValue ?? 25;
   // Local draft so the number field is responsive; commits on blur or Enter.
@@ -121,11 +123,11 @@ function GuardrailPanel({
       <div className="flex-1 min-w-[220px]">
         <h3 className="text-sm font-bold text-white flex items-center gap-2">
           <ShieldAlert className="w-4 h-4 text-amber-400" />
-          {title ?? "Max price-swing guardrail"}
+          {title ?? t("guardrailTitle", "Max price-swing guardrail")}
         </h3>
         <p className="text-xs text-slate-500 mt-1 max-w-lg">
           {description ??
-            "In auto-apply mode the engine refuses to write a price that deviates from base by more than this cap — that swing gets flagged for manual review instead. Prevents a bad rule from silently 10×’ing the rate."}
+            t("guardrailDesc", "In auto-apply mode the engine refuses to write a price that deviates from base by more than this cap — that swing gets flagged for manual review instead. Prevents a bad rule from silently 10×’ing the rate.")}
         </p>
       </div>
 
@@ -134,7 +136,7 @@ function GuardrailPanel({
           onClick={() => onChange(enabled ? null : fallback)}
           disabled={busy}
           aria-pressed={enabled}
-          aria-label={`Toggle ${title ?? "max price-swing guardrail"}`}
+          aria-label={t("guardrailToggleAria", "Toggle {{name}}", { name: title ?? t("guardrailTitle", "Max price-swing guardrail") })}
           className={
             "relative inline-flex h-6 w-11 items-center rounded-full transition disabled:opacity-60 " +
             (enabled ? "bg-amber-500" : "bg-slate-600")
@@ -161,11 +163,11 @@ function GuardrailPanel({
             onKeyDown={(e) => {
               if (e.key === "Enter") (e.target as HTMLInputElement).blur();
             }}
-            placeholder="off"
+            placeholder={t("guardrailOff", "off")}
             className={
               "w-16 rounded-lg bg-[#0f1113] border border-white/10 px-2 py-1.5 text-sm text-white text-right tabular-nums focus:outline-none focus:ring-2 focus:ring-amber-400/50 disabled:opacity-50"
             }
-            aria-label="Guardrail threshold (percent)"
+            aria-label={t("guardrailThresholdAria", "Guardrail threshold (percent)")}
           />
           <span className="text-sm font-semibold text-slate-400">%</span>
         </div>
@@ -175,6 +177,9 @@ function GuardrailPanel({
 }
 
 export default function OwnerPricing() {
+  const t = useOwnerT("owner-pricing");
+  const tc = useOwnerCommonT();
+  const ownerLocale = useOwnerLocale();
   const { slug } = useParams<{ slug: string }>();
 
   const [hotel, setHotel] = useState<Hotel | null>(null);
@@ -219,7 +224,7 @@ export default function OwnerPricing() {
         .maybeSingle();
 
       if (hErr || !hotelRow) {
-        setError(hErr?.message ?? "Hotel not found.");
+        setError(hErr?.message ?? t("hotelNotFound", "Hotel not found."));
         return;
       }
 
@@ -258,11 +263,11 @@ export default function OwnerPricing() {
         );
       }
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to load pricing data.");
+      setError(e instanceof Error ? e.message : t("loadFailed", "Failed to load pricing data."));
     } finally {
       setLoading(false);
     }
-  }, [slug]);
+  }, [slug, t]);
 
   useEffect(() => {
     load();
@@ -290,11 +295,11 @@ export default function OwnerPricing() {
     setSettingsError(null);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated.");
+      if (!user) throw new Error(t("notAuthenticated", "Not authenticated."));
       await upsertPricingSettings(hotel.id, user.id, { max_discount_pct: next });
       setSettings((s) => ({ ...s, max_discount_pct: next }));
     } catch (e: unknown) {
-      setSettingsError(e instanceof Error ? e.message : "Failed to save discount cap.");
+      setSettingsError(e instanceof Error ? e.message : t("saveDiscountCapFailed", "Failed to save discount cap."));
     } finally {
       setSavingSettings(false);
     }
@@ -306,7 +311,7 @@ export default function OwnerPricing() {
     setSettingsError(null);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated.");
+      if (!user) throw new Error(t("notAuthenticated", "Not authenticated."));
       await upsertPricingSettings(hotel.id, user.id, { max_delta_pct: next });
       const updatedSettings: PricingSettings = { ...settings, max_delta_pct: next };
       setSettings(updatedSettings);
@@ -324,7 +329,7 @@ export default function OwnerPricing() {
         }
       }
     } catch (e: unknown) {
-      setSettingsError(e instanceof Error ? e.message : "Failed to save guardrail.");
+      setSettingsError(e instanceof Error ? e.message : t("saveGuardrailFailed", "Failed to save guardrail."));
     } finally {
       setSavingSettings(false);
     }
@@ -344,11 +349,11 @@ export default function OwnerPricing() {
     }
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated.");
+      if (!user) throw new Error(t("notAuthenticated", "Not authenticated."));
       await upsertPricingSettings(hotel.id, user.id, next);
       setSettings(next);
     } catch (e: unknown) {
-      setSettingsError(e instanceof Error ? e.message : "Failed to save setting.");
+      setSettingsError(e instanceof Error ? e.message : t("saveSettingFailed", "Failed to save setting."));
     } finally {
       setSavingSettings(false);
     }
@@ -373,14 +378,14 @@ export default function OwnerPricing() {
       setApplyNote("");
       await load();
     } catch (e: unknown) {
-      setApplyError(e instanceof Error ? e.message : "Apply failed.");
+      setApplyError(e instanceof Error ? e.message : t("applyFailed", "Apply failed."));
     } finally {
       setApplying(false);
     }
   }
 
-  if (loading) return <DarkLoading message="Loading pricing data…" />;
-  if (error || !hotel) return <DarkErrorPanel message={error ?? "Hotel not found."} />;
+  if (loading) return <DarkLoading message={t("loading", "Loading pricing data…")} />;
+  if (error || !hotel) return <DarkErrorPanel message={error ?? t("hotelNotFound", "Hotel not found.")} />;
 
   const base = `/owner/${slug}`;
   const hasRecommendation = evaluation?.matched_rule != null;
@@ -388,13 +393,13 @@ export default function OwnerPricing() {
   return (
     <OwnerDarkPage
       icon={TrendingUp}
-      title="Dynamic"
-      titleAccent="Pricing"
+      title={t("title", "Dynamic")}
+      titleAccent={t("titleAccent", "Pricing")}
       accent="indigo"
-      subtitle={`Occupancy-based pricing for ${hotel.name}`}
+      subtitle={t("subtitle", "Occupancy-based pricing for {{hotel}}", { hotel: hotel.name })}
       breadcrumbs={[
-        { label: "Dashboard", to: base },
-        { label: "Dynamic Pricing" },
+        { label: tc("nav.dashboard", "Dashboard"), to: base },
+        { label: t("crumbDynamicPricing", "Dynamic Pricing") },
       ]}
       actions={
         <>
@@ -402,25 +407,25 @@ export default function OwnerPricing() {
             to={`${base}/pricing/calendar`}
             className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 px-3 py-2 text-sm font-bold text-white transition shadow-lg shadow-indigo-500/20"
           >
-            Rate Calendar <ArrowRight className="w-3.5 h-3.5" />
+            {t("rateCalendar", "Rate Calendar")} <ArrowRight className="w-3.5 h-3.5" />
           </Link>
           <Link
             to={`${base}/pricing/plans`}
             className="inline-flex items-center gap-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-2 text-sm font-semibold text-slate-200 transition"
           >
-            Rate Plans <ArrowRight className="w-3.5 h-3.5" />
+            {t("ratePlans", "Rate Plans")} <ArrowRight className="w-3.5 h-3.5" />
           </Link>
           <Link
             to={`${base}/pricing/rules`}
             className="inline-flex items-center gap-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-2 text-sm font-semibold text-slate-200 transition"
           >
-            Manage Rules <ArrowRight className="w-3.5 h-3.5" />
+            {t("manageRules", "Manage Rules")} <ArrowRight className="w-3.5 h-3.5" />
           </Link>
           <Link
             to={`${base}/pricing/history`}
             className="inline-flex items-center gap-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-2 text-sm font-semibold text-slate-200 transition"
           >
-            History <ArrowRight className="w-3.5 h-3.5" />
+            {t("history", "History")} <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </>
       }
@@ -430,17 +435,17 @@ export default function OwnerPricing() {
         <DarkCard className="flex items-center gap-4">
           {occupancy && <OccupancyRing pct={occupancy.pct} />}
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Occupancy</p>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{t("kpiOccupancy", "Occupancy")}</p>
             <p className="text-2xl font-black text-white">{occupancy?.pct.toFixed(1)}%</p>
             <p className="text-xs text-slate-500 mt-0.5">
-              {occupancy?.occupied} / {occupancy?.total} rooms
+              {t("kpiRooms", "{{occupied}} / {{total}} rooms", { occupied: occupancy?.occupied, total: occupancy?.total })}
             </p>
           </div>
         </DarkCard>
 
         <DarkCard>
           <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-            <Zap className="w-3.5 h-3.5" /> Active Override
+            <Zap className="w-3.5 h-3.5" /> {t("kpiActiveOverride", "Active Override")}
           </p>
           {currentRate ? (
             <>
@@ -448,29 +453,28 @@ export default function OwnerPricing() {
                 {formatINR(currentRate.override_price)}
               </p>
               <p className="text-xs text-slate-500 mt-0.5">
-                Base: {formatINR(currentRate.base_price)} · Applied{" "}
-                {new Date(currentRate.applied_at).toLocaleDateString("en-IN")}
+                {t("kpiBaseApplied", "Base: {{base}} · Applied {{date}}", { base: formatINR(currentRate.base_price), date: new Date(currentRate.applied_at).toLocaleDateString(ownerLocale) })}
               </p>
             </>
           ) : (
-            <p className="text-sm text-slate-500 mt-2">No override applied yet</p>
+            <p className="text-sm text-slate-500 mt-2">{t("kpiNoOverride", "No override applied yet")}</p>
           )}
         </DarkCard>
 
         <DarkCard>
           <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-            <BedDouble className="w-3.5 h-3.5" /> Inventory
+            <BedDouble className="w-3.5 h-3.5" /> {t("kpiInventory", "Inventory")}
           </p>
           <p className="text-2xl font-black text-white mt-1">{occupancy?.total ?? "—"}</p>
           <p className="text-xs text-slate-500 mt-0.5">
-            {(occupancy?.total ?? 0) - (occupancy?.occupied ?? 0)} rooms available
+            {t("kpiRoomsAvailable", "{{count}} rooms available", { count: (occupancy?.total ?? 0) - (occupancy?.occupied ?? 0) })}
           </p>
         </DarkCard>
 
         {/* Front-desk discounts granted this month — sourced from pricing_adjustments. */}
         <DarkCard>
           <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-            <Percent className="w-3.5 h-3.5" /> Discounts (this month)
+            <Percent className="w-3.5 h-3.5" /> {t("kpiDiscounts", "Discounts (this month)")}
           </p>
           {discountSummary && discountSummary.count > 0 ? (
             <>
@@ -478,15 +482,14 @@ export default function OwnerPricing() {
                 −{formatINR(discountSummary.total_amount)}
               </p>
               <p className="text-xs text-slate-500 mt-0.5">
-                {discountSummary.count} application
-                {discountSummary.count === 1 ? "" : "s"}
+                {t("kpiApplications", "{{count}} applications", { count: discountSummary.count })}
                 {discountSummary.by_reason[0] && (
                   <>
-                    {" "}· top:{" "}
+                    {" "}· {t("kpiTop", "top:")}{" "}
                     <span className="text-slate-400">
-                      {DISCOUNT_REASON_LABELS[
+                      {t(`discountReason.${discountSummary.by_reason[0].reason_code}`, DISCOUNT_REASON_LABELS[
                         discountSummary.by_reason[0].reason_code as DiscountReason
-                      ] ?? discountSummary.by_reason[0].reason_code}
+                      ] ?? discountSummary.by_reason[0].reason_code)}
                     </span>
                   </>
                 )}
@@ -494,7 +497,7 @@ export default function OwnerPricing() {
             </>
           ) : (
             <p className="text-sm text-slate-500 mt-2">
-              No discounts applied yet this month
+              {t("kpiNoDiscounts", "No discounts applied yet this month")}
             </p>
           )}
         </DarkCard>
@@ -506,14 +509,17 @@ export default function OwnerPricing() {
           <div>
             <h2 className="text-base font-bold text-white flex items-center gap-2">
               <Zap className="w-4 h-4 text-indigo-400" />
-              Pricing Engine Mode
+              {t("engineModeTitle", "Pricing Engine Mode")}
             </h2>
-            <p className="text-xs text-slate-500 mt-1 max-w-xl">
-              In <span className="text-slate-300 font-semibold">Recommend-only</span> mode the engine suggests a
-              price but never writes. Switch to{" "}
-              <span className="text-slate-300 font-semibold">Auto-apply</span> only once you trust the rules —
-              the engine will then update live rates on its own.
-            </p>
+            <p
+              className="text-xs text-slate-500 mt-1 max-w-xl"
+              dangerouslySetInnerHTML={{
+                __html: t(
+                  "engineModeDesc",
+                  'In <span class="text-slate-300 font-semibold">Recommend-only</span> mode the engine suggests a price but never writes. Switch to <span class="text-slate-300 font-semibold">Auto-apply</span> only once you trust the rules — the engine will then update live rates on its own.',
+                ),
+              }}
+            />
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -526,7 +532,7 @@ export default function OwnerPricing() {
                   : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10")
               }
             >
-              Recommend-only
+              {t("recommendOnly", "Recommend-only")}
             </button>
             <button
               onClick={() => toggleSetting("auto_apply_enabled")}
@@ -538,7 +544,7 @@ export default function OwnerPricing() {
                   : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10")
               }
             >
-              Auto-apply
+              {t("autoApply", "Auto-apply")}
             </button>
           </div>
         </div>
@@ -564,8 +570,8 @@ export default function OwnerPricing() {
             value={settings.max_discount_pct}
             busy={savingSettings}
             onChange={saveDiscountCap}
-            title="Max walk-in discount"
-            description="Hard cap on how much percentage off a manager can give at walk-in. The server rejects any per-room discount above this — defense against a buggy client or a misclick. Recommended: 50% to start, tighten as you build trust."
+            title={t("discountCapTitle", "Max walk-in discount")}
+            description={t("discountCapDesc", "Hard cap on how much percentage off a manager can give at walk-in. The server rejects any per-room discount above this — defense against a buggy client or a misclick. Recommended: 50% to start, tighten as you build trust.")}
             defaultValue={50}
           />
         </div>
@@ -575,13 +581,13 @@ export default function OwnerPricing() {
       <DarkCard className="space-y-5">
         <h2 className="text-base font-bold text-white flex items-center gap-2">
           <Percent className="w-4 h-4 text-indigo-400" />
-          Price Evaluation
+          {t("priceEvaluation", "Price Evaluation")}
         </h2>
 
         <div className="flex items-end gap-3 flex-wrap">
           <div>
             <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-              Base / Rack Price (₹)
+              {t("baseRackPrice", "Base / Rack Price (₹)")}
             </label>
             <input
               type="number"
@@ -589,12 +595,12 @@ export default function OwnerPricing() {
               value={basePrice}
               onChange={(e) => setBasePrice(e.target.value)}
               className={darkInputCls + " w-36"}
-              placeholder="e.g. 2000"
+              placeholder={t("basePricePlaceholder", "e.g. 2000")}
             />
           </div>
           <div>
             <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-              Stay Date
+              {t("stayDate", "Stay Date")}
             </label>
             <input
               type="date"
@@ -608,7 +614,7 @@ export default function OwnerPricing() {
             onClick={recalculate}
             className="rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 px-4 py-2 text-sm font-semibold text-slate-100 transition"
           >
-            Evaluate
+            {t("evaluate", "Evaluate")}
           </button>
         </div>
 
@@ -630,7 +636,7 @@ export default function OwnerPricing() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-3 flex-wrap">
                   <span className="text-sm font-bold text-white">
-                    {hasRecommendation ? "Rule matched" : "No rule matched"}
+                    {hasRecommendation ? t("ruleMatched", "Rule matched") : t("noRuleMatched", "No rule matched")}
                   </span>
                   {evaluation.matched_rule && (
                     <span className="rounded-full bg-indigo-500/20 px-2 py-0.5 text-xs font-medium text-indigo-300">
@@ -643,21 +649,21 @@ export default function OwnerPricing() {
                 {hasRecommendation && (
                   <div className="mt-3 flex items-center gap-6 flex-wrap">
                     <div>
-                      <span className="text-xs text-slate-500">Base</span>
+                      <span className="text-xs text-slate-500">{t("evalBase", "Base")}</span>
                       <p className="text-lg font-semibold text-slate-200">
                         {formatINR(evaluation.base_price)}
                       </p>
                     </div>
                     <span className="text-slate-600 text-xl">→</span>
                     <div>
-                      <span className="text-xs text-slate-500">Recommended</span>
+                      <span className="text-xs text-slate-500">{t("evalRecommended", "Recommended")}</span>
                       <p className="text-2xl font-black text-indigo-300">
                         {formatINR(evaluation.recommended_price)}
                       </p>
                     </div>
                     {evaluation.was_clamped && (
                       <span className="rounded-full bg-amber-500/20 text-amber-300 px-2 py-0.5 text-xs font-medium">
-                        Clamped by {evaluation.clamp_reason}
+                        {t("clampedBy", "Clamped by {{reason}}", { reason: evaluation.clamp_reason })}
                       </span>
                     )}
                   </div>
@@ -675,14 +681,12 @@ export default function OwnerPricing() {
             <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
             <div className="text-sm">
               <p className="font-bold text-amber-200">
-                Guardrail engaged — auto-apply will refuse this swing
+                {t("guardrailEngaged", "Guardrail engaged — auto-apply will refuse this swing")}
               </p>
               <p className="text-amber-100/80 mt-1">
-                Recommendation deviates from base by{" "}
-                <span className="font-bold">{evaluation.guardrail.actual_delta_pct}%</span>, which
-                exceeds the configured cap of{" "}
-                <span className="font-bold">{evaluation.guardrail.max_delta_pct}%</span>. You can
-                still apply it manually below after reviewing.
+                {t("guardrailDeviateA", "Recommendation deviates from base by")}{" "}
+                <span className="font-bold">{evaluation.guardrail.actual_delta_pct}%</span>{t("guardrailDeviateB", ", which exceeds the configured cap of")}{" "}
+                <span className="font-bold">{evaluation.guardrail.max_delta_pct}%</span>. {t("guardrailDeviateC", "You can still apply it manually below after reviewing.")}
               </p>
             </div>
           </div>
@@ -692,13 +696,13 @@ export default function OwnerPricing() {
           <div className="border-t border-white/[0.05] pt-4 space-y-3">
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-                Note (optional)
+                {t("noteOptional", "Note (optional)")}
               </label>
               <input
                 type="text"
                 value={applyNote}
                 onChange={(e) => setApplyNote(e.target.value)}
-                placeholder="e.g. Weekend peak pricing"
+                placeholder={t("notePlaceholder", "e.g. Weekend peak pricing")}
                 className={darkInputCls + " max-w-sm"}
               />
             </div>
@@ -710,16 +714,16 @@ export default function OwnerPricing() {
               {applying ? (
                 <>
                   <span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full" />
-                  Applying…
+                  {t("applying", "Applying…")}
                 </>
               ) : (
-                <>Apply {formatINR(evaluation.recommended_price)}</>
+                <>{t("applyAmount", "Apply {{amount}}", { amount: formatINR(evaluation.recommended_price) })}</>
               )}
             </button>
             {applySuccess && (
               <p className="text-sm text-emerald-300 flex items-center gap-1.5">
                 <CheckCircle className="w-4 h-4" />
-                Price override applied successfully.
+                {t("applySuccess", "Price override applied successfully.")}
               </p>
             )}
             {applyError && <p className="text-sm text-rose-300">{applyError}</p>}
@@ -729,7 +733,7 @@ export default function OwnerPricing() {
         {!evaluation && (
           <p className="text-sm text-slate-500 flex items-center gap-1.5">
             <Clock className="w-4 h-4" />
-            Enter a base price and click Evaluate to see the recommendation.
+            {t("evalHint", "Enter a base price and click Evaluate to see the recommendation.")}
           </p>
         )}
       </DarkCard>
@@ -740,35 +744,35 @@ export default function OwnerPricing() {
           to={`${base}/pricing/calendar`}
           className="rounded-2xl bg-[#16181b] border border-indigo-500/30 p-5 hover:border-indigo-400/60 transition group shadow-lg"
         >
-          <p className="font-bold text-white group-hover:text-indigo-300 transition">Rate Calendar</p>
+          <p className="font-bold text-white group-hover:text-indigo-300 transition">{t("rateCalendar", "Rate Calendar")}</p>
           <p className="text-xs text-slate-500 mt-1">
-            30-day grid view. Edit prices inline or in bulk.
+            {t("linkCalendarSub", "30-day grid view. Edit prices inline or in bulk.")}
           </p>
         </Link>
         <Link
           to={`${base}/pricing/plans`}
           className="rounded-2xl bg-[#16181b] border border-white/[0.06] p-5 hover:border-indigo-500/40 transition group shadow-lg"
         >
-          <p className="font-bold text-white group-hover:text-indigo-300 transition">Rate Plans</p>
+          <p className="font-bold text-white group-hover:text-indigo-300 transition">{t("ratePlans", "Rate Plans")}</p>
           <p className="text-xs text-slate-500 mt-1">
-            Base prices, meal plans, seasonal rates, corporate tiers.
+            {t("linkPlansSub", "Base prices, meal plans, seasonal rates, corporate tiers.")}
           </p>
         </Link>
         <Link
           to={`${base}/pricing/rules`}
           className="rounded-2xl bg-[#16181b] border border-white/[0.06] p-5 hover:border-indigo-500/40 transition group shadow-lg"
         >
-          <p className="font-bold text-white group-hover:text-indigo-300 transition">Pricing Rules</p>
+          <p className="font-bold text-white group-hover:text-indigo-300 transition">{t("pricingRules", "Pricing Rules")}</p>
           <p className="text-xs text-slate-500 mt-1">
-            Occupancy-based dynamic adjustments on top of rate plans.
+            {t("linkRulesSub", "Occupancy-based dynamic adjustments on top of rate plans.")}
           </p>
         </Link>
         <Link
           to={`${base}/pricing/history`}
           className="rounded-2xl bg-[#16181b] border border-white/[0.06] p-5 hover:border-indigo-500/40 transition group shadow-lg"
         >
-          <p className="font-bold text-white group-hover:text-indigo-300 transition">Apply History</p>
-          <p className="text-xs text-slate-500 mt-1">Full audit log of every price change.</p>
+          <p className="font-bold text-white group-hover:text-indigo-300 transition">{t("applyHistory", "Apply History")}</p>
+          <p className="text-xs text-slate-500 mt-1">{t("linkHistorySub", "Full audit log of every price change.")}</p>
         </Link>
       </div>
     </OwnerDarkPage>

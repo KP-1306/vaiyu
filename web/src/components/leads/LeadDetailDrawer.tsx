@@ -18,6 +18,7 @@ import { LeadDetailTimeline } from './LeadDetailTimeline';
 import { LeadDripPanel } from './LeadDripPanel';
 import { LeadConvertModal } from './LeadConvertModal';
 import { LeadPackageSuggestPanel } from './LeadPackageSuggestPanel';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   leadId: string | null;
@@ -38,6 +39,7 @@ export function LeadDetailDrawer({
   onClose,
   showToast,
 }: Props) {
+  const t = useOwnerT('owner-leads');
   const isOpen = !!leadId;
   const drawerRef = useRef<HTMLDivElement>(null);
 
@@ -71,7 +73,7 @@ export function LeadDetailDrawer({
     currentUserId,
     isPaused: dirtySet.size > 0,
     onForceRelease: ({ byUserName }) =>
-      showToast(`Your claim was released by ${byUserName}`, 'warning'),
+      showToast(t('drawer.claimReleasedBy', 'Your claim was released by {{name}}', { name: byUserName }), 'warning'),
   });
 
   // Reset dirty state when switching leads
@@ -99,7 +101,7 @@ export function LeadDetailDrawer({
   const handleClose = useCallback(() => {
     if (dirtySet.size > 0) {
       const confirmed = window.confirm(
-        `You have unsaved changes in ${dirtySet.size} section${dirtySet.size === 1 ? '' : 's'}. Discard?`,
+        t('drawer.unsavedConfirm', 'You have unsaved changes in {{count}} sections. Discard?', { count: dirtySet.size }),
       );
       if (!confirmed) return;
     }
@@ -109,12 +111,14 @@ export function LeadDetailDrawer({
   const handleForceRelease = useCallback(() => {
     if (!claim) return;
     const reason = window.prompt(
-      `Force-release ${claim.claimed_by_name ?? 'this user'}'s claim?\nProvide a reason:`,
+      t('drawer.forceReleasePrompt', "Force-release {{name}}'s claim?\nProvide a reason:", {
+        name: claim.claimed_by_name ?? t('drawer.thisUser', 'this user'),
+      }),
     );
     if (!reason || reason.trim() === '') return;
     forceRelease(reason).then(
-      () => showToast('Claim released', 'success'),
-      (err) => showToast(`Could not release: ${(err as Error).message}`, 'error'),
+      () => showToast(t('drawer.claimReleased', 'Claim released'), 'success'),
+      (err) => showToast(t('drawer.couldNotRelease', 'Could not release: {{msg}}', { msg: (err as Error).message }), 'error'),
     );
   }, [claim, forceRelease, showToast]);
 
@@ -142,7 +146,7 @@ export function LeadDetailDrawer({
         ref={drawerRef}
         role="dialog"
         aria-modal="true"
-        aria-label="Lead detail"
+        aria-label={t('drawer.ariaLabel', 'Lead detail')}
         data-testid="lead-detail-drawer"
         className={`
           absolute inset-y-0 right-0 w-full sm:w-[480px] md:w-[540px] bg-[#0c0e13]
@@ -155,7 +159,7 @@ export function LeadDetailDrawer({
           <DrawerLoading />
         ) : isLeadError || !lead ? (
           <DrawerError
-            message={leadError?.message ?? 'Could not load lead.'}
+            message={leadError?.message ?? t('drawer.loadFail', 'Could not load lead.')}
             onClose={handleClose}
           />
         ) : lead.deleted_at !== null ? (
@@ -178,7 +182,7 @@ export function LeadDetailDrawer({
             {isClaiming && !claim && (
               <div className="px-4 py-2 text-xs text-white/40 flex items-center gap-2">
                 <Loader2 className="h-3 w-3 animate-spin" />
-                Acquiring claim…
+                {t('drawer.acquiringClaim', 'Acquiring claim…')}
               </div>
             )}
             <div className="flex-1 overflow-y-auto">
@@ -236,45 +240,48 @@ export function LeadDetailDrawer({
 }
 
 function DrawerLoading() {
+  const t = useOwnerT('owner-leads');
   return (
     <div className="flex-1 flex items-center justify-center text-white/50">
       <Loader2 className="h-5 w-5 animate-spin mr-2" />
-      Loading…
+      {t('drawer.loading', 'Loading…')}
     </div>
   );
 }
 
 function DrawerError({ message, onClose }: { message: string; onClose: () => void }) {
+  const t = useOwnerT('owner-leads');
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
       <AlertCircle className="h-8 w-8 text-red-400 mb-3" />
-      <div className="text-white font-medium mb-1">Could not load lead</div>
+      <div className="text-white font-medium mb-1">{t('drawer.errTitle', 'Could not load lead')}</div>
       <div className="text-sm text-white/60 mb-4">{message}</div>
       <button
         type="button"
         onClick={onClose}
         className="px-3 py-1.5 rounded-md bg-white/10 text-white text-sm hover:bg-white/20"
       >
-        Close
+        {t('drawer.close', 'Close')}
       </button>
     </div>
   );
 }
 
 function DrawerDeleted({ leadName, onClose }: { leadName: string; onClose: () => void }) {
+  const t = useOwnerT('owner-leads');
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
       <Trash2 className="h-8 w-8 text-white/40 mb-3" />
-      <div className="text-white font-medium mb-1">Lead deleted</div>
+      <div className="text-white font-medium mb-1">{t('drawer.deletedTitle', 'Lead deleted')}</div>
       <div className="text-sm text-white/60 mb-4">
-        &ldquo;{leadName}&rdquo; was removed. Audit history is preserved.
+        {t('drawer.deletedBody', '"{{name}}" was removed. Audit history is preserved.', { name: leadName })}
       </div>
       <button
         type="button"
         onClick={onClose}
         className="px-3 py-1.5 rounded-md bg-white/10 text-white text-sm hover:bg-white/20"
       >
-        Close
+        {t('drawer.close', 'Close')}
       </button>
     </div>
   );

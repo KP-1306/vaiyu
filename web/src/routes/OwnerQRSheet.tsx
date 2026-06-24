@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import SEO from "../components/SEO";
 import { getHotel } from "../lib/api";
+import { useOwnerT } from "../i18n/useOwnerT";
 
 type Hotel = {
   slug: string;
@@ -13,6 +14,7 @@ const COPIES = 6; // how many QR labels per page
 
 export default function OwnerQRSheet() {
   const { slug = "" } = useParams();
+  const t = useOwnerT("owner-qr");
   const [hotel, setHotel] = useState<Hotel | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -34,7 +36,7 @@ export default function OwnerQRSheet() {
         });
       } catch (e: any) {
         if (cancelled) return;
-        setErr(e?.message || "Failed to load hotel");
+        setErr(e?.message || t("err.generic", "Failed to load hotel"));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -73,30 +75,28 @@ export default function OwnerQRSheet() {
 
   return (
     <>
-      <SEO title="QR Sheet – Guest Menu" noIndex />
+      <SEO title={t("seo.title", "QR Sheet – Guest Menu")} noIndex />
 
       <main className="max-w-5xl mx-auto p-4 space-y-4 print:p-2">
         {/* Header (hidden on print if you style .print:hidden globally) */}
         <header className="flex items-center justify-between gap-3 print:hidden">
           <div>
-            <h1 className="text-xl font-semibold">QR Sheet for Guest Menu</h1>
+            <h1 className="text-xl font-semibold">{t("header.title", "QR Sheet for Guest Menu")}</h1>
             <p className="text-sm text-gray-600">
-              Property: <b>{hotelName}</b>{" "}
+              {t("header.property", "Property:")} <b>{hotelName}</b>{" "}
               {hotel?.address && <span> • {hotel.address}</span>}
             </p>
             <p className="text-xs text-gray-500 mt-1">
-              Print this sheet, cut the cards and place them in rooms / at
-              reception. Scanning opens the VAiyu-powered guest menu for this
-              property.
+              {t("header.desc", "Print this sheet, cut the cards and place them in rooms / at reception. Scanning opens the VAiyu-powered guest menu for this property.")}
             </p>
           </div>
           <button className="btn btn-light" onClick={handlePrint}>
-            Print
+            {t("header.print", "Print")}
           </button>
         </header>
 
         {loading && (
-          <div className="text-gray-500 print:hidden">Loading hotel…</div>
+          <div className="text-gray-500 print:hidden">{t("state.loading", "Loading hotel…")}</div>
         )}
 
         {err && !loading && (
@@ -116,13 +116,11 @@ export default function OwnerQRSheet() {
                   style={{ pageBreakInside: "avoid" }}
                 >
                   <div className="text-xs text-gray-600 mb-2">
-                    Scan for{" "}
-                    <span className="font-semibold">{hotelName}</span> services
-                    &amp; menu
+                    {t("card.scanFor", "Scan for {{name}} services & menu", { name: hotelName })}
                   </div>
                   <img
                     src={qrSrc}
-                    alt="QR code for guest menu"
+                    alt={t("card.scanFor", "Scan for {{name}} services & menu", { name: hotelName })}
                     className="mb-2"
                   />
                   <div className="text-[11px] text-gray-700 leading-snug">
@@ -131,7 +129,7 @@ export default function OwnerQRSheet() {
                       <div className="text-[10px]">{hotel.address}</div>
                     )}
                     <div className="mt-1 text-[10px] text-gray-500">
-                      Powered by <span className="font-semibold">VAiyu</span>
+                      {t("card.poweredBy", "Powered by VAiyu")}
                     </div>
                   </div>
                 </div>
@@ -140,7 +138,7 @@ export default function OwnerQRSheet() {
 
             {/* Tiny footer note for print */}
             <p className="text-[10px] text-gray-400 mt-4 text-right">
-              Guest menu link:{" "}
+              {t("footer.guestLink", "Guest menu link:")}{" "}
               <span className="underline break-all">{shareUrl}</span>
             </p>
           </section>
@@ -149,8 +147,7 @@ export default function OwnerQRSheet() {
         {/* Fallback if slug/URL missing */}
         {!loading && !err && !shareUrl && (
           <div className="text-sm text-gray-600">
-            Missing hotel slug. Open this page as{" "}
-            <code>/owner/&lt;slug&gt;/qr</code>.
+            {t("err.missingSlug", "Missing hotel slug. Open this page as /owner/<slug>/qr.")}
           </div>
         )}
       </main>

@@ -6,6 +6,7 @@
 
 import { useEffect } from 'react';
 import { AlertTriangle, X } from 'lucide-react';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   open: boolean;
@@ -19,6 +20,7 @@ interface Props {
 export function ReattestConfirmDialog({
   open, signalLabel, verifiedAtIso, busy, onCancel, onConfirm,
 }: Props) {
+  const t = useOwnerT('owner-visibility');
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
@@ -32,7 +34,7 @@ export function ReattestConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-black/60 px-4"
+      className="vaiyu-owner fixed inset-0 z-50 grid place-items-center bg-black/60 px-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="reattest-dialog-title"
@@ -44,7 +46,7 @@ export function ReattestConfirmDialog({
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" aria-hidden />
           <div className="min-w-0 flex-1">
             <h2 id="reattest-dialog-title" className="text-[14px] font-semibold text-slate-100">
-              Replace manager verification?
+              {t('reattestDialog.title', 'Replace manager verification?')}
             </h2>
             <p className="mt-0.5 text-[12px] text-slate-400">
               <span className="text-slate-300">{signalLabel}</span>
@@ -54,18 +56,18 @@ export function ReattestConfirmDialog({
             type="button"
             onClick={onCancel}
             className="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-            aria-label="Close"
+            aria-label={t('reattestDialog.closeAriaLabel', 'Close')}
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
         <p className="mt-3 text-[12px] text-slate-300">
-          This signal is currently <strong className="text-emerald-300">verified by a manager</strong>
           {verifiedAtIso
-            ? <> on <strong>{new Date(verifiedAtIso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</strong>.</>
-            : '.'} Re-attesting will clear that verification and the credit will drop to <strong>50%</strong>
-          until a manager confirms the new evidence.
+            ? t('reattestDialog.bodyWithDate', 'This signal is currently verified by a manager on {{date}}. Re-attesting will clear that verification and the credit will drop to 50% until a manager confirms the new evidence.', {
+                date: new Date(verifiedAtIso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+              })
+            : t('reattestDialog.bodyNoDate', 'This signal is currently verified by a manager. Re-attesting will clear that verification and the credit will drop to 50% until a manager confirms the new evidence.')}
         </p>
 
         <div className="mt-4 flex items-center justify-end gap-2">
@@ -74,7 +76,7 @@ export function ReattestConfirmDialog({
             onClick={onCancel}
             className="rounded border border-slate-700 px-3 py-1.5 text-[12px] text-slate-200 hover:bg-slate-800"
           >
-            Keep verification
+            {t('reattestDialog.keepVerification', 'Keep verification')}
           </button>
           <button
             type="button"
@@ -83,7 +85,7 @@ export function ReattestConfirmDialog({
             className="rounded bg-amber-500/20 px-3 py-1.5 text-[12px] text-amber-200 hover:bg-amber-500/30 disabled:opacity-50"
             data-testid="reattest-dialog-confirm"
           >
-            {busy ? 'Updating…' : 'Replace verification'}
+            {busy ? t('reattestDialog.replacing', 'Updating…') : t('reattestDialog.replace', 'Replace verification')}
           </button>
         </div>
       </div>

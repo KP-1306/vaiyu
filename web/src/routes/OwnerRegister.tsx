@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { API } from "../lib/api";
 import { supabase } from "../lib/supabase";
+import { useOwnerT } from "../i18n/useOwnerT";
 
 // Lightweight country suggestions without shipping a big dataset
 const SUGGESTED_COUNTRIES = [
@@ -39,6 +40,7 @@ type FormState = {
 
 export default function OwnerRegister() {
   const navigate = useNavigate();
+  const t = useOwnerT("owner-register");
 
   const [form, setForm] = useState<FormState>({
     property_name: "",
@@ -86,23 +88,23 @@ export default function OwnerRegister() {
   }
 
   function validate(): string | null {
-    if (!form.property_name.trim()) return "Property name is required.";
-    if (!form.property_type) return "Property type is required.";
-    if (!form.city.trim()) return "City is required.";
-    if (!form.country.trim()) return "Country is required.";
-    if (!form.contact_name.trim()) return "Owner / Primary contact name is required.";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contact_email)) return "Enter a valid email address.";
-    if (!/^\+?[0-9\-\s()]{7,20}$/.test(form.contact_phone)) return "Enter a valid phone number.";
-    if (form.map_link && !/^https?:\/\//i.test(form.map_link)) return "Google Map link must start with http or https.";
+    if (!form.property_name.trim()) return t("err.propertyNameRequired", "Property name is required.");
+    if (!form.property_type) return t("err.propertyTypeRequired", "Property type is required.");
+    if (!form.city.trim()) return t("err.cityRequired", "City is required.");
+    if (!form.country.trim()) return t("err.countryRequired", "Country is required.");
+    if (!form.contact_name.trim()) return t("err.contactNameRequired", "Owner / Primary contact name is required.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contact_email)) return t("err.emailInvalid", "Enter a valid email address.");
+    if (!/^\+?[0-9\-\s()]{7,20}$/.test(form.contact_phone)) return t("err.phoneInvalid", "Enter a valid phone number.");
+    if (form.map_link && !/^https?:\/\//i.test(form.map_link)) return t("err.mapLinkInvalid", "Google Map link must start with http or https.");
 
     for (const link of form.links) {
       if (!link) continue; // allow empty optional rows
-      if (!/^https?:\/\//i.test(link)) return "Each website/Instagram link must start with http or https.";
+      if (!/^https?:\/\//i.test(link)) return t("err.linkInvalid", "Each website/Instagram link must start with http or https.");
     }
 
-    if (coverFile && coverFile.size > MAX_IMAGE_BYTES) return "Cover image must be ≤ 3 MB.";
+    if (coverFile && coverFile.size > MAX_IMAGE_BYTES) return t("err.imageTooLarge", "Cover image must be ≤ 3 MB.");
     if (coverFile && !/^image\/(png|jpe?g|webp)$/i.test(coverFile.type))
-      return "Cover image must be PNG, JPG, or WEBP.";
+      return t("err.imageType", "Cover image must be PNG, JPG, or WEBP.");
     return null;
   }
 
@@ -172,10 +174,10 @@ export default function OwnerRegister() {
         } else {
           detail = await res.text().catch(() => "");
         }
-        throw new Error(detail || `Could not submit application (HTTP ${res.status})`);
+        throw new Error(detail || t("err.submitFailed", "Could not submit application (HTTP {{status}})", { status: res.status }));
       }
 
-      setOk("Thanks! We’ve received your property details. Our team will review and contact you soon.");
+      setOk(t("ok.submitted", "Thanks! We've received your property details. Our team will review and contact you soon."));
       setSubmitted(true);
 
       // Optional reset (UI stays locked)
@@ -198,7 +200,7 @@ export default function OwnerRegister() {
       }
       // navigate("/thanks");
     } catch (e: any) {
-      setErr(e?.message || "Something went wrong. Please try again.");
+      setErr(e?.message || t("err.generic", "Something went wrong. Please try again."));
     } finally {
       setSubmitting(false);
     }
@@ -210,15 +212,15 @@ export default function OwnerRegister() {
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <Link to="/" className="text-sm text-slate-600 hover:underline">
-            ← Back home
+            {t("nav.backHome", "← Back home")}
           </Link>
         </div>
 
         <div className="rounded-2xl shadow-sm border bg-white overflow-hidden">
           <div className="px-6 py-5 border-b bg-slate-50">
-            <h1 className="text-2xl font-semibold">Register your property</h1>
+            <h1 className="text-2xl font-semibold">{t("page.title", "Register your property")}</h1>
             <p className="text-sm text-slate-600 mt-1">
-              Tell us a bit about your place. We’ll review and help complete the formalities — fast.
+              {t("page.subtitle", "Tell us a bit about your place. We'll review and help complete the formalities — fast.")}
             </p>
           </div>
 
@@ -231,21 +233,21 @@ export default function OwnerRegister() {
               {/* Property name */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium">
-                  Property name<span className="text-red-500">*</span>
+                  {t("form.propertyName", "Property name")}<span className="text-red-500">*</span>
                 </label>
                 <input
                   className="mt-1 w-full rounded-xl border px-3 py-2"
                   required
                   value={form.property_name}
                   onChange={(e) => update("property_name", e.target.value)}
-                  placeholder="e.g., Lakeview Retreat"
+                  placeholder={t("form.propertyNamePlaceholder", "e.g., Lakeview Retreat")}
                 />
               </div>
 
               {/* Property type */}
               <div>
                 <label className="block text-sm font-medium">
-                  Property type<span className="text-red-500">*</span>
+                  {t("form.propertyType", "Property type")}<span className="text-red-500">*</span>
                 </label>
                 <select
                   className="mt-1 w-full rounded-xl border px-3 py-2 bg-white"
@@ -254,7 +256,7 @@ export default function OwnerRegister() {
                   onChange={(e) => update("property_type", e.target.value as PropertyType)}
                 >
                   <option value="" disabled>
-                    Choose type
+                    {t("form.propertyTypeDefault", "Choose type")}
                   </option>
                   {PROPERTY_TYPES.map((t) => (
                     <option key={t} value={t}>
@@ -267,21 +269,21 @@ export default function OwnerRegister() {
               {/* City */}
               <div>
                 <label className="block text-sm font-medium">
-                  City<span className="text-red-500">*</span>
+                  {t("form.city", "City")}<span className="text-red-500">*</span>
                 </label>
                 <input
                   className="mt-1 w-full rounded-xl border px-3 py-2"
                   required
                   value={form.city}
                   onChange={(e) => update("city", e.target.value)}
-                  placeholder="e.g., Nainital"
+                  placeholder={t("form.cityPlaceholder", "e.g., Nainital")}
                 />
               </div>
 
               {/* Country */}
               <div>
                 <label className="block text-sm font-medium">
-                  Country<span className="text-red-500">*</span>
+                  {t("form.country", "Country")}<span className="text-red-500">*</span>
                 </label>
                 <input
                   list="countries"
@@ -289,7 +291,7 @@ export default function OwnerRegister() {
                   required
                   value={form.country}
                   onChange={(e) => update("country", e.target.value)}
-                  placeholder="e.g., India"
+                  placeholder={t("form.countryPlaceholder", "e.g., India")}
                 />
                 <datalist id="countries">
                   {SUGGESTED_COUNTRIES.map((c) => (
@@ -300,7 +302,7 @@ export default function OwnerRegister() {
 
               {/* Google Map link */}
               <div>
-                <label className="block text-sm font-medium">Google Map link</label>
+                <label className="block text-sm font-medium">{t("form.mapLink", "Google Map link")}</label>
                 <input
                   className="mt-1 w-full rounded-xl border px-3 py-2"
                   inputMode="url"
@@ -313,21 +315,21 @@ export default function OwnerRegister() {
               {/* Contact name */}
               <div>
                 <label className="block text-sm font-medium">
-                  Owner / Primary contact name<span className="text-red-500">*</span>
+                  {t("form.contactName", "Owner / Primary contact name")}<span className="text-red-500">*</span>
                 </label>
                 <input
                   className="mt-1 w-full rounded-xl border px-3 py-2"
                   required
                   value={form.contact_name}
                   onChange={(e) => update("contact_name", e.target.value)}
-                  placeholder="Your full name"
+                  placeholder={t("form.contactNamePlaceholder", "Your full name")}
                 />
               </div>
 
               {/* Email */}
               <div>
                 <label className="block text-sm font-medium">
-                  Email<span className="text-red-500">*</span>
+                  {t("form.email", "Email")}<span className="text-red-500">*</span>
                 </label>
                 <input
                   type="email"
@@ -335,14 +337,14 @@ export default function OwnerRegister() {
                   required
                   value={form.contact_email}
                   onChange={(e) => update("contact_email", e.target.value)}
-                  placeholder="name@company.com"
+                  placeholder={t("form.emailPlaceholder", "name@company.com")}
                 />
               </div>
 
               {/* Phone */}
               <div>
                 <label className="block text-sm font-medium">
-                  Phone<span className="text-red-500">*</span>
+                  {t("form.phone", "Phone")}<span className="text-red-500">*</span>
                 </label>
                 <input
                   className="mt-1 w-full rounded-xl border px-3 py-2"
@@ -351,16 +353,16 @@ export default function OwnerRegister() {
                   inputMode="tel"
                   autoComplete="tel"
                   pattern={"^\\+?[0-9\\s()\\-]{7,20}$"}
-                  title="Phone number: optional '+' then 7–20 digits/spaces/()/-"
+                  title={t("form.phoneTitle", "Phone number: optional '+' then 7–20 digits/spaces/()/-")}
                   value={form.contact_phone}
                   onChange={(e) => update("contact_phone", e.target.value)}
-                  placeholder="e.g., +91 98765 43210"
+                  placeholder={t("form.phonePlaceholder", "e.g., +91 98765 43210")}
                 />
               </div>
 
               {/* Room count */}
               <div>
-                <label className="block text-sm font-medium">Approx. room count</label>
+                <label className="block text-sm font-medium">{t("form.roomCount", "Approx. room count")}</label>
                 <input
                   type="number"
                   min={0}
@@ -369,13 +371,13 @@ export default function OwnerRegister() {
                   onChange={(e) =>
                     update("room_count", e.target.value === "" ? "" : Number(e.target.value))
                   }
-                  placeholder="e.g., 24"
+                  placeholder={t("form.roomCountPlaceholder", "e.g., 24")}
                 />
               </div>
 
               {/* Links */}
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium">Property website / page / Instagram URL(s)</label>
+                <label className="block text-sm font-medium">{t("form.links", "Property website / page / Instagram URL(s)")}</label>
                 <div className="space-y-2 mt-1">
                   {form.links.map((link, i) => (
                     <div key={i} className="flex gap-2 items-center">
@@ -392,20 +394,20 @@ export default function OwnerRegister() {
                           onClick={() => removeLink(i)}
                           className="px-3 py-2 rounded-xl border text-slate-700"
                         >
-                          Remove
+                          {t("form.removeLink", "Remove")}
                         </button>
                       )}
                     </div>
                   ))}
                   <button type="button" onClick={addLink} className="text-sm underline">
-                    + Add another link
+                    {t("form.addLink", "+ Add another link")}
                   </button>
                 </div>
               </div>
 
               {/* Cover image */}
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium">Property cover image (upload)</label>
+                <label className="block text-sm font-medium">{t("form.coverImage", "Property cover image (upload)")}</label>
                 <input
                   type="file"
                   accept="image/png,image/jpeg,image/webp"
@@ -413,7 +415,7 @@ export default function OwnerRegister() {
                   onChange={(e) => {
                     const file = e.target.files?.[0] || null;
                     if (file && file.size > MAX_IMAGE_BYTES) {
-                      setErr("Cover image must be ≤ 3 MB.");
+                      setErr(t("err.imageTooLarge", "Cover image must be ≤ 3 MB."));
                       e.currentTarget.value = "";
                       return;
                     }
@@ -426,11 +428,11 @@ export default function OwnerRegister() {
                   <div className="mt-2">
                     <img
                       src={coverPreview}
-                      alt="Cover preview"
+                      alt={t("form.coverPreviewAlt", "Cover preview")}
                       className="h-28 rounded-lg border object-cover"
                     />
                     <p className="text-xs text-slate-500 mt-1">
-                      Preview only — final will be uploaded on submit.
+                      {t("form.coverPreviewNote", "Preview only — final will be uploaded on submit.")}
                     </p>
                   </div>
                 )}
@@ -444,10 +446,10 @@ export default function OwnerRegister() {
                 type="submit"
                 disabled={submitting || submitted}
               >
-                {submitted ? "Submitted" : submitting ? "Submitting…" : "Submit for approval"}
+                {submitted ? t("form.submittedBtn", "Submitted") : submitting ? t("form.submittingBtn", "Submitting…") : t("form.submitBtn", "Submit for approval")}
               </button>
               <p className="text-xs text-slate-500 mt-2 text-center">
-                By submitting, you agree that a VAiyu specialist may contact you to verify details.
+                {t("form.consent", "By submitting, you agree that a VAiyu specialist may contact you to verify details.")}
               </p>
             </div>
           </form>
@@ -456,11 +458,11 @@ export default function OwnerRegister() {
         {/* Footer nav */}
         <div className="text-sm text-slate-600 mt-4 flex items-center gap-3">
           <Link to="/" className="underline">
-            Go back
+            {t("nav.goBack", "Go back")}
           </Link>
           <span aria-hidden>•</span>
           <button onClick={() => navigate(-1)} className="underline">
-            Previous page
+            {t("nav.previousPage", "Previous page")}
           </button>
         </div>
       </section>

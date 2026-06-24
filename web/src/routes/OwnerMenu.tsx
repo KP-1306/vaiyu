@@ -15,6 +15,7 @@ import { supabase } from "../lib/supabase";
 import OwnerGate from "../components/OwnerGate";
 import SEO from "../components/SEO";
 import Spinner from "../components/Spinner";
+import { OwnerLangToggle } from "../i18n/OwnerLangToggle";
 import OwnerMenuManagement from "../components/OwnerMenuManagement";
 
 type Hotel = {
@@ -65,7 +66,7 @@ function OwnerMenuInner() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Same breadcrumb header as Services & SLAs for a consistent console feel */}
-      <header className="flex h-10 items-center border-b border-white/10 bg-[#1A2040] px-4 shadow-sm shrink-0">
+      <header className="flex h-10 items-center justify-between border-b border-white/10 bg-[#1A2040] px-4 shadow-sm shrink-0">
         <div className="flex items-center gap-2 text-xs">
           <Link
             to={slug ? `/owner/${slug}` : "/owner"}
@@ -76,6 +77,7 @@ function OwnerMenuInner() {
           <span className="text-slate-600">›</span>
           <span className="font-semibold text-white">Food Menu</span>
         </div>
+        <OwnerLangToggle />
       </header>
 
       {/* Same dark gradient background as the rest of the owner console */}

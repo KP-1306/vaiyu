@@ -12,6 +12,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, ClipboardList, Compass, RotateCcw } from 'lucide-react';
 
 import { supabase } from '../../lib/supabase';
+import { useOwnerT } from '../../i18n/useOwnerT';
 import {
   OTA_DISCLAIMER_EN,
   OTA_DISCLAIMER_HI,
@@ -44,6 +45,7 @@ interface HotelRow {
 
 export default function OTAOptimizer() {
   const { slug = '' } = useParams<{ slug: string }>();
+  const t = useOwnerT('owner-ota');
   const [forceWizard, setForceWizard] = useState(false);
   const [drilldown, setDrilldown] = useState<{ ota: OTAPlatform; category: OTAReadinessCategory } | null>(null);
   const [resetAllBusy, setResetAllBusy] = useState(false);
@@ -51,9 +53,9 @@ export default function OTAOptimizer() {
 
   if (!OTA_LISTING_OPTIMIZER_V0_ENABLED) {
     return (
-      <div className="min-h-screen bg-[#0B0E14] p-6 text-slate-300">
-        OTA Listing Optimizer is disabled.
-      </div>
+      <main className="vaiyu-owner min-h-screen bg-[#0B0E14] p-6 text-slate-300">
+        {t('page.title', 'OTA Listing Optimizer')} is disabled.
+      </main>
     );
   }
 
@@ -122,7 +124,7 @@ export default function OTAOptimizer() {
 
   async function handleResetAll() {
     if (!hotelId) return;
-    if (!window.confirm('Reset ALL OTA Optimizer state for every OTA? This deletes all status history for this hotel.')) {
+    if (!window.confirm(t('confirm.resetAll', 'Reset ALL OTA Optimizer state for every OTA? This deletes all status history for this hotel.'))) {
       return;
     }
     setResetError(null);
@@ -135,14 +137,14 @@ export default function OTAOptimizer() {
       stateQ.refetch();
     } catch (e) {
       const code = e instanceof OTAServiceError ? e.code : null;
-      setResetError(friendlyOtaError(code, 'Could not reset OTA Optimizer state.'));
+      setResetError(friendlyOtaError(code, t('error.loadFailed', 'Could not reset OTA Optimizer state.')));
     } finally {
       setResetAllBusy(false);
     }
   }
 
   return (
-    <div className="min-h-screen bg-[#0B0E14]">
+    <main className="vaiyu-owner min-h-screen bg-[#0B0E14]">
       <div className="mx-auto max-w-6xl p-4 md:p-6 space-y-4">
         {/* Header */}
         <header className="flex items-start justify-between gap-3">
@@ -151,11 +153,11 @@ export default function OTAOptimizer() {
               to={`/owner/${slug}`}
               className="inline-flex items-center gap-1 text-[12px] text-slate-400 hover:text-slate-200"
             >
-              <ArrowLeft className="h-3 w-3" /> Back to dashboard
+              <ArrowLeft className="h-3 w-3" /> {t('nav.back', 'Back to dashboard')}
             </Link>
             <h1 className="mt-2 text-lg font-semibold text-slate-100 flex items-center gap-2">
               <Compass className="h-5 w-5 text-sky-300" />
-              OTA Listing Optimizer
+              {t('page.title', 'OTA Listing Optimizer')}
               <span className="inline-flex items-center rounded-md border border-sky-500/40 bg-sky-500/15 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-sky-200">
                 v0
               </span>
@@ -170,7 +172,7 @@ export default function OTAOptimizer() {
               className="inline-flex items-center gap-1 rounded-md border border-sky-500/40 bg-sky-500/10 px-2 py-1 text-[12px] text-sky-200 hover:bg-sky-500/20"
             >
               <ClipboardList className="h-3 w-3" />
-              Re-run setup
+              {t('action.rerunSetup', 'Re-run setup')}
             </button>
             <button
               type="button"
@@ -179,7 +181,7 @@ export default function OTAOptimizer() {
               className="inline-flex items-center gap-1 rounded-md border border-rose-500/40 bg-rose-500/10 px-2 py-1 text-[12px] text-rose-200 hover:bg-rose-500/20 disabled:opacity-60"
             >
               <RotateCcw className="h-3 w-3" />
-              Reset all
+              {t('action.resetAll', 'Reset all')}
             </button>
           </div>
         </header>
@@ -193,13 +195,13 @@ export default function OTAOptimizer() {
         {/* Loading / Error / Content */}
         {isLoading && (
           <div className="rounded-2xl border border-slate-800 bg-[#151A25] p-8 text-center text-slate-400">
-            Loading…
+            {t('loading', 'Loading…')}
           </div>
         )}
 
         {isError && !isLoading && (
           <div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-4 text-[13px] text-rose-200">
-            Could not load OTA Optimizer data. Refresh the page.
+            {t('error.loadFailed', 'Could not load OTA Optimizer data. Refresh the page.')}
           </div>
         )}
 
@@ -257,6 +259,6 @@ export default function OTAOptimizer() {
           />
         )}
       </div>
-    </div>
+    </main>
   );
 }

@@ -14,6 +14,7 @@ import { Loader2, Save } from 'lucide-react';
 
 import { updateDripStepTemplate, DripServiceError } from '../../services/dripService';
 import { DRIP_PLACEHOLDERS, type DripStep } from '../../types/drip';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   step: DripStep;
@@ -21,6 +22,7 @@ interface Props {
 }
 
 export function DripStepEditor({ step, onSaved }: Props) {
+  const t = useOwnerT('owner-drip');
   const [subject, setSubject] = useState(step.subject_template);
   const [body, setBody] = useState(step.body_template);
   const [delayHours, setDelayHours] = useState(String(step.delay_hours));
@@ -74,7 +76,7 @@ export function DripStepEditor({ step, onSaved }: Props) {
     <div className="rounded-md border border-slate-800 bg-slate-900/40 p-3">
       <div className="mb-2 flex items-center justify-between">
         <div className="text-[11px] uppercase tracking-wide text-slate-400">
-          Step {step.step_idx + 1} · <code className="text-slate-300">{step.template_code}</code>
+          {t('step.label', 'Step {{n}}', { n: step.step_idx + 1 })} · <code className="text-slate-300">{step.template_code}</code>
         </div>
         <label className="flex items-center gap-1.5 text-[11px] text-slate-300">
           <input
@@ -84,14 +86,14 @@ export function DripStepEditor({ step, onSaved }: Props) {
             disabled={busy}
             className="h-3 w-3 rounded border-slate-600 bg-slate-900"
           />
-          Active
+          {t('step.active', 'Active')}
         </label>
       </div>
 
       <div className="space-y-2">
         <div>
           <label className="mb-1 block text-[10px] uppercase tracking-wider text-slate-500">
-            Send when (hours from subscription start)
+            {t('step.sendWhen', 'Send when (hours from subscription start)')}
           </label>
           <input
             type="number"
@@ -101,11 +103,11 @@ export function DripStepEditor({ step, onSaved }: Props) {
             disabled={busy}
             className="w-32 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-100 focus:border-emerald-400 focus:outline-none"
           />
-          {!delayValid && <p className="mt-0.5 text-[10.5px] text-amber-300">Must be a non-negative number.</p>}
+          {!delayValid && <p className="mt-0.5 text-[10.5px] text-amber-300">{t('step.nonNegative', 'Must be a non-negative number.')}</p>}
         </div>
 
         <div>
-          <label className="mb-1 block text-[10px] uppercase tracking-wider text-slate-500">Subject</label>
+          <label className="mb-1 block text-[10px] uppercase tracking-wider text-slate-500">{t('step.subject', 'Subject')}</label>
           <input
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
@@ -115,7 +117,7 @@ export function DripStepEditor({ step, onSaved }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 block text-[10px] uppercase tracking-wider text-slate-500">Body</label>
+          <label className="mb-1 block text-[10px] uppercase tracking-wider text-slate-500">{t('step.body', 'Body')}</label>
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
@@ -126,7 +128,7 @@ export function DripStepEditor({ step, onSaved }: Props) {
         </div>
 
         <div className="rounded-md border border-slate-800 bg-slate-900/60 px-2 py-1 text-[10.5px] text-slate-500">
-          Available placeholders:{' '}
+          {t('step.placeholders', 'Available placeholders:')}{' '}
           {DRIP_PLACEHOLDERS.map((p, i) => (
             <span key={p}>
               <code className="text-slate-300">{p}</code>
@@ -139,11 +141,11 @@ export function DripStepEditor({ step, onSaved }: Props) {
       <div className="mt-2 flex items-center justify-end gap-2">
         {error && (
           <span className="text-[11px] text-red-300">
-            {dripErrorLabel(error)}
+            {t(`step.error.${error}`, dripErrorLabel(error))}
           </span>
         )}
         {savedAt && !dirty && !busy && (
-          <span className="text-[11px] text-emerald-300">Saved.</span>
+          <span className="text-[11px] text-emerald-300">{t('step.saved', 'Saved.')}</span>
         )}
         <button
           type="button"
@@ -152,7 +154,7 @@ export function DripStepEditor({ step, onSaved }: Props) {
           className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-[11.5px] font-medium text-emerald-200 hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {busy ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <Save className="h-3 w-3" aria-hidden />}
-          Save step
+          {t('step.saveStep', 'Save step')}
         </button>
       </div>
     </div>

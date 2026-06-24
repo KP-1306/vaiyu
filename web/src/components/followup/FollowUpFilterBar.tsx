@@ -18,6 +18,7 @@ import {
   STATUS_LABEL,
   STATUS_OPTIONS,
 } from '../../config/followUpRadar';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 export interface RadarFilters {
   categories: FollowUpCategory[];
@@ -53,6 +54,7 @@ export function FollowUpFilterBar({
   totalShown,
   totalAll,
 }: Props) {
+  const t = useOwnerT('owner-followup');
   const hasActive =
     filters.categories.length > 0 ||
     filters.statuses.length > 0 ||
@@ -62,8 +64,7 @@ export function FollowUpFilterBar({
     <div className="rounded-2xl border border-slate-800 bg-[#0F1320] p-4 space-y-3">
       <div className="flex items-center justify-between gap-3">
         <div className="text-xs text-slate-400">
-          Showing <span className="text-slate-100 font-semibold">{totalShown}</span> of{' '}
-          <span className="text-slate-100 font-semibold">{totalAll}</span> follow-ups
+          {t('filterBar.showing', 'Showing {{shown}} of {{all}} follow-ups', { shown: totalShown, all: totalAll })}
         </div>
         {hasActive && (
           <button
@@ -72,14 +73,14 @@ export function FollowUpFilterBar({
             className="inline-flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800/60 px-2 py-1 text-[11px] text-slate-200 hover:bg-slate-800"
           >
             <X className="h-3 w-3" aria-hidden />
-            Clear filters
+            {t('filterBar.clearFilters', 'Clear filters')}
           </button>
         )}
       </div>
 
       <div>
         <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
-          Category
+          {t('filterBar.category', 'Category')}
         </div>
         <div className="flex flex-wrap gap-1.5">
           {CATEGORY_OPTIONS.map((c) => (
@@ -89,7 +90,7 @@ export function FollowUpFilterBar({
               onClick={() => onChange({ ...filters, categories: toggle(filters.categories, c) })}
               className={pillClass(filters.categories.includes(c))}
             >
-              {CATEGORY_LABEL[c]}
+              {t(`category.${c}`, CATEGORY_LABEL[c])}
             </button>
           ))}
         </div>
@@ -97,7 +98,7 @@ export function FollowUpFilterBar({
 
       <div>
         <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
-          Status
+          {t('filterBar.status', 'Status')}
         </div>
         <div className="flex flex-wrap gap-1.5">
           {STATUS_OPTIONS.map((s) => (
@@ -107,7 +108,7 @@ export function FollowUpFilterBar({
               onClick={() => onChange({ ...filters, statuses: toggle(filters.statuses, s) })}
               className={pillClass(filters.statuses.includes(s))}
             >
-              {STATUS_LABEL[s]}
+              {t(`status.${s}`, STATUS_LABEL[s])}
             </button>
           ))}
         </div>
@@ -115,7 +116,7 @@ export function FollowUpFilterBar({
 
       <div>
         <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
-          Priority
+          {t('filterBar.priority', 'Priority')}
         </div>
         <div className="flex flex-wrap gap-1.5">
           {PRIORITY_OPTIONS.map((p) => (
@@ -125,7 +126,7 @@ export function FollowUpFilterBar({
               onClick={() => onChange({ ...filters, priorities: toggle(filters.priorities, p) })}
               className={pillClass(filters.priorities.includes(p))}
             >
-              {PRIORITY_LABEL[p]}
+              {t(`priority.${p}`, PRIORITY_LABEL[p])}
             </button>
           ))}
         </div>

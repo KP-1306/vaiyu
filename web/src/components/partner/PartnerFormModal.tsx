@@ -21,6 +21,7 @@ import {
   type PartnerCategory,
   type PartnerKind,
 } from '../../types/partner';
+import { useOwnerT, type OwnerT } from '../../i18n/useOwnerT';
 
 interface CreateProps {
   open: boolean;
@@ -113,6 +114,7 @@ function splitChips(raw: string): string[] {
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 export function PartnerFormModal(props: Props) {
+  const t = useOwnerT('owner-partner');
   const nameId      = useId();
   const categoryId  = useId();
   const phoneId     = useId();
@@ -223,14 +225,14 @@ export function PartnerFormModal(props: Props) {
     }
   };
 
-  const title = props.mode === 'create' ? 'Add partner' : 'Edit partner';
+  const title = props.mode === 'create' ? t('form.addTitle', 'Add partner') : t('form.editTitle', 'Edit partner');
 
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby={`${nameId}-title`}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-3 py-6"
+      className="vaiyu-owner fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-3 py-6"
       onClick={(e) => {
         if (e.target === e.currentTarget && !busy) props.onClose();
       }}
@@ -242,7 +244,7 @@ export function PartnerFormModal(props: Props) {
             type="button"
             onClick={props.onClose}
             disabled={busy}
-            aria-label="Close"
+            aria-label={t('form.closeAriaLabel', 'Close')}
             className="text-slate-400 hover:text-slate-100 disabled:opacity-50"
           >
             <X className="h-4 w-4" />
@@ -265,14 +267,14 @@ export function PartnerFormModal(props: Props) {
                       : 'rounded-md border border-slate-700 bg-slate-800/50 px-3 py-2 text-xs text-slate-300 hover:bg-slate-800'
                   }
                 >
-                  {k === 'AGENT' ? 'Agent (commissionable booker)' : 'Vendor (operational supplier)'}
+                  {k === 'AGENT' ? t('kind.agentDescriptor', 'Agent (commissionable booker)') : t('kind.vendorDescriptor', 'Vendor (operational supplier)')}
                 </button>
               ))}
             </div>
           )}
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <FormField id={nameId} label="Partner name" required>
+            <FormField id={nameId} label={t('form.partnerName', 'Partner name')} required>
               <input
                 id={nameId}
                 value={form.partnerName}
@@ -283,7 +285,7 @@ export function PartnerFormModal(props: Props) {
               />
             </FormField>
 
-            <FormField id={categoryId} label="Category" required>
+            <FormField id={categoryId} label={t('form.category', 'Category')} required>
               <select
                 id={categoryId}
                 value={form.category}
@@ -292,14 +294,14 @@ export function PartnerFormModal(props: Props) {
                 className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:border-emerald-400 focus:outline-none"
               >
                 {categories.map((c) => (
-                  <option key={c} value={c}>{PARTNER_CATEGORY_LABEL[c]}</option>
+                  <option key={c} value={c}>{t(`category.${c}`, PARTNER_CATEGORY_LABEL[c])}</option>
                 ))}
               </select>
             </FormField>
           </div>
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <FormField id={areaId} label="Service area">
+            <FormField id={areaId} label={t('form.serviceArea', 'Service area')}>
               <input
                 id={areaId}
                 value={form.serviceArea}
@@ -310,7 +312,7 @@ export function PartnerFormModal(props: Props) {
               />
             </FormField>
 
-            <FormField id={priceId} label="Price note (free text)">
+            <FormField id={priceId} label={t('form.priceNote', 'Price note (free text)')}>
               <input
                 id={priceId}
                 value={form.priceNoteText}
@@ -322,7 +324,7 @@ export function PartnerFormModal(props: Props) {
             </FormField>
           </div>
 
-          <FormField id={servicesId} label="Services offered (comma-separated)">
+          <FormField id={servicesId} label={t('form.servicesOffered', 'Services offered (comma-separated)')}>
             <input
               id={servicesId}
               value={form.servicesOfferedRaw}
@@ -333,7 +335,7 @@ export function PartnerFormModal(props: Props) {
             />
           </FormField>
 
-          <FormField id={useCaseId} label="Preferred use case (when to call them)">
+          <FormField id={useCaseId} label={t('form.preferredUseCase', 'Preferred use case (when to call them)')}>
             <input
               id={useCaseId}
               value={form.preferredUseCase}
@@ -352,13 +354,13 @@ export function PartnerFormModal(props: Props) {
               disabled={busy}
               className="h-3.5 w-3.5 rounded border-slate-600 bg-slate-900"
             />
-            Emergency availability (responds outside business hours)
+            {t('form.emergency', 'Emergency availability (responds outside business hours)')}
           </label>
 
           <div className="border-t border-slate-800 pt-3">
-            <p className="mb-2 text-[11px] uppercase tracking-wide text-slate-400">Contact</p>
+            <p className="mb-2 text-[11px] uppercase tracking-wide text-slate-400">{t('form.contactSection', 'Contact')}</p>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <FormField id="contact-name" label="Contact person">
+              <FormField id="contact-name" label={t('form.contactPerson', 'Contact person')}>
                 <input
                   value={form.contactName}
                   onChange={(e) => setForm((f) => ({ ...f, contactName: e.target.value }))}
@@ -366,7 +368,7 @@ export function PartnerFormModal(props: Props) {
                   className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:border-emerald-400 focus:outline-none"
                 />
               </FormField>
-              <FormField id={emailId} label="Email">
+              <FormField id={emailId} label={t('form.email', 'Email')}>
                 <input
                   id={emailId}
                   type="email"
@@ -376,10 +378,10 @@ export function PartnerFormModal(props: Props) {
                   className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:border-emerald-400 focus:outline-none"
                 />
                 {form.email.trim() && !isEmailValid && (
-                  <p className="mt-1 text-[11px] text-amber-300">Doesn't look like a valid email.</p>
+                  <p className="mt-1 text-[11px] text-amber-300">{t('form.invalidEmail', "Doesn't look like a valid email.")}</p>
                 )}
               </FormField>
-              <FormField id={phoneId} label="Phone (auto-normalised)">
+              <FormField id={phoneId} label={t('form.phone', 'Phone (auto-normalised)')}>
                 <input
                   id={phoneId}
                   type="tel"
@@ -390,7 +392,7 @@ export function PartnerFormModal(props: Props) {
                   className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:border-emerald-400 focus:outline-none"
                 />
               </FormField>
-              <FormField id={altPhoneId} label="Alternate phone">
+              <FormField id={altPhoneId} label={t('form.altPhone', 'Alternate phone')}>
                 <input
                   id={altPhoneId}
                   type="tel"
@@ -406,10 +408,10 @@ export function PartnerFormModal(props: Props) {
           {form.kind === 'AGENT' && (
             <div className="border-t border-slate-800 pt-3">
               <p className="mb-2 text-[11px] uppercase tracking-wide text-amber-300">
-                Agent commission (manual ledger — not auto-paid)
+                {t('form.agentCommission', 'Agent commission (manual ledger — not auto-paid)')}
               </p>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <FormField id={commissionId} label="Default commission %">
+                <FormField id={commissionId} label={t('form.commissionPct', 'Default commission %')}>
                   <input
                     id={commissionId}
                     type="number"
@@ -423,10 +425,10 @@ export function PartnerFormModal(props: Props) {
                     className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:border-emerald-400 focus:outline-none"
                   />
                   {!isCommissionValid && (
-                    <p className="mt-1 text-[11px] text-amber-300">Must be between 0 and 100.</p>
+                    <p className="mt-1 text-[11px] text-amber-300">{t('form.invalidCommission', 'Must be between 0 and 100.')}</p>
                   )}
                 </FormField>
-                <FormField id={payoutId} label="Payout terms">
+                <FormField id={payoutId} label={t('form.payoutTerms', 'Payout terms')}>
                   <input
                     id={payoutId}
                     value={form.payoutTerms}
@@ -440,7 +442,7 @@ export function PartnerFormModal(props: Props) {
             </div>
           )}
 
-          <FormField id={tagsId} label="Tags (comma-separated)">
+          <FormField id={tagsId} label={t('form.tags', 'Tags (comma-separated)')}>
             <input
               id={tagsId}
               value={form.tagsRaw}
@@ -451,7 +453,7 @@ export function PartnerFormModal(props: Props) {
             />
           </FormField>
 
-          <FormField id={notesId} label="Internal notes">
+          <FormField id={notesId} label={t('form.internalNotes', 'Internal notes')}>
             <textarea
               id={notesId}
               value={form.notes}
@@ -464,7 +466,7 @@ export function PartnerFormModal(props: Props) {
 
           {errorCode && (
             <div role="alert" className="rounded-md border border-red-700/60 bg-red-900/20 px-3 py-2 text-xs text-red-200">
-              {partnerErrorLabel(errorCode)}
+              {partnerErrorLabel(errorCode, t)}
             </div>
           )}
         </div>
@@ -476,7 +478,7 @@ export function PartnerFormModal(props: Props) {
             disabled={busy}
             className="rounded-md border border-slate-700 px-3.5 py-1.5 text-xs text-slate-300 hover:bg-slate-800 disabled:opacity-50"
           >
-            Cancel
+            {t('form.cancel', 'Cancel')}
           </button>
           <button
             type="button"
@@ -486,7 +488,7 @@ export function PartnerFormModal(props: Props) {
             className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/90 px-4 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
-            {busy ? 'Saving…' : (props.mode === 'create' ? 'Add partner' : 'Save changes')}
+            {busy ? t('form.saving', 'Saving…') : (props.mode === 'create' ? t('form.add', 'Add partner') : t('form.save', 'Save changes'))}
           </button>
         </div>
       </div>
@@ -515,17 +517,18 @@ function FormField({
   );
 }
 
-function partnerErrorLabel(code: string): string {
+function partnerErrorLabel(code: string, t?: OwnerT): string {
+  const tr = (key: string, en: string) => (t ? t(key, en) : en);
   switch (code) {
-    case 'NAME_REQUIRED':                  return 'Partner name is required.';
-    case 'INVALID_CATEGORY':               return 'Pick a valid category for this kind.';
-    case 'INVALID_KIND':                   return 'Pick Vendor or Agent.';
-    case 'INVALID_EMAIL':                  return "That email doesn't look right.";
-    case 'INVALID_COMMISSION_PCT':         return 'Commission must be 0-100.';
-    case 'VENDOR_NO_COMMISSION':           return "Vendor rows can't carry commission. Switch to Agent kind first.";
-    case 'NOT_AUTHORIZED':                 return "You don't have permission to manage partners for this hotel.";
-    case 'ARCHIVED_NOT_EDITABLE':          return 'This partner is archived. Unarchive first.';
-    case 'PARTNER_NOT_FOUND':              return 'Partner no longer exists.';
-    default:                               return 'Save failed. Please try again.';
+    case 'NAME_REQUIRED':        return tr('error.NAME_REQUIRED', 'Partner name is required.');
+    case 'INVALID_CATEGORY':     return tr('error.INVALID_CATEGORY', 'Pick a valid category for this kind.');
+    case 'INVALID_KIND':         return tr('error.INVALID_KIND', 'Pick Vendor or Agent.');
+    case 'INVALID_EMAIL':        return tr('error.INVALID_EMAIL', "That email doesn't look right.");
+    case 'INVALID_COMMISSION_PCT': return tr('error.INVALID_COMMISSION_PCT', 'Commission must be 0-100.');
+    case 'VENDOR_NO_COMMISSION': return tr('error.VENDOR_NO_COMMISSION', "Vendor rows can't carry commission. Switch to Agent kind first.");
+    case 'NOT_AUTHORIZED':       return tr('error.NOT_AUTHORIZED', "You don't have permission to manage partners for this hotel.");
+    case 'ARCHIVED_NOT_EDITABLE': return tr('error.ARCHIVED_NOT_EDITABLE', 'This partner is archived. Unarchive first.');
+    case 'PARTNER_NOT_FOUND':    return tr('error.PARTNER_NOT_FOUND', 'Partner no longer exists.');
+    default:                     return tr('error.UNKNOWN_ERROR', 'Save failed. Please try again.');
   }
 }

@@ -46,6 +46,7 @@ import {
     ArrowLeft
 } from 'lucide-react';
 import { initialsOf } from '../utils/initials';
+import { useOwnerT, useOwnerCommonT, useOwnerLocale } from '../i18n/useOwnerT';
 
 // Staff avatar — shows the uploaded photo when present, otherwise locally
 // rendered initials. Replaces the ui-avatars.com fallback, which shipped each
@@ -140,6 +141,9 @@ interface DashboardData {
 
 export default function OwnerStaffShifts() {
     const { slug } = useParams();
+    const t = useOwnerT("owner-staff-shifts");
+    const tc = useOwnerCommonT();
+    const ownerLocale = useOwnerLocale();
     const [currentDate, setCurrentDate] = useState(new Date());
     const [pulseTime, setPulseTime] = useState(new Date());
     const [hotelId, setHotelId] = useState<string | null>(null);
@@ -156,7 +160,7 @@ export default function OwnerStaffShifts() {
     const showToast = useCallback((message: string, type: 'success' | 'error' | 'warning' = 'success') => {
         const id = ++toastIdRef.current;
         setToasts(prev => [...prev, { id, message, type }]);
-        setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
+        setTimeout(() => setToasts(prev => prev.filter(toast => toast.id !== id)), 3500);
     }, []);
 
     /* ── Role Assignment Modal State ── */
@@ -243,7 +247,7 @@ export default function OwnerStaffShifts() {
 
             if (error) throw error;
 
-            showToast(`${deactivateUserModal.full_name} has been deactivated`, 'success');
+            showToast(t('toast.deactivated', '{{name}} has been deactivated', { name: deactivateUserModal.full_name }), 'success');
             setDeactivateUserModal(null);
             setDeactivateReason("");
             refetchDashboard();
@@ -251,7 +255,7 @@ export default function OwnerStaffShifts() {
         } catch (err: any) {
             console.error(err);
             setDeactivateUserModal(null);
-            showToast(err.message || 'Failed to deactivate user', 'error');
+            showToast(err.message || t('toast.deactivateFailed', 'Failed to deactivate user'), 'error');
         } finally {
             setIsDeactivatingUser(false);
         }
@@ -375,12 +379,12 @@ export default function OwnerStaffShifts() {
 
             if (hErr) {
                 console.error("Hotel fetch error:", hErr);
-                setError("Failed to load property information.");
+                setError(t("err.loadProperty", "Failed to load property information."));
                 setLoading(false);
                 return;
             }
             if (!hotelRow) {
-                setError("Property not found.");
+                setError(t("err.propertyNotFound", "Property not found."));
                 setLoading(false);
                 return;
             }
@@ -513,17 +517,17 @@ export default function OwnerStaffShifts() {
     const handleShiftError = useCallback((e: any) => {
         const msg = (e?.message || e?.details || String(e)).toLowerCase();
         if (msg.includes('version')) {
-            showToast('Shift was updated by another user — refreshing…', 'warning');
+            showToast(t('toast.versionConflict', 'Shift was updated by another user — refreshing…'), 'warning');
         } else if (msg.includes('locked') || msg.includes('lock')) {
-            showToast('Shift is locked by another user', 'error');
+            showToast(t('toast.locked', 'Shift is locked by another user'), 'error');
         } else if (msg.includes('overlap') || msg.includes('exclusion')) {
-            showToast('Shift conflicts with an existing schedule', 'error');
+            showToast(t('toast.overlap', 'Shift conflicts with an existing schedule'), 'error');
         } else if (msg.includes('not found')) {
-            showToast('Shift no longer exists', 'error');
+            showToast(t('toast.notFound', 'Shift no longer exists'), 'error');
         } else if (msg.includes('not editable')) {
-            showToast('Only active scheduled shifts can be edited', 'error');
+            showToast(t('toast.notEditable', 'Only active scheduled shifts can be edited'), 'error');
         } else {
-            showToast(msg || 'Operation failed', 'error');
+            showToast(msg || t('toast.opFailed', 'Operation failed'), 'error');
         }
         refetchDashboard();
     }, [showToast, refetchDashboard]);
@@ -539,7 +543,7 @@ export default function OwnerStaffShifts() {
             opts?.optimisticFn?.();
             const { data: rpcResult, error: rpcErr } = await supabase.rpc(operation, params);
             if (rpcErr) throw rpcErr;
-            if (!opts?.silent) showToast('Operation successful', 'success');
+            if (!opts?.silent) showToast(t('toast.opSuccess', 'Operation successful'), 'success');
             await refetchDashboard();
             return rpcResult;
         } catch (err: any) {
@@ -551,7 +555,7 @@ export default function OwnerStaffShifts() {
                 await refetchDashboard();
                 // Don't auto-retry — the refetch will give the user the latest state.
                 // The toast below guides them to retry manually.
-                showToast('Data refreshed — please try again', 'warning');
+                showToast(t('toast.refreshed', 'Data refreshed — please try again'), 'warning');
                 return null;
             }
             console.error(`Error in ${operation}:`, err);
@@ -568,7 +572,7 @@ export default function OwnerStaffShifts() {
         // Duration guard
         const duration = newEnd.getTime() - newStart.getTime();
         if (duration > 24 * 60 * 60 * 1000 || duration <= 0) {
-            showToast(`Invalid shift duration (${(duration / 3600000).toFixed(1)}h)`, 'error');
+            showToast(t('toast.invalidDuration', 'Invalid shift duration ({{hours}}h)', { hours: (duration / 3600000).toFixed(1) }), 'error');
             return;
         }
         const prevData = data;
@@ -602,7 +606,7 @@ export default function OwnerStaffShifts() {
         // Duration guard
         const duration = newEnd.getTime() - newStart.getTime();
         if (duration > 24 * 60 * 60 * 1000 || duration <= 0) {
-            showToast(`Invalid shift duration (${(duration / 3600000).toFixed(1)}h)`, 'error');
+            showToast(t('toast.invalidDuration', 'Invalid shift duration ({{hours}}h)', { hours: (duration / 3600000).toFixed(1) }), 'error');
             return;
         }
         const prevData = data;
@@ -638,7 +642,7 @@ export default function OwnerStaffShifts() {
     }, [data, handleShiftOperation, userId]);
 
     const handleCancelShift = useCallback((shift: Shift) => {
-        if (!confirm('Are you sure you want to cancel this shift?')) return;
+        if (!confirm(t('confirm.cancelShift', 'Are you sure you want to cancel this shift?'))) return;
         const prevData = data;
         handleShiftOperation('cancel_shift', {
             p_shift_id: shift.shift_id,
@@ -672,7 +676,10 @@ export default function OwnerStaffShifts() {
         const sEnd = new Date(shift.shift_end);
 
         const splitTimeStr = prompt(
-            `Split Shift at what time? (Between ${sStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })} and ${sEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })})`,
+            t('prompt.splitTime', 'Split Shift at what time? (Between {{start}} and {{end}})', {
+                start: sStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
+                end: sEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
+            }),
             new Date(sStart.getTime() + (sEnd.getTime() - sStart.getTime()) / 2).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
         );
 
@@ -684,7 +691,7 @@ export default function OwnerStaffShifts() {
             splitDate.setHours(hours, minutes, 0, 0);
 
             if (splitDate <= sStart || splitDate >= sEnd) {
-                showToast('Split point must be within the shift duration', 'warning');
+                showToast(t('toast.splitRange', 'Split point must be within the shift duration'), 'warning');
                 return;
             }
 
@@ -695,12 +702,12 @@ export default function OwnerStaffShifts() {
                 p_user: userId
             });
         } catch (err) {
-            showToast('Invalid time format. Use HH:MM (24h)', 'error');
+            showToast(t('toast.invalidTime', 'Invalid time format. Use HH:MM (24h)'), 'error');
         }
     }, [handleShiftOperation, userId, showToast]);
 
     const handleRequestOverridePrompt = useCallback(async (shift: Shift) => {
-        const reason = prompt('Why do you need to override this lock?', 'Urgent operational change');
+        const reason = prompt(t('prompt.overrideReason', 'Why do you need to override this lock?'), t('prompt.overrideDefault', 'Urgent operational change'));
         if (!reason) return;
 
         handleShiftOperation('request_shift_override', {
@@ -747,7 +754,7 @@ export default function OwnerStaffShifts() {
                     shift_type: type as any,
                     status: 'scheduled',
                     zone_id: activeZone === 'All Zones' ? null : activeZone,
-                    zone_name: activeZone === 'All Zones' ? 'No Zone' : (hotelZones.find(z => z.id === activeZone)?.name || 'No Zone'),
+                    zone_name: activeZone === 'All Zones' ? t('common.noZone', 'No Zone') : (hotelZones.find(z => z.id === activeZone)?.name || t('common.noZone', 'No Zone')),
                     is_locked: false,
                     locked_by: null,
                     locked_by_name: null,
@@ -795,7 +802,7 @@ export default function OwnerStaffShifts() {
                     shift_type: shiftModalData.type as any,
                     status: 'scheduled',
                     zone_id: shiftModalData.zoneId,
-                    zone_name: hotelZones.find(z => z.id === shiftModalData.zoneId)?.name || 'No Zone',
+                    zone_name: hotelZones.find(z => z.id === shiftModalData.zoneId)?.name || t('common.noZone', 'No Zone'),
                     is_locked: false,
                     locked_by: null,
                     locked_by_name: null,
@@ -843,7 +850,7 @@ export default function OwnerStaffShifts() {
         if (result && Array.isArray(result)) {
             const failures = result.filter(r => r.status !== 'success');
             if (failures.length > 0) {
-                showToast(`Partial success: ${failures.length} conflicts`, 'warning');
+                showToast(t('toast.partialConflicts', 'Partial success: {{count}} conflicts', { count: failures.length }), 'warning');
             }
         }
         setIsBulkModalOpen(false);
@@ -879,16 +886,16 @@ export default function OwnerStaffShifts() {
 
     const handleWeeklyPreview = useCallback(async () => {
         if (!weeklyData.staffId) {
-            showToast('Please select a staff member', 'warning');
+            showToast(t('toast.selectStaff', 'Please select a staff member'), 'warning');
             return;
         }
         if (!weeklyData.rangeStart || !weeklyData.rangeEnd) {
-            showToast('Please select a date range', 'warning');
+            showToast(t('toast.selectRange', 'Please select a date range'), 'warning');
             return;
         }
         const generated = generateWeeklyShifts();
         if (generated.length === 0) {
-            showToast('No shifts to generate — check your days and date range', 'warning');
+            showToast(t('toast.noShiftsGen', 'No shifts to generate — check your days and date range'), 'warning');
             return;
         }
 
@@ -912,7 +919,7 @@ export default function OwnerStaffShifts() {
         setWeeklyApplying(false);
 
         if (!result || !Array.isArray(result)) {
-            showToast('Failed to generate preview', 'error');
+            showToast(t('toast.previewFailed', 'Failed to generate preview'), 'error');
             return;
         }
 
@@ -932,7 +939,7 @@ export default function OwnerStaffShifts() {
         if (!weeklyPreview || weeklyPreview.length === 0) return;
         const nonConflicting = weeklyPreview.filter(p => !p.conflict);
         if (nonConflicting.length === 0) {
-            showToast('All shifts have conflicts — nothing to apply', 'error');
+            showToast(t('toast.allConflicts', 'All shifts have conflicts — nothing to apply'), 'error');
             return;
         }
 
@@ -954,9 +961,9 @@ export default function OwnerStaffShifts() {
             const successes = result.filter(r => r.status === 'success').length;
             const failures = result.filter(r => r.status !== 'success').length;
             if (failures > 0) {
-                showToast(`${successes} shifts created, ${failures} conflicts`, 'warning');
+                showToast(t('toast.someConflicts', '{{created}} shifts created, {{conflicts}} conflicts', { created: successes, conflicts: failures }), 'warning');
             } else {
-                showToast(`${successes} shifts scheduled successfully`, 'success');
+                showToast(t('toast.scheduledOk', '{{count}} shifts scheduled successfully', { count: successes }), 'success');
             }
         }
         setWeeklyApplying(false);
@@ -1033,9 +1040,9 @@ export default function OwnerStaffShifts() {
             const successes = result.filter((r: any) => r.status === 'success').length;
             const failures = result.filter((r: any) => r.status !== 'success').length;
             if (failures > 0) {
-                showToast(`${successes} shifts created, ${failures} conflicts`, 'warning');
+                showToast(t('toast.someConflicts', '{{created}} shifts created, {{conflicts}} conflicts', { created: successes, conflicts: failures }), 'warning');
             } else {
-                showToast(`${successes} shifts scheduled successfully`, 'success');
+                showToast(t('toast.scheduledOk', '{{count}} shifts scheduled successfully', { count: successes }), 'success');
             }
         }
         setSmartApplying(false);
@@ -1136,7 +1143,7 @@ export default function OwnerStaffShifts() {
 
         } catch (err: any) {
             console.error("History fetch error:", err);
-            showToast(err.message || "Failed to load history", 'error');
+            showToast(err.message || t("toast.loadHistory", "Failed to load history"), 'error');
         } finally {
             setHistoryLoading(false);
         }
@@ -1272,7 +1279,7 @@ export default function OwnerStaffShifts() {
             setSelectedRoleIds([]);
         } catch (err: any) {
             console.error("Error fetching modal data:", err);
-            setError("Failed to load role assignment data.");
+            setError(t("err.loadRoleData", "Failed to load role assignment data."));
         } finally {
             setRoleModalLoading(false);
         }
@@ -1306,7 +1313,7 @@ export default function OwnerStaffShifts() {
             const firstInvitable = list.find(r => !OWNER_ROLE_CODES.includes(r.code));
             setInviteForm(f => ({ ...f, roleId: firstInvitable?.id || "" }));
         } catch (e: any) {
-            showToast(e?.message || "Failed to load roles", "error");
+            showToast(e?.message || t("toast.loadRoles", "Failed to load roles"), "error");
         } finally {
             setInviteRolesLoading(false);
         }
@@ -1338,11 +1345,11 @@ export default function OwnerStaffShifts() {
             if (error) throw error;
             const token = (result as any)?.token || (result as any)?.invite?.token || null;
             if (token) setInviteLink(`${window.location.origin}/owner/invite/accept/${token}`);
-            showToast("Invite sent", "success");
+            showToast(t("toast.inviteSent", "Invite sent"), "success");
             setInviteForm(f => ({ ...f, email: "" }));
             await fetchPendingInvites();
         } catch (e: any) {
-            showToast(e?.message || "Failed to send invite", "error");
+            showToast(e?.message || t("toast.inviteFailed", "Failed to send invite"), "error");
         } finally {
             setInviteSaving(false);
         }
@@ -1351,7 +1358,7 @@ export default function OwnerStaffShifts() {
     async function handleRevokeInvite(id: string) {
         const { error } = await supabase.from("hotel_invites").delete().eq("id", id);
         if (error) { showToast(error.message, "error"); return; }
-        showToast("Invite revoked", "success");
+        showToast(t("toast.inviteRevoked", "Invite revoked"), "success");
         await fetchPendingInvites();
     }
 
@@ -1378,7 +1385,7 @@ export default function OwnerStaffShifts() {
 
     async function handleSaveRoleAssignments() {
         if (!selectedMemberId || selectedRoleIds.length === 0) {
-            alert("Please select a user and at least one role.");
+            alert(t("alert.selectUserRole", "Please select a user and at least one role."));
             return;
         }
         setRoleModalSaving(true);
@@ -1442,7 +1449,7 @@ export default function OwnerStaffShifts() {
             setTimeout(() => setSuccess(false), 3000);
         } catch (err: any) {
             console.error("Error saving roles:", err);
-            alert("Failed to save role assignments.");
+            alert(t("alert.saveRolesFailed", "Failed to save role assignments."));
         } finally {
             setRoleModalSaving(false);
         }
@@ -1506,19 +1513,19 @@ export default function OwnerStaffShifts() {
 
     if (loading && !data) {
         return (
-            <div className="flex h-screen items-center justify-center bg-[#0a0a0c]">
-                <Spinner label="Syncing roster..." />
+            <div className="vaiyu-owner flex h-screen items-center justify-center bg-[#0a0a0c]">
+                <Spinner label={t("loading.roster", "Syncing roster...")} />
             </div>
         );
     }
 
     if (error) {
         return (
-            <div className="flex h-screen items-center justify-center bg-[#0a0a0c] p-4 text-center">
+            <div className="vaiyu-owner flex h-screen items-center justify-center bg-[#0a0a0c] p-4 text-center">
                 <div className="glass-card p-8 border border-white/5">
                     <div className="text-4xl mb-4">⚠️</div>
                     <div className="text-lg font-bold text-white mb-2">{error}</div>
-                    <button onClick={() => window.location.reload()} className="text-sm font-black text-indigo-400">Try again</button>
+                    <button onClick={() => window.location.reload()} className="text-sm font-black text-indigo-400">{t("common.tryAgain", "Try again")}</button>
                 </div>
             </div>
         );
@@ -1526,7 +1533,7 @@ export default function OwnerStaffShifts() {
     const { timeline = [], available = [], summary } = data || {};
 
     return (
-        <div className="staff-shifts-dark flex h-screen flex-col overflow-hidden">
+        <div className="vaiyu-owner staff-shifts-dark flex h-screen flex-col overflow-hidden">
             {/* Nav Header */}
             <header className="flex h-14 items-center justify-between border-b border-white/5 bg-black/40 px-8 backdrop-blur-md">
                 <div className="flex items-center gap-4">
@@ -1534,9 +1541,9 @@ export default function OwnerStaffShifts() {
                         <ChevronLeft size={20} />
                     </button>
                     <div className="flex items-center gap-2 text-sm">
-                        <Link to={dashboardLink} className="font-medium text-slate-400 hover:text-white transition-colors">Dashboard</Link>
+                        <Link to={dashboardLink} className="font-medium text-slate-400 hover:text-white transition-colors">{t("crumbDashboard", "Dashboard")}</Link>
                         <span className="text-slate-600">›</span>
-                        <span className="font-bold text-white">Staff & Shifts</span>
+                        <span className="font-bold text-white">{t("crumbStaffShifts", "Staff & Shifts")}</span>
                     </div>
                 </div>
             </header>
@@ -1546,13 +1553,13 @@ export default function OwnerStaffShifts() {
                 {/* LEFT SIDEBAR: Stats & Navigation */}
                 <div className="flex w-72 shrink-0 flex-col gap-6 overflow-y-auto no-scrollbar pr-1 pb-10">
                     <div className="glass-card p-6 border border-white/5">
-                        <h2 className="mb-6 text-xl font-black text-white">Staff Roster</h2>
+                        <h2 className="mb-6 text-xl font-black text-white">{t("sidebar.roster", "Staff Roster")}</h2>
 
                         <div className="mb-6">
-                            <h3 className="mb-2 text-[10px] font-black uppercase tracking-widest text-slate-500">Live Status</h3>
+                            <h3 className="mb-2 text-[10px] font-black uppercase tracking-widest text-slate-500">{t("sidebar.liveStatus", "Live Status")}</h3>
                             <div className="flex items-end gap-3">
                                 <div className="text-4xl font-black text-white">{(summary?.total_staff ?? 0)}</div>
-                                <div className="mb-1 text-sm font-bold text-slate-500">Members</div>
+                                <div className="mb-1 text-sm font-bold text-slate-500">{t("sidebar.members", "Members")}</div>
                             </div>
                         </div>
 
@@ -1563,7 +1570,7 @@ export default function OwnerStaffShifts() {
                             >
                                 <div className="flex items-center gap-3">
                                     <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
-                                    <span className="text-sm font-bold text-emerald-100/90 pointer-events-none">On Shift</span>
+                                    <span className="text-sm font-bold text-emerald-100/90 pointer-events-none">{t("sidebar.onShift", "On Shift")}</span>
                                 </div>
                                 <span className="text-sm font-black text-emerald-500 pointer-events-none">{summary?.on_shift || 0}</span>
                             </div>
@@ -1573,7 +1580,7 @@ export default function OwnerStaffShifts() {
                             >
                                 <div className="flex items-center gap-3">
                                     <div className="h-2 w-2 rounded-full bg-slate-600" />
-                                    <span className="text-sm font-bold text-slate-300 pointer-events-none">Off Duty</span>
+                                    <span className="text-sm font-bold text-slate-300 pointer-events-none">{t("sidebar.offDuty", "Off Duty")}</span>
                                 </div>
                                 <span className="text-sm font-black text-slate-500 pointer-events-none">{summary?.off_shift || 0}</span>
                             </div>
@@ -1584,7 +1591,7 @@ export default function OwnerStaffShifts() {
                                 >
                                     <div className="flex items-center gap-3">
                                         <div className="h-2 w-2 rounded-full bg-red-500/60" />
-                                        <span className="text-sm font-bold text-red-300/80 pointer-events-none">Deactivated</span>
+                                        <span className="text-sm font-bold text-red-300/80 pointer-events-none">{t("sidebar.deactivated", "Deactivated")}</span>
                                     </div>
                                     <span className="text-sm font-black text-red-500/60 pointer-events-none">{deactivatedMembers.length}</span>
                                 </div>
@@ -1598,29 +1605,29 @@ export default function OwnerStaffShifts() {
                             onClick={() => setHistoryView('hidden')}
                             className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold transition-all ${historyView === 'hidden' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
                         >
-                            <span>📅</span> Daily Shifts
+                            <span>📅</span> {t("nav.dailyShifts", "Daily Shifts")}
                         </button>
                         <button
                             onClick={() => setHistoryView('global')}
                             className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold transition-all ${historyView === 'global' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
                         >
-                            <span>📄</span> Shift History
+                            <span>📄</span> {t("nav.shiftHistory", "Shift History")}
                         </button>
                     </div>
 
                     {/* Analytics Section (Moved from Right) */}
                     <div className="glass-card p-6 border border-white/5">
                         <h2 className="mb-6 flex items-center gap-2 text-lg font-black text-white">
-                            <BarChart2 size={20} className="text-indigo-500" /> Analytics
+                            <BarChart2 size={20} className="text-indigo-500" /> {t("sidebar.analytics", "Analytics")}
                         </h2>
                         <div className="space-y-4">
-                            {['Morning', 'Evening', 'Night'].map(type => {
-                                const count = summary ? (summary as any)[type.toLowerCase()] : 0;
-                                const color = type === 'Morning' ? 'bg-amber-400' : type === 'Evening' ? 'bg-orange-500' : 'bg-indigo-500';
+                            {['morning', 'evening', 'night'].map(type => {
+                                const count = summary ? (summary as any)[type] : 0;
+                                const color = type === 'morning' ? 'bg-amber-400' : type === 'evening' ? 'bg-orange-500' : 'bg-indigo-500';
                                 return (
                                     <div key={type}>
                                         <div className="mb-1.5 flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-500">
-                                            <span>{type}</span>
+                                            <span>{t(`shiftType.${type}`, type)}</span>
                                             <span className="text-white">{count}</span>
                                         </div>
                                         <div className="h-1.5 w-full rounded-full bg-white/5 overflow-hidden">
@@ -1650,9 +1657,9 @@ export default function OwnerStaffShifts() {
                                     <div>
                                         <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
                                             <Clock size={20} className="text-indigo-400" />
-                                            {historyView === 'global' ? 'Global Shift History' : 'Staff Shift History'}
+                                            {historyView === 'global' ? t('history.globalTitle', 'Global Shift History') : t('history.staffTitle', 'Staff Shift History')}
                                         </h2>
-                                        <p className="text-xs font-bold text-slate-500 mt-1">Audit trail of all scheduling changes</p>
+                                        <p className="text-xs font-bold text-slate-500 mt-1">{t('history.subtitle', 'Audit trail of all scheduling changes')}</p>
                                     </div>
                                 </div>
                             </div>
@@ -1663,7 +1670,7 @@ export default function OwnerStaffShifts() {
                                     <div className="absolute inset-0 flex items-center justify-center">
                                         <div className="flex flex-col items-center gap-4">
                                             <Loader2 size={32} className="text-indigo-500 animate-spin" />
-                                            <span className="text-sm font-black text-slate-400 tracking-widest uppercase">Fetching Logs...</span>
+                                            <span className="text-sm font-black text-slate-400 tracking-widest uppercase">{t('history.fetching', 'Fetching Logs...')}</span>
                                         </div>
                                     </div>
                                 ) : historyData.length === 0 ? (
@@ -1672,7 +1679,7 @@ export default function OwnerStaffShifts() {
                                             <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center">
                                                 <History size={24} className="opacity-50" />
                                             </div>
-                                            <span className="text-sm font-bold">No history logs found</span>
+                                            <span className="text-sm font-bold">{t('history.empty', 'No history logs found')}</span>
                                         </div>
                                     </div>
                                 ) : (
@@ -1701,14 +1708,14 @@ export default function OwnerStaffShifts() {
                                                 }
                                                 // Format zones
                                                 if (label === 'Zone') {
-                                                    const getZoneName = (id: string) => hotelZones.find(z => z.id === id)?.name || 'None';
-                                                    oldVal = field.old ? getZoneName(field.old) : 'None';
-                                                    newVal = field.new ? getZoneName(field.new) : 'None';
+                                                    const getZoneName = (id: string) => hotelZones.find(z => z.id === id)?.name || t('history.none', 'None');
+                                                    oldVal = field.old ? getZoneName(field.old) : t('history.none', 'None');
+                                                    newVal = field.new ? getZoneName(field.new) : t('history.none', 'None');
                                                 }
 
                                                 return (
                                                     <div key={label} className="flex items-center gap-4 text-xs font-bold">
-                                                        <span className="w-20 text-[10px] uppercase tracking-widest text-slate-500">{label}</span>
+                                                        <span className="w-20 text-[10px] uppercase tracking-widest text-slate-500">{t(`history.field.${label}`, label)}</span>
                                                         {field.old !== undefined && (
                                                             <>
                                                                 <span className="text-slate-400 line-through bg-black/20 px-2 py-1 rounded">{oldVal}</span>
@@ -1732,14 +1739,14 @@ export default function OwnerStaffShifts() {
                                                             <div>
                                                                 <div className="flex items-center gap-3 mb-1">
                                                                     <span className={`px-2.5 py-1 rounded-md border text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 ${actionColors[log.action as keyof typeof actionColors]}`}>
-                                                                        <ActionIcon size={12} strokeWidth={3} /> {log.action}
+                                                                        <ActionIcon size={12} strokeWidth={3} /> {t(`history.action.${log.action}`, log.action)}
                                                                     </span>
                                                                     <span className="text-white font-bold text-sm">{log.staff_name}</span>
                                                                 </div>
                                                                 <div className="text-xs font-bold text-slate-500">
-                                                                    {new Date(log.changed_at).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                                    {new Date(log.changed_at).toLocaleString(ownerLocale, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                                                     <span className="mx-2 opacity-30">•</span>
-                                                                    by {log.changed_by_name || 'System'}
+                                                                    {t('history.by', 'by {{name}}', { name: log.changed_by_name || t('history.system', 'System') })}
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -1750,7 +1757,7 @@ export default function OwnerStaffShifts() {
                                                                 <div className="flex flex-col gap-3">
                                                                     {renderDiffValue('Time', { old: `${new Date(log.diff.shift_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}–${new Date(log.diff.shift_end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` })}
                                                                     {renderDiffValue('Status', { old: log.diff.status })}
-                                                                    <div className="text-[10px] font-black text-red-500/50 uppercase tracking-widest mt-1">Record Purged</div>
+                                                                    <div className="text-[10px] font-black text-red-500/50 uppercase tracking-widest mt-1">{t('history.purged', 'Record Purged')}</div>
                                                                 </div>
                                                             ) : (
                                                                 <>
@@ -1776,7 +1783,7 @@ export default function OwnerStaffShifts() {
                                                     disabled={historyLoading}
                                                     className="px-6 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-50"
                                                 >
-                                                    {historyLoading ? 'Loading...' : 'Load More History'}
+                                                    {historyLoading ? t('history.loadingMore', 'Loading...') : t('history.loadMore', 'Load More History')}
                                                 </button>
                                             </div>
                                         )}
@@ -1792,7 +1799,7 @@ export default function OwnerStaffShifts() {
                                     <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400">
                                         <Layout size={16} strokeWidth={3} />
                                     </div>
-                                    <h2 className="text-[11px] font-black uppercase tracking-widest text-slate-500">Operational Commands</h2>
+                                    <h2 className="text-[11px] font-black uppercase tracking-widest text-slate-500">{t("ops.title", "Operational Commands")}</h2>
                                 </div>
 
                                 <div className="flex items-center gap-3">
@@ -1801,7 +1808,7 @@ export default function OwnerStaffShifts() {
                                         className="action-button-secondary flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all"
                                     >
                                         <UserPlus size={14} strokeWidth={2.5} className="text-slate-400" />
-                                        Invite Teammate
+                                        {t("ops.invite", "Invite Teammate")}
                                     </button>
 
                                     <button
@@ -1809,7 +1816,7 @@ export default function OwnerStaffShifts() {
                                         className="action-button-secondary flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all"
                                     >
                                         <Shield size={14} strokeWidth={2.5} className="text-slate-400" />
-                                        Assign Role
+                                        {t("ops.assignRole", "Assign Role")}
                                     </button>
 
                                     {/* Dropdown: Assign Shift */}
@@ -1819,7 +1826,7 @@ export default function OwnerStaffShifts() {
                                             className="action-button-primary flex items-center gap-2 rounded-lg px-5 py-2 text-xs font-black transition-all"
                                         >
                                             <Plus size={14} strokeWidth={3} />
-                                            Assign Shift
+                                            {t("ops.assignShift", "Assign Shift")}
                                             <ChevronDown size={14} strokeWidth={3} className={`transition-transform ${globalAssignOpen ? 'rotate-180' : ''}`} />
                                         </button>
 
@@ -1828,19 +1835,19 @@ export default function OwnerStaffShifts() {
                                                 <div className="popover-overlay" onClick={() => setGlobalAssignOpen(false)} />
                                                 <div className="dropdown-menu">
                                                     <button className="dropdown-item" onClick={() => { setGlobalAssignOpen(false); setShiftModalData({ ...shiftModalData, staffId: "" }); setIsShiftModalOpen(true); }}>
-                                                        <User size={14} /> Single Shift
+                                                        <User size={14} /> {t("ops.singleShift", "Single Shift")}
                                                     </button>
                                                     <button className="dropdown-item" onClick={() => { setGlobalAssignOpen(false); setIsBulkModalOpen(true); }}>
-                                                        <Users size={14} /> Multiple Staff (Batch)
+                                                        <Users size={14} /> {t("ops.multipleStaff", "Multiple Staff (Batch)")}
                                                     </button>
                                                     <button className="dropdown-item" onClick={() => { setGlobalAssignOpen(false); setWeeklyPreview(null); setIsWeeklyModalOpen(true); }}>
-                                                        <CalendarDays size={14} /> Weekly Schedule
+                                                        <CalendarDays size={14} /> {t("ops.weeklySchedule", "Weekly Schedule")}
                                                     </button>
                                                     <button className="dropdown-item" onClick={() => { setGlobalAssignOpen(false); setSmartState(prev => ({ ...prev, plan: null, error: null, showConflicts: false })); setIsSmartModalOpen(true); }}>
-                                                        <Sparkles size={14} /> Smart Schedule (Auto)
+                                                        <Sparkles size={14} /> {t("ops.smartSchedule", "Smart Schedule (Auto)")}
                                                     </button>
                                                     <button className="dropdown-item" onClick={() => { setGlobalAssignOpen(false); }}>
-                                                        <Clock size={14} /> Templates
+                                                        <Clock size={14} /> {t("ops.templates", "Templates")}
                                                     </button>
                                                 </div>
                                             </>
@@ -1853,7 +1860,7 @@ export default function OwnerStaffShifts() {
                                             onClick={() => setGlobalBulkOpen(!globalBulkOpen)}
                                             className="action-button-secondary flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all"
                                         >
-                                            Bulk Actions
+                                            {t("ops.bulkActions", "Bulk Actions")}
                                             <ChevronDown size={14} />
                                         </button>
 
@@ -1862,14 +1869,14 @@ export default function OwnerStaffShifts() {
                                                 <div className="popover-overlay" onClick={() => setGlobalBulkOpen(false)} />
                                                 <div className="dropdown-menu">
                                                     <button className="dropdown-item" onClick={() => setGlobalBulkOpen(false)}>
-                                                        <Repeat size={14} /> Bulk Reassign
+                                                        <Repeat size={14} /> {t("ops.bulkReassign", "Bulk Reassign")}
                                                     </button>
                                                     <button className="dropdown-item danger" onClick={() => setGlobalBulkOpen(false)}>
-                                                        <Trash2 size={14} /> Bulk Cancel Shifts
+                                                        <Trash2 size={14} /> {t("ops.bulkCancel", "Bulk Cancel Shifts")}
                                                     </button>
                                                     <div className="h-px bg-white/5 my-1" />
                                                     <button className="dropdown-item text-indigo-400" onClick={() => setGlobalBulkOpen(false)}>
-                                                        <Shield size={14} /> Auto-Assign (AI)
+                                                        <Shield size={14} /> {t("ops.autoAssign", "Auto-Assign (AI)")}
                                                     </button>
                                                 </div>
                                             </>
@@ -1881,14 +1888,14 @@ export default function OwnerStaffShifts() {
                             {/* Timeline Filter Row */}
                             <div className="flex items-center justify-between border-b border-white/5 bg-white/[0.01] px-8 py-4">
                                 <div className="flex items-center gap-6">
-                                    <h1 className="text-xl font-black tracking-tight text-white">Shift Schedule</h1>
+                                    <h1 className="text-xl font-black tracking-tight text-white">{t("timeline.title", "Shift Schedule")}</h1>
 
                                     {success && (
                                         <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg animate-in fade-in slide-in-from-left-2 duration-300">
                                             <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-white">
                                                 <Check size={12} strokeWidth={4} />
                                             </div>
-                                            <span className="text-xs font-black text-emerald-500 uppercase tracking-tight">Assignment Saved</span>
+                                            <span className="text-xs font-black text-emerald-500 uppercase tracking-tight">{t("timeline.assignmentSaved", "Assignment Saved")}</span>
                                         </div>
                                     )}
 
@@ -1901,7 +1908,7 @@ export default function OwnerStaffShifts() {
                                             <ChevronLeft size={18} strokeWidth={2.5} />
                                         </button>
                                         <span className="px-6 py-2 text-sm font-bold text-slate-200 min-w-[180px] text-center">
-                                            {currentDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                                            {currentDate.toLocaleDateString(ownerLocale, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
                                         </span>
                                         <button
                                             onClick={() => { const d = new Date(currentDate); d.setDate(d.getDate() + 1); setCurrentDate(d); }}
@@ -1919,7 +1926,7 @@ export default function OwnerStaffShifts() {
                                                 onClick={() => setIsDeptFilterOpen(!isDeptFilterOpen)}
                                                 className={`filter-button flex items-center gap-6 px-4 py-2 text-sm font-bold transition-all rounded-lg select-none ${isDeptFilterOpen ? 'bg-white/10 text-white' : 'text-slate-400'}`}
                                             >
-                                                {activeDepartment}
+                                                {activeDepartment === "All Departments" ? t("filter.allDepartments", "All Departments") : activeDepartment}
                                                 <ChevronDown size={14} strokeWidth={3} className={`transition-transform duration-300 ${isDeptFilterOpen ? 'rotate-180 opacity-100' : 'opacity-40'}`} />
                                             </button>
 
@@ -1927,13 +1934,13 @@ export default function OwnerStaffShifts() {
                                                 <>
                                                     <div className="fixed inset-0 z-[60]" onClick={() => setIsDeptFilterOpen(false)} />
                                                     <div className="absolute top-[calc(100%+8px)] left-0 min-w-[220px] p-2 bg-[#1a1a24] border border-white/10 rounded-xl shadow-2xl shadow-black/50 z-[70] animate-in fade-in slide-in-from-top-2">
-                                                        <div className="px-3 py-1.5 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5 mb-1">Departments</div>
+                                                        <div className="px-3 py-1.5 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5 mb-1">{t("filter.departmentsHeading", "Departments")}</div>
                                                         <div className="max-h-60 overflow-y-auto custom-scrollbar">
                                                             <button
                                                                 onClick={() => { setActiveDepartment("All Departments"); setIsDeptFilterOpen(false); }}
                                                                 className={`w-full text-left px-3 py-2 text-sm font-bold rounded-lg transition-colors mb-1 ${activeDepartment === "All Departments" ? 'bg-indigo-500 text-white' : 'text-slate-300 hover:bg-white/5 hover:text-white'}`}
                                                             >
-                                                                All Departments
+                                                                {t("filter.allDepartments", "All Departments")}
                                                             </button>
                                                             {hotelDepartments.map(dept => (
                                                                 <button
@@ -1956,7 +1963,7 @@ export default function OwnerStaffShifts() {
                                                 onClick={() => setIsZoneFilterOpen(!isZoneFilterOpen)}
                                                 className={`filter-button flex items-center gap-6 px-4 py-2 text-sm font-bold transition-all rounded-lg select-none ${isZoneFilterOpen ? 'bg-white/10 text-white' : 'text-slate-400'}`}
                                             >
-                                                {activeZone}
+                                                {activeZone === "All Zones" ? t("filter.allZones", "All Zones") : activeZone}
                                                 <ChevronDown size={14} strokeWidth={3} className={`transition-transform duration-300 ${isZoneFilterOpen ? 'rotate-180 opacity-100' : 'opacity-40'}`} />
                                             </button>
 
@@ -1964,13 +1971,13 @@ export default function OwnerStaffShifts() {
                                                 <>
                                                     <div className="fixed inset-0 z-[60]" onClick={() => setIsZoneFilterOpen(false)} />
                                                     <div className="absolute top-[calc(100%+8px)] left-0 min-w-[220px] p-2 bg-[#1a1a24] border border-white/10 rounded-xl shadow-2xl shadow-black/50 z-[70] animate-in fade-in slide-in-from-top-2">
-                                                        <div className="px-3 py-1.5 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5 mb-1">Zones</div>
+                                                        <div className="px-3 py-1.5 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5 mb-1">{t("filter.zonesHeading", "Zones")}</div>
                                                         <div className="max-h-60 overflow-y-auto custom-scrollbar">
                                                             <button
                                                                 onClick={() => { setActiveZone("All Zones"); setIsZoneFilterOpen(false); }}
                                                                 className={`w-full text-left px-3 py-2 text-sm font-bold rounded-lg transition-colors mb-1 ${activeZone === "All Zones" ? 'bg-indigo-500 text-white' : 'text-slate-300 hover:bg-white/5 hover:text-white'}`}
                                                             >
-                                                                All Zones
+                                                                {t("filter.allZones", "All Zones")}
                                                             </button>
                                                             {hotelZones.map(zone => (
                                                                 <button
@@ -1999,7 +2006,7 @@ export default function OwnerStaffShifts() {
                                                 <Users size={16} strokeWidth={3} />
                                             </div>
                                             <div className="flex items-baseline gap-1.5">
-                                                <span className="text-[11px] font-black uppercase tracking-tight text-slate-500">Total Staff</span>
+                                                <span className="text-[11px] font-black uppercase tracking-tight text-slate-500">{t("stats.totalStaff", "Total Staff")}</span>
                                                 <span className="text-sm font-black text-white/90">{summary?.total_staff || 0}</span>
                                             </div>
                                         </div>
@@ -2009,7 +2016,7 @@ export default function OwnerStaffShifts() {
                                                 <User size={16} strokeWidth={3} />
                                             </div>
                                             <div className="flex items-baseline gap-1.5">
-                                                <span className="text-[11px] font-black uppercase tracking-tight text-slate-500">On Shift</span>
+                                                <span className="text-[11px] font-black uppercase tracking-tight text-slate-500">{t("stats.onShift", "On Shift")}</span>
                                                 <span className="text-sm font-black text-emerald-400">{summary?.on_shift || 0}</span>
                                             </div>
                                         </div>
@@ -2021,7 +2028,7 @@ export default function OwnerStaffShifts() {
                                                 </div>
                                             </div>
                                             <div className="flex items-baseline gap-1.5">
-                                                <span className="text-[11px] font-black uppercase tracking-tight text-slate-500">Off Shift</span>
+                                                <span className="text-[11px] font-black uppercase tracking-tight text-slate-500">{t("stats.offShift", "Off Shift")}</span>
                                                 <span className="text-sm font-black text-slate-500">{summary?.off_shift || 0}</span>
                                             </div>
                                         </div>
@@ -2031,7 +2038,7 @@ export default function OwnerStaffShifts() {
                                                 <Sun size={16} strokeWidth={3} />
                                             </div>
                                             <div className="flex items-baseline gap-1.5">
-                                                <span className="text-[11px] font-black uppercase tracking-tight text-slate-500">Morning Shift</span>
+                                                <span className="text-[11px] font-black uppercase tracking-tight text-slate-500">{t("stats.morningShift", "Morning Shift")}</span>
                                                 <span className="text-sm font-black text-amber-400">{summary?.morning || 0}</span>
                                             </div>
                                         </div>
@@ -2041,7 +2048,7 @@ export default function OwnerStaffShifts() {
                                                 <Sun size={16} strokeWidth={3} className="rotate-45" />
                                             </div>
                                             <div className="flex items-baseline gap-1.5">
-                                                <span className="text-[11px] font-black uppercase tracking-tight text-slate-500">Evening Shift</span>
+                                                <span className="text-[11px] font-black uppercase tracking-tight text-slate-500">{t("stats.eveningShift", "Evening Shift")}</span>
                                                 <span className="text-sm font-black text-orange-400">{summary?.evening || 0}</span>
                                             </div>
                                         </div>
@@ -2051,7 +2058,7 @@ export default function OwnerStaffShifts() {
                                                 <Moon size={16} strokeWidth={3} />
                                             </div>
                                             <div className="flex items-baseline gap-1.5">
-                                                <span className="text-[11px] font-black uppercase tracking-tight text-slate-500">Night Shift</span>
+                                                <span className="text-[11px] font-black uppercase tracking-tight text-slate-500">{t("stats.nightShift", "Night Shift")}</span>
                                                 <span className="text-sm font-black text-indigo-400">{summary?.night || 0}</span>
                                             </div>
                                         </div>
@@ -2106,7 +2113,7 @@ export default function OwnerStaffShifts() {
                                                                 <div className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter truncate max-w-[150px]">
                                                                     {staff.departments && staff.departments.length > 0
                                                                         ? staff.departments.map(d => d.name).join(', ')
-                                                                        : staff.department_name || 'UNASSIGNED DEPT'}
+                                                                        : staff.department_name || t('row.unassignedDept', 'UNASSIGNED DEPT')}
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -2240,7 +2247,7 @@ export default function OwnerStaffShifts() {
                                                                                         {new Date(s.shift_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })} - {new Date(s.shift_end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
                                                                                     </div>
                                                                                     <div className="truncate text-[8px] font-bold text-white/50 uppercase tracking-widest leading-tight">
-                                                                                        {s.department_name || 'Front Office'} • {s.zone_name || 'No Zone'}
+                                                                                        {s.department_name || t('row.frontOffice', 'Front Office')} • {s.zone_name || t('common.noZone', 'No Zone')}
                                                                                     </div>
                                                                                 </div>
                                                                                 {s.is_locked ? (
@@ -2293,7 +2300,7 @@ export default function OwnerStaffShifts() {
                                                                                             <div className="flex-1 pt-1">
                                                                                                 <h3 className="text-2xl font-black text-white leading-tight mb-1">{staff.full_name}</h3>
                                                                                                 <p className="text-[11px] font-black text-slate-500 uppercase tracking-[0.1em] mb-4">
-                                                                                                    {s.department_name || staff.department_name || 'STAFF'} {s.zone_name ? `· ${s.zone_name.toUpperCase()}` : ''}
+                                                                                                    {s.department_name || staff.department_name || t('row.staffFallback', 'STAFF')} {s.zone_name ? `· ${s.zone_name.toUpperCase()}` : ''}
                                                                                                 </p>
                                                                                                 <div className="flex items-center gap-2.5 text-sm font-bold text-emerald-400">
                                                                                                     <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
@@ -2313,7 +2320,7 @@ export default function OwnerStaffShifts() {
                                                                                         {/* Actions Section */}
                                                                                         <div className="p-7 space-y-5">
                                                                                             <div className="flex items-center gap-3">
-                                                                                                <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">Actions</span>
+                                                                                                <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">{t('popover.actions', 'Actions')}</span>
                                                                                                 <div className="flex-1 h-[1px] bg-white/5" />
                                                                                             </div>
 
@@ -2329,7 +2336,7 @@ export default function OwnerStaffShifts() {
                                                                                                     }}
                                                                                                 >
                                                                                                     <Edit3 size={18} className="text-slate-500 group-hover:text-white transition-colors" />
-                                                                                                    Edit Shift
+                                                                                                    {t('popover.editShift', 'Edit Shift')}
                                                                                                 </button>
                                                                                                 <button
                                                                                                     className="w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 text-indigo-400 text-sm font-bold transition-all group"
@@ -2346,28 +2353,28 @@ export default function OwnerStaffShifts() {
                                                                                                     }}
                                                                                                 >
                                                                                                     <Settings size={18} className="text-indigo-500/70 group-hover:text-indigo-400 transition-colors" />
-                                                                                                    Edit Staff Settings
+                                                                                                    {t('popover.editStaffSettings', 'Edit Staff Settings')}
                                                                                                 </button>
                                                                                                 <button disabled={s.is_locked} className="w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 text-white text-sm font-bold transition-all disabled:opacity-30 group" onClick={() => setActiveShiftPopoverId(null)}>
                                                                                                     <RefreshCw size={18} className="text-emerald-500/70 group-hover:text-emerald-400 transition-colors" />
-                                                                                                    Reassign / Move
+                                                                                                    {t('popover.reassign', 'Reassign / Move')}
                                                                                                 </button>
                                                                                                 <button disabled={s.is_locked} className="w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 text-white text-sm font-bold transition-all disabled:opacity-30 group" onClick={() => { setActiveShiftPopoverId(null); handleSplitShiftPrompt(s); }}>
                                                                                                     <Scissors size={18} className="text-slate-500 group-hover:text-white transition-colors" />
-                                                                                                    Split Shift
+                                                                                                    {t('popover.splitShift', 'Split Shift')}
                                                                                                 </button>
                                                                                                 <button className="w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 text-white text-sm font-bold transition-all group" onClick={() => { setActiveShiftPopoverId(null); handleLockToggle(s); }}>
                                                                                                     <Lock size={18} className={s.is_locked ? "text-indigo-400" : "text-slate-500"} />
-                                                                                                    Lock Shift <span className="text-[10px] text-slate-500 font-bold ml-1 tracking-tight">({s.is_locked ? 'currently locked' : 'unlocked'})</span>
+                                                                                                    {t('popover.lockShift', 'Lock Shift')} <span className="text-[10px] text-slate-500 font-bold ml-1 tracking-tight">({s.is_locked ? t('popover.currentlyLocked', 'currently locked') : t('popover.unlocked', 'unlocked')})</span>
                                                                                                 </button>
                                                                                                 <button className="w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-400 text-sm font-bold transition-all group" onClick={() => { setActiveShiftPopoverId(null); handleRequestOverridePrompt(s); }}>
                                                                                                     <AlertTriangle size={18} />
-                                                                                                    Request Override
+                                                                                                    {t('popover.requestOverride', 'Request Override')}
                                                                                                 </button>
                                                                                                 <div className="h-px bg-white/5 w-full my-1" />
                                                                                                 <button className="w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl bg-red-500/5 border border-red-500/10 hover:bg-red-500/10 hover:border-red-500/20 text-red-400 text-sm font-bold transition-all group" onClick={() => { setActiveShiftPopoverId(null); setDeactivateUserModal(staff); }}>
                                                                                                     <UserX size={18} className="text-red-500/50 group-hover:text-red-400 transition-colors" />
-                                                                                                    Activate / Deactivate User
+                                                                                                    {t('popover.activateDeactivate', 'Activate / Deactivate User')}
                                                                                                 </button>
                                                                                             </div>
                                                                                         </div>
@@ -2376,27 +2383,27 @@ export default function OwnerStaffShifts() {
                                                                                         <div className="p-7 pt-6 bg-white/[0.01]">
                                                                                             <div className="flex items-center gap-3 mb-6">
                                                                                                 <Brain size={22} className="text-indigo-500" />
-                                                                                                <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">AI Insight</span>
+                                                                                                <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">{t('popover.aiInsight', 'AI Insight')}</span>
                                                                                                 <div className="flex-1 h-[1px] bg-white/5" />
                                                                                             </div>
 
                                                                                             <div className="p-6 rounded-[28px] bg-white/5 border border-white/5 space-y-4">
                                                                                                 <p className="text-sm font-bold text-slate-200 leading-snug">
-                                                                                                    Assigned due to <span className="text-white">primary department match</span> & balanced workload.
+                                                                                                    {t('popover.aiAssignedPre', 'Assigned due to ')}<span className="text-white">{t('popover.aiAssignedHighlight', 'primary department match')}</span>{t('popover.aiAssignedPost', ' & balanced workload.')}
                                                                                                 </p>
 
                                                                                                 <ul className="space-y-2.5">
                                                                                                     <li className="flex items-center gap-3 text-[13px] font-bold text-slate-400">
                                                                                                         <div className="w-1.5 h-1.5 rounded-full bg-slate-600" />
-                                                                                                        Primary department match
+                                                                                                        {t('popover.reasonPrimary', 'Primary department match')}
                                                                                                     </li>
                                                                                                     <li className="flex items-center gap-3 text-[13px] font-bold text-slate-400">
                                                                                                         <div className="w-1.5 h-1.5 rounded-full bg-slate-600" />
-                                                                                                        Balanced workload
+                                                                                                        {t('popover.reasonBalanced', 'Balanced workload')}
                                                                                                     </li>
                                                                                                     <li className="flex items-center gap-3 text-[13px] font-bold text-slate-400">
                                                                                                         <div className="w-1.5 h-1.5 rounded-full bg-slate-600" />
-                                                                                                        High priority staff
+                                                                                                        {t('popover.reasonHighPriority', 'High priority staff')}
                                                                                                     </li>
                                                                                                 </ul>
 
@@ -2404,7 +2411,7 @@ export default function OwnerStaffShifts() {
                                                                                                     onClick={() => setShowFullExplanation(!showFullExplanation)}
                                                                                                     className="mt-2 px-6 py-2.5 rounded-xl bg-[#2563eb] hover:bg-blue-600 text-white text-xs font-black flex items-center gap-2.5 transition-all shadow-lg shadow-blue-500/20"
                                                                                                 >
-                                                                                                    <Search size={14} strokeWidth={3} /> View Full Insight
+                                                                                                    <Search size={14} strokeWidth={3} /> {t('popover.viewFullInsight', 'View Full Insight')}
                                                                                                 </button>
 
                                                                                                 {showFullExplanation && shiftExplanation?.explanation && (
@@ -2431,8 +2438,8 @@ export default function OwnerStaffShifts() {
                                                                                                         <AlertTriangle size={20} strokeWidth={2.5} />
                                                                                                     </div>
                                                                                                     <div>
-                                                                                                        <h4 className="text-sm font-black text-amber-500 mb-0.5">Shift Overlap Detected</h4>
-                                                                                                        <p className="text-xs font-bold text-amber-500/70 italic">Conflicts with another assignment.</p>
+                                                                                                        <h4 className="text-sm font-black text-amber-500 mb-0.5">{t('popover.overlapTitle', 'Shift Overlap Detected')}</h4>
+                                                                                                        <p className="text-xs font-bold text-amber-500/70 italic">{t('popover.overlapBody', 'Conflicts with another assignment.')}</p>
                                                                                                     </div>
                                                                                                 </div>
                                                                                             )}
@@ -2451,28 +2458,28 @@ export default function OwnerStaffShifts() {
                                                                         <div className="fixed inset-0 z-[90]" onClick={() => setActiveAssignMenuId(null)} />
                                                                         <div className="absolute left-0 top-full mt-2 w-56 bg-[#1e293b]/95 backdrop-blur-xl border border-white/10 ring-1 ring-white/10 shadow-2xl rounded-2xl overflow-hidden z-[100] font-sans animate-in fade-in slide-in-from-top-2 duration-200">
                                                                             <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
-                                                                                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Quick Assign</div>
+                                                                                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t('quickAssign.title', 'Quick Assign')}</div>
                                                                             </div>
                                                                             <div className="p-2 space-y-1">
                                                                                 <button className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-300 hover:bg-white/5 rounded-xl flex items-center gap-3 transition-all group" onClick={() => handleQuickAssign(staff.staff_id, 'morning')}>
                                                                                     <div className="p-1 rounded-lg bg-amber-500/10 text-amber-500 group-hover:bg-amber-500/20 transition-colors">
                                                                                         <Sun size={14} strokeWidth={3} />
                                                                                     </div>
-                                                                                    <span>Morning</span>
+                                                                                    <span>{t('shiftType.morning', 'Morning')}</span>
                                                                                     <span className="text-[10px] text-slate-600 font-black ml-auto">07:00</span>
                                                                                 </button>
                                                                                 <button className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-300 hover:bg-white/5 rounded-xl flex items-center gap-3 transition-all group" onClick={() => handleQuickAssign(staff.staff_id, 'evening')}>
                                                                                     <div className="p-1 rounded-lg bg-orange-500/10 text-orange-500 group-hover:bg-orange-500/20 transition-colors">
                                                                                         <Sunset size={14} strokeWidth={3} />
                                                                                     </div>
-                                                                                    <span>Evening</span>
+                                                                                    <span>{t('shiftType.evening', 'Evening')}</span>
                                                                                     <span className="text-[10px] text-slate-600 font-black ml-auto">15:00</span>
                                                                                 </button>
                                                                                 <button className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-300 hover:bg-white/5 rounded-xl flex items-center gap-3 transition-all group" onClick={() => handleQuickAssign(staff.staff_id, 'night')}>
                                                                                     <div className="p-1 rounded-lg bg-indigo-500/10 text-indigo-400 group-hover:bg-indigo-500/20 transition-colors">
                                                                                         <Moon size={14} strokeWidth={3} />
                                                                                     </div>
-                                                                                    <span>Night</span>
+                                                                                    <span>{t('shiftType.night', 'Night')}</span>
                                                                                     <span className="text-[10px] text-slate-600 font-black ml-auto">23:00</span>
                                                                                 </button>
 
@@ -2486,7 +2493,7 @@ export default function OwnerStaffShifts() {
                                                                                     <div className="p-1 rounded-lg bg-indigo-500/5">
                                                                                         <Settings size={14} strokeWidth={3} />
                                                                                     </div>
-                                                                                    CUSTOM SHIFT...
+                                                                                    {t('quickAssign.custom', 'CUSTOM SHIFT...')}
                                                                                 </button>
                                                                             </div>
                                                                         </div>
@@ -2499,7 +2506,7 @@ export default function OwnerStaffShifts() {
                                                                     }}
                                                                     className={`flex items-center gap-1.5 rounded-lg border ${activeAssignMenuId === staff.staff_id ? 'bg-indigo-500/20 border-indigo-500/30 text-indigo-300' : 'bg-white/5 border-white/10 text-indigo-400 hover:bg-white/10'} px-3 py-1 text-[10px] font-bold shadow-sm transition-all`}
                                                                 >
-                                                                    <span className="text-sm">+</span> Assign Shift
+                                                                    <span className="text-sm">+</span> {t('row.assignShift', 'Assign Shift')}
                                                                 </button>
                                                             </div>
                                                         </div>
@@ -2513,13 +2520,13 @@ export default function OwnerStaffShifts() {
                                 {/* Details List */}
                                 <div className="border-t border-white/5 p-8 bg-black/20">
                                     <div className="flex items-center justify-between mb-6">
-                                        <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">Staff Details</h3>
+                                        <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">{t('details.title', 'Staff Details')}</h3>
                                         {selectedStaffId && (
                                             <button
                                                 onClick={() => setSelectedStaffId(null)}
                                                 className="text-[10px] font-black uppercase tracking-widest text-indigo-400 hover:text-white transition-colors"
                                             >
-                                                Back to Roster
+                                                {t('details.backToRoster', 'Back to Roster')}
                                             </button>
                                         )}
                                     </div>
@@ -2551,20 +2558,20 @@ export default function OwnerStaffShifts() {
                                                                 </div>
                                                             )}
                                                             <div className="text-sm font-bold text-slate-400 uppercase tracking-widest">
-                                                                {staff.department_name} • <span className="text-indigo-400">{staff.assigned_zone_name || 'No Zone'}</span>
+                                                                {staff.department_name} • <span className="text-indigo-400">{staff.assigned_zone_name || t('common.noZone', 'No Zone')}</span>
                                                             </div>
                                                             <div className="flex items-center gap-2 mt-6">
                                                                 <button onClick={() => setEditStaffModal(staff)} className="flex items-center gap-2 rounded-xl bg-white/5 px-5 py-2.5 text-xs font-black text-white border border-white/10 hover:bg-white/10 transition-all">
-                                                                    <Edit3 size={14} /> Edit Staff
+                                                                    <Edit3 size={14} /> {t('details.editStaff', 'Edit Staff')}
                                                                 </button>
                                                                 <button
                                                                     onClick={() => setIsDepartmentModalOpen(true)}
                                                                     className="flex items-center gap-2 rounded-xl bg-orange-500/10 px-5 py-2.5 text-xs font-black text-orange-500 border border-orange-500/20 hover:bg-orange-500/20 transition-all shadow-lg shadow-orange-500/5 ring-1 ring-orange-500/50"
                                                                 >
-                                                                    <Layout size={14} strokeWidth={3} /> Departments • {staff.department_name ? 1 : 0}
+                                                                    <Layout size={14} strokeWidth={3} /> {t('details.departmentsCount', 'Departments • {{count}}', { count: staff.department_name ? 1 : 0 })}
                                                                 </button>
                                                                 <button className="flex items-center gap-2 rounded-xl bg-white/5 px-5 py-2.5 text-xs font-black text-slate-400 border border-white/10 hover:bg-white/10 transition-all">
-                                                                    <Clock size={14} /> Availability
+                                                                    <Clock size={14} /> {t('details.availability', 'Availability')}
                                                                 </button>
                                                             </div>
                                                         </div>
@@ -2576,7 +2583,7 @@ export default function OwnerStaffShifts() {
                                                                 {staff.shifts.map(s => (
                                                                     <div key={s.shift_id} className="flex flex-col items-end">
                                                                         <div className={`rounded-lg px-3 py-1 text-[10px] font-black uppercase tracking-widest mb-1 ${s.shift_type === 'morning' ? 'bg-emerald-500/10 text-emerald-400' : s.shift_type === 'evening' ? 'bg-orange-500/10 text-orange-400' : 'bg-indigo-500/10 text-indigo-400'}`}>
-                                                                            {s.shift_type}
+                                                                            {t(`shiftType.${s.shift_type}`, s.shift_type)}
                                                                         </div>
                                                                         <div className="text-lg font-black text-white">
                                                                             {new Date(s.shift_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }).toLowerCase()} - {new Date(s.shift_end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }).toLowerCase()}
@@ -2585,7 +2592,7 @@ export default function OwnerStaffShifts() {
                                                                 ))}
                                                             </div>
                                                         ) : (
-                                                            <div className="text-sm font-bold italic text-slate-600 uppercase tracking-widest">Not scheduled</div>
+                                                            <div className="text-sm font-bold italic text-slate-600 uppercase tracking-widest">{t('details.notScheduled', 'Not scheduled')}</div>
                                                         )}
                                                     </div>
 
@@ -2619,7 +2626,7 @@ export default function OwnerStaffShifts() {
                                                             <div>
                                                                 <div className="text-sm font-black text-white group-hover/staff-card:text-indigo-300 transition-colors">{staff.full_name}</div>
                                                                 <div className="text-[9px] font-bold text-slate-500 uppercase tracking-tight">
-                                                                    {staff.department_name} • <span className="text-indigo-400 opacity-60">{staff.assigned_zone_name || 'No Zone'}</span>
+                                                                    {staff.department_name} • <span className="text-indigo-400 opacity-60">{staff.assigned_zone_name || t('common.noZone', 'No Zone')}</span>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -2649,8 +2656,8 @@ export default function OwnerStaffShifts() {
                                         <Plus size={22} strokeWidth={2.5} />
                                     </div>
                                     <div>
-                                        <h3 className="text-xl font-black text-white">Assign New Shift</h3>
-                                        <p className="text-sm font-bold text-slate-500">Create a new schedule entry for your team.</p>
+                                        <h3 className="text-xl font-black text-white">{t('assignModal.title', 'Assign New Shift')}</h3>
+                                        <p className="text-sm font-bold text-slate-500">{t('assignModal.subtitle', 'Create a new schedule entry for your team.')}</p>
                                     </div>
                                 </div>
                                 <button onClick={() => setIsShiftModalOpen(false)} className="p-2 rounded-xl text-slate-500 hover:text-white hover:bg-white/5 transition-colors">
@@ -2662,35 +2669,35 @@ export default function OwnerStaffShifts() {
                         <div className="p-8 space-y-6">
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Staff Member</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">{t('field.staffMember', 'Staff Member')}</label>
                                     <select
                                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white focus:ring-2 focus:ring-indigo-500 transition-all"
                                         value={shiftModalData.staffId}
                                         onChange={e => setShiftModalData({ ...shiftModalData, staffId: e.target.value })}
                                     >
-                                        <option value="">Select Staff</option>
+                                        <option value="">{t('field.selectStaff', 'Select Staff')}</option>
                                         {data?.timeline.map(s => (
                                             <option key={s.staff_id} value={s.staff_id}>{s.full_name}</option>
                                         ))}
                                     </select>
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Shift Type</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">{t('field.shiftType', 'Shift Type')}</label>
                                     <select
                                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white focus:ring-2 focus:ring-indigo-500 transition-all"
                                         value={shiftModalData.type}
                                         onChange={e => setShiftModalData({ ...shiftModalData, type: e.target.value })}
                                     >
-                                        <option value="morning">Morning</option>
-                                        <option value="evening">Evening</option>
-                                        <option value="night">Night</option>
+                                        <option value="morning">{t('shiftType.morning', 'Morning')}</option>
+                                        <option value="evening">{t('shiftType.evening', 'Evening')}</option>
+                                        <option value="night">{t('shiftType.night', 'Night')}</option>
                                     </select>
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Start Time</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">{t('field.startTime', 'Start Time')}</label>
                                     <input
                                         type="time"
                                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white focus:ring-2 focus:ring-indigo-500 transition-all"
@@ -2699,7 +2706,7 @@ export default function OwnerStaffShifts() {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">End Time</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">{t('field.endTime', 'End Time')}</label>
                                     <input
                                         type="time"
                                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white focus:ring-2 focus:ring-indigo-500 transition-all"
@@ -2710,13 +2717,13 @@ export default function OwnerStaffShifts() {
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Assignment Zone</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">{t('field.assignmentZone', 'Assignment Zone')}</label>
                                 <select
                                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white focus:ring-2 focus:ring-indigo-500 transition-all"
                                     value={shiftModalData.zoneId}
                                     onChange={e => setShiftModalData({ ...shiftModalData, zoneId: e.target.value })}
                                 >
-                                    <option value="">No Specific Zone</option>
+                                    <option value="">{t('field.noSpecificZone', 'No Specific Zone')}</option>
                                     {hotelZones.map(z => (
                                         <option key={z.id} value={z.id}>{z.name}</option>
                                     ))}
@@ -2729,14 +2736,14 @@ export default function OwnerStaffShifts() {
                                 onClick={() => setIsShiftModalOpen(false)}
                                 className="flex-1 px-6 py-3 rounded-xl border border-white/10 text-sm font-black text-slate-400 hover:bg-white/5 transition-all"
                             >
-                                Cancel
+                                {tc('actions.cancel', 'Cancel')}
                             </button>
                             <button
                                 onClick={handleAssignShift}
                                 disabled={!shiftModalData.staffId}
                                 className="flex-1 px-6 py-3 rounded-xl bg-indigo-500 text-sm font-black text-white hover:bg-indigo-600 shadow-lg shadow-indigo-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                Confirm Assignment
+                                {t('assignModal.confirm', 'Confirm Assignment')}
                             </button>
                         </div>
                     </div>
@@ -2754,8 +2761,8 @@ export default function OwnerStaffShifts() {
                                         <Users size={22} strokeWidth={2.5} />
                                     </div>
                                     <div>
-                                        <h3 className="text-xl font-black text-white">Bulk Assign Shifts</h3>
-                                        <p className="text-sm font-bold text-slate-500">Batch create shifts for multiple staff at once.</p>
+                                        <h3 className="text-xl font-black text-white">{t('bulkModal.title', 'Bulk Assign Shifts')}</h3>
+                                        <p className="text-sm font-bold text-slate-500">{t('bulkModal.subtitle', 'Batch create shifts for multiple staff at once.')}</p>
                                     </div>
                                 </div>
                                 <button onClick={() => setIsBulkModalOpen(false)} className="p-2 rounded-xl text-slate-500 hover:text-white hover:bg-white/5 transition-colors">
@@ -2766,7 +2773,7 @@ export default function OwnerStaffShifts() {
 
                         <div className="p-8 space-y-6">
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Select Staff Members</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">{t('bulkModal.selectStaff', 'Select Staff Members')}</label>
                                 <div className="max-h-48 overflow-y-auto no-scrollbar grid grid-cols-2 gap-2 p-2 bg-white/5 border border-white/10 rounded-xl">
                                     {data?.timeline.map(s => (
                                         <label key={s.staff_id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 cursor-pointer transition-all">
@@ -2789,7 +2796,7 @@ export default function OwnerStaffShifts() {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Start Time</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">{t('field.startTime', 'Start Time')}</label>
                                     <input
                                         type="time"
                                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white focus:ring-2 focus:ring-indigo-500 transition-all"
@@ -2798,7 +2805,7 @@ export default function OwnerStaffShifts() {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">End Time</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">{t('field.endTime', 'End Time')}</label>
                                     <input
                                         type="time"
                                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white focus:ring-2 focus:ring-indigo-500 transition-all"
@@ -2810,25 +2817,25 @@ export default function OwnerStaffShifts() {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Shift Type</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">{t('field.shiftType', 'Shift Type')}</label>
                                     <select
                                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white focus:ring-2 focus:ring-indigo-500 transition-all"
                                         value={bulkModalData.type}
                                         onChange={e => setBulkModalData({ ...bulkModalData, type: e.target.value })}
                                     >
-                                        <option value="morning">Morning</option>
-                                        <option value="evening">Evening</option>
-                                        <option value="night">Night</option>
+                                        <option value="morning">{t('shiftType.morning', 'Morning')}</option>
+                                        <option value="evening">{t('shiftType.evening', 'Evening')}</option>
+                                        <option value="night">{t('shiftType.night', 'Night')}</option>
                                     </select>
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Zone (Optional)</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">{t('field.zoneOptional', 'Zone (Optional)')}</label>
                                     <select
                                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white focus:ring-2 focus:ring-indigo-500 transition-all"
                                         value={bulkModalData.zoneId}
                                         onChange={e => setBulkModalData({ ...bulkModalData, zoneId: e.target.value })}
                                     >
-                                        <option value="">No Zone</option>
+                                        <option value="">{t('common.noZone', 'No Zone')}</option>
                                         {hotelZones.map(z => (
                                             <option key={z.id} value={z.id}>{z.name}</option>
                                         ))}
@@ -2842,14 +2849,14 @@ export default function OwnerStaffShifts() {
                                 onClick={() => setIsBulkModalOpen(false)}
                                 className="flex-1 px-6 py-3 rounded-xl border border-white/10 text-sm font-black text-slate-400 hover:bg-white/5 transition-all"
                             >
-                                Cancel
+                                {tc('actions.cancel', 'Cancel')}
                             </button>
                             <button
                                 onClick={handleBulkAssign}
                                 disabled={bulkModalData.staffIds.length === 0}
                                 className="flex-1 px-6 py-3 rounded-xl bg-indigo-500 text-sm font-black text-white hover:bg-indigo-600 shadow-lg shadow-indigo-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                Create {bulkModalData.staffIds.length} Shifts
+                                {t('bulkModal.create', 'Create {{count}} Shifts', { count: bulkModalData.staffIds.length })}
                             </button>
                         </div>
                     </div>
@@ -2866,8 +2873,8 @@ export default function OwnerStaffShifts() {
                                         <Edit3 size={22} strokeWidth={2.5} />
                                     </div>
                                     <div>
-                                        <h3 className="text-xl font-black text-white">Edit Shift</h3>
-                                        <p className="text-sm font-bold text-slate-500">Update shift timings or reassignment details.</p>
+                                        <h3 className="text-xl font-black text-white">{t('editShiftModal.title', 'Edit Shift')}</h3>
+                                        <p className="text-sm font-bold text-slate-500">{t('editShiftModal.subtitle', 'Update shift timings or reassignment details.')}</p>
                                     </div>
                                 </div>
                                 <div className="p-2 rounded-xl text-slate-500 hover:text-white hover:bg-white/5 transition-colors" onClick={() => setSelectedShift(null)}>
@@ -2879,7 +2886,7 @@ export default function OwnerStaffShifts() {
                         <div className="p-8 space-y-6">
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Start Time</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">{t('field.startTime', 'Start Time')}</label>
                                     <input
                                         type="time"
                                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white focus:ring-2 focus:ring-indigo-500 transition-all"
@@ -2888,7 +2895,7 @@ export default function OwnerStaffShifts() {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">End Time</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">{t('field.endTime', 'End Time')}</label>
                                     <input
                                         type="time"
                                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white focus:ring-2 focus:ring-indigo-500 transition-all"
@@ -2899,26 +2906,26 @@ export default function OwnerStaffShifts() {
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Shift Type</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">{t('field.shiftType', 'Shift Type')}</label>
                                 <select
                                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white focus:ring-2 focus:ring-indigo-500 transition-all"
                                     defaultValue={selectedShift?.shift_type}
                                     id="edit-shift-type"
                                 >
-                                    <option value="morning">Morning</option>
-                                    <option value="evening">Evening</option>
-                                    <option value="night">Night</option>
+                                    <option value="morning">{t('shiftType.morning', 'Morning')}</option>
+                                    <option value="evening">{t('shiftType.evening', 'Evening')}</option>
+                                    <option value="night">{t('shiftType.night', 'Night')}</option>
                                 </select>
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Zone</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">{t('field.zone', 'Zone')}</label>
                                 <select
                                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white focus:ring-2 focus:ring-indigo-500 transition-all"
                                     defaultValue={selectedShift?.zone_id || ""}
                                     id="edit-zone-id"
                                 >
-                                    <option value="">No Specific Zone</option>
+                                    <option value="">{t('field.noSpecificZone', 'No Specific Zone')}</option>
                                     {hotelZones.map(z => (
                                         <option key={z.id} value={z.id}>{z.name}</option>
                                     ))}
@@ -2931,7 +2938,7 @@ export default function OwnerStaffShifts() {
                                 onClick={() => setSelectedShift(null)}
                                 className="flex-1 px-6 py-3 rounded-xl border border-white/10 text-sm font-black text-slate-400 hover:bg-white/5 transition-all"
                             >
-                                Cancel
+                                {tc('actions.cancel', 'Cancel')}
                             </button>
                             <button
                                 onClick={async () => {
@@ -2967,7 +2974,7 @@ export default function OwnerStaffShifts() {
                                 }}
                                 className="flex-1 px-6 py-3 rounded-xl bg-indigo-500 text-sm font-black text-white hover:bg-indigo-600 shadow-lg shadow-indigo-500/20 transition-all"
                             >
-                                Save Changes
+                                {t('common.saveChanges', 'Save Changes')}
                             </button>
                         </div>
                     </div>
@@ -2984,8 +2991,8 @@ export default function OwnerStaffShifts() {
                                         <Shield size={22} strokeWidth={2.5} />
                                     </div>
                                     <div>
-                                        <h3 className="text-xl font-black text-white">Assign Member Roles</h3>
-                                        <p className="text-sm font-bold text-slate-500">Map a team member to one or multiple roles.</p>
+                                        <h3 className="text-xl font-black text-white">{t('roleModal.title', 'Assign Member Roles')}</h3>
+                                        <p className="text-sm font-bold text-slate-500">{t('roleModal.subtitle', 'Map a team member to one or multiple roles.')}</p>
                                     </div>
                                 </div>
                                 <button onClick={() => setIsRoleModalOpen(false)} className="p-2 rounded-xl text-slate-500 hover:text-white hover:bg-white/5 transition-colors">
@@ -2999,12 +3006,12 @@ export default function OwnerStaffShifts() {
                             {roleModalLoading ? (
                                 <div className="flex flex-col items-center justify-center py-12">
                                     <Loader2 size={32} className="text-indigo-500 animate-spin mb-4" />
-                                    <p className="text-sm font-bold text-slate-500">Loading Members & Roles...</p>
+                                    <p className="text-sm font-bold text-slate-500">{t('roleModal.loading', 'Loading Members & Roles...')}</p>
                                 </div>
                             ) : (
                                 <>
                                     <div className="space-y-3">
-                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Select Team Member</label>
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">{t('roleModal.selectMember', 'Select Team Member')}</label>
                                         <div className="relative group">
                                             <select
                                                 value={selectedMemberId}
@@ -3012,7 +3019,7 @@ export default function OwnerStaffShifts() {
                                                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-sm font-bold text-white focus:bg-white/[0.08] focus:border-indigo-500 transition-all outline-none appearance-none cursor-pointer"
                                                 style={{ colorScheme: 'dark' }}
                                             >
-                                                <option value="" disabled className="bg-[#0a0a0c] text-slate-400">-- Select a Member --</option>
+                                                <option value="" disabled className="bg-[#0a0a0c] text-slate-400">{t('roleModal.selectMemberPlaceholder', '-- Select a Member --')}</option>
                                                 {modalMembersList.map(m => (
                                                     <option key={m.id} value={m.id} className="bg-[#0a0a0c] text-white">{m.name}</option>
                                                 ))}
@@ -3025,7 +3032,7 @@ export default function OwnerStaffShifts() {
 
                                     {selectedMemberId && (
                                         <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Manage Member Roles</label>
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">{t('roleModal.manageRoles', 'Manage Member Roles')}</label>
                                             <div className="grid gap-2">
                                                 {modalRolesList.length === 0 ? (
                                                     <div className="p-10 text-center rounded-2xl border border-dashed border-white/10 bg-white/[0.02]">
@@ -3034,8 +3041,8 @@ export default function OwnerStaffShifts() {
                                                                 <Check size={24} />
                                                             </div>
                                                         </div>
-                                                        <p className="text-sm font-black text-white">No Roles Defined</p>
-                                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter mt-1">Please set up hotel roles first.</p>
+                                                        <p className="text-sm font-black text-white">{t('roleModal.noRoles', 'No Roles Defined')}</p>
+                                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter mt-1">{t('roleModal.noRolesHint', 'Please set up hotel roles first.')}</p>
                                                     </div>
                                                 ) : (
                                                     modalRolesList.map(role => {
@@ -3066,7 +3073,7 @@ export default function OwnerStaffShifts() {
                                                                         </span>
                                                                         {role.isTemplate && (
                                                                             <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md bg-white/5 text-slate-600">
-                                                                                Template
+                                                                                {t('roleModal.template', 'Template')}
                                                                             </span>
                                                                         )}
                                                                     </div>
@@ -3089,7 +3096,7 @@ export default function OwnerStaffShifts() {
                                 onClick={() => setIsRoleModalOpen(false)}
                                 className="px-6 py-3 text-sm font-black text-slate-500 hover:text-white hover:bg-white/5 rounded-xl transition-all"
                             >
-                                Cancel
+                                {tc('actions.cancel', 'Cancel')}
                             </button>
                             <button
                                 onClick={handleSaveRoleAssignments}
@@ -3097,9 +3104,9 @@ export default function OwnerStaffShifts() {
                                 className="action-button-primary flex items-center gap-2 px-8 py-3 rounded-xl text-sm font-black transition-all disabled:opacity-20 disabled:cursor-not-allowed"
                             >
                                 {roleModalSaving ? (
-                                    <><Loader2 size={16} className="animate-spin" /> Saving Mapping…</>
+                                    <><Loader2 size={16} className="animate-spin" /> {t('roleModal.savingMapping', 'Saving Mapping…')}</>
                                 ) : (
-                                    <><Save size={16} /> Save New Assignments</>
+                                    <><Save size={16} /> {t('roleModal.saveAssignments', 'Save New Assignments')}</>
                                 )}
                             </button>
                         </div>
@@ -3122,8 +3129,8 @@ export default function OwnerStaffShifts() {
                                             <UserPlus size={22} strokeWidth={2.5} />
                                         </div>
                                         <div>
-                                            <h3 className="text-xl font-black text-white">Invite Teammate</h3>
-                                            <p className="text-sm font-bold text-slate-500">Send a role-scoped login invite. They sign in with this email, then open the accept link.</p>
+                                            <h3 className="text-xl font-black text-white">{t('inviteModal.title', 'Invite Teammate')}</h3>
+                                            <p className="text-sm font-bold text-slate-500">{t('inviteModal.subtitle', 'Send a role-scoped login invite. They sign in with this email, then open the accept link.')}</p>
                                         </div>
                                     </div>
                                     <button onClick={() => setIsInviteModalOpen(false)} className="p-2 rounded-xl text-slate-500 hover:text-white hover:bg-white/5 transition-colors">
@@ -3137,7 +3144,7 @@ export default function OwnerStaffShifts() {
                                 {inviteRolesLoading ? (
                                     <div className="flex flex-col items-center justify-center py-12">
                                         <Loader2 size={32} className="text-indigo-500 animate-spin mb-4" />
-                                        <p className="text-sm font-bold text-slate-500">Loading roles…</p>
+                                        <p className="text-sm font-bold text-slate-500">{t('inviteModal.loadingRoles', 'Loading roles…')}</p>
                                     </div>
                                 ) : invitable.length === 0 ? (
                                     /* A1 gate: no invitable roles defined yet */
@@ -3145,24 +3152,24 @@ export default function OwnerStaffShifts() {
                                         <div className="flex justify-center mb-3">
                                             <div className="p-3 bg-amber-500/10 rounded-xl text-amber-400"><Shield size={24} /></div>
                                         </div>
-                                        <p className="text-sm font-black text-white">No invitable roles yet</p>
-                                        <p className="text-xs font-bold text-slate-500 mt-1 max-w-sm mx-auto">Only the Owner role exists. Create staff roles (Manager, Front desk, Housekeeping…) in Setup before inviting teammates.</p>
+                                        <p className="text-sm font-black text-white">{t('inviteModal.noRoles', 'No invitable roles yet')}</p>
+                                        <p className="text-xs font-bold text-slate-500 mt-1 max-w-sm mx-auto">{t('inviteModal.noRolesHint', 'Only the Owner role exists. Create staff roles (Manager, Front desk, Housekeeping…) in Setup before inviting teammates.')}</p>
                                         <Link to="/onboard" className="inline-flex items-center gap-2 mt-4 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black transition-all">
-                                            <Settings size={14} /> Set up roles
+                                            <Settings size={14} /> {t('inviteModal.setupRoles', 'Set up roles')}
                                         </Link>
                                     </div>
                                 ) : (
                                     <>
                                         {/* Email */}
                                         <div className="space-y-2">
-                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Email</label>
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">{t('field.email', 'Email')}</label>
                                             <div className="relative">
                                                 <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
                                                 <input
                                                     type="email"
                                                     value={inviteForm.email}
                                                     onChange={(e) => setInviteForm(f => ({ ...f, email: e.target.value }))}
-                                                    placeholder="person@hotel.com"
+                                                    placeholder={t('inviteModal.emailPlaceholder', 'person@hotel.com')}
                                                     className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-3.5 text-sm font-bold text-white placeholder:text-slate-600 focus:bg-white/[0.08] focus:border-indigo-500 transition-all outline-none"
                                                     style={{ colorScheme: 'dark' }}
                                                 />
@@ -3171,7 +3178,7 @@ export default function OwnerStaffShifts() {
 
                                         {/* Role */}
                                         <div className="space-y-2">
-                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Role</label>
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">{t('field.role', 'Role')}</label>
                                             <div className="relative">
                                                 <select
                                                     value={inviteForm.roleId}
@@ -3194,19 +3201,19 @@ export default function OwnerStaffShifts() {
                                             disabled={inviteSaving || !inviteForm.email.trim() || !inviteForm.roleId}
                                             className="action-button-primary w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm font-black transition-all disabled:opacity-20 disabled:cursor-not-allowed"
                                         >
-                                            {inviteSaving ? (<><Loader2 size={16} className="animate-spin" /> Sending…</>) : (<><UserPlus size={16} /> Send invite</>)}
+                                            {inviteSaving ? (<><Loader2 size={16} className="animate-spin" /> {t('inviteModal.sending', 'Sending…')}</>) : (<><UserPlus size={16} /> {t('inviteModal.sendInvite', 'Send invite')}</>)}
                                         </button>
 
                                         {/* Accept link after success */}
                                         {inviteLink && (
                                             <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-2 animate-in fade-in slide-in-from-top-2">
-                                                <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Invite sent · share this accept link</p>
+                                                <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">{t('inviteModal.sentShare', 'Invite sent · share this accept link')}</p>
                                                 <div className="flex items-center gap-2">
                                                     <code className="flex-1 text-[11px] font-mono text-slate-300 bg-black/30 rounded-lg px-3 py-2 truncate">{inviteLink}</code>
                                                     <button
-                                                        onClick={() => { navigator.clipboard.writeText(inviteLink); showToast("Link copied", "success"); }}
+                                                        onClick={() => { navigator.clipboard.writeText(inviteLink); showToast(t("toast.linkCopied", "Link copied"), "success"); }}
                                                         className="p-2.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 transition-all"
-                                                        title="Copy link"
+                                                        title={t('inviteModal.copyLink', 'Copy link')}
                                                     >
                                                         <Copy size={15} />
                                                     </button>
@@ -3216,9 +3223,9 @@ export default function OwnerStaffShifts() {
 
                                         {/* Pending invites */}
                                         <div className="pt-2 space-y-3">
-                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Pending invites</label>
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">{t('inviteModal.pending', 'Pending invites')}</label>
                                             {pendingInvites.length === 0 ? (
-                                                <p className="text-xs font-bold text-slate-600 px-1">No pending invites.</p>
+                                                <p className="text-xs font-bold text-slate-600 px-1">{t('inviteModal.noPending', 'No pending invites.')}</p>
                                             ) : (
                                                 <div className="grid gap-2">
                                                     {pendingInvites.map(inv => (
@@ -3226,21 +3233,21 @@ export default function OwnerStaffShifts() {
                                                             <div className="min-w-0">
                                                                 <div className="text-sm font-bold text-slate-200 truncate">{inv.email}</div>
                                                                 <div className="text-[10px] font-bold text-slate-500 mt-0.5">
-                                                                    {(inv.role_id && roleNameById[inv.role_id]) || "Role"} · expires {new Date(inv.expires_at).toLocaleDateString()}
+                                                                    {(inv.role_id && roleNameById[inv.role_id]) || t('inviteModal.roleFallback', 'Role')} · {t('inviteModal.expires', 'expires {{date}}', { date: new Date(inv.expires_at).toLocaleDateString(ownerLocale) })}
                                                                 </div>
                                                             </div>
                                                             <div className="flex items-center gap-1.5 shrink-0">
                                                                 <button
-                                                                    onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/owner/invite/accept/${inv.token}`); showToast("Link copied", "success"); }}
+                                                                    onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/owner/invite/accept/${inv.token}`); showToast(t("toast.linkCopied", "Link copied"), "success"); }}
                                                                     className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 transition-all"
-                                                                    title="Copy accept link"
+                                                                    title={t('inviteModal.copyAccept', 'Copy accept link')}
                                                                 >
                                                                     <Copy size={14} />
                                                                 </button>
                                                                 <button
                                                                     onClick={() => handleRevokeInvite(inv.id)}
                                                                     className="p-2 rounded-lg bg-white/5 hover:bg-rose-500/15 text-slate-400 hover:text-rose-400 transition-all"
-                                                                    title="Revoke invite"
+                                                                    title={t('inviteModal.revoke', 'Revoke invite')}
                                                                 >
                                                                     <Trash2 size={14} />
                                                                 </button>
@@ -3260,7 +3267,7 @@ export default function OwnerStaffShifts() {
                                     onClick={() => setIsInviteModalOpen(false)}
                                     className="px-6 py-3 text-sm font-black text-slate-500 hover:text-white hover:bg-white/5 rounded-xl transition-all"
                                 >
-                                    Close
+                                    {tc('actions.close', 'Close')}
                                 </button>
                             </div>
                         </div>
@@ -3281,8 +3288,8 @@ export default function OwnerStaffShifts() {
                                     <CalendarDays size={20} className="text-indigo-400" />
                                 </div>
                                 <div>
-                                    <h2 className="text-lg font-black text-white tracking-tight">Weekly Scheduling</h2>
-                                    <p className="text-[11px] font-bold text-slate-500 mt-0.5">Create recurring shift patterns</p>
+                                    <h2 className="text-lg font-black text-white tracking-tight">{t('weekly.title', 'Weekly Scheduling')}</h2>
+                                    <p className="text-[11px] font-bold text-slate-500 mt-0.5">{t('weekly.subtitle', 'Create recurring shift patterns')}</p>
                                 </div>
                             </div>
                             <button onClick={() => setIsWeeklyModalOpen(false)} className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center hover:bg-white/10 transition-all">
@@ -3295,14 +3302,14 @@ export default function OwnerStaffShifts() {
 
                             {/* Staff Selector */}
                             <div>
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">Staff</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">{t('field.staff', 'Staff')}</label>
                                 <div className="relative">
                                     <select
                                         value={weeklyData.staffId}
                                         onChange={e => setWeeklyData({ ...weeklyData, staffId: e.target.value })}
                                         className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 pr-10 py-3.5 text-sm font-bold text-white appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/40 transition-all cursor-pointer"
                                     >
-                                        <option value="">Select staff member...</option>
+                                        <option value="">{t('weekly.selectStaff', 'Select staff member...')}</option>
                                         {data?.timeline.map(staff => (
                                             <option key={staff.staff_id} value={staff.staff_id}>
                                                 {staff.full_name} {staff.department_name ? `| ${staff.department_name.toUpperCase()}` : ''}
@@ -3315,10 +3322,11 @@ export default function OwnerStaffShifts() {
 
                             {/* Day Toggles */}
                             <div>
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">Days</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">{t('weekly.days', 'Days')}</label>
                                 <div className="flex gap-2">
                                     {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((label, i) => {
                                         const isSelected = weeklyData.days.includes(i);
+                                        const dayLabel = t(`dowLetter.${i}`, label);
                                         return (
                                             <button
                                                 key={i}
@@ -3336,7 +3344,7 @@ export default function OwnerStaffShifts() {
                                                     : 'bg-white/[0.03] border-white/10 text-slate-500 hover:border-white/20 hover:text-white'
                                                     }`}
                                             >
-                                                {label}
+                                                {dayLabel}
                                             </button>
                                         );
                                     })}
@@ -3346,22 +3354,22 @@ export default function OwnerStaffShifts() {
                             {/* Time & Type Row */}
                             <div className="grid grid-cols-3 gap-4">
                                 <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">Type</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">{t('field.type', 'Type')}</label>
                                     <div className="relative">
                                         <select
                                             value={weeklyData.type}
                                             onChange={e => setWeeklyData({ ...weeklyData, type: e.target.value })}
                                             className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 pr-10 py-3 text-sm font-bold text-white appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-all cursor-pointer"
                                         >
-                                            <option value="morning">Morning</option>
-                                            <option value="evening">Evening</option>
-                                            <option value="night">Night</option>
+                                            <option value="morning">{t('shiftType.morning', 'Morning')}</option>
+                                            <option value="evening">{t('shiftType.evening', 'Evening')}</option>
+                                            <option value="night">{t('shiftType.night', 'Night')}</option>
                                         </select>
                                         <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">Start</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">{t('field.start', 'Start')}</label>
                                     <input
                                         type="time"
                                         value={weeklyData.startTime}
@@ -3370,7 +3378,7 @@ export default function OwnerStaffShifts() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">End</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">{t('field.end', 'End')}</label>
                                     <input
                                         type="time"
                                         value={weeklyData.endTime}
@@ -3382,14 +3390,14 @@ export default function OwnerStaffShifts() {
 
                             {/* Zone */}
                             <div>
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">Zone</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">{t('field.zone', 'Zone')}</label>
                                 <div className="relative">
                                     <select
                                         value={weeklyData.zoneId}
                                         onChange={e => setWeeklyData({ ...weeklyData, zoneId: e.target.value })}
                                         className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 pr-10 py-3 text-sm font-bold text-white appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-all cursor-pointer"
                                     >
-                                        <option value="">All Zones</option>
+                                        <option value="">{t('weekly.allZonesOption', 'All Zones')}</option>
                                         {hotelZones.map(z => (
                                             <option key={z.id} value={z.id}>{z.name}</option>
                                         ))}
@@ -3401,7 +3409,7 @@ export default function OwnerStaffShifts() {
                             {/* Date Range */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">From</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">{t('field.from', 'From')}</label>
                                     <input
                                         type="date"
                                         value={weeklyData.rangeStart}
@@ -3410,7 +3418,7 @@ export default function OwnerStaffShifts() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">To</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">{t('field.to', 'To')}</label>
                                     <input
                                         type="date"
                                         value={weeklyData.rangeEnd}
@@ -3426,7 +3434,7 @@ export default function OwnerStaffShifts() {
                                     onClick={handleWeeklyPreview}
                                     className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 text-xs font-black hover:bg-indigo-500/20 transition-all"
                                 >
-                                    <BarChart2 size={14} /> Preview Schedule
+                                    <BarChart2 size={14} /> {t('weekly.preview', 'Preview Schedule')}
                                 </button>
                             </div>
 
@@ -3440,10 +3448,10 @@ export default function OwnerStaffShifts() {
                                         </div>
                                         <div>
                                             <span className="text-sm font-black text-white">
-                                                {data?.timeline.find(s => s.staff_id === weeklyData.staffId)?.full_name || 'Staff'}
+                                                {data?.timeline.find(s => s.staff_id === weeklyData.staffId)?.full_name || t('field.staff', 'Staff')}
                                             </span>
                                             <span className="text-[10px] font-bold text-slate-500 ml-2">
-                                                {weeklyData.days.map(d => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d]).join(', ')} · {weeklyData.startTime} → {weeklyData.endTime}
+                                                {weeklyData.days.map(d => t(`dowShort.${d}`, ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d])).join(', ')} · {weeklyData.startTime} → {weeklyData.endTime}
                                             </span>
                                         </div>
                                     </div>
@@ -3451,9 +3459,9 @@ export default function OwnerStaffShifts() {
                                     {/* Grid Table */}
                                     <div className="rounded-xl border border-white/5 overflow-hidden">
                                         <div className="bg-white/[0.02] px-4 py-2 border-b border-white/5 grid grid-cols-[1fr_100px_80px] gap-2">
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Date</span>
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Time</span>
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 text-right">Status</span>
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{t('weekly.colDate', 'Date')}</span>
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{t('weekly.colTime', 'Time')}</span>
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 text-right">{t('weekly.colStatus', 'Status')}</span>
                                         </div>
                                         <div className="max-h-[200px] overflow-y-auto">
                                             {weeklyPreview.map((p, i) => (
@@ -3464,18 +3472,18 @@ export default function OwnerStaffShifts() {
                                                 >
                                                     <div>
                                                         <span className="text-xs font-bold text-white">
-                                                            {p.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                                                            {p.date.toLocaleDateString(ownerLocale, { weekday: 'short', month: 'short', day: 'numeric' })}
                                                         </span>
                                                     </div>
                                                     <span className="text-[11px] font-bold text-slate-400 whitespace-nowrap">{weeklyData.startTime}–{weeklyData.endTime}</span>
                                                     <div className="flex justify-start">
                                                         {p.conflict ? (
                                                             <span className="flex items-center gap-1.5 text-[10px] font-bold text-amber-400 truncate">
-                                                                <span className="text-xs">❌</span> {p.conflictReason || 'Conflict'}
+                                                                <span className="text-xs">❌</span> {p.conflictReason || t('weekly.conflict', 'Conflict')}
                                                             </span>
                                                         ) : (
                                                             <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-400 truncate">
-                                                                <span className="text-xs">✅</span> Clear
+                                                                <span className="text-xs">✅</span> {t('weekly.clear', 'Clear')}
                                                             </span>
                                                         )}
                                                     </div>
@@ -3499,11 +3507,11 @@ export default function OwnerStaffShifts() {
                                                 <div className="text-xs font-bold">
                                                     {conflicts > 0 ? (
                                                         <span className="text-amber-400">
-                                                            Conflicts: {conflicts} · Will create {clear} shifts
+                                                            {t('weekly.conflictSummary', 'Conflicts: {{conflicts}} · Will create {{clear}} shifts', { conflicts, clear })}
                                                         </span>
                                                     ) : (
                                                         <span className="text-emerald-400">
-                                                            All {clear} shifts are clear — ready to apply
+                                                            {t('weekly.allClear', 'All {{count}} shifts are clear — ready to apply', { count: clear })}
                                                         </span>
                                                     )}
                                                 </div>
@@ -3520,7 +3528,7 @@ export default function OwnerStaffShifts() {
                                 onClick={() => setIsWeeklyModalOpen(false)}
                                 className="px-6 py-3 text-sm font-black text-slate-500 hover:text-white hover:bg-white/5 rounded-xl transition-all"
                             >
-                                Cancel
+                                {tc('actions.cancel', 'Cancel')}
                             </button>
                             <button
                                 onClick={handleWeeklyApply}
@@ -3528,9 +3536,9 @@ export default function OwnerStaffShifts() {
                                 className="action-button-primary flex items-center gap-2 px-8 py-3 rounded-xl text-sm font-black transition-all disabled:opacity-20 disabled:cursor-not-allowed"
                             >
                                 {weeklyApplying ? (
-                                    <><Loader2 size={16} className="animate-spin" /> Applying…</>
+                                    <><Loader2 size={16} className="animate-spin" /> {t('common.applying', 'Applying…')}</>
                                 ) : (
-                                    <><CalendarDays size={16} /> Apply Schedule</>
+                                    <><CalendarDays size={16} /> {t('weekly.apply', 'Apply Schedule')}</>
                                 )}
                             </button>
                         </div>
@@ -3551,8 +3559,8 @@ export default function OwnerStaffShifts() {
                                     <Sparkles size={20} className="text-amber-400" />
                                 </div>
                                 <div>
-                                    <h2 className="text-lg font-black text-white tracking-tight">Smart Scheduler</h2>
-                                    <p className="text-[11px] font-bold text-slate-500 mt-0.5">Automatically generate an optimized schedule for the week</p>
+                                    <h2 className="text-lg font-black text-white tracking-tight">{t('smart.title', 'Smart Scheduler')}</h2>
+                                    <p className="text-[11px] font-bold text-slate-500 mt-0.5">{t('smart.subtitle', 'Automatically generate an optimized schedule for the week')}</p>
                                 </div>
                             </div>
                             <button onClick={() => setIsSmartModalOpen(false)} className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center hover:bg-white/10 transition-all">
@@ -3566,7 +3574,7 @@ export default function OwnerStaffShifts() {
                             {/* Config Row: Week, Zone, Demand */}
                             <div className="grid grid-cols-3 gap-4">
                                 <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">Week</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">{t('smart.week', 'Week')}</label>
                                     <input
                                         type="date"
                                         value={smartState.weekStart}
@@ -3575,14 +3583,14 @@ export default function OwnerStaffShifts() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">Zone</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">{t('field.zone', 'Zone')}</label>
                                     <div className="relative">
                                         <select
                                             value={smartState.zoneId}
                                             onChange={e => setSmartState(prev => ({ ...prev, zoneId: e.target.value, plan: null }))}
                                             className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 pr-10 py-3 text-sm font-bold text-white appearance-none focus:outline-none focus:ring-2 focus:ring-amber-500/40 transition-all cursor-pointer"
                                         >
-                                            <option value="">All Zones</option>
+                                            <option value="">{t('smart.allZonesOption', 'All Zones')}</option>
                                             {hotelZones.map(z => (
                                                 <option key={z.id} value={z.id}>{z.name}</option>
                                             ))}
@@ -3591,12 +3599,12 @@ export default function OwnerStaffShifts() {
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">Week Range</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">{t('smart.weekRange', 'Week Range')}</label>
                                     <div className="bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-slate-400">
                                         {(() => {
                                             const ws = new Date(smartState.weekStart + 'T00:00:00');
                                             const we = new Date(ws.getTime() + 6 * 86400000);
-                                            return `${ws.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} — ${we.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`;
+                                            return `${ws.toLocaleDateString(ownerLocale, { weekday: 'short', month: 'short', day: 'numeric' })} — ${we.toLocaleDateString(ownerLocale, { weekday: 'short', month: 'short', day: 'numeric' })}`;
                                         })()}
                                     </div>
                                 </div>
@@ -3604,7 +3612,7 @@ export default function OwnerStaffShifts() {
 
                             {/* Demand Config */}
                             <div>
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3 block">Demand per Day</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3 block">{t('smart.demand', 'Demand per Day')}</label>
                                 <div className="grid grid-cols-3 gap-3">
                                     {smartState.demand.map((d, i) => (
                                         <div key={d.shift_type} className="flex items-center justify-between bg-white/[0.03] border border-white/5 rounded-xl px-4 py-3">
@@ -3612,7 +3620,7 @@ export default function OwnerStaffShifts() {
                                                 {d.shift_type === 'morning' && <Sun size={14} className="text-amber-400" />}
                                                 {d.shift_type === 'evening' && <Moon size={14} className="text-purple-400" />}
                                                 {d.shift_type === 'night' && <Moon size={14} className="text-indigo-400" />}
-                                                <span className="text-xs font-black text-white capitalize">{d.shift_type}</span>
+                                                <span className="text-xs font-black text-white capitalize">{t(`shiftType.${d.shift_type}`, d.shift_type)}</span>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <button
@@ -3644,7 +3652,7 @@ export default function OwnerStaffShifts() {
                                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-500/10 to-transparent animate-pulse" style={{ animationDuration: '1.5s' }} />
                                     <div className="relative flex items-center gap-3">
                                         <Loader2 size={18} className="text-amber-400 animate-spin" />
-                                        <span className="text-sm font-black text-amber-400">Generating optimal schedule...</span>
+                                        <span className="text-sm font-black text-amber-400">{t('smart.generating', 'Generating optimal schedule...')}</span>
                                     </div>
                                 </div>
                             )}
@@ -3656,7 +3664,7 @@ export default function OwnerStaffShifts() {
                                         onClick={handleGeneratePlan}
                                         className="flex items-center gap-2 px-8 py-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm font-black hover:bg-amber-500/20 transition-all"
                                     >
-                                        <Sparkles size={16} /> Generate Schedule
+                                        <Sparkles size={16} /> {t('smart.generate', 'Generate Schedule')}
                                     </button>
                                 </div>
                             )}
@@ -3676,12 +3684,12 @@ export default function OwnerStaffShifts() {
                                     <div className="flex items-center gap-4">
                                         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/[0.08] border border-emerald-500/20">
                                             <Check size={14} className="text-emerald-400" />
-                                            <span className="text-xs font-black text-emerald-400">{smartState.plan.assignments.length} shifts assigned</span>
+                                            <span className="text-xs font-black text-emerald-400">{t('smart.assigned', '{{count}} shifts assigned', { count: smartState.plan.assignments.length })}</span>
                                         </div>
                                         {smartState.plan.conflicts.length > 0 && (
                                             <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/[0.08] border border-amber-500/20">
                                                 <AlertCircle size={14} className="text-amber-400" />
-                                                <span className="text-xs font-black text-amber-400">{smartState.plan.conflicts.length} conflicts</span>
+                                                <span className="text-xs font-black text-amber-400">{t('smart.conflicts', '{{count}} conflicts', { count: smartState.plan.conflicts.length })}</span>
                                             </div>
                                         )}
                                     </div>
@@ -3690,7 +3698,7 @@ export default function OwnerStaffShifts() {
                                     {smartOptimized.improving && (
                                         <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-indigo-500/[0.05] border border-indigo-500/20">
                                             <Loader2 size={16} className="text-indigo-400 animate-spin" />
-                                            <span className="text-xs font-bold text-indigo-400">AI is searching for global optimizations in background...</span>
+                                            <span className="text-xs font-bold text-indigo-400">{t('smart.optimizing', 'AI is searching for global optimizations in background...')}</span>
                                         </div>
                                     )}
                                     {smartOptimized.showBanner && smartOptimized.improvedPlan && (
@@ -3698,8 +3706,8 @@ export default function OwnerStaffShifts() {
                                             <div className="flex items-center gap-3">
                                                 <Sparkles size={16} className="text-indigo-400" />
                                                 <div>
-                                                    <span className="text-xs font-black text-indigo-300 block">Better schedule available!</span>
-                                                    <span className="text-[10px] font-bold text-indigo-400/70">Score improved: {smartOptimized.baseScore} → {smartOptimized.improvedScore}</span>
+                                                    <span className="text-xs font-black text-indigo-300 block">{t('smart.betterAvailable', 'Better schedule available!')}</span>
+                                                    <span className="text-[10px] font-bold text-indigo-400/70">{t('smart.scoreImproved', 'Score improved: {{base}} → {{improved}}', { base: smartOptimized.baseScore, improved: smartOptimized.improvedScore })}</span>
                                                 </div>
                                             </div>
                                             <button
@@ -3707,7 +3715,7 @@ export default function OwnerStaffShifts() {
                                                 disabled={smartApplying}
                                                 className="px-4 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-black shadow-[0_0_15px_rgba(99,102,241,0.3)] transition-all flex items-center gap-2"
                                             >
-                                                {smartApplying ? <Loader2 size={14} className="animate-spin" /> : "Apply Improved"}
+                                                {smartApplying ? <Loader2 size={14} className="animate-spin" /> : t('smart.applyImproved', 'Apply Improved')}
                                             </button>
                                         </div>
                                     )}
@@ -3744,11 +3752,11 @@ export default function OwnerStaffShifts() {
                                             <div className="rounded-xl border border-white/5 overflow-hidden">
                                                 {/* Header Row */}
                                                 <div className="bg-white/[0.02] border-b border-white/5 grid" style={{ gridTemplateColumns: '120px repeat(7, 1fr)' }}>
-                                                    <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Staff</div>
+                                                    <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">{t('smart.gridStaff', 'Staff')}</div>
                                                     {days.map((d, i) => (
                                                         <div key={i} className="px-2 py-2 text-center">
-                                                            <div className="text-[10px] font-black uppercase text-slate-500">{d.toLocaleDateString('en-US', { weekday: 'short' })}</div>
-                                                            <div className="text-[10px] font-bold text-slate-600">{d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}</div>
+                                                            <div className="text-[10px] font-black uppercase text-slate-500">{d.toLocaleDateString(ownerLocale, { weekday: 'short' })}</div>
+                                                            <div className="text-[10px] font-bold text-slate-600">{d.toLocaleDateString(ownerLocale, { day: 'numeric', month: 'short' })}</div>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -3787,15 +3795,15 @@ export default function OwnerStaffShifts() {
                                     {/* Conflicts Detail */}
                                     {smartState.showConflicts && smartState.plan.conflicts.length > 0 && (
                                         <div className="space-y-2">
-                                            <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-400">Conflicts</h4>
+                                            <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-400">{t('smart.conflictsTitle', 'Conflicts')}</h4>
                                             {smartState.plan.conflicts.map((c: any, i: number) => (
                                                 <div key={i} className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-amber-500/[0.03] border border-amber-500/10">
                                                     <AlertCircle size={14} className="text-amber-400 shrink-0" />
                                                     <span className="text-xs font-bold text-slate-300">
-                                                        {new Date(c.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                                                        {new Date(c.date + 'T00:00:00').toLocaleDateString(ownerLocale, { weekday: 'short', month: 'short', day: 'numeric' })}
                                                     </span>
-                                                    <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-white/5 text-slate-400">{c.shift_type}</span>
-                                                    <span className="text-xs font-bold text-amber-400/80">{c.reason === 'no_available_staff' ? 'No available staff' : c.reason}</span>
+                                                    <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-white/5 text-slate-400">{t(`shiftType.${c.shift_type}`, c.shift_type)}</span>
+                                                    <span className="text-xs font-bold text-amber-400/80">{c.reason === 'no_available_staff' ? t('smart.noStaff', 'No available staff') : c.reason}</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -3808,7 +3816,7 @@ export default function OwnerStaffShifts() {
                                             disabled={smartState.loading}
                                             className="flex items-center gap-2 px-5 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-400 text-xs font-bold hover:text-white hover:bg-white/10 transition-all"
                                         >
-                                            <Repeat size={12} /> Re-generate
+                                            <Repeat size={12} /> {t('smart.regenerate', 'Re-generate')}
                                         </button>
                                     </div>
                                 </div>
@@ -3822,14 +3830,14 @@ export default function OwnerStaffShifts() {
                                     onClick={() => setSmartState(prev => ({ ...prev, showConflicts: !prev.showConflicts }))}
                                     className="px-6 py-3 text-sm font-black text-amber-400/80 hover:text-amber-400 hover:bg-amber-500/5 rounded-xl transition-all border border-amber-500/20"
                                 >
-                                    {smartState.showConflicts ? 'Hide Conflicts' : 'See Conflicts'}
+                                    {smartState.showConflicts ? t('smart.hideConflicts', 'Hide Conflicts') : t('smart.seeConflicts', 'See Conflicts')}
                                 </button>
                             )}
                             <button
                                 onClick={() => setIsSmartModalOpen(false)}
                                 className="px-6 py-3 text-sm font-black text-slate-500 hover:text-white hover:bg-white/5 rounded-xl transition-all"
                             >
-                                Cancel
+                                {tc('actions.cancel', 'Cancel')}
                             </button>
                             <button
                                 onClick={handleApplyPlan}
@@ -3837,9 +3845,9 @@ export default function OwnerStaffShifts() {
                                 className="action-button-primary flex items-center gap-2 px-8 py-3 rounded-xl text-sm font-black transition-all disabled:opacity-20 disabled:cursor-not-allowed"
                             >
                                 {smartApplying ? (
-                                    <><Loader2 size={16} className="animate-spin" /> Applying…</>
+                                    <><Loader2 size={16} className="animate-spin" /> {t('common.applying', 'Applying…')}</>
                                 ) : (
-                                    <><Sparkles size={16} /> Apply Schedule</>
+                                    <><Sparkles size={16} /> {t('smart.apply', 'Apply Schedule')}</>
                                 )}
                             </button>
                         </div>
@@ -3849,18 +3857,18 @@ export default function OwnerStaffShifts() {
 
             {/* ── TOAST NOTIFICATIONS ── */}
             <div className="fixed bottom-6 right-6 z-[9999] flex flex-col gap-2 pointer-events-none">
-                {toasts.map(t => (
+                {toasts.map(toast => (
                     <div
-                        key={t.id}
-                        className={`pointer-events-auto flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl backdrop-blur-xl border text-sm font-bold animate-in fade-in slide-in-from-bottom-2 duration-300 ${t.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
-                            t.type === 'warning' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
+                        key={toast.id}
+                        className={`pointer-events-auto flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl backdrop-blur-xl border text-sm font-bold animate-in fade-in slide-in-from-bottom-2 duration-300 ${toast.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
+                            toast.type === 'warning' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
                                 'bg-red-500/10 border-red-500/20 text-red-400'
                             }`}
                     >
-                        {t.type === 'success' && <Check size={16} strokeWidth={3} />}
-                        {t.type === 'warning' && <AlertCircle size={16} strokeWidth={3} />}
-                        {t.type === 'error' && <X size={16} strokeWidth={3} />}
-                        {t.message}
+                        {toast.type === 'success' && <Check size={16} strokeWidth={3} />}
+                        {toast.type === 'warning' && <AlertCircle size={16} strokeWidth={3} />}
+                        {toast.type === 'error' && <X size={16} strokeWidth={3} />}
+                        {toast.message}
                     </div>
                 ))}
             </div>
@@ -3872,8 +3880,8 @@ export default function OwnerStaffShifts() {
                     <div className="relative w-full max-w-2xl rounded-[32px] border border-white/10 bg-[#121216] p-8 shadow-2xl animate-in zoom-in-95 duration-200 !overflow-visible">
                         <div className="flex items-center justify-between mb-8">
                             <div>
-                                <h2 className="text-xl font-black text-white uppercase tracking-widest">Manage Departments</h2>
-                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tight mt-1">Configure workspace access & primary roles</p>
+                                <h2 className="text-xl font-black text-white uppercase tracking-widest">{t('deptModal.title', 'Manage Departments')}</h2>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tight mt-1">{t('deptModal.subtitle', 'Configure workspace access & primary roles')}</p>
                             </div>
                             <button onClick={() => setIsDepartmentModalOpen(false)} className="rounded-full bg-white/5 p-2 text-slate-400 hover:bg-white/10 hover:text-white transition-all">
                                 <X size={20} />
@@ -3890,15 +3898,15 @@ export default function OwnerStaffShifts() {
                                             <Layout size={22} strokeWidth={2.5} />
                                         </div>
                                         <div>
-                                            <div className="text-base font-black text-white">{sd.departments?.name || 'Unknown Department'}</div>
+                                            <div className="text-base font-black text-white">{sd.departments?.name || t('deptModal.unknownDept', 'Unknown Department')}</div>
                                             <div className="flex items-center gap-2 mt-0.5">
                                                 {sd.is_primary ? (
                                                     <>
-                                                        <span className="text-[10px] font-black uppercase text-indigo-400">Primary Department</span>
+                                                        <span className="text-[10px] font-black uppercase text-indigo-400">{t('deptModal.primary', 'Primary Department')}</span>
                                                         <div className="w-1 h-1 rounded-full bg-slate-700" />
                                                     </>
                                                 ) : null}
-                                                <span className="text-[10px] font-bold text-slate-500 uppercase">Priority {sd.priority || 2}</span>
+                                                <span className="text-[10px] font-bold text-slate-500 uppercase">{t('deptModal.priority', 'Priority {{n}}', { n: sd.priority || 2 })}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -3906,9 +3914,9 @@ export default function OwnerStaffShifts() {
                                         <button
                                             onClick={async () => {
                                                 if (sd.is_primary) {
-                                                    return showToast('Cannot disable the primary department. Please make another department primary first.', 'warning');
+                                                    return showToast(t('toast.cantDisablePrimary', 'Cannot disable the primary department. Please make another department primary first.'), 'warning');
                                                 }
-                                                if (!confirm(`Are you sure you want to remove ${sd.departments?.name}?`)) return;
+                                                if (!confirm(t('confirm.removeDept', 'Are you sure you want to remove {{name}}?', { name: sd.departments?.name }))) return;
 
                                                 try {
                                                     const { error } = await supabase
@@ -3918,17 +3926,17 @@ export default function OwnerStaffShifts() {
                                                         .eq('department_id', sd.department_id);
 
                                                     if (error) throw error;
-                                                    showToast(`${sd.departments?.name} removed successfully`, 'success');
+                                                    showToast(t('toast.deptRemoved', '{{name}} removed successfully', { name: sd.departments?.name }), 'success');
                                                     await fetchStaffDepts();
                                                     refetchDashboard();
                                                 } catch (err: any) {
                                                     console.error('Disable dept error:', err);
-                                                    showToast(err.message || 'Failed to remove department', 'error');
+                                                    showToast(err.message || t('toast.deptRemoveFailed', 'Failed to remove department'), 'error');
                                                 }
                                             }}
                                             className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-red-400 transition-colors"
                                         >
-                                            Disable
+                                            {t('deptModal.disable', 'Disable')}
                                         </button>
                                         <div className="w-px h-4 bg-white/10" />
                                         <button
@@ -3950,17 +3958,17 @@ export default function OwnerStaffShifts() {
                                                         .eq('department_id', sd.department_id);
                                                     if (err2) throw err2;
 
-                                                    showToast(`${sd.departments?.name} is now the primary department`, 'success');
+                                                    showToast(t('toast.deptPrimary', '{{name}} is now the primary department', { name: sd.departments?.name }), 'success');
                                                     await fetchStaffDepts();
                                                     refetchDashboard();
                                                 } catch (err: any) {
                                                     console.error('Make primary error:', err);
-                                                    showToast(err.message || 'Failed to update primary department', 'error');
+                                                    showToast(err.message || t('toast.deptPrimaryFailed', 'Failed to update primary department'), 'error');
                                                 }
                                             }}
                                             className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors ${sd.is_primary ? 'bg-white/5 text-slate-400 cursor-not-allowed' : 'bg-white/10 text-white hover:bg-white/20'}`}
                                         >
-                                            {sd.is_primary ? 'Is Primary' : 'Make Primary'}
+                                            {sd.is_primary ? t('deptModal.isPrimary', 'Is Primary') : t('deptModal.makePrimary', 'Make Primary')}
                                         </button>
                                     </div>
                                 </div>
@@ -3978,11 +3986,11 @@ export default function OwnerStaffShifts() {
                                         </div>
                                         <div className="flex-1 mr-4">
                                             <span className={`text-sm font-bold transition-colors ${isAddDeptDropdownOpen ? 'text-white' : 'text-slate-300 group-hover:text-white'}`}>
-                                                Assign to additional department...
+                                                {t('deptModal.assignAdditional', 'Assign to additional department...')}
                                             </span>
                                         </div>
                                     </div>
-                                    <div className="pointer-events-none px-5 py-2.5 rounded-xl bg-white/5 text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-white transition-colors">Select</div>
+                                    <div className="pointer-events-none px-5 py-2.5 rounded-xl bg-white/5 text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-white transition-colors">{t('deptModal.select', 'Select')}</div>
                                 </div>
 
                                 {isAddDeptDropdownOpen && (
@@ -3993,7 +4001,7 @@ export default function OwnerStaffShifts() {
                                         />
                                         <div className="absolute bottom-[calc(100%+12px)] left-0 right-0 p-3 bg-[#1a1a24] border border-white/10 rounded-[24px] shadow-2xl shadow-black/80 z-[110] animate-in fade-in slide-in-from-bottom-2">
                                             <div className="px-4 py-2 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 border-b border-white/5 pb-3">
-                                                Select a Department
+                                                {t('deptModal.selectDept', 'Select a Department')}
                                             </div>
                                             <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-1">
                                                 {(() => {
@@ -4003,7 +4011,7 @@ export default function OwnerStaffShifts() {
                                                     if (availableDepartments.length === 0) {
                                                         return (
                                                             <div className="px-4 py-4 text-sm font-medium text-slate-500 text-center bg-white/[0.02] rounded-xl border border-dashed border-white/5">
-                                                                No other departments available
+                                                                {t('deptModal.noOther', 'No other departments available')}
                                                             </div>
                                                         );
                                                     }
@@ -4023,18 +4031,18 @@ export default function OwnerStaffShifts() {
                                                                     });
                                                                     if (error) {
                                                                         if (error.code === '23505') {
-                                                                            showToast('Staff is already assigned to this department', 'warning');
+                                                                            showToast(t('toast.deptDuplicate', 'Staff is already assigned to this department'), 'warning');
                                                                         } else {
                                                                             throw error;
                                                                         }
                                                                     } else {
-                                                                        showToast('Department assigned successfully', 'success');
+                                                                        showToast(t('toast.deptAssigned', 'Department assigned successfully'), 'success');
                                                                         await fetchStaffDepts(); // immediately refresh the inline list
                                                                         refetchDashboard();
                                                                     }
                                                                 } catch (err: any) {
                                                                     console.error('Add dept error:', err);
-                                                                    showToast(err.message || 'Failed to assign department', 'error');
+                                                                    showToast(err.message || t('toast.deptAssignFailed', 'Failed to assign department'), 'error');
                                                                 }
                                                             }}
                                                             className="w-full text-left px-5 py-3.5 text-sm font-bold text-slate-300 hover:text-white hover:bg-white/10 rounded-xl transition-all flex items-center justify-between group"
@@ -4056,16 +4064,16 @@ export default function OwnerStaffShifts() {
                                 onClick={() => setIsDepartmentModalOpen(false)}
                                 className="flex-1 bg-white/[0.05] py-4 rounded-2xl text-xs font-black uppercase tracking-widest text-white hover:bg-white/[0.08] transition-all border border-white/10"
                             >
-                                Cancel
+                                {tc('actions.cancel', 'Cancel')}
                             </button>
                             <button
                                 onClick={() => {
-                                    showToast('Department configuration updated', 'success');
+                                    showToast(t('toast.deptConfigUpdated', 'Department configuration updated'), 'success');
                                     setIsDepartmentModalOpen(false);
                                 }}
                                 className="flex-1 bg-gradient-to-r from-indigo-500 to-blue-600 py-4 rounded-2xl text-xs font-black uppercase tracking-widest text-white shadow-xl shadow-indigo-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
                             >
-                                Save Changes
+                                {t('common.saveChanges', 'Save Changes')}
                             </button>
                         </div>
 
@@ -4084,10 +4092,10 @@ export default function OwnerStaffShifts() {
                         <div className="flex items-center justify-between mb-6 shrink-0">
                             <div>
                                 <h2 className="text-xl font-black text-white uppercase tracking-widest">
-                                    {rosterDetailType === 'on_shift' ? 'Staff On Shift' : rosterDetailType === 'deactivated' ? 'Deactivated Staff' : 'Staff Off Duty'}
+                                    {rosterDetailType === 'on_shift' ? t('roster.onShift', 'Staff On Shift') : rosterDetailType === 'deactivated' ? t('roster.deactivated', 'Deactivated Staff') : t('roster.offDuty', 'Staff Off Duty')}
                                 </h2>
                                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tight mt-1">
-                                    {rosterDetailType === 'deactivated' ? 'Reactivate members to restore access' : 'Live Status Overview'}
+                                    {rosterDetailType === 'deactivated' ? t('roster.reactivateHint', 'Reactivate members to restore access') : t('roster.liveOverview', 'Live Status Overview')}
                                 </p>
                             </div>
                             <button onClick={() => setRosterDetailType(null)} className="rounded-full bg-white/5 p-2 text-slate-400 hover:bg-white/10 hover:text-white transition-all">
@@ -4107,7 +4115,7 @@ export default function OwnerStaffShifts() {
                                 if (relevantStaff.length === 0) {
                                     return (
                                         <div className="p-8 text-center text-slate-500 text-sm font-medium italic border border-dashed border-white/10 rounded-2xl bg-white/[0.02]">
-                                            No staff members match this criteria right now.
+                                            {t('roster.empty', 'No staff members match this criteria right now.')}
                                         </div>
                                     );
                                 }
@@ -4138,22 +4146,22 @@ export default function OwnerStaffShifts() {
                                                 <div className="flex items-center gap-2">
                                                     <div className="text-sm font-bold text-slate-100 truncate">{staff.full_name}</div>
                                                 </div>
-                                                <div className="text-[10px] font-medium text-slate-500 truncate mb-1">{staff.email || 'No email provided'}</div>
+                                                <div className="text-[10px] font-medium text-slate-500 truncate mb-1">{staff.email || t('roster.noEmail', 'No email provided')}</div>
                                                 <div className="flex items-center gap-2">
                                                     <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest truncate max-w-[120px]">
                                                         {staff.departments && staff.departments.length > 0
                                                             ? staff.departments.map(d => d.name).join(', ')
-                                                            : staff.department_name || 'UNASSIGNED DEPT'}
+                                                            : staff.department_name || t('row.unassignedDept', 'UNASSIGNED DEPT')}
                                                     </div>
                                                     <div className="h-1 w-1 rounded-full bg-white/10" />
-                                                    <div className="text-[9px] font-black text-indigo-400 uppercase tracking-widest truncate">{staff.assigned_zone_name || 'No Zone'}</div>
+                                                    <div className="text-[9px] font-black text-indigo-400 uppercase tracking-widest truncate">{staff.assigned_zone_name || t('common.noZone', 'No Zone')}</div>
                                                 </div>
                                             </div>
 
                                             {currentShift && (
                                                 <div className="text-right shrink-0 pl-4 border-l border-white/5">
                                                     <div className={`text-[9px] font-black uppercase tracking-widest mb-1 px-2 py-0.5 rounded-full border inline-block ${new Date(currentShift.shift_start) <= now && new Date(currentShift.shift_end) > now ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-white/5 text-slate-400 border-white/10'}`}>
-                                                        {currentShift.shift_type}
+                                                        {t(`shiftType.${currentShift.shift_type}`, currentShift.shift_type)}
                                                     </div>
                                                     <div className="text-[10px] font-bold text-slate-400 flex items-center justify-end gap-1">
                                                         <Clock size={10} className="text-slate-600" />
@@ -4172,7 +4180,7 @@ export default function OwnerStaffShifts() {
                                                                 p_is_active: true
                                                             });
                                                             if (error) throw error;
-                                                            showToast(`${staff.full_name} has been reactivated`, 'success');
+                                                            showToast(t('toast.reactivated', '{{name}} has been reactivated', { name: staff.full_name }), 'success');
 
                                                             if (deactivatedMembers.length === 1) {
                                                                 setRosterDetailType(null);
@@ -4181,12 +4189,12 @@ export default function OwnerStaffShifts() {
                                                             await refetchDashboard();
                                                             await fetchDeactivatedMembers();
                                                         } catch (err: any) {
-                                                            showToast(err.message || 'Failed to reactivate', 'error');
+                                                            showToast(err.message || t('toast.reactivateFailed', 'Failed to reactivate'), 'error');
                                                         }
                                                     }}
                                                 >
                                                     <Check size={14} strokeWidth={3} />
-                                                    Reactivate
+                                                    {t('roster.reactivate', 'Reactivate')}
                                                 </button>
                                             ) : (
                                                 <button
@@ -4212,24 +4220,24 @@ export default function OwnerStaffShifts() {
                     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setDeactivateUserModal(null)} />
                     <div className="relative w-full max-w-[400px] bg-[#121216] border border-white/10 rounded-[32px] overflow-hidden shadow-2xl font-sans animate-in fade-in zoom-in-95 duration-200">
                         <div className="p-6 text-center border-b border-white/5 flex items-center justify-center relative">
-                            <h3 className="text-lg font-black text-white">Deactivate User?</h3>
+                            <h3 className="text-lg font-black text-white">{t('deactivate.title', 'Deactivate User?')}</h3>
                             <button onClick={() => setDeactivateUserModal(null)} className="absolute right-6 text-slate-500 hover:text-white transition-colors">
                                 <X size={20} />
                             </button>
                         </div>
                         <div className="p-6 space-y-5">
                             <p className="text-sm font-medium text-slate-400 text-center">
-                                Are you sure you want to deactivate <span className="font-bold text-white">{deactivateUserModal.full_name}</span>?
+                                {t('deactivate.confirm', 'Are you sure you want to deactivate {{name}}?', { name: deactivateUserModal.full_name })}
                             </p>
                             <div className="p-4 bg-emerald-500/10 rounded-2xl flex items-start gap-3 border border-emerald-500/20">
                                 <div className="mt-0.5 rounded text-emerald-500"><Check size={18} strokeWidth={3} /></div>
-                                <p className="text-sm font-bold text-emerald-400 leading-snug">This will prevent the user from being scheduled.</p>
+                                <p className="text-sm font-bold text-emerald-400 leading-snug">{t('deactivate.note', 'This will prevent the user from being scheduled.')}</p>
                             </div>
                             <div className="space-y-2">
                                 <div className="relative">
                                     <div className="absolute top-3.5 left-4 text-amber-500"><AlertTriangle size={18} /></div>
                                     <textarea
-                                        placeholder="Reason (required)"
+                                        placeholder={t('deactivate.reasonPlaceholder', 'Reason (required)')}
                                         value={deactivateReason}
                                         onChange={(e) => setDeactivateReason(e.target.value)}
                                         className="w-full bg-[#0a0a0c] border border-white/10 focus:border-amber-500/50 rounded-2xl py-3 pl-12 pr-4 text-sm font-medium text-white placeholder:text-slate-600 min-h-[100px] outline-none transition-colors"
@@ -4238,10 +4246,10 @@ export default function OwnerStaffShifts() {
                             </div>
                         </div>
                         <div className="p-4 bg-[#0a0a0c] border-t border-white/5 flex gap-3">
-                            <button onClick={() => setDeactivateUserModal(null)} className="flex-1 py-3.5 rounded-2xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white text-sm font-bold transition-colors">Cancel</button>
+                            <button onClick={() => setDeactivateUserModal(null)} className="flex-1 py-3.5 rounded-2xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white text-sm font-bold transition-colors">{tc('actions.cancel', 'Cancel')}</button>
                             <button onClick={handleDeactivateUser} disabled={isDeactivatingUser || !deactivateReason.trim()} className="flex-1 py-3.5 rounded-2xl bg-red-500/20 hover:bg-red-500/30 text-red-500 border border-red-500/20 text-sm font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50">
                                 {isDeactivatingUser ? <Loader2 size={18} className="animate-spin" /> : null}
-                                Deactivate User
+                                {t('deactivate.confirmBtn', 'Deactivate User')}
                             </button>
                         </div>
                     </div>
@@ -4267,11 +4275,11 @@ export default function OwnerStaffShifts() {
                                 <p className="text-[11px] font-black text-slate-500 uppercase tracking-[0.1em] mb-4">
                                     {activeAssignStaffData.departments && activeAssignStaffData.departments.length > 0
                                         ? activeAssignStaffData.departments.map(d => d.name).join(', ')
-                                        : activeAssignStaffData.department_name || 'STAFF'} {activeZone !== 'All Zones' ? `· ${activeZone.toUpperCase()}` : ''}
+                                        : activeAssignStaffData.department_name || t('row.staffFallback', 'STAFF')} {activeZone !== 'All Zones' ? `· ${activeZone.toUpperCase()}` : ''}
                                 </p>
                                 <div className="flex items-center gap-2.5 text-sm font-bold text-indigo-400">
                                     <div className="w-2.5 h-2.5 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
-                                    Assigning New Shift
+                                    {t('centralAssign.assigning', 'Assigning New Shift')}
                                 </div>
                             </div>
                             <button
@@ -4287,7 +4295,7 @@ export default function OwnerStaffShifts() {
                         <div className="flex-1 overflow-y-auto no-scrollbar pb-7">
                             <div className="p-7 space-y-5">
                                 <div className="flex items-center gap-3">
-                                    <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">Quick Assign Templates</span>
+                                    <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">{t('centralAssign.quickTemplates', 'Quick Assign Templates')}</span>
                                     <div className="flex-1 h-[1px] bg-white/5" />
                                 </div>
                                 <div className="space-y-2.5">
@@ -4295,7 +4303,7 @@ export default function OwnerStaffShifts() {
                                         <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-500 group-hover:bg-amber-500/20 group-hover:scale-110 transition-all">
                                             <Sun size={18} strokeWidth={3} />
                                         </div>
-                                        <span>Morning Shift</span>
+                                        <span>{t('stats.morningShift', 'Morning Shift')}</span>
                                         <span className="text-[10px] text-slate-500 font-black ml-auto bg-black/20 px-2 py-1 rounded-lg">07:00 - 15:00</span>
                                     </button>
 
@@ -4303,7 +4311,7 @@ export default function OwnerStaffShifts() {
                                         <div className="p-2.5 rounded-xl bg-orange-500/10 text-orange-500 group-hover:bg-orange-500/20 group-hover:scale-110 transition-all">
                                             <Sunset size={18} strokeWidth={3} />
                                         </div>
-                                        <span>Evening Shift</span>
+                                        <span>{t('stats.eveningShift', 'Evening Shift')}</span>
                                         <span className="text-[10px] text-slate-500 font-black ml-auto bg-black/20 px-2 py-1 rounded-lg">15:00 - 23:00</span>
                                     </button>
 
@@ -4311,7 +4319,7 @@ export default function OwnerStaffShifts() {
                                         <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-400 group-hover:bg-indigo-500/20 group-hover:scale-110 transition-all">
                                             <Moon size={18} strokeWidth={3} />
                                         </div>
-                                        <span>Night Shift</span>
+                                        <span>{t('stats.nightShift', 'Night Shift')}</span>
                                         <span className="text-[10px] text-slate-500 font-black ml-auto bg-black/20 px-2 py-1 rounded-lg">23:00 - 07:00</span>
                                     </button>
                                 </div>
@@ -4319,7 +4327,7 @@ export default function OwnerStaffShifts() {
                                 <div className="py-2">
                                     <div className="flex items-center gap-3">
                                         <div className="flex-1 h-[1px] bg-white/5" />
-                                        <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">or</span>
+                                        <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{t('centralAssign.or', 'or')}</span>
                                         <div className="flex-1 h-[1px] bg-white/5" />
                                     </div>
                                 </div>
@@ -4330,7 +4338,7 @@ export default function OwnerStaffShifts() {
                                     setIsShiftModalOpen(true);
                                 }}>
                                     <Settings size={16} strokeWidth={3} className="group-hover:rotate-90 transition-transform duration-500" />
-                                    CREATE CUSTOM SHIFT
+                                    {t('centralAssign.createCustom', 'CREATE CUSTOM SHIFT')}
                                 </button>
                             </div>
                         </div>
@@ -4344,7 +4352,7 @@ export default function OwnerStaffShifts() {
                     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setEditStaffModal(null)} />
                     <div className="relative w-full max-w-[450px] bg-[#121216] border border-white/10 rounded-[32px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
                         <div className="p-6 text-center border-b border-white/5 flex items-center justify-center relative">
-                            <h3 className="text-lg font-black text-white">Edit Staff Settings</h3>
+                            <h3 className="text-lg font-black text-white">{t('editStaff.title', 'Edit Staff Settings')}</h3>
                             <button onClick={() => setEditStaffModal(null)} className="absolute right-6 text-slate-500 hover:text-white transition-colors">
                                 <X size={20} />
                             </button>
@@ -4359,7 +4367,7 @@ export default function OwnerStaffShifts() {
                                 />
                                 <div>
                                     <h4 className="text-lg font-bold text-white leading-tight">{editStaffModal.full_name}</h4>
-                                    <p className="text-sm font-medium text-slate-400">{editStaffModal.email || 'No email provided'}</p>
+                                    <p className="text-sm font-medium text-slate-400">{editStaffModal.email || t('roster.noEmail', 'No email provided')}</p>
                                 </div>
                             </div>
 
@@ -4367,12 +4375,12 @@ export default function OwnerStaffShifts() {
                             <div className="space-y-3">
                                 {editStaffDepts.length > 0 && (
                                     <div>
-                                        <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Departments</h5>
+                                        <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{t('editStaff.departments', 'Departments')}</h5>
                                         <div className="flex flex-wrap gap-1.5">
                                             {editStaffDepts.map(d => (
                                                 <span key={d.id} className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold border ${d.is_primary ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-white/5 text-slate-300 border-white/10'}`}>
                                                     {d.name}
-                                                    {d.is_primary && <span className="text-[9px] font-black text-indigo-500">PRIMARY</span>}
+                                                    {d.is_primary && <span className="text-[9px] font-black text-indigo-500">{t('editStaff.primary', 'PRIMARY')}</span>}
                                                 </span>
                                             ))}
                                         </div>
@@ -4380,7 +4388,7 @@ export default function OwnerStaffShifts() {
                                 )}
                                 {editStaffRoles.length > 0 && (
                                     <div>
-                                        <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Roles</h5>
+                                        <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{t('editStaff.roles', 'Roles')}</h5>
                                         <div className="flex flex-wrap gap-1.5">
                                             {editStaffRoles.map(r => (
                                                 <span key={r.id} className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
@@ -4391,15 +4399,15 @@ export default function OwnerStaffShifts() {
                                     </div>
                                 )}
                                 {editStaffDepts.length === 0 && editStaffRoles.length === 0 && (
-                                    <p className="text-xs text-slate-500 italic">No departments or roles assigned yet.</p>
+                                    <p className="text-xs text-slate-500 italic">{t('editStaff.noneAssigned', 'No departments or roles assigned yet.')}</p>
                                 )}
                             </div>
 
                             <div className="space-y-4">
                                 <div className="p-5 rounded-2xl border border-white/5 bg-white/[0.02] flex items-center justify-between mb-4">
                                     <div>
-                                        <h5 className="text-sm font-bold text-slate-200">Active Status</h5>
-                                        <p className="text-xs font-medium text-slate-500 mt-0.5">Allow scheduling and login access</p>
+                                        <h5 className="text-sm font-bold text-slate-200">{t('editStaff.activeStatus', 'Active Status')}</h5>
+                                        <p className="text-xs font-medium text-slate-500 mt-0.5">{t('editStaff.activeHint', 'Allow scheduling and login access')}</p>
                                     </div>
                                     <button
                                         disabled={isUpdatingStaff}
@@ -4416,8 +4424,8 @@ export default function OwnerStaffShifts() {
                                 </div>
                                 <div className="p-5 rounded-2xl border border-white/5 bg-white/[0.02] flex items-center justify-between">
                                     <div>
-                                        <h5 className="text-sm font-bold text-slate-200">Verification Status</h5>
-                                        <p className="text-xs font-medium text-slate-500 mt-0.5">Allow SLA ticket assignments</p>
+                                        <h5 className="text-sm font-bold text-slate-200">{t('editStaff.verifyStatus', 'Verification Status')}</h5>
+                                        <p className="text-xs font-medium text-slate-500 mt-0.5">{t('editStaff.verifyHint', 'Allow SLA ticket assignments')}</p>
                                     </div>
                                     <button
                                         disabled={isUpdatingStaff}
@@ -4436,7 +4444,7 @@ export default function OwnerStaffShifts() {
                         </div>
                         <div className="p-4 bg-[#0a0a0c] border-t border-white/5 flex justify-end">
                             <button onClick={() => setEditStaffModal(null)} className="px-6 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-sm font-bold transition-all">
-                                Done
+                                {tc('actions.done', 'Done')}
                             </button>
                         </div>
                     </div>
@@ -4451,8 +4459,8 @@ export default function OwnerStaffShifts() {
                         <div className="p-6 text-center border-b border-white/5 flex items-center justify-center relative">
                             <h3 className="text-lg font-black text-white">
                                 {confirmToggle.type === 'active'
-                                    ? (confirmToggle.currentValue ? 'Deactivate Staff?' : 'Activate Staff?')
-                                    : (confirmToggle.currentValue ? 'Remove Verification?' : 'Verify Staff?')}
+                                    ? (confirmToggle.currentValue ? t('confirmToggle.deactivateTitle', 'Deactivate Staff?') : t('confirmToggle.activateTitle', 'Activate Staff?'))
+                                    : (confirmToggle.currentValue ? t('confirmToggle.removeVerifyTitle', 'Remove Verification?') : t('confirmToggle.verifyTitle', 'Verify Staff?'))}
                             </h3>
                             <button onClick={() => setConfirmToggle(null)} className="absolute right-6 text-slate-500 hover:text-white transition-colors">
                                 <X size={20} />
@@ -4466,7 +4474,7 @@ export default function OwnerStaffShifts() {
                                 <div>
                                     <div className="text-sm font-bold text-white">{confirmToggle.staffName}</div>
                                     <div className="text-xs text-slate-400 mt-0.5">
-                                        {confirmToggle.type === 'active' ? 'Active Status' : 'Verification Status'}
+                                        {confirmToggle.type === 'active' ? t('editStaff.activeStatus', 'Active Status') : t('editStaff.verifyStatus', 'Verification Status')}
                                     </div>
                                 </div>
                             </div>
@@ -4475,36 +4483,41 @@ export default function OwnerStaffShifts() {
                                 <div className="p-4 bg-amber-500/10 rounded-2xl flex items-start gap-3 border border-amber-500/20">
                                     <div className="mt-0.5 text-amber-500"><AlertTriangle size={18} /></div>
                                     <div>
-                                        <p className="text-sm font-bold text-amber-400 leading-snug">This will prevent the user from being scheduled.</p>
-                                        <p className="text-xs text-amber-500/70 mt-1">You can reactivate them later from the Deactivated section.</p>
+                                        <p className="text-sm font-bold text-amber-400 leading-snug">{t('deactivate.note', 'This will prevent the user from being scheduled.')}</p>
+                                        <p className="text-xs text-amber-500/70 mt-1">{t('confirmToggle.reactivateLater', 'You can reactivate them later from the Deactivated section.')}</p>
                                     </div>
                                 </div>
                             )}
                             {confirmToggle.type === 'active' && !confirmToggle.currentValue && (
                                 <div className="p-4 bg-emerald-500/10 rounded-2xl flex items-start gap-3 border border-emerald-500/20">
                                     <div className="mt-0.5 text-emerald-500"><Check size={18} strokeWidth={3} /></div>
-                                    <p className="text-sm font-bold text-emerald-400 leading-snug">This will restore scheduling access and allow the user to log in again.</p>
+                                    <p className="text-sm font-bold text-emerald-400 leading-snug">{t('confirmToggle.restoreNote', 'This will restore scheduling access and allow the user to log in again.')}</p>
                                 </div>
                             )}
                             {confirmToggle.type === 'verified' && confirmToggle.currentValue && (
                                 <div className="p-4 bg-amber-500/10 rounded-2xl flex items-start gap-3 border border-amber-500/20">
                                     <div className="mt-0.5 text-amber-500"><AlertTriangle size={18} /></div>
-                                    <p className="text-sm font-bold text-amber-400 leading-snug">Removing verification will prevent SLA ticket assignments for this user.</p>
+                                    <p className="text-sm font-bold text-amber-400 leading-snug">{t('confirmToggle.removeVerifyNote', 'Removing verification will prevent SLA ticket assignments for this user.')}</p>
                                 </div>
                             )}
                             {confirmToggle.type === 'verified' && !confirmToggle.currentValue && (
                                 <div className="p-4 bg-emerald-500/10 rounded-2xl flex items-start gap-3 border border-emerald-500/20">
                                     <div className="mt-0.5 text-emerald-500"><Check size={18} strokeWidth={3} /></div>
-                                    <p className="text-sm font-bold text-emerald-400 leading-snug">This will allow SLA ticket assignments for this user.</p>
+                                    <p className="text-sm font-bold text-emerald-400 leading-snug">{t('confirmToggle.verifyNote', 'This will allow SLA ticket assignments for this user.')}</p>
                                 </div>
                             )}
 
                             <p className="text-sm font-medium text-slate-400 text-center">
-                                Are you sure you want to {confirmToggle.currentValue ? (confirmToggle.type === 'active' ? 'deactivate' : 'unverify') : (confirmToggle.type === 'active' ? 'activate' : 'verify')} <span className="font-bold text-white">{confirmToggle.staffName}</span>?
+                                {t('confirmToggle.confirm', 'Are you sure you want to {{action}} {{name}}?', {
+                                    action: confirmToggle.currentValue
+                                        ? (confirmToggle.type === 'active' ? t('confirmToggle.verbDeactivate', 'deactivate') : t('confirmToggle.verbUnverify', 'unverify'))
+                                        : (confirmToggle.type === 'active' ? t('confirmToggle.verbActivate', 'activate') : t('confirmToggle.verbVerify', 'verify')),
+                                    name: confirmToggle.staffName,
+                                })}
                             </p>
                         </div>
                         <div className="p-4 bg-[#0a0a0c] border-t border-white/5 flex gap-3">
-                            <button onClick={() => setConfirmToggle(null)} className="flex-1 py-3.5 rounded-2xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-sm font-bold transition-all border border-transparent">Cancel</button>
+                            <button onClick={() => setConfirmToggle(null)} className="flex-1 py-3.5 rounded-2xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-sm font-bold transition-all border border-transparent">{tc('actions.cancel', 'Cancel')}</button>
                             <button
                                 disabled={isConfirmToggleLoading}
                                 onClick={async () => {
@@ -4529,15 +4542,15 @@ export default function OwnerStaffShifts() {
                                         }
 
                                         const actionLabel = confirmToggle.type === 'active'
-                                            ? (confirmToggle.currentValue ? 'deactivated' : 'activated')
-                                            : (confirmToggle.currentValue ? 'unverified' : 'verified');
-                                        showToast(`${confirmToggle.staffName} has been ${actionLabel}`, 'success');
+                                            ? (confirmToggle.currentValue ? t('action.deactivated', 'deactivated') : t('action.activated', 'activated'))
+                                            : (confirmToggle.currentValue ? t('action.unverified', 'unverified') : t('action.verified', 'verified'));
+                                        showToast(t('toast.statusUpdated', '{{name}} has been {{action}}', { name: confirmToggle.staffName, action: actionLabel }), 'success');
                                         setConfirmToggle(null);
                                         await refetchDashboard();
                                         await fetchDeactivatedMembers();
                                     } catch (err: any) {
                                         setConfirmToggle(null);
-                                        showToast(err.message || 'Failed to update status', 'error');
+                                        showToast(err.message || t('toast.statusUpdateFailed', 'Failed to update status'), 'error');
                                     } finally {
                                         setIsConfirmToggleLoading(false);
                                     }
@@ -4549,8 +4562,8 @@ export default function OwnerStaffShifts() {
                             >
                                 {isConfirmToggleLoading ? <Loader2 size={18} className="animate-spin" /> : null}
                                 {confirmToggle.currentValue
-                                    ? (confirmToggle.type === 'active' ? 'Deactivate' : 'Remove Verification')
-                                    : (confirmToggle.type === 'active' ? 'Activate' : 'Verify')}
+                                    ? (confirmToggle.type === 'active' ? t('confirmToggle.btnDeactivate', 'Deactivate') : t('confirmToggle.btnRemoveVerify', 'Remove Verification'))
+                                    : (confirmToggle.type === 'active' ? t('confirmToggle.btnActivate', 'Activate') : t('confirmToggle.btnVerify', 'Verify'))}
                             </button>
                         </div>
                     </div>

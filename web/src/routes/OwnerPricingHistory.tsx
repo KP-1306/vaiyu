@@ -15,12 +15,16 @@ import {
   DarkErrorPanel,
   darkInputCls,
 } from "../components/owner/DarkShell";
+import { useOwnerT, useOwnerCommonT, useOwnerLocale } from "../i18n/useOwnerT";
 
 type Hotel = { id: string; slug: string; name: string };
 
 const PAGE_SIZE = 50;
 
 export default function OwnerPricingHistory() {
+  const t = useOwnerT("owner-pricing-history");
+  const tc = useOwnerCommonT();
+  const ownerLocale = useOwnerLocale();
   const { slug } = useParams<{ slug: string }>();
   const [hotel, setHotel] = useState<Hotel | null>(null);
   const [logs, setLogs] = useState<PricingChangeLog[]>([]);
@@ -96,7 +100,7 @@ export default function OwnerPricingHistory() {
         .maybeSingle();
 
       if (hErr || !hotelRow) {
-        setError(hErr?.message ?? "Hotel not found.");
+        setError(hErr?.message ?? t("hotelNotFound", "Hotel not found."));
         return;
       }
       setHotel(hotelRow as Hotel);
@@ -105,11 +109,11 @@ export default function OwnerPricingHistory() {
       setLogs(rows);
       setHasMore(more);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to load history.");
+      setError(e instanceof Error ? e.message : t("loadFailed", "Failed to load history."));
     } finally {
       setLoading(false);
     }
-  }, [slug, fetchPage]);
+  }, [slug, fetchPage, t]);
 
   const loadMore = useCallback(async () => {
     if (!hotel || logs.length === 0 || loadingMore) return;
@@ -123,11 +127,11 @@ export default function OwnerPricingHistory() {
       setLogs((prev) => [...prev, ...rows]);
       setHasMore(more);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to load more.");
+      setError(e instanceof Error ? e.message : t("loadMoreFailed", "Failed to load more."));
     } finally {
       setLoadingMore(false);
     }
-  }, [hotel, logs, loadingMore, fetchPage]);
+  }, [hotel, logs, loadingMore, fetchPage, t]);
 
   // Export the full month (ignoring in-memory pagination) so a partial scroll
   // doesn't produce a partial CSV. We page server-side in chunks of 500 to
@@ -185,36 +189,36 @@ export default function OwnerPricingHistory() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Export failed.");
+      setError(e instanceof Error ? e.message : t("exportFailed", "Export failed."));
     } finally {
       setExporting(false);
     }
-  }, [hotel, monthBounds, monthFilter]);
+  }, [hotel, monthBounds, monthFilter, t]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  if (loading) return <DarkLoading message="Loading history…" />;
-  if (error || !hotel) return <DarkErrorPanel message={error ?? "Hotel not found."} />;
+  if (loading) return <DarkLoading message={t("loading", "Loading history…")} />;
+  if (error || !hotel) return <DarkErrorPanel message={error ?? t("hotelNotFound", "Hotel not found.")} />;
 
   const base = `/owner/${slug}`;
 
   return (
     <OwnerDarkPage
       icon={History}
-      title="Pricing"
-      titleAccent="History"
+      title={t("title", "Pricing")}
+      titleAccent={t("titleAccent", "History")}
       accent="indigo"
-      subtitle={`${logs.length}${hasMore ? "+" : ""} change${logs.length === 1 ? "" : "s"} in ${monthFilter}`}
+      subtitle={t("subtitle", "{{count}}{{plus}} changes in {{month}}", { count: logs.length, plus: hasMore ? "+" : "", month: monthFilter })}
       breadcrumbs={[
-        { label: "Dashboard", to: base },
-        { label: "Pricing", to: `${base}/pricing` },
-        { label: "History" },
+        { label: tc("nav.dashboard", "Dashboard"), to: base },
+        { label: t("crumbPricing", "Pricing"), to: `${base}/pricing` },
+        { label: t("crumbHistory", "History") },
       ]}
       actions={
         <div className="flex items-center gap-2">
-          <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Month</label>
+          <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{t("month", "Month")}</label>
           <input
             type="month"
             value={monthFilter}
@@ -224,11 +228,11 @@ export default function OwnerPricingHistory() {
           <button
             onClick={exportCsv}
             disabled={exporting || logs.length === 0}
-            title="Export all changes for this month to CSV"
+            title={t("exportTitle", "Export all changes for this month to CSV")}
             className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-3 py-2 text-sm font-semibold text-slate-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Download className="w-4 h-4" />
-            {exporting ? "Exporting…" : "Export CSV"}
+            {exporting ? t("exporting", "Exporting…") : t("exportCsv", "Export CSV")}
           </button>
         </div>
       }
@@ -236,15 +240,15 @@ export default function OwnerPricingHistory() {
       {logs.length === 0 ? (
         <DarkCard className="text-center py-12 border-dashed border-2">
           <History className="w-10 h-10 text-slate-600 mx-auto mb-3" />
-          <p className="font-bold text-slate-200">No pricing changes this month</p>
+          <p className="font-bold text-slate-200">{t("emptyTitle", "No pricing changes this month")}</p>
           <p className="text-sm text-slate-500 mt-1">
-            Apply a pricing recommendation to see it here.
+            {t("emptyBody", "Apply a pricing recommendation to see it here.")}
           </p>
           <Link
             to={`${base}/pricing`}
             className="mt-4 inline-flex items-center gap-1 text-sm text-indigo-400 hover:text-indigo-300"
           >
-            Go to Pricing Overview <ArrowRight className="w-3.5 h-3.5" />
+            {t("goToPricing", "Go to Pricing Overview")} <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </DarkCard>
       ) : (
@@ -253,13 +257,21 @@ export default function OwnerPricingHistory() {
             <table className="w-full text-sm">
               <thead className="bg-[#1a1c1e] border-b border-white/[0.05]">
                 <tr>
-                  {["Date & Time", "Occupancy", "Base Price", "Previous", "New Price", "Rule", "Explanation"].map(
+                  {[
+                    { k: "dt", label: t("colDateTime", "Date & Time") },
+                    { k: "occ", label: t("colOccupancy", "Occupancy") },
+                    { k: "base", label: t("colBasePrice", "Base Price") },
+                    { k: "prev", label: t("colPrevious", "Previous") },
+                    { k: "new", label: t("colNewPrice", "New Price") },
+                    { k: "rule", label: t("colRule", "Rule") },
+                    { k: "exp", label: t("colExplanation", "Explanation") },
+                  ].map(
                     (h) => (
                       <th
-                        key={h}
+                        key={h.k}
                         className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap"
                       >
-                        {h}
+                        {h.label}
                       </th>
                     ),
                   )}
@@ -275,7 +287,7 @@ export default function OwnerPricingHistory() {
                   return (
                     <tr key={log.id} className="hover:bg-white/[0.02] transition">
                       <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">
-                        {new Date(log.applied_at).toLocaleString("en-IN", {
+                        {new Date(log.applied_at).toLocaleString(ownerLocale, {
                           day: "2-digit",
                           month: "short",
                           hour: "2-digit",
@@ -295,7 +307,7 @@ export default function OwnerPricingHistory() {
                           {formatINR(log.new_price)}
                         </span>
                         {log.was_clamped && (
-                          <span className="text-xs text-amber-400">(clamped)</span>
+                          <span className="text-xs text-amber-400">{t("clamped", "(clamped)")}</span>
                         )}
                       </td>
                       <td className="px-4 py-3">
@@ -326,7 +338,7 @@ export default function OwnerPricingHistory() {
                 disabled={loadingMore}
                 className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-4 py-2 text-sm font-semibold text-slate-200 transition disabled:opacity-60"
               >
-                {loadingMore ? "Loading…" : `Load more (${PAGE_SIZE})`}
+                {loadingMore ? tc("state.loading", "Loading…") : t("loadMore", "Load more ({{size}})", { size: PAGE_SIZE })}
               </button>
             </div>
           )}

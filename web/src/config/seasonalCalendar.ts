@@ -145,14 +145,23 @@ export function computeSeasonalUrgency(input: {
 
 // ── Days-until label (e.g. "in 18 days", "in 2 months", "active now") ───────
 
-export function formatDaysUntil(daysToStart: number, urgency: SeasonalWindowUrgency): string {
-  if (urgency === 'NOW' && daysToStart <= 0) return 'Active now';
-  if (daysToStart <= 0) return 'Active now';
-  if (daysToStart === 1) return 'In 1 day';
-  if (daysToStart <= 60) return `In ${daysToStart} days`;
+type DaysT = (key: string, en: string, vars?: Record<string, unknown>) => string;
+
+export function formatDaysUntil(
+  daysToStart: number,
+  urgency: SeasonalWindowUrgency,
+  t?: DaysT,
+): string {
+  const tr = (key: string, en: string, vars?: Record<string, unknown>) =>
+    t ? t(key, en, vars) : en
+      .replace('{{n}}', String(vars?.n ?? ''));
+  if (urgency === 'NOW' && daysToStart <= 0) return tr('days.activeNow', 'Active now');
+  if (daysToStart <= 0) return tr('days.activeNow', 'Active now');
+  if (daysToStart === 1) return tr('days.oneDay', 'In 1 day');
+  if (daysToStart <= 60) return tr('days.days', 'In {{n}} days', { n: daysToStart });
   const months = Math.round(daysToStart / 30);
-  if (months <= 1) return `In ${daysToStart} days`;
-  return `In ~${months} months`;
+  if (months <= 1) return tr('days.days', 'In {{n}} days', { n: daysToStart });
+  return tr('days.months', 'In ~{{n}} months', { n: months });
 }
 
 // ── Approximate-window helpers ──────────────────────────────────────────────
@@ -169,16 +178,15 @@ export function formatWindowRange(input: {
   endMonth: number;
   endDay: number;
   isApproximate: boolean;
-}): string {
+}, t?: DaysT): string {
   const { startMonth, startDay, endMonth, endDay, isApproximate } = input;
   if (!isApproximate) {
     return `${MONTH_SHORT_EN[startMonth - 1]} ${startDay} – ${MONTH_SHORT_EN[endMonth - 1]} ${endDay}`;
   }
   // For approximate windows, soften to monthly resolution with early/mid/late.
   const dayHint = (d: number): string => {
-    if (d <= 10) return 'early';
-    if (d <= 20) return 'mid';
-    return 'late';
+    const key = d <= 10 ? 'early' : d <= 20 ? 'mid' : 'late';
+    return t ? t(`approxDay.${key}`, key) : key;
   };
   return `Around ${dayHint(startDay)} ${MONTH_SHORT_EN[startMonth - 1]} – ${dayHint(endDay)} ${MONTH_SHORT_EN[endMonth - 1]}`;
 }

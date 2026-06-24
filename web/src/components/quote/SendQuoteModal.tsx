@@ -18,6 +18,7 @@ import {
   QuoteServiceError,
   type QuoteDraftRow,
 } from '../../services/quoteDraftService';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   open: boolean;
@@ -33,6 +34,7 @@ const MAX_SUBJECT_LEN = 200;
 const MAX_REASON_LEN  = 200;
 
 export function SendQuoteModal({ open, draft, lead, mode, onClose, onSuccess }: Props) {
+  const t = useOwnerT('owner-quote');
   const subjectId = useId();
   const recipientId = useId();
   const reasonId = useId();
@@ -95,15 +97,15 @@ export function SendQuoteModal({ open, draft, lead, mode, onClose, onSuccess }: 
     }
   };
 
-  const title = mode === 'send' ? 'Send quote via email' : 'Resend quote via email';
-  const cta   = mode === 'send' ? 'Send email' : 'Resend email';
+  const title = mode === 'send' ? t('sendModal.titleSend', 'Send quote via email') : t('sendModal.titleResend', 'Resend quote via email');
+  const cta   = mode === 'send' ? t('sendModal.ctaSend', 'Send email') : t('sendModal.ctaResend', 'Resend email');
 
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby={`${subjectId}-title`}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-3 py-6"
+      className="vaiyu-owner fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-3 py-6"
       onClick={(e) => {
         if (e.target === e.currentTarget && !busy) onClose();
       }}
@@ -118,7 +120,7 @@ export function SendQuoteModal({ open, draft, lead, mode, onClose, onSuccess }: 
             type="button"
             onClick={onClose}
             disabled={busy}
-            aria-label="Close"
+            aria-label={t('sendModal.close', 'Close')}
             className="text-slate-400 hover:text-slate-100 disabled:opacity-50"
           >
             <X className="h-4 w-4" />
@@ -128,7 +130,7 @@ export function SendQuoteModal({ open, draft, lead, mode, onClose, onSuccess }: 
         <div className="space-y-4 px-5 py-4">
           <div>
             <label htmlFor={recipientId} className="block text-[11px] font-medium uppercase tracking-wide text-slate-400">
-              Recipient email
+              {t('sendModal.recipientEmail', 'Recipient email')}
             </label>
             <input
               id={recipientId}
@@ -136,12 +138,12 @@ export function SendQuoteModal({ open, draft, lead, mode, onClose, onSuccess }: 
               value={recipient}
               onChange={(e) => setRecipient(e.target.value)}
               disabled={busy}
-              placeholder="guest@example.com"
+              placeholder={t('sendModal.recipientPlaceholder', 'guest@example.com')}
               className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-emerald-400 focus:outline-none"
               data-testid="send-quote-recipient"
             />
             {recipient.trim() && !recipientValid && (
-              <p className="mt-1 text-[11px] text-amber-300">Doesn't look like a valid email.</p>
+              <p className="mt-1 text-[11px] text-amber-300">{t('sendModal.invalidEmail', "Doesn't look like a valid email.")}</p>
             )}
           </div>
 
@@ -154,7 +156,7 @@ export function SendQuoteModal({ open, draft, lead, mode, onClose, onSuccess }: 
                 disabled={busy}
                 className="h-3.5 w-3.5 rounded border-slate-600 bg-slate-900"
               />
-              Override default subject
+              {t('sendModal.overrideSubject', 'Override default subject')}
             </label>
             {useCustomSubject && (
               <input
@@ -163,7 +165,7 @@ export function SendQuoteModal({ open, draft, lead, mode, onClose, onSuccess }: 
                 value={customSubject}
                 onChange={(e) => setCustomSubject(e.target.value.slice(0, MAX_SUBJECT_LEN))}
                 disabled={busy}
-                placeholder="Your subject"
+                placeholder={t('sendModal.subjectPlaceholder', 'Your subject')}
                 maxLength={MAX_SUBJECT_LEN}
                 className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-emerald-400 focus:outline-none"
                 data-testid="send-quote-subject"
@@ -171,7 +173,7 @@ export function SendQuoteModal({ open, draft, lead, mode, onClose, onSuccess }: 
             )}
             {!useCustomSubject && (
               <p className="mt-1 text-[11px] text-slate-500">
-                Default: "Your quote from [hotel name]"
+                {t('sendModal.defaultSubject', 'Default: "Your quote from [hotel name]"')}
               </p>
             )}
           </div>
@@ -179,7 +181,7 @@ export function SendQuoteModal({ open, draft, lead, mode, onClose, onSuccess }: 
           {mode === 'resend' && (
             <div>
               <label htmlFor={reasonId} className="block text-[11px] font-medium uppercase tracking-wide text-slate-400">
-                Resend reason <span className="text-red-400">*</span>
+                {t('sendModal.resendReason', 'Resend reason')} <span className="text-red-400">*</span>
               </label>
               <input
                 id={reasonId}
@@ -187,25 +189,24 @@ export function SendQuoteModal({ open, draft, lead, mode, onClose, onSuccess }: 
                 value={resendReason}
                 onChange={(e) => setResendReason(e.target.value.slice(0, MAX_REASON_LEN))}
                 disabled={busy}
-                placeholder="Guest asked us to send again / updated price / etc."
+                placeholder={t('sendModal.resendPlaceholder', 'Guest asked us to send again / updated price / etc.')}
                 maxLength={MAX_REASON_LEN}
                 className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-400 focus:outline-none"
                 data-testid="send-quote-reason"
               />
               <p className="mt-1 text-[11px] text-slate-500">
-                Logged to audit. Helps you remember why you re-sent.
+                {t('sendModal.resendHint', 'Logged to audit. Helps you remember why you re-sent.')}
               </p>
             </div>
           )}
 
           <div className="rounded-md border border-slate-800 bg-slate-900/50 px-3 py-2 text-[11px] text-slate-400">
-            A branded PDF is attached automatically. Generated from the current
-            draft text — save edits before sending if needed.
+            {t('sendModal.pdfNote', 'A branded PDF is attached automatically. Generated from the current draft text — save edits before sending if needed.')}
           </div>
 
           {errorCode && (
             <div role="alert" className="rounded-md border border-red-700/60 bg-red-900/20 px-3 py-2 text-xs text-red-200">
-              {errorLabel(errorCode)}
+              {t(`sendModal.error.${errorCode}`, errorLabel(errorCode))}
             </div>
           )}
         </div>
@@ -217,7 +218,7 @@ export function SendQuoteModal({ open, draft, lead, mode, onClose, onSuccess }: 
             disabled={busy}
             className="rounded-md border border-slate-700 px-3.5 py-1.5 text-xs text-slate-300 hover:bg-slate-800 disabled:opacity-50"
           >
-            Cancel
+            {t('sendModal.cancel', 'Cancel')}
           </button>
           <button
             type="button"
@@ -231,7 +232,7 @@ export function SendQuoteModal({ open, draft, lead, mode, onClose, onSuccess }: 
             ) : (
               <Mail className="h-3.5 w-3.5" aria-hidden />
             )}
-            {busy ? 'Sending…' : cta}
+            {busy ? t('sendModal.sending', 'Sending…') : cta}
           </button>
         </div>
       </div>

@@ -1,6 +1,7 @@
 // web/src/routes/OwnerSettings.tsx
 
 import { useEffect, useMemo, useState, useCallback } from "react";
+import { useOwnerT } from "../i18n/useOwnerT";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import OwnerGate from "../components/OwnerGate";
@@ -81,6 +82,7 @@ function fromCsv(s: string) {
 
 // -------- Page --------
 export default function OwnerSettings() {
+  const t = useOwnerT("owner-settings");
   const params = useParams<{ slug?: string }>();
 
   // which hotel to edit (supports both ?slug= and /owner/:slug/settings)
@@ -201,8 +203,8 @@ export default function OwnerSettings() {
     } catch (e: any) {
       const msg =
         e?.message === "Failed to fetch"
-          ? "Could not reach the Owner Settings API / database. Please confirm your VAiyu backend and Supabase are reachable."
-          : e?.message || "Failed to load settings";
+          ? t("err.couldNotReach", "Could not reach the Owner Settings API / database. Please confirm your VAiyu backend and Supabase are reachable.")
+          : e?.message || t("err.failedLoad", "Failed to load settings");
       setErr(msg);
     } finally {
       setLoading(false);
@@ -338,13 +340,13 @@ export default function OwnerSettings() {
         throw new Error(placeIdErr.message || "Failed to save Google Place ID");
       }
 
-      setOk("Saved successfully.");
+      setOk(t("ok.saved", "Saved successfully."));
       await load();
     } catch (e: any) {
       const msg =
         e?.message === "Failed to fetch"
-          ? "Could not reach the Owner Settings API / database while saving. Please check your connection and try again."
-          : e?.message || "Failed to save";
+          ? t("err.couldNotSave", "Could not reach the Owner Settings API / database while saving. Please check your connection and try again.")
+          : e?.message || t("err.failedSave", "Failed to save");
       setErr(msg);
     } finally {
       setSaving(false);
@@ -362,20 +364,20 @@ export default function OwnerSettings() {
 
   return (
     <>
-      <SEO title="Owner Settings" noIndex />
+      <SEO title={t("page.title", "Owner Settings")} noIndex />
       <OwnerGate>
         <main className="min-h-screen bg-slate-950 pb-12">
           <div className="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
             <div className="flex items-center gap-2 text-sm font-medium text-slate-400 mb-4 mt-2">
-              <Link to={hotel?.slug ? `/owner/${hotel.slug}` : '/owner'} className="hover:text-amber-500 transition">Dashboard</Link>
+              <Link to={hotel?.slug ? `/owner/${hotel.slug}` : '/owner'} className="hover:text-amber-500 transition">{t("breadcrumb.dashboard", "Dashboard")}</Link>
               <span className="text-slate-600">/</span>
-              <span className="text-slate-100">Settings</span>
+              <span className="text-slate-100">{t("breadcrumb.settings", "Settings")}</span>
             </div>
             <header className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h1 className="text-xl font-semibold text-slate-100">Owner Settings</h1>
+                <h1 className="text-xl font-semibold text-slate-100">{t("page.title", "Owner Settings")}</h1>
                 <div className="text-sm text-slate-400">
-                  Branding, contact &amp; payments
+                  {t("page.subtitle", "Branding, contact & payments")}
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -385,8 +387,8 @@ export default function OwnerSettings() {
                     className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 w-32"
                     value={slug}
                     onChange={(e) => setSlug(e.target.value)}
-                    placeholder="hotel slug"
-                    title="Hotel slug to load"
+                    placeholder={t("page.slugPlaceholder", "hotel slug")}
+                    title={t("page.slugTitle", "Hotel slug to load")}
                   />
                   <button
                     type="button"
@@ -394,7 +396,7 @@ export default function OwnerSettings() {
                     onClick={load}
                     disabled={loading}
                   >
-                    {loading ? "Loading…" : "Reload"}
+                    {loading ? t("page.loading", "Loading…") : t("page.reload", "Reload")}
                   </button>
                 </div>
               </div>
@@ -417,7 +419,7 @@ export default function OwnerSettings() {
                 <section className="rounded-2xl border border-white/10 bg-white/5 p-5 sm:p-6 space-y-4">
                   <div className="grid md:grid-cols-2 gap-3">
                     <label className="text-sm font-medium text-slate-200 block">
-                      Name
+                      {t("identity.name", "Name")}
                       <input
                         className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                         value={hotel.name}
@@ -425,7 +427,7 @@ export default function OwnerSettings() {
                       />
                     </label>
                     <label className="text-sm font-medium text-slate-200 block">
-                      Slug (read-only)
+                      {t("identity.slug", "Slug (read-only)")}
                       <input
                         className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-400 cursor-not-allowed"
                         value={hotel.slug}
@@ -433,7 +435,7 @@ export default function OwnerSettings() {
                       />
                     </label>
                     <label className="text-sm font-medium text-slate-200 block md:col-span-2">
-                      Description
+                      {t("identity.description", "Description")}
                       <input
                         className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                         value={hotel.description || ""}
@@ -443,7 +445,7 @@ export default function OwnerSettings() {
                       />
                     </label>
                     <label className="text-sm font-medium text-slate-200 block md:col-span-2">
-                      Address
+                      {t("identity.address", "Address")}
                       <input
                         className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                         value={hotel.address || ""}
@@ -451,7 +453,7 @@ export default function OwnerSettings() {
                       />
                     </label>
                     <label className="text-sm font-medium text-slate-200 block">
-                      Phone
+                      {t("identity.phone", "Phone")}
                       <input
                         className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                         value={hotel.phone || ""}
@@ -459,7 +461,7 @@ export default function OwnerSettings() {
                       />
                     </label>
                     <label className="text-sm font-medium text-slate-200 block">
-                      Email
+                      {t("identity.email", "Email")}
                       <input
                         className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                         value={hotel.email || ""}
@@ -467,7 +469,7 @@ export default function OwnerSettings() {
                       />
                     </label>
                     <label className="text-sm font-medium text-slate-200 block md:col-span-2">
-                      Logo URL
+                      {t("identity.logoUrl", "Logo URL")}
                       <input
                         className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                         value={hotel.logo_url || ""}
@@ -478,7 +480,7 @@ export default function OwnerSettings() {
 
                   <div className="grid md:grid-cols-2 gap-3 pt-2">
                     <label className="text-sm font-medium text-slate-200 block">
-                      Brand color
+                      {t("identity.brandColor", "Brand color")}
                       <input
                         type="color"
                         className="mt-1 border rounded w-28 h-10"
@@ -487,7 +489,7 @@ export default function OwnerSettings() {
                       />
                     </label>
                     <label className="text-sm font-medium text-slate-200 block">
-                      Theme mode
+                      {t("identity.themeMode", "Theme mode")}
                       <select
                         className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                         value={hotel.theme?.mode || "light"}
@@ -495,20 +497,20 @@ export default function OwnerSettings() {
                           patchTheme("mode", e.target.value as Theme["mode"])
                         }
                       >
-                        <option value="light">Light</option>
-                        <option value="dark">Dark</option>
+                        <option value="light">{t("identity.themeLight", "Light")}</option>
+                        <option value="dark">{t("identity.themeDark", "Dark")}</option>
                       </select>
                     </label>
                   </div>
 
                   <div className="grid gap-3 pt-2">
                     <label className="text-sm font-medium text-slate-200 block">
-                      Amenities (CSV)
+                      {t("identity.amenities", "Amenities (CSV)")}
                       <input
                         className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                         value={amenitiesCsv}
                         onChange={(e) => setAmenitiesCsv(e.target.value)}
-                        placeholder="WiFi, Parking, Breakfast"
+                        placeholder={t("identity.amenitiesPlaceholder", "WiFi, Parking, Breakfast")}
                       />
                     </label>
                   </div>
@@ -516,20 +518,20 @@ export default function OwnerSettings() {
 
                 {/* Legal & Invoice Settings */}
                 <section className="rounded-2xl border border-white/10 bg-white/5 p-5 sm:p-6 space-y-4">
-                  <div className="mb-4"><h3 className="text-lg font-bold text-slate-100">Legal &amp; Invoice Settings</h3></div>
+                  <div className="mb-4"><h3 className="text-lg font-bold text-slate-100">{t("legal.title", "Legal & Invoice Settings")}</h3></div>
 
                   <div className="grid md:grid-cols-2 gap-3">
                     <label className="text-sm font-medium text-slate-200 block">
-                      Legal Entity Name
+                      {t("legal.legalName", "Legal Entity Name")}
                       <input
                         className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                         value={hotel.legal_name || ""}
                         onChange={(e) => patchHotel("legal_name", e.target.value)}
-                        placeholder="Registered Company Name"
+                        placeholder={t("legal.legalNamePlaceholder", "Registered Company Name")}
                       />
                     </label>
                     <label className="text-sm font-medium text-slate-200 block">
-                      Tax / GST Number
+                      {t("legal.gstNumber", "Tax / GST Number")}
                       <input
                         className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 uppercase"
                         value={hotel.gst_number || ""}
@@ -541,7 +543,7 @@ export default function OwnerSettings() {
 
                   <div className="grid md:grid-cols-4 gap-3 pt-2">
                     <label className="text-sm font-medium text-slate-200 block md:col-span-1">
-                      Tax %
+                      {t("legal.taxPct", "Tax %")}
                       <input
                         type="number"
                         step="0.01"
@@ -553,7 +555,7 @@ export default function OwnerSettings() {
                       />
                     </label>
                     <label className="text-sm font-medium text-slate-200 block md:col-span-1">
-                      Service Charge %
+                      {t("legal.serviceChargePct", "Service Charge %")}
                       <input
                         type="number"
                         step="0.01"
@@ -565,7 +567,7 @@ export default function OwnerSettings() {
                       />
                     </label>
                     <label className="text-sm font-medium text-slate-200 block md:col-span-1">
-                      Invoice Prefix
+                      {t("legal.invoicePrefix", "Invoice Prefix")}
                       <input
                         className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 uppercase"
                         value={hotel.invoice_prefix || ""}
@@ -574,7 +576,7 @@ export default function OwnerSettings() {
                       />
                     </label>
                     <label className="text-sm font-medium text-slate-200 block md:col-span-1">
-                      Next Invoice #
+                      {t("legal.nextInvoice", "Next Invoice #")}
                       <input
                         type="number"
                         min="1"
@@ -588,10 +590,10 @@ export default function OwnerSettings() {
 
                 {/* Operations */}
                 <section className="rounded-2xl border border-white/10 bg-white/5 p-5 sm:p-6 space-y-4">
-                  <div className="mb-4"><h3 className="text-lg font-bold text-slate-100">Operations &amp; Policies</h3></div>
+                  <div className="mb-4"><h3 className="text-lg font-bold text-slate-100">{t("ops.title", "Operations & Policies")}</h3></div>
                   <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
                     <label className="text-sm font-medium text-slate-200 block">
-                      Default Check-in
+                      {t("ops.defaultCheckin", "Default Check-in")}
                       <input
                         type="time"
                         className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
@@ -600,7 +602,7 @@ export default function OwnerSettings() {
                       />
                     </label>
                     <label className="text-sm font-medium text-slate-200 block">
-                      Default Check-out
+                      {t("ops.defaultCheckout", "Default Check-out")}
                       <input
                         type="time"
                         className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
@@ -609,7 +611,7 @@ export default function OwnerSettings() {
                       />
                     </label>
                     <label className="text-sm font-medium text-slate-200 block">
-                      Timezone
+                      {t("ops.timezone", "Timezone")}
                       <input
                         className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                         value={hotel.timezone || "Asia/Kolkata"}
@@ -617,7 +619,7 @@ export default function OwnerSettings() {
                       />
                     </label>
                     <label className="text-sm font-medium text-slate-200 block">
-                      Currency Code
+                      {t("ops.currency", "Currency Code")}
                       <input
                         className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 uppercase"
                         value={hotel.currency_code || "INR"}
@@ -634,7 +636,7 @@ export default function OwnerSettings() {
                         onChange={(e) => patchHotel("early_checkin_allowed", e.target.checked)}
                         className="rounded border-white/10 bg-white/5 w-4 h-4 text-amber-500 focus:ring-amber-500 focus:ring-offset-slate-900 cursor-pointer"
                       />
-                      Allow Early Check-in
+                      {t("ops.earlyCheckin", "Allow Early Check-in")}
                     </label>
                     <label className="flex items-center gap-2 text-sm font-medium text-slate-200 cursor-pointer">
                       <input
@@ -643,12 +645,12 @@ export default function OwnerSettings() {
                         onChange={(e) => patchHotel("late_checkout_allowed", e.target.checked)}
                         className="rounded border-white/10 bg-white/5 w-4 h-4 text-amber-500 focus:ring-amber-500 focus:ring-offset-slate-900 cursor-pointer"
                       />
-                      Allow Late Check-out
+                      {t("ops.lateCheckout", "Allow Late Check-out")}
                     </label>
                   </div>
 
                   <label className="text-sm font-medium text-slate-200 block mt-2">
-                    Google Place ID
+                    {t("ops.googlePlaceId", "Google Place ID")}
                     <input
                       className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                       value={hotel.google_place_id || ""}
@@ -656,7 +658,7 @@ export default function OwnerSettings() {
                       placeholder="ChIJ…"
                     />
                     <span className="block mt-1 text-xs font-normal text-slate-400">
-                      Guests who rate 4★+ get a one-tap "review on Google" link. Find your ID with Google's{" "}
+                      {t("ops.googlePlaceIdHint", "Guests who rate 4★+ get a one-tap \"review on Google\" link. Find your ID with Google's")}{" "}
                       <a
                         href="https://developers.google.com/maps/documentation/places/web-service/place-id#find-id"
                         target="_blank"
@@ -665,18 +667,18 @@ export default function OwnerSettings() {
                       >
                         Place ID Finder
                       </a>{" "}
-                      — search your hotel's name.
+                      — {t("ops.googlePlaceIdHintTail", "search your hotel's name.")}
                     </span>
                   </label>
                 </section>
 
                 {/* Guest Amenities / Wi-Fi & Breakfast */}
                 <section className="rounded-2xl border border-white/10 bg-white/5 p-5 sm:p-6 space-y-4">
-                  <div className="mb-4"><h3 className="text-lg font-bold text-slate-100">Guest Information</h3></div>
+                  <div className="mb-4"><h3 className="text-lg font-bold text-slate-100">{t("guest.title", "Guest Information")}</h3></div>
 
                   <div className="grid md:grid-cols-2 gap-3">
                     <label className="text-sm font-medium text-slate-200 block">
-                      Wi-Fi SSID (Network Name)
+                      {t("guest.wifiSsid", "Wi-Fi SSID (Network Name)")}
                       <input
                         className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                         value={hotel.wifi_ssid || ""}
@@ -685,7 +687,7 @@ export default function OwnerSettings() {
                       />
                     </label>
                     <label className="text-sm font-medium text-slate-200 block">
-                      Wi-Fi Password
+                      {t("guest.wifiPassword", "Wi-Fi Password")}
                       <input
                         className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                         value={hotel.wifi_password || ""}
@@ -697,7 +699,7 @@ export default function OwnerSettings() {
 
                   <div className="grid md:grid-cols-2 gap-3 pt-2">
                     <label className="text-sm font-medium text-slate-200 block">
-                      Breakfast Start Time
+                      {t("guest.breakfastStart", "Breakfast Start Time")}
                       <input
                         type="time"
                         className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
@@ -706,7 +708,7 @@ export default function OwnerSettings() {
                       />
                     </label>
                     <label className="text-sm font-medium text-slate-200 block">
-                      Breakfast End Time
+                      {t("guest.breakfastEnd", "Breakfast End Time")}
                       <input
                         type="time"
                         className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
@@ -718,15 +720,15 @@ export default function OwnerSettings() {
 
                   <div className="pt-2">
                     <label className="text-sm font-medium text-slate-200 block">
-                      Guest Notes &amp; Instructions
+                      {t("guest.notes", "Guest Notes & Instructions")}
                       <textarea
                         className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 min-h-[80px]"
                         value={hotel.guest_notes || ""}
                         onChange={(e) => patchHotel("guest_notes", e.target.value)}
-                        placeholder="Pool timing, emergency numbers, or standard property rules..."
+                        placeholder={t("guest.notesPlaceholder", "Pool timing, emergency numbers, or standard property rules...")}
                       />
                     </label>
-                    <p className="text-xs text-slate-400 mt-1">This information will be displayed to guests on their dashboard after they check in.</p>
+                    <p className="text-xs text-slate-400 mt-1">{t("guest.notesHint", "This information will be displayed to guests on their dashboard after they check in.")}</p>
                   </div>
                 </section>
 
@@ -734,9 +736,9 @@ export default function OwnerSettings() {
 
                 {/* Microsite Preview */}
                 <section className="rounded-2xl border border-white/10 bg-white/5 p-5 sm:p-6 space-y-2">
-                  <div className="text-sm text-slate-400">Microsite preview</div>
+                  <div className="text-sm text-slate-400">{t("preview.title", "Microsite preview")}</div>
                   <div style={themePreviewStyle} className="rounded-xl overflow-hidden p-4">
-                    <div className="text-xs opacity-90">Property microsite</div>
+                    <div className="text-xs opacity-90">{t("preview.label", "Property microsite")}</div>
                     <div className="text-xl font-semibold">
                       {hotel.name || "Hotel"}
                     </div>
@@ -749,7 +751,7 @@ export default function OwnerSettings() {
                 {/* Guest link (WhatsApp + QR) */}
                 <section className="rounded-2xl border border-white/10 bg-white/5 p-5 sm:p-6 space-y-4">
                   <div className="flex items-center justify-between gap-2">
-                    <h2 className="font-medium text-slate-100">Guest link (WhatsApp + QR)</h2>
+                    <h2 className="font-medium text-slate-100">{t("link.title", "Guest link (WhatsApp + QR)")}</h2>
                     {shareUrl && (
                       <a
                         href={`https://wa.me/?text=${encodeURIComponent(
@@ -759,20 +761,18 @@ export default function OwnerSettings() {
                         rel="noreferrer"
                         className="btn inline-flex items-center rounded-lg border border-white/10 bg-white/5 px-4 py-2 font-medium text-slate-200 hover:bg-white/10 transition-colors !py-1.5 !px-3 text-xs"
                       >
-                        Open in WhatsApp
+                        {t("link.openWhatsApp", "Open in WhatsApp")}
                       </a>
                     )}
                   </div>
                   <p className="text-xs text-slate-400">
-                    Share this link with guests at check-in. It opens your VAiyu
-                    Scan screen, which then routes them to the in-room menu and
-                    services for this property.
+                    {t("link.desc", "Share this link with guests at check-in. It opens your VAiyu Scan screen, which then routes them to the in-room menu and services for this property.")}
                   </p>
 
                   <div className="grid md:grid-cols-[2fr,1fr] gap-4 items-start pt-2">
                     <div className="space-y-4">
                       <label className="text-xs font-medium text-slate-400 block">
-                        Guest scan link
+                        {t("link.scanLabel", "Guest scan link")}
                         <input
                           className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                           value={shareUrl || ""}
@@ -781,7 +781,7 @@ export default function OwnerSettings() {
                         />
                       </label>
                       <label className="text-xs font-medium text-slate-400 block">
-                        WhatsApp message template
+                        {t("link.waTemplate", "WhatsApp message template")}
                         <textarea
                           className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 min-h-[100px]"
                           value={whatsappText || ""}
@@ -794,19 +794,19 @@ export default function OwnerSettings() {
                       {shareUrl ? (
                         <>
                           <div className="text-xs text-slate-400 mb-3 text-center">
-                            QR for room standee / table tent
+                            {t("link.qrTitle", "QR for room standee / table tent")}
                           </div>
                           <img
                             src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
                               shareUrl,
                             )}`}
-                            alt="QR code for guest menu"
+                            alt={t("link.qrAlt", "QR code for guest menu")}
                             className="bg-white p-2 border rounded-lg"
                           />
                         </>
                       ) : (
                         <div className="text-xs text-slate-500 text-center py-8">
-                          Slug missing – save hotel first to enable sharing.
+                          {t("link.qrMissing", "Slug missing – save hotel first to enable sharing.")}
                         </div>
                       )}
                     </div>
@@ -815,7 +815,7 @@ export default function OwnerSettings() {
 
                 {/* Integrations — payments + messaging */}
                 <section className="rounded-2xl border border-white/10 bg-white/5 p-5 sm:p-6 space-y-4">
-                  <div className="font-semibold">Integrations</div>
+                  <div className="font-semibold">{t("integrations.title", "Integrations")}</div>
 
                   {/* AI Quote Drafts — per-hotel consent toggle */}
                   <div className="mt-2">
@@ -874,13 +874,13 @@ export default function OwnerSettings() {
                           // immediately for transfers[].
                           if (result.activationUrl) {
                             window.open(result.activationUrl, "_blank", "noopener,noreferrer");
-                            setOk("Account created — opening KYC in a new tab.");
+                            setOk(t("ok.kycOpening", "Account created — opening KYC in a new tab."));
                           } else {
-                            setOk(`Razorpay test account created: ${result.accountId}`);
+                            setOk(t("ok.testAccountCreated", "Razorpay test account created: {{id}}", { id: result.accountId }));
                           }
                         } catch (e) {
                           const msg = e instanceof RazorpayServiceError ? e.message : String((e as any)?.message ?? e);
-                          setErr("Razorpay onboarding failed: " + msg);
+                          setErr(t("err.onboardingFailed", "Razorpay onboarding failed: {{msg}}", { msg }));
                         }
                       }}
                     />
@@ -889,14 +889,14 @@ export default function OwnerSettings() {
 
                 <div className="flex gap-2">
                   <button className="inline-flex items-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 transition-colors" onClick={save} disabled={saving}>
-                    {saving ? "Saving…" : "Save settings"}
+                    {saving ? t("save.saving", "Saving…") : t("save.saveBtn", "Save settings")}
                   </button>
                   <button
                     className="btn inline-flex items-center rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/10 transition-colors"
                     onClick={load}
                     disabled={loading}
                   >
-                    Revert
+                    {t("save.revert", "Revert")}
                   </button>
                 </div>
               </div>

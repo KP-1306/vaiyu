@@ -21,6 +21,7 @@ import {
 import { PackageInclusionsEditor } from './PackageInclusionsEditor';
 import { PackageSeasonPicker } from './PackageSeasonPicker';
 import { PackagePricingEditor } from './PackagePricingEditor';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   initial?: Partial<PackageFormDraft>;
@@ -36,10 +37,11 @@ export function PackageBuilderForm({
   initial,
   lockSlug = false,
   busy = false,
-  submitLabel = 'Save draft',
+  submitLabel,
   onSubmit,
   onCancel,
 }: Props) {
+  const t = useOwnerT('owner-packages');
   const [draft, setDraft] = useState<PackageFormDraft>({ ...emptyDraft(), ...initial });
   const [slugTouched, setSlugTouched] = useState<boolean>(!!initial?.slug);
 
@@ -67,14 +69,14 @@ export function PackageBuilderForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Marketing core */}
       <section className="rounded-2xl border border-slate-800 bg-[#0F1320] p-4 space-y-3">
-        <h3 className="text-sm font-semibold text-slate-100">Marketing</h3>
+        <h3 className="text-sm font-semibold text-slate-100">{t('form.marketing', 'Marketing')}</h3>
 
-        <Field label="Package name" error={result.errors.name && humanizeError(result.errors.name)}>
+        <Field label={t('form.name', 'Package name')} error={result.errors.name && humanizeError(result.errors.name, t)}>
           <input
             type="text"
             value={draft.name}
             onChange={(e) => onNameChange(e.target.value)}
-            placeholder="e.g. Char Dham Yatra Special — 4N"
+            placeholder={t('form.namePlaceholder', 'e.g. Char Dham Yatra Special — 4N')}
             maxLength={120}
             className={inputCls(!!result.errors.name)}
             data-testid="package-name"
@@ -82,7 +84,7 @@ export function PackageBuilderForm({
         </Field>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Field label="URL slug" error={result.errors.slug && humanizeError(result.errors.slug)}>
+          <Field label={t('form.slug', 'URL slug')} error={result.errors.slug && humanizeError(result.errors.slug, t)}>
             <input
               type="text"
               value={draft.slug}
@@ -97,11 +99,11 @@ export function PackageBuilderForm({
               data-testid="package-slug"
             />
             <p className="mt-1 text-[10px] text-slate-500">
-              Public URL will be <span className="font-mono">/p/&lt;hotel&gt;/package/{draft.slug || '—'}</span>
+              {t('form.slugHelp', 'Public URL will be')} <span className="font-mono">/p/&lt;hotel&gt;/package/{draft.slug || '—'}</span>
             </p>
           </Field>
 
-          <Field label="Category">
+          <Field label={t('form.category', 'Category')}>
             <select
               value={draft.category}
               onChange={(e) => patch('category', e.target.value as PackageCategory)}
@@ -109,53 +111,53 @@ export function PackageBuilderForm({
               data-testid="package-category"
             >
               {PACKAGE_CATEGORY_OPTIONS.map((c) => (
-                <option key={c} value={c}>{PACKAGE_CATEGORY_LABEL[c]}</option>
+                <option key={c} value={c}>{t(`category.${c}`, PACKAGE_CATEGORY_LABEL[c])}</option>
               ))}
             </select>
             <p className="mt-1 text-[10px] italic text-slate-500">
-              {CATEGORY_HINGLISH_HINT[draft.category]}
+              {t(`categoryHint.${draft.category}`, CATEGORY_HINGLISH_HINT[draft.category])}
             </p>
           </Field>
         </div>
 
-        <Field label="Target guest type (optional)">
+        <Field label={t('form.targetGuest', 'Target guest type (optional)')}>
           <input
             type="text"
             value={draft.targetGuestType}
             onChange={(e) => patch('targetGuestType', e.target.value)}
-            placeholder="e.g. Couples, families with young kids, devotees"
+            placeholder={t('form.targetGuestPlaceholder', 'e.g. Couples, families with young kids, devotees')}
             className={inputCls(false)}
           />
         </Field>
 
-        <Field label="Short pitch (1-2 sentences for cards)" error={result.errors.shortPitch && humanizeError(result.errors.shortPitch)}>
+        <Field label={t('form.shortPitch', 'Short pitch (1-2 sentences for cards)')} error={result.errors.shortPitch && humanizeError(result.errors.shortPitch, t)}>
           <textarea
             rows={2}
             value={draft.shortPitch}
             onChange={(e) => patch('shortPitch', e.target.value)}
-            placeholder="A short summary the operator (and guest) sees on the package card."
+            placeholder={t('form.shortPitchPlaceholder', 'A short summary the operator (and guest) sees on the package card.')}
             maxLength={280}
             className={inputCls(!!result.errors.shortPitch)}
           />
         </Field>
 
-        <Field label="Long description (markdown ok)" error={result.errors.longDescription && humanizeError(result.errors.longDescription)}>
+        <Field label={t('form.longDesc', 'Long description (markdown ok)')} error={result.errors.longDescription && humanizeError(result.errors.longDescription, t)}>
           <textarea
             rows={5}
             value={draft.longDescription}
             onChange={(e) => patch('longDescription', e.target.value)}
-            placeholder="Day-by-day plan, what makes it special, anything you'd say on a brochure."
+            placeholder={t('form.longDescPlaceholder', "Day-by-day plan, what makes it special, anything you'd say on a brochure.")}
             maxLength={8000}
             className={inputCls(!!result.errors.longDescription)}
           />
         </Field>
 
-        <Field label="Hero image URL (optional)">
+        <Field label={t('form.heroImage', 'Hero image URL (optional)')}>
           <input
             type="url"
             value={draft.heroImageUrl}
             onChange={(e) => patch('heroImageUrl', e.target.value)}
-            placeholder="https://… (upload elsewhere; paste link)"
+            placeholder={t('form.heroImagePlaceholder', 'https://… (upload elsewhere; paste link)')}
             className={inputCls(false)}
           />
         </Field>
@@ -163,9 +165,9 @@ export function PackageBuilderForm({
 
       {/* Stay shape */}
       <section className="rounded-2xl border border-slate-800 bg-[#0F1320] p-4 space-y-3">
-        <h3 className="text-sm font-semibold text-slate-100">Stay shape</h3>
+        <h3 className="text-sm font-semibold text-slate-100">{t('form.stayShape', 'Stay shape')}</h3>
         <div className="grid grid-cols-3 gap-3">
-          <Field label="Nights" error={result.errors.durationNights && humanizeError(result.errors.durationNights)}>
+          <Field label={t('form.nights', 'Nights')} error={result.errors.durationNights && humanizeError(result.errors.durationNights, t)}>
             <input
               type="number"
               inputMode="numeric"
@@ -177,7 +179,7 @@ export function PackageBuilderForm({
               data-testid="package-nights"
             />
           </Field>
-          <Field label="Min adults" error={result.errors.minPartyAdults && humanizeError(result.errors.minPartyAdults)}>
+          <Field label={t('form.minAdults', 'Min adults')} error={result.errors.minPartyAdults && humanizeError(result.errors.minPartyAdults, t)}>
             <input
               type="number"
               inputMode="numeric"
@@ -187,7 +189,7 @@ export function PackageBuilderForm({
               className={inputCls(!!result.errors.minPartyAdults)}
             />
           </Field>
-          <Field label="Max adults" error={result.errors.maxPartyAdults && humanizeError(result.errors.maxPartyAdults)}>
+          <Field label={t('form.maxAdults', 'Max adults')} error={result.errors.maxPartyAdults && humanizeError(result.errors.maxPartyAdults, t)}>
             <input
               type="number"
               inputMode="numeric"
@@ -210,7 +212,7 @@ export function PackageBuilderForm({
         validUntil={draft.validUntil}
         onValidFromChange={(v) => patch('validFrom', v)}
         onValidUntilChange={(v) => patch('validUntil', v)}
-        dateError={result.errors.validUntil && humanizeError(result.errors.validUntil)}
+        dateError={result.errors.validUntil && humanizeError(result.errors.validUntil, t)}
       />
 
       <PackageInclusionsEditor
@@ -232,31 +234,31 @@ export function PackageBuilderForm({
         onBasePriceBasisChange={(v) => patch('basePriceBasis', v)}
         onStartingPriceTextChange={(v) => patch('startingPriceText', v)}
         startingPriceTextError={
-          result.errors.startingPriceText && humanizeError(result.errors.startingPriceText)
+          result.errors.startingPriceText && humanizeError(result.errors.startingPriceText, t)
         }
       />
 
       {/* CTA + internal notes */}
       <section className="rounded-2xl border border-slate-800 bg-[#0F1320] p-4 space-y-3">
-        <h3 className="text-sm font-semibold text-slate-100">CTA & internal notes</h3>
+        <h3 className="text-sm font-semibold text-slate-100">{t('form.ctaSection', 'CTA & internal notes')}</h3>
 
-        <Field label="Enquiry CTA label" error={result.errors.enquiryCtaLabel && humanizeError(result.errors.enquiryCtaLabel)}>
+        <Field label={t('form.ctaLabel', 'Enquiry CTA label')} error={result.errors.enquiryCtaLabel && humanizeError(result.errors.enquiryCtaLabel, t)}>
           <input
             type="text"
             value={draft.enquiryCtaLabel}
             onChange={(e) => patch('enquiryCtaLabel', e.target.value)}
-            placeholder="Enquire now / WhatsApp us / Plan my yatra"
+            placeholder={t('form.ctaPlaceholder', 'Enquire now / WhatsApp us / Plan my yatra')}
             maxLength={40}
             className={inputCls(!!result.errors.enquiryCtaLabel)}
           />
         </Field>
 
-        <Field label="Internal notes (not shown to guests)">
+        <Field label={t('form.internalNotes', 'Internal notes (not shown to guests)')}>
           <textarea
             rows={3}
             value={draft.internalNotes}
             onChange={(e) => patch('internalNotes', e.target.value)}
-            placeholder="Reminders for your team: vendor contacts, pickup arrangements, blackout dates."
+            placeholder={t('form.internalNotesPlaceholder', 'Reminders for your team: vendor contacts, pickup arrangements, blackout dates.')}
             className={inputCls(false)}
           />
         </Field>
@@ -269,7 +271,7 @@ export function PackageBuilderForm({
             onClick={onCancel}
             className="rounded-md border border-slate-700 bg-slate-800/60 px-3.5 py-2 text-xs text-slate-200 hover:bg-slate-800"
           >
-            Cancel
+            {t('form.cancel', 'Cancel')}
           </button>
         )}
         <button
@@ -278,7 +280,7 @@ export function PackageBuilderForm({
           className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/50 bg-emerald-500/15 px-3.5 py-2 text-xs font-medium text-emerald-100 hover:bg-emerald-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
           data-testid="package-submit-button"
         >
-          {submitLabel}
+          {submitLabel ?? t('form.saveDraft', 'Save draft')}
         </button>
       </div>
     </form>

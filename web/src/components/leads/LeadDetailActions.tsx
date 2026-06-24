@@ -15,6 +15,7 @@ import {
 import type { Lead } from '../../types/lead';
 import { assignLead, softDeleteLead, LeadServiceError } from '../../services/leadService';
 import { humanizeError } from './LeadQuickAddModal.errorMapping';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   lead: Lead;
@@ -39,6 +40,7 @@ export function LeadDetailActions({
   onAfterDelete,
   onOpenConvert,
 }: Props) {
+  const t = useOwnerT('owner-leads');
   const queryClient = useQueryClient();
   const [assignOpen, setAssignOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -63,32 +65,39 @@ export function LeadDetailActions({
     mutationFn: (target: 'me' | 'unassign') =>
       assignLead(lead.id, target === 'me' ? (currentUserId as string) : null),
     onSuccess: (_data, target) => {
-      showToast(target === 'me' ? 'Assigned to you' : 'Unassigned', 'success');
+      showToast(
+        target === 'me'
+          ? t('actions.assignedToYouToast', 'Assigned to you')
+          : t('actions.unassignedToast', 'Unassigned'),
+        'success',
+      );
       setAssignOpen(false);
       queryClient.invalidateQueries({ queryKey: ['lead', lead.id] });
       queryClient.invalidateQueries({ queryKey: ['lead-events', lead.id] });
       onAfterAction();
     },
     onError: (err) => {
-      showToast(humanizeError(err as LeadServiceError), 'error');
+      showToast(humanizeError(err as LeadServiceError, t), 'error');
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: () => softDeleteLead(lead.id, 'Deleted from lead detail'),
     onSuccess: () => {
-      showToast('Lead deleted', 'success');
+      showToast(t('actions.leadDeletedToast', 'Lead deleted'), 'success');
       queryClient.invalidateQueries({ queryKey: ['leads', lead.hotel_id] });
       queryClient.invalidateQueries({ queryKey: ['leads-kanban', lead.hotel_id] });
       onAfterDelete();
     },
     onError: (err) => {
-      showToast(humanizeError(err as LeadServiceError), 'error');
+      showToast(humanizeError(err as LeadServiceError, t), 'error');
     },
   });
 
   function handleDelete() {
-    if (!window.confirm(`Delete lead "${lead.contact_name}"?\nThis hides it from the list and timeline (audit history preserved).`)) {
+    if (!window.confirm(
+      t('actions.deleteConfirm', 'Delete lead "{{name}}"?\nThis hides it from the list and timeline (audit history preserved).', { name: lead.contact_name }),
+    )) {
       return;
     }
     deleteMutation.mutate();
@@ -100,10 +109,10 @@ export function LeadDetailActions({
 
   const assignedLabel =
     lead.assigned_to === null
-      ? 'Unassigned'
+      ? t('actions.unassigned', 'Unassigned')
       : lead.assigned_to === currentUserId
-      ? 'Assigned to you'
-      : 'Assigned';
+      ? t('actions.assignedToYou', 'Assigned to you')
+      : t('actions.assigned', 'Assigned');
 
   return (
     <section
@@ -144,7 +153,7 @@ export function LeadDetailActions({
               role="menuitem"
               className="flex items-center justify-between w-full px-2 py-1.5 rounded-md text-sm text-white/80 hover:bg-white/[0.05] disabled:opacity-40 disabled:cursor-not-allowed text-left"
             >
-              Assign to me
+              {t('actions.assignToMe', 'Assign to me')}
               {lead.assigned_to === currentUserId && <Check className="h-3 w-3" />}
             </button>
             <button
@@ -154,7 +163,7 @@ export function LeadDetailActions({
               role="menuitem"
               className="flex items-center justify-between w-full px-2 py-1.5 rounded-md text-sm text-white/80 hover:bg-white/[0.05] disabled:opacity-40 disabled:cursor-not-allowed text-left"
             >
-              Unassign
+              {t('actions.unassign', 'Unassign')}
               {lead.assigned_to === null && <Check className="h-3 w-3" />}
             </button>
           </div>
@@ -171,7 +180,7 @@ export function LeadDetailActions({
           className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-500/30 hover:bg-emerald-500/25 disabled:opacity-60"
         >
           <ArrowUpRight className="h-3 w-3" />
-          Convert to booking
+          {t('actions.convertToBooking', 'Convert to booking')}
         </button>
       )}
 
@@ -190,7 +199,7 @@ export function LeadDetailActions({
           ) : (
             <Trash2 className="h-3 w-3" />
           )}
-          Delete
+          {t('actions.delete', 'Delete')}
         </button>
       )}
     </section>

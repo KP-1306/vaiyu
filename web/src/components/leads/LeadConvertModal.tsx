@@ -30,6 +30,7 @@ import {
 } from './LeadConvertModal.validation';
 import { LeadConvertRoomPicker, type SelectedRoom } from './LeadConvertRoomPicker';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   lead: Lead;
@@ -73,6 +74,7 @@ export function LeadConvertModal({
   onClose,
   showToast,
 }: Props) {
+  const t = useOwnerT('owner-leads');
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const modalRef = useRef<HTMLDivElement>(null);
@@ -138,7 +140,7 @@ export function LeadConvertModal({
         children,
       }),
     onSuccess: (result) => {
-      showToast(`Booking ${result.booking_code} created`, 'success');
+      showToast(t('convert.bookingCreatedToast', 'Booking {{code}} created', { code: result.booking_code }), 'success');
       setMode({
         kind: 'success',
         bookingId: result.booking_id,
@@ -162,7 +164,7 @@ export function LeadConvertModal({
         });
         return;
       }
-      const msg = humanizeError(lse);
+      const msg = humanizeError(lse, t);
       setSubmitError(msg);
       showToast(msg, 'error');
     },
@@ -201,7 +203,7 @@ export function LeadConvertModal({
       children,
       selectedRooms: Array.from(selectedRooms.values()),
     };
-    const v = validateConvertInput(input);
+    const v = validateConvertInput(input, t);
     if (hasConvertErrors(v)) {
       setErrors(v);
       return;
@@ -251,14 +253,14 @@ export function LeadConvertModal({
         <header className="flex items-center justify-between px-5 py-4 border-b border-white/10 shrink-0">
           <h2 id="convert-modal-title" className="text-base font-semibold text-white">
             {mode.kind === 'success'
-              ? 'Booking created'
+              ? t('convert.titleSuccess', 'Booking created')
               : mode.kind === 'already-converted'
-              ? 'Already converted'
-              : 'Convert to booking'}
+              ? t('convert.titleAlready', 'Already converted')
+              : t('convert.titleForm', 'Convert to booking')}
           </h2>
           <button
             type="button"
-            aria-label="Close"
+            aria-label={t('convert.close', 'Close')}
             onClick={handleClose}
             disabled={mutation.isPending}
             className="p-1 rounded text-white/60 hover:text-white hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -274,13 +276,13 @@ export function LeadConvertModal({
                 <CheckCircle className="h-7 w-7 text-emerald-300" />
               </div>
               <div className="text-lg font-semibold text-white">
-                Booking {mode.bookingCode}
+                {t('convert.bookingCode', 'Booking {{code}}', { code: mode.bookingCode })}
               </div>
               <div className="text-xs text-white/50 mt-1">
                 {mode.promotedThrough.length > 0 && (
-                  <>Auto-promoted through {mode.promotedThrough.length} stage{mode.promotedThrough.length === 1 ? '' : 's'} · </>
+                  <>{t('convert.promotedThrough', 'Auto-promoted through {{count}} stages · ', { count: mode.promotedThrough.length })}</>
                 )}
-                {typeof mode.latencyMs === 'number' && <>Booked in {mode.latencyMs} ms</>}
+                {typeof mode.latencyMs === 'number' && <>{t('convert.bookedIn', 'Booked in {{ms}} ms', { ms: mode.latencyMs })}</>}
               </div>
             </div>
             <div className="flex items-center justify-center gap-2">
@@ -289,7 +291,7 @@ export function LeadConvertModal({
                 onClick={onClose}
                 className="px-4 py-2 text-sm font-medium text-white/70 hover:text-white"
               >
-                Done
+                {t('convert.done', 'Done')}
               </button>
               <button
                 type="button"
@@ -297,7 +299,7 @@ export function LeadConvertModal({
                 onClick={() => viewBooking(mode.bookingId)}
                 className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-400"
               >
-                View booking
+                {t('convert.viewBooking', 'View booking')}
                 <ArrowUpRight className="h-4 w-4" />
               </button>
             </div>
@@ -309,9 +311,9 @@ export function LeadConvertModal({
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 flex items-start gap-3">
               <Info className="h-5 w-5 text-amber-300 mt-0.5 shrink-0" />
               <div className="flex-1">
-                <div className="font-semibold text-amber-100">This lead was already converted</div>
+                <div className="font-semibold text-amber-100">{t('convert.alreadyTitle', 'This lead was already converted')}</div>
                 <div className="text-sm text-amber-200/80 mt-1">
-                  Existing booking: <span className="font-mono">{mode.existingBookingCode}</span>
+                  {t('convert.existingBooking', 'Existing booking:')} <span className="font-mono">{mode.existingBookingCode}</span>
                 </div>
               </div>
             </div>
@@ -321,14 +323,14 @@ export function LeadConvertModal({
                 onClick={onClose}
                 className="px-4 py-2 text-sm font-medium text-white/70 hover:text-white"
               >
-                Close
+                {t('convert.close', 'Close')}
               </button>
               <button
                 type="button"
                 onClick={() => viewBooking(mode.existingBookingId)}
                 className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-400"
               >
-                Open existing booking
+                {t('convert.openExisting', 'Open existing booking')}
                 <ArrowUpRight className="h-4 w-4" />
               </button>
             </div>
@@ -339,18 +341,19 @@ export function LeadConvertModal({
           <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-4">
             {/* Lead context summary */}
             <div className="rounded-md bg-white/[0.02] border border-white/10 px-3 py-2 text-xs text-white/60">
-              Converting lead <span className="text-white font-medium">{lead.contact_name}</span>
-              {lead.status !== 'WON' && (
-                <> · current status <span className="text-white">{lead.status}</span> — will auto-promote</>
-              )}
+              {t('convert.convertingLead', 'Converting lead {{name}}', { name: lead.contact_name })}
+              {lead.status !== 'WON' &&
+                t('convert.currentStatus', ' · current status {{status}} — will auto-promote', {
+                  status: t(`status.${lead.status}`, lead.status),
+                })}
             </div>
 
             {/* Guest details */}
             <fieldset className="space-y-3">
               <legend className="text-xs font-semibold uppercase tracking-wider text-white/60 mb-2">
-                Guest
+                {t('convert.guest', 'Guest')}
               </legend>
-              <Field label="Name" error={errors.guestName} required>
+              <Field label={t('convert.name', 'Name')} error={errors.guestName} required>
                 <input
                   type="text"
                   value={guestName}
@@ -360,7 +363,7 @@ export function LeadConvertModal({
                 />
               </Field>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Field label="Phone" error={errors.guestPhone}>
+                <Field label={t('convert.phone', 'Phone')} error={errors.guestPhone}>
                   <input
                     type="tel"
                     inputMode="tel"
@@ -370,7 +373,7 @@ export function LeadConvertModal({
                     className={inputCls(!!errors.guestPhone)}
                   />
                 </Field>
-                <Field label="Email" error={errors.guestEmail}>
+                <Field label={t('convert.email', 'Email')} error={errors.guestEmail}>
                   <input
                     type="email"
                     inputMode="email"
@@ -386,10 +389,10 @@ export function LeadConvertModal({
             {/* Stay */}
             <fieldset className="space-y-3">
               <legend className="text-xs font-semibold uppercase tracking-wider text-white/60 mb-2">
-                Stay
+                {t('convert.stay', 'Stay')}
               </legend>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Check-in" error={errors.checkIn} required>
+                <Field label={t('convert.checkIn', 'Check-in')} error={errors.checkIn} required>
                   <input
                     type="date"
                     value={checkIn}
@@ -398,7 +401,7 @@ export function LeadConvertModal({
                     className={inputCls(!!errors.checkIn)}
                   />
                 </Field>
-                <Field label="Check-out" error={errors.checkOut} required>
+                <Field label={t('convert.checkOut', 'Check-out')} error={errors.checkOut} required>
                   <input
                     type="date"
                     value={checkOut}
@@ -409,7 +412,7 @@ export function LeadConvertModal({
                 </Field>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Adults" error={errors.adults} required>
+                <Field label={t('convert.adults', 'Adults')} error={errors.adults} required>
                   <input
                     type="number"
                     inputMode="numeric"
@@ -420,7 +423,7 @@ export function LeadConvertModal({
                     className={inputCls(!!errors.adults)}
                   />
                 </Field>
-                <Field label="Children" error={errors.children}>
+                <Field label={t('convert.children', 'Children')} error={errors.children}>
                   <input
                     type="number"
                     inputMode="numeric"
@@ -437,15 +440,15 @@ export function LeadConvertModal({
             {/* Rooms */}
             <fieldset>
               <legend className="text-xs font-semibold uppercase tracking-wider text-white/60 mb-2">
-                Rooms <span className="text-red-400">*</span>
+                {t('convert.rooms', 'Rooms')} <span className="text-red-400">*</span>
               </legend>
               {roomsQuery.isPending ? (
                 <div className="text-sm text-white/40 flex items-center gap-2 py-4">
                   <Loader2 className="h-3 w-3 animate-spin" />
-                  Loading rooms…
+                  {t('convert.loadingRooms', 'Loading rooms…')}
                 </div>
               ) : roomsQuery.isError ? (
-                <div className="text-sm text-red-400 py-4">Could not load rooms.</div>
+                <div className="text-sm text-red-400 py-4">{t('convert.couldNotLoadRooms', 'Could not load rooms.')}</div>
               ) : (
                 <LeadConvertRoomPicker
                   rooms={roomsQuery.data ?? []}
@@ -472,8 +475,8 @@ export function LeadConvertModal({
             <footer className="flex items-center justify-between gap-2 pt-2 border-t border-white/10">
               <div className="text-xs text-white/50">
                 {selectedRooms.size > 0
-                  ? `${selectedRooms.size} room${selectedRooms.size === 1 ? '' : 's'} · ₹${totalPerNight}/night`
-                  : 'No rooms selected'}
+                  ? t('convert.roomsSummary', '{{count}} rooms · ₹{{total}}/night', { count: selectedRooms.size, total: totalPerNight })
+                  : t('convert.noRoomsSelected', 'No rooms selected')}
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -482,7 +485,7 @@ export function LeadConvertModal({
                   disabled={mutation.isPending}
                   className="px-3 py-2 text-sm text-white/70 hover:text-white disabled:opacity-40"
                 >
-                  Cancel
+                  {t('convert.cancel', 'Cancel')}
                 </button>
                 <button
                   type="submit"
@@ -493,10 +496,10 @@ export function LeadConvertModal({
                   {mutation.isPending ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Converting…
+                      {t('convert.converting', 'Converting…')}
                     </>
                   ) : (
-                    'Create booking'
+                    t('convert.createBooking', 'Create booking')
                   )}
                 </button>
               </div>

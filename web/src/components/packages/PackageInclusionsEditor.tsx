@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 import { Plus, X } from 'lucide-react';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface GroupProps {
   label: string;
@@ -25,6 +26,7 @@ function InclusionGroup({
   testId,
   suggestions = [],
 }: GroupProps) {
+  const t = useOwnerT('owner-packages');
   const [draft, setDraft] = useState('');
 
   function add(value: string) {
@@ -57,7 +59,7 @@ function InclusionGroup({
               <button
                 type="button"
                 onClick={() => remove(v)}
-                aria-label={`Remove ${v}`}
+                aria-label={t('inclusions.remove', 'Remove {{value}}', { value: v })}
                 className="text-emerald-300/70 hover:text-emerald-100"
               >
                 <X className="h-3 w-3" aria-hidden />
@@ -91,7 +93,7 @@ function InclusionGroup({
           data-testid={`${testId}-add`}
         >
           <Plus className="h-3 w-3" aria-hidden />
-          Add
+          {t('inclusions.add', 'Add')}
         </button>
       </div>
 
@@ -132,46 +134,47 @@ const ACTIVITY_SUGGESTIONS = ['Char Dham yatra guidance', 'Local sightseeing', '
 const TRANSFER_SUGGESTIONS = ['Airport pickup', 'Airport drop', 'Sightseeing taxi', 'Railway station pickup'];
 
 export function PackageInclusionsEditor(props: Props) {
+  const t = useOwnerT('owner-packages');
   return (
     <div className="rounded-2xl border border-slate-800 bg-[#0F1320] p-4 space-y-4">
       <div>
-        <h3 className="text-sm font-semibold text-slate-100">Inclusions</h3>
+        <h3 className="text-sm font-semibold text-slate-100">{t('inclusions.title', 'Inclusions')}</h3>
         <p className="text-[11px] text-slate-500 mt-0.5">
-          Pick what's included so the package page can list it clearly. Add suggestions or type your own.
+          {t('inclusions.intro', "Pick what's included so the package page can list it clearly. Add suggestions or type your own.")}
         </p>
       </div>
 
       <InclusionGroup
-        label="Food"
-        hint="Meals, drinks, snacks bundled in the package"
-        placeholder="e.g. Breakfast, Dinner"
+        label={t('inclusions.food', 'Food')}
+        hint={t('inclusions.foodHint', 'Meals, drinks, snacks bundled in the package')}
+        placeholder={t('inclusions.foodPlaceholder', 'e.g. Breakfast, Dinner')}
         values={props.food}
         onChange={props.onFoodChange}
         testId="incl-food"
         suggestions={FOOD_SUGGESTIONS}
       />
       <InclusionGroup
-        label="Activities"
-        hint="Tours, guidance, sessions, experiences"
-        placeholder="e.g. Local sightseeing"
+        label={t('inclusions.activities', 'Activities')}
+        hint={t('inclusions.activitiesHint', 'Tours, guidance, sessions, experiences')}
+        placeholder={t('inclusions.activitiesPlaceholder', 'e.g. Local sightseeing')}
         values={props.activity}
         onChange={props.onActivityChange}
         testId="incl-activity"
         suggestions={ACTIVITY_SUGGESTIONS}
       />
       <InclusionGroup
-        label="Transfers"
-        hint="Pickups, drops, in-trip taxis"
-        placeholder="e.g. Airport pickup"
+        label={t('inclusions.transfers', 'Transfers')}
+        hint={t('inclusions.transfersHint', 'Pickups, drops, in-trip taxis')}
+        placeholder={t('inclusions.transfersPlaceholder', 'e.g. Airport pickup')}
         values={props.transfer}
         onChange={props.onTransferChange}
         testId="incl-transfer"
         suggestions={TRANSFER_SUGGESTIONS}
       />
       <InclusionGroup
-        label="Custom inclusions"
-        hint="Anything else — welcome cake, photographer, decor, etc."
-        placeholder="e.g. Welcome cake on arrival"
+        label={t('inclusions.custom', 'Custom inclusions')}
+        hint={t('inclusions.customHint', 'Anything else — welcome cake, photographer, decor, etc.')}
+        placeholder={t('inclusions.customPlaceholder', 'e.g. Welcome cake on arrival')}
         values={props.custom}
         onChange={props.onCustomChange}
         testId="incl-custom"

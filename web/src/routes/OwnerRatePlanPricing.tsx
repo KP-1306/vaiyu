@@ -31,6 +31,7 @@ import {
   DarkField,
   darkInputCls,
 } from "../components/owner/DarkShell";
+import { useOwnerT, useOwnerCommonT, type OwnerT } from "../i18n/useOwnerT";
 
 type Hotel = { id: string; slug: string; name: string };
 
@@ -46,22 +47,24 @@ const EMPTY_FORM = (planId: string): RatePlanPriceFormData => ({
 });
 
 // Render dow_mask as a short chip label: "All", "Mon–Fri", "Sat+Sun", or "Mon Wed Fri".
-function dowLabel(mask: number): string {
-  if (mask === DOW_ALL_DAYS) return "All days";
-  if (mask === DOW_WEEKDAYS) return "Weekdays";
-  if (mask === DOW_WEEKENDS) return "Weekends";
-  const selected = DOW_LABELS.filter(({ bit }) => (mask & bit) > 0).map((d) => d.short);
+function dowLabel(mask: number, t: OwnerT): string {
+  if (mask === DOW_ALL_DAYS) return t("dowAllDays", "All days");
+  if (mask === DOW_WEEKDAYS) return t("dowWeekdays", "Weekdays");
+  if (mask === DOW_WEEKENDS) return t("dowWeekends", "Weekends");
+  const selected = DOW_LABELS.filter(({ bit }) => (mask & bit) > 0).map((d) => t(`dow.${d.short}`, d.short));
   return selected.length ? selected.join(" ") : "—";
 }
 
-function validityLabel(p: RatePlanPrice): string {
-  if (!p.valid_from && !p.valid_to) return "Always";
-  if (p.valid_from && !p.valid_to) return `From ${p.valid_from}`;
-  if (!p.valid_from && p.valid_to) return `Until ${p.valid_to}`;
-  return `${p.valid_from} → ${p.valid_to}`;
+function validityLabel(p: RatePlanPrice, t: OwnerT): string {
+  if (!p.valid_from && !p.valid_to) return t("validAlways", "Always");
+  if (p.valid_from && !p.valid_to) return t("validFrom", "From {{date}}", { date: p.valid_from });
+  if (!p.valid_from && p.valid_to) return t("validUntil", "Until {{date}}", { date: p.valid_to });
+  return t("validRange", "{{from}} → {{to}}", { from: p.valid_from, to: p.valid_to });
 }
 
 export default function OwnerRatePlanPricing() {
+  const t = useOwnerT("owner-rateplan-pricing");
+  const tc = useOwnerCommonT();
   const { slug, planId } = useParams<{ slug: string; planId: string }>();
   const [hotel, setHotel] = useState<Hotel | null>(null);
   const [plan, setPlan] = useState<RatePlan | null>(null);
@@ -91,7 +94,7 @@ export default function OwnerRatePlanPricing() {
         .eq("slug", slug)
         .maybeSingle();
       if (hErr || !hotelRow) {
-        setError(hErr?.message ?? "Hotel not found.");
+        setError(hErr?.message ?? t("hotelNotFound", "Hotel not found."));
         return;
       }
       setHotel(hotelRow as Hotel);
@@ -104,7 +107,7 @@ export default function OwnerRatePlanPricing() {
         .is("deleted_at", null)
         .maybeSingle();
       if (pErr || !planRow) {
-        setError(pErr?.message ?? "Rate plan not found.");
+        setError(pErr?.message ?? t("planNotFound", "Rate plan not found."));
         return;
       }
       setPlan(planRow as RatePlan);
@@ -116,11 +119,11 @@ export default function OwnerRatePlanPricing() {
       setRoomTypes(rt);
       setPrices(pp);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to load.");
+      setError(e instanceof Error ? e.message : t("loadFailed", "Failed to load."));
     } finally {
       setLoading(false);
     }
-  }, [slug, planId]);
+  }, [slug, planId, t]);
 
   useEffect(() => {
     load();
@@ -154,12 +157,12 @@ export default function OwnerRatePlanPricing() {
   }
 
   function validate(f: RatePlanPriceFormData): string | null {
-    if (!f.room_type_id) return "Pick a room type.";
-    if (!(f.price >= 0)) return "Price must be 0 or greater.";
-    if (f.dow_mask < 1 || f.dow_mask > 127) return "Pick at least one day of the week.";
+    if (!f.room_type_id) return t("vRoomType", "Pick a room type.");
+    if (!(f.price >= 0)) return t("vPrice", "Price must be 0 or greater.");
+    if (f.dow_mask < 1 || f.dow_mask > 127) return t("vDow", "Pick at least one day of the week.");
     if (f.valid_from && f.valid_to && f.valid_to < f.valid_from)
-      return "Valid-to must be on or after valid-from.";
-    if (f.priority < 1) return "Priority must be 1 or greater.";
+      return t("vValidOrder", "Valid-to must be on or after valid-from.");
+    if (f.priority < 1) return t("vPriority", "Priority must be 1 or greater.");
     return null;
   }
 
@@ -181,7 +184,7 @@ export default function OwnerRatePlanPricing() {
       setEditingId(null);
       await load();
     } catch (e: unknown) {
-      setFormError(e instanceof Error ? e.message : "Save failed.");
+      setFormError(e instanceof Error ? e.message : t("saveFailed", "Save failed."));
     } finally {
       setSaving(false);
     }
@@ -194,16 +197,16 @@ export default function OwnerRatePlanPricing() {
       await deletePlanPrice(id);
       setPrices((prev) => prev.filter((p) => p.id !== id));
     } catch (e: unknown) {
-      setDeleteError(e instanceof Error ? e.message : "Delete failed.");
+      setDeleteError(e instanceof Error ? e.message : t("deleteFailed", "Delete failed."));
       throw e;
     } finally {
       setDeletingId(null);
     }
   }
 
-  if (loading) return <DarkLoading message="Loading prices…" />;
+  if (loading) return <DarkLoading message={t("loading", "Loading prices…")} />;
   if (error || !hotel || !plan)
-    return <DarkErrorPanel message={error ?? "Rate plan not found."} />;
+    return <DarkErrorPanel message={error ?? t("planNotFound", "Rate plan not found.")} />;
 
   const base = `/owner/${slug}`;
   const pricesByRoomType: Record<string, RatePlanPrice[]> = {};
@@ -215,15 +218,13 @@ export default function OwnerRatePlanPricing() {
     <OwnerDarkPage
       icon={IndianRupee}
       title={plan.name}
-      titleAccent="Prices"
+      titleAccent={t("titleAccent", "Prices")}
       accent="indigo"
-      subtitle={`${prices.length} price row${prices.length === 1 ? "" : "s"} · ${
-        roomTypes.length
-      } room type${roomTypes.length === 1 ? "" : "s"}`}
+      subtitle={`${t("priceRows", "{{count}} price rows", { count: prices.length })} · ${t("roomTypesCount", "{{count}} room types", { count: roomTypes.length })}`}
       breadcrumbs={[
-        { label: "Dashboard", to: base },
-        { label: "Pricing", to: `${base}/pricing` },
-        { label: "Rate Plans", to: `${base}/pricing/plans` },
+        { label: tc("nav.dashboard", "Dashboard"), to: base },
+        { label: t("crumbPricing", "Pricing"), to: `${base}/pricing` },
+        { label: t("crumbRatePlans", "Rate Plans"), to: `${base}/pricing/plans` },
         { label: plan.name },
       ]}
       actions={
@@ -232,31 +233,31 @@ export default function OwnerRatePlanPricing() {
             to={`${base}/pricing/plans`}
             className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-3 py-2 text-sm font-semibold text-slate-200 transition"
           >
-            <ArrowLeft className="w-4 h-4" /> Plans
+            <ArrowLeft className="w-4 h-4" /> {t("plansBtn", "Plans")}
           </Link>
           <button
             onClick={() => openCreate()}
             disabled={roomTypes.length === 0}
             className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 px-4 py-2 text-sm font-bold text-white transition shadow-lg shadow-indigo-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <Plus className="w-4 h-4" /> Add Price
+            <Plus className="w-4 h-4" /> {t("addPrice", "Add Price")}
           </button>
         </div>
       }
     >
       {showForm && (
         <DarkModal
-          title={editingId ? "Edit Price" : "New Price"}
+          title={editingId ? t("editPrice", "Edit Price") : t("newPrice", "New Price")}
           onClose={() => setShowForm(false)}
         >
           <div className="space-y-4">
-            <DarkField label="Room Type">
+            <DarkField label={t("fieldRoomType", "Room Type")}>
               <select
                 className={darkInputCls}
                 value={form.room_type_id}
                 onChange={(e) => setForm({ ...form, room_type_id: e.target.value })}
               >
-                <option value="">Select…</option>
+                <option value="">{t("selectPlaceholder", "Select…")}</option>
                 {roomTypes.map((rt) => (
                   <option key={rt.id} value={rt.id}>
                     {rt.name}
@@ -265,7 +266,7 @@ export default function OwnerRatePlanPricing() {
               </select>
             </DarkField>
 
-            <DarkField label="Price (₹ per night)">
+            <DarkField label={t("fieldPrice", "Price (₹ per night)")}>
               <input
                 className={darkInputCls}
                 type="number"
@@ -277,7 +278,7 @@ export default function OwnerRatePlanPricing() {
             </DarkField>
 
             <div className="grid grid-cols-2 gap-3">
-              <DarkField label="Valid From" hint="Blank = no start bound">
+              <DarkField label={t("fieldValidFrom", "Valid From")} hint={t("hintValidFrom", "Blank = no start bound")}>
                 <input
                   className={darkInputCls}
                   type="date"
@@ -287,7 +288,7 @@ export default function OwnerRatePlanPricing() {
                   }
                 />
               </DarkField>
-              <DarkField label="Valid To" hint="Blank = evergreen">
+              <DarkField label={t("fieldValidTo", "Valid To")} hint={t("hintValidTo", "Blank = evergreen")}>
                 <input
                   className={darkInputCls}
                   type="date"
@@ -300,8 +301,8 @@ export default function OwnerRatePlanPricing() {
             </div>
 
             <DarkField
-              label="Days of Week"
-              hint="Pick the days this price applies to"
+              label={t("fieldDaysOfWeek", "Days of Week")}
+              hint={t("hintDaysOfWeek", "Pick the days this price applies to")}
             >
               <div className="space-y-2">
                 <div className="flex flex-wrap gap-2">
@@ -326,7 +327,7 @@ export default function OwnerRatePlanPricing() {
                             : "border-white/10 bg-white/[0.02] text-slate-400 hover:text-slate-200")
                         }
                       >
-                        {short}
+                        {t(`dow.${short}`, short)}
                       </button>
                     );
                   })}
@@ -337,7 +338,7 @@ export default function OwnerRatePlanPricing() {
                     onClick={() => setForm({ ...form, dow_mask: DOW_ALL_DAYS })}
                     className="text-slate-500 hover:text-indigo-300 font-semibold uppercase tracking-wider"
                   >
-                    All
+                    {t("quickAll", "All")}
                   </button>
                   <span className="text-slate-700">·</span>
                   <button
@@ -345,7 +346,7 @@ export default function OwnerRatePlanPricing() {
                     onClick={() => setForm({ ...form, dow_mask: DOW_WEEKDAYS })}
                     className="text-slate-500 hover:text-indigo-300 font-semibold uppercase tracking-wider"
                   >
-                    Weekdays
+                    {t("dowWeekdays", "Weekdays")}
                   </button>
                   <span className="text-slate-700">·</span>
                   <button
@@ -353,14 +354,14 @@ export default function OwnerRatePlanPricing() {
                     onClick={() => setForm({ ...form, dow_mask: DOW_WEEKENDS })}
                     className="text-slate-500 hover:text-indigo-300 font-semibold uppercase tracking-wider"
                   >
-                    Weekends
+                    {t("dowWeekends", "Weekends")}
                   </button>
                 </div>
               </div>
             </DarkField>
 
             <div className="grid grid-cols-2 gap-3">
-              <DarkField label="Priority" hint="Higher wins on overlap">
+              <DarkField label={t("fieldPriority", "Priority")} hint={t("hintPriority", "Higher wins on overlap")}>
                 <input
                   className={darkInputCls}
                   type="number"
@@ -371,14 +372,14 @@ export default function OwnerRatePlanPricing() {
                   }
                 />
               </DarkField>
-              <DarkField label="Notes" hint="Internal reminder">
+              <DarkField label={t("fieldNotes", "Notes")} hint={t("hintNotes", "Internal reminder")}>
                 <input
                   className={darkInputCls}
                   value={form.notes ?? ""}
                   onChange={(e) =>
                     setForm({ ...form, notes: e.target.value || null })
                   }
-                  placeholder="e.g. Diwali peak"
+                  placeholder={t("notesPlaceholder", "e.g. Diwali peak")}
                 />
               </DarkField>
             </div>
@@ -391,14 +392,14 @@ export default function OwnerRatePlanPricing() {
               onClick={() => setShowForm(false)}
               className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-4 py-2 text-sm font-semibold text-slate-200 transition"
             >
-              Cancel
+              {tc("actions.cancel", "Cancel")}
             </button>
             <button
               onClick={handleSave}
               disabled={saving}
               className="rounded-xl bg-indigo-500 hover:bg-indigo-600 px-5 py-2 text-sm font-bold text-white transition disabled:opacity-60 shadow-lg shadow-indigo-500/20"
             >
-              {saving ? "Saving…" : editingId ? "Save Changes" : "Create Price"}
+              {saving ? tc("actions.saving", "Saving…") : editingId ? t("saveChanges", "Save Changes") : t("createPrice", "Create Price")}
             </button>
           </div>
         </DarkModal>
@@ -407,9 +408,9 @@ export default function OwnerRatePlanPricing() {
       {roomTypes.length === 0 ? (
         <DarkCard className="text-center py-12 border-dashed border-2">
           <CalendarDays className="w-10 h-10 text-slate-600 mx-auto mb-3" />
-          <p className="font-bold text-slate-200">No room types configured</p>
+          <p className="font-bold text-slate-200">{t("noRoomTypes", "No room types configured")}</p>
           <p className="text-sm text-slate-500 mt-1">
-            Add room types during hotel setup before setting prices.
+            {t("noRoomTypesBody", "Add room types during hotel setup before setting prices.")}
           </p>
         </DarkCard>
       ) : (
@@ -422,33 +423,40 @@ export default function OwnerRatePlanPricing() {
                   <div className="flex items-center gap-3">
                     <span className="font-bold text-white">{rt.name}</span>
                     <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                      {rows.length} price{rows.length === 1 ? "" : "s"}
+                      {t("pricesCount", "{{count}} prices", { count: rows.length })}
                     </span>
                   </div>
                   <button
                     onClick={() => openCreate(rt.id)}
                     className="inline-flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 font-semibold"
                   >
-                    <Plus className="w-3.5 h-3.5" /> Add price
+                    <Plus className="w-3.5 h-3.5" /> {t("addPriceSmall", "Add price")}
                   </button>
                 </div>
 
                 {rows.length === 0 ? (
                   <div className="px-4 py-6 text-center text-sm text-slate-500">
-                    No prices configured. Add one to start selling this room type.
+                    {t("noPricesConfigured", "No prices configured. Add one to start selling this room type.")}
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead className="bg-[#151719] border-b border-white/[0.04]">
                         <tr>
-                          {["Price", "Validity", "Days", "Priority", "Notes", ""].map(
-                            (h, i) => (
+                          {[
+                            { k: "price", label: t("colPrice", "Price") },
+                            { k: "validity", label: t("colValidity", "Validity") },
+                            { k: "days", label: t("colDays", "Days") },
+                            { k: "priority", label: t("colPriority", "Priority") },
+                            { k: "notes", label: t("colNotes", "Notes") },
+                            { k: "actions", label: "" },
+                          ].map(
+                            (h) => (
                               <th
-                                key={i}
+                                key={h.k}
                                 className="px-4 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500"
                               >
-                                {h}
+                                {h.label}
                               </th>
                             ),
                           )}
@@ -461,11 +469,11 @@ export default function OwnerRatePlanPricing() {
                               {formatINR(Number(row.price))}
                             </td>
                             <td className="px-4 py-3 text-xs text-slate-400">
-                              {validityLabel(row)}
+                              {validityLabel(row, t)}
                             </td>
                             <td className="px-4 py-3">
                               <span className="rounded-full bg-white/[0.04] text-slate-300 px-2 py-0.5 text-[11px] font-semibold">
-                                {dowLabel(row.dow_mask)}
+                                {dowLabel(row.dow_mask, t)}
                               </span>
                             </td>
                             <td className="px-4 py-3 font-mono text-xs text-slate-500">
@@ -479,7 +487,7 @@ export default function OwnerRatePlanPricing() {
                                 <button
                                   onClick={() => openEdit(row)}
                                   className="text-slate-400 hover:text-indigo-400 transition"
-                                  aria-label="Edit price"
+                                  aria-label={t("editPriceAria", "Edit price")}
                                 >
                                   <Pencil className="w-4 h-4" />
                                 </button>
@@ -487,7 +495,7 @@ export default function OwnerRatePlanPricing() {
                                   onClick={() => setConfirmDelete(row)}
                                   disabled={deletingId === row.id}
                                   className="text-slate-400 hover:text-rose-400 transition disabled:opacity-40"
-                                  aria-label="Delete price"
+                                  aria-label={t("deletePriceAria", "Delete price")}
                                 >
                                   <Trash2 className="w-4 h-4" />
                                 </button>
@@ -507,22 +515,22 @@ export default function OwnerRatePlanPricing() {
 
       {confirmDelete && (
         <DarkConfirmModal
-          title="Delete price"
+          title={t("deletePriceTitle", "Delete price")}
           message={
             <>
               <p>
-                Delete this{" "}
+                {t("deleteMsgPrefix", "Delete this")}{" "}
                 <span className="font-semibold text-white">
                   {formatINR(Number(confirmDelete.price))}
                 </span>{" "}
-                price row? Active bookings keep their locked-in rate.
+                {t("deleteMsgSuffix", "price row? Active bookings keep their locked-in rate.")}
               </p>
               {deleteError && (
                 <p className="mt-3 text-sm text-rose-300">{deleteError}</p>
               )}
             </>
           }
-          confirmLabel="Delete"
+          confirmLabel={tc("actions.delete", "Delete")}
           variant="danger"
           busy={deletingId === confirmDelete.id}
           onCancel={() => {

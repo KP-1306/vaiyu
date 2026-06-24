@@ -30,6 +30,7 @@ import {
     ShieldCheck,
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
+import { useOwnerT } from "../../i18n/useOwnerT";
 import {
     setDirectCredentials,
     clearDirectCredentials,
@@ -72,6 +73,7 @@ export default function RazorpayPanel({
     onChange,
     onLaunchOnboarding,
 }: Props) {
+    const t = useOwnerT("owner-settings");
     return (
         <section className="rounded-xl border border-white/10 bg-white/[0.02] p-5 space-y-5">
             <Header mode={razorpayMode} />
@@ -118,8 +120,7 @@ export default function RazorpayPanel({
 
             {razorpayMode === "NONE" && (
                 <p className="text-xs text-slate-500 leading-relaxed pt-1">
-                    This hotel is on <strong>cash only</strong>. Walk-in cash collection still works
-                    everywhere; only the &ldquo;Pay Online&rdquo; buttons across the app are hidden.
+                    {t("razorpay.none.hint", "This hotel is on cash only. Walk-in cash collection still works everywhere; only the \"Pay Online\" buttons across the app are hidden.")}
                 </p>
             )}
         </section>
@@ -131,6 +132,7 @@ export default function RazorpayPanel({
    ============================================================ */
 
 function Header({ mode }: { mode: Mode }) {
+    const t = useOwnerT("owner-settings");
     const configured = mode !== "NONE";
     return (
         <header className="flex items-start justify-between gap-3">
@@ -142,10 +144,9 @@ function Header({ mode }: { mode: Mode }) {
                     <CreditCard className="h-5 w-5" />
                 </div>
                 <div>
-                    <h2 className="text-base font-semibold text-slate-100">Online Payments</h2>
+                    <h2 className="text-base font-semibold text-slate-100">{t("razorpay.title", "Online Payments")}</h2>
                     <p className="text-xs text-slate-400 mt-0.5 max-w-prose leading-relaxed">
-                        Choose how this hotel accepts online payments from guests. You can switch modes
-                        later without losing historical payment records.
+                        {t("razorpay.desc", "Choose how this hotel accepts online payments from guests. You can switch modes later without losing historical payment records.")}
                     </p>
                 </div>
             </div>
@@ -155,12 +156,17 @@ function Header({ mode }: { mode: Mode }) {
 }
 
 function ModeBadge({ mode }: { mode: Mode }) {
+    const t = useOwnerT("owner-settings");
     const styles: Record<Mode, string> = {
         DIRECT: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
         ROUTE: "bg-sky-500/15 text-sky-300 border-sky-500/30",
         NONE: "bg-slate-800 text-slate-400 border-slate-700",
     };
-    const label: Record<Mode, string> = { DIRECT: "Direct", ROUTE: "Route", NONE: "Cash only" };
+    const label: Record<Mode, string> = {
+        DIRECT: t("razorpay.badge.direct", "Direct"),
+        ROUTE: t("razorpay.badge.route", "Route"),
+        NONE: t("razorpay.badge.none", "Cash only"),
+    };
     return (
         <span className={`shrink-0 inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-md border ${styles[mode]}`}>
             {mode !== "NONE" && <CheckCircle2 className="h-3 w-3" />}
@@ -174,26 +180,27 @@ function ModeBadge({ mode }: { mode: Mode }) {
    ============================================================ */
 
 function ModePicker({ mode, onPick }: { mode: Mode; onPick: (next: Mode) => void }) {
+    const t = useOwnerT("owner-settings");
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <ModeRadio
                 active={mode === "NONE"}
-                title="Cash only"
-                hint="Front-desk cash; no online buttons"
+                title={t("razorpay.mode.noneTitle", "Cash only")}
+                hint={t("razorpay.mode.noneHint", "Front-desk cash; no online buttons")}
                 icon={<CreditCard className="h-4 w-4" />}
                 onClick={() => onPick("NONE")}
             />
             <ModeRadio
                 active={mode === "DIRECT"}
-                title="Direct (your own Razorpay)"
-                hint="Funds settle to your bank; vaiyu integrates"
+                title={t("razorpay.mode.directTitle", "Direct (your own Razorpay)")}
+                hint={t("razorpay.mode.directHint", "Funds settle to your bank; vaiyu integrates")}
                 icon={<ShieldCheck className="h-4 w-4" />}
                 onClick={() => onPick("DIRECT")}
             />
             <ModeRadio
                 active={mode === "ROUTE"}
-                title="Route (platform-managed)"
-                hint={ROUTE_ENABLED ? "Split via Linked Account" : "Locked — pending turnover threshold"}
+                title={t("razorpay.mode.routeTitle", "Route (platform-managed)")}
+                hint={ROUTE_ENABLED ? t("razorpay.mode.routeHint", "Split via Linked Account") : t("razorpay.mode.routeLocked", "Locked — pending turnover threshold")}
                 icon={<Lock className="h-4 w-4" />}
                 onClick={() => ROUTE_ENABLED && onPick("ROUTE")}
                 disabled={!ROUTE_ENABLED}
@@ -246,6 +253,7 @@ function DirectSection({
     onSaved: (keyId: string) => void;
     onCleared: () => void;
 }) {
+    const t = useOwnerT("owner-settings");
     const [keyId, setKeyId] = useState(currentKeyId ?? "");
     const [keySecret, setKeySecret] = useState("");
     const [showSecret, setShowSecret] = useState(false);
@@ -287,7 +295,7 @@ function DirectSection({
     }
 
     async function handleClear() {
-        if (!window.confirm("Disconnect Razorpay? Online payments will be disabled for this hotel. Existing payments and refunds are preserved.")) return;
+        if (!window.confirm(t("razorpay.direct.disconnectConfirm", "Disconnect Razorpay? Online payments will be disabled for this hotel. Existing payments and refunds are preserved."))) return;
         setBusy(true); setError(null);
         try {
             await clearDirectCredentials(hotelId);
@@ -307,10 +315,10 @@ function DirectSection({
                     <div className="flex items-center gap-2 min-w-0">
                         <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
                         <span className="text-xs text-emerald-200">
-                            Configured with <code className="font-mono text-[11px]">{currentKeyId}</code>
+                            {t("razorpay.direct.configured", "Configured with")} <code className="font-mono text-[11px]">{currentKeyId}</code>
                             {currentKeyId?.startsWith("rzp_test_") && (
                                 <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border bg-amber-500/15 text-amber-300 border-amber-500/30">
-                                    Test mode
+                                    {t("razorpay.direct.testMode", "Test mode")}
                                 </span>
                             )}
                         </span>
@@ -322,7 +330,7 @@ function DirectSection({
                         className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-bold text-rose-300 hover:bg-rose-500/20 disabled:opacity-40 transition-colors"
                     >
                         <Trash2 className="h-3.5 w-3.5" />
-                        Disconnect
+                        {t("razorpay.direct.disconnect", "Disconnect")}
                     </button>
                 </div>
             )}
@@ -331,7 +339,7 @@ function DirectSection({
                 <>
                     <div className="space-y-2">
                         <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                            Razorpay Key ID
+                            {t("razorpay.direct.keyIdLabel", "Razorpay Key ID")}
                         </label>
                         <input
                             type="text"
@@ -345,14 +353,14 @@ function DirectSection({
                         {!!keyId && !keyIdValid && (
                             <p className="text-xs text-rose-400 flex items-center gap-1.5">
                                 <AlertTriangle className="h-3 w-3" />
-                                Must start with <code className="bg-rose-500/10 px-1 rounded">rzp_test_</code> or <code className="bg-rose-500/10 px-1 rounded">rzp_live_</code>
+                                {t("razorpay.direct.keyIdError", "Must start with rzp_test_ or rzp_live_")}
                             </p>
                         )}
                     </div>
 
                     <div className="space-y-2">
                         <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                            Razorpay Key Secret
+                            {t("razorpay.direct.secretLabel", "Razorpay Key Secret")}
                         </label>
                         <div className="relative">
                             <input
@@ -369,13 +377,14 @@ function DirectSection({
                                 onClick={() => setShowSecret((s) => !s)}
                                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-slate-200"
                                 tabIndex={-1}
-                                aria-label={showSecret ? "Hide secret" : "Show secret"}
+                                aria-label={showSecret ? t("razorpay.direct.hideSecret", "Hide secret") : t("razorpay.direct.showSecret", "Show secret")}
                             >
                                 {showSecret ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                             </button>
                         </div>
                         <p className="text-[11px] text-slate-500">
-                            From your <a href="https://dashboard.razorpay.com/app/website-app-settings/api-keys" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-300">Razorpay Dashboard &rarr; Settings &rarr; API Keys</a>. Stored encrypted at rest.
+                            {t("razorpay.direct.secretHintPre", "From your")}{" "}
+                            <a href="https://dashboard.razorpay.com/app/website-app-settings/api-keys" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-300">{t("razorpay.direct.secretHintLink", "Razorpay Dashboard → Settings → API Keys")}</a>{t("razorpay.direct.secretHintPost", ". Stored encrypted at rest.")}
                         </p>
                     </div>
 
@@ -386,7 +395,7 @@ function DirectSection({
                         className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     >
                         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                        {busy ? "Verifying with Razorpay…" : "Test & save"}
+                        {busy ? t("razorpay.direct.saving", "Verifying with Razorpay…") : t("razorpay.direct.saveBtn", "Test & save")}
                     </button>
                 </>
             )}
@@ -412,6 +421,7 @@ function WebhookSetup({
 }: {
     info: { secret: string; url: string; events: string[]; mode: "test" | "live" };
 }) {
+    const t = useOwnerT("owner-settings");
     const [copiedField, setCopiedField] = useState<"url" | "secret" | "events" | null>(null);
 
     // Detect local-dev URLs. Razorpay's servers can't reach localhost / 127.x /
@@ -432,43 +442,34 @@ function WebhookSetup({
             <div className="flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-amber-300 shrink-0" />
                 <h3 className="text-sm font-bold text-amber-200">
-                    Next: register this webhook in Razorpay
+                    {t("razorpay.webhook.title", "Next: register this webhook in Razorpay")}
                 </h3>
             </div>
 
             {isLocalUrl && (
                 <div className="rounded border border-rose-500/40 bg-rose-500/[0.08] px-3 py-2 text-xs text-rose-100 leading-relaxed">
-                    <strong className="text-rose-200">⚠️ Local dev URL detected.</strong> Razorpay&apos;s servers
-                    can&apos;t reach your localhost — trying to register this URL will fail with
-                    &ldquo;no such host&rdquo;. Skip webhook registration for local testing;
-                    the verify-payment path records payments without webhooks. For full webhook
-                    testing, use <code className="bg-rose-500/10 px-1 rounded">ngrok http 54321</code>{" "}
-                    and register the ngrok URL instead. In production this URL will be your real
-                    Supabase project URL and works directly.
+                    <strong className="text-rose-200">⚠️ {t("razorpay.webhook.localDevWarning", "Local dev URL detected.")}</strong>{" "}
+                    {t("razorpay.webhook.localDevHint", "Razorpay's servers can't reach your localhost — trying to register this URL will fail. Skip webhook registration for local testing; the verify-payment path records payments without webhooks.")}
                 </div>
             )}
             <p className="text-xs text-amber-100/80 leading-relaxed">
-                Open your Razorpay Dashboard ({info.mode === "live" ? "Live Mode" : "Test Mode"}) &rarr;
-                Settings &rarr; Webhooks &rarr; Add. Paste these values and subscribe to the listed
-                events. vaiyu stores the webhook secret encrypted at rest — if you lose it, click
-                <strong> Test &amp; save</strong> again with your key_id and key_secret to redisplay
-                the same secret (re-saving never rotates it).
+                {t("razorpay.webhook.instructions", "Open your Razorpay Dashboard → Settings → Webhooks → Add. Paste these values and subscribe to the listed events.")}
             </p>
 
             <CopyableField
-                label="Webhook URL"
+                label={t("razorpay.webhook.urlLabel", "Webhook URL")}
                 value={info.url}
                 copied={copiedField === "url"}
                 onCopy={() => copy("url", info.url)}
             />
             <CopyableField
-                label="Webhook Secret"
+                label={t("razorpay.webhook.secretLabel", "Webhook Secret")}
                 value={info.secret}
                 copied={copiedField === "secret"}
                 onCopy={() => copy("secret", info.secret)}
             />
             <CopyableField
-                label="Subscribed Events"
+                label={t("razorpay.webhook.eventsLabel", "Subscribed Events")}
                 value={info.events.join(", ")}
                 copied={copiedField === "events"}
                 onCopy={() => copy("events", info.events.join(", "))}
@@ -480,16 +481,12 @@ function WebhookSetup({
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-200 hover:bg-amber-500/20 transition-colors"
             >
-                Open Razorpay Webhooks
+                {t("razorpay.webhook.openDashboard", "Open Razorpay Webhooks")}
                 <ExternalLink className="h-3 w-3" />
             </a>
 
             <div className="mt-3 pt-3 border-t border-amber-500/20 text-[11px] text-amber-100/70 leading-relaxed">
-                <strong className="text-amber-200">Verify it&apos;s your account:</strong> after registering
-                the webhook, make a ₹1 test payment from any walk-in or guest checkout flow and confirm
-                the transaction appears in <em>your</em> Razorpay Dashboard
-                ({info.mode === "live" ? "Live Mode" : "Test Mode"}). Funds will settle to your bank
-                per your Razorpay settlement schedule.
+                {t("razorpay.webhook.verifyHint", "Verify it's your account: after registering the webhook, make a ₹1 test payment and confirm the transaction appears in your Razorpay Dashboard.")}
             </div>
         </div>
     );
@@ -500,6 +497,7 @@ function CopyableField({
 }: {
     label: string; value: string; copied: boolean; onCopy: () => void;
 }) {
+    const t = useOwnerT("owner-settings");
     return (
         <div>
             <div className="text-[10px] font-bold uppercase tracking-wider text-amber-300/80 mb-1">{label}</div>
@@ -513,7 +511,7 @@ function CopyableField({
                     className="inline-flex items-center gap-1 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-200 hover:bg-amber-500/20 transition-colors"
                 >
                     {copied ? <CheckCircle2 className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                    {copied ? "Copied" : "Copy"}
+                    {copied ? t("razorpay.webhook.copied", "Copied") : t("razorpay.webhook.copy", "Copy")}
                 </button>
             </div>
         </div>
@@ -537,6 +535,7 @@ function RouteSection({
     onChange: (p: { razorpay_account_id?: string | null; razorpay_platform_fee_pct?: number | null }) => void;
     onLaunchOnboarding?: () => Promise<void> | void;
 }) {
+    const t = useOwnerT("owner-settings");
     const [draftAccountId, setDraftAccountId] = useState<string>(razorpayAccountId ?? "");
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -560,7 +559,7 @@ function RouteSection({
         } catch (e: any) {
             const msg = e?.message ?? String(e);
             setError(/format_chk/.test(msg)
-                ? 'Invalid format — Razorpay Linked Account IDs start with "acc_".'
+                ? t("razorpay.route.accountIdFormatError", "Invalid format — Razorpay Linked Account IDs start with \"acc_\".")
                 : msg);
         } finally {
             setBusy(false);
@@ -570,20 +569,19 @@ function RouteSection({
     return (
         <div className="space-y-3 pt-2 border-t border-white/5">
             <p className="text-xs text-slate-400">
-                Platform retains <strong>{platformFeePct ?? 0}%</strong> per transaction via Route's
-                <code className="mx-1 font-mono text-[11px]">transfers[]</code> split.
+                {t("razorpay.route.feePct", "Platform retains {{pct}}% per transaction via Route's transfers[] split.", { pct: platformFeePct ?? 0 })}
             </p>
 
             <div className="space-y-2">
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                    Linked Account ID
+                    {t("razorpay.route.accountIdLabel", "Linked Account ID")}
                 </label>
                 <div className="flex gap-2 flex-wrap">
                     <input
                         type="text"
                         value={draftAccountId}
                         onChange={(e) => { setDraftAccountId(e.target.value); setError(null); setSaved(false); }}
-                        placeholder="acc_xxxxxxxxxxxx"
+                        placeholder={t("razorpay.route.accountIdPlaceholder", "acc_xxxxxxxxxxxx")}
                         className="flex-1 min-w-[200px] rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-mono text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
                         spellCheck={false}
                         autoComplete="off"
@@ -595,7 +593,7 @@ function RouteSection({
                         className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     >
                         {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                        Save
+                        {t("razorpay.route.save", "Save")}
                     </button>
                     {isConfigured && (
                         <button
@@ -605,14 +603,14 @@ function RouteSection({
                             className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-bold text-rose-300 hover:bg-rose-500/20 disabled:opacity-40 transition-colors"
                         >
                             <Trash2 className="h-3.5 w-3.5" />
-                            Clear
+                            {t("razorpay.route.clear", "Clear")}
                         </button>
                     )}
                 </div>
                 {!!draftAccountId && !draftIsValid && (
                     <p className="text-xs text-rose-400 flex items-center gap-1.5">
                         <AlertTriangle className="h-3 w-3" />
-                        Must look like <code className="bg-rose-500/10 px-1 rounded">acc_xxxxxxxxxxxx</code>
+                        {t("razorpay.route.accountIdError", "Must look like acc_xxxxxxxxxxxx")}
                     </p>
                 )}
                 {error && (
@@ -624,14 +622,14 @@ function RouteSection({
                 {saved && (
                     <p className="text-xs text-emerald-400 flex items-center gap-1.5">
                         <CheckCircle2 className="h-3 w-3" />
-                        Saved.
+                        {t("razorpay.route.saved", "Saved.")}
                     </p>
                 )}
             </div>
 
             {!isConfigured && (
                 <div className="pt-2 border-t border-white/5">
-                    <p className="text-xs text-slate-400 mb-2">Don&apos;t have a Linked Account yet?</p>
+                    <p className="text-xs text-slate-400 mb-2">{t("razorpay.route.noAccount", "Don't have a Linked Account yet?")}</p>
                     <div className="flex gap-2 flex-wrap">
                         <button
                             type="button"
@@ -640,7 +638,7 @@ function RouteSection({
                             className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                         >
                             <CreditCard className="h-3.5 w-3.5" />
-                            Connect with Razorpay
+                            {t("razorpay.route.connect", "Connect with Razorpay")}
                         </button>
                         <a
                             href="https://dashboard.razorpay.com/app/route/accounts"
@@ -648,7 +646,7 @@ function RouteSection({
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-white/10 transition-colors"
                         >
-                            Or set up manually
+                            {t("razorpay.route.manualSetup", "Or set up manually")}
                             <ExternalLink className="h-3 w-3" />
                         </a>
                     </div>

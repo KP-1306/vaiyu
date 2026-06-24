@@ -7,6 +7,7 @@
 // Server enforces the same invariants as the safety net.
 
 import type { CreateLeadInput } from '../../types/lead';
+import type { OwnerT } from '../../i18n/useOwnerT';
 
 export interface ValidationErrors {
   contactName?: string;
@@ -32,32 +33,36 @@ const FIELD_ORDER: ValidatableField[] = [
   'roomCount',
 ];
 
-export function validateLeadInput(input: CreateLeadInput): ValidationErrors {
+// Optional `t` keeps this pure helper unit-testable in English (called with no
+// `t` → English literal) while the form passes `t` to localise (owner-leads ns).
+export function validateLeadInput(input: CreateLeadInput, t?: OwnerT): ValidationErrors {
+  const tr = (key: string, en: string) => (t ? t(key, en) : en);
   const errors: ValidationErrors = {};
 
   if (!input.contactName || input.contactName.trim() === '') {
-    errors.contactName = 'Name is required';
+    errors.contactName = tr('validation.nameRequired', 'Name is required');
   }
 
   const hasPhone = !!input.contactPhone && input.contactPhone.trim() !== '';
   const hasEmail = !!input.contactEmail && input.contactEmail.trim() !== '';
   if (!hasPhone && !hasEmail) {
-    errors.contactPhone = 'Phone or email is required';
-    errors.contactEmail = 'Phone or email is required';
+    const phoneOrEmail = tr('validation.phoneOrEmailRequired', 'Phone or email is required');
+    errors.contactPhone = phoneOrEmail;
+    errors.contactEmail = phoneOrEmail;
   }
 
   if (input.checkIn && input.checkOut && input.checkOut <= input.checkIn) {
-    errors.checkOut = 'Check-out must be after check-in';
+    errors.checkOut = tr('validation.checkoutAfterCheckin', 'Check-out must be after check-in');
   }
 
   if (typeof input.partyAdults === 'number' && input.partyAdults < 0) {
-    errors.partyAdults = 'Cannot be negative';
+    errors.partyAdults = tr('validation.cannotBeNegative', 'Cannot be negative');
   }
   if (typeof input.partyChildren === 'number' && input.partyChildren < 0) {
-    errors.partyChildren = 'Cannot be negative';
+    errors.partyChildren = tr('validation.cannotBeNegative', 'Cannot be negative');
   }
   if (typeof input.roomCount === 'number' && input.roomCount < 1) {
-    errors.roomCount = 'At least 1 room required';
+    errors.roomCount = tr('validation.atLeastOneRoom', 'At least 1 room required');
   }
 
   return errors;

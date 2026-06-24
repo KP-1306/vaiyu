@@ -10,6 +10,7 @@ import { AssetRequirementRow } from './AssetRequirementRow';
 import { AssetCategoryDot } from './AssetStatusBadge';
 import { DAM_CATEGORY_LABELS, DAM_CATEGORY_SUBTITLES } from '../../config/digitalAssetManager';
 import type { AssetCategory, AssetStatusRow } from '../../types/digitalAssets';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   category: AssetCategory;
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export function AssetCategorySection({ category, rows, defaultOpen = true, showHinglish }: Props) {
+  const t = useOwnerT('owner-assets');
   const [open, setOpen] = useState(defaultOpen);
   const total = rows.length;
   const ready = rows.filter((r) => r.status === 'COLLECTED' || r.status === 'APPROVED').length;
@@ -36,23 +38,23 @@ export function AssetCategorySection({ category, rows, defaultOpen = true, showH
           <AssetCategoryDot category={category} />
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-slate-900">
-              {DAM_CATEGORY_LABELS[category]}
+              {t(`category.${category}`, DAM_CATEGORY_LABELS[category])}
             </h2>
             <p className="truncate text-[11.5px] text-slate-500">
-              {DAM_CATEGORY_SUBTITLES[category]}
+              {t(`subtitle.${category}`, DAM_CATEGORY_SUBTITLES[category])}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <div className="text-[10.5px] font-medium uppercase tracking-wider text-slate-400">Ready</div>
+            <div className="text-[10.5px] font-medium uppercase tracking-wider text-slate-400">{t('section.ready', 'Ready')}</div>
             <div className="text-sm font-semibold text-slate-900">
               {ready}<span className="text-slate-400">/{total}</span>
             </div>
           </div>
           {missing > 0 && (
             <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10.5px] font-semibold text-amber-700">
-              {missing} need attention
+              {t('section.needAttention', '{{count}} need attention', { count: missing })}
             </span>
           )}
           {open
@@ -67,7 +69,7 @@ export function AssetCategorySection({ category, rows, defaultOpen = true, showH
             <AssetRequirementRow key={r.requirement_code} row={r} showHinglish={showHinglish} />
           ))}
           {rows.length === 0 && (
-            <p className="px-3 py-4 text-[12px] text-slate-500">No requirements in this category.</p>
+            <p className="px-3 py-4 text-[12px] text-slate-500">{t('section.noReqs', 'No requirements in this category.')}</p>
           )}
         </div>
       )}

@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
 import type { LeadSource } from '../../types/lead';
 import { LEAD_SOURCE_CONFIG } from './LeadSourceIcon.config';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   value: LeadSource[];
@@ -20,6 +21,7 @@ const ALL_SOURCES: LeadSource[] = [
 ];
 
 export function SourceFilterDropdown({ value, onChange }: Props) {
+  const t = useOwnerT('owner-leads');
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -49,7 +51,9 @@ export function SourceFilterDropdown({ value, onChange }: Props) {
     }
   }
 
-  const label = value.length === 0 ? 'Source' : `Source (${value.length})`;
+  const label = value.length === 0
+    ? t('sourceFilter.label', 'Source')
+    : t('sourceFilter.labelCount', 'Source ({{count}})', { count: value.length });
 
   return (
     <div ref={rootRef} className="relative" data-testid="source-filter-dropdown">
@@ -93,7 +97,7 @@ export function SourceFilterDropdown({ value, onChange }: Props) {
                 `}
               >
                 <Icon size={14} className="shrink-0" aria-hidden="true" />
-                <span className="flex-1">{cfg.label}</span>
+                <span className="flex-1">{t(`source.${s}`, cfg.label)}</span>
                 {checked && <Check className="h-3.5 w-3.5 shrink-0" />}
               </button>
             );
@@ -105,7 +109,7 @@ export function SourceFilterDropdown({ value, onChange }: Props) {
                 onClick={() => onChange([])}
                 className="w-full px-2 py-1.5 text-xs text-white/60 hover:text-white text-left"
               >
-                Clear sources
+                {t('sourceFilter.clear', 'Clear sources')}
               </button>
             </div>
           )}

@@ -10,6 +10,7 @@ import {
   VISIBILITY_CATEGORY_ORDER,
   VISIBILITY_CATEGORY_WEIGHT,
 } from '../../config/visibilityScore';
+import { useOwnerT } from '../../i18n/useOwnerT';
 import type {
   HotelVisibilityAttestation,
   VisibilityBreakdown as VisibilityBreakdownT,
@@ -27,6 +28,7 @@ interface Props {
 }
 
 export function VisibilityBreakdown({ hotelId, hotelSlug, breakdown, attestationsByKey, isManager }: Props) {
+  const t = useOwnerT('owner-visibility');
   const [openCats, setOpenCats] = useState<Record<VisibilityCategory, boolean>>({
     GMB_READINESS: true,
     TRUST_REPUTATION: false,
@@ -61,14 +63,14 @@ export function VisibilityBreakdown({ hotelId, hotelSlug, breakdown, attestation
                   <ChevronRight className="h-4 w-4 text-slate-400" aria-hidden />
                 )}
                 <span className="text-[12px] font-semibold text-slate-100">
-                  {VISIBILITY_CATEGORY_LABEL[cat]}
+                  {t(`visibilityCategory.${cat}`, VISIBILITY_CATEGORY_LABEL[cat])}
                 </span>
                 <span className="text-[10px] uppercase tracking-wide text-slate-500">
-                  {signalsInCat.length} signal{signalsInCat.length === 1 ? '' : 's'}
+                  {t('signal', '{{count}} signal', { count: signalsInCat.length })}
                 </span>
               </div>
               <span className="text-[11px] text-slate-300">
-                {subtotal.toFixed(subtotal % 1 === 0 ? 0 : 1)} / {max} pts
+                {subtotal.toFixed(subtotal % 1 === 0 ? 0 : 1)} / {max} {t('pts', 'pts')}
               </span>
             </button>
             {open && (

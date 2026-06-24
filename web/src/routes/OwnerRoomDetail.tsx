@@ -1,11 +1,12 @@
 import { useParams } from "react-router-dom";
+import { useOwnerT } from "../i18n/useOwnerT";
 
 export default function OwnerRoomDetail() {
   const { roomId } = useParams();
+  const t = useOwnerT("owner-common");
   return (
     <main className="p-6">
-      <h1 className="text-xl font-semibold">Room {roomId}</h1>
-      <p className="text-gray-600 mt-1">Minimal detail shell OK.</p>
+      <h1 className="text-xl font-semibold">{t("terms.room", "Room")} {roomId}</h1>
     </main>
   );
 }

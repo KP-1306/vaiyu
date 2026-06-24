@@ -27,12 +27,14 @@ import type {
   SeoBlueprintRisk,
 } from '../../types/seoBlueprint';
 import { SEO_RISK_LABEL } from '../../config/localSeoPlanner';
+import { useOwnerT, type OwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   blueprintId: string;
 }
 
 export function SeoBlueprintTimeline({ blueprintId }: Props) {
+  const t = useOwnerT('owner-seo');
   const q = useQuery({
     queryKey: seoBlueprintQueryKeys.events(blueprintId),
     queryFn: () => getSeoBlueprintEvents(blueprintId),
@@ -47,10 +49,10 @@ export function SeoBlueprintTimeline({ blueprintId }: Props) {
       <header className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-slate-100 inline-flex items-center gap-1.5">
           <Shield className="h-4 w-4 text-slate-400" aria-hidden />
-          Activity
+          {t('timeline.activity', 'Activity')}
         </h3>
         <span className="text-[10px] uppercase tracking-wide text-slate-500">
-          {q.data?.length ?? 0} event{(q.data?.length ?? 0) === 1 ? '' : 's'}
+          {t('timeline.eventCount', '{{count}} event', { count: q.data?.length ?? 0 })}
         </span>
       </header>
 
@@ -59,7 +61,7 @@ export function SeoBlueprintTimeline({ blueprintId }: Props) {
           <Loader2 className="h-4 w-4 animate-spin text-slate-500 mx-auto" aria-hidden />
         </div>
       ) : (q.data?.length ?? 0) === 0 ? (
-        <p className="text-[11px] text-slate-500">No activity yet.</p>
+        <p className="text-[11px] text-slate-500">{t('timeline.noActivity', 'No activity yet.')}</p>
       ) : (
         <ol className="space-y-2">
           {q.data!.map((e) => (
@@ -67,12 +69,12 @@ export function SeoBlueprintTimeline({ blueprintId }: Props) {
               <div className="mt-0.5 shrink-0 text-slate-400">{iconFor(e.event_type)}</div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-medium text-slate-200">{labelFor(e.event_type)}</span>
+                  <span className="text-[11px] font-medium text-slate-200">{labelFor(e.event_type, t)}</span>
                   <time className="text-[10px] text-slate-500" dateTime={e.occurred_at}>
                     {formatWhen(e.occurred_at)}
                   </time>
                 </div>
-                {renderDetail(e)}
+                {renderDetail(e, t)}
               </div>
             </li>
           ))}
@@ -100,24 +102,25 @@ function iconFor(t: SeoBlueprintEventType) {
   }
 }
 
-function labelFor(t: SeoBlueprintEventType): string {
-  switch (t) {
-    case 'CREATED':              return 'Created';
-    case 'EDITED':               return 'Edited';
-    case 'RECLASSIFIED':         return 'Risk reclassified';
-    case 'SUBMITTED_FOR_REVIEW': return 'Submitted for review';
-    case 'APPROVED':             return 'Approved & marked ready';
-    case 'CHANGES_REQUESTED':    return 'Changes requested';
-    case 'HELD':                 return 'Held';
-    case 'RESUMED':              return 'Resumed';
-    case 'ARCHIVED':             return 'Archived';
-    case 'SOFT_DELETED':         return 'Deleted';
+function labelFor(type: SeoBlueprintEventType, t: OwnerT): string {
+  switch (type) {
+    case 'CREATED':              return t('event.CREATED', 'Created');
+    case 'EDITED':               return t('event.EDITED', 'Edited');
+    case 'RECLASSIFIED':         return t('event.RECLASSIFIED', 'Risk reclassified');
+    case 'SUBMITTED_FOR_REVIEW': return t('event.SUBMITTED_FOR_REVIEW', 'Submitted for review');
+    case 'APPROVED':             return t('event.APPROVED', 'Approved & marked ready');
+    case 'CHANGES_REQUESTED':    return t('event.CHANGES_REQUESTED', 'Changes requested');
+    case 'HELD':                 return t('event.HELD', 'Held');
+    case 'RESUMED':              return t('event.RESUMED', 'Resumed');
+    case 'ARCHIVED':             return t('event.ARCHIVED', 'Archived');
+    case 'SOFT_DELETED':         return t('event.SOFT_DELETED', 'Deleted');
   }
 }
 
 // ─── payload renderers ──────────────────────────────────────────────────────
 
-function renderDetail(e: SeoBlueprintEvent) {
+function renderDetail(e: SeoBlueprintEvent, t: OwnerT) {
+  const riskLabel = (r: SeoBlueprintRisk) => t(`risk.${r}`, SEO_RISK_LABEL[r] ?? r);
   const p = (e.payload ?? {}) as Record<string, unknown>;
   switch (e.event_type) {
     case 'CREATED': {
@@ -126,9 +129,9 @@ function renderDetail(e: SeoBlueprintEvent) {
       if (!cat && !risk) return null;
       return (
         <p className="mt-0.5 text-[10px] text-slate-500">
-          {cat && <>category <span className="text-slate-400">{cat}</span></>}
+          {cat && <>{t('timeline.detailCategory', 'category')} <span className="text-slate-400">{t(`category.${cat}`, cat)}</span></>}
           {cat && risk && ' · '}
-          {risk && <>flag <span className="text-slate-400">{SEO_RISK_LABEL[risk] ?? risk}</span></>}
+          {risk && <>{t('timeline.detailFlag', 'flag')} <span className="text-slate-400">{riskLabel(risk)}</span></>}
         </p>
       );
     }
@@ -141,12 +144,12 @@ function renderDetail(e: SeoBlueprintEvent) {
         <p className="mt-0.5 text-[10px] text-slate-500">
           {from && to && (
             <>
-              <span className="text-slate-400">{SEO_RISK_LABEL[from] ?? from}</span>
+              <span className="text-slate-400">{riskLabel(from)}</span>
               <span className="mx-1">→</span>
-              <span className="text-slate-400">{SEO_RISK_LABEL[to] ?? to}</span>
+              <span className="text-slate-400">{riskLabel(to)}</span>
             </>
           )}
-          {overridden && <span className="ml-1 text-amber-300">(overridden)</span>}
+          {overridden && <span className="ml-1 text-amber-300">{t('timeline.detailOverridden', '(overridden)')}</span>}
           {reason && <span className="block mt-0.5 italic text-slate-400">"{reason}"</span>}
         </p>
       );
@@ -164,7 +167,7 @@ function renderDetail(e: SeoBlueprintEvent) {
       if (!reason && !prev) return null;
       return (
         <p className="mt-0.5 text-[10px] text-slate-500">
-          {prev && <>from <span className="text-slate-400">{prev}</span></>}
+          {prev && <>{t('timeline.detailFrom', 'from')} <span className="text-slate-400">{t(`status.${prev}`, prev)}</span></>}
           {reason && <span className="block mt-0.5 italic text-slate-400">"{reason}"</span>}
         </p>
       );

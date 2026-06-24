@@ -12,6 +12,7 @@ import { leadQueryKeys } from '../../services/leadQueryKeys';
 import { useLeadsRealtime } from '../../hooks/useLeadsRealtime';
 import type { LeadStatus } from '../../types/lead';
 import { LEAD_STATUS_CONFIG } from '../leads/LeadStatusPill.config';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 const OPEN_STATUSES: LeadStatus[] = ['NEW', 'QUALIFIED', 'QUOTED', 'WON'];
 
@@ -21,6 +22,7 @@ interface Props {
 }
 
 export function LeadsSummaryCard({ hotelId, hotelSlug }: Props) {
+  const t = useOwnerT('owner-cards');
   // Keep realtime subscription alive whenever this card is rendered so the
   // count refreshes when leads change in any other tab/user session.
   useLeadsRealtime(hotelId ?? undefined);
@@ -57,9 +59,9 @@ export function LeadsSummaryCard({ hotelId, hotelSlug }: Props) {
   const breakdownText = useMemo(() => {
     if (!query.data) return '';
     return OPEN_STATUSES
-      .map((s) => `${query.data!.byStatus[s]} ${LEAD_STATUS_CONFIG[s].label.toLowerCase()}`)
+      .map((s) => t('leads.breakdownItem', '{{count}} {{label}}', { count: query.data!.byStatus[s], label: LEAD_STATUS_CONFIG[s].label.toLowerCase() }))
       .join(' · ');
-  }, [query.data]);
+  }, [query.data, t]);
 
   const total = query.data?.total ?? 0;
 
@@ -75,7 +77,7 @@ export function LeadsSummaryCard({ hotelId, hotelSlug }: Props) {
             <Users className="h-4 w-4 text-emerald-300" />
           </div>
           <span className="text-xs font-semibold uppercase tracking-wider text-white/60">
-            Open leads
+            {t('leads.title', 'Open leads')}
           </span>
         </div>
         <ChevronRight className="h-4 w-4 text-white/30 group-hover:text-white/60 transition-colors" />
@@ -84,10 +86,10 @@ export function LeadsSummaryCard({ hotelId, hotelSlug }: Props) {
       {query.isPending ? (
         <div className="flex items-center gap-2 text-white/40 text-sm">
           <Loader2 className="h-3 w-3 animate-spin" />
-          Loading…
+          {t('common.loading', 'Loading…')}
         </div>
       ) : query.isError ? (
-        <div className="text-sm text-red-300">Could not load</div>
+        <div className="text-sm text-red-300">{t('leads.couldNotLoad', 'Could not load')}</div>
       ) : (
         <>
           <div className="text-3xl font-semibold text-white tabular-nums">{total}</div>

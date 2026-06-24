@@ -13,6 +13,7 @@ import type {
   SeoBlueprintStatus,
   SeoReviewStatus,
 } from '../../types/seoBlueprint';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 function pillCls(tone: 'safe' | 'warn' | 'danger' | 'neutral' | 'info'): string {
   switch (tone) {
@@ -25,17 +26,19 @@ function pillCls(tone: 'safe' | 'warn' | 'danger' | 'neutral' | 'info'): string 
 }
 
 export function RiskPill({ risk }: { risk: SeoBlueprintRisk }) {
+  const t = useOwnerT('owner-seo');
   return (
     <span
       className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${pillCls(SEO_RISK_TONE[risk])}`}
       data-testid={`risk-pill-${risk}`}
     >
-      {SEO_RISK_LABEL[risk]}
+      {t(`risk.${risk}`, SEO_RISK_LABEL[risk])}
     </span>
   );
 }
 
 export function StatusPill({ status }: { status: SeoBlueprintStatus }) {
+  const t = useOwnerT('owner-seo');
   const tone =
     status === 'READY_TO_BUILD' ? 'safe'
     : status === 'IN_REVIEW' ? 'info'
@@ -44,19 +47,20 @@ export function StatusPill({ status }: { status: SeoBlueprintStatus }) {
     : 'warn'; // DRAFT
   return (
     <span className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${pillCls(tone)}`}>
-      {SEO_STATUS_LABEL[status]}
+      {t(`status.${status}`, SEO_STATUS_LABEL[status])}
     </span>
   );
 }
 
 export function ReviewPill({ status }: { status: SeoReviewStatus }) {
+  const t = useOwnerT('owner-seo');
   const tone =
     status === 'APPROVED' ? 'safe'
     : status === 'CHANGES_REQUESTED' ? 'danger'
     : 'warn'; // PENDING_REVIEW
   return (
     <span className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${pillCls(tone)}`}>
-      {SEO_REVIEW_LABEL[status]}
+      {t(`review.${status}`, SEO_REVIEW_LABEL[status])}
     </span>
   );
 }

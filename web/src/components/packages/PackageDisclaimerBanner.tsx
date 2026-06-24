@@ -4,12 +4,14 @@
 
 import { Info } from 'lucide-react';
 import { PACKAGE_DISCLAIMER } from '../../config/packages';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 export function PackageDisclaimerBanner({
   variant = 'dark',
 }: {
   variant?: 'dark' | 'light';
 }) {
+  const t = useOwnerT('owner-packages');
   const dark = variant === 'dark';
   return (
     <div
@@ -24,13 +26,13 @@ export function PackageDisclaimerBanner({
         <Info className={`h-4 w-4 mt-0.5 shrink-0 ${dark ? 'text-amber-300' : 'text-amber-600'}`} aria-hidden />
         <div className="space-y-1">
           <p className={dark ? 'font-medium text-amber-100' : 'font-medium text-amber-900'}>
-            Indicative proposal — manual verification required.
+            {t('disclaimer.title', 'Indicative proposal — manual verification required.')}
           </p>
           <p className={dark ? 'text-amber-100/80' : 'text-amber-800/90'}>
-            {PACKAGE_DISCLAIMER}
+            {t('disclaimer.body', PACKAGE_DISCLAIMER)}
           </p>
           <p className={dark ? 'text-amber-100/70 italic' : 'text-amber-800/70 italic'}>
-            Package details guidelines hain. Final rate aur availability staff manually confirm karenge.
+            {t('disclaimer.hinglish', 'Package details guidelines hain. Final rate aur availability staff manually confirm karenge.')}
           </p>
         </div>
       </div>

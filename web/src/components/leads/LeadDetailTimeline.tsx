@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import type { LeadEvent } from '../../types/lead';
 import { formatLeadEvent, type EventIconName, type EventColor } from './formatLeadEvent';
+import { useOwnerT, type OwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   events: LeadEvent[];
@@ -51,24 +52,25 @@ const COLOR_CLASSES: Record<EventColor, { bg: string; text: string; ring: string
   slate:   { bg: 'bg-slate-500/15',   text: 'text-slate-400',   ring: 'ring-slate-500/30' },
 };
 
-function formatRelative(iso: string): string {
+function formatRelative(iso: string, t: OwnerT): string {
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return '';
   const diffMin = Math.round((Date.now() - then) / 60000);
-  if (diffMin < 1) return 'just now';
-  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffMin < 1) return t('rel.justNow', 'just now');
+  if (diffMin < 60) return t('rel.mAgo', '{{m}}m ago', { m: diffMin });
   const diffHr = Math.round(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
+  if (diffHr < 24) return t('rel.hAgo', '{{h}}h ago', { h: diffHr });
   const diffDay = Math.round(diffHr / 24);
-  if (diffDay < 30) return `${diffDay}d ago`;
-  return `${Math.round(diffDay / 30)}mo ago`;
+  if (diffDay < 30) return t('rel.dAgo', '{{d}}d ago', { d: diffDay });
+  return t('rel.moAgo', '{{mo}}mo ago', { mo: Math.round(diffDay / 30) });
 }
 
 export function LeadDetailTimeline({ events, isLoading }: Props) {
+  const t = useOwnerT('owner-leads');
   if (isLoading) {
     return (
       <section className="px-5 py-4" data-testid="lead-detail-timeline">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-white/60 mb-3">Timeline</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-white/60 mb-3">{t('timeline.heading', 'Timeline')}</h3>
         <div className="space-y-2">
           {[0, 1, 2].map((i) => (
             <div key={i} className="rounded-md border border-white/10 bg-white/[0.02] p-3 animate-pulse">
@@ -84,18 +86,18 @@ export function LeadDetailTimeline({ events, isLoading }: Props) {
   if (events.length === 0) {
     return (
       <section className="px-5 py-4" data-testid="lead-detail-timeline">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-white/60 mb-3">Timeline</h3>
-        <div className="text-xs text-white/30 italic">No activity yet</div>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-white/60 mb-3">{t('timeline.heading', 'Timeline')}</h3>
+        <div className="text-xs text-white/30 italic">{t('timeline.noActivity', 'No activity yet')}</div>
       </section>
     );
   }
 
   return (
     <section className="px-5 py-4" data-testid="lead-detail-timeline">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-white/60 mb-3">Timeline</h3>
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-white/60 mb-3">{t('timeline.heading', 'Timeline')}</h3>
       <ul className="space-y-2">
         {events.map((event) => {
-          const fmt = formatLeadEvent(event);
+          const fmt = formatLeadEvent(event, t);
           const Icon = ICONS[fmt.iconName] ?? HelpCircle;
           const colorCls = COLOR_CLASSES[fmt.color];
           return (
@@ -117,7 +119,7 @@ export function LeadDetailTimeline({ events, isLoading }: Props) {
                   <span>{fmt.actor}</span>
                   <span className="inline-flex items-center gap-0.5">
                     <Clock className="h-3 w-3" aria-hidden="true" />
-                    {formatRelative(event.occurred_at)}
+                    {formatRelative(event.occurred_at, t)}
                   </span>
                 </div>
               </div>

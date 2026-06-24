@@ -1,0 +1,180 @@
+{
+  "page": {
+    "breadcrumb": "Growth",
+    "title": "Local Partner Directory",
+    "subtitle": "Verified vendors and commissionable agents you trust. Manage status, verification, and (for agents) commission payouts."
+  },
+  "notEnabled": "Partner Network is disabled.",
+  "notFound": "Hotel not found for slug {{slug}}.",
+  "filter": {
+    "allKinds": "All kinds",
+    "vendors": "Vendors",
+    "agents": "Agents",
+    "searchPlaceholder": "Search by name or service area",
+    "includeArchived": "Include archived"
+  },
+  "action": {
+    "addPartner": "Add partner"
+  },
+  "counter": {
+    "total": "Total",
+    "verified": "Verified",
+    "preferred": "Preferred",
+    "stale": "Stale"
+  },
+  "table": {
+    "name": "Name",
+    "kindCategory": "Kind / Category",
+    "status": "Status",
+    "verification": "Verification",
+    "leads": "Leads",
+    "outstanding": "Outstanding",
+    "noPartners": "No partners match the current filters.",
+    "noArea": "No area set"
+  },
+  "kind": {
+    "VENDOR": "Vendor",
+    "AGENT": "Agent",
+    "vendorDescriptor": "Vendor (operational supplier)",
+    "agentDescriptor": "Agent (commissionable booker)"
+  },
+  "status": {
+    "DRAFT": "Draft",
+    "VERIFIED": "Verified",
+    "PREFERRED": "Preferred",
+    "BACKUP": "Backup",
+    "INACTIVE": "Inactive",
+    "DO_NOT_USE": "Do not use",
+    "DRAFT_hint": "Draft (hidden)",
+    "DO_NOT_USE_hint": "Do not use (reason req.)"
+  },
+  "category": {
+    "TRAVEL_AGENT": "Travel agent",
+    "CORPORATE_BOOKER": "Corporate booker",
+    "WEDDING_PLANNER": "Wedding planner",
+    "GROUP_BOOKER": "Group booker",
+    "TAXI_TRANSPORT": "Taxi / transport",
+    "TREK_GUIDE": "Trek guide",
+    "TEMPLE_TOUR": "Temple / pilgrim tour",
+    "SAFARI_ADVENTURE": "Safari / adventure",
+    "PHOTOGRAPHER": "Photographer",
+    "EVENT_DECORATION": "Event / decoration",
+    "WELLNESS_YOGA": "Wellness / yoga",
+    "FOOD_CATERING": "Food / catering",
+    "LAUNDRY_OPS": "Laundry / ops",
+    "MAINTENANCE_VENDOR": "Maintenance vendor",
+    "OTHER": "Other"
+  },
+  "verification": {
+    "UNVERIFIED": "Not verified",
+    "PENDING": "Verification pending",
+    "VERIFIED": "Verified",
+    "REJECTED": "Rejected",
+    "stale": "stale",
+    "lastVerified": "Last verified {{date}}",
+    "staleNote": "· stale (>{{days}} days — re-verify)"
+  },
+  "drawer": {
+    "title": "Partner detail",
+    "loading": "Loading…",
+    "notFound": "Partner not found.",
+    "closeAriaLabel": "Close",
+    "edit": "Edit",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "noContact": "No contact on file.",
+    "altPhone": "(alt)"
+  },
+  "section": {
+    "contact": "Contact",
+    "servicesArea": "Services & area",
+    "status": "Status",
+    "verification": "Verification",
+    "commissionLedger": "Commission ledger",
+    "internalNotes": "Internal notes",
+    "timeline": "Timeline"
+  },
+  "row": {
+    "serviceArea": "Service area",
+    "services": "Services",
+    "preferredUse": "Preferred use",
+    "priceNote": "Price note",
+    "emergency": "Emergency"
+  },
+  "emergency": {
+    "yes": "Yes",
+    "no": "No"
+  },
+  "timeline": {
+    "noEvents": "No events yet.",
+    "loading": "Loading…"
+  },
+  "commission": {
+    "noCommissions": "No commissions recorded.",
+    "record": "Record commission",
+    "modalTitle": "Record commission",
+    "amountLabel": "Amount (INR) *",
+    "notesLabel": "Notes",
+    "notesPlaceholder": "e.g. booking ref ABC123 / 3 nights",
+    "cancel": "Cancel",
+    "recordButton": "Record",
+    "markPaid": "Mark paid",
+    "accrued": "Accrued {{date}}",
+    "ref": "ref {{ref}}",
+    "status": {
+      "ACCRUED": "accrued",
+      "PAID": "paid",
+      "CANCELLED": "cancelled"
+    },
+    "promptPayoutRef": "Payout reference (UPI ref / bank ref / cheque no.) — required",
+    "promptPayoutMethod": "Payout method (UPI / BANK / CASH / CHEQUE)?",
+    "promptCancelReason": "Why cancel this commission? (recorded in audit)"
+  },
+  "form": {
+    "addTitle": "Add partner",
+    "editTitle": "Edit partner",
+    "partnerName": "Partner name",
+    "category": "Category",
+    "serviceArea": "Service area",
+    "priceNote": "Price note (free text)",
+    "servicesOffered": "Services offered (comma-separated)",
+    "preferredUseCase": "Preferred use case (when to call them)",
+    "emergency": "Emergency availability (responds outside business hours)",
+    "contactSection": "Contact",
+    "contactPerson": "Contact person",
+    "email": "Email",
+    "phone": "Phone (auto-normalised)",
+    "altPhone": "Alternate phone",
+    "agentCommission": "Agent commission (manual ledger — not auto-paid)",
+    "commissionPct": "Default commission %",
+    "payoutTerms": "Payout terms",
+    "tags": "Tags (comma-separated)",
+    "internalNotes": "Internal notes",
+    "cancel": "Cancel",
+    "save": "Save changes",
+    "add": "Add partner",
+    "saving": "Saving…",
+    "invalidEmail": "Doesn't look like a valid email.",
+    "invalidCommission": "Must be between 0 and 100.",
+    "closeAriaLabel": "Close"
+  },
+  "error": {
+    "NAME_REQUIRED": "Partner name is required.",
+    "INVALID_CATEGORY": "Pick a valid category for this kind.",
+    "INVALID_KIND": "Pick Vendor or Agent.",
+    "INVALID_EMAIL": "That email doesn't look right.",
+    "INVALID_COMMISSION_PCT": "Commission must be 0-100.",
+    "VENDOR_NO_COMMISSION": "Vendor rows can't carry commission. Switch to Agent kind first.",
+    "NOT_AUTHORIZED": "You don't have permission to manage partners for this hotel.",
+    "ARCHIVED_NOT_EDITABLE": "This partner is archived. Unarchive first.",
+    "PARTNER_NOT_FOUND": "Partner no longer exists.",
+    "UNKNOWN_ERROR": "Save failed. Please try again."
+  },
+  "prompt": {
+    "doNotUse": "Why mark this partner as Do not use? (recorded in audit)",
+    "verificationNote": "Add a verification note (optional).",
+    "payoutRef": "Payout reference (UPI ref / bank ref / cheque no.) — required",
+    "payoutMethod": "Payout method (UPI / BANK / CASH / CHEQUE)?",
+    "cancelReason": "Why cancel this commission? (recorded in audit)"
+  }
+}

@@ -4,6 +4,7 @@
 
 import { Calendar } from 'lucide-react';
 import { MONTH_LABEL } from '../../config/packages';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   months: number[];
@@ -26,6 +27,7 @@ export function PackageSeasonPicker({
   onValidUntilChange,
   dateError,
 }: Props) {
+  const t = useOwnerT('owner-packages');
   function toggle(m: number) {
     onMonthsChange(months.includes(m) ? months.filter((x) => x !== m) : [...months, m].sort((a, b) => a - b));
   }
@@ -41,7 +43,7 @@ export function PackageSeasonPicker({
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-slate-100 inline-flex items-center gap-2">
           <Calendar className="h-4 w-4 text-emerald-300" aria-hidden />
-          Seasonality
+          {t('season.title', 'Seasonality')}
         </h3>
         <div className="flex items-center gap-1.5">
           <button
@@ -49,7 +51,7 @@ export function PackageSeasonPicker({
             onClick={selectAll}
             className="text-[10px] text-slate-300 hover:text-slate-100"
           >
-            All
+            {t('season.all', 'All')}
           </button>
           <span className="text-slate-700">|</span>
           <button
@@ -57,13 +59,13 @@ export function PackageSeasonPicker({
             onClick={clearAll}
             className="text-[10px] text-slate-300 hover:text-slate-100"
           >
-            Clear
+            {t('season.clear', 'Clear')}
           </button>
         </div>
       </div>
 
       <p className="text-[11px] text-slate-500">
-        Pick which months this package runs. Leave all unticked for year-round.
+        {t('season.intro', 'Pick which months this package runs. Leave all unticked for year-round.')}
       </p>
 
       <div className="grid grid-cols-6 sm:grid-cols-12 gap-1.5">
@@ -89,7 +91,7 @@ export function PackageSeasonPicker({
       </div>
 
       <div className="grid grid-cols-2 gap-3 pt-1">
-        <Field label="Valid from (optional)">
+        <Field label={t('season.validFrom', 'Valid from (optional)')}>
           <input
             type="date"
             value={validFrom}
@@ -97,7 +99,7 @@ export function PackageSeasonPicker({
             className="w-full rounded-md border border-slate-700 bg-[#0B0E14] px-3 py-1.5 text-xs text-slate-100 focus:border-emerald-400 focus:outline-none"
           />
         </Field>
-        <Field label="Valid until (optional)">
+        <Field label={t('season.validUntil', 'Valid until (optional)')}>
           <input
             type="date"
             value={validUntil}

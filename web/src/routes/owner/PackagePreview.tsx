@@ -17,6 +17,7 @@ import type { PublicPackagePayload } from '../../types/package';
 import { PACKAGE_DISCLAIMER, PACKAGE_STATUS_LABEL, PACKAGE_APPROVAL_LABEL } from '../../config/packages';
 import { PackageLandingHero } from '../../components/packages/PackageLandingHero';
 import { PackageLandingInclusions } from '../../components/packages/PackageLandingInclusions';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface HotelRow {
   id: string;
@@ -27,6 +28,7 @@ interface HotelRow {
 
 export default function PackagePreview() {
   const { slug, id } = useParams<{ slug: string; id: string }>();
+  const t = useOwnerT('owner-packages');
 
   const pkgQ = useQuery({
     queryKey: id ? packageQueryKeys.detail(id) : ['package', 'noop'],
@@ -91,7 +93,7 @@ export default function PackagePreview() {
 
   if (pkgQ.isLoading || hotelQ.isLoading) {
     return (
-      <main className="min-h-screen grid place-items-center bg-slate-50">
+      <main className="vaiyu-owner min-h-screen grid place-items-center bg-slate-50">
         <Loader2 className="h-5 w-5 animate-spin text-slate-400" aria-hidden />
       </main>
     );
@@ -99,15 +101,15 @@ export default function PackagePreview() {
 
   if (!payload || !pkgQ.data || !hotelQ.data) {
     return (
-      <main className="min-h-screen grid place-items-center bg-slate-50">
+      <main className="vaiyu-owner min-h-screen grid place-items-center bg-slate-50">
         <div className="text-center space-y-2">
-          <p className="text-sm text-slate-600">Package not found.</p>
+          <p className="text-sm text-slate-600">{t('preview.packageNotFound', 'Package not found.')}</p>
           {slug && (
             <Link
               to={`/owner/${slug}/packages`}
               className="text-xs text-emerald-700 hover:underline"
             >
-              Back to packages
+              {t('preview.back', 'Back to packages')}
             </Link>
           )}
         </div>
@@ -118,15 +120,17 @@ export default function PackagePreview() {
   const pkg = pkgQ.data;
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
-      {/* Preview chrome bar */}
+    <main className="vaiyu-owner min-h-screen bg-slate-50 text-slate-900">
+      {/* Preview chrome bar — owner-only UI (localised). The landing body below
+          mirrors the public page, which is owned by the guest `publicEnquiry`
+          namespace, so it stays English here (not duplicated into owner-packages). */}
       <div className="sticky top-0 z-10 border-b border-amber-200 bg-amber-100 text-amber-900">
         <div className="mx-auto max-w-5xl px-4 sm:px-6 py-2.5 flex items-center justify-between gap-3 text-xs sm:text-sm">
           <div className="flex items-center gap-2 min-w-0">
             <Eye className="h-3.5 w-3.5 shrink-0" aria-hidden />
             <span className="truncate">
-              Preview — <strong>{pkg.name}</strong> · {PACKAGE_STATUS_LABEL[pkg.status]} ·{' '}
-              {PACKAGE_APPROVAL_LABEL[pkg.owner_approval_status]}
+              {t('preview.previewLabel', 'Preview')} — <strong>{pkg.name}</strong> · {t(`status.${pkg.status}`, PACKAGE_STATUS_LABEL[pkg.status])} ·{' '}
+              {t(`approval.${pkg.owner_approval_status}`, PACKAGE_APPROVAL_LABEL[pkg.owner_approval_status])}
             </span>
           </div>
           <Link
@@ -134,7 +138,7 @@ export default function PackagePreview() {
             className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-white/60 px-2 py-1 text-[11px] font-medium text-amber-900 hover:bg-white"
           >
             <ArrowLeft className="h-3 w-3" aria-hidden />
-            Back to editor
+            {t('preview.backToEditor', 'Back to editor')}
           </Link>
         </div>
       </div>

@@ -4,11 +4,6 @@
 // correct bucket based on requirement storage_zone (public hotel-assets vs
 // private hotel-asset-vault). Client-side validates MIME + size + PII regex
 // before hitting the server.
-//
-// Single-file requirements: drop-zone or click to choose. Replacing evicts
-// the prior file (handled server-side by record_hotel_asset_file).
-// Multi-file requirements: same drop-zone but stays open after each upload
-// to encourage adding more.
 
 import { useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -21,6 +16,7 @@ import {
   validateBeforeUpload,
 } from '../../services/digitalAssetService';
 import type { AssetStorageZone } from '../../types/digitalAssets';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   hotelId: string;
@@ -40,6 +36,7 @@ export function AssetUploadSlot({
   compact = true,
   onUploaded,
 }: Props) {
+  const t = useOwnerT('owner-assets');
   const qc = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -66,13 +63,12 @@ export function AssetUploadSlot({
           file,
         });
       }
-      // Bust caches the workspace + dashboard card depend on
       qc.invalidateQueries({ queryKey: ['asset-status', hotelId] });
       qc.invalidateQueries({ queryKey: ['asset-files', hotelId] });
       onUploaded?.();
     } catch (err: unknown) {
       const code = extractAssetErrorCode(err);
-      setError(friendlyAssetError(code, (err as Error).message ?? 'Upload failed.'));
+      setError(friendlyAssetError(code, (err as Error).message ?? t('upload.uploadFailed', 'Upload failed.')));
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = '';
@@ -132,14 +128,16 @@ export function AssetUploadSlot({
         {uploading ? (
           <div className="flex items-center justify-center gap-2 text-[12px] font-medium text-indigo-700">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            Uploading…
+            {t('upload.uploading', 'Uploading…')}
           </div>
         ) : (
           <div className="flex items-center justify-center gap-2 text-[12px] font-medium text-slate-600">
             <Upload className="h-4 w-4 text-indigo-500" aria-hidden />
             <span>
-              {allowMultiple ? 'Drop files or click to upload' : 'Drop a file or click to upload'}
-              <span className="ml-1 text-slate-400">· JPG / PNG / WEBP / PDF · ≤10 MB</span>
+              {allowMultiple
+                ? t('upload.dropFiles', 'Drop files or click to upload')
+                : t('upload.dropFile', 'Drop a file or click to upload')}
+              <span className="ml-1 text-slate-400">· {t('upload.specs', 'JPG / PNG / WEBP / PDF · ≤10 MB')}</span>
             </span>
           </div>
         )}
@@ -155,7 +153,7 @@ export function AssetUploadSlot({
       {zone === 'PRIVATE_VAULT' && !uploading && !error && (
         <div className="flex items-center gap-1.5 text-[10.5px] text-slate-500">
           <FileImage className="h-3 w-3" aria-hidden />
-          Private vault — viewable via signed link only.
+          {t('upload.privateNote', 'Private vault — viewable via signed link only.')}
         </div>
       )}
     </div>

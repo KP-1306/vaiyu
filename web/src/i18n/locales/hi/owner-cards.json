@@ -1,0 +1,166 @@
+{
+  "common": {
+    "open": "खोलें",
+    "loading": "लोड हो रहा है…",
+    "couldNotLoad": "लोड नहीं हो सका"
+  },
+  "breadcrumb": {
+    "console": "कंसोल",
+    "dashboard": "डैशबोर्ड",
+    "ariaLabel": "ब्रेडक्रंब"
+  },
+  "guard": {
+    "verifyingAccess": "एक्सेस सत्यापित हो रहा है…",
+    "missingSlug": "होटल स्लग गायब है।",
+    "hotelNotFound": "होटल नहीं मिला।",
+    "authFailed": "प्राधिकरण जाँच विफल।",
+    "deniedAnalytics": "इस होटल के एनालिटिक्स देखने की अनुमति नहीं। मालिक या मैनेजर से एक्सेस लें।",
+    "deniedFinance": "इस होटल की प्राइसिंग या फाइनेंस देखने की अनुमति नहीं। मालिक या फाइनेंस मैनेजर से एक्सेस लें।"
+  },
+  "financeError": {
+    "title": "Pricing / Finance में कुछ टूट गया",
+    "unknown": "अज्ञात रेंडर त्रुटि।",
+    "tryAgain": "फिर कोशिश करें",
+    "reload": "पेज रीलोड करें"
+  },
+  "darkShell": {
+    "closeDialog": "डायलॉग बंद करें",
+    "working": "हो रहा है…",
+    "confirm": "पुष्टि करें",
+    "cancel": "रद्द करें",
+    "somethingWrong": "कुछ गलत हो गया"
+  },
+  "actionRadar": {
+    "title": "एक्शन रडार",
+    "subtitle": "आज कौन-से फॉलो-अप करने हैं",
+    "dueToday": "आज ज़रूरी",
+    "overdue": "देर हो चुकी",
+    "blocked": "ब्लॉक",
+    "criticalAlert_one": "{{count}} गंभीर फॉलो-अप पर ध्यान दें।",
+    "criticalAlert_other": "{{count}} गंभीर फॉलो-अप पर ध्यान दें।",
+    "empty": "अभी कोई फॉलो-अप नहीं — आपकी टीम लीड जोड़ते ही यहाँ दिखेंगे।"
+  },
+  "assetReadiness": {
+    "title": "एसेट रेडीनेस",
+    "ready": "तैयार",
+    "pct": "%",
+    "missing": "अनुपस्थित",
+    "replace": "बदलें",
+    "topMissing": "सबसे ज़रूरी कमी",
+    "allCollected": "सभी आवश्यकताएं एकत्र। VAiyu टीम अपलोडेड एसेट की समीक्षा करेगी।",
+    "emptyCta": "अपनी एसेट लाइब्रेरी सेट करें"
+  },
+  "drip": {
+    "title": "फॉलो-अप ईमेल",
+    "editSequences": "सीक्वेंस संपादित करें",
+    "active": "सक्रिय",
+    "due24h": "24घं में",
+    "sentToday": "आज भेजे",
+    "paused": "रोके",
+    "stuck_one": "{{count}} लीड अटका — ईमेल नहीं है।",
+    "stuck_other": "{{count}} लीड्स अटके — ईमेल नहीं हैं।"
+  },
+  "leads": {
+    "title": "खुले लीड्स",
+    "couldNotLoad": "लोड नहीं हो सका",
+    "breakdownItem": "{{count}} {{label}}"
+  },
+  "localSeo": {
+    "title": "Local SEO Planner",
+    "subtitle": "लोकल पेज विचारों की योजना + प्रशासन। केवल आंतरिक — कुछ भी प्रकाशित नहीं।",
+    "safe": "सुरक्षित",
+    "needsProof": "प्रमाण चाहिए",
+    "risky": "जोखिम",
+    "inReview": "{{count}} समीक्षा में",
+    "readyToBuild": "{{count}} बनाने के लिए तैयार",
+    "footer": "निर्धारित Policy Shield। कोई AI नहीं। कोई कीवर्ड स्क्रैपिंग नहीं। कोई मेटाडेटा बदलाव नहीं।"
+  },
+  "ota": {
+    "title": "OTA Listing Optimizer",
+    "subtitle": "8 OTA पर सेल्फ-ऑडिट वर्कबुक। चैनल मैनेजर नहीं।",
+    "wizardCta": "कोल्ड-स्टार्ट विज़र्ड अधूरा — मैट्रिक्स भरने के लिए खोलें।",
+    "activeOtas_one": "{{count}} सक्रिय OTA",
+    "activeOtas_other": "{{count}} सक्रिय OTA",
+    "gaps_one": "{{count}} कमी",
+    "gaps_other": "{{count}} कमियां",
+    "summaryLine": "{{otas}} · {{gaps}}",
+    "staleItems_one": "{{count}} आइटम पुराना ({{days}}दिन+)",
+    "staleItems_other": "{{count}} आइटम पुराने ({{days}}दिन+)",
+    "nextFocus": "अगला फोकस",
+    "addressItems_one": "{{count}} आइटम पर ध्यान",
+    "addressItems_other": "{{count}} आइटम पर ध्यान",
+    "stale": "पुराना",
+    "noSettings": "अभी कोई OTA सेटिंग्स नहीं — विज़र्ड शुरू करने के लिए वर्कस्पेस खोलें।",
+    "loadError": "OTA रेडीनेस लोड नहीं हो सका। पेज रीफ्रेश करें।"
+  },
+  "packageBuilder": {
+    "title": "Experience Packages",
+    "subtitle": "स्टे पैकेज क्यूरेट और प्रकाशित करें — WhatsApp या लिंक से साझा करें",
+    "active": "सक्रिय",
+    "drafts": "ड्राफ्ट",
+    "views7d": "7द दृश्य",
+    "pendingReview": "{{count}} समीक्षा में",
+    "changesRequested": "{{count}} में बदलाव चाहिए",
+    "footer": "किसी भी पैकेज को लाइव करने से पहले मालिक की मंज़ूरी ज़रूरी। अंतिम दर मैन्युअली पुष्टि।"
+  },
+  "partners": {
+    "title": "लोकल पार्टनर डायरेक्टरी",
+    "empty": "अभी कोई पार्टनर नहीं जुड़ा। भरोसेमंद वेंडर और कमीशन एजेंट एक जगह ट्रैक करें।",
+    "addFirst": "पहला पार्टनर जोड़ें",
+    "total": "कुल",
+    "verified": "सत्यापित",
+    "preferred": "पसंदीदा",
+    "stale": "पुराना"
+  },
+  "quoteDraft": {
+    "title": "AI Quote ड्राफ्ट",
+    "subtitle": "मेहमान को कोट भेजना है? यहाँ ड्राफ्ट बनाएं",
+    "blurb": "एक लीड चुनें, पैकेज चुनें, अंतिम कीमत लिखें, ड्राफ्ट बनाकर कॉपी करें।",
+    "footer": "निर्धारित टेम्पलेट। कोई लाइव AI नहीं। कोई भेज नहीं। मैन्युअल सत्यापन आवश्यक।"
+  },
+  "seasonalCard": {
+    "title": "सीज़नल डिमांड कैलेंडर",
+    "subtitle": "क्षेत्रीय यात्रा सीज़न के लिए योजना गाइड। न पूर्वानुमान, न ऑटो-कैम्पेन।",
+    "nextFocus": "अगला फोकस",
+    "prepDone": "{{done}}/{{total}} तैयारी पूरी",
+    "loadError": "प्लानिंग विंडो लोड नहीं हो सकीं।",
+    "allDismissed": "सभी प्लानिंग विंडो खारिज या छुपी हैं।",
+    "now": "अभी",
+    "prepare": "तैयारी",
+    "watch": "नज़र",
+    "readyByMgr_one": "{{count}} मैनेजर द्वारा तैयार चिह्नित",
+    "readyByMgr_other": "{{count}} मैनेजर द्वारा तैयार चिह्नित",
+    "footer": "निर्धारित प्लानिंग विंडो। कोई मांग पूर्वानुमान, कोई कैम्पेन, कोई AI नहीं।"
+  },
+  "pendingExt": {
+    "title": "स्टे एक्सटेंशन — लंबित",
+    "noPending": "कोई लंबित एक्सटेंशन अनुरोध नहीं।",
+    "loadFailed": "एक्सटेंशन लोड नहीं हो सके।",
+    "extendBy_one": "{{count}} रात बढ़ाएं",
+    "extendBy_other": "{{count}} रातें बढ़ाएं",
+    "from": "{{date}} से",
+    "requested": "{{time}} पर अनुरोध",
+    "byGuest": "मेहमान द्वारा",
+    "byStaff": "स्टाफ द्वारा",
+    "approve": "स्वीकार",
+    "reject": "अस्वीकार",
+    "approveTitle": "एक्सटेंशन स्वीकार करें",
+    "rejectTitle": "एक्सटेंशन अस्वीकार करें",
+    "fromLabel": "से:",
+    "toLabel": "तक:",
+    "nights_one": "{{count}} रात",
+    "nights_other": "{{count}} रातें",
+    "additionalCharge": "अतिरिक्त शुल्क (₹)",
+    "waivePlaceholder": "मुफ्त के लिए खाली छोड़ें",
+    "chargeHint": "ROOM_CHARGE के रूप में फोलियो पर पोस्ट। मुफ्त एक्सटेंशन के लिए खाली छोड़ें।",
+    "staffNoteLabel": "स्टाफ नोट (वैकल्पिक)",
+    "approveNotePlaceholder": "Mr. Sharma द्वारा स्वीकृत",
+    "rejectNotePlaceholder": "होटल पूरी तरह बुक",
+    "cancel": "रद्द करें",
+    "saving": "सहेजा जा रहा है…",
+    "confirmApprove": "स्वीकृति पुष्ट करें",
+    "confirmReject": "अस्वीकृति पुष्ट करें",
+    "actionFailed": "क्रिया विफल।",
+    "amountInvalid": "अतिरिक्त राशि गैर-नकारात्मक संख्या होनी चाहिए।"
+  }
+}

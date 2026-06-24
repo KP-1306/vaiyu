@@ -6,6 +6,11 @@
 import React from "react";
 import { AlertTriangle } from "lucide-react";
 import { reportError } from "../../lib/observability";
+import i18n from "../../i18n";
+import { OWNER_I18N_ENABLED } from "../../i18n/useOwnerT";
+
+const t = (key: string, en: string) =>
+  OWNER_I18N_ENABLED ? i18n.t(key, { defaultValue: en, ns: "owner-cards" }) : en;
 
 type Props = { children: React.ReactNode };
 type State = { error: Error | null };
@@ -38,23 +43,23 @@ export default class FinanceErrorBoundary extends React.Component<Props, State> 
             <AlertTriangle className="w-5 h-5 text-rose-300 shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
               <h2 className="text-base font-bold text-white">
-                Something broke in Pricing / Finance
+                {t("financeError.title", "Something broke in Pricing / Finance")}
               </h2>
               <p className="mt-1 text-sm text-rose-200 break-words">
-                {this.state.error.message || "Unknown render error."}
+                {this.state.error.message || t("financeError.unknown", "Unknown render error.")}
               </p>
               <div className="mt-4 flex gap-3">
                 <button
                   onClick={this.handleReset}
                   className="rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 px-4 py-2 text-sm font-semibold text-slate-100 transition"
                 >
-                  Try again
+                  {t("financeError.tryAgain", "Try again")}
                 </button>
                 <button
                   onClick={() => location.reload()}
                   className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-4 py-2 text-sm font-semibold text-slate-200 transition"
                 >
-                  Reload page
+                  {t("financeError.reload", "Reload page")}
                 </button>
               </div>
             </div>

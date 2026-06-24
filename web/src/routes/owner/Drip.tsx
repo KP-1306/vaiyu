@@ -23,10 +23,12 @@ import {
 } from '../../services/dripService';
 import { DripStepEditor } from '../../components/drip/DripStepEditor';
 import type { DripRule } from '../../types/drip';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Hotel { id: string; name: string; slug: string; }
 
 export default function Drip() {
+  const t = useOwnerT('owner-drip');
   const { slug: rawSlug } = useParams();
   const slug = (rawSlug ?? '').trim();
   const [hotel, setHotel] = useState<Hotel | null>(null);
@@ -59,37 +61,35 @@ export default function Drip() {
 
   if (!DRIP_ENGINE_V1_ENABLED) {
     return (
-      <main className="mx-auto max-w-5xl px-4 py-10 text-slate-300">
-        Drip engine is disabled.
+      <main className="vaiyu-owner mx-auto max-w-5xl px-4 py-10 text-slate-300">
+        {t('page.disabled', 'Drip engine is disabled.')}
       </main>
     );
   }
   if (hotelLoading) {
-    return <main className="mx-auto max-w-5xl px-4 py-10 text-slate-400"><Loader2 className="h-5 w-5 animate-spin" /></main>;
+    return <main className="vaiyu-owner mx-auto max-w-5xl px-4 py-10 text-slate-400"><Loader2 className="h-5 w-5 animate-spin" /></main>;
   }
   if (!hotel) {
     return (
-      <main className="mx-auto max-w-5xl px-4 py-10 text-slate-300">
-        Hotel not found for slug <code>{slug}</code>.
+      <main className="vaiyu-owner mx-auto max-w-5xl px-4 py-10 text-slate-300">
+        {t('page.hotelNotFound', 'Hotel not found for slug {{slug}}.', { slug })}
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#070914] text-slate-100">
+    <main className="vaiyu-owner min-h-screen bg-[#070914] text-slate-100">
       <div className="mx-auto max-w-5xl px-4 py-6">
         <header className="mb-5">
-          <p className="text-[11px] uppercase tracking-widest text-slate-500">Growth · {hotel.name}</p>
-          <h1 className="mt-1 text-2xl font-semibold">Follow-up email sequences</h1>
+          <p className="text-[11px] uppercase tracking-widest text-slate-500">{t('page.eyebrow', 'Growth · {{hotel}}', { hotel: hotel.name })}</p>
+          <h1 className="mt-1 text-2xl font-semibold">{t('page.title', 'Follow-up email sequences')}</h1>
           <p className="mt-1 text-sm text-slate-400">
-            VAiyu sends these emails automatically on the schedule below — pause via Lead detail or disable a rule here.
-            Drips auto-pause when a lead moves to Qualified / Won / Converted, and cancel on Lost.
+            {t('page.intro', 'VAiyu sends these emails automatically on the schedule below — pause via Lead detail or disable a rule here. Drips auto-pause when a lead moves to Qualified / Won / Converted, and cancel on Lost.')}
           </p>
         </header>
 
         <div className="mb-4 rounded-md border border-slate-800 bg-[#0F1320] px-3 py-2 text-[11.5px] text-slate-400">
-          Email channel only for v1. WhatsApp opens after Meta template approval.
-          Daily send cap defaults to 200/hotel — adjust in hotel settings if needed.
+          {t('page.channelNote', 'Email channel only for v1. WhatsApp opens after Meta template approval. Daily send cap defaults to 200/hotel — adjust in hotel settings if needed.')}
         </div>
 
         {rulesQ.isLoading && (
@@ -97,7 +97,7 @@ export default function Drip() {
         )}
         {rulesQ.data?.length === 0 && (
           <div className="rounded-lg border border-slate-800 bg-[#0F1320] p-4 text-sm text-slate-400">
-            No drip rules. (Stock rules are seeded on hotel creation — this shouldn't be empty.)
+            {t('page.noRules', "No drip rules. (Stock rules are seeded on hotel creation — this shouldn't be empty.)")}
           </div>
         )}
 
@@ -112,6 +112,7 @@ export default function Drip() {
 }
 
 function RuleCard({ rule, onChanged }: { rule: DripRule; onChanged: () => void }) {
+  const t = useOwnerT('owner-drip');
   const qc = useQueryClient();
   const [expanded, setExpanded] = useState(rule.code === 'GENERAL_ENQUIRY');
   const [toggling, setToggling] = useState(false);
@@ -123,11 +124,11 @@ function RuleCard({ rule, onChanged }: { rule: DripRule; onChanged: () => void }
     staleTime: 10_000,
   });
 
-  const friendly = DRIP_RULE_KIND_LABEL[rule.code] ?? rule.name;
+  const friendly = t(`ruleKind.${rule.code}`, DRIP_RULE_KIND_LABEL[rule.code] ?? rule.name);
   const triggerLabel =
-    rule.trigger_event === 'LEAD_CREATED'      ? 'Fires when a new lead is created' :
-    rule.trigger_event === 'LEAD_QUOTED'       ? 'Fires when a lead reaches QUOTED' :
-                                                  'Fires when a walk-in lead is marked LOST';
+    rule.trigger_event === 'LEAD_CREATED'      ? t('trigger.LEAD_CREATED', 'Fires when a new lead is created') :
+    rule.trigger_event === 'LEAD_QUOTED'       ? t('trigger.LEAD_QUOTED', 'Fires when a lead reaches QUOTED') :
+                                                  t('trigger.WALKIN_LOST', 'Fires when a walk-in lead is marked LOST');
 
   const toggleActive = async () => {
     setToggling(true);
@@ -171,7 +172,7 @@ function RuleCard({ rule, onChanged }: { rule: DripRule; onChanged: () => void }
                 : 'rounded-full bg-slate-700/40 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-400'
             }
           >
-            {rule.active ? 'Active' : 'Disabled'}
+            {rule.active ? t('rule.active', 'Active') : t('rule.disabled', 'Disabled')}
           </span>
           <button
             type="button"
@@ -180,7 +181,7 @@ function RuleCard({ rule, onChanged }: { rule: DripRule; onChanged: () => void }
             className="inline-flex items-center gap-1 rounded-md border border-slate-700 px-2.5 py-1 text-[11px] text-slate-300 hover:bg-slate-800 disabled:opacity-50"
           >
             {toggling ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <Power className="h-3 w-3" aria-hidden />}
-            {rule.active ? 'Disable' : 'Enable'}
+            {rule.active ? t('rule.disable', 'Disable') : t('rule.enable', 'Enable')}
           </button>
         </div>
       </header>

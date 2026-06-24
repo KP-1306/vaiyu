@@ -1,0 +1,123 @@
+{
+  "seoTitle": "Local workforce",
+  "loading": "Loading Workforce…",
+  "loadingApplicants": "Loading applicants…",
+  "crumbDashboard": "Dashboard",
+  "crumbWorkforce": "Workforce",
+  "local": "Local",
+  "notAvail": {
+    "title": "Workforce not available",
+    "body": "We couldn’t find this property. Open it from the Owner Home screen and try again.",
+    "ownerHome": "Owner Home"
+  },
+  "errors": {
+    "missingSlug": "Missing property slug in the URL.",
+    "openProperty": "We couldn’t open this property. You might not have access yet or the property doesn’t exist.",
+    "loadRoles": "We couldn’t load roles yet. Check that the workforce_jobs table exists for this project.",
+    "loadApplicants": "We couldn’t load applicants yet. Check that the workforce_applications table exists.",
+    "saveRole": "We couldn’t save this role. Please try again or check Supabase logs.",
+    "updateStage": "We couldn’t update this applicant’s stage. Please try again."
+  },
+  "header": {
+    "title": "Local workforce",
+    "beta": "Beta",
+    "desc": "Create open roles for this property, see applicants in one place, and move them to shortlisted or hired in a single tap.",
+    "notEnabledPre": "Workforce is not fully enabled yet in this project. The UI is safe to explore; saving requires the",
+    "notEnabledMid": "and",
+    "notEnabledPost": "tables to exist.",
+    "propertyId": "Property ID:",
+    "openRoles_one": "{{count}} open role",
+    "openRoles_other": "{{count}} open roles",
+    "total": "{{count}} total",
+    "newRole": "+ New role"
+  },
+  "filter": {
+    "searchPlaceholder": "Search by role, department, city, status…",
+    "allStatuses": "All statuses",
+    "allDepartments": "All departments",
+    "allCities": "All cities"
+  },
+  "roles": {
+    "title": "Roles for this property",
+    "desc": "Every role here is scoped to this hotel only. No cross-property confusion.",
+    "emptyNoRoles": "No roles yet. Create your first role to start hiring locally.",
+    "emptyFiltered": "No roles match your filters. Try clearing the filters or search text.",
+    "colRole": "Role",
+    "colDept": "Dept",
+    "colCity": "City",
+    "colStatus": "Status",
+    "colPriority": "Priority",
+    "colApplicants": "Applicants",
+    "colOpened": "Opened",
+    "untitled": "Untitled role",
+    "shiftSuffix": "{{shift}} shift",
+    "shiftFlexible": "Shift flexible"
+  },
+  "detailEmpty": {
+    "title": "Select a role on the left",
+    "body": "You’ll see role details here along with every applicant. From here, the owner or HR can shortlist or mark someone as hired with a single tap.",
+    "noRoles": "Start by creating your first role. You can later manage applicants and shortlist in one tap."
+  },
+  "form": {
+    "createTitle": "New role",
+    "editTitle": "Edit role",
+    "desc": "Describe the role clearly. Applicants will see this in their guest app.",
+    "roleTitle": "Role title",
+    "roleTitlePlaceholder": "Front Office Associate, F&B Steward, Room Attendant…",
+    "department": "Department",
+    "departmentPlaceholder": "Front Desk, Housekeeping, F&B, Engineering…",
+    "cityLocality": "City / Locality",
+    "cityLocalityPlaceholder": "Use property city by default",
+    "status": "Status",
+    "priority": "Priority",
+    "shiftType": "Shift type",
+    "shiftTypePlaceholder": "Rotational, Morning, Night-only…",
+    "salaryBand": "Salary band (optional)",
+    "salaryBandPlaceholder": "e.g. ₹16k–₹20k per month",
+    "openings": "No. of openings",
+    "notes": "Notes for hiring team (internal)",
+    "notesPlaceholder": "What kind of profile works best? Any hard constraints or must-have qualities?",
+    "cancel": "Cancel",
+    "saving": "Saving…",
+    "create": "Create role",
+    "save": "Save changes"
+  },
+  "detail": {
+    "editRole": "Edit role",
+    "priorityPill": "{{label}} priority",
+    "openingsPill_one": "{{count}} opening",
+    "openingsPill_other": "{{count}} openings",
+    "salaryBand": "Salary band: {{band}}",
+    "applicantsTitle": "Applicants for this role",
+    "applicantsDesc": "Shortlist or move someone to hired in one tap.",
+    "noApplicants": "No applicants yet. Once candidates apply from the guest app or your share link, they’ll show here automatically."
+  },
+  "applicant": {
+    "unnamed": "Unnamed applicant",
+    "sourceDefault": "Source: Guest app",
+    "rating": "Rating {{rating}}/5",
+    "shortlist": "Shortlist",
+    "markHired": "Mark hired",
+    "reject": "Reject"
+  },
+  "footerTip": "Tip: In the next phase, workforce can plug directly into your “Invisible staff shortage” radar — so if rooms and tickets are suffering because of hiring gaps, you’ll see it here first.",
+  "status": {
+    "open": "Open",
+    "paused": "Paused",
+    "closed": "Closed",
+    "draft": "Draft"
+  },
+  "priority": {
+    "low": "Low",
+    "normal": "Normal",
+    "high": "High",
+    "urgent": "Urgent"
+  },
+  "stage": {
+    "new": "New",
+    "shortlisted": "Shortlisted",
+    "hired": "Hired",
+    "rejected": "Rejected",
+    "interview": "Interviewing"
+  }
+}

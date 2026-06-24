@@ -3,6 +3,8 @@
 // Pure validation for the convert-to-booking form. Mirrors server-side
 // _validate_walkin_args + adds the form-specific cross-field rules.
 
+import type { OwnerT } from '../../i18n/useOwnerT';
+
 export interface ConvertValidationErrors {
   guestName?: string;
   guestPhone?: string;
@@ -31,38 +33,42 @@ export interface ConvertInput {
   }>;
 }
 
-export function validateConvertInput(input: ConvertInput): ConvertValidationErrors {
+// Optional `t` keeps this pure helper unit-testable in English (called with no
+// `t` → English literal) while the modal passes `t` to localise (owner-leads ns).
+export function validateConvertInput(input: ConvertInput, t?: OwnerT): ConvertValidationErrors {
+  const tr = (key: string, en: string) => (t ? t(key, en) : en);
   const errors: ConvertValidationErrors = {};
 
   if (!input.guestName || input.guestName.trim() === '') {
-    errors.guestName = 'Guest name is required';
+    errors.guestName = tr('convert.validation.guestNameRequired', 'Guest name is required');
   }
 
   const hasPhone = !!input.guestPhone && input.guestPhone.trim() !== '';
   const hasEmail = !!input.guestEmail && input.guestEmail.trim() !== '';
   if (!hasPhone && !hasEmail) {
-    errors.guestPhone = 'Phone or email is required';
-    errors.guestEmail = 'Phone or email is required';
+    const phoneOrEmail = tr('convert.validation.phoneOrEmailRequired', 'Phone or email is required');
+    errors.guestPhone = phoneOrEmail;
+    errors.guestEmail = phoneOrEmail;
   }
 
-  if (!input.checkIn) errors.checkIn = 'Check-in date is required';
-  if (!input.checkOut) errors.checkOut = 'Check-out date is required';
+  if (!input.checkIn) errors.checkIn = tr('convert.validation.checkinRequired', 'Check-in date is required');
+  if (!input.checkOut) errors.checkOut = tr('convert.validation.checkoutRequired', 'Check-out date is required');
 
   if (input.checkIn && input.checkOut && input.checkOut <= input.checkIn) {
-    errors.checkOut = 'Check-out must be after check-in';
+    errors.checkOut = tr('convert.validation.checkoutAfterCheckin', 'Check-out must be after check-in');
   }
 
-  if (input.adults < 1) errors.adults = 'At least 1 adult required';
-  if (input.children < 0) errors.children = 'Cannot be negative';
+  if (input.adults < 1) errors.adults = tr('convert.validation.atLeastOneAdult', 'At least 1 adult required');
+  if (input.children < 0) errors.children = tr('convert.validation.cannotBeNegative', 'Cannot be negative');
 
   if (input.selectedRooms.length === 0) {
-    errors.rooms = 'Select at least one room';
+    errors.rooms = tr('convert.validation.selectOneRoom', 'Select at least one room');
   }
 
   const rateErrors: Record<string, string> = {};
   for (const room of input.selectedRooms) {
     if (!Number.isFinite(room.amount_per_night) || room.amount_per_night < 0) {
-      rateErrors[room.room_id] = 'Rate must be 0 or greater';
+      rateErrors[room.room_id] = tr('convert.validation.rateZeroOrGreater', 'Rate must be 0 or greater');
     }
   }
   if (Object.keys(rateErrors).length > 0) errors.rates = rateErrors;

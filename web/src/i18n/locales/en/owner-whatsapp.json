@@ -1,0 +1,44 @@
+{
+  "nav": {
+    "dashboard": "Dashboard"
+  },
+  "header": {
+    "title": "WhatsApp · {{name}}",
+    "threadCount_one": "{{count}} thread",
+    "threadCount_other": "{{count}} threads"
+  },
+  "state": {
+    "notFound": "Hotel not found.",
+    "noThreads": "No conversations yet. New guest messages land here as they arrive.",
+    "selectThread": "Select a conversation to view messages.",
+    "noMessages": "No messages yet."
+  },
+  "window": {
+    "open": "{{time}} window",
+    "closed": "window closed",
+    "openBanner": "Free-text available {{time}}",
+    "closedBanner": "Window closed — templates only"
+  },
+  "composer": {
+    "placeholderOpen": "Type a free-text reply…",
+    "placeholderClosed": "Window closed — free-text not allowed. Use a template via Owner Settings.",
+    "send": "Send",
+    "hint": "⌘+Enter to send. Max 4096 chars.",
+    "errorWindowClosed": "24h window closed. Free-text isn't allowed — use a template via Owner Settings or wait for the guest to reply first.",
+    "sendFailed": "Failed to send."
+  },
+  "msg": {
+    "bot": "bot",
+    "tpl": "tpl"
+  },
+  "relative": {
+    "now": "now",
+    "min": "{{n}}m",
+    "hour": "{{n}}h"
+  },
+  "time": {
+    "minutes": "{{n}}m",
+    "hourMinutes": "{{h}}h {{m}}m",
+    "zero": "0m"
+  }
+}

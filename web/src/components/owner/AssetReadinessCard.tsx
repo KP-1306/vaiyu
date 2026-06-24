@@ -11,6 +11,7 @@ import { Camera, ChevronRight, AlertTriangle } from 'lucide-react';
 import { DIGITAL_ASSET_MANAGER_V0_ENABLED, DAM_CATEGORY_LABELS } from '../../config/digitalAssetManager';
 import { listAssetStatus } from '../../services/digitalAssetService';
 import type { AssetStatusRow } from '../../types/digitalAssets';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   hotelId: string;
@@ -18,6 +19,8 @@ interface Props {
 }
 
 export function AssetReadinessCard({ hotelId, hotelSlug }: Props) {
+  const t = useOwnerT('owner-cards');
+  const cardsT = useOwnerT('owner-assets');
   const q = useQuery({
     queryKey: ['asset-status', hotelId],
     queryFn: () => listAssetStatus(hotelId),
@@ -50,7 +53,7 @@ export function AssetReadinessCard({ hotelId, hotelSlug }: Props) {
         <div className="flex items-center gap-2">
           <Camera className="h-4 w-4 text-fuchsia-300" aria-hidden />
           <h3 className="text-[11px] font-bold uppercase tracking-widest text-slate-300">
-            Asset Readiness
+            {t('assetReadiness.title', 'Asset Readiness')}
           </h3>
         </div>
         <Link
@@ -58,25 +61,25 @@ export function AssetReadinessCard({ hotelId, hotelSlug }: Props) {
           className="inline-flex items-center gap-0.5 text-[11px] text-fuchsia-300 hover:underline"
           data-testid="asset-readiness-card-open"
         >
-          Open <ChevronRight className="h-3 w-3" aria-hidden />
+          {t('common.open', 'Open')} <ChevronRight className="h-3 w-3" aria-hidden />
         </Link>
       </div>
 
-      {q.isLoading && <div className="text-[12px] text-slate-500">Loading…</div>}
+      {q.isLoading && <div className="text-[12px] text-slate-500">{t('common.loading', 'Loading…')}</div>}
 
       {!q.isLoading && total > 0 && (
         <>
           <div className="grid grid-cols-4 gap-2">
-            <Stat label="Ready"   value={`${ready}/${total}`} tone="emerald" />
-            <Stat label="Pct"     value={`${pct}%`}            tone="fuchsia" />
-            <Stat label="Missing" value={missing}              tone={missing > 0 ? 'amber' : 'neutral'} />
-            <Stat label="Replace" value={rejected}             tone={rejected > 0 ? 'red' : 'neutral'} icon={rejected > 0 ? AlertTriangle : undefined} />
+            <Stat label={t('assetReadiness.ready', 'Ready')}   value={`${ready}/${total}`} tone="emerald" />
+            <Stat label={t('assetReadiness.pct', 'Pct')}     value={`${pct}%`}            tone="fuchsia" />
+            <Stat label={t('assetReadiness.missing', 'Missing')} value={missing}              tone={missing > 0 ? 'amber' : 'neutral'} />
+            <Stat label={t('assetReadiness.replace', 'Replace')} value={rejected}             tone={rejected > 0 ? 'red' : 'neutral'} icon={rejected > 0 ? AlertTriangle : undefined} />
           </div>
 
           {top3.length > 0 && (
             <div className="mt-3 border-t border-slate-800 pt-3">
               <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                Top missing
+                {t('assetReadiness.topMissing', 'Top missing')}
               </div>
               <ul className="space-y-1.5">
                 {top3.map((r) => (
@@ -87,7 +90,7 @@ export function AssetReadinessCard({ hotelId, hotelSlug }: Props) {
                         {r.display_name_en}
                       </div>
                       <div className="truncate text-[10.5px] text-slate-500">
-                        {DAM_CATEGORY_LABELS[r.category]} · {r.priority}
+                        {cardsT(`category.${r.category}`, DAM_CATEGORY_LABELS[r.category])} · {cardsT(`priority.${r.priority}`, r.priority)}
                       </div>
                     </div>
                   </li>
@@ -98,7 +101,7 @@ export function AssetReadinessCard({ hotelId, hotelSlug }: Props) {
 
           {top3.length === 0 && (
             <div className="mt-3 border-t border-slate-800 pt-3 text-[12px] text-emerald-300/80">
-              All requirements collected. The VAiyu team will review uploaded assets.
+              {t('assetReadiness.allCollected', 'All requirements collected. The VAiyu team will review uploaded assets.')}
             </div>
           )}
         </>
@@ -109,7 +112,7 @@ export function AssetReadinessCard({ hotelId, hotelSlug }: Props) {
           to={`/owner/${hotelSlug}/assets`}
           className="inline-flex items-center gap-1 rounded-md border border-fuchsia-500/40 bg-fuchsia-500/10 px-2.5 py-1 text-[11px] font-medium text-fuchsia-200 hover:bg-fuchsia-500/20"
         >
-          Set up your asset library
+          {t('assetReadiness.emptyCta', 'Set up your asset library')}
         </Link>
       )}
     </div>

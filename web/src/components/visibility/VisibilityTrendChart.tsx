@@ -7,6 +7,7 @@
 import { useMemo } from 'react';
 import { VISIBILITY_BAND_TONE } from '../../config/visibilityScore';
 import type { VisibilityScoreSnapshot } from '../../types/visibilityScore';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   snapshots: VisibilityScoreSnapshot[]; // newest-first from history RPC
@@ -21,6 +22,7 @@ const STROKE: Record<string, string> = {
 };
 
 export function VisibilityTrendChart({ snapshots }: Props) {
+  const t = useOwnerT('owner-visibility');
   const ordered = useMemo(() => [...snapshots].reverse(), [snapshots]); // oldest → newest
   const width = 360;
   const height = 80;
@@ -30,12 +32,12 @@ export function VisibilityTrendChart({ snapshots }: Props) {
     return (
       <div className="rounded-2xl border border-slate-800 bg-[#0F1320] p-4">
         <h3 className="text-[11px] font-bold uppercase tracking-widest text-slate-300">
-          Score history
+          {t('trendChart.title', 'Score history')}
         </h3>
         <p className="mt-2 text-[12px] text-slate-500">
           {ordered.length === 0
-            ? 'No snapshots yet. The weekly cron writes the first one on Sunday 03:00 IST — or use the Refresh button to take one now.'
-            : 'First snapshot taken — a second snapshot is needed to draw the trend line.'}
+            ? t('trendChart.noSnapshots', 'No snapshots yet. The weekly cron writes the first one on Sunday 03:00 IST — or use the Refresh button to take one now.')
+            : t('trendChart.oneSnapshot', 'First snapshot taken — a second snapshot is needed to draw the trend line.')}
         </p>
       </div>
     );
@@ -55,10 +57,10 @@ export function VisibilityTrendChart({ snapshots }: Props) {
     <div className="rounded-2xl border border-slate-800 bg-[#0F1320] p-4">
       <div className="flex items-center justify-between">
         <h3 className="text-[11px] font-bold uppercase tracking-widest text-slate-300">
-          Score history
+          {t('trendChart.title', 'Score history')}
         </h3>
         <span className="text-[10px] text-slate-500">
-          {ordered.length} snapshot{ordered.length === 1 ? '' : 's'}
+          {t('trendChart.snapshot', '{{count}} snapshot', { count: ordered.length })}
         </span>
       </div>
       <div className="mt-3">
@@ -102,7 +104,7 @@ export function VisibilityTrendChart({ snapshots }: Props) {
         </svg>
       </div>
       <p className="mt-2 text-[10px] text-slate-500">
-        Score formula v{ordered[ordered.length - 1]?.formula_version ?? 1}
+        {t('trendChart.formulaVersion', 'Score formula v{{version}}', { version: ordered[ordered.length - 1]?.formula_version ?? 1 })}
       </p>
     </div>
   );

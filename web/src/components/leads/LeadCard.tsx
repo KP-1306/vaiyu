@@ -18,34 +18,35 @@ import type { Lead } from '../../types/lead';
 import { LeadStatusPill } from './LeadStatusPill';
 import { LeadSourceIcon } from './LeadSourceIcon';
 import { isOptimisticLead, type OptimisticLead } from './LeadQuickAddModal.optimistic';
+import { useOwnerT, type OwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   lead: Lead | OptimisticLead;
   onClick?: (lead: Lead) => void;
 }
 
-function formatRelative(iso: string): string {
+function formatRelative(iso: string, t: OwnerT): string {
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return '';
   const diffMs = Date.now() - then;
   const diffMin = Math.round(diffMs / 60000);
-  if (diffMin < 1) return 'just now';
-  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffMin < 1) return t('rel.justNow', 'just now');
+  if (diffMin < 60) return t('rel.mAgo', '{{m}}m ago', { m: diffMin });
   const diffHr = Math.round(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
+  if (diffHr < 24) return t('rel.hAgo', '{{h}}h ago', { h: diffHr });
   const diffDay = Math.round(diffHr / 24);
-  if (diffDay < 30) return `${diffDay}d ago`;
+  if (diffDay < 30) return t('rel.dAgo', '{{d}}d ago', { d: diffDay });
   const diffMo = Math.round(diffDay / 30);
-  return `${diffMo}mo ago`;
+  return t('rel.moAgo', '{{mo}}mo ago', { mo: diffMo });
 }
 
-function formatNights(checkIn: string | null, checkOut: string | null): string | null {
+function formatNights(checkIn: string | null, checkOut: string | null, t: OwnerT): string | null {
   if (!checkIn || !checkOut) return null;
   const a = new Date(checkIn).getTime();
   const b = new Date(checkOut).getTime();
   if (Number.isNaN(a) || Number.isNaN(b) || b <= a) return null;
   const nights = Math.round((b - a) / (1000 * 60 * 60 * 24));
-  return `${nights}N`;
+  return t('card.nights', '{{n}}N', { n: nights });
 }
 
 function formatINR(n: number | null): string | null {
@@ -58,19 +59,21 @@ function formatINR(n: number | null): string | null {
 }
 
 export function LeadCard({ lead, onClick }: Props) {
+  const t = useOwnerT('owner-leads');
   const optimistic = isOptimisticLead(lead);
 
   const subtitle = useMemo(() => {
     const parts: string[] = [];
-    const nights = formatNights(lead.requested_check_in, lead.requested_check_out);
+    const nights = formatNights(lead.requested_check_in, lead.requested_check_out, t);
     if (nights) parts.push(nights);
     if (lead.party_adults || lead.party_children) {
       parts.push(`${lead.party_adults}A${lead.party_children ? ` ${lead.party_children}C` : ''}`);
     }
-    if (lead.room_count > 1) parts.push(`${lead.room_count} rooms`);
+    if (lead.room_count > 1) parts.push(t('card.rooms', '{{count}} rooms', { count: lead.room_count }));
     const value = formatINR(lead.value_estimate);
     if (value) parts.push(value);
     return parts.join(' · '); // " · "
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lead]);
 
   const clickable = !!onClick && !optimistic;
@@ -98,7 +101,7 @@ export function LeadCard({ lead, onClick }: Props) {
       {optimistic && (
         <div className="absolute right-3 top-3 inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-amber-300">
           <Loader2 className="h-3 w-3 animate-spin" />
-          Saving&hellip;
+          {t('card.saving', 'Saving…')}
         </div>
       )}
 
@@ -128,7 +131,7 @@ export function LeadCard({ lead, onClick }: Props) {
           <LeadStatusPill status={lead.status} size="sm" />
           <div className="inline-flex items-center gap-1 text-[10px] text-white/40">
             <Clock className="h-3 w-3" aria-hidden="true" />
-            {formatRelative(lead.last_activity_at)}
+            {formatRelative(lead.last_activity_at, t)}
           </div>
         </div>
       </div>

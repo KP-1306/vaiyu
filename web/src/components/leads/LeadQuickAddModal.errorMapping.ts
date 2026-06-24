@@ -6,23 +6,30 @@
 
 import type { LeadServiceError } from '../../services/leadService';
 import type { ValidationErrors } from './LeadQuickAddModal.validation';
+import type { OwnerT } from '../../i18n/useOwnerT';
 
-export function humanizeError(err: LeadServiceError): string {
+// Optional `t` keeps these pure helpers unit-testable in English (called with no
+// `t` → English literal) while components pass `t` to localise (owner-leads ns).
+export function humanizeError(err: LeadServiceError, t?: OwnerT): string {
+  const tr = (key: string, en: string) => (t ? t(key, en) : en);
   switch (err.code) {
     case 'NOT_AUTHORIZED':
-      return 'You do not have permission to create leads here.';
+      return tr('errors.notAuthorized', 'You do not have permission to create leads here.');
     case 'INVALID_CONTACT':
-      return 'Please provide either a phone number or email.';
+      return tr('errors.invalidContact', 'Please provide either a phone number or email.');
     case 'INVALID_NAME':
-      return 'Contact name is required.';
+      return tr('errors.invalidName', 'Contact name is required.');
     case 'INVALID_DATES':
-      return 'Check-out date must be after check-in date.';
+      return tr('errors.invalidDates', 'Check-out date must be after check-in date.');
     case 'INVALID_PARTY':
-      return 'Party details look wrong: adults / children cannot be negative and rooms must be at least 1.';
+      return tr(
+        'errors.invalidParty',
+        'Party details look wrong: adults / children cannot be negative and rooms must be at least 1.',
+      );
     case 'SESSION_EXPIRED':
-      return 'Your session has expired. Please sign in again.';
+      return tr('errors.sessionExpired', 'Your session has expired. Please sign in again.');
     case 'UNKNOWN_ERROR':
-      return err.message || 'Something went wrong. Please try again.';
+      return err.message || tr('errors.generic', 'Something went wrong. Please try again.');
     default:
       return err.message || `Error: ${err.code}`;
   }
@@ -32,22 +39,24 @@ export function humanizeError(err: LeadServiceError): string {
  * Map a server error back to which form field(s) should highlight in red.
  * Returns empty object for codes that don't correspond to a specific field.
  */
-export function extractFieldErrors(err: LeadServiceError): ValidationErrors {
+export function extractFieldErrors(err: LeadServiceError, t?: OwnerT): ValidationErrors {
+  const tr = (key: string, en: string) => (t ? t(key, en) : en);
+  const phoneOrEmail = tr('validation.phoneOrEmailRequired', 'Phone or email is required');
   switch (err.code) {
     case 'INVALID_CONTACT':
       return {
-        contactPhone: 'Phone or email is required',
-        contactEmail: 'Phone or email is required',
+        contactPhone: phoneOrEmail,
+        contactEmail: phoneOrEmail,
       };
     case 'INVALID_NAME':
-      return { contactName: 'Name is required' };
+      return { contactName: tr('validation.nameRequired', 'Name is required') };
     case 'INVALID_DATES':
-      return { checkOut: 'Check-out must be after check-in' };
+      return { checkOut: tr('validation.checkoutAfterCheckin', 'Check-out must be after check-in') };
     case 'INVALID_PARTY':
       return {
-        partyAdults: 'Cannot be negative',
-        partyChildren: 'Cannot be negative',
-        roomCount: 'At least 1 room required',
+        partyAdults: tr('validation.cannotBeNegative', 'Cannot be negative'),
+        partyChildren: tr('validation.cannotBeNegative', 'Cannot be negative'),
+        roomCount: tr('validation.atLeastOneRoom', 'At least 1 room required'),
       };
     default:
       return {};

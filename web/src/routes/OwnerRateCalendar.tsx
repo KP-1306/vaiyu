@@ -38,6 +38,7 @@ import {
   DarkField,
   darkInputCls,
 } from "../components/owner/DarkShell";
+import { useOwnerT, useOwnerCommonT, useOwnerLocale } from "../i18n/useOwnerT";
 
 type Hotel = { id: string; slug: string; name: string };
 type RoomType = { id: string; name: string };
@@ -105,6 +106,9 @@ function resolveCellPrice(
 // ─── Component ─────────────────────────────────────────────
 
 export default function OwnerRateCalendar() {
+  const t = useOwnerT("owner-rate-calendar");
+  const tc = useOwnerCommonT();
+  const ownerLocale = useOwnerLocale();
   const { slug } = useParams<{ slug: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -167,7 +171,7 @@ export default function OwnerRateCalendar() {
         .eq("slug", slug)
         .maybeSingle();
       if (hErr || !hotelRow) {
-        setError(hErr?.message ?? "Hotel not found.");
+        setError(hErr?.message ?? t("hotelNotFound", "Hotel not found."));
         return;
       }
       setHotel(hotelRow as Hotel);
@@ -199,11 +203,11 @@ export default function OwnerRateCalendar() {
       setPrices(pp);
       setRestrictions(rr);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to load.");
+      setError(e instanceof Error ? e.message : t("loadFailed", "Failed to load."));
     } finally {
       setLoading(false);
     }
-  }, [slug, searchParams, todayYmd]);
+  }, [slug, searchParams, todayYmd, t]);
 
   useEffect(() => {
     load();
@@ -223,12 +227,12 @@ export default function OwnerRateCalendar() {
         setPrices(pp);
         setRestrictions(rr);
       } catch (e: unknown) {
-        setError(e instanceof Error ? e.message : "Failed to reload.");
+        setError(e instanceof Error ? e.message : t("reloadFailed", "Failed to reload."));
       } finally {
         setReloading(false);
       }
     },
-    [hotel, anchorYmd],
+    [hotel, anchorYmd, t],
   );
 
   function handlePlanChange(nextId: string) {
@@ -328,12 +332,12 @@ export default function OwnerRateCalendar() {
     const priceTouched = cellPriceInput.trim() !== "";
     const price = priceTouched ? Number(cellPriceInput) : null;
     if (priceTouched && (!(price! >= 0) || Number.isNaN(price))) {
-      setCellError("Price must be 0 or greater.");
+      setCellError(t("vPrice", "Price must be 0 or greater."));
       return;
     }
     const minLosParsed = cellMinLos.trim() === "" ? null : Number(cellMinLos);
     if (minLosParsed != null && (!(minLosParsed >= 1) || Number.isNaN(minLosParsed))) {
-      setCellError("Min LOS must be 1 or greater.");
+      setCellError(t("vMinLos", "Min LOS must be 1 or greater."));
       return;
     }
 
@@ -399,7 +403,7 @@ export default function OwnerRateCalendar() {
       closeCellEditor();
       await reloadPrices(selectedPlanId);
     } catch (e: unknown) {
-      setCellError(e instanceof Error ? e.message : "Save failed.");
+      setCellError(e instanceof Error ? e.message : t("saveFailed", "Save failed."));
     } finally {
       setCellSaving(false);
     }
@@ -414,7 +418,7 @@ export default function OwnerRateCalendar() {
       closeCellEditor();
       await reloadPrices(selectedPlanId);
     } catch (e: unknown) {
-      setCellError(e instanceof Error ? e.message : "Delete failed.");
+      setCellError(e instanceof Error ? e.message : t("deleteFailed", "Delete failed."));
     } finally {
       setCellSaving(false);
     }
@@ -436,19 +440,19 @@ export default function OwnerRateCalendar() {
     if (!hotel || !selectedPlanId) return;
     const price = Number(bulkPrice);
     if (!(price >= 0) || Number.isNaN(price)) {
-      setBulkError("Price must be 0 or greater.");
+      setBulkError(t("vPrice", "Price must be 0 or greater."));
       return;
     }
     if (bulkRoomTypes.size === 0) {
-      setBulkError("Pick at least one room type.");
+      setBulkError(t("vRoomTypes", "Pick at least one room type."));
       return;
     }
     if (bulkFrom > bulkTo) {
-      setBulkError("End date must be on or after start.");
+      setBulkError(t("vEndDate", "End date must be on or after start."));
       return;
     }
     if (bulkDowMask < 1) {
-      setBulkError("Pick at least one day of the week.");
+      setBulkError(t("vDow", "Pick at least one day of the week."));
       return;
     }
     setBulkSaving(true);
@@ -471,15 +475,15 @@ export default function OwnerRateCalendar() {
       setShowBulk(false);
       await reloadPrices(selectedPlanId);
     } catch (e: unknown) {
-      setBulkError(e instanceof Error ? e.message : "Bulk save failed.");
+      setBulkError(e instanceof Error ? e.message : t("bulkSaveFailed", "Bulk save failed."));
     } finally {
       setBulkSaving(false);
     }
   }
 
   // ─── Render ──────────────────────────────────────────────
-  if (loading) return <DarkLoading message="Loading calendar…" />;
-  if (error || !hotel) return <DarkErrorPanel message={error ?? "Hotel not found."} />;
+  if (loading) return <DarkLoading message={t("loading", "Loading calendar…")} />;
+  if (error || !hotel) return <DarkErrorPanel message={error ?? t("hotelNotFound", "Hotel not found.")} />;
 
   const base = `/owner/${slug}`;
   const selectedPlan = plans.find((p) => p.id === selectedPlanId) ?? null;
@@ -487,18 +491,18 @@ export default function OwnerRateCalendar() {
   return (
     <OwnerDarkPage
       icon={CalendarDays}
-      title="Rate"
-      titleAccent="Calendar"
+      title={t("title", "Rate")}
+      titleAccent={t("titleAccent", "Calendar")}
       accent="indigo"
       subtitle={
         selectedPlan
-          ? `${selectedPlan.name} · ${roomTypes.length} room types × ${WINDOW_DAYS} days`
-          : `${roomTypes.length} room types × ${WINDOW_DAYS} days`
+          ? t("subtitlePlan", "{{plan}} · {{rooms}} room types × {{days}} days", { plan: selectedPlan.name, rooms: roomTypes.length, days: WINDOW_DAYS })
+          : t("subtitle", "{{rooms}} room types × {{days}} days", { rooms: roomTypes.length, days: WINDOW_DAYS })
       }
       breadcrumbs={[
-        { label: "Dashboard", to: base },
-        { label: "Pricing", to: `${base}/pricing` },
-        { label: "Rate Calendar" },
+        { label: tc("nav.dashboard", "Dashboard"), to: base },
+        { label: t("crumbPricing", "Pricing"), to: `${base}/pricing` },
+        { label: t("crumbRateCalendar", "Rate Calendar") },
       ]}
       actions={
         <div className="flex items-center gap-2">
@@ -509,12 +513,12 @@ export default function OwnerRateCalendar() {
             disabled={plans.length === 0}
           >
             {plans.length === 0 ? (
-              <option value="">— No rate plans —</option>
+              <option value="">{t("noRatePlansOption", "— No rate plans —")}</option>
             ) : (
               plans.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
-                  {p.is_default ? " (default)" : ""}
+                  {p.is_default ? t("defaultSuffix", " (default)") : ""}
                 </option>
               ))
             )}
@@ -524,7 +528,7 @@ export default function OwnerRateCalendar() {
             disabled={!selectedPlanId || roomTypes.length === 0}
             className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 px-4 py-2 text-sm font-bold text-white transition shadow-lg shadow-indigo-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <Pencil className="w-4 h-4" /> Bulk Edit
+            <Pencil className="w-4 h-4" /> {t("bulkEdit", "Bulk Edit")}
           </button>
         </div>
       }
@@ -533,23 +537,23 @@ export default function OwnerRateCalendar() {
       {plans.length === 0 ? (
         <DarkCard className="text-center py-12 border-dashed border-2">
           <CalendarDays className="w-10 h-10 text-slate-600 mx-auto mb-3" />
-          <p className="font-bold text-slate-200">No rate plans yet</p>
+          <p className="font-bold text-slate-200">{t("emptyNoPlans", "No rate plans yet")}</p>
           <p className="text-sm text-slate-500 mt-1 mb-4">
-            Create a rate plan first, then set prices on the calendar.
+            {t("emptyNoPlansBody", "Create a rate plan first, then set prices on the calendar.")}
           </p>
           <Link
             to={`${base}/pricing/plans`}
             className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 px-4 py-2 text-sm font-bold text-white transition shadow-lg shadow-indigo-500/20"
           >
-            Create Rate Plan <ArrowRight className="w-4 h-4" />
+            {t("createRatePlan", "Create Rate Plan")} <ArrowRight className="w-4 h-4" />
           </Link>
         </DarkCard>
       ) : roomTypes.length === 0 ? (
         <DarkCard className="text-center py-12 border-dashed border-2">
           <CalendarDays className="w-10 h-10 text-slate-600 mx-auto mb-3" />
-          <p className="font-bold text-slate-200">No room types configured</p>
+          <p className="font-bold text-slate-200">{t("emptyNoRoomTypes", "No room types configured")}</p>
           <p className="text-sm text-slate-500 mt-1">
-            Add room types during hotel setup before pricing.
+            {t("emptyNoRoomTypesBody", "Add room types during hotel setup before pricing.")}
           </p>
         </DarkCard>
       ) : (
@@ -560,7 +564,7 @@ export default function OwnerRateCalendar() {
               <button
                 onClick={() => shiftAnchor(-WINDOW_DAYS)}
                 className="rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 p-2 transition"
-                aria-label="Previous window"
+                aria-label={t("prevWindow", "Previous window")}
               >
                 <ArrowLeft className="w-4 h-4 text-slate-300" />
               </button>
@@ -578,7 +582,7 @@ export default function OwnerRateCalendar() {
               <button
                 onClick={() => shiftAnchor(WINDOW_DAYS)}
                 className="rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 p-2 transition"
-                aria-label="Next window"
+                aria-label={t("nextWindow", "Next window")}
               >
                 <ArrowRight className="w-4 h-4 text-slate-300" />
               </button>
@@ -591,12 +595,12 @@ export default function OwnerRateCalendar() {
                 }}
                 className="ml-1 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 px-3 py-2 text-xs font-semibold text-slate-300 transition"
               >
-                Today
+                {t("today", "Today")}
               </button>
             </div>
             {reloading && (
               <span className="text-xs text-slate-500 animate-pulse">
-                Refreshing…
+                {t("refreshing", "Refreshing…")}
               </span>
             )}
           </div>
@@ -608,7 +612,7 @@ export default function OwnerRateCalendar() {
                 <thead>
                   <tr>
                     <th className="sticky left-0 z-20 bg-[#1a1c1e] border-b border-r border-white/[0.06] text-left px-3 py-2 min-w-[160px] text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                      Room Type
+                      {t("colRoomType", "Room Type")}
                     </th>
                     {visibleDates.map((d) => {
                       const ymd = fmtYmd(d);
@@ -628,11 +632,11 @@ export default function OwnerRateCalendar() {
                           }
                         >
                           <div className="text-[10px] uppercase">
-                            {d.toLocaleDateString(undefined, { weekday: "short" })}
+                            {d.toLocaleDateString(ownerLocale, { weekday: "short" })}
                           </div>
                           <div className="text-sm font-black">{d.getDate()}</div>
                           <div className="text-[9px] text-slate-500 uppercase">
-                            {d.toLocaleDateString(undefined, { month: "short" })}
+                            {d.toLocaleDateString(ownerLocale, { month: "short" })}
                           </div>
                         </th>
                       );
@@ -707,23 +711,23 @@ export default function OwnerRateCalendar() {
                               <div className="absolute top-1 right-1 flex gap-0.5">
                                 {isOverride && (
                                   <span
-                                    title="One-day override"
+                                    title={t("badgeOverride", "One-day override")}
                                     className="w-1.5 h-1.5 rounded-full bg-amber-400"
                                   />
                                 )}
                                 {hasStopSell && (
-                                  <span title="Stop-sell" className="text-rose-400">
+                                  <span title={t("badgeStopSell", "Stop-sell")} className="text-rose-400">
                                     <Ban className="w-3 h-3" />
                                   </span>
                                 )}
                                 {!hasStopSell && hasCta && (
-                                  <span title="Closed to arrival" className="text-amber-400">
+                                  <span title={t("badgeCta", "Closed to arrival")} className="text-amber-400">
                                     <ShieldAlert className="w-3 h-3" />
                                   </span>
                                 )}
                                 {!hasStopSell && hasMinLos && (
                                   <span
-                                    title={`Min ${restriction!.min_los} nights`}
+                                    title={t("badgeMinNights", "Min {{n}} nights", { n: restriction!.min_los })}
                                     className="text-sky-400 text-[9px] font-black leading-none"
                                   >
                                     {restriction!.min_los}N
@@ -741,19 +745,19 @@ export default function OwnerRateCalendar() {
             </div>
             <div className="flex flex-wrap items-center gap-4 px-4 py-2 border-t border-white/[0.05] bg-[#1a1c1e] text-[10px] font-semibold uppercase tracking-widest text-slate-500">
               <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-amber-400" /> Override
+                <span className="w-2 h-2 rounded-full bg-amber-400" /> {t("legendOverride", "Override")}
               </span>
               <span className="flex items-center gap-1.5 text-rose-400">
-                <Ban className="w-3 h-3" /> Stop-sell
+                <Ban className="w-3 h-3" /> {t("badgeStopSell", "Stop-sell")}
               </span>
               <span className="flex items-center gap-1.5 text-amber-400">
-                <ShieldAlert className="w-3 h-3" /> Closed to arrival
+                <ShieldAlert className="w-3 h-3" /> {t("badgeCta", "Closed to arrival")}
               </span>
               <span className="flex items-center gap-1.5 text-sky-400">
-                <span className="text-[10px] font-black">2N</span> Min stay
+                <span className="text-[10px] font-black">2N</span> {t("legendMinStay", "Min stay")}
               </span>
               <span className="text-slate-600 normal-case">
-                Click any cell to edit price & restrictions.
+                {t("legendHint", "Click any cell to edit price & restrictions.")}
               </span>
             </div>
           </DarkCard>
@@ -764,7 +768,7 @@ export default function OwnerRateCalendar() {
       {editingCell && (
         <DarkModal
           title={`${
-            roomTypes.find((r) => r.id === editingCell.roomTypeId)?.name ?? "Room"
+            roomTypes.find((r) => r.id === editingCell.roomTypeId)?.name ?? t("roomFallback", "Room")
           } · ${editingCell.date}`}
           onClose={closeCellEditor}
         >
@@ -772,9 +776,9 @@ export default function OwnerRateCalendar() {
             {/* Price section */}
             <div className="space-y-2">
               <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Price
+                {t("priceSection", "Price")}
               </div>
-              <DarkField label="Price (₹ per night)" hint="Leave blank to keep current">
+              <DarkField label={t("fieldPrice", "Price (₹ per night)")} hint={t("hintPriceKeep", "Leave blank to keep current")}>
                 <input
                   autoFocus
                   type="number"
@@ -791,17 +795,18 @@ export default function OwnerRateCalendar() {
               </DarkField>
               {editingCell.existing ? (
                 <p className="text-xs text-slate-500">
-                  Current row: {editingCell.existing.valid_from ?? "∞"} →{" "}
-                  {editingCell.existing.valid_to ?? "∞"} · priority{" "}
-                  {editingCell.existing.priority}
+                  {t("currentRow", "Current row: {{from}} → {{to}} · priority {{priority}}", {
+                    from: editingCell.existing.valid_from ?? "∞",
+                    to: editingCell.existing.valid_to ?? "∞",
+                    priority: editingCell.existing.priority,
+                  })}
                   {editingCell.existing.notes
                     ? ` · ${editingCell.existing.notes}`
                     : ""}
                 </p>
               ) : (
                 <p className="text-xs text-slate-500">
-                  A new price will be saved as a one-day override at priority{" "}
-                  {PRIORITY_OVERRIDE}.
+                  {t("newOverrideNote", "A new price will be saved as a one-day override at priority {{priority}}.", { priority: PRIORITY_OVERRIDE })}
                 </p>
               )}
             </div>
@@ -810,12 +815,12 @@ export default function OwnerRateCalendar() {
             <div className="space-y-3 pt-4 border-t border-white/[0.06]">
               <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
                 <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
-                Restrictions
+                {t("restrictionsSection", "Restrictions")}
               </div>
 
               <DarkField
-                label="Minimum stay (nights)"
-                hint="Guests checking in this day must stay at least this many nights"
+                label={t("fieldMinStay", "Minimum stay (nights)")}
+                hint={t("hintMinStay", "Guests checking in this day must stay at least this many nights")}
               >
                 <input
                   type="number"
@@ -823,7 +828,7 @@ export default function OwnerRateCalendar() {
                   value={cellMinLos}
                   onChange={(e) => setCellMinLos(e.target.value)}
                   className={darkInputCls}
-                  placeholder="e.g. 2"
+                  placeholder={t("minStayPlaceholder", "e.g. 2")}
                 />
               </DarkField>
 
@@ -846,12 +851,11 @@ export default function OwnerRateCalendar() {
                     <div className="flex items-center gap-2">
                       <Ban className="w-3.5 h-3.5 text-rose-400" />
                       <span className="font-semibold text-sm text-slate-100">
-                        Stop-sell
+                        {t("badgeStopSell", "Stop-sell")}
                       </span>
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Hide this room type from walk-in availability on this date
-                      (renovation, group blocks, overbooking cap).
+                      {t("stopSellDesc", "Hide this room type from walk-in availability on this date (renovation, group blocks, overbooking cap).")}
                     </p>
                   </div>
                 </label>
@@ -874,11 +878,11 @@ export default function OwnerRateCalendar() {
                     <div className="flex items-center gap-2">
                       <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
                       <span className="font-semibold text-sm text-slate-100">
-                        Closed to arrival
+                        {t("badgeCta", "Closed to arrival")}
                       </span>
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Can't check-in on this date. Mid-stay guests are fine.
+                      {t("ctaDesc", "Can't check-in on this date. Mid-stay guests are fine.")}
                     </p>
                   </div>
                 </label>
@@ -901,12 +905,11 @@ export default function OwnerRateCalendar() {
                     <div className="flex items-center gap-2">
                       <Clock className="w-3.5 h-3.5 text-amber-400" />
                       <span className="font-semibold text-sm text-slate-100">
-                        Closed to departure
+                        {t("ctdTitle", "Closed to departure")}
                       </span>
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Guests can't check-out on this date — force an extra
-                      night.
+                      {t("ctdDesc", "Guests can't check-out on this date — force an extra night.")}
                     </p>
                   </div>
                 </label>
@@ -926,7 +929,7 @@ export default function OwnerRateCalendar() {
                     disabled={cellSaving}
                     className="inline-flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 px-3 py-2 text-sm font-semibold text-rose-300 transition disabled:opacity-40"
                   >
-                    <Trash2 className="w-4 h-4" /> Remove override
+                    <Trash2 className="w-4 h-4" /> {t("removeOverride", "Remove override")}
                   </button>
                 )}
             </div>
@@ -935,7 +938,7 @@ export default function OwnerRateCalendar() {
                 onClick={closeCellEditor}
                 className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-4 py-2 text-sm font-semibold text-slate-200 transition"
               >
-                Cancel
+                {tc("actions.cancel", "Cancel")}
               </button>
               <button
                 onClick={saveCellPrice}
@@ -943,7 +946,7 @@ export default function OwnerRateCalendar() {
                 className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 px-5 py-2 text-sm font-bold text-white transition disabled:opacity-60 shadow-lg shadow-indigo-500/20"
               >
                 <Save className="w-4 h-4" />
-                {cellSaving ? "Saving…" : "Save"}
+                {cellSaving ? tc("actions.saving", "Saving…") : tc("actions.save", "Save")}
               </button>
             </div>
           </div>
@@ -952,10 +955,10 @@ export default function OwnerRateCalendar() {
 
       {/* ─── Bulk edit modal ────────────────────────────────── */}
       {showBulk && (
-        <DarkModal title="Bulk edit prices" onClose={() => setShowBulk(false)}>
+        <DarkModal title={t("bulkTitle", "Bulk edit prices")} onClose={() => setShowBulk(false)}>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
-              <DarkField label="From">
+              <DarkField label={t("bulkFrom", "From")}>
                 <input
                   type="date"
                   value={bulkFrom}
@@ -963,7 +966,7 @@ export default function OwnerRateCalendar() {
                   className={darkInputCls}
                 />
               </DarkField>
-              <DarkField label="To">
+              <DarkField label={t("bulkTo", "To")}>
                 <input
                   type="date"
                   value={bulkTo}
@@ -974,8 +977,8 @@ export default function OwnerRateCalendar() {
             </div>
 
             <DarkField
-              label="Room Types"
-              hint={`${bulkRoomTypes.size} of ${roomTypes.length} selected`}
+              label={t("bulkRoomTypes", "Room Types")}
+              hint={t("bulkSelected", "{{sel}} of {{total}} selected", { sel: bulkRoomTypes.size, total: roomTypes.length })}
             >
               <div className="flex flex-wrap gap-2 mb-2">
                 <button
@@ -983,7 +986,7 @@ export default function OwnerRateCalendar() {
                   onClick={() => setBulkRoomTypes(new Set(roomTypes.map((r) => r.id)))}
                   className="text-[11px] text-slate-500 hover:text-indigo-300 font-semibold uppercase tracking-wider"
                 >
-                  All
+                  {t("quickAll", "All")}
                 </button>
                 <span className="text-slate-700">·</span>
                 <button
@@ -991,7 +994,7 @@ export default function OwnerRateCalendar() {
                   onClick={() => setBulkRoomTypes(new Set())}
                   className="text-[11px] text-slate-500 hover:text-indigo-300 font-semibold uppercase tracking-wider"
                 >
-                  None
+                  {t("quickNone", "None")}
                 </button>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -1021,7 +1024,7 @@ export default function OwnerRateCalendar() {
               </div>
             </DarkField>
 
-            <DarkField label="Days of Week">
+            <DarkField label={t("fieldDaysOfWeek", "Days of Week")}>
               <div className="space-y-2">
                 <div className="flex flex-wrap gap-2">
                   {DOW_LABELS.map(({ bit, short }) => {
@@ -1042,7 +1045,7 @@ export default function OwnerRateCalendar() {
                             : "border-white/10 bg-white/[0.02] text-slate-400 hover:text-slate-200")
                         }
                       >
-                        {short}
+                        {t(`dow.${short}`, short)}
                       </button>
                     );
                   })}
@@ -1053,7 +1056,7 @@ export default function OwnerRateCalendar() {
                     onClick={() => setBulkDowMask(DOW_ALL_DAYS)}
                     className="text-slate-500 hover:text-indigo-300 font-semibold uppercase tracking-wider"
                   >
-                    All
+                    {t("quickAll", "All")}
                   </button>
                   <span className="text-slate-700">·</span>
                   <button
@@ -1061,7 +1064,7 @@ export default function OwnerRateCalendar() {
                     onClick={() => setBulkDowMask(DOW_WEEKDAYS)}
                     className="text-slate-500 hover:text-indigo-300 font-semibold uppercase tracking-wider"
                   >
-                    Weekdays
+                    {t("dowWeekdays", "Weekdays")}
                   </button>
                   <span className="text-slate-700">·</span>
                   <button
@@ -1069,14 +1072,14 @@ export default function OwnerRateCalendar() {
                     onClick={() => setBulkDowMask(DOW_WEEKENDS)}
                     className="text-slate-500 hover:text-indigo-300 font-semibold uppercase tracking-wider"
                   >
-                    Weekends
+                    {t("dowWeekends", "Weekends")}
                   </button>
                 </div>
               </div>
             </DarkField>
 
             <div className="grid grid-cols-2 gap-3">
-              <DarkField label="Price (₹ per night)">
+              <DarkField label={t("fieldPrice", "Price (₹ per night)")}>
                 <input
                   type="number"
                   min={0}
@@ -1084,10 +1087,10 @@ export default function OwnerRateCalendar() {
                   value={bulkPrice}
                   onChange={(e) => setBulkPrice(e.target.value)}
                   className={darkInputCls}
-                  placeholder="e.g. 5500"
+                  placeholder={t("bulkPricePlaceholder", "e.g. 5500")}
                 />
               </DarkField>
-              <DarkField label="Priority" hint="100 = base · 200 = override">
+              <DarkField label={t("fieldPriority", "Priority")} hint={t("hintPriority", "100 = base · 200 = override")}>
                 <input
                   type="number"
                   min={1}
@@ -1101,11 +1104,9 @@ export default function OwnerRateCalendar() {
             {bulkError && <p className="text-sm text-rose-300">{bulkError}</p>}
 
             <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-xs text-slate-400">
-              This creates one rate row per selected room type covering{" "}
+              {t("bulkExplainA", "This creates one rate row per selected room type covering")}{" "}
               <span className="text-slate-200 font-semibold">{bulkFrom}</span> →{" "}
-              <span className="text-slate-200 font-semibold">{bulkTo}</span> on
-              the picked weekdays. Higher-priority rows already on the calendar
-              still win.
+              <span className="text-slate-200 font-semibold">{bulkTo}</span> {t("bulkExplainB", "on the picked weekdays. Higher-priority rows already on the calendar still win.")}
             </div>
           </div>
 
@@ -1114,14 +1115,14 @@ export default function OwnerRateCalendar() {
               onClick={() => setShowBulk(false)}
               className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-4 py-2 text-sm font-semibold text-slate-200 transition"
             >
-              <X className="w-4 h-4 inline -mt-0.5" /> Cancel
+              <X className="w-4 h-4 inline -mt-0.5" /> {tc("actions.cancel", "Cancel")}
             </button>
             <button
               onClick={submitBulk}
               disabled={bulkSaving}
               className="rounded-xl bg-indigo-500 hover:bg-indigo-600 px-5 py-2 text-sm font-bold text-white transition disabled:opacity-60 shadow-lg shadow-indigo-500/20"
             >
-              {bulkSaving ? "Saving…" : `Apply to ${bulkRoomTypes.size} room types`}
+              {bulkSaving ? tc("actions.saving", "Saving…") : t("bulkApply", "Apply to {{count}} room types", { count: bulkRoomTypes.size })}
             </button>
           </div>
         </DarkModal>

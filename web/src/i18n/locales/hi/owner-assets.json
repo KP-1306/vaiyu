@@ -1,0 +1,100 @@
+{
+  "nav": {
+    "back": "डैशबोर्ड पर वापस"
+  },
+  "page": {
+    "workspaceLabel": "एसेट रेडीनेस वर्कस्पेस"
+  },
+  "action": {
+    "showHinglish": "हिंग्लिश दिखाएं",
+    "hideHinglish": "हिंग्लिश छुपाएं"
+  },
+  "state": {
+    "notEnabled": "Digital Asset Manager अभी उपलब्ध नहीं है।",
+    "loading": "लोड हो रहा है…",
+    "notFound": "होटल नहीं मिला।",
+    "loadingAssets": "एसेट लोड हो रहे हैं…"
+  },
+  "readyLabel": "तैयार",
+  "category": {
+    "VERIFICATION_PROOF": "वेरिफिकेशन प्रूफ",
+    "TRUST_ESSENTIALS": "ट्रस्ट एसेंशियल्स",
+    "OPERATIONAL": "ऑपरेशनल एसेट",
+    "EXPERIENCE": "एक्सपीरियंस कंटेंट"
+  },
+  "subtitle": {
+    "VERIFICATION_PROOF": "Google वेरिफिकेशन और VAiyu ऑनबोर्डिंग के लिए बिज़नेस पहचान",
+    "TRUST_ESSENTIALS": "बुकिंग से पहले मेहमान जो फोटो देखते हैं — माइक्रोसाइट, पैकेज, कोट",
+    "OPERATIONAL": "रोज़मर्रा के ऑपरेशनल विज़ुअल",
+    "EXPERIENCE": "लोकल आकर्षण + पैकेज + सीज़नल कंटेंट"
+  },
+  "section": {
+    "ready": "तैयार",
+    "needAttention": "{{count}} पर ध्यान दें",
+    "noReqs": "इस श्रेणी में कोई आवश्यकता नहीं।"
+  },
+  "status": {
+    "MISSING": "अनुपस्थित",
+    "COLLECTED": "एकत्र किया",
+    "APPROVED": "स्वीकृत",
+    "REJECTED": "अस्वीकृत",
+    "NEEDS_REPLACEMENT": "बदलने की आवश्यकता"
+  },
+  "priority": {
+    "CRITICAL": "क्रिटिकल",
+    "HIGH": "उच्च",
+    "MEDIUM": "मध्यम",
+    "LOW": "कम"
+  },
+  "banner": {
+    "privacyTitle": "गोपनीयता — व्यक्तिगत ID अपलोड न करें",
+    "disclaimerTitle": "कोई गारंटी नहीं"
+  },
+  "row": {
+    "linkedFromSettings": "होटल सेटिंग्स से लिंक्ड",
+    "linkedTitle": "होटल सेटिंग्स से लिंक्ड — वहाँ प्रबंधित करें",
+    "why": "क्यों:",
+    "tip": "सुझाव:",
+    "rejected": "अस्वीकृत:",
+    "addNote": "नोट जोड़ें",
+    "notesPlaceholder": "VAiyu या आपकी टीम को क्या बताना चाहेंगे? (जैसे 'अगले हफ्ते साइनबोर्ड इंस्टॉलर के इंतज़ार में')",
+    "cancel": "रद्द करें",
+    "saveNote": "नोट सहेजें",
+    "fileCount_one": "{{count}} फाइल",
+    "fileCount_other": "{{count}} फाइल्स",
+    "manage": "प्रबंधन",
+    "addFiles": "फाइल्स जोड़ें",
+    "markNeedsReplacement": "बदलने की आवश्यकता चिह्नित करें",
+    "confirmReplace": "इस एसेट को बदलने की आवश्यकता के रूप में चिह्नित करें? यह छुपेगा नहीं, बस स्टेटस फ्लैग दिखेगा।",
+    "saveNoteError": "नोट सहेजा नहीं जा सका।"
+  },
+  "upload": {
+    "dropFiles": "फाइल्स ड्रॉप करें या क्लिक करें",
+    "dropFile": "एक फाइल ड्रॉप करें या क्लिक करें",
+    "specs": "JPG / PNG / WEBP / PDF · ≤10 MB",
+    "uploading": "अपलोड हो रहा है…",
+    "privateNote": "प्राइवेट वॉल्ट — केवल साइन्ड लिंक से देखा जा सकता है।",
+    "uploadFailed": "अपलोड विफल।"
+  },
+  "drawer": {
+    "kicker": "फाइल्स प्रबंधन",
+    "subtitleMulti": "जितनी हों उतनी अपलोड करें। क्रम बदलने के लिए हैंडल ड्रैग या तीर दबाएं।",
+    "subtitleSingle": "एक आवश्यकता पर एक फाइल। दोबारा अपलोड करने से मौजूदा फाइल बदलेगी।",
+    "closeAria": "ड्रॉअर बंद करें (Esc)",
+    "filesHeader": "फाइल्स ({{count}})",
+    "savingOrder": "क्रम सहेजा जा रहा है…",
+    "loadingFiles": "फाइल्स लोड हो रही हैं…",
+    "noFiles": "अभी कोई फाइल नहीं।",
+    "removeFile": "फाइल हटाएं",
+    "moveUp": "फाइल ऊपर",
+    "moveDown": "फाइल नीचे",
+    "confirmRemove": "इस फाइल को हटाएं?",
+    "removeError": "फाइल हटाई नहीं जा सकी।",
+    "reorderError": "नया क्रम सहेजा नहीं जा सका।",
+    "altTextLabel": "Alt टेक्स्ट",
+    "altTextPlaceholder": "इस तस्वीर में क्या है बताएं (SEO + एक्सेसिबिलिटी में मदद)",
+    "save": "सहेजें",
+    "saveAltError": "Alt टेक्स्ट सहेजा नहीं जा सका।",
+    "dialogLabel": "फाइल्स प्रबंधन"
+  }
+}

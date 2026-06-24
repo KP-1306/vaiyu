@@ -21,6 +21,7 @@ import {
   createFollowUp,
   FollowUpServiceError,
 } from '../../services/followUpService';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   open: boolean;
@@ -30,6 +31,7 @@ interface Props {
 }
 
 export function FollowUpQuickAddModal({ open, hotelId, onClose, onCreated }: Props) {
+  const t = useOwnerT('owner-followup');
   const [category, setCategory] = useState<FollowUpCategory>('DIRECT_ENQUIRY');
   const [title, setTitle] = useState('');
   const [context, setContext] = useState('');
@@ -53,7 +55,7 @@ export function FollowUpQuickAddModal({ open, hotelId, onClose, onCreated }: Pro
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) {
-      setErr('Title is required');
+      setErr(t('quickAdd.titleRequired', 'Title is required'));
       return;
     }
     setBusy(true);
@@ -72,20 +74,20 @@ export function FollowUpQuickAddModal({ open, hotelId, onClose, onCreated }: Pro
       onCreated();
     } catch (e) {
       const msg = e instanceof FollowUpServiceError ? e.message : (e as Error).message;
-      setErr(msg ?? 'Could not create follow-up');
+      setErr(msg ?? t('quickAdd.couldNotCreate', 'Could not create follow-up'));
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div className="vaiyu-owner fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-[#0F1320] p-5 shadow-2xl">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-base font-semibold text-slate-100">Add follow-up</h2>
+            <h2 className="text-base font-semibold text-slate-100">{t('quickAdd.title', 'Add follow-up')}</h2>
             <p className="text-[11px] text-slate-500 mt-0.5">
-              Manual entry — for items the system didn't auto-create.
+              {t('quickAdd.subtitle', "Manual entry — for items the system didn't auto-create.")}
             </p>
           </div>
           <button
@@ -101,7 +103,7 @@ export function FollowUpQuickAddModal({ open, hotelId, onClose, onCreated }: Pro
         </div>
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-3">
-          <Field label="Category">
+          <Field label={t('quickAdd.category', 'Category')}>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value as FollowUpCategory)}
@@ -110,18 +112,18 @@ export function FollowUpQuickAddModal({ open, hotelId, onClose, onCreated }: Pro
             >
               {CATEGORY_OPTIONS.map((c) => (
                 <option key={c} value={c}>
-                  {CATEGORY_LABEL[c]}
+                  {t(`category.${c}`, CATEGORY_LABEL[c])}
                 </option>
               ))}
             </select>
           </Field>
 
-          <Field label="Title">
+          <Field label={t('quickAdd.titleField', 'Title')}>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Call Mr Sharma about the wedding enquiry"
+              placeholder={t('quickAdd.titlePlaceholder', 'e.g. Call Mr Sharma about the wedding enquiry')}
               autoFocus
               maxLength={140}
               className="w-full rounded-md border border-slate-700 bg-[#0B0E14] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 focus:border-emerald-400 focus:outline-none"
@@ -129,19 +131,19 @@ export function FollowUpQuickAddModal({ open, hotelId, onClose, onCreated }: Pro
             />
           </Field>
 
-          <Field label="Context (optional)">
+          <Field label={t('quickAdd.context', 'Context (optional)')}>
             <textarea
               rows={2}
               value={context}
               onChange={(e) => setContext(e.target.value)}
               maxLength={500}
-              placeholder="A line or two about what to do."
+              placeholder={t('quickAdd.contextPlaceholder', 'A line or two about what to do.')}
               className="w-full resize-y rounded-md border border-slate-700 bg-[#0B0E14] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 focus:border-emerald-400 focus:outline-none"
             />
           </Field>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Due date">
+            <Field label={t('quickAdd.dueDate', 'Due date')}>
               <input
                 type="date"
                 value={dueAt}
@@ -149,16 +151,16 @@ export function FollowUpQuickAddModal({ open, hotelId, onClose, onCreated }: Pro
                 className="w-full rounded-md border border-slate-700 bg-[#0B0E14] px-3 py-2 text-sm text-slate-100 focus:border-emerald-400 focus:outline-none"
               />
             </Field>
-            <Field label="Priority (optional)">
+            <Field label={t('quickAdd.priorityOptional', 'Priority (optional)')}>
               <select
                 value={priority}
                 onChange={(e) => setPriority((e.target.value || '') as FollowUpPriority | '')}
                 className="w-full rounded-md border border-slate-700 bg-[#0B0E14] px-3 py-2 text-sm text-slate-100 focus:border-emerald-400 focus:outline-none"
               >
-                <option value="">Auto (by category)</option>
+                <option value="">{t('quickAdd.autoByCategory', 'Auto (by category)')}</option>
                 {PRIORITY_OPTIONS.map((p) => (
                   <option key={p} value={p}>
-                    {PRIORITY_LABEL[p]}
+                    {t(`priority.${p}`, PRIORITY_LABEL[p])}
                   </option>
                 ))}
               </select>
@@ -180,7 +182,7 @@ export function FollowUpQuickAddModal({ open, hotelId, onClose, onCreated }: Pro
               }}
               className="rounded-md border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800"
             >
-              Cancel
+              {t('quickAdd.cancel', 'Cancel')}
             </button>
             <button
               type="submit"
@@ -189,7 +191,7 @@ export function FollowUpQuickAddModal({ open, hotelId, onClose, onCreated }: Pro
               data-testid="follow-up-quickadd-submit"
             >
               {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
-              Create follow-up
+              {t('quickAdd.createFollowUp', 'Create follow-up')}
             </button>
           </div>
         </form>

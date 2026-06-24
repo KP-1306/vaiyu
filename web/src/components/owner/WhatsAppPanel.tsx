@@ -18,6 +18,7 @@ import {
     ExternalLink,
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
+import { useOwnerT } from "../../i18n/useOwnerT";
 
 type Props = {
     hotelId: string;
@@ -39,6 +40,7 @@ export default function WhatsAppPanel({
     whatsappEnabled,
     onChange,
 }: Props) {
+    const t = useOwnerT("owner-settings");
     const [phoneNumberId, setPhoneNumberId] = useState(waPhoneNumberId ?? "");
     const [displayNumber, setDisplayNumber] = useState(waDisplayNumber ?? "");
     const [enabled, setEnabled] = useState(whatsappEnabled);
@@ -58,7 +60,7 @@ export default function WhatsAppPanel({
 
             // Cannot enable without a phone_number_id.
             if (enabled && !trimmedPhoneId) {
-                throw new Error("Enter the Meta phone_number_id before enabling.");
+                throw new Error(t("wa.noPhoneError", "Enter the Meta phone_number_id before enabling."));
             }
 
             const { error } = await supabase
@@ -77,9 +79,9 @@ export default function WhatsAppPanel({
                 wa_display_number: trimmedDisplay,
                 whatsapp_enabled: enabled,
             });
-            setOk("WhatsApp settings saved.");
+            setOk(t("wa.saveOk", "WhatsApp settings saved."));
         } catch (e: any) {
-            setErr(e?.message ?? "Failed to save WhatsApp settings.");
+            setErr(e?.message ?? t("wa.saveErr", "Failed to save WhatsApp settings."));
         } finally {
             setSaving(false);
         }
@@ -93,47 +95,47 @@ export default function WhatsAppPanel({
                         <MessageCircle className="h-5 w-5 text-emerald-400" />
                     </div>
                     <div>
-                        <h3 className="text-base font-semibold text-white">WhatsApp notifications</h3>
+                        <h3 className="text-base font-semibold text-white">{t("wa.title", "WhatsApp notifications")}</h3>
                         <p className="text-xs text-white/60">
-                            Send pre-checkin reminders, confirmations and updates to guests on WhatsApp.
+                            {t("wa.desc", "Send pre-checkin reminders, confirmations and updates to guests on WhatsApp.")}
                         </p>
                     </div>
                 </div>
                 {configured ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-medium text-emerald-300">
                         <CheckCircle2 className="h-3.5 w-3.5" />
-                        Active
+                        {t("wa.active", "Active")}
                     </span>
                 ) : (
                     <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-3 py-1 text-xs font-medium text-white/60">
-                        Not configured
+                        {t("wa.notConfigured", "Not configured")}
                     </span>
                 )}
             </div>
 
             <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-xs text-white/70 space-y-1">
                 <p>
-                    Get these values from your{" "}
+                    {t("wa.infoHintPre", "Get these values from your")}{" "}
                     <a
                         href="https://business.facebook.com/wa/manage/phone-numbers/"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-emerald-300 hover:underline"
                     >
-                        Meta WhatsApp Manager
+                        {t("wa.infoHintLink", "Meta WhatsApp Manager")}
                         <ExternalLink className="h-3 w-3" />
                     </a>{" "}
-                    after the platform admin adds your number to the VAiyu Business App.
+                    {t("wa.infoHintPost", "after the platform admin adds your number to the VAiyu Business App.")}
                 </p>
                 <p className="text-white/50">
-                    The Graph API access token is stored centrally — you don't need to provide it.
+                    {t("wa.tokenNote", "The Graph API access token is stored centrally — you don't need to provide it.")}
                 </p>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
                 <label className="block">
                     <span className="block text-xs font-medium text-white/70 mb-1">
-                        Phone Number ID <span className="text-red-400">*</span>
+                        {t("wa.phoneNumberIdLabel", "Phone Number ID")} <span className="text-red-400">*</span>
                     </span>
                     <input
                         type="text"
@@ -143,12 +145,12 @@ export default function WhatsAppPanel({
                         className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white placeholder:text-white/30 focus:border-emerald-400 focus:outline-none"
                     />
                     <span className="mt-1 block text-[11px] text-white/50">
-                        Numeric ID Meta assigns to your business number.
+                        {t("wa.phoneNumberIdHint", "Numeric ID Meta assigns to your business number.")}
                     </span>
                 </label>
 
                 <label className="block">
-                    <span className="block text-xs font-medium text-white/70 mb-1">Display Number</span>
+                    <span className="block text-xs font-medium text-white/70 mb-1">{t("wa.displayNumberLabel", "Display Number")}</span>
                     <input
                         type="text"
                         value={displayNumber}
@@ -157,7 +159,7 @@ export default function WhatsAppPanel({
                         className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white placeholder:text-white/30 focus:border-emerald-400 focus:outline-none"
                     />
                     <span className="mt-1 block text-[11px] text-white/50">
-                        Shown to guests on QR posters and wa.me links.
+                        {t("wa.displayNumberHint", "Shown to guests on QR posters and wa.me links.")}
                     </span>
                 </label>
             </div>
@@ -170,9 +172,9 @@ export default function WhatsAppPanel({
                     className="mt-1 h-4 w-4 rounded border-white/20 bg-black/40 text-emerald-500 focus:ring-emerald-400"
                 />
                 <div className="flex-1">
-                    <div className="text-sm font-medium text-white">Enable WhatsApp channel</div>
+                    <div className="text-sm font-medium text-white">{t("wa.enableLabel", "Enable WhatsApp channel")}</div>
                     <div className="text-xs text-white/60">
-                        When off, all WhatsApp messages for this hotel are skipped (email/SMS fallbacks still run).
+                        {t("wa.enableDesc", "When off, all WhatsApp messages for this hotel are skipped (email/SMS fallbacks still run).")}
                     </div>
                 </div>
             </label>
@@ -198,7 +200,7 @@ export default function WhatsAppPanel({
                     className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                    {saving ? "Saving…" : "Save WhatsApp settings"}
+                    {saving ? t("wa.saving", "Saving…") : t("wa.saveBtn", "Save WhatsApp settings")}
                 </button>
             </div>
         </section>

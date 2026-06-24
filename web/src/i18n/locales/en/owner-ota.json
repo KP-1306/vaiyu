@@ -1,0 +1,132 @@
+{
+  "nav": {
+    "back": "Back to dashboard"
+  },
+  "page": {
+    "title": "OTA Listing Optimizer"
+  },
+  "action": {
+    "rerunSetup": "Re-run setup",
+    "resetAll": "Reset all"
+  },
+  "loading": "Loading…",
+  "error": {
+    "loadFailed": "Could not load OTA Optimizer data. Refresh the page.",
+    "minOneOta": "Select at least one OTA to keep active.",
+    "saveOtasFailed": "Could not save OTA selection.",
+    "saveMountainFailed": "Could not save mountain preference.",
+    "markReviewFailed": "Could not mark review complete.",
+    "resetOtaFailed": "Could not reset OTA.",
+    "saveStatusFailed": "Could not save status. Try again.",
+    "saveInitialFailed": "Could not save initial statuses.",
+    "minOneOtaWizard": "Select at least one OTA."
+  },
+  "confirm": {
+    "resetAll": "Reset ALL OTA Optimizer state for every OTA? This deletes all status history for this hotel.",
+    "resetOta": "Reset all OTA Optimizer state for {{ota}}? This deletes status history for this OTA only."
+  },
+  "settings": {
+    "title": "Workbook settings",
+    "saved": "Saved",
+    "activeOtas": {
+      "label": "Active OTAs",
+      "desc": "Which OTAs do you currently list on? Inactive ones are excluded from scoring."
+    },
+    "mountain": {
+      "label": "Mountain property disclosures",
+      "desc": "Adds 13 extra checks for steep roads, snow, heating, etc. Auto-derived from state — override if your property doesn't match.",
+      "auto": "Auto",
+      "show": "Show",
+      "hide": "Hide",
+      "showing": "Showing 13 mountain checks",
+      "hidden": "Hidden",
+      "autoDerived": "(auto-derived)"
+    }
+  },
+  "matrix": {
+    "title": "Compare across OTAs",
+    "subtitle": "Click any cell to set statuses for that category × OTA. Empty cells = items don't apply to that OTA.",
+    "categoryHeader": "Category"
+  },
+  "band": {
+    "PREMIUM": "Premium ready",
+    "MODERATE": "Moderate ready",
+    "CRITICAL": "Critical gaps"
+  },
+  "category": {
+    "LISTING_QUALITY": "Listing quality",
+    "PHOTOS_MEDIA": "Photos & media",
+    "ROOM_NAMING": "Room naming",
+    "AMENITIES_FACILITIES": "Amenities & facilities",
+    "POLICIES": "Policies",
+    "REVIEW_DISCIPLINE": "Review discipline",
+    "PAYMENT_BOOKING_CLARITY": "Payment & booking clarity",
+    "SEASONAL_POSITIONING": "Seasonal positioning",
+    "TRUST_SIGNALS": "Trust signals",
+    "DIRECT_BOOKING_READINESS": "Direct booking readiness",
+    "MOUNTAIN_DISCLOSURE": "Mountain disclosures"
+  },
+  "status": {
+    "COMPLETE": "Complete",
+    "PARTIAL": "Partial",
+    "MISSING": "Missing",
+    "UNKNOWN": "Not reviewed",
+    "NOT_APPLICABLE": "N/A"
+  },
+  "panel": {
+    "itemsApply_one": "{{count}} item applies to {{ota}}",
+    "itemsApply_other": "{{count}} items apply to {{ota}}",
+    "closeAriaLabel": "Close drilldown",
+    "reviewButton": "I just reviewed {{ota}} — refresh freshness",
+    "resetButton": "Reset {{ota}} status",
+    "freshnessRefreshed": "Freshness refreshed"
+  },
+  "fixModule": {
+    "DAM": "Asset Manager",
+    "PACKAGE_BUILDER": "Package Builder",
+    "SEO_PLANNER": "SEO Planner",
+    "SEASONAL_CALENDAR": "Seasonal Calendar",
+    "VISIBILITY": "Visibility Score",
+    "SETTINGS": "Property settings"
+  },
+  "wizard": {
+    "title": "OTA Listing Optimizer — first-time setup",
+    "subtitle": "About 15 minutes. You can skip and resume anytime.",
+    "skip": "Skip",
+    "stepLabel": "Step {{n}}",
+    "stepLabelCurrent": "Step {{n}} (current)",
+    "step1": {
+      "title": "Which OTAs do you list on?",
+      "desc": "Toggle off the OTAs you don't use. You can change this later."
+    },
+    "step2": {
+      "title": "Mountain property disclosures?",
+      "desc": "Adds 13 extra checks for parking, steep roads, snow, heating, hot water, etc. — important for mountain properties.",
+      "hotelLabel": "Hotel",
+      "stateLabel": "State",
+      "mountainDetected": "detected as mountain state",
+      "optAuto": "Auto",
+      "optYes": "Yes",
+      "optNo": "No",
+      "autoDesc": "Use state-based default",
+      "yesDesc": "Show mountain checks",
+      "noDesc": "Hide mountain checks",
+      "currentlyShowing": "13 mountain checks will be shown",
+      "currentlyHidden": "Mountain checks hidden"
+    },
+    "step3": {
+      "title": "Quick first-pass (optional)",
+      "desc": "Mark the most important items per OTA. You can skip and come back to fill more.",
+      "blankNote": "Items left blank stay as \"Not reviewed\" — set them later from the workspace."
+    },
+    "step4": {
+      "title": "All set",
+      "desc": "Continue in the workspace. You can re-run this setup anytime."
+    },
+    "nav": {
+      "back": "Back",
+      "next": "Next",
+      "finish": "Finish setup"
+    }
+  }
+}

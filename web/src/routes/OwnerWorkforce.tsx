@@ -15,6 +15,7 @@ import Spinner from "../components/Spinner";
 
 import OwnerGate from "../components/OwnerGate";
 import SEO from "../components/SEO";
+import { useOwnerT, useOwnerLocale, type OwnerT } from "../i18n/useOwnerT";
 
 // Env flag – same as OwnerDashboard
 const HAS_WORKFORCE = import.meta.env.VITE_HAS_WORKFORCE === "true";
@@ -81,6 +82,8 @@ type Mode = "view" | "create" | "edit";
 export default function OwnerWorkforce() {
   const params = useParams();
   const slug = (params.slug || "").trim();
+  const t = useOwnerT("owner-workforce");
+  const ownerLocale = useOwnerLocale();
   const [loading, setLoading] = useState(true);
   const [hotel, setHotel] = useState<Hotel | null>(null);
   const [jobs, setJobs] = useState<WorkforceJob[]>([]);
@@ -104,7 +107,7 @@ export default function OwnerWorkforce() {
   useEffect(() => {
     if (!slug) {
       setLoading(false);
-      setJobsError("Missing property slug in the URL.");
+      setJobsError(t("errors.missingSlug", "Missing property slug in the URL."));
       return;
     }
 
@@ -128,7 +131,10 @@ export default function OwnerWorkforce() {
         setHotel(null);
         setJobs([]);
         setJobsError(
-          "We couldn’t open this property. You might not have access yet or the property doesn’t exist.",
+          t(
+            "errors.openProperty",
+            "We couldn’t open this property. You might not have access yet or the property doesn’t exist.",
+          ),
         );
         setLoading(false);
         return;
@@ -185,7 +191,10 @@ export default function OwnerWorkforce() {
         if (!alive) return;
         setJobs([]);
         setJobsError(
-          "We couldn’t load roles yet. Check that the workforce_jobs table exists for this project.",
+          t(
+            "errors.loadRoles",
+            "We couldn’t load roles yet. Check that the workforce_jobs table exists for this project.",
+          ),
         );
       } finally {
         if (!alive) return;
@@ -295,7 +304,10 @@ export default function OwnerWorkforce() {
         if (!alive) return;
         setApplicants([]);
         setApplicantsError(
-          "We couldn’t load applicants yet. Check that the workforce_applications table exists.",
+          t(
+            "errors.loadApplicants",
+            "We couldn’t load applicants yet. Check that the workforce_applications table exists.",
+          ),
         );
       } finally {
         if (!alive) return;
@@ -468,7 +480,10 @@ export default function OwnerWorkforce() {
         status: "error",
         message:
           err?.message ||
-          "We couldn’t save this role. Please try again or check Supabase logs.",
+          t(
+            "errors.saveRole",
+            "We couldn’t save this role. Please try again or check Supabase logs.",
+          ),
       });
     }
   };
@@ -488,7 +503,10 @@ export default function OwnerWorkforce() {
     } catch (e) {
       console.error("Error updating applicant stage", e);
       setApplicantsError(
-        "We couldn’t update this applicant’s stage. Please try again.",
+        t(
+          "errors.updateStage",
+          "We couldn’t update this applicant’s stage. Please try again.",
+        ),
       );
     }
   };
@@ -500,10 +518,10 @@ export default function OwnerWorkforce() {
   if (loading) {
     return (
       <>
-        <SEO title="Local workforce" noIndex />
+        <SEO title={t("seoTitle", "Local workforce")} noIndex />
         <OwnerGate>
-          <main className="min-h-[60vh] grid place-items-center bg-[#0B0E14] text-slate-200">
-            <Spinner label="Loading Workforce…" />
+          <main className="vaiyu-owner min-h-[60vh] grid place-items-center bg-[#0B0E14] text-slate-200">
+            <Spinner label={t("loading", "Loading Workforce…")} />
           </main>
         </OwnerGate>
       </>
@@ -513,21 +531,23 @@ export default function OwnerWorkforce() {
   if (!hotel) {
     return (
       <>
-        <SEO title="Local workforce" noIndex />
+        <SEO title={t("seoTitle", "Local workforce")} noIndex />
         <OwnerGate>
-          <main className="max-w-3xl mx-auto p-6 min-h-screen bg-[#0B0E14] text-slate-200">
+          <main className="vaiyu-owner max-w-3xl mx-auto p-6 min-h-screen bg-[#0B0E14] text-slate-200">
 
             <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-6 shadow-sm">
               <div className="mb-2 text-lg font-semibold">
-                Workforce not available
+                {t("notAvail.title", "Workforce not available")}
               </div>
               <p className="text-sm text-slate-400">
-                We couldn’t find this property. Open it from the Owner Home
-                screen and try again.
+                {t(
+                  "notAvail.body",
+                  "We couldn’t find this property. Open it from the Owner Home screen and try again.",
+                )}
               </p>
               <div className="mt-4">
                 <Link to="/owner" className="btn btn-light">
-                  Owner Home
+                  {t("notAvail.ownerHome", "Owner Home")}
                 </Link>
               </div>
             </div>
@@ -539,15 +559,15 @@ export default function OwnerWorkforce() {
 
   return (
     <>
-      <SEO title="Local workforce" noIndex />
+      <SEO title={t("seoTitle", "Local workforce")} noIndex />
       <OwnerGate>
-        <main className="min-h-screen bg-[#0B0E14] text-slate-200">
+        <main className="vaiyu-owner min-h-screen bg-[#0B0E14] text-slate-200">
           <div className="mx-auto max-w-7xl space-y-5 px-4 py-4 lg:px-6 lg:py-6">
             {/* Breadcrumb */}
             <div className="flex items-center gap-2 text-xs font-medium text-slate-500 mb-2">
-              <Link to={hotel && hotel.slug ? `/owner/${hotel.slug}` : '/owner'} className="hover:text-white transition">Dashboard</Link>
+              <Link to={hotel && hotel.slug ? `/owner/${hotel.slug}` : '/owner'} className="hover:text-white transition">{t("crumbDashboard", "Dashboard")}</Link>
               <span className="text-slate-300">/</span>
-              <span className="text-slate-200">Workforce</span>
+              <span className="text-slate-200">{t("crumbWorkforce", "Workforce")}</span>
             </div>
 
             {/* Top header */}
@@ -555,28 +575,32 @@ export default function OwnerWorkforce() {
               <div>
                 <div className="flex items-center gap-2">
                   <h1 className="text-xl font-semibold tracking-tight text-white">
-                    Local workforce
+                    {t("header.title", "Local workforce")}
                   </h1>
                   <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-300 ring-1 ring-emerald-500/30">
-                    Beta
+                    {t("header.beta", "Beta")}
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-slate-400">
-                  Create open roles for this property, see applicants in one
-                  place, and move them to shortlisted or hired in a single tap.
+                  {t(
+                    "header.desc",
+                    "Create open roles for this property, see applicants in one place, and move them to shortlisted or hired in a single tap.",
+                  )}
                 </p>
                 {!workforceEnabled && (
                   <p className="mt-1 text-[11px] text-amber-300">
-                    Workforce is not fully enabled yet in this project. The UI
-                    is safe to explore; saving requires the{" "}
+                    {t(
+                      "header.notEnabledPre",
+                      "Workforce is not fully enabled yet in this project. The UI is safe to explore; saving requires the",
+                    )}{" "}
                     <code className="rounded bg-white/10 px-1 text-[10px]">
                       workforce_jobs
                     </code>{" "}
-                    and{" "}
+                    {t("header.notEnabledMid", "and")}{" "}
                     <code className="rounded bg-white/10 px-1 text-[10px]">
                       workforce_applications
                     </code>{" "}
-                    tables to exist.
+                    {t("header.notEnabledPost", "tables to exist.")}
                   </p>
                 )}
               </div>
@@ -586,12 +610,15 @@ export default function OwnerWorkforce() {
                     {hotel.name}
                   </span>
                   <span>
-                    {hotel.city ? `${hotel.city} · ` : ""}Property ID:{" "}
+                    {hotel.city ? `${hotel.city} · ` : ""}
+                    {t("header.propertyId", "Property ID:")}{" "}
                     {hotel.id.slice(0, 8)}…
                   </span>
                   <span>
-                    {openCount} open role{openCount === 1 ? "" : "s"} ·{" "}
-                    {jobs.length} total
+                    {t("header.openRoles", "{{count}} open roles", {
+                      count: openCount,
+                    })}{" "}
+                    · {t("header.total", "{{count}} total", { count: jobs.length })}
                   </span>
                 </div>
                 <button
@@ -599,7 +626,7 @@ export default function OwnerWorkforce() {
                   onClick={handleStartCreate}
                   className="btn mt-2 h-9 px-4 text-xs sm:mt-0"
                 >
-                  + New role
+                  {t("header.newRole", "+ New role")}
                 </button>
               </div>
             </header>
@@ -624,8 +651,11 @@ export default function OwnerWorkforce() {
 
                 <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3 shadow-sm">
                   <SectionHeader
-                    title="Roles for this property"
-                    desc="Every role here is scoped to this hotel only. No cross-property confusion."
+                    title={t("roles.title", "Roles for this property")}
+                    desc={t(
+                      "roles.desc",
+                      "Every role here is scoped to this hotel only. No cross-property confusion.",
+                    )}
                   />
                   {jobsError && (
                     <div className="mb-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-300 ring-1 ring-amber-500/20">
@@ -635,24 +665,30 @@ export default function OwnerWorkforce() {
                   {filteredJobs.length === 0 ? (
                     <div className="text-sm text-slate-500">
                       {jobs.length === 0
-                        ? "No roles yet. Create your first role to start hiring locally."
-                        : "No roles match your filters. Try clearing the filters or search text."}
+                        ? t(
+                            "roles.emptyNoRoles",
+                            "No roles yet. Create your first role to start hiring locally.",
+                          )
+                        : t(
+                            "roles.emptyFiltered",
+                            "No roles match your filters. Try clearing the filters or search text.",
+                          )}
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-xs">
                         <thead className="text-left text-slate-500">
                           <tr>
-                            <th className="py-2 pr-3 font-medium">Role</th>
-                            <th className="py-2 pr-3 font-medium">Dept</th>
-                            <th className="py-2 pr-3 font-medium">City</th>
-                            <th className="py-2 pr-3 font-medium">Status</th>
-                            <th className="py-2 pr-3 font-medium">Priority</th>
+                            <th className="py-2 pr-3 font-medium">{t("roles.colRole", "Role")}</th>
+                            <th className="py-2 pr-3 font-medium">{t("roles.colDept", "Dept")}</th>
+                            <th className="py-2 pr-3 font-medium">{t("roles.colCity", "City")}</th>
+                            <th className="py-2 pr-3 font-medium">{t("roles.colStatus", "Status")}</th>
+                            <th className="py-2 pr-3 font-medium">{t("roles.colPriority", "Priority")}</th>
                             <th className="py-2 pr-3 text-right font-medium">
-                              Applicants
+                              {t("roles.colApplicants", "Applicants")}
                             </th>
                             <th className="py-2 pl-3 text-right font-medium">
-                              Opened
+                              {t("roles.colOpened", "Opened")}
                             </th>
                           </tr>
                         </thead>
@@ -684,35 +720,37 @@ export default function OwnerWorkforce() {
                               >
                                 <td className="py-2 pr-3">
                                   <div className="font-medium text-white">
-                                    {job.title || "Untitled role"}
+                                    {job.title || t("roles.untitled", "Untitled role")}
                                   </div>
                                   <div className="text-[10px] text-slate-500">
                                     {job.shift_type
-                                      ? `${job.shift_type} shift`
-                                      : "Shift flexible"}
+                                      ? t("roles.shiftSuffix", "{{shift}} shift", {
+                                          shift: job.shift_type,
+                                        })
+                                      : t("roles.shiftFlexible", "Shift flexible")}
                                   </div>
                                 </td>
                                 <td className="py-2 pr-3">
                                   {job.department || "—"}
                                 </td>
                                 <td className="py-2 pr-3">
-                                  {job.city || hotel.city || "Local"}
+                                  {job.city || hotel.city || t("local", "Local")}
                                 </td>
                                 <td className="py-2 pr-3">
                                   <StatusPill
-                                    label={statusLabel(status)}
+                                    label={statusLabel(status, t)}
                                     tone={tone}
                                   />
                                 </td>
-                                <td className="py-2 pr-3 capitalize">
-                                  {job.priority || "normal"}
+                                <td className="py-2 pr-3">
+                                  {priorityLabel(job.priority || "normal", t)}
                                 </td>
                                 <td className="py-2 pr-3 text-right">
                                   {applicantsCount ?? "—"}
                                 </td>
                                 <td className="py-2 pl-3 text-right">
                                   {job.created_at
-                                    ? fmtDate(job.created_at)
+                                    ? fmtDate(job.created_at, ownerLocale)
                                     : "—"}
                                 </td>
                               </tr>
@@ -763,8 +801,10 @@ export default function OwnerWorkforce() {
                   )}
                   {mode === "view" && !selectedJob && jobs.length === 0 && (
                     <div className="text-sm text-slate-500">
-                      Start by creating your first role. You can later manage
-                      applicants and shortlist in one tap.
+                      {t(
+                        "detailEmpty.noRoles",
+                        "Start by creating your first role. You can later manage applicants and shortlist in one tap.",
+                      )}
                     </div>
                   )}
                 </div>
@@ -774,9 +814,10 @@ export default function OwnerWorkforce() {
             {/* Footer helper */}
             <footer className="pt-2">
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-[11px] text-slate-400 shadow-sm">
-                Tip: In the next phase, workforce can plug directly into your
-                “Invisible staff shortage” radar — so if rooms and tickets are
-                suffering because of hiring gaps, you’ll see it here first.
+                {t(
+                  "footerTip",
+                  "Tip: In the next phase, workforce can plug directly into your “Invisible staff shortage” radar — so if rooms and tickets are suffering because of hiring gaps, you’ll see it here first.",
+                )}
               </div>
             </footer>
           </div>
@@ -814,13 +855,17 @@ function FilterBar(props: {
     onCityChange,
     cityOptions,
   } = props;
+  const t = useOwnerT("owner-workforce");
 
   return (
     <div className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-3 shadow-sm md:flex-row md:items-center md:justify-between">
       <div className="flex-1">
         <input
           className="h-9 w-full rounded-full border border-white/10 bg-white/5 px-3 text-xs text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
-          placeholder="Search by role, department, city, status…"
+          placeholder={t(
+            "filter.searchPlaceholder",
+            "Search by role, department, city, status…",
+          )}
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
         />
@@ -833,7 +878,9 @@ function FilterBar(props: {
         >
           {statusOptions.map((s) => (
             <option key={s} value={s}>
-              {s === "all" ? "All statuses" : capitalize(s)}
+              {s === "all"
+                ? t("filter.allStatuses", "All statuses")
+                : t(`status.${s}`, capitalize(s))}
             </option>
           ))}
         </select>
@@ -844,7 +891,7 @@ function FilterBar(props: {
         >
           {departmentOptions.map((d) => (
             <option key={d} value={d}>
-              {d === "all" ? "All departments" : d}
+              {d === "all" ? t("filter.allDepartments", "All departments") : d}
             </option>
           ))}
         </select>
@@ -855,7 +902,7 @@ function FilterBar(props: {
         >
           {cityOptions.map((c) => (
             <option key={c} value={c}>
-              {c === "all" ? "All cities" : c}
+              {c === "all" ? t("filter.allCities", "All cities") : c}
             </option>
           ))}
         </select>
@@ -923,6 +970,7 @@ function RoleForm({
   onCancel: () => void;
   saveState: SaveState;
 }) {
+  const t = useOwnerT("owner-workforce");
   const isSaving = saveState.status === "saving";
 
   const updateField = (key: keyof WorkforceJob, value: any) => {
@@ -932,99 +980,121 @@ function RoleForm({
   return (
     <form onSubmit={onSave} className="space-y-3">
       <SectionHeader
-        title={mode === "create" ? "New role" : "Edit role"}
-        desc="Describe the role clearly. Applicants will see this in their guest app."
+        title={
+          mode === "create"
+            ? t("form.createTitle", "New role")
+            : t("form.editTitle", "Edit role")
+        }
+        desc={t(
+          "form.desc",
+          "Describe the role clearly. Applicants will see this in their guest app.",
+        )}
       />
       <div className="grid gap-2 text-xs md:grid-cols-2">
         <div className="space-y-1">
           <label className="text-[11px] font-medium text-slate-200">
-            Role title
+            {t("form.roleTitle", "Role title")}
           </label>
           <input
             className="h-8 w-full rounded-md border border-white/10 bg-white/5 px-2 text-xs"
             required
             value={draft.title || ""}
             onChange={(e) => updateField("title", e.target.value)}
-            placeholder="Front Office Associate, F&B Steward, Room Attendant…"
+            placeholder={t(
+              "form.roleTitlePlaceholder",
+              "Front Office Associate, F&B Steward, Room Attendant…",
+            )}
           />
         </div>
         <div className="space-y-1">
           <label className="text-[11px] font-medium text-slate-200">
-            Department
+            {t("form.department", "Department")}
           </label>
           <input
             className="h-8 w-full rounded-md border border-white/10 bg-white/5 px-2 text-xs"
             value={draft.department || ""}
             onChange={(e) => updateField("department", e.target.value)}
-            placeholder="Front Desk, Housekeeping, F&B, Engineering…"
+            placeholder={t(
+              "form.departmentPlaceholder",
+              "Front Desk, Housekeeping, F&B, Engineering…",
+            )}
           />
         </div>
         <div className="space-y-1">
           <label className="text-[11px] font-medium text-slate-200">
-            City / Locality
+            {t("form.cityLocality", "City / Locality")}
           </label>
           <input
             className="h-8 w-full rounded-md border border-white/10 bg-white/5 px-2 text-xs"
             value={draft.city || ""}
             onChange={(e) => updateField("city", e.target.value)}
-            placeholder="Use property city by default"
+            placeholder={t(
+              "form.cityLocalityPlaceholder",
+              "Use property city by default",
+            )}
           />
         </div>
         <div className="space-y-1">
           <label className="text-[11px] font-medium text-slate-200">
-            Status
+            {t("form.status", "Status")}
           </label>
           <select
             className="h-8 w-full rounded-md border border-white/10 bg-white/5 px-2 text-xs"
             value={draft.status || "open"}
             onChange={(e) => updateField("status", e.target.value)}
           >
-            <option value="open">Open</option>
-            <option value="paused">Paused</option>
-            <option value="closed">Closed</option>
-            <option value="draft">Draft</option>
+            <option value="open">{t("status.open", "Open")}</option>
+            <option value="paused">{t("status.paused", "Paused")}</option>
+            <option value="closed">{t("status.closed", "Closed")}</option>
+            <option value="draft">{t("status.draft", "Draft")}</option>
           </select>
         </div>
         <div className="space-y-1">
           <label className="text-[11px] font-medium text-slate-200">
-            Priority
+            {t("form.priority", "Priority")}
           </label>
           <select
             className="h-8 w-full rounded-md border border-white/10 bg-white/5 px-2 text-xs"
             value={draft.priority || "normal"}
             onChange={(e) => updateField("priority", e.target.value)}
           >
-            <option value="low">Low</option>
-            <option value="normal">Normal</option>
-            <option value="high">High</option>
-            <option value="urgent">Urgent</option>
+            <option value="low">{t("priority.low", "Low")}</option>
+            <option value="normal">{t("priority.normal", "Normal")}</option>
+            <option value="high">{t("priority.high", "High")}</option>
+            <option value="urgent">{t("priority.urgent", "Urgent")}</option>
           </select>
         </div>
         <div className="space-y-1">
           <label className="text-[11px] font-medium text-slate-200">
-            Shift type
+            {t("form.shiftType", "Shift type")}
           </label>
           <input
             className="h-8 w-full rounded-md border border-white/10 bg-white/5 px-2 text-xs"
             value={draft.shift_type || ""}
             onChange={(e) => updateField("shift_type", e.target.value)}
-            placeholder="Rotational, Morning, Night-only…"
+            placeholder={t(
+              "form.shiftTypePlaceholder",
+              "Rotational, Morning, Night-only…",
+            )}
           />
         </div>
         <div className="space-y-1">
           <label className="text-[11px] font-medium text-slate-200">
-            Salary band (optional)
+            {t("form.salaryBand", "Salary band (optional)")}
           </label>
           <input
             className="h-8 w-full rounded-md border border-white/10 bg-white/5 px-2 text-xs"
             value={draft.salary_band || ""}
             onChange={(e) => updateField("salary_band", e.target.value)}
-            placeholder="e.g. ₹16k–₹20k per month"
+            placeholder={t(
+              "form.salaryBandPlaceholder",
+              "e.g. ₹16k–₹20k per month",
+            )}
           />
         </div>
         <div className="space-y-1">
           <label className="text-[11px] font-medium text-slate-200">
-            No. of openings
+            {t("form.openings", "No. of openings")}
           </label>
           <input
             type="number"
@@ -1039,14 +1109,17 @@ function RoleForm({
       </div>
       <div className="space-y-1 text-xs">
         <label className="text-[11px] font-medium text-slate-200">
-          Notes for hiring team (internal)
+          {t("form.notes", "Notes for hiring team (internal)")}
         </label>
         <textarea
           rows={3}
           className="w-full rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs"
           value={draft.notes || ""}
           onChange={(e) => updateField("notes", e.target.value)}
-          placeholder="What kind of profile works best? Any hard constraints or must-have qualities?"
+          placeholder={t(
+            "form.notesPlaceholder",
+            "What kind of profile works best? Any hard constraints or must-have qualities?",
+          )}
         />
       </div>
       {saveState.status === "error" && (
@@ -1061,7 +1134,7 @@ function RoleForm({
           onClick={onCancel}
           className="btn btn-light h-8 px-3 text-xs"
         >
-          Cancel
+          {t("form.cancel", "Cancel")}
         </button>
         <button
           type="submit"
@@ -1069,10 +1142,10 @@ function RoleForm({
           className="btn h-8 px-4 text-xs"
         >
           {isSaving
-            ? "Saving…"
+            ? t("form.saving", "Saving…")
             : mode === "create"
-              ? "Create role"
-              : "Save changes"}
+              ? t("form.create", "Create role")
+              : t("form.save", "Save changes")}
         </button>
       </div>
     </form>
@@ -1094,6 +1167,7 @@ function RoleDetail({
   onEdit: () => void;
   onUpdateStage: (id: string, stage: string) => void;
 }) {
+  const t = useOwnerT("owner-workforce");
   const status = (job.status || "open").toLowerCase();
   const tone =
     status.includes("closed") || status.includes("filled")
@@ -1105,11 +1179,11 @@ function RoleDetail({
   return (
     <div className="space-y-3 text-xs text-slate-200">
       <SectionHeader
-        title={job.title || "Untitled role"}
+        title={job.title || t("roles.untitled", "Untitled role")}
         desc={
           job.department
-            ? `${job.department} · ${job.city || "Local"}`
-            : job.city || "Local"
+            ? `${job.department} · ${job.city || t("local", "Local")}`
+            : job.city || t("local", "Local")
         }
         action={
           <button
@@ -1117,15 +1191,17 @@ function RoleDetail({
             onClick={onEdit}
             className="btn btn-light h-8 px-3 text-xs"
           >
-            Edit role
+            {t("detail.editRole", "Edit role")}
           </button>
         }
       />
       <div className="flex flex-wrap gap-2">
-        <StatusPill label={statusLabel(status)} tone={tone} />
+        <StatusPill label={statusLabel(status, t)} tone={tone} />
         {job.priority && (
           <StatusPill
-            label={`${capitalize(job.priority)} priority`}
+            label={t("detail.priorityPill", "{{label}} priority", {
+              label: priorityLabel(job.priority, t),
+            })}
             tone={
               job.priority === "urgent"
                 ? "red"
@@ -1137,18 +1213,22 @@ function RoleDetail({
         )}
         {job.shift_type && (
           <span className="rounded-full bg-white/5 px-2 py-0.5 text-[11px] text-slate-400 ring-1 ring-white/15">
-            {job.shift_type} shift
+            {t("roles.shiftSuffix", "{{shift}} shift", { shift: job.shift_type })}
           </span>
         )}
         {job.openings != null && (
           <span className="rounded-full bg-white/5 px-2 py-0.5 text-[11px] text-slate-400 ring-1 ring-white/15">
-            {job.openings} opening{job.openings === 1 ? "" : "s"}
+            {t("detail.openingsPill", "{{count}} openings", {
+              count: job.openings,
+            })}
           </span>
         )}
       </div>
       {job.salary_band && (
         <div className="text-[11px] text-slate-400">
-          Salary band: {job.salary_band}
+          {t("detail.salaryBand", "Salary band: {{band}}", {
+            band: job.salary_band,
+          })}
         </div>
       )}
       {job.notes && (
@@ -1159,8 +1239,11 @@ function RoleDetail({
 
       <div className="mt-2 border-t border-white/10 pt-3">
         <SectionHeader
-          title="Applicants for this role"
-          desc="Shortlist or move someone to hired in one tap."
+          title={t("detail.applicantsTitle", "Applicants for this role")}
+          desc={t(
+            "detail.applicantsDesc",
+            "Shortlist or move someone to hired in one tap.",
+          )}
         />
         {applicantsError && (
           <div className="mb-2 rounded-md bg-rose-500/10 px-3 py-2 text-[11px] text-rose-300 ring-1 ring-rose-500/20">
@@ -1168,11 +1251,15 @@ function RoleDetail({
           </div>
         )}
         {applicantsLoading ? (
-          <div className="text-xs text-slate-500">Loading applicants…</div>
+          <div className="text-xs text-slate-500">
+            {t("loadingApplicants", "Loading applicants…")}
+          </div>
         ) : applicants.length === 0 ? (
           <div className="text-xs text-slate-500">
-            No applicants yet. Once candidates apply from the guest app or your
-            share link, they’ll show here automatically.
+            {t(
+              "detail.noApplicants",
+              "No applicants yet. Once candidates apply from the guest app or your share link, they’ll show here automatically.",
+            )}
           </div>
         ) : (
           <div className="space-y-2">
@@ -1197,6 +1284,7 @@ function ApplicantRow({
   applicant: WorkforceApplicant;
   onUpdateStage: (id: string, stage: string) => void;
 }) {
+  const t = useOwnerT("owner-workforce");
   const stage = (applicant.stage || "new").toLowerCase();
   const tone: "green" | "amber" | "red" | "grey" =
     stage === "hired"
@@ -1211,11 +1299,14 @@ function ApplicantRow({
     <div className="flex items-start justify-between gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px]">
       <div>
         <div className="font-medium text-white">
-          {applicant.full_name || "Unnamed applicant"}
+          {applicant.full_name || t("applicant.unnamed", "Unnamed applicant")}
         </div>
         <div className="text-[10px] text-slate-500">
-          {applicant.source || "Source: Guest app"}
-          {applicant.rating != null && ` · Rating ${applicant.rating}/5`}
+          {applicant.source || t("applicant.sourceDefault", "Source: Guest app")}
+          {applicant.rating != null &&
+            ` · ${t("applicant.rating", "Rating {{rating}}/5", {
+              rating: applicant.rating,
+            })}`}
         </div>
         {(applicant.phone || applicant.email) && (
           <div className="mt-0.5 text-[10px] text-slate-500">
@@ -1235,28 +1326,28 @@ function ApplicantRow({
         )}
       </div>
       <div className="flex flex-col items-end gap-1">
-        <StatusPill label={stageLabel(stage)} tone={tone} />
+        <StatusPill label={stageLabel(stage, t)} tone={tone} />
         <div className="flex flex-wrap justify-end gap-1">
           <button
             type="button"
             onClick={() => onUpdateStage(applicant.id, "shortlisted")}
             className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-300 ring-1 ring-emerald-500/30"
           >
-            Shortlist
+            {t("applicant.shortlist", "Shortlist")}
           </button>
           <button
             type="button"
             onClick={() => onUpdateStage(applicant.id, "hired")}
             className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] text-sky-300 ring-1 ring-sky-500/30"
           >
-            Mark hired
+            {t("applicant.markHired", "Mark hired")}
           </button>
           <button
             type="button"
             onClick={() => onUpdateStage(applicant.id, "rejected")}
             className="rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] text-rose-300 ring-1 ring-rose-500/30"
           >
-            Reject
+            {t("applicant.reject", "Reject")}
           </button>
         </div>
       </div>
@@ -1265,14 +1356,17 @@ function ApplicantRow({
 }
 
 function EmptyDetailCard() {
+  const t = useOwnerT("owner-workforce");
   return (
     <div className="space-y-2 text-xs text-slate-400">
       <div className="font-medium text-slate-200">
-        Select a role on the left
+        {t("detailEmpty.title", "Select a role on the left")}
       </div>
       <p>
-        You’ll see role details here along with every applicant. From here, the
-        owner or HR can shortlist or mark someone as hired with a single tap.
+        {t(
+          "detailEmpty.body",
+          "You’ll see role details here along with every applicant. From here, the owner or HR can shortlist or mark someone as hired with a single tap.",
+        )}
       </p>
     </div>
   );
@@ -1285,28 +1379,33 @@ function capitalize(v: string) {
   return v.charAt(0).toUpperCase() + v.slice(1);
 }
 
-function fmtDate(iso: string) {
+function fmtDate(iso: string, locale: string) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString(undefined, {
+  return d.toLocaleDateString(locale, {
     day: "2-digit",
     month: "short",
   });
 }
 
-function statusLabel(status: string) {
-  if (status.includes("closed") || status.includes("filled")) return "Closed";
-  if (status.includes("paused")) return "Paused";
-  if (status.includes("draft")) return "Draft";
-  return "Open";
+function statusLabel(status: string, t: OwnerT) {
+  if (status.includes("closed") || status.includes("filled"))
+    return t("status.closed", "Closed");
+  if (status.includes("paused")) return t("status.paused", "Paused");
+  if (status.includes("draft")) return t("status.draft", "Draft");
+  return t("status.open", "Open");
 }
 
-function stageLabel(stage: string) {
-  if (stage === "hired") return "Hired";
-  if (stage === "shortlisted") return "Shortlisted";
-  if (stage === "rejected") return "Rejected";
-  if (stage === "interview") return "Interviewing";
-  return "New";
+function priorityLabel(priority: string, t: OwnerT) {
+  return t(`priority.${priority}`, capitalize(priority));
+}
+
+function stageLabel(stage: string, t: OwnerT) {
+  if (stage === "hired") return t("stage.hired", "Hired");
+  if (stage === "shortlisted") return t("stage.shortlisted", "Shortlisted");
+  if (stage === "rejected") return t("stage.rejected", "Rejected");
+  if (stage === "interview") return t("stage.interview", "Interviewing");
+  return t("stage.new", "New");
 }
 
 // If you later add applicants_count column to jobs, you can remove this.

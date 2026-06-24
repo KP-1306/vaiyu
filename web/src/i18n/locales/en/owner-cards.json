@@ -1,0 +1,166 @@
+{
+  "common": {
+    "open": "Open",
+    "loading": "Loading…",
+    "couldNotLoad": "Could not load"
+  },
+  "breadcrumb": {
+    "console": "Console",
+    "dashboard": "Dashboard",
+    "ariaLabel": "Breadcrumb"
+  },
+  "guard": {
+    "verifyingAccess": "Verifying access…",
+    "missingSlug": "Missing hotel slug.",
+    "hotelNotFound": "Hotel not found.",
+    "authFailed": "Authorization check failed.",
+    "deniedAnalytics": "You don't have permission to view analytics for this hotel. Ask an owner or manager to grant access.",
+    "deniedFinance": "You don't have permission to view pricing or finance for this hotel. Ask an owner or finance manager to grant access."
+  },
+  "financeError": {
+    "title": "Something broke in Pricing / Finance",
+    "unknown": "Unknown render error.",
+    "tryAgain": "Try again",
+    "reload": "Reload page"
+  },
+  "darkShell": {
+    "closeDialog": "Close dialog",
+    "working": "Working…",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "somethingWrong": "Something went wrong"
+  },
+  "actionRadar": {
+    "title": "Action Radar",
+    "subtitle": "Today's follow-ups to handle",
+    "dueToday": "Due today",
+    "overdue": "Overdue",
+    "blocked": "Blocked",
+    "criticalAlert_one": "{{count}} critical follow-up needs attention.",
+    "criticalAlert_other": "{{count}} critical follow-ups need attention.",
+    "empty": "No follow-ups yet — they'll appear here as your team adds leads."
+  },
+  "assetReadiness": {
+    "title": "Asset Readiness",
+    "ready": "Ready",
+    "pct": "Pct",
+    "missing": "Missing",
+    "replace": "Replace",
+    "topMissing": "Top missing",
+    "allCollected": "All requirements collected. The VAiyu team will review uploaded assets.",
+    "emptyCta": "Set up your asset library"
+  },
+  "drip": {
+    "title": "Follow-up emails",
+    "editSequences": "Edit sequences",
+    "active": "Active",
+    "due24h": "Due 24h",
+    "sentToday": "Sent today",
+    "paused": "Paused",
+    "stuck_one": "{{count}} lead stuck — no email on file.",
+    "stuck_other": "{{count}} leads stuck — no email on file."
+  },
+  "leads": {
+    "title": "Open leads",
+    "couldNotLoad": "Could not load",
+    "breakdownItem": "{{count}} {{label}}"
+  },
+  "localSeo": {
+    "title": "Local SEO Planner",
+    "subtitle": "Plan + govern local page ideas. Internal only — publishes nothing.",
+    "safe": "Safe",
+    "needsProof": "Needs proof",
+    "risky": "Risky",
+    "inReview": "{{count}} in review",
+    "readyToBuild": "{{count}} ready to build",
+    "footer": "Deterministic Policy Shield. No AI. No keyword scraping. No metadata changes."
+  },
+  "ota": {
+    "title": "OTA Listing Optimizer",
+    "subtitle": "Self-audit workbook across 8 OTAs. Not a channel manager.",
+    "wizardCta": "Cold-start wizard not completed — open to fill the matrix.",
+    "activeOtas_one": "{{count}} active OTA",
+    "activeOtas_other": "{{count}} active OTAs",
+    "gaps_one": "{{count}} gap",
+    "gaps_other": "{{count}} gaps",
+    "summaryLine": "{{otas}} · {{gaps}}",
+    "staleItems_one": "{{count}} item stale ({{days}}d+)",
+    "staleItems_other": "{{count}} items stale ({{days}}d+)",
+    "nextFocus": "Next focus",
+    "addressItems_one": "{{count}} item to address",
+    "addressItems_other": "{{count}} items to address",
+    "stale": "stale",
+    "noSettings": "No OTA settings yet — open the workspace to start the wizard.",
+    "loadError": "Could not load OTA readiness. Refresh the page."
+  },
+  "packageBuilder": {
+    "title": "Experience Packages",
+    "subtitle": "Curate & publish stay packages — share via WhatsApp or link",
+    "active": "Active",
+    "drafts": "Drafts",
+    "views7d": "7d views",
+    "pendingReview": "{{count}} awaiting review",
+    "changesRequested": "{{count}} need changes",
+    "footer": "Owner approval required before any package goes live. Final rate manually confirmed."
+  },
+  "partners": {
+    "title": "Local Partner Directory",
+    "empty": "No partners added yet. Track trusted vendors and commissionable agents in one place.",
+    "addFirst": "Add your first partner",
+    "total": "Total",
+    "verified": "Verified",
+    "preferred": "Preferred",
+    "stale": "Stale"
+  },
+  "quoteDraft": {
+    "title": "AI Quote Drafts",
+    "subtitle": "Need to send a quote to a guest? Draft it here",
+    "blurb": "Pick a lead, choose a package, type the final price, generate a draft to copy.",
+    "footer": "Deterministic template. No live AI. No send. Manual verification required."
+  },
+  "seasonalCard": {
+    "title": "Seasonal Demand Calendar",
+    "subtitle": "Planning guide for regional travel seasons. No forecasts, no auto-campaigns.",
+    "nextFocus": "Next focus",
+    "prepDone": "{{done}}/{{total}} prep done",
+    "loadError": "Could not load planning windows.",
+    "allDismissed": "All planning windows are dismissed or hidden.",
+    "now": "Now",
+    "prepare": "Prepare",
+    "watch": "Watch",
+    "readyByMgr_one": "{{count}} marked READY by manager",
+    "readyByMgr_other": "{{count}} marked READY by manager",
+    "footer": "Deterministic planning windows. No demand prediction, no campaigns, no AI."
+  },
+  "pendingExt": {
+    "title": "Stay Extensions — Pending",
+    "noPending": "No pending extension requests.",
+    "loadFailed": "Failed to load extensions.",
+    "extendBy_one": "Extend by {{count}} night",
+    "extendBy_other": "Extend by {{count}} nights",
+    "from": "From {{date}}",
+    "requested": "Requested {{time}}",
+    "byGuest": "by Guest",
+    "byStaff": "by Staff",
+    "approve": "Approve",
+    "reject": "Reject",
+    "approveTitle": "Approve Extension",
+    "rejectTitle": "Reject Extension",
+    "fromLabel": "From:",
+    "toLabel": "To:",
+    "nights_one": "{{count}} night",
+    "nights_other": "{{count}} nights",
+    "additionalCharge": "Additional charge (₹)",
+    "waivePlaceholder": "Leave blank to waive",
+    "chargeHint": "Posted as ROOM_CHARGE on the folio. Leave blank to grant the extension at no cost.",
+    "staffNoteLabel": "Staff note (optional)",
+    "approveNotePlaceholder": "Approved by Mr. Sharma",
+    "rejectNotePlaceholder": "Hotel fully booked",
+    "cancel": "Cancel",
+    "saving": "Saving…",
+    "confirmApprove": "Confirm Approval",
+    "confirmReject": "Confirm Rejection",
+    "actionFailed": "Action failed.",
+    "amountInvalid": "Additional amount must be a non-negative number."
+  }
+}

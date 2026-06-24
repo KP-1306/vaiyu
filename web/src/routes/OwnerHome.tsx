@@ -5,6 +5,7 @@ import { supabase } from "../lib/supabase";
 import { API } from "../lib/api";
 import { useRole } from "../context/RoleContext";
 import OwnerDigestCard from "../components/OwnerDigestCard";
+import { OwnerLangToggle } from "../i18n/OwnerLangToggle";
 import UsageMeter from "../components/UsageMeter";
 import ObservabilityCard from "../components/ObservabilityCard";
 
@@ -156,6 +157,7 @@ export default function OwnerHome() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <OwnerLangToggle />
           <input
             className="input"
             placeholder="Hotel slug"

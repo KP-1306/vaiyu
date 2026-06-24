@@ -19,6 +19,7 @@ import {
   OTA_STALE_DAYS,
   freshnessForReviewedAt,
 } from '../../config/otaOptimizer';
+import { useOwnerT } from '../../i18n/useOwnerT';
 import {
   getOtaReadinessByOta,
   getOtaReadinessSummary,
@@ -52,6 +53,8 @@ const BAND_RING_STROKE: Record<OTAReadinessBand, string> = {
 };
 
 export function OTAReadinessCard({ hotelId, hotelSlug }: Props) {
+  const t = useOwnerT('owner-cards');
+  const otaT = useOwnerT('owner-ota');
   if (!OTA_LISTING_OPTIMIZER_V0_ENABLED) return null;
 
   // hotelId is passed by the parent (OwnerDashboard already resolved slug->id),
@@ -104,13 +107,13 @@ export function OTAReadinessCard({ hotelId, hotelSlug }: Props) {
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <h3 className="text-sm font-semibold text-slate-100">OTA Listing Optimizer</h3>
+              <h3 className="text-sm font-semibold text-slate-100">{t('ota.title', 'OTA Listing Optimizer')}</h3>
               <span className="inline-flex items-center rounded-md border border-sky-500/40 bg-sky-500/15 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-sky-200">
                 v0
               </span>
             </div>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Self-audit workbook across 8 OTAs. Not a channel manager.
+              {t('ota.subtitle', 'Self-audit workbook across 8 OTAs. Not a channel manager.')}
             </p>
           </div>
         </div>
@@ -125,7 +128,7 @@ export function OTAReadinessCard({ hotelId, hotelSlug }: Props) {
         <div className="mt-3 flex items-center gap-2 rounded-lg border border-sky-500/40 bg-sky-500/10 px-2.5 py-2">
           <ClipboardList className="h-4 w-4 text-sky-300 shrink-0" />
           <span className="text-[12px] text-sky-100 font-medium leading-snug">
-            Cold-start wizard not completed — open to fill the matrix.
+            {t('ota.wizardCta', 'Cold-start wizard not completed — open to fill the matrix.')}
           </span>
         </div>
       )}
@@ -151,17 +154,20 @@ export function OTAReadinessCard({ hotelId, hotelSlug }: Props) {
 
         <div className="min-w-0 flex-1">
           <div className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[11px] font-medium ${BAND_BADGE_CLS[overallBand]}`}>
-            {OTA_BAND_LABEL[overallBand]}
+            {otaT(`band.${overallBand}`, OTA_BAND_LABEL[overallBand])}
           </div>
           <div className="mt-1 text-[11px] text-slate-400">
             {summary
-              ? `${summary.activeOtaCount} active OTA${summary.activeOtaCount === 1 ? '' : 's'} · ${summary.totalGapCount} gap${summary.totalGapCount === 1 ? '' : 's'}`
-              : isLoading ? 'Loading…' : isError ? 'Could not load' : ''}
+              ? t('ota.summaryLine', '{{otas}} · {{gaps}}', {
+                  otas: t('ota.activeOtas', '{{count}} active OTAs', { count: summary.activeOtaCount }),
+                  gaps: t('ota.gaps', '{{count}} gaps', { count: summary.totalGapCount }),
+                })
+              : isLoading ? t('common.loading', 'Loading…') : isError ? t('common.couldNotLoad', 'Could not load') : ''}
           </div>
           {hasStale && summary && (
             <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-300">
               <AlertTriangle className="h-3 w-3" />
-              <span>{summary.totalStaleCount} item{summary.totalStaleCount === 1 ? '' : 's'} stale ({OTA_STALE_DAYS}d+)</span>
+              <span>{t('ota.staleItems', '{{count}} items stale ({{days}}d+)', { count: summary.totalStaleCount, days: OTA_STALE_DAYS })}</span>
             </div>
           )}
         </div>
@@ -186,17 +192,17 @@ export function OTAReadinessCard({ hotelId, hotelSlug }: Props) {
       {/* Next focus */}
       {summary?.focusOta && (
         <div className="mt-3 rounded-lg border border-slate-800 bg-[#0B0E14] px-2.5 py-2">
-          <div className="text-[10px] uppercase tracking-wide text-slate-500">Next focus</div>
+          <div className="text-[10px] uppercase tracking-wide text-slate-500">{t('ota.nextFocus', 'Next focus')}</div>
           <div className="mt-0.5 truncate text-[13px] font-medium text-slate-100">
             {OTA_PLATFORM_LABEL[summary.focusOta.ota]}
           </div>
           <div className="mt-0.5 text-[11px] text-slate-400">
-            {summary.focusOta.missing_count + summary.focusOta.unknown_count} item{(summary.focusOta.missing_count + summary.focusOta.unknown_count) === 1 ? '' : 's'} to address ·{' '}
+            {t('ota.addressItems', '{{count}} items to address', { count: summary.focusOta.missing_count + summary.focusOta.unknown_count })} ·{' '}
             <span className={BAND_BADGE_CLS[summary.focusOta.band].split(' ').filter(c => c.startsWith('text-')).join(' ')}>
-              {OTA_BAND_LABEL[summary.focusOta.band]}
+              {otaT(`band.${summary.focusOta.band}`, OTA_BAND_LABEL[summary.focusOta.band])}
             </span>
             {summary.focusOta.oldest_review_at && freshnessForReviewedAt(summary.focusOta.oldest_review_at) !== 'fresh' && (
-              <>{' '}· <span className="text-amber-300">stale</span></>
+              <>{' '}· <span className="text-amber-300">{t('ota.stale', 'stale')}</span></>
             )}
           </div>
         </div>
@@ -207,12 +213,12 @@ export function OTAReadinessCard({ hotelId, hotelSlug }: Props) {
       {/* Empty / error states */}
       {!summary && !isLoading && !isError && (
         <div className="mt-3 text-[12px] text-slate-500">
-          No OTA settings yet — open the workspace to start the wizard.
+          {t('ota.noSettings', 'No OTA settings yet — open the workspace to start the wizard.')}
         </div>
       )}
       {isError && (
         <div className="mt-3 text-[12px] text-rose-300">
-          Could not load OTA readiness. Refresh the page.
+          {t('ota.loadError', 'Could not load OTA readiness. Refresh the page.')}
         </div>
       )}
 

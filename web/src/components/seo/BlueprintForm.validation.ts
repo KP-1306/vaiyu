@@ -12,6 +12,7 @@ import type {
   SeoBlueprintRisk,
   SeoProofItem,
 } from '../../types/seoBlueprint';
+import type { OwnerT } from '../../i18n/useOwnerT';
 
 export interface SeoBlueprintFormDraft {
   pageTitleConcept: string;
@@ -113,12 +114,13 @@ export function validate(draft: SeoBlueprintFormDraft, options: ValidateOptions 
   return { ok: Object.keys(errors).length === 0, errors };
 }
 
-export function humanizeError(k: SeoBlueprintErrorKey): string {
+export function humanizeError(k: SeoBlueprintErrorKey, t?: OwnerT): string {
+  const tr = (key: string, en: string) => (t ? t(key, en) : en);
   switch (k) {
-    case 'TITLE_REQUIRED': return 'Page-title concept is required.';
-    case 'TITLE_TOO_LONG': return 'Page-title concept must be ≤ 160 characters.';
-    case 'CATEGORY_INVALID': return 'Pick a valid target category.';
-    case 'OVERRIDE_REASON_REQUIRED': return 'When overriding the risk flag, a reason is required.';
+    case 'TITLE_REQUIRED': return tr('validation.TITLE_REQUIRED', 'Page-title concept is required.');
+    case 'TITLE_TOO_LONG': return tr('validation.TITLE_TOO_LONG', 'Page-title concept must be ≤ 160 characters.');
+    case 'CATEGORY_INVALID': return tr('validation.CATEGORY_INVALID', 'Pick a valid target category.');
+    case 'OVERRIDE_REASON_REQUIRED': return tr('validation.OVERRIDE_REASON_REQUIRED', 'When overriding the risk flag, a reason is required.');
   }
 }
 

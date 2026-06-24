@@ -1,0 +1,180 @@
+{
+  "page": {
+    "breadcrumb": "ग्रोथ",
+    "title": "लोकल पार्टनर डायरेक्टरी",
+    "subtitle": "आपके भरोसेमंद वेंडर और कमीशन-आधारित एजेंट। स्टेटस, सत्यापन और (एजेंट के लिए) कमीशन भुगतान मैनेज करें।"
+  },
+  "notEnabled": "पार्टनर नेटवर्क अभी उपलब्ध नहीं है।",
+  "notFound": "{{slug}} स्लग के लिए होटल नहीं मिला।",
+  "filter": {
+    "allKinds": "सभी प्रकार",
+    "vendors": "वेंडर",
+    "agents": "एजेंट",
+    "searchPlaceholder": "नाम या सेवा क्षेत्र से खोजें",
+    "includeArchived": "आर्काइव शामिल करें"
+  },
+  "action": {
+    "addPartner": "पार्टनर जोड़ें"
+  },
+  "counter": {
+    "total": "कुल",
+    "verified": "सत्यापित",
+    "preferred": "पसंदीदा",
+    "stale": "पुराना"
+  },
+  "table": {
+    "name": "नाम",
+    "kindCategory": "प्रकार / श्रेणी",
+    "status": "स्टेटस",
+    "verification": "सत्यापन",
+    "leads": "लीड्स",
+    "outstanding": "बकाया",
+    "noPartners": "मौजूदा फ़िल्टर से कोई पार्टनर नहीं मिला।",
+    "noArea": "कोई क्षेत्र नहीं"
+  },
+  "kind": {
+    "VENDOR": "वेंडर",
+    "AGENT": "एजेंट",
+    "vendorDescriptor": "वेंडर (परिचालन सप्लायर)",
+    "agentDescriptor": "एजेंट (कमीशन-आधारित बुकर)"
+  },
+  "status": {
+    "DRAFT": "ड्राफ्ट",
+    "VERIFIED": "सत्यापित",
+    "PREFERRED": "पसंदीदा",
+    "BACKUP": "बैकअप",
+    "INACTIVE": "निष्क्रिय",
+    "DO_NOT_USE": "उपयोग न करें",
+    "DRAFT_hint": "ड्राफ्ट (छिपा हुआ)",
+    "DO_NOT_USE_hint": "उपयोग न करें (कारण आवश्यक)"
+  },
+  "category": {
+    "TRAVEL_AGENT": "ट्रैवल एजेंट",
+    "CORPORATE_BOOKER": "कॉर्पोरेट बुकर",
+    "WEDDING_PLANNER": "वेडिंग प्लानर",
+    "GROUP_BOOKER": "ग्रुप बुकर",
+    "TAXI_TRANSPORT": "टैक्सी / ट्रांसपोर्ट",
+    "TREK_GUIDE": "ट्रेक गाइड",
+    "TEMPLE_TOUR": "मंदिर / तीर्थ टूर",
+    "SAFARI_ADVENTURE": "सफारी / एडवेंचर",
+    "PHOTOGRAPHER": "फोटोग्राफर",
+    "EVENT_DECORATION": "इवेंट / डेकोरेशन",
+    "WELLNESS_YOGA": "वेलनेस / योगा",
+    "FOOD_CATERING": "फूड / कैटरिंग",
+    "LAUNDRY_OPS": "लॉन्ड्री / ऑपरेशन",
+    "MAINTENANCE_VENDOR": "मेंटेनेंस वेंडर",
+    "OTHER": "अन्य"
+  },
+  "verification": {
+    "UNVERIFIED": "सत्यापित नहीं",
+    "PENDING": "सत्यापन लंबित",
+    "VERIFIED": "सत्यापित",
+    "REJECTED": "अस्वीकृत",
+    "stale": "पुराना",
+    "lastVerified": "अंतिम सत्यापन {{date}}",
+    "staleNote": "· पुराना (>{{days}} दिन — दोबारा सत्यापित करें)"
+  },
+  "drawer": {
+    "title": "पार्टनर विवरण",
+    "loading": "लोड हो रहा है…",
+    "notFound": "पार्टनर नहीं मिला।",
+    "closeAriaLabel": "बंद करें",
+    "edit": "संपादित करें",
+    "archive": "आर्काइव करें",
+    "unarchive": "आर्काइव से हटाएं",
+    "noContact": "कोई संपर्क जानकारी नहीं।",
+    "altPhone": "(वैकल्पिक)"
+  },
+  "section": {
+    "contact": "संपर्क",
+    "servicesArea": "सेवाएं और क्षेत्र",
+    "status": "स्टेटस",
+    "verification": "सत्यापन",
+    "commissionLedger": "कमीशन लेजर",
+    "internalNotes": "आंतरिक नोट्स",
+    "timeline": "टाइमलाइन"
+  },
+  "row": {
+    "serviceArea": "सेवा क्षेत्र",
+    "services": "सेवाएं",
+    "preferredUse": "पसंदीदा उपयोग",
+    "priceNote": "मूल्य नोट",
+    "emergency": "आपातकाल"
+  },
+  "emergency": {
+    "yes": "हाँ",
+    "no": "नहीं"
+  },
+  "timeline": {
+    "noEvents": "अभी कोई घटना नहीं।",
+    "loading": "लोड हो रहा है…"
+  },
+  "commission": {
+    "noCommissions": "कोई कमीशन दर्ज नहीं।",
+    "record": "कमीशन दर्ज करें",
+    "modalTitle": "कमीशन दर्ज करें",
+    "amountLabel": "राशि (INR) *",
+    "notesLabel": "नोट्स",
+    "notesPlaceholder": "जैसे बुकिंग रेफ ABC123 / 3 रातें",
+    "cancel": "रद्द करें",
+    "recordButton": "दर्ज करें",
+    "markPaid": "भुगतान हो गया",
+    "accrued": "अर्जित {{date}}",
+    "ref": "रेफ {{ref}}",
+    "status": {
+      "ACCRUED": "अर्जित",
+      "PAID": "भुगतान हुआ",
+      "CANCELLED": "रद्द"
+    },
+    "promptPayoutRef": "भुगतान संदर्भ (UPI रेफ / बैंक रेफ / चेक नं.) — आवश्यक",
+    "promptPayoutMethod": "भुगतान विधि (UPI / BANK / CASH / CHEQUE)?",
+    "promptCancelReason": "यह कमीशन रद्द क्यों कर रहे हैं? (ऑडिट में दर्ज होगा)"
+  },
+  "form": {
+    "addTitle": "पार्टनर जोड़ें",
+    "editTitle": "पार्टनर संपादित करें",
+    "partnerName": "पार्टनर का नाम",
+    "category": "श्रेणी",
+    "serviceArea": "सेवा क्षेत्र",
+    "priceNote": "मूल्य नोट (फ्री टेक्स्ट)",
+    "servicesOffered": "प्रदान की गई सेवाएं (कॉमा से अलग करें)",
+    "preferredUseCase": "पसंदीदा उपयोग (कब संपर्क करें)",
+    "emergency": "आपातकालीन उपलब्धता (व्यावसायिक घंटों के बाहर भी उत्तर देते हैं)",
+    "contactSection": "संपर्क",
+    "contactPerson": "संपर्क व्यक्ति",
+    "email": "ईमेल",
+    "phone": "फोन (स्वतः सामान्यीकृत)",
+    "altPhone": "वैकल्पिक फोन",
+    "agentCommission": "एजेंट कमीशन (मैनुअल लेजर — स्वतः भुगतान नहीं)",
+    "commissionPct": "डिफ़ॉल्ट कमीशन %",
+    "payoutTerms": "भुगतान की शर्तें",
+    "tags": "टैग (कॉमा से अलग करें)",
+    "internalNotes": "आंतरिक नोट्स",
+    "cancel": "रद्द करें",
+    "save": "बदलाव सहेजें",
+    "add": "पार्टनर जोड़ें",
+    "saving": "सहेजा जा रहा है…",
+    "invalidEmail": "यह ईमेल पता सही नहीं लगता।",
+    "invalidCommission": "0 से 100 के बीच होना चाहिए।",
+    "closeAriaLabel": "बंद करें"
+  },
+  "error": {
+    "NAME_REQUIRED": "पार्टनर का नाम आवश्यक है।",
+    "INVALID_CATEGORY": "इस प्रकार के लिए एक वैध श्रेणी चुनें।",
+    "INVALID_KIND": "वेंडर या एजेंट चुनें।",
+    "INVALID_EMAIL": "वह ईमेल सही नहीं लगती।",
+    "INVALID_COMMISSION_PCT": "कमीशन 0-100 के बीच होना चाहिए।",
+    "VENDOR_NO_COMMISSION": "वेंडर पर कमीशन नहीं हो सकता। पहले एजेंट प्रकार पर स्विच करें।",
+    "NOT_AUTHORIZED": "आपके पास इस होटल के पार्टनर प्रबंधन की अनुमति नहीं है।",
+    "ARCHIVED_NOT_EDITABLE": "यह पार्टनर आर्काइव है। पहले आर्काइव से हटाएं।",
+    "PARTNER_NOT_FOUND": "पार्टनर अब मौजूद नहीं है।",
+    "UNKNOWN_ERROR": "सहेजना विफल रहा। कृपया पुनः प्रयास करें।"
+  },
+  "prompt": {
+    "doNotUse": "इस पार्टनर को 'उपयोग न करें' क्यों चिह्नित कर रहे हैं? (ऑडिट में दर्ज होगा)",
+    "verificationNote": "सत्यापन नोट जोड़ें (वैकल्पिक)।",
+    "payoutRef": "भुगतान संदर्भ (UPI रेफ / बैंक रेफ / चेक नं.) — आवश्यक",
+    "payoutMethod": "भुगतान विधि (UPI / BANK / CASH / CHEQUE)?",
+    "cancelReason": "यह कमीशन रद्द क्यों कर रहे हैं? (ऑडिट में दर्ज होगा)"
+  }
+}

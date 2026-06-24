@@ -53,6 +53,7 @@ import {
 } from '../../components/packages/PackageStatusPill';
 import { track } from '../../lib/analytics';
 import type { Package } from '../../types/package';
+import { useOwnerT, type OwnerT } from '../../i18n/useOwnerT';
 
 interface HotelRow { id: string; name: string; slug: string }
 
@@ -116,6 +117,7 @@ function draftToCreate(hotelId: string, d: PackageFormDraft): CreatePackageInput
 export default function PackageBuilder() {
   const { slug, id: packageId } = useParams<{ slug: string; id?: string }>();
   const navigate = useNavigate();
+  const t = useOwnerT('owner-packages');
   const qc = useQueryClient();
   const [actionErr, setActionErr] = useState<string | null>(null);
   const isEdit = !!packageId;
@@ -154,7 +156,7 @@ export default function PackageBuilder() {
       qc.invalidateQueries({ queryKey: ['packages', hotel?.id] });
       navigate(`/owner/${slug}/packages/${out.id}`, { replace: true });
     },
-    onError: (e) => setActionErr(humanizeErr(e)),
+    onError: (e) => setActionErr(humanizeErr(e, t)),
   });
 
   const updateM = useMutation({
@@ -191,7 +193,7 @@ export default function PackageBuilder() {
       qc.invalidateQueries({ queryKey: packageQueryKeys.detail(packageId!) });
       qc.invalidateQueries({ queryKey: ['packages', hotel?.id] });
     },
-    onError: (e) => setActionErr(humanizeErr(e)),
+    onError: (e) => setActionErr(humanizeErr(e, t)),
   });
 
   const submitM = useMutation({
@@ -200,7 +202,7 @@ export default function PackageBuilder() {
       qc.invalidateQueries({ queryKey: packageQueryKeys.detail(packageId!) });
       qc.invalidateQueries({ queryKey: ['packages', hotel?.id] });
     },
-    onError: (e) => setActionErr(humanizeErr(e)),
+    onError: (e) => setActionErr(humanizeErr(e, t)),
   });
 
   const approveM = useMutation({
@@ -209,7 +211,7 @@ export default function PackageBuilder() {
       qc.invalidateQueries({ queryKey: packageQueryKeys.detail(packageId!) });
       qc.invalidateQueries({ queryKey: ['packages', hotel?.id] });
     },
-    onError: (e) => setActionErr(humanizeErr(e)),
+    onError: (e) => setActionErr(humanizeErr(e, t)),
   });
 
   const requestChangesM = useMutation({
@@ -218,7 +220,7 @@ export default function PackageBuilder() {
       qc.invalidateQueries({ queryKey: packageQueryKeys.detail(packageId!) });
       qc.invalidateQueries({ queryKey: ['packages', hotel?.id] });
     },
-    onError: (e) => setActionErr(humanizeErr(e)),
+    onError: (e) => setActionErr(humanizeErr(e, t)),
   });
 
   const publishM = useMutation({
@@ -227,19 +229,19 @@ export default function PackageBuilder() {
       qc.invalidateQueries({ queryKey: packageQueryKeys.detail(packageId!) });
       qc.invalidateQueries({ queryKey: ['packages', hotel?.id] });
     },
-    onError: (e) => setActionErr(humanizeErr(e)),
+    onError: (e) => setActionErr(humanizeErr(e, t)),
   });
 
   const pauseM = useMutation({
     mutationFn: () => pausePackage(packageId!),
     onSuccess: () => qc.invalidateQueries({ queryKey: packageQueryKeys.detail(packageId!) }),
-    onError: (e) => setActionErr(humanizeErr(e)),
+    onError: (e) => setActionErr(humanizeErr(e, t)),
   });
 
   const resumeM = useMutation({
     mutationFn: () => resumePackage(packageId!),
     onSuccess: () => qc.invalidateQueries({ queryKey: packageQueryKeys.detail(packageId!) }),
-    onError: (e) => setActionErr(humanizeErr(e)),
+    onError: (e) => setActionErr(humanizeErr(e, t)),
   });
 
   const archiveM = useMutation({
@@ -248,7 +250,7 @@ export default function PackageBuilder() {
       qc.invalidateQueries({ queryKey: ['packages', hotel?.id] });
       navigate(`/owner/${slug}/packages`);
     },
-    onError: (e) => setActionErr(humanizeErr(e)),
+    onError: (e) => setActionErr(humanizeErr(e, t)),
   });
 
   const duplicateM = useMutation({
@@ -264,7 +266,7 @@ export default function PackageBuilder() {
       qc.invalidateQueries({ queryKey: ['packages', hotel?.id] });
       navigate(`/owner/${slug}/packages/${newId}`);
     },
-    onError: (e) => setActionErr(humanizeErr(e)),
+    onError: (e) => setActionErr(humanizeErr(e, t)),
   });
 
   const deleteM = useMutation({
@@ -273,7 +275,7 @@ export default function PackageBuilder() {
       qc.invalidateQueries({ queryKey: ['packages', hotel?.id] });
       navigate(`/owner/${slug}/packages`);
     },
-    onError: (e) => setActionErr(humanizeErr(e)),
+    onError: (e) => setActionErr(humanizeErr(e, t)),
   });
 
   const handleCreate = useCallback((draft: PackageFormDraft) => {
@@ -287,20 +289,20 @@ export default function PackageBuilder() {
   }, [updateM]);
 
   if (!PACKAGE_BUILDER_V0_ENABLED) {
-    return <main className="min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200">Disabled.</main>;
+    return <main className="vaiyu-owner min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200">{t('builder.disabled', 'Disabled.')}</main>;
   }
   if (hotelQ.isLoading || (isEdit && packageQ.isLoading)) {
     return (
-      <main className="min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200">
+      <main className="vaiyu-owner min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200">
         <Loader2 className="h-5 w-5 animate-spin text-slate-500" aria-hidden />
       </main>
     );
   }
   if (!hotel) {
-    return <main className="min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200"><p className="text-sm">Hotel not found.</p></main>;
+    return <main className="vaiyu-owner min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200"><p className="text-sm">{t('builder.hotelNotFound', 'Hotel not found.')}</p></main>;
   }
   if (isEdit && !packageQ.data) {
-    return <main className="min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200"><p className="text-sm">Package not found.</p></main>;
+    return <main className="vaiyu-owner min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200"><p className="text-sm">{t('builder.packageNotFound', 'Package not found.')}</p></main>;
   }
 
   const pkg = packageQ.data ?? null;
@@ -314,7 +316,7 @@ export default function PackageBuilder() {
   }
 
   return (
-    <main className="min-h-screen bg-[#0B0E14] text-slate-200">
+    <main className="vaiyu-owner min-h-screen bg-[#0B0E14] text-slate-200">
       <div className="mx-auto max-w-3xl px-4 sm:px-6 py-6 space-y-5">
         <header className="space-y-3">
           <Link
@@ -322,19 +324,19 @@ export default function PackageBuilder() {
             className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200"
           >
             <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
-            Back to packages
+            {t('builder.back', 'Back to packages')}
           </Link>
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <h1 className="text-xl sm:text-2xl font-semibold text-slate-50">
-                {isEdit ? pkg!.name : 'New package'}
+                {isEdit ? pkg!.name : t('builder.newTitle', 'New package')}
               </h1>
               {pkg && (
                 <div className="mt-1 flex flex-wrap items-center gap-1.5">
                   <PackageStatusPill status={pkg.status} />
                   <PackageApprovalPill status={pkg.owner_approval_status} />
                   <span className="text-[10px] text-slate-500">
-                    Updated {new Date(pkg.updated_at).toLocaleString('en-IN')}
+                    {t('builder.updated', 'Updated {{at}}', { at: new Date(pkg.updated_at).toLocaleString('en-IN') })}
                   </span>
                 </div>
               )}
@@ -345,7 +347,7 @@ export default function PackageBuilder() {
                   to={`/owner/${slug}/packages/${pkg.id}/preview`}
                   className="inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800"
                 >
-                  Preview
+                  {t('builder.preview', 'Preview')}
                 </Link>
                 {pkg.status === 'ACTIVE' && pkg.owner_approval_status === 'APPROVED' && (
                   <button
@@ -355,7 +357,7 @@ export default function PackageBuilder() {
                     data-testid="package-copy-url"
                   >
                     <Copy className="h-3 w-3" aria-hidden />
-                    Copy public URL
+                    {t('builder.copyUrl', 'Copy public URL')}
                   </button>
                 )}
                 {pkg.status === 'ACTIVE' && (
@@ -365,7 +367,7 @@ export default function PackageBuilder() {
                     rel="noopener"
                     className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-200 hover:bg-emerald-500/20"
                   >
-                    Open <ArrowUpRight className="h-3 w-3" aria-hidden />
+                    {t('builder.open', 'Open')} <ArrowUpRight className="h-3 w-3" aria-hidden />
                   </Link>
                 )}
               </div>
@@ -378,10 +380,10 @@ export default function PackageBuilder() {
         {/* Approval / lifecycle action bar */}
         {pkg && (
           <section className="rounded-2xl border border-slate-800 bg-[#0F1320] p-4 space-y-3">
-            <h2 className="text-sm font-semibold text-slate-100">Lifecycle</h2>
+            <h2 className="text-sm font-semibold text-slate-100">{t('builder.lifecycle', 'Lifecycle')}</h2>
             {pkg.approval_notes && (
               <p className="text-[11px] text-slate-400 italic">
-                Approval note: {pkg.approval_notes}
+                {t('builder.approvalNote', 'Approval note: {{note}}', { note: pkg.approval_notes })}
               </p>
             )}
             <div className="flex flex-wrap items-center gap-2">
@@ -394,7 +396,7 @@ export default function PackageBuilder() {
                   data-testid="package-submit-for-approval"
                 >
                   <Send className="h-3 w-3" aria-hidden />
-                  Submit for approval
+                  {t('builder.submit', 'Submit for approval')}
                 </button>
               )}
               {pkg.status === 'READY' && (
@@ -407,19 +409,19 @@ export default function PackageBuilder() {
                     data-testid="package-approve"
                   >
                     <Check className="h-3 w-3" aria-hidden />
-                    Approve
+                    {t('builder.approve', 'Approve')}
                   </button>
                   <button
                     type="button"
                     onClick={() => {
-                      const note = window.prompt('Reason for requesting changes?');
+                      const note = window.prompt(t('builder.requestChangesPrompt', 'Reason for requesting changes?'));
                       if (note && note.trim()) requestChangesM.mutate(note.trim());
                     }}
                     disabled={requestChangesM.isPending}
                     className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-200 hover:bg-amber-500/20"
                     data-testid="package-request-changes"
                   >
-                    Request changes
+                    {t('builder.requestChanges', 'Request changes')}
                   </button>
                   {pkg.owner_approval_status === 'APPROVED' && (
                     <button
@@ -430,7 +432,7 @@ export default function PackageBuilder() {
                       data-testid="package-publish"
                     >
                       <Send className="h-3 w-3" aria-hidden />
-                      Publish (go live)
+                      {t('builder.publish', 'Publish (go live)')}
                     </button>
                   )}
                 </>
@@ -444,7 +446,7 @@ export default function PackageBuilder() {
                   data-testid="package-pause"
                 >
                   <Pause className="h-3 w-3" aria-hidden />
-                  Pause
+                  {t('builder.pause', 'Pause')}
                 </button>
               )}
               {pkg.status === 'PAUSED' && pkg.owner_approval_status === 'APPROVED' && (
@@ -456,7 +458,7 @@ export default function PackageBuilder() {
                   data-testid="package-resume"
                 >
                   <Play className="h-3 w-3" aria-hidden />
-                  Resume
+                  {t('builder.resume', 'Resume')}
                 </button>
               )}
               <button
@@ -466,32 +468,32 @@ export default function PackageBuilder() {
                 className="inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800"
               >
                 <Copy className="h-3 w-3" aria-hidden />
-                Duplicate
+                {t('builder.duplicate', 'Duplicate')}
               </button>
               {pkg.status !== 'ARCHIVED' && (
                 <button
                   type="button"
                   onClick={() => {
-                    if (window.confirm('Archive this package? It will hide from public + workspace but stay in audit.'))
+                    if (window.confirm(t('builder.archiveConfirm', 'Archive this package? It will hide from public + workspace but stay in audit.')))
                       archiveM.mutate();
                   }}
                   disabled={archiveM.isPending}
                   className="inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800"
                 >
-                  Archive
+                  {t('builder.archive', 'Archive')}
                 </button>
               )}
               <button
                 type="button"
                 onClick={() => {
-                  if (window.confirm('Delete this package? Soft-delete; audit preserved.'))
+                  if (window.confirm(t('builder.deleteConfirm', 'Delete this package? Soft-delete; audit preserved.')))
                     deleteM.mutate();
                 }}
                 disabled={deleteM.isPending}
                 className="inline-flex items-center gap-1.5 rounded-md border border-red-500/30 bg-red-500/5 px-3 py-1.5 text-xs text-red-200 hover:bg-red-500/15"
               >
                 <Trash2 className="h-3 w-3" aria-hidden />
-                Delete
+                {t('builder.delete', 'Delete')}
               </button>
             </div>
             {actionErr && (
@@ -509,13 +511,13 @@ export default function PackageBuilder() {
             initial={initial}
             lockSlug={isEdit}
             busy={createM.isPending || updateM.isPending}
-            submitLabel={isEdit ? 'Save changes' : 'Create draft'}
+            submitLabel={isEdit ? t('builder.saveChanges', 'Save changes') : t('builder.createDraft', 'Create draft')}
             onSubmit={isEdit ? handleUpdate : handleCreate}
             onCancel={() => navigate(`/owner/${slug}/packages`)}
           />
         ) : (
           <div className="rounded-2xl border border-slate-800 bg-[#0F1320] p-4 text-xs text-slate-400">
-            This package is {pkg.status.toLowerCase()}. Pause or archive to edit, or duplicate to create a new draft.
+            {t('builder.blocked', "This package is {{status}} and can't be edited here. Pause or archive to edit, or duplicate to create a new draft.", { status: t(`status.${pkg.status}`, pkg.status) })}
           </div>
         )}
       </div>
@@ -523,18 +525,19 @@ export default function PackageBuilder() {
   );
 }
 
-function humanizeErr(e: unknown): string {
+function humanizeErr(e: unknown, t?: OwnerT): string {
+  const tr = (key: string, en: string) => (t ? t(key, en) : en);
   if (e instanceof PackageServiceError) {
     switch (e.code) {
-      case 'SLUG_TAKEN': return 'That URL slug is already in use for this hotel.';
-      case 'NOT_AUTHORIZED': return 'You don\'t have permission for that action.';
-      case 'APPROVAL_REQUIRED': return 'A manager must approve the package before it can go live.';
-      case 'NOTE_REQUIRED': return 'A note is required when requesting changes.';
-      case 'INVALID_TRANSITION': return 'That status change isn\'t allowed from the current state.';
-      case 'NOT_EDITABLE': return 'This package is in a state where edits are blocked.';
-      case 'ROOM_TYPE_MISMATCH': return 'The selected room type doesn\'t belong to this hotel.';
+      case 'SLUG_TAKEN': return tr('actionError.SLUG_TAKEN', 'That URL slug is already in use for this hotel.');
+      case 'NOT_AUTHORIZED': return tr('actionError.NOT_AUTHORIZED', 'You don\'t have permission for that action.');
+      case 'APPROVAL_REQUIRED': return tr('actionError.APPROVAL_REQUIRED', 'A manager must approve the package before it can go live.');
+      case 'NOTE_REQUIRED': return tr('actionError.NOTE_REQUIRED', 'A note is required when requesting changes.');
+      case 'INVALID_TRANSITION': return tr('actionError.INVALID_TRANSITION', 'That status change isn\'t allowed from the current state.');
+      case 'NOT_EDITABLE': return tr('actionError.NOT_EDITABLE', 'This package is in a state where edits are blocked.');
+      case 'ROOM_TYPE_MISMATCH': return tr('actionError.ROOM_TYPE_MISMATCH', 'The selected room type doesn\'t belong to this hotel.');
       default: return e.message;
     }
   }
-  return (e as Error).message ?? 'Action failed';
+  return (e as Error).message ?? tr('actionError.FALLBACK', 'Action failed');
 }

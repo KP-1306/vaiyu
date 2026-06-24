@@ -31,6 +31,7 @@ import {
   GOOGLE_BUSINESS_CHECKLIST_V0_ENABLED,
   meetsGBPReadyThreshold,
 } from '../../config/gbpChecklist';
+import { useOwnerT, useOwnerLang, type OwnerT } from '../../i18n/useOwnerT';
 import { gbpChecklistQueryKeys } from '../../services/gbpChecklistQueryKeys';
 import { listGBPAttestations } from '../../services/gbpChecklistService';
 import { VISIBILITY_CATEGORY_WEIGHT } from '../../config/visibilityScore';
@@ -105,22 +106,27 @@ function isGBPSelfAttestedSatisfied(attestation: GBPAttestationRow | null): bool
 
 /**
  * AUTO_DERIVED rule evaluation, mirrors the SQL view CASE branches.
+ * Optional `t` parameter enables localised reason strings when wired from
+ * a component that has the owner-visibility namespace loaded.
  */
 function isAutoDerivedSatisfied(
   itemKey: string,
   description: string | null | undefined,
   amenities: string[] | null | undefined,
+  t?: OwnerT,
 ): { satisfied: boolean; reason: string } {
+  const tr = (key: string, en: string, vars?: Record<string, unknown>) =>
+    t ? t(key, en, vars) : en;
   switch (itemKey) {
     case 'description_present': {
       const len = (description ?? '').trim().length;
       return {
         satisfied: len >= 30,
         reason: len >= 30
-          ? `Description set (${len} chars).`
+          ? tr('gbp.descriptionSet', 'Description set ({{len}} chars).', { len })
           : len > 0
-            ? `Description too short (${len} chars; need ≥30).`
-            : 'No description set in property settings.',
+            ? tr('gbp.descriptionTooShort', 'Description too short ({{len}} chars; need ≥30).', { len })
+            : tr('gbp.noDescription', 'No description set in property settings.'),
       };
     }
     case 'amenities_visible_on_gbp': {
@@ -128,8 +134,8 @@ function isAutoDerivedSatisfied(
       return {
         satisfied: count >= 3,
         reason: count >= 3
-          ? `${count} amenities listed.`
-          : `Only ${count} amenities listed (need ≥3).`,
+          ? tr('gbp.amenitiesListed', '{{count}} amenities listed.', { count })
+          : tr('gbp.amenitiesInsufficient', 'Only {{count}} amenities listed (need ≥3).', { count }),
       };
     }
     default:
@@ -146,6 +152,8 @@ export function GoogleBusinessChecklist({
   hotelDescription,
   hotelAmenities,
 }: Props) {
+  const t = useOwnerT('owner-visibility');
+  const lang = useOwnerLang();
   // Fetch GBP attestations for SELF_ATTESTED items
   const gbpAttQ = useQuery({
     queryKey: gbpChecklistQueryKeys.attestations(hotelId),
@@ -193,7 +201,7 @@ export function GoogleBusinessChecklist({
       } else if (item.kind === 'SELF_ATTESTED') {
         isSat = isGBPSelfAttestedSatisfied(gbpByKey[item.itemKey] ?? null);
       } else if (item.kind === 'AUTO_DERIVED') {
-        isSat = isAutoDerivedSatisfied(item.itemKey, hotelDescription, hotelAmenities).satisfied;
+        isSat = isAutoDerivedSatisfied(item.itemKey, hotelDescription, hotelAmenities, t).satisfied;
       }
       total++;
       if (isSat) satisfied++;
@@ -219,10 +227,10 @@ export function GoogleBusinessChecklist({
         <header className="flex items-center justify-between gap-2">
           <h3 className="inline-flex items-center gap-2 text-[12px] font-semibold text-slate-100">
             <Globe className="h-4 w-4 text-sky-300" aria-hidden />
-            Google Business checklist
+            {t('gbp.legacyTitle', 'Google Business checklist')}
           </h3>
           <span className="text-[11px] text-slate-300">
-            {visibilityCategoryActual.toFixed(visibilityCategoryActual % 1 === 0 ? 0 : 1)} / {visibilityCategoryMax} pts
+            {visibilityCategoryActual.toFixed(visibilityCategoryActual % 1 === 0 ? 0 : 1)} / {visibilityCategoryMax} {t('pts', 'pts')}
           </span>
         </header>
         <ul className="space-y-2">
@@ -250,14 +258,14 @@ export function GoogleBusinessChecklist({
         <div className="flex items-center justify-between gap-2">
           <h3 className="inline-flex items-center gap-2 text-[13px] font-semibold text-slate-100">
             <Globe className="h-4 w-4 text-sky-300" aria-hidden />
-            Google Business Checklist
+            {t('gbp.title', 'Google Business Checklist')}
             <span className="inline-flex items-center rounded-md border border-sky-500/40 bg-sky-500/15 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-sky-200">
               v0
             </span>
           </h3>
           <div className="flex items-center gap-2">
             <span className="text-[11px] text-slate-300">
-              {summary.satisfied} / {summary.total} items
+              {t('gbp.items', '{{satisfied}} / {{total}} items', { satisfied: summary.satisfied, total: summary.total })}
             </span>
             <span
               className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${
@@ -267,7 +275,7 @@ export function GoogleBusinessChecklist({
               }`}
               title={`Ready when ≥${GBP_READY_THRESHOLD_PCT}% satisfied`}
             >
-              {isReady ? `Ready (≥${GBP_READY_THRESHOLD_PCT}%)` : `Below ${GBP_READY_THRESHOLD_PCT}%`}
+              {isReady ? t('gbp.ready', 'Ready (≥{{pct}}%)', { pct: GBP_READY_THRESHOLD_PCT }) : t('gbp.belowReady', 'Below {{pct}}%', { pct: GBP_READY_THRESHOLD_PCT })}
             </span>
           </div>
         </div>
@@ -297,7 +305,7 @@ export function GoogleBusinessChecklist({
             >
               <div className="flex items-center gap-2">
                 {isOpen ? <ChevronDown className="h-3.5 w-3.5 text-slate-400" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-400" />}
-                <span className="text-[12px] font-medium text-slate-100">{GBP_CATEGORY_LABEL[cat]}</span>
+                <span className="text-[12px] font-medium text-slate-100">{t(`gbpCategory.${cat}`, GBP_CATEGORY_LABEL[cat])}</span>
               </div>
               <span className="text-[11px] text-slate-400">
                 {stat.satisfied} / {stat.total}
@@ -309,7 +317,7 @@ export function GoogleBusinessChecklist({
                   hotelId, hotelSlug, isManager,
                   breakdown, attestationsByKey,
                   gbpAttestation: gbpByKey[item.itemKey] ?? null,
-                  hotelDescription, hotelAmenities,
+                  hotelDescription, hotelAmenities, t,
                 }))}
               </ul>
             )}
@@ -329,6 +337,7 @@ interface RenderItemContext {
   gbpAttestation: GBPAttestationRow | null;
   hotelDescription: string | null | undefined;
   hotelAmenities: string[] | null | undefined;
+  t: OwnerT;
 }
 
 function renderItem(item: GBPCatalogItem, ctx: RenderItemContext) {
@@ -337,7 +346,7 @@ function renderItem(item: GBPCatalogItem, ctx: RenderItemContext) {
     if (!signal) {
       return (
         <li key={item.itemKey} className="rounded border border-slate-800 px-3 py-2 text-[11px] text-slate-500">
-          {item.labelEn} — signal not available
+          {item.labelEn} — {ctx.t('signalNotAvailable', 'signal not available')}
         </li>
       );
     }
@@ -354,7 +363,7 @@ function renderItem(item: GBPCatalogItem, ctx: RenderItemContext) {
   }
 
   if (item.kind === 'AUTO_DERIVED') {
-    const { satisfied, reason } = isAutoDerivedSatisfied(item.itemKey, ctx.hotelDescription, ctx.hotelAmenities);
+    const { satisfied, reason } = isAutoDerivedSatisfied(item.itemKey, ctx.hotelDescription, ctx.hotelAmenities, ctx.t);
     return (
       <GBPChecklistRow
         key={item.itemKey}

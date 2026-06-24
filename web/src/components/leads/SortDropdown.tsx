@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Check, ArrowUpDown } from 'lucide-react';
 import { SORT_OPTIONS, type SortOption } from './leadsFilters';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   value: SortOption;
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export function SortDropdown({ value, onChange }: Props) {
+  const t = useOwnerT('owner-leads');
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -40,11 +42,11 @@ export function SortDropdown({ value, onChange }: Props) {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="menu"
-        title="Sort"
+        title={t('sort.title', 'Sort')}
         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ring-1 bg-white/[0.03] text-white/70 ring-white/10 hover:bg-white/[0.06] transition-colors"
       >
         <ArrowUpDown className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">{current.label}</span>
+        <span className="hidden sm:inline">{t(`sort.${current.value}`, current.label)}</span>
         <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
@@ -70,7 +72,7 @@ export function SortDropdown({ value, onChange }: Props) {
                   ${selected ? 'bg-emerald-500/10 text-emerald-200' : 'text-white/80 hover:bg-white/[0.05]'}
                 `}
               >
-                {o.label}
+                {t(`sort.${o.value}`, o.label)}
                 {selected && <Check className="h-3.5 w-3.5" />}
               </button>
             );

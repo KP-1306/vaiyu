@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import BilingualNameField from "./BilingualNameField";
+import { useOwnerT, useOwnerCommonT } from "../i18n/useOwnerT";
 
 export interface AddServiceModalProps {
     isOpen: boolean;
@@ -21,6 +22,8 @@ export default function AddServiceModal({
     onSave,
     onClose,
 }: AddServiceModalProps) {
+    const t = useOwnerT("owner-services");
+    const tc = useOwnerCommonT();
     const [name, setName] = useState("");
     const [nameHi, setNameHi] = useState("");
     const [nameError, setNameError] = useState("");
@@ -44,11 +47,11 @@ export default function AddServiceModal({
 
     const handleSaveCustom = () => {
         if (!name.trim()) {
-            setNameError("Service name is required.");
+            setNameError(t("modals.addService.nameRequired", "Service name is required."));
             return;
         }
         if (!selectedDeptId) {
-            alert("Please select a department");
+            alert(t("modals.addService.selectDeptAlert", "Please select a department"));
             return;
         }
 
@@ -69,7 +72,7 @@ export default function AddServiceModal({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="vaiyu-owner fixed inset-0 z-50 flex items-center justify-center">
             {/* Backdrop */}
             <div
                 className="absolute inset-0 bg-black/70 backdrop-blur-sm"
@@ -83,10 +86,10 @@ export default function AddServiceModal({
                 <div className="flex items-center justify-between mb-6">
                     <div>
                         <h2 className="text-xl font-semibold text-white">
-                            Add New Service
+                            {t("modals.addService.title", "Add New Service")}
                         </h2>
                         <p className="text-sm text-gray-400 mt-1">
-                            Create a custom service for a specific department
+                            {t("modals.addService.subtitle", "Create a custom service for a specific department")}
                         </p>
                     </div>
                     <button
@@ -104,14 +107,14 @@ export default function AddServiceModal({
                     {/* Department Selection */}
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">
-                            Department
+                            {t("modals.addService.department", "Department")}
                         </label>
                         <select
                             value={selectedDeptId}
                             onChange={(e) => setSelectedDeptId(e.target.value)}
                             className="w-full px-4 py-2.5 bg-[#2a2a2a] border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         >
-                            <option value="" disabled>Select Department</option>
+                            <option value="" disabled>{t("modals.addService.selectDept", "Select Department")}</option>
                             {departments.map((dept) => (
                                 <option key={dept.id} value={dept.id}>
                                     {dept.name}
@@ -123,7 +126,7 @@ export default function AddServiceModal({
                     {/* Service Name */}
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">
-                            Service Name <span className="text-red-500">*</span>
+                            {t("modals.serviceName", "Service Name")} <span className="text-red-500">*</span>
                         </label>
                         <input
                             type="text"
@@ -132,7 +135,7 @@ export default function AddServiceModal({
                                 setName(e.target.value);
                                 if (e.target.value.trim()) setNameError("");
                             }}
-                            placeholder="e.g. Extra Pillow"
+                            placeholder={t("modals.addService.namePlaceholder", "e.g. Extra Pillow")}
                             className={`w-full px-4 py-2.5 bg-[#2a2a2a] border ${nameError ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors`}
                             autoFocus
                         />
@@ -154,7 +157,7 @@ export default function AddServiceModal({
                     {/* SLA Override */}
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">
-                            SLA Override (Optional)
+                            {t("modals.addService.slaOverrideOptional", "SLA Override (Optional)")}
                         </label>
                         <div className="flex items-center gap-3">
                             <input
@@ -162,16 +165,16 @@ export default function AddServiceModal({
                                 min="1"
                                 value={sla}
                                 onChange={(e) => setSla(e.target.value)}
-                                placeholder="Default department SLA"
+                                placeholder={t("modals.addService.defaultDeptSla", "Default department SLA")}
                                 className="flex-1 px-4 py-2.5 bg-[#2a2a2a] border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             />
-                            <span className="text-sm text-gray-400">minutes</span>
+                            <span className="text-sm text-gray-400">{t("modals.sla.minutes", "minutes")}</span>
                         </div>
                         <p className="text-xs text-gray-500 mt-1.5">
-                            Typically {selectedDept?.sla_policy?.target_minutes || 30} minutes for this department
+                            {t("modals.addService.typically", "Typically {{min}} minutes for this department", { min: selectedDept?.sla_policy?.target_minutes || 30 })}
                         </p>
                         <p className="text-xs text-blue-400 mt-1">
-                            Effective SLA: {effectiveSLA} minutes
+                            {t("modals.addService.effective", "Effective SLA: {{min}} minutes", { min: effectiveSLA })}
                         </p>
                     </div>
 
@@ -179,7 +182,7 @@ export default function AddServiceModal({
                     <div className="pt-2 border-t border-gray-800">
                         <div className="flex items-center justify-between">
                             <label className="text-sm font-medium text-gray-300">
-                                Service Availability
+                                {t("modals.addService.availability", "Service Availability")}
                             </label>
                             <button
                                 onClick={() => setIsActive(!isActive)}
@@ -194,8 +197,8 @@ export default function AddServiceModal({
                         </div>
                         <p className="text-xs text-gray-500 mt-2">
                             {isActive
-                                ? "Service will be immediately available for requests."
-                                : "Inactive services are hidden from guest requests."}
+                                ? t("modals.addService.activeHint", "Service will be immediately available for requests.")
+                                : t("modals.addService.inactiveHint", "Inactive services are hidden from guest requests.")}
                         </p>
                     </div>
                 </div>
@@ -206,7 +209,7 @@ export default function AddServiceModal({
                         onClick={onClose}
                         className="px-4 py-2.5 bg-transparent text-gray-400 hover:text-white font-medium transition-colors"
                     >
-                        Cancel
+                        {tc("actions.cancel", "Cancel")}
                     </button>
                     <button
                         onClick={handleSaveCustom}
@@ -216,7 +219,7 @@ export default function AddServiceModal({
                             : 'bg-blue-600 hover:bg-blue-700'
                             }`}
                     >
-                        Create Custom Service &gt;
+                        {t("modals.addService.createCustom", "Create Custom Service >")}
                     </button>
                 </div>
             </div>

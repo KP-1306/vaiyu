@@ -1,0 +1,153 @@
+{
+  "page": {
+    "backToDashboard": "डैशबोर्ड",
+    "title": "Visibility"
+  },
+  "action": {
+    "refresh": "रिफ्रेश करें"
+  },
+  "notEnabled": "Visibility Score बंद है।",
+  "notFound": "होटल नहीं मिला।",
+  "hero": {
+    "signalsSatisfied": "सिग्नल पूरे हुए",
+    "pendingData": "डेटा बाकी है",
+    "unlockableLater": "बाद में अनलॉक होगा"
+  },
+  "band": {
+    "STRONG": "बहुत अच्छा",
+    "GOOD": "ठीक है, कुछ कमियाँ हैं",
+    "NEEDS_ATTENTION": "ध्यान चाहिए",
+    "CRITICAL": "बड़ी कमियाँ हैं",
+    "ONBOARDING": "शुरुआत हो रही है"
+  },
+  "onboarding": {
+    "title": "शुरुआत — कुछ बेसिक चीज़ें पूरी करें और स्कोर अनलॉक करें",
+    "body": "स्कोर तब दिखेगा जब कम से कम 5 सिग्नल मूल्यांकन के लिए तैयार हों। शुरू करें: फोन नंबर, पता, मैप पिन, लोगो, और कम से कम एक GMB attestation।"
+  },
+  "cronHealth": {
+    "stale": "आखिरी साप्ताहिक स्नैपशॉट {{days}} दिन पहले लिया गया था — Refresh से मैन्युअल स्नैपशॉट लें।",
+    "notStarted": "इस प्रॉपर्टी के लिए साप्ताहिक स्नैपशॉट अभी शुरू नहीं हुए हैं। Refresh से मैन्युअल स्नैपशॉट लें।"
+  },
+  "error": {
+    "refreshRateLimitManager": "एक मिनट में दोबारा रिफ्रेश कर सकते हैं — ज़्यादा स्नैपशॉट से बचने के लिए सीमित है।",
+    "refreshRateLimitOwner": "हर 5 मिनट में एक बार रिफ्रेश कर सकते हैं। थोड़ी देर बाद फिर कोशिश करें।",
+    "refreshFailed": "रिफ्रेश विफल रहा।",
+    "evidenceUrl": "Evidence URL Google Business या किसी मान्यता प्राप्त रिव्यू प्लेटफॉर्म की होनी चाहिए।",
+    "updateFailed": "अपडेट विफल रहा।",
+    "verifyFailed": "सत्यापन विफल रहा।",
+    "unverifyFailed": "सत्यापन रद्द करना विफल रहा।",
+    "unverifyLocked": "केवल वह मैनेजर जिसने सत्यापित किया है, वही इसे रद्द कर सकता है।"
+  },
+  "disclaimer": {
+    "toggleToHinglish": "Hinglish",
+    "toggleToEnglish": "English"
+  },
+  "status": {
+    "notYetSet": "अभी सेट नहीं है",
+    "pendingData": "डेटा बाकी है",
+    "pass": "पास",
+    "fail": "फेल",
+    "verified": "सत्यापित",
+    "selfAttested": "स्व-प्रमाणित",
+    "notYetClaimed": "अभी क्लेम नहीं किया",
+    "verificationExpired": "सत्यापन समाप्त हो गया"
+  },
+  "attest": {
+    "selfAttest": "स्व-प्रमाणित करें",
+    "unclaim": "क्लेम हटाएं",
+    "reattest": "दोबारा प्रमाणित करें",
+    "verify": "सत्यापित करें",
+    "unverify": "सत्यापन रद्द करें",
+    "cancel": "रद्द करें",
+    "confirmSelfAttest": "स्व-प्रमाणन की पुष्टि करें",
+    "evidencePlaceholder": "वैकल्पिक evidence URL (Google Business / रिव्यू प्लेटफॉर्म)",
+    "evidencePlaceholderShort": "वैकल्पिक evidence URL",
+    "verifiedOn": "{{date}} को सत्यापित",
+    "selfAttestedOn": "{{date}} को स्व-प्रमाणित",
+    "evidenceLink": "Evidence link",
+    "openPrefix": "खोलें"
+  },
+  "expiry": {
+    "expired": "सत्यापन समाप्त हो गया — पूरा क्रेडिट वापस पाने के लिए दोबारा सत्यापित करें।",
+    "expiresIn_one": "सत्यापन {{count}} दिन में समाप्त होगा।",
+    "expiresIn_other": "सत्यापन {{count}} दिनों में समाप्त होगा।"
+  },
+  "excluded": "(शामिल नहीं)",
+  "signalNotAvailable": "सिग्नल उपलब्ध नहीं है",
+  "pts": "अंक",
+  "signal_one": "{{count}} सिग्नल",
+  "signal_other": "{{count}} सिग्नल",
+  "visibilityCategory": {
+    "GMB_READINESS": "Google Business profile",
+    "TRUST_REPUTATION": "Trust और reputation",
+    "DIGITAL_ASSETS": "Digital assets",
+    "DIRECT_ENQUIRY": "Direct enquiry के लिए तैयारी",
+    "EXPERIENCE_PACKAGES": "Local experience और packages"
+  },
+  "gbpCategory": {
+    "BUSINESS_PROFILE": "Business profile",
+    "LOCATION_ACCURACY": "Location की सटीकता",
+    "CONTACT_READINESS": "Contact के लिए तैयारी",
+    "CONTENT_READINESS": "Content के लिए तैयारी",
+    "TRUST_SIGNALS": "Trust signals",
+    "EXPERIENCE_READINESS": "Experience readiness",
+    "VERIFICATION_READINESS": "Verification के लिए तैयारी"
+  },
+  "gbp": {
+    "title": "Google Business Checklist",
+    "legacyTitle": "Google Business checklist",
+    "ready": "तैयार (≥{{pct}}%)",
+    "belowReady": "{{pct}}% से कम",
+    "items": "{{satisfied}} / {{total}} आइटम",
+    "pts": "{{actual}} / {{max}} अंक",
+    "descriptionSet": "Description सेट है ({{len}} अक्षर)।",
+    "descriptionTooShort": "Description बहुत छोटा है ({{len}} अक्षर; ≥30 चाहिए)।",
+    "noDescription": "प्रॉपर्टी सेटिंग में कोई description नहीं है।",
+    "amenitiesListed": "{{count}} amenities सूचीबद्ध हैं।",
+    "amenitiesInsufficient": "केवल {{count}} amenities सूचीबद्ध हैं (≥3 चाहिए)।"
+  },
+  "fixModule": {
+    "DAM": "Asset Manager",
+    "PACKAGE_BUILDER": "Package Builder",
+    "SEO_PLANNER": "SEO Planner",
+    "SEASONAL_CALENDAR": "Seasonal Calendar",
+    "VISIBILITY": "Visibility Score",
+    "SETTINGS": "प्रॉपर्टी सेटिंग"
+  },
+  "trendChart": {
+    "title": "स्कोर इतिहास",
+    "snapshot_one": "{{count}} स्नैपशॉट",
+    "snapshot_other": "{{count}} स्नैपशॉट",
+    "noSnapshots": "अभी कोई स्नैपशॉट नहीं है। साप्ताहिक क्रॉन रविवार 03:00 IST को पहला स्नैपशॉट लेगा — या अभी Refresh से मैन्युअल स्नैपशॉट लें।",
+    "oneSnapshot": "पहला स्नैपशॉट लिया गया — ट्रेंड लाइन के लिए दूसरा स्नैपशॉट चाहिए।",
+    "formulaVersion": "स्कोर फ़ॉर्मूला v{{version}}"
+  },
+  "card": {
+    "title": "Visibility Score",
+    "signalsSatisfied": "{{satisfied}}/{{total}} सिग्नल पूरे",
+    "loading": "लोड हो रहा है…",
+    "ptsPending": "{{pts}} अंक बाकी डेटा",
+    "stabilizing": "स्कोर पहले 7 दिनों के स्नैपशॉट के बाद स्थिर होगा।",
+    "sinceLastSnapshot": "आखिरी स्नैपशॉट से",
+    "noChange": "आखिरी स्नैपशॉट से कोई बदलाव नहीं"
+  },
+  "unverifyDialog": {
+    "title": "सत्यापन रद्द करें",
+    "body": "यह सिग्नल स्व-प्रमाणित स्तर पर वापस आ जाएगा (50% क्रेडिट)। जिस ओनर ने प्रमाणित किया था उन्हें ऑडिट लॉग में सूचित किया जाएगा। कृपया कारण साझा करें — यह ऑडिट ट्रेल में रहेगा।",
+    "reasonLabel": "कारण",
+    "reasonPlaceholder": "जैसे: Evidence link अब valid नहीं है; Google ने GMB profile unverify कर दिया।",
+    "cancel": "रद्द करें",
+    "confirm": "सत्यापन रद्द करें",
+    "confirming": "रद्द हो रहा है…",
+    "closeAriaLabel": "बंद करें"
+  },
+  "reattestDialog": {
+    "title": "मैनेजर सत्यापन बदलें?",
+    "bodyWithDate": "यह सिग्नल वर्तमान में एक मैनेजर द्वारा {{date}} को सत्यापित है। दोबारा प्रमाणित करने से वह सत्यापन हट जाएगा और क्रेडिट 50% तक गिर जाएगा जब तक कोई मैनेजर नए evidence की पुष्टि न करे।",
+    "bodyNoDate": "यह सिग्नल वर्तमान में एक मैनेजर द्वारा सत्यापित है। दोबारा प्रमाणित करने से वह सत्यापन हट जाएगा और क्रेडिट 50% तक गिर जाएगा जब तक कोई मैनेजर नए evidence की पुष्टि न करे।",
+    "keepVerification": "सत्यापन रखें",
+    "replace": "सत्यापन बदलें",
+    "replacing": "अपडेट हो रहा है…",
+    "closeAriaLabel": "बंद करें"
+  }
+}

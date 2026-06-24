@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
+import { useOwnerT, useOwnerCommonT } from "../i18n/useOwnerT";
 
 interface DepartmentTemplate {
     id: string;
@@ -22,6 +23,8 @@ export default function AddDepartmentTemplateModal({
     onAdd,
     existingDepartmentNames,
 }: AddDepartmentTemplateModalProps) {
+    const t = useOwnerT("owner-services");
+    const tc = useOwnerCommonT();
     const [templates, setTemplates] = useState<DepartmentTemplate[]>([]);
     const [selectedTemplateIds, setSelectedTemplateIds] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(false);
@@ -68,15 +71,15 @@ export default function AddDepartmentTemplateModal({
     };
 
     const handleAdd = () => {
-        const selectedTemplates = templates.filter(t => selectedTemplateIds.has(t.id));
+        const selectedTemplates = templates.filter(tpl => selectedTemplateIds.has(tpl.id));
         onAdd(selectedTemplates);
         onClose();
     };
 
     // Filter and Sort templates
     const filteredTemplates = templates
-        .filter(t => !existingDepartmentNames.some(existingName => existingName.toLowerCase() === t.name.toLowerCase()))
-        .filter(t => t.name.toLowerCase().includes(searchTerm.toLowerCase()))
+        .filter(tpl => !existingDepartmentNames.some(existingName => existingName.toLowerCase() === tpl.name.toLowerCase()))
+        .filter(tpl => tpl.name.toLowerCase().includes(searchTerm.toLowerCase()))
         .sort((a, b) => {
             if (sortBy === 'name') return a.name.localeCompare(b.name);
             if (sortBy === 'sla') return a.default_target_minutes - b.default_target_minutes;
@@ -87,6 +90,7 @@ export default function AddDepartmentTemplateModal({
 
     return (
         <div
+            className="vaiyu-owner"
             style={{
                 position: "fixed",
                 top: 0,
@@ -119,10 +123,10 @@ export default function AddDepartmentTemplateModal({
                 <div style={{ padding: "24px", display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                         <h2 style={{ fontSize: "20px", fontWeight: 600, color: "white", margin: 0 }}>
-                            Add Departments from Templates
+                            {t("modals.addDeptTemplate.title", "Add Departments from Templates")}
                         </h2>
                         <p style={{ color: "#9CA3AF", fontSize: "14px", marginTop: "4px", margin: 0 }}>
-                            Select departments to add from the available templates. Only departments that haven't been added yet are shown.
+                            {t("modals.addDeptTemplate.subtitle", "Select departments to add from the available templates. Only departments that haven't been added yet are shown.")}
                         </p>
                     </div>
                     <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#9CA3AF', cursor: 'pointer' }}>
@@ -140,7 +144,7 @@ export default function AddDepartmentTemplateModal({
                         </svg>
                         <input
                             type="text"
-                            placeholder="Search department templates..."
+                            placeholder={t("modals.addDeptTemplate.searchPlaceholder", "Search department templates...")}
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             style={{
@@ -156,7 +160,7 @@ export default function AddDepartmentTemplateModal({
                         />
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <span style={{ fontSize: "14px", color: "#9CA3AF" }}>Sort by:</span>
+                        <span style={{ fontSize: "14px", color: "#9CA3AF" }}>{t("modals.addServiceTemplate.sortBy", "Sort by:")}</span>
                         <select
                             value={sortBy}
                             onChange={(e) => setSortBy(e.target.value as 'name' | 'sla')}
@@ -170,8 +174,8 @@ export default function AddDepartmentTemplateModal({
                                 outline: "none",
                             }}
                         >
-                            <option value="name">DEPARTMENT NAME</option>
-                            <option value="sla">SLA DURATION</option>
+                            <option value="name">{t("modals.addDeptTemplate.sortName", "DEPARTMENT NAME")}</option>
+                            <option value="sla">{t("modals.addServiceTemplate.sortSla", "SLA DURATION")}</option>
                         </select>
                     </div>
                 </div>
@@ -192,19 +196,19 @@ export default function AddDepartmentTemplateModal({
                     letterSpacing: "0.05em"
                 }}>
                     <div></div> {/* Checkbox placeholder */}
-                    <div>Department Name</div>
-                    <div>Default SLA</div>
+                    <div>{t("modals.addDeptTemplate.colDeptName", "Department Name")}</div>
+                    <div>{t("modals.addServiceTemplate.colDefaultSla", "Default SLA")}</div>
                 </div>
 
                 {/* List */}
                 <div style={{ overflowY: "auto", flex: 1, backgroundColor: "#111827" }}>
                     {loading ? (
-                        <div style={{ textAlign: "center", color: "#9CA3AF", padding: "40px" }}>Loading templates...</div>
+                        <div style={{ textAlign: "center", color: "#9CA3AF", padding: "40px" }}>{t("modals.addServiceTemplate.loading", "Loading templates...")}</div>
                     ) : error ? (
                         <div style={{ color: "#F87171", padding: "20px", textAlign: "center" }}>{error}</div>
                     ) : filteredTemplates.length === 0 ? (
                         <div style={{ textAlign: "center", color: "#9CA3AF", padding: "40px" }}>
-                            No new template departments available. All templates are already added.
+                            {t("modals.addDeptTemplate.noNew", "No new template departments available. All templates are already added.")}
                         </div>
                     ) : (
                         <div>
@@ -261,7 +265,7 @@ export default function AddDepartmentTemplateModal({
                                             )}
                                         </div>
                                         <div style={{ fontSize: "14px", color: "#9CA3AF" }}>
-                                            {template.default_target_minutes} min
+                                            {t("modals.addServiceTemplate.minSuffix", "{{min}} min", { min: template.default_target_minutes })}
                                         </div>
                                     </div>
                                 );
@@ -273,7 +277,7 @@ export default function AddDepartmentTemplateModal({
                 {/* Footer Info & Actions */}
                 <div style={{ padding: "16px 24px", borderTop: "1px solid #374151", backgroundColor: "#1F2937" }}>
                     <div style={{ fontSize: "13px", color: "#6B7280", marginBottom: "16px" }}>
-                        Viewing {filteredTemplates.length} templates
+                        {t("modals.addServiceTemplate.viewing", "Viewing {{count}} templates", { count: filteredTemplates.length })}
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
                         <button
@@ -288,8 +292,9 @@ export default function AddDepartmentTemplateModal({
                                 cursor: "pointer",
                             }}
                         >
-                            Cancel
+                            {tc("actions.cancel", "Cancel")}
                         </button>
+
                         <button
                             onClick={handleAdd}
                             disabled={selectedTemplateIds.size === 0}
@@ -305,7 +310,7 @@ export default function AddDepartmentTemplateModal({
                                 transition: "background-color 0.2s",
                             }}
                         >
-                            Add Selected {selectedTemplateIds.size > 0 && `(${selectedTemplateIds.size})`} &gt;
+                            {t("modals.addDeptTemplate.addSelected", "Add Selected")}{selectedTemplateIds.size > 0 ? ` (${selectedTemplateIds.size})` : ""} &gt;
                         </button>
                     </div>
                 </div>

@@ -10,6 +10,7 @@
 
 import { Link, useLocation } from "react-router-dom";
 import { OWNER_NAV } from "../../lib/ownerNav";
+import { useOwnerT } from "../../i18n/useOwnerT";
 
 // Subpaths whose pages render their own breadcrumbs (OwnerDarkPage pages; the
 // booking detail page renders its own "… / Booking <code>"; and several owner
@@ -29,6 +30,8 @@ const RESERVED_SLUGS = new Set([
 
 export default function OwnerBreadcrumb() {
   const { pathname } = useLocation();
+  const t = useOwnerT("owner-cards");
+  const tNav = useOwnerT("owner-common");
 
   // Match an owner child page: /owner/<slug>/<sub...>
   const m = pathname.match(/^\/owner\/([^/]+)\/(.+)$/);
@@ -45,7 +48,7 @@ export default function OwnerBreadcrumb() {
     if (it.id === "dashboard") continue;
     const to = it.to(slug);
     if ((pathname === to || pathname.startsWith(to + "/")) && to.length > bestLen) {
-      current = it.label;
+      current = tNav(`nav.${it.id}`, it.label);
       bestLen = to.length;
     }
   }
@@ -57,12 +60,12 @@ export default function OwnerBreadcrumb() {
     // every owner page.
     <div className="w-full border-b border-white/10 bg-[#0f1113] px-4 sm:px-6 py-2.5">
       <nav
-        aria-label="Breadcrumb"
+        aria-label={t("breadcrumb.ariaLabel", "Breadcrumb")}
         className="mx-auto flex max-w-[1400px] items-center gap-2 text-xs font-medium"
       >
-        <Link to="/owner" className="text-slate-400 hover:text-white transition-colors">Console</Link>
+        <Link to="/owner" className="text-slate-400 hover:text-white transition-colors">{t("breadcrumb.console", "Console")}</Link>
         <span className="text-slate-600">/</span>
-        <Link to={`/owner/${slug}`} className="text-slate-400 hover:text-white transition-colors">Dashboard</Link>
+        <Link to={`/owner/${slug}`} className="text-slate-400 hover:text-white transition-colors">{t("breadcrumb.dashboard", "Dashboard")}</Link>
         {current && (
           <>
             <span className="text-slate-600">/</span>

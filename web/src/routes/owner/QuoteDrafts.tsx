@@ -53,6 +53,7 @@ import { QuoteVerifiedDetails } from '../../components/quote/QuoteVerifiedDetail
 import { QuoteDraftPreview } from '../../components/quote/QuoteDraftPreview';
 import { QuotePreviousDrafts } from '../../components/quote/QuotePreviousDrafts';
 import { SendQuoteButton } from '../../components/quote/SendQuoteButton';
+import { useOwnerT, type OwnerT } from '../../i18n/useOwnerT';
 
 interface HotelRow {
   id: string;
@@ -88,6 +89,8 @@ interface AiMeta {
 }
 
 export default function QuoteDrafts() {
+  const t = useOwnerT('owner-quote');
+  const tl = useOwnerT('owner-leads');
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -388,15 +391,15 @@ export default function QuoteDrafts() {
 
   if (!AI_QUOTE_DRAFTS_V0_ENABLED) {
     return (
-      <main className="min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200">
-        <p className="text-sm text-slate-400">AI Quote Drafts is not enabled.</p>
+      <main className="vaiyu-owner min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200">
+        <p className="text-sm text-slate-400">{t('page.notEnabled', 'AI Quote Drafts is not enabled.')}</p>
       </main>
     );
   }
 
   if (hotelQ.isLoading) {
     return (
-      <main className="min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200">
+      <main className="vaiyu-owner min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200">
         <Loader2 className="h-5 w-5 animate-spin text-slate-500" aria-hidden />
       </main>
     );
@@ -404,15 +407,15 @@ export default function QuoteDrafts() {
 
   if (!hotel) {
     return (
-      <main className="min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200">
+      <main className="vaiyu-owner min-h-screen grid place-items-center bg-[#0B0E14] text-slate-200">
         <div className="text-center max-w-md">
-          <p className="text-sm text-slate-300">Hotel not found.</p>
+          <p className="text-sm text-slate-300">{t('page.hotelNotFound', 'Hotel not found.')}</p>
           <button
             type="button"
             onClick={() => navigate('/owner')}
             className="mt-3 inline-flex items-center rounded-md border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800"
           >
-            Owner Home
+            {t('page.ownerHome', 'Owner Home')}
           </button>
         </div>
       </main>
@@ -420,7 +423,7 @@ export default function QuoteDrafts() {
   }
 
   return (
-    <main className="min-h-screen bg-[#0B0E14] text-slate-200">
+    <main className="vaiyu-owner min-h-screen bg-[#0B0E14] text-slate-200">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-6">
         <header className="mb-6 space-y-4">
           <Link
@@ -428,20 +431,18 @@ export default function QuoteDrafts() {
             className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200"
           >
             <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
-            Back to dashboard
+            {t('page.back', 'Back to dashboard')}
           </Link>
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <div className="flex items-center gap-2">
                 <FileText className="h-5 w-5 text-emerald-300" aria-hidden />
                 <h1 className="text-xl sm:text-2xl font-semibold text-slate-50">
-                  AI Quote Drafts
+                  {t('page.title', 'AI Quote Drafts')}
                 </h1>
               </div>
               <p className="mt-1 text-sm text-slate-400 max-w-2xl">
-                Pick an enquiry, choose a package, type the final price you commit to, and
-                generate a draft proposal — by template or by AI. Edit freely, save, and copy
-                to send via your usual channel.
+                {t('page.subtitle', 'Pick an enquiry, choose a package, type the final price you commit to, and generate a draft proposal — by template or by AI. Edit freely, save, and copy to send via your usual channel.')}
               </p>
             </div>
             {consentLoaded && !consentQ.data?.consented && (
@@ -449,7 +450,7 @@ export default function QuoteDrafts() {
                 to={`/owner/${slug ?? ''}/settings`}
                 className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-200 hover:bg-amber-500/20"
               >
-                AI generation locked — enable in Settings
+                {t('page.aiLocked', 'AI generation locked — enable in Settings')}
               </Link>
             )}
           </div>
@@ -469,22 +470,22 @@ export default function QuoteDrafts() {
             {form.lead && (
               <div className="rounded-2xl border border-slate-800 bg-[#0F1320] p-4 text-xs text-slate-300 space-y-1">
                 <div className="text-[10px] uppercase tracking-wide text-slate-500">
-                  Selected enquiry
+                  {t('selectedEnquiry.label', 'Selected enquiry')}
                 </div>
                 <div className="text-slate-100 font-medium">{form.lead.name}</div>
                 <div>
-                  Party: {form.lead.partyAdults}A
+                  {t('selectedEnquiry.partyPrefix', 'Party:')} {form.lead.partyAdults}A
                   {form.lead.partyChildren > 0 ? `/${form.lead.partyChildren}C` : ''} ·{' '}
-                  {form.lead.roomCount} room{form.lead.roomCount === 1 ? '' : 's'}
+                  {t('selectedEnquiry.rooms', '{{count}} rooms', { count: form.lead.roomCount })}
                 </div>
                 {form.lead.checkIn && form.lead.checkOut && (
                   <div>
-                    Dates: {form.lead.checkIn} → {form.lead.checkOut}
+                    {t('selectedEnquiry.dates', 'Dates: {{checkIn}} → {{checkOut}}', { checkIn: form.lead.checkIn, checkOut: form.lead.checkOut })}
                   </div>
                 )}
-                <div>Source: {form.lead.source}</div>
+                <div>{t('selectedEnquiry.sourcePrefix', 'Source:')} {tl(`source.${form.lead.source}`, form.lead.source)}</div>
                 {form.lead.notePreview && (
-                  <div className="text-slate-400">Note: {form.lead.notePreview}</div>
+                  <div className="text-slate-400">{t('selectedEnquiry.notePrefix', 'Note:')} {form.lead.notePreview}</div>
                 )}
               </div>
             )}
@@ -507,8 +508,7 @@ export default function QuoteDrafts() {
             {/* Generator action bar */}
             <div className="rounded-2xl border border-slate-800 bg-[#0F1320] p-4 space-y-3">
               <p className="text-xs text-slate-400">
-                Generate the draft — by deterministic template or by AI. Either way, edit
-                before sending.
+                {t('generator.intro', 'Generate the draft — by deterministic template or by AI. Either way, edit before sending.')}
               </p>
 
               <div className="flex flex-wrap items-center gap-2">
@@ -519,7 +519,7 @@ export default function QuoteDrafts() {
                   data-testid="quote-generate-template-button"
                 >
                   <FileText className="h-3.5 w-3.5" aria-hidden />
-                  Generate from template
+                  {t('generator.fromTemplate', 'Generate from template')}
                 </button>
 
                 <button
@@ -529,9 +529,9 @@ export default function QuoteDrafts() {
                   title={
                     !liveAiOn
                       ? consentLoaded && !consentQ.data?.consented
-                        ? 'Owner must enable AI quote drafts in Settings.'
-                        : 'AI generation not available.'
-                      : 'Generate with Anthropic Claude.'
+                        ? t('generator.aiTitleLocked', 'Owner must enable AI quote drafts in Settings.')
+                        : t('generator.aiTitleUnavailable', 'AI generation not available.')
+                      : t('generator.aiTitleReady', 'Generate with Anthropic Claude.')
                   }
                   className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/50 bg-emerald-500/15 px-3.5 py-2 text-xs font-medium text-emerald-100 hover:bg-emerald-500/25 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   data-testid="quote-generate-ai-button"
@@ -539,12 +539,12 @@ export default function QuoteDrafts() {
                   {aiState.kind === 'busy' ? (
                     <>
                       <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                      Generating with AI…
+                      {t('generator.generatingAi', 'Generating with AI…')}
                     </>
                   ) : (
                     <>
                       <Sparkles className="h-3.5 w-3.5" aria-hidden />
-                      Generate with AI
+                      {t('generator.withAi', 'Generate with AI')}
                     </>
                   )}
                 </button>
@@ -566,10 +566,10 @@ export default function QuoteDrafts() {
                     <Save className="h-3.5 w-3.5" aria-hidden />
                   )}
                   {saveState.kind === 'saved'
-                    ? 'Saved'
+                    ? t('generator.saved', 'Saved')
                     : activeDraftId
-                    ? 'Save changes'
-                    : 'Save draft'}
+                    ? t('generator.saveChanges', 'Save changes')
+                    : t('generator.saveDraft', 'Save draft')}
                 </button>
 
                 <MarkSentControl
@@ -593,8 +593,7 @@ export default function QuoteDrafts() {
               {sentState.kind === 'sent' && (
                 <p className="text-[11px] text-emerald-200">
                   <Send className="inline h-3 w-3 mr-1" aria-hidden />
-                  Marked sent via <span className="font-medium">{sentState.channel}</span> just now.
-                  This records the operator's manual send — VAiyu does not send any message itself.
+                  {t('generator.markedSent', "Marked sent via {{channel}} just now. This records the operator's manual send — VAiyu does not send any message itself.", { channel: sentState.channel })}
                 </p>
               )}
               {sentState.kind === 'error' && (
@@ -604,7 +603,7 @@ export default function QuoteDrafts() {
               {aiMeta && (
                 <div className="text-[11px] text-slate-400">
                   <Sparkles className="inline h-3 w-3 text-emerald-300 mr-1" aria-hidden />
-                  AI · {aiMeta.model} · {aiMeta.tokensIn + aiMeta.tokensOut} tokens
+                  {t('generator.aiMeta', 'AI · {{model}} · {{tokens}} tokens', { model: aiMeta.model, tokens: aiMeta.tokensIn + aiMeta.tokensOut })}
                 </div>
               )}
 
@@ -617,7 +616,7 @@ export default function QuoteDrafts() {
                     <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-red-300" aria-hidden />
                     <div className="space-y-0.5">
                       <p className="font-medium">
-                        {aiErrorTitle(aiState.code)}
+                        {t(`aiError.${aiState.code}`, aiErrorTitle(aiState.code))}
                       </p>
                       {aiState.detail && <p className="text-red-100/80">{aiState.detail}</p>}
                       {aiState.code === 'CONSENT_REQUIRED' && (
@@ -625,7 +624,7 @@ export default function QuoteDrafts() {
                           to={`/owner/${slug ?? ''}/settings`}
                           className="inline-block mt-1 text-red-200 underline"
                         >
-                          Open Settings
+                          {t('generator.openSettings', 'Open Settings')}
                         </Link>
                       )}
                     </div>
@@ -660,8 +659,7 @@ export default function QuoteDrafts() {
         </div>
 
         <footer className="mt-8 text-[11px] text-slate-500">
-          AI Quote Drafts — deterministic template or AI-assisted, both human-edited. No
-          messages are sent and no booking is confirmed from this page.
+          {t('page.footer', 'AI Quote Drafts — deterministic template or AI-assisted, both human-edited. No messages are sent and no booking is confirmed from this page.')}
         </footer>
       </div>
     </main>
@@ -712,18 +710,19 @@ function MarkSentControl({
   onPick,
   onTogglePicker,
 }: MarkSentControlProps) {
+  const t = useOwnerT('owner-quote');
   const sent = sentState.kind === 'sent';
   const busy = sentState.kind === 'busy';
   const picking = sentState.kind === 'picking';
   const disabled = sent || busy || !activeDraftId || !approvalReady;
 
   const tooltip = !activeDraftId
-    ? 'Save the draft first.'
+    ? t('markSent.tooltipSaveFirst', 'Save the draft first.')
     : !approvalReady
-    ? 'Tick both approval checkboxes first.'
+    ? t('markSent.tooltipTickBoxes', 'Tick both approval checkboxes first.')
     : sent
-    ? `Already marked sent via ${sentState.channel}.`
-    : 'Record that you sent this draft via your usual channel.';
+    ? t('markSent.tooltipAlready', 'Already marked sent via {{channel}}.', { channel: sentState.channel })
+    : t('markSent.tooltipDefault', 'Record that you sent this draft via your usual channel.');
 
   return (
     <div className="relative">
@@ -740,7 +739,7 @@ function MarkSentControl({
         ) : (
           <Send className="h-3.5 w-3.5" aria-hidden />
         )}
-        {sent ? `Sent (${sentState.channel})` : 'Mark as sent'}
+        {sent ? t('markSent.sent', 'Sent ({{channel}})', { channel: sentState.channel }) : t('markSent.markAsSent', 'Mark as sent')}
       </button>
 
       {picking && (
@@ -749,7 +748,7 @@ function MarkSentControl({
           className="absolute right-0 z-10 mt-1 w-56 rounded-md border border-slate-700 bg-[#0F1320] p-2 shadow-xl"
         >
           <p className="px-1 pb-1 text-[10px] uppercase tracking-wide text-slate-500">
-            How did you send it?
+            {t('markSent.howSend', 'How did you send it?')}
           </p>
           <div className="flex flex-wrap gap-1">
             {SEND_CHANNELS.map((ch) => (
@@ -760,12 +759,12 @@ function MarkSentControl({
                 data-testid={`quote-mark-sent-channel-${ch}`}
                 className="inline-flex items-center rounded-md border border-slate-700 bg-slate-800/60 px-2 py-1 text-[11px] text-slate-200 hover:bg-emerald-500/15 hover:border-emerald-500/40"
               >
-                {ch}
+                {t(`channel.${ch}`, ch)}
               </button>
             ))}
           </div>
           <p className="mt-2 px-1 text-[10px] text-slate-500">
-            VAiyu does not send the message. This just records what you did.
+            {t('markSent.disclaimer', 'VAiyu does not send the message. This just records what you did.')}
           </p>
         </div>
       )}

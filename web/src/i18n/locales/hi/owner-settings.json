@@ -1,0 +1,223 @@
+{
+  "page": {
+    "title": "ओनर सेटिंग्स",
+    "subtitle": "ब्रांडिंग, संपर्क और पेमेंट",
+    "slugPlaceholder": "होटल स्लग",
+    "slugTitle": "लोड करने के लिए होटल स्लग",
+    "reload": "रीलोड",
+    "loading": "लोड हो रहा है…"
+  },
+  "breadcrumb": {
+    "dashboard": "डैशबोर्ड",
+    "settings": "सेटिंग्स"
+  },
+  "err": {
+    "couldNotReach": "Owner Settings API / डेटाबेस तक नहीं पहुँचा जा सका। कृपया अपना VAiyu बैकएंड और Supabase जाँचें।",
+    "couldNotSave": "सेव करते समय Owner Settings API / डेटाबेस तक नहीं पहुँचा जा सका। कनेक्शन जाँचें और फिर कोशिश करें।",
+    "failedLoad": "सेटिंग्स लोड नहीं हुईं",
+    "failedSave": "सेव नहीं हो सका",
+    "onboardingFailed": "Razorpay ऑनबोर्डिंग विफल: {{msg}}"
+  },
+  "ok": {
+    "saved": "सफलतापूर्वक सेव हो गया।",
+    "kycOpening": "खाता बन गया — KYC नई टैब में खुल रही है।",
+    "testAccountCreated": "Razorpay टेस्ट खाता बना: {{id}}"
+  },
+  "identity": {
+    "name": "नाम",
+    "slug": "स्लग (केवल पढ़ें)",
+    "description": "विवरण",
+    "address": "पता",
+    "phone": "फोन",
+    "email": "ईमेल",
+    "logoUrl": "Logo URL",
+    "brandColor": "ब्रांड रंग",
+    "themeMode": "थीम मोड",
+    "light": "लाइट",
+    "dark": "डार्क",
+    "amenities": "सुविधाएं (CSV)",
+    "amenitiesPlaceholder": "WiFi, पार्किंग, नाश्ता"
+  },
+  "legal": {
+    "title": "कानूनी और इनवॉइस सेटिंग्स",
+    "legalName": "कानूनी इकाई का नाम",
+    "legalNamePlaceholder": "पंजीकृत कंपनी का नाम",
+    "gstNumber": "Tax / GST नंबर",
+    "taxPct": "Tax %",
+    "serviceChargePct": "सर्विस चार्ज %",
+    "invoicePrefix": "इनवॉइस उपसर्ग",
+    "nextInvoice": "अगला इनवॉइस #"
+  },
+  "ops": {
+    "title": "ऑपरेशन और नीतियां",
+    "defaultCheckin": "डिफ़ॉल्ट चेक-इन",
+    "defaultCheckout": "डिफ़ॉल्ट चेक-आउट",
+    "timezone": "टाइमज़ोन",
+    "currency": "करेंसी कोड",
+    "earlyCheckin": "अर्ली चेक-इन की अनुमति",
+    "lateCheckout": "लेट चेक-आउट की अनुमति",
+    "googlePlaceId": "Google Place ID",
+    "googlePlaceIdHint": "4★+ रेटिंग देने वाले गेस्ट को Google पर रिव्यू करने का लिंक मिलता है। Google के Place ID Finder से अपने होटल का नाम खोजें।",
+    "googlePlaceIdFinderLink": "Place ID Finder"
+  },
+  "guest": {
+    "title": "गेस्ट जानकारी",
+    "wifiSsid": "Wi-Fi SSID (नेटवर्क नाम)",
+    "wifiPassword": "Wi-Fi पासवर्ड",
+    "breakfastStart": "नाश्ता शुरू समय",
+    "breakfastEnd": "नाश्ता समाप्ति समय",
+    "notes": "गेस्ट नोट्स और निर्देश",
+    "notesPlaceholder": "पूल टाइमिंग, आपातकालीन नंबर, या संपत्ति नियम…",
+    "notesHint": "चेक-इन के बाद यह जानकारी गेस्ट के डैशबोर्ड पर दिखाई देगी।"
+  },
+  "preview": {
+    "title": "माइक्रोसाइट प्रीव्यू",
+    "label": "संपत्ति माइक्रोसाइट"
+  },
+  "link": {
+    "title": "गेस्ट लिंक (WhatsApp + QR)",
+    "openWhatsApp": "WhatsApp में खोलें",
+    "desc": "चेक-इन पर गेस्ट को यह लिंक शेयर करें। यह VAiyu Scan स्क्रीन खोलता है, जो उन्हें इन-रूम मेनू और सेवाओं तक पहुँचाता है।",
+    "scanLabel": "गेस्ट स्कैन लिंक",
+    "waTemplate": "WhatsApp मैसेज टेम्पलेट",
+    "qrTitle": "रूम स्टैंडी / टेबल टेंट के लिए QR",
+    "qrAlt": "गेस्ट मेनू का QR कोड",
+    "qrMissing": "स्लग गायब है — शेयरिंग शुरू करने के लिए पहले होटल सेव करें।"
+  },
+  "integrations": {
+    "title": "इंटीग्रेशन"
+  },
+  "save": {
+    "saveBtn": "सेटिंग्स सेव करें",
+    "saving": "सेव हो रहा है…",
+    "revert": "पूर्ववत करें"
+  },
+  "razorpay": {
+    "title": "ऑनलाइन पेमेंट",
+    "desc": "चुनें कि यह होटल गेस्ट से ऑनलाइन पेमेंट कैसे लेगा। पुराने पेमेंट रिकॉर्ड खोए बिना बाद में मोड बदल सकते हैं।",
+    "badge": {
+      "direct": "डायरेक्ट",
+      "route": "रूट",
+      "none": "केवल कैश"
+    },
+    "mode": {
+      "noneTitle": "केवल कैश",
+      "noneHint": "फ्रंट-डेस्क कैश; कोई ऑनलाइन बटन नहीं",
+      "directTitle": "डायरेक्ट (आपका Razorpay)",
+      "directHint": "पैसे आपके बैंक में; vaiyu इंटीग्रेट करता है",
+      "routeTitle": "Route (प्लेटफॉर्म-प्रबंधित)",
+      "routeHint": "Linked Account से विभाजन",
+      "routeLocked": "लॉक्ड — टर्नओवर सीमा पेंडिंग"
+    },
+    "direct": {
+      "configured": "कॉन्फ़िगर किया गया",
+      "testMode": "टेस्ट मोड",
+      "disconnect": "डिस्कनेक्ट",
+      "disconnectConfirm": "Razorpay डिस्कनेक्ट करें? इस होटल के लिए ऑनलाइन पेमेंट बंद हो जाएगा। मौजूदा पेमेंट और रिफंड सुरक्षित रहेंगे।",
+      "keyIdLabel": "Razorpay Key ID",
+      "keyIdError": "rzp_test_ या rzp_live_ से शुरू होना चाहिए",
+      "secretLabel": "Razorpay Key Secret",
+      "secretHint": "Razorpay Dashboard → Settings → API Keys से। एन्क्रिप्टेड रूप में संग्रहित।",
+      "showSecret": "सीक्रेट दिखाएं",
+      "hideSecret": "सीक्रेट छुपाएं",
+      "saveBtn": "टेस्ट करें और सेव करें",
+      "saving": "Razorpay से जाँच हो रही है…",
+      "secretHintPre": "अपने",
+      "secretHintLink": "Razorpay Dashboard → Settings → API Keys",
+      "secretHintPost": " से। एन्क्रिप्टेड रूप में सुरक्षित रहता है।"
+    },
+    "none": {
+      "hint": "यह होटल केवल कैश पर है। वॉक-इन कैश कलेक्शन हर जगह काम करता है; केवल \"Pay Online\" बटन छुपे होंगे।"
+    },
+    "webhook": {
+      "title": "अगला: Razorpay में यह Webhook रजिस्टर करें",
+      "localDevWarning": "लोकल डेव URL मिला।",
+      "localDevHint": "Razorpay के सर्वर आपका localhost नहीं पहुँच सकते — यह URL रजिस्टर करने की कोशिश विफल होगी। लोकल टेस्टिंग के लिए Webhook रजिस्ट्रेशन छोड़ें।",
+      "instructions": "Razorpay Dashboard → Settings → Webhooks → Add खोलें। ये वैल्यू पेस्ट करें और बताए गए इवेंट्स सब्सक्राइब करें।",
+      "urlLabel": "Webhook URL",
+      "secretLabel": "Webhook Secret",
+      "eventsLabel": "Subscribed Events",
+      "copy": "कॉपी",
+      "copied": "कॉपी हुआ",
+      "openDashboard": "Razorpay Webhooks खोलें",
+      "verifyHint": "सत्यापन: Webhook रजिस्टर करने के बाद ₹1 का टेस्ट पेमेंट करें और Razorpay Dashboard में ट्रांज़ैक्शन की जाँच करें।"
+    },
+    "route": {
+      "feePct": "प्लेटफॉर्म Route के transfers[] के ज़रिए प्रति ट्रांज़ैक्शन {{pct}}% रखता है।",
+      "accountIdLabel": "Linked Account ID",
+      "accountIdPlaceholder": "acc_xxxxxxxxxxxx",
+      "accountIdError": "acc_xxxxxxxxxxxx जैसा होना चाहिए",
+      "accountIdFormatError": "अमान्य फॉर्मेट — Razorpay Linked Account ID \"acc_\" से शुरू होती है।",
+      "save": "सेव",
+      "clear": "क्लियर",
+      "saved": "सेव हो गया।",
+      "connect": "Razorpay से कनेक्ट करें",
+      "manualSetup": "या मैन्युअल सेटअप करें",
+      "noAccount": "Linked Account नहीं है अभी तक?"
+    }
+  },
+  "wa": {
+    "title": "WhatsApp नोटिफिकेशन",
+    "desc": "गेस्ट को प्री-चेकिन रिमाइंडर, कन्फर्मेशन और अपडेट WhatsApp पर भेजें।",
+    "active": "सक्रिय",
+    "notConfigured": "कॉन्फ़िगर नहीं",
+    "tokenNote": "Graph API एक्सेस टोकन केंद्रीय रूप से संग्रहित है — आपको देने की ज़रूरत नहीं।",
+    "phoneNumberIdLabel": "Phone Number ID",
+    "phoneNumberIdHint": "Meta आपके बिज़नेस नंबर को देता है न्यूमेरिक ID।",
+    "displayNumberLabel": "प्रदर्शन नंबर",
+    "displayNumberHint": "गेस्ट को QR पोस्टर और wa.me लिंक पर दिखाया जाता है।",
+    "enableLabel": "WhatsApp चैनल सक्षम करें",
+    "enableDesc": "बंद होने पर, इस होटल के सभी WhatsApp मैसेज स्किप होंगे (ईमेल/SMS फॉलबैक चलते रहेंगे)।",
+    "noPhoneError": "सक्षम करने से पहले Meta phone_number_id डालें।",
+    "saveErr": "WhatsApp सेटिंग्स सेव नहीं हुईं।",
+    "saveOk": "WhatsApp सेटिंग्स सेव हो गईं।",
+    "saveBtn": "WhatsApp सेटिंग्स सेव करें",
+    "saving": "सेव हो रहा है…",
+    "infoHintPre": "ये मान अपने",
+    "infoHintLink": "Meta WhatsApp Manager",
+    "infoHintPost": "से लें — प्लैटफ़ॉर्म एडमिन द्वारा आपका नंबर VAiyu Business App में जोड़े जाने के बाद।"
+  },
+  "interakt": {
+    "title": "Interakt (WhatsApp BSP)",
+    "desc": "Interakt के ज़रिए अप्रूव्ड टेम्पलेट। प्री-चेकिन, चेक-आउट रिमाइंडर, पेमेंट रसीद और इनबाउंड सर्विस रिक्वेस्ट।",
+    "routingViaInterakt": "Interakt से रूट हो रहा है",
+    "metaDirect": "Meta Direct (पुराना)",
+    "providerLabel": "प्रोवाइडर",
+    "providerInterakt": "Interakt",
+    "providerMeta": "Meta Direct",
+    "providerInteraktDesc": "Interakt के BSP से अप्रूव्ड टेम्पलेट। प्रोडक्शन के लिए बेहतर।",
+    "providerMetaDesc": "Meta Cloud API से सीधे। केवल फ्री-टेक्स्ट; टेम्पलेट सीमित।",
+    "dailyCapLabel": "दैनिक टेम्पलेट-सेंड कैप (प्रति होटल)",
+    "dailyCapUnit": "{{count}}/दिन",
+    "dailyCapHint": "कैप पूरी होने पर, नए WhatsApp नोटिफिकेशन अगले दिन के लिए कतार में जाते हैं। 0 से आउटबाउंड WhatsApp बंद होता है।",
+    "templateNotWiredAlert": "पिछले 7 दिनों में {{count}} WhatsApp नोटिफिकेशन कतार में लेकिन 0 भेजे। संभावित कारण: Interakt टेम्पलेट अभी रजिस्टर नहीं।",
+    "health": {
+      "title": "पिछले 7 दिन",
+      "refresh": "रिफ्रेश",
+      "noData": "अभी कोई डेटा नहीं।",
+      "sentToday": "आज भेजे",
+      "cap": "/ {{cap}} कैप",
+      "queued7d": "कतार में (7d)",
+      "sent7d": "भेजे (7d)",
+      "deliveryRate": "डिलीवरी दर",
+      "failed7d": "विफल (7d)",
+      "delivered7d": "डिलीवर (7d)",
+      "read7d": "पढ़े (7d)"
+    },
+    "saveErr": "Interakt सेटिंग्स सेव नहीं हुईं।",
+    "saveOk": "Interakt सेटिंग्स सेव हो गईं।",
+    "saveBtn": "Interakt सेटिंग्स सेव करें",
+    "saving": "सेव हो रहा है…"
+  },
+  "aiConsent": {
+    "title": "AI Quote Drafts",
+    "desc": "अपनी फ्रंट-डेस्क टीम को Anthropic Claude से लीड डेटा के आधार पर कोट प्रोपोज़ल ड्राफ्ट करने दें। ड्राफ्ट हमेशा टीम द्वारा एडिट और अप्रूव होते हैं। टोकन उपयोग लॉग और दैनिक सीमित है।",
+    "statusLabel": "स्थिति",
+    "statusEnabled": "सक्षम — AI जनरेशन अनुमत",
+    "statusDisabled": "अक्षम — केवल टेम्पलेट",
+    "dailyCapLabel": "दैनिक टोकन कैप",
+    "errUpdate": "कंसेंट अपडेट नहीं हो सकी",
+    "footer": "सक्षम होने पर, AI गेस्ट का नाम, तारीख और पार्टी साइज़ से प्रोपोज़ल ड्राफ्ट करता है। कभी कीमत या उपलब्धता नहीं बनाता। अस्वीकरण पंक्ति हमेशा शामिल रहती है।",
+    "tokensPerDayUnit": "टोकन / दिन"
+  }
+}

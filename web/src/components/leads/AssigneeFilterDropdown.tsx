@@ -5,6 +5,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 type AssigneeValue = 'me' | 'unassigned' | undefined;
 
@@ -13,13 +14,14 @@ interface Props {
   onChange: (next: AssigneeValue) => void;
 }
 
-const OPTIONS: Array<{ value: AssigneeValue; label: string }> = [
-  { value: undefined, label: 'All assignees' },
-  { value: 'me', label: 'Assigned to me' },
-  { value: 'unassigned', label: 'Unassigned' },
+const OPTIONS: Array<{ value: AssigneeValue; key: string; label: string }> = [
+  { value: undefined, key: 'all', label: 'All assignees' },
+  { value: 'me', key: 'me', label: 'Assigned to me' },
+  { value: 'unassigned', key: 'unassigned', label: 'Unassigned' },
 ];
 
 export function AssigneeFilterDropdown({ value, onChange }: Props) {
+  const t = useOwnerT('owner-leads');
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -58,7 +60,7 @@ export function AssigneeFilterDropdown({ value, onChange }: Props) {
           }
         `}
       >
-        {current.label}
+        {t(`assignee.${current.key}`, current.label)}
         <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
@@ -71,7 +73,7 @@ export function AssigneeFilterDropdown({ value, onChange }: Props) {
             const selected = o.value === value;
             return (
               <button
-                key={o.label}
+                key={o.key}
                 type="button"
                 onClick={() => {
                   onChange(o.value);
@@ -84,7 +86,7 @@ export function AssigneeFilterDropdown({ value, onChange }: Props) {
                   ${selected ? 'bg-emerald-500/10 text-emerald-200' : 'text-white/80 hover:bg-white/[0.05]'}
                 `}
               >
-                {o.label}
+                {t(`assignee.${o.key}`, o.label)}
                 {selected && <Check className="h-3.5 w-3.5" />}
               </button>
             );

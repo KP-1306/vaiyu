@@ -1,0 +1,183 @@
+{
+  "page": {
+    "back": "डैशबोर्ड पर वापस",
+    "title": "लोकल SEO लैंडिंग प्लानर",
+    "subtitle": "लोकल पेज आइडियाज़ को प्लान और गवर्न करें। Policy Shield कोई असली पेज बनने से पहले ही बताता है कि कौन-से कॉन्सेप्ट सेफ़ हैं और कौन-से स्पैम जैसे। यह टूल कुछ भी पब्लिश नहीं करता।",
+    "notEnabled": "लोकल SEO लैंडिंग प्लानर चालू नहीं है।",
+    "hotelNotFound": "होटल नहीं मिला।"
+  },
+  "action": {
+    "new": "नया ब्लूप्रिंट",
+    "cancel": "कैंसल",
+    "createBlueprint": "ब्लूप्रिंट बनाएँ",
+    "saveChanges": "बदलाव सेव करें",
+    "submitForReview": "रिव्यू के लिए भेजें",
+    "approveReady": "अप्रूव करें और रेडी मार्क करें",
+    "requestChanges": "बदलाव माँगें",
+    "hold": "होल्ड",
+    "resume": "फिर शुरू करें",
+    "archive": "आर्काइव",
+    "delete": "डिलीट",
+    "dismiss": "हटाएँ"
+  },
+  "filter": {
+    "risk": "रिस्क",
+    "status": "स्टेटस",
+    "category": "कैटेगरी",
+    "all": "सभी"
+  },
+  "list": {
+    "newSection": "नया ब्लूप्रिंट",
+    "noMatch": "इन फ़िल्टर्स से कोई ब्लूप्रिंट मैच नहीं होता।"
+  },
+  "edit": {
+    "reviewNote": "रिव्यू नोट: ",
+    "updated": "अपडेटेड {{when}}",
+    "backToList": "लिस्ट पर वापस",
+    "cannotApprove": "रिस्क = {{risk}} रहते अप्रूव नहीं कर सकते",
+    "readyNote": "अप्रूव्ड और बनाने के लिए रेडी। (Phase 2 = प्लानर-गेटेड पब्लिशर; अभी नहीं बना — तब तक यह सिर्फ़ इंटरनल सिग्नल रहेगा।)",
+    "notFound": "ब्लूप्रिंट नहीं मिला।",
+    "notEditable": "यह ब्लूप्रिंट {{status}} है। ",
+    "putOnHold": "एडिट करने के लिए इसे होल्ड पर रखें।",
+    "editNotAllowed": "इस स्थिति में एडिट करने की अनुमति नहीं है।"
+  },
+  "confirm": {
+    "archive": "इस ब्लूप्रिंट को आर्काइव करें?",
+    "delete": "इस ब्लूप्रिंट को डिलीट करें? (सॉफ़्ट-डिलीट; ऑडिट सुरक्षित रहेगा)",
+    "requestChangesReason": "बदलाव माँगने का कारण?"
+  },
+  "empty": {
+    "title": "अभी कोई ब्लूप्रिंट नहीं",
+    "body": "ब्लूप्रिंट एक पेज आइडिया है — पब्लिक पेज नहीं। कोई स्टार्टर चुनकर देखें कि Policy Shield उसे कैसे फ़्लैग करता है, या अपना खुद का लिखें। कुछ भी पब्लिश नहीं होता।",
+    "startBlank": "खाली ब्लूप्रिंट शुरू करें",
+    "orPickStarter": "या कोई सेफ़ स्टार्टर चुनें"
+  },
+  "disclaimer": {
+    "heading": "इंटरनल प्लानिंग टूल — कुछ भी पब्लिश नहीं करता",
+    "body": "लोकल SEO लैंडिंग प्लानर एक इंटरनल प्लानिंग टूल है। यह पेज पब्लिश नहीं करता, मेटाडेटा नहीं बदलता, और रैंकिंग, ट्रैफ़िक, बुकिंग्स, रेवेन्यू या Google विज़िबिलिटी की गारंटी नहीं देता।",
+    "hinglish": "यह प्लानर बताता है कि कौन-से लोकल पेज आइडियाज़ सेफ़ हैं और कौन-से स्पैम या फ़ेक क्लेम जैसे लग सकते हैं। पब्लिक पेज बनाने से पहले असली फ़ोटो, पैकेज और लोकेशन प्रूफ़ ज़रूर चाहिए।"
+  },
+  "shield": {
+    "name": "Policy Shield",
+    "checklistLabel": "प्रूफ़ चेकलिस्ट (v0 में सलाह भर)",
+    "explain": {
+      "SAFE_BLUEPRINT": "यह कॉन्सेप्ट सेफ़ लगता है। फिर भी कोई पब्लिक पेज बनने से पहले प्रूफ़ और गवर्नेंस रिव्यू ज़रूरी है।",
+      "NEEDS_PROOF": "कॉन्सेप्ट एक वेरिफ़ायबल क्लेम करता है (लोकेशन/सुविधा/मार्केट)। जैसे-जैसे सबूत जुटें, प्रूफ़ चेकलिस्ट टिक करें।",
+      "RISKY_DOORWAY": "टाइटल में सुपरलेटिव / ओवरक्लेम भाषा है (best, cheapest, #1, guaranteed)। इसे किसी ठोस, ईमानदार क्लेम में बदलें।",
+      "FAKE_LOCAL_CLAIM": "रिव्यूअर ने फ़ेक लोकल क्लेम फ़्लैग किया है। कॉन्सेप्ट को किसी असली, प्रमाणित लोकेशन के इर्द-गिर्द दोबारा बनाएँ।",
+      "DUPLICATE_LOW_VALUE": "इसी टाइटल का एक और लाइव ब्लूप्रिंट इस होटल के लिए पहले से मौजूद है। दोनों को मिलाएँ या अलग करें।",
+      "ON_HOLD": "रिव्यूअर ने इस ब्लूप्रिंट को रोक रखा है। तैयार होने पर लाइफ़साइकल बार से फिर शुरू करें।"
+    }
+  },
+  "proof": {
+    "noneRequired": "इस कैटेगरी के लिए कोई प्रूफ़ आइटम ज़रूरी नहीं। Policy Shield फिर भी सुपरलेटिव फ़्लैग करेगा।"
+  },
+  "timeline": {
+    "activity": "एक्टिविटी",
+    "eventCount_one": "{{count}} इवेंट",
+    "eventCount_other": "{{count}} इवेंट",
+    "noActivity": "अभी कोई एक्टिविटी नहीं।",
+    "detailCategory": "कैटेगरी",
+    "detailFlag": "फ़्लैग",
+    "detailOverridden": "(ओवरराइड किया गया)",
+    "detailFrom": "से"
+  },
+  "event": {
+    "CREATED": "बनाया गया",
+    "EDITED": "एडिट किया गया",
+    "RECLASSIFIED": "रिस्क फिर से वर्गीकृत",
+    "SUBMITTED_FOR_REVIEW": "रिव्यू के लिए भेजा गया",
+    "APPROVED": "अप्रूव्ड और रेडी मार्क",
+    "CHANGES_REQUESTED": "बदलाव माँगे गए",
+    "HELD": "होल्ड किया गया",
+    "RESUMED": "फिर शुरू किया गया",
+    "ARCHIVED": "आर्काइव किया गया",
+    "SOFT_DELETED": "डिलीट किया गया"
+  },
+  "form": {
+    "sectionConcept": "कॉन्सेप्ट",
+    "pageTitleConcept": "पेज-टाइटल कॉन्सेप्ट",
+    "pageTitlePlaceholder": "जैसे \"Family stay in Mukteshwar\"",
+    "targetCategory": "टारगेट कैटेगरी",
+    "sectionGuidance": "गाइडेंस",
+    "whyItMatters": "यह क्यों मायने रखता है (वैकल्पिक)",
+    "whyItMattersPlaceholder": "यहाँ किस तरह का गेस्ट आएगा, और उसे क्या कन्वर्ट करेगा?",
+    "hinglishGuidance": "हिंग्लिश गाइडेंस (वैकल्पिक)",
+    "hinglishGuidancePlaceholder": "जैसे \"Asli photos chahiye, Char Dham route ka time honestly likhna.\"",
+    "safeNextAction": "सेफ़ अगला कदम (वैकल्पिक)",
+    "safeNextActionPlaceholder": "जैसे \"Upload 5 real photos and a local-attractions list\"",
+    "connectedModule": "कनेक्टेड मॉड्यूल सुझाव (वैकल्पिक)",
+    "sectionNotes": "नोट्स",
+    "ownerNotes": "ओनर नोट्स (सभी होटल मेंबर्स को दिखेंगे)",
+    "internalNotes": "इंटरनल नोट्स (मैनेजर-लेवल कॉन्टेक्स्ट)",
+    "saving": "सेव हो रहा है…"
+  },
+  "override": {
+    "title": "Policy Shield को ओवरराइड करें",
+    "body": "सिर्फ़ तब इस्तेमाल करें जब कोई मानवीय निर्णय इस डिटरमिनिस्टिक फ़्लैग पर भारी पड़े (जैसे आपने किसी फ़ेक लोकल क्लेम की पुष्टि कर ली हो, या इस आइडिया को पार्क कर रहे हों)। कारण ज़रूरी है और ऑडिट में दर्ज होता है।",
+    "label": "रिस्क बदलकर करें",
+    "noOverride": "— कोई ओवरराइड नहीं (कंप्यूटेड इस्तेमाल करें: {{risk}}) —",
+    "reasonLabel": "कारण (ज़रूरी)",
+    "reasonPlaceholder": "जैसे \"Verified false claim — landmark is actually 80km away.\""
+  },
+  "category": {
+    "GEOGRAPHIC_FOCUS": "भौगोलिक फ़ोकस",
+    "TRAVELER_NICHE": "ट्रैवलर निच",
+    "SEASONAL_POSITION": "सीज़नल पोज़िशन",
+    "TARGET_MARKET": "टारगेट मार्केट",
+    "AMENITY_TRUST": "सुविधा / भरोसा",
+    "PACKAGE_LED": "पैकेज-आधारित"
+  },
+  "categoryHint": {
+    "GEOGRAPHIC_FOCUS": "लोकेशन/लैंडमार्क-आधारित (\"Family stay in Mukteshwar\")। असली लोकेशन प्रूफ़ चाहिए।",
+    "TRAVELER_NICHE": "ऑडियंस-आधारित (\"Workation homestay\", \"Wellness retreat\")। असली सुविधाओं से साबित करें।",
+    "SEASONAL_POSITION": "साल के समय का एंगल (\"Monsoon retreat in Uttarakhand\")। किसी असली सीज़नल ऑफ़र से जोड़ें।",
+    "TARGET_MARKET": "सोर्स-मार्केट एंगल (\"Weekend stay from Delhi NCR\")। ईमानदार ट्रैवल/रूट क्लेम चाहिए।",
+    "AMENITY_TRUST": "सुविधा/भरोसे का सिग्नल (\"Parking-friendly stay\")। सिर्फ़ तभी जब सुविधा सचमुच मौजूद हो।",
+    "PACKAGE_LED": "किसी असली Package Builder पैकेज के इर्द-गिर्द बना। पैकेज लाइव होने पर सबसे मज़बूत।"
+  },
+  "connectedModule": {
+    "none": "कोई नहीं",
+    "PACKAGE_BUILDER": "Package Builder",
+    "ASSET_MANAGER": "डिजिटल एसेट मैनेजर",
+    "SEASONAL_CALENDAR": "सीज़नल कैलेंडर (जल्द आ रहा है)"
+  },
+  "risk": {
+    "SAFE_BLUEPRINT": "सेफ़ ब्लूप्रिंट",
+    "NEEDS_PROOF": "प्रूफ़ चाहिए",
+    "RISKY_DOORWAY": "रिस्की / डोरवे",
+    "FAKE_LOCAL_CLAIM": "फ़ेक लोकल क्लेम",
+    "DUPLICATE_LOW_VALUE": "डुप्लिकेट / कम वैल्यू",
+    "ON_HOLD": "होल्ड पर"
+  },
+  "status": {
+    "DRAFT": "ड्राफ़्ट",
+    "IN_REVIEW": "रिव्यू में",
+    "READY_TO_BUILD": "बनाने के लिए रेडी",
+    "ON_HOLD": "होल्ड पर",
+    "ARCHIVED": "आर्काइव्ड"
+  },
+  "review": {
+    "PENDING_REVIEW": "रिव्यू बाकी",
+    "APPROVED": "अप्रूव्ड",
+    "CHANGES_REQUESTED": "बदलाव माँगे गए"
+  },
+  "validation": {
+    "TITLE_REQUIRED": "पेज-टाइटल कॉन्सेप्ट ज़रूरी है।",
+    "TITLE_TOO_LONG": "पेज-टाइटल कॉन्सेप्ट ≤ 160 कैरेक्टर होना चाहिए।",
+    "CATEGORY_INVALID": "कोई वैध टारगेट कैटेगरी चुनें।",
+    "OVERRIDE_REASON_REQUIRED": "रिस्क फ़्लैग ओवरराइड करते समय कारण ज़रूरी है।"
+  },
+  "errors": {
+    "NOT_AUTHORIZED": "इस काम की आपको अनुमति नहीं है।",
+    "BLUEPRINT_NOT_FOUND": "ब्लूप्रिंट नहीं मिला।",
+    "BLUEPRINT_DELETED": "ब्लूप्रिंट डिलीट हो चुका है।",
+    "NOT_EDITABLE": "यह ब्लूप्रिंट इस स्थिति में एडिट नहीं हो सकता। पहले इसे होल्ड करें।",
+    "INVALID_TRANSITION": "इस स्थिति से वह लाइफ़साइकल बदलाव मान्य नहीं है।",
+    "NOTE_REQUIRED": "बदलाव माँगते समय एक नोट ज़रूरी है।",
+    "TITLE_REQUIRED": "पेज-टाइटल कॉन्सेप्ट ज़रूरी है।",
+    "OVERRIDE_REASON_REQUIRED": "रिस्क फ़्लैग ओवरराइड करते समय कारण ज़रूरी है।",
+    "RISK_BLOCKS_APPROVAL": "जब तक Policy Shield इस ब्लूप्रिंट को असुरक्षित (रिस्की / फ़ेक / डुप्लिकेट) फ़्लैग करता है, अप्रूव नहीं कर सकते। पहले कॉन्सेप्ट ठीक करें या कारण देकर ओवरराइड करें।",
+    "actionFailed": "कार्रवाई विफल"
+  }
+}

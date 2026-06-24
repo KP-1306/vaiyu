@@ -1,0 +1,386 @@
+{
+  "crumbDashboard": "Dashboard",
+  "crumbStaffShifts": "Staff & Shifts",
+  "common": {
+    "saveChanges": "Save Changes",
+    "applying": "Applying…",
+    "noZone": "No Zone",
+    "tryAgain": "Try again"
+  },
+  "loading": {
+    "roster": "Syncing roster..."
+  },
+  "err": {
+    "loadProperty": "Failed to load property information.",
+    "propertyNotFound": "Property not found.",
+    "loadRoleData": "Failed to load role assignment data."
+  },
+  "shiftType": {
+    "morning": "Morning",
+    "evening": "Evening",
+    "night": "Night"
+  },
+  "dowLetter": {
+    "0": "S",
+    "1": "M",
+    "2": "T",
+    "3": "W",
+    "4": "T",
+    "5": "F",
+    "6": "S"
+  },
+  "dowShort": {
+    "0": "Sun",
+    "1": "Mon",
+    "2": "Tue",
+    "3": "Wed",
+    "4": "Thu",
+    "5": "Fri",
+    "6": "Sat"
+  },
+  "toast": {
+    "deactivated": "{{name}} has been deactivated",
+    "deactivateFailed": "Failed to deactivate user",
+    "versionConflict": "Shift was updated by another user — refreshing…",
+    "locked": "Shift is locked by another user",
+    "overlap": "Shift conflicts with an existing schedule",
+    "notFound": "Shift no longer exists",
+    "notEditable": "Only active scheduled shifts can be edited",
+    "opFailed": "Operation failed",
+    "opSuccess": "Operation successful",
+    "refreshed": "Data refreshed — please try again",
+    "invalidDuration": "Invalid shift duration ({{hours}}h)",
+    "invalidDurationMax": "Invalid shift duration ({{hours}}h) — max 24h",
+    "splitRange": "Split point must be within the shift duration",
+    "invalidTime": "Invalid time format. Use HH:MM (24h)",
+    "partialConflicts": "Partial success: {{count}} conflicts",
+    "selectStaff": "Please select a staff member",
+    "selectRange": "Please select a date range",
+    "noShiftsGen": "No shifts to generate — check your days and date range",
+    "previewFailed": "Failed to generate preview",
+    "allConflicts": "All shifts have conflicts — nothing to apply",
+    "someConflicts": "{{created}} shifts created, {{conflicts}} conflicts",
+    "scheduledOk": "{{count}} shifts scheduled successfully",
+    "loadHistory": "Failed to load history",
+    "loadRoles": "Failed to load roles",
+    "inviteSent": "Invite sent",
+    "inviteFailed": "Failed to send invite",
+    "inviteRevoked": "Invite revoked",
+    "linkCopied": "Link copied",
+    "cantDisablePrimary": "Cannot disable the primary department. Please make another department primary first.",
+    "deptRemoved": "{{name}} removed successfully",
+    "deptRemoveFailed": "Failed to remove department",
+    "deptPrimary": "{{name}} is now the primary department",
+    "deptPrimaryFailed": "Failed to update primary department",
+    "deptDuplicate": "Staff is already assigned to this department",
+    "deptAssigned": "Department assigned successfully",
+    "deptAssignFailed": "Failed to assign department",
+    "deptConfigUpdated": "Department configuration updated",
+    "reactivated": "{{name}} has been reactivated",
+    "reactivateFailed": "Failed to reactivate",
+    "statusUpdated": "{{name}} has been {{action}}",
+    "statusUpdateFailed": "Failed to update status"
+  },
+  "action": {
+    "deactivated": "deactivated",
+    "activated": "activated",
+    "unverified": "unverified",
+    "verified": "verified"
+  },
+  "confirm": {
+    "cancelShift": "Are you sure you want to cancel this shift?",
+    "removeDept": "Are you sure you want to remove {{name}}?"
+  },
+  "prompt": {
+    "splitTime": "Split Shift at what time? (Between {{start}} and {{end}})",
+    "overrideReason": "Why do you need to override this lock?",
+    "overrideDefault": "Urgent operational change"
+  },
+  "alert": {
+    "selectUserRole": "Please select a user and at least one role.",
+    "saveRolesFailed": "Failed to save role assignments."
+  },
+  "sidebar": {
+    "roster": "Staff Roster",
+    "liveStatus": "Live Status",
+    "members": "Members",
+    "onShift": "On Shift",
+    "offDuty": "Off Duty",
+    "deactivated": "Deactivated",
+    "analytics": "Analytics"
+  },
+  "nav": {
+    "dailyShifts": "Daily Shifts",
+    "shiftHistory": "Shift History"
+  },
+  "history": {
+    "globalTitle": "Global Shift History",
+    "staffTitle": "Staff Shift History",
+    "subtitle": "Audit trail of all scheduling changes",
+    "fetching": "Fetching Logs...",
+    "empty": "No history logs found",
+    "purged": "Record Purged",
+    "loadingMore": "Loading...",
+    "loadMore": "Load More History",
+    "by": "by {{name}}",
+    "system": "System",
+    "none": "None",
+    "field": {
+      "Time": "Time",
+      "Zone": "Zone",
+      "Status": "Status",
+      "Type": "Type"
+    },
+    "action": {
+      "created": "created",
+      "updated": "updated",
+      "cancelled": "cancelled",
+      "deleted": "deleted"
+    }
+  },
+  "ops": {
+    "title": "Operational Commands",
+    "invite": "Invite Teammate",
+    "assignRole": "Assign Role",
+    "assignShift": "Assign Shift",
+    "singleShift": "Single Shift",
+    "multipleStaff": "Multiple Staff (Batch)",
+    "weeklySchedule": "Weekly Schedule",
+    "smartSchedule": "Smart Schedule (Auto)",
+    "templates": "Templates",
+    "bulkActions": "Bulk Actions",
+    "bulkReassign": "Bulk Reassign",
+    "bulkCancel": "Bulk Cancel Shifts",
+    "autoAssign": "Auto-Assign (AI)"
+  },
+  "timeline": {
+    "title": "Shift Schedule",
+    "assignmentSaved": "Assignment Saved"
+  },
+  "filter": {
+    "departmentsHeading": "Departments",
+    "allDepartments": "All Departments",
+    "zonesHeading": "Zones",
+    "allZones": "All Zones"
+  },
+  "stats": {
+    "totalStaff": "Total Staff",
+    "onShift": "On Shift",
+    "offShift": "Off Shift",
+    "morningShift": "Morning Shift",
+    "eveningShift": "Evening Shift",
+    "nightShift": "Night Shift"
+  },
+  "row": {
+    "unassignedDept": "UNASSIGNED DEPT",
+    "frontOffice": "Front Office",
+    "staffFallback": "STAFF",
+    "assignShift": "Assign Shift"
+  },
+  "popover": {
+    "actions": "Actions",
+    "editShift": "Edit Shift",
+    "editStaffSettings": "Edit Staff Settings",
+    "reassign": "Reassign / Move",
+    "splitShift": "Split Shift",
+    "lockShift": "Lock Shift",
+    "currentlyLocked": "currently locked",
+    "unlocked": "unlocked",
+    "requestOverride": "Request Override",
+    "activateDeactivate": "Activate / Deactivate User",
+    "aiInsight": "AI Insight",
+    "aiAssignedPre": "Assigned due to ",
+    "aiAssignedHighlight": "primary department match",
+    "aiAssignedPost": " & balanced workload.",
+    "reasonPrimary": "Primary department match",
+    "reasonBalanced": "Balanced workload",
+    "reasonHighPriority": "High priority staff",
+    "viewFullInsight": "View Full Insight",
+    "overlapTitle": "Shift Overlap Detected",
+    "overlapBody": "Conflicts with another assignment."
+  },
+  "quickAssign": {
+    "title": "Quick Assign",
+    "custom": "CUSTOM SHIFT..."
+  },
+  "details": {
+    "title": "Staff Details",
+    "backToRoster": "Back to Roster",
+    "editStaff": "Edit Staff",
+    "departmentsCount": "Departments • {{count}}",
+    "availability": "Availability",
+    "notScheduled": "Not scheduled"
+  },
+  "field": {
+    "staffMember": "Staff Member",
+    "staff": "Staff",
+    "shiftType": "Shift Type",
+    "type": "Type",
+    "startTime": "Start Time",
+    "endTime": "End Time",
+    "start": "Start",
+    "end": "End",
+    "from": "From",
+    "to": "To",
+    "zone": "Zone",
+    "zoneOptional": "Zone (Optional)",
+    "assignmentZone": "Assignment Zone",
+    "noSpecificZone": "No Specific Zone",
+    "email": "Email",
+    "role": "Role",
+    "selectStaff": "Select Staff"
+  },
+  "assignModal": {
+    "title": "Assign New Shift",
+    "subtitle": "Create a new schedule entry for your team.",
+    "confirm": "Confirm Assignment"
+  },
+  "bulkModal": {
+    "title": "Bulk Assign Shifts",
+    "subtitle": "Batch create shifts for multiple staff at once.",
+    "selectStaff": "Select Staff Members",
+    "create": "Create {{count}} Shifts"
+  },
+  "editShiftModal": {
+    "title": "Edit Shift",
+    "subtitle": "Update shift timings or reassignment details."
+  },
+  "roleModal": {
+    "title": "Assign Member Roles",
+    "subtitle": "Map a team member to one or multiple roles.",
+    "loading": "Loading Members & Roles...",
+    "selectMember": "Select Team Member",
+    "selectMemberPlaceholder": "-- Select a Member --",
+    "manageRoles": "Manage Member Roles",
+    "noRoles": "No Roles Defined",
+    "noRolesHint": "Please set up hotel roles first.",
+    "template": "Template",
+    "savingMapping": "Saving Mapping…",
+    "saveAssignments": "Save New Assignments"
+  },
+  "inviteModal": {
+    "title": "Invite Teammate",
+    "subtitle": "Send a role-scoped login invite. They sign in with this email, then open the accept link.",
+    "loadingRoles": "Loading roles…",
+    "noRoles": "No invitable roles yet",
+    "noRolesHint": "Only the Owner role exists. Create staff roles (Manager, Front desk, Housekeeping…) in Setup before inviting teammates.",
+    "setupRoles": "Set up roles",
+    "emailPlaceholder": "person@hotel.com",
+    "sending": "Sending…",
+    "sendInvite": "Send invite",
+    "sentShare": "Invite sent · share this accept link",
+    "copyLink": "Copy link",
+    "pending": "Pending invites",
+    "noPending": "No pending invites.",
+    "roleFallback": "Role",
+    "expires": "expires {{date}}",
+    "copyAccept": "Copy accept link",
+    "revoke": "Revoke invite"
+  },
+  "weekly": {
+    "title": "Weekly Scheduling",
+    "subtitle": "Create recurring shift patterns",
+    "selectStaff": "Select staff member...",
+    "days": "Days",
+    "allZonesOption": "All Zones",
+    "preview": "Preview Schedule",
+    "colDate": "Date",
+    "colTime": "Time",
+    "colStatus": "Status",
+    "conflict": "Conflict",
+    "clear": "Clear",
+    "conflictSummary": "Conflicts: {{conflicts}} · Will create {{clear}} shifts",
+    "allClear": "All {{count}} shifts are clear — ready to apply",
+    "apply": "Apply Schedule"
+  },
+  "smart": {
+    "title": "Smart Scheduler",
+    "subtitle": "Automatically generate an optimized schedule for the week",
+    "week": "Week",
+    "allZonesOption": "All Zones",
+    "weekRange": "Week Range",
+    "demand": "Demand per Day",
+    "generating": "Generating optimal schedule...",
+    "generate": "Generate Schedule",
+    "assigned": "{{count}} shifts assigned",
+    "conflicts": "{{count}} conflicts",
+    "optimizing": "AI is searching for global optimizations in background...",
+    "betterAvailable": "Better schedule available!",
+    "scoreImproved": "Score improved: {{base}} → {{improved}}",
+    "applyImproved": "Apply Improved",
+    "gridStaff": "Staff",
+    "conflictsTitle": "Conflicts",
+    "noStaff": "No available staff",
+    "regenerate": "Re-generate",
+    "hideConflicts": "Hide Conflicts",
+    "seeConflicts": "See Conflicts",
+    "apply": "Apply Schedule"
+  },
+  "deptModal": {
+    "title": "Manage Departments",
+    "subtitle": "Configure workspace access & primary roles",
+    "unknownDept": "Unknown Department",
+    "primary": "Primary Department",
+    "priority": "Priority {{n}}",
+    "disable": "Disable",
+    "isPrimary": "Is Primary",
+    "makePrimary": "Make Primary",
+    "assignAdditional": "Assign to additional department...",
+    "select": "Select",
+    "selectDept": "Select a Department",
+    "noOther": "No other departments available"
+  },
+  "roster": {
+    "onShift": "Staff On Shift",
+    "deactivated": "Deactivated Staff",
+    "offDuty": "Staff Off Duty",
+    "reactivateHint": "Reactivate members to restore access",
+    "liveOverview": "Live Status Overview",
+    "empty": "No staff members match this criteria right now.",
+    "noEmail": "No email provided",
+    "reactivate": "Reactivate"
+  },
+  "deactivate": {
+    "title": "Deactivate User?",
+    "confirm": "Are you sure you want to deactivate {{name}}?",
+    "note": "This will prevent the user from being scheduled.",
+    "reasonPlaceholder": "Reason (required)",
+    "confirmBtn": "Deactivate User"
+  },
+  "centralAssign": {
+    "assigning": "Assigning New Shift",
+    "quickTemplates": "Quick Assign Templates",
+    "or": "or",
+    "createCustom": "CREATE CUSTOM SHIFT"
+  },
+  "editStaff": {
+    "title": "Edit Staff Settings",
+    "departments": "Departments",
+    "primary": "PRIMARY",
+    "roles": "Roles",
+    "noneAssigned": "No departments or roles assigned yet.",
+    "activeStatus": "Active Status",
+    "activeHint": "Allow scheduling and login access",
+    "verifyStatus": "Verification Status",
+    "verifyHint": "Allow SLA ticket assignments"
+  },
+  "confirmToggle": {
+    "deactivateTitle": "Deactivate Staff?",
+    "activateTitle": "Activate Staff?",
+    "removeVerifyTitle": "Remove Verification?",
+    "verifyTitle": "Verify Staff?",
+    "reactivateLater": "You can reactivate them later from the Deactivated section.",
+    "restoreNote": "This will restore scheduling access and allow the user to log in again.",
+    "removeVerifyNote": "Removing verification will prevent SLA ticket assignments for this user.",
+    "verifyNote": "This will allow SLA ticket assignments for this user.",
+    "confirm": "Are you sure you want to {{action}} {{name}}?",
+    "verbDeactivate": "deactivate",
+    "verbUnverify": "unverify",
+    "verbActivate": "activate",
+    "verbVerify": "verify",
+    "btnDeactivate": "Deactivate",
+    "btnRemoveVerify": "Remove Verification",
+    "btnActivate": "Activate",
+    "btnVerify": "Verify"
+  }
+}

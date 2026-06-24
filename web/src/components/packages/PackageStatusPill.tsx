@@ -5,6 +5,7 @@ import {
   PACKAGE_APPROVAL_LABEL,
   PACKAGE_STATUS_LABEL,
 } from '../../config/packages';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 const STATUS_PILL: Record<PackageStatus, string> = {
   DRAFT:    'bg-slate-700/40 text-slate-200 border-slate-600',
@@ -21,23 +22,25 @@ const APPROVAL_PILL: Record<PackageApprovalStatus, string> = {
 };
 
 export function PackageStatusPill({ status }: { status: PackageStatus }) {
+  const t = useOwnerT('owner-packages');
   return (
     <span
       className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${STATUS_PILL[status]}`}
       data-testid={`package-status-${status}`}
     >
-      {PACKAGE_STATUS_LABEL[status]}
+      {t(`status.${status}`, PACKAGE_STATUS_LABEL[status])}
     </span>
   );
 }
 
 export function PackageApprovalPill({ status }: { status: PackageApprovalStatus }) {
+  const t = useOwnerT('owner-packages');
   return (
     <span
       className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${APPROVAL_PILL[status]}`}
       data-testid={`package-approval-${status}`}
     >
-      {PACKAGE_APPROVAL_LABEL[status]}
+      {t(`approval.${status}`, PACKAGE_APPROVAL_LABEL[status])}
     </span>
   );
 }

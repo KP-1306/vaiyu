@@ -6,8 +6,10 @@
 
 import { ShieldAlert, Info } from 'lucide-react';
 import { DAM_COPY } from '../../config/digitalAssetManager';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 export function PrivacyDisclaimerBanner({ compact = false }: { compact?: boolean }) {
+  const t = useOwnerT('owner-assets');
   return (
     <div className="space-y-3">
       <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 sm:p-4">
@@ -15,7 +17,7 @@ export function PrivacyDisclaimerBanner({ compact = false }: { compact?: boolean
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-rose-600 sm:h-5 sm:w-5" aria-hidden />
           <div className="space-y-1">
             <p className="text-[12px] font-semibold uppercase tracking-wide text-rose-700 sm:text-[11px]">
-              Privacy — DO NOT upload personal IDs
+              {t('banner.privacyTitle', 'Privacy — DO NOT upload personal IDs')}
             </p>
             <p className="text-[13px] leading-snug text-rose-900">
               {DAM_COPY.privacyEN}
@@ -34,7 +36,7 @@ export function PrivacyDisclaimerBanner({ compact = false }: { compact?: boolean
           <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 sm:h-5 sm:w-5" aria-hidden />
           <div className="space-y-1">
             <p className="text-[12px] font-semibold uppercase tracking-wide text-amber-700 sm:text-[11px]">
-              No guarantees
+              {t('banner.disclaimerTitle', 'No guarantees')}
             </p>
             <p className="text-[13px] leading-snug text-amber-900">
               {DAM_COPY.disclaimerEN}

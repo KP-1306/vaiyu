@@ -3,6 +3,7 @@
 import { X } from 'lucide-react';
 import type { Lead } from '../../types/lead';
 import { LeadDetailStatusMenu } from './LeadDetailStatusMenu';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   lead: Lead;
@@ -21,6 +22,7 @@ export function LeadDetailHeader({
   onClose,
   closeDisabled,
 }: Props) {
+  const t = useOwnerT('owner-leads');
   return (
     <header className="px-5 py-4 border-b border-white/10 flex items-start justify-between gap-3 shrink-0">
       <div className="min-w-0 flex-1">
@@ -40,7 +42,7 @@ export function LeadDetailHeader({
       <button
         type="button"
         data-testid="lead-detail-close"
-        aria-label="Close"
+        aria-label={t('a11y.close', 'Close')}
         onClick={onClose}
         disabled={closeDisabled}
         className="p-1 rounded text-white/60 hover:text-white hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"

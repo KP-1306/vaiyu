@@ -11,6 +11,7 @@ import { ChevronRight, Mail } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { listSubscriptionsForHotel } from '../../services/dripService';
 import { DRIP_ENGINE_V1_ENABLED } from '../../config/dripEngine';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   hotelId: string;
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export function DripActivityCard({ hotelId, hotelSlug }: Props) {
+  const t = useOwnerT('owner-cards');
   const subsQ = useQuery({
     queryKey: ['drip-subs-summary', hotelId],
     queryFn: () => listSubscriptionsForHotel(hotelId, { limit: 500 }),
@@ -61,7 +63,7 @@ export function DripActivityCard({ hotelId, hotelSlug }: Props) {
         <div className="flex items-center gap-2">
           <Mail className="h-4 w-4 text-emerald-300" aria-hidden />
           <h3 className="text-[11px] font-bold uppercase tracking-widest text-slate-300">
-            Follow-up emails
+            {t('drip.title', 'Follow-up emails')}
           </h3>
         </div>
         <Link
@@ -69,20 +71,20 @@ export function DripActivityCard({ hotelId, hotelSlug }: Props) {
           className="inline-flex items-center gap-0.5 text-[11px] text-emerald-300 hover:underline"
           data-testid="drip-card-open"
         >
-          Edit sequences <ChevronRight className="h-3 w-3" aria-hidden />
+          {t('drip.editSequences', 'Edit sequences')} <ChevronRight className="h-3 w-3" aria-hidden />
         </Link>
       </div>
 
       <div className="grid grid-cols-4 gap-2">
-        <Stat label="Active"     value={active} tone="emerald" />
-        <Stat label="Due 24h"    value={dueSoon} tone={dueSoon > 0 ? 'amber' : 'neutral'} />
-        <Stat label="Sent today" value={sentTodayQ.data ?? 0} />
-        <Stat label="Paused"     value={paused + noChannel} tone={paused + noChannel > 0 ? 'amber' : 'neutral'} />
+        <Stat label={t('drip.active', 'Active')}     value={active} tone="emerald" />
+        <Stat label={t('drip.due24h', 'Due 24h')}    value={dueSoon} tone={dueSoon > 0 ? 'amber' : 'neutral'} />
+        <Stat label={t('drip.sentToday', 'Sent today')} value={sentTodayQ.data ?? 0} />
+        <Stat label={t('drip.paused', 'Paused')}     value={paused + noChannel} tone={paused + noChannel > 0 ? 'amber' : 'neutral'} />
       </div>
 
       {noChannel > 0 && (
         <p className="mt-2 text-[10.5px] text-amber-300">
-          {noChannel} lead{noChannel === 1 ? '' : 's'} stuck — no email on file.
+          {t('drip.stuck', '{{count}} leads stuck — no email on file.', { count: noChannel })}
         </p>
       )}
     </div>

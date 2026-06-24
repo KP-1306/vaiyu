@@ -11,6 +11,7 @@ import { Handshake, ChevronRight, AlertTriangle } from 'lucide-react';
 
 import { listPartners } from '../../services/partnerService';
 import { PARTNER_NETWORK_V1_ENABLED } from '../../config/partnerNetwork';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   hotelId: string;
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export function PartnersSummaryCard({ hotelId, hotelSlug }: Props) {
+  const t = useOwnerT('owner-cards');
   const q = useQuery({
     queryKey: ['partners-summary', hotelId],
     queryFn: () => listPartners(hotelId, { limit: 200 }),
@@ -39,7 +41,7 @@ export function PartnersSummaryCard({ hotelId, hotelSlug }: Props) {
         <div className="flex items-center gap-2">
           <Handshake className="h-4 w-4 text-emerald-300" aria-hidden />
           <h3 className="text-[11px] font-bold uppercase tracking-widest text-slate-300">
-            Local Partner Directory
+            {t('partners.title', 'Local Partner Directory')}
           </h3>
         </div>
         <Link
@@ -47,34 +49,34 @@ export function PartnersSummaryCard({ hotelId, hotelSlug }: Props) {
           className="inline-flex items-center gap-0.5 text-[11px] text-emerald-300 hover:underline"
           data-testid="partners-card-open"
         >
-          Open <ChevronRight className="h-3 w-3" aria-hidden />
+          {t('common.open', 'Open')} <ChevronRight className="h-3 w-3" aria-hidden />
         </Link>
       </div>
 
       {q.isLoading && (
-        <div className="text-[12px] text-slate-500">Loading…</div>
+        <div className="text-[12px] text-slate-500">{t('common.loading', 'Loading…')}</div>
       )}
 
       {!q.isLoading && total === 0 && (
         <div className="space-y-2">
           <p className="text-[12px] text-slate-400">
-            No partners added yet. Track trusted vendors and commissionable agents in one place.
+            {t('partners.empty', 'No partners added yet. Track trusted vendors and commissionable agents in one place.')}
           </p>
           <Link
             to={`/owner/${hotelSlug}/partners`}
             className="inline-flex items-center gap-1 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-200 hover:bg-emerald-500/20"
           >
-            Add your first partner
+            {t('partners.addFirst', 'Add your first partner')}
           </Link>
         </div>
       )}
 
       {!q.isLoading && total > 0 && (
         <div className="grid grid-cols-4 gap-2">
-          <Stat label="Total"     value={total} />
-          <Stat label="Verified"  value={verified} tone="emerald" />
-          <Stat label="Preferred" value={preferred} tone="amber" />
-          <Stat label="Stale"     value={stale} tone={stale > 0 ? 'red' : 'neutral'} icon={stale > 0 ? AlertTriangle : undefined} />
+          <Stat label={t('partners.total', 'Total')}     value={total} />
+          <Stat label={t('partners.verified', 'Verified')}  value={verified} tone="emerald" />
+          <Stat label={t('partners.preferred', 'Preferred')} value={preferred} tone="amber" />
+          <Stat label={t('partners.stale', 'Stale')}     value={stale} tone={stale > 0 ? 'red' : 'neutral'} icon={stale > 0 ? AlertTriangle : undefined} />
         </div>
       )}
     </div>

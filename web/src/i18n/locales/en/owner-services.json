@@ -113,5 +113,87 @@
     "hotelSlugRequired": "Hotel slug is required",
     "hotelNotFound": "Hotel not found",
     "loadFailed": "Failed to load data"
+  },
+  "modals": {
+    "nameRequired": "Service name is required",
+    "editTitle": "Edit {{dept}} Service",
+    "serviceName": "Service Name",
+    "slaMin": "SLA (min)",
+    "slaOverride": "Overrides default 30 min SLA for {{dept}}",
+    "sla": {
+      "confirm": "This will apply to new tickets only.\n\nExisting tickets will continue with their original SLA. Do you want to proceed?",
+      "title": "Edit SLA Policy",
+      "targetTime": "Target Response Time",
+      "minutes": "minutes",
+      "targetHint": "Time staff has to complete the task",
+      "warnThreshold": "Warning Threshold",
+      "warnHint": "When to show warning before SLA breach",
+      "startsWhen": "SLA Starts When",
+      "optOnCreate": "Ticket is Created",
+      "optOnAssign": "Staff is Assigned",
+      "optOnShiftStart": "Shift Starts",
+      "startHint": "When the SLA countdown begins",
+      "escalationBuffer": "Escalation Buffer",
+      "escalationHint": "Additional time before escalating to supervisor",
+      "savePolicy": "Save Policy"
+    },
+    "addService": {
+      "nameRequired": "Service name is required.",
+      "selectDeptAlert": "Please select a department",
+      "title": "Add New Service",
+      "subtitle": "Create a custom service for a specific department",
+      "department": "Department",
+      "selectDept": "Select Department",
+      "namePlaceholder": "e.g. Extra Pillow",
+      "slaOverrideOptional": "SLA Override (Optional)",
+      "defaultDeptSla": "Default department SLA",
+      "typically": "Typically {{min}} minutes for this department",
+      "effective": "Effective SLA: {{min}} minutes",
+      "availability": "Service Availability",
+      "activeHint": "Service will be immediately available for requests.",
+      "inactiveHint": "Inactive services are hidden from guest requests.",
+      "createCustom": "Create Custom Service >"
+    },
+    "addServiceSelection": {
+      "title": "Add Service",
+      "subtitle": "Choose how you want to add services to this department",
+      "fromTemplates": "Add from Templates",
+      "fromTemplatesDesc1": "Quickly add predefined services with standard SLAs.",
+      "fromTemplatesDesc2": "Only templates not already added will appear.",
+      "customService": "Create Custom Service",
+      "customDesc": "Create a department-specific service with optional SLA override."
+    },
+    "addServiceTemplate": {
+      "title": "Add Services from Templates",
+      "subtitle": "Select services to add from the available templates. Only services that haven't been added yet are shown.",
+      "searchPlaceholder": "Search service templates...",
+      "departmentLabel": "Department:",
+      "sortBy": "Sort by:",
+      "sortName": "SERVICE NAME",
+      "sortSla": "SLA DURATION",
+      "colDefaultSla": "Default SLA",
+      "loading": "Loading templates...",
+      "noNew": "No new templates available for this department.",
+      "minSuffix": "{{min}} min",
+      "viewing": "Viewing {{count}} templates",
+      "addSelected": "Add Selected Services"
+    },
+    "addDeptSelection": {
+      "title": "Add Department",
+      "subtitle": "Choose how you want to add a department",
+      "fromTemplates": "Add from Templates",
+      "fromTemplatesDesc": "Quickly add standard departments with predefined settings.",
+      "customDept": "Create Custom Department",
+      "customDesc": "Manually configure a new department with specific settings."
+    },
+    "addDeptTemplate": {
+      "title": "Add Departments from Templates",
+      "subtitle": "Select departments to add from the available templates. Only departments that haven't been added yet are shown.",
+      "searchPlaceholder": "Search department templates...",
+      "sortName": "DEPARTMENT NAME",
+      "colDeptName": "Department Name",
+      "noNew": "No new template departments available. All templates are already added.",
+      "addSelected": "Add Selected"
+    }
   }
 }

@@ -16,6 +16,7 @@ import {
   OTA_DISCLAIMER_EN,
   OTA_DISCLAIMER_HI,
   OTA_PLATFORM_DESC_EN,
+  OTA_PLATFORM_DESC_HI,
   OTA_PLATFORM_LABEL,
   OTA_PLATFORM_ORDER,
   OTA_STATUS_LABEL,
@@ -36,6 +37,7 @@ import {
   type OTAPlatform,
   type OTAReadinessStatus,
 } from '../../types/otaOptimizer';
+import { useOwnerT, useOwnerLang } from '../../i18n/useOwnerT';
 
 interface Props {
   hotelId: string;
@@ -60,6 +62,8 @@ export function OTAReadinessWizard({
   onComplete,
   onSkip,
 }: Props) {
+  const t = useOwnerT('owner-ota');
+  const lang = useOwnerLang();
   const qc = useQueryClient();
   const [step, setStep] = useState<Step>(1);
   const [active, setActive] = useState<OTAPlatform[]>(initialActiveOtas);
@@ -74,6 +78,8 @@ export function OTAReadinessWizard({
     return isStateMountain(hotelState);
   }, [mtnOverride, hotelState]);
 
+  const platformDesc = lang === 'hi' ? OTA_PLATFORM_DESC_HI : OTA_PLATFORM_DESC_EN;
+
   function quickKey(o: OTAPlatform, itemKey: string) {
     return `${o}|${itemKey}`;
   }
@@ -84,7 +90,7 @@ export function OTAReadinessWizard({
 
   async function handleNextFrom1() {
     if (active.length === 0) {
-      setError('Select at least one OTA.');
+      setError(t('error.minOneOtaWizard', 'Select at least one OTA.'));
       return;
     }
     setError(null);
@@ -95,7 +101,7 @@ export function OTAReadinessWizard({
       setStep(2);
     } catch (e) {
       const code = e instanceof OTAServiceError ? e.code : null;
-      setError(friendlyOtaError(code, 'Could not save OTA selection.'));
+      setError(friendlyOtaError(code, t('error.saveOtasFailed', 'Could not save OTA selection.')));
     } finally {
       setBusy(false);
     }
@@ -110,7 +116,7 @@ export function OTAReadinessWizard({
       setStep(3);
     } catch (e) {
       const code = e instanceof OTAServiceError ? e.code : null;
-      setError(friendlyOtaError(code, 'Could not save mountain preference.'));
+      setError(friendlyOtaError(code, t('error.saveMountainFailed', 'Could not save mountain preference.')));
     } finally {
       setBusy(false);
     }
@@ -148,22 +154,28 @@ export function OTAReadinessWizard({
       setTimeout(onComplete, 1200);
     } catch (e) {
       const code = e instanceof OTAServiceError ? e.code : null;
-      setError(friendlyOtaError(code, 'Could not save initial statuses.'));
+      setError(friendlyOtaError(code, t('error.saveInitialFailed', 'Could not save initial statuses.')));
     } finally {
       setBusy(false);
     }
   }
 
+  const step2Options = [
+    { value: null, label: t('wizard.step2.optAuto', 'Auto'), desc: t('wizard.step2.autoDesc', 'Use state-based default') },
+    { value: true, label: t('wizard.step2.optYes', 'Yes'), desc: t('wizard.step2.yesDesc', 'Show mountain checks') },
+    { value: false, label: t('wizard.step2.optNo', 'No'), desc: t('wizard.step2.noDesc', 'Hide mountain checks') },
+  ] as const;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 md:p-8">
+    <div className="vaiyu-owner fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 md:p-8">
       <div className="w-full max-w-3xl rounded-2xl border border-slate-800 bg-[#0F1320] p-6 shadow-2xl">
         <header className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-slate-100">
-              OTA Listing Optimizer — first-time setup
+              {t('wizard.title', 'OTA Listing Optimizer — first-time setup')}
             </h2>
             <p className="mt-0.5 text-[12px] text-slate-400">
-              About 15 minutes. You can skip and resume anytime.
+              {t('wizard.subtitle', 'About 15 minutes. You can skip and resume anytime.')}
             </p>
           </div>
           <button
@@ -172,7 +184,7 @@ export function OTAReadinessWizard({
             className="rounded-md border border-slate-700 px-2 py-1 text-[11px] text-slate-300 hover:bg-slate-800"
           >
             <X className="inline h-3 w-3 mr-0.5" />
-            Skip
+            {t('wizard.skip', 'Skip')}
           </button>
         </header>
 
@@ -185,7 +197,9 @@ export function OTAReadinessWizard({
                 'h-1.5 rounded-full transition-all',
                 n === step ? 'w-8 bg-sky-400' : n < step ? 'w-4 bg-emerald-400' : 'w-4 bg-slate-700',
               ].join(' ')}
-              aria-label={`Step ${n}${n === step ? ' (current)' : ''}`}
+              aria-label={n === step
+                ? t('wizard.stepLabelCurrent', 'Step {{n}} (current)', { n })
+                : t('wizard.stepLabel', 'Step {{n}}', { n })}
             />
           ))}
         </div>
@@ -193,9 +207,9 @@ export function OTAReadinessWizard({
         {/* Step 1: active OTAs */}
         {step === 1 && (
           <section className="mt-5">
-            <h3 className="text-sm font-medium text-slate-100">Which OTAs do you list on?</h3>
+            <h3 className="text-sm font-medium text-slate-100">{t('wizard.step1.title', 'Which OTAs do you list on?')}</h3>
             <p className="mt-0.5 text-[12px] text-slate-400">
-              Toggle off the OTAs you don’t use. You can change this later.
+              {t('wizard.step1.desc', 'Toggle off the OTAs you don\'t use. You can change this later.')}
             </p>
             <div className="mt-3 grid gap-1.5">
               {OTA_PLATFORM_ORDER.map((o) => {
@@ -215,7 +229,7 @@ export function OTAReadinessWizard({
                   >
                     <span>
                       <span className="block text-[13px] font-medium">{OTA_PLATFORM_LABEL[o]}</span>
-                      <span className="mt-0.5 block text-[11px] text-slate-400">{OTA_PLATFORM_DESC_EN[o]}</span>
+                      <span className="mt-0.5 block text-[11px] text-slate-400">{platformDesc[o]}</span>
                     </span>
                     <span
                       className={[
@@ -242,30 +256,26 @@ export function OTAReadinessWizard({
           <section className="mt-5">
             <div className="flex items-center gap-2">
               <Mountain className="h-4 w-4 text-amber-300" />
-              <h3 className="text-sm font-medium text-slate-100">Mountain property disclosures?</h3>
+              <h3 className="text-sm font-medium text-slate-100">{t('wizard.step2.title', 'Mountain property disclosures?')}</h3>
             </div>
             <p className="mt-0.5 text-[12px] text-slate-400">
-              Adds 13 extra checks for parking, steep roads, snow, heating, hot water, etc. — important for mountain properties.
+              {t('wizard.step2.desc', 'Adds 13 extra checks for parking, steep roads, snow, heating, hot water, etc. — important for mountain properties.')}
             </p>
             <div className="mt-3 rounded-lg border border-slate-800 bg-[#0B0E14] p-3 text-[12px] text-slate-300">
               <div>
-                Hotel: <span className="font-medium">{hotelName}</span>
+                {t('wizard.step2.hotelLabel', 'Hotel')}: <span className="font-medium">{hotelName}</span>
               </div>
               <div className="mt-0.5">
-                State: <span className="font-medium">{hotelState ?? '—'}</span>
+                {t('wizard.step2.stateLabel', 'State')}: <span className="font-medium">{hotelState ?? '—'}</span>
                 {isStateMountain(hotelState) && (
                   <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] text-emerald-300">
-                    detected as mountain state
+                    {t('wizard.step2.mountainDetected', 'detected as mountain state')}
                   </span>
                 )}
               </div>
             </div>
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {([
-                { value: null, label: 'Auto', desc: 'Use state-based default' },
-                { value: true, label: 'Yes', desc: 'Show mountain checks' },
-                { value: false, label: 'No', desc: 'Hide mountain checks' },
-              ] as const).map((opt) => (
+              {step2Options.map((opt) => (
                 <button
                   key={String(opt.value)}
                   type="button"
@@ -284,7 +294,9 @@ export function OTAReadinessWizard({
               ))}
             </div>
             <p className="mt-2 text-[11px] text-slate-500">
-              Currently: {effectiveMountain ? '13 mountain checks will be shown' : 'Mountain checks hidden'}
+              {effectiveMountain
+                ? t('wizard.step2.currentlyShowing', '13 mountain checks will be shown')
+                : t('wizard.step2.currentlyHidden', 'Mountain checks hidden')}
             </p>
           </section>
         )}
@@ -292,9 +304,9 @@ export function OTAReadinessWizard({
         {/* Step 3: quick first-pass */}
         {step === 3 && (
           <section className="mt-5">
-            <h3 className="text-sm font-medium text-slate-100">Quick first-pass (optional)</h3>
+            <h3 className="text-sm font-medium text-slate-100">{t('wizard.step3.title', 'Quick first-pass (optional)')}</h3>
             <p className="mt-0.5 text-[12px] text-slate-400">
-              Mark the most important items per OTA. You can skip and come back to fill more.
+              {t('wizard.step3.desc', 'Mark the most important items per OTA. You can skip and come back to fill more.')}
             </p>
             <div className="mt-3 max-h-[400px] overflow-y-auto space-y-3">
               {active.map((o) => {
@@ -309,7 +321,9 @@ export function OTAReadinessWizard({
                     <div className="mt-2 space-y-1.5">
                       {items.map((item) => (
                         <div key={item.itemKey} className="flex items-center justify-between gap-2">
-                          <div className="min-w-0 text-[12px] text-slate-300">{item.labelEn}</div>
+                          <div className="min-w-0 text-[12px] text-slate-300">
+                            {lang === 'hi' ? item.labelHi : item.labelEn}
+                          </div>
                           <div className="flex gap-1 shrink-0">
                             {(['COMPLETE', 'PARTIAL', 'MISSING'] as OTAReadinessStatus[]).map((s) => {
                               const k = quickKey(o, item.itemKey);
@@ -332,7 +346,7 @@ export function OTAReadinessWizard({
                                       : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200',
                                   ].join(' ')}
                                 >
-                                  {OTA_STATUS_LABEL[s]}
+                                  {t(`status.${s}`, OTA_STATUS_LABEL[s])}
                                 </button>
                               );
                             })}
@@ -345,7 +359,7 @@ export function OTAReadinessWizard({
               })}
             </div>
             <p className="mt-2 text-[11px] text-slate-500">
-              Items left blank stay as "Not reviewed" — set them later from the workspace.
+              {t('wizard.step3.blankNote', 'Items left blank stay as "Not reviewed" — set them later from the workspace.')}
             </p>
           </section>
         )}
@@ -354,9 +368,9 @@ export function OTAReadinessWizard({
         {step === 4 && (
           <section className="mt-6 flex flex-col items-center justify-center py-8 text-center">
             <CheckCircle2 className="h-10 w-10 text-emerald-400" />
-            <h3 className="mt-3 text-base font-medium text-slate-100">All set</h3>
+            <h3 className="mt-3 text-base font-medium text-slate-100">{t('wizard.step4.title', 'All set')}</h3>
             <p className="mt-1 text-[12px] text-slate-400">
-              Continue in the workspace. You can re-run this setup anytime.
+              {t('wizard.step4.desc', 'Continue in the workspace. You can re-run this setup anytime.')}
             </p>
           </section>
         )}
@@ -377,7 +391,7 @@ export function OTAReadinessWizard({
                 disabled={busy}
                 className="inline-flex items-center gap-1 rounded-md border border-slate-700 px-3 py-1.5 text-[12px] text-slate-300 hover:bg-slate-800 disabled:opacity-60"
               >
-                <ArrowLeft className="h-3 w-3" /> Back
+                <ArrowLeft className="h-3 w-3" /> {t('wizard.nav.back', 'Back')}
               </button>
             ) : <span />}
 
@@ -389,7 +403,7 @@ export function OTAReadinessWizard({
                 className="inline-flex items-center gap-1 rounded-md bg-sky-500 px-3 py-1.5 text-[12px] font-medium text-white hover:bg-sky-400 disabled:opacity-60"
               >
                 {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-                Next <ArrowRight className="h-3 w-3" />
+                {t('wizard.nav.next', 'Next')} <ArrowRight className="h-3 w-3" />
               </button>
             )}
             {step === 2 && (
@@ -400,7 +414,7 @@ export function OTAReadinessWizard({
                 className="inline-flex items-center gap-1 rounded-md bg-sky-500 px-3 py-1.5 text-[12px] font-medium text-white hover:bg-sky-400 disabled:opacity-60"
               >
                 {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-                Next <ArrowRight className="h-3 w-3" />
+                {t('wizard.nav.next', 'Next')} <ArrowRight className="h-3 w-3" />
               </button>
             )}
             {step === 3 && (
@@ -411,13 +425,13 @@ export function OTAReadinessWizard({
                 className="inline-flex items-center gap-1 rounded-md bg-emerald-500 px-3 py-1.5 text-[12px] font-medium text-white hover:bg-emerald-400 disabled:opacity-60"
               >
                 {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-                Finish setup
+                {t('wizard.nav.finish', 'Finish setup')}
               </button>
             )}
           </footer>
         )}
 
-        {/* Disclaimers — pinned bottom */}
+        {/* Disclaimers — pinned bottom (bilingual data, shown both always) */}
         <p className="mt-4 border-t border-slate-800 pt-3 text-[10px] text-slate-500">
           {OTA_DISCLAIMER_EN}
         </p>

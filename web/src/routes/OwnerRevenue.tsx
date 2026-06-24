@@ -36,6 +36,7 @@ import {
   type OwnerRevenueResponse,
 } from "../lib/api";
 import { TrendingUp, Gauge, BedDouble, Tag } from "lucide-react";
+import { useOwnerT, useOwnerCommonT, type OwnerT } from "../i18n/useOwnerT";
 
 // ------------------------------- Types --------------------------------------
 type Hotel = { id: string; name: string; slug: string };
@@ -147,6 +148,8 @@ function SectionHeader({
 // Reads the folio-backed owner_revenue_daily_v view (single source of truth).
 // ============================================================================
 export default function OwnerRevenue() {
+  const t = useOwnerT("owner-revenue");
+  const tc = useOwnerCommonT();
   const { slug } = useParams<{ slug: string }>();
   const nav = useNavigate();
   const [hotel, setHotel] = useState<Hotel | null>(null);
@@ -160,7 +163,7 @@ export default function OwnerRevenue() {
 
     async function load() {
       if (!slug) {
-        setError("Missing hotel identifier in URL.");
+        setError(t("missingSlug", "Missing hotel identifier in URL."));
         setLoading(false);
         return;
       }
@@ -239,7 +242,7 @@ export default function OwnerRevenue() {
       } catch (e: any) {
         if (!alive) return;
         console.error(e);
-        setError(e?.message || "Failed to load revenue view.");
+        setError(e?.message || t("loadFailed", "Failed to load revenue view."));
         setData(null);
       } finally {
         if (alive) setLoading(false);
@@ -250,7 +253,7 @@ export default function OwnerRevenue() {
     return () => {
       alive = false;
     };
-  }, [slug, range]);
+  }, [slug, range, t]);
 
   const summary = data?.summary;
   const series = data?.series ?? [];
@@ -270,22 +273,22 @@ export default function OwnerRevenue() {
   const hasService = (summary?.serviceRevenue ?? 0) > 0;
 
   const ranges: { value: "7d" | "30d" | "90d"; label: string }[] = [
-    { value: "7d", label: "7 days" },
-    { value: "30d", label: "30 days" },
-    { value: "90d", label: "90 days" },
+    { value: "7d", label: t("range7d", "7 days") },
+    { value: "30d", label: t("range30d", "30 days") },
+    { value: "90d", label: t("range90d", "90 days") },
   ];
 
   return (
-    <main className="min-h-screen bg-[#0f1113] text-white">
+    <main className="vaiyu-owner min-h-screen bg-[#0f1113] text-white">
      <div className="max-w-6xl mx-auto p-6 space-y-4">
       {/* Header */}
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="text-xl font-semibold">Revenue overview</div>
+          <div className="text-xl font-semibold">{t("title", "Revenue overview")}</div>
           <p className="text-sm text-slate-400">
             {hotel
-              ? `Control view for ${hotel.name}. Track room and F&B revenue over time.`
-              : "Track room and F&B revenue over time for this property."}
+              ? t("subtitleHotel", "Control view for {{hotel}}. Track room and F&B revenue over time.", { hotel: hotel.name })
+              : t("subtitle", "Track room and F&B revenue over time for this property.")}
           </p>
         </div>
         <div className="flex flex-col items-end gap-2">
@@ -310,7 +313,7 @@ export default function OwnerRevenue() {
           {/* Deep links */}
           {slug && (
             <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="text-slate-400">Deep dives:</span>
+              <span className="text-slate-400">{t("deepDives", "Deep dives:")}</span>
               <Link
                 to={`/owner/${encodeURIComponent(slug)}/revenue/adr`}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-400/30 bg-indigo-400/10 px-3 py-1.5 font-medium text-indigo-200 transition hover:bg-indigo-400/20 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/50"
@@ -327,13 +330,13 @@ export default function OwnerRevenue() {
                 to={`/owner/${encodeURIComponent(slug)}/revenue/occupancy`}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-1.5 font-medium text-amber-200 transition hover:bg-amber-400/20 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50"
               >
-                <BedDouble className="h-3.5 w-3.5" /> Occupancy
+                <BedDouble className="h-3.5 w-3.5" /> {t("occupancy", "Occupancy")}
               </Link>
               <Link
                 to={`/owner/${encodeURIComponent(slug)}/pricing`}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 font-semibold text-white transition hover:bg-blue-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60"
               >
-                <Tag className="h-3.5 w-3.5" /> Open pricing
+                <Tag className="h-3.5 w-3.5" /> {t("openPricing", "Open pricing")}
               </Link>
             </div>
           )}
@@ -343,12 +346,12 @@ export default function OwnerRevenue() {
       {/* Status / KPIs */}
       <section className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
         {loading ? (
-          <div className="text-sm text-slate-400">Loading…</div>
+          <div className="text-sm text-slate-400">{tc("state.loading", "Loading…")}</div>
         ) : error ? (
           <div className="text-sm text-rose-400">{error}</div>
         ) : !summary ? (
           <div className="text-sm text-slate-400">
-            No revenue data available for this range.
+            {t("noData", "No revenue data available for this range.")}
           </div>
         ) : (
           <div
@@ -359,40 +362,41 @@ export default function OwnerRevenue() {
             {/* Total revenue */}
             <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3">
               <div className="text-xs font-medium text-slate-300">
-                Total revenue
+                {t("kpiTotal", "Total revenue")}
               </div>
               <div className="mt-1 text-2xl font-semibold">
                 {formatINR(summary.totalRevenue)}
               </div>
               <div className="mt-1 text-[11px] text-slate-500">
-                Room + F&amp;B{hasService ? " + Service" : ""} for the selected
-                period.
+                {hasService
+                  ? t("kpiTotalSubService", "Room + F&B + Service for the selected period.")
+                  : t("kpiTotalSub", "Room + F&B for the selected period.")}
               </div>
             </div>
 
             {/* Room revenue */}
             <div className="rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3">
               <div className="text-xs font-medium text-slate-300">
-                Room revenue
+                {t("kpiRoom", "Room revenue")}
               </div>
               <div className="mt-1 text-2xl font-semibold">
                 {formatINR(summary.roomRevenue)}
               </div>
               <div className="mt-1 text-[11px] text-slate-500">
-                Core occupancy-driven revenue.
+                {t("kpiRoomSub", "Core occupancy-driven revenue.")}
               </div>
             </div>
 
             {/* F&B revenue */}
             <div className="rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3">
               <div className="text-xs font-medium text-slate-300">
-                F&amp;B revenue
+                {t("kpiFnb", "F&B revenue")}
               </div>
               <div className="mt-1 text-2xl font-semibold">
                 {formatINR(summary.fnbRevenue)}
               </div>
               <div className="mt-1 text-[11px] text-slate-500">
-                Upsell from restaurant, room service, café, etc.
+                {t("kpiFnbSub", "Upsell from restaurant, room service, café, etc.")}
               </div>
             </div>
 
@@ -400,13 +404,13 @@ export default function OwnerRevenue() {
             {hasService && (
               <div className="rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3">
                 <div className="text-xs font-medium text-slate-300">
-                  Service revenue
+                  {t("kpiService", "Service revenue")}
                 </div>
                 <div className="mt-1 text-2xl font-semibold">
                   {formatINR(summary.serviceRevenue)}
                 </div>
                 <div className="mt-1 text-[11px] text-slate-500">
-                  Spa, laundry, transfers &amp; other service charges.
+                  {t("kpiServiceSub", "Spa, laundry, transfers & other service charges.")}
                 </div>
               </div>
             )}
@@ -414,13 +418,13 @@ export default function OwnerRevenue() {
             {/* Avg daily revenue */}
             <div className="rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3">
               <div className="text-xs font-medium text-slate-300">
-                Avg revenue / day
+                {t("kpiAvg", "Avg revenue / day")}
               </div>
               <div className="mt-1 text-2xl font-semibold">
                 {formatINR(summary.avgDailyRevenue)}
               </div>
               <div className="mt-1 text-[11px] text-slate-500">
-                Simple daily average for this range.
+                {t("kpiAvgSub", "Simple daily average for this range.")}
               </div>
             </div>
           </div>
@@ -433,11 +437,12 @@ export default function OwnerRevenue() {
           <div className="flex items-start justify-between mb-2">
             <div>
               <h2 className="text-sm font-semibold">
-                Revenue breakdown over time
+                {t("chartTitle", "Revenue breakdown over time")}
               </h2>
               <p className="text-xs text-slate-400">
-                Total vs Room vs F&amp;B{hasService ? " vs Service" : ""} revenue
-                for the selected window.
+                {hasService
+                  ? t("chartSubService", "Total vs Room vs F&B vs Service revenue for the selected window.")
+                  : t("chartSub", "Total vs Room vs F&B revenue for the selected window.")}
               </p>
             </div>
           </div>
@@ -457,7 +462,7 @@ export default function OwnerRevenue() {
                 <YAxis tick={{ fontSize: 12, fill: "#94a3b8" }} />
                 <Tooltip
                   formatter={(v) => formatINR(v as number)}
-                  labelFormatter={(v) => `Day: ${formatShortDate(v as string)}`}
+                  labelFormatter={(v) => t("tooltipDay", "Day: {{date}}", { date: formatShortDate(v as string) })}
                   contentStyle={{ background: "#16181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#fff" }}
                   labelStyle={{ color: "#94a3b8" }}
                 />
@@ -465,7 +470,7 @@ export default function OwnerRevenue() {
                 <Line
                   type="monotone"
                   dataKey="totalRevenue"
-                  name="Total"
+                  name={t("seriesTotal", "Total")}
                   stroke="#a5b4fc"
                   dot={false}
                   strokeWidth={2.5}
@@ -473,7 +478,7 @@ export default function OwnerRevenue() {
                 <Line
                   type="monotone"
                   dataKey="roomRevenue"
-                  name="Room"
+                  name={t("seriesRoom", "Room")}
                   stroke="#34d399"
                   dot={false}
                   strokeWidth={2}
@@ -481,7 +486,7 @@ export default function OwnerRevenue() {
                 <Line
                   type="monotone"
                   dataKey="fnbRevenue"
-                  name="F&B"
+                  name={t("seriesFnb", "F&B")}
                   stroke="#fbbf24"
                   dot={false}
                   strokeWidth={2}
@@ -490,7 +495,7 @@ export default function OwnerRevenue() {
                   <Line
                     type="monotone"
                     dataKey="serviceRevenue"
-                    name="Service"
+                    name={t("seriesService", "Service")}
                     stroke="#f472b6"
                     dot={false}
                     strokeWidth={2}
@@ -510,6 +515,8 @@ export default function OwnerRevenue() {
 // ADR Page (unchanged logic, Supabase-based)
 // ============================================================================
 export function OwnerADR() {
+  const t = useOwnerT("owner-revenue");
+  const tc = useOwnerCommonT();
   const { slug } = useParams();
   const nav = useNavigate();
   const [hotel, setHotel] = useState<Hotel | null>(null);
@@ -594,22 +601,21 @@ export function OwnerADR() {
   const tone = adrTone(deltaPct);
 
   return (
-    <main className="min-h-screen bg-[#0f1113] text-white">
+    <main className="vaiyu-owner min-h-screen bg-[#0f1113] text-white">
      <div className="max-w-6xl mx-auto p-6">
       <div className="flex items-center justify-between mb-2">
         <div>
           <div className="text-2xl font-semibold">ADR</div>
           <p className="text-sm text-slate-400">
-            Average rate for occupied rooms. Aim to be above your baseline for
-            the day of week.
+            {t("adrSubtitle", "Average rate for occupied rooms. Aim to be above your baseline for the day of week.")}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button className="btn btn-light" onClick={() => nav(-1)}>
-            ← Back
+            {t("detailBack", "← Back")}
           </button>
           <Link className="btn" to={`/owner/${slug}/pricing`}>
-            Open pricing
+            {t("openPricing", "Open pricing")}
           </Link>
         </div>
       </div>
@@ -619,7 +625,7 @@ export function OwnerADR() {
         <div className="flex flex-wrap items-end gap-3">
           <div>
             <label className="block text-xs text-slate-400 mb-1">
-              From
+              {t("detailFrom", "From")}
             </label>
             <input
               type="date"
@@ -630,7 +636,7 @@ export function OwnerADR() {
           </div>
           <div>
             <label className="block text-xs text-slate-400 mb-1">
-              To
+              {t("detailTo", "To")}
             </label>
             <input
               type="date"
@@ -645,22 +651,22 @@ export function OwnerADR() {
       {/* KPI header */}
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 mb-4">
         {loading ? (
-          <div className="text-sm text-slate-400">Loading…</div>
+          <div className="text-sm text-slate-400">{tc("state.loading", "Loading…")}</div>
         ) : series.length === 0 ? (
           <div className="text-sm text-slate-400">
-            No revenue data for this period.
+            {t("detailNoData", "No revenue data for this period.")}
           </div>
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <div className="text-xs text-slate-400">Today</div>
+              <div className="text-xs text-slate-400">{t("detailToday", "Today")}</div>
               <div className="text-2xl font-semibold">
                 {formatINR(todayRow?.adr as number | undefined)}
               </div>
             </div>
             <div>
               <div className="text-xs text-slate-400">
-                Baseline (same weekday)
+                {t("detailBaseline", "Baseline (same weekday)")}
               </div>
               <div className="text-lg">
                 {formatINR(todayBaseline as number | undefined)}
@@ -673,10 +679,8 @@ export function OwnerADR() {
                 )}`}
               >
                 {deltaPct == null
-                  ? "N/A"
-                  : `${deltaPct > 0 ? "+" : ""}${Math.round(
-                      deltaPct
-                    )}% vs baseline`}
+                  ? t("detailNA", "N/A")
+                  : t("detailVsBaseline", "{{sign}}{{pct}}% vs baseline", { sign: deltaPct > 0 ? "+" : "", pct: Math.round(deltaPct) })}
               </span>
             </div>
           </div>
@@ -687,15 +691,14 @@ export function OwnerADR() {
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
         <div className="flex items-start justify-between mb-2">
           <div>
-            <h2 className="text-lg font-semibold">ADR over time</h2>
+            <h2 className="text-lg font-semibold">{t("adrChartTitle", "ADR over time")}</h2>
             <p className="text-sm text-slate-400">
-              Track price trend across the selected dates. Use pricing to nudge
-              soft days.
+              {t("adrChartSub", "Track price trend across the selected dates. Use pricing to nudge soft days.")}
             </p>
           </div>
         </div>
         {series.length === 0 ? (
-          <div className="text-sm text-slate-400">No data to chart.</div>
+          <div className="text-sm text-slate-400">{t("detailNoChart", "No data to chart.")}</div>
         ) : (
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -720,7 +723,7 @@ export function OwnerADR() {
                     strokeDasharray="4 4"
                     label={{
                       position: "insideTopRight",
-                      value: "Baseline",
+                      value: t("baseline", "Baseline"),
                     }}
                   />
                 )}
@@ -819,16 +822,17 @@ export function OwnerRevPAR() {
       ? ((todayRow.revpar - todayBaseline) / todayBaseline) * 100
       : undefined;
   const tone = revparTone(deltaPct);
+  const t = useOwnerT("owner-revenue");
+  const tc = useOwnerCommonT();
 
   return (
-    <main className="min-h-screen bg-[#0f1113] text-white">
+    <main className="vaiyu-owner min-h-screen bg-[#0f1113] text-white">
      <div className="max-w-6xl mx-auto p-6">
       <div className="flex items-center justify-between mb-2">
         <div>
           <div className="text-2xl font-semibold">RevPAR</div>
           <p className="text-sm text-slate-400">
-            Revenue per available room — the north star for yield. Higher than
-            baseline is great.
+            {t("revparSubtitle", "Revenue per available room — the north star for yield. Higher than baseline is great.")}
           </p>
         </div>
       </div>
@@ -836,10 +840,10 @@ export function OwnerRevPAR() {
         <div />
         <div className="flex items-center gap-2">
           <button className="btn btn-light" onClick={() => nav(-1)}>
-            ← Back
+            {t("detailBack", "← Back")}
           </button>
           <Link className="btn" to={`/owner/${slug}/pricing`}>
-            Open pricing
+            {t("openPricing", "Open pricing")}
           </Link>
         </div>
       </div>
@@ -849,7 +853,7 @@ export function OwnerRevPAR() {
         <div className="flex flex-wrap items-end gap-3">
           <div>
             <label className="block text-xs text-slate-400 mb-1">
-              From
+              {t("detailFrom", "From")}
             </label>
             <input
               type="date"
@@ -860,7 +864,7 @@ export function OwnerRevPAR() {
           </div>
           <div>
             <label className="block text-xs text-slate-400 mb-1">
-              To
+              {t("detailTo", "To")}
             </label>
             <input
               type="date"
@@ -875,22 +879,22 @@ export function OwnerRevPAR() {
       {/* KPI header */}
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 mb-4">
         {loading ? (
-          <div className="text-sm text-slate-400">Loading…</div>
+          <div className="text-sm text-slate-400">{tc("state.loading", "Loading…")}</div>
         ) : series.length === 0 ? (
           <div className="text-sm text-slate-400">
-            No revenue data for this period.
+            {t("detailNoData", "No revenue data for this period.")}
           </div>
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <div className="text-xs text-slate-400">Today</div>
+              <div className="text-xs text-slate-400">{t("detailToday", "Today")}</div>
               <div className="text-2xl font-semibold">
                 {formatINR(todayRow?.revpar as number | undefined)}
               </div>
             </div>
             <div>
               <div className="text-xs text-slate-400">
-                Baseline (same weekday)
+                {t("detailBaseline", "Baseline (same weekday)")}
               </div>
               <div className="text-lg">
                 {formatINR(todayBaseline as number | undefined)}
@@ -903,10 +907,8 @@ export function OwnerRevPAR() {
                 )}`}
               >
                 {deltaPct == null
-                  ? "N/A"
-                  : `${deltaPct > 0 ? "+" : ""}${Math.round(
-                      deltaPct
-                    )}% vs baseline`}
+                  ? t("detailNA", "N/A")
+                  : t("detailVsBaseline", "{{sign}}{{pct}}% vs baseline", { sign: deltaPct > 0 ? "+" : "", pct: Math.round(deltaPct) })}
               </span>
             </div>
           </div>
@@ -917,14 +919,14 @@ export function OwnerRevPAR() {
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
         <div className="flex items-start justify-between mb-2">
           <div>
-            <h2 className="text-lg font-semibold">RevPAR over time</h2>
+            <h2 className="text-lg font-semibold">{t("revparChartTitle", "RevPAR over time")}</h2>
             <p className="text-sm text-slate-400">
-              Watch revenue per available room across the selected dates.
+              {t("revparChartSub", "Watch revenue per available room across the selected dates.")}
             </p>
           </div>
         </div>
         {series.length === 0 ? (
-          <div className="text-sm text-slate-400">No data to chart.</div>
+          <div className="text-sm text-slate-400">{t("detailNoChart", "No data to chart.")}</div>
         ) : (
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -949,7 +951,7 @@ export function OwnerRevPAR() {
                     strokeDasharray="4 4"
                     label={{
                       position: "insideTopRight",
-                      value: "Baseline",
+                      value: t("baseline", "Baseline"),
                     }}
                   />
                 )}
@@ -1053,16 +1055,17 @@ export function OwnerOccupancy() {
       ? ((todayRow.occ - todayBaseline) / todayBaseline) * 100
       : undefined;
   const tone = revparTone(deltaPct); // higher occupancy vs baseline is better
+  const t = useOwnerT("owner-revenue");
+  const tc = useOwnerCommonT();
 
   return (
-    <main className="min-h-screen bg-[#0f1113] text-white">
+    <main className="vaiyu-owner min-h-screen bg-[#0f1113] text-white">
      <div className="max-w-6xl mx-auto p-6">
       <div className="flex items-center justify-between mb-2">
         <div>
-          <div className="text-2xl font-semibold">Occupancy</div>
+          <div className="text-2xl font-semibold">{t("occupancy", "Occupancy")}</div>
           <p className="text-sm text-slate-400">
-            Share of available rooms sold each night. Higher than baseline means
-            stronger demand capture.
+            {t("occupancySubtitle", "Share of available rooms sold each night. Higher than baseline means stronger demand capture.")}
           </p>
         </div>
       </div>
@@ -1070,10 +1073,10 @@ export function OwnerOccupancy() {
         <div />
         <div className="flex items-center gap-2">
           <button className="btn btn-light" onClick={() => nav(-1)}>
-            ← Back
+            {t("detailBack", "← Back")}
           </button>
           <Link className="btn" to={`/owner/${slug}/pricing`}>
-            Open pricing
+            {t("openPricing", "Open pricing")}
           </Link>
         </div>
       </div>
@@ -1082,7 +1085,7 @@ export function OwnerOccupancy() {
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 mb-4">
         <div className="flex flex-wrap items-end gap-3">
           <div>
-            <label className="block text-xs text-slate-400 mb-1">From</label>
+            <label className="block text-xs text-slate-400 mb-1">{t("detailFrom", "From")}</label>
             <input
               type="date"
               value={fromDay}
@@ -1091,7 +1094,7 @@ export function OwnerOccupancy() {
             />
           </div>
           <div>
-            <label className="block text-xs text-slate-400 mb-1">To</label>
+            <label className="block text-xs text-slate-400 mb-1">{t("detailTo", "To")}</label>
             <input
               type="date"
               value={toDay}
@@ -1105,22 +1108,22 @@ export function OwnerOccupancy() {
       {/* KPI header */}
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 mb-4">
         {loading ? (
-          <div className="text-sm text-slate-400">Loading…</div>
+          <div className="text-sm text-slate-400">{tc("state.loading", "Loading…")}</div>
         ) : series.length === 0 ? (
           <div className="text-sm text-slate-400">
-            No occupancy data for this period.
+            {t("occNoData", "No occupancy data for this period.")}
           </div>
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <div className="text-xs text-slate-400">Today</div>
+              <div className="text-xs text-slate-400">{t("detailToday", "Today")}</div>
               <div className="text-2xl font-semibold">
                 {formatPct(todayRow?.occ)}
               </div>
             </div>
             <div>
               <div className="text-xs text-slate-400">
-                Baseline (same weekday)
+                {t("detailBaseline", "Baseline (same weekday)")}
               </div>
               <div className="text-lg">{formatPct(todayBaseline)}</div>
             </div>
@@ -1129,10 +1132,8 @@ export function OwnerOccupancy() {
                 className={`px-2 py-0.5 rounded-full text-xs ${badgeTone(tone)}`}
               >
                 {deltaPct == null
-                  ? "N/A"
-                  : `${deltaPct > 0 ? "+" : ""}${Math.round(
-                      deltaPct
-                    )}% vs baseline`}
+                  ? t("detailNA", "N/A")
+                  : t("detailVsBaseline", "{{sign}}{{pct}}% vs baseline", { sign: deltaPct > 0 ? "+" : "", pct: Math.round(deltaPct) })}
               </span>
             </div>
           </div>
@@ -1143,14 +1144,14 @@ export function OwnerOccupancy() {
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
         <div className="flex items-start justify-between mb-2">
           <div>
-            <h2 className="text-lg font-semibold">Occupancy over time</h2>
+            <h2 className="text-lg font-semibold">{t("occChartTitle", "Occupancy over time")}</h2>
             <p className="text-sm text-slate-400">
-              Track the share of rooms sold across the selected dates.
+              {t("occChartSub", "Track the share of rooms sold across the selected dates.")}
             </p>
           </div>
         </div>
         {series.length === 0 ? (
-          <div className="text-sm text-slate-400">No data to chart.</div>
+          <div className="text-sm text-slate-400">{t("detailNoChart", "No data to chart.")}</div>
         ) : (
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -1176,7 +1177,7 @@ export function OwnerOccupancy() {
                     strokeDasharray="4 4"
                     label={{
                       position: "insideTopRight",
-                      value: "Baseline",
+                      value: t("baseline", "Baseline"),
                       fill: "#94a3b8",
                       fontSize: 12,
                     }}

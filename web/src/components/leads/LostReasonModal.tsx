@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { X, AlertCircle, Loader2 } from 'lucide-react';
 import { validateLostReason } from './LostReasonModal.validation';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   isOpen: boolean;
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export function LostReasonModal({ isOpen, leadName, onConfirm, onCancel }: Props) {
+  const t = useOwnerT('owner-leads');
   const modalRef = useRef<HTMLDivElement>(null);
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +50,7 @@ export function LostReasonModal({ isOpen, leadName, onConfirm, onCancel }: Props
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const validationError = validateLostReason(reason);
+    const validationError = validateLostReason(reason, t);
     if (validationError) {
       setError(validationError);
       return;
@@ -60,7 +62,7 @@ export function LostReasonModal({ isOpen, leadName, onConfirm, onCancel }: Props
       // Caller closes the modal on success
     } catch (err) {
       // Caller handles toast; we just stop the spinner
-      setError(err instanceof Error ? err.message : 'Could not save. Please try again.');
+      setError(err instanceof Error ? err.message : t('lostModal.couldNotSave', 'Could not save. Please try again.'));
     } finally {
       setSubmitting(false);
     }
@@ -83,11 +85,11 @@ export function LostReasonModal({ isOpen, leadName, onConfirm, onCancel }: Props
       >
         <header className="flex items-center justify-between px-5 py-4 border-b border-white/10">
           <h2 id="lost-reason-title" className="text-base font-semibold text-white">
-            Mark as Lost
+            {t('lostModal.title', 'Mark as Lost')}
           </h2>
           <button
             type="button"
-            aria-label="Cancel"
+            aria-label={t('lostModal.cancel', 'Cancel')}
             onClick={onCancel}
             disabled={submitting}
             className="p-1 rounded text-white/60 hover:text-white hover:bg-white/10 disabled:opacity-40 transition-colors"
@@ -98,12 +100,12 @@ export function LostReasonModal({ isOpen, leadName, onConfirm, onCancel }: Props
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <p className="text-sm text-white/70">
-            Why was <span className="font-medium text-white">{leadName}</span> lost?
+            {t('lostModal.whyLost', 'Why was {{name}} lost?', { name: leadName })}
           </p>
 
           <label htmlFor="lost-reason-textarea" className="block">
             <span className="block text-xs font-medium text-white/70 mb-1">
-              Reason <span className="text-red-400" aria-hidden="true">*</span>
+              {t('lostModal.reason', 'Reason')} <span className="text-red-400" aria-hidden="true">*</span>
             </span>
             <textarea
               id="lost-reason-textarea"
@@ -119,7 +121,7 @@ export function LostReasonModal({ isOpen, leadName, onConfirm, onCancel }: Props
               aria-invalid={!!error}
               aria-describedby={error ? 'lost-reason-error' : undefined}
               disabled={submitting}
-              placeholder="e.g. Booked elsewhere via MMT, budget mismatch, dates not available"
+              placeholder={t('lostModal.placeholder', 'e.g. Booked elsewhere via MMT, budget mismatch, dates not available')}
               className={`
                 w-full rounded-lg border bg-black/30 px-3 py-2 text-sm text-white
                 placeholder:text-white/30 focus:border-emerald-400 focus:outline-none
@@ -137,8 +139,10 @@ export function LostReasonModal({ isOpen, leadName, onConfirm, onCancel }: Props
           <div className="flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-200/90">
             <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
             <span>
-              The lead will move to <span className="font-semibold">Lost</span>. You can reopen it
-              later by dragging back to <span className="font-semibold">New</span>.
+              {t('lostModal.willMove', 'The lead will move to {{lost}}. You can reopen it later by dragging back to {{new}}.', {
+                lost: t('status.LOST', 'Lost'),
+                new: t('status.NEW', 'New'),
+              })}
             </span>
           </div>
 
@@ -149,7 +153,7 @@ export function LostReasonModal({ isOpen, leadName, onConfirm, onCancel }: Props
               disabled={submitting}
               className="px-4 py-2 text-sm font-medium text-white/70 hover:text-white disabled:opacity-40 transition-colors"
             >
-              Cancel
+              {t('lostModal.cancel', 'Cancel')}
             </button>
             <button
               type="submit"
@@ -160,10 +164,10 @@ export function LostReasonModal({ isOpen, leadName, onConfirm, onCancel }: Props
               {submitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Saving…
+                  {t('lostModal.saving', 'Saving…')}
                 </>
               ) : (
-                'Mark as Lost'
+                t('lostModal.title', 'Mark as Lost')
               )}
             </button>
           </div>

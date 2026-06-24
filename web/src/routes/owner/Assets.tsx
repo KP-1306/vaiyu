@@ -2,12 +2,6 @@
 //
 // Digital Asset Manager workspace — Position 6 of the growth sheet.
 // Light theme, mobile-first, owner-facing.
-//
-// Layout:
-//   • Header (hotel + readiness ring)
-//   • Privacy + disclaimer banners
-//   • Category sections (Verification Proof → Trust Essentials → Operational → Experience)
-//   • Each section collapsible; "needs attention" pill nudges the eye
 
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -28,6 +22,7 @@ import {
   PrivacyDisclaimerBanner,
   HinglishOnboardingHelper,
 } from '../../components/assets/PrivacyDisclaimerBanner';
+import { useOwnerT, useOwnerLang } from '../../i18n/useOwnerT';
 
 interface Hotel { id: string; name: string; slug: string; }
 
@@ -41,6 +36,8 @@ const CATEGORY_ORDER: AssetCategory[] = [
 export default function Assets() {
   const { slug: rawSlug } = useParams();
   const slug = (rawSlug ?? '').trim();
+  const t = useOwnerT('owner-assets');
+  const ownerLang = useOwnerLang();
   const [hotel, setHotel] = useState<Hotel | null>(null);
   const [hotelLoading, setHotelLoading] = useState(true);
   const [showHinglish, setShowHinglish] = useState(false);
@@ -71,6 +68,9 @@ export default function Assets() {
   });
 
   const rows: AssetStatusRow[] = statusQ.data ?? [];
+  // Bilingual data fields show automatically when owner UI is Hindi (reveal-gate ON),
+  // OR when the explicit Hinglish toggle is on.
+  const showBilingual = ownerLang === 'hi' || showHinglish;
 
   const byCategory = useMemo(() => {
     const map = new Map<AssetCategory, AssetStatusRow[]>();
@@ -86,9 +86,9 @@ export default function Assets() {
 
   if (!DIGITAL_ASSET_MANAGER_V0_ENABLED) {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-10 text-slate-600">
+      <main className="vaiyu-owner mx-auto max-w-3xl px-4 py-10 text-slate-600">
         <p className="rounded-md border border-slate-200 bg-white px-4 py-3 text-[13px]">
-          Digital Asset Manager is currently disabled.
+          {t('state.notEnabled', 'Digital Asset Manager is currently disabled.')}
         </p>
       </main>
     );
@@ -96,17 +96,17 @@ export default function Assets() {
 
   if (hotelLoading) {
     return (
-      <main className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-10 text-slate-500">
-        <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…
+      <main className="vaiyu-owner mx-auto flex max-w-6xl items-center gap-2 px-4 py-10 text-slate-500">
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> {t('state.loading', 'Loading…')}
       </main>
     );
   }
 
   if (!hotel) {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-10 text-slate-600">
+      <main className="vaiyu-owner mx-auto max-w-3xl px-4 py-10 text-slate-600">
         <p className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] text-rose-700">
-          Hotel not found.
+          {t('state.notFound', 'Hotel not found.')}
         </p>
       </main>
     );
@@ -115,7 +115,7 @@ export default function Assets() {
   const pct = summary.total === 0 ? 0 : Math.round((summary.ready / summary.total) * 100);
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <main className="vaiyu-owner min-h-screen bg-slate-50">
       <div className="mx-auto max-w-5xl px-3 py-5 sm:px-4 sm:py-6">
         <div className="mb-3 flex items-center justify-between text-[11px] text-slate-500">
           <Link
@@ -123,7 +123,7 @@ export default function Assets() {
             className="inline-flex items-center gap-1 hover:text-slate-700"
             data-testid="assets-back"
           >
-            <ChevronLeft className="h-3 w-3" aria-hidden /> Back to dashboard
+            <ChevronLeft className="h-3 w-3" aria-hidden /> {t('nav.back', 'Back to dashboard')}
           </Link>
           <button
             type="button"
@@ -136,7 +136,7 @@ export default function Assets() {
             aria-pressed={showHinglish}
           >
             <Languages className="h-3 w-3" aria-hidden />
-            {showHinglish ? 'Hide Hinglish' : 'Show Hinglish'}
+            {showHinglish ? t('action.hideHinglish', 'Hide Hinglish') : t('action.showHinglish', 'Show Hinglish')}
           </button>
         </div>
 
@@ -148,7 +148,7 @@ export default function Assets() {
               </div>
               <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-fuchsia-700">
-                  Asset Readiness Workspace
+                  {t('page.workspaceLabel', 'Asset Readiness Workspace')}
                 </p>
                 <h1 className="mt-0.5 truncate text-lg font-semibold text-slate-900 sm:text-xl">
                   {hotel.name}
@@ -161,14 +161,14 @@ export default function Assets() {
             {CATEGORY_ORDER.map((c) => {
               const list = byCategory.get(c) ?? [];
               const r = list.filter((x) => x.status === 'COLLECTED' || x.status === 'APPROVED').length;
-              const t = list.length;
+              const total = list.length;
               return (
                 <div key={c} className="bg-white px-3 py-2.5 text-center">
                   <div className="text-[9.5px] font-bold uppercase tracking-wider text-slate-500">
-                    {DAM_CATEGORY_LABELS[c]}
+                    {t(`category.${c}`, DAM_CATEGORY_LABELS[c])}
                   </div>
                   <div className="mt-0.5 text-base font-semibold text-slate-900">
-                    {r}<span className="text-slate-400">/{t}</span>
+                    {r}<span className="text-slate-400">/{total}</span>
                   </div>
                 </div>
               );
@@ -184,7 +184,7 @@ export default function Assets() {
         <section className="mt-4 space-y-3">
           {statusQ.isLoading && (
             <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-[13px] text-slate-500">
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading assets…
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> {t('state.loadingAssets', 'Loading assets…')}
             </div>
           )}
           {!statusQ.isLoading && CATEGORY_ORDER.map((c) => {
@@ -197,7 +197,7 @@ export default function Assets() {
                 category={c}
                 rows={list}
                 defaultOpen={!allReady}
-                showHinglish={showHinglish}
+                showHinglish={showBilingual}
               />
             );
           })}
@@ -208,7 +208,7 @@ export default function Assets() {
           <p className="mt-1 text-[10.5px] text-slate-400">{DAM_COPY.disclaimerHI}</p>
         </footer>
       </div>
-    </div>
+    </main>
   );
 }
 
@@ -225,6 +225,7 @@ function summarise(rows: AssetStatusRow[]) {
 }
 
 function ReadinessRing({ pct, ready, total }: { pct: number; ready: number; total: number }) {
+  const t = useOwnerT('owner-assets');
   const radius = 28;
   const circ = 2 * Math.PI * radius;
   const offset = circ - (pct / 100) * circ;
@@ -249,7 +250,7 @@ function ReadinessRing({ pct, ready, total }: { pct: number; ready: number; tota
         </div>
       </div>
       <div className="text-right">
-        <div className="text-[10.5px] font-bold uppercase tracking-widest text-slate-500">Ready</div>
+        <div className="text-[10.5px] font-bold uppercase tracking-widest text-slate-500">{t('readyLabel', 'Ready')}</div>
         <div className="text-base font-semibold text-slate-900">
           {ready}<span className="text-slate-400">/{total}</span>
         </div>

@@ -7,6 +7,7 @@
 import { useState } from 'react';
 import { AlertCircle, Check, Copy, RotateCcw } from 'lucide-react';
 import { track } from '../../lib/analytics';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 type CopyState = 'idle' | 'copied' | 'error';
 
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export function QuoteDraftPreview({ draftText, onChange, onClear, approvalReady }: Props) {
+  const t = useOwnerT('owner-quote');
   const [copyState, setCopyState] = useState<CopyState>('idle');
 
   const empty = draftText.trim().length === 0;
@@ -44,9 +46,9 @@ export function QuoteDraftPreview({ draftText, onChange, onClear, approvalReady 
   return (
     <div className="rounded-2xl border border-slate-800 bg-[#0F1320] p-4 space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-slate-100">Draft proposal</h3>
+        <h3 className="text-sm font-semibold text-slate-100">{t('preview.title', 'Draft proposal')}</h3>
         <span className="text-[10px] uppercase tracking-wide text-slate-500">
-          Editable
+          {t('preview.editable', 'Editable')}
         </span>
       </div>
 
@@ -57,16 +59,16 @@ export function QuoteDraftPreview({ draftText, onChange, onClear, approvalReady 
         rows={18}
         spellCheck
         className="w-full resize-y rounded-md border border-slate-700 bg-[#0B0E14] px-3 py-2.5 text-[13px] leading-relaxed text-slate-100 font-mono focus:border-emerald-400 focus:outline-none"
-        placeholder="Select a lead and package, then click Generate draft. You can edit freely before copying."
+        placeholder={t('preview.placeholder', 'Select a lead and package, then click Generate draft. You can edit freely before copying.')}
       />
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-[11px] text-slate-500">
           {empty
-            ? 'No draft yet — fill the form on the left and click Generate.'
+            ? t('preview.hintEmpty', 'No draft yet — fill the form on the left and click Generate.')
             : approvalReady
-            ? 'Both governance checkboxes are ticked. You can copy when ready.'
-            : 'Tick both operator approval checkboxes above to enable Copy.'}
+            ? t('preview.hintReady', 'Both governance checkboxes are ticked. You can copy when ready.')
+            : t('preview.hintTick', 'Tick both operator approval checkboxes above to enable Copy.')}
         </p>
         <div className="flex items-center gap-2">
           <button
@@ -77,7 +79,7 @@ export function QuoteDraftPreview({ draftText, onChange, onClear, approvalReady 
             data-testid="quote-clear-button"
           >
             <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-            Clear
+            {t('preview.clear', 'Clear')}
           </button>
           <button
             type="button"
@@ -92,24 +94,24 @@ export function QuoteDraftPreview({ draftText, onChange, onClear, approvalReady 
             data-testid="quote-copy-button"
             title={
               !canCopy
-                ? 'Tick both approval checkboxes and generate a draft first.'
-                : 'Copy draft to clipboard.'
+                ? t('preview.copyTitleDisabled', 'Tick both approval checkboxes and generate a draft first.')
+                : t('preview.copyTitleReady', 'Copy draft to clipboard.')
             }
           >
             {copyState === 'copied' ? (
               <>
                 <Check className="h-3.5 w-3.5 text-emerald-300" aria-hidden />
-                Copied
+                {t('preview.copied', 'Copied')}
               </>
             ) : copyState === 'error' ? (
               <>
                 <AlertCircle className="h-3.5 w-3.5 text-red-300" aria-hidden />
-                Copy failed
+                {t('preview.copyFailed', 'Copy failed')}
               </>
             ) : (
               <>
                 <Copy className="h-3.5 w-3.5" aria-hidden />
-                Copy draft
+                {t('preview.copyDraft', 'Copy draft')}
               </>
             )}
           </button>

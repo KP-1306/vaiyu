@@ -21,6 +21,7 @@ import {
   DarkErrorPanel,
   darkInputCls,
 } from "../components/owner/DarkShell";
+import { useOwnerT, useOwnerCommonT } from "../i18n/useOwnerT";
 
 type Hotel = { id: string; slug: string; name: string };
 type BudgetRow = {
@@ -33,6 +34,8 @@ type BudgetRow = {
 };
 
 export default function OwnerFinanceBudgets() {
+  const t = useOwnerT("owner-budgets");
+  const tc = useOwnerCommonT();
   const { slug } = useParams<{ slug: string }>();
   const [hotel, setHotel] = useState<Hotel | null>(null);
   const [rows, setRows] = useState<BudgetRow[]>([]);
@@ -57,7 +60,7 @@ export default function OwnerFinanceBudgets() {
         .maybeSingle();
 
       if (hErr || !hotelRow) {
-        setError(hErr?.message ?? "Hotel not found.");
+        setError(hErr?.message ?? t("hotelNotFound", "Hotel not found."));
         return;
       }
       setHotel(hotelRow as Hotel);
@@ -79,11 +82,11 @@ export default function OwnerFinanceBudgets() {
         })),
       );
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to load budget data.");
+      setError(e instanceof Error ? e.message : t("loadFailed", "Failed to load budget data."));
     } finally {
       setLoading(false);
     }
-  }, [slug, month]);
+  }, [slug, month, t]);
 
   useEffect(() => {
     load();
@@ -97,12 +100,12 @@ export default function OwnerFinanceBudgets() {
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated.");
+      if (!user) throw new Error(t("notAuthenticated", "Not authenticated."));
 
       const toSave = rows.filter((r) => r.amount !== "" && !isNaN(Number(r.amount)));
       const toClear = rows.filter((r) => r.amount === "" && r.hasSavedPlan);
       if (toSave.length === 0 && toClear.length === 0) {
-        setSaveError("Enter at least one budget amount to save.");
+        setSaveError(t("enterAmount", "Enter at least one budget amount to save."));
         return;
       }
 
@@ -133,7 +136,7 @@ export default function OwnerFinanceBudgets() {
       );
       setSaveSuccess(true);
     } catch (e: unknown) {
-      setSaveError(e instanceof Error ? e.message : "Save failed.");
+      setSaveError(e instanceof Error ? e.message : t("saveFailed", "Save failed."));
     } finally {
       setSaving(false);
     }
@@ -146,8 +149,8 @@ export default function OwnerFinanceBudgets() {
     setSaveSuccess(false);
   }
 
-  if (loading) return <DarkLoading message="Loading budgets…" />;
-  if (error || !hotel) return <DarkErrorPanel message={error ?? "Hotel not found."} />;
+  if (loading) return <DarkLoading message={t("loading", "Loading budgets…")} />;
+  if (error || !hotel) return <DarkErrorPanel message={error ?? t("hotelNotFound", "Hotel not found.")} />;
 
   const base = `/owner/${slug}`;
   const totalBudget = rows.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
@@ -155,14 +158,14 @@ export default function OwnerFinanceBudgets() {
   return (
     <OwnerDarkPage
       icon={Wallet}
-      title="Budget"
-      titleAccent="Planner"
+      title={t("title", "Budget")}
+      titleAccent={t("titleAccent", "Planner")}
       accent="violet"
-      subtitle="Set monthly operational budgets per category."
+      subtitle={t("subtitle", "Set monthly operational budgets per category.")}
       breadcrumbs={[
-        { label: "Dashboard", to: base },
-        { label: "Finance", to: `${base}/finance` },
-        { label: "Budgets" },
+        { label: tc("nav.dashboard", "Dashboard"), to: base },
+        { label: t("crumbFinance", "Finance"), to: `${base}/finance` },
+        { label: t("crumbBudgets", "Budgets") },
       ]}
       actions={
         <input
@@ -179,13 +182,13 @@ export default function OwnerFinanceBudgets() {
             <thead className="bg-[#1a1c1e] border-b border-white/[0.05]">
               <tr>
                 <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Category
+                  {t("colCategory", "Category")}
                 </th>
                 <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-400 w-48">
-                  Budget (₹)
+                  {t("colBudget", "Budget (₹)")}
                 </th>
                 <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Notes
+                  {t("colNotes", "Notes")}
                 </th>
               </tr>
             </thead>
@@ -213,7 +216,7 @@ export default function OwnerFinanceBudgets() {
                   <td className="px-4 py-3">
                     <input
                       type="text"
-                      placeholder="Optional note"
+                      placeholder={t("notePlaceholder", "Optional note")}
                       value={row.notes}
                       onChange={(e) => updateRow(row.category.id, "notes", e.target.value)}
                       className={darkInputCls}
@@ -224,7 +227,7 @@ export default function OwnerFinanceBudgets() {
             </tbody>
             <tfoot className="bg-[#1a1c1e] border-t border-white/[0.05]">
               <tr>
-                <td className="px-4 py-3 text-sm font-bold text-slate-300">Total</td>
+                <td className="px-4 py-3 text-sm font-bold text-slate-300">{t("total", "Total")}</td>
                 <td className="px-4 py-3 text-sm font-black text-white">
                   ₹{totalBudget.toLocaleString("en-IN")}
                 </td>
@@ -239,7 +242,7 @@ export default function OwnerFinanceBudgets() {
         <div>
           {saveSuccess && (
             <p className="text-sm text-emerald-300 flex items-center gap-1.5">
-              <CheckCircle className="w-4 h-4" /> Budgets saved successfully.
+              <CheckCircle className="w-4 h-4" /> {t("saved", "Budgets saved successfully.")}
             </p>
           )}
           {saveError && <p className="text-sm text-rose-300">{saveError}</p>}
@@ -252,11 +255,11 @@ export default function OwnerFinanceBudgets() {
           {saving ? (
             <>
               <span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full" />
-              Saving…
+              {tc("actions.saving", "Saving…")}
             </>
           ) : (
             <>
-              <Save className="w-4 h-4" /> Save Budgets
+              <Save className="w-4 h-4" /> {t("saveBudgets", "Save Budgets")}
             </>
           )}
         </button>

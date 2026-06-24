@@ -1,5 +1,6 @@
 // web/src/components/SLAPolicyModal.tsx
 import { useState, useEffect } from "react";
+import { useOwnerT, useOwnerCommonT } from "../i18n/useOwnerT";
 
 export interface SLAPolicyData {
     target_minutes: number;
@@ -23,6 +24,8 @@ export default function SLAPolicyModal({
     onSave,
     onClose,
 }: SLAPolicyModalProps) {
+    const t = useOwnerT("owner-services");
+    const tc = useOwnerCommonT();
     const [policy, setPolicy] = useState<SLAPolicyData>(initialPolicy);
 
     useEffect(() => {
@@ -34,7 +37,7 @@ export default function SLAPolicyModal({
     const handleSave = () => {
         // Show confirmation dialog
         const confirmed = window.confirm(
-            "This will apply to new tickets only.\n\nExisting tickets will continue with their original SLA. Do you want to proceed?"
+            t("modals.sla.confirm", "This will apply to new tickets only.\n\nExisting tickets will continue with their original SLA. Do you want to proceed?")
         );
 
         if (confirmed) {
@@ -44,7 +47,7 @@ export default function SLAPolicyModal({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="vaiyu-owner fixed inset-0 z-50 flex items-center justify-center">
             {/* Backdrop */}
             <div
                 className="absolute inset-0 bg-black/70 backdrop-blur-sm"
@@ -56,7 +59,7 @@ export default function SLAPolicyModal({
                 {/* Header */}
                 <div className="flex items-center justify-between mb-6">
                     <div>
-                        <h2 className="text-xl font-semibold text-white">Edit SLA Policy</h2>
+                        <h2 className="text-xl font-semibold text-white">{t("modals.sla.title", "Edit SLA Policy")}</h2>
                         <p className="text-sm text-gray-400 mt-1">{departmentName}</p>
                     </div>
                     <button
@@ -74,7 +77,7 @@ export default function SLAPolicyModal({
                     {/* Target Time */}
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">
-                            Target Response Time
+                            {t("modals.sla.targetTime", "Target Response Time")}
                         </label>
                         <div className="flex items-center gap-3">
                             <input
@@ -86,17 +89,17 @@ export default function SLAPolicyModal({
                                 }
                                 className="flex-1 px-4 py-2.5 bg-[#2a2a2a] border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             />
-                            <span className="text-sm text-gray-400">minutes</span>
+                            <span className="text-sm text-gray-400">{t("modals.sla.minutes", "minutes")}</span>
                         </div>
                         <p className="text-xs text-gray-500 mt-1.5">
-                            Time staff has to complete the task
+                            {t("modals.sla.targetHint", "Time staff has to complete the task")}
                         </p>
                     </div>
 
                     {/* Warning Time */}
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">
-                            Warning Threshold
+                            {t("modals.sla.warnThreshold", "Warning Threshold")}
                         </label>
                         <div className="flex items-center gap-3">
                             <input
@@ -108,17 +111,17 @@ export default function SLAPolicyModal({
                                 }
                                 className="flex-1 px-4 py-2.5 bg-[#2a2a2a] border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             />
-                            <span className="text-sm text-gray-400">minutes</span>
+                            <span className="text-sm text-gray-400">{t("modals.sla.minutes", "minutes")}</span>
                         </div>
                         <p className="text-xs text-gray-500 mt-1.5">
-                            When to show warning before SLA breach
+                            {t("modals.sla.warnHint", "When to show warning before SLA breach")}
                         </p>
                     </div>
 
                     {/* Start Trigger */}
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">
-                            SLA Starts When
+                            {t("modals.sla.startsWhen", "SLA Starts When")}
                         </label>
                         <select
                             value={policy.sla_start_trigger}
@@ -127,19 +130,19 @@ export default function SLAPolicyModal({
                             }
                             className="w-full px-4 py-2.5 bg-[#2a2a2a] border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         >
-                            <option value="ON_CREATE">Ticket is Created</option>
-                            <option value="ON_ASSIGN">Staff is Assigned</option>
-                            <option value="ON_SHIFT_START">Shift Starts</option>
+                            <option value="ON_CREATE">{t("modals.sla.optOnCreate", "Ticket is Created")}</option>
+                            <option value="ON_ASSIGN">{t("modals.sla.optOnAssign", "Staff is Assigned")}</option>
+                            <option value="ON_SHIFT_START">{t("modals.sla.optOnShiftStart", "Shift Starts")}</option>
                         </select>
                         <p className="text-xs text-gray-500 mt-1.5">
-                            When the SLA countdown begins
+                            {t("modals.sla.startHint", "When the SLA countdown begins")}
                         </p>
                     </div>
 
                     {/* Escalation Time */}
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">
-                            Escalation Buffer
+                            {t("modals.sla.escalationBuffer", "Escalation Buffer")}
                         </label>
                         <div className="flex items-center gap-3">
                             <input
@@ -151,10 +154,10 @@ export default function SLAPolicyModal({
                                 }
                                 className="flex-1 px-4 py-2.5 bg-[#2a2a2a] border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             />
-                            <span className="text-sm text-gray-400">minutes</span>
+                            <span className="text-sm text-gray-400">{t("modals.sla.minutes", "minutes")}</span>
                         </div>
                         <p className="text-xs text-gray-500 mt-1.5">
-                            Additional time before escalating to supervisor
+                            {t("modals.sla.escalationHint", "Additional time before escalating to supervisor")}
                         </p>
                     </div>
                 </div>
@@ -165,13 +168,13 @@ export default function SLAPolicyModal({
                         onClick={onClose}
                         className="flex-1 px-4 py-2.5 bg-[#2a2a2a] border border-gray-700 rounded-lg text-gray-300 font-medium hover:bg-[#333333] hover:border-gray-600 transition-colors"
                     >
-                        Cancel
+                        {tc("actions.cancel", "Cancel")}
                     </button>
                     <button
                         onClick={handleSave}
                         className="flex-1 px-4 py-2.5 bg-blue-600 rounded-lg text-white font-medium hover:bg-blue-700 transition-colors"
                     >
-                        Save Policy
+                        {t("modals.sla.savePolicy", "Save Policy")}
                     </button>
                 </div>
             </div>

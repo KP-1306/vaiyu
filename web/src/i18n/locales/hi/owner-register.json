@@ -1,0 +1,59 @@
+{
+  "page": {
+    "title": "अपनी संपत्ति पंजीकृत करें",
+    "subtitle": "अपनी जगह के बारे में बताएं। हम समीक्षा करके फॉर्मेलिटीज़ पूरी करने में मदद करेंगे — जल्दी।"
+  },
+  "nav": {
+    "backHome": "← वापस घर",
+    "goBack": "वापस जाएं",
+    "previousPage": "पिछला पेज"
+  },
+  "form": {
+    "propertyName": "संपत्ति का नाम",
+    "propertyNamePlaceholder": "जैसे, Lakeview Retreat",
+    "propertyType": "संपत्ति का प्रकार",
+    "propertyTypeDefault": "प्रकार चुनें",
+    "city": "शहर",
+    "cityPlaceholder": "जैसे, नैनीताल",
+    "country": "देश",
+    "countryPlaceholder": "जैसे, भारत",
+    "mapLink": "Google Map लिंक",
+    "contactName": "मालिक / प्राथमिक संपर्क नाम",
+    "contactNamePlaceholder": "आपका पूरा नाम",
+    "email": "ईमेल",
+    "emailPlaceholder": "name@company.com",
+    "phone": "फोन",
+    "phonePlaceholder": "जैसे, +91 98765 43210",
+    "roomCount": "अनुमानित रूम संख्या",
+    "roomCountPlaceholder": "जैसे, 24",
+    "links": "संपत्ति वेबसाइट / पेज / Instagram URL(s)",
+    "addLink": "+ एक और लिंक जोड़ें",
+    "removeLink": "हटाएं",
+    "coverImage": "संपत्ति का कवर फ़ोटो (अपलोड)",
+    "coverPreviewNote": "केवल प्रीव्यू — सबमिट पर असल फ़ोटो अपलोड होगी।",
+    "submitBtn": "अनुमोदन के लिए सबमिट करें",
+    "submittedBtn": "सबमिट हो गया",
+    "submittingBtn": "सबमिट हो रहा है…",
+    "consent": "सबमिट करके आप सहमत हैं कि VAiyu विशेषज्ञ विवरण सत्यापित करने के लिए संपर्क कर सकता है।",
+    "phoneTitle": "फ़ोन नंबर: वैकल्पिक + फिर 7–20 अंक/स्पेस/()/-",
+    "coverPreviewAlt": "कवर प्रीव्यू"
+  },
+  "err": {
+    "propertyNameRequired": "संपत्ति का नाम ज़रूरी है।",
+    "propertyTypeRequired": "संपत्ति का प्रकार ज़रूरी है।",
+    "cityRequired": "शहर ज़रूरी है।",
+    "countryRequired": "देश ज़रूरी है।",
+    "contactNameRequired": "मालिक / प्राथमिक संपर्क का नाम ज़रूरी है।",
+    "emailInvalid": "वैध ईमेल पता दर्ज करें।",
+    "phoneInvalid": "वैध फोन नंबर दर्ज करें।",
+    "mapLinkInvalid": "Google Map लिंक http या https से शुरू होना चाहिए।",
+    "linkInvalid": "हर वेबसाइट/Instagram लिंक http या https से शुरू होना चाहिए।",
+    "imageTooLarge": "कवर फ़ोटो ≤ 3 MB होनी चाहिए।",
+    "imageType": "कवर फ़ोटो PNG, JPG, या WEBP होनी चाहिए।",
+    "generic": "कुछ गड़बड़ हो गई। फिर कोशिश करें।",
+    "submitFailed": "आवेदन सबमिट नहीं हो सका (HTTP {{status}})"
+  },
+  "ok": {
+    "submitted": "धन्यवाद! हमें आपकी संपत्ति के विवरण मिल गए। हमारी टीम समीक्षा करके जल्द संपर्क करेगी।"
+  }
+}

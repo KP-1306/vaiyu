@@ -6,6 +6,8 @@
 import React, { useEffect, useId, useRef } from "react";
 import { Link } from "react-router-dom";
 import { X } from "lucide-react";
+import { useOwnerT } from "../../i18n/useOwnerT";
+import { OwnerLangToggle } from "../../i18n/OwnerLangToggle";
 
 /* ───────────────────────────── Page Shell ───────────────────────────── */
 
@@ -39,7 +41,7 @@ export function OwnerDarkPage({
   const a = accentMap[accent];
 
   return (
-    <div className="min-h-screen w-full bg-[#0f1113] text-white font-['Outfit'] overflow-y-auto">
+    <div className="vaiyu-owner min-h-screen w-full bg-[#0f1113] text-white font-['Outfit'] overflow-y-auto">
       {/* Header bar — matches OwnerHousekeeping */}
       <div className="bg-[#16181b] border-b border-white/[0.05] px-4 sm:px-6 py-4 shadow-lg">
         {breadcrumbs && breadcrumbs.length > 0 && (
@@ -76,7 +78,10 @@ export function OwnerDarkPage({
               )}
             </div>
           </div>
-          {actions && <div className="flex items-center gap-2 flex-wrap">{actions}</div>}
+          <div className="flex items-center gap-2 flex-wrap">
+            <OwnerLangToggle />
+            {actions}
+          </div>
         </div>
       </div>
 
@@ -195,11 +200,9 @@ export function DarkModal({
   onClose: () => void;
   children: React.ReactNode;
   maxWidth?: string;
-  // Element to receive focus on open. Defaults to the first tabbable in the
-  // dialog. Pass a ref to the Cancel button in destructive confirmations so
-  // Enter does NOT fire the dangerous action by accident.
   initialFocusRef?: React.RefObject<HTMLElement>;
 }) {
+  const t = useOwnerT("owner-cards");
   const dialogRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
@@ -280,7 +283,7 @@ export function DarkModal({
           <button
             onClick={onClose}
             className="p-1 hover:bg-white/10 rounded-full transition text-slate-300"
-            aria-label="Close dialog"
+            aria-label={t("darkShell.closeDialog", "Close dialog")}
           >
             <X className="w-5 h-5" aria-hidden="true" />
           </button>
@@ -296,8 +299,8 @@ export function DarkModal({
 export function DarkConfirmModal({
   title,
   message,
-  confirmLabel = "Confirm",
-  cancelLabel = "Cancel",
+  confirmLabel,
+  cancelLabel,
   variant = "danger",
   onConfirm,
   onCancel,
@@ -312,6 +315,9 @@ export function DarkConfirmModal({
   onCancel: () => void;
   busy?: boolean;
 }) {
+  const t = useOwnerT("owner-cards");
+  const confirmText = confirmLabel ?? t("darkShell.confirm", "Confirm");
+  const cancelText = cancelLabel ?? t("darkShell.cancel", "Cancel");
   const confirmCls =
     variant === "danger"
       ? "bg-rose-500 hover:bg-rose-600 shadow-rose-500/20"
@@ -339,7 +345,7 @@ export function DarkConfirmModal({
           disabled={busy}
           className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-4 py-2 text-sm font-semibold text-slate-200 transition disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-white/30"
         >
-          {cancelLabel}
+          {cancelText}
         </button>
         <button
           ref={confirmRef}
@@ -352,7 +358,7 @@ export function DarkConfirmModal({
             confirmCls
           }
         >
-          {busy ? "Working…" : confirmLabel}
+          {busy ? t("darkShell.working", "Working…") : confirmText}
         </button>
       </div>
     </DarkModal>
@@ -362,21 +368,23 @@ export function DarkConfirmModal({
 /* ───────────────────────────── Loading / Error ───────────────────────────── */
 
 export function DarkLoading({ message }: { message?: string }) {
+  const t = useOwnerT("owner-cards");
   return (
     <div className="min-h-screen w-full bg-[#0f1113] grid place-items-center text-slate-400 font-['Outfit']">
       <div className="flex items-center gap-3 text-sm">
         <span className="inline-block w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-        {message ?? "Loading…"}
+        {message ?? t("common.loading", "Loading…")}
       </div>
     </div>
   );
 }
 
 export function DarkErrorPanel({ message }: { message: string }) {
+  const t = useOwnerT("owner-cards");
   return (
     <div className="min-h-screen w-full bg-[#0f1113] grid place-items-center p-4 font-['Outfit']">
       <div className="rounded-2xl bg-rose-500/10 border border-rose-500/30 p-6 max-w-md text-rose-200 text-sm">
-        <p className="font-semibold text-rose-100 mb-1">Something went wrong</p>
+        <p className="font-semibold text-rose-100 mb-1">{t("darkShell.somethingWrong", "Something went wrong")}</p>
         <p>{message}</p>
       </div>
     </div>

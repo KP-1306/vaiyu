@@ -28,6 +28,7 @@ import {
 import { AssetUploadSlot } from './AssetUploadSlot';
 import { PrivacyDisclaimerBanner } from './PrivacyDisclaimerBanner';
 import type { AssetFileRow, AssetStatusRow } from '../../types/digitalAssets';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   row: AssetStatusRow;
@@ -35,6 +36,7 @@ interface Props {
 }
 
 export function AssetFileGalleryDrawer({ row, onClose }: Props) {
+  const t = useOwnerT('owner-assets');
   const qc = useQueryClient();
 
   const filesQ = useQuery({
@@ -52,7 +54,6 @@ export function AssetFileGalleryDrawer({ row, onClose }: Props) {
     if (filesQ.data) setLocalOrder(filesQ.data);
   }, [filesQ.data]);
 
-  // ESC key closes the drawer (a11y)
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose();
@@ -77,9 +78,8 @@ export function AssetFileGalleryDrawer({ row, onClose }: Props) {
       qc.invalidateQueries({ queryKey: ['asset-files', row.hotel_id, row.hotel_asset_id] });
     },
     onError: (err) => {
-      // Revert optimistic reorder on failure
       const code = extractAssetErrorCode(err);
-      setReorderError(friendlyAssetError(code, (err as Error)?.message ?? 'Could not save the new order.'));
+      setReorderError(friendlyAssetError(code, (err as Error)?.message ?? t('drawer.reorderError', 'Could not save the new order.')));
       if (filesQ.data) setLocalOrder(filesQ.data);
     },
   });
@@ -113,28 +113,28 @@ export function AssetFileGalleryDrawer({ row, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex" role="dialog" aria-modal="true" aria-label="Manage files">
+    <div className="vaiyu-owner fixed inset-0 z-50 flex" role="dialog" aria-modal="true" aria-label={t('drawer.dialogLabel', 'Manage files')}>
       <div className="flex-1 bg-slate-900/40" onClick={onClose} role="presentation" />
       <aside className="flex w-full max-w-xl flex-col bg-slate-50 shadow-2xl">
         <header className="flex items-start justify-between border-b border-slate-200 bg-white px-5 py-4">
           <div className="min-w-0">
             <p className="text-[10.5px] font-bold uppercase tracking-widest text-indigo-600">
-              Manage files
+              {t('drawer.kicker', 'Manage files')}
             </p>
             <h2 className="mt-0.5 truncate text-base font-semibold text-slate-900">
               {row.display_name_en}
             </h2>
             <p className="mt-1 text-[12px] text-slate-500">
               {row.allow_multiple_files
-                ? 'Upload as many as you have. Drag the handle or use the arrows to reorder.'
-                : 'One file per requirement. Re-uploading replaces the existing file.'}
+                ? t('drawer.subtitleMulti', 'Upload as many as you have. Drag the handle or use the arrows to reorder.')
+                : t('drawer.subtitleSingle', 'One file per requirement. Re-uploading replaces the existing file.')}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
             className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-            aria-label="Close drawer (Esc)"
+            aria-label={t('drawer.closeAria', 'Close drawer (Esc)')}
           >
             <X className="h-4 w-4" aria-hidden />
           </button>
@@ -155,10 +155,10 @@ export function AssetFileGalleryDrawer({ row, onClose }: Props) {
             <div>
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
-                  Files ({localOrder.length})
+                  {t('drawer.filesHeader', 'Files ({{count}})', { count: localOrder.length })}
                 </h3>
                 {reorderMutation.isPending && (
-                  <span className="text-[10px] text-slate-400">Saving order…</span>
+                  <span className="text-[10px] text-slate-400">{t('drawer.savingOrder', 'Saving order…')}</span>
                 )}
               </div>
 
@@ -170,12 +170,12 @@ export function AssetFileGalleryDrawer({ row, onClose }: Props) {
 
               {filesQ.isLoading && (
                 <div className="flex items-center gap-2 text-[12px] text-slate-500">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Loading files…
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> {t('drawer.loadingFiles', 'Loading files…')}
                 </div>
               )}
               {!filesQ.isLoading && localOrder.length === 0 && (
                 <p className="rounded-md border border-dashed border-slate-200 bg-white py-6 text-center text-[12px] text-slate-500">
-                  No files yet.
+                  {t('drawer.noFiles', 'No files yet.')}
                 </p>
               )}
               <ul className="space-y-2">
@@ -193,7 +193,7 @@ export function AssetFileGalleryDrawer({ row, onClose }: Props) {
                     onMoveUp={() => moveByOffset(f.id, -1)}
                     onMoveDown={() => moveByOffset(f.id, +1)}
                     onRemove={() => {
-                      if (window.confirm('Remove this file?')) removeMutation.mutate(f.id);
+                      if (window.confirm(t('drawer.confirmRemove', 'Remove this file?'))) removeMutation.mutate(f.id);
                     }}
                     onAltSaved={() => {
                       qc.invalidateQueries({ queryKey: ['asset-files', row.hotel_id, row.hotel_asset_id] });
@@ -205,7 +205,7 @@ export function AssetFileGalleryDrawer({ row, onClose }: Props) {
                 <p className="mt-2 text-[11.5px] text-rose-600">
                   {friendlyAssetError(
                     extractAssetErrorCode(removeMutation.error),
-                    (removeMutation.error as Error)?.message ?? 'Could not remove file.'
+                    (removeMutation.error as Error)?.message ?? t('drawer.removeError', 'Could not remove file.')
                   )}
                 </p>
               )}
@@ -236,6 +236,7 @@ function FileRow({
   file, index, total, allowReorder, isDragging,
   onDragStart, onDragOver, onDrop, onMoveUp, onMoveDown, onRemove, onAltSaved,
 }: FileRowProps) {
+  const t = useOwnerT('owner-assets');
   const [altDraft, setAltDraft] = useState(file.alt_text ?? '');
   const [altDirty, setAltDirty] = useState(false);
   const [altSaving, setAltSaving] = useState(false);
@@ -256,7 +257,7 @@ function FileRow({
       onAltSaved();
     } catch (e) {
       const code = extractAssetErrorCode(e);
-      setAltError(friendlyAssetError(code, (e as Error)?.message ?? 'Could not save alt text.'));
+      setAltError(friendlyAssetError(code, (e as Error)?.message ?? t('drawer.saveAltError', 'Could not save alt text.')));
     } finally {
       setAltSaving(false);
     }
@@ -278,7 +279,7 @@ function FileRow({
               onClick={onMoveUp}
               disabled={index === 0}
               className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30"
-              aria-label="Move file up"
+              aria-label={t('drawer.moveUp', 'Move file up')}
             >
               <ChevronUp className="h-3.5 w-3.5" aria-hidden />
             </button>
@@ -288,7 +289,7 @@ function FileRow({
               onClick={onMoveDown}
               disabled={index === total - 1}
               className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30"
-              aria-label="Move file down"
+              aria-label={t('drawer.moveDown', 'Move file down')}
             >
               <ChevronDown className="h-3.5 w-3.5" aria-hidden />
             </button>
@@ -308,7 +309,7 @@ function FileRow({
           type="button"
           onClick={onRemove}
           className="rounded-md p-1.5 text-rose-500 hover:bg-rose-50"
-          aria-label="Remove file"
+          aria-label={t('drawer.removeFile', 'Remove file')}
         >
           <Trash2 className="h-3.5 w-3.5" aria-hidden />
         </button>
@@ -316,14 +317,14 @@ function FileRow({
 
       <div className="mt-2 flex items-center gap-2">
         <label className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400" htmlFor={`alt-${file.id}`}>
-          Alt text
+          {t('drawer.altTextLabel', 'Alt text')}
         </label>
         <input
           id={`alt-${file.id}`}
           type="text"
           value={altDraft}
           maxLength={280}
-          placeholder="Describe what's in this image (helps SEO + accessibility)"
+          placeholder={t('drawer.altTextPlaceholder', "Describe what's in this image (helps SEO + accessibility)")}
           onChange={(e) => { setAltDraft(e.target.value); setAltDirty(true); }}
           className="flex-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[12px] text-slate-800 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
         />
@@ -335,7 +336,7 @@ function FileRow({
             className="inline-flex items-center gap-1 rounded-md border border-indigo-300 bg-indigo-50 px-2 py-1 text-[11px] font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
           >
             {altSaving ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <Check className="h-3 w-3" aria-hidden />}
-            Save
+            {t('drawer.save', 'Save')}
           </button>
         )}
       </div>

@@ -1,0 +1,169 @@
+{
+  "nav": {
+    "back": "डैशबोर्ड पर वापस"
+  },
+  "page": {
+    "workspaceLabel": "सीज़नल प्लानिंग वर्कस्पेस",
+    "regionLabel": "क्षेत्र: {{state}}"
+  },
+  "action": {
+    "showHinglish": "हिंग्लिश दिखाएं",
+    "hideHinglish": "हिंग्लिश छुपाएं"
+  },
+  "summary": {
+    "now": "अभी",
+    "prepare": "तैयारी",
+    "watch": "नज़र रखें",
+    "ready": "तैयार",
+    "readyLabel": "तैयार"
+  },
+  "top3": {
+    "title": "अगले 3 जिन पर ध्यान दें",
+    "prepProgress": "{{done}}/{{total}} तैयारी पूरी"
+  },
+  "state": {
+    "loading": "लोड हो रहा है…",
+    "loadingWindows": "प्लानिंग विंडो लोड हो रही हैं…",
+    "loadError": "प्लानिंग विंडो लोड नहीं हो सकीं।",
+    "retry": "फिर कोशिश करें",
+    "notFound": "होटल नहीं मिला।",
+    "notEnabled": "सीज़नल डिमांड कैलेंडर अभी उपलब्ध नहीं है।",
+    "hiddenAccordion": "हमेशा के लिए छुपाए गए ({{count}})"
+  },
+  "disclaimer": {
+    "heading": "योजना मार्गदर्शिका — कोई गारंटी नहीं"
+  },
+  "category": {
+    "RELIGIOUS_YATRA": "धार्मिक / यात्रा",
+    "METRO_ESCAPE": "मेट्रो एस्केप",
+    "CLIMATE_PEAK": "क्लाइमेट पीक",
+    "OFF_PEAK_VALUE": "ऑफ-पीक वैल्यू",
+    "WINTER_SNOW": "सर्दी / बर्फ",
+    "LONG_WEEKEND": "लॉन्ग वीकेंड",
+    "WELLNESS_WORKATION": "वेलनेस / वर्केशन",
+    "FAMILY_EVENT": "पारिवारिक आयोजन"
+  },
+  "section": {
+    "urgentNow": "{{count}} अभी",
+    "ready": "तैयार"
+  },
+  "urgency": {
+    "NOW": "अभी",
+    "PREPARE": "तैयारी",
+    "WATCH": "नज़र रखें",
+    "QUIET": "शांत"
+  },
+  "reviewStatus": {
+    "PLANNING": "योजना में",
+    "READY": "तैयार",
+    "DISMISSED": "खारिज"
+  },
+  "days": {
+    "activeNow": "अभी सक्रिय",
+    "oneDay": "1 दिन में",
+    "days": "{{n}} दिन में",
+    "months": "लगभग {{n}} महीने में"
+  },
+  "card": {
+    "priorityAria": "प्राथमिकता: {{label}}",
+    "mayNotApply": "आपके क्षेत्र पर लागू न हो",
+    "hiddenBadge": "छुपा हुआ",
+    "overrideTag": "(ओवरराइड)",
+    "whyItMatters": "क्यों महत्वपूर्ण है",
+    "recommendedAction": "अनुशंसित कार्रवाई",
+    "guests": "मेहमान:",
+    "packageIdea": "पैकेज विचार:",
+    "preparationChecklist": "तैयारी चेकलिस्ट",
+    "checklistDone": "{{done}} / {{total}} पूरा",
+    "yourNotes": "आपके नोट्स",
+    "notesPlaceholder": "जैसे: आशा ने शुक्रवार तक फोटो कन्फर्म किया; बाकी: हीटर सर्विस।",
+    "notesSaving": "सहेजा जा रहा है…",
+    "notesSaved": "सहेज लिया",
+    "viewHistory": "इतिहास देखें",
+    "hideHistory": "इतिहास छुपाएं",
+    "dismissReason": "कारण:",
+    "hideReason": "छुपाने का कारण:",
+    "overrideReason": "ओवरराइड का कारण:"
+  },
+  "actions": {
+    "markReady": "तैयार चिह्नित करें",
+    "returnToPlanning": "योजना में वापस",
+    "resume": "फिर से शुरू करें",
+    "dismiss": "इस चक्र के लिए खारिज करें",
+    "editOverride": "ओवरराइड संपादित करें",
+    "overrideUrgency": "अर्जेंसी ओवरराइड करें",
+    "clearOverride": "ओवरराइड हटाएं",
+    "unhide": "दिखाएं",
+    "hideForever": "हमेशा के लिए छुपाएं"
+  },
+  "form": {
+    "dismissTitle": "इस चक्र के लिए खारिज करें",
+    "overrideTitle": "अर्जेंसी ओवरराइड करें",
+    "hideTitle": "हमेशा के लिए छुपाएं",
+    "dismissHint": "जैसे: बुटीक स्टे, इस वर्ष यात्रा सेगमेंट लक्ष्य नहीं।",
+    "overrideHint": "जैसे: इस महीने स्टाफ ट्रेनिंग है; अर्जेंसी रोकें।",
+    "hideHint": "जैसे: हम इस सेगमेंट को कभी सर्व नहीं करते।",
+    "submitDismiss": "खारिज करें",
+    "submitOverride": "ओवरराइड सहेजें",
+    "submitHide": "हमेशा के लिए छुपाएं",
+    "cancel": "रद्द करें",
+    "forceUrgencyTo": "अर्जेंसी ज़बरदस्ती सेट करें:"
+  },
+  "timeline": {
+    "loading": "इतिहास लोड हो रहा है…",
+    "loadError": "इतिहास लोड नहीं हो सका।",
+    "retry": "फिर कोशिश करें",
+    "empty": "अभी कोई गतिविधि नहीं।",
+    "actorBy": "{{name}} द्वारा",
+    "relative": {
+      "justNow": "अभी",
+      "min": "{{n}} मिनट पहले",
+      "hour": "{{n}} घंटे पहले",
+      "day": "{{n}} दिन पहले"
+    },
+    "payload": {
+      "item": "आइटम: {{key}}",
+      "reason": "कारण: {{reason}}",
+      "fromTo": "{{from}} → {{to}}",
+      "checklist": "{{done}}/{{total}} पूरा"
+    },
+    "event": {
+      "CHECKLIST_TICKED": "चेकलिस्ट आइटम पूरा",
+      "CHECKLIST_UNTICKED": "चेकलिस्ट आइटम वापस लिया",
+      "NOTES_UPDATED": "नोट्स अपडेट किए",
+      "URGENCY_OVERRIDDEN": "अर्जेंसी ओवरराइड की",
+      "URGENCY_OVERRIDE_CLEARED": "अर्जेंसी ओवरराइड हटाया",
+      "DISMISSED_FOR_YEAR": "वर्ष के लिए खारिज",
+      "RESUMED_FROM_DISMISSAL": "खारिज से फिर शुरू",
+      "MARKED_READY": "तैयार चिह्नित",
+      "RETURNED_TO_PLANNING": "योजना में वापस",
+      "PERMANENTLY_HIDDEN": "हमेशा के लिए छुपाया",
+      "PERMANENTLY_HIDDEN_CLEARED": "हमेशा-छुपाना हटाया"
+    }
+  },
+  "checklist": {
+    "noItems": "इस विंडो के लिए अभी कोई चेकलिस्ट आइटम नहीं।",
+    "saveError": "सहेजा नहीं जा सका। कृपया फिर कोशिश करें।",
+    "openModule": "{{module}} खोलें"
+  },
+  "module": {
+    "PACKAGE_BUILDER": "Package Builder",
+    "DRIP": "फॉलो-अप ड्रिप",
+    "DAM": "Asset Manager",
+    "SEO_PLANNER": "Local SEO Planner"
+  },
+  "error": {
+    "saveNotes": "नोट्स सहेजे नहीं जा सके। फिर कोशिश करें।",
+    "markReady": "तैयार चिह्नित नहीं हो सका।",
+    "returnToPlanning": "योजना में वापस नहीं ले जा सके।",
+    "resume": "फिर से शुरू नहीं हो सका।",
+    "dismiss": "खारिज नहीं हो सका।",
+    "override": "ओवरराइड नहीं हो सका।",
+    "update": "अपडेट नहीं हो सका।"
+  },
+  "approxDay": {
+    "early": "शुरुआत",
+    "mid": "मध्य",
+    "late": "अंत"
+  }
+}

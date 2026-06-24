@@ -32,6 +32,7 @@ import {
   DarkField,
   darkInputCls,
 } from "../components/owner/DarkShell";
+import { useOwnerT, useOwnerCommonT } from "../i18n/useOwnerT";
 
 type Hotel = { id: string; slug: string; name: string };
 
@@ -65,6 +66,8 @@ const STATUS_CONFIG: Record<
 };
 
 export default function OwnerFinance() {
+  const t = useOwnerT("owner-finance");
+  const tc = useOwnerCommonT();
   const { slug } = useParams<{ slug: string }>();
   const [hotel, setHotel] = useState<Hotel | null>(null);
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
@@ -95,7 +98,7 @@ export default function OwnerFinance() {
         .maybeSingle();
 
       if (hErr || !hotelRow) {
-        setError(hErr?.message ?? "Hotel not found.");
+        setError(hErr?.message ?? t("hotelNotFound", "Hotel not found."));
         return;
       }
       setHotel(hotelRow as Hotel);
@@ -104,11 +107,11 @@ export default function OwnerFinance() {
       const s = await getFinanceSummary(hotelRow.id, month);
       setSummary(s);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to load finance data.");
+      setError(e instanceof Error ? e.message : t("loadFailed", "Failed to load finance data."));
     } finally {
       setLoading(false);
     }
-  }, [slug, month]);
+  }, [slug, month, t]);
 
   useEffect(() => {
     load();
@@ -117,7 +120,7 @@ export default function OwnerFinance() {
   async function handleAddRevenue() {
     if (!hotel) return;
     if (revenueForm.amount <= 0) {
-      setRevenueError("Amount must be positive.");
+      setRevenueError(t("amountPositive", "Amount must be positive."));
       return;
     }
 
@@ -126,21 +129,21 @@ export default function OwnerFinance() {
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated.");
+      if (!user) throw new Error(t("notAuthenticated", "Not authenticated."));
 
       await createManualRevenue(hotel.id, user.id, revenueForm);
       setShowRevenueForm(false);
       await load();
     } catch (e: unknown) {
-      setRevenueError(e instanceof Error ? e.message : "Failed to save revenue.");
+      setRevenueError(e instanceof Error ? e.message : t("saveRevenueFailed", "Failed to save revenue."));
     } finally {
       setSavingRevenue(false);
     }
   }
 
-  if (loading) return <DarkLoading message="Loading finance data…" />;
+  if (loading) return <DarkLoading message={t("loading", "Loading finance data…")} />;
   if (error || !hotel || !summary)
-    return <DarkErrorPanel message={error ?? "Hotel not found."} />;
+    return <DarkErrorPanel message={error ?? t("hotelNotFound", "Hotel not found.")} />;
 
   const base = `/owner/${slug}`;
   const profitPositive = summary.operating_profit >= 0;
@@ -150,11 +153,11 @@ export default function OwnerFinance() {
   return (
     <OwnerDarkPage
       icon={Wallet}
-      title="Finance"
-      titleAccent="Overview"
+      title={t("title", "Finance")}
+      titleAccent={t("titleAccent", "Overview")}
       accent="violet"
       subtitle={hotel.name}
-      breadcrumbs={[{ label: "Dashboard", to: base }, { label: "Finance" }]}
+      breadcrumbs={[{ label: tc("nav.dashboard", "Dashboard"), to: base }, { label: t("title", "Finance") }]}
       actions={
         <div className="flex items-center gap-2">
           <input
@@ -167,15 +170,15 @@ export default function OwnerFinance() {
             onClick={() => setShowRevenueForm(true)}
             className="inline-flex items-center gap-1.5 rounded-xl bg-violet-500 hover:bg-violet-600 px-4 py-2 text-sm font-bold text-white transition shadow-lg shadow-violet-500/20"
           >
-            <Plus className="w-4 h-4" /> Log Revenue
+            <Plus className="w-4 h-4" /> {t("logRevenue", "Log Revenue")}
           </button>
         </div>
       }
     >
       {showRevenueForm && (
-        <DarkModal title="Log Revenue" onClose={() => setShowRevenueForm(false)} maxWidth="max-w-md">
+        <DarkModal title={t("logRevenue", "Log Revenue")} onClose={() => setShowRevenueForm(false)} maxWidth="max-w-md">
           <div className="space-y-4">
-            <DarkField label="Date">
+            <DarkField label={t("fieldDate", "Date")}>
               <input
                 type="date"
                 className={darkInputCls}
@@ -183,7 +186,7 @@ export default function OwnerFinance() {
                 onChange={(e) => setRevenueForm({ ...revenueForm, revenue_date: e.target.value })}
               />
             </DarkField>
-            <DarkField label="Revenue Type">
+            <DarkField label={t("fieldRevenueType", "Revenue Type")}>
               <select
                 className={darkInputCls}
                 value={revenueForm.revenue_type}
@@ -194,13 +197,13 @@ export default function OwnerFinance() {
                   })
                 }
               >
-                <option value="room">Room Revenue</option>
-                <option value="f&b">F&B</option>
-                <option value="events">Events</option>
-                <option value="other">Other</option>
+                <option value="room">{t("typeRoom", "Room Revenue")}</option>
+                <option value="f&b">{t("typeFnb", "F&B")}</option>
+                <option value="events">{t("typeEvents", "Events")}</option>
+                <option value="other">{t("typeOther", "Other")}</option>
               </select>
             </DarkField>
-            <DarkField label="Amount (₹)">
+            <DarkField label={t("fieldAmount", "Amount (₹)")}>
               <input
                 type="number"
                 min={0}
@@ -209,7 +212,7 @@ export default function OwnerFinance() {
                 onChange={(e) => setRevenueForm({ ...revenueForm, amount: Number(e.target.value) })}
               />
             </DarkField>
-            <DarkField label="Notes (optional)">
+            <DarkField label={t("fieldNotes", "Notes (optional)")}>
               <input
                 type="text"
                 className={darkInputCls}
@@ -224,14 +227,14 @@ export default function OwnerFinance() {
               onClick={() => setShowRevenueForm(false)}
               className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-4 py-2 text-sm font-semibold text-slate-200"
             >
-              Cancel
+              {tc("actions.cancel", "Cancel")}
             </button>
             <button
               onClick={handleAddRevenue}
               disabled={savingRevenue}
               className="rounded-xl bg-violet-500 hover:bg-violet-600 px-5 py-2 text-sm font-bold text-white disabled:opacity-60 shadow-lg shadow-violet-500/20"
             >
-              {savingRevenue ? "Saving…" : "Save"}
+              {savingRevenue ? tc("actions.saving", "Saving…") : tc("actions.save", "Save")}
             </button>
           </div>
         </DarkModal>
@@ -239,25 +242,25 @@ export default function OwnerFinance() {
 
       {/* KPI strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <DarkKPI label="Total Budget" value={formatINR(summary.total_budget)} sub="this month" />
+        <DarkKPI label={t("kpiTotalBudget", "Total Budget")} value={formatINR(summary.total_budget)} sub={t("kpiThisMonth", "this month")} />
         <DarkKPI
-          label="Total Spend"
+          label={t("kpiTotalSpend", "Total Spend")}
           value={formatINR(summary.total_expense)}
-          sub={`${utilizationPct.toFixed(0)}% of budget`}
+          sub={t("kpiPctOfBudget", "{{pct}}% of budget", { pct: utilizationPct.toFixed(0) })}
           valueClass={
             summary.total_expense > summary.total_budget ? "text-rose-300" : "text-white"
           }
         />
         <DarkKPI
-          label="Revenue"
+          label={t("kpiRevenue", "Revenue")}
           value={formatINR(summary.total_revenue)}
-          sub="manually logged"
+          sub={t("kpiManuallyLogged", "manually logged")}
           valueClass="text-emerald-300"
         />
         <DarkKPI
-          label="Operating Profit"
+          label={t("kpiOperatingProfit", "Operating Profit")}
           value={(profitPositive ? "" : "-") + formatINR(summary.operating_profit)}
-          sub="revenue minus expenses"
+          sub={t("kpiRevMinusExp", "revenue minus expenses")}
           valueClass={profitPositive ? "text-emerald-300" : "text-rose-300"}
           icon={profitPositive ? TrendingUp : TrendingDown}
         />
@@ -267,7 +270,7 @@ export default function OwnerFinance() {
       {summary.total_budget > 0 && (
         <DarkCard>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-bold text-slate-200">Budget Utilisation</span>
+            <span className="text-sm font-bold text-slate-200">{t("budgetUtilisation", "Budget Utilisation")}</span>
             <span className="text-sm font-bold text-slate-200">
               {formatINR(summary.total_expense)} / {formatINR(summary.total_budget)}
             </span>
@@ -291,20 +294,20 @@ export default function OwnerFinance() {
       {/* Category breakdown */}
       <DarkCard className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-white">Category Breakdown</h2>
+          <h2 className="text-base font-bold text-white">{t("categoryBreakdown", "Category Breakdown")}</h2>
           <Link
             to={`${base}/finance/budgets`}
             className="text-xs text-violet-400 hover:text-violet-300 flex items-center gap-1"
           >
-            Edit Budgets <ArrowRight className="w-3 h-3" />
+            {t("editBudgets", "Edit Budgets")} <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
 
         {summary.categories.filter((c) => c.budget_amount > 0 || c.actual_spend > 0).length === 0 ? (
           <p className="text-sm text-slate-500 text-center py-4">
-            No budget data for this month.{" "}
+            {t("noBudgetData", "No budget data for this month.")}{" "}
             <Link to={`${base}/finance/budgets`} className="text-violet-400 hover:text-violet-300">
-              Set budgets
+              {t("setBudgets", "Set budgets")}
             </Link>
           </p>
         ) : (
@@ -329,7 +332,7 @@ export default function OwnerFinance() {
                             cfg.badge
                           }
                         >
-                          <Icon className="w-3 h-3" /> {cfg.label}
+                          <Icon className="w-3 h-3" /> {t(`status.${cat.status}`, cfg.label)}
                         </span>
                       </div>
                       <span className="text-xs text-slate-400">
@@ -359,16 +362,16 @@ export default function OwnerFinance() {
           className="rounded-2xl bg-[#16181b] border border-white/[0.06] p-5 hover:border-violet-500/40 transition group shadow-lg"
         >
           <p className="font-bold text-white group-hover:text-violet-300 transition">
-            Budget Planner
+            {t("linkBudgetPlanner", "Budget Planner")}
           </p>
-          <p className="text-xs text-slate-500 mt-1">Set monthly budgets per category.</p>
+          <p className="text-xs text-slate-500 mt-1">{t("linkBudgetPlannerSub", "Set monthly budgets per category.")}</p>
         </Link>
         <Link
           to={`${base}/finance/expenses`}
           className="rounded-2xl bg-[#16181b] border border-white/[0.06] p-5 hover:border-violet-500/40 transition group shadow-lg"
         >
-          <p className="font-bold text-white group-hover:text-violet-300 transition">Expenses</p>
-          <p className="text-xs text-slate-500 mt-1">Log and review operational expenses.</p>
+          <p className="font-bold text-white group-hover:text-violet-300 transition">{t("linkExpenses", "Expenses")}</p>
+          <p className="text-xs text-slate-500 mt-1">{t("linkExpensesSub", "Log and review operational expenses.")}</p>
         </Link>
       </div>
     </OwnerDarkPage>

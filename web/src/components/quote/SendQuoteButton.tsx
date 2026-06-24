@@ -21,6 +21,7 @@ import { getQuoteDraft } from '../../services/quoteDraftService';
 import { getLead } from '../../services/leadService';
 import { QUOTE_SEND_V1_ENABLED } from '../../config/quoteSend';
 import { SendQuoteModal } from './SendQuoteModal';
+import { useOwnerT, type OwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   activeDraftId: string | null;
@@ -29,6 +30,7 @@ interface Props {
 }
 
 export function SendQuoteButton({ activeDraftId, approvalReady }: Props) {
+  const t = useOwnerT('owner-quote');
   const qc = useQueryClient();
   const [modalMode, setModalMode] = useState<'send' | 'resend' | null>(null);
   const [lastResult, setLastResult] = useState<
@@ -65,7 +67,7 @@ export function SendQuoteButton({ activeDraftId, approvalReady }: Props) {
         className="inline-flex items-center gap-1.5 rounded-md border border-slate-700 px-3.5 py-2 text-xs font-medium text-slate-500"
       >
         <Mail className="h-3.5 w-3.5" aria-hidden />
-        Send via email
+        {t('sendButton.sendViaEmail', 'Send via email')}
       </button>
     );
   }
@@ -81,14 +83,14 @@ export function SendQuoteButton({ activeDraftId, approvalReady }: Props) {
 
   const disabled = !approvalReady || (!isSent && !hasRecipient);
   const tooltip = !approvalReady
-    ? 'Tick both approval checkboxes first.'
+    ? t('sendButton.tooltipTickBoxes', 'Tick both approval checkboxes first.')
     : !hasRecipient && !isSent
-    ? 'No email on file for this lead — open the lead and add one.'
+    ? t('sendButton.tooltipNoEmail', 'No email on file for this lead — open the lead and add one.')
     : isSent
     ? draft.sent_to_address
-      ? `Already sent to ${draft.sent_to_address}. Click to resend.`
-      : 'Already sent. Click to resend.'
-    : `Sends the quote PDF to ${fallbackEmail || 'the recipient'} via Resend.`;
+      ? t('sendButton.tooltipAlreadySentTo', 'Already sent to {{addr}}. Click to resend.', { addr: draft.sent_to_address })
+      : t('sendButton.tooltipAlreadySent', 'Already sent. Click to resend.')
+    : t('sendButton.tooltipSends', 'Sends the quote PDF to {{recipient}} via Resend.', { recipient: fallbackEmail || t('sendButton.recipientFallback', 'the recipient') });
 
   return (
     <>
@@ -110,26 +112,27 @@ export function SendQuoteButton({ activeDraftId, approvalReady }: Props) {
           ) : (
             <Mail className="h-3.5 w-3.5" aria-hidden />
           )}
-          {isSent ? 'Resend via email' : 'Send via email'}
+          {isSent ? t('sendButton.resendViaEmail', 'Resend via email') : t('sendButton.sendViaEmail', 'Send via email')}
         </button>
 
         {lastResult && (
           <div className="text-[10.5px] text-slate-400">
-            {lastResult.mode === 'resend' ? 'Resent' : 'Sent'} ·{' '}
+            {lastResult.mode === 'resend' ? t('sendButton.resultResent', 'Resent') : t('sendButton.resultSent', 'Sent')} ·{' '}
             <a
               href={lastResult.signedUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="text-emerald-300 hover:underline"
             >
-              View PDF <ExternalLink className="inline h-2.5 w-2.5" aria-hidden />
+              {t('sendButton.viewPdf', 'View PDF')} <ExternalLink className="inline h-2.5 w-2.5" aria-hidden />
             </a>
           </div>
         )}
         {!lastResult && isSent && draft.sent_at && (
           <div className="text-[10.5px] text-slate-500">
-            Sent {formatRelative(draft.sent_at)}
-            {draft.sent_to_address ? ` to ${draft.sent_to_address}` : ''}
+            {draft.sent_to_address
+              ? t('sendButton.sentAgoTo', 'Sent {{rel}} to {{addr}}', { rel: formatRelative(draft.sent_at, t), addr: draft.sent_to_address })
+              : t('sendButton.sentAgo', 'Sent {{rel}}', { rel: formatRelative(draft.sent_at, t) })}
           </div>
         )}
       </div>
@@ -153,13 +156,13 @@ export function SendQuoteButton({ activeDraftId, approvalReady }: Props) {
   );
 }
 
-function formatRelative(iso: string): string {
+function formatRelative(iso: string, t: OwnerT): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return iso;
   const ms = Date.now() - d.getTime();
   const s = Math.round(ms / 1000);
-  if (s < 60)   return `${s}s ago`;
-  if (s < 3600) return `${Math.round(s / 60)}m ago`;
-  if (s < 86400) return `${Math.round(s / 3600)}h ago`;
+  if (s < 60)   return t('sendButton.rel.sAgo', '{{s}}s ago', { s });
+  if (s < 3600) return t('sendButton.rel.mAgo', '{{m}}m ago', { m: Math.round(s / 60) });
+  if (s < 86400) return t('sendButton.rel.hAgo', '{{h}}h ago', { h: Math.round(s / 3600) });
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
 }

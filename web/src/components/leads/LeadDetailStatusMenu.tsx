@@ -14,6 +14,7 @@ import { LEAD_STATUS_CONFIG } from './LeadStatusPill.config';
 import { LostReasonModal } from './LostReasonModal';
 import { transitionLeadStatus, LeadServiceError } from '../../services/leadService';
 import { humanizeError } from './LeadQuickAddModal.errorMapping';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   leadId: string;
@@ -31,6 +32,7 @@ export function LeadDetailStatusMenu({
   showToast,
   onAfterChange,
 }: Props) {
+  const t = useOwnerT('owner-leads');
   const [open, setOpen] = useState(false);
   const [showLostModal, setShowLostModal] = useState(false);
   const [pending, setPending] = useState(false);
@@ -58,10 +60,15 @@ export function LeadDetailStatusMenu({
     setPending(true);
     try {
       await transitionLeadStatus(leadId, to, { reason });
-      showToast(`Moved to ${LEAD_STATUS_CONFIG[to].label}`, 'success');
+      showToast(
+        t('statusMenu.movedToToast', 'Moved to {{label}}', {
+          label: t(`status.${to}`, LEAD_STATUS_CONFIG[to].label),
+        }),
+        'success',
+      );
       onAfterChange();
     } catch (err) {
-      showToast(humanizeError(err as LeadServiceError), 'error');
+      showToast(humanizeError(err as LeadServiceError, t), 'error');
     } finally {
       setPending(false);
       setOpen(false);
@@ -88,7 +95,7 @@ export function LeadDetailStatusMenu({
           disabled={disabled || pending || allowedTargets.length === 0}
           aria-expanded={open}
           aria-haspopup="menu"
-          title={disabled ? 'Held by another user' : 'Change status'}
+          title={disabled ? t('statusMenu.heldByAnother', 'Held by another user') : t('statusMenu.changeStatus', 'Change status')}
           className={`
             inline-flex items-center gap-1.5 rounded-full transition-opacity
             ${disabled || allowedTargets.length === 0 ? 'opacity-60 cursor-not-allowed' : 'hover:opacity-80'}
@@ -116,7 +123,7 @@ export function LeadDetailStatusMenu({
                   className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm text-white/80 hover:bg-white/[0.05] text-left"
                 >
                   <span className={`h-2 w-2 rounded-full ${cfg.dot}`} aria-hidden="true" />
-                  <span className="flex-1">Move to {cfg.label}</span>
+                  <span className="flex-1">{t('statusMenu.moveTo', 'Move to {{label}}', { label: t(`status.${target}`, cfg.label) })}</span>
                   {target === currentStatus && <Check className="h-3.5 w-3.5" />}
                 </button>
               );
@@ -125,11 +132,11 @@ export function LeadDetailStatusMenu({
               <button
                 type="button"
                 disabled
-                title="Use Convert to Booking (Day 10)"
+                title={t('statusMenu.convertHint', 'Use Convert to Booking')}
                 className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm text-white/30 cursor-not-allowed text-left"
               >
                 <span className="h-2 w-2 rounded-full bg-emerald-600/40" aria-hidden="true" />
-                <span className="flex-1">Convert &amp; book</span>
+                <span className="flex-1">{t('statusMenu.convertAndBook', 'Convert & book')}</span>
               </button>
             </div>
           </div>

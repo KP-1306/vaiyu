@@ -1,0 +1,68 @@
+{
+  "title": "HRMS",
+  "subtitle": "Quick team hub — mark presence, approve leaves, and keep staff info up to date.",
+  "exportCsv": "Export CSV",
+  "from": "From",
+  "to": "To",
+  "tab": {
+    "attendance": "Attendance",
+    "leaves": "Leaves",
+    "staff": "Staff"
+  },
+  "att": {
+    "title": "Attendance",
+    "desc": "Past week by default — filter any dates. Green is present, red is absent.",
+    "empty": "No attendance recorded for this period.",
+    "notFound": "Attendance table not found yet. You can create a table attendance(user_id, hotel_id, day, status, check_in, check_out).",
+    "colDay": "Day",
+    "colStaff": "Staff",
+    "colStatus": "Status",
+    "colCheckIn": "Check-in",
+    "colCheckOut": "Check-out",
+    "status": {
+      "present": "present",
+      "late": "late",
+      "absent": "absent"
+    }
+  },
+  "leave": {
+    "title": "Leaves",
+    "desc": "Review and track time-off. Pending items show in amber.",
+    "empty": "No leaves in this period.",
+    "notFound": "Leaves table not found yet. You can create leaves(user_id, hotel_id, start_date, end_date, type, status).",
+    "status": "Status",
+    "filter": {
+      "all": "All",
+      "pending": "Pending",
+      "approved": "Approved",
+      "denied": "Denied"
+    },
+    "colCreated": "Created",
+    "colStaff": "Staff",
+    "colType": "Type",
+    "colStatus": "Status",
+    "colFrom": "From",
+    "colTo": "To",
+    "badge": {
+      "approved": "approved",
+      "pending": "pending",
+      "denied": "denied"
+    }
+  },
+  "staff": {
+    "title": "Staff",
+    "desc": "Your people directory — search by name, filter by role, and contact quickly.",
+    "search": "Search",
+    "searchPlaceholder": "Type a name or email",
+    "role": "Role",
+    "roleAll": "All",
+    "empty": "No staff match your filters.",
+    "unnamed": "Unnamed",
+    "call": "Call",
+    "email": "Email",
+    "status": {
+      "active": "active",
+      "unknown": "unknown"
+    }
+  }
+}

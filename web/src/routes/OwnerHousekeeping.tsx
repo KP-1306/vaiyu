@@ -8,6 +8,7 @@ import {
   Timer, ChevronRight, Bed, Building2, ChevronLeft, BedDouble, Wrench
 } from "lucide-react";
 import { useOwnerT, useOwnerCommonT, useOwnerLocale } from "../i18n/useOwnerT";
+import { OwnerLangToggle } from "../i18n/OwnerLangToggle";
 
 /* ─────── types ─────── */
 interface HKRoom {
@@ -985,6 +986,7 @@ export default function OwnerHousekeeping() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <OwnerLangToggle />
               <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-full border border-white/10">
                 <span className="text-[10px] font-bold text-slate-500">{t("header.autoPriority", "Auto-Priority")}</span>
                 <button

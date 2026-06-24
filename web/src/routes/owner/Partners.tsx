@@ -30,6 +30,7 @@ import {
   type PartnerStatus,
   type PartnerVerificationStatus,
 } from '../../types/partner';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 import {
   PartnerCategoryBadge,
@@ -43,29 +44,8 @@ import { PartnerLiabilityFooter } from '../../components/partner/PartnerLiabilit
 
 interface Hotel { id: string; name: string; slug: string; }
 
-const KIND_OPTIONS: { value: PartnerKind | 'ALL'; label: string }[] = [
-  { value: 'ALL', label: 'All kinds' },
-  { value: 'VENDOR', label: 'Vendors' },
-  { value: 'AGENT', label: 'Agents' },
-];
-
-const STATUS_FILTER_OPTIONS: { value: PartnerStatus; label: string }[] = [
-  { value: 'DRAFT',      label: 'Draft' },
-  { value: 'VERIFIED',   label: 'Verified' },
-  { value: 'PREFERRED',  label: 'Preferred' },
-  { value: 'BACKUP',     label: 'Backup' },
-  { value: 'INACTIVE',   label: 'Inactive' },
-  { value: 'DO_NOT_USE', label: 'Do not use' },
-];
-
-const VERIFICATION_FILTER_OPTIONS: { value: PartnerVerificationStatus; label: string }[] = [
-  { value: 'UNVERIFIED', label: 'Unverified' },
-  { value: 'PENDING',    label: 'Pending' },
-  { value: 'VERIFIED',   label: 'Verified' },
-  { value: 'REJECTED',   label: 'Rejected' },
-];
-
 export default function Partners() {
+  const t = useOwnerT('owner-partner');
   const { slug: rawSlug } = useParams();
   const slug = (rawSlug ?? '').trim();
   const [hotel, setHotel] = useState<Hotel | null>(null);
@@ -116,46 +96,66 @@ export default function Partners() {
 
   const counters = useMemo(() => summariseDirectory(partnersQ.data ?? []), [partnersQ.data]);
 
+  const kindOptions = [
+    { value: 'ALL' as const, label: t('filter.allKinds', 'All kinds') },
+    { value: 'VENDOR' as const, label: t('filter.vendors', 'Vendors') },
+    { value: 'AGENT' as const, label: t('filter.agents', 'Agents') },
+  ];
+  const statusFilterOptions: { value: PartnerStatus; label: string }[] = [
+    { value: 'DRAFT',      label: t('status.DRAFT', 'Draft') },
+    { value: 'VERIFIED',   label: t('status.VERIFIED', 'Verified') },
+    { value: 'PREFERRED',  label: t('status.PREFERRED', 'Preferred') },
+    { value: 'BACKUP',     label: t('status.BACKUP', 'Backup') },
+    { value: 'INACTIVE',   label: t('status.INACTIVE', 'Inactive') },
+    { value: 'DO_NOT_USE', label: t('status.DO_NOT_USE', 'Do not use') },
+  ];
+  const verificationFilterOptions: { value: PartnerVerificationStatus; label: string }[] = [
+    { value: 'UNVERIFIED', label: t('verification.UNVERIFIED', 'Not verified') },
+    { value: 'PENDING',    label: t('verification.PENDING', 'Verification pending') },
+    { value: 'VERIFIED',   label: t('verification.VERIFIED', 'Verified') },
+    { value: 'REJECTED',   label: t('verification.REJECTED', 'Rejected') },
+  ];
+
   if (!PARTNER_NETWORK_V1_ENABLED) {
     return (
-      <main className="mx-auto max-w-6xl px-4 py-10 text-slate-300">
-        <p>Partner Network is disabled.</p>
+      <main className="vaiyu-owner mx-auto max-w-6xl px-4 py-10 text-slate-300">
+        <p>{t('notEnabled', 'Partner Network is disabled.')}</p>
       </main>
     );
   }
 
   if (hotelLoading) {
     return (
-      <main className="mx-auto max-w-6xl px-4 py-10 text-slate-400">
+      <main className="vaiyu-owner mx-auto max-w-6xl px-4 py-10 text-slate-400">
         <Loader2 className="h-5 w-5 animate-spin" />
       </main>
     );
   }
   if (!hotel) {
     return (
-      <main className="mx-auto max-w-6xl px-4 py-10 text-slate-300">
-        <p>Hotel not found for slug <code>{slug}</code>.</p>
+      <main className="vaiyu-owner mx-auto max-w-6xl px-4 py-10 text-slate-300">
+        <p>{t('notFound', 'Hotel not found for slug {{slug}}.', { slug })}</p>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#070914] text-slate-100">
+    <main className="vaiyu-owner min-h-screen bg-[#070914] text-slate-100">
       <div className="mx-auto max-w-6xl px-4 py-6">
         <header className="mb-5">
-          <p className="text-[11px] uppercase tracking-widest text-slate-500">Growth · {hotel.name}</p>
-          <h1 className="mt-1 text-2xl font-semibold">Local Partner Directory</h1>
+          <p className="text-[11px] uppercase tracking-widest text-slate-500">{t('page.breadcrumb', 'Growth')} · {hotel.name}</p>
+          <h1 className="mt-1 text-2xl font-semibold">{t('page.title', 'Local Partner Directory')}</h1>
           <p className="mt-1 text-sm text-slate-400">
-            Verified vendors and commissionable agents you trust. Manage status, verification, and (for agents) commission payouts.
+            {t('page.subtitle', 'Verified vendors and commissionable agents you trust. Manage status, verification, and (for agents) commission payouts.')}
           </p>
         </header>
 
         {/* Counters */}
         <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <Counter label="Total"        value={counters.total} />
-          <Counter label="Verified"     value={counters.verified} tone="emerald" />
-          <Counter label="Preferred"    value={counters.preferred} tone="amber" />
-          <Counter label="Stale"        value={counters.stale} tone={counters.stale > 0 ? 'red' : 'neutral'} />
+          <Counter label={t('counter.total', 'Total')}         value={counters.total} />
+          <Counter label={t('counter.verified', 'Verified')}   value={counters.verified} tone="emerald" />
+          <Counter label={t('counter.preferred', 'Preferred')} value={counters.preferred} tone="amber" />
+          <Counter label={t('counter.stale', 'Stale')}         value={counters.stale} tone={counters.stale > 0 ? 'red' : 'neutral'} />
         </div>
 
         {/* Filter bar */}
@@ -167,12 +167,12 @@ export default function Partners() {
                 type="search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by name or service area"
+                placeholder={t('filter.searchPlaceholder', 'Search by name or service area')}
                 className="w-full rounded-md border border-slate-700 bg-slate-900 py-2 pl-9 pr-3 text-sm text-slate-100 placeholder-slate-500 focus:border-emerald-400 focus:outline-none"
               />
             </div>
             <div className="flex items-center gap-1">
-              {KIND_OPTIONS.map((k) => (
+              {kindOptions.map((k) => (
                 <button
                   key={k.value}
                   type="button"
@@ -196,12 +196,12 @@ export default function Partners() {
               className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/90 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500"
               data-testid="partner-add-button"
             >
-              <Plus className="h-3.5 w-3.5" aria-hidden /> Add partner
+              <Plus className="h-3.5 w-3.5" aria-hidden /> {t('action.addPartner', 'Add partner')}
             </button>
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5">
-            {STATUS_FILTER_OPTIONS.map((s) => {
+            {statusFilterOptions.map((s) => {
               const on = statusFilter.has(s.value);
               return (
                 <button
@@ -225,7 +225,7 @@ export default function Partners() {
               );
             })}
             <span className="text-[10px] text-slate-500">·</span>
-            {VERIFICATION_FILTER_OPTIONS.map((v) => {
+            {verificationFilterOptions.map((v) => {
               const on = verificationFilter.has(v.value);
               return (
                 <button
@@ -256,7 +256,7 @@ export default function Partners() {
                 onChange={(e) => setIncludeArchived(e.target.checked)}
                 className="h-3 w-3 rounded border-slate-600 bg-slate-900"
               />
-              <Archive className="h-3 w-3" aria-hidden /> Include archived
+              <Archive className="h-3 w-3" aria-hidden /> {t('filter.includeArchived', 'Include archived')}
             </label>
           </div>
         </div>
@@ -266,12 +266,12 @@ export default function Partners() {
           <table className="w-full text-sm">
             <thead className="bg-slate-900/60 text-[11px] uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-3 py-2 text-left">Name</th>
-                <th className="px-3 py-2 text-left">Kind / Category</th>
-                <th className="px-3 py-2 text-left">Status</th>
-                <th className="px-3 py-2 text-left">Verification</th>
-                <th className="px-3 py-2 text-right">Leads</th>
-                <th className="px-3 py-2 text-right">Outstanding</th>
+                <th className="px-3 py-2 text-left">{t('table.name', 'Name')}</th>
+                <th className="px-3 py-2 text-left">{t('table.kindCategory', 'Kind / Category')}</th>
+                <th className="px-3 py-2 text-left">{t('table.status', 'Status')}</th>
+                <th className="px-3 py-2 text-left">{t('table.verification', 'Verification')}</th>
+                <th className="px-3 py-2 text-right">{t('table.leads', 'Leads')}</th>
+                <th className="px-3 py-2 text-right">{t('table.outstanding', 'Outstanding')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
@@ -282,7 +282,7 @@ export default function Partners() {
               )}
               {!partnersQ.isLoading && (partnersQ.data?.length ?? 0) === 0 && (
                 <tr><td colSpan={6} className="px-3 py-6 text-center text-slate-500">
-                  No partners match the current filters.
+                  {t('table.noPartners', 'No partners match the current filters.')}
                 </td></tr>
               )}
               {partnersQ.data?.map((p) => (
@@ -295,7 +295,7 @@ export default function Partners() {
                   <td className="px-3 py-2">
                     <div className="text-slate-100">{p.partner_name}</div>
                     <div className="text-[10.5px] text-slate-500">
-                      {p.service_area || 'No area set'}
+                      {p.service_area || t('table.noArea', 'No area set')}
                       {p.contact_phone && ` · ${p.contact_phone}`}
                     </div>
                   </td>

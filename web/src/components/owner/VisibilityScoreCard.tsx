@@ -20,6 +20,7 @@ import {
 } from '../../services/visibilityScoreService';
 import { visibilityScoreQueryKeys } from '../../services/visibilityScoreQueryKeys';
 import type { VisibilityBand } from '../../types/visibilityScore';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   hotelId: string;
@@ -46,6 +47,7 @@ function tonePick(b: VisibilityBand) {
 }
 
 export function VisibilityScoreCard({ hotelId, hotelSlug }: Props) {
+  const t = useOwnerT('owner-visibility');
   if (!VISIBILITY_SCORE_ENABLED) return null;
 
   const scoreQ = useQuery({
@@ -95,7 +97,7 @@ export function VisibilityScoreCard({ hotelId, hotelSlug }: Props) {
         <div className="flex items-center gap-2">
           <Gauge className={`h-4 w-4 ${colorCls.split(' ')[0]}`} aria-hidden />
           <h3 className="text-[11px] font-bold uppercase tracking-widest text-slate-300">
-            Visibility Score
+            {t('card.title', 'Visibility Score')}
           </h3>
         </div>
         <ChevronRight className="h-4 w-4 text-slate-500" aria-hidden />
@@ -127,12 +129,12 @@ export function VisibilityScoreCard({ hotelId, hotelSlug }: Props) {
           </div>
           <div className="mt-0.5 text-[11px] text-slate-400">
             {breakdown
-              ? `${breakdown.signals_satisfied}/${breakdown.signals_total} signals satisfied`
-              : 'Loading…'}
+              ? t('card.signalsSatisfied', '{{satisfied}}/{{total}} signals satisfied', { satisfied: breakdown.signals_satisfied, total: breakdown.signals_total })
+              : t('card.loading', 'Loading…')}
           </div>
           {breakdown && breakdown.max_unlockable_weight > 0 && (
             <div className="mt-0.5 text-[10px] text-slate-500">
-              {breakdown.max_unlockable_weight} pts pending data
+              {t('card.ptsPending', '{{pts}} pts pending data', { pts: breakdown.max_unlockable_weight })}
             </div>
           )}
           {/* Delta chip and stabilization hint are mutually exclusive. While
@@ -142,7 +144,7 @@ export function VisibilityScoreCard({ hotelId, hotelSlug }: Props) {
               started". Show *only* the stabilization hint in that window. */}
           {stillStabilizing ? (
             <div className="mt-1.5 text-[10px] text-slate-500 leading-snug">
-              Score stabilizes after the first 7 days of snapshots.
+              {t('card.stabilizing', 'Score stabilizes after the first 7 days of snapshots.')}
             </div>
           ) : delta !== null && delta !== 0 ? (
             <div
@@ -153,12 +155,12 @@ export function VisibilityScoreCard({ hotelId, hotelSlug }: Props) {
               }`}
             >
               {delta > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-              <span>{delta > 0 ? `+${delta}` : delta} since last snapshot</span>
+              <span>{delta > 0 ? `+${delta}` : delta} {t('card.sinceLastSnapshot', 'since last snapshot')}</span>
             </div>
           ) : delta === 0 ? (
             <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-slate-500/10 px-1.5 py-0.5 text-[10px] text-slate-300">
               <Minus className="h-3 w-3" />
-              <span>No change since last snapshot</span>
+              <span>{t('card.noChange', 'No change since last snapshot')}</span>
             </div>
           ) : null}
         </div>

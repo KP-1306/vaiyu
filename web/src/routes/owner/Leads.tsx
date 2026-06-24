@@ -14,6 +14,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Plus, Wifi, WifiOff, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { useOwnerT } from '../../i18n/useOwnerT';
 import { listLeads, LeadServiceError } from '../../services/leadService';
 import { useLeadsRealtime } from '../../hooks/useLeadsRealtime';
 import { LeadCard } from '../../components/leads/LeadCard';
@@ -47,6 +48,7 @@ interface Toast {
 
 export default function Leads() {
   const { slug } = useParams<{ slug: string }>();
+  const t = useOwnerT('owner-leads');
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -130,7 +132,7 @@ export default function Leads() {
   const showToast = useCallback((message: string, type: Toast['type'] = 'success') => {
     const id = ++toastIdRef.current;
     setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3500);
+    setTimeout(() => setToasts((prev) => prev.filter((toast) => toast.id !== id)), 3500);
   }, []);
 
   // View toggle (list / kanban) — URL-driven
@@ -226,15 +228,15 @@ export default function Leads() {
 
   const liveBadge = useMemo(() => {
     const config = {
-      open: { icon: <Wifi className="h-3 w-3" />, label: 'Live', cls: 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30' },
-      connecting: { icon: <Loader2 className="h-3 w-3 animate-spin" />, label: 'Connecting', cls: 'bg-amber-500/15 text-amber-300 ring-amber-500/30' },
-      error: { icon: <WifiOff className="h-3 w-3" />, label: 'Reconnecting', cls: 'bg-red-500/15 text-red-300 ring-red-500/30' },
+      open: { icon: <Wifi className="h-3 w-3" />, label: t('live', 'Live'), cls: 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30' },
+      connecting: { icon: <Loader2 className="h-3 w-3 animate-spin" />, label: t('connecting', 'Connecting'), cls: 'bg-amber-500/15 text-amber-300 ring-amber-500/30' },
+      error: { icon: <WifiOff className="h-3 w-3" />, label: t('reconnecting', 'Reconnecting'), cls: 'bg-red-500/15 text-red-300 ring-red-500/30' },
     } as const;
     const c = config[connectionState];
     return (
       <span
         data-testid="leads-realtime-status"
-        title={`Realtime: ${c.label}`}
+        title={t('realtimeTitle', 'Realtime: {{status}}', { status: c.label })}
         className={`inline-flex items-center gap-1 rounded-full ring-1 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider ${c.cls}`}
       >
         {c.icon}
@@ -247,7 +249,7 @@ export default function Leads() {
   const isInitialLoading = leadsQuery.isPending && !leadsQuery.data;
 
   return (
-    <div className="min-h-screen bg-[#0a0c11] text-white">
+    <div className="vaiyu-owner min-h-screen bg-[#0a0c11] text-white">
       <header className="border-b border-white/10 bg-[#101218] sticky top-0 z-30">
         <div className="mx-auto max-w-5xl px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
           <div className="min-w-0">
@@ -256,10 +258,10 @@ export default function Leads() {
               onClick={() => navigate(`/owner/${slug}`)}
               className="text-xs text-white/50 hover:text-white/80 transition-colors"
             >
-              ← {hotelQuery.data?.name ?? 'Hotel'}
+              ← {hotelQuery.data?.name ?? t('hotelFallback', 'Hotel')}
             </button>
             <div className="flex items-center gap-2 mt-0.5">
-              <h1 className="text-lg sm:text-xl font-semibold">Leads</h1>
+              <h1 className="text-lg sm:text-xl font-semibold">{t('title', 'Leads')}</h1>
               {liveBadge}
             </div>
           </div>
@@ -281,15 +283,15 @@ export default function Leads() {
               className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-3 sm:px-4 py-2 text-sm font-medium text-white hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">New lead</span>
-              <span className="sm:hidden">New</span>
+              <span className="hidden sm:inline">{t('newLead', 'New lead')}</span>
+              <span className="sm:hidden">{t('newShort', 'New')}</span>
             </button>
           </div>
         </div>
 
         {connectionState === 'error' && (
           <div className="bg-red-500/10 border-t border-red-500/20 text-red-300 text-xs px-4 sm:px-6 py-2 text-center">
-            Live updates paused. Refresh the page to retry.
+            {t('liveUpdatesPaused', 'Live updates paused. Refresh the page to retry.')}
           </div>
         )}
       </header>
@@ -304,7 +306,7 @@ export default function Leads() {
           <LeadsListSkeleton />
         ) : hotelQuery.isError || !hotelId ? (
           <LeadsErrorState
-            message={(hotelQuery.error as Error)?.message ?? 'Hotel not found for this URL.'}
+            message={(hotelQuery.error as Error)?.message ?? t('hotelNotFound', 'Hotel not found for this URL.')}
             onRetry={() => hotelQuery.refetch()}
           />
         ) : view === 'kanban' ? (
@@ -323,7 +325,7 @@ export default function Leads() {
             message={
               leadsQuery.error instanceof LeadServiceError
                 ? leadsQuery.error.message
-                : 'Could not load leads. Please try again.'
+                : t('loadFailed', 'Could not load leads. Please try again.')
             }
             onRetry={() => leadsQuery.refetch()}
           />
@@ -376,20 +378,20 @@ export default function Leads() {
       />
 
       <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none">
-        {toasts.map((t) => (
+        {toasts.map((toast) => (
           <div
-            key={t.id}
+            key={toast.id}
             role="status"
             aria-live="polite"
             className={`pointer-events-auto rounded-lg px-4 py-2.5 text-sm shadow-lg border max-w-sm ${
-              t.type === 'success'
+              toast.type === 'success'
                 ? 'bg-emerald-600/95 border-emerald-400/40 text-white'
-                : t.type === 'error'
+                : toast.type === 'error'
                 ? 'bg-red-600/95 border-red-400/40 text-white'
                 : 'bg-amber-500/95 border-amber-300/40 text-amber-950'
             }`}
           >
-            {t.message}
+            {toast.message}
           </div>
         ))}
       </div>

@@ -5,6 +5,7 @@
 
 import type { PackageCategory, PackagePricingBasis } from '../../types/package';
 import { slugify } from '../../config/packages';
+import type { OwnerT } from '../../i18n/useOwnerT';
 
 export interface PackageFormDraft {
   name: string;
@@ -142,25 +143,30 @@ export function validate(draft: PackageFormDraft): ValidationResult {
   return { ok: Object.keys(errors).length === 0, errors };
 }
 
-/** Map a FieldError code to a human message. */
-export function humanizeError(code: FieldError): string {
+/**
+ * Map a FieldError code to a human message. Optional `t` localises the message
+ * for the owner console; without it (e.g. unit tests) the English literal is
+ * returned unchanged.
+ */
+export function humanizeError(code: FieldError, t?: OwnerT): string {
+  const tr = (key: string, en: string) => (t ? t(key, en) : en);
   switch (code) {
-    case 'NAME_REQUIRED': return 'Package name is required.';
-    case 'NAME_TOO_LONG': return 'Name is too long (max 120 characters).';
-    case 'SLUG_REQUIRED': return 'URL slug is required.';
-    case 'SLUG_INVALID_CHARS': return 'Slug can use only lowercase letters, digits and dashes.';
-    case 'SLUG_TOO_LONG': return 'Slug is too long (max 80 characters).';
-    case 'DURATION_OUT_OF_RANGE': return 'Duration must be between 1 and 30 nights.';
-    case 'MIN_PARTY_INVALID': return 'Minimum party must be at least 1.';
-    case 'MAX_PARTY_LESS_THAN_MIN': return 'Maximum party must be at least the minimum.';
-    case 'STARTING_PRICE_TEXT_REQUIRED': return 'Starting-price text is required (e.g. "Starting ₹8,500 per couple per night").';
-    case 'STARTING_PRICE_TEXT_TOO_LONG': return 'Starting-price text is too long (max 100 characters).';
-    case 'CTA_LABEL_REQUIRED': return 'CTA label is required.';
-    case 'CTA_LABEL_TOO_LONG': return 'CTA label is too long (max 40 characters).';
-    case 'SHORT_PITCH_TOO_LONG': return 'Short pitch is too long (max 280 characters).';
-    case 'LONG_DESCRIPTION_TOO_LONG': return 'Long description is too long (max 8000 characters).';
-    case 'BASE_PRICE_NEGATIVE': return 'Base price cannot be negative.';
-    case 'DATE_WINDOW_INVERTED': return 'Valid-until must be on or after valid-from.';
-    case 'SEASON_MONTH_INVALID': return 'Season month must be between 1 and 12.';
+    case 'NAME_REQUIRED': return tr('fieldError.NAME_REQUIRED', 'Package name is required.');
+    case 'NAME_TOO_LONG': return tr('fieldError.NAME_TOO_LONG', 'Name is too long (max 120 characters).');
+    case 'SLUG_REQUIRED': return tr('fieldError.SLUG_REQUIRED', 'URL slug is required.');
+    case 'SLUG_INVALID_CHARS': return tr('fieldError.SLUG_INVALID_CHARS', 'Slug can use only lowercase letters, digits and dashes.');
+    case 'SLUG_TOO_LONG': return tr('fieldError.SLUG_TOO_LONG', 'Slug is too long (max 80 characters).');
+    case 'DURATION_OUT_OF_RANGE': return tr('fieldError.DURATION_OUT_OF_RANGE', 'Duration must be between 1 and 30 nights.');
+    case 'MIN_PARTY_INVALID': return tr('fieldError.MIN_PARTY_INVALID', 'Minimum party must be at least 1.');
+    case 'MAX_PARTY_LESS_THAN_MIN': return tr('fieldError.MAX_PARTY_LESS_THAN_MIN', 'Maximum party must be at least the minimum.');
+    case 'STARTING_PRICE_TEXT_REQUIRED': return tr('fieldError.STARTING_PRICE_TEXT_REQUIRED', 'Starting-price text is required (e.g. "Starting ₹8,500 per couple per night").');
+    case 'STARTING_PRICE_TEXT_TOO_LONG': return tr('fieldError.STARTING_PRICE_TEXT_TOO_LONG', 'Starting-price text is too long (max 100 characters).');
+    case 'CTA_LABEL_REQUIRED': return tr('fieldError.CTA_LABEL_REQUIRED', 'CTA label is required.');
+    case 'CTA_LABEL_TOO_LONG': return tr('fieldError.CTA_LABEL_TOO_LONG', 'CTA label is too long (max 40 characters).');
+    case 'SHORT_PITCH_TOO_LONG': return tr('fieldError.SHORT_PITCH_TOO_LONG', 'Short pitch is too long (max 280 characters).');
+    case 'LONG_DESCRIPTION_TOO_LONG': return tr('fieldError.LONG_DESCRIPTION_TOO_LONG', 'Long description is too long (max 8000 characters).');
+    case 'BASE_PRICE_NEGATIVE': return tr('fieldError.BASE_PRICE_NEGATIVE', 'Base price cannot be negative.');
+    case 'DATE_WINDOW_INVERTED': return tr('fieldError.DATE_WINDOW_INVERTED', 'Valid-until must be on or after valid-from.');
+    case 'SEASON_MONTH_INVALID': return tr('fieldError.SEASON_MONTH_INVALID', 'Season month must be between 1 and 12.');
   }
 }

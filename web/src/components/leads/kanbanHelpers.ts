@@ -11,6 +11,7 @@
 
 import { ALLOWED_TRANSITIONS, type LeadStatus } from '../../types/lead';
 import { addBreadcrumb } from '../../lib/monitoring';
+import type { OwnerT } from '../../i18n/useOwnerT';
 
 export const KANBAN_COLUMN_ORDER: readonly LeadStatus[] = [
   'NEW',
@@ -39,20 +40,35 @@ export function requiresConfirmationModal(to: LeadStatus): 'LOST' | null {
   return to === 'LOST' ? 'LOST' : null;
 }
 
-/** User-facing tooltip text when a drop is refused. Empty string = silent. */
-export function explainBlockedDrop(from: LeadStatus, to: LeadStatus): string {
-  if (to === 'CONVERTED') return 'Open the lead and use Convert to create a booking.';
+/**
+ * User-facing tooltip text when a drop is refused. Empty string = silent.
+ * `t` is optional so pure unit tests can assert the English output; the
+ * consuming component passes `t` for localisation (reveal-gated).
+ */
+export function explainBlockedDrop(from: LeadStatus, to: LeadStatus, t?: OwnerT): string {
+  if (to === 'CONVERTED') {
+    return t
+      ? t('kanban.blockConverted', 'Open the lead and use Convert to create a booking.')
+      : 'Open the lead and use Convert to create a booking.';
+  }
   if (from === to) return '';
   if (!canDropInKanban(from, to)) {
-    return `Cannot move from ${from} to ${to}.`;
+    return t
+      ? t('kanban.cannotMove', 'Cannot move from {{from}} to {{to}}.', {
+          from: t(`status.${from}`, from),
+          to: t(`status.${to}`, to),
+        })
+      : `Cannot move from ${from} to ${to}.`;
   }
   return '';
 }
 
 /** "Showing 50 of 142 — view all in list" — returns null when not needed. */
-export function moreInColumnLabel(visible: number, total: number | null): string | null {
+export function moreInColumnLabel(visible: number, total: number | null, t?: OwnerT): string | null {
   if (total === null || total <= visible) return null;
-  return `Showing ${visible} of ${total} — view all in list`;
+  return t
+    ? t('kanban.moreInColumn', 'Showing {{visible}} of {{total}} — view all in list', { visible, total })
+    : `Showing ${visible} of ${total} — view all in list`;
 }
 
 // ─── Drag telemetry ────────────────────────────────────────────────────────

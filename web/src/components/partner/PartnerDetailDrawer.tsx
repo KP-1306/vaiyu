@@ -49,6 +49,7 @@ import type {
   PartnerVerificationStatus,
 } from '../../types/partner';
 import { PARTNER_VERIFICATION_STALE_DAYS } from '../../config/partnerNetwork';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 import {
   PartnerCategoryBadge,
@@ -65,20 +66,12 @@ interface Props {
   onClose: () => void;
 }
 
-const STATUS_OPTIONS: { value: PartnerStatus; label: string; needsReason: boolean }[] = [
-  { value: 'DRAFT',      label: 'Draft (hidden)',           needsReason: false },
-  { value: 'VERIFIED',   label: 'Verified',                  needsReason: false },
-  { value: 'PREFERRED',  label: 'Preferred',                 needsReason: false },
-  { value: 'BACKUP',     label: 'Backup',                    needsReason: false },
-  { value: 'INACTIVE',   label: 'Inactive',                  needsReason: false },
-  { value: 'DO_NOT_USE', label: 'Do not use (reason req.)',  needsReason: true  },
-];
-
-const VERIFICATION_OPTIONS: PartnerVerificationStatus[] = [
+const VERIFICATION_VALUES: PartnerVerificationStatus[] = [
   'UNVERIFIED', 'PENDING', 'VERIFIED', 'REJECTED',
 ];
 
 export function PartnerDetailDrawer({ open, partnerId, onClose }: Props) {
+  const t = useOwnerT('owner-partner');
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -134,6 +127,15 @@ export function PartnerDetailDrawer({ open, partnerId, onClose }: Props) {
 
   const partner = partnerQ.data ?? null;
 
+  const statusOptions: { value: PartnerStatus; label: string; needsReason: boolean }[] = [
+    { value: 'DRAFT',      label: t('status.DRAFT_hint', 'Draft (hidden)'),          needsReason: false },
+    { value: 'VERIFIED',   label: t('status.VERIFIED', 'Verified'),                  needsReason: false },
+    { value: 'PREFERRED',  label: t('status.PREFERRED', 'Preferred'),                needsReason: false },
+    { value: 'BACKUP',     label: t('status.BACKUP', 'Backup'),                      needsReason: false },
+    { value: 'INACTIVE',   label: t('status.INACTIVE', 'Inactive'),                  needsReason: false },
+    { value: 'DO_NOT_USE', label: t('status.DO_NOT_USE_hint', 'Do not use (reason req.)'), needsReason: true },
+  ];
+
   return (
     <>
       <div
@@ -144,13 +146,13 @@ export function PartnerDetailDrawer({ open, partnerId, onClose }: Props) {
       <aside
         role="dialog"
         aria-modal="true"
-        aria-label="Partner detail"
-        className="fixed right-0 top-0 z-50 flex h-full w-full max-w-xl flex-col border-l border-slate-700 bg-[#0F1320] text-slate-100 shadow-2xl"
+        aria-label={t('drawer.title', 'Partner detail')}
+        className="vaiyu-owner fixed right-0 top-0 z-50 flex h-full w-full max-w-xl flex-col border-l border-slate-700 bg-[#0F1320] text-slate-100 shadow-2xl"
       >
         <div className="flex items-start justify-between border-b border-slate-800 px-5 py-3">
           <div className="min-w-0">
             <h2 className="truncate text-base font-semibold">
-              {partner?.partner_name ?? (partnerQ.isLoading ? 'Loading…' : 'Partner')}
+              {partner?.partner_name ?? (partnerQ.isLoading ? t('drawer.loading', 'Loading…') : 'Partner')}
             </h2>
             {partner && (
               <div className="mt-1 flex flex-wrap items-center gap-1.5">
@@ -167,7 +169,7 @@ export function PartnerDetailDrawer({ open, partnerId, onClose }: Props) {
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t('drawer.closeAriaLabel', 'Close')}
             className="text-slate-400 hover:text-slate-100"
           >
             <X className="h-5 w-5" />
@@ -183,7 +185,7 @@ export function PartnerDetailDrawer({ open, partnerId, onClose }: Props) {
 
           {!partner && !partnerQ.isLoading && (
             <div className="px-5 py-6 text-sm text-slate-400">
-              Partner not found.
+              {t('drawer.notFound', 'Partner not found.')}
             </div>
           )}
 
@@ -197,7 +199,7 @@ export function PartnerDetailDrawer({ open, partnerId, onClose }: Props) {
                   className="inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800"
                   data-testid="partner-edit-button"
                 >
-                  <Edit3 className="h-3.5 w-3.5" aria-hidden /> Edit
+                  <Edit3 className="h-3.5 w-3.5" aria-hidden /> {t('drawer.edit', 'Edit')}
                 </button>
                 <button
                   type="button"
@@ -206,12 +208,12 @@ export function PartnerDetailDrawer({ open, partnerId, onClose }: Props) {
                   className="inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50"
                 >
                   <Archive className="h-3.5 w-3.5" aria-hidden />
-                  {partner.archived_at ? 'Unarchive' : 'Archive'}
+                  {partner.archived_at ? t('drawer.unarchive', 'Unarchive') : t('drawer.archive', 'Archive')}
                 </button>
               </div>
 
               {/* ── Contact block ───────────────────────────────────── */}
-              <Section title="Contact">
+              <Section title={t('section.contact', 'Contact')}>
                 <div className="space-y-1.5 text-sm">
                   {partner.contact_name && (
                     <div className="text-slate-200">{partner.contact_name}</div>
@@ -229,7 +231,7 @@ export function PartnerDetailDrawer({ open, partnerId, onClose }: Props) {
                       href={`tel:${partner.alternate_contact}`}
                       className="flex items-center gap-2 text-slate-300 hover:underline"
                     >
-                      <Phone className="h-3.5 w-3.5" aria-hidden /> {partner.alternate_contact} (alt)
+                      <Phone className="h-3.5 w-3.5" aria-hidden /> {partner.alternate_contact} {t('drawer.altPhone', '(alt)')}
                     </a>
                   )}
                   {partner.email && (
@@ -241,22 +243,22 @@ export function PartnerDetailDrawer({ open, partnerId, onClose }: Props) {
                     </a>
                   )}
                   {!partner.contact_phone && !partner.email && (
-                    <div className="text-slate-500">No contact on file.</div>
+                    <div className="text-slate-500">{t('drawer.noContact', 'No contact on file.')}</div>
                   )}
                 </div>
               </Section>
 
               {/* ── Services + meta ─────────────────────────────────── */}
-              <Section title="Services & area">
+              <Section title={t('section.servicesArea', 'Services & area')}>
                 <dl className="space-y-1 text-sm text-slate-300">
-                  <Row k="Service area" v={partner.service_area || '—'} />
+                  <Row k={t('row.serviceArea', 'Service area')} v={partner.service_area || '—'} />
                   <Row
-                    k="Services"
+                    k={t('row.services', 'Services')}
                     v={partner.services_offered.length > 0 ? partner.services_offered.join(', ') : '—'}
                   />
-                  <Row k="Preferred use" v={partner.preferred_use_case || '—'} />
-                  <Row k="Price note" v={partner.price_note_text || '—'} />
-                  <Row k="Emergency" v={partner.emergency_availability ? 'Yes' : 'No'} />
+                  <Row k={t('row.preferredUse', 'Preferred use')} v={partner.preferred_use_case || '—'} />
+                  <Row k={t('row.priceNote', 'Price note')} v={partner.price_note_text || '—'} />
+                  <Row k={t('row.emergency', 'Emergency')} v={partner.emergency_availability ? t('emergency.yes', 'Yes') : t('emergency.no', 'No')} />
                   {partner.tags.length > 0 && (
                     <div className="flex flex-wrap items-center gap-1 pt-1">
                       {partner.tags.map((t) => (
@@ -273,9 +275,9 @@ export function PartnerDetailDrawer({ open, partnerId, onClose }: Props) {
               </Section>
 
               {/* ── Status switcher ─────────────────────────────────── */}
-              <Section title="Status">
+              <Section title={t('section.status', 'Status')}>
                 <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-                  {STATUS_OPTIONS.map((opt) => (
+                  {statusOptions.map((opt) => (
                     <button
                       key={opt.value}
                       type="button"
@@ -283,7 +285,7 @@ export function PartnerDetailDrawer({ open, partnerId, onClose }: Props) {
                       onClick={() => {
                         setActionError(null);
                         const reason = opt.needsReason
-                          ? prompt('Why mark this partner as Do not use? (recorded in audit)')
+                          ? prompt(t('prompt.doNotUse', 'Why mark this partner as Do not use? (recorded in audit)'))
                           : undefined;
                         if (opt.needsReason && (!reason || !reason.trim())) return;
                         statusMut.mutate({ status: opt.value, reason: reason ?? undefined });
@@ -301,9 +303,9 @@ export function PartnerDetailDrawer({ open, partnerId, onClose }: Props) {
               </Section>
 
               {/* ── Verification ────────────────────────────────────── */}
-              <Section title="Verification">
+              <Section title={t('section.verification', 'Verification')}>
                 <div className="flex flex-wrap items-center gap-1.5">
-                  {VERIFICATION_OPTIONS.map((v) => (
+                  {VERIFICATION_VALUES.map((v) => (
                     <button
                       key={v}
                       type="button"
@@ -312,7 +314,7 @@ export function PartnerDetailDrawer({ open, partnerId, onClose }: Props) {
                         setActionError(null);
                         const notes =
                           v === 'REJECTED' || v === 'PENDING'
-                            ? prompt('Add a verification note (optional).') ?? undefined
+                            ? prompt(t('prompt.verificationNote', 'Add a verification note (optional).')) ?? undefined
                             : undefined;
                         verificationMut.mutate({ status: v, notes });
                       }}
@@ -322,17 +324,19 @@ export function PartnerDetailDrawer({ open, partnerId, onClose }: Props) {
                           : 'rounded-full border border-slate-700 bg-slate-800/40 px-3 py-1 text-[11px] text-slate-300 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50'
                       }
                     >
-                      {v.replace('_', ' ').toLowerCase()}
+                      {t(`verification.${v}`, v.replace('_', ' ').toLowerCase())}
                     </button>
                   ))}
                 </div>
                 {partner.last_verified_at && (
                   <p className="mt-2 text-[11px] text-slate-400">
                     <ShieldCheck className="mr-1 inline h-3 w-3" aria-hidden />
-                    Last verified {new Date(partner.last_verified_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    {t('verification.lastVerified', 'Last verified {{date}}', {
+                      date: new Date(partner.last_verified_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+                    })}
                     {partner.is_verification_stale && (
                       <span className="ml-1 text-amber-300">
-                        · stale (&gt;{PARTNER_VERIFICATION_STALE_DAYS} days — re-verify)
+                        {t('verification.staleNote', '· stale (>{{days}} days — re-verify)', { days: PARTNER_VERIFICATION_STALE_DAYS })}
                       </span>
                     )}
                   </p>
@@ -346,7 +350,7 @@ export function PartnerDetailDrawer({ open, partnerId, onClose }: Props) {
 
               {/* ── Commission ledger (AGENT only) ──────────────────── */}
               {partner.kind === 'AGENT' && (
-                <Section title="Commission ledger">
+                <Section title={t('section.commissionLedger', 'Commission ledger')}>
                   <CommissionLedger
                     partner={partner}
                     commissions={commissionsQ.data ?? []}
@@ -357,18 +361,18 @@ export function PartnerDetailDrawer({ open, partnerId, onClose }: Props) {
 
               {/* ── Notes ────────────────────────────────────────────── */}
               {partner.notes && (
-                <Section title="Internal notes">
+                <Section title={t('section.internalNotes', 'Internal notes')}>
                   <p className="whitespace-pre-line text-sm text-slate-300">{partner.notes}</p>
                 </Section>
               )}
 
               {/* ── Timeline ─────────────────────────────────────────── */}
-              <Section title="Timeline">
+              <Section title={t('section.timeline', 'Timeline')}>
                 {eventsQ.isLoading && (
-                  <div className="text-slate-500">Loading…</div>
+                  <div className="text-slate-500">{t('timeline.loading', 'Loading…')}</div>
                 )}
                 {eventsQ.data && eventsQ.data.length === 0 && (
-                  <div className="text-slate-500">No events yet.</div>
+                  <div className="text-slate-500">{t('timeline.noEvents', 'No events yet.')}</div>
                 )}
                 {eventsQ.data && eventsQ.data.length > 0 && (
                   <ul className="space-y-2 text-[11.5px]">
@@ -443,6 +447,7 @@ function CommissionLedger({
   commissions: import('../../types/partner').PartnerCommission[];
   onChange: () => void;
 }) {
+  const t = useOwnerT('owner-partner');
   const [recordOpen, setRecordOpen] = useState(false);
   const [amount, setAmount] = useState('');
   const [notes, setNotes] = useState('');
@@ -482,7 +487,7 @@ function CommissionLedger({
   return (
     <div className="space-y-2">
       {commissions.length === 0 && (
-        <div className="text-[11.5px] text-slate-500">No commissions recorded.</div>
+        <div className="text-[11.5px] text-slate-500">{t('commission.noCommissions', 'No commissions recorded.')}</div>
       )}
       {commissions.length > 0 && (
         <ul className="divide-y divide-slate-800 rounded-md border border-slate-800">
@@ -496,12 +501,12 @@ function CommissionLedger({
                     : c.status === 'CANCELLED' ? 'ml-2 rounded-full bg-slate-600/30 px-2 py-0.5 text-[10px] text-slate-400'
                     : 'ml-2 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] text-amber-300'
                   }>
-                    {c.status.toLowerCase()}
+                    {t(`commission.status.${c.status}`, c.status.toLowerCase())}
                   </span>
                 </div>
                 <div className="text-[10.5px] text-slate-500">
-                  Accrued {new Date(c.accrued_at).toLocaleDateString('en-IN')}
-                  {c.payout_reference && ` · ref ${c.payout_reference}`}
+                  {t('commission.accrued', 'Accrued {{date}}', { date: new Date(c.accrued_at).toLocaleDateString('en-IN') })}
+                  {c.payout_reference && ` · ${t('commission.ref', 'ref {{ref}}', { ref: c.payout_reference })}`}
                 </div>
                 {c.notes && <div className="mt-0.5 text-[11px] text-slate-400">{c.notes}</div>}
               </div>
@@ -518,21 +523,21 @@ function CommissionLedger({
         onClick={openRecord}
         className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-[11.5px] font-medium text-emerald-200 hover:bg-emerald-500/20"
       >
-        <ArrowUpRight className="h-3 w-3" aria-hidden /> Record commission
+        <ArrowUpRight className="h-3 w-3" aria-hidden /> {t('commission.record', 'Record commission')}
       </button>
 
       {recordOpen && (
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-3">
           <div className="w-full max-w-md rounded-xl border border-slate-700 bg-[#0F1320] p-4 text-slate-100">
             <div className="mb-2 flex items-center justify-between">
-              <h4 className="text-sm font-semibold">Record commission</h4>
-              <button onClick={() => setRecordOpen(false)} disabled={busy} aria-label="Close" className="text-slate-400 hover:text-slate-100">
+              <h4 className="text-sm font-semibold">{t('commission.modalTitle', 'Record commission')}</h4>
+              <button onClick={() => setRecordOpen(false)} disabled={busy} aria-label={t('drawer.closeAriaLabel', 'Close')} className="text-slate-400 hover:text-slate-100">
                 <X className="h-4 w-4" />
               </button>
             </div>
             <div className="space-y-3">
               <div>
-                <label className="mb-1 block text-[11px] uppercase tracking-wide text-slate-400">Amount (INR) *</label>
+                <label className="mb-1 block text-[11px] uppercase tracking-wide text-slate-400">{t('commission.amountLabel', 'Amount (INR) *')}</label>
                 <input
                   type="number"
                   min="0"
@@ -545,13 +550,13 @@ function CommissionLedger({
                 />
               </div>
               <div>
-                <label className="mb-1 block text-[11px] uppercase tracking-wide text-slate-400">Notes</label>
+                <label className="mb-1 block text-[11px] uppercase tracking-wide text-slate-400">{t('commission.notesLabel', 'Notes')}</label>
                 <input
                   type="text"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   disabled={busy}
-                  placeholder="e.g. booking ref ABC123 / 3 nights"
+                  placeholder={t('commission.notesPlaceholder', 'e.g. booking ref ABC123 / 3 nights')}
                   className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:border-emerald-400 focus:outline-none"
                 />
               </div>
@@ -562,11 +567,11 @@ function CommissionLedger({
               )}
               <div className="flex items-center justify-end gap-2">
                 <button onClick={() => setRecordOpen(false)} disabled={busy} className="rounded-md border border-slate-700 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-800">
-                  Cancel
+                  {t('commission.cancel', 'Cancel')}
                 </button>
                 <button onClick={submitRecord} disabled={busy} className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/90 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50">
                   {busy && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
-                  Record
+                  {t('commission.recordButton', 'Record')}
                 </button>
               </div>
             </div>
@@ -578,11 +583,12 @@ function CommissionLedger({
 }
 
 function CommissionActions({ commissionId, onChange }: { commissionId: string; onChange: () => void }) {
+  const t = useOwnerT('owner-partner');
   const [busy, setBusy] = useState(false);
   const handlePaid = async () => {
-    const ref = prompt('Payout reference (UPI ref / bank ref / cheque no.) — required');
+    const ref = prompt(t('prompt.payoutRef', 'Payout reference (UPI ref / bank ref / cheque no.) — required'));
     if (!ref || !ref.trim()) return;
-    const method = prompt('Payout method (UPI / BANK / CASH / CHEQUE)?') ?? '';
+    const method = prompt(t('prompt.payoutMethod', 'Payout method (UPI / BANK / CASH / CHEQUE)?')) ?? '';
     setBusy(true);
     try {
       await markCommissionPaid({ id: commissionId, payoutReference: ref.trim(), payoutMethod: method.trim() || undefined });
@@ -591,7 +597,7 @@ function CommissionActions({ commissionId, onChange }: { commissionId: string; o
     setBusy(false);
   };
   const handleCancel = async () => {
-    const reason = prompt('Why cancel this commission? (recorded in audit)');
+    const reason = prompt(t('prompt.cancelReason', 'Why cancel this commission? (recorded in audit)'));
     if (!reason || !reason.trim()) return;
     setBusy(true);
     try {
@@ -607,14 +613,14 @@ function CommissionActions({ commissionId, onChange }: { commissionId: string; o
         disabled={busy}
         className="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[10.5px] text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-50"
       >
-        <CheckCircle2 className="h-3 w-3" aria-hidden /> Mark paid
+        <CheckCircle2 className="h-3 w-3" aria-hidden /> {t('commission.markPaid', 'Mark paid')}
       </button>
       <button
         onClick={handleCancel}
         disabled={busy}
         className="rounded-md border border-slate-700 px-2 py-1 text-[10.5px] text-slate-300 hover:bg-slate-800 disabled:opacity-50"
       >
-        Cancel
+        {t('commission.cancel', 'Cancel')}
       </button>
     </div>
   );

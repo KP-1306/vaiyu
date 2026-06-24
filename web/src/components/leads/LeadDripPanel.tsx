@@ -29,6 +29,7 @@ import type {
   DripStep,
   LeadDripSubscription,
 } from '../../types/drip';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   leadId: string;
@@ -36,6 +37,7 @@ interface Props {
 }
 
 export function LeadDripPanel({ leadId, hotelId }: Props) {
+  const t = useOwnerT('owner-leads');
   const qc = useQueryClient();
 
   const subsQ = useQuery({
@@ -73,7 +75,7 @@ export function LeadDripPanel({ leadId, hotelId }: Props) {
   return (
     <section className="rounded-lg border border-slate-800 bg-[#0F1320] p-3">
       <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-        Follow-up email sequences
+        {t('drip.heading', 'Follow-up email sequences')}
       </h3>
 
       {subsQ.isLoading && (
@@ -81,7 +83,7 @@ export function LeadDripPanel({ leadId, hotelId }: Props) {
       )}
 
       {!subsQ.isLoading && (subsQ.data?.length ?? 0) === 0 && (
-        <div className="text-[12px] text-slate-500">No drip sequences active for this lead.</div>
+        <div className="text-[12px] text-slate-500">{t('drip.noneActive', 'No drip sequences active for this lead.')}</div>
       )}
 
       <ul className="space-y-2">
@@ -93,7 +95,7 @@ export function LeadDripPanel({ leadId, hotelId }: Props) {
             onPause={() => pauseMut.mutate(sub.id)}
             onResume={() => resumeMut.mutate(sub.id)}
             onCancel={() => {
-              const reason = prompt('Why cancel this sequence? (logged to audit)');
+              const reason = prompt(t('drip.cancelPrompt', 'Why cancel this sequence? (logged to audit)'));
               if (!reason || !reason.trim()) return;
               cancelMut.mutate({ id: sub.id, reason: reason.trim() });
             }}
@@ -115,7 +117,11 @@ interface RowProps {
 }
 
 function SubscriptionRow({ sub, rule, onPause, onResume, onCancel, busy }: RowProps) {
-  const friendly = rule ? (DRIP_RULE_KIND_LABEL[rule.code] ?? rule.name) : 'Drip sequence';
+  const t = useOwnerT('owner-leads');
+  const td = useOwnerT('owner-drip');
+  const friendly = rule
+    ? td(`ruleKind.${rule.code}`, DRIP_RULE_KIND_LABEL[rule.code] ?? rule.name)
+    : t('drip.fallbackName', 'Drip sequence');
   const isOpen = sub.status === 'ACTIVE' || sub.status === 'PAUSED' || sub.status === 'NO_CHANNEL';
 
   const nextStepQ = useQuery({
@@ -144,7 +150,7 @@ function SubscriptionRow({ sub, rule, onPause, onResume, onCancel, busy }: RowPr
               disabled={busy}
               className="inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[10.5px] text-amber-200 hover:bg-amber-500/20 disabled:opacity-50"
             >
-              <Pause className="h-3 w-3" aria-hidden /> Pause
+              <Pause className="h-3 w-3" aria-hidden /> {t('drip.pause', 'Pause')}
             </button>
           )}
           {sub.status === 'PAUSED' && (
@@ -154,7 +160,7 @@ function SubscriptionRow({ sub, rule, onPause, onResume, onCancel, busy }: RowPr
               disabled={busy}
               className="inline-flex items-center gap-1 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[10.5px] text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-50"
             >
-              <Play className="h-3 w-3" aria-hidden /> Resume
+              <Play className="h-3 w-3" aria-hidden /> {t('drip.resume', 'Resume')}
             </button>
           )}
           {isOpen && (
@@ -162,7 +168,7 @@ function SubscriptionRow({ sub, rule, onPause, onResume, onCancel, busy }: RowPr
               type="button"
               onClick={onCancel}
               disabled={busy}
-              title="Cancel this sequence (terminal)"
+              title={t('drip.cancelTitle', 'Cancel this sequence (terminal)')}
               className="inline-flex items-center rounded-md border border-slate-700 px-2 py-1 text-[10.5px] text-slate-400 hover:bg-slate-800 disabled:opacity-50"
             >
               <Trash2 className="h-3 w-3" aria-hidden />
@@ -175,18 +181,22 @@ function SubscriptionRow({ sub, rule, onPause, onResume, onCancel, busy }: RowPr
 }
 
 function StatusLine({ sub, nextStep }: { sub: LeadDripSubscription; nextStep: DripStep | null }) {
+  const t = useOwnerT('owner-leads');
+  const td = useOwnerT('owner-drip');
   if (sub.status === 'COMPLETED') {
-    return <p className="text-[11px] text-slate-500">Sequence completed.</p>;
+    return <p className="text-[11px] text-slate-500">{t('drip.completed', 'Sequence completed.')}</p>;
   }
   if (sub.status === 'CANCELLED') {
-    return <p className="text-[11px] text-slate-500">Cancelled.</p>;
+    return <p className="text-[11px] text-slate-500">{t('drip.cancelled', 'Cancelled.')}</p>;
   }
   if (sub.status === 'NO_CHANNEL') {
-    return <p className="text-[11px] text-amber-300">No email on file — add one and resume.</p>;
+    return <p className="text-[11px] text-amber-300">{t('drip.noChannel', 'No email on file — add one and resume.')}</p>;
   }
   if (sub.status === 'PAUSED') {
-    const reason = sub.paused_reason ? (DRIP_PAUSE_REASON_LABEL[sub.paused_reason] ?? sub.paused_reason) : 'Paused';
-    return <p className="text-[11px] text-amber-300">Paused — {reason}</p>;
+    const reason = sub.paused_reason
+      ? td(`pauseReason.${sub.paused_reason}`, DRIP_PAUSE_REASON_LABEL[sub.paused_reason] ?? sub.paused_reason)
+      : t('drip.pausedFallback', 'Paused');
+    return <p className="text-[11px] text-amber-300">{t('drip.pausedReason', 'Paused — {{reason}}', { reason })}</p>;
   }
   // ACTIVE
   if (sub.next_step_due_at) {
@@ -194,10 +204,10 @@ function StatusLine({ sub, nextStep }: { sub: LeadDripSubscription; nextStep: Dr
     const dueText = isNaN(due.getTime()) ? sub.next_step_due_at : due.toLocaleString('en-IN');
     return (
       <p className="text-[11px] text-slate-400">
-        Next: <span className="text-emerald-300">step {(sub.next_step_idx ?? 0) + 1}</span> · {dueText}
+        {t('drip.next', 'Next:')} <span className="text-emerald-300">{t('drip.step', 'step {{n}}', { n: (sub.next_step_idx ?? 0) + 1 })}</span> · {dueText}
         {nextStep && <span className="text-slate-500"> · {nextStep.template_code}</span>}
       </p>
     );
   }
-  return <p className="text-[11px] text-slate-400">Active.</p>;
+  return <p className="text-[11px] text-slate-400">{t('drip.active', 'Active.')}</p>;
 }

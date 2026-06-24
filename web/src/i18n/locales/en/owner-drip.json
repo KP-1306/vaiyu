@@ -1,0 +1,63 @@
+{
+  "ruleKind": {
+    "GENERAL_ENQUIRY": "New enquiry follow-up",
+    "QUOTE_SENT": "Post-quote nudge",
+    "WALKIN_LOST": "Walk-in win-back"
+  },
+  "pauseReason": {
+    "LEAD_QUALIFIED": "Lead qualified — operator engaged",
+    "LEAD_WON": "Lead won",
+    "LEAD_CONVERTED": "Booked",
+    "LEAD_LOST": "Lead lost",
+    "SUPERSEDED_BY_QUOTE": "Quote sent — new sequence took over",
+    "MANUAL": "Paused manually",
+    "BOUNCED": "Email bounced",
+    "BOUNCED_TRANSIENT": "Email bounced (temporary)",
+    "BOUNCED_PERMANENT": "Email bounced (permanent)",
+    "COMPLAINT": "Guest marked as spam",
+    "LEAD_REPLIED_WHATSAPP": "Guest replied on WhatsApp",
+    "LEAD_REPLIED_EMAIL": "Guest replied on email",
+    "LEAD_REPLIED_SMS": "Guest replied on SMS",
+    "NO_CHANNEL": "No email on file",
+    "RULE_INACTIVE": "Rule disabled"
+  },
+  "page": {
+    "disabled": "Drip engine is disabled.",
+    "hotelNotFound": "Hotel not found for slug {{slug}}.",
+    "eyebrow": "Growth · {{hotel}}",
+    "title": "Follow-up email sequences",
+    "intro": "VAiyu sends these emails automatically on the schedule below — pause via Lead detail or disable a rule here. Drips auto-pause when a lead moves to Qualified / Won / Converted, and cancel on Lost.",
+    "channelNote": "Email channel only for v1. WhatsApp opens after Meta template approval. Daily send cap defaults to 200/hotel — adjust in hotel settings if needed.",
+    "noRules": "No drip rules. (Stock rules are seeded on hotel creation — this shouldn't be empty.)"
+  },
+  "trigger": {
+    "LEAD_CREATED": "Fires when a new lead is created",
+    "LEAD_QUOTED": "Fires when a lead reaches QUOTED",
+    "WALKIN_LOST": "Fires when a walk-in lead is marked LOST"
+  },
+  "rule": {
+    "active": "Active",
+    "disabled": "Disabled",
+    "disable": "Disable",
+    "enable": "Enable"
+  },
+  "step": {
+    "label": "Step {{n}}",
+    "active": "Active",
+    "sendWhen": "Send when (hours from subscription start)",
+    "nonNegative": "Must be a non-negative number.",
+    "subject": "Subject",
+    "body": "Body",
+    "placeholders": "Available placeholders:",
+    "saved": "Saved.",
+    "saveStep": "Save step",
+    "error": {
+      "SUBJECT_REQUIRED": "Subject required.",
+      "BODY_REQUIRED": "Body required.",
+      "INVALID_DELAY": "Delay must be ≥ 0.",
+      "NOT_AUTHORIZED": "Manager role required.",
+      "STEP_NOT_FOUND": "Step no longer exists.",
+      "default": "Save failed."
+    }
+  }
+}

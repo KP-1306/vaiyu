@@ -5,6 +5,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Clock, FileText, Loader2, Sparkles } from 'lucide-react';
 import { listQuoteDrafts, type QuoteDraftRow } from '../../services/quoteDraftService';
+import { useOwnerT, type OwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   hotelId: string;
@@ -13,18 +14,19 @@ interface Props {
   onPick: (row: QuoteDraftRow) => void;
 }
 
-function relTime(iso: string): string {
+function relTime(iso: string, t: OwnerT): string {
   const ms = Date.now() - new Date(iso).getTime();
   const m = Math.round(ms / 60_000);
-  if (m < 1) return 'just now';
-  if (m < 60) return `${m}m ago`;
+  if (m < 1) return t('previousDrafts.rel.justNow', 'just now');
+  if (m < 60) return t('previousDrafts.rel.mAgo', '{{m}}m ago', { m });
   const h = Math.round(m / 60);
-  if (h < 24) return `${h}h ago`;
+  if (h < 24) return t('previousDrafts.rel.hAgo', '{{h}}h ago', { h });
   const d = Math.round(h / 24);
-  return `${d}d ago`;
+  return t('previousDrafts.rel.dAgo', '{{d}}d ago', { d });
 }
 
 export function QuotePreviousDrafts({ hotelId, leadId, activeId, onPick }: Props) {
+  const t = useOwnerT('owner-quote');
   const query = useQuery({
     queryKey: ['quote-drafts', 'list', hotelId, leadId],
     queryFn: () => listQuoteDrafts(hotelId, { leadId, limit: 10 }),
@@ -39,15 +41,15 @@ export function QuotePreviousDrafts({ hotelId, leadId, activeId, onPick }: Props
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold text-slate-100 inline-flex items-center gap-2">
           <Clock className="h-4 w-4 text-emerald-300" aria-hidden />
-          Previous drafts
+          {t('previousDrafts.title', 'Previous drafts')}
         </h3>
         {query.isFetching && <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-500" aria-hidden />}
       </div>
 
       <p className="text-[11px] text-slate-500">
         {leadId
-          ? 'Recent drafts for this enquiry.'
-          : 'Recent drafts for this hotel — pick a lead to narrow.'}
+          ? t('previousDrafts.forThisEnquiry', 'Recent drafts for this enquiry.')
+          : t('previousDrafts.forThisHotel', 'Recent drafts for this hotel — pick a lead to narrow.')}
       </p>
 
       {query.isError && (
@@ -55,7 +57,7 @@ export function QuotePreviousDrafts({ hotelId, leadId, activeId, onPick }: Props
       )}
 
       {rows.length === 0 && !query.isLoading && !query.isError ? (
-        <p className="text-[11px] text-slate-500">No saved drafts yet.</p>
+        <p className="text-[11px] text-slate-500">{t('previousDrafts.noSaved', 'No saved drafts yet.')}</p>
       ) : (
         <ul className="space-y-1.5">
           {rows.map((r) => {
@@ -81,12 +83,12 @@ export function QuotePreviousDrafts({ hotelId, leadId, activeId, onPick }: Props
                         <FileText className="h-3 w-3 text-slate-400" aria-hidden />
                       )}
                       <span className={r.generated_by === 'AI' ? 'text-emerald-200' : 'text-slate-400'}>
-                        {r.generated_by}
+                        {t(`previousDrafts.generatedBy.${r.generated_by}`, r.generated_by)}
                       </span>
                       <span className="text-slate-600">·</span>
-                      <span className="text-slate-400">{r.status}</span>
+                      <span className="text-slate-400">{t(`previousDrafts.status.${r.status}`, r.status)}</span>
                     </span>
-                    <span className="text-[10px] text-slate-500">{relTime(r.updated_at)}</span>
+                    <span className="text-[10px] text-slate-500">{relTime(r.updated_at, t)}</span>
                   </div>
                   <div className="mt-1 text-[11px] text-slate-300 line-clamp-2">{preview}…</div>
                 </button>

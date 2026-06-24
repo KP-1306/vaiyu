@@ -11,6 +11,15 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Search, CornerDownLeft, ArrowUp, ArrowDown, X, Loader2 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { OWNER_NAV, type OwnerNavItem } from "../lib/ownerNav";
+import { useOwnerT } from "../i18n/useOwnerT";
+
+// Maps an OwnerNavItem.group label to its owner-common translation key.
+const GROUP_KEY: Record<string, string> = {
+  "Operations": "operations",
+  "Revenue & Money": "revenueAndMoney",
+  "Growth": "growth",
+  "Setup": "setup",
+};
 
 const IS_MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 const RECENTS_KEY = "vaiyu.palette.recents.v1";
@@ -82,6 +91,11 @@ export default function CommandPalette() {
   const location = useLocation();
   const navigate = useNavigate();
   const slug = ownerSlug(location.pathname);
+  const tNav = useOwnerT("owner-common");
+  // Localized label/group for a nav item — used for BOTH search-matching and
+  // display so highlight ranges stay aligned in any language.
+  const navLabel = useCallback((nav: OwnerNavItem) => tNav(`nav.${nav.id}`, nav.label), [tNav]);
+  const groupLabel = useCallback((g: string) => tNav(`group.${GROUP_KEY[g] ?? g}`, g), [tNav]);
 
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -177,15 +191,17 @@ export default function CommandPalette() {
     }
     const scored: Array<{ nav: OwnerNavItem; ranges: Array<[number, number]>; score: number }> = [];
     for (const nav of searchable) {
-      const onLabel = matchLabel(nav.label, q);
+      const onLabel = matchLabel(navLabel(nav), q);
+      // keywords stay English (synonyms/abbreviations) so English search keeps
+      // working even when the visible label is Hindi.
       const onKw = nav.keywords ? matchLabel(nav.keywords, q) : null;
       const best = onLabel && (!onKw || onLabel.score >= onKw.score) ? onLabel : onKw;
       if (!best) continue;
       scored.push({ nav, ranges: onLabel ? onLabel.ranges : [], score: best.score });
     }
-    scored.sort((a, b) => b.score - a.score || a.nav.label.localeCompare(b.nav.label));
+    scored.sort((a, b) => b.score - a.score || navLabel(a.nav).localeCompare(navLabel(b.nav)));
     return scored.slice(0, 8).map(({ nav, ranges }) => ({ nav, ranges }));
-  }, [query, recents]);
+  }, [query, recents, navLabel]);
 
   /* flat list for keyboard nav (nav first, then bookings) */
   const flat: FlatItem[] = useMemo(() => {
@@ -246,11 +262,11 @@ export default function CommandPalette() {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          aria-label="Open search (Command or Control + K)"
+          aria-label={tNav("palette.open", "Open search (Command or Control + K)")}
           className="fixed bottom-5 right-5 z-[60] flex items-center gap-2 rounded-full border border-white/10 bg-[#16181b]/90 px-3.5 py-2 text-xs font-medium text-slate-300 shadow-xl backdrop-blur hover:border-indigo-500/40 hover:text-white transition"
         >
           <Search size={14} />
-          <span className="hidden sm:inline">Search</span>
+          <span className="hidden sm:inline">{tNav("palette.search", "Search")}</span>
           <kbd className="hidden sm:inline rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-slate-400">{IS_MAC ? "⌘" : "Ctrl"} K</kbd>
         </button>
       )}
@@ -261,7 +277,7 @@ export default function CommandPalette() {
           onMouseDown={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
           role="dialog"
           aria-modal="true"
-          aria-label="Command palette"
+          aria-label={tNav("palette.dialog", "Command palette")}
         >
           <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-white/10 bg-[#16181b] shadow-2xl font-['Outfit']">
             {/* input */}
@@ -272,8 +288,8 @@ export default function CommandPalette() {
                 value={query}
                 onChange={(e) => { setQuery(e.target.value); setActive(0); }}
                 onKeyDown={onInputKey}
-                placeholder="Search features, bookings, guests…"
-                aria-label="Search"
+                placeholder={tNav("palette.placeholder", "Search features, bookings, guests…")}
+                aria-label={tNav("palette.search", "Search")}
                 aria-activedescendant={flat[active] ? `cp-${flat[active].key}` : undefined}
                 className="w-full bg-transparent py-4 text-[15px] text-white placeholder-slate-500 outline-none"
               />
@@ -287,7 +303,7 @@ export default function CommandPalette() {
             <div ref={listRef} className="max-h-[55vh] overflow-y-auto py-2">
               {flat.length === 0 && (
                 <div className="px-4 py-10 text-center text-sm text-slate-500">
-                  {searching ? "Searching…" : "No matches. Try a feature name, booking code, or guest name."}
+                  {searching ? tNav("palette.searching", "Searching…") : tNav("palette.noMatches", "No matches. Try a feature name, booking code, or guest name.")}
                 </div>
               )}
 
@@ -295,7 +311,7 @@ export default function CommandPalette() {
               {navMatches.length > 0 && (
                 <>
                   <div className="px-4 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-                    {showRecentsHeader ? "Recent & all features" : "Features"}
+                    {showRecentsHeader ? tNav("palette.recentsHeader", "Recent & all features") : tNav("palette.featuresHeader", "Features")}
                   </div>
                   {navMatches.map((m) => {
                     const idx = runningIdx++;
@@ -312,8 +328,8 @@ export default function CommandPalette() {
                         className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition ${active === idx ? "bg-indigo-500/15 text-white" : "text-slate-300"}`}
                       >
                         <Icon size={16} className={active === idx ? "text-indigo-300" : "text-slate-500"} />
-                        <span className="flex-1 truncate"><Highlight text={m.nav.label} ranges={m.ranges} /></span>
-                        <span className="text-[10px] uppercase tracking-wide text-slate-600">{m.nav.group}</span>
+                        <span className="flex-1 truncate"><Highlight text={navLabel(m.nav)} ranges={m.ranges} /></span>
+                        <span className="text-[10px] uppercase tracking-wide text-slate-600">{groupLabel(m.nav.group)}</span>
                       </button>
                     );
                   })}
@@ -323,7 +339,7 @@ export default function CommandPalette() {
               {/* bookings section */}
               {bookings.length > 0 && (
                 <>
-                  <div className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Bookings &amp; guests</div>
+                  <div className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-500">{tNav("palette.bookingsHeader", "Bookings & guests")}</div>
                   {bookings.map((b) => {
                     const idx = runningIdx++;
                     return (
@@ -354,9 +370,9 @@ export default function CommandPalette() {
 
             {/* footer hints */}
             <div className="flex items-center gap-4 border-t border-white/[0.06] px-4 py-2 text-[11px] text-slate-500">
-              <span className="flex items-center gap-1"><ArrowUp size={11} /><ArrowDown size={11} /> navigate</span>
-              <span className="flex items-center gap-1"><CornerDownLeft size={11} /> open</span>
-              <span>esc to close</span>
+              <span className="flex items-center gap-1"><ArrowUp size={11} /><ArrowDown size={11} /> {tNav("palette.navigateHint", "navigate")}</span>
+              <span className="flex items-center gap-1"><CornerDownLeft size={11} /> {tNav("palette.openHint", "open")}</span>
+              <span>{tNav("palette.closeHint", "esc to close")}</span>
             </div>
           </div>
         </div>

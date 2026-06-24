@@ -18,6 +18,7 @@ import {
 import { otaOptimizerQueryKeys } from '../../services/otaOptimizerQueryKeys';
 import { OTAServiceError } from '../../types/otaOptimizer';
 import type { OTAPlatform } from '../../types/otaOptimizer';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   hotelId: string;
@@ -27,6 +28,7 @@ interface Props {
 }
 
 export function OTASettingsStrip({ hotelId, activeOtas, mountainOverride, effectiveMountain }: Props) {
+  const t = useOwnerT('owner-ota');
   const qc = useQueryClient();
   const [savingOtas, setSavingOtas] = useState(false);
   const [savingMtn, setSavingMtn] = useState(false);
@@ -39,7 +41,7 @@ export function OTASettingsStrip({ hotelId, activeOtas, mountainOverride, effect
     setError(null);
     const next = isActive(o) ? activeOtas.filter((x) => x !== o) : [...activeOtas, o];
     if (next.length === 0) {
-      setError('Select at least one OTA to keep active.');
+      setError(t('error.minOneOta', 'Select at least one OTA to keep active.'));
       return;
     }
     setSavingOtas(true);
@@ -49,7 +51,7 @@ export function OTASettingsStrip({ hotelId, activeOtas, mountainOverride, effect
       setSavedAt(Date.now());
     } catch (e) {
       const code = e instanceof OTAServiceError ? e.code : null;
-      setError(friendlyOtaError(code, 'Could not save OTA selection.'));
+      setError(friendlyOtaError(code, t('error.saveOtasFailed', 'Could not save OTA selection.')));
     } finally {
       setSavingOtas(false);
     }
@@ -64,7 +66,7 @@ export function OTASettingsStrip({ hotelId, activeOtas, mountainOverride, effect
       setSavedAt(Date.now());
     } catch (e) {
       const code = e instanceof OTAServiceError ? e.code : null;
-      setError(friendlyOtaError(code, 'Could not save mountain preference.'));
+      setError(friendlyOtaError(code, t('error.saveMountainFailed', 'Could not save mountain preference.')));
     } finally {
       setSavingMtn(false);
     }
@@ -72,17 +74,23 @@ export function OTASettingsStrip({ hotelId, activeOtas, mountainOverride, effect
 
   const recentlySaved = savedAt > 0 && Date.now() - savedAt < 4000;
 
+  const mountainOptions = [
+    { value: null, label: t('settings.mountain.auto', 'Auto') },
+    { value: true, label: t('settings.mountain.show', 'Show') },
+    { value: false, label: t('settings.mountain.hide', 'Hide') },
+  ] as const;
+
   return (
     <section className="rounded-2xl border border-slate-800 bg-[#151A25] p-4">
       <header className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-slate-200">
           <Settings className="h-4 w-4" />
-          <h3 className="text-sm font-semibold">Workbook settings</h3>
+          <h3 className="text-sm font-semibold">{t('settings.title', 'Workbook settings')}</h3>
         </div>
         {recentlySaved && (
           <span className="inline-flex items-center gap-1 text-[11px] text-emerald-300">
             <Check className="h-3 w-3" />
-            Saved
+            {t('settings.saved', 'Saved')}
           </span>
         )}
       </header>
@@ -90,9 +98,9 @@ export function OTASettingsStrip({ hotelId, activeOtas, mountainOverride, effect
       <div className="mt-3 grid gap-4 md:grid-cols-2">
         {/* Active OTAs */}
         <div>
-          <div className="text-[11px] uppercase tracking-wide text-slate-500">Active OTAs</div>
+          <div className="text-[11px] uppercase tracking-wide text-slate-500">{t('settings.activeOtas.label', 'Active OTAs')}</div>
           <p className="mt-0.5 text-[12px] text-slate-400">
-            Which OTAs do you currently list on? Inactive ones are excluded from scoring.
+            {t('settings.activeOtas.desc', 'Which OTAs do you currently list on? Inactive ones are excluded from scoring.')}
           </p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {OTA_PLATFORM_ORDER.map((o) => {
@@ -124,17 +132,13 @@ export function OTASettingsStrip({ hotelId, activeOtas, mountainOverride, effect
         <div>
           <div className="text-[11px] uppercase tracking-wide text-slate-500 flex items-center gap-1">
             <Mountain className="h-3 w-3" />
-            Mountain property disclosures
+            {t('settings.mountain.label', 'Mountain property disclosures')}
           </div>
           <p className="mt-0.5 text-[12px] text-slate-400">
-            Adds 13 extra checks for steep roads, snow, heating, etc. Auto-derived from state — override if your property doesn’t match.
+            {t('settings.mountain.desc', 'Adds 13 extra checks for steep roads, snow, heating, etc. Auto-derived from state — override if your property doesn\'t match.')}
           </p>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {([
-              { value: null, label: 'Auto' },
-              { value: true, label: 'Show' },
-              { value: false, label: 'Hide' },
-            ] as const).map((opt) => {
+            {mountainOptions.map((opt) => {
               const on = mountainOverride === opt.value;
               return (
                 <button
@@ -158,8 +162,12 @@ export function OTASettingsStrip({ hotelId, activeOtas, mountainOverride, effect
             })}
           </div>
           <div className="mt-1.5 text-[11px] text-slate-500">
-            Currently: <span className="text-slate-300 font-medium">{effectiveMountain ? 'Showing 13 mountain checks' : 'Hidden'}</span>
-            {mountainOverride === null && <span className="text-slate-500"> (auto-derived)</span>}
+            <span className="text-slate-300 font-medium">
+              {effectiveMountain
+                ? t('settings.mountain.showing', 'Showing 13 mountain checks')
+                : t('settings.mountain.hidden', 'Hidden')}
+            </span>
+            {mountainOverride === null && <span className="text-slate-500"> {t('settings.mountain.autoDerived', '(auto-derived)')}</span>}
           </div>
         </div>
       </div>

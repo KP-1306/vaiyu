@@ -1,0 +1,153 @@
+{
+  "page": {
+    "backToDashboard": "Dashboard",
+    "title": "Visibility"
+  },
+  "action": {
+    "refresh": "Refresh"
+  },
+  "notEnabled": "Visibility Score is disabled.",
+  "notFound": "Hotel not found.",
+  "hero": {
+    "signalsSatisfied": "Signals satisfied",
+    "pendingData": "Pending data",
+    "unlockableLater": "Unlockable later"
+  },
+  "band": {
+    "STRONG": "Strong",
+    "GOOD": "Good, with gaps",
+    "NEEDS_ATTENTION": "Needs attention",
+    "CRITICAL": "Critical gaps",
+    "ONBOARDING": "Onboarding"
+  },
+  "onboarding": {
+    "title": "Onboarding — complete a few basics to unlock your score",
+    "body": "The score appears once at least 5 signals are evaluable. Start with: phone number, address, map pin, logo, and at least one GMB attestation."
+  },
+  "cronHealth": {
+    "stale": "Last weekly snapshot was {{days}} days ago — take a manual snapshot via Refresh.",
+    "notStarted": "Weekly snapshots haven't started yet for this property. Take a manual snapshot via Refresh."
+  },
+  "error": {
+    "refreshRateLimitManager": "You can refresh again in a minute — rate-limited to prevent runaway snapshots.",
+    "refreshRateLimitOwner": "You can refresh once every 5 minutes. Try again shortly.",
+    "refreshFailed": "Refresh failed.",
+    "evidenceUrl": "Evidence URL must point to the official Google Business or supported review platform.",
+    "updateFailed": "Failed to update.",
+    "verifyFailed": "Failed to verify.",
+    "unverifyFailed": "Failed to unverify.",
+    "unverifyLocked": "Only the manager who verified this can unverify it."
+  },
+  "disclaimer": {
+    "toggleToHinglish": "Hinglish",
+    "toggleToEnglish": "English"
+  },
+  "status": {
+    "notYetSet": "Not yet set",
+    "pendingData": "Pending data",
+    "pass": "Pass",
+    "fail": "Fail",
+    "verified": "Verified",
+    "selfAttested": "Self-attested",
+    "notYetClaimed": "Not yet claimed",
+    "verificationExpired": "Verification expired"
+  },
+  "attest": {
+    "selfAttest": "Self-attest",
+    "unclaim": "Unclaim",
+    "reattest": "Re-attest",
+    "verify": "Verify",
+    "unverify": "Unverify",
+    "cancel": "Cancel",
+    "confirmSelfAttest": "Confirm self-attest",
+    "evidencePlaceholder": "Optional evidence URL (Google Business / review platform)",
+    "evidencePlaceholderShort": "Optional evidence URL",
+    "verifiedOn": "Verified {{date}}",
+    "selfAttestedOn": "Self-attested {{date}}",
+    "evidenceLink": "Evidence link",
+    "openPrefix": "Open"
+  },
+  "expiry": {
+    "expired": "Verification has expired — re-verify to restore full credit.",
+    "expiresIn_one": "Verification expires in {{count}} day.",
+    "expiresIn_other": "Verification expires in {{count}} days."
+  },
+  "excluded": "(excluded)",
+  "signalNotAvailable": "signal not available",
+  "pts": "pts",
+  "signal_one": "{{count}} signal",
+  "signal_other": "{{count}} signals",
+  "visibilityCategory": {
+    "GMB_READINESS": "Google Business profile",
+    "TRUST_REPUTATION": "Trust & reputation",
+    "DIGITAL_ASSETS": "Digital assets",
+    "DIRECT_ENQUIRY": "Direct enquiry readiness",
+    "EXPERIENCE_PACKAGES": "Local experience & packages"
+  },
+  "gbpCategory": {
+    "BUSINESS_PROFILE": "Business profile",
+    "LOCATION_ACCURACY": "Location accuracy",
+    "CONTACT_READINESS": "Contact readiness",
+    "CONTENT_READINESS": "Content readiness",
+    "TRUST_SIGNALS": "Trust signals",
+    "EXPERIENCE_READINESS": "Experience readiness",
+    "VERIFICATION_READINESS": "Verification readiness"
+  },
+  "gbp": {
+    "title": "Google Business Checklist",
+    "legacyTitle": "Google Business checklist",
+    "ready": "Ready (≥{{pct}}%)",
+    "belowReady": "Below {{pct}}%",
+    "items": "{{satisfied}} / {{total}} items",
+    "pts": "{{actual}} / {{max}} pts",
+    "descriptionSet": "Description set ({{len}} chars).",
+    "descriptionTooShort": "Description too short ({{len}} chars; need ≥30).",
+    "noDescription": "No description set in property settings.",
+    "amenitiesListed": "{{count}} amenities listed.",
+    "amenitiesInsufficient": "Only {{count}} amenities listed (need ≥3)."
+  },
+  "fixModule": {
+    "DAM": "Asset Manager",
+    "PACKAGE_BUILDER": "Package Builder",
+    "SEO_PLANNER": "SEO Planner",
+    "SEASONAL_CALENDAR": "Seasonal Calendar",
+    "VISIBILITY": "Visibility Score",
+    "SETTINGS": "Property settings"
+  },
+  "trendChart": {
+    "title": "Score history",
+    "snapshot_one": "{{count}} snapshot",
+    "snapshot_other": "{{count}} snapshots",
+    "noSnapshots": "No snapshots yet. The weekly cron writes the first one on Sunday 03:00 IST — or use the Refresh button to take one now.",
+    "oneSnapshot": "First snapshot taken — a second snapshot is needed to draw the trend line.",
+    "formulaVersion": "Score formula v{{version}}"
+  },
+  "card": {
+    "title": "Visibility Score",
+    "signalsSatisfied": "{{satisfied}}/{{total}} signals satisfied",
+    "loading": "Loading…",
+    "ptsPending": "{{pts}} pts pending data",
+    "stabilizing": "Score stabilizes after the first 7 days of snapshots.",
+    "sinceLastSnapshot": "since last snapshot",
+    "noChange": "No change since last snapshot"
+  },
+  "unverifyDialog": {
+    "title": "Unverify attestation",
+    "body": "This will demote the signal back to Self-attested (50% credit). The owner who attested it will be notified via the audit log. Please share the reason — it stays in the audit trail.",
+    "reasonLabel": "Reason",
+    "reasonPlaceholder": "e.g. Evidence link no longer valid; GMB profile was unverified by Google.",
+    "cancel": "Cancel",
+    "confirm": "Unverify",
+    "confirming": "Unverifying…",
+    "closeAriaLabel": "Close"
+  },
+  "reattestDialog": {
+    "title": "Replace manager verification?",
+    "bodyWithDate": "This signal is currently verified by a manager on {{date}}. Re-attesting will clear that verification and the credit will drop to 50% until a manager confirms the new evidence.",
+    "bodyNoDate": "This signal is currently verified by a manager. Re-attesting will clear that verification and the credit will drop to 50% until a manager confirms the new evidence.",
+    "keepVerification": "Keep verification",
+    "replace": "Replace verification",
+    "replacing": "Updating…",
+    "closeAriaLabel": "Close"
+  }
+}

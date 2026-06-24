@@ -11,6 +11,7 @@ import {
   rejectStayExtension,
   type StayExtensionRequest,
 } from "../../services/stayExtensionService";
+import { useOwnerT } from "../../i18n/useOwnerT";
 
 type Props = {
   hotelId: string | null;
@@ -36,6 +37,7 @@ function fmtTime(iso: string): string {
 }
 
 export default function PendingExtensionsCard({ hotelId, onResolved }: Props) {
+  const t = useOwnerT("owner-cards");
   const [requests, setRequests] = useState<StayExtensionRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,11 +58,11 @@ export default function PendingExtensionsCard({ hotelId, onResolved }: Props) {
       const rows = await listPendingExtensions(hotelId);
       setRequests(rows);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to load extensions.");
+      setError(e instanceof Error ? e.message : t("pendingExt.loadFailed", "Failed to load extensions."));
     } finally {
       setLoading(false);
     }
-  }, [hotelId]);
+  }, [hotelId, t]);
 
   useEffect(() => {
     load();
@@ -104,7 +106,7 @@ export default function PendingExtensionsCard({ hotelId, onResolved }: Props) {
       if (mode === "approve") {
         const parsed = amount.trim() === "" ? null : Number(amount);
         if (parsed != null && (!Number.isFinite(parsed) || parsed < 0)) {
-          setSubmitErr("Additional amount must be a non-negative number.");
+          setSubmitErr(t("pendingExt.amountInvalid", "Additional amount must be a non-negative number."));
           setSubmitting(false);
           return;
         }
@@ -123,7 +125,7 @@ export default function PendingExtensionsCard({ hotelId, onResolved }: Props) {
       await load();
       onResolved?.();
     } catch (e: unknown) {
-      setSubmitErr(e instanceof Error ? e.message : "Action failed.");
+      setSubmitErr(e instanceof Error ? e.message : t("pendingExt.actionFailed", "Action failed."));
     } finally {
       setSubmitting(false);
     }
@@ -140,7 +142,7 @@ export default function PendingExtensionsCard({ hotelId, onResolved }: Props) {
           <div className="flex items-center gap-2">
             <CalendarPlus className="w-4 h-4 text-amber-400" />
             <h3 className="text-sm font-bold uppercase tracking-wider text-amber-200">
-              Stay Extensions — Pending
+              {t("pendingExt.title", "Stay Extensions — Pending")}
             </h3>
             {requests.length > 0 && (
               <span className="rounded-full bg-amber-500/20 text-amber-200 px-2 py-0.5 text-[11px] font-bold">
@@ -154,7 +156,7 @@ export default function PendingExtensionsCard({ hotelId, onResolved }: Props) {
         {error && <p className="text-sm text-rose-300">{error}</p>}
 
         {!loading && requests.length === 0 && !error && (
-          <p className="text-xs text-slate-500">No pending extension requests.</p>
+          <p className="text-xs text-slate-500">{t("pendingExt.noPending", "No pending extension requests.")}</p>
         )}
 
         {requests.length > 0 && (
@@ -166,9 +168,8 @@ export default function PendingExtensionsCard({ hotelId, onResolved }: Props) {
               >
                 <div className="flex-1 min-w-[280px]">
                   <div className="text-sm text-slate-200">
-                    Extend by{" "}
                     <span className="font-bold text-white">
-                      {r.additional_nights} night{r.additional_nights === 1 ? "" : "s"}
+                      {t("pendingExt.extendBy", "Extend by {{count}} nights", { count: r.additional_nights })}
                     </span>{" "}
                     →{" "}
                     <span className="font-semibold text-amber-200">
@@ -176,8 +177,8 @@ export default function PendingExtensionsCard({ hotelId, onResolved }: Props) {
                     </span>
                   </div>
                   <div className="text-[11px] text-slate-500 mt-1">
-                    From {fmtDate(r.current_checkout_at)} · Requested {fmtTime(r.requested_at)}
-                    {r.requested_by_source === "guest" ? " · by Guest" : " · by Staff"}
+                    {t("pendingExt.from", "From {{date}}", { date: fmtDate(r.current_checkout_at) })} · {t("pendingExt.requested", "Requested {{time}}", { time: fmtTime(r.requested_at) })}
+                    {r.requested_by_source === "guest" ? ` · ${t("pendingExt.byGuest", "by Guest")}` : ` · ${t("pendingExt.byStaff", "by Staff")}`}
                   </div>
                   {r.guest_note && (
                     <div className="text-[11px] italic text-slate-400 mt-1">
@@ -191,14 +192,14 @@ export default function PendingExtensionsCard({ hotelId, onResolved }: Props) {
                     className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-200 px-3 py-1.5 text-xs font-bold transition"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />
-                    Approve
+                    {t("pendingExt.approve", "Approve")}
                   </button>
                   <button
                     onClick={() => openReview(r, "reject")}
                     className="inline-flex items-center gap-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-200 px-3 py-1.5 text-xs font-bold transition"
                   >
                     <X className="w-3.5 h-3.5" />
-                    Reject
+                    {t("pendingExt.reject", "Reject")}
                   </button>
                 </div>
               </div>
@@ -219,7 +220,7 @@ export default function PendingExtensionsCard({ hotelId, onResolved }: Props) {
           >
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-white">
-                {mode === "approve" ? "Approve Extension" : "Reject Extension"}
+                {mode === "approve" ? t("pendingExt.approveTitle", "Approve Extension") : t("pendingExt.rejectTitle", "Reject Extension")}
               </h2>
               <button
                 onClick={() => !submitting && setReviewing(null)}
@@ -231,16 +232,15 @@ export default function PendingExtensionsCard({ hotelId, onResolved }: Props) {
 
             <div className="space-y-1 text-sm text-slate-400 mb-4">
               <p>
-                <span className="text-slate-500">From:</span>{" "}
+                <span className="text-slate-500">{t("pendingExt.fromLabel", "From:")}</span>{" "}
                 {fmtDate(reviewing.current_checkout_at)}
               </p>
               <p>
-                <span className="text-slate-500">To:</span>{" "}
+                <span className="text-slate-500">{t("pendingExt.toLabel", "To:")}</span>{" "}
                 <span className="text-white font-semibold">
                   {fmtDate(reviewing.requested_checkout_at)}
                 </span>{" "}
-                ({reviewing.additional_nights} night
-                {reviewing.additional_nights === 1 ? "" : "s"})
+                ({t("pendingExt.nights", "{{count}} nights", { count: reviewing.additional_nights })})
               </p>
               {reviewing.guest_note && (
                 <p className="italic text-slate-500 pt-1">"{reviewing.guest_note}"</p>
@@ -250,7 +250,7 @@ export default function PendingExtensionsCard({ hotelId, onResolved }: Props) {
             {mode === "approve" && (
               <div className="space-y-2 mb-4">
                 <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Additional charge (₹)
+                  {t("pendingExt.additionalCharge", "Additional charge (₹)")}
                 </label>
                 <input
                   type="number"
@@ -258,26 +258,27 @@ export default function PendingExtensionsCard({ hotelId, onResolved }: Props) {
                   step={1}
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  placeholder="Leave blank to waive"
+                  placeholder={t("pendingExt.waivePlaceholder", "Leave blank to waive")}
                   className="w-full rounded-lg bg-white/[0.04] border border-white/[0.08] px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-400/50"
                 />
                 <p className="text-[10px] text-slate-500">
-                  Posted as ROOM_CHARGE on the folio. Leave blank to grant the
-                  extension at no cost.
+                  {t("pendingExt.chargeHint", "Posted as ROOM_CHARGE on the folio. Leave blank to grant the extension at no cost.")}
                 </p>
               </div>
             )}
 
             <div className="space-y-2 mb-4">
               <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Staff note (optional)
+                {t("pendingExt.staffNoteLabel", "Staff note (optional)")}
               </label>
               <input
                 type="text"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder={
-                  mode === "approve" ? "Approved by Mr. Sharma" : "Hotel fully booked"
+                  mode === "approve"
+                    ? t("pendingExt.approveNotePlaceholder", "Approved by Mr. Sharma")
+                    : t("pendingExt.rejectNotePlaceholder", "Hotel fully booked")
                 }
                 className="w-full rounded-lg bg-white/[0.04] border border-white/[0.08] px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-400/50"
               />
@@ -290,7 +291,7 @@ export default function PendingExtensionsCard({ hotelId, onResolved }: Props) {
                 onClick={() => !submitting && setReviewing(null)}
                 className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-4 py-2 text-sm font-semibold text-slate-200 transition"
               >
-                Cancel
+                {t("pendingExt.cancel", "Cancel")}
               </button>
               <button
                 onClick={submitReview}
@@ -303,10 +304,10 @@ export default function PendingExtensionsCard({ hotelId, onResolved }: Props) {
                 }
               >
                 {submitting
-                  ? "Saving…"
+                  ? t("pendingExt.saving", "Saving…")
                   : mode === "approve"
-                  ? "Confirm Approval"
-                  : "Confirm Rejection"}
+                  ? t("pendingExt.confirmApprove", "Confirm Approval")
+                  : t("pendingExt.confirmReject", "Confirm Rejection")}
               </button>
             </div>
           </div>

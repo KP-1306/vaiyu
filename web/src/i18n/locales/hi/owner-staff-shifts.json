@@ -1,0 +1,386 @@
+{
+  "crumbDashboard": "डैशबोर्ड",
+  "crumbStaffShifts": "स्टाफ़ और शिफ़्ट",
+  "common": {
+    "saveChanges": "बदलाव सेव करें",
+    "applying": "लागू हो रहा है…",
+    "noZone": "कोई ज़ोन नहीं",
+    "tryAgain": "दोबारा कोशिश करें"
+  },
+  "loading": {
+    "roster": "रोस्टर सिंक हो रहा है..."
+  },
+  "err": {
+    "loadProperty": "प्रॉपर्टी की जानकारी लोड करने में असफल।",
+    "propertyNotFound": "प्रॉपर्टी नहीं मिली।",
+    "loadRoleData": "रोल असाइनमेंट डेटा लोड करने में असफल।"
+  },
+  "shiftType": {
+    "morning": "मॉर्निंग",
+    "evening": "ईवनिंग",
+    "night": "नाइट"
+  },
+  "dowLetter": {
+    "0": "र",
+    "1": "सो",
+    "2": "मं",
+    "3": "बु",
+    "4": "गु",
+    "5": "शु",
+    "6": "श"
+  },
+  "dowShort": {
+    "0": "रवि",
+    "1": "सोम",
+    "2": "मंगल",
+    "3": "बुध",
+    "4": "गुरु",
+    "5": "शुक्र",
+    "6": "शनि"
+  },
+  "toast": {
+    "deactivated": "{{name}} को निष्क्रिय कर दिया गया",
+    "deactivateFailed": "यूज़र को निष्क्रिय करने में असफल",
+    "versionConflict": "शिफ़्ट को किसी और यूज़र ने अपडेट किया — रिफ़्रेश हो रहा है…",
+    "locked": "शिफ़्ट किसी और यूज़र द्वारा लॉक है",
+    "overlap": "शिफ़्ट मौजूदा शेड्यूल से टकरा रही है",
+    "notFound": "शिफ़्ट अब मौजूद नहीं है",
+    "notEditable": "केवल एक्टिव शेड्यूल्ड शिफ़्ट ही एडिट हो सकती हैं",
+    "opFailed": "ऑपरेशन असफल",
+    "opSuccess": "ऑपरेशन सफल",
+    "refreshed": "डेटा रिफ़्रेश हुआ — दोबारा कोशिश करें",
+    "invalidDuration": "अमान्य शिफ़्ट अवधि ({{hours}}h)",
+    "invalidDurationMax": "अमान्य शिफ़्ट अवधि ({{hours}}h) — अधिकतम 24h",
+    "splitRange": "स्प्लिट पॉइंट शिफ़्ट की अवधि के भीतर होना चाहिए",
+    "invalidTime": "अमान्य समय प्रारूप। HH:MM (24h) इस्तेमाल करें",
+    "partialConflicts": "आंशिक सफलता: {{count}} टकराव",
+    "selectStaff": "कृपया एक स्टाफ़ सदस्य चुनें",
+    "selectRange": "कृपया एक तारीख़ रेंज चुनें",
+    "noShiftsGen": "बनाने के लिए कोई शिफ़्ट नहीं — अपने दिन और तारीख़ रेंज जाँचें",
+    "previewFailed": "प्रीव्यू बनाने में असफल",
+    "allConflicts": "सभी शिफ़्ट में टकराव हैं — लागू करने को कुछ नहीं",
+    "someConflicts": "{{created}} शिफ़्ट बनीं, {{conflicts}} टकराव",
+    "scheduledOk": "{{count}} शिफ़्ट सफलतापूर्वक शेड्यूल हुईं",
+    "loadHistory": "हिस्ट्री लोड करने में असफल",
+    "loadRoles": "रोल लोड करने में असफल",
+    "inviteSent": "इनवाइट भेजा गया",
+    "inviteFailed": "इनवाइट भेजने में असफल",
+    "inviteRevoked": "इनवाइट रद्द किया गया",
+    "linkCopied": "लिंक कॉपी हुआ",
+    "cantDisablePrimary": "प्राइमरी डिपार्टमेंट बंद नहीं कर सकते। पहले किसी और डिपार्टमेंट को प्राइमरी बनाएँ।",
+    "deptRemoved": "{{name}} सफलतापूर्वक हटाया गया",
+    "deptRemoveFailed": "डिपार्टमेंट हटाने में असफल",
+    "deptPrimary": "{{name}} अब प्राइमरी डिपार्टमेंट है",
+    "deptPrimaryFailed": "प्राइमरी डिपार्टमेंट अपडेट करने में असफल",
+    "deptDuplicate": "स्टाफ़ पहले से इस डिपार्टमेंट में असाइन है",
+    "deptAssigned": "डिपार्टमेंट सफलतापूर्वक असाइन हुआ",
+    "deptAssignFailed": "डिपार्टमेंट असाइन करने में असफल",
+    "deptConfigUpdated": "डिपार्टमेंट कॉन्फ़िगरेशन अपडेट हुआ",
+    "reactivated": "{{name}} को फिर सक्रिय किया गया",
+    "reactivateFailed": "फिर सक्रिय करने में असफल",
+    "statusUpdated": "{{name}} को {{action}}",
+    "statusUpdateFailed": "स्टेटस अपडेट करने में असफल"
+  },
+  "action": {
+    "deactivated": "निष्क्रिय कर दिया गया",
+    "activated": "सक्रिय कर दिया गया",
+    "unverified": "अनवेरिफ़ाइड कर दिया गया",
+    "verified": "वेरिफ़ाई कर दिया गया"
+  },
+  "confirm": {
+    "cancelShift": "क्या आप वाकई यह शिफ़्ट रद्द करना चाहते हैं?",
+    "removeDept": "क्या आप वाकई {{name}} हटाना चाहते हैं?"
+  },
+  "prompt": {
+    "splitTime": "शिफ़्ट किस समय स्प्लिट करें? ({{start}} और {{end}} के बीच)",
+    "overrideReason": "आपको यह लॉक ओवरराइड करने की ज़रूरत क्यों है?",
+    "overrideDefault": "अर्जेंट ऑपरेशनल बदलाव"
+  },
+  "alert": {
+    "selectUserRole": "कृपया एक यूज़र और कम-से-कम एक रोल चुनें।",
+    "saveRolesFailed": "रोल असाइनमेंट सेव करने में असफल।"
+  },
+  "sidebar": {
+    "roster": "स्टाफ़ रोस्टर",
+    "liveStatus": "लाइव स्टेटस",
+    "members": "सदस्य",
+    "onShift": "ऑन शिफ़्ट",
+    "offDuty": "ऑफ़ ड्यूटी",
+    "deactivated": "निष्क्रिय",
+    "analytics": "एनालिटिक्स"
+  },
+  "nav": {
+    "dailyShifts": "डेली शिफ़्ट",
+    "shiftHistory": "शिफ़्ट हिस्ट्री"
+  },
+  "history": {
+    "globalTitle": "ग्लोबल शिफ़्ट हिस्ट्री",
+    "staffTitle": "स्टाफ़ शिफ़्ट हिस्ट्री",
+    "subtitle": "सभी शेड्यूलिंग बदलावों का ऑडिट ट्रेल",
+    "fetching": "लॉग लाए जा रहे हैं...",
+    "empty": "कोई हिस्ट्री लॉग नहीं मिला",
+    "purged": "रिकॉर्ड हटाया गया",
+    "loadingMore": "लोड हो रहा है...",
+    "loadMore": "और हिस्ट्री लोड करें",
+    "by": "{{name}} द्वारा",
+    "system": "सिस्टम",
+    "none": "कोई नहीं",
+    "field": {
+      "Time": "समय",
+      "Zone": "ज़ोन",
+      "Status": "स्टेटस",
+      "Type": "प्रकार"
+    },
+    "action": {
+      "created": "बनाया",
+      "updated": "अपडेट किया",
+      "cancelled": "रद्द किया",
+      "deleted": "हटाया"
+    }
+  },
+  "ops": {
+    "title": "ऑपरेशनल कमांड",
+    "invite": "टीममेट इनवाइट करें",
+    "assignRole": "रोल असाइन करें",
+    "assignShift": "शिफ़्ट असाइन करें",
+    "singleShift": "सिंगल शिफ़्ट",
+    "multipleStaff": "कई स्टाफ़ (बैच)",
+    "weeklySchedule": "वीकली शेड्यूल",
+    "smartSchedule": "स्मार्ट शेड्यूल (ऑटो)",
+    "templates": "टेम्पलेट",
+    "bulkActions": "बल्क एक्शन",
+    "bulkReassign": "बल्क रीअसाइन",
+    "bulkCancel": "बल्क शिफ़्ट रद्द करें",
+    "autoAssign": "ऑटो-असाइन (AI)"
+  },
+  "timeline": {
+    "title": "शिफ़्ट शेड्यूल",
+    "assignmentSaved": "असाइनमेंट सेव हुआ"
+  },
+  "filter": {
+    "departmentsHeading": "डिपार्टमेंट",
+    "allDepartments": "सभी डिपार्टमेंट",
+    "zonesHeading": "ज़ोन",
+    "allZones": "सभी ज़ोन"
+  },
+  "stats": {
+    "totalStaff": "कुल स्टाफ़",
+    "onShift": "ऑन शिफ़्ट",
+    "offShift": "ऑफ़ शिफ़्ट",
+    "morningShift": "मॉर्निंग शिफ़्ट",
+    "eveningShift": "ईवनिंग शिफ़्ट",
+    "nightShift": "नाइट शिफ़्ट"
+  },
+  "row": {
+    "unassignedDept": "अनअसाइंड डिपार्टमेंट",
+    "frontOffice": "फ्रंट ऑफिस",
+    "staffFallback": "स्टाफ़",
+    "assignShift": "शिफ़्ट असाइन करें"
+  },
+  "popover": {
+    "actions": "एक्शन",
+    "editShift": "शिफ़्ट एडिट करें",
+    "editStaffSettings": "स्टाफ़ सेटिंग्स एडिट करें",
+    "reassign": "रीअसाइन / मूव",
+    "splitShift": "शिफ़्ट स्प्लिट करें",
+    "lockShift": "शिफ़्ट लॉक करें",
+    "currentlyLocked": "अभी लॉक है",
+    "unlocked": "अनलॉक",
+    "requestOverride": "ओवरराइड का अनुरोध करें",
+    "activateDeactivate": "यूज़र सक्रिय / निष्क्रिय करें",
+    "aiInsight": "AI इनसाइट",
+    "aiAssignedPre": "असाइन किया गया ",
+    "aiAssignedHighlight": "प्राइमरी डिपार्टमेंट मैच",
+    "aiAssignedPost": " और संतुलित वर्कलोड के कारण।",
+    "reasonPrimary": "प्राइमरी डिपार्टमेंट मैच",
+    "reasonBalanced": "संतुलित वर्कलोड",
+    "reasonHighPriority": "उच्च प्राथमिकता वाला स्टाफ़",
+    "viewFullInsight": "पूरी इनसाइट देखें",
+    "overlapTitle": "शिफ़्ट ओवरलैप मिला",
+    "overlapBody": "किसी और असाइनमेंट से टकराव है।"
+  },
+  "quickAssign": {
+    "title": "क्विक असाइन",
+    "custom": "कस्टम शिफ़्ट..."
+  },
+  "details": {
+    "title": "स्टाफ़ विवरण",
+    "backToRoster": "रोस्टर पर वापस",
+    "editStaff": "स्टाफ़ एडिट करें",
+    "departmentsCount": "डिपार्टमेंट • {{count}}",
+    "availability": "उपलब्धता",
+    "notScheduled": "शेड्यूल नहीं"
+  },
+  "field": {
+    "staffMember": "स्टाफ़ सदस्य",
+    "staff": "स्टाफ़",
+    "shiftType": "शिफ़्ट प्रकार",
+    "type": "प्रकार",
+    "startTime": "शुरू समय",
+    "endTime": "अंत समय",
+    "start": "शुरू",
+    "end": "अंत",
+    "from": "से",
+    "to": "तक",
+    "zone": "ज़ोन",
+    "zoneOptional": "ज़ोन (वैकल्पिक)",
+    "assignmentZone": "असाइनमेंट ज़ोन",
+    "noSpecificZone": "कोई विशेष ज़ोन नहीं",
+    "email": "ईमेल",
+    "role": "रोल",
+    "selectStaff": "स्टाफ़ चुनें"
+  },
+  "assignModal": {
+    "title": "नई शिफ़्ट असाइन करें",
+    "subtitle": "अपनी टीम के लिए नई शेड्यूल एंट्री बनाएँ।",
+    "confirm": "असाइनमेंट कन्फ़र्म करें"
+  },
+  "bulkModal": {
+    "title": "बल्क शिफ़्ट असाइन करें",
+    "subtitle": "एक साथ कई स्टाफ़ के लिए शिफ़्ट बनाएँ।",
+    "selectStaff": "स्टाफ़ सदस्य चुनें",
+    "create": "{{count}} शिफ़्ट बनाएँ"
+  },
+  "editShiftModal": {
+    "title": "शिफ़्ट एडिट करें",
+    "subtitle": "शिफ़्ट समय या रीअसाइनमेंट विवरण अपडेट करें।"
+  },
+  "roleModal": {
+    "title": "सदस्य रोल असाइन करें",
+    "subtitle": "किसी टीम सदस्य को एक या कई रोल से मैप करें।",
+    "loading": "सदस्य और रोल लोड हो रहे हैं...",
+    "selectMember": "टीम सदस्य चुनें",
+    "selectMemberPlaceholder": "-- एक सदस्य चुनें --",
+    "manageRoles": "सदस्य रोल मैनेज करें",
+    "noRoles": "कोई रोल परिभाषित नहीं",
+    "noRolesHint": "कृपया पहले होटल रोल सेट करें।",
+    "template": "टेम्पलेट",
+    "savingMapping": "मैपिंग सेव हो रही है…",
+    "saveAssignments": "नए असाइनमेंट सेव करें"
+  },
+  "inviteModal": {
+    "title": "टीममेट इनवाइट करें",
+    "subtitle": "रोल-स्कोप्ड लॉगिन इनवाइट भेजें। वे इस ईमेल से साइन इन करते हैं, फिर एक्सेप्ट लिंक खोलते हैं।",
+    "loadingRoles": "रोल लोड हो रहे हैं…",
+    "noRoles": "अभी कोई इनवाइट-योग्य रोल नहीं",
+    "noRolesHint": "केवल ओनर रोल मौजूद है। टीममेट इनवाइट करने से पहले सेटअप में स्टाफ़ रोल (मैनेजर, फ्रंट डेस्क, हाउसकीपिंग…) बनाएँ।",
+    "setupRoles": "रोल सेट करें",
+    "emailPlaceholder": "person@hotel.com",
+    "sending": "भेजा जा रहा है…",
+    "sendInvite": "इनवाइट भेजें",
+    "sentShare": "इनवाइट भेजा गया · यह एक्सेप्ट लिंक शेयर करें",
+    "copyLink": "लिंक कॉपी करें",
+    "pending": "पेंडिंग इनवाइट",
+    "noPending": "कोई पेंडिंग इनवाइट नहीं।",
+    "roleFallback": "रोल",
+    "expires": "समाप्ति {{date}}",
+    "copyAccept": "एक्सेप्ट लिंक कॉपी करें",
+    "revoke": "इनवाइट रद्द करें"
+  },
+  "weekly": {
+    "title": "वीकली शेड्यूलिंग",
+    "subtitle": "बार-बार दोहराने वाले शिफ़्ट पैटर्न बनाएँ",
+    "selectStaff": "स्टाफ़ सदस्य चुनें...",
+    "days": "दिन",
+    "allZonesOption": "सभी ज़ोन",
+    "preview": "शेड्यूल प्रीव्यू",
+    "colDate": "तारीख़",
+    "colTime": "समय",
+    "colStatus": "स्टेटस",
+    "conflict": "टकराव",
+    "clear": "ठीक",
+    "conflictSummary": "टकराव: {{conflicts}} · {{clear}} शिफ़्ट बनेंगी",
+    "allClear": "सभी {{count}} शिफ़्ट ठीक हैं — लागू करने को तैयार",
+    "apply": "शेड्यूल लागू करें"
+  },
+  "smart": {
+    "title": "स्मार्ट शेड्यूलर",
+    "subtitle": "हफ़्ते के लिए ऑप्टिमाइज़्ड शेड्यूल अपने-आप बनाएँ",
+    "week": "हफ़्ता",
+    "allZonesOption": "सभी ज़ोन",
+    "weekRange": "हफ़्ते की रेंज",
+    "demand": "प्रति दिन माँग",
+    "generating": "ऑप्टिमल शेड्यूल बन रहा है...",
+    "generate": "शेड्यूल जनरेट करें",
+    "assigned": "{{count}} शिफ़्ट असाइन हुईं",
+    "conflicts": "{{count}} टकराव",
+    "optimizing": "AI बैकग्राउंड में ग्लोबल ऑप्टिमाइज़ेशन खोज रहा है...",
+    "betterAvailable": "बेहतर शेड्यूल उपलब्ध है!",
+    "scoreImproved": "स्कोर बेहतर हुआ: {{base}} → {{improved}}",
+    "applyImproved": "बेहतर लागू करें",
+    "gridStaff": "स्टाफ़",
+    "conflictsTitle": "टकराव",
+    "noStaff": "कोई उपलब्ध स्टाफ़ नहीं",
+    "regenerate": "फिर जनरेट करें",
+    "hideConflicts": "टकराव छिपाएँ",
+    "seeConflicts": "टकराव देखें",
+    "apply": "शेड्यूल लागू करें"
+  },
+  "deptModal": {
+    "title": "डिपार्टमेंट मैनेज करें",
+    "subtitle": "वर्कस्पेस एक्सेस और प्राइमरी रोल कॉन्फ़िगर करें",
+    "unknownDept": "अज्ञात डिपार्टमेंट",
+    "primary": "प्राइमरी डिपार्टमेंट",
+    "priority": "प्राथमिकता {{n}}",
+    "disable": "बंद करें",
+    "isPrimary": "प्राइमरी है",
+    "makePrimary": "प्राइमरी बनाएँ",
+    "assignAdditional": "अतिरिक्त डिपार्टमेंट में असाइन करें...",
+    "select": "चुनें",
+    "selectDept": "एक डिपार्टमेंट चुनें",
+    "noOther": "कोई अन्य डिपार्टमेंट उपलब्ध नहीं"
+  },
+  "roster": {
+    "onShift": "ऑन शिफ़्ट स्टाफ़",
+    "deactivated": "निष्क्रिय स्टाफ़",
+    "offDuty": "ऑफ़ ड्यूटी स्टाफ़",
+    "reactivateHint": "एक्सेस बहाल करने के लिए सदस्यों को फिर सक्रिय करें",
+    "liveOverview": "लाइव स्टेटस ओवरव्यू",
+    "empty": "अभी इस मापदंड से कोई स्टाफ़ सदस्य मेल नहीं खाता।",
+    "noEmail": "कोई ईमेल नहीं दिया गया",
+    "reactivate": "फिर सक्रिय करें"
+  },
+  "deactivate": {
+    "title": "यूज़र निष्क्रिय करें?",
+    "confirm": "क्या आप वाकई {{name}} को निष्क्रिय करना चाहते हैं?",
+    "note": "इससे यूज़र को शेड्यूल नहीं किया जा सकेगा।",
+    "reasonPlaceholder": "कारण (ज़रूरी)",
+    "confirmBtn": "यूज़र निष्क्रिय करें"
+  },
+  "centralAssign": {
+    "assigning": "नई शिफ़्ट असाइन हो रही है",
+    "quickTemplates": "क्विक असाइन टेम्पलेट",
+    "or": "या",
+    "createCustom": "कस्टम शिफ़्ट बनाएँ"
+  },
+  "editStaff": {
+    "title": "स्टाफ़ सेटिंग्स एडिट करें",
+    "departments": "डिपार्टमेंट",
+    "primary": "प्राइमरी",
+    "roles": "रोल",
+    "noneAssigned": "अभी कोई डिपार्टमेंट या रोल असाइन नहीं।",
+    "activeStatus": "एक्टिव स्टेटस",
+    "activeHint": "शेड्यूलिंग और लॉगिन एक्सेस की अनुमति दें",
+    "verifyStatus": "वेरिफ़िकेशन स्टेटस",
+    "verifyHint": "SLA टिकट असाइनमेंट की अनुमति दें"
+  },
+  "confirmToggle": {
+    "deactivateTitle": "स्टाफ़ निष्क्रिय करें?",
+    "activateTitle": "स्टाफ़ सक्रिय करें?",
+    "removeVerifyTitle": "वेरिफ़िकेशन हटाएँ?",
+    "verifyTitle": "स्टाफ़ वेरिफ़ाई करें?",
+    "reactivateLater": "आप उन्हें बाद में निष्क्रिय सेक्शन से फिर सक्रिय कर सकते हैं।",
+    "restoreNote": "इससे शेड्यूलिंग एक्सेस बहाल होगी और यूज़र फिर लॉग इन कर पाएगा।",
+    "removeVerifyNote": "वेरिफ़िकेशन हटाने से इस यूज़र के लिए SLA टिकट असाइनमेंट रुक जाएँगे।",
+    "verifyNote": "इससे इस यूज़र के लिए SLA टिकट असाइनमेंट की अनुमति होगी।",
+    "confirm": "क्या आप वाकई {{name}} को {{action}} चाहते हैं?",
+    "verbDeactivate": "निष्क्रिय करना",
+    "verbUnverify": "अनवेरिफ़ाई करना",
+    "verbActivate": "सक्रिय करना",
+    "verbVerify": "वेरिफ़ाई करना",
+    "btnDeactivate": "निष्क्रिय करें",
+    "btnRemoveVerify": "वेरिफ़िकेशन हटाएँ",
+    "btnActivate": "सक्रिय करें",
+    "btnVerify": "वेरिफ़ाई करें"
+  }
+}

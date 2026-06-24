@@ -18,6 +18,7 @@ import {
 import { FollowUpBlockedWarning } from './FollowUpBlockedBanner';
 import { FollowUpRowMenu, type FollowUpRowActions } from './FollowUpRowMenu';
 import { track } from '../../lib/analytics';
+import { useOwnerT, type OwnerT } from '../../i18n/useOwnerT';
 
 type CopyState = 'idle' | 'copied' | 'error';
 
@@ -49,18 +50,18 @@ const STATUS_PILL: Record<FollowUpStatus, string> = {
   ADDRESSED: 'bg-slate-700/30 text-slate-300 border-slate-600',
 };
 
-function dueLabel(dueAt: string): string {
+function dueLabel(dueAt: string, t: OwnerT): string {
   const today = todayIsoLocal();
-  if (dueAt === today) return 'Due today';
+  if (dueAt === today) return t('row.dueToday', 'Due today');
   if (isOverdue(dueAt)) {
     const diffMs = new Date(today).getTime() - new Date(dueAt).getTime();
     const days = Math.max(1, Math.round(diffMs / 86400000));
-    return `Overdue by ${days} day${days === 1 ? '' : 's'}`;
+    return t('row.overdueBy', 'Overdue by {{count}} days', { count: days });
   }
   // Future
   const diffMs = new Date(dueAt).getTime() - new Date(today).getTime();
   const days = Math.max(1, Math.round(diffMs / 86400000));
-  return `Due in ${days} day${days === 1 ? '' : 's'}`;
+  return t('row.dueIn', 'Due in {{count}} days', { count: days });
 }
 
 export function FollowUpRow({
@@ -73,6 +74,7 @@ export function FollowUpRow({
   onUnblock,
   onReopen,
 }: Props) {
+  const t = useOwnerT('owner-followup');
   const [copyState, setCopyState] = useState<CopyState>('idle');
   const addressed = isAddressedOverlay || item.status === 'ADDRESSED';
   const blocked = item.status === 'BLOCKED' || !!item.blockedReason;
@@ -132,14 +134,14 @@ export function FollowUpRow({
           <span
             className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${PRIORITY_PILL[item.priority]}`}
           >
-            {PRIORITY_LABEL[item.priority]}
+            {t(`priority.${item.priority}`, PRIORITY_LABEL[item.priority])}
           </span>
           <span
             className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
               STATUS_PILL[addressed ? 'ADDRESSED' : item.status]
             }`}
           >
-            {STATUS_LABEL[addressed ? 'ADDRESSED' : item.status]}
+            {t(`status.${addressed ? 'ADDRESSED' : item.status}`, STATUS_LABEL[addressed ? 'ADDRESSED' : item.status])}
           </span>
           {menuActions && (
             <FollowUpRowMenu
@@ -153,15 +155,15 @@ export function FollowUpRow({
 
       <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-400">
         <span className="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-800/60 px-2 py-0.5 text-[11px] text-slate-200">
-          {CATEGORY_LABEL[item.category]}
+          {t(`category.${item.category}`, CATEGORY_LABEL[item.category])}
         </span>
         <span className="inline-flex items-center gap-1">
-          <span className="text-slate-500">Due:</span>
-          <span className="text-slate-200">{dueLabel(item.dueAt)}</span>
+          <span className="text-slate-500">{t('row.duePrefix', 'Due:')}</span>
+          <span className="text-slate-200">{dueLabel(item.dueAt, t)}</span>
         </span>
         <span className="inline-flex items-center gap-1">
           <User className="h-3 w-3 text-slate-500" aria-hidden />
-          <span className="text-slate-300">{item.assignedTo ?? 'Unassigned'}</span>
+          <span className="text-slate-300">{item.assignedTo ?? t('row.unassigned', 'Unassigned')}</span>
         </span>
         <span className="inline-flex items-center gap-1 text-slate-500">
           <span className="font-mono text-[10px]">{item.entityReference}</span>
@@ -176,7 +178,7 @@ export function FollowUpRow({
 
       <div className="mt-3 rounded-lg border border-slate-800 bg-[#0B0E14] p-3">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-          Recommended next step
+          {t('row.recommendedNextStep', 'Recommended next step')}
         </p>
         <p className="mt-1 text-xs text-slate-200">{item.recommendedManualAction}</p>
       </div>
@@ -196,17 +198,17 @@ export function FollowUpRow({
           {copyState === 'copied' ? (
             <>
               <Check className="h-3.5 w-3.5 text-emerald-300" aria-hidden />
-              Copied
+              {t('row.copied', 'Copied')}
             </>
           ) : copyState === 'error' ? (
             <>
               <AlertCircle className="h-3.5 w-3.5 text-red-300" aria-hidden />
-              Copy failed
+              {t('row.copyFailed', 'Copy failed')}
             </>
           ) : (
             <>
               <Copy className="h-3.5 w-3.5" aria-hidden />
-              Copy note
+              {t('row.copyNote', 'Copy note')}
             </>
           )}
         </button>
@@ -216,16 +218,16 @@ export function FollowUpRow({
           onClick={() => onMarkAddressed(item.id)}
           title={
             blocked
-              ? 'Resolve the guest issue first — outreach is blocked.'
+              ? t('row.markTitleBlocked', 'Resolve the guest issue first — outreach is blocked.')
               : addressed
-              ? 'Already marked addressed in this session.'
-              : 'Mark this follow-up as addressed (session only).'
+              ? t('row.markTitleAddressed', 'Already marked addressed in this session.')
+              : t('row.markTitleDefault', 'Mark this follow-up as addressed (session only).')
           }
           className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-200 hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
           data-testid={`follow-up-mark-${item.id}`}
         >
           <Check className="h-3.5 w-3.5" aria-hidden />
-          {addressed ? 'Addressed' : 'Mark addressed'}
+          {addressed ? t('row.addressed', 'Addressed') : t('row.markAddressed', 'Mark addressed')}
         </button>
       </footer>
     </article>

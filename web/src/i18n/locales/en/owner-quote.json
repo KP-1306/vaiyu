@@ -1,0 +1,200 @@
+{
+  "page": {
+    "notEnabled": "AI Quote Drafts is not enabled.",
+    "hotelNotFound": "Hotel not found.",
+    "ownerHome": "Owner Home",
+    "back": "Back to dashboard",
+    "title": "AI Quote Drafts",
+    "subtitle": "Pick an enquiry, choose a package, type the final price you commit to, and generate a draft proposal — by template or by AI. Edit freely, save, and copy to send via your usual channel.",
+    "aiLocked": "AI generation locked — enable in Settings",
+    "footer": "AI Quote Drafts — deterministic template or AI-assisted, both human-edited. No messages are sent and no booking is confirmed from this page."
+  },
+  "disclaimer": {
+    "title": "Indicative proposal — manual verification required.",
+    "body": "Indicative proposal only. Final room availability, price, taxes and booking confirmation must be manually confirmed by the property team.",
+    "governance": "AI draft future mein help karega, lekin abhi price aur room availability staff ko manually verify karni hogi."
+  },
+  "aiNotice": {
+    "title": "Phase 8A — no live AI in use.",
+    "body": "Draft text is generated from a deterministic template. Real AI generation will be enabled only after AI usage logging, owner approval workflow, prompt safety controls, and audit logs are in place."
+  },
+  "selectedEnquiry": {
+    "label": "Selected enquiry",
+    "partyPrefix": "Party:",
+    "rooms_one": "{{count}} room",
+    "rooms_other": "{{count}} rooms",
+    "dates": "Dates: {{checkIn}} → {{checkOut}}",
+    "sourcePrefix": "Source:",
+    "notePrefix": "Note:"
+  },
+  "leadPicker": {
+    "title": "Pick an enquiry",
+    "desc": "Choose from your open leads (status: New / Qualified / Quoted / Won). PII is read only — nothing is written or persisted by this workspace.",
+    "loadError": "Could not load leads. {{msg}}",
+    "loading": "Loading enquiries…",
+    "selectPlaceholder": "— Select a lead —",
+    "noOpenLeads": "No open leads found for this hotel. Add a lead from the Leads workspace first."
+  },
+  "packagePicker": {
+    "title": "Choose a package",
+    "sampleTemplates": "Sample templates",
+    "yourPackages": "Your packages",
+    "noPackageOption": "— No package (custom proposal) —",
+    "from": "from",
+    "noPublished": "No published packages yet. Showing sample templates — head to Experience Packages in the dashboard to build your own.",
+    "startingAt": "Starting at",
+    "inclusionsTitle": "Inclusions (tick what to include in this draft)",
+    "noInclusions": "No inclusions configured for this package.",
+    "leaveUnticked": "Leave all unticked to include the package's default list in the draft.",
+    "notesPrefix": "Notes:"
+  },
+  "verified": {
+    "title": "Verified details (manual)",
+    "roomType": "Room type",
+    "selectRoomType": "— Select room type —",
+    "roomTypeError": "Couldn't load room types: {{msg}}",
+    "nights": "Nights",
+    "finalPrice": "Final price (typed manually — what you commit to the guest)",
+    "pricePlaceholder": "e.g. ₹8,500 per room per night (inclusive of breakfast)",
+    "suggestedRate": "Suggested base rate from your rate engine: {{rate}} per night. For reference only — type your final price above.",
+    "notesLabel": "Notes to the guest (optional)",
+    "notesPlaceholder": "e.g. Early check-in subject to room readiness, complimentary fruit basket on arrival.",
+    "approvalTitle": "Operator approval required before copy",
+    "cbAvailability": "I verified room type, price and availability manually.",
+    "cbTerms": "I understand this is a draft proposal, not a confirmed booking."
+  },
+  "generator": {
+    "intro": "Generate the draft — by deterministic template or by AI. Either way, edit before sending.",
+    "fromTemplate": "Generate from template",
+    "withAi": "Generate with AI",
+    "generatingAi": "Generating with AI…",
+    "aiTitleLocked": "Owner must enable AI quote drafts in Settings.",
+    "aiTitleUnavailable": "AI generation not available.",
+    "aiTitleReady": "Generate with Anthropic Claude.",
+    "saved": "Saved",
+    "saveChanges": "Save changes",
+    "saveDraft": "Save draft",
+    "markedSent": "Marked sent via {{channel}} just now. This records the operator's manual send — VAiyu does not send any message itself.",
+    "aiMeta": "AI · {{model}} · {{tokens}} tokens",
+    "openSettings": "Open Settings"
+  },
+  "aiError": {
+    "CONSENT_REQUIRED": "AI generation is locked for this hotel.",
+    "BUDGET_EXCEEDED": "Daily AI budget reached for this hotel.",
+    "AI_NOT_CONFIGURED": "AI provider is not configured on the server.",
+    "AI_UPSTREAM_ERROR": "AI provider is currently unreachable.",
+    "AI_REFUSED": "AI declined to draft — too little information.",
+    "RATE_LIMITED": "Too many requests. Try again in a minute.",
+    "NOT_AUTHORIZED": "You are not authorised for this hotel.",
+    "default": "AI generation failed."
+  },
+  "markSent": {
+    "tooltipSaveFirst": "Save the draft first.",
+    "tooltipTickBoxes": "Tick both approval checkboxes first.",
+    "tooltipAlready": "Already marked sent via {{channel}}.",
+    "tooltipDefault": "Record that you sent this draft via your usual channel.",
+    "sent": "Sent ({{channel}})",
+    "markAsSent": "Mark as sent",
+    "howSend": "How did you send it?",
+    "disclaimer": "VAiyu does not send the message. This just records what you did."
+  },
+  "channel": {
+    "WhatsApp": "WhatsApp",
+    "Email": "Email",
+    "Phone": "Phone",
+    "In-person": "In-person",
+    "Other": "Other"
+  },
+  "preview": {
+    "title": "Draft proposal",
+    "editable": "Editable",
+    "placeholder": "Select a lead and package, then click Generate draft. You can edit freely before copying.",
+    "hintEmpty": "No draft yet — fill the form on the left and click Generate.",
+    "hintReady": "Both governance checkboxes are ticked. You can copy when ready.",
+    "hintTick": "Tick both operator approval checkboxes above to enable Copy.",
+    "clear": "Clear",
+    "copied": "Copied",
+    "copyFailed": "Copy failed",
+    "copyDraft": "Copy draft",
+    "copyTitleDisabled": "Tick both approval checkboxes and generate a draft first.",
+    "copyTitleReady": "Copy draft to clipboard."
+  },
+  "previousDrafts": {
+    "title": "Previous drafts",
+    "forThisEnquiry": "Recent drafts for this enquiry.",
+    "forThisHotel": "Recent drafts for this hotel — pick a lead to narrow.",
+    "noSaved": "No saved drafts yet.",
+    "generatedBy": {
+      "AI": "AI",
+      "TEMPLATE": "Template"
+    },
+    "status": {
+      "DRAFT": "Draft",
+      "SENT": "Sent"
+    },
+    "rel": {
+      "justNow": "just now",
+      "mAgo": "{{m}}m ago",
+      "hAgo": "{{h}}h ago",
+      "dAgo": "{{d}}d ago"
+    }
+  },
+  "sendButton": {
+    "sendViaEmail": "Send via email",
+    "resendViaEmail": "Resend via email",
+    "tooltipTickBoxes": "Tick both approval checkboxes first.",
+    "tooltipNoEmail": "No email on file for this lead — open the lead and add one.",
+    "tooltipAlreadySentTo": "Already sent to {{addr}}. Click to resend.",
+    "tooltipAlreadySent": "Already sent. Click to resend.",
+    "tooltipSends": "Sends the quote PDF to {{recipient}} via Resend.",
+    "recipientFallback": "the recipient",
+    "resultResent": "Resent",
+    "resultSent": "Sent",
+    "viewPdf": "View PDF",
+    "sentAgo": "Sent {{rel}}",
+    "sentAgoTo": "Sent {{rel}} to {{addr}}",
+    "rel": {
+      "sAgo": "{{s}}s ago",
+      "mAgo": "{{m}}m ago",
+      "hAgo": "{{h}}h ago"
+    }
+  },
+  "sendModal": {
+    "titleSend": "Send quote via email",
+    "titleResend": "Resend quote via email",
+    "ctaSend": "Send email",
+    "ctaResend": "Resend email",
+    "close": "Close",
+    "recipientEmail": "Recipient email",
+    "recipientPlaceholder": "guest@example.com",
+    "invalidEmail": "Doesn't look like a valid email.",
+    "overrideSubject": "Override default subject",
+    "subjectPlaceholder": "Your subject",
+    "defaultSubject": "Default: \"Your quote from [hotel name]\"",
+    "resendReason": "Resend reason",
+    "resendPlaceholder": "Guest asked us to send again / updated price / etc.",
+    "resendHint": "Logged to audit. Helps you remember why you re-sent.",
+    "pdfNote": "A branded PDF is attached automatically. Generated from the current draft text — save edits before sending if needed.",
+    "cancel": "Cancel",
+    "sending": "Sending…",
+    "error": {
+      "IDEMPOTENCY_KEY_REQUIRED": "Internal: missing dedup token. Reopen the dialog and try again.",
+      "RECIPIENT_REQUIRED": "Please enter a recipient email.",
+      "INVALID_EMAIL": "That email doesn't look right.",
+      "SUBJECT_REQUIRED": "Subject cannot be empty.",
+      "BODY_REQUIRED": "Email body cannot be empty.",
+      "GOVERNANCE_INCOMPLETE": "Please tick both approval checkboxes before sending.",
+      "ALREADY_SENT": "This quote was already sent. Use Resend instead.",
+      "RESEND_REQUIRES_SENT": "Resend is only available after the first send. Use Send first.",
+      "RESEND_REASON_REQUIRED": "A short reason is required for a resend.",
+      "WHATSAPP_PENDING_APPROVAL": "WhatsApp is pending Meta template approval. Email only for now.",
+      "UNSUPPORTED_CHANNEL": "That delivery channel isn't supported yet.",
+      "PDF_GENERATION_FAILED": "Could not generate the PDF. Check the draft text and try again.",
+      "STORAGE_UPLOAD_FAILED": "Could not save the PDF. Please retry in a moment.",
+      "SIGN_URL_FAILED": "Could not produce a download link. Please retry.",
+      "NOT_AUTHORIZED": "You don't have permission to send quotes for this hotel.",
+      "QUOTE_NOT_FOUND": "This quote no longer exists.",
+      "default": "Send failed. Please try again. If it persists, contact support."
+    }
+  }
+}

@@ -6,16 +6,17 @@
 
 import { Lock } from 'lucide-react';
 import {
-  OTA_CATEGORY_LABEL,
   OTA_CATEGORY_ORDER,
   OTA_PLATFORM_LABEL,
   applicableCatalogItems,
 } from '../../config/otaOptimizer';
+import { useOwnerT } from '../../i18n/useOwnerT';
 import type {
   HotelOTAReadinessRow,
   HotelOTAReadinessStateRow,
   OTAPlatform,
   OTAReadinessCategory,
+  OTAReadinessBand,
   OTAReadinessStatus,
 } from '../../types/otaOptimizer';
 
@@ -90,14 +91,15 @@ export function OTAMatrixView({
   perOta,
   onSelectCell,
 }: Props) {
+  const t = useOwnerT('owner-ota');
   const otaScoreFor = (o: OTAPlatform) => perOta.find((r) => r.ota === o)?.ota_score ?? null;
   const otaBandFor = (o: OTAPlatform) => perOta.find((r) => r.ota === o)?.band ?? null;
 
   return (
     <section className="rounded-2xl border border-slate-800 bg-[#151A25] p-4">
-      <h3 className="text-sm font-semibold text-slate-100">Compare across OTAs</h3>
+      <h3 className="text-sm font-semibold text-slate-100">{t('matrix.title', 'Compare across OTAs')}</h3>
       <p className="mt-0.5 text-[12px] text-slate-400">
-        Click any cell to set statuses for that category × OTA. Empty cells = items don’t apply to that OTA.
+        {t('matrix.subtitle', 'Click any cell to set statuses for that category × OTA. Empty cells = items don\'t apply to that OTA.')}
       </p>
 
       <div className="mt-3 overflow-x-auto">
@@ -105,11 +107,11 @@ export function OTAMatrixView({
           <thead>
             <tr>
               <th className="sticky left-0 z-10 bg-[#151A25] text-left p-2 font-semibold text-slate-300 align-bottom min-w-[180px]">
-                Category
+                {t('matrix.categoryHeader', 'Category')}
               </th>
               {activeOtas.map((o) => {
                 const score = otaScoreFor(o);
-                const band = otaBandFor(o);
+                const band = otaBandFor(o) as OTAReadinessBand | null;
                 return (
                   <th key={o} className="p-2 text-center font-semibold text-slate-300 align-bottom whitespace-nowrap min-w-[110px]">
                     <div>{OTA_PLATFORM_LABEL[o]}</div>
@@ -121,7 +123,7 @@ export function OTAMatrixView({
                         band === 'CRITICAL' ? 'text-rose-300' :
                         'text-slate-500'
                       }>
-                        {band ?? ''}
+                        {band ? t(`band.${band}`, band) : ''}
                       </span>
                     </div>
                   </th>
@@ -135,7 +137,7 @@ export function OTAMatrixView({
               .map((cat) => (
                 <tr key={cat} className="border-t border-slate-800/60">
                   <td className="sticky left-0 z-10 bg-[#151A25] p-2 text-left text-slate-200 font-medium">
-                    {OTA_CATEGORY_LABEL[cat]}
+                    {t(`category.${cat}`, cat.replace(/_/g, ' ').toLowerCase())}
                   </td>
                   {activeOtas.map((o) => {
                     const stat = statForCell(o, cat, state, effectiveMountain);

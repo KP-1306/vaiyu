@@ -1,0 +1,23 @@
+{
+  "seo": { "title": "QR Sheet – Guest Menu" },
+  "header": {
+    "title": "QR Sheet for Guest Menu",
+    "property": "Property:",
+    "desc": "Print this sheet, cut the cards and place them in rooms / at reception. Scanning opens the VAiyu-powered guest menu for this property.",
+    "print": "Print"
+  },
+  "state": {
+    "loading": "Loading hotel…"
+  },
+  "card": {
+    "scanFor": "Scan for {{name}} services & menu",
+    "poweredBy": "Powered by VAiyu"
+  },
+  "footer": {
+    "guestLink": "Guest menu link:"
+  },
+  "err": {
+    "missingSlug": "Missing hotel slug. Open this page as /owner/<slug>/qr.",
+    "generic": "Failed to load hotel"
+  }
+}

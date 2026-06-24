@@ -16,6 +16,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import type { FollowUpStatus } from '../../types/followUp';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 export interface FollowUpRowActions {
   onDismiss: (reason: string | null) => void;
@@ -45,6 +46,7 @@ export function FollowUpRowMenu({
   disabled,
   testIdPrefix = 'follow-up',
 }: Props) {
+  const t = useOwnerT('owner-followup');
   const [mode, setMode] = useState<Mode>({ kind: 'closed' });
   const ref = useRef<HTMLDivElement | null>(null);
 
@@ -78,7 +80,7 @@ export function FollowUpRowMenu({
         type="button"
         onClick={() => setMode((m) => (m.kind === 'closed' ? { kind: 'menu' } : { kind: 'closed' }))}
         disabled={disabled}
-        aria-label="More actions"
+        aria-label={t('rowMenu.moreActions', 'More actions')}
         aria-haspopup="menu"
         aria-expanded={mode.kind !== 'closed'}
         data-testid={`${testIdPrefix}-row-menu-trigger`}
@@ -95,7 +97,7 @@ export function FollowUpRowMenu({
           {canBlock && (
             <MenuItem
               icon={<Ban className="h-3.5 w-3.5 text-amber-300" />}
-              label="Mark blocked"
+              label={t('rowMenu.markBlocked', 'Mark blocked')}
               onClick={() => setMode({ kind: 'block-form', reason: '' })}
               testId={`${testIdPrefix}-row-block`}
             />
@@ -103,7 +105,7 @@ export function FollowUpRowMenu({
           {canUnblock && (
             <MenuItem
               icon={<ShieldOff className="h-3.5 w-3.5 text-emerald-300" />}
-              label="Unblock"
+              label={t('rowMenu.unblock', 'Unblock')}
               onClick={() => {
                 actions.onUnblock();
                 setMode({ kind: 'closed' });
@@ -114,7 +116,7 @@ export function FollowUpRowMenu({
           {canDismiss && (
             <MenuItem
               icon={<Trash2 className="h-3.5 w-3.5 text-slate-400" />}
-              label="Dismiss"
+              label={t('rowMenu.dismiss', 'Dismiss')}
               onClick={() => setMode({ kind: 'dismiss-form', reason: '' })}
               testId={`${testIdPrefix}-row-dismiss`}
             />
@@ -122,7 +124,7 @@ export function FollowUpRowMenu({
           {canReopen && (
             <MenuItem
               icon={<RotateCcw className="h-3.5 w-3.5 text-emerald-300" />}
-              label="Reopen"
+              label={t('rowMenu.reopen', 'Reopen')}
               onClick={() => {
                 actions.onReopen();
                 setMode({ kind: 'closed' });
@@ -135,9 +137,9 @@ export function FollowUpRowMenu({
 
       {mode.kind === 'block-form' && (
         <ReasonForm
-          title="Block this follow-up"
-          placeholder="Why is this blocked? (e.g. open complaint, refund pending)"
-          confirmLabel="Block"
+          title={t('rowMenu.blockTitle', 'Block this follow-up')}
+          placeholder={t('rowMenu.blockPlaceholder', 'Why is this blocked? (e.g. open complaint, refund pending)')}
+          confirmLabel={t('rowMenu.blockConfirm', 'Block')}
           confirmIcon={<Ban className="h-3.5 w-3.5" />}
           confirmTone="amber"
           requireReason
@@ -155,9 +157,9 @@ export function FollowUpRowMenu({
 
       {mode.kind === 'dismiss-form' && (
         <ReasonForm
-          title="Dismiss this follow-up"
-          placeholder="Optional: why? (e.g. no longer relevant, guest cancelled)"
-          confirmLabel="Dismiss"
+          title={t('rowMenu.dismissTitle', 'Dismiss this follow-up')}
+          placeholder={t('rowMenu.dismissPlaceholder', 'Optional: why? (e.g. no longer relevant, guest cancelled)')}
+          confirmLabel={t('rowMenu.dismissConfirm', 'Dismiss')}
           confirmIcon={<CheckCircle2 className="h-3.5 w-3.5" />}
           confirmTone="slate"
           value={mode.reason}
@@ -226,6 +228,7 @@ function ReasonForm({
   onConfirm,
   testIdPrefix,
 }: ReasonFormProps) {
+  const t = useOwnerT('owner-followup');
   const confirmDisabled = requireReason && value.trim().length === 0;
   const confirmCls =
     confirmTone === 'amber'
@@ -253,7 +256,7 @@ function ReasonForm({
           onClick={onCancel}
           className="rounded-md border border-slate-700 bg-slate-800/60 px-2.5 py-1 text-[11px] text-slate-200 hover:bg-slate-800"
         >
-          Cancel
+          {t('rowMenu.cancel', 'Cancel')}
         </button>
         <button
           type="button"

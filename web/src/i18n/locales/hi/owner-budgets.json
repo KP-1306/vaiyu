@@ -1,0 +1,20 @@
+{
+  "title": "बजट",
+  "titleAccent": "प्लानर",
+  "subtitle": "हर कैटेगरी के लिए मासिक ऑपरेशनल बजट सेट करें।",
+  "crumbFinance": "फाइनेंस",
+  "crumbBudgets": "बजट",
+  "loading": "बजट लोड हो रहे…",
+  "hotelNotFound": "होटल नहीं मिला।",
+  "loadFailed": "बजट डेटा लोड करने में असफल।",
+  "notAuthenticated": "प्रमाणित नहीं।",
+  "enterAmount": "सेव करने के लिए कम से कम एक बजट राशि डालें।",
+  "saveFailed": "सेव असफल।",
+  "colCategory": "कैटेगरी",
+  "colBudget": "बजट (₹)",
+  "colNotes": "नोट्स",
+  "notePlaceholder": "वैकल्पिक नोट",
+  "total": "कुल",
+  "saved": "बजट सफलतापूर्वक सेव हुए।",
+  "saveBudgets": "बजट सेव करें"
+}

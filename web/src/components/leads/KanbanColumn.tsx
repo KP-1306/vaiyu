@@ -6,6 +6,7 @@ import { LEAD_STATUS_CONFIG } from './LeadStatusPill.config';
 import { KanbanLeadCard } from './KanbanLeadCard';
 import { isOptimisticLead, type OptimisticLead } from './LeadQuickAddModal.optimistic';
 import { moreInColumnLabel, canDropInKanban } from './kanbanHelpers';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   status: LeadStatus;
@@ -28,6 +29,7 @@ export function KanbanColumn({
   onViewInList,
   onCardClick,
 }: Props) {
+  const t = useOwnerT('owner-leads');
   const { isOver, setNodeRef } = useDroppable({
     id: status,
     data: { status },
@@ -41,7 +43,7 @@ export function KanbanColumn({
   const showValid = isOver && dragInProgress && canDropHere;
 
   const visibleCount = leads.length;
-  const moreLabel = moreInColumnLabel(visibleCount, totalInColumn);
+  const moreLabel = moreInColumnLabel(visibleCount, totalInColumn, t);
 
   return (
     <section
@@ -60,7 +62,7 @@ export function KanbanColumn({
         <div className="flex items-center gap-1.5">
           <span className={`h-2 w-2 rounded-full ${cfg.dot}`} aria-hidden="true" />
           <span className="text-xs font-semibold uppercase tracking-wider text-white/80">
-            {cfg.label}
+            {t(`status.${status}`, cfg.label)}
           </span>
         </div>
         <span className="text-[11px] text-white/50 font-mono tabular-nums">
@@ -81,7 +83,7 @@ export function KanbanColumn({
           </>
         ) : visibleCount === 0 ? (
           <div className="flex items-center justify-center h-20 text-[11px] text-white/30 italic">
-            No leads here
+            {t('kanban.noLeadsHere', 'No leads here')}
           </div>
         ) : (
           leads.map((lead) => {

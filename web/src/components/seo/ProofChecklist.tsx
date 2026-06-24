@@ -7,6 +7,7 @@
 import { Check, Square, CheckSquare } from 'lucide-react';
 import type { SeoProofItem } from '../../types/seoBlueprint';
 import { toggleProof } from './BlueprintForm.validation';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   items: SeoProofItem[];
@@ -15,10 +16,11 @@ interface Props {
 }
 
 export function ProofChecklist({ items, onChange, disabled = false }: Props) {
+  const t = useOwnerT('owner-seo');
   if (items.length === 0) {
     return (
       <p className="text-[11px] text-slate-500">
-        No proof items required for this category. The Policy Shield will still flag superlatives.
+        {t('proof.noneRequired', 'No proof items required for this category. The Policy Shield will still flag superlatives.')}
       </p>
     );
   }

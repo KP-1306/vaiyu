@@ -10,6 +10,7 @@ import { StatusFilterChips } from './StatusFilterChips';
 import { SourceFilterDropdown } from './SourceFilterDropdown';
 import { AssigneeFilterDropdown } from './AssigneeFilterDropdown';
 import type { LeadFiltersUrlState } from './leadsFilters';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   isOpen: boolean;
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export function FilterSheet({ isOpen, filters, onChange, onClose, onClearAll }: Props) {
+  const t = useOwnerT('owner-leads');
   const sheetRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -45,14 +47,14 @@ export function FilterSheet({ isOpen, filters, onChange, onClose, onClearAll }: 
         ref={sheetRef}
         role="dialog"
         aria-modal="true"
-        aria-label="Filter leads"
+        aria-label={t('filterSheet.ariaLabel', 'Filter leads')}
         className="w-full bg-[#101218] border-t border-white/10 rounded-t-2xl p-4 max-h-[80vh] overflow-y-auto"
       >
         <header className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-white">Filters</h2>
+          <h2 className="text-base font-semibold text-white">{t('filterBar.filters', 'Filters')}</h2>
           <button
             type="button"
-            aria-label="Close filters"
+            aria-label={t('filterSheet.close', 'Close filters')}
             onClick={onClose}
             className="p-1 rounded text-white/60 hover:text-white hover:bg-white/10"
           >
@@ -62,7 +64,7 @@ export function FilterSheet({ isOpen, filters, onChange, onClose, onClearAll }: 
 
         <div className="space-y-5">
           <section>
-            <h3 className="text-xs font-medium text-white/70 mb-2 uppercase tracking-wider">Status</h3>
+            <h3 className="text-xs font-medium text-white/70 mb-2 uppercase tracking-wider">{t('filterSheet.status', 'Status')}</h3>
             <StatusFilterChips
               value={filters.status ?? []}
               onChange={(next: LeadStatus[]) =>
@@ -72,7 +74,7 @@ export function FilterSheet({ isOpen, filters, onChange, onClose, onClearAll }: 
           </section>
 
           <section>
-            <h3 className="text-xs font-medium text-white/70 mb-2 uppercase tracking-wider">Source</h3>
+            <h3 className="text-xs font-medium text-white/70 mb-2 uppercase tracking-wider">{t('filterSheet.source', 'Source')}</h3>
             <SourceFilterDropdown
               value={filters.source ?? []}
               onChange={(next: LeadSource[]) =>
@@ -82,7 +84,7 @@ export function FilterSheet({ isOpen, filters, onChange, onClose, onClearAll }: 
           </section>
 
           <section>
-            <h3 className="text-xs font-medium text-white/70 mb-2 uppercase tracking-wider">Assignee</h3>
+            <h3 className="text-xs font-medium text-white/70 mb-2 uppercase tracking-wider">{t('filterSheet.assignee', 'Assignee')}</h3>
             <AssigneeFilterDropdown
               value={filters.assigned}
               onChange={(next) => onChange({ ...filters, assigned: next, page: 1 })}
@@ -96,14 +98,14 @@ export function FilterSheet({ isOpen, filters, onChange, onClose, onClearAll }: 
             onClick={onClearAll}
             className="text-sm text-white/60 hover:text-white"
           >
-            Clear all
+            {t('filterBar.clearAll', 'Clear all')}
           </button>
           <button
             type="button"
             onClick={onClose}
             className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-400 transition-colors"
           >
-            Apply
+            {t('filterSheet.apply', 'Apply')}
           </button>
         </footer>
       </div>

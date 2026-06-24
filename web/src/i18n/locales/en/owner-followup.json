@@ -1,0 +1,126 @@
+{
+  "page": {
+    "notEnabled": "Follow-up Radar is not enabled.",
+    "hotelNotFound": "Hotel not found.",
+    "back": "Back to dashboard",
+    "title": "Follow-up Radar",
+    "subtitle": "A safe, manual reminder workspace. New leads auto-create follow-ups; sent quotes auto-create nudge reminders. You decide what to act on next.",
+    "addFollowUp": "Add follow-up",
+    "syncFromLeads": "Sync from leads",
+    "syncTitle": "Backfill follow-ups for any leads that existed before this feature.",
+    "syncFailed": "Sync failed"
+  },
+  "badge": {
+    "dueToday": "Due today",
+    "overdue": "Overdue",
+    "blocked": "Blocked"
+  },
+  "bucket": {
+    "DUE_TODAY": "Due today",
+    "OVERDUE": "Overdue",
+    "BLOCKED": "Blocked — guest issue first",
+    "PENDING": "Coming up",
+    "ADDRESSED": "Already addressed"
+  },
+  "noMatch": {
+    "title": "No follow-ups match these filters.",
+    "body": "Try clearing one or two pills to widen the view."
+  },
+  "footer": {
+    "note": "Follow-up Radar — manual reminder workspace. No messages are sent and no tickets are updated from this page.",
+    "snapshot": "Snapshot: {{dueToday}} due today, {{overdue}} overdue, {{blocked}} blocked."
+  },
+  "category": {
+    "DIRECT_ENQUIRY": "Direct enquiry",
+    "QUOTE_SENT": "Quote sent",
+    "PACKAGE_ENQUIRY": "Package enquiry",
+    "REVIEW_REQUEST": "Review request",
+    "OWNER_REPLY": "Owner reply",
+    "UNRESOLVED_COMPLAINT": "Unresolved complaint",
+    "SLA_ESCALATION": "SLA escalation"
+  },
+  "status": {
+    "PENDING": "Pending",
+    "DUE": "Due",
+    "OVERDUE": "Overdue",
+    "BLOCKED": "Blocked",
+    "ADDRESSED": "Addressed"
+  },
+  "priority": {
+    "CRITICAL": "Critical",
+    "HIGH": "High",
+    "MEDIUM": "Medium",
+    "LOW": "Low"
+  },
+  "row": {
+    "dueToday": "Due today",
+    "overdueBy_one": "Overdue by {{count}} day",
+    "overdueBy_other": "Overdue by {{count}} days",
+    "dueIn_one": "Due in {{count}} day",
+    "dueIn_other": "Due in {{count}} days",
+    "duePrefix": "Due:",
+    "unassigned": "Unassigned",
+    "recommendedNextStep": "Recommended next step",
+    "copied": "Copied",
+    "copyFailed": "Copy failed",
+    "copyNote": "Copy note",
+    "markTitleBlocked": "Resolve the guest issue first — outreach is blocked.",
+    "markTitleAddressed": "Already marked addressed in this session.",
+    "markTitleDefault": "Mark this follow-up as addressed (session only).",
+    "addressed": "Addressed",
+    "markAddressed": "Mark addressed"
+  },
+  "rowMenu": {
+    "moreActions": "More actions",
+    "markBlocked": "Mark blocked",
+    "unblock": "Unblock",
+    "dismiss": "Dismiss",
+    "reopen": "Reopen",
+    "cancel": "Cancel",
+    "blockTitle": "Block this follow-up",
+    "blockPlaceholder": "Why is this blocked? (e.g. open complaint, refund pending)",
+    "blockConfirm": "Block",
+    "dismissTitle": "Dismiss this follow-up",
+    "dismissPlaceholder": "Optional: why? (e.g. no longer relevant, guest cancelled)",
+    "dismissConfirm": "Dismiss"
+  },
+  "filterBar": {
+    "showing": "Showing {{shown}} of {{all}} follow-ups",
+    "clearFilters": "Clear filters",
+    "category": "Category",
+    "status": "Status",
+    "priority": "Priority"
+  },
+  "disclaimer": {
+    "title": "Follow-up Radar v0 is a manual reminder workspace.",
+    "body": "It does not send messages, update tickets, or automate guest communication. Use this view to decide what to do next — the action itself stays with you.",
+    "hinglish": "Yeh radar batata hai kaunse follow-up aaj karne hain aur kaunse guest issue solve hone tak rokne chahiye."
+  },
+  "blocked": {
+    "title": "Outreach blocked — resolve guest issue first.",
+    "hinglish": "Pehle guest issue solve karein. Tab tak guest ko sales outreach mat bhejein."
+  },
+  "empty": {
+    "title": "No follow-ups yet",
+    "body": "Follow-ups appear here automatically when you add a lead in your CRM, or when you send a quote. You can also add one manually.",
+    "hinglish": "Jab aap Leads mein nayi enquiry add karte hain, follow-up yahan apne aap aa jaata hai.",
+    "addFollowUp": "Add follow-up",
+    "goToLeads": "Go to Leads"
+  },
+  "quickAdd": {
+    "title": "Add follow-up",
+    "subtitle": "Manual entry — for items the system didn't auto-create.",
+    "category": "Category",
+    "titleField": "Title",
+    "titlePlaceholder": "e.g. Call Mr Sharma about the wedding enquiry",
+    "context": "Context (optional)",
+    "contextPlaceholder": "A line or two about what to do.",
+    "dueDate": "Due date",
+    "priorityOptional": "Priority (optional)",
+    "autoByCategory": "Auto (by category)",
+    "titleRequired": "Title is required",
+    "couldNotCreate": "Could not create follow-up",
+    "cancel": "Cancel",
+    "createFollowUp": "Create follow-up"
+  }
+}

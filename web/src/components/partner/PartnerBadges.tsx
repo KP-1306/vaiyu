@@ -13,6 +13,7 @@ import {
   type PartnerKind,
   type PartnerCategory,
 } from '../../types/partner';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 const TONE_CLASSES: Record<string, string> = {
   green:   'border-emerald-500/40 bg-emerald-500/10 text-emerald-200',
@@ -28,17 +29,19 @@ function pillClass(tone: keyof typeof TONE_CLASSES): string {
 }
 
 export function PartnerStatusBadge({ status }: { status: PartnerStatus }) {
-  return <span className={pillClass(PARTNER_STATUS_TONE[status])}>{PARTNER_STATUS_LABEL[status]}</span>;
+  const t = useOwnerT('owner-partner');
+  return <span className={pillClass(PARTNER_STATUS_TONE[status])}>{t(`status.${status}`, PARTNER_STATUS_LABEL[status])}</span>;
 }
 
 export function PartnerKindBadge({ kind }: { kind: PartnerKind }) {
+  const t = useOwnerT('owner-partner');
   const tone = kind === 'AGENT' ? 'gold' : 'neutral';
-  const label = kind === 'AGENT' ? 'Agent' : 'Vendor';
-  return <span className={pillClass(tone)}>{label}</span>;
+  return <span className={pillClass(tone)}>{t(`kind.${kind}`, kind === 'AGENT' ? 'Agent' : 'Vendor')}</span>;
 }
 
 export function PartnerCategoryBadge({ category }: { category: PartnerCategory }) {
-  return <span className={pillClass('neutral')}>{PARTNER_CATEGORY_LABEL[category]}</span>;
+  const t = useOwnerT('owner-partner');
+  return <span className={pillClass('neutral')}>{t(`category.${category}`, PARTNER_CATEGORY_LABEL[category])}</span>;
 }
 
 export function PartnerVerificationBadge({
@@ -48,12 +51,13 @@ export function PartnerVerificationBadge({
   status: PartnerVerificationStatus;
   isStale: boolean;
 }) {
+  const t = useOwnerT('owner-partner');
   if (isStale) {
-    return <span className={pillClass('amber')}>{PARTNER_VERIFICATION_LABEL.VERIFIED} · stale</span>;
+    return <span className={pillClass('amber')}>{t('verification.VERIFIED', 'Verified')} · {t('verification.stale', 'stale')}</span>;
   }
   const tone =
     status === 'VERIFIED' ? 'green' :
     status === 'PENDING'  ? 'amber' :
     status === 'REJECTED' ? 'red'   : 'neutral';
-  return <span className={pillClass(tone)}>{PARTNER_VERIFICATION_LABEL[status]}</span>;
+  return <span className={pillClass(tone)}>{t(`verification.${status}`, PARTNER_VERIFICATION_LABEL[status])}</span>;
 }

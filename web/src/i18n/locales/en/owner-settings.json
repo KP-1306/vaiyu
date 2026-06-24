@@ -1,0 +1,223 @@
+{
+  "page": {
+    "title": "Owner Settings",
+    "subtitle": "Branding, contact & payments",
+    "slugPlaceholder": "hotel slug",
+    "slugTitle": "Hotel slug to load",
+    "reload": "Reload",
+    "loading": "Loading…"
+  },
+  "breadcrumb": {
+    "dashboard": "Dashboard",
+    "settings": "Settings"
+  },
+  "err": {
+    "couldNotReach": "Could not reach the Owner Settings API / database. Please confirm your VAiyu backend and Supabase are reachable.",
+    "couldNotSave": "Could not reach the Owner Settings API / database while saving. Please check your connection and try again.",
+    "failedLoad": "Failed to load settings",
+    "failedSave": "Failed to save",
+    "onboardingFailed": "Razorpay onboarding failed: {{msg}}"
+  },
+  "ok": {
+    "saved": "Saved successfully.",
+    "kycOpening": "Account created — opening KYC in a new tab.",
+    "testAccountCreated": "Razorpay test account created: {{id}}"
+  },
+  "identity": {
+    "name": "Name",
+    "slug": "Slug (read-only)",
+    "description": "Description",
+    "address": "Address",
+    "phone": "Phone",
+    "email": "Email",
+    "logoUrl": "Logo URL",
+    "brandColor": "Brand color",
+    "themeMode": "Theme mode",
+    "light": "Light",
+    "dark": "Dark",
+    "amenities": "Amenities (CSV)",
+    "amenitiesPlaceholder": "WiFi, Parking, Breakfast"
+  },
+  "legal": {
+    "title": "Legal & Invoice Settings",
+    "legalName": "Legal Entity Name",
+    "legalNamePlaceholder": "Registered Company Name",
+    "gstNumber": "Tax / GST Number",
+    "taxPct": "Tax %",
+    "serviceChargePct": "Service Charge %",
+    "invoicePrefix": "Invoice Prefix",
+    "nextInvoice": "Next Invoice #"
+  },
+  "ops": {
+    "title": "Operations & Policies",
+    "defaultCheckin": "Default Check-in",
+    "defaultCheckout": "Default Check-out",
+    "timezone": "Timezone",
+    "currency": "Currency Code",
+    "earlyCheckin": "Allow Early Check-in",
+    "lateCheckout": "Allow Late Check-out",
+    "googlePlaceId": "Google Place ID",
+    "googlePlaceIdHint": "Guests who rate 4★+ get a one-tap \"review on Google\" link. Find your ID with Google's Place ID Finder — search your hotel's name.",
+    "googlePlaceIdFinderLink": "Place ID Finder"
+  },
+  "guest": {
+    "title": "Guest Information",
+    "wifiSsid": "Wi-Fi SSID (Network Name)",
+    "wifiPassword": "Wi-Fi Password",
+    "breakfastStart": "Breakfast Start Time",
+    "breakfastEnd": "Breakfast End Time",
+    "notes": "Guest Notes & Instructions",
+    "notesPlaceholder": "Pool timing, emergency numbers, or standard property rules...",
+    "notesHint": "This information will be displayed to guests on their dashboard after they check in."
+  },
+  "preview": {
+    "title": "Microsite preview",
+    "label": "Property microsite"
+  },
+  "link": {
+    "title": "Guest link (WhatsApp + QR)",
+    "openWhatsApp": "Open in WhatsApp",
+    "desc": "Share this link with guests at check-in. It opens your VAiyu Scan screen, which then routes them to the in-room menu and services for this property.",
+    "scanLabel": "Guest scan link",
+    "waTemplate": "WhatsApp message template",
+    "qrTitle": "QR for room standee / table tent",
+    "qrAlt": "QR code for guest menu",
+    "qrMissing": "Slug missing – save hotel first to enable sharing."
+  },
+  "integrations": {
+    "title": "Integrations"
+  },
+  "save": {
+    "saveBtn": "Save settings",
+    "saving": "Saving…",
+    "revert": "Revert"
+  },
+  "razorpay": {
+    "title": "Online Payments",
+    "desc": "Choose how this hotel accepts online payments from guests. You can switch modes later without losing historical payment records.",
+    "badge": {
+      "direct": "Direct",
+      "route": "Route",
+      "none": "Cash only"
+    },
+    "mode": {
+      "noneTitle": "Cash only",
+      "noneHint": "Front-desk cash; no online buttons",
+      "directTitle": "Direct (your own Razorpay)",
+      "directHint": "Funds settle to your bank; vaiyu integrates",
+      "routeTitle": "Route (platform-managed)",
+      "routeHint": "Split via Linked Account",
+      "routeLocked": "Locked — pending turnover threshold"
+    },
+    "direct": {
+      "configured": "Configured with",
+      "testMode": "Test mode",
+      "disconnect": "Disconnect",
+      "disconnectConfirm": "Disconnect Razorpay? Online payments will be disabled for this hotel. Existing payments and refunds are preserved.",
+      "keyIdLabel": "Razorpay Key ID",
+      "keyIdError": "Must start with rzp_test_ or rzp_live_",
+      "secretLabel": "Razorpay Key Secret",
+      "secretHint": "From your Razorpay Dashboard → Settings → API Keys. Stored encrypted at rest.",
+      "showSecret": "Show secret",
+      "hideSecret": "Hide secret",
+      "saveBtn": "Test & save",
+      "saving": "Verifying with Razorpay…",
+      "secretHintPre": "From your",
+      "secretHintLink": "Razorpay Dashboard → Settings → API Keys",
+      "secretHintPost": ". Stored encrypted at rest."
+    },
+    "none": {
+      "hint": "This hotel is on cash only. Walk-in cash collection still works everywhere; only the \"Pay Online\" buttons across the app are hidden."
+    },
+    "webhook": {
+      "title": "Next: register this webhook in Razorpay",
+      "localDevWarning": "Local dev URL detected.",
+      "localDevHint": "Razorpay's servers can't reach your localhost — trying to register this URL will fail. Skip webhook registration for local testing; the verify-payment path records payments without webhooks.",
+      "instructions": "Open your Razorpay Dashboard → Settings → Webhooks → Add. Paste these values and subscribe to the listed events.",
+      "urlLabel": "Webhook URL",
+      "secretLabel": "Webhook Secret",
+      "eventsLabel": "Subscribed Events",
+      "copy": "Copy",
+      "copied": "Copied",
+      "openDashboard": "Open Razorpay Webhooks",
+      "verifyHint": "Verify it's your account: after registering the webhook, make a ₹1 test payment and confirm the transaction appears in your Razorpay Dashboard."
+    },
+    "route": {
+      "feePct": "Platform retains {{pct}}% per transaction via Route's transfers[] split.",
+      "accountIdLabel": "Linked Account ID",
+      "accountIdPlaceholder": "acc_xxxxxxxxxxxx",
+      "accountIdError": "Must look like acc_xxxxxxxxxxxx",
+      "accountIdFormatError": "Invalid format — Razorpay Linked Account IDs start with \"acc_\".",
+      "save": "Save",
+      "clear": "Clear",
+      "saved": "Saved.",
+      "connect": "Connect with Razorpay",
+      "manualSetup": "Or set up manually",
+      "noAccount": "Don't have a Linked Account yet?"
+    }
+  },
+  "wa": {
+    "title": "WhatsApp notifications",
+    "desc": "Send pre-checkin reminders, confirmations and updates to guests on WhatsApp.",
+    "active": "Active",
+    "notConfigured": "Not configured",
+    "tokenNote": "The Graph API access token is stored centrally — you don't need to provide it.",
+    "phoneNumberIdLabel": "Phone Number ID",
+    "phoneNumberIdHint": "Numeric ID Meta assigns to your business number.",
+    "displayNumberLabel": "Display Number",
+    "displayNumberHint": "Shown to guests on QR posters and wa.me links.",
+    "enableLabel": "Enable WhatsApp channel",
+    "enableDesc": "When off, all WhatsApp messages for this hotel are skipped (email/SMS fallbacks still run).",
+    "noPhoneError": "Enter the Meta phone_number_id before enabling.",
+    "saveErr": "Failed to save WhatsApp settings.",
+    "saveOk": "WhatsApp settings saved.",
+    "saveBtn": "Save WhatsApp settings",
+    "saving": "Saving…",
+    "infoHintPre": "Get these values from your",
+    "infoHintLink": "Meta WhatsApp Manager",
+    "infoHintPost": "after the platform admin adds your number to the VAiyu Business App."
+  },
+  "interakt": {
+    "title": "Interakt (WhatsApp BSP)",
+    "desc": "Approved templates via Interakt. Pre-checkin, check-out reminders, payment receipts, and inbound service requests.",
+    "routingViaInterakt": "Routing via Interakt",
+    "metaDirect": "Meta Direct (legacy)",
+    "providerLabel": "Provider",
+    "providerInterakt": "Interakt",
+    "providerMeta": "Meta Direct",
+    "providerInteraktDesc": "Use approved templates routed via Interakt's BSP. Best for production.",
+    "providerMetaDesc": "Use Meta Cloud API directly. Free-text only; templates limited.",
+    "dailyCapLabel": "Daily template-send cap (per hotel)",
+    "dailyCapUnit": "{{count}}/day",
+    "dailyCapHint": "When the cap is hit, new WhatsApp notifications queue for the next day. 0 disables outbound WhatsApp.",
+    "templateNotWiredAlert": "{{count}} WhatsApp notifications queued in the last 7 days but 0 sent. Likely cause: Interakt templates not yet registered.",
+    "health": {
+      "title": "Last 7 days",
+      "refresh": "Refresh",
+      "noData": "No data yet.",
+      "sentToday": "Sent today",
+      "cap": "/ {{cap}} cap",
+      "queued7d": "Queued (7d)",
+      "sent7d": "Sent (7d)",
+      "deliveryRate": "Delivery rate",
+      "failed7d": "Failed (7d)",
+      "delivered7d": "Delivered (7d)",
+      "read7d": "Read (7d)"
+    },
+    "saveErr": "Failed to save Interakt settings.",
+    "saveOk": "Interakt settings saved.",
+    "saveBtn": "Save Interakt settings",
+    "saving": "Saving…"
+  },
+  "aiConsent": {
+    "title": "AI Quote Drafts",
+    "desc": "Allow your front-desk team to use Anthropic Claude to draft quote proposals from real lead data. Drafts are always edited and approved by your team before being sent. Token usage is logged and capped per day.",
+    "statusLabel": "Status",
+    "statusEnabled": "Enabled — AI generation allowed",
+    "statusDisabled": "Disabled — template only",
+    "dailyCapLabel": "Daily token cap",
+    "errUpdate": "Could not update consent",
+    "footer": "When enabled, the AI uses your guest's name, dates and party size to draft a proposal. Never invents prices or availability. The disclaimer line is always included.",
+    "tokensPerDayUnit": "tokens / day"
+  }
+}

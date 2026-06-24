@@ -5,6 +5,7 @@
 
 import type { LeadStatus } from '../../types/lead';
 import { LEAD_STATUS_CONFIG } from './LeadStatusPill.config';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   value: LeadStatus[];
@@ -16,6 +17,7 @@ const ALL_STATUSES: LeadStatus[] = [
 ];
 
 export function StatusFilterChips({ value, onChange }: Props) {
+  const t = useOwnerT('owner-leads');
   function toggle(status: LeadStatus) {
     if (value.includes(status)) {
       onChange(value.filter((s) => s !== status));
@@ -25,7 +27,7 @@ export function StatusFilterChips({ value, onChange }: Props) {
   }
 
   return (
-    <div role="group" aria-label="Filter by status" className="flex flex-wrap gap-1.5">
+    <div role="group" aria-label={t('a11y.filterByStatus', 'Filter by status')} className="flex flex-wrap gap-1.5">
       {ALL_STATUSES.map((s) => {
         const active = value.includes(s);
         const cfg = LEAD_STATUS_CONFIG[s];

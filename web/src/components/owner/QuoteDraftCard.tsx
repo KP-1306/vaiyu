@@ -6,12 +6,14 @@
 import { Link } from 'react-router-dom';
 import { ChevronRight, FileText, Sparkles } from 'lucide-react';
 import { AI_QUOTE_DRAFTS_V0_ENABLED } from '../../config/quoteDrafts';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   hotelSlug: string;
 }
 
 export function QuoteDraftCard({ hotelSlug }: Props) {
+  const t = useOwnerT('owner-cards');
   if (!AI_QUOTE_DRAFTS_V0_ENABLED) return null;
 
   return (
@@ -27,13 +29,13 @@ export function QuoteDraftCard({ hotelSlug }: Props) {
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <h3 className="text-sm font-semibold text-slate-100">AI Quote Drafts</h3>
+              <h3 className="text-sm font-semibold text-slate-100">{t('quoteDraft.title', 'AI Quote Drafts')}</h3>
               <span className="inline-flex items-center rounded-md border border-emerald-500/40 bg-emerald-500/15 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-200">
                 v0
               </span>
             </div>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Guest ko quote bhejna hai? Draft yahan banayein
+              {t('quoteDraft.subtitle', 'Need to send a quote to a guest? Draft it here')}
             </p>
           </div>
         </div>
@@ -43,12 +45,12 @@ export function QuoteDraftCard({ hotelSlug }: Props) {
       <div className="mt-3 flex items-center gap-2 rounded-lg border border-slate-800 bg-[#0B0E14] px-3 py-2 text-[11px] text-slate-300">
         <Sparkles className="h-3.5 w-3.5 text-emerald-300 shrink-0" aria-hidden />
         <span>
-          Pick a lead, choose a package, type the final price, generate a draft to copy.
+          {t('quoteDraft.blurb', 'Pick a lead, choose a package, type the final price, generate a draft to copy.')}
         </span>
       </div>
 
       <p className="mt-3 text-[10px] text-slate-500">
-        Deterministic template. No live AI. No send. Manual verification required.
+        {t('quoteDraft.footer', 'Deterministic template. No live AI. No send. Manual verification required.')}
       </p>
     </Link>
   );

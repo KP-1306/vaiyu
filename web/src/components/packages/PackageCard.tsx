@@ -8,6 +8,7 @@ import type { Package } from '../../types/package';
 import { monthsToLabel } from '../../config/packages';
 import { PackageStatusPill, PackageApprovalPill } from './PackageStatusPill';
 import { PackageCategoryChip } from './PackageCategoryChip';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   pkg: Package;
@@ -18,7 +19,8 @@ interface Props {
 }
 
 export function PackageCard({ pkg, hotelSlug, onEdit, onOpenMenu, views7d }: Props) {
-  const monthsLabel = monthsToLabel(pkg.season_months);
+  const t = useOwnerT('owner-packages');
+  const monthsLabel = monthsToLabel(pkg.season_months, t);
 
   return (
     <article
@@ -45,7 +47,7 @@ export function PackageCard({ pkg, hotelSlug, onEdit, onOpenMenu, views7d }: Pro
           <button
             type="button"
             onClick={onOpenMenu}
-            aria-label="More actions"
+            aria-label={t('card.moreActions', 'More actions')}
             className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-700 bg-slate-800/60 text-slate-300 hover:bg-slate-800"
           >
             <MoreHorizontal className="h-3.5 w-3.5" aria-hidden />
@@ -63,7 +65,7 @@ export function PackageCard({ pkg, hotelSlug, onEdit, onOpenMenu, views7d }: Pro
         {views7d != null && views7d > 0 && (
           <span className="inline-flex items-center gap-1 text-slate-300">
             <Eye className="h-3 w-3 text-slate-500" aria-hidden />
-            {views7d} view{views7d === 1 ? '' : 's'} · 7d
+            {t('card.views', '{{count}} views · 7d', { count: views7d })}
           </span>
         )}
       </div>
@@ -81,7 +83,7 @@ export function PackageCard({ pkg, hotelSlug, onEdit, onOpenMenu, views7d }: Pro
               className="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[10px] text-emerald-200 hover:bg-emerald-500/20"
               data-testid={`package-public-link-${pkg.id}`}
             >
-              View public →
+              {t('card.viewPublic', 'View public →')}
             </Link>
           )}
           <button
@@ -91,7 +93,7 @@ export function PackageCard({ pkg, hotelSlug, onEdit, onOpenMenu, views7d }: Pro
             data-testid={`package-edit-${pkg.id}`}
           >
             <Pencil className="h-3 w-3" aria-hidden />
-            Edit
+            {t('card.edit', 'Edit')}
           </button>
         </div>
       </div>

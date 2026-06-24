@@ -23,6 +23,7 @@ import {
   VISIBILITY_BAND_TONE,
   VISIBILITY_SCORE_ENABLED,
 } from '../../config/visibilityScore';
+import { useOwnerT, useOwnerLang } from '../../i18n/useOwnerT';
 import {
   getVisibilityCronHealth,
   getVisibilityHistory,
@@ -71,6 +72,8 @@ function tonePick(b: VisibilityBand) {
 }
 
 export default function VisibilityWorkspace() {
+  const t = useOwnerT('owner-visibility');
+  const lang = useOwnerLang();
   const { slug } = useParams<{ slug: string }>();
   const qc = useQueryClient();
   const [isManager, setIsManager] = useState(false);
@@ -159,34 +162,34 @@ export default function VisibilityWorkspace() {
       if (e instanceof VisibilityServiceError && e.code === 'RATE_LIMIT_REFRESH') {
         setRefreshError(
           isManager
-            ? 'You can refresh again in a minute — rate-limited to prevent runaway snapshots.'
-            : 'You can refresh once every 5 minutes. Try again shortly.',
+            ? t('error.refreshRateLimitManager', 'You can refresh again in a minute — rate-limited to prevent runaway snapshots.')
+            : t('error.refreshRateLimitOwner', 'You can refresh once every 5 minutes. Try again shortly.'),
         );
       } else {
-        setRefreshError(e instanceof Error ? e.message : 'Refresh failed.');
+        setRefreshError(e instanceof Error ? e.message : t('error.refreshFailed', 'Refresh failed.'));
       }
     },
   });
 
   if (!VISIBILITY_SCORE_ENABLED) {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-10 text-sm text-slate-400">
-        Visibility Score is disabled.
+      <main className="vaiyu-owner mx-auto max-w-3xl px-4 py-10 text-sm text-slate-400">
+        {t('notEnabled', 'Visibility Score is disabled.')}
       </main>
     );
   }
 
   if (hotelQ.isLoading) {
     return (
-      <main className="grid min-h-[40vh] place-items-center bg-[#0B0E14] text-slate-400">
+      <main className="vaiyu-owner grid min-h-[40vh] place-items-center bg-[#0B0E14] text-slate-400">
         <Loader2 className="h-5 w-5 animate-spin" />
       </main>
     );
   }
   if (!hotel) {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-10 text-sm text-slate-400">
-        Hotel not found.
+      <main className="vaiyu-owner mx-auto max-w-3xl px-4 py-10 text-sm text-slate-400">
+        {t('notFound', 'Hotel not found.')}
       </main>
     );
   }
@@ -198,7 +201,7 @@ export default function VisibilityWorkspace() {
   const onboarding = band === 'ONBOARDING' || !breakdown || breakdown.signals_total < 5;
 
   return (
-    <main className="min-h-screen bg-[#0B0E14] text-slate-100">
+    <main className="vaiyu-owner min-h-screen bg-[#0B0E14] text-slate-100">
       <div className="mx-auto max-w-4xl px-4 py-6 space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between gap-3">
@@ -206,10 +209,10 @@ export default function VisibilityWorkspace() {
             to={`/owner/${hotel.slug}/dashboard`}
             className="inline-flex items-center gap-1 text-[12px] text-slate-300 hover:text-slate-100"
           >
-            <ArrowLeft className="h-4 w-4" /> Dashboard
+            <ArrowLeft className="h-4 w-4" /> {t('page.backToDashboard', 'Dashboard')}
           </Link>
           <h1 className="inline-flex items-center gap-2 text-[13px] font-semibold text-slate-100">
-            <Gauge className="h-4 w-4 text-sky-300" /> Visibility · {hotel.name}
+            <Gauge className="h-4 w-4 text-sky-300" /> {t('page.title', 'Visibility')} · {hotel.name}
           </h1>
           <button
             type="button"
@@ -223,7 +226,7 @@ export default function VisibilityWorkspace() {
             ) : (
               <RefreshCw className="h-3.5 w-3.5" />
             )}
-            Refresh
+            {t('action.refresh', 'Refresh')}
           </button>
         </div>
 
@@ -249,31 +252,33 @@ export default function VisibilityWorkspace() {
             </div>
             <div className="min-w-0 flex-1">
               <div className={`text-[14px] font-medium ${TONE_TEXT[tone]}`}>
-                {VISIBILITY_BAND_LABEL[band]}
+                {lang === 'hi' ? t(`band.${band}`, VISIBILITY_BAND_LABEL[band]) : VISIBILITY_BAND_LABEL[band]}
               </div>
-              <p className="mt-0.5 text-[12px] text-slate-400">
-                {VISIBILITY_BAND_LABEL_HI[band]}
-              </p>
+              {lang === 'en' && (
+                <p className="mt-0.5 text-[12px] text-slate-400">
+                  {VISIBILITY_BAND_LABEL_HI[band]}
+                </p>
+              )}
               {breakdown && (
                 <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-slate-400">
                   <div>
-                    Signals satisfied:{' '}
+                    {t('hero.signalsSatisfied', 'Signals satisfied')}:{' '}
                     <span className="text-slate-200">
                       {breakdown.signals_satisfied} / {breakdown.signals_total}
                     </span>
                   </div>
                   {breakdown.signals_excluded > 0 && (
                     <div>
-                      Pending data:{' '}
+                      {t('hero.pendingData', 'Pending data')}:{' '}
                       <span className="text-slate-200">
-                        {breakdown.signals_excluded} signal{breakdown.signals_excluded === 1 ? '' : 's'}
+                        {t('signal', '{{count}} signal', { count: breakdown.signals_excluded })}
                       </span>
                     </div>
                   )}
                   {breakdown.max_unlockable_weight > 0 && (
                     <div>
-                      Unlockable later:{' '}
-                      <span className="text-slate-200">+{breakdown.max_unlockable_weight} pts</span>
+                      {t('hero.unlockableLater', 'Unlockable later')}:{' '}
+                      <span className="text-slate-200">+{breakdown.max_unlockable_weight} {t('pts', 'pts')}</span>
                     </div>
                   )}
                 </div>
@@ -290,20 +295,19 @@ export default function VisibilityWorkspace() {
           {cronHealthQ.data && cronHealthQ.data.healthy === false && (
             <p className="mt-3 rounded border border-amber-500/40 bg-amber-500/10 p-2 text-[11px] text-amber-200">
               {cronHealthQ.data.last_cron_snapshot_at
-                ? `Last weekly snapshot was ${
-                    Math.floor((Date.now() - new Date(cronHealthQ.data.last_cron_snapshot_at).getTime()) / (24 * 60 * 60 * 1000))
-                  } days ago — take a manual snapshot via Refresh.`
-                : "Weekly snapshots haven't started yet for this property. Take a manual snapshot via Refresh."}
+                ? t('cronHealth.stale', 'Last weekly snapshot was {{days}} days ago — take a manual snapshot via Refresh.', {
+                    days: Math.floor((Date.now() - new Date(cronHealthQ.data.last_cron_snapshot_at).getTime()) / (24 * 60 * 60 * 1000)),
+                  })
+                : t('cronHealth.notStarted', "Weekly snapshots haven't started yet for this property. Take a manual snapshot via Refresh.")}
             </p>
           )}
         </section>
 
         {onboarding && (
           <section className="rounded-2xl border border-slate-700 bg-slate-900/40 p-4 text-[12px] text-slate-200" data-testid="onboarding-state">
-            <p className="font-medium">Onboarding — complete a few basics to unlock your score</p>
+            <p className="font-medium">{t('onboarding.title', 'Onboarding — complete a few basics to unlock your score')}</p>
             <p className="mt-1 text-[11px] text-slate-400">
-              The score appears once at least 5 signals are evaluable. Start with: phone number,
-              address, map pin, logo, and at least one GMB attestation.
+              {t('onboarding.body', 'The score appears once at least 5 signals are evaluable. Start with: phone number, address, map pin, logo, and at least one GMB attestation.')}
             </p>
           </section>
         )}

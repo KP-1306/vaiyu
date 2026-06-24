@@ -21,6 +21,7 @@ import {
   friendlyAssetError,
 } from '../../services/digitalAssetService';
 import type { AssetStatusRow } from '../../types/digitalAssets';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   row: AssetStatusRow;
@@ -28,6 +29,7 @@ interface Props {
 }
 
 export function AssetRequirementRow({ row, showHinglish }: Props) {
+  const t = useOwnerT('owner-assets');
   const qc = useQueryClient();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
@@ -57,7 +59,7 @@ export function AssetRequirementRow({ row, showHinglish }: Props) {
     },
     onError: (err) => {
       const code = extractAssetErrorCode(err);
-      setNotesError(friendlyAssetError(code, (err as Error)?.message ?? 'Could not save note.'));
+      setNotesError(friendlyAssetError(code, (err as Error)?.message ?? t('row.saveNoteError', 'Could not save note.')));
     },
   });
 
@@ -93,7 +95,7 @@ export function AssetRequirementRow({ row, showHinglish }: Props) {
               <AssetStatusBadge status={row.status} />
               {isLinkedBrand && (
                 <span className="inline-flex items-center gap-0.5 rounded-full border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700">
-                  <LinkIcon className="h-2.5 w-2.5" aria-hidden /> linked from Hotel Settings
+                  <LinkIcon className="h-2.5 w-2.5" aria-hidden /> {t('row.linkedFromSettings', 'linked from Hotel Settings')}
                 </span>
               )}
             </div>
@@ -103,13 +105,13 @@ export function AssetRequirementRow({ row, showHinglish }: Props) {
               </p>
             )}
             <p className="mt-1.5 text-[12.5px] leading-relaxed text-slate-600">
-              <span className="text-slate-500">Why: </span>{row.why_it_matters_en}
+              <span className="text-slate-500">{t('row.why', 'Why:')} </span>{row.why_it_matters_en}
               {showHinglish && (
                 <span className="ml-1 text-slate-500">— {row.why_it_matters_hi}</span>
               )}
             </p>
             <p className="mt-1 text-[11.5px] leading-relaxed text-slate-500">
-              <span className="text-slate-400">Tip: </span>{row.recommended_action_en}
+              <span className="text-slate-400">{t('row.tip', 'Tip:')} </span>{row.recommended_action_en}
               {showHinglish && (
                 <span className="ml-1 text-slate-400">— {row.recommended_action_hi}</span>
               )}
@@ -117,7 +119,7 @@ export function AssetRequirementRow({ row, showHinglish }: Props) {
             {row.status === 'REJECTED' && row.rejection_reason && (
               <p className="mt-2 flex items-start gap-1.5 rounded-md border border-rose-200 bg-rose-50 px-2 py-1.5 text-[11.5px] text-rose-700">
                 <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
-                <span><span className="font-semibold">Rejected: </span>{row.rejection_reason}</span>
+                <span><span className="font-semibold">{t('row.rejected', 'Rejected:')} </span>{row.rejection_reason}</span>
               </p>
             )}
 
@@ -139,7 +141,7 @@ export function AssetRequirementRow({ row, showHinglish }: Props) {
                 onClick={() => setNotesOpen(true)}
                 className="mt-1.5 inline-flex items-center gap-1 text-[10.5px] text-slate-500 hover:text-slate-700"
               >
-                <MessageSquare className="h-3 w-3" aria-hidden /> Add a note
+                <MessageSquare className="h-3 w-3" aria-hidden /> {t('row.addNote', 'Add a note')}
               </button>
             )}
 
@@ -151,7 +153,7 @@ export function AssetRequirementRow({ row, showHinglish }: Props) {
                   onChange={(e) => setNotesDraft(e.target.value)}
                   maxLength={2000}
                   rows={3}
-                  placeholder="Anything VAiyu or your team should know? (e.g. 'Waiting on signboard installer next week')"
+                  placeholder={t('row.notesPlaceholder', "Anything VAiyu or your team should know? (e.g. 'Waiting on signboard installer next week')")}
                   className="w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[12px] text-slate-800 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
                 />
                 <div className="flex items-center justify-between gap-2">
@@ -162,7 +164,7 @@ export function AssetRequirementRow({ row, showHinglish }: Props) {
                       onClick={() => { setNotesOpen(false); setNotesDraft(row.owner_notes ?? ''); }}
                       className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-600 hover:bg-slate-50"
                     >
-                      <X className="h-3 w-3" aria-hidden /> Cancel
+                      <X className="h-3 w-3" aria-hidden /> {t('row.cancel', 'Cancel')}
                     </button>
                     <button
                       type="button"
@@ -173,7 +175,7 @@ export function AssetRequirementRow({ row, showHinglish }: Props) {
                       {notesMutation.isPending
                         ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
                         : <Check className="h-3 w-3" aria-hidden />}
-                      Save note
+                      {t('row.saveNote', 'Save note')}
                     </button>
                   </div>
                 </div>
@@ -184,7 +186,7 @@ export function AssetRequirementRow({ row, showHinglish }: Props) {
 
           <div className="flex flex-col items-end gap-1.5 sm:min-w-[140px]">
             <div className="text-right text-[10.5px] uppercase tracking-wider text-slate-400">
-              {fileCount} file{fileCount === 1 ? '' : 's'}
+              {t('row.fileCount', '{{count}} files', { count: fileCount })}
             </div>
             {(fileCount > 0 || row.allow_multiple_files) && row.hotel_asset_id && (
               <button
@@ -192,24 +194,24 @@ export function AssetRequirementRow({ row, showHinglish }: Props) {
                 onClick={() => setDrawerOpen(true)}
                 disabled={isLinkedBrand}
                 className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                title={isLinkedBrand ? 'Linked from Hotel Settings — manage there' : undefined}
+                title={isLinkedBrand ? t('row.linkedTitle', 'Linked from Hotel Settings — manage there') : undefined}
               >
                 <FolderOpen className="h-3 w-3" aria-hidden />
-                {fileCount > 0 ? 'Manage' : 'Add files'}
+                {fileCount > 0 ? t('row.manage', 'Manage') : t('row.addFiles', 'Add files')}
               </button>
             )}
             {row.status === 'COLLECTED' && fileCount > 0 && !isLinkedBrand && (
               <button
                 type="button"
                 onClick={() => {
-                  if (window.confirm('Mark this asset as needing replacement? It will not be hidden, but a status flag will show it needs updating.')) {
+                  if (window.confirm(t('row.confirmReplace', 'Mark this asset as needing replacement? It will not be hidden, but a status flag will show it needs updating.'))) {
                     replaceMutation.mutate();
                   }
                 }}
                 disabled={replaceMutation.isPending}
                 className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] text-amber-700 hover:bg-amber-50 disabled:opacity-50"
               >
-                Mark as needs replacement
+                {t('row.markNeedsReplacement', 'Mark as needs replacement')}
               </button>
             )}
           </div>

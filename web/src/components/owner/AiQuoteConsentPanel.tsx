@@ -9,6 +9,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Loader2, Sparkles } from 'lucide-react';
+import { useOwnerT } from '../../i18n/useOwnerT';
 import {
   getHotelAiConsent,
   setHotelAiConsent,
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export default function AiQuoteConsentPanel({ hotelId }: Props) {
+  const t = useOwnerT("owner-settings");
   const qc = useQueryClient();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -40,7 +42,7 @@ export default function AiQuoteConsentPanel({ hotelId }: Props) {
       await setHotelAiConsent(hotelId, !consented);
       await qc.invalidateQueries({ queryKey: ['quote-drafts', 'consent', hotelId] });
     } catch (e) {
-      setErr((e as Error).message ?? 'Could not update consent');
+      setErr((e as Error).message ?? t("aiConsent.errUpdate", "Could not update consent"));
     } finally {
       setBusy(false);
     }
@@ -52,12 +54,10 @@ export default function AiQuoteConsentPanel({ hotelId }: Props) {
         <div>
           <div className="flex items-center gap-2 font-medium text-white">
             <Sparkles className="h-4 w-4 text-emerald-300" aria-hidden />
-            AI Quote Drafts
+            {t("aiConsent.title", "AI Quote Drafts")}
           </div>
           <p className="text-xs text-white/70 mt-0.5 max-w-xl">
-            Allow your front-desk team to use Anthropic Claude to draft quote proposals from
-            real lead data. Drafts are always edited and approved by your team before being
-            sent. Token usage is logged and capped per day.
+            {t("aiConsent.desc", "Allow your front-desk team to use Anthropic Claude to draft quote proposals from real lead data. Drafts are always edited and approved by your team before being sent. Token usage is logged and capped per day.")}
           </p>
           <p className="text-[11px] text-white/50 mt-1 italic">
             AI sirf draft banata hai. Bhejna aur final price humesha staff ke control mein hota hai.
@@ -90,18 +90,18 @@ export default function AiQuoteConsentPanel({ hotelId }: Props) {
 
       <div className="grid grid-cols-2 gap-3 text-[11px]">
         <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">
-          <div className="uppercase tracking-wide text-white/50">Status</div>
+          <div className="uppercase tracking-wide text-white/50">{t("aiConsent.statusLabel", "Status")}</div>
           <div className={consented ? 'text-emerald-300' : 'text-amber-300'}>
             {consentQ.isLoading
               ? '…'
               : consented
-              ? 'Enabled — AI generation allowed'
-              : 'Disabled — template only'}
+              ? t("aiConsent.statusEnabled", "Enabled — AI generation allowed")
+              : t("aiConsent.statusDisabled", "Disabled — template only")}
           </div>
         </div>
         <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">
-          <div className="uppercase tracking-wide text-white/50">Daily token cap</div>
-          <div className="text-white">{cap.toLocaleString('en-IN')} tokens / day</div>
+          <div className="uppercase tracking-wide text-white/50">{t("aiConsent.dailyCapLabel", "Daily token cap")}</div>
+          <div className="text-white">{cap.toLocaleString('en-IN')} {t("aiConsent.tokensPerDayUnit", "tokens / day")}</div>
         </div>
       </div>
 
@@ -113,9 +113,7 @@ export default function AiQuoteConsentPanel({ hotelId }: Props) {
       )}
 
       <p className="text-[10px] text-white/40">
-        When enabled, the AI uses your guest's name, dates and party size to draft a
-        proposal. Never invents prices or availability. The disclaimer line is always
-        included.
+        {t("aiConsent.footer", "When enabled, the AI uses your guest's name, dates and party size to draft a proposal. Never invents prices or availability. The disclaimer line is always included.")}
       </p>
     </div>
   );

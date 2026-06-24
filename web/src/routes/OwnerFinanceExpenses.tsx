@@ -25,17 +25,20 @@ import {
   DarkField,
   darkInputCls,
 } from "../components/owner/DarkShell";
+import { useOwnerT, useOwnerCommonT, useOwnerLocale } from "../i18n/useOwnerT";
 
 type Hotel = { id: string; slug: string; name: string };
 
+// `value` is the stored logic code (never translated); `key` maps to the
+// owner-expenses payMode display map, `label` is the English fallback.
 const PAYMENT_MODES = [
-  { value: "", label: "Select…" },
-  { value: "cash", label: "Cash" },
-  { value: "upi", label: "UPI" },
-  { value: "card", label: "Card" },
-  { value: "bank_transfer", label: "Bank Transfer" },
-  { value: "cheque", label: "Cheque" },
-  { value: "other", label: "Other" },
+  { value: "", key: "select", label: "Select…" },
+  { value: "cash", key: "cash", label: "Cash" },
+  { value: "upi", key: "upi", label: "UPI" },
+  { value: "card", key: "card", label: "Card" },
+  { value: "bank_transfer", key: "bank_transfer", label: "Bank Transfer" },
+  { value: "cheque", key: "cheque", label: "Cheque" },
+  { value: "other", key: "other", label: "Other" },
 ];
 
 const EMPTY_FORM: ExpenseFormData = {
@@ -48,6 +51,9 @@ const EMPTY_FORM: ExpenseFormData = {
 };
 
 export default function OwnerFinanceExpenses() {
+  const t = useOwnerT("owner-expenses");
+  const tc = useOwnerCommonT();
+  const ownerLocale = useOwnerLocale();
   const { slug } = useParams<{ slug: string }>();
   const [hotel, setHotel] = useState<Hotel | null>(null);
   const [expenses, setExpenses] = useState<FinanceExpense[]>([]);
@@ -77,7 +83,7 @@ export default function OwnerFinanceExpenses() {
         .maybeSingle();
 
       if (hErr || !hotelRow) {
-        setError(hErr?.message ?? "Hotel not found.");
+        setError(hErr?.message ?? t("hotelNotFound", "Hotel not found."));
         return;
       }
       setHotel(hotelRow as Hotel);
@@ -94,7 +100,7 @@ export default function OwnerFinanceExpenses() {
         setForm((prev) => ({ ...prev, category_id: cats[0].id }));
       }
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to load expenses.");
+      setError(e instanceof Error ? e.message : t("loadFailed", "Failed to load expenses."));
     } finally {
       setLoading(false);
     }
@@ -108,15 +114,15 @@ export default function OwnerFinanceExpenses() {
   async function handleAddExpense() {
     if (!hotel) return;
     if (!form.category_id) {
-      setFormError("Select a category.");
+      setFormError(t("selectCategory", "Select a category."));
       return;
     }
     if (form.amount <= 0) {
-      setFormError("Amount must be positive.");
+      setFormError(t("amountPositive", "Amount must be positive."));
       return;
     }
     if (!form.description.trim()) {
-      setFormError("Description is required.");
+      setFormError(t("descRequired", "Description is required."));
       return;
     }
 
@@ -125,7 +131,7 @@ export default function OwnerFinanceExpenses() {
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated.");
+      if (!user) throw new Error(t("notAuthenticated", "Not authenticated."));
 
       const created = await createExpense(hotel.id, user.id, form);
       setExpenses((prev) => [
@@ -138,7 +144,7 @@ export default function OwnerFinanceExpenses() {
       setShowForm(false);
       setForm({ ...EMPTY_FORM, category_id: categories[0]?.id ?? "" });
     } catch (e: unknown) {
-      setFormError(e instanceof Error ? e.message : "Failed to save expense.");
+      setFormError(e instanceof Error ? e.message : t("saveFailed", "Failed to save expense."));
     } finally {
       setSaving(false);
     }
@@ -151,15 +157,15 @@ export default function OwnerFinanceExpenses() {
       await deleteExpense(id);
       setExpenses((prev) => prev.filter((e) => e.id !== id));
     } catch (e: unknown) {
-      setDeleteError(e instanceof Error ? e.message : "Delete failed.");
+      setDeleteError(e instanceof Error ? e.message : t("deleteFailed", "Delete failed."));
       throw e;
     } finally {
       setDeletingId(null);
     }
   }
 
-  if (loading) return <DarkLoading message="Loading expenses…" />;
-  if (error || !hotel) return <DarkErrorPanel message={error ?? "Hotel not found."} />;
+  if (loading) return <DarkLoading message={t("loading", "Loading expenses…")} />;
+  if (error || !hotel) return <DarkErrorPanel message={error ?? t("hotelNotFound", "Hotel not found.")} />;
 
   const base = `/owner/${slug}`;
   const totalSpend = expenses.reduce((s, e) => s + e.amount, 0);
@@ -167,14 +173,14 @@ export default function OwnerFinanceExpenses() {
   return (
     <OwnerDarkPage
       icon={Receipt}
-      title="Operational"
-      titleAccent="Expenses"
+      title={t("title", "Operational")}
+      titleAccent={t("titleAccent", "Expenses")}
       accent="violet"
-      subtitle={`${expenses.length} entries · ${formatINR(totalSpend)} total`}
+      subtitle={t("subtitle", "{{count}} entries · {{total}} total", { count: expenses.length, total: formatINR(totalSpend) })}
       breadcrumbs={[
-        { label: "Dashboard", to: base },
-        { label: "Finance", to: `${base}/finance` },
-        { label: "Expenses" },
+        { label: tc("nav.dashboard", "Dashboard"), to: base },
+        { label: t("crumbFinance", "Finance"), to: `${base}/finance` },
+        { label: t("crumbExpenses", "Expenses") },
       ]}
       actions={
         <div className="flex items-center gap-2">
@@ -194,16 +200,16 @@ export default function OwnerFinanceExpenses() {
             }}
             className="inline-flex items-center gap-1.5 rounded-xl bg-violet-500 hover:bg-violet-600 px-4 py-2 text-sm font-bold text-white transition shadow-lg shadow-violet-500/20"
           >
-            <Plus className="w-4 h-4" /> Add Expense
+            <Plus className="w-4 h-4" /> {t("addExpense", "Add Expense")}
           </button>
         </div>
       }
     >
       {showForm && (
-        <DarkModal title="Add Expense" onClose={() => setShowForm(false)}>
+        <DarkModal title={t("addExpense", "Add Expense")} onClose={() => setShowForm(false)}>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
-              <DarkField label="Date">
+              <DarkField label={t("fieldDate", "Date")}>
                 <input
                   type="date"
                   className={darkInputCls}
@@ -211,7 +217,7 @@ export default function OwnerFinanceExpenses() {
                   onChange={(e) => setForm({ ...form, expense_date: e.target.value })}
                 />
               </DarkField>
-              <DarkField label="Category">
+              <DarkField label={t("fieldCategory", "Category")}>
                 <select
                   className={darkInputCls}
                   value={form.category_id}
@@ -226,7 +232,7 @@ export default function OwnerFinanceExpenses() {
               </DarkField>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <DarkField label="Amount (₹)">
+              <DarkField label={t("fieldAmount", "Amount (₹)")}>
                 <input
                   type="number"
                   min={0}
@@ -235,7 +241,7 @@ export default function OwnerFinanceExpenses() {
                   onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })}
                 />
               </DarkField>
-              <DarkField label="Payment Mode">
+              <DarkField label={t("fieldPaymentMode", "Payment Mode")}>
                 <select
                   className={darkInputCls}
                   value={form.payment_mode}
@@ -243,28 +249,28 @@ export default function OwnerFinanceExpenses() {
                 >
                   {PAYMENT_MODES.map((m) => (
                     <option key={m.value} value={m.value}>
-                      {m.label}
+                      {t(`payMode.${m.key}`, m.label)}
                     </option>
                   ))}
                 </select>
               </DarkField>
             </div>
-            <DarkField label="Description">
+            <DarkField label={t("fieldDescription", "Description")}>
               <input
                 type="text"
                 className={darkInputCls}
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
-                placeholder="e.g. AC repair in room 204"
+                placeholder={t("descPlaceholder", "e.g. AC repair in room 204")}
               />
             </DarkField>
-            <DarkField label="Vendor (optional)">
+            <DarkField label={t("fieldVendor", "Vendor (optional)")}>
               <input
                 type="text"
                 className={darkInputCls}
                 value={form.vendor_name}
                 onChange={(e) => setForm({ ...form, vendor_name: e.target.value })}
-                placeholder="e.g. SunTech Services"
+                placeholder={t("vendorPlaceholder", "e.g. SunTech Services")}
               />
             </DarkField>
           </div>
@@ -274,14 +280,14 @@ export default function OwnerFinanceExpenses() {
               onClick={() => setShowForm(false)}
               className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-4 py-2 text-sm font-semibold text-slate-200"
             >
-              Cancel
+              {tc("actions.cancel", "Cancel")}
             </button>
             <button
               onClick={handleAddExpense}
               disabled={saving}
               className="rounded-xl bg-violet-500 hover:bg-violet-600 px-5 py-2 text-sm font-bold text-white disabled:opacity-60 shadow-lg shadow-violet-500/20"
             >
-              {saving ? "Saving…" : "Add Expense"}
+              {saving ? tc("actions.saving", "Saving…") : t("addExpense", "Add Expense")}
             </button>
           </div>
         </DarkModal>
@@ -290,15 +296,15 @@ export default function OwnerFinanceExpenses() {
       {expenses.length === 0 ? (
         <DarkCard className="text-center py-12 border-dashed border-2">
           <Receipt className="w-10 h-10 text-slate-600 mx-auto mb-3" />
-          <p className="font-bold text-slate-200">No expenses this month</p>
+          <p className="font-bold text-slate-200">{t("emptyTitle", "No expenses this month")}</p>
           <p className="text-sm text-slate-500 mt-1 mb-4">
-            Start logging operational expenses to track your spending.
+            {t("emptyBody", "Start logging operational expenses to track your spending.")}
           </p>
           <button
             onClick={() => setShowForm(true)}
             className="inline-flex items-center gap-1.5 rounded-xl bg-violet-500 hover:bg-violet-600 px-4 py-2 text-sm font-bold text-white transition shadow-lg shadow-violet-500/20"
           >
-            <Plus className="w-4 h-4" /> Add First Expense
+            <Plus className="w-4 h-4" /> {t("addFirst", "Add First Expense")}
           </button>
         </DarkCard>
       ) : (
@@ -307,12 +313,20 @@ export default function OwnerFinanceExpenses() {
             <table className="w-full text-sm">
               <thead className="bg-[#1a1c1e] border-b border-white/[0.05]">
                 <tr>
-                  {["Date", "Category", "Description", "Vendor", "Mode", "Amount", ""].map((h) => (
+                  {[
+                    { k: "date", label: t("colDate", "Date") },
+                    { k: "category", label: t("colCategory", "Category") },
+                    { k: "description", label: t("colDescription", "Description") },
+                    { k: "vendor", label: t("colVendor", "Vendor") },
+                    { k: "mode", label: t("colMode", "Mode") },
+                    { k: "amount", label: t("colAmount", "Amount") },
+                    { k: "actions", label: "" },
+                  ].map((h) => (
                     <th
-                      key={h}
+                      key={h.k}
                       className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap"
                     >
-                      {h}
+                      {h.label}
                     </th>
                   ))}
                 </tr>
@@ -321,7 +335,7 @@ export default function OwnerFinanceExpenses() {
                 {expenses.map((exp) => (
                   <tr key={exp.id} className="hover:bg-white/[0.02] transition">
                     <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">
-                      {new Date(exp.expense_date).toLocaleDateString("en-IN", {
+                      {new Date(exp.expense_date).toLocaleDateString(ownerLocale, {
                         day: "2-digit",
                         month: "short",
                         year: "2-digit",
@@ -335,7 +349,7 @@ export default function OwnerFinanceExpenses() {
                     <td className="px-4 py-3 text-slate-200 max-w-xs truncate">{exp.description}</td>
                     <td className="px-4 py-3 text-xs text-slate-400">{exp.vendor_name ?? "—"}</td>
                     <td className="px-4 py-3 text-xs text-slate-400 capitalize">
-                      {exp.payment_mode ?? "—"}
+                      {exp.payment_mode ? t(`payMode.${exp.payment_mode}`, exp.payment_mode) : "—"}
                     </td>
                     <td className="px-4 py-3 font-bold text-white">{formatINR(exp.amount)}</td>
                     <td className="px-4 py-3">
@@ -343,7 +357,7 @@ export default function OwnerFinanceExpenses() {
                         onClick={() => setConfirmDelete(exp)}
                         disabled={deletingId === exp.id}
                         className="text-slate-500 hover:text-rose-400 transition disabled:opacity-40"
-                        aria-label="Delete expense"
+                        aria-label={t("deleteExpense", "Delete expense")}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -354,7 +368,7 @@ export default function OwnerFinanceExpenses() {
               <tfoot className="bg-[#1a1c1e] border-t border-white/[0.05]">
                 <tr>
                   <td colSpan={5} className="px-4 py-3 text-sm font-bold text-slate-300 text-right">
-                    Total
+                    {t("total", "Total")}
                   </td>
                   <td className="px-4 py-3 font-black text-white">{formatINR(totalSpend)}</td>
                   <td />
@@ -367,18 +381,18 @@ export default function OwnerFinanceExpenses() {
 
       {confirmDelete && (
         <DarkConfirmModal
-          title="Delete expense"
+          title={t("deleteExpense", "Delete expense")}
           message={
             <>
               <p>
-                Delete expense <span className="font-semibold text-white">{formatINR(confirmDelete.amount)}</span>
-                {confirmDelete.description ? ` — "${confirmDelete.description}"` : ""}?
-                This cannot be undone.
+                {t("deleteMsgPrefix", "Delete expense")} <span className="font-semibold text-white">{formatINR(confirmDelete.amount)}</span>
+                {confirmDelete.description ? ` — "${confirmDelete.description}"` : ""}
+                {t("deleteMsgSuffix", "? This cannot be undone.")}
               </p>
               {deleteError && <p className="mt-3 text-sm text-rose-300">{deleteError}</p>}
             </>
           }
-          confirmLabel="Delete expense"
+          confirmLabel={t("deleteExpense", "Delete expense")}
           variant="danger"
           busy={deletingId === confirmDelete.id}
           onCancel={() => {

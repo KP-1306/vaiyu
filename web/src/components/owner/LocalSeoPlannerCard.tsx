@@ -10,6 +10,7 @@ import { LOCAL_SEO_LANDING_PLANNER_V0_ENABLED } from '../../config/localSeoPlann
 import { getSeoBlueprintSummary } from '../../services/seoBlueprintService';
 import { seoBlueprintQueryKeys } from '../../services/seoBlueprintQueryKeys';
 import { useSeoBlueprintsRealtime } from '../../hooks/useSeoBlueprintsRealtime';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   hotelId: string;
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export function LocalSeoPlannerCard({ hotelId, hotelSlug }: Props) {
+  const t = useOwnerT('owner-cards');
   if (!LOCAL_SEO_LANDING_PLANNER_V0_ENABLED) return null;
 
   // hotelId is passed by the parent (OwnerDashboard already resolved slug->id),
@@ -53,13 +55,13 @@ export function LocalSeoPlannerCard({ hotelId, hotelSlug }: Props) {
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <h3 className="text-sm font-semibold text-slate-100">Local SEO Planner</h3>
+              <h3 className="text-sm font-semibold text-slate-100">{t('localSeo.title', 'Local SEO Planner')}</h3>
               <span className="inline-flex items-center rounded-md border border-emerald-500/40 bg-emerald-500/15 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-200">
                 v0
               </span>
             </div>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Plan + govern local page ideas. Internal only — publishes nothing.
+              {t('localSeo.subtitle', 'Plan + govern local page ideas. Internal only — publishes nothing.')}
             </p>
           </div>
         </div>
@@ -67,24 +69,24 @@ export function LocalSeoPlannerCard({ hotelId, hotelSlug }: Props) {
       </div>
 
       <div className="mt-3 grid grid-cols-3 gap-2">
-        <Metric icon={<ShieldCheck className="h-3 w-3" />} label="Safe" value={safeCount} tone="emerald" />
-        <Metric icon={<ShieldQuestion className="h-3 w-3" />} label="Needs proof" value={needsProof} tone="amber" />
-        <Metric icon={<ShieldAlert className="h-3 w-3" />} label="Risky" value={risky} tone="rose" />
+        <Metric icon={<ShieldCheck className="h-3 w-3" />} label={t('localSeo.safe', 'Safe')} value={safeCount} tone="emerald" />
+        <Metric icon={<ShieldQuestion className="h-3 w-3" />} label={t('localSeo.needsProof', 'Needs proof')} value={needsProof} tone="amber" />
+        <Metric icon={<ShieldAlert className="h-3 w-3" />} label={t('localSeo.risky', 'Risky')} value={risky} tone="rose" />
       </div>
 
       {(inReview > 0 || readyToBuild > 0) && (
         <div className="mt-3 flex items-center gap-1.5 rounded-lg border border-slate-800 bg-[#0B0E14] px-2.5 py-1.5 text-[11px] text-slate-300">
           <CircleAlert className="h-3.5 w-3.5 shrink-0 text-sky-300" aria-hidden />
           <span>
-            {inReview > 0 && `${inReview} in review`}
+            {inReview > 0 && t('localSeo.inReview', '{{count}} in review', { count: inReview })}
             {inReview > 0 && readyToBuild > 0 && ' · '}
-            {readyToBuild > 0 && `${readyToBuild} ready to build`}
+            {readyToBuild > 0 && t('localSeo.readyToBuild', '{{count}} ready to build', { count: readyToBuild })}
           </span>
         </div>
       )}
 
       <p className="mt-3 text-[10px] text-slate-500">
-        Deterministic Policy Shield. No AI. No keyword scraping. No metadata changes.
+        {t('localSeo.footer', 'Deterministic Policy Shield. No AI. No keyword scraping. No metadata changes.')}
       </p>
     </Link>
   );

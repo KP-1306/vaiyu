@@ -1,0 +1,59 @@
+{
+  "page": {
+    "title": "Register your property",
+    "subtitle": "Tell us a bit about your place. We'll review and help complete the formalities — fast."
+  },
+  "nav": {
+    "backHome": "← Back home",
+    "goBack": "Go back",
+    "previousPage": "Previous page"
+  },
+  "form": {
+    "propertyName": "Property name",
+    "propertyNamePlaceholder": "e.g., Lakeview Retreat",
+    "propertyType": "Property type",
+    "propertyTypeDefault": "Choose type",
+    "city": "City",
+    "cityPlaceholder": "e.g., Nainital",
+    "country": "Country",
+    "countryPlaceholder": "e.g., India",
+    "mapLink": "Google Map link",
+    "contactName": "Owner / Primary contact name",
+    "contactNamePlaceholder": "Your full name",
+    "email": "Email",
+    "emailPlaceholder": "name@company.com",
+    "phone": "Phone",
+    "phonePlaceholder": "e.g., +91 98765 43210",
+    "roomCount": "Approx. room count",
+    "roomCountPlaceholder": "e.g., 24",
+    "links": "Property website / page / Instagram URL(s)",
+    "addLink": "+ Add another link",
+    "removeLink": "Remove",
+    "coverImage": "Property cover image (upload)",
+    "coverPreviewNote": "Preview only — final will be uploaded on submit.",
+    "submitBtn": "Submit for approval",
+    "submittedBtn": "Submitted",
+    "submittingBtn": "Submitting…",
+    "consent": "By submitting, you agree that a VAiyu specialist may contact you to verify details.",
+    "phoneTitle": "Phone number: optional + then 7–20 digits/spaces/()/-",
+    "coverPreviewAlt": "Cover preview"
+  },
+  "err": {
+    "propertyNameRequired": "Property name is required.",
+    "propertyTypeRequired": "Property type is required.",
+    "cityRequired": "City is required.",
+    "countryRequired": "Country is required.",
+    "contactNameRequired": "Owner / Primary contact name is required.",
+    "emailInvalid": "Enter a valid email address.",
+    "phoneInvalid": "Enter a valid phone number.",
+    "mapLinkInvalid": "Google Map link must start with http or https.",
+    "linkInvalid": "Each website/Instagram link must start with http or https.",
+    "imageTooLarge": "Cover image must be ≤ 3 MB.",
+    "imageType": "Cover image must be PNG, JPG, or WEBP.",
+    "generic": "Something went wrong. Please try again.",
+    "submitFailed": "Could not submit application (HTTP {{status}})"
+  },
+  "ok": {
+    "submitted": "Thanks! We've received your property details. Our team will review and contact you soon."
+  }
+}

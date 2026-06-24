@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import SEO from "../components/SEO";
 import { API } from "../lib/api";
+import { useOwnerT } from "../i18n/useOwnerT";
 
 /**
  * Types for the aggregated guest profile payload coming from the Edge Function.
@@ -363,6 +364,9 @@ export default function OwnerGuestProfile() {
     guestId?: string;
   }>();
 
+  const t = useOwnerT("owner-guestprofile");
+  // Alias for use inside .map((t) => …) callbacks where the row param shadows `t`.
+  const tt = t;
   const [data, setData] = useState<GuestProfilePayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -407,7 +411,7 @@ export default function OwnerGuestProfile() {
     const ac = new AbortController();
 
     if (!slug || !guestId) {
-      setErr("Missing hotel or guest identifier.");
+      setErr(t("err.missingId", "Missing hotel or guest identifier."));
       setData(buildDemoGuestProfile(slug, guestId));
       setLoading(false);
       return;
@@ -432,7 +436,7 @@ export default function OwnerGuestProfile() {
         });
 
         if (!res.ok) {
-          throw new Error(`Guest profile fetch failed (${res.status})`);
+          throw new Error(t("err.fetchFailed", "Guest profile fetch failed ({{status}})", { status: res.status }));
         }
 
         const raw = (await res.json()) as GuestProfilePayload & {
@@ -452,7 +456,7 @@ export default function OwnerGuestProfile() {
         if (ac.signal.aborted) return;
         console.warn("[OwnerGuestProfile] falling back to demo:", e);
         setErr(
-          e?.message || "Failed to load guest profile; showing demo data."
+          e?.message || t("err.loadFailed", "Failed to load guest profile; showing demo data.")
         );
         setData(buildDemoGuestProfile(slug, guestId));
       } finally {
@@ -467,28 +471,27 @@ export default function OwnerGuestProfile() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-5">
-      <SEO title="Guest profile" />
+      <SEO title={t("page.title", "Guest profile")} />
 
       {/* Header */}
       <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="space-y-1">
           <Link to="/owner" className="text-sm text-sky-700 hover:underline">
-            ← Back to Owner hub
+            {t("nav.back", "← Back to Owner hub")}
           </Link>
           <h1 className="text-2xl font-semibold tracking-tight">
-            Guest profile
+            {t("page.title", "Guest profile")}
           </h1>
           <p className="text-sm text-gray-600 max-w-xl">
-            Unified view of this guest across stays, tickets, orders, reviews
-            and credits – owned by your hotel, not the OTA.
+            {t("page.subtitle", "Unified view of this guest across stays, tickets, orders, reviews and credits – owned by your hotel, not the OTA.")}
           </p>
         </div>
         <div className="text-right text-xs text-gray-500 space-y-1">
-          {guestId && <div>Guest anchor: {guestId}</div>}
-          {slug && <div>Property: {slug}</div>}
+          {guestId && <div>{t("header.guestAnchor", "Guest anchor:")} {guestId}</div>}
+          {slug && <div>{t("header.property", "Property:")} {slug}</div>}
           {isDemo && (
             <div className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1 text-[11px] font-medium text-amber-700 border border-amber-200">
-              <span aria-hidden>●</span> Demo data (profile API not connected)
+              <span aria-hidden>●</span> {t("demo.badge", "Demo data (profile API not connected)")}
             </div>
           )}
         </div>
@@ -553,12 +556,12 @@ export default function OwnerGuestProfile() {
             <div className="text-xs text-gray-500">
               {data?.profile?.first_seen_at && (
                 <div>
-                  First seen: {formatDate(data.profile.first_seen_at)}
+                  {t("header.firstSeen", "First seen:")} {formatDate(data.profile.first_seen_at)}
                 </div>
               )}
               {(data?.profile?.last_seen_at || stats.last_visit_at) && (
                 <div>
-                  Last visit:{" "}
+                  {t("header.lastVisit", "Last visit:")}{" "}
                   {formatDate(
                     data?.profile?.last_seen_at ?? stats.last_visit_at ?? null
                   )}
@@ -572,37 +575,37 @@ export default function OwnerGuestProfile() {
       {/* Key metrics row */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <MetricCard
-          label="Total stays"
+          label={t("metric.totalStays", "Total stays")}
           value={totalStays}
-          subtitle={`${totalNights} night${totalNights === 1 ? "" : "s"}`}
+          subtitle={t("metric.nights", "{{count}} nights", { count: totalNights })}
         />
         <MetricCard
-          label="Room requests"
+          label={t("metric.roomRequests", "Room requests")}
           value={totalTickets}
           subtitle={
             onTimePct != null
-              ? `${onTimePct}% handled on time`
-              : "SLA trend not available yet"
+              ? t("metric.slaOnTime", "{{pct}}% handled on time", { pct: onTimePct })
+              : t("metric.slaNA", "SLA trend not available yet")
           }
         />
         <MetricCard
-          label="Orders"
+          label={t("metric.orders", "Orders")}
           value={totalOrders}
           subtitle={
             totalOrders > 0
-              ? "F&B & services delivered"
-              : "No orders recorded yet"
+              ? t("metric.fbDelivered", "F&B & services delivered")
+              : t("metric.noOrders", "No orders recorded yet")
           }
         />
         <MetricCard
-          label="Lifetime value"
+          label={t("metric.lifetimeValue", "Lifetime value")}
           value={
             lifetimeValueInr != null ? formatMoneyINR(lifetimeValueInr) : "—"
           }
           subtitle={
             credits
-              ? `${formatMoneyINR(credits.balance)} in credits available`
-              : "No credits linked yet"
+              ? t("metric.credits", "{{amount}} in credits available", { amount: formatMoneyINR(credits.balance) })
+              : t("metric.noCredits", "No credits linked yet")
           }
         />
       </section>
@@ -613,19 +616,18 @@ export default function OwnerGuestProfile() {
         <div className="card p-4 lg:col-span-2">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-semibold tracking-tight">
-              Stay history
+              {t("stays.title", "Stay history")}
             </h3>
             <span className="text-xs text-gray-500">
               {totalStays > 0
-                ? `${totalStays} stay${totalStays === 1 ? "" : "s"} recorded`
-                : "No stays recorded yet"}
+                ? t("stays.count", "{{count}} stays recorded", { count: totalStays })
+                : t("stays.countNone", "No stays recorded yet")}
             </span>
           </div>
 
           {stays.length === 0 ? (
             <div className="text-xs text-gray-500">
-              Once the guest completes their first stay, you’ll see the
-              timeline here.
+              {t("stays.none", "Once the guest completes their first stay, you'll see the timeline here.")}
             </div>
           ) : (
             <ul className="space-y-3">
@@ -640,7 +642,7 @@ export default function OwnerGuestProfile() {
                   <div className="flex-1">
                     <div className="flex items-center justify-between gap-3">
                       <div className="text-sm font-medium">
-                        Stay #{s.code}
+                        {t("stays.stayNumber", "Stay #{{code}}", { code: s.code })}
                       </div>
                       <span className="inline-flex items-center rounded-full bg-white px-2 py-0.5 text-[11px] border border-slate-200 text-slate-700">
                         {s.status ?? "—"}
@@ -650,7 +652,7 @@ export default function OwnerGuestProfile() {
                       <span>
                         {formatDate(s.check_in)} → {formatDate(s.check_out)}
                       </span>
-                      {s.room && <span>• Room {s.room}</span>}
+                      {s.room && <span>• {t("stays.room", "Room")} {s.room}</span>}
                       {s.source && <span>• {s.source}</span>}
                       {s.review_rating != null && (
                         <span>• ⭐ {s.review_rating}/5</span>
@@ -667,7 +669,7 @@ export default function OwnerGuestProfile() {
         <div className="space-y-4">
           <div className="card p-4">
             <h3 className="text-sm font-semibold tracking-tight mb-2">
-              Preferences & soft signals
+              {t("prefs.title", "Preferences & soft signals")}
             </h3>
             {preferences && Object.keys(preferences).length > 0 ? (
               <dl className="space-y-1.5 text-xs">
@@ -685,20 +687,19 @@ export default function OwnerGuestProfile() {
               </dl>
             ) : (
               <p className="text-xs text-gray-500">
-                Capture preferences during check-in or in-stay interactions and
-                they’ll appear here for future visits.
+                {t("prefs.empty", "Capture preferences during check-in or in-stay interactions and they'll appear here for future visits.")}
               </p>
             )}
           </div>
 
           <div className="card p-4">
             <h3 className="text-sm font-semibold tracking-tight mb-2">
-              Credits & rewards
+              {t("credits.title", "Credits & rewards")}
             </h3>
             {credits ? (
               <div className="space-y-2">
                 <div className="flex items-baseline justify-between">
-                  <div className="text-xs text-gray-500">Current balance</div>
+                  <div className="text-xs text-gray-500">{t("credits.balance", "Current balance")}</div>
                   <div className="text-base font-semibold">
                     {credits.currency === "INR"
                       ? formatMoneyINR(credits.balance)
@@ -728,10 +729,10 @@ export default function OwnerGuestProfile() {
                         </div>
                         <div className="text-right text-[11px] text-gray-500">
                           {c.created_at && (
-                            <div>Added: {formatDate(c.created_at)}</div>
+                            <div>{t("credits.added", "Added:")} {formatDate(c.created_at)}</div>
                           )}
                           {c.expires_at && (
-                            <div>Expires: {formatDate(c.expires_at)}</div>
+                            <div>{t("credits.expires", "Expires:")} {formatDate(c.expires_at)}</div>
                           )}
                         </div>
                       </li>
@@ -739,14 +740,13 @@ export default function OwnerGuestProfile() {
                   </ul>
                 ) : (
                   <p className="text-xs text-gray-500">
-                    No individual credit entries recorded yet.
+                    {t("credits.noEntries", "No individual credit entries recorded yet.")}
                   </p>
                 )}
               </div>
             ) : (
               <p className="text-xs text-gray-500">
-                When you start using VAiyu Credits, this guest’s rewards will
-                be visible here.
+                {t("credits.empty", "When you start using VAiyu Credits, this guest's rewards will be visible here.")}
               </p>
             )}
           </div>
@@ -759,16 +759,15 @@ export default function OwnerGuestProfile() {
         <div className="card p-4">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-semibold tracking-tight">
-              Room requests
+              {t("tickets.title", "Room requests")}
             </h3>
             <span className="text-xs text-gray-500">
-              {totalTickets} request{totalTickets === 1 ? "" : "s"}
+              {t("tickets.count", "{{count}} requests", { count: totalTickets })}
             </span>
           </div>
           {tickets.length === 0 ? (
             <p className="text-xs text-gray-500">
-              No tickets yet. Housekeeping and service tickets raised by this
-              guest will appear here.
+              {t("tickets.empty", "No tickets yet. Housekeeping and service tickets raised by this guest will appear here.")}
             </p>
           ) : (
             <ul className="space-y-1.5 text-xs max-h-56 overflow-y-auto pr-1">
@@ -781,12 +780,12 @@ export default function OwnerGuestProfile() {
                     <div className="font-medium text-gray-800">
                       {(t.service_key || "")
                         .replace(/_/g, " ")
-                        .replace(/\b\w/g, (m) => m.toUpperCase()) || "Service"}
+                        .replace(/\b\w/g, (m) => m.toUpperCase()) || tt("tickets.serviceFallback", "Service")}
                     </div>
                     <div className="text-[11px] text-gray-500">
-                      {t.room && <>Room {t.room} · </>}
-                      {t.created_at && <>Raised {formatTime(t.created_at)}</>}
-                      {t.sla_minutes && <> · SLA {t.sla_minutes}m</>}
+                      {t.room && <>{tt("tickets.room", "Room")} {t.room} · </>}
+                      {t.created_at && <>{tt("tickets.raised", "Raised")} {formatTime(t.created_at)}</>}
+                      {t.sla_minutes && <> · {tt("tickets.sla", "SLA")} {t.sla_minutes}m</>}
                     </div>
                   </div>
                   <div className="text-right text-[11px] text-gray-600">
@@ -794,7 +793,7 @@ export default function OwnerGuestProfile() {
                       {t.status ?? "—"}
                     </div>
                     {t.late && (
-                      <div className="mt-0.5 text-amber-600">SLA breach</div>
+                      <div className="mt-0.5 text-amber-600">{tt("tickets.slaBreach", "SLA breach")}</div>
                     )}
                   </div>
                 </li>
@@ -806,15 +805,14 @@ export default function OwnerGuestProfile() {
         {/* Orders */}
         <div className="card p-4">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold tracking-tight">Orders</h3>
+            <h3 className="text-sm font-semibold tracking-tight">{t("orders.title", "Orders")}</h3>
             <span className="text-xs text-gray-500">
-              {totalOrders} order{totalOrders === 1 ? "" : "s"}
+              {t("orders.count", "{{count}} orders", { count: totalOrders })}
             </span>
           </div>
           {orders.length === 0 ? (
             <p className="text-xs text-gray-500">
-              Any in-room dining or service orders tied to this guest will be
-              listed here.
+              {t("orders.empty", "Any in-room dining or service orders tied to this guest will be listed here.")}
             </p>
           ) : (
             <ul className="space-y-1.5 text-xs max-h-56 overflow-y-auto pr-1">
@@ -826,7 +824,7 @@ export default function OwnerGuestProfile() {
                   <div className="flex-1 space-y-0.5">
                     <div className="flex items-center justify-between gap-2">
                       <div className="font-medium text-gray-800">
-                        Order #{o.id.slice(0, 6).toUpperCase()}
+                        {t("orders.orderNumber", "Order #{{code}}", { code: o.id.slice(0, 6).toUpperCase() })}
                       </div>
                       <span className="inline-flex items-center rounded-full bg-white px-2 py-0.5 border border-slate-200 text-[11px] text-gray-700">
                         {o.status ?? "—"}
@@ -838,7 +836,7 @@ export default function OwnerGuestProfile() {
                           {formatDate(o.created_at)} · {formatTime(o.created_at)}
                         </>
                       )}
-                      {o.room && <> · Room {o.room}</>}
+                      {o.room && <> · {t("orders.room", "Room")} {o.room}</>}
                       {o.total_price != null && (
                         <> · {formatMoneyINR(o.total_price)}</>
                       )}
@@ -847,7 +845,7 @@ export default function OwnerGuestProfile() {
                       <div className="text-[11px] text-gray-600">
                         {o.items
                           .map((i) =>
-                            i.qty ? `${i.qty}× ${i.name ?? "Item"}` : i.name
+                            i.qty ? `${i.qty}× ${i.name ?? t("orders.itemFallback", "Item")}` : i.name
                           )
                           .filter(Boolean)
                           .join(", ")}
@@ -863,15 +861,14 @@ export default function OwnerGuestProfile() {
         {/* Reviews */}
         <div className="card p-4">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold tracking-tight">Reviews</h3>
+            <h3 className="text-sm font-semibold tracking-tight">{t("reviews.title", "Reviews")}</h3>
             <span className="text-xs text-gray-500">
-              {totalReviews} review{totalReviews === 1 ? "" : "s"}
+              {t("reviews.count", "{{count}} reviews", { count: totalReviews })}
             </span>
           </div>
           {reviews.length === 0 ? (
             <p className="text-xs text-gray-500">
-              When the guest shares feedback, their reviews will appear here
-              across stays.
+              {t("reviews.empty", "When the guest shares feedback, their reviews will appear here across stays.")}
             </p>
           ) : (
             <ul className="space-y-1.5 text-xs max-h-56 overflow-y-auto pr-1">
@@ -882,7 +879,7 @@ export default function OwnerGuestProfile() {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="font-medium text-gray-800">
-                      {r.title || `Review for ${r.booking_code ?? "stay"}`}
+                      {r.title || t("reviews.forStay", "Review for {{code}}", { code: r.booking_code ?? t("reviews.stayFallback", "stay") })}
                     </div>
                     {r.rating != null && (
                       <div className="text-[11px] text-amber-600">
@@ -897,7 +894,7 @@ export default function OwnerGuestProfile() {
                   )}
                   <div className="text-[11px] text-gray-400">
                     {r.created_at && formatDate(r.created_at)}
-                    {r.booking_code && ` · Stay ${r.booking_code}`}
+                    {r.booking_code && ` · ${t("reviews.stayPrefix", "Stay {{code}}", { code: r.booking_code })}`}
                   </div>
                 </li>
               ))}
@@ -908,7 +905,7 @@ export default function OwnerGuestProfile() {
 
       {loading && (
         <div className="text-xs text-gray-500">
-          Loading latest data for this guest…
+          {t("loading", "Loading latest data for this guest…")}
         </div>
       )}
     </div>

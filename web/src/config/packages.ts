@@ -8,6 +8,7 @@ import type {
   PackagePricingBasis,
   PackageStatus,
 } from '../types/package';
+import type { OwnerT } from '../i18n/useOwnerT';
 
 export const PACKAGE_BUILDER_V0_ENABLED = true;
 
@@ -101,12 +102,18 @@ export function suggestStartingPriceText(
   return `Starting ${amount} ${PACKAGE_PRICING_BASIS_LABEL[basis]}`;
 }
 
-/** Render season_months as "Jan – Mar, Sep – Dec" style ranges. */
-export function monthsToLabel(months: number[]): string {
-  if (!months || months.length === 0) return 'Year-round';
-  if (months.length === 12) return 'Year-round';
+/**
+ * Render season_months as "Jan – Mar, Sep – Dec" style ranges.
+ * Month abbreviations stay English (retained, like dates). Only the
+ * "Year-round" word localises — owner callers pass `t`; the public landing
+ * (guest-i18n) calls without `t` and keeps English.
+ */
+export function monthsToLabel(months: number[], t?: OwnerT): string {
+  const yearRound = t ? t('monthsYearRound', 'Year-round') : 'Year-round';
+  if (!months || months.length === 0) return yearRound;
+  if (months.length === 12) return yearRound;
   const sorted = [...new Set(months.filter((m) => m >= 1 && m <= 12))].sort((a, b) => a - b);
-  if (sorted.length === 0) return 'Year-round';
+  if (sorted.length === 0) return yearRound;
 
   // Group into contiguous ranges
   const ranges: Array<[number, number]> = [];

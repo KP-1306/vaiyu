@@ -51,6 +51,7 @@ import {
 import { KanbanColumn } from './KanbanColumn';
 import { KanbanLeadCardOverlay } from './KanbanLeadCard';
 import { LostReasonModal } from './LostReasonModal';
+import { useOwnerT } from '../../i18n/useOwnerT';
 
 interface Props {
   hotelId: string;
@@ -74,6 +75,7 @@ type LostModalState = {
 } | null;
 
 export function KanbanBoard({ hotelId, slug, filters, currentUserId, showToast, onCardClick }: Props) {
+  const t = useOwnerT('owner-leads');
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -212,7 +214,12 @@ export function KanbanBoard({ hotelId, slug, filters, currentUserId, showToast, 
     },
 
     onSuccess: (_data, vars) => {
-      showToast(`Moved to ${LEAD_STATUS_CONFIG[vars.toStatus].label}`, 'success');
+      showToast(
+        t('kanban.movedTo', 'Moved to {{status}}', {
+          status: t(`status.${vars.toStatus}`, LEAD_STATUS_CONFIG[vars.toStatus].label),
+        }),
+        'success',
+      );
     },
 
     onSettled: (_data, _err, vars) => {
@@ -280,7 +287,7 @@ export function KanbanBoard({ hotelId, slug, filters, currentUserId, showToast, 
           attempted_to: targetStatus,
           leadId: source.lead.id,
         });
-        const msg = explainBlockedDrop(source.fromStatus, targetStatus);
+        const msg = explainBlockedDrop(source.fromStatus, targetStatus, t);
         if (msg) showToast(msg, 'warning');
         dragSourceRef.current = null;
         return;

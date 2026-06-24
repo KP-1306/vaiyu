@@ -66,7 +66,7 @@
     "breakdownItem": "{{count}} {{label}}"
   },
   "localSeo": {
-    "title": "Local SEO Planner",
+    "title": "लोकल SEO प्लानर",
     "subtitle": "लोकल पेज विचारों की योजना + प्रशासन। केवल आंतरिक — कुछ भी प्रकाशित नहीं।",
     "safe": "सुरक्षित",
     "needsProof": "प्रमाण चाहिए",
@@ -76,7 +76,7 @@
     "footer": "निर्धारित Policy Shield। कोई AI नहीं। कोई कीवर्ड स्क्रैपिंग नहीं। कोई मेटाडेटा बदलाव नहीं।"
   },
   "ota": {
-    "title": "OTA Listing Optimizer",
+    "title": "OTA लिस्टिंग ऑप्टिमाइज़र",
     "subtitle": "8 OTA पर सेल्फ-ऑडिट वर्कबुक। चैनल मैनेजर नहीं।",
     "wizardCta": "कोल्ड-स्टार्ट विज़र्ड अधूरा — मैट्रिक्स भरने के लिए खोलें।",
     "activeOtas_one": "{{count}} सक्रिय OTA",
@@ -94,7 +94,7 @@
     "loadError": "OTA रेडीनेस लोड नहीं हो सका। पेज रीफ्रेश करें।"
   },
   "packageBuilder": {
-    "title": "Experience Packages",
+    "title": "एक्सपीरियंस पैकेजेज़",
     "subtitle": "स्टे पैकेज क्यूरेट और प्रकाशित करें — WhatsApp या लिंक से साझा करें",
     "active": "सक्रिय",
     "drafts": "ड्राफ्ट",

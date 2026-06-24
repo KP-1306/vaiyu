@@ -1,12 +1,12 @@
 {
   "page": {
     "backToDashboard": "डैशबोर्ड",
-    "title": "Visibility"
+    "title": "विज़िबिलिटी"
   },
   "action": {
     "refresh": "रिफ्रेश करें"
   },
-  "notEnabled": "Visibility Score बंद है।",
+  "notEnabled": "विज़िबिलिटी स्कोर बंद है।",
   "notFound": "होटल नहीं मिला।",
   "hero": {
     "signalsSatisfied": "सिग्नल पूरे हुए",
@@ -64,7 +64,7 @@
     "evidencePlaceholderShort": "वैकल्पिक evidence URL",
     "verifiedOn": "{{date}} को सत्यापित",
     "selfAttestedOn": "{{date}} को स्व-प्रमाणित",
-    "evidenceLink": "Evidence link",
+    "evidenceLink": "Evidence लिंक",
     "openPrefix": "खोलें"
   },
   "expiry": {
@@ -78,24 +78,24 @@
   "signal_one": "{{count}} सिग्नल",
   "signal_other": "{{count}} सिग्नल",
   "visibilityCategory": {
-    "GMB_READINESS": "Google Business profile",
+    "GMB_READINESS": "Google Business प्रोफाइल",
     "TRUST_REPUTATION": "Trust और reputation",
-    "DIGITAL_ASSETS": "Digital assets",
+    "DIGITAL_ASSETS": "डिजिटल एसेट",
     "DIRECT_ENQUIRY": "Direct enquiry के लिए तैयारी",
     "EXPERIENCE_PACKAGES": "Local experience और packages"
   },
   "gbpCategory": {
-    "BUSINESS_PROFILE": "Business profile",
+    "BUSINESS_PROFILE": "Business प्रोफाइल",
     "LOCATION_ACCURACY": "Location की सटीकता",
     "CONTACT_READINESS": "Contact के लिए तैयारी",
     "CONTENT_READINESS": "Content के लिए तैयारी",
-    "TRUST_SIGNALS": "Trust signals",
-    "EXPERIENCE_READINESS": "Experience readiness",
+    "TRUST_SIGNALS": "Trust सिग्नल",
+    "EXPERIENCE_READINESS": "Experience रेडीनेस",
     "VERIFICATION_READINESS": "Verification के लिए तैयारी"
   },
   "gbp": {
-    "title": "Google Business Checklist",
-    "legacyTitle": "Google Business checklist",
+    "title": "Google Business चेकलिस्ट",
+    "legacyTitle": "Google Business चेकलिस्ट",
     "ready": "तैयार (≥{{pct}}%)",
     "belowReady": "{{pct}}% से कम",
     "items": "{{satisfied}} / {{total}} आइटम",
@@ -107,11 +107,11 @@
     "amenitiesInsufficient": "केवल {{count}} amenities सूचीबद्ध हैं (≥3 चाहिए)।"
   },
   "fixModule": {
-    "DAM": "Asset Manager",
-    "PACKAGE_BUILDER": "Package Builder",
-    "SEO_PLANNER": "SEO Planner",
-    "SEASONAL_CALENDAR": "Seasonal Calendar",
-    "VISIBILITY": "Visibility Score",
+    "DAM": "एसेट मैनेजर",
+    "PACKAGE_BUILDER": "पैकेज बिल्डर",
+    "SEO_PLANNER": "SEO प्लानर",
+    "SEASONAL_CALENDAR": "सीज़नल कैलेंडर",
+    "VISIBILITY": "विज़िबिलिटी स्कोर",
     "SETTINGS": "प्रॉपर्टी सेटिंग"
   },
   "trendChart": {
@@ -123,7 +123,7 @@
     "formulaVersion": "स्कोर फ़ॉर्मूला v{{version}}"
   },
   "card": {
-    "title": "Visibility Score",
+    "title": "विज़िबिलिटी स्कोर",
     "signalsSatisfied": "{{satisfied}}/{{total}} सिग्नल पूरे",
     "loading": "लोड हो रहा है…",
     "ptsPending": "{{pts}} अंक बाकी डेटा",

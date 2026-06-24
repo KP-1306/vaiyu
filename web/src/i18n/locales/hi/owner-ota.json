@@ -49,20 +49,20 @@
     "categoryHeader": "श्रेणी"
   },
   "band": {
-    "PREMIUM": "Premium ready",
-    "MODERATE": "Moderate ready",
-    "CRITICAL": "Critical gaps"
+    "PREMIUM": "प्रीमियम तैयार",
+    "MODERATE": "मध्यम तैयार",
+    "CRITICAL": "बड़ी कमियाँ"
   },
   "category": {
-    "LISTING_QUALITY": "Listing quality",
+    "LISTING_QUALITY": "लिस्टिंग गुणवत्ता",
     "PHOTOS_MEDIA": "फोटो और मीडिया",
-    "ROOM_NAMING": "Room naming",
+    "ROOM_NAMING": "रूम नामकरण",
     "AMENITIES_FACILITIES": "सुविधाएं और सेवाएं",
-    "POLICIES": "Policies",
+    "POLICIES": "नीतियाँ",
     "REVIEW_DISCIPLINE": "Review अनुशासन",
     "PAYMENT_BOOKING_CLARITY": "Payment और Booking स्पष्टता",
     "SEASONAL_POSITIONING": "सीज़नल पोज़ीशनिंग",
-    "TRUST_SIGNALS": "Trust Signals",
+    "TRUST_SIGNALS": "Trust सिग्नल",
     "DIRECT_BOOKING_READINESS": "Direct Booking तैयारी",
     "MOUNTAIN_DISCLOSURE": "पहाड़ी संपत्ति प्रकटीकरण"
   },
@@ -81,11 +81,11 @@
     "freshnessRefreshed": "फ्रेशनेस अपडेट हो गई"
   },
   "fixModule": {
-    "DAM": "Asset Manager",
-    "PACKAGE_BUILDER": "Package Builder",
-    "SEO_PLANNER": "SEO Planner",
-    "SEASONAL_CALENDAR": "Seasonal Calendar",
-    "VISIBILITY": "Visibility Score",
+    "DAM": "एसेट मैनेजर",
+    "PACKAGE_BUILDER": "पैकेज बिल्डर",
+    "SEO_PLANNER": "SEO प्लानर",
+    "SEASONAL_CALENDAR": "सीज़नल कैलेंडर",
+    "VISIBILITY": "विज़िबिलिटी स्कोर",
     "SETTINGS": "Property सेटिंग्स"
   },
   "wizard": {

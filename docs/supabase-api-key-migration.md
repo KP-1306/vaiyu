@@ -85,6 +85,28 @@ Verified: `tsc` 0 errors; vitest 824/825 (the 1 failure is unrelated i18n WIP).
 12. Drop the legacy branches: `isServiceToken()` legacy acceptance; the `?? legacy` tails
     in `keys.ts`/`_supakeys.ts`; legacy env vars. Lower access-token expiry 86400→3600s.
 
+## Gotcha hit during Phase B: service_role JWT string drift (admin-alerts / cleanup)
+
+Creating the new keys (+ the JWT-signing-key migrate) **re-signs the legacy
+`service_role` JWT**, so its exact STRING now differs across surfaces (Vault copy
+vs the edge-injected `SUPABASE_SERVICE_ROLE_KEY`). `admin-alerts` and
+`cleanup-guest-documents` authorize the cron invoker by comparing the bearer to a
+key — that string compare started 403'ing (the gateway still accepted the JWT as
+valid; only the in-code string compare failed). Re-syncing Vault and redeploying
+did NOT fix it (the injected env string also drifted).
+
+**Fix (commit 5aebc8d):** `isServiceToken` now also accepts a bearer whose JWT
+`role` claim is `service_role`, not just an exact string. Safe because both
+functions run `verify_jwt = true`, so the gateway verifies the signature before
+the claim is read. Verified: cron path back to 200.
+
+**Phase C implication for these two:** when you set `verify_jwt = false` (step 7),
+the gateway no longer verifies the signature, so the role-claim decode path is NO
+LONGER safe (a forged unsigned `role:service_role` token would pass). At that
+point they must authorize ONLY via the exact `sb_secret_` match — so do step 7
+(verify_jwt=false) and step 8 (Vault → new `sb_secret_`) together, and the
+role-claim branch can be removed in Phase D cleanup.
+
 ## Rollback
 Until step 11 (revoke), everything is reversible: re-enable legacy keys (step 10),
 or unset the new env vars (the fallback resumes using legacy).

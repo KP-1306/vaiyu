@@ -12,6 +12,7 @@ import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import { ArrowLeft, Wallet, BedDouble, Phone, CalendarRange, Loader2, AlertCircle } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useOwnerT, useOwnerCommonT, useOwnerLocale, localizeCode } from "../i18n/useOwnerT";
+import { OwnerLangToggle } from "../i18n/OwnerLangToggle";
 
 type Booking = {
   id: string;
@@ -140,9 +141,12 @@ export default function OwnerBookingDetail() {
             <span className="text-slate-600">/</span>
             <span className="text-slate-100 font-semibold">{t("breadcrumb.booking", "Booking")}{booking?.code ? ` ${booking.code}` : ""}</span>
           </nav>
-          <button onClick={() => navigate(-1)} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white hover:border-indigo-500/40 transition">
-            <ArrowLeft size={14} /> {tc("actions.back", "Back")}
-          </button>
+          <div className="flex items-center gap-2">
+            <OwnerLangToggle />
+            <button onClick={() => navigate(-1)} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white hover:border-indigo-500/40 transition">
+              <ArrowLeft size={14} /> {tc("actions.back", "Back")}
+            </button>
+          </div>
         </div>
 
         {notFound ? (

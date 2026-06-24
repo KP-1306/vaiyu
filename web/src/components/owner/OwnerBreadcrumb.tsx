@@ -11,6 +11,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { OWNER_NAV } from "../../lib/ownerNav";
 import { useOwnerT } from "../../i18n/useOwnerT";
+import { OwnerLangToggle } from "../../i18n/OwnerLangToggle";
 
 // Subpaths whose pages render their own breadcrumbs (OwnerDarkPage pages; the
 // booking detail page renders its own "… / Booking <code>"; and several owner
@@ -61,17 +62,20 @@ export default function OwnerBreadcrumb() {
     <div className="w-full border-b border-white/10 bg-[#0f1113] px-4 sm:px-6 py-2.5">
       <nav
         aria-label={t("breadcrumb.ariaLabel", "Breadcrumb")}
-        className="mx-auto flex max-w-[1400px] items-center gap-2 text-xs font-medium"
+        className="mx-auto flex max-w-[1400px] items-center justify-between gap-2 text-xs font-medium"
       >
-        <Link to="/owner" className="text-slate-400 hover:text-white transition-colors">{t("breadcrumb.console", "Console")}</Link>
-        <span className="text-slate-600">/</span>
-        <Link to={`/owner/${slug}`} className="text-slate-400 hover:text-white transition-colors">{t("breadcrumb.dashboard", "Dashboard")}</Link>
-        {current && (
-          <>
-            <span className="text-slate-600">/</span>
-            <span className="text-slate-100 font-semibold">{current}</span>
-          </>
-        )}
+        <div className="flex items-center gap-2">
+          <Link to="/owner" className="text-slate-400 hover:text-white transition-colors">{t("breadcrumb.console", "Console")}</Link>
+          <span className="text-slate-600">/</span>
+          <Link to={`/owner/${slug}`} className="text-slate-400 hover:text-white transition-colors">{t("breadcrumb.dashboard", "Dashboard")}</Link>
+          {current && (
+            <>
+              <span className="text-slate-600">/</span>
+              <span className="text-slate-100 font-semibold">{current}</span>
+            </>
+          )}
+        </div>
+        <OwnerLangToggle />
       </nav>
     </div>
   );

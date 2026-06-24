@@ -16,6 +16,7 @@ import Spinner from "../components/Spinner";
 import OwnerGate from "../components/OwnerGate";
 import SEO from "../components/SEO";
 import { useOwnerT, useOwnerLocale, type OwnerT } from "../i18n/useOwnerT";
+import { OwnerLangToggle } from "../i18n/OwnerLangToggle";
 
 // Env flag – same as OwnerDashboard
 const HAS_WORKFORCE = import.meta.env.VITE_HAS_WORKFORCE === "true";
@@ -605,6 +606,7 @@ export default function OwnerWorkforce() {
                 )}
               </div>
               <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+                <OwnerLangToggle />
                 <div className="flex flex-col items-end text-right text-[11px] text-slate-500">
                   <span className="font-medium text-slate-200">
                     {hotel.name}

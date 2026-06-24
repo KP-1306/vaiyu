@@ -36,6 +36,7 @@ import SLAExplanationDrawer, { ImpactRow } from "../components/SLAExplanationDra
 import RiskExplanationDrawer, { RiskBreakdownRow } from "../components/RiskExplanationDrawer";
 import ActivityExplanationDrawer, { ActivityBreakdownRow } from "../components/ActivityExplanationDrawer";
 import { useOwnerT, useOwnerCommonT, type OwnerT } from "../i18n/useOwnerT";
+import { OwnerLangToggle } from "../i18n/OwnerLangToggle";
 
 /** --- Types --- */
 type KpiSummary = {
@@ -632,6 +633,7 @@ export default function OwnerAnalytics() {
                     </div>
 
                     <div className="flex items-center gap-4">
+                        <OwnerLangToggle />
                         {/* Global Time Filter */}
                         <div className="flex bg-[#11141d] rounded-lg p-1 border border-slate-800">
                             <button onClick={() => setTimeRange('today')} className={`px-4 py-1.5 text-xs font-medium rounded-md transition ${timeRange === 'today' ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-400 hover:text-slate-300'}`}>{t("rangeToday", "Today")}</button>

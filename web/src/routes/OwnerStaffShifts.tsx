@@ -47,6 +47,7 @@ import {
 } from 'lucide-react';
 import { initialsOf } from '../utils/initials';
 import { useOwnerT, useOwnerCommonT, useOwnerLocale } from '../i18n/useOwnerT';
+import { OwnerLangToggle } from '../i18n/OwnerLangToggle';
 
 // Staff avatar — shows the uploaded photo when present, otherwise locally
 // rendered initials. Replaces the ui-avatars.com fallback, which shipped each
@@ -1546,6 +1547,7 @@ export default function OwnerStaffShifts() {
                         <span className="font-bold text-white">{t("crumbStaffShifts", "Staff & Shifts")}</span>
                     </div>
                 </div>
+                <OwnerLangToggle />
             </header>
 
             <div className="flex flex-1 gap-6 overflow-hidden p-6">

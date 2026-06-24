@@ -16,6 +16,7 @@ import { useParams, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import OwnerGate from "../components/OwnerGate";
 import { useOwnerT, useOwnerCommonT, useOwnerLocale, localizeCode, type OwnerT } from "../i18n/useOwnerT";
+import { OwnerLangToggle } from "../i18n/OwnerLangToggle";
 import {
     RazorpayServiceError,
     type ReconcileDiscrepancy,
@@ -404,6 +405,7 @@ export default function OwnerPayments() {
                             </p>
                         </div>
                         <div className="flex items-center gap-2">
+                            <OwnerLangToggle />
                             <button
                                 onClick={() => setShowReconcile((v) => !v)}
                                 className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${showReconcile

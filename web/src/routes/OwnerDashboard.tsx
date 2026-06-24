@@ -10,6 +10,7 @@ import { Link, useSearchParams, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Spinner from "../components/Spinner";
 import { useOwnerT, useOwnerLocale, useOwnerCommonT, localizeCode } from "../i18n/useOwnerT";
+import { OwnerLangToggle } from "../i18n/OwnerLangToggle";
 
 import { useTicketsRealtime } from "../hooks/useTicketsRealtime";
 import UsageMeter from "../components/UsageMeter";
@@ -1306,6 +1307,7 @@ export default function OwnerDashboard() {
               {metricsFetchedAt && (
                 <FreshnessStamp fetchedAt={metricsFetchedAt} />
               )}
+              <OwnerLangToggle />
               <button
                 type="button"
                 onClick={() => window.location.reload()}

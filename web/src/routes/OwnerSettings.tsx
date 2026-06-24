@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useOwnerT } from "../i18n/useOwnerT";
+import { OwnerLangToggle } from "../i18n/OwnerLangToggle";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import OwnerGate from "../components/OwnerGate";
@@ -381,6 +382,7 @@ export default function OwnerSettings() {
                 </div>
               </div>
               <div className="flex items-center gap-3">
+                <OwnerLangToggle />
                 {hotel?.id && <UsageMeter hotelId={hotel.id} />}
                 <div className="flex gap-2">
                   <input

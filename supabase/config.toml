@@ -57,3 +57,15 @@ verify_jwt = false
 # leakage but logs and refuses to process.
 [functions.interakt-webhook]
 verify_jwt = false
+
+# Phase C (API-key migration): these two are invoked by pg_cron with a service
+# credential in the Authorization header. With the new sb_secret_ keys the gateway
+# can't JWT-verify that bearer, so verify_jwt must be off and they authorize the
+# caller in-code via isServiceToken() (exact sb_secret_ match). ACTIVATE ONLY
+# together with Vault service_role_key → new sb_secret_ (see
+# docs/supabase-api-key-migration.md), else they 403.
+[functions.admin-alerts]
+verify_jwt = false
+
+[functions.cleanup-guest-documents]
+verify_jwt = false

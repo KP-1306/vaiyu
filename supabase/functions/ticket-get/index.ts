@@ -3,6 +3,7 @@ import { serve as __serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { withObs as __withObs } from "../_shared/http-telemetry.ts";
 const serve = (h: (req: Request) => Response | Promise<Response>) => __serve(__withObs("ticket-get", h));
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { secretKey } from "../_shared/keys.ts";
 import { j } from "../_shared/cors.ts";
 
 serve(async (req) => {
@@ -17,7 +18,7 @@ serve(async (req) => {
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       // service role to read any ticket (even if RLS blocks anon)
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      secretKey()!
     );
 
     const { data, error } = await supabase

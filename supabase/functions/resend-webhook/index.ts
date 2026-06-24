@@ -19,9 +19,10 @@ const __serveObs = (h: (req: Request) => Response | Promise<Response>) => Deno.s
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { Webhook } from "npm:svix@1.40.0";
+import { secretKey } from "../_shared/keys.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const SUPABASE_SERVICE_ROLE_KEY = secretKey();
 const WEBHOOK_SECRET = Deno.env.get("RESEND_WEBHOOK_SECRET") ?? "";
 
 interface ResendEvent {

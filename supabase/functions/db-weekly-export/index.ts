@@ -3,6 +3,7 @@ import { serve as __serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { withObs as __withObs } from "../_shared/http-telemetry.ts";
 const serve = (h: (req: Request) => Response | Promise<Response>) => __serve(__withObs("db-weekly-export", h));
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { secretKey } from "../_shared/keys.ts";
 
 /**
  * Exports select tables to CSV and uploads to Storage (bucket: db-backups/weekly/YYYY-MM-DD/*.csv).
@@ -20,7 +21,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
  */
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const SERVICE_KEY = secretKey()!;
 
 const DEFAULT_TABLES = ["tickets", "orders", "services"];
 const TABLES =

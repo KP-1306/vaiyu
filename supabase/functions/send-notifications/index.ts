@@ -1,6 +1,7 @@
 import { withObs as __withObs } from "../_shared/http-telemetry.ts";
 const __serveObs = (h: (req: Request) => Response | Promise<Response>) => Deno.serve(__withObs("send-notifications", h));
 import { createClient } from "npm:@supabase/supabase-js";
+import { secretKey } from "../_shared/keys.ts";
 import { Resend } from "npm:resend";
 import {
     InteraktError,
@@ -20,8 +21,7 @@ const corsHeaders = {
 
 // Env vars
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_SERVICE_ROLE_KEY =
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const SUPABASE_SERVICE_ROLE_KEY = secretKey();
 const WHATSAPP_TOKEN = Deno.env.get("WHATSAPP_TOKEN") ?? "";
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 

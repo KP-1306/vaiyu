@@ -1,10 +1,11 @@
 import { withObs as __withObs } from "../_shared/http-telemetry.ts";
 const __serveObs = (h: (req: Request) => Response | Promise<Response>) => Deno.serve(__withObs("process-import-rows", h));
 import { createClient } from "npm:@supabase/supabase-js";
+import { secretKey } from "../_shared/keys.ts";
 
 const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    secretKey()!
 );
 
 const MAX_RUNTIME_MS = 50_000; // keep below edge timeout (60s)

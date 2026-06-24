@@ -21,6 +21,7 @@
 // otherwise the rate-limiter's namespace) and a non-null `fn`. The obs views
 // filter `fn IS NOT NULL`, so telemetry rows and rate-limiter rows never mix.
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { secretKey } from "./keys.ts";
 
 type Handler = (req: Request) => Promise<Response> | Response;
 
@@ -28,8 +29,8 @@ let _client: SupabaseClient | null = null;
 function svc(): SupabaseClient | null {
   if (_client) return _client;
   const url = Deno.env.get("SUPABASE_URL");
-  const key =
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE");
+  // New sb_secret_ key with legacy service_role fallback (migration).
+  const key = secretKey();
   if (!url || !key) return null;
   _client = createClient(url, key, { auth: { persistSession: false } });
   return _client;

@@ -13,12 +13,12 @@
 // Email via Resend (same as send-notifications). If RESEND_API_KEY is absent the
 // function DRY-RUNS (computes + returns, sends nothing) so it is safe to run locally.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { secretKey, isServiceToken } from "../_shared/keys.ts";
 import { Resend } from "npm:resend";
 import { withObs } from "../_shared/http-telemetry.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SERVICE_ROLE_KEY =
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE") ?? "";
+const SERVICE_ROLE_KEY = secretKey();
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 const FROM = '"VAiyu Ops" <noreply@vaiyu.co.in>';
 // Comma-separated override; otherwise active platform_admins' emails are used.
@@ -142,7 +142,7 @@ async function handler(req: Request): Promise<Response> {
   // AuthZ: cron/service-role only.
   const authz = req.headers.get("authorization") || "";
   const token = authz.replace(/^Bearer\s+/i, "").trim();
-  if (!SERVICE_ROLE_KEY || token !== SERVICE_ROLE_KEY) {
+  if (!isServiceToken(token)) {
     return new Response(JSON.stringify({ error: "forbidden" }), { status: 403, headers: { "content-type": "application/json" } });
   }
 

@@ -26,6 +26,7 @@ import { serve as __serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { withObs as __withObs } from "../_shared/http-telemetry.ts";
 const serve = (h: (req: Request) => Response | Promise<Response>) => __serve(__withObs("auto-apply-pricing", h));
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { secretKey } from "../_shared/keys.ts";
 import { allowCors, j } from "../_shared/cors.ts";
 
 // ---------------------------------------------------------------------------
@@ -359,7 +360,7 @@ serve(async (req) => {
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const serviceKey = secretKey();
   if (!supabaseUrl || !serviceKey) {
     return j(req, 500, { error: "missing_env" });
   }

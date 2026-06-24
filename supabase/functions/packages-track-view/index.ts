@@ -1,4 +1,5 @@
 import { withObs as __withObs } from "../_shared/http-telemetry.ts";
+import { secretKey } from "../_shared/keys.ts";
 const __serveObs = (h: (req: Request) => Response | Promise<Response>) => Deno.serve(__withObs("packages-track-view", h));
 // supabase/functions/packages-track-view/index.ts
 //
@@ -34,10 +35,7 @@ const HASH_SALT_ENV = "PACKAGE_VIEW_IP_SALT";
 function resolveSalt(): string {
   const explicit = Deno.env.get(HASH_SALT_ENV);
   if (explicit && explicit.trim().length >= 16) return explicit.trim();
-  const serviceKey =
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
-    Deno.env.get("SUPABASE_SERVICE_ROLE") ??
-    "";
+  const serviceKey = secretKey();
   // Namespaced so the derived salt can't collide with other uses of the key.
   return `pkgview:${serviceKey}`;
 }

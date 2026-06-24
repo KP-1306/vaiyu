@@ -18,13 +18,13 @@
 // function runtime they're normal process.env entries). SUPABASE_SERVICE_ROLE_KEY
 // is scoped to Functions. We read canonical names first with VITE_/legacy fallback.
 import type { Handler } from "@netlify/functions";
+import { secretKey, publishableKey, pgServiceHeaders } from "./_supakeys";
 
 const SUPABASE_URL =
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
-const SERVICE_ROLE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || "";
-const ANON_KEY =
-  process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
+// New sb_secret_ / sb_publishable_ keys with legacy fallback (key migration).
+const SERVICE_ROLE_KEY = secretKey();
+const ANON_KEY = publishableKey();
 
 /** Verify the caller's JWT and confirm they are an active VAiyu platform admin.
  *  Canonical check, identical to public.is_platform_admin(): an active row in
@@ -46,7 +46,7 @@ async function isPlatformAdmin(token: string): Promise<boolean> {
   //    is_platform_admin(): platform_admins WHERE user_id = uid AND is_active.
   const res = await fetch(
     `${SUPABASE_URL}/rest/v1/platform_admins?select=user_id&user_id=eq.${encodeURIComponent(uid)}&is_active=eq.true&limit=1`,
-    { headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROLE_KEY}` } },
+    { headers: pgServiceHeaders(SERVICE_ROLE_KEY) },
   );
   if (!res.ok) return false;
   const rows = await res.json().catch(() => null);
@@ -55,7 +55,7 @@ async function isPlatformAdmin(token: string): Promise<boolean> {
 
 async function fetchView(view: "v_api_24h" | "v_api_top_fns_24h") {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${view}?select=*`, {
-    headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
+    headers: pgServiceHeaders(SERVICE_ROLE_KEY),
   });
   if (!r.ok) throw new Error(`${view} -> ${r.status}`);
   return r.text();

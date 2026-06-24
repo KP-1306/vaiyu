@@ -1,6 +1,7 @@
 import { withObs as __withObs } from "../_shared/http-telemetry.ts";
 const __serveObs = (h: (req: Request) => Response | Promise<Response>) => Deno.serve(__withObs("upload-import-csv", h));
 import { createClient } from "npm:@supabase/supabase-js";
+import { secretKey } from "../_shared/keys.ts";
 import Papa from "npm:papaparse";
 
 const corsHeaders = {
@@ -57,7 +58,7 @@ __serveObs(async (req: Request) => {
 
         const supabase = createClient(
             Deno.env.get("SUPABASE_URL") ?? "",
-            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+            secretKey()
         );
 
         // 1. Create Batch

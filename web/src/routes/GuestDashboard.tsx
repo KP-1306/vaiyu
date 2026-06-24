@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { SUPABASE_PUBLISHABLE_KEY } from "../lib/supabaseKey";
 import { API } from "../lib/api";
 import AccountControls from "../components/AccountControls";
 import RewardsPill from "../components/guest/RewardsPill";
@@ -1772,8 +1773,7 @@ async function jsonWithTimeout(url: string, ms = 5000) {
 
       // When using direct Supabase Edge host, apikey helps with some setups
       if (IS_SUPABASE_EDGE && shouldAttachAuthTo(url)) {
-        const anonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY as string | undefined;
-        if (anonKey) headers["apikey"] = anonKey;
+        if (SUPABASE_PUBLISHABLE_KEY) headers["apikey"] = SUPABASE_PUBLISHABLE_KEY;
       }
     } catch {
       // ok

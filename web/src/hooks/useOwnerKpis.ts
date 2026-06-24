@@ -1,10 +1,11 @@
 // web/src/hooks/useOwnerKpis.ts
 import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import { SUPABASE_PUBLISHABLE_KEY } from '../lib/supabaseKey'
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL!,
-  import.meta.env.VITE_SUPABASE_ANON_KEY!
+  SUPABASE_PUBLISHABLE_KEY
 )
 
 type KpiRow = {

@@ -3,6 +3,7 @@ import { withObs as __withObs } from "../_shared/http-telemetry.ts";
 const serve = (h: (req: Request) => Response | Promise<Response>) => __serve(__withObs("get-document-url", h));
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { allowCors } from "../_shared/cors.ts";
+import { secretKey } from "../_shared/keys.ts";
 
 // Helper for structured errors
 function buildErrorResponse(code: string, message: string, status: number, req: Request) {
@@ -40,7 +41,7 @@ const ALLOWED_TYPES = [
 // @ts-ignore
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 // @ts-ignore
-const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const supabaseServiceKey = secretKey();
 
 // Admin client: skips RLS for fetching raw path, logging audit, and signing URL
 // Initialized outside serve() to leverage Edge Runtime instance reuse

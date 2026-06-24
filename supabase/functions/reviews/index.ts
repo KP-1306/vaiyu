@@ -3,6 +3,7 @@ import { serve as __serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { withObs as __withObs } from "../_shared/http-telemetry.ts";
 const serve = (h: (req: Request) => Response | Promise<Response>) => __serve(__withObs("reviews", h));
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { secretKey } from "../_shared/keys.ts";
 import { j } from "../_shared/cors.ts";
 import { alertError } from "../_shared/alert.ts";
 import { logTokens } from "../_shared/ai.ts";
@@ -25,7 +26,7 @@ function supabaseAnon() {
 /** service-role client for privileged ops */
 function supabaseService() {
   const url = Deno.env.get("SUPABASE_URL")!;
-  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const key = secretKey()!;
   return createClient(url, key);
 }
 

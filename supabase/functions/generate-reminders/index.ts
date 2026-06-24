@@ -2,6 +2,7 @@ import { withObs as __withObs } from "../_shared/http-telemetry.ts";
 const __serveObs = (h: (req: Request) => Response | Promise<Response>) => Deno.serve(__withObs("generate-reminders", h));
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { secretKey } from "../_shared/keys.ts";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -10,7 +11,7 @@ const corsHeaders = {
 
 // Env vars
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const SUPABASE_SERVICE_ROLE_KEY = secretKey();
 
 __serveObs(async (req) => {
     if (req.method === "OPTIONS") {
@@ -20,7 +21,7 @@ __serveObs(async (req) => {
     try {
         const supabase = createClient(
             Deno.env.get("SUPABASE_URL")!,
-            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+            secretKey()
         );
 
         // Call the RPC to generate reminders

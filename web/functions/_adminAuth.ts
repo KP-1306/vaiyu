@@ -10,6 +10,8 @@
 // (super_admin | support_admin | finance_admin) so callers can enforce
 // per-panel role access.
 
+import { pgServiceHeaders } from "./_supakeys";
+
 export type AdminEnv = { url: string; service: string; anon: string };
 export type AdminCtx = { uid: string; role: string };
 
@@ -30,7 +32,7 @@ export async function getPlatformAdmin(env: AdminEnv, token: string): Promise<Ad
   // 2. active platform_admins row (service-role read = is_platform_admin())
   const r = await fetch(
     `${env.url}/rest/v1/platform_admins?select=role&user_id=eq.${encodeURIComponent(uid)}&is_active=eq.true&limit=1`,
-    { headers: { apikey: env.service, Authorization: `Bearer ${env.service}` } },
+    { headers: pgServiceHeaders(env.service) },
   );
   if (!r.ok) return null;
   const rows = await r.json().catch(() => null);

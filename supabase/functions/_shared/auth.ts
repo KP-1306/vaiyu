@@ -1,5 +1,6 @@
 // supabase/functions/_shared/auth.ts
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { publishableKey, secretKey } from "./keys.ts";
 
 /* CORS helpers (reuse across handlers) */
 export const CORS_HEADERS: Record<string, string> = {
@@ -31,29 +32,28 @@ export function preflight(): Response {
 // Use this when you want RLS to evaluate with the end-user's JWT.
 export function supabaseAnon(req: Request) {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-  return createClient(supabaseUrl, anonKey, {
+  // Publishable (anon-equivalent) key as the apikey; the caller's JWT rides on
+  // Authorization so RLS evaluates as the end user. Resolves new sb_publishable_
+  // key with legacy anon fallback during the key migration.
+  const apiKey = publishableKey();
+  return createClient(supabaseUrl, apiKey, {
     global: { headers: { Authorization: req.headers.get("Authorization") || "" } },
   });
 }
 
 // Service role client (bypasses RLS). Use carefully, for server-only checks.
 //
-// Accepts both env names — Supabase's local `functions serve` auto-injects
-// `SUPABASE_SERVICE_ROLE_KEY` while some older configs use `SUPABASE_SERVICE_ROLE`.
-// Either works.
+// Resolves the new sb_secret_ key (SUPABASE_SECRET_KEYS) with legacy
+// SUPABASE_SERVICE_ROLE_KEY / SUPABASE_SERVICE_ROLE fallback during the migration.
 export function supabaseService() {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const serviceRole =
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
-    Deno.env.get("SUPABASE_SERVICE_ROLE") ??
-    "";
-  if (!serviceRole) {
+  const key = secretKey();
+  if (!key) {
     throw new Error(
-      "supabaseService: missing SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_SERVICE_ROLE) in environment",
+      "supabaseService: missing secret key (SUPABASE_SECRET_KEYS or SUPABASE_SERVICE_ROLE_KEY) in environment",
     );
   }
-  return createClient(supabaseUrl, serviceRole);
+  return createClient(supabaseUrl, key);
 }
 
 /* ------------------------------------------------------------------------- */
@@ -72,8 +72,10 @@ export async function assertAuthed(
   if (!jwt) return json(401, { error: "Unauthorized" });
 
   const url = Deno.env.get("SUPABASE_URL")!;
-  const anon = Deno.env.get("SUPABASE_ANON_KEY")!;
-  const sb = createClient(url, anon, {
+  // Publishable/anon key as apikey; the caller's JWT goes on Authorization. getUser()
+  // validates that JWT against the Auth server (resilient to signing-key rotation).
+  const apiKey = publishableKey();
+  const sb = createClient(url, apiKey, {
     global: { headers: { Authorization: `Bearer ${jwt}` } },
   });
 

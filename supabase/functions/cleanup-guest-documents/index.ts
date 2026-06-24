@@ -11,11 +11,11 @@
 // bearer). Eligibility lives in guest_docs_due_for_purge so the retention rule has one
 // source of truth.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { secretKey, isServiceToken } from "../_shared/keys.ts";
 import { withObs } from "../_shared/http-telemetry.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SERVICE_ROLE_KEY =
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE") ?? "";
+const SERVICE_ROLE_KEY = secretKey();
 const BUCKET = "guest-documents";
 
 const j = (status: number, body: unknown) =>
@@ -26,7 +26,7 @@ async function handler(req: Request): Promise<Response> {
 
   // AuthZ: cron/service-role only.
   const token = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
-  if (!SERVICE_ROLE_KEY || token !== SERVICE_ROLE_KEY) return j(403, { error: "forbidden" });
+  if (!isServiceToken(token)) return j(403, { error: "forbidden" });
 
   let retentionDays = 365;
   try {

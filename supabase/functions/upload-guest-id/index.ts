@@ -2,6 +2,7 @@ import { serve as __serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { withObs as __withObs } from "../_shared/http-telemetry.ts";
 const serve = (h: (req: Request) => Response | Promise<Response>) => __serve(__withObs("upload-guest-id", h));
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import { secretKey } from "../_shared/keys.ts";
 import { allowCors } from "../_shared/cors.ts";
 
 const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
@@ -10,7 +11,7 @@ const MAX_SIZE = 10 * 1024 * 1024; // 10MB (Align with frontend PDF support)
 // Initialize Admin Client outside serve() to leverage Edge Runtime instance reuse
 const supabaseAdmin = createClient(
     Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    secretKey()!
 );
 
 serve(async (req: Request) => {

@@ -15,14 +15,17 @@
 //   /api/admin/audit      → va_audit_logs tail         (super_admin)
 import type { Handler } from "@netlify/functions";
 import { getPlatformAdmin, canSeePanel, type AdminEnv } from "./_adminAuth";
+import { secretKey, publishableKey, pgServiceHeaders } from "./_supakeys";
 
 const ENV: AdminEnv = {
   url: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "",
-  service: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || "",
-  anon: process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "",
+  // New sb_secret_ / sb_publishable_ keys with legacy fallback (key migration).
+  service: secretKey(),
+  anon: publishableKey(),
 };
 
-const svcHeaders = { apikey: ENV.service, Authorization: `Bearer ${ENV.service}` };
+// apikey-only for new sb_secret_ keys; apikey+Bearer for legacy JWT keys.
+const svcHeaders = pgServiceHeaders(ENV.service);
 
 async function svcGet<T = any>(path: string): Promise<T[]> {
   const r = await fetch(`${ENV.url}/rest/v1/${path}`, { headers: svcHeaders });
